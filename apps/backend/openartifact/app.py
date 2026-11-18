@@ -12,7 +12,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from openartifact.config import Settings
-from openartifact.exceptions import OpenArtifactError
+from openartifact.exceptions import (
+    ConfigurationError,
+    DatabaseError,
+    OpenArtifactError,
+)
 
 logger = logging.getLogger("openartifact")
 
@@ -25,7 +29,7 @@ def _create_app(settings: Settings) -> FastAPI:
     """
 
     async def _startup() -> None:
-        """Application startup: log identity, validate configuration."""
+        """Application startup: log identity, validate configuration, initialize DB."""
         logger.info(
             "Starting OpenArtifact %s on %s:%d",
             "0.1.0",
@@ -38,9 +42,30 @@ def _create_app(settings: Settings) -> FastAPI:
         if not settings.secret_key or settings.secret_key == "change-me-in-production":
             logger.warning("Using default SECRET_KEY — not suitable for production")
 
+        # ── Database initialization ────────────────────────────────
+        from openartifact.database import _build_engine  # noqa: PLC0415
+
+        try:
+            engine = _build_engine(settings)
+            # Verify connectivity by creating a connection
+            async with engine.connect() as conn:
+                await conn.execute("SELECT 1")
+            logger.info(
+                "Database connected at %s", settings.data_dir / settings.database_filename
+            )
+        except ConfigurationError:
+            raise
+        except Exception as exc:
+            logger.error("Database connection failed: %s", exc)
+            raise ConfigurationError(f"Cannot connect to database: {exc}") from exc
+
     async def _shutdown() -> None:
-        """Application shutdown: release resources."""
+        """Application shutdown: release database resources."""
+        from openartifact.database import dispose_engine  # noqa: PLC0415
+
         logger.info("Shutting down OpenArtifact 0.1.0")
+        await dispose_engine()
+        logger.info("Shutdown complete")
 
     app = FastAPI(
         title="OpenArtifact",
@@ -61,6 +86,28 @@ def _create_app(settings: Settings) -> FastAPI:
         return JSONResponse(
             status_code=400,
             content={"detail": str(exc)},
+        )
+
+    @app.exception_handler(ConfigurationError)
+    async def _handle_config_error(
+        request: Request,
+        exc: ConfigurationError,
+    ) -> JSONResponse:
+        logger.error("Configuration error: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"detail": str(exc)},
+        )
+
+    @app.exception_handler(DatabaseError)
+    async def _handle_db_error(
+        request: Request,
+        exc: DatabaseError,
+    ) -> JSONResponse:
+        logger.error("Database error: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Service unavailable"},
         )
 
     @app.exception_handler(Exception)

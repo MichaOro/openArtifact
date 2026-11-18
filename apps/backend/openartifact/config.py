@@ -1,4 +1,8 @@
-"""Application configuration."""
+"""Application configuration.
+
+All settings are externalized via environment variables with the
+OPENARTIFACT_ prefix. No secrets or hardcoded paths are embedded.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +15,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables.
 
-    All configuration is externalized. No secrets are embedded in source code.
+    Configuration groups:
+    - Server: host, port, debug mode
+    - Database: data directory and database filename (combined into URL)
+    - Security: secret key for signing
+    - Logging: log level
     """
 
     model_config = SettingsConfigDict(
@@ -22,22 +30,36 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Server
+    # ── Server ──────────────────────────────────────────────────────
+
     host: str = "0.0.0.0"
     port: int = 2909
     debug: bool = False
 
-    # Database
-    database_url: str = "sqlite+aiosqlite:///./openartifact.db"
+    # ── Database ────────────────────────────────────────────────────
+    # Database path is composed from data_dir + database_filename
+    # to keep the location configurable and external to source.
+    data_dir: Path = Path("/data")
+    database_filename: str = "openartifact.db"
 
-    # Security
+    # ── Security ────────────────────────────────────────────────────
     secret_key: str = "change-me-in-production"
 
-    # Logging
+    # ── Logging ─────────────────────────────────────────────────────
     log_level: str = "INFO"
 
-    # Application data directory
-    data_dir: Path = Path("/data")
+    @property
+    def database_url(self) -> str:
+        """Construct the async SQLAlchemy database URL.
+
+        Combines data_dir and database_filename into a full SQLite
+        async URL with WAL mode enabled for better concurrent read
+        performance.
+        """
+        db_path = self.data_dir / self.database_filename
+        # Use file:// URI scheme for aiosqlite to handle absolute paths
+        db_uri = f"sqlite+aiosqlite:///{db_path}"
+        return db_uri
 
     @property
     def is_production(self) -> bool:

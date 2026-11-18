@@ -141,6 +141,13 @@ target/
 *.dll
 *.pdb
 
+# Python virtual environments
+.venv/
+venv/
+env/
+.env.dev/
+
+
 # ── Test & Coverage ──────────────────────────────────────────────────────────
 
 coverage/

@@ -21,3 +21,7 @@ class WorkflowError(OpenArtifactError):
 
 class ConfigurationError(OpenArtifactError):
     """Errors related to application configuration."""
+
+
+class DatabaseError(OpenArtifactError):
+    """Errors related to database operations."""

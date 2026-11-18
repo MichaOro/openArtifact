@@ -1,49 +1,162 @@
-"""Database engine and session configuration.
+"""Database engine, session management, and lifecycle.
 
-Provides async database connections using SQLAlchemy with aiosqlite.
-Migrations are managed by Alembic.
+Provides centralized database connection management for OpenArtifact.
+All database access flows through this module — application code never
+creates engines or sessions directly.
 """
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-from openartifact.config import get_settings
+from openartifact.config import Settings
+from openartifact.exceptions import ConfigurationError
+
+logger = logging.getLogger("openartifact")
 
 
 class Base(DeclarativeBase):
-    """Base class for SQLAlchemy models."""
+    """Base class for all SQLAlchemy declarative models."""
+
+
+# ── Engine Management ─────────────────────────────────────────────────
+
+_engine: AsyncEngine | None = None
+
+
+def _build_engine(settings: Settings) -> AsyncEngine:
+    """Create an async SQLite engine with WAL mode.
+
+    WAL (Write-Ahead Logging) provides concurrent reads with serializable
+    writes, which is critical for OpenArtifact's concurrent workflow pattern.
+
+    Args:
+        settings: Application settings containing database configuration.
+
+    Returns:
+        Configured AsyncEngine.
+    """
+    global _engine
+
+    if _engine is not None:
+        return _engine
+
+    db_path = settings.data_dir / settings.database_filename
+
+    # Ensure the data directory exists
+    if not db_path.parent.exists():
+        try:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            logger.info("Created database directory: %s", db_path.parent)
+        except OSError as exc:
+            raise ConfigurationError(
+                f"Cannot create database directory {db_path.parent}: {exc}"
+            ) from exc
+
+    _engine = create_async_engine(
+        settings.database_url,
+        echo=settings.debug,
+        connect_args={
+            "check_same_thread": False,
+            "timeout": 30,
+        },
+    )
+
+    # Enable WAL mode for better concurrent read performance
+    import aiosqlite  # noqa: PLC0415
+
+    async def _enable_wal(dbapi_conn: aiosqlite.Connection) -> None:
+        """Enable WAL mode and set journal size limit.
+
+        WAL mode allows concurrent reads while writes are serialized.
+        The journal_size_limit of 8MB prevents WAL files from growing
+        unbounded during long-running workflows.
+        """
+        cursor = await dbapi_conn.execute("PRAGMA journal_mode=WAL")
+        await cursor.close()
+        cursor = await dbapi_conn.execute("PRAGMA journal_size_limit=8388608")
+        await cursor.close()
+        cursor = await dbapi_conn.execute("PRAGMA synchronous=NORMAL")
+        await cursor.close()
+
+    _engine = create_async_engine(
+        settings.database_url,
+        echo=settings.debug,
+        connect_args={
+            "check_same_thread": False,
+            "timeout": 30,
+        },
+        engine_kwargs={
+            "event_hooks": {
+                "connect": [_enable_wal],
+            },
+        },
+    )
+
+    return _engine
+
+
+async def dispose_engine() -> None:
+    """Dispose all database connections and release resources.
+
+    Must be called during application shutdown to prevent connection leaks.
+    """
+    global _engine
+
+    if _engine is not None:
+        await _engine.dispose()
+        logger.info("Database connections disposed")
+        _engine = None
+
+
+# ── Session Management ──────────────────────────────────────────────
+
+_async_session_factory = sessionmaker(
+    expire_on_commit=False,
+)
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Yield a database session for request handling.
 
     Used as a FastAPI dependency for automatic session lifecycle management.
+    The session is created per-request and closed after the response.
     """
-    settings = get_settings()
-    engine = create_async_engine(settings.database_url, echo=settings.debug)
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    global _engine
 
-    async with async_session() as session:
+    if _engine is None:
+        raise ConfigurationError("Database engine not initialized")
+
+    async with _async_session_factory(_engine) as session:
         try:
             yield session
-        finally:
-            await engine.dispose()
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
+
+# ── Context Manager (non-FastAPI usage) ─────────────────────────────
 
 @asynccontextmanager
-async def get_db_session_context() -> AsyncGenerator[AsyncSession, None]:
-    """Context manager for database sessions outside of FastAPI requests."""
-    settings = get_settings()
-    engine = create_async_engine(settings.database_url, echo=settings.debug)
+async def db_session_context(settings: Settings) -> AsyncGenerator[AsyncSession, None]:
+    """Context manager for database sessions outside of FastAPI requests.
+
+    Creates its own engine and session — does NOT use the shared engine.
+    Intended for standalone scripts, migrations, and tests.
+    """
+    engine = _build_engine(settings)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
         try:
             yield session
-        finally:
-            await engine.dispose()
+        except Exception:
+            await session.rollback()
+            raise
