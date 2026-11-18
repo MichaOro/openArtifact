@@ -1,0 +1,41 @@
+# PR Build Workflow — OpenArtifact
+#
+# Triggered on pull request pushes.
+# Builds the Docker image for preview but does NOT publish.
+# This allows contributors to verify their Docker changes locally.
+
+name: PR Build
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "apps/backend/**"
+      - "deploy/**"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  docker-build:
+    name: Docker build (PR preview)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: openartifact:pr-${{ github.event.pull_request.number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
