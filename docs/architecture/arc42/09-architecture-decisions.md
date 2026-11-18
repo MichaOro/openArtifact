@@ -6,7 +6,15 @@ Architecture decisions are documented as Architecture Decision Records (ADRs) in
 
 | # | ADR | Status |
 |---|-----|--------|
-| 1 | [001-project-initialization](../adr/001-project-initialization.md) | TBD |
+| 1 | [001-project-initialization](../adr/001-project-initialization.md) | Accepted |
+| 2 | [002-application-language](../adr/002-application-language.md) | Accepted |
+| 3 | [003-backend-framework](../adr/003-backend-framework.md) | Accepted |
+| 4 | [004-frontend-approach](../adr/004-frontend-approach.md) | Accepted |
+| 5 | [005-database-persistence](../adr/005-database-persistence.md) | Accepted |
+| 6 | [006-api-design](../adr/006-api-design.md) | Accepted |
+| 7 | [007-docker-distribution](../adr/007-docker-distribution.md) | Accepted |
+| 8 | [008-security-operations](../adr/008-security-operations.md) | Accepted |
+| 9 | [009-technology-summary](../adr/009-technology-summary.md) | Accepted |
 
 ## Detailed Decisions
 
@@ -14,4 +22,4 @@ Each referenced ADR provides the full context, options considered, decision rati
 
 ---
 
-*This chapter follows the arc42 template. All TBD fields are pending definition.*
+*This chapter follows the arc42 template. Future decisions will be added to the table and linked from their respective sections.*
