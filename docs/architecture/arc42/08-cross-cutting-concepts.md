@@ -13,26 +13,28 @@
 ## 8.2 Error Handling
 
 **Implemented (WP-03):**
-- FastAPI exception handlers for `OpenArtifactError` (400) and generic `Exception` (500)
+- FastAPI exception handlers for `OpenArtifactError` (400), `ConfigurationError` (503), `DatabaseError` (503), and generic `Exception` (500)
 - Production mode: stack traces suppressed from HTTP responses
 - Development mode (`debug=true`): full stack traces in logs
 - Consistent JSON error responses with `detail` field
 - No secrets exposed in logs or HTTP responses
 
+**Implemented (WP-04):**
+- Database session auto-commit on success, auto-rollback on error
+- Database connection errors logged at ERROR level, returned as 503
+
 ## 8.3 Logging & Observability
 
-**Implemented (WP-03):**
+**Implemented (WP-03/04):**
 - Python structured logging via `openartifact.logging_config.configure_logging()`
 - Log levels configurable via `OPENARTIFACT_LOG_LEVEL` (default: `INFO`)
 - Secret masking filter (`_SensitiveFilter`) on all log output
 - Startup and shutdown events logged at INFO level
 - Health check endpoint (`/health`) for Docker monitoring
+- Database connection and WAL mode verified at startup
+- Engine disposal logged at shutdown
 - Error handling logs exceptions; suppressed in production HTTP responses
-
-**Planned (WP-04+):**
-- Database migrations via Alembic with version-controlled migration history
-- Structured JSON logging for production container deployments
 
 ---
 
-*This chapter follows the arc42 template. Cross-cutting concepts documented as WP-03 completed.*
+*This chapter follows the arc42 template. Cross-cutting concepts documented as WP-03/04 completed.*

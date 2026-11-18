@@ -14,22 +14,22 @@
 │  │  HTTP Layer │ │  Workflow   │ │     Artifact Store    │ │
 │  │             │ │   Engine    │ │                       │ │
 │  │ FastAPI     │ │ Asyncio     │ │ Pydantic Models       │ │
-│  │ Routes      │ │ Task Mgmt   │ │ SQLite Persistence    │ │
+│  │ Routes      │ │ Task Mgmt   │ │ SQLite (WAL mode)     │ │
 │  └──────┬──────┘ └──────┬──────┘ └──────────┬────────────┘ │
 │         │               │                    │              │
 │  ┌──────▼───────────────▼────────────────────▼────────────┐ │
 │  │              Application Core                          │ │
-│  │  Config · Logging · Lifecycle · Database Migrations    │ │
+│  │  Config · Logging · Lifecycle · Alembic Migrations    │ │
 │  └────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-Implemented (WP-03): HTTP layer, application core.
-Planned (WP-04+): Workflow engine, artifact store.
+Implemented (WP-03/04): HTTP layer, application core, database engine, session management, Alembic migrations.
+Planned (WP-05+): Workflow engine, artifact store, domain models.
 
 ## 5.3 Component View
 
-### Implemented Components (WP-03)
+### Implemented Components (WP-03/04)
 
 | Component | Location | Description |
 |-----------|----------|-------------|
@@ -39,13 +39,14 @@ Planned (WP-04+): Workflow engine, artifact store.
 | `config` | `openartifact/config.py` | pydantic-settings, env-based configuration |
 | `cli` | `openartifact/cli.py` | uvicorn entry point |
 | `logging_config` | `openartifact/logging_config.py` | Structured logging with secret masking |
+| `database` | `openartifact/database.py` | Engine, session, WAL mode, context managers |
+| `alembic/` | `alembic.ini` | Migration configuration and scripts |
 
-### Planned Components (WP-04+)
+### Planned Components (WP-05+)
 
 | Component | Location | Description |
 |-----------|----------|-------------|
 | `models/` | `openartifact/models/` | Domain models (Project, Artifact, Workflow) |
-| `database` | `openartifact/database.py` | SQLAlchemy engine, Alembic migrations |
 | `workflow/` | `openartifact/workflow/` | Workflow execution engine |
 | `templates/` | `openartifact/templates/` | Jinja2 HTML templates |
 | `static/` | `openartifact/static/` | CSS, JS, image assets |
@@ -58,7 +59,7 @@ Planned (WP-04+): Workflow engine, artifact store.
 | HTTP Layer | HTMX templates | HTTP/1.1 + HTML | ✅ WP-03 |
 | HTTP Layer | OpenAPI/Swagger | /api/docs | ✅ WP-03 |
 | HTTP Layer | Real-time progress | WebSocket / SSE | ⏳ WP-06 |
-| Artifact Store | SQLite database | SQLite (file) | ⏳ WP-04 |
+| Artifact Store | SQLite database | SQLite (WAL mode) | ✅ WP-04 |
 | External | AI Agent APIs | HTTP/HTTPS | ⏳ WP-07 |
 
 ---

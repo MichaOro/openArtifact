@@ -8,6 +8,7 @@
 | Backend Framework | FastAPI + Pydantic v2 | [ADR-003](../adr/003-backend-framework.md) |
 | Frontend | HTMX + Jinja2 + Tailwind CSS | [ADR-004](../adr/004-frontend-approach.md) |
 | Database | SQLite (WAL mode) | [ADR-005](../adr/005-database-persistence.md) |
+| Migration | Alembic | [ADR-005](../adr/005-database-persistence.md) |
 | API | REST + OpenAPI + WebSocket | [ADR-006](../adr/006-api-design.md) |
 | Deployment | Docker + Docker Compose | [ADR-007](../adr/007-docker-distribution.md) |
 
@@ -21,20 +22,21 @@
 │  │  HTTP Layer │ │  Workflow   │ │     Artifact Store    │ │
 │  │             │ │   Engine    │ │                       │ │
 │  │ FastAPI     │ │ Asyncio     │ │ Pydantic Models       │ │
-│  │ Routes      │ │ Task Mgmt   │ │ SQLite Persistence    │ │
+│  │ Routes      │ │ Task Mgmt   │ │ SQLite (WAL mode)     │ │
 │  └──────┬──────┘ └──────┬──────┘ └──────────┬────────────┘ │
 │         │               │                    │              │
 │  ┌──────▼───────────────▼────────────────────▼────────────┐ │
 │  │              Application Core                          │ │
-│  │  Config · Logging · Lifecycle · Database Migrations    │ │
+│  │  Config · Logging · Lifecycle · Alembic Migrations    │ │
 │  └────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 - **HTTP Layer** — FastAPI routes serving HTMX templates and REST API
 - **Workflow Engine** — Asyncio-based concurrent workflow execution
-- **Artifact Store** — Pydantic models persisted to SQLite
-- **Application Core** — Configuration, logging, lifecycle management
+- **Artifact Store** — Pydantic models persisted to SQLite (WAL)
+- **Application Core** — Configuration, logging, lifecycle, migrations
+- **Migration Layer** — Alembic versioned schema management
 
 ## 4.3 Implementation Progress
 
@@ -44,7 +46,7 @@
 | WP-01 | Define technical foundation and technology decisions | ✅ Done |
 | WP-02 | Python project foundation (pyproject.toml, ruff, mypy, pytest) | ✅ Done |
 | WP-03 | Application runtime (FastAPI server, health, web shell) | ✅ Done |
-| WP-04 | Persistent storage and database migrations | ⏳ Planned |
+| WP-04 | Persistent storage and database migrations | ✅ Done |
 | WP-05 | Core artifact model and domain types | ⏳ Planned |
 | WP-06 | Workflow orchestration engine | ⏳ Planned |
 | WP-07 | Agent integration framework | ⏳ Planned |
