@@ -14,20 +14,21 @@
 ## 4.2 Feature Location
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                  OpenArtifact                       │
-│                                                     │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
-│  │   HTTP   │  │ Workflow │  │  Artifact Store   │  │
-│  │  (FastAPI│  │  Engine  │  │  (SQLite/Pydantic│  │
-│  │  Routes) │  │ (Asyncio)│  │   Models)         │  │
-│  └────┬─────┘  └────┬─────┘  └────────┬─────────┘  │
-│       │             │                  │             │
-│  ┌────▼─────────────▼──────────────────▼─────────┐  │
-│  │           Application Core                    │  │
-│  │  (Configuration, Logging, Lifecycle)           │  │
-│  └───────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                  OpenArtifact                               │
+│                                                             │
+│  ┌─────────────┐ ┌─────────────┐ ┌───────────────────────┐ │
+│  │  HTTP Layer │ │  Workflow   │ │     Artifact Store    │ │
+│  │             │ │   Engine    │ │                       │ │
+│  │ FastAPI     │ │ Asyncio     │ │ Pydantic Models       │ │
+│  │ Routes      │ │ Task Mgmt   │ │ SQLite Persistence    │ │
+│  └──────┬──────┘ └──────┬──────┘ └──────────┬────────────┘ │
+│         │               │                    │              │
+│  ┌──────▼───────────────▼────────────────────▼────────────┐ │
+│  │              Application Core                          │ │
+│  │  Config · Logging · Lifecycle · Database Migrations    │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 - **HTTP Layer** — FastAPI routes serving HTMX templates and REST API
@@ -35,17 +36,22 @@
 - **Artifact Store** — Pydantic models persisted to SQLite
 - **Application Core** — Configuration, logging, lifecycle management
 
-## 4.3 Migration Strategy
+## 4.3 Implementation Progress
 
-From bootstrap to implementation:
-
-1. WP-02: Repository structure and development tooling
-2. WP-03: Core artifact model implementation
-3. WP-04: Workflow engine and background execution
-4. WP-05: Agent integration framework
-5. WP-06: Human oversight and deployment hardening
-6. WP-07: External integrations
+| Phase | Work Package | Status |
+|-------|--------------|--------|
+| WP-00 | Repository bootstrap, architecture documentation | ✅ Done |
+| WP-01 | Define technical foundation and technology decisions | ✅ Done |
+| WP-02 | Python project foundation (pyproject.toml, ruff, mypy, pytest) | ✅ Done |
+| WP-03 | Application runtime (FastAPI server, health, web shell) | ✅ Done |
+| WP-04 | Persistent storage and database migrations | ⏳ Planned |
+| WP-05 | Core artifact model and domain types | ⏳ Planned |
+| WP-06 | Workflow orchestration engine | ⏳ Planned |
+| WP-07 | Agent integration framework | ⏳ Planned |
+| WP-08 | Human oversight and review mechanisms | ⏳ Planned |
+| WP-09 | Docker distribution and operational tooling | ⏳ Planned |
+| WP-10 | External integrations | ⏳ Planned |
 
 ---
 
-*This chapter follows the arc42 template. TBD fields are limited to strategy changes introduced in later Work Packages.*
+*This chapter follows the arc42 template. Implementation progress updated per WP completion.*
