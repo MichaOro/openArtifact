@@ -37,6 +37,7 @@
 - **Artifact Store** — Pydantic models persisted to SQLite (WAL)
 - **Application Core** — Configuration, logging, lifecycle, migrations
 - **Migration Layer** — Alembic versioned schema management
+- **Docker Layer** — Multi-stage build, entrypoint script, compose config
 
 ## 4.3 Implementation Progress
 
@@ -47,11 +48,11 @@
 | WP-02 | Python project foundation (pyproject.toml, ruff, mypy, pytest) | ✅ Done |
 | WP-03 | Application runtime (FastAPI server, health, web shell) | ✅ Done |
 | WP-04 | Persistent storage and database migrations | ✅ Done |
-| WP-05 | Core artifact model and domain types | ⏳ Planned |
-| WP-06 | Workflow orchestration engine | ⏳ Planned |
-| WP-07 | Agent integration framework | ⏳ Planned |
-| WP-08 | Human oversight and review mechanisms | ⏳ Planned |
-| WP-09 | Docker distribution and operational tooling | ⏳ Planned |
+| WP-05 | Docker deployment and all-in-one distribution | 🔄 In progress |
+| WP-06 | Core artifact model and domain types | ⏳ Planned |
+| WP-07 | Workflow orchestration engine | ⏳ Planned |
+| WP-08 | AI agent integration framework | ⏳ Planned |
+| WP-09 | Human oversight and review mechanisms | ⏳ Planned |
 | WP-10 | External integrations | ⏳ Planned |
 
 ---

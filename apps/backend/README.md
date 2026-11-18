@@ -16,26 +16,32 @@ uv sync --all-extras
 
 | Command | Description |
 |---------|-------------|
+| `uv run openartifact` | Start development server |
 | `uv run pytest` | Run test suite |
 | `uv run ruff check .` | Lint code |
 | `uv run ruff format --check .` | Check formatting |
 | `uv run mypy .` | Type checking |
 | `uv run coverage run -m pytest && coverage report` | Run tests with coverage |
+| `uv run alembic upgrade head` | Run database migrations |
+| `uv run alembic revision --autogenerate -m "msg"` | Create new migration |
 
 ## Project Structure
 
 ```
 openartifact/
 ├── __init__.py          # Package entry
+├── app.py               # Application factory
+├── cli.py               # CLI entry point
 ├── config.py            # Settings (env-based)
 ├── database.py          # SQLAlchemy engine & session
 ├── exceptions.py        # Custom exception hierarchy
 ├── logging_config.py    # Structured logging setup
-├── models/              # Domain models (WP-02+)
-├── api/                 # API endpoints (WP-03+)
-├── workflow/            # Workflow engine (WP-03+)
-├── templates/           # Jinja2 templates (WP-03+)
-├── static/              # Static assets (WP-03+)
+├── models/              # Domain models (WP-06+)
+├── api/                 # API endpoints (WP-03)
+├── web/                 # Web routes (WP-03)
+├── templates/           # Jinja2 HTML templates (WP-03)
+├── static/              # Static assets (WP-03)
+├── workflow/            # Workflow engine (WP-07)
 └── tests/               # Test suite
 ```
 
@@ -48,7 +54,7 @@ Environment variables (prefix `OPENARTIFACT_`):
 | `OPENARTIFACT_HOST` | `0.0.0.0` | Bind address |
 | `OPENARTIFACT_PORT` | `2909` | Application port |
 | `OPENARTIFACT_DEBUG` | `false` | Debug mode |
-| `OPENARTIFACT_DATABASE_URL` | `sqlite+aiosqlite:///./openartifact.db` | Database URL |
+| `OPENARTIFACT_DATA_DIR` | `/data` | Database directory |
+| `OPENARTIFACT_DATABASE_FILENAME` | `openartifact.db` | Database filename |
 | `OPENARTIFACT_SECRET_KEY` | *(required)* | Application signing key |
 | `OPENARTIFACT_LOG_LEVEL` | `INFO` | Logging verbosity |
-| `OPENARTIFACT_DATA_DIR` | `/data` | Application data directory |

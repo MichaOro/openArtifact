@@ -14,31 +14,134 @@ A platform where human intent and AI capability converge through **artifacts** �
 4. **Extensibility** — Pluggable agents, connectors, and artifact types. The platform grows with your needs.
 5. **Transparency** — Every action is traceable. Decisions, runs, and results are auditable.
 
-## Current Status
+## Quick Start — Docker
 
-**Bootstrap Phase.** The repository is being initialized with project structure, architecture documentation scaffolding, and AI-agent tooling. No application runtime or business functionality has been implemented yet.
+The fastest way to get started is via Docker Compose:
 
-## Documentation
+```bash
+# 1. Clone the repository
+git clone https://github.com/MichaOro/openArtifact.git
+cd openArtifact
 
-- [Architecture Documentation](docs/architecture/arc42/) — arc42-based, covering all twelve chapters
-- [Architecture Decision Records](docs/architecture/adr/) — Numbered ADRs for significant technical decisions
-- [Guides](docs/guides/) — Developer and operational guides
+# 2. Configure environment (optional — defaults work fine)
+cp deploy/.env.example .env
+
+# 3. Start the application
+docker compose -f deploy/docker-compose.yml up -d
+
+# 4. Open in browser
+# http://localhost:2909
+
+# 5. Check health
+curl http://localhost:2909/health
+
+# 6. Stop the application
+docker compose -f deploy/docker-compose.yml down
+```
+
+### Docker Compose Commands
+
+| Action | Command |
+|--------|---------|
+| Start | `docker compose -f deploy/docker-compose.yml up -d` |
+| Stop | `docker compose -f deploy/docker-compose.yml down` |
+| View logs | `docker compose -f deploy/docker-compose.yml logs -f` |
+| Check health | `docker inspect --format='{{.State.Health.Status}}' openartifact` |
+| Update image | `docker compose -f deploy/docker-compose.yml pull && docker compose -f deploy/docker-compose.yml up -d` |
+| Backup DB | `docker run --rm -v openartifact-data:/data -v $(pwd):/backup alpine cp /data/openartifact.db /backup/` |
+
+**Important:** `docker compose down` does **not** delete persistent data. The `/data` volume survives. Use `docker compose down -v` only to remove persistent data.
+
+### Docker Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENARTIFACT_HOST` | `0.0.0.0` | Bind address |
+| `OPENARTIFACT_PORT` | `2909` | Application port |
+| `OPENARTIFACT_DEBUG` | `false` | Debug mode |
+| `OPENARTIFACT_DATA_DIR` | `/data` | Database directory (Docker volume) |
+| `OPENARTIFACT_DATABASE_FILENAME` | `openartifact.db` | Database filename |
+| `OPENARTIFACT_SECRET_KEY` | *(change me)* | Application signing key |
+| `OPENARTIFACT_LOG_LEVEL` | `INFO` | Logging verbosity |
 
 ## Development
 
-See [docs/README.md](docs/README.md) for documentation conventions and the overall documentation structure.
+### Setup
+
+```bash
+# 1. Navigate to the backend project
+cd apps/backend
+
+# 2. Install dependencies (requires uv)
+uv sync --all-extras
+
+# 3. Run the application
+uv run openartifact
+
+# 4. The server starts on http://localhost:2909
+```
+
+### Quality Commands
+
+| Command | Description |
+|---------|-------------|
+| `uv run pytest` | Run test suite |
+| `uv run ruff check .` | Lint code |
+| `uv run ruff format --check .` | Check formatting |
+| `uv run mypy .` | Type checking |
+| `uv run coverage run -m pytest && coverage report` | Tests with coverage |
+
+### Database Migrations
+
+```bash
+cd apps/backend
+
+# Create a new migration after modifying models
+uv run alembic revision --autogenerate -m "description"
+
+# Apply migrations
+uv run alembic upgrade head
+
+# Rollback one migration
+uv run alembic downgrade -1
+
+# Show current schema version
+uv run alembic current
+```
+
+## Architecture
+
+- **arc42 documentation:** [docs/architecture/arc42/](docs/architecture/arc42/) — 12-chapter architecture documentation
+- **Architecture Decision Records:** [docs/architecture/adr/](docs/architecture/adr/) — Numbered ADRs
+- **Diagram directory:** [docs/architecture/diagrams/](docs/architecture/diagrams/) — Architecture diagrams
+- **Documentation conventions:** [docs/README.md](docs/README.md)
+
+## Technology Stack
+
+| Layer | Technology |
+|-------|------------|
+| Language | Python 3.12+ |
+| Backend | FastAPI + Pydantic v2 |
+| Frontend | HTMX + Jinja2 + Tailwind CSS |
+| Database | SQLite (WAL mode) |
+| Migration | Alembic |
+| Deployment | Docker + Docker Compose |
 
 ## Roadmap
 
-| Phase | Focus | Status |
-|-------|-------|--------|
-| WP-00 | Repository bootstrap, architecture documentation foundation | 🔄 In progress |
-| WP-01 | Define technical foundation and technology decisions | ⏳ Planned |
-| WP-02 | Core artifact model and schema definition | ⏳ Planned |
-| WP-03 | Workflow orchestration engine | ⏳ Planned |
-| WP-04 | AI agent integration framework | ⏳ Planned |
-| WP-05 | Human oversight and review mechanisms | ⏳ Planned |
-| WP-06 | Deployment and operational tooling | ⏳ Planned |
+| Phase | Work Package | Status |
+|-------|--------------|--------|
+| WP-00 | Repository bootstrap, architecture documentation | ✅ Done |
+| WP-01 | Define technical foundation and technology decisions | ✅ Done |
+| WP-02 | Python project foundation and development tooling | ✅ Done |
+| WP-03 | Self-hosted application runtime | ✅ Done |
+| WP-04 | Persistent storage and database migrations | ✅ Done |
+| WP-05 | Docker deployment and all-in-one distribution | 🔄 In progress |
+| WP-06 | Core artifact model and domain types | ⏳ Planned |
+| WP-07 | Workflow orchestration engine | ⏳ Planned |
+| WP-08 | AI agent integration framework | ⏳ Planned |
+| WP-09 | Human oversight and review mechanisms | ⏳ Planned |
+| WP-10 | External integrations | ⏳ Planned |
 
 ## License
 

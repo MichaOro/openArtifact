@@ -2,34 +2,39 @@
 
 ## 5.1 Domain Model
 
-> TBD — Domain entities (Project, Artifact, Workflow, Execution) to be defined in WP-05.
+> TBD — Domain entities (Project, Artifact, Workflow, Execution) to be defined in WP-06.
 
 ## 5.2 Component Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      OpenArtifact                           │
-│                                                             │
-│  ┌─────────────┐ ┌─────────────┐ ┌───────────────────────┐ │
-│  │  HTTP Layer │ │  Workflow   │ │     Artifact Store    │ │
-│  │             │ │   Engine    │ │                       │ │
-│  │ FastAPI     │ │ Asyncio     │ │ Pydantic Models       │ │
-│  │ Routes      │ │ Task Mgmt   │ │ SQLite (WAL mode)     │ │
-│  └──────┬──────┘ └──────┬──────┘ └──────────┬────────────┘ │
-│         │               │                    │              │
-│  ┌──────▼───────────────▼────────────────────▼────────────┐ │
-│  │              Application Core                          │ │
-│  │  Config · Logging · Lifecycle · Alembic Migrations    │ │
-│  └────────────────────────────────────────────────────────┘ │
+│                  Docker Container                            │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌───────────────┐  │    │
+│  │  │  HTTP Layer │ │  Workflow   │ │ Artifact Store│  │    │
+│  │  │             │ │   Engine    │ │               │  │    │
+│  │  │ FastAPI     │ │ Asyncio     │ │ Pydantic      │  │    │
+│  │  │ Routes      │ │ Task Mgmt   │ │ SQLite (WAL)  │  │    │
+│  │  └──────┬──────┘ └──────┬──────┘ └───────┬───────┘  │    │
+│  │         │               │                 │          │    │
+│  │  ┌──────▼───────────────▼─────────────────▼─────────┐ │    │
+│  │  │           Application Core                       │ │    │
+│  │  │  Config · Logging · Lifecycle · Alembic Migrations│ │    │
+│  │  └──────────────────────────────────────────────────┘ │    │
+│  └─────────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  docker-entrypoint.sh                                │    │
+│  │  └─ Alembic upgrade → uvicorn --factory              │    │
+│  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-Implemented (WP-03/04): HTTP layer, application core, database engine, session management, Alembic migrations.
-Planned (WP-05+): Workflow engine, artifact store, domain models.
+Implemented (WP-03/04/05): Docker deployment, HTTP layer, database, entrypoint.
+Planned (WP-06+): Workflow engine, artifact store, domain models.
 
 ## 5.3 Component View
 
-### Implemented Components (WP-03/04)
+### Implemented Components (WP-03/04/05)
 
 | Component | Location | Description |
 |-----------|----------|-------------|
@@ -41,8 +46,11 @@ Planned (WP-05+): Workflow engine, artifact store, domain models.
 | `logging_config` | `openartifact/logging_config.py` | Structured logging with secret masking |
 | `database` | `openartifact/database.py` | Engine, session, WAL mode, context managers |
 | `alembic/` | `alembic.ini` | Migration configuration and scripts |
+| `Dockerfile` | `Dockerfile` | Multi-stage build (builder + runtime) |
+| `scripts/entrypoint` | `scripts/docker-entrypoint.sh` | Migration + server start |
+| `deploy/compose` | `deploy/docker-compose.yml` | Single-container deployment |
 
-### Planned Components (WP-05+)
+### Planned Components (WP-06+)
 
 | Component | Location | Description |
 |-----------|----------|-------------|
@@ -58,9 +66,10 @@ Planned (WP-05+): Workflow engine, artifact store, domain models.
 | HTTP Layer | REST API | HTTP/1.1 | ✅ WP-03 |
 | HTTP Layer | HTMX templates | HTTP/1.1 + HTML | ✅ WP-03 |
 | HTTP Layer | OpenAPI/Swagger | /api/docs | ✅ WP-03 |
-| HTTP Layer | Real-time progress | WebSocket / SSE | ⏳ WP-06 |
+| HTTP Layer | Real-time progress | WebSocket / SSE | ⏳ WP-07 |
 | Artifact Store | SQLite database | SQLite (WAL mode) | ✅ WP-04 |
-| External | AI Agent APIs | HTTP/HTTPS | ⏳ WP-07 |
+| External | AI Agent APIs | HTTP/HTTPS | ⏳ WP-08 |
+| Docker | Health check | HTTP GET /health | ✅ WP-05 |
 
 ---
 

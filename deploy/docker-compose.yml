@@ -1,0 +1,31 @@
+# docker-compose.yml — OpenArtifact Deployment
+#
+# Start: docker compose up -d
+# Stop:  docker compose down
+# Logs:  docker compose logs -f
+# Health: docker inspect --format='{{.State.Health.Status}}' openartifact
+# Update: docker compose pull && docker compose up -d
+# Backup: docker run --rm -v openartifact-data:/data -v $(pwd):/backup alpine cp /data/openartifact.db /backup/
+#
+# Data survives `docker compose down`. Use `docker compose down -v` only to remove persistent data.
+
+services:
+  openartifact:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "2909:2909"
+    volumes:
+      - openartifact-data:/data
+    env_file: .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2909/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  openartifact-data:

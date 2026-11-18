@@ -1,0 +1,76 @@
+# .dockerignore for OpenArtifact
+
+# ── Git ─────────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Python ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ── Python environments ─────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+
+# ── Development files ───────────────────────────────────────────
+*.md
+!README.md
+docs/
+.gitignore
+.editorconfig
+Makefile
+setup.cfg
+setup.py
+
+# ── IDE / Editor ────────────────────────────────────────────────
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# ── OS ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Docker ──────────────────────────────────────────────────────
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# ── Secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+*.p12
+credentials.json
+
+# ── Local databases ─────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ── Logs ────────────────────────────────────────────────────────
+*.log
+
+# ── AI Coding Agents ────────────────────────────────────────────
+.claude/
+.cursor/
+.copilot-chat/

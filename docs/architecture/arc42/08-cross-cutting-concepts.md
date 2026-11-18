@@ -6,9 +6,14 @@
 
 **Implemented (WP-03):**
 - Secrets externalized via environment variables — no secrets in code or database
-- Container security: non-root user, minimal base image (ADR-008)
+- Container security: non-root user (UID 1000), minimal base image (ADR-008)
 - Logging configuration masks sensitive fields (`secret_key`, `password`, `token`, `api_key`, etc.)
 - Authentication and multi-tenancy deferred to later Work Packages
+
+**Implemented (WP-05):**
+- Multi-stage Docker build excludes development dependencies and source files
+- `.dockerignore` excludes `.venv/`, `__pycache__/`, `.env`, secrets, build artifacts
+- No privileged container execution, no Docker-in-Docker
 
 ## 8.2 Error Handling
 
@@ -23,6 +28,10 @@
 - Database session auto-commit on success, auto-rollback on error
 - Database connection errors logged at ERROR level, returned as 503
 
+**Implemented (WP-05):**
+- Container entrypoint fails fast on migration failure (exit 1)
+- Migration output logged for debugging
+
 ## 8.3 Logging & Observability
 
 **Implemented (WP-03/04):**
@@ -35,6 +44,11 @@
 - Engine disposal logged at shutdown
 - Error handling logs exceptions; suppressed in production HTTP responses
 
+**Implemented (WP-05):**
+- Entrypoint logs all configuration values at startup
+- Migration execution logged via alembic logger
+- Container logs accessible via `docker compose logs`
+
 ---
 
-*This chapter follows the arc42 template. Cross-cutting concepts documented as WP-03/04 completed.*
+*This chapter follows the arc42 template. Cross-cutting concepts documented as WP-03/04/05 completed.*
