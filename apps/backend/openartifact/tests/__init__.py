@@ -1,1 +1,1 @@
-"""Test packages."""
+"""Tests for the application runtime."""
