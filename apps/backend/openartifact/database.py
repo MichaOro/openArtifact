@@ -117,7 +117,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     if _engine is None:
         raise ConfigurationError("Database engine not initialized")
 
-    async with _async_session_factory(_engine) as session:  # type: ignore[call-arg, misc]
+    async with _async_session_factory(_engine) as session:  # type: ignore[call-arg]
         try:
             yield session
             await session.commit()
