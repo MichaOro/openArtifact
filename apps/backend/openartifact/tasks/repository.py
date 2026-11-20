@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.models import Task
+from openartifact.models import Task, TaskStatus
 from openartifact.tasks.schemas import TaskCreate
 
 
@@ -34,3 +34,18 @@ class TaskRepository:
         """Return all tasks, newest first."""
         result = await self._session.execute(select(Task).order_by(Task.created_at.desc(), Task.id))
         return result.scalars().all()
+
+    async def get(self, task_id: str) -> Task | None:
+        """Return the task or ``None``."""
+        return await self._session.get(Task, task_id)
+
+    async def set_status(self, task: Task, status: TaskStatus) -> Task:
+        """Move a task to another lane; ``updated_at`` is refreshed automatically."""
+        task.status = status.value
+        await self._session.flush()
+        return task
+
+    async def delete(self, task: Task) -> None:
+        """Delete a task."""
+        await self._session.delete(task)
+        await self._session.flush()

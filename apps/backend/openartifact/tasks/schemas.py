@@ -41,6 +41,14 @@ class TaskCreate(BaseModel):
         return value.strip()
 
 
+class TaskMove(BaseModel):
+    """Payload for moving a task to another lane."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: TaskStatus
+
+
 class TaskRead(BaseModel):
     """A task as returned by the API."""
 

@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from openartifact.config import Settings
+from openartifact.events import EventBus
 from openartifact.exceptions import (
     ConfigurationError,
     DatabaseError,
@@ -69,6 +70,8 @@ def _create_app(settings: Settings) -> FastAPI:
         # ── Shutdown ─────────────────────────────────────────
         from openartifact.database import dispose_engine
 
+        app.state.event_bus.close()
+
         logger.info("Shutting down OpenArtifact 0.1.0")
         await dispose_engine()
         logger.info("Shutdown complete")
@@ -80,6 +83,7 @@ def _create_app(settings: Settings) -> FastAPI:
         docs_url="/api/docs",
         redoc_url=None,
     )
+    app.state.event_bus = EventBus()
 
     # ── Exception handlers ─────────────────────────────────────────
 
@@ -133,6 +137,7 @@ def _create_app(settings: Settings) -> FastAPI:
         )
 
     # ── Register routes ────────────────────────────────────────────
+    from openartifact.api.events import router as events_router
     from openartifact.api.routes import public_router as public_api_router
     from openartifact.api.routes import router as api_router
     from openartifact.api.tasks import router as tasks_router
@@ -141,6 +146,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(public_api_router)
     app.include_router(api_router)
     app.include_router(tasks_router)
+    app.include_router(events_router)
     app.include_router(web_router)
 
     # ── Static assets (CSS / JS of the web UI) ─────────────────────

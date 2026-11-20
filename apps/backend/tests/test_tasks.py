@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic.config import Config
@@ -30,6 +31,21 @@ def migrated_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Se
     monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
     command.upgrade(_alembic_config(), "head")
     return settings
+
+
+@pytest.fixture
+def published(client: TestClient) -> list[tuple[str, dict[str, Any]]]:
+    """Record everything the app publishes on its event bus."""
+    events: list[tuple[str, dict[str, Any]]] = []
+    bus = client.app.state.event_bus  # type: ignore[attr-defined]
+    original = bus.publish
+
+    def spy(event_type: str, data: dict[str, Any]) -> Any:
+        events.append((event_type, data))
+        return original(event_type, data)
+
+    bus.publish = spy
+    return events
 
 
 @pytest.fixture
@@ -132,3 +148,90 @@ def test_tasks_survive_application_restart(migrated_settings: Settings) -> None:
 
     assert [t["id"] for t in tasks] == [created["id"]]
     assert tasks[0]["status"] == "done"
+
+
+# ── Move (lane switch) ────────────────────────────────────────────────
+
+
+def _create(client: TestClient, **payload: object) -> dict[str, Any]:
+    return client.post("/api/tasks", json={"title": "T", **payload}).json()  # type: ignore[no-any-return]
+
+
+def test_move_task_changes_lane_and_persists(client: TestClient) -> None:
+    task = _create(client)
+    response = client.patch(f"/api/tasks/{task['id']}", json={"status": "done"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "done"
+    assert response.json()["updated_at"] >= task["updated_at"]
+    assert client.get("/api/tasks").json()[0]["status"] == "done"
+
+
+def test_move_keeps_creation_order_in_target_lane(client: TestClient) -> None:
+    first = _create(client, title="first")
+    second = _create(client, title="second", status="done")
+    client.patch(f"/api/tasks/{first['id']}", json={"status": "done"})
+    done = [t["title"] for t in client.get("/api/tasks").json() if t["status"] == "done"]
+    assert done == ["second", "first"]  # newest first, independent of move time
+    assert second["id"]
+
+
+def test_move_unknown_task_is_404(client: TestClient) -> None:
+    assert client.patch("/api/tasks/nope", json={"status": "done"}).status_code == 404
+
+
+@pytest.mark.parametrize("payload", [{}, {"status": "review"}, {"status": "DONE"}, {"title": "x"}])
+def test_move_rejects_invalid_payload(client: TestClient, payload: dict[str, object]) -> None:
+    task = _create(client)
+    assert client.patch(f"/api/tasks/{task['id']}", json=payload).status_code == 422
+    assert client.get("/api/tasks").json()[0]["status"] == "backlog"
+
+
+# ── Delete ────────────────────────────────────────────────────────────
+
+
+def test_delete_task_removes_it_permanently(client: TestClient) -> None:
+    keep, drop = _create(client, title="keep"), _create(client, title="drop")
+    assert client.delete(f"/api/tasks/{drop['id']}").status_code == 204
+    assert [t["id"] for t in client.get("/api/tasks").json()] == [keep["id"]]
+
+
+def test_delete_unknown_or_twice_is_404(client: TestClient) -> None:
+    task = _create(client)
+    assert client.delete(f"/api/tasks/{task['id']}").status_code == 204
+    assert client.delete(f"/api/tasks/{task['id']}").status_code == 404
+    assert client.delete("/api/tasks/nope").status_code == 404
+
+
+# ── Events published for every change ─────────────────────────────────
+
+
+def test_changes_are_published_as_events(
+    client: TestClient, published: list[tuple[str, dict[str, Any]]]
+) -> None:
+    task = _create(client, title="evt")
+    client.patch(f"/api/tasks/{task['id']}", json={"status": "in_progress"})
+    client.delete(f"/api/tasks/{task['id']}")
+
+    assert [t for t, _ in published] == ["task.created", "task.moved", "task.deleted"]
+    assert published[0][1]["id"] == task["id"]
+    assert published[0][1]["status"] == "backlog"
+    assert published[1][1]["status"] == "in_progress"
+    assert published[2][1] == {"id": task["id"]}
+
+
+def test_failed_or_noop_requests_publish_nothing(
+    client: TestClient, published: list[tuple[str, dict[str, Any]]]
+) -> None:
+    task = _create(client)
+    published.clear()
+    client.post("/api/tasks", json={"title": ""})  # 422
+    client.patch(f"/api/tasks/{task['id']}", json={"status": "backlog"})  # already there
+    client.patch("/api/tasks/nope", json={"status": "done"})  # 404
+    client.delete("/api/tasks/nope")  # 404
+    assert published == []
+
+
+def test_events_route_is_registered(
+    client: TestClient, app_routes: Callable[[Any], list[str]]
+) -> None:
+    assert "/api/events" in app_routes(client.app)
