@@ -27,7 +27,9 @@ def _reset_engine() -> None:
     if db_mod._engine is not None:
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(db_mod.dispose_engine())
+        # Use asyncio.run() instead of get_event_loop() to avoid
+        # "no current event loop" errors in Python 3.12+ async contexts
+        asyncio.run(db_mod.dispose_engine())
 
 
 @pytest.fixture(autouse=True)

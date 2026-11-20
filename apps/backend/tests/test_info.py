@@ -36,7 +36,7 @@ def test_info_response_schema(client: TestClient) -> None:
 
 
 def test_info_default_environment(client: TestClient) -> None:
-    """Info returns development environment by default."""
+    """Info returns production environment by default (debug=False)."""
     response = client.get("/api/info")
     data = response.json()
-    assert data["environment"] == "development"
+    assert data["environment"] == "production"

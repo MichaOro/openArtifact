@@ -14,7 +14,7 @@ def test_settings_defaults() -> None:
     assert s.port == 2909
     assert s.debug is False
     assert s.log_level == "INFO"
-    assert s.database_url == "sqlite+aiosqlite:///./openartifact.db"
+    assert s.database_url == "sqlite+aiosqlite:////data/openartifact.db"
     assert s.data_dir == "/data"  # type: ignore[comparison-overlap]
     assert s.is_production is True
 
