@@ -18,8 +18,10 @@ from openartifact.exceptions import ConfigurationError
 def _reset_engine() -> None:
     """Reset the global engine for test isolation."""
     import openartifact.database as db_mod
+
     if db_mod._engine is not None:
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(db_mod.dispose_engine())
 
 
@@ -77,7 +79,9 @@ async def test_session_autocommit(settings: Settings) -> None:
         await session.commit()
         # After context exit, the data should persist
     async with db_session_context(settings) as session:
-        result = await session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'"))
+        result = await session.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'")
+        )
         rows = await result.fetchall()
         assert any(r[0] == "test_table" for r in rows)
 
@@ -92,6 +96,8 @@ async def test_session_autorollback_on_error(settings: Settings) -> None:
             raise ValueError("intentional error")
 
     async with db_session_context(settings) as session:
-        result = await session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='error_table'"))
+        result = await session.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table' AND name='error_table'")
+        )
         rows = await result.fetchall()
         assert not any(r[0] == "error_table" for r in rows)

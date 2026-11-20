@@ -123,6 +123,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 # ── Context Manager (non-FastAPI usage) ─────────────────────────────
 
+
 @asynccontextmanager
 async def db_session_context(settings: Settings) -> AsyncGenerator[AsyncSession, None]:
     """Context manager for database sessions outside of FastAPI requests.

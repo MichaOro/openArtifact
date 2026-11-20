@@ -30,7 +30,11 @@ def app() -> FastAPI:
     Jinja2Templates(
         directory=str(Path(__file__).parent.parent / "openartifact" / "templates"),
     )
-    a.mount("/static", StaticFiles(directory=str(Path(__file__).parent.parent / "openartifact" / "static")), name="static")
+    a.mount(
+        "/static",
+        StaticFiles(directory=str(Path(__file__).parent.parent / "openartifact" / "static")),
+        name="static",
+    )
     return a
 
 
@@ -41,6 +45,7 @@ def client(app: FastAPI) -> TestClient:
 
 
 # ── Root path (web shell) ─────────────────────────────────────────────
+
 
 def test_root_returns_200(client: TestClient) -> None:
     """Root path returns HTTP 200 with HTML."""
@@ -67,6 +72,7 @@ def test_root_contains_htmx(client: TestClient) -> None:
 
 
 # ── Health endpoints ──────────────────────────────────────────────────
+
 
 def test_health_public_returns_200(client: TestClient) -> None:
     """Public health endpoint returns HTTP 200."""

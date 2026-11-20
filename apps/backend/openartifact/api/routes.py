@@ -11,6 +11,7 @@ from openartifact.config import get_settings
 
 # ── Shared health check implementation ───────────────────────────────
 
+
 def _health_response() -> dict[str, str | int]:
     """Return the health check payload."""
     return {

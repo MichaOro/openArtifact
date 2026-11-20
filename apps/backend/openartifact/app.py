@@ -54,9 +54,7 @@ def _create_app(settings: Settings) -> FastAPI:
             engine = _build_engine(settings)
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
-            logger.info(
-                "Database connected at %s", settings.data_dir / settings.database_filename
-            )
+            logger.info("Database connected at %s", settings.data_dir / settings.database_filename)
         except ConfigurationError:
             raise
         except Exception as exc:

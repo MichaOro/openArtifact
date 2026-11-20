@@ -8,6 +8,7 @@ Revision ID: 0001
 Revises:
 Create Date: 2026-11-18
 """
+
 from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.

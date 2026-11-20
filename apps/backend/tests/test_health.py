@@ -22,6 +22,7 @@ def client() -> TestClient:
 
 # ── /health (public path) ─────────────────────────────────────────────
 
+
 def test_health_returns_200(client: TestClient) -> None:
     """Public health endpoint returns HTTP 200."""
     response = client.get("/health")
@@ -45,6 +46,7 @@ def test_health_response_json_content_type(client: TestClient) -> None:
 
 
 # ── /api/health (legacy path) ─────────────────────────────────────────
+
 
 def test_api_health_returns_200(client: TestClient) -> None:
     """Legacy health endpoint returns HTTP 200."""

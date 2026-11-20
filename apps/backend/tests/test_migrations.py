@@ -17,8 +17,10 @@ from openartifact.database import _build_engine, dispose_engine
 def _reset_engine() -> None:
     """Reset the global engine for test isolation."""
     import openartifact.database as db_mod
+
     if db_mod._engine is not None:
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(db_mod.dispose_engine())
 
 
