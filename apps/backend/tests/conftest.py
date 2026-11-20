@@ -6,6 +6,7 @@ will be added alongside implementation in WP-03.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -20,17 +21,17 @@ def settings(tmp_path: Path) -> Settings:
 
 
 @pytest.fixture
-def app_routes():
+def app_routes() -> Callable:
     """Collect all route paths from a FastAPI app, recursively."""
 
-    def _collect(app):
+    def _collect(app) -> list[str]:
         paths: list[str] = []
         for route in app.routes:
             # Recursively find all paths including nested routers
             _find_paths(route, paths)
         return paths
 
-    def _find_paths(route, paths):
+    def _find_paths(route, paths: list[str]) -> None:
         path = getattr(route, "path", None)
         if path:
             paths.append(path)
