@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from openartifact.app import _create_app, create_app
 from openartifact.config import Settings
 
@@ -29,7 +32,7 @@ def test_create_app_with_explicit_settings() -> None:
     assert app.version == "0.1.0"
 
 
-def test_routes_registered(app_routes) -> None:
+def test_routes_registered(app_routes: Callable[[Any], list[str]]) -> None:
     """Routes are registered via create_app."""
     app = create_app()
     route_paths = app_routes(app)

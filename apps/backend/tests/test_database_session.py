@@ -37,12 +37,6 @@ def clean_engine() -> Generator[None, None, None]:
 
 
 @pytest.fixture
-def settings(tmp_path: Path) -> Settings:
-    """Provide settings pointing to a temporary directory."""
-    return Settings(data_dir=tmp_path, database_filename="test.db")
-
-
-@pytest.fixture
 async def session(settings: Settings) -> Settings:
     """Ensure engine is built."""
     return settings
