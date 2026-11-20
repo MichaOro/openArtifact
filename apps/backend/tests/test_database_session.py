@@ -12,6 +12,7 @@ from openartifact.database import (
     db_session_context,
     get_db_session,
 )
+from openartifact.exceptions import ConfigurationError
 
 
 def _reset_engine() -> None:
@@ -44,7 +45,7 @@ async def session(settings: Settings) -> Settings:
 
 async def test_get_db_session_requires_initialized_engine() -> None:
     """get_db_session raises when engine is not built."""
-    with pytest.raises(Exception):
+    with pytest.raises(ConfigurationError):
         session_obj = get_db_session()
         await session_obj.__anext__()
 
@@ -85,7 +86,7 @@ async def test_session_autorollback_on_error(settings: Settings) -> None:
     """Session auto-rolls back on error within context."""
     from sqlalchemy import text
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         async with db_session_context(settings) as session:
             await session.execute(text("CREATE TABLE error_table (id INTEGER)"))
             raise ValueError("intentional error")

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
 from openartifact.config import Settings
+from openartifact.database import Base
 
 # Import all models so Alembic can detect them for autogenerate
 # Currently empty — models will be added in WP-05
@@ -23,8 +24,6 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Set the target metadata for autogenerate
-from openartifact.database import Base
-
 target_metadata = Base.metadata
 
 
