@@ -9,7 +9,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fastapi.routing import APIRoute
 
 from openartifact.config import Settings
 
