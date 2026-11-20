@@ -15,7 +15,7 @@ def test_settings_defaults() -> None:
     assert s.debug is False
     assert s.log_level == "INFO"
     assert s.database_url == "sqlite+aiosqlite:////data/openartifact.db"
-    assert s.data_dir == "/data"  # type: ignore[comparison-overlap]
+    assert str(s.data_dir) == "/data"  # type: ignore[union-attr]
     assert s.is_production is True
 
 

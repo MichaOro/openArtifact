@@ -101,10 +101,6 @@ async def dispose_engine() -> None:
 
 # ── Session Management ──────────────────────────────────────────────
 
-_async_session_factory = async_sessionmaker(
-    expire_on_commit=False,
-)
-
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Yield a database session for request handling.
@@ -117,7 +113,8 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     if _engine is None:
         raise ConfigurationError("Database engine not initialized")
 
-    async with _async_session_factory(_engine) as session:  # type: ignore[call-arg]
+    session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as session:
         try:
             yield session
             await session.commit()

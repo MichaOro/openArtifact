@@ -32,15 +32,22 @@ def test_create_app_with_explicit_settings() -> None:
 def test_routes_registered() -> None:
     """Routes are registered via create_app."""
     app = create_app()
-    # In newer FastAPI versions, app.routes includes _IncludedRouter which has no .path
+    # FastAPI nests routes deeply in _IncludedRouter objects
+    # Collect all paths recursively with unlimited depth
     route_paths: list[str] = []
-    for route in app.routes:
-        if hasattr(route, "path"):
-            route_paths.append(route.path)
-        elif hasattr(route, "routes"):
-            for subroute in route.routes:
-                if hasattr(subroute, "path"):
-                    route_paths.append(subroute.path)
+
+    def collect_paths(routes, depth=0):
+        if depth > 10:
+            return
+        for route in routes:
+            path = getattr(route, "path", None)
+            if path:
+                route_paths.append(path)
+            subroutes = getattr(route, "routes", None)
+            if subroutes:
+                collect_paths(subroutes, depth + 1)
+
+    collect_paths(app.routes)
     assert "/api/health" in route_paths
     assert "/api/info" in route_paths
     assert "/" in route_paths
