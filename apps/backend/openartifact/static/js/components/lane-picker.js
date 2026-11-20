@@ -49,8 +49,9 @@ export class LanePicker {
    * @param {string} options.current status of the current lane (not offered)
    * @param {(status: string) => void} options.onSelect
    * @param {"below"|"left"} [options.placement]
+   * @param {"list"|"chips"} [options.variant] "chips": menu unrolls out of a chip (lane chip)
    */
-  toggle({ trigger, lanes, current, onSelect, placement = "below" }) {
+  toggle({ trigger, lanes, current, onSelect, placement = "below", variant = "list" }) {
     if (this.isOpen && this.trigger === trigger) {
       this.close();
       return;
@@ -66,10 +67,13 @@ export class LanePicker {
     caption.className = "popover__caption";
     caption.textContent = "Move to";
     caption.setAttribute("aria-hidden", "true");
-    const options = others.map((lane) => {
+    const chips = variant === "chips";
+    this.el.classList.toggle("popover--chips", chips);
+    const options = others.map((lane, i) => {
       const option = document.createElement("button");
       option.type = "button";
-      option.className = "popover__option";
+      option.className = chips ? "popover__option popover__option--chip" : "popover__option";
+      option.style.setProperty("--i", String(i));
       option.setAttribute("role", "option");
       option.dataset.status = lane.status;
       option.textContent = lane.title;
@@ -77,7 +81,7 @@ export class LanePicker {
     });
     this.el.replaceChildren(caption, ...options);
     this.el.hidden = false;
-    this.#position(trigger, placement);
+    this.#position(trigger, chips ? "chip" : placement);
     trigger.setAttribute("aria-expanded", "true");
     options[0].focus();
   }
@@ -96,6 +100,11 @@ export class LanePicker {
     const p = this.el.getBoundingClientRect();
     let left = placement === "left" ? t.left - p.width - margin : t.left;
     let top = placement === "left" ? t.top : t.bottom + 6;
+    if (placement === "chip") {
+      // flush under the chip, option chips aligned with it (popover padding is space-2 = 8px)
+      left = t.left - 8;
+      top = t.bottom;
+    }
     if (top + p.height > window.innerHeight - margin) top = Math.max(margin, t.top - p.height - 6);
     left = Math.min(Math.max(margin, left), window.innerWidth - p.width - margin);
     this.el.style.left = `${left}px`;

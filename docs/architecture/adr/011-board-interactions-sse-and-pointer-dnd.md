@@ -49,11 +49,13 @@ converge on the same state without special cases.
 
 - One code path for mouse, pen and touch; the drag visuals (ghost, faded placeholder, highlighted
   target lane) are fully under our control, which native HTML5 drag & drop does not offer on touch.
-- Mouse/pen start after a few pixels of movement. **Touch:** on touch devices every card shows a
-  **drag handle** that drags immediately (`touch-action: none`). Elsewhere on the card a drag starts
-  after a 250 ms press without movement; moving earlier is interpreted as scrolling and is left
-  alone. The handle exists because users naturally press and drag at once, which a long-press-only
-  design reads as a scroll, so drag & drop looked broken on phones.
+- Mouse/pen start after a few pixels of movement. **Touch: the card itself is the handle, there is
+  no grip icon.** Users grab the card with the finger, they do not look for an anchor. Cards get
+  `touch-action: pan-y`: a vertical swipe stays a native scroll of the lane, a **sideways swipe
+  starts the drag at once** (cards move between lanes sideways), and a 250 ms press without
+  movement also picks the card up. (A first long-press-only version looked broken on phones,
+  because pressing and dragging immediately was read as a scroll; a visible grip was tried and
+  dropped as undiscoverable.)
 - Near the left/right board edge the board auto-scrolls (narrow layout); scroll snapping is
   switched off while dragging so it cannot fight the auto-scroll. Escape aborts.
 - The controller only reports `(task, targetStatus)` and knows nothing about the API.
@@ -84,8 +86,9 @@ fixed icon rail. Built from the reusable `CollapsibleNav` component.
 
 ### 2.7 Lane switch in the dialog, and lanes as configuration
 
-- Clicking the lane chip under the dialog title ("In Backlog") opens a small *Move to* menu with
-  the other lanes. The chip deliberately has no icon or caret (a quiet, "hidden" feature). The
+- Clicking the lane chip under the dialog title ("In Backlog") unrolls the other lanes as chips
+  right below it, without a top edge and with side lines that fade in. The chip deliberately has no
+  icon or caret (an easter egg). The Lane field of the rail uses a regular menu. The
   rail's *Lane* field opens the same menu. In edit mode the task moves immediately (optimistic,
   like drag & drop); in create mode the chip only changes the target lane.
 - The menu (`LanePicker`) only receives `{status, title}` pairs. The board reads the lanes from

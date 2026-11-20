@@ -1,9 +1,10 @@
 /* Drag & drop of cards between lanes, built on Pointer Events (mouse, touch, pen).
  *
  *  - Mouse/pen: drag starts after moving a few pixels.
- *  - Touch: the drag handle (shown on touch devices) drags immediately. Anywhere else on the
- *    card a drag starts after a short press without moving; moving earlier means the user is
- *    scrolling, so the gesture is left alone.
+ *  - Touch: the card itself is the handle. A sideways swipe starts the drag at once (cards
+ *    move between lanes sideways; CSS gives cards `touch-action: pan-y`, so the browser leaves
+ *    horizontal gestures to us). A vertical swipe is a native scroll of the lane. A short
+ *    press without moving also picks the card up, for any direction.
  *  - A ghost copy follows the pointer; the original stays as a faded placeholder.
  *  - The lane under the pointer is highlighted; releasing over another lane calls onDrop.
  *  - Near the board's left/right edge the board auto-scrolls (horizontal snap layout).
@@ -12,9 +13,8 @@
  * The controller knows nothing about the API: it only reports (task, targetStatus). */
 
 const MOUSE_THRESHOLD = 6;
-const HANDLE_THRESHOLD = 4;
+const TOUCH_INTENT_DISTANCE = 8;
 const TOUCH_LONG_PRESS_MS = 250;
-const TOUCH_MOVE_TOLERANCE = 8;
 const EDGE_ZONE = 56;
 const EDGE_SPEED = 14;
 
@@ -77,17 +77,15 @@ export class CardDragController {
     const card = event.target.closest(".task-card");
     if (!card || event.target.closest("button")) return;
 
-    const viaHandle = Boolean(event.target.closest("[data-drag-handle]"));
     this.pending = {
       card,
-      viaHandle,
       pointerId: event.pointerId,
       type: event.pointerType,
       startX: event.clientX,
       startY: event.clientY,
       timer: null,
     };
-    if (event.pointerType === "touch" && !viaHandle) {
+    if (event.pointerType === "touch") {
       this.pending.timer = window.setTimeout(() => {
         if (this.pending) this.#begin(this.pending.startX, this.pending.startY);
       }, TOUCH_LONG_PRESS_MS);
@@ -102,9 +100,13 @@ export class CardDragController {
     const p = this.pending;
     if (!p || event.pointerId !== p.pointerId) return;
     const distance = Math.hypot(event.clientX - p.startX, event.clientY - p.startY);
-    if (p.type === "touch" && !p.viaHandle) {
-      if (distance > TOUCH_MOVE_TOLERANCE) this.#cancelPending(); // user is scrolling
-    } else if (distance > (p.viaHandle ? HANDLE_THRESHOLD : MOUSE_THRESHOLD)) {
+    if (p.type === "touch") {
+      if (distance <= TOUCH_INTENT_DISTANCE) return;
+      const dx = Math.abs(event.clientX - p.startX);
+      const dy = Math.abs(event.clientY - p.startY);
+      if (dx > dy) this.#begin(event.clientX, event.clientY); // sideways: drag
+      else this.#cancelPending(); // vertical: the browser scrolls the lane
+    } else if (distance > MOUSE_THRESHOLD) {
       this.#begin(event.clientX, event.clientY);
     }
   }

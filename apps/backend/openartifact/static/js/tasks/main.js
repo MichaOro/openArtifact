@@ -66,10 +66,11 @@ new CollapsibleNav(cardNavRoot, cardNavRoot.querySelector("[data-card-nav-toggle
 // deliberately unadorned "hidden" feature) and the Lane field of the rail. The lane list comes
 // from the board, so it follows whatever lanes the page renders.
 const lanePicker = new LanePicker({ container: document.getElementById("create-task-modal") });
-function pickLane(trigger, placement) {
+function pickLane(trigger, placement, variant = "list") {
   lanePicker.toggle({
     trigger,
     placement,
+    variant,
     current: taskForm.currentStatus(),
     lanes: board.statuses.map((status) => ({ status, title: board.laneTitle(status) })),
     onSelect: async (status) => {
@@ -83,7 +84,7 @@ function pickLane(trigger, placement) {
     },
   });
 }
-taskForm.subtitle.addEventListener("click", (event) => pickLane(event.currentTarget, "below"));
+taskForm.subtitle.addEventListener("click", (event) => pickLane(event.currentTarget, "below", "chips"));
 cardNavRoot
   .querySelector('[data-card-field="lane"]')
   .addEventListener("click", (event) => pickLane(event.currentTarget, "left"));

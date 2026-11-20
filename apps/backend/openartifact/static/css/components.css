@@ -95,9 +95,10 @@
   transition: opacity var(--transition-base), max-width var(--transition-base);
   max-width: 12rem;
 }
-:root[data-sidebar="collapsed"] .sidebar__name,
-:root[data-sidebar="collapsed"] .nav-link__label,
-:root[data-sidebar="collapsed"] .sidebar__footer-text {
+/* scoped to .sidebar: other navs (dialog rail) have their own collapsed state */
+:root[data-sidebar="collapsed"] .sidebar .sidebar__name,
+:root[data-sidebar="collapsed"] .sidebar .nav-link__label,
+:root[data-sidebar="collapsed"] .sidebar .sidebar__footer-text {
   opacity: 0;
   max-width: 0;
 }
@@ -285,23 +286,10 @@
 .task-card__delete:hover { color: var(--color-danger); background: transparent; border-color: var(--glass-border); }
 @media (hover: none) { .task-card__delete { opacity: 1; } }
 
-/* Drag handle: only on touch devices. Pressing it drags immediately (touch-action: none keeps
-   the browser from turning the gesture into a scroll); the rest of the card still needs a
-   long press there, so scrolling the board by swiping over cards keeps working. */
-.task-card__handle { display: none; }
+/* Touch: the card itself is the handle. Vertical swipes stay native (scroll the lane),
+   horizontal swipes are left to the drag controller (a card moves between lanes sideways). */
 @media (hover: none), (pointer: coarse) {
-  .task-card { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .task-card__handle {
-    display: grid;
-    place-items: center;
-    align-self: stretch;
-    width: 2.25rem;
-    margin: calc(var(--space-3) * -1) 0 calc(var(--space-3) * -1) calc(var(--space-4) * -1);
-    color: var(--color-text-muted);
-    cursor: grab;
-    touch-action: none;
-  }
-  .task-card__handle .icon { width: 1.1rem; height: 1.1rem; }
+  .task-card { touch-action: pan-y; }
 }
 
 /* Drag & drop states */
@@ -445,6 +433,53 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 }
 .popover__option:hover,
 .popover__option:focus-visible { background: var(--accent-soft); outline: none; }
+/* Easter egg: the lane menu of the lane chip unrolls out of the chip. No top edge, the side
+   lines fade in, the lanes are chips themselves. */
+.popover--chips {
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 9rem;
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  border: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  /* opaque in the dialog's own colour: the menu grows out of the dialog without a top edge */
+  background: color-mix(in srgb, var(--color-glass-card) 98%, var(--color-background));
+  box-shadow: none;
+  filter: drop-shadow(0 10px 14px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) * 0.8), transparent));
+  animation: chips-unroll 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.popover--chips::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(to bottom, transparent, var(--glass-border) 2.5rem);
+  /* keep only a 1px ring: side and bottom lines that fade in from the top */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+.popover--chips .popover__caption { display: none; }
+.popover__option--chip {
+  height: auto;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  font-size: 0.75rem;
+  line-height: 1.5rem;
+  animation: chip-in 200ms ease-out both;
+  animation-delay: calc(var(--i, 0) * 45ms + 70ms);
+}
+.popover__option--chip:hover { background: color-mix(in srgb, var(--color-accent) 24%, transparent); }
+.popover__option--chip:focus-visible {
+  background: color-mix(in srgb, var(--color-accent) 24%, transparent);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+@keyframes chips-unroll { from { clip-path: inset(0 0 100% 0); opacity: 0.4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes chip-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @keyframes popover-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
 /* ── Narrow: the sidebar never takes width from the board ─────────
