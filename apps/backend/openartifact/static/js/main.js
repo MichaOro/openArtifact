@@ -22,6 +22,13 @@
 
   if (themeBtn) themeBtn.addEventListener("click", OA.Theme.toggle);
   if (sidebarBtn) sidebarBtn.addEventListener("click", OA.Sidebar.toggle);
+  // Narrow: the expanded sidebar is an overlay, so tapping outside it (or Escape) closes it.
+  document.addEventListener("pointerdown", function (e) {
+    if (OA.Sidebar.isNarrow() && !e.target.closest("#sidebar")) OA.Sidebar.collapseIfNarrow();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") OA.Sidebar.collapseIfNarrow();
+  });
   document.addEventListener("themechange", syncTheme);
   document.addEventListener("sidebarchange", syncSidebar);
   syncTheme();

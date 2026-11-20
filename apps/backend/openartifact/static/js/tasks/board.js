@@ -1,60 +1,144 @@
-/* Renders tasks into the Kanban lanes and keeps the lane counters in sync.
+/* The board: owns the task state and the DOM of the three lanes.
+ *
+ * Everything that changes a task funnels through upsert()/remove(), no matter where the
+ * change came from (own API response, SSE event from any tab, optimistic drag & drop).
+ * Both are idempotent, so the same change arriving twice is harmless.
  * Content is always set via textContent (never innerHTML). */
 
 export class Board {
-  /**
-   * @param {object} options
-   * @param {() => Promise<object[]>} options.loadTasks
-   */
+  /** @param {{loadTasks: () => Promise<object[]>}} options */
   constructor({ loadTasks }) {
     this.loadTasks = loadTasks;
+    this.element = document.querySelector(".board");
     this.template = document.getElementById("task-card-template");
     this.errorBox = document.querySelector("[data-board-error]");
     this.errorText = document.querySelector("[data-board-error-text]");
+    this.retryButton = document.querySelector("[data-board-retry]");
+    this.liveRegion = document.querySelector("[data-live-region]");
+
+    this.loaded = false;
+    /** @type {Map<string, object>} */ this.tasks = new Map();
+    /** @type {Map<string, HTMLElement>} */ this.cards = new Map();
+    /** @type {Map<string, {section: HTMLElement, list: HTMLElement, count: HTMLElement, title: string}>} */
     this.lanes = new Map();
     document.querySelectorAll("[data-lane]").forEach((section) => {
       this.lanes.set(section.dataset.status, {
+        section,
         list: section.querySelector(".lane__cards"),
         count: section.querySelector(".lane__count"),
+        title: section.querySelector(".lane__title").textContent.trim(),
       });
     });
 
-    document.querySelector("[data-board-retry]")?.addEventListener("click", () => this.load());
+    this.retryButton?.addEventListener("click", () => this.load());
   }
 
+  /** Lane order as shown on screen (left to right). */
+  get statuses() {
+    return [...this.lanes.keys()];
+  }
+
+  laneTitle(status) {
+    return this.lanes.get(status)?.title ?? status;
+  }
+
+  /** Reconcile with the server: add/update everything listed, drop everything else. */
   async load() {
     try {
       const tasks = await this.loadTasks();
-      this.#setError("");
-      this.lanes.forEach(({ list }) => list.replaceChildren());
-      // The API returns newest first, so appending keeps that order.
-      tasks.forEach((task) => this.#cardList(task)?.append(this.#createCard(task)));
-      this.#updateCounts();
+      const seen = new Set(tasks.map((t) => t.id));
+      [...this.tasks.keys()].filter((id) => !seen.has(id)).forEach((id) => this.remove(id));
+      tasks.forEach((task) => this.upsert(task));
+      this.loaded = true;
+      this.#clearError();
     } catch (error) {
-      this.#setError(error.message || "Tasks could not be loaded.");
+      this.showError(error.message || "Tasks could not be loaded.", { retry: true });
     }
   }
 
-  /** Show a freshly created task at the top of its lane. */
-  add(task) {
-    const card = this.#createCard(task);
-    card.classList.add("task-card--new");
-    this.#cardList(task)?.prepend(card);
+  /** Create the card, or update it (and move it between lanes) if it exists. */
+  upsert(task) {
+    const previous = this.tasks.get(task.id);
+    this.tasks.set(task.id, task);
+
+    let card = this.cards.get(task.id);
+    const isNew = !card;
+    if (!card) {
+      card = this.#createCard(task);
+      this.cards.set(task.id, card);
+    }
+    this.#renderContent(card, task);
+
+    if (isNew || previous.status !== task.status) {
+      this.#place(card, task);
+      if (isNew && this.loaded) card.classList.add("task-card--new");
+    }
+    this.#updateCounts();
+    return card;
+  }
+
+  remove(id) {
+    this.cards.get(id)?.remove();
+    this.cards.delete(id);
+    this.tasks.delete(id);
     this.#updateCounts();
   }
 
-  #cardList(task) {
-    return this.lanes.get(task.status)?.list;
+  /** Task data for a card element (or null). */
+  taskOf(card) {
+    return this.tasks.get(card?.dataset.taskId) ?? null;
+  }
+
+  /** Screen-reader announcement (moves, deletions). */
+  announce(message) {
+    if (!this.liveRegion) return;
+    this.liveRegion.textContent = "";
+    // A changed text node is what triggers the announcement. (setTimeout, not
+    // requestAnimationFrame: frames are paused in background tabs.)
+    window.setTimeout(() => (this.liveRegion.textContent = message), 50);
+  }
+
+  /** @param {{retry?: boolean}} options retry: offer the "Retry" button (load errors) */
+  showError(message, { retry = false } = {}) {
+    this.errorText.textContent = message;
+    if (this.retryButton) this.retryButton.hidden = !retry;
+    this.errorBox.hidden = false;
+    window.clearTimeout(this._errorTimer);
+    if (!retry) this._errorTimer = window.setTimeout(() => this.#clearError(), 6000);
+  }
+
+  #clearError() {
+    this.errorBox.hidden = true;
   }
 
   #createCard(task) {
     const card = this.template.content.firstElementChild.cloneNode(true);
     card.dataset.taskId = task.id;
+    return card;
+  }
+
+  #renderContent(card, task) {
     card.querySelector(".task-card__title").textContent = task.title;
     const body = card.querySelector(".task-card__body");
     body.textContent = task.body ?? "";
     body.hidden = !task.body;
-    return card;
+    card.querySelector("[data-delete-task]").setAttribute("aria-label", `Delete task ${task.title}`);
+  }
+
+  /** Insert into the lane keeping the server's order: newest first, ties by id. */
+  #place(card, task) {
+    const list = this.lanes.get(task.status)?.list;
+    if (!list) return;
+    const before = [...list.children].find((other) => {
+      const o = this.tasks.get(other.dataset.taskId);
+      return o && o.id !== task.id && this.#compare(task, o) < 0;
+    });
+    list.insertBefore(card, before ?? null);
+  }
+
+  #compare(a, b) {
+    if (a.created_at !== b.created_at) return a.created_at > b.created_at ? -1 : 1;
+    return a.id < b.id ? -1 : 1;
   }
 
   #updateCounts() {
@@ -63,10 +147,5 @@ export class Board {
       count.textContent = String(n);
       count.setAttribute("aria-label", `${n} ${n === 1 ? "task" : "tasks"}`);
     });
-  }
-
-  #setError(message) {
-    this.errorText.textContent = message;
-    this.errorBox.hidden = !message;
   }
 }

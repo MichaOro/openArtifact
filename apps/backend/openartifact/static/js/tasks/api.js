@@ -24,6 +24,7 @@ async function request(url, options = {}) {
     throw new ApiError("Could not reach the server. Please check your connection and try again.", 0);
   }
 
+  if (response.status === 204) return null;
   if (response.ok) return response.json();
 
   let detail = null;
@@ -49,3 +50,17 @@ export const listTasks = () => request("/api/tasks");
 /** @param {{title: string, body: string, status: string}} task */
 export const createTask = (task) =>
   request("/api/tasks", { method: "POST", body: JSON.stringify(task) });
+
+/**
+ * Partial update of a task: any of title, body, status. @param {string} id
+ * @param {{title?: string, body?: string|null, status?: string}} fields
+ */
+export const updateTask = (id, fields) =>
+  request(`/api/tasks/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(fields) });
+
+/** Move a task to another lane. @param {string} id @param {string} status */
+export const moveTask = (id, status) => updateTask(id, { status });
+
+/** @param {string} id */
+export const deleteTask = (id) =>
+  request(`/api/tasks/${encodeURIComponent(id)}`, { method: "DELETE" });

@@ -28,6 +28,14 @@
   background: color-mix(in srgb, var(--color-accent) 86%, var(--color-highlight));
 }
 
+.button--danger {
+  background: var(--color-danger);
+  color: var(--color-on-accent);
+}
+.button--danger:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: color-mix(in srgb, var(--color-danger) 86%, var(--color-highlight));
+}
+
 .button--ghost {
   background: var(--glass-bg);
   border-color: var(--glass-border);

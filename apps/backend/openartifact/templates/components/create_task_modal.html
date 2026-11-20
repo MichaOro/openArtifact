@@ -1,5 +1,7 @@
 {% from "components/modal.html" import modal %}
+{% from "components/icons.html" import icon %}
 {% call modal("create-task-modal", "Create Task", subtitle=True) %}
+<div class="modal__layout">
 <form class="task-form" id="create-task-form" novalidate>
     <div class="modal__body">
         <div class="field">
@@ -20,8 +22,35 @@
         <button type="button" class="button button--ghost" data-modal-close data-cancel>Cancel</button>
         <button type="submit" class="button button--primary" data-submit>
             <span class="spinner" aria-hidden="true"></span>
-            <span>Create Task</span>
+            <span data-submit-label>Create Task</span>
         </button>
     </footer>
 </form>
+<aside class="card-nav" data-card-nav data-state="collapsed" aria-label="Task details" hidden>
+    <ul class="nav-list card-nav__fields">
+        <li>
+            <button type="button" class="nav-link card-nav__field" data-card-field="lane"
+                    aria-haspopup="listbox" aria-expanded="false" title="Lane">
+                {{ icon("columns") }}
+                <span class="nav-link__label">
+                    <span class="card-nav__key">Lane</span>
+                    <span class="card-nav__value" data-lane-value></span>
+                </span>
+            </button>
+        </li>
+    </ul>
+    <ul class="nav-list card-nav__actions">
+        <li>
+            <button type="button" class="nav-link nav-link--danger" data-card-action="delete" title="Delete task">
+                {{ icon("trash") }}
+                <span class="nav-link__label">Delete</span>
+            </button>
+        </li>
+    </ul>
+    <button type="button" class="icon-button icon-button--sm card-nav__toggle" data-card-nav-toggle
+            aria-controls="card-nav-fields" aria-expanded="false" aria-label="Expand task details">
+        {{ icon("chevrons-right") }}
+    </button>
+</aside>
+</div>
 {% endcall %}

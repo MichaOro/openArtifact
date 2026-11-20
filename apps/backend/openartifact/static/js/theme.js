@@ -7,6 +7,7 @@
   var THEME_KEY = "openartifact-theme";
   var SIDEBAR_KEY = "openartifact-sidebar";
   var media = window.matchMedia("(prefers-color-scheme: dark)");
+  var narrowQuery = window.matchMedia("(max-width: 640px), (max-height: 500px) and (max-width: 960px)");
 
   function read(key) {
     try { return window.localStorage.getItem(key); } catch (e) { return null; }
@@ -52,14 +53,25 @@
       root.setAttribute("data-sidebar", state);
       document.dispatchEvent(new CustomEvent("sidebarchange", { detail: { state: state } }));
     },
+    /* Narrow = portrait phones and phones on their side. Keep in sync with the CSS media
+       query that turns the expanded sidebar into an overlay (components.css). */
+    isNarrow: function () { return narrowQuery.matches; },
+    /* On narrow screens the sidebar is only ever expanded temporarily (it overlays the board),
+       so that state is NOT stored and the desktop preference survives. */
     toggle: function () {
       var next = Sidebar.current() === "collapsed" ? "expanded" : "collapsed";
-      write(SIDEBAR_KEY, next);
+      if (!Sidebar.isNarrow()) write(SIDEBAR_KEY, next);
       Sidebar.apply(next);
     },
+    collapseIfNarrow: function () {
+      if (Sidebar.isNarrow() && Sidebar.current() !== "collapsed") Sidebar.apply("collapsed");
+    },
+    desktopState: function () { return Sidebar.stored() || "expanded"; },
     init: function () {
-      var narrow = window.matchMedia("(max-width: 640px)").matches;
-      Sidebar.apply(Sidebar.stored() || (narrow ? "collapsed" : "expanded"));
+      Sidebar.apply(Sidebar.isNarrow() ? "collapsed" : Sidebar.desktopState());
+      // Entering a narrow layout always collapses; leaving it restores the desktop preference.
+      var onChange = function (e) { Sidebar.apply(e.matches ? "collapsed" : Sidebar.desktopState()); };
+      if (narrowQuery.addEventListener) narrowQuery.addEventListener("change", onChange);
     }
   };
 

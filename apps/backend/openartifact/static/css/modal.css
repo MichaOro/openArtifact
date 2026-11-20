@@ -54,8 +54,16 @@ html:has(.modal[open]) { overflow: hidden; }
   color: var(--color-text-primary);
   font-size: 0.75rem;
   line-height: 1.5rem;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast);
 }
+.modal__subtitle:hover { background: color-mix(in srgb, var(--color-accent) 24%, transparent); }
 .modal__subtitle:empty { display: none; }
+
+.modal__layout { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.modal__layout > .task-form { min-width: 0; }
 
 .modal__body {
   display: flex;
@@ -63,6 +71,9 @@ html:has(.modal[open]) { overflow: hidden; }
   gap: var(--space-4);
   padding: var(--space-2) var(--space-5) var(--space-4);
 }
+.confirm-text { overflow-wrap: anywhere; }
+.confirm-text__subject { font-weight: 600; }
+
 .modal__footer {
   display: flex;
   justify-content: flex-end;
@@ -78,10 +89,23 @@ html:has(.modal[open]) { overflow: hidden; }
 }
 
 @media (max-width: 640px) {
+  .card-nav__toggle { display: none; }
+  .card-nav .nav-link__label { opacity: 0; max-width: 0; }
+  .card-nav .nav-link { gap: 0; }
   .modal { padding: var(--space-3); }
   .modal__header { padding: var(--space-4) var(--space-4) var(--space-2); }
   .modal__body { padding: var(--space-2) var(--space-4) var(--space-3); }
   .modal__footer { padding: var(--space-3) var(--space-4); }
+}
+
+/* Narrow landscape: keep the whole form reachable without a tall panel */
+@media (max-height: 500px) {
+  .modal { padding: var(--space-2); }
+  .modal__header { padding: var(--space-3) var(--space-4) var(--space-1); }
+  .modal__subtitle { margin-top: var(--space-1); }
+  .modal__body { gap: var(--space-3); padding: var(--space-1) var(--space-4) var(--space-3); }
+  .modal__footer { padding: var(--space-2) var(--space-4); }
+  .modal textarea.field__control { min-height: 4.5rem; }
 }
 
 /* Without backdrop-filter the overlay needs to carry more of the separation itself */

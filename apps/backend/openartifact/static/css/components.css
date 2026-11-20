@@ -18,9 +18,10 @@
 
 /* ── App shell ───────────────────────────────────────────────────── */
 .app-shell {
+  height: 100vh;
+  height: 100dvh;
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  min-height: 100vh;
   transition: grid-template-columns var(--transition-base);
 }
 :root[data-sidebar="collapsed"] .app-shell {
@@ -32,6 +33,7 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -139,7 +141,7 @@
 :root[data-theme="dark"] .theme-toggle .icon--moon { display: none; }
 
 /* ── Main + header ───────────────────────────────────────────────── */
-.main { display: flex; flex-direction: column; min-width: 0; }
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
 .app-header {
   display: flex;
@@ -159,15 +161,24 @@
 }
 .app-header__title { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
 
-.content { flex: 1; padding: var(--space-5); min-width: 0; }
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  min-width: 0;
+  min-height: 0;
+}
 
 /* ── Kanban ──────────────────────────────────────────────────────── */
 .board {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
+  grid-template-rows: minmax(0, 1fr);
   align-items: stretch;
-  min-height: calc(100vh - var(--header-height) - 2 * var(--space-5));
+  flex: 1;
+  min-height: 0;
 }
 
 .lane {
@@ -176,6 +187,12 @@
   gap: var(--space-3);
   padding: var(--space-4);
   min-width: 0;
+  min-height: 0;
+}
+.lane--drop-target {
+  border-color: var(--color-accent);
+  background: var(--glass-fill-hover);
+  box-shadow: var(--glass-edge), 0 0 0 3px var(--accent-soft), var(--shadow-card-hover);
 }
 .lane__header {
   display: flex;
@@ -207,7 +224,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-height: 12rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* room so focus rings and shadows of the cards are not clipped by the scroll container */
+  padding: 4px;
+  margin: -4px;
 }
 
 .lane__heading { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
@@ -225,10 +247,16 @@
 
 /* Task card: lighter, more opaque than the lane so it reads as a separate layer */
 .task-card {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: var(--space-2);
   min-width: 0;
+  flex: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
@@ -240,6 +268,62 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .task-card:hover { border-color: var(--glass-border-hover); }
+.task-card__content { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+/* Delete: revealed on hover/focus, always visible where there is no hover (touch) */
+.task-card__delete {
+  margin: calc(var(--space-1) * -1) calc(var(--space-1) * -1) 0 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--color-text-muted);
+  opacity: 0;
+}
+.task-card:hover .task-card__delete,
+.task-card:focus-within .task-card__delete,
+.task-card__delete:focus-visible { opacity: 1; }
+.task-card__delete:hover { color: var(--color-danger); background: transparent; border-color: var(--glass-border); }
+@media (hover: none) { .task-card__delete { opacity: 1; } }
+
+/* Drag handle: only on touch devices. Pressing it drags immediately (touch-action: none keeps
+   the browser from turning the gesture into a scroll); the rest of the card still needs a
+   long press there, so scrolling the board by swiping over cards keeps working. */
+.task-card__handle { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .task-card { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .task-card__handle {
+    display: grid;
+    place-items: center;
+    align-self: stretch;
+    width: 2.25rem;
+    margin: calc(var(--space-3) * -1) 0 calc(var(--space-3) * -1) calc(var(--space-4) * -1);
+    color: var(--color-text-muted);
+    cursor: grab;
+    touch-action: none;
+  }
+  .task-card__handle .icon { width: 1.1rem; height: 1.1rem; }
+}
+
+/* Drag & drop states */
+.task-card--placeholder { opacity: 0.35; }
+.task-card--ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 200;
+  margin: 0;
+  pointer-events: none;
+  cursor: grabbing;
+  opacity: 0.96;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-highlight) calc(var(--edge-strength) * 0.6), transparent),
+    0 18px 40px -10px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) + 12%), transparent);
+  will-change: transform;
+}
+body.is-dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+/* Snap points would fight the edge auto-scroll while a card is being dragged */
+body.is-dragging .board { scroll-snap-type: none; }
+body.is-dragging * { cursor: grabbing !important; }
 .task-card--new { animation: card-in 220ms ease-out; }
 @keyframes card-in {
   from { opacity: 0; transform: translateY(-6px); }
@@ -296,14 +380,136 @@
 .lane__cards:empty { display: none; }
 .lane__cards:not(:empty) + .empty-state { display: none; }
 
-/* ── Responsive ──────────────────────────────────────────────────── */
-@media (max-width: 960px) {
-  .board { grid-template-columns: 1fr; min-height: 0; }
-  .lane__cards { min-height: 7rem; }
+/* ── Card navigation (right rail in the task dialog) ─────────────
+   Same visual language as the main sidebar: icon rail, expandable to icon + label,
+   collapsed by default. Items are buttons; more actions will be added here. */
+button.nav-link { width: 100%; border: 0; background: transparent; font: inherit; cursor: pointer; text-align: left; }
+.card-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2);
+  border-left: 1px solid var(--glass-border);
+  min-width: 0;
 }
+/* fields at the top; actions and the toggle at the bottom */
+.card-nav__actions { margin-top: auto; }
+/* the toggle sits in the same column as the item icons: nav-link icon centre is
+   padding (space-3) + half the 1.25rem icon; the 2rem button centres its icon at 1rem */
+.card-nav__toggle { align-self: flex-start; margin-left: calc(var(--space-3) + 0.625rem - 1rem); }
+.card-nav__field .nav-link__label { display: flex; flex-direction: column; line-height: 1.2; }
+.card-nav__key { font-size: 0.6875rem; color: var(--color-text-muted); }
+.card-nav__value { font-size: 0.8125rem; color: var(--color-text-primary); white-space: nowrap; }
+.card-nav__toggle .icon { transition: transform var(--transition-base); }
+.card-nav[data-state="collapsed"] .card-nav__toggle .icon { transform: rotate(180deg); }
+.card-nav .nav-link__label { overflow: hidden; transition: opacity var(--transition-base), max-width var(--transition-base); max-width: 9rem; }
+.card-nav[data-state="collapsed"] .nav-link__label { opacity: 0; max-width: 0; }
+.card-nav .nav-link { transition: gap var(--transition-base), background var(--transition-fast), color var(--transition-fast); }
+/* no gap next to a hidden label, otherwise the collapsed rail is wider than its icon */
+.card-nav[data-state="collapsed"] .nav-link { gap: 0; }
+.card-nav .nav-link--danger:hover { color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 12%, transparent); }
+
+/* ── Popover menu (lane picker) ───────────────────────────────────── */
+.popover {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 11rem;
+  padding: var(--space-1);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-glass-card) 96%, var(--color-background));
+  box-shadow: var(--shadow-card-hover);
+  animation: popover-in 140ms ease-out;
+}
+.popover__caption {
+  padding: var(--space-1) var(--space-3) 0;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+.popover__option {
+  display: flex;
+  align-items: center;
+  height: 2.25rem;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+.popover__option:hover,
+.popover__option:focus-visible { background: var(--accent-soft); outline: none; }
+@keyframes popover-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* ── Narrow: the sidebar never takes width from the board ─────────
+   The grid column stays at the collapsed width; an expanded sidebar overlays the board.
+   (Media query must match `narrowQuery` in theme.js.) */
+@media (max-width: 640px), (max-height: 500px) and (max-width: 960px) {
+  .app-shell,
+  :root[data-sidebar="expanded"] .app-shell {
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr);
+  }
+  .sidebar {
+    justify-self: start;
+    width: var(--sidebar-width-collapsed);
+    z-index: 30;
+    transition: width var(--transition-base), box-shadow var(--transition-base);
+  }
+  :root[data-sidebar="expanded"] .sidebar {
+    width: var(--sidebar-width);
+    background: color-mix(in srgb, var(--color-surface) 94%, var(--color-background));
+    box-shadow: 0 0 48px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) + 12%), transparent);
+  }
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+
+/* Narrow (portrait phones, small tablets): lanes become a horizontal swipe board with
+   snap points; the next lane peeks in so it is obvious that there is more. */
+@media (max-width: 960px) {
+  .board {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: min(calc(100% - 2.5rem), 22rem);
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 0;
+    padding-bottom: var(--space-2);
+  }
+  .lane { scroll-snap-align: start; }
+}
+
 @media (max-width: 640px) {
+  :root { --sidebar-width-collapsed: 3.5rem; }
   .content { padding: var(--space-3); }
   .app-header { padding: 0 var(--space-3); }
+  .sidebar { padding-inline: var(--space-2); }
+}
+
+/* Narrow landscape (phones on their side): height is the scarce resource. */
+@media (max-height: 500px) {
+  :root {
+    --header-height: 3rem;
+    --sidebar-width-collapsed: 3.5rem;
+  }
+  .app-header { padding: 0 var(--space-4); }
+  .app-header__title { font-size: 1rem; }
+  .content { padding: var(--space-3); }
+  .sidebar { gap: var(--space-3); padding: var(--space-2); }
+  .sidebar__brand { height: 2rem; }
+  .nav-link { height: 2.25rem; }
+  .lane { gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); }
+  .lane__title { font-size: 0.75rem; }
+  .empty-state { padding: var(--space-3); flex-direction: row; gap: var(--space-3); }
+  .board-alert { margin-bottom: var(--space-2); padding: var(--space-2) var(--space-3); }
 }
 
 /* ── Fallback: no backdrop-filter → more opaque fill so text stays readable ── */

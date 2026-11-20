@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "components/lane.html" import lane %}
+{% from "components/icons.html" import icon %}
 {% block title %}Projects · OpenArtifact{% endblock %}
 {% block content %}
 <div class="board-alert glass" role="alert" hidden data-board-error>
@@ -7,19 +8,27 @@
     <button type="button" class="button button--ghost button--sm" data-board-retry>Retry</button>
 </div>
 <div class="board" role="group" aria-label="Kanban board">
-    {{ lane("Backlog", "backlog", "backlog") }}
-    {{ lane("In Progress", "in-progress", "in_progress") }}
-    {{ lane("Done", "done", "done") }}
+    {% for board_lane in lanes %}
+    {{ lane(board_lane.title, board_lane.key, board_lane.status.value) }}
+    {% endfor %}
 </div>
 
 <template id="task-card-template">
-    <li class="task-card">
-        <h3 class="task-card__title"></h3>
-        <p class="task-card__body"></p>
+    <li class="task-card" tabindex="0" aria-keyshortcuts="Enter Alt+ArrowLeft Alt+ArrowRight Delete" aria-haspopup="dialog">
+        <span class="task-card__handle" data-drag-handle aria-hidden="true">{{ icon("grip") }}</span>
+        <div class="task-card__content">
+            <h3 class="task-card__title"></h3>
+            <p class="task-card__body"></p>
+        </div>
+        <button type="button" class="icon-button icon-button--sm task-card__delete" data-delete-task
+                aria-label="Delete task" title="Delete task">{{ icon("trash") }}</button>
     </li>
 </template>
 
+<div class="visually-hidden" role="status" aria-live="polite" data-live-region></div>
+
 {% include "components/create_task_modal.html" %}
+{% include "components/delete_task_modal.html" %}
 {% endblock %}
 {% block scripts %}
 <script type="module" src="/static/js/tasks/main.js"></script>

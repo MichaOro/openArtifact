@@ -144,7 +144,7 @@ def test_board_has_three_empty_lanes(client: TestClient) -> None:
     assert html.count('class="lane__count"') == 3
     assert html.count(">0</span>") == 3
     assert html.count("No tasks yet") == 3
-    assert 'class="card' not in html
+    assert "data-task-id" not in html  # cards are rendered client-side; none are baked in
 
 
 def test_toggles_are_accessible(client: TestClient) -> None:
@@ -169,14 +169,14 @@ def test_design_tokens_define_mandatory_colors() -> None:
         "#9665ff",
         "#aab3bf",
         "#ece7f8",
-        # light
-        "#c1c9d4",
-        "#aab3bf",
-        "#dce1e7",
-        "#939daa",
+        # light (Sand Dune)
+        "#f0ede5",
+        "#e7e1d6",
+        "#faf8f3",
+        "#d5cec1",
         "#8050e8",
         "#110d29",
-        "#3b4550",
+        "#514b43",
     ):
         assert value in css, value
 
@@ -234,3 +234,91 @@ def test_task_modules_are_served(client: TestClient) -> None:
         "/static/css/modal.css",
     ):
         assert client.get(path).status_code == 200, path
+
+
+def test_light_theme_is_sand_dune_without_old_palettes() -> None:
+    """Light tokens are the Sand Dune palette; old Lavender/Glacial Slate values are gone."""
+    css = (
+        Path(__file__).parent.parent / "openartifact" / "static" / "css" / "tokens.css"
+    ).read_text()
+    light = css[
+        css.index("Semantic colour tokens: Light") : css.index("Semantic colour tokens: Dark")
+    ]
+    for old in (
+        "#f5f2fc",
+        "#ece7f8",
+        "#dad1ed",
+        "#c1c9d4",
+        "#aab3bf",
+        "#dce1e7",
+        "#939daa",
+        "#3b4550",
+    ):
+        assert old not in light, old
+
+
+def test_static_assets_are_revalidated_not_heuristically_cached(client: TestClient) -> None:
+    """Assets are not fingerprinted, so browsers must revalidate (ETag -> 304)."""
+    first = client.get("/static/js/tasks/main.js")
+    assert first.headers["cache-control"] == "no-cache"
+    assert first.headers["etag"]
+    again = client.get("/static/js/tasks/main.js", headers={"If-None-Match": first.headers["etag"]})
+    assert again.status_code == 304
+
+
+def test_task_modal_supports_create_and_edit_modes(client: TestClient) -> None:
+    """The same dialog is reused for editing: its title and submit label are switchable."""
+    html = client.get("/").text
+    assert "data-submit-label" in html
+    assert 'class="modal__title"' in html
+    assert "data-delete-task" in html  # card template carries the delete button
+    assert 'id="delete-task-modal"' in html
+    assert "data-live-region" in html
+
+
+def test_task_dialog_has_collapsed_card_navigation_with_delete(client: TestClient) -> None:
+    """Right-hand rail in the task dialog: collapsed by default, only action is Delete."""
+    html = client.get("/").text
+    assert 'data-card-nav data-state="collapsed"' in html
+    assert "data-card-nav-toggle" in html
+    assert 'aria-label="Expand task details"' in html
+    assert html.count("data-card-action=") == 1
+    assert 'data-card-action="delete"' in html
+    assert "collapsible-nav.js" in client.get("/static/js/tasks/main.js").text
+    assert client.get("/static/js/components/collapsible-nav.js").status_code == 200
+
+
+# ── Lanes are configuration, not markup ───────────────────────────────
+
+
+def test_lane_config_covers_every_status_exactly_once() -> None:
+    """BOARD_LANES is the single source of the lanes; it must match the allowed statuses."""
+    from openartifact.models import TaskStatus
+    from openartifact.tasks.lanes import BOARD_LANES
+
+    assert [lane.status for lane in BOARD_LANES] == list(TaskStatus)
+    assert [lane.key for lane in BOARD_LANES] == ["backlog", "in-progress", "done"]
+
+
+def test_board_renders_lanes_from_config(client: TestClient) -> None:
+    """Lane order, titles and API status come from BOARD_LANES."""
+    from openartifact.tasks.lanes import BOARD_LANES
+
+    html = client.get("/").text
+    positions = [html.index(f'data-status="{lane.status.value}"') for lane in BOARD_LANES]
+    assert positions == sorted(positions)
+    for lane in BOARD_LANES:
+        assert f'data-lane="{lane.key}" data-status="{lane.status.value}"' in html
+        assert f">{lane.title}</h2>" in html
+
+
+def test_task_dialog_offers_lane_switch(client: TestClient) -> None:
+    """Lane chip (no icon, a button) and the Lane field of the rail both open the lane menu."""
+    html = client.get("/").text
+    assert (
+        '<button type="button" class="modal__subtitle" data-modal-subtitle '
+        'aria-haspopup="listbox" aria-expanded="false"></button>'
+    ) in html
+    assert 'data-card-field="lane"' in html
+    assert "data-lane-value" in html
+    assert client.get("/static/js/components/lane-picker.js").status_code == 200

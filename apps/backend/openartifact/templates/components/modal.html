@@ -1,14 +1,16 @@
 {% from "components/icons.html" import icon %}
 {# Reusable modal dialog (native <dialog>; behaviour in static/js/components/modal.js).
    Usage:  {% call modal("my-modal", "Title", subtitle=True) %} …body… {% endcall %}
-   Any element inside with [data-modal-close] closes the modal. #}
+   Any element inside with [data-modal-close] closes the modal.
+   `subtitle`: a chip under the title. It is a button so it can open a menu (task dialog: lane
+   switch); it deliberately has no icon or caret. #}
 {% macro modal(id, title, subtitle=False) -%}
 <dialog class="modal" id="{{ id }}" aria-labelledby="{{ id }}-title">
     <div class="modal__panel">
         <header class="modal__header">
             <div class="modal__heading">
                 <h2 class="modal__title" id="{{ id }}-title">{{ title }}</h2>
-                {% if subtitle %}<p class="modal__subtitle" data-modal-subtitle></p>{% endif %}
+                {% if subtitle %}<button type="button" class="modal__subtitle" data-modal-subtitle aria-haspopup="listbox" aria-expanded="false"></button>{% endif %}
             </div>
             <button type="button" class="icon-button icon-button--sm" data-modal-close aria-label="Close dialog">
                 {{ icon("x") }}
