@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -21,17 +22,17 @@ def settings(tmp_path: Path) -> Settings:
 
 
 @pytest.fixture
-def app_routes() -> Callable:
+def app_routes() -> Callable[[Any], list[str]]:
     """Collect all route paths from a FastAPI app, recursively."""
 
-    def _collect(app) -> list[str]:
+    def _collect(app: Any) -> list[str]:
         paths: list[str] = []
         for route in app.routes:
             # Recursively find all paths including nested routers
             _find_paths(route, paths)
         return paths
 
-    def _find_paths(route, paths: list[str]) -> None:
+    def _find_paths(route: Any, paths: list[str]) -> None:
         path = getattr(route, "path", None)
         if path:
             paths.append(path)
