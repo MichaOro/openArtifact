@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from openartifact.api.events import EventBusDep
 from openartifact.database import get_db_session
 from openartifact.tasks.repository import TaskRepository
-from openartifact.tasks.schemas import TaskCreate, TaskMove, TaskRead
+from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -47,21 +47,26 @@ async def create_task(payload: TaskCreate, session: SessionDep, bus: EventBusDep
 
 
 @router.patch("/{task_id}", response_model=TaskRead)
-async def move_task(
-    task_id: str, payload: TaskMove, session: SessionDep, bus: EventBusDep
+async def update_task(
+    task_id: str, payload: TaskUpdate, session: SessionDep, bus: EventBusDep
 ) -> TaskRead:
-    """Move a task to another lane. Publishes ``task.moved`` (not for a no-op)."""
+    """Edit a task and/or move it to another lane.
+
+    Publishes ``task.moved`` when only the lane changed, ``task.updated`` for any other
+    change, and nothing when the request changes nothing.
+    """
     repo = TaskRepository(session)
     task = await repo.get(task_id)
     if task is None:
         raise _NOT_FOUND
-    if task.status == payload.status.value:
+    changed = await repo.update(task, payload)
+    if not changed:
         return TaskRead.model_validate(task)
-    await repo.set_status(task, payload.status)
     await session.commit()
-    moved = TaskRead.model_validate(task)
-    bus.publish("task.moved", moved.model_dump(mode="json"))
-    return moved
+    updated = TaskRead.model_validate(task)
+    event_type = "task.moved" if changed == {"status"} else "task.updated"
+    bus.publish(event_type, updated.model_dump(mode="json"))
+    return updated
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -11,6 +11,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from openartifact.tasks.lanes import BOARD_LANES
+
 APP_VERSION = "0.1.0"
 
 router = APIRouter()
@@ -31,5 +33,6 @@ async def index(request: Request) -> HTMLResponse:
             "page_title": "Projects",
             "active_nav": "projects",
             "app_version": APP_VERSION,
+            "lanes": BOARD_LANES,
         },
     )

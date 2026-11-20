@@ -12,6 +12,7 @@ from pydantic import (
     StringConstraints,
     field_serializer,
     field_validator,
+    model_validator,
 )
 
 from openartifact.models import TaskStatus
@@ -41,12 +42,41 @@ class TaskCreate(BaseModel):
         return value.strip()
 
 
-class TaskMove(BaseModel):
-    """Payload for moving a task to another lane."""
+class TaskUpdate(BaseModel):
+    """Partial update: only the fields that are sent are changed.
+
+    ``status`` moves the task to another lane, ``title``/``body`` edit its content.
+    ``body: null`` (or blank) clears the description; ``title`` and ``status`` cannot be null.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    status: TaskStatus
+    title: (
+        Annotated[
+            str,
+            StringConstraints(strip_whitespace=True, min_length=1, max_length=TITLE_MAX_LENGTH),
+        ]
+        | None
+    ) = None
+    body: Annotated[str | None, Field(max_length=BODY_MAX_LENGTH)] = None
+    status: TaskStatus | None = None
+
+    @field_validator("body")
+    @classmethod
+    def _blank_body_is_none(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        return value.strip()
+
+    @model_validator(mode="after")
+    def _check_fields(self) -> TaskUpdate:
+        sent = self.model_fields_set
+        if not sent:
+            raise ValueError("At least one of title, body or status is required")
+        for name in ("title", "status"):
+            if name in sent and getattr(self, name) is None:
+                raise ValueError(f"{name} must not be null")
+        return self
 
 
 class TaskRead(BaseModel):

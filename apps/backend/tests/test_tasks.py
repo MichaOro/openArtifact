@@ -179,7 +179,7 @@ def test_move_unknown_task_is_404(client: TestClient) -> None:
     assert client.patch("/api/tasks/nope", json={"status": "done"}).status_code == 404
 
 
-@pytest.mark.parametrize("payload", [{}, {"status": "review"}, {"status": "DONE"}, {"title": "x"}])
+@pytest.mark.parametrize("payload", [{}, {"status": "review"}, {"status": "DONE"}])
 def test_move_rejects_invalid_payload(client: TestClient, payload: dict[str, object]) -> None:
     task = _create(client)
     assert client.patch(f"/api/tasks/{task['id']}", json=payload).status_code == 422
@@ -235,3 +235,86 @@ def test_events_route_is_registered(
     client: TestClient, app_routes: Callable[[Any], list[str]]
 ) -> None:
     assert "/api/events" in app_routes(client.app)
+
+
+# ── Edit (title / body) ───────────────────────────────────────────────
+
+
+def test_edit_title_and_body_persists(client: TestClient) -> None:
+    task = _create(client, title="old", body="old body")
+    response = client.patch(
+        f"/api/tasks/{task['id']}", json={"title": "  new  ", "body": "new body"}
+    )
+    assert response.status_code == 200
+    assert response.json()["title"] == "new"
+    assert response.json()["body"] == "new body"
+    assert response.json()["status"] == "backlog"
+    stored = client.get("/api/tasks").json()[0]
+    assert (stored["title"], stored["body"]) == ("new", "new body")
+
+
+def test_edit_only_sent_fields_change(client: TestClient) -> None:
+    task = _create(client, title="keep", body="keep body")
+    data = client.patch(f"/api/tasks/{task['id']}", json={"title": "changed"}).json()
+    assert (data["title"], data["body"]) == ("changed", "keep body")
+
+
+def test_edit_can_clear_body(client: TestClient) -> None:
+    task = _create(client, body="to be removed")
+    assert client.patch(f"/api/tasks/{task['id']}", json={"body": None}).json()["body"] is None
+    assert client.patch(f"/api/tasks/{task['id']}", json={"body": "   "}).json()["body"] is None
+
+
+def test_edit_and_move_in_one_request(client: TestClient) -> None:
+    task = _create(client)
+    data = client.patch(f"/api/tasks/{task['id']}", json={"title": "both", "status": "done"}).json()
+    assert (data["title"], data["status"]) == ("both", "done")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"title": ""},
+        {"title": "   "},
+        {"title": None},
+        {"status": None},
+        {"title": "x" * 256},
+        {"body": "x" * 10_001},
+        {"unexpected": 1},
+    ],
+)
+def test_edit_rejects_invalid_payload(client: TestClient, payload: dict[str, object]) -> None:
+    task = _create(client, title="orig")
+    assert client.patch(f"/api/tasks/{task['id']}", json=payload).status_code == 422
+    assert client.get("/api/tasks").json()[0]["title"] == "orig"
+
+
+def test_edit_unknown_task_is_404(client: TestClient) -> None:
+    assert client.patch("/api/tasks/nope", json={"title": "x"}).status_code == 404
+
+
+def test_edit_publishes_updated_and_move_publishes_moved(
+    client: TestClient, published: list[tuple[str, dict[str, Any]]]
+) -> None:
+    task = _create(client, title="t")
+    published.clear()
+    client.patch(f"/api/tasks/{task['id']}", json={"title": "renamed"})
+    client.patch(f"/api/tasks/{task['id']}", json={"status": "done"})
+    client.patch(f"/api/tasks/{task['id']}", json={"title": "again", "status": "backlog"})
+    assert [t for t, _ in published] == ["task.updated", "task.moved", "task.updated"]
+    assert published[0][1]["title"] == "renamed"
+    assert published[2][1]["status"] == "backlog"
+
+
+def test_edit_without_changes_publishes_nothing_and_keeps_updated_at(
+    client: TestClient, published: list[tuple[str, dict[str, Any]]]
+) -> None:
+    task = _create(client, title="same", body="same body")
+    published.clear()
+    response = client.patch(
+        f"/api/tasks/{task['id']}", json={"title": "same", "body": "same body", "status": "backlog"}
+    )
+    assert response.status_code == 200
+    assert response.json()["updated_at"] == task["updated_at"]
+    assert published == []

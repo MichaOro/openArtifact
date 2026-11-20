@@ -8,8 +8,8 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.models import Task, TaskStatus
-from openartifact.tasks.schemas import TaskCreate
+from openartifact.models import Task
+from openartifact.tasks.schemas import TaskCreate, TaskUpdate
 
 
 class TaskRepository:
@@ -39,11 +39,25 @@ class TaskRepository:
         """Return the task or ``None``."""
         return await self._session.get(Task, task_id)
 
-    async def set_status(self, task: Task, status: TaskStatus) -> Task:
-        """Move a task to another lane; ``updated_at`` is refreshed automatically."""
-        task.status = status.value
-        await self._session.flush()
-        return task
+    async def update(self, task: Task, data: TaskUpdate) -> set[str]:
+        """Apply the sent fields; return the names that actually changed.
+
+        ``updated_at`` is only refreshed when something changed.
+        """
+        sent = data.model_fields_set
+        new_values: dict[str, str | None] = {}
+        if "title" in sent and data.title is not None:
+            new_values["title"] = data.title
+        if "body" in sent:
+            new_values["body"] = data.body
+        if "status" in sent and data.status is not None:
+            new_values["status"] = data.status.value
+        changed = {name for name, value in new_values.items() if getattr(task, name) != value}
+        for name in changed:
+            setattr(task, name, new_values[name])
+        if changed:
+            await self._session.flush()
+        return changed
 
     async def delete(self, task: Task) -> None:
         """Delete a task."""

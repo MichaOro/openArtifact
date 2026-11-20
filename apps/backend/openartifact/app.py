@@ -13,7 +13,6 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from openartifact.config import Settings
@@ -23,6 +22,7 @@ from openartifact.exceptions import (
     DatabaseError,
     OpenArtifactError,
 )
+from openartifact.web.static import RevalidatingStaticFiles
 
 logger = logging.getLogger("openartifact")
 
@@ -152,7 +152,7 @@ def _create_app(settings: Settings) -> FastAPI:
     # ── Static assets (CSS / JS of the web UI) ─────────────────────
     app.mount(
         "/static",
-        StaticFiles(directory=str(Path(__file__).parent / "static")),
+        RevalidatingStaticFiles(directory=str(Path(__file__).parent / "static")),
         name="static",
     )
 
