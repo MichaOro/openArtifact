@@ -133,12 +133,30 @@ async def db_session_context(settings: Settings) -> AsyncGenerator[AsyncSession,
     Creates its own engine and session — does NOT use the shared engine.
     Intended for standalone scripts, migrations, and tests.
     """
-    engine = _build_engine(settings)
+    engine = create_async_engine(
+        settings.database_url,
+        echo=settings.debug,
+        connect_args={
+            "check_same_thread": False,
+            "timeout": 30,
+        },
+    )
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
+        """Set WAL mode on new connections."""
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.close()
+
     async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
         try:
             yield session
+            await session.commit()
         except Exception:
             await session.rollback()
             raise
+        finally:
+            await engine.dispose()

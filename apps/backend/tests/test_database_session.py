@@ -86,14 +86,18 @@ async def test_session_autorollback_on_error(settings: Settings) -> None:
     """Session auto-rolls back on error within context."""
     from sqlalchemy import text
 
+    # First ensure a table exists and insert a known row
+    async with db_session_context(settings) as session:
+        await session.execute(text("CREATE TABLE IF NOT EXISTS rollback_test (id INTEGER)"))
+        await session.execute(text("INSERT INTO rollback_test VALUES (0)"))
+        await session.commit()
+
     with pytest.raises(ValueError):
         async with db_session_context(settings) as session:
-            await session.execute(text("CREATE TABLE error_table (id INTEGER)"))
+            await session.execute(text("INSERT INTO rollback_test VALUES (42)"))
             raise ValueError("intentional error")
 
     async with db_session_context(settings) as session:
-        result = await session.execute(
-            text("SELECT name FROM sqlite_master WHERE type='table' AND name='error_table'")
-        )
-        rows = result.fetchall()
-        assert not any(r[0] == "error_table" for r in rows)
+        result = await session.execute(text("SELECT COUNT(*) FROM rollback_test"))
+        count = result.fetchone()[0]
+        assert count == 1  # Only the pre-existing row, not the rolled-back insert
