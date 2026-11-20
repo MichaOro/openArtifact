@@ -89,7 +89,7 @@ async def test_engine_connectivity() -> None:
         engine = _build_engine(s)
         async with engine.connect() as conn:
             result = await conn.execute(text("SELECT 1"))
-            row = await result.fetchone()
+            row = result.fetchone()
             assert row is not None
             assert row[0] == 1
 
@@ -101,7 +101,7 @@ async def test_wal_mode_enabled() -> None:
         engine = _build_engine(s)
         async with engine.connect() as conn:
             result = await conn.execute(text("PRAGMA journal_mode"))
-            row = await result.fetchone()
+            row = result.fetchone()
             assert row is not None
             assert row[0] == "wal"
 

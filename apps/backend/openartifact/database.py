@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase
 
 from openartifact.config import Settings
 from openartifact.exceptions import ConfigurationError
@@ -101,7 +101,7 @@ async def dispose_engine() -> None:
 
 # ── Session Management ──────────────────────────────────────────────
 
-_async_session_factory = sessionmaker(
+_async_session_factory = async_sessionmaker(  # type: ignore[no-redef]
     expire_on_commit=False,
 )
 
@@ -117,7 +117,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     if _engine is None:
         raise ConfigurationError("Database engine not initialized")
 
-    async with _async_session_factory(_engine) as session:  # type: ignore[misc]
+    async with _async_session_factory(_engine) as session:  # type: ignore[call-arg, misc]
         try:
             yield session
             await session.commit()

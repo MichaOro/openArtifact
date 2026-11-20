@@ -41,7 +41,8 @@ async def test_fresh_database_connection(settings: Settings) -> None:
     assert engine is not None
     async with engine.connect() as conn:
         result = await conn.execute(text("SELECT 1"))
-        row = await result.fetchone()
+        row = result.fetchone()
+        assert row is not None
         assert row[0] == 1
 
 
