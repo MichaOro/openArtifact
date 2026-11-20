@@ -6,6 +6,7 @@ sequential migration execution, and migration failure handling.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -25,7 +26,7 @@ def _reset_engine() -> None:
 
 
 @pytest.fixture(autouse=True)
-def clean_engine() -> None:
+def clean_engine() -> Generator[None, None, None]:
     """Ensure engine is reset between tests."""
     _reset_engine()
     yield
@@ -34,20 +35,24 @@ def clean_engine() -> None:
 
 async def test_fresh_database_connection(settings: Settings) -> None:
     """Fresh database connection succeeds without pre-existing files."""
+    from sqlalchemy import text
+
     engine = _build_engine(settings)
     assert engine is not None
     async with engine.connect() as conn:
-        result = await conn.execute("SELECT 1")
+        result = await conn.execute(text("SELECT 1"))
         row = await result.fetchone()
         assert row[0] == 1
 
 
 async def test_database_file_created(tmp_path: Path) -> None:
     """Database file is created on first connection."""
+    from sqlalchemy import text
+
     settings = Settings(data_dir=tmp_path, database_filename="test.db")
     engine = _build_engine(settings)
     async with engine.connect() as conn:
-        await conn.execute("SELECT 1")
+        await conn.execute(text("SELECT 1"))
     assert (tmp_path / "test.db").exists()
 
 
@@ -67,7 +72,7 @@ async def test_persistence_across_reconnect(settings: Settings) -> None:
         result = await conn.execute(
             text("SELECT name FROM sqlite_master WHERE type='table' AND name='persist_test'")
         )
-        rows = await result.fetchall()
+        rows = result.fetchall()
         assert any(r[0] == "persist_test" for r in rows)
 
 

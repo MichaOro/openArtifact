@@ -18,7 +18,7 @@ def test_app_lifespan_hooks_exist() -> None:
     """App has lifespan configuration."""
     settings = Settings()
     app = _create_app(settings)
-    assert app.lifespan is not None
+    assert app.lifespan is not None  # type: ignore[attr-defined]
 
 
 def test_create_app_with_explicit_settings() -> None:
@@ -31,7 +31,7 @@ def test_create_app_with_explicit_settings() -> None:
 def test_routes_registered() -> None:
     """Routes are registered via create_app."""
     app = create_app()
-    route_paths = [r.path for r in app.routes]
+    route_paths = [r.path for r in app.routes]  # type: ignore[attr-defined]
     assert "/api/health" in route_paths
     assert "/api/info" in route_paths
     assert "/" in route_paths

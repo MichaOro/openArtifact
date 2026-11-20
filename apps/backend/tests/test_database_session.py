@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -26,7 +27,7 @@ def _reset_engine() -> None:
 
 
 @pytest.fixture(autouse=True)
-def clean_engine() -> None:
+def clean_engine() -> Generator[None, None, None]:
     """Ensure engine is reset between tests."""
     _reset_engine()
     yield
@@ -65,7 +66,7 @@ async def test_session_context(settings: Settings) -> None:
 
     async with db_session_context(settings) as session:
         result = await session.execute(text("SELECT 1"))
-        row = await result.fetchone()
+        row = result.fetchone()
         assert row is not None
         assert row[0] == 1
 
@@ -82,7 +83,7 @@ async def test_session_autocommit(settings: Settings) -> None:
         result = await session.execute(
             text("SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'")
         )
-        rows = await result.fetchall()
+        rows = result.fetchall()
         assert any(r[0] == "test_table" for r in rows)
 
 
@@ -99,5 +100,5 @@ async def test_session_autorollback_on_error(settings: Settings) -> None:
         result = await session.execute(
             text("SELECT name FROM sqlite_master WHERE type='table' AND name='error_table'")
         )
-        rows = await result.fetchall()
+        rows = result.fetchall()
         assert not any(r[0] == "error_table" for r in rows)

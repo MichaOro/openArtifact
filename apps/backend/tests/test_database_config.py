@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 from pydantic_settings import SettingsConfigDict
+from sqlalchemy import text
 
 from openartifact.config import Settings
 from openartifact.database import _build_engine, dispose_engine
@@ -29,7 +31,7 @@ def _reset_engine() -> None:
 
 
 @pytest.fixture(autouse=True)
-def clean_engine() -> None:
+def clean_engine() -> Generator[None, None, None]:
     """Ensure engine is reset between tests."""
     _reset_engine()
     yield
@@ -86,7 +88,7 @@ async def test_engine_connectivity() -> None:
         s = _TestSettings(data_dir=Path(tmpdir), database_filename="test.db")
         engine = _build_engine(s)
         async with engine.connect() as conn:
-            result = await conn.execute("SELECT 1")
+            result = await conn.execute(text("SELECT 1"))
             row = await result.fetchone()
             assert row is not None
             assert row[0] == 1
@@ -98,7 +100,7 @@ async def test_wal_mode_enabled() -> None:
         s = _TestSettings(data_dir=Path(tmpdir), database_filename="test.db")
         engine = _build_engine(s)
         async with engine.connect() as conn:
-            result = await conn.execute("PRAGMA journal_mode")
+            result = await conn.execute(text("PRAGMA journal_mode"))
             row = await result.fetchone()
             assert row is not None
             assert row[0] == "wal"

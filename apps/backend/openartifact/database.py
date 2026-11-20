@@ -13,7 +13,12 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from sqlalchemy import event
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from openartifact.config import Settings
@@ -72,7 +77,7 @@ def _build_engine(settings: Settings) -> AsyncEngine:
 
     # Enable WAL mode on every new connection for concurrent read performance
     @event.listens_for(_engine.sync_engine, "connect")
-    def _set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:  # type: ignore[no-untyped-def]
+    def _set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
         """Set WAL mode on new connections."""
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
@@ -112,7 +117,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     if _engine is None:
         raise ConfigurationError("Database engine not initialized")
 
-    async with _async_session_factory(_engine) as session:
+    async with _async_session_factory(_engine) as session:  # type: ignore[misc]
         try:
             yield session
             await session.commit()
@@ -132,7 +137,7 @@ async def db_session_context(settings: Settings) -> AsyncGenerator[AsyncSession,
     Intended for standalone scripts, migrations, and tests.
     """
     engine = _build_engine(settings)
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
         try:
