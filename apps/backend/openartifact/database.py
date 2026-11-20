@@ -101,7 +101,7 @@ async def dispose_engine() -> None:
 
 # ── Session Management ──────────────────────────────────────────────
 
-_async_session_factory = async_sessionmaker(  # type: ignore[no-redef]
+_async_session_factory = async_sessionmaker(
     expire_on_commit=False,
 )
 
