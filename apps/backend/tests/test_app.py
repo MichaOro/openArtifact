@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from openartifact.app import _create_app, create_app
 from openartifact.config import Settings
 
@@ -31,25 +29,10 @@ def test_create_app_with_explicit_settings() -> None:
     assert app.version == "0.1.0"
 
 
-def test_routes_registered() -> None:
+def test_routes_registered(app_routes) -> None:
     """Routes are registered via create_app."""
     app = create_app()
-    # FastAPI nests routes deeply in _IncludedRouter objects
-    # Collect all paths recursively with unlimited depth
-    route_paths: list[str] = []
-
-    def collect_paths(routes: list[Any], depth: int = 0) -> None:
-        if depth > 10:
-            return
-        for route in routes:
-            path = getattr(route, "path", None)
-            if path:
-                route_paths.append(path)
-            subroutes = getattr(route, "routes", None)
-            if subroutes:
-                collect_paths(subroutes, depth + 1)
-
-    collect_paths(app.routes)
+    route_paths = app_routes(app)
     assert "/api/health" in route_paths
     assert "/api/info" in route_paths
     assert "/" in route_paths
