@@ -18,7 +18,7 @@ import enum
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from openartifact.database import Base
@@ -132,6 +132,8 @@ class Task(Base):
         title: Short title (required).
         body: Optional longer description.
         status: Lane of the task (see :class:`TaskStatus`).
+        position: Sort key inside the lane, ascending (see migration 0004). Fractional so a task
+            can be dropped between two others without renumbering the lane.
         created_at: Creation timestamp (UTC).
         updated_at: Last modification timestamp (UTC).
     """
@@ -144,6 +146,7 @@ class Task(Base):
     # Plain string column; the allowed values are enforced by TaskStatus (API)
     # and a CHECK constraint (database).
     status: Mapped[str] = mapped_column(String(32), default=TaskStatus.BACKLOG.value)
+    position: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.api.events import EventBusDep
 from openartifact.database import get_db_session
-from openartifact.tasks.repository import TaskRepository
+from openartifact.tasks.repository import PlacementError, TaskRepository
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -50,22 +50,32 @@ async def create_task(payload: TaskCreate, session: SessionDep, bus: EventBusDep
 async def update_task(
     task_id: str, payload: TaskUpdate, session: SessionDep, bus: EventBusDep
 ) -> TaskRead:
-    """Edit a task and/or move it to another lane.
+    """Edit a task, move it to another lane and/or reorder it inside a lane.
 
-    Publishes ``task.moved`` when only the lane changed, ``task.updated`` for any other
-    change, and nothing when the request changes nothing.
+    ``before_id`` places the task before another task of the target lane (``null``: at the
+    end); a lane change without ``before_id`` puts it at the top. Publishes ``task.moved``
+    when only lane/order changed, ``task.updated`` for any other change (and ``board.resync``
+    if neighbours had to be renumbered); nothing when the request changes nothing.
     """
     repo = TaskRepository(session)
     task = await repo.get(task_id)
     if task is None:
         raise _NOT_FOUND
-    changed = await repo.update(task, payload)
-    if not changed:
+    try:
+        result = await repo.update(task, payload)
+    except PlacementError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    if not result.changed and not result.renumbered:
         return TaskRead.model_validate(task)
     await session.commit()
     updated = TaskRead.model_validate(task)
-    event_type = "task.moved" if changed == {"status"} else "task.updated"
-    bus.publish(event_type, updated.model_dump(mode="json"))
+    # lane/position only -> "moved"; anything touching the content -> "updated"
+    moved_only = result.changed <= {"status", "position"}
+    bus.publish("task.moved" if moved_only else "task.updated", updated.model_dump(mode="json"))
+    if result.renumbered:
+        bus.publish("board.resync", {})  # other tasks of the lane got new positions
     return updated
 
 

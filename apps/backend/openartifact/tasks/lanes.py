@@ -27,6 +27,10 @@ class Lane:
         return self.status.value.replace("_", "-")
 
 
+#: Number of hues in the lane palette (tokens.css: --lane-hue-1 … --lane-hue-N). Lane N uses hue N,
+#: cycling when there are more lanes than hues.
+LANE_HUES = 8
+
 BOARD_LANES: tuple[Lane, ...] = (
     Lane(TaskStatus.BACKLOG, "Backlog"),
     Lane(TaskStatus.IN_PROGRESS, "In Progress"),
