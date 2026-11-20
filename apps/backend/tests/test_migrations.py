@@ -10,7 +10,9 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
 
+from alembic import command
 from openartifact.config import Settings
 from openartifact.database import _build_engine, dispose_engine
 
@@ -96,3 +98,45 @@ def test_alembic_env_py_exists() -> None:
     """Alembic env.py exists."""
     env_path = Path(__file__).parent.parent / "alembic" / "env.py"
     assert env_path.exists()
+
+
+def _alembic_config() -> Config:
+    backend_dir = Path(__file__).resolve().parent.parent
+    cfg = Config(str(backend_dir / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend_dir / "alembic"))
+    return cfg
+
+
+def test_upgrade_head_and_downgrade_on_sqlite(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """All migrations apply to a fresh SQLite database and can be reverted."""
+    import sqlite3
+
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    db_path = settings.data_dir / settings.database_filename
+
+    command.upgrade(_alembic_config(), "head")
+
+    with sqlite3.connect(db_path) as conn:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert {"projects", "work_items"} <= tables
+
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("INSERT INTO projects (id, name) VALUES ('p1', 'Demo')")
+        conn.execute("INSERT INTO work_items (id, project_id, title) VALUES ('w1', 'p1', 'T')")
+        # Board status is enforced by the database.
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                "INSERT INTO work_items (id, project_id, title, status) VALUES ('w2','p1','T','DONE')"
+            )
+        # Deleting a project cascades to its work items.
+        conn.execute("DELETE FROM projects WHERE id = 'p1'")
+        assert conn.execute("SELECT COUNT(*) FROM work_items").fetchone()[0] == 0
+
+    command.downgrade(_alembic_config(), "0001")
+
+    with sqlite3.connect(db_path) as conn:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert not {"projects", "work_items"} & tables

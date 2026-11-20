@@ -16,8 +16,7 @@ from openartifact.config import Settings
 from openartifact.database import Base
 
 # Import all models so Alembic can detect them for autogenerate
-# Currently empty — models will be added in WP-05
-# from openartifact.models import *
+from openartifact.models import Project, WorkItem  # noqa: F401
 
 config = context.config
 
