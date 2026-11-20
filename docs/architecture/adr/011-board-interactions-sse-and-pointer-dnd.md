@@ -64,9 +64,13 @@ converge on the same state without special cases.
 
 ### 2.4 Ordering
 
-Cards are ordered by `created_at` (newest first, ties by `id`) in every lane. A move changes the
-lane only; dropping at a specific position inside a lane is not supported. Manual ordering would
-need a `position` column and is deliberately out of scope.
+Cards are ordered inside a lane by `tasks.position` (fractional, ascending; ties: newest first).
+New cards start at the top. Dropping a card between two others stores the midpoint of their
+positions, so only one row changes. `PATCH` takes `before_id` (place before that task, `null` = end
+of the lane); a lane change without `before_id` lands at the top. When the gap between two
+neighbours drops below 1e-6 the lane is renumbered and the server publishes `board.resync`, which
+makes every client reload the list. While dragging, the original card moves live to its new place
+(no extra indicator); Escape or a drop outside every lane restores it. Alt+↑/↓ reorders by keyboard.
 
 ### 2.5 Static asset caching
 
@@ -86,9 +90,9 @@ fixed icon rail. Built from the reusable `CollapsibleNav` component.
 
 ### 2.7 Lane switch in the dialog, and lanes as configuration
 
-- Clicking the lane chip under the dialog title ("In Backlog") unrolls the other lanes as chips
-  right below it, without a top edge and with side lines that fade in. The chip deliberately has no
-  icon or caret (an easter egg). The Lane field of the rail uses a regular menu. The
+- Clicking the lane chip under the dialog title ("In Backlog") unrolls the other lanes as coloured
+  chips in a row *inside* the header; the form slides down to make room (no popup, so no edge to
+  fade). The chip deliberately has no icon or caret (an easter egg). The Lane field of the rail uses a regular menu. The
   rail's *Lane* field opens the same menu. In edit mode the task moves immediately (optimistic,
   like drag & drop); in create mode the chip only changes the target lane.
 - The menu (`LanePicker`) only receives `{status, title}` pairs. The board reads the lanes from
@@ -107,6 +111,12 @@ fixed icon rail. Built from the reusable `CollapsibleNav` component.
   starts collapsed and collapses when the viewport becomes narrow. Expanding it there is temporary
   and not stored, so the desktop preference survives. An expanded sidebar **overlays** the board
   instead of taking width from the lanes; tapping outside or Escape closes it.
+
+### 2.9 Lane colours
+
+Tokens `--lane-hue-1 … --lane-hue-8` (own values per theme, in `tokens.css`). Lane N always uses hue
+N (violet, amber, green, blue, pink, teal, orange, slate), cycling after eight. An element with
+`data-lane-hue="N"` receives `--lane-color`; used for the lane dot, counter, lane chip and chips.
 
 ## 3. Consequences
 

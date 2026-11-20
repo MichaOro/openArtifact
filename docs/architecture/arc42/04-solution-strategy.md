@@ -74,6 +74,8 @@
 | Real-time updates | ✅ Implemented as SSE (`GET /api/events`) with an in-process event bus; all tabs stay in sync, resync on reconnect. WebSocket is not used |
 | Responsive layouts | ✅ Narrow (horizontal snap board) and narrow landscape (compact); sidebar auto-collapses and overlays on narrow screens |
 | Card navigation (right rail in the task dialog) | ✅ Collapsible, collapsed by default; field *Lane*, action *Delete*; more artifact fields planned |
+| Order of cards inside a lane | ✅ Drag within a lane or across lanes at a given place; Alt+↑/↓; stored as fractional `position` (migration 0004) |
+| Lane colours | ✅ Palette tokens, lane N = hue N |
 | Lane switch in the dialog | ✅ Click the lane chip (hidden feature) or the rail's *Lane* field |
 | Lanes as configuration | ✅ `BOARD_LANES` is the single definition; user-defined lanes are planned, not implemented |
 | Light theme | ✅ Sand Dune (warm cream/sand), dark theme Midnight Purple |
