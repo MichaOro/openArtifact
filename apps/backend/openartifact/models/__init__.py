@@ -5,6 +5,7 @@ Defines the core entities used by the Project Workspace MVP:
 - ``Project`` — a container for related work items.
 - ``WorkItem`` — an individual task belonging to a project.
 - ``WorkItemStatus`` — the board status of a work item.
+- ``Task`` — a card on the Kanban board (``TaskStatus`` = its lane).
 
 The four status values describe the *board* state only. They are deliberately
 decoupled from any future pipeline or execution stages so that the board can
@@ -110,3 +111,44 @@ class WorkItem(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<WorkItem(id={self.id!r}, project_id={self.project_id!r}, status={self.status!r})>"
+
+
+class TaskStatus(enum.StrEnum):
+    """Lane of a board task. The value is what is stored in ``tasks.status``."""
+
+    BACKLOG = "backlog"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+
+class Task(Base):
+    """A card on the Kanban board.
+
+    Intentionally minimal (see migration 0003). It is independent of
+    ``WorkItem``, which is bound to the not-yet-built project workspace.
+
+    Attributes:
+        id: Unique task identifier (UUID string).
+        title: Short title (required).
+        body: Optional longer description.
+        status: Lane of the task (see :class:`TaskStatus`).
+        created_at: Creation timestamp (UTC).
+        updated_at: Last modification timestamp (UTC).
+    """
+
+    __tablename__ = "tasks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Plain string column; the allowed values are enforced by TaskStatus (API)
+    # and a CHECK constraint (database).
+    status: Mapped[str] = mapped_column(String(32), default=TaskStatus.BACKLOG.value)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return f"<Task(id={self.id!r}, status={self.status!r})>"
