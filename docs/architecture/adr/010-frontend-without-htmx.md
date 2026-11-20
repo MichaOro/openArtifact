@@ -34,10 +34,8 @@ HTMX is **removed**. The frontend consists of:
 
 ## 3. Not decided yet
 
-These are deliberately left open and must be decided in their own ADR when the work starts:
+Drag & drop and real-time updates were decided in [ADR-011](011-board-interactions-sse-and-pointer-dnd.md). Still open, to be decided in their own ADR when the work starts:
 
-- **Drag & drop mechanism:** native HTML5 Drag & Drop vs. Pointer Events (better touch support and animation control).
-- **Real-time updates:** WebSocket/SSE (see ADR-006) — not implemented.
 - **A JS framework (e.g. React):** only if vanilla modules become unmaintainable. Not planned.
 
 ## 4. Consequences
@@ -50,6 +48,7 @@ These are deliberately left open and must be decided in their own ADR when the w
 
 - Colour values exist **only** in `static/css/tokens.css`; components use semantic variables (`--color-background`, `--color-surface`, `--color-glass-card`, `--color-border`, `--color-accent`, `--color-text-primary`, `--color-text-secondary`).
 - Glassmorphism is expressed through derived tokens (`--glass-bg`, `--glass-border`, `--shadow-card`, `--blur-glass`).
+- Light theme **Sand Dune** (warm, cream/sand; no violet atmosphere) and dark theme **Midnight Purple** share the same tokens; the violet accent connects them.
 - Theme is persisted in `localStorage` (`openartifact-theme`); first visit follows `prefers-color-scheme`.
 
 ## 6. Task creation (first interaction built on this decision)

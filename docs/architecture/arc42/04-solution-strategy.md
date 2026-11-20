@@ -9,7 +9,7 @@
 | Frontend | Jinja2 + CSS design tokens + vanilla JS | [ADR-010](../adr/010-frontend-without-htmx.md) (supersedes ADR-004) |
 | Database | SQLite (WAL mode) | [ADR-005](../adr/005-database-persistence.md) |
 | Migration | Alembic | [ADR-005](../adr/005-database-persistence.md) |
-| API | REST + OpenAPI (WebSocket/SSE planned) | [ADR-006](../adr/006-api-design.md) |
+| API | REST + OpenAPI + SSE for live updates | [ADR-006](../adr/006-api-design.md) |
 | Deployment | Docker + Docker Compose | [ADR-007](../adr/007-docker-distribution.md) |
 
 ## 4.2 Feature Location
@@ -65,10 +65,18 @@
 | Light / Dark theme | ✅ Implemented, persisted in `localStorage`, follows system on first visit |
 | Kanban board (3 lanes, counters, empty states) | ✅ Implemented; tasks are loaded from `GET /api/tasks` and rendered client-side |
 | Task creation (+ per lane, glass modal) | ✅ Implemented — `POST /api/tasks`, table `tasks` (migration 0003), persisted in SQLite |
-| Drag & drop of cards | ⏳ Planned (mechanism open, see ADR-010 §3) |
-| Editing/deleting tasks, priorities, tags, due dates, assignees | ⏳ Planned, not implemented |
+| Drag & drop of cards between lanes (mouse, touch, keyboard) | ✅ Implemented — Pointer Events, optimistic with rollback ([ADR-011](../adr/011-board-interactions-sse-and-pointer-dnd.md)) |
+| Deleting tasks (confirmation dialog) | ✅ Implemented — `DELETE /api/tasks/{id}` |
+| Moving tasks | ✅ Implemented — `PATCH /api/tasks/{id}` (lane only; order within a lane is by creation time) |
+| Editing tasks (title, body) | ✅ Implemented — click a card; `PATCH /api/tasks/{id}` (partial update) |
+| Priorities, tags, due dates, assignees, manual ordering | ⏳ Planned, not implemented |
 | Projects (`Project`/`WorkItem` models) | ⏳ Models + migration 0002 exist; no API/UI, **not connected to the board** (the board uses `tasks`) |
-| Real-time updates (WebSocket/SSE) | ⏳ Planned, not implemented |
+| Real-time updates | ✅ Implemented as SSE (`GET /api/events`) with an in-process event bus; all tabs stay in sync, resync on reconnect. WebSocket is not used |
+| Responsive layouts | ✅ Narrow (horizontal snap board) and narrow landscape (compact); sidebar auto-collapses and overlays on narrow screens |
+| Card navigation (right rail in the task dialog) | ✅ Collapsible, collapsed by default; field *Lane*, action *Delete*; more artifact fields planned |
+| Lane switch in the dialog | ✅ Click the lane chip (hidden feature) or the rail's *Lane* field |
+| Lanes as configuration | ✅ `BOARD_LANES` is the single definition; user-defined lanes are planned, not implemented |
+| Light theme | ✅ Sand Dune (warm cream/sand), dark theme Midnight Purple |
 | HTMX, Tailwind CSS, Alpine.js | ❌ Never used; HTMX removed (ADR-010) |
 
 ---

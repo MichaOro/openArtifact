@@ -28,7 +28,7 @@ OpenArtifact operates at the center of a workflow orchestration ecosystem:
                            └──────────┘
 ```
 
-- **Browser** — server-rendered Jinja2 pages with vanilla JavaScript; JSON REST API for board data (planned). Real-time updates via WebSocket/SSE are planned, not implemented
+- **Browser** — server-rendered Jinja2 pages with vanilla JavaScript; JSON REST API for board data; live updates via server-sent events (ADR-011)
 - **OpenArtifact** — Application server, workflow engine, artifact store
 - **SQLite** — Persistent storage (WAL mode for concurrency)
 - **AI APIs** — External model providers (OpenAI, Anthropic, etc.)

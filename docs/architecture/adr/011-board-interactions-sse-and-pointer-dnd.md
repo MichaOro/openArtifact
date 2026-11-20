@@ -1,0 +1,116 @@
+# ADR-011: Board interactions — SSE-driven UI and Pointer-Events drag & drop
+
+**Status:** Accepted  
+**Date:** 2026-11-20  
+**Supersedes:** —  
+**Superseded by:** —
+
+## 1. Context
+
+The board must support creating, deleting and moving cards (lane switch, including drag & drop),
+and every change must show up in all open browser tabs. ADR-010 left two questions open: how
+drag & drop works and how real-time updates are delivered.
+
+## 2. Decisions
+
+### 2.1 Real-time: Server-Sent Events, not WebSocket
+
+- `GET /api/events` streams `task.created`, `task.updated`, `task.moved` (all three carry the full
+  task) and `task.deleted` (`{"id": …}`). `PATCH /api/tasks/{id}` is a partial update: it publishes
+  `task.moved` when only the lane changed, `task.updated` for any other change and nothing when
+  nothing changed.
+- Commands stay plain REST (`POST`, `PATCH`, `DELETE /api/tasks…`); the stream is one-way.
+  SSE needs no extra protocol, passes proxies as ordinary HTTP and `EventSource` reconnects
+  by itself. A WebSocket would only add a second command channel next to REST.
+- An **in-process `EventBus`** fans events out to subscriber queues. Events are published only
+  after the database commit, never for failed requests or no-ops.
+- **No replay.** Events missed while disconnected are not stored. The client therefore reloads
+  `GET /api/tasks` and reconciles on every (re)connect.
+- A subscriber that stops reading (full queue) is dropped; the browser reconnects and resyncs.
+- A comment heartbeat every 15 s keeps idle connections open. `uvicorn` runs with
+  `--timeout-graceful-shutdown 3` so open streams cannot delay container shutdown.
+
+### 2.2 The UI is event-driven and idempotent
+
+All changes reach the board through two functions, `Board.upsert(task)` and `Board.remove(id)`,
+whether they originate from the tab's own API response, an SSE event or an optimistic update.
+Applying the same change twice is harmless, so the tab that caused a change and all other tabs
+converge on the same state without special cases.
+
+- Moves are **optimistic**: the card moves immediately, `PATCH` runs, and a failure restores the
+  previous lane and shows an error (a `404` means "deleted elsewhere" and removes the card).
+- Deleting asks for confirmation in a dialog (there is no undo); a `404` counts as success.
+- **Editing:** clicking a card (or `Enter` on the focused card) opens the task dialog in edit mode,
+  prefilled; saving sends only title/body. A click that ends a drag is swallowed so a drop never
+  opens the editor. A `404` while saving means the task was deleted elsewhere; it is removed from
+  the board. A half-typed *create* draft is parked while an edit is open and restored afterwards.
+
+### 2.3 Drag & drop: Pointer Events (decides the open question of ADR-010)
+
+- One code path for mouse, pen and touch; the drag visuals (ghost, faded placeholder, highlighted
+  target lane) are fully under our control, which native HTML5 drag & drop does not offer on touch.
+- Mouse/pen start after a few pixels of movement. **Touch:** on touch devices every card shows a
+  **drag handle** that drags immediately (`touch-action: none`). Elsewhere on the card a drag starts
+  after a 250 ms press without movement; moving earlier is interpreted as scrolling and is left
+  alone. The handle exists because users naturally press and drag at once, which a long-press-only
+  design reads as a scroll, so drag & drop looked broken on phones.
+- Near the left/right board edge the board auto-scrolls (narrow layout); scroll snapping is
+  switched off while dragging so it cannot fight the auto-scroll. Escape aborts.
+- The controller only reports `(task, targetStatus)` and knows nothing about the API.
+- **Keyboard alternative** (drag is pointer-only): focus a card, `Alt+←/→` moves it between lanes,
+  `Delete` opens the delete dialog. Moves and deletions are announced in an `aria-live` region.
+
+### 2.4 Ordering
+
+Cards are ordered by `created_at` (newest first, ties by `id`) in every lane. A move changes the
+lane only; dropping at a specific position inside a lane is not supported. Manual ordering would
+need a `position` column and is deliberately out of scope.
+
+### 2.5 Static asset caching
+
+Assets are not fingerprinted. Without a cache policy browsers may reuse a stale script for a
+while (heuristic freshness) and combine it with newer HTML, which breaks the UI after a
+deployment. Static files are served with `Cache-Control: no-cache`, so every load revalidates via
+ETag and normally costs a `304`.
+
+### 2.6 Card navigation (task dialog)
+
+The edit dialog has a right-hand rail, styled like the main navigation: collapsed (icon only) by
+default, expandable to icon + label, state remembered in `localStorage`. It exists only for saved
+tasks. **Fields** sit at the top (today: *Lane*, later e.g. stage and action of the artifact, in
+the spirit of GitHub's project fields); **actions** (today: *Delete*) and the collapse toggle sit
+at the bottom, the toggle in the same column as the item icons. On narrow screens the rail is a
+fixed icon rail. Built from the reusable `CollapsibleNav` component.
+
+### 2.7 Lane switch in the dialog, and lanes as configuration
+
+- Clicking the lane chip under the dialog title ("In Backlog") opens a small *Move to* menu with
+  the other lanes. The chip deliberately has no icon or caret (a quiet, "hidden" feature). The
+  rail's *Lane* field opens the same menu. In edit mode the task moves immediately (optimistic,
+  like drag & drop); in create mode the chip only changes the target lane.
+- The menu (`LanePicker`) only receives `{status, title}` pairs. The board reads the lanes from
+  the DOM, and the page renders them from `BOARD_LANES` (`openartifact/tasks/lanes.py`), the single
+  definition of lanes, their order and titles.
+- **Not implemented, architecture only:** user-defined lanes. They would replace `BOARD_LANES`
+  with a `lanes` table and replace the `CHECK` constraint on `tasks.status` (migration 0003) with a
+  foreign key. The frontend would need no change.
+
+### 2.8 Responsive layout
+
+- The page is exactly one viewport tall; each lane scrolls internally.
+- **Narrow** (≤ 960 px): lanes form a horizontal snap-scrolling board, the next lane peeks in.
+- **Narrow landscape** (height ≤ 500 px): compact header, sidebar and lanes.
+- **Main sidebar on narrow screens** (≤ 640 px wide, or ≤ 500 px high and ≤ 960 px wide): it always
+  starts collapsed and collapses when the viewport becomes narrow. Expanding it there is temporary
+  and not stored, so the desktop preference survives. An expanded sidebar **overlays** the board
+  instead of taking width from the lanes; tapping outside or Escape closes it.
+
+## 3. Consequences
+
+- **Easier:** consistent multi-tab behaviour with little code; no polling; no client framework.
+- **Limitation:** the bus is process-local. With several worker processes a client would only see
+  events published by its own worker. The container runs a single `uvicorn` process; scaling out
+  needs a shared broker (e.g. Redis pub/sub) behind the same `EventBus` interface.
+- **Limitation:** an event stream holds one connection per open tab.
+- **Risk:** hand-written drag & drop needs browser/device testing (touch behaviour differs per
+  OS). The behaviour is covered by browser tests, not by unit tests.

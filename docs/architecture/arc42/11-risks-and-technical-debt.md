@@ -6,6 +6,7 @@
 |---|------|------------|--------|------------|
 | 1 | SQLite write contention under heavy concurrent workflow execution | Low | Medium | WAL mode; async execution serialization; upgrade to PostgreSQL if needed |
 | 2 | Hand-written vanilla JS becomes unstructured as board interactions grow | Medium | Medium | ES modules per feature, one state owner per concern, UI tests; reconsider a framework only if needed (ADR-010) |
+| 3a | In-process event bus: with more than one worker process, SSE clients only see events of their own worker | Low | Medium | Single `uvicorn` process today; for scale-out put a shared broker (e.g. Redis pub/sub) behind the `EventBus` interface (ADR-011) |
 | 3 | GIL limiting concurrent Python execution for CPU-bound tasks | Low | Low | Async-first architecture; multiprocessing for CPU-bound work if needed |
 | 4 | Docker image size (~200MB Python) | Low | Low | Distroless base image; multi-stage builds |
 | 5 | SQLite backup during active writes | Medium | Low | WAL mode enables safe file-copy backup; document procedure |

@@ -67,7 +67,8 @@ Planned (WP-06+): Workflow engine, artifact store, domain models.
 | HTTP Layer | Server-rendered pages (Jinja2) + `/static` assets | HTTP/1.1 + HTML | ✅ WP-03 |
 | HTTP Layer | Tasks API (`GET`/`POST /api/tasks`) | HTTP/1.1 + JSON | ✅ |
 | HTTP Layer | OpenAPI/Swagger | /api/docs | ✅ WP-03 |
-| HTTP Layer | Real-time progress | WebSocket / SSE | ⏳ WP-07 |
+| HTTP Layer | Live board updates (`GET /api/events`) | SSE (text/event-stream) | ✅ |
+| HTTP Layer | Workflow progress streaming | SSE | ⏳ WP-07 |
 | Artifact Store | SQLite database | SQLite (WAL mode) | ✅ WP-04 |
 | External | AI Agent APIs | HTTP/HTTPS | ⏳ WP-08 |
 | Docker | Health check | HTTP GET /health | ✅ WP-05 |

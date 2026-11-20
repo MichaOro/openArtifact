@@ -6,7 +6,7 @@
 - **Backend:** FastAPI + Pydantic v2 (ADR-003)
 - **Frontend:** Jinja2 templates + hand-written CSS (design tokens) + vanilla JavaScript (ADR-010)
 - **Database:** SQLite (WAL mode) with Alembic migrations; PostgreSQL upgrade path (ADR-005)
-- **API:** REST with OpenAPI (ADR-006); WebSocket/SSE for real-time is planned, not implemented
+- **API:** REST with OpenAPI (ADR-006); server-sent events (`GET /api/events`) for live board updates, no WebSocket (ADR-011)
 - **Packaging:** Multi-stage Docker build + Docker Compose (ADR-007)
 - **Port:** Default 2909, configurable via `PORT` environment variable
 - **Host:** Default 0.0.0.0, configurable via `HOST` environment variable
