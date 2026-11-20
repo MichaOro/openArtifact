@@ -4,15 +4,21 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
-# Copy only dependency definitions first for better layer caching
+# Copy only dependency metadata first so the dependency layer stays cached
+# until pyproject.toml changes.
 COPY apps/backend/pyproject.toml apps/backend/.python-version README.md ./
 
-# Install build dependencies
+# Install runtime dependencies (read from pyproject.toml) before the source
+# is copied, so code-only changes do not reinstall them.
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --prefix=/install -e .
+    && python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))" > requirements.txt \
+    && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Copy application source code
 COPY apps/backend/openartifact/ openartifact/
+
+# Install the package itself (non-editable); dependencies are already present
+RUN pip install --no-cache-dir --prefix=/install --no-deps .
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────
 # Minimal image with only installed wheels and application source.

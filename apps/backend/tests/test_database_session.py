@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 
@@ -102,3 +103,44 @@ async def test_session_autorollback_on_error(settings: Settings) -> None:
         row = result.fetchone()
         count = row[0] if row is not None else 0
         assert count == 1  # Only the pre-existing row, not the rolled-back insert
+
+
+def test_build_engine_is_cached(settings: Settings) -> None:
+    """A second call returns the already-built engine."""
+    assert _build_engine(settings) is _build_engine(settings)
+
+
+def test_build_engine_creates_missing_data_dir(tmp_path: Path) -> None:
+    """The data directory is created when absent."""
+    target = tmp_path / "nested" / "data"
+    _build_engine(Settings(data_dir=target, database_filename="x.db"))
+    assert target.is_dir()
+
+
+def test_build_engine_reports_uncreatable_data_dir(tmp_path: Path) -> None:
+    """A data dir below a regular file raises ConfigurationError."""
+    blocker = tmp_path / "file"
+    blocker.write_text("not a directory")
+
+    with pytest.raises(ConfigurationError, match="Cannot create database directory"):
+        _build_engine(Settings(data_dir=blocker / "sub", database_filename="x.db"))
+
+
+async def test_dispose_engine_resets_global(settings: Settings) -> None:
+    """dispose_engine clears the shared engine and is idempotent."""
+    import openartifact.database as db_mod
+
+    _build_engine(settings)
+    await db_mod.dispose_engine()
+    assert db_mod._engine is None
+    await db_mod.dispose_engine()
+
+
+async def test_get_db_session_rolls_back_and_reraises(settings: Settings) -> None:
+    """Errors thrown into the dependency trigger a rollback and propagate."""
+    _build_engine(settings)
+    gen = get_db_session()
+    await gen.__anext__()
+
+    with pytest.raises(ValueError, match="oops"):
+        await gen.athrow(ValueError("oops"))

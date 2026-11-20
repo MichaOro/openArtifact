@@ -47,7 +47,7 @@ dev = [
 openartifact = "openartifact.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["apps/backend/openartifact"]
+packages = ["openartifact"]
 
 [tool.ruff]
 target-version = "py312"
@@ -91,10 +91,7 @@ no_implicit_optional = true
 [[tool.mypy.overrides]]
 module = [
     "uvicorn.*",
-    "gunicorn.*",
-    "factory_boy.*",
     "pytest.*",
-    "httpx.*",
 ]
 ignore_missing_imports = true
 
@@ -111,7 +108,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["apps/backend/openartifact"]
+source = ["openartifact"]
 omit = [
     "*/tests/*",
     "*/cli.py",
