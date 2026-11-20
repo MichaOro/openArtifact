@@ -81,6 +81,16 @@
   --color-danger: #b3261e; /* error text/borders only */
   --color-highlight: var(--color-glass-card); /* light reflections = pearl white */
 
+  /* Lane palette: lane N always uses hue N (cycles after 8). Darker steps for the light theme. */
+  --lane-hue-1: #8050e8; /* violet */
+  --lane-hue-2: #b7791f; /* amber */
+  --lane-hue-3: #2f855a; /* green */
+  --lane-hue-4: #2b6cb0; /* blue */
+  --lane-hue-5: #b83280; /* pink */
+  --lane-hue-6: #2c7a7b; /* teal */
+  --lane-hue-7: #c05621; /* orange */
+  --lane-hue-8: #5a6475; /* slate */
+
   --glass-opacity: 56%;
   --glass-border-opacity: 90%;
   --text-muted-mix: 90%;
@@ -113,6 +123,15 @@
   --color-on-accent: #080519;
   --color-danger: #ff8fa3;
   --color-highlight: var(--color-text-primary); /* light reflections = white */
+
+  --lane-hue-1: #9665ff;
+  --lane-hue-2: #e5b04a;
+  --lane-hue-3: #5fcf8f;
+  --lane-hue-4: #63a4ff;
+  --lane-hue-5: #f472b6;
+  --lane-hue-6: #4fd1c5;
+  --lane-hue-7: #fb923c;
+  --lane-hue-8: #94a3b8;
 
   --glass-opacity: 52%;
   --glass-border-opacity: 80%;

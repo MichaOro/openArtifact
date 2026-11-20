@@ -51,24 +51,24 @@ export class TaskForm {
   }
 
   /** Open in create mode for a lane. The draft is kept if the user dismissed the modal earlier. */
-  open(status, laneTitle) {
+  open(status, laneTitle, hue) {
     this.#leaveEditMode();
     this.status = status;
-    this.#present("Create Task", "Create Task");
-    this.setLane(status, laneTitle);
+    this.#present("Create Artifact", "Create Artifact");
+    this.setLane(status, laneTitle, hue);
     this.modal.open();
   }
 
   /** Open in edit mode, prefilled with the task. */
-  openEdit(task, laneTitle) {
+  openEdit(task, laneTitle, hue) {
     if (!this.editing) {
       this.draft = { title: this.titleInput.value, body: this.bodyInput.value };
     }
     this.editing = task;
     this.titleInput.value = task.title;
     this.bodyInput.value = task.body ?? "";
-    this.#present("Edit Task", "Save");
-    this.setLane(task.status, laneTitle);
+    this.#present("Edit Artifact", "Save");
+    this.setLane(task.status, laneTitle, hue);
     this.modal.open();
   }
 
@@ -78,12 +78,14 @@ export class TaskForm {
   }
 
   /** Show (and remember) the lane. Moving an existing task is the caller's job. */
-  setLane(status, laneTitle) {
+  setLane(status, laneTitle, hue = "1") {
     if (this.editing) this.editing = { ...this.editing, status };
     else this.status = status;
     this.laneTitle = laneTitle;
     this.subtitle.textContent = this.editing ? `In ${laneTitle}` : `Adding to ${laneTitle}`;
     this.subtitle.setAttribute("aria-label", `Lane: ${laneTitle}. Change lane`);
+    this.subtitle.dataset.laneHue = String(hue);
+    if (this.laneField) this.laneField.dataset.laneHue = String(hue);
     if (this.laneValue) this.laneValue.textContent = laneTitle;
     this.laneField?.setAttribute("aria-label", `Lane: ${laneTitle}. Change lane`);
   }
@@ -176,7 +178,7 @@ export class TaskForm {
       this.#setTitleError(fieldMessage);
       this.titleInput.focus();
     } else {
-      this.#setFormError(error.message || "The task could not be saved. Please try again.");
+      this.#setFormError(error.message || "The artifact could not be saved. Please try again.");
     }
   }
 

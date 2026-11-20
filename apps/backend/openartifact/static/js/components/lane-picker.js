@@ -1,13 +1,25 @@
-/* Small listbox popover to pick a lane. Generic: it only gets a list of {status, title} and a
- * callback, so user-defined lanes later need no change here. It is appended to `container`
- * (the open <dialog>), because only elements inside the dialog are above it (top layer). */
+/* Lane picker. Generic: it only gets a list of {status, title, hue} and a callback, so
+ * user-defined lanes later need no change here. Two presentations:
+ *
+ *  - "list":  a small listbox popover (positioned next to a trigger);
+ *  - "chips": the other lanes as coloured chips in an inline row that unrolls inside the dialog
+ *             (the lane-chip easter egg); the content below slides down to make room.
+ *
+ * Both live inside the open <dialog>: only elements inside it are above it (top layer). */
 
 export class LanePicker {
-  /** @param {{container: HTMLElement}} options */
-  constructor({ container }) {
+  /**
+   * @param {object} options
+   * @param {HTMLElement} options.container the dialog that hosts the popover
+   * @param {HTMLElement} [options.inline] the `.lane-chips` row for the "chips" variant
+   */
+  constructor({ container, inline = null }) {
     this.container = container;
+    this.inline = inline;
+    this.inner = inline?.querySelector(".lane-chips__inner") ?? null;
     this.trigger = null;
     this.onSelect = null;
+    this.mode = null; // "list" | "chips" while open
 
     this.el = document.createElement("div");
     this.el.className = "popover";
@@ -16,19 +28,23 @@ export class LanePicker {
     this.el.hidden = true;
     container.append(this.el);
 
-    this.el.addEventListener("click", (event) => {
-      const option = event.target.closest("[data-status]");
-      if (!option) return;
-      const select = this.onSelect;
-      this.close();
-      select?.(option.dataset.status);
-    });
-    this.el.addEventListener("keydown", (event) => this.#onKeydown(event));
-    // Pointer down anywhere else closes the menu (the trigger toggles it itself).
+    for (const host of [this.el, this.inner].filter(Boolean)) {
+      host.addEventListener("click", (event) => {
+        const option = event.target.closest("[data-status]");
+        if (!option) return;
+        const select = this.onSelect;
+        this.close();
+        select?.(option.dataset.status);
+      });
+      host.addEventListener("keydown", (event) => this.#onKeydown(event, host));
+    }
+    // Pointer down anywhere else closes it (the trigger toggles it itself).
     document.addEventListener(
       "pointerdown",
       (event) => {
-        if (this.isOpen && !this.el.contains(event.target) && !this.trigger?.contains(event.target)) {
+        if (!this.isOpen) return;
+        const host = this.mode === "chips" ? this.inline : this.el;
+        if (!host.contains(event.target) && !this.trigger?.contains(event.target)) {
           this.close({ restoreFocus: false });
         }
       },
@@ -38,18 +54,18 @@ export class LanePicker {
   }
 
   get isOpen() {
-    return !this.el.hidden;
+    return this.mode !== null;
   }
 
   /**
    * Open (or close, if already open for the same trigger).
    * @param {object} options
    * @param {HTMLElement} options.trigger
-   * @param {{status: string, title: string}[]} options.lanes all lanes in board order
+   * @param {{status: string, title: string, hue?: number|string}[]} options.lanes all lanes in board order
    * @param {string} options.current status of the current lane (not offered)
    * @param {(status: string) => void} options.onSelect
-   * @param {"below"|"left"} [options.placement]
-   * @param {"list"|"chips"} [options.variant] "chips": menu unrolls out of a chip (lane chip)
+   * @param {"below"|"left"} [options.placement] for the "list" variant
+   * @param {"list"|"chips"} [options.variant]
    */
   toggle({ trigger, lanes, current, onSelect, placement = "below", variant = "list" }) {
     if (this.isOpen && this.trigger === trigger) {
@@ -62,33 +78,49 @@ export class LanePicker {
     this.close({ restoreFocus: false });
     this.trigger = trigger;
     this.onSelect = onSelect;
+    const chips = variant === "chips" && this.inline !== null;
+    this.mode = chips ? "chips" : "list";
 
-    const caption = document.createElement("p");
-    caption.className = "popover__caption";
-    caption.textContent = "Move to";
-    caption.setAttribute("aria-hidden", "true");
-    const chips = variant === "chips";
-    this.el.classList.toggle("popover--chips", chips);
     const options = others.map((lane, i) => {
       const option = document.createElement("button");
       option.type = "button";
-      option.className = chips ? "popover__option popover__option--chip" : "popover__option";
-      option.style.setProperty("--i", String(i));
       option.setAttribute("role", "option");
       option.dataset.status = lane.status;
       option.textContent = lane.title;
+      if (lane.hue) option.dataset.laneHue = String(lane.hue);
+      option.style.setProperty("--i", String(i));
+      option.className = chips ? "lane-chip" : "popover__option";
       return option;
     });
-    this.el.replaceChildren(caption, ...options);
-    this.el.hidden = false;
-    this.#position(trigger, chips ? "chip" : placement);
+
+    if (chips) {
+      this.inner.replaceChildren(...options);
+      this.inline.removeAttribute("inert");
+      this.inline.removeAttribute("aria-hidden");
+      this.inline.setAttribute("data-open", "");
+    } else {
+      const caption = document.createElement("p");
+      caption.className = "popover__caption";
+      caption.textContent = "Move to";
+      caption.setAttribute("aria-hidden", "true");
+      this.el.replaceChildren(caption, ...options);
+      this.el.hidden = false;
+      this.#position(trigger, placement);
+    }
     trigger.setAttribute("aria-expanded", "true");
-    options[0].focus();
+    options[0].focus({ preventScroll: true });
   }
 
   close({ restoreFocus = true } = {}) {
     if (!this.isOpen) return;
-    this.el.hidden = true;
+    if (this.mode === "chips") {
+      this.inline.removeAttribute("data-open");
+      this.inline.setAttribute("inert", "");
+      this.inline.setAttribute("aria-hidden", "true");
+    } else {
+      this.el.hidden = true;
+    }
+    this.mode = null;
     this.trigger?.setAttribute("aria-expanded", "false");
     if (restoreFocus) this.trigger?.focus();
     this.onSelect = null;
@@ -100,41 +132,38 @@ export class LanePicker {
     const p = this.el.getBoundingClientRect();
     let left = placement === "left" ? t.left - p.width - margin : t.left;
     let top = placement === "left" ? t.top : t.bottom + 6;
-    if (placement === "chip") {
-      // flush under the chip, option chips aligned with it (popover padding is space-2 = 8px)
-      left = t.left - 8;
-      top = t.bottom;
-    }
     if (top + p.height > window.innerHeight - margin) top = Math.max(margin, t.top - p.height - 6);
     left = Math.min(Math.max(margin, left), window.innerWidth - p.width - margin);
     this.el.style.left = `${left}px`;
     this.el.style.top = `${top}px`;
   }
 
-  #onKeydown(event) {
-    const options = [...this.el.querySelectorAll("[data-status]")];
+  #onKeydown(event, host) {
+    const options = [...host.querySelectorAll("[data-status]")];
     const index = options.indexOf(document.activeElement);
-    const focus = (i) => options[(i + options.length) % options.length]?.focus();
+    const step = (delta) => options[(index + delta + options.length) % options.length]?.focus();
     switch (event.key) {
       case "ArrowDown":
+      case "ArrowRight":
         event.preventDefault();
-        focus(index + 1);
+        step(1);
         break;
       case "ArrowUp":
+      case "ArrowLeft":
         event.preventDefault();
-        focus(index - 1);
+        step(-1);
         break;
       case "Home":
         event.preventDefault();
-        focus(0);
+        options[0]?.focus();
         break;
       case "End":
         event.preventDefault();
-        focus(options.length - 1);
+        options[options.length - 1]?.focus();
         break;
       case "Enter":
       case " ":
-        // Handled here (and the native activation suppressed) so a selection fires exactly once.
+        // Handled here (native activation suppressed) so a selection fires exactly once.
         if (index >= 0) {
           event.preventDefault();
           options[index].click();

@@ -42,7 +42,7 @@ export class DeleteTaskDialog {
       // Already gone elsewhere (404) is the outcome the user wanted.
       if (error.status !== 404) {
         this.#setBusy(false);
-        this.#setError(error.message || "The task could not be deleted. Please try again.");
+        this.#setError(error.message || "The artifact could not be deleted. Please try again.");
         return;
       }
     }

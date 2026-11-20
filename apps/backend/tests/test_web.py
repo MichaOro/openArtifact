@@ -143,7 +143,7 @@ def test_board_has_three_empty_lanes(client: TestClient) -> None:
         assert f">{title}</h2>" in html
     assert html.count('class="lane__count"') == 3
     assert html.count(">0</span>") == 3
-    assert html.count("No tasks yet") == 3
+    assert html.count("No artifacts yet") == 3
     assert "data-task-id" not in html  # cards are rendered client-side; none are baked in
 
 
@@ -206,16 +206,16 @@ def test_each_lane_has_an_add_button_with_its_status(client: TestClient) -> None
     assert html.count("data-create-task") == 3
     for status, title in (("backlog", "Backlog"), ("in_progress", "In Progress"), ("done", "Done")):
         assert f'data-status="{status}" data-lane-title="{title}"' in html
-        assert f'aria-label="Add task to {title}"' in html
+        assert f'aria-label="Add artifact to {title}"' in html
 
 
 def test_create_task_modal_markup(client: TestClient) -> None:
     """The modal is an accessible dialog with the two specified fields and actions."""
     html = client.get("/").text
     assert '<dialog class="modal" id="create-task-modal" aria-labelledby=' in html
-    assert ">Create Task</h2>" in html
-    assert 'placeholder="Enter task title..."' in html
-    assert 'placeholder="Describe your task..."' in html
+    assert ">Create Artifact</h2>" in html
+    assert 'placeholder="Enter artifact title..."' in html
+    assert 'placeholder="Describe your artifact..."' in html
     assert 'aria-label="Close dialog"' in html
     assert "Cancel</button>" in html
     assert 'type="submit"' in html
@@ -281,7 +281,7 @@ def test_task_dialog_has_collapsed_card_navigation_with_delete(client: TestClien
     html = client.get("/").text
     assert 'data-card-nav data-state="collapsed"' in html
     assert "data-card-nav-toggle" in html
-    assert 'aria-label="Expand task details"' in html
+    assert 'aria-label="Expand artifact details"' in html
     assert html.count("data-card-action=") == 1
     assert 'data-card-action="delete"' in html
     assert "collapsible-nav.js" in client.get("/static/js/tasks/main.js").text
@@ -322,3 +322,52 @@ def test_task_dialog_offers_lane_switch(client: TestClient) -> None:
     assert 'data-card-field="lane"' in html
     assert "data-lane-value" in html
     assert client.get("/static/js/components/lane-picker.js").status_code == 200
+
+
+# ── Lane colours (palette tokens, lane N = hue N) ─────────────────────
+
+
+def test_each_lane_gets_its_own_hue(client: TestClient) -> None:
+    from openartifact.tasks.lanes import BOARD_LANES, LANE_HUES
+
+    html = client.get("/").text
+    for index, lane in enumerate(BOARD_LANES):
+        hue = index % LANE_HUES + 1
+        assert (
+            f'data-lane="{lane.key}" data-status="{lane.status.value}" data-lane-hue="{hue}"'
+            in html
+        )
+
+
+def test_palette_tokens_exist_for_both_themes_and_every_hue() -> None:
+    import re
+
+    from openartifact.tasks.lanes import LANE_HUES
+
+    css = (
+        Path(__file__).parent.parent / "openartifact" / "static" / "css" / "tokens.css"
+    ).read_text()
+    light = css[
+        css.index("Semantic colour tokens: Light") : css.index("Semantic colour tokens: Dark")
+    ]
+    dark = css[css.index("Semantic colour tokens: Dark") :]
+    for theme in (light, dark):
+        for n in range(1, LANE_HUES + 1):
+            assert re.search(rf"--lane-hue-{n}:\s*#[0-9a-f]{{6}};", theme), n
+    components = (
+        Path(__file__).parent.parent / "openartifact" / "static" / "css" / "components.css"
+    ).read_text()
+    for n in range(1, LANE_HUES + 1):
+        assert f'[data-lane-hue="{n}"] {{ --lane-color: var(--lane-hue-{n}); }}' in components
+
+
+def test_task_dialog_has_inline_lane_chip_row(client: TestClient) -> None:
+    """The lane chip unrolls an inline row (no popup); it starts closed and inert."""
+    html = client.get("/").text
+    assert 'class="lane-chips" data-lane-chips inert aria-hidden="true"' in html
+    assert 'class="lane-chips__inner" role="listbox"' in html
+
+
+def test_tasks_can_be_reordered_by_keyboard_and_pointer_markup(client: TestClient) -> None:
+    html = client.get("/").text
+    assert "Alt+ArrowUp Alt+ArrowDown" in html

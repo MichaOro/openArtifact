@@ -2,7 +2,7 @@
 import { CollapsibleNav } from "../components/collapsible-nav.js";
 import { LanePicker } from "../components/lane-picker.js";
 import { Modal } from "../components/modal.js";
-import { createTask, deleteTask, listTasks, moveTask, updateTask } from "./api.js";
+import { createTask, deleteTask, listTasks, placeTask, updateTask } from "./api.js";
 import { Board } from "./board.js";
 import { TaskForm } from "./create-task-form.js";
 import { DeleteTaskDialog } from "./delete-task-dialog.js";
@@ -13,14 +13,27 @@ const board = new Board({ loadTasks: listTasks });
 
 // ── Actions ───────────────────────────────────────────────────────────
 
-/** Move optimistically, then persist; roll back if the server refuses. Resolves to success. */
-async function moveTaskTo(task, status) {
-  if (task.status === status) return true;
+/**
+ * Move a task to another lane and/or to another place in its lane: optimistically, then
+ * persisted; rolled back if the server refuses. Resolves to success.
+ *
+ * @param {object} task
+ * @param {{status?: string, beforeId?: string|null, position?: number}} placement
+ *   beforeId: place before this task, null = end of the lane, undefined = keep (same lane) or
+ *   top (other lane). position: the sort key that matches that placement, for the optimistic view.
+ */
+async function moveTaskTo(task, { status = task.status, beforeId, position } = {}) {
+  const laneChanged = status !== task.status;
+  if (!laneChanged && beforeId === undefined) return true;
   const previous = task;
-  board.upsert({ ...task, status });
-  board.announce(`${task.title} moved to ${board.laneTitle(status)}`);
+  board.upsert({ ...task, status, position: position ?? board.topPosition(status) });
+  board.announce(
+    laneChanged
+      ? `${task.title} moved to ${board.laneTitle(status)}`
+      : `${task.title} moved to position ${[...board.cards.get(task.id).parentElement.children].indexOf(board.cards.get(task.id)) + 1}`,
+  );
   try {
-    board.upsert(await moveTask(task.id, status));
+    board.upsert(await placeTask(task.id, { status: laneChanged ? status : undefined, beforeId }));
     return true;
   } catch (error) {
     if (error.status === 404) {
@@ -53,34 +66,43 @@ const deleteDialog = new DeleteTaskDialog({
   },
 });
 
-new CardDragController({ board, onDrop: moveTaskTo });
+new CardDragController({ board, onDrop: (task, placement) => moveTaskTo(task, placement) });
 
 // Right-hand navigation of the task dialog: collapsed by default; for now it only offers Delete.
 const cardNavRoot = document.querySelector("[data-card-nav]");
 new CollapsibleNav(cardNavRoot, cardNavRoot.querySelector("[data-card-nav-toggle]"), "card-nav", {
-  expand: "Expand task details",
-  collapse: "Collapse task details",
+  expand: "Expand artifact details",
+  collapse: "Collapse artifact details",
 });
 
 // Lane switch inside the task dialog. Two entry points: the lane chip under the title (a
 // deliberately unadorned "hidden" feature) and the Lane field of the rail. The lane list comes
 // from the board, so it follows whatever lanes the page renders.
-const lanePicker = new LanePicker({ container: document.getElementById("create-task-modal") });
+const lanePicker = new LanePicker({
+  container: document.getElementById("create-task-modal"),
+  inline: document.querySelector("[data-lane-chips]"),
+});
 function pickLane(trigger, placement, variant = "list") {
   lanePicker.toggle({
     trigger,
     placement,
     variant,
     current: taskForm.currentStatus(),
-    lanes: board.statuses.map((status) => ({ status, title: board.laneTitle(status) })),
+    lanes: board.statuses.map((status) => ({
+      status,
+      title: board.laneTitle(status),
+      hue: board.laneHue(status),
+    })),
     onSelect: async (status) => {
       const editing = taskForm.editing;
       const previous = taskForm.currentStatus();
-      taskForm.setLane(status, board.laneTitle(status));
+      taskForm.setLane(status, board.laneTitle(status), board.laneHue(status));
       if (!editing) return; // new task: only the target lane changes
       const task = board.tasks.get(editing.id) ?? editing;
-      const moved = await moveTaskTo(task, status);
-      if (!moved && taskForm.editing?.id === editing.id) taskForm.setLane(previous, board.laneTitle(previous));
+      const moved = await moveTaskTo(task, { status });
+      if (!moved && taskForm.editing?.id === editing.id) {
+        taskForm.setLane(previous, board.laneTitle(previous), board.laneHue(previous));
+      }
     },
   });
 }
@@ -98,10 +120,10 @@ cardNavRoot.querySelector('[data-card-action="delete"]').addEventListener("click
 // ── DOM events ────────────────────────────────────────────────────────
 
 document.querySelectorAll("[data-create-task]").forEach((button) => {
-  button.addEventListener("click", () => taskForm.open(button.dataset.status, button.dataset.laneTitle));
+  button.addEventListener("click", () => taskForm.open(button.dataset.status, button.dataset.laneTitle, board.laneHue(button.dataset.status)));
 });
 
-const editTask = (task) => taskForm.openEdit(task, board.laneTitle(task.status));
+const editTask = (task) => taskForm.openEdit(task, board.laneTitle(task.status), board.laneHue(task.status));
 
 board.element.addEventListener("click", (event) => {
   const card = event.target.closest(".task-card");
@@ -111,7 +133,29 @@ board.element.addEventListener("click", (event) => {
   else editTask(task); // click anywhere else on the card opens it for editing
 });
 
-// Keyboard: Enter opens the focused card, Alt+←/→ moves it, Delete removes it.
+/** Keyboard reorder inside the lane: -1 = one place up, +1 = one place down. */
+function reorder(task, direction) {
+  const card = board.cards.get(task.id);
+  const siblings = [...card.parentElement.children];
+  const i = siblings.indexOf(card);
+  const taskAt = (n) => board.taskOf(siblings[n]);
+  if (direction < 0 && i > 0) {
+    return moveTaskTo(task, {
+      beforeId: siblings[i - 1].dataset.taskId,
+      position: Board.positionBetween(taskAt(i - 2), taskAt(i - 1)),
+    });
+  }
+  if (direction > 0 && i < siblings.length - 1) {
+    return moveTaskTo(task, {
+      beforeId: siblings[i + 2]?.dataset.taskId ?? null,
+      position: Board.positionBetween(taskAt(i + 1), taskAt(i + 2)),
+    });
+  }
+  return Promise.resolve(true);
+}
+
+// Keyboard: Enter opens the focused card, Alt+←/→ moves it to another lane, Alt+↑/↓ reorders it
+// inside its lane, Delete removes it.
 board.element.addEventListener("keydown", (event) => {
   const card = event.target.closest(".task-card");
   if (!card || event.target !== card) return;
@@ -128,7 +172,10 @@ board.element.addEventListener("keydown", (event) => {
     event.preventDefault();
     const index = board.statuses.indexOf(task.status) + (event.key === "ArrowLeft" ? -1 : 1);
     const status = board.statuses[index];
-    if (status) moveTaskTo(task, status).then(() => board.cards.get(task.id)?.focus());
+    if (status) moveTaskTo(task, { status }).then(() => board.cards.get(task.id)?.focus());
+  } else if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+    event.preventDefault();
+    reorder(task, event.key === "ArrowUp" ? -1 : 1).then(() => board.cards.get(task.id)?.focus());
   }
 });
 
@@ -138,6 +185,7 @@ connectEvents({
   onOpen: () => board.load(), // first connect and every reconnect: resync
   onEvent: (type, data) => {
     if (type === "task.deleted") board.remove(data.id);
+    else if (type === "board.resync") board.load(); // lane was renumbered: positions changed
     else board.upsert(data); // task.created / task.updated / task.moved
   },
 });

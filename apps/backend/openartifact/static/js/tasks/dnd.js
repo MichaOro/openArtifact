@@ -6,11 +6,13 @@
  *    horizontal gestures to us). A vertical swipe is a native scroll of the lane. A short
  *    press without moving also picks the card up, for any direction.
  *  - A ghost copy follows the pointer; the original stays as a faded placeholder.
- *  - The lane under the pointer is highlighted; releasing over another lane calls onDrop.
+ *  - The original card moves live to where it would land (also inside its own lane), so
+ *    reordering needs no extra indicator; releasing calls onDrop with the new lane and the
+ *    task it was placed before.
  *  - Near the board's left/right edge the board auto-scrolls (horizontal snap layout).
  *  - Escape or pointercancel aborts without side effects.
  *
- * The controller knows nothing about the API: it only reports (task, targetStatus). */
+ * The controller knows nothing about the API: it only reports the placement. */
 
 const MOUSE_THRESHOLD = 6;
 const TOUCH_INTENT_DISTANCE = 8;
@@ -22,7 +24,7 @@ export class CardDragController {
   /**
    * @param {object} options
    * @param {import("./board.js").Board} options.board
-   * @param {(task: object, status: string) => void} options.onDrop
+   * @param {(task: object, placement: {status: string, beforeId: string|null, position: number}) => void} options.onDrop
    */
   constructor({ board, onDrop }) {
     this.board = board;
@@ -151,6 +153,7 @@ export class CardDragController {
     this.drag = {
       card,
       task,
+      origin: { parent: card.parentElement, next: card.nextElementSibling },
       ghost,
       pointerId,
       offsetX: x - rect.left,
@@ -170,6 +173,7 @@ export class CardDragController {
     d.ghost.style.transform = `translate3d(${x - d.offsetX}px, ${y - d.offsetY}px, 0) rotate(1.2deg)`;
 
     const lane = this.#laneAt(x, y);
+    this.#reposition(lane, y);
     const target = lane && lane.dataset.status !== d.task.status ? lane : null;
     if (target !== d.hoverLane) {
       d.hoverLane?.classList.remove("lane--drop-target");
@@ -178,17 +182,59 @@ export class CardDragController {
     }
   }
 
-  /** Auto-scroll the board horizontally when the pointer is near its left/right edge. */
+  /** Move the original card to where a drop at (lane, y) would put it. */
+  #reposition(lane, y) {
+    const d = this.drag;
+    if (!lane) {
+      this.#restore(); // over no lane: back to where it came from
+      return;
+    }
+    const list = lane.querySelector(".lane__cards");
+    const others = [...list.children].filter((c) => c !== d.card);
+    const reference = others.find((c) => {
+      const r = c.getBoundingClientRect();
+      return y < r.top + r.height / 2;
+    });
+    const next = reference ?? null;
+    if (d.card.parentElement === list && d.card.nextElementSibling === next) return;
+    list.insertBefore(d.card, next);
+  }
+
+  #restore() {
+    const { card, origin } = this.drag;
+    const next = origin.next?.parentElement === origin.parent ? origin.next : null;
+    if (card.parentElement === origin.parent && card.nextElementSibling === next) return;
+    origin.parent.insertBefore(card, next);
+  }
+
+  /** Auto-scroll: the board sideways near its left/right edge, a lane list near its top/bottom. */
   #tick() {
     const d = this.drag;
     if (!d) return;
     const board = this.board.element;
+    let scrolled = false;
     if (board.scrollWidth > board.clientWidth) {
       const rect = board.getBoundingClientRect();
-      if (d.x < rect.left + EDGE_ZONE) board.scrollLeft -= EDGE_SPEED;
-      else if (d.x > rect.right - EDGE_ZONE) board.scrollLeft += EDGE_SPEED;
-      this.#update(d.x, d.y); // lane under the pointer may have changed
+      if (d.x < rect.left + EDGE_ZONE) {
+        board.scrollLeft -= EDGE_SPEED;
+        scrolled = true;
+      } else if (d.x > rect.right - EDGE_ZONE) {
+        board.scrollLeft += EDGE_SPEED;
+        scrolled = true;
+      }
     }
+    const list = this.#laneAt(d.x, d.y)?.querySelector(".lane__cards");
+    if (list && list.scrollHeight > list.clientHeight) {
+      const rect = list.getBoundingClientRect();
+      if (d.y < rect.top + EDGE_ZONE) {
+        list.scrollTop -= EDGE_SPEED;
+        scrolled = true;
+      } else if (d.y > rect.bottom - EDGE_ZONE) {
+        list.scrollTop += EDGE_SPEED;
+        scrolled = true;
+      }
+    }
+    if (scrolled) this.#update(d.x, d.y); // what is under the pointer may have changed
     d.raf = requestAnimationFrame(() => this.#tick());
   }
 
@@ -212,6 +258,22 @@ export class CardDragController {
     }
     this.justDragged = true;
     window.setTimeout(() => (this.justDragged = false), 0);
-    if (lane && lane.dataset.status !== d.task.status) this.onDrop(d.task, lane.dataset.status);
+
+    if (!lane) {
+      // aborted (Escape, pointercancel, dropped outside): put the card back
+      const next = d.origin.next?.parentElement === d.origin.parent ? d.origin.next : null;
+      d.origin.parent.insertBefore(d.card, next);
+      return;
+    }
+    const status = lane.dataset.status;
+    const next = d.card.nextElementSibling;
+    const unchanged =
+      status === d.task.status && d.card.parentElement === d.origin.parent && next === d.origin.next;
+    if (unchanged) return;
+    this.onDrop(d.task, {
+      status,
+      beforeId: next?.dataset.taskId ?? null,
+      position: this.board.positionAround(d.card),
+    });
   }
 }

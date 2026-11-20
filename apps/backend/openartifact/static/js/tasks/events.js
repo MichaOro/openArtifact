@@ -2,7 +2,7 @@
  * EventSource reconnects by itself; events missed while disconnected are not replayed, so
  * every (re)connect calls onOpen so the caller can resync from the REST API. */
 
-const EVENT_TYPES = ["task.created", "task.updated", "task.moved", "task.deleted"];
+const EVENT_TYPES = ["task.created", "task.updated", "task.moved", "task.deleted", "board.resync"];
 
 /**
  * @param {object} options

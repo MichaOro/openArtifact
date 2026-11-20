@@ -50,7 +50,7 @@ html:has(.modal[open]) { overflow: hidden; }
   margin-top: var(--space-2);
   padding: 0 var(--space-2);
   border-radius: 999px;
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent);
   color: var(--color-text-primary);
   font-size: 0.75rem;
   line-height: 1.5rem;
@@ -59,7 +59,41 @@ html:has(.modal[open]) { overflow: hidden; }
   cursor: pointer;
   transition: background var(--transition-fast);
 }
-.modal__subtitle:hover { background: color-mix(in srgb, var(--color-accent) 24%, transparent); }
+.modal__subtitle:hover { background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 34%, transparent); }
+
+/* Easter egg: clicking the lane chip unrolls the other lanes as chips *inside* the header.
+   The form below slides down to make room: no popup, no edge, just a fade. */
+.lane-chips {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 220ms ease;
+}
+.lane-chips[data-open] { grid-template-rows: 1fr; opacity: 1; }
+.lane-chips__clip { min-height: 0; overflow: hidden; }
+.lane-chips__inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) 0 var(--space-1);
+}
+.lane-chip {
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.75rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.lane-chips[data-open] .lane-chip { animation: chip-in 240ms ease-out both; animation-delay: calc(var(--i, 0) * 50ms + 80ms); }
+.lane-chip:hover,
+.lane-chip:focus-visible { background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 38%, transparent); outline: none; }
+.lane-chip:focus-visible { box-shadow: 0 0 0 2px var(--color-accent); }
+@keyframes chip-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .modal__subtitle:empty { display: none; }
 
 .modal__layout { display: grid; grid-template-columns: minmax(0, 1fr) auto; }

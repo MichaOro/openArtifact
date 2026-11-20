@@ -1,5 +1,15 @@
 /* Reusable components. Colours come exclusively from tokens.css. */
 
+/* ── Lane colours: an element with data-lane-hue="N" gets --lane-color (token --lane-hue-N) ── */
+[data-lane-hue="1"] { --lane-color: var(--lane-hue-1); }
+[data-lane-hue="2"] { --lane-color: var(--lane-hue-2); }
+[data-lane-hue="3"] { --lane-color: var(--lane-hue-3); }
+[data-lane-hue="4"] { --lane-color: var(--lane-hue-4); }
+[data-lane-hue="5"] { --lane-color: var(--lane-hue-5); }
+[data-lane-hue="6"] { --lane-color: var(--lane-hue-6); }
+[data-lane-hue="7"] { --lane-color: var(--lane-hue-7); }
+[data-lane-hue="8"] { --lane-color: var(--lane-hue-8); }
+
 /* ── Glass primitive ─────────────────────────────────────────────── */
 .glass {
   background: var(--glass-fill);
@@ -209,11 +219,19 @@
   text-transform: uppercase;
   color: var(--color-text-secondary);
 }
+.lane__title { display: inline-flex; align-items: center; gap: var(--space-2); }
+.lane__title::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--lane-color, var(--color-accent));
+}
 .lane__count {
   min-width: 1.5rem;
   padding: 0 var(--space-2);
   border-radius: 999px;
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent);
   color: var(--color-text-primary);
   font-size: 0.75rem;
   font-weight: 600;
@@ -387,7 +405,14 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 .card-nav__toggle { align-self: flex-start; margin-left: calc(var(--space-3) + 0.625rem - 1rem); }
 .card-nav__field .nav-link__label { display: flex; flex-direction: column; line-height: 1.2; }
 .card-nav__key { font-size: 0.6875rem; color: var(--color-text-muted); }
-.card-nav__value { font-size: 0.8125rem; color: var(--color-text-primary); white-space: nowrap; }
+.card-nav__value { font-size: 0.8125rem; color: var(--color-text-primary); white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-2); }
+.card-nav__value::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--lane-color, var(--color-accent));
+}
 .card-nav__toggle .icon { transition: transform var(--transition-base); }
 .card-nav[data-state="collapsed"] .card-nav__toggle .icon { transform: rotate(180deg); }
 .card-nav .nav-link__label { overflow: hidden; transition: opacity var(--transition-base), max-width var(--transition-base); max-width: 9rem; }
@@ -403,9 +428,9 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 11rem;
-  padding: var(--space-1);
+  gap: var(--space-1);
+  min-width: 12rem;
+  padding: var(--space-2);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-glass-card) 96%, var(--color-background));
@@ -413,14 +438,14 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
   animation: popover-in 140ms ease-out;
 }
 .popover__caption {
-  padding: var(--space-1) var(--space-3) 0;
+  padding: var(--space-1) var(--space-3) var(--space-1);
   font-size: 0.6875rem;
   color: var(--color-text-muted);
 }
 .popover__option {
   display: flex;
   align-items: center;
-  height: 2.25rem;
+  height: 2.5rem;
   padding: 0 var(--space-3);
   border: 0;
   border-radius: var(--radius-sm);
@@ -433,53 +458,6 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 }
 .popover__option:hover,
 .popover__option:focus-visible { background: var(--accent-soft); outline: none; }
-/* Easter egg: the lane menu of the lane chip unrolls out of the chip. No top edge, the side
-   lines fade in, the lanes are chips themselves. */
-.popover--chips {
-  align-items: flex-start;
-  gap: var(--space-1);
-  min-width: 9rem;
-  padding: var(--space-1) var(--space-2) var(--space-2);
-  border: 0;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
-  /* opaque in the dialog's own colour: the menu grows out of the dialog without a top edge */
-  background: color-mix(in srgb, var(--color-glass-card) 98%, var(--color-background));
-  box-shadow: none;
-  filter: drop-shadow(0 10px 14px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) * 0.8), transparent));
-  animation: chips-unroll 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.popover--chips::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: inherit;
-  background: linear-gradient(to bottom, transparent, var(--glass-border) 2.5rem);
-  /* keep only a 1px ring: side and bottom lines that fade in from the top */
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  pointer-events: none;
-}
-.popover--chips .popover__caption { display: none; }
-.popover__option--chip {
-  height: auto;
-  padding: 0 var(--space-2);
-  border-radius: 999px;
-  background: var(--accent-soft);
-  font-size: 0.75rem;
-  line-height: 1.5rem;
-  animation: chip-in 200ms ease-out both;
-  animation-delay: calc(var(--i, 0) * 45ms + 70ms);
-}
-.popover__option--chip:hover { background: color-mix(in srgb, var(--color-accent) 24%, transparent); }
-.popover__option--chip:focus-visible {
-  background: color-mix(in srgb, var(--color-accent) 24%, transparent);
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-@keyframes chips-unroll { from { clip-path: inset(0 0 100% 0); opacity: 0.4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
-@keyframes chip-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @keyframes popover-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
 /* ── Narrow: the sidebar never takes width from the board ─────────

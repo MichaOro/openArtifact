@@ -58,8 +58,19 @@ export const createTask = (task) =>
 export const updateTask = (id, fields) =>
   request(`/api/tasks/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(fields) });
 
-/** Move a task to another lane. @param {string} id @param {string} status */
-export const moveTask = (id, status) => updateTask(id, { status });
+/**
+ * Move a task to another lane and/or to a position inside a lane.
+ * @param {string} id
+ * @param {{status?: string, beforeId?: string|null}} placement
+ *   beforeId: put it before this task; null = end of the lane; omitted = keep (same lane) or top
+ *   (other lane).
+ */
+export const placeTask = (id, { status, beforeId } = {}) => {
+  const fields = {};
+  if (status !== undefined) fields.status = status;
+  if (beforeId !== undefined) fields.before_id = beforeId;
+  return updateTask(id, fields);
+};
 
 /** @param {string} id */
 export const deleteTask = (id) =>

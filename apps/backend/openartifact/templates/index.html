@@ -4,23 +4,23 @@
 {% block title %}Projects · OpenArtifact{% endblock %}
 {% block content %}
 <div class="board-alert glass" role="alert" hidden data-board-error>
-    <span data-board-error-text>Tasks could not be loaded.</span>
+    <span data-board-error-text>Artifacts could not be loaded.</span>
     <button type="button" class="button button--ghost button--sm" data-board-retry>Retry</button>
 </div>
 <div class="board" role="group" aria-label="Kanban board">
     {% for board_lane in lanes %}
-    {{ lane(board_lane.title, board_lane.key, board_lane.status.value) }}
+    {{ lane(board_lane.title, board_lane.key, board_lane.status.value, hue=loop.index0 % lane_hues + 1) }}
     {% endfor %}
 </div>
 
 <template id="task-card-template">
-    <li class="task-card" tabindex="0" aria-keyshortcuts="Enter Alt+ArrowLeft Alt+ArrowRight Delete" aria-haspopup="dialog">
+    <li class="task-card" tabindex="0" aria-keyshortcuts="Enter Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown Delete" aria-haspopup="dialog">
         <div class="task-card__content">
             <h3 class="task-card__title"></h3>
             <p class="task-card__body"></p>
         </div>
         <button type="button" class="icon-button icon-button--sm task-card__delete" data-delete-task
-                aria-label="Delete task" title="Delete task">{{ icon("trash") }}</button>
+                aria-label="Delete artifact" title="Delete artifact">{{ icon("trash") }}</button>
     </li>
 </template>
 

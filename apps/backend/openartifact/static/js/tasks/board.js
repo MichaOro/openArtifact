@@ -27,6 +27,7 @@ export class Board {
         list: section.querySelector(".lane__cards"),
         count: section.querySelector(".lane__count"),
         title: section.querySelector(".lane__title").textContent.trim(),
+        hue: section.dataset.laneHue,
       });
     });
 
@@ -42,6 +43,11 @@ export class Board {
     return this.lanes.get(status)?.title ?? status;
   }
 
+  /** Palette index of a lane (drives its colour via data-lane-hue). */
+  laneHue(status) {
+    return this.lanes.get(status)?.hue ?? "1";
+  }
+
   /** Reconcile with the server: add/update everything listed, drop everything else. */
   async load() {
     try {
@@ -52,7 +58,7 @@ export class Board {
       this.loaded = true;
       this.#clearError();
     } catch (error) {
-      this.showError(error.message || "Tasks could not be loaded.", { retry: true });
+      this.showError(error.message || "Artifacts could not be loaded.", { retry: true });
     }
   }
 
@@ -69,7 +75,9 @@ export class Board {
     }
     this.#renderContent(card, task);
 
-    if (isNew || previous.status !== task.status) {
+    const moved = isNew || previous.status !== task.status || previous.position !== task.position;
+    // A card that is being dragged is positioned by the drag, not by incoming data.
+    if (moved && !card.classList.contains("task-card--placeholder")) {
       this.#place(card, task);
       if (isNew && this.loaded) card.classList.add("task-card--new");
     }
@@ -82,6 +90,25 @@ export class Board {
     this.cards.delete(id);
     this.tasks.delete(id);
     this.#updateCounts();
+  }
+
+  /** Sort key for a task dropped between two neighbours (either may be null). */
+  static positionBetween(prev, next) {
+    if (prev && next) return (prev.position + next.position) / 2;
+    if (next) return next.position - 1;
+    if (prev) return prev.position + 1;
+    return 0;
+  }
+
+  /** Sort key for a card that sits at its desired spot in the DOM. */
+  positionAround(card) {
+    return Board.positionBetween(this.taskOf(card.previousElementSibling), this.taskOf(card.nextElementSibling));
+  }
+
+  /** Sort key that puts a task at the top of a lane. */
+  topPosition(status) {
+    const first = this.taskOf(this.lanes.get(status)?.list.firstElementChild);
+    return first ? first.position - 1 : 0;
   }
 
   /** Task data for a card element (or null). */
@@ -122,10 +149,10 @@ export class Board {
     const body = card.querySelector(".task-card__body");
     body.textContent = task.body ?? "";
     body.hidden = !task.body;
-    card.querySelector("[data-delete-task]").setAttribute("aria-label", `Delete task ${task.title}`);
+    card.querySelector("[data-delete-task]").setAttribute("aria-label", `Delete artifact ${task.title}`);
   }
 
-  /** Insert into the lane keeping the server's order: newest first, ties by id. */
+  /** Insert into the lane keeping the server's order: position, then newest first, then id. */
   #place(card, task) {
     const list = this.lanes.get(task.status)?.list;
     if (!list) return;
@@ -137,6 +164,7 @@ export class Board {
   }
 
   #compare(a, b) {
+    if (a.position !== b.position) return a.position < b.position ? -1 : 1;
     if (a.created_at !== b.created_at) return a.created_at > b.created_at ? -1 : 1;
     return a.id < b.id ? -1 : 1;
   }
@@ -145,7 +173,7 @@ export class Board {
     this.lanes.forEach(({ list, count }) => {
       const n = list.children.length;
       count.textContent = String(n);
-      count.setAttribute("aria-label", `${n} ${n === 1 ? "task" : "tasks"}`);
+      count.setAttribute("aria-label", `${n} ${n === 1 ? "artifact" : "artifacts"}`);
     });
   }
 }
