@@ -100,5 +100,5 @@ async def test_session_autorollback_on_error(settings: Settings) -> None:
     async with db_session_context(settings) as session:
         result = await session.execute(text("SELECT COUNT(*) FROM rollback_test"))
         row = result.fetchone()
-        count = row[0] if row is not None else 0  # type: ignore[index]
+        count = row[0] if row is not None else 0
         assert count == 1  # Only the pre-existing row, not the rolled-back insert
