@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from openartifact.app import _create_app, create_app
 from openartifact.config import Settings
 
@@ -36,7 +38,7 @@ def test_routes_registered() -> None:
     # Collect all paths recursively with unlimited depth
     route_paths: list[str] = []
 
-    def collect_paths(routes, depth=0):
+    def collect_paths(routes: list[Any], depth: int = 0) -> None:
         if depth > 10:
             return
         for route in routes:
