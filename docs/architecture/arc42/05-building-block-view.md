@@ -57,14 +57,15 @@ Planned (WP-06+): Workflow engine, artifact store, domain models.
 | `models/` | `openartifact/models/` | Domain models (Project, Artifact, Workflow) |
 | `workflow/` | `openartifact/workflow/` | Workflow execution engine |
 | `templates/` | `openartifact/templates/` | Jinja2 HTML templates |
-| `static/` | `openartifact/static/` | CSS, JS, image assets |
+| `static/` | `openartifact/static/` | `css/` (tokens, base, components), `js/` (theme/sidebar state, UI wiring) |
 
 ## 5.4 Interface View
 
 | Component | Interface | Protocol | Status |
 |-----------|-----------|----------|--------|
 | HTTP Layer | REST API | HTTP/1.1 | ✅ WP-03 |
-| HTTP Layer | HTMX templates | HTTP/1.1 + HTML | ✅ WP-03 |
+| HTTP Layer | Server-rendered pages (Jinja2) + `/static` assets | HTTP/1.1 + HTML | ✅ WP-03 |
+| HTTP Layer | Tasks API (`GET`/`POST /api/tasks`) | HTTP/1.1 + JSON | ✅ |
 | HTTP Layer | OpenAPI/Swagger | /api/docs | ✅ WP-03 |
 | HTTP Layer | Real-time progress | WebSocket / SSE | ⏳ WP-07 |
 | Artifact Store | SQLite database | SQLite (WAL mode) | ✅ WP-04 |

@@ -19,9 +19,9 @@ This ADR consolidates all technology decisions from ADR-002 through ADR-008 and 
 |-------|----------|-----------|
 | **Language** | Python 3.12+ | AI ecosystem, async support, development productivity |
 | **Backend** | FastAPI + Pydantic v2 | Auto OpenAPI, validation, async-first |
-| **Frontend** | HTMX + Jinja2 + Tailwind | No build step, server-driven, simple deployment |
+| **Frontend** | Jinja2 + hand-written CSS tokens + vanilla JS (ADR-010) | No build step, no CDN, full control over board interactions (drag & drop) |
 | **Database** | SQLite (WAL mode) | Zero-config, single-container, upgradeable to PostgreSQL |
-| **API** | REST + OpenAPI + WebSocket | HTMX-native, real-time via SSE/WebSocket |
+| **API** | REST + OpenAPI (WebSocket/SSE planned, not implemented) | Standard, documented, usable by UI and third parties |
 | **Packaging** | Docker + Docker Compose | Self-hosted distribution, port 2909 |
 | **Task Queue** | Deferred to WP-03 | Celery or arq when workflow engine is built |
 
@@ -55,7 +55,7 @@ The following arc42 chapters have been updated:
 | Risk | Likelihood | Mitigation |
 |------|------------|------------|
 | SQLite write contention under heavy load | Low (initial scope) | WAL mode; upgrade to PostgreSQL in WP-06 if needed |
-| HTMX insufficient for complex dashboards | Medium | Add React incrementally if needed |
+| Hand-written JS becomes unstructured | Medium | ES modules per feature, single state owner per concern, UI tests |
 | GIL limiting concurrent Python execution | Low (async architecture) | Async-first design; multiprocessing if CPU-bound tasks emerge |
 | Docker image size (~200MB Python) | Low (acceptable for server) | Distroless base image to reduce |
 

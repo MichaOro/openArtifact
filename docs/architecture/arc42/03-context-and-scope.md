@@ -14,8 +14,8 @@ OpenArtifact operates at the center of a workflow orchestration ecosystem:
 ```
 ┌──────────┐     HTTP      ┌──────────────┐     SQLite     ┌──────────┐
 │  Browser  │ ◄──────────► │ OpenArtifact │ ◄─────────────►│  SQLite  │
-│ (HTMX/   │              │   (Port 2909) │               │  (WAL)   │
-│  WS)     │              │              │                 │          │
+│ (Jinja2  │              │   (Port 2909) │               │  (WAL)   │
+│  + JS)   │              │              │                 │          │
 └──────────┘              └──────┬───────┘                 └──────────┘
                                  │
                     ┌────────────┼────────────┐
@@ -28,7 +28,7 @@ OpenArtifact operates at the center of a workflow orchestration ecosystem:
                            └──────────┘
 ```
 
-- **Browser** — HTMX + Jinja2 frontend, WebSocket for real-time progress
+- **Browser** — server-rendered Jinja2 pages with vanilla JavaScript; JSON REST API for board data (planned). Real-time updates via WebSocket/SSE are planned, not implemented
 - **OpenArtifact** — Application server, workflow engine, artifact store
 - **SQLite** — Persistent storage (WAL mode for concurrency)
 - **AI APIs** — External model providers (OpenAI, Anthropic, etc.)

@@ -122,12 +122,14 @@ uv run alembic current
 |-------|------------|
 | Language | Python 3.12+ |
 | Backend | FastAPI + Pydantic v2 |
-| Frontend | HTMX + Jinja2 + Tailwind CSS |
+| Frontend | Jinja2 + CSS design tokens + vanilla JS (no build step) |
 | Database | SQLite (WAL mode) |
 | Migration | Alembic |
 | Deployment | Docker + Docker Compose |
 
 ## Roadmap
+
+> **Bootstrap phase complete** (git tag `bootstrap-complete`). Product development now happens on feature branches, e.g. `feat/kanban-cards`. The work package numbers below are the original bootstrap plan and are not updated per feature.
 
 | Phase | Work Package | Status |
 |-------|--------------|--------|
@@ -136,7 +138,7 @@ uv run alembic current
 | WP-02 | Python project foundation and development tooling | ✅ Done |
 | WP-03 | Self-hosted application runtime | ✅ Done |
 | WP-04 | Persistent storage and database migrations | ✅ Done |
-| WP-05 | Docker deployment and all-in-one distribution | 🔄 In progress |
+| WP-05 | Docker deployment and all-in-one distribution | ✅ Done |
 | WP-06 | Core artifact model and domain types | ⏳ Planned |
 | WP-07 | Workflow orchestration engine | ⏳ Planned |
 | WP-08 | AI agent integration framework | ⏳ Planned |
