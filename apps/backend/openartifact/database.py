@@ -8,11 +8,11 @@ creates engines or sessions directly.
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from pathlib import Path
-from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from openartifact.config import Settings
@@ -59,6 +59,7 @@ def _build_engine(settings: Settings) -> AsyncEngine:
                 f"Cannot create database directory {db_path.parent}: {exc}"
             ) from exc
 
+    # ── Create the async engine ────────────────────────────────────
     _engine = create_async_engine(
         settings.database_url,
         echo=settings.debug,
@@ -68,36 +69,13 @@ def _build_engine(settings: Settings) -> AsyncEngine:
         },
     )
 
-    # Enable WAL mode for better concurrent read performance
-    import aiosqlite  # noqa: PLC0415
-
-    async def _enable_wal(dbapi_conn: aiosqlite.Connection) -> None:
-        """Enable WAL mode and set journal size limit.
-
-        WAL mode allows concurrent reads while writes are serialized.
-        The journal_size_limit of 8MB prevents WAL files from growing
-        unbounded during long-running workflows.
-        """
-        cursor = await dbapi_conn.execute("PRAGMA journal_mode=WAL")
-        await cursor.close()
-        cursor = await dbapi_conn.execute("PRAGMA journal_size_limit=8388608")
-        await cursor.close()
-        cursor = await dbapi_conn.execute("PRAGMA synchronous=NORMAL")
-        await cursor.close()
-
-    _engine = create_async_engine(
-        settings.database_url,
-        echo=settings.debug,
-        connect_args={
-            "check_same_thread": False,
-            "timeout": 30,
-        },
-        engine_kwargs={
-            "event_hooks": {
-                "connect": [_enable_wal],
-            },
-        },
-    )
+    # Enable WAL mode on every new connection for concurrent read performance
+    @event.listens_for(_engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:  # type: ignore[no-untyped-def]
+        """Set WAL mode on new connections."""
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.close()
 
     return _engine
 

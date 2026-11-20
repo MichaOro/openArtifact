@@ -5,8 +5,9 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from openartifact.app import _create_app
 from openartifact.api.routes import router
+from openartifact.app import _create_app
+from openartifact.config import Settings
 
 
 @pytest.fixture

@@ -6,7 +6,6 @@ sequential migration execution, and migration failure handling.
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -17,9 +16,9 @@ from openartifact.database import _build_engine, dispose_engine
 
 def _reset_engine() -> None:
     """Reset the global engine for test isolation."""
-    import openartifact.database as db_mod  # noqa: PLC0415
+    import openartifact.database as db_mod
     if db_mod._engine is not None:
-        import asyncio  # noqa: PLC0415
+        import asyncio
         asyncio.get_event_loop().run_until_complete(db_mod.dispose_engine())
 
 
@@ -52,7 +51,7 @@ async def test_database_file_created(tmp_path: Path) -> None:
 
 async def test_persistence_across_reconnect(settings: Settings) -> None:
     """Data persists across engine reconnection."""
-    from sqlalchemy import text  # noqa: PLC0415
+    from sqlalchemy import text
 
     engine = _build_engine(settings)
     async with engine.connect() as conn:

@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import os
-
 import pytest
-from pydantic_settings import SettingsConfigDict
 
 from openartifact.config import Settings
 

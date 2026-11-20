@@ -9,7 +9,6 @@ import logging
 import sys
 from typing import Any
 
-
 # Fields that must never appear in log output
 _SECRET_FIELDS = frozenset(
     {

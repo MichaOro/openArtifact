@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
 from openartifact.app import _create_app, create_app
 from openartifact.config import Settings
-from openartifact.api.routes import router as api_router
 
 
 def test_create_app() -> None:

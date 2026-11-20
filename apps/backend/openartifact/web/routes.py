@@ -22,4 +22,4 @@ async def index(request: Request) -> HTMLResponse:
     Renders the main HTML shell with Jinja2.
     Application identity and version are embedded in the template.
     """
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html", context={})

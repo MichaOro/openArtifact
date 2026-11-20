@@ -5,7 +5,7 @@ FROM python:3.12-slim AS builder
 WORKDIR /build
 
 # Copy only dependency definitions first for better layer caching
-COPY apps/backend/pyproject.toml apps/backend/.python-version ./
+COPY apps/backend/pyproject.toml apps/backend/.python-version README.md ./
 
 # Install build dependencies
 RUN pip install --no-cache-dir --upgrade pip \
@@ -33,17 +33,25 @@ COPY --from=builder /build/openartifact openartifact/
 COPY apps/backend/alembic.ini ./
 COPY apps/backend/alembic/ alembic/
 
+# Copy entrypoint script
+COPY scripts/docker-entrypoint.sh scripts/docker-entrypoint.sh
+RUN chmod +x scripts/docker-entrypoint.sh \
+    && chown openartifact:openartifact scripts/docker-entrypoint.sh
+
 # Create persistent data directory with correct ownership
 RUN mkdir -p /data \
     && chown -R openartifact:openartifact /data \
     && chown openartifact:openartifact /app \
-    && chown -R openartifact:openartifact /app/apps/backend
+    && chown -R openartifact:openartifact /app/openartifact
 
 # Expose application port
 EXPOSE 2909
 
 # Switch to non-root user
 USER openartifact
+
+# Ensure openartifact package is importable from /app
+ENV PYTHONPATH=/app
 
 # Entry point: run Alembic migrations, then start the application
 ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]

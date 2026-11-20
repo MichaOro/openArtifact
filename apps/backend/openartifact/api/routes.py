@@ -9,10 +9,25 @@ from fastapi import APIRouter
 
 from openartifact.config import get_settings
 
-router = APIRouter(prefix="/api")
+# ── Shared health check implementation ───────────────────────────────
+
+def _health_response() -> dict[str, str | int]:
+    """Return the health check payload."""
+    return {
+        "status": "ok",
+        "application": "OpenArtifact",
+        "version": "0.1.0",
+        "uptime_status": "running",
+    }
 
 
-@router.get("/health")
+# ── Public health check (no prefix) ──────────────────────────────────
+# Mounted at /health — matches Docker Compose health check and public docs.
+
+public_router = APIRouter()
+
+
+@public_router.get("/health")
 async def health_check() -> dict[str, str | int]:
     """Health check endpoint.
 
@@ -25,12 +40,21 @@ async def health_check() -> dict[str, str | int]:
     - version: application version string
     - uptime_status: "running"
     """
-    return {
-        "status": "ok",
-        "application": "OpenArtifact",
-        "version": "0.1.0",
-        "uptime_status": "running",
-    }
+    return _health_response()
+
+
+# ── API routes (prefix=/api) ────────────────────────────────────────
+
+router = APIRouter(prefix="/api")
+
+
+@router.get("/health")
+async def api_health_check() -> dict[str, str | int]:
+    """Health check endpoint (legacy path /api/health).
+
+    Backwards-compatible alias — delegates to the same implementation.
+    """
+    return _health_response()
 
 
 @router.get("/info")

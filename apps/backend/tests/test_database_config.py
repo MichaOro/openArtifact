@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import tempfile
 from pathlib import Path
 
@@ -10,7 +9,7 @@ import pytest
 from pydantic_settings import SettingsConfigDict
 
 from openartifact.config import Settings
-from openartifact.database import _build_engine, dispose_engine, _engine
+from openartifact.database import _build_engine, dispose_engine
 
 
 class _TestSettings(Settings):
@@ -20,9 +19,9 @@ class _TestSettings(Settings):
 
 def _reset_engine() -> None:
     """Reset the global engine for test isolation."""
-    import openartifact.database as db_mod  # noqa: PLC0415
+    import openartifact.database as db_mod
     if db_mod._engine is not None:
-        import asyncio  # noqa: PLC0415
+        import asyncio
         asyncio.get_event_loop().run_until_complete(db_mod.dispose_engine())
 
 
@@ -52,12 +51,11 @@ def test_database_url_from_custom_data_dir() -> None:
 
 def test_database_url_from_env() -> None:
     """Database path can be overridden via environment variables."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setenv("OPENARTIFACT_DATA_DIR", tmpdir)
-            mp.setenv("OPENARTIFACT_DATABASE_FILENAME", "custom.db")
-            s = Settings()
-            assert f"{tmpdir}/custom.db" in s.database_url
+    with tempfile.TemporaryDirectory() as tmpdir, pytest.MonkeyPatch.context() as mp:
+        mp.setenv("OPENARTIFACT_DATA_DIR", tmpdir)
+        mp.setenv("OPENARTIFACT_DATABASE_FILENAME", "custom.db")
+        s = Settings()
+        assert f"{tmpdir}/custom.db" in s.database_url
 
 
 def test_engine_creation_creates_data_dir() -> None:
@@ -110,5 +108,5 @@ async def test_dispose_engine() -> None:
         engine = _build_engine(s)
         assert engine is not None
         await dispose_engine()
-        import openartifact.database as db_mod  # noqa: PLC0415
+        import openartifact.database as db_mod
         assert db_mod._engine is None

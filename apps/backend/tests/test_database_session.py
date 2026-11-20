@@ -2,26 +2,23 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import pytest
 
+from openartifact.config import Settings
 from openartifact.database import (
-    Base,
-    dispose_engine,
-    get_db_session,
     _build_engine,
     db_session_context,
+    get_db_session,
 )
-from openartifact.config import Settings
 
 
 def _reset_engine() -> None:
     """Reset the global engine for test isolation."""
-    import openartifact.database as db_mod  # noqa: PLC0415
+    import openartifact.database as db_mod
     if db_mod._engine is not None:
-        import asyncio  # noqa: PLC0415
+        import asyncio
         asyncio.get_event_loop().run_until_complete(db_mod.dispose_engine())
 
 
@@ -61,7 +58,7 @@ async def test_session_is_async_generator(settings: Settings) -> None:
 
 async def test_session_context(settings: Settings) -> None:
     """db_session_context provides a session without global state."""
-    from sqlalchemy import text  # noqa: PLC0415
+    from sqlalchemy import text
 
     async with db_session_context(settings) as session:
         result = await session.execute(text("SELECT 1"))
@@ -72,7 +69,7 @@ async def test_session_context(settings: Settings) -> None:
 
 async def test_session_autocommit(settings: Settings) -> None:
     """Session auto-commits on successful yield."""
-    from sqlalchemy import text  # noqa: PLC0415
+    from sqlalchemy import text
 
     async with db_session_context(settings) as session:
         await session.execute(text("CREATE TABLE test_table (id INTEGER)"))
@@ -86,7 +83,7 @@ async def test_session_autocommit(settings: Settings) -> None:
 
 async def test_session_autorollback_on_error(settings: Settings) -> None:
     """Session auto-rolls back on error within context."""
-    from sqlalchemy import text  # noqa: PLC0415
+    from sqlalchemy import text
 
     with pytest.raises(Exception):
         async with db_session_context(settings) as session:

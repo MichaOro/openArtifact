@@ -6,18 +6,16 @@ Handles migration execution with proper database engine and session setup.
 from __future__ import annotations
 
 import asyncio
-import logging
 from logging.config import fileConfig
-from pathlib import Path
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import event
-from alembic import context
 
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from alembic import context
 from openartifact.config import Settings
 
 # Import all models so Alembic can detect them for autogenerate
 # Currently empty — models will be added in WP-05
-# from openartifact.models import *  # noqa: F401, F403
+# from openartifact.models import *
 
 config = context.config
 
@@ -25,7 +23,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Set the target metadata for autogenerate
-from openartifact.database import Base  # noqa: PLC0415
+from openartifact.database import Base
 
 target_metadata = Base.metadata
 
