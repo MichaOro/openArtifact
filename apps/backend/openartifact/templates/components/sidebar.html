@@ -1,0 +1,33 @@
+{% from "components/icons.html" import icon %}
+{# Add future navigation entries to `nav_items`. #}
+{% set nav_items = [
+    {"key": "projects", "label": "Projects", "href": "/", "icon": "projects"},
+] %}
+<aside class="sidebar" id="sidebar" aria-label="Sidebar">
+    <div class="sidebar__brand">
+        <span class="sidebar__logo">{{ icon("logo") }}</span>
+        <span class="sidebar__name">OpenArtifact</span>
+    </div>
+
+    <nav class="sidebar__nav" aria-label="Main navigation">
+        <ul class="nav-list">
+            {% for item in nav_items %}
+            <li>
+                <a class="nav-link" href="{{ item.href }}" title="{{ item.label }}"
+                   {% if item.key == active_nav %}aria-current="page"{% endif %}>
+                    {{ icon(item.icon) }}
+                    <span class="nav-link__label">{{ item.label }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </nav>
+
+    <div class="sidebar__footer">
+        <span class="sidebar__footer-text">v{{ app_version }}</span>
+        <button type="button" class="icon-button sidebar-toggle" data-sidebar-toggle
+                aria-controls="sidebar" aria-expanded="true" aria-label="Collapse sidebar">
+            {{ icon("chevrons-left") }}
+        </button>
+    </div>
+</aside>

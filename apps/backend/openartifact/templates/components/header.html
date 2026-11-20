@@ -1,0 +1,8 @@
+{% from "components/icons.html" import icon %}
+<header class="app-header">
+    <h1 class="app-header__title">{{ page_title }}</h1>
+    <button type="button" class="icon-button theme-toggle" data-theme-toggle
+            aria-pressed="false" aria-label="Switch theme">
+        {{ icon("sun", "icon--sun") }}{{ icon("moon", "icon--moon") }}
+    </button>
+</header>

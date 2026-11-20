@@ -1,0 +1,27 @@
+{% from "components/modal.html" import modal %}
+{% call modal("create-task-modal", "Create Task", subtitle=True) %}
+<form class="task-form" id="create-task-form" novalidate>
+    <div class="modal__body">
+        <div class="field">
+            <label class="field__label" for="task-title">Title <span class="field__required" aria-hidden="true">*</span></label>
+            <input class="field__control" id="task-title" name="title" type="text" required
+                   maxlength="255" autocomplete="off" placeholder="Enter task title..."
+                   aria-required="true" aria-describedby="task-title-error" data-autofocus>
+            <p class="field__error" id="task-title-error" role="alert" hidden></p>
+        </div>
+        <div class="field">
+            <label class="field__label" for="task-body">Body <span class="field__hint">(optional)</span></label>
+            <textarea class="field__control" id="task-body" name="body" rows="6"
+                      maxlength="10000" placeholder="Describe your task..."></textarea>
+        </div>
+        <p class="form-error" role="alert" hidden data-form-error></p>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-modal-close data-cancel>Cancel</button>
+        <button type="submit" class="button button--primary" data-submit>
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Create Task</span>
+        </button>
+    </footer>
+</form>
+{% endcall %}
