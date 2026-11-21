@@ -5,7 +5,7 @@
  *  - drag from an output port to an input port to connect;
  *  - drag the background to pan, wheel or the zoom buttons to zoom;
  *  - click a node or an edge to select it. */
-import { PAD, boxOf, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./graph.js";
+import { PAD, SLOTS, boxOf, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf, slotY } from "./graph.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete" };
@@ -103,7 +103,7 @@ export class Canvas {
       const body = document.createElement("div");
       body.className = "wf-stage__body";
       el.append(header, body);
-      el.append(this.#port(node, "start", "Start"), this.#port(node, "end", "End"));
+      for (let slot = 0; slot < SLOTS; slot += 1) el.append(this.#port(node, "start", "Start", slot), this.#port(node, "end", "End", slot));
     } else {
       const text = document.createElement("div");
       text.className = "wf-node__text";
@@ -121,10 +121,11 @@ export class Canvas {
   }
 
   /** A port dot. A stage's start and end work both ways ("both"): they receive and they feed. */
-  #port(node, port, title) {
+  #port(node, port, title, slot = 0) {
     const el = document.createElement("span");
     el.className = `wf-port wf-port--${port}`;
     el.dataset.port = port;
+    el.dataset.slot = String(slot);
     el.dataset.nodeId = node.id;
     el.dataset.direction = node.kind === "stage" ? "both" : ["out", "pass", "error"].includes(port) ? "output" : "input";
     el.setAttribute("aria-hidden", "true");
@@ -141,21 +142,31 @@ export class Canvas {
     el.style.height = `${height}px`;
     el.querySelector(".wf-node__name").textContent = node.name;
     el.setAttribute("aria-label", `${KIND_LABELS[node.kind]}: ${node.name}`);
+    if (node.kind === "stage") {
+      el.querySelectorAll(":scope > .wf-port").forEach((port) => {
+        port.style.top = `${slotY(height, Number(port.dataset.slot))}px`;
+      });
+    }
     el.classList.toggle("is-selected", this.selection?.type === "node" && this.selection.id === node.id);
   }
 
   /** Redraw every edge (cheap: a handful of paths). */
   drawEdges() {
     this.edgeLayer.querySelectorAll(".wf-edge").forEach((el) => el.remove());
+    const used = new Set();
     for (const edge of this.edges.values()) {
       const source = this.nodes.get(edge.source_id);
       const target = this.nodes.get(edge.target_id);
       if (!source || !target) continue;
-      const d = edgePath(portPoint(source, edge.source_port, this.nodes), portPoint(target, edge.target_port, this.nodes), boxOf(source, this.nodes), boxOf(target, this.nodes));
+      const d = edgePath(portPoint(source, edge.source_port, this.nodes, edge.source_slot), portPoint(target, edge.target_port, this.nodes, edge.target_slot), boxOf(source, this.nodes), boxOf(target, this.nodes), { style: edge.style });
       const group = svg("g", { class: `wf-edge wf-edge--${edge.source_port}`, "data-edge-id": edge.id });
       if (this.selection?.type === "edge" && this.selection.id === edge.id) group.classList.add("is-selected");
       group.append(svg("path", { class: "wf-edge__hit", d }), svg("path", { class: "wf-edge__line", d, "marker-end": `url(#wf-arrow-${edge.source_port === "error" ? "error" : "pass"})` }));
       this.edgeLayer.append(group);
+      used.add(`${edge.source_id}|${edge.source_port}|${edge.source_slot}`).add(`${edge.target_id}|${edge.target_port}|${edge.target_slot}`);
+    }
+    for (const el of this.nodeLayer.querySelectorAll(".wf-node--stage > .wf-port")) {
+      el.classList.toggle("is-used", used.has(`${el.dataset.nodeId}|${el.dataset.port}|${el.dataset.slot}`));
     }
   }
 
@@ -274,10 +285,11 @@ export class Canvas {
 
   #startConnect(event, port) {
     const node = this.nodes.get(port.dataset.nodeId);
-    const from = portPoint(node, port.dataset.port, this.nodes);
+    const slot = Number(port.dataset.slot);
+    const from = portPoint(node, port.dataset.port, this.nodes, slot);
     const line = svg("path", { class: "wf-edge__line wf-edge__line--draft" });
     this.edgeLayer.append(line);
-    this.gesture = { type: "connect", pointerId: event.pointerId, node, port: port.dataset.port, from, box: boxOf(node, this.nodes), line };
+    this.gesture = { type: "connect", pointerId: event.pointerId, node, port: port.dataset.port, slot, from, box: boxOf(node, this.nodes), line };
     for (const el of this.viewport.querySelectorAll('.wf-port:not([data-direction="output"])')) {
       const target = this.nodes.get(el.dataset.nodeId);
       el.classList.toggle("is-valid", canConnect(node, port.dataset.port, target, el.dataset.port));
@@ -316,7 +328,9 @@ export class Canvas {
     if (g.type === "connect") {
       const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".wf-port.is-valid");
       this.#cancelGesture();
-      if (target) this.handlers.onConnect(g.node, g.port, this.nodes.get(target.dataset.nodeId), target.dataset.port);
+      if (target) {
+        this.handlers.onConnect(g.node, g.port, this.nodes.get(target.dataset.nodeId), target.dataset.port, { source_slot: g.slot, target_slot: Number(target.dataset.slot) });
+      }
       return;
     }
     this.gesture = null;

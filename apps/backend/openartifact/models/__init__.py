@@ -233,7 +233,8 @@ class WorkflowNode(Base):
 class WorkflowEdge(Base):
     """A connection from an output port of one node to an input port of another.
 
-    An output port has at most one edge (unique ``source_id`` + ``source_port``).
+    An output port has at most one edge (unique ``source_id`` + ``source_port``). ``style`` is how
+    it is drawn; the slots say which of a stage's three attachment points per side it uses.
     """
 
     __tablename__ = "workflow_edges"
@@ -250,3 +251,6 @@ class WorkflowEdge(Base):
         String(36), ForeignKey("workflow_nodes.id", ondelete="CASCADE"), index=True
     )
     target_port: Mapped[str] = mapped_column(String(16))
+    style: Mapped[str] = mapped_column(String(16), default="curved", server_default="curved")
+    source_slot: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    target_slot: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

@@ -17,6 +17,7 @@ from openartifact.workflow.rules import EdgeError
 from openartifact.workflow.schemas import (
     EdgeCreate,
     EdgeRead,
+    EdgeUpdate,
     NodeCreate,
     NodeRead,
     NodeUpdate,
@@ -151,6 +152,22 @@ async def connect(workflow_id: str, payload: EdgeCreate, session: SessionDep) ->
         edge = await repo.connect(workflow, payload)
     except (NodeError, EdgeError) as error:
         raise _invalid(error) from error
+    await repo.touch(workflow)
+    await session.commit()
+    return EdgeRead.model_validate(edge)
+
+
+@router.patch("/{workflow_id}/edges/{edge_id}", response_model=EdgeRead)
+async def restyle_edge(
+    workflow_id: str, edge_id: str, payload: EdgeUpdate, session: SessionDep
+) -> EdgeRead:
+    """Change how a connection is drawn (curved, straight or elbow)."""
+    repo = WorkflowRepository(session)
+    workflow = await _workflow(repo, workflow_id)
+    edge = await repo.get_edge(workflow_id, edge_id)
+    if edge is None:
+        raise _not_found("Edge")
+    await repo.restyle(edge, payload)
     await repo.touch(workflow)
     await session.commit()
     return EdgeRead.model_validate(edge)

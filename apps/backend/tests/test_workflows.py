@@ -177,6 +177,33 @@ def test_connect_validates_and_replaces_the_output_edge(client: TestClient) -> N
     assert _edge(client, workflow, one, "end", one, "start").status_code == 422
 
 
+def test_edges_remember_style_and_stage_slots(client: TestClient) -> None:
+    workflow = _workflow(client)
+    trigger = _graph(client, workflow)["nodes"][0]
+    stage = _node(client, workflow, "stage")
+    url = f"/api/workflows/{workflow['id']}/edges"
+    body = {
+        "source_id": trigger["id"],
+        "source_port": "out",
+        "target_id": stage["id"],
+        "target_port": "start",
+    }
+    created = client.post(url, json=body).json()
+    assert (created["style"], created["source_slot"], created["target_slot"]) == ("curved", 0, 0)
+
+    created = client.post(url, json={**body, "style": "elbow", "target_slot": 2}).json()
+    assert (created["style"], created["target_slot"]) == ("elbow", 2)
+    assert client.post(url, json={**body, "target_slot": 3}).status_code == 422
+    assert (
+        client.post(url, json={**body, "source_slot": 1}).status_code == 422
+    )  # trigger: one point
+
+    changed = client.patch(f"{url}/{created['id']}", json={"style": "straight"}).json()
+    assert changed["style"] == "straight"
+    assert client.patch(f"{url}/{created['id']}", json={"style": "wavy"}).status_code == 422
+    assert client.patch(f"{url}/missing", json={"style": "straight"}).status_code == 404
+
+
 def test_inputs_take_several_edges(client: TestClient) -> None:
     workflow = _workflow(client)
     stage = _node(client, workflow, "stage")
@@ -297,3 +324,31 @@ def test_migration_0009_merges_the_inner_and_outer_stage_ports(
             ("e3", "pass", "exit"),
             ("e4", "out", "in"),
         ]
+
+
+def test_migration_0010_adds_defaults_and_is_reversible(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "0009")
+    db = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO workflows (id, name) VALUES ('w', 'W')")
+        for node_id, kind in (("t", "trigger"), ("s", "stage")):
+            conn.execute(
+                "INSERT INTO workflow_nodes (id, workflow_id, kind, name) VALUES (?, 'w', ?, ?)",
+                (node_id, kind, node_id),
+            )
+        conn.execute(
+            "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, target_port) "
+            "VALUES ('e', 'w', 't', 'out', 's', 'start')"
+        )
+    command.upgrade(alembic_config(), "0010")
+    with sqlite3.connect(db) as conn:
+        row = conn.execute("SELECT style, source_slot, target_slot FROM workflow_edges").fetchone()
+    assert row == ("curved", 0, 0)
+    command.downgrade(alembic_config(), "0009")
+    with sqlite3.connect(db) as conn:
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(workflow_edges)")}
+    assert not {"style", "source_slot", "target_slot"} & columns

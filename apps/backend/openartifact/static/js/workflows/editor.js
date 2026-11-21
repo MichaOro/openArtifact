@@ -2,9 +2,9 @@
  * inspector. Changes are saved at once; if the server refuses one, the graph is reloaded. */
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { Modal } from "../components/modal.js";
-import { addNode, connect, deleteNode, disconnect, loadWorkflow, renameWorkflow, updateNode } from "./api.js";
+import { addNode, connect, deleteNode, disconnect, loadWorkflow, renameWorkflow, restyleEdge, updateNode } from "./api.js";
 import { Canvas } from "./canvas.js";
-import { ACTION_GAP, INPUTS, OUTPUTS, PAD, PORT_LABELS, SIZE, TOP_LEVEL_GAP, canConnect, fitStage } from "./graph.js";
+import { ACTION_GAP, EDGE_STYLES, INPUTS, OUTPUTS, PAD, PORT_LABELS, SIZE, TOP_LEVEL_GAP, canConnect, fitStage } from "./graph.js";
 
 const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete" };
 
@@ -29,7 +29,7 @@ export class WorkflowEditor {
       handlers: {
         onSelect: (selection, options) => this.select(selection, options),
         onMoved: (node) => this.#persistPosition(node),
-        onConnect: (source, port, target, targetPort) => this.#connect(source, port, target, targetPort),
+        onConnect: (source, port, target, targetPort, slots) => this.#connect(source, port, target, targetPort, slots),
         onDelete: (selection) => this.requestDelete(selection),
         onZoom: (zoom) => (this.zoomLabel.textContent = `${Math.round(zoom * 100)}%`),
       },
@@ -180,9 +180,10 @@ export class WorkflowEditor {
     await this.#save(() => renameWorkflow(this.id, trimmed));
   }
 
-  async #connect(source, sourcePort, target, targetPort) {
+  async #connect(source, sourcePort, target, targetPort, slots = {}) {
     await this.#save(async () => {
-      const edge = await connect(this.id, { source_id: source.id, source_port: sourcePort, target_id: target.id, target_port: targetPort });
+      const previous = [...this.edges.values()].find((e) => e.source_id === source.id && e.source_port === sourcePort);
+      const edge = await connect(this.id, { source_id: source.id, source_port: sourcePort, target_id: target.id, target_port: targetPort, style: previous?.style, ...slots });
       for (const [id, old] of this.edges) if (old.source_id === source.id && old.source_port === sourcePort) this.edges.delete(id);
       this.edges.set(edge.id, edge);
     });
@@ -196,6 +197,13 @@ export class WorkflowEditor {
     this.canvas.select(this.selection);
     this.#renderInspector();
     await this.#save(() => disconnect(this.id, id));
+  }
+
+  async #restyle(edge, style) {
+    edge.style = style;
+    this.canvas.drawEdges();
+    this.#renderInspector();
+    await this.#save(() => restyleEdge(this.id, edge.id, style));
   }
 
   /** Delete a node after confirming; a stage takes its actions with it. */
@@ -345,8 +353,23 @@ export class WorkflowEditor {
     remove.className = "button button--ghost wf-delete";
     remove.textContent = "Delete connection";
     remove.addEventListener("click", () => this.#removeEdge(edge.id));
+    const styles = document.createElement("div");
+    styles.className = "wf-styles";
+    styles.setAttribute("role", "group");
+    styles.setAttribute("aria-label", "Line style");
+    for (const [value, label] of Object.entries(EDGE_STYLES)) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "wf-style";
+      button.dataset.style = value;
+      button.textContent = label;
+      button.setAttribute("aria-pressed", String(edge.style === value));
+      button.addEventListener("click", () => this.#restyle(edge, value));
+      styles.append(button);
+    }
     this.inspector.append(
       this.#heading("Connection", `${source?.name ?? "?"} (${PORT_LABELS[edge.source_port]}) → ${target?.name ?? "?"}`),
+      this.#field("Line", styles),
       remove,
     );
   }

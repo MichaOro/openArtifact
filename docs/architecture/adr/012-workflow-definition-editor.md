@@ -21,7 +21,7 @@ A workflow is a graph of **nodes** and **edges** between their **ports**.
 | Node | Ports | Meaning |
 |------|-------|---------|
 | Trigger | out | Start of the workflow (placeholder; manual, webhook or event later). Every workflow starts with one. |
-| Stage | start, end | An isolated container of actions. Each port serves both sides: `start` receives from the trigger or a previous stage and feeds the first action; `end` receives from the stage's actions and leads on to the next stage or an ending. Which side an edge is on follows from its other end (migration 0009 merged the former `in`/`entry` and `out`/`exit`). |
+| Stage | start, end | An isolated container of actions. Each port serves both sides: `start` receives from the trigger or a previous stage and feeds the first action; `end` receives from the stage's actions and leads on to the next stage or an ending. Which side an edge is on follows from its other end (migration 0009 merged the former `in`/`entry` and `out`/`exit`). Each side offers three attachment points (slots 0–2, top to bottom); an edge stores its slot per end (migration 0010), and only used points are shown unless the stage is hovered, selected or a connection is being drawn. |
 | Action | in, pass, error | A business execution, a container for now. Connects only to actions of its own stage or to its stage's `exit`. `error` may also go to its own input. |
 | Complete | in | Ends the workflow; stands outside any stage. |
 
@@ -64,3 +64,7 @@ left with rounded corners, so it never cuts across a node (`edgePath` in `graph.
 - **Limitation:** a stage only grows, never shrinks; edges are routed only for loops and backward
   connections, so other lines can still cross nodes or each other.
 - **Risk:** large graphs re-draw all edges on every pointer move; fine for tens of nodes.
+
+## 2.13 Line style and routing
+
+An edge has a `style` (`curved`, `straight`, `elbow`), chosen in the inspector and stored per edge (migration 0010, `PATCH .../edges/{id}`). Connections that go backward or have less than 48 units of horizontal room are routed below both nodes with rounded corners (sharp for `straight`) instead of bending sharply.

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.models import NodeKind, Workflow, WorkflowEdge, WorkflowNode
 from openartifact.workflow.rules import Endpoint, validate_edge
-from openartifact.workflow.schemas import EdgeCreate, NodeCreate, NodeUpdate
+from openartifact.workflow.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
 
 DEFAULT_NAMES = {
     NodeKind.TRIGGER: "Trigger",
@@ -148,6 +148,10 @@ class WorkflowRepository:
         if source is None or target is None:
             raise NodeError("Both ends of an edge must be nodes of this workflow")
         validate_edge(_endpoint(source), data.source_port, _endpoint(target), data.target_port)
+        if (data.source_slot and source.kind != NodeKind.STAGE.value) or (
+            data.target_slot and target.kind != NodeKind.STAGE.value
+        ):
+            raise NodeError("Only stages have more than one attachment point")
         await self._session.execute(
             delete(WorkflowEdge).where(
                 WorkflowEdge.source_id == source.id, WorkflowEdge.source_port == data.source_port
@@ -160,6 +164,9 @@ class WorkflowRepository:
             source_port=data.source_port,
             target_id=target.id,
             target_port=data.target_port,
+            style=data.style,
+            source_slot=data.source_slot,
+            target_slot=data.target_slot,
         )
         self._session.add(edge)
         await self._session.flush()
@@ -169,6 +176,11 @@ class WorkflowRepository:
         """The edge if it belongs to the workflow."""
         edge = await self._session.get(WorkflowEdge, edge_id)
         return edge if edge is not None and edge.workflow_id == workflow_id else None
+
+    async def restyle(self, edge: WorkflowEdge, data: EdgeUpdate) -> None:
+        """Change how an edge is drawn."""
+        edge.style = data.style
+        await self._session.flush()
 
     async def disconnect(self, edge: WorkflowEdge) -> None:
         """Remove an edge."""

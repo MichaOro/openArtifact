@@ -46,7 +46,7 @@ def _expect_edges(
         if _edges(api, workflow) == expected:
             return
         page.wait_for_timeout(50)
-    assert _edges(api, workflow) == expected
+    assert _edges(api, workflow) == expected, _graph(api, workflow)["edges"]
 
 
 def _edges(api: httpx.Client, workflow: dict[str, Any]) -> list[tuple[str, str]]:
@@ -130,11 +130,11 @@ def test_connect_by_dragging_between_ports(page: Page, base_url: str, api: httpx
     _drag(
         page,
         page.locator(".wf-node--trigger .wf-port--out"),
-        page.locator(".wf-node--stage > .wf-port--start"),
+        page.locator(".wf-node--stage > .wf-port--start[data-slot='0']"),
     )
     _drag(
         page,
-        page.locator(".wf-node--stage > .wf-port--start"),
+        page.locator(".wf-node--stage > .wf-port--start[data-slot='0']"),
         page.locator(".wf-node--action").first.locator(".wf-port--in"),
     )
     _drag(
@@ -145,7 +145,7 @@ def test_connect_by_dragging_between_ports(page: Page, base_url: str, api: httpx
     _drag(
         page,
         page.locator(".wf-node--action").nth(1).locator(".wf-port--error"),
-        page.locator(".wf-node--stage > .wf-port--end"),
+        page.locator(".wf-node--stage > .wf-port--end[data-slot='0']"),
     )
     expect(page.locator(".wf-edge")).to_have_count(4)
     _expect_edges(
@@ -174,9 +174,9 @@ def test_only_valid_targets_light_up_and_invalid_drops_do_nothing(
     page.mouse.down()
     page.mouse.move(x + 40, y + 40, steps=4)
     valid = page.locator(".wf-port.is-valid")
-    # an action may reach actions of its own stage and the end of its own stage, nothing else
-    expect(valid).to_have_count(3)
-    stage_in = page.locator(".wf-node--stage").nth(1).locator("> .wf-port--start")
+    # an action may reach actions of its own stage and the end of its own stage (3 points), nothing else
+    expect(valid).to_have_count(5)
+    stage_in = page.locator(".wf-node--stage").nth(1).locator("> .wf-port--start[data-slot='0']")
     tx, ty = _centre(stage_in)
     page.mouse.move(tx, ty, steps=6)
     page.mouse.up()
@@ -214,7 +214,11 @@ def test_an_output_has_one_edge_and_reconnecting_replaces_it(
         first.locator(".wf-port--pass"),
         page.locator(".wf-node--action").nth(1).locator(".wf-port--in"),
     )
-    _drag(page, first.locator(".wf-port--pass"), page.locator(".wf-node--stage > .wf-port--end"))
+    _drag(
+        page,
+        first.locator(".wf-port--pass"),
+        page.locator(".wf-node--stage > .wf-port--end[data-slot='0']"),
+    )
     expect(page.locator(".wf-edge")).to_have_count(1)
     _expect_edges(page, api, workflow, [("pass", "end")])
 
@@ -232,7 +236,7 @@ def test_select_and_delete_an_edge(page: Page, base_url: str, api: httpx.Client)
     _drag(
         page,
         page.locator(".wf-node--trigger .wf-port--out"),
-        page.locator(".wf-node--stage > .wf-port--start"),
+        page.locator(".wf-node--stage > .wf-port--start[data-slot='0']"),
     )
     page.locator(".wf-edge__hit").first.click(force=True)
     expect(page.locator(".wf-inspector h2")).to_have_text("Connection")
@@ -298,3 +302,50 @@ def test_zoom_controls_and_fit(page: Page, base_url: str, api: httpx.Client) -> 
 def test_editor_for_an_unknown_workflow_says_so(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/workflows/does-not-exist")
     expect(page.locator("[data-editor-error]")).to_contain_text("does not exist")
+
+
+def test_a_stage_offers_three_points_per_side_and_shows_the_used_one(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    workflow = _flow(page, base_url, api)
+    ports = page.locator(".wf-node--stage > .wf-port--start")
+    expect(ports).to_have_count(3)
+    page.mouse.move(0, 0)
+    expect(ports.nth(1)).to_have_css("opacity", "0")
+    _drag(page, page.locator(".wf-node--trigger .wf-port--out"), ports.nth(1))
+    page.mouse.move(0, 0)
+    expect(ports.nth(1)).to_have_css("opacity", "1")
+    expect(ports.nth(0)).to_have_css("opacity", "0")
+    for _ in range(100):
+        edges = _graph(api, workflow)["edges"]
+        if edges:
+            break
+        page.wait_for_timeout(50)
+    assert (edges[0]["target_slot"], edges[0]["source_slot"]) == (1, 0)
+
+
+def test_choose_the_line_style_of_a_connection(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    workflow = _flow(page, base_url, api)
+    _drag(
+        page,
+        page.locator(".wf-node--trigger .wf-port--out"),
+        page.locator(".wf-node--stage > .wf-port--start[data-slot='0']"),
+    )
+    page.locator(".wf-edge__hit").first.click(force=True)
+    line = page.locator(".wf-edge__line").first
+    curved = line.get_attribute("d")
+    assert curved is not None and " C " in curved
+    page.click(".wf-style[data-style=straight]")
+    straight = line.get_attribute("d")
+    assert straight is not None and " C " not in straight and " Q " not in straight
+    page.click(".wf-style[data-style=elbow]")
+    expect(page.locator(".wf-style[data-style=elbow]")).to_have_attribute("aria-pressed", "true")
+    for _ in range(100):
+        if _graph(api, workflow)["edges"][0]["style"] == "elbow":
+            break
+        page.wait_for_timeout(50)
+    assert _graph(api, workflow)["edges"][0]["style"] == "elbow"
+    page.reload()
+    expect(page.locator(".wf-edge")).to_have_count(1)

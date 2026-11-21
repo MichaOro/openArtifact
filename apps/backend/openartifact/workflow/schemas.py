@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_serializer
 
@@ -48,6 +48,10 @@ class NodeUpdate(_Strict):
     height: Annotated[float, Field(gt=0)] | None = None
 
 
+EdgeStyle = Literal["curved", "straight", "elbow"]
+Slot = Annotated[int, Field(ge=0, le=2)]
+
+
 class EdgeCreate(_Strict):
     """Body of ``POST /api/workflows/{id}/edges``. An existing edge on the same output is replaced."""
 
@@ -55,6 +59,15 @@ class EdgeCreate(_Strict):
     source_port: str
     target_id: str
     target_port: str
+    style: EdgeStyle = "curved"
+    source_slot: Slot = 0
+    target_slot: Slot = 0
+
+
+class EdgeUpdate(_Strict):
+    """Body of ``PATCH /api/workflows/{id}/edges/{edge_id}``."""
+
+    style: EdgeStyle
 
 
 class _Timestamps(BaseModel):
@@ -104,6 +117,9 @@ class EdgeRead(BaseModel):
     source_port: str
     target_id: str
     target_port: str
+    style: str
+    source_slot: int
+    target_slot: int
 
 
 class WorkflowDetail(BaseModel):

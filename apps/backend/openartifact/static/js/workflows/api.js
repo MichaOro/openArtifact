@@ -14,4 +14,5 @@ export const addNode = (id, node) => send("POST", `${base(id)}/nodes`, node);
 export const updateNode = (id, nodeId, fields) => send("PATCH", `${base(id)}/nodes/${encodeURIComponent(nodeId)}`, fields);
 export const deleteNode = (id, nodeId) => send("DELETE", `${base(id)}/nodes/${encodeURIComponent(nodeId)}`);
 export const connect = (id, edge) => send("POST", `${base(id)}/edges`, edge);
+export const restyleEdge = (id, edgeId, style) => send("PATCH", `${base(id)}/edges/${encodeURIComponent(edgeId)}`, { style });
 export const disconnect = (id, edgeId) => send("DELETE", `${base(id)}/edges/${encodeURIComponent(edgeId)}`);
