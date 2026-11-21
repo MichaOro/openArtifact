@@ -128,14 +128,18 @@ def test_root_links_assets(client: TestClient) -> None:
     assert "/static/js/theme.js" in html
 
 
-def test_navigation_lists_projects_workflows_and_actions(client: TestClient) -> None:
-    """The sidebar offers Projects and a Pipeline group with Stages and Actions; the current page is marked."""
+def test_navigation_shows_the_pipeline_entries_only_inside_the_pipeline(client: TestClient) -> None:
+    """Projects and Pipeline are always there; Stages and Actions only once Pipeline is entered."""
     html = client.get("/").text
-    assert html.count('class="nav-link"') == 3
-    assert html.count('aria-current="page"') == 1
-    assert 'href="/workflows"' in html
-    assert 'href="/actions"' in html
-    assert html.count("Pipeline") == 1
+    assert html.count('class="nav-link"') == 2  # Projects and Pipeline
+    assert 'href="/workflows"' in html  # the Pipeline entry itself
+    assert 'href="/actions"' not in html
+    assert "Stages" not in html
+    for path in ("/workflows", "/actions"):
+        inside = client.get(path).text
+        assert 'href="/actions"' in inside and "Stages" in inside
+        assert inside.count("nav-link--section") == 1
+        assert inside.count('aria-current="page"') == 1
 
 
 def test_workflow_pages_render_and_mark_their_navigation_entry(client: TestClient) -> None:

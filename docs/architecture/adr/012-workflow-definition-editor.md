@@ -75,4 +75,4 @@ The definition of what an action does is edited on the same canvas, reached thro
 
 ## 2.15 Navigation: Pipeline
 
-The sidebar has Projects and a **Pipeline** group with **Stages** (`/workflows`, the workflow list; "workflow" stays the name in code and API, as "task" does for artifacts) and **Actions** (`/actions`). The group heading is not a link; with a collapsed sidebar it becomes a hairline and the entries stay as icons.
+The sidebar has two entries: Projects and **Pipeline** (own icon). Pipeline links to its first child. Only while the user is inside it (on Stages or Actions) does it show the sub-entries **Stages** (`/workflows`, the workflow list; "workflow" stays the name in code and API, as "task" does for artifacts) and **Actions** (`/actions`); on Projects they are not rendered. The sidebar template marks the section (`nav-link--section`) and sets `aria-current="page"` only on the current leaf.

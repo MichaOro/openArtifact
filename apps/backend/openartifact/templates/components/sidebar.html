@@ -1,14 +1,15 @@
 {% from "components/icons.html" import icon %}
-{# Add future navigation entries to `nav_items`; an entry with `children` is a group (not a link itself). #}
+{# Add future navigation entries to `nav_items`. An entry with `children` is a section: it links to its
+   first child, and its children show only while the user is inside the section. #}
 {% set nav_items = [
     {"key": "projects", "label": "Projects", "href": "/", "icon": "projects"},
-    {"label": "Pipeline", "children": [
+    {"key": "pipeline", "label": "Pipeline", "href": "/workflows", "icon": "pipeline", "children": [
         {"key": "workflows", "label": "Stages", "href": "/workflows", "icon": "workflow"},
         {"key": "actions", "label": "Actions", "href": "/actions", "icon": "action"},
     ]},
 ] %}
-{% macro link(item) %}
-<a class="nav-link" href="{{ item.href }}" title="{{ item.label }}"
+{% macro link(item, section=false) %}
+<a class="nav-link{% if section %} nav-link--section{% endif %}" href="{{ item.href }}" title="{{ item.label }}"
    {% if item.key == active_nav %}aria-current="page"{% endif %}>
     {{ icon(item.icon) }}
     <span class="nav-link__label">{{ item.label }}</span>
@@ -23,16 +24,15 @@
     <nav class="sidebar__nav" aria-label="Main navigation">
         <ul class="nav-list">
             {% for item in nav_items %}
-            {% if item.children %}
-            <li class="nav-group" role="group" aria-labelledby="nav-group-{{ loop.index }}">
-                <span class="nav-group__title" id="nav-group-{{ loop.index }}">{{ item.label }}</span>
-                <ul class="nav-list">
+            {% set inside = item.children and active_nav in item.children | map(attribute="key") | list %}
+            <li>
+                {{ link(item, inside) }}
+                {% if inside %}
+                <ul class="nav-list nav-sub" aria-label="{{ item.label }}">
                     {% for child in item.children %}<li>{{ link(child) }}</li>{% endfor %}
                 </ul>
+                {% endif %}
             </li>
-            {% else %}
-            <li>{{ link(item) }}</li>
-            {% endif %}
             {% endfor %}
         </ul>
     </nav>
