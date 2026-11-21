@@ -1,6 +1,7 @@
 /* The workflow editor: owns the graph, talks to the API and connects canvas, toolbar and
  * inspector. Changes are saved at once; if the server refuses one, the graph is reloaded. */
 import { ConfirmDialog } from "../components/confirm-dialog.js";
+import { InlineName } from "../components/inline-name.js";
 import { Modal } from "../components/modal.js";
 import { addNode, connect, createWorkflow, listWorkflows, deleteNode, disconnect, loadWorkflow, renameWorkflow, restyleEdge, updateNode } from "./api.js";
 import { Canvas } from "./canvas.js";
@@ -65,7 +66,7 @@ export class WorkflowEditor {
       for (const node of graph.nodes) this.nodes.set(node.id, node);
       for (const edge of graph.edges) this.edges.set(edge.id, edge);
       this.alert.hidden = true;
-      document.querySelector(".app-header__title").textContent = this.workflow.name;
+      this.#showTitle();
       document.title = `${this.workflow.name} · OpenArtifact`;
       this.canvas.sync();
       if (fit) this.canvas.fit();
@@ -246,6 +247,16 @@ export class WorkflowEditor {
     });
   }
 
+  /** The name in the page header, which can be renamed in place as well. */
+  #showTitle() {
+    const title = document.querySelector(".app-header__title");
+    if (this.titleName) this.titleName.setText(this.workflow.name);
+    else {
+      title.textContent = this.workflow.name;
+      this.titleName = new InlineName(title, { label: this.isAction ? "Action name" : "Pipeline name", onCommit: (name) => this.#renameWorkflow(name) });
+    }
+  }
+
   async #rename(node, name) {
     const trimmed = name.trim();
     if (!trimmed || trimmed === node.name) return this.#renderInspector();
@@ -269,7 +280,7 @@ export class WorkflowEditor {
     const trimmed = name.trim();
     if (!trimmed || trimmed === this.workflow.name) return this.#renderInspector();
     this.workflow.name = trimmed;
-    document.querySelector(".app-header__title").textContent = trimmed;
+    this.#showTitle();
     const saved = await this.#save(async () => {
       this.workflow = await renameWorkflow(this.id, trimmed);
     });
@@ -340,14 +351,19 @@ export class WorkflowEditor {
     return this.#workflowInspector();
   }
 
-  #heading(text, caption) {
+  /** Title and caption of the inspector; `rename` (label and callback) makes the title editable in place. */
+  #heading(text, caption, rename = null) {
     const wrap = document.createElement("div");
     wrap.className = "wf-inspector__heading";
     const title = document.createElement("h2");
     title.textContent = text;
-    const small = document.createElement("p");
-    small.textContent = caption;
-    wrap.append(title, small);
+    wrap.append(title);
+    if (rename) new InlineName(title, rename);
+    if (caption && caption !== text) {
+      const small = document.createElement("p");
+      small.textContent = caption;
+      wrap.append(small);
+    }
     return wrap;
   }
 
@@ -363,25 +379,13 @@ export class WorkflowEditor {
     return wrap;
   }
 
-  #nameInput(value, onCommit) {
-    const input = document.createElement("input");
-    input.className = "field__control";
-    input.type = "text";
-    input.maxLength = 255;
-    input.value = value;
-    input.autocomplete = "off";
-    input.addEventListener("change", () => onCommit(input.value));
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") input.blur();
-    });
-    return input;
-  }
-
   #workflowInspector() {
     const count = (kind) => [...this.nodes.values()].filter((n) => n.kind === kind).length;
     this.inspector.append(
-      this.#heading(this.workflow?.name ?? "Pipeline", "Draft"),
-      this.#field("Name", this.#nameInput(this.workflow?.name ?? "", (name) => this.#renameWorkflow(name))),
+      this.#heading(this.workflow?.name ?? "Pipeline", "Draft", {
+        label: this.isAction ? "Action name" : "Pipeline name",
+        onCommit: (name) => this.#renameWorkflow(name),
+      }),
       this.#note(
         this.isAction
           ? "The trigger starts this action automatically; the output always offers On Pass and optionally On Fail."
@@ -400,8 +404,9 @@ export class WorkflowEditor {
   #nodeInspector(node) {
     const el = this.inspector;
     const shell = node.kind === "action" && !this.isAction;
-    el.append(this.#heading(displayName(node), shell && !node.definition_id ? "Empty action" : KIND_LABELS[node.kind]));
-    if (!shell) el.append(this.#field("Name", this.#nameInput(node.name, (name) => this.#rename(node, name))));
+    const caption = shell && !node.definition_id ? "Empty action" : KIND_LABELS[node.kind];
+    // a shell is named by its definition; every other node by its own name
+    el.append(this.#heading(displayName(node), caption, shell ? null : { label: `${KIND_LABELS[node.kind]} name`, onCommit: (name) => this.#rename(node, name) }));
     if (shell) el.append(this.#definitionSection(node));
 
     if (node.kind === "timer") el.append(this.#secondsField(node));
@@ -568,7 +573,9 @@ export class WorkflowEditor {
     toggle.innerHTML = '<span class="wf-switch__state"></span><span class="wf-switch__thumb"></span>';
     toggle.firstElementChild.textContent = node.fail_enabled ? "On" : "Off";
     toggle.addEventListener("click", () => this.#setFail(node, !node.fail_enabled));
-    return this.#field("On Fail", toggle);
+    const field = this.#field("On Fail", toggle);
+    field.classList.add("field--row");
+    return field;
   }
 
   /** A select with every valid target of an output port: the keyboard way to connect. */

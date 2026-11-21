@@ -270,6 +270,7 @@ def test_move_rename_and_delete_a_node(page: Page, base_url: str, api: httpx.Cli
     )  # a shell is named by its definition
     trigger = page.locator(".wf-node--trigger")
     trigger.locator(".wf-node__name").click()
+    page.locator(".wf-inspector h2").click()  # the name is edited in place
     name = page.locator(".wf-inspector input").first
     name.fill("Manual start")
     name.press("Enter")

@@ -95,3 +95,7 @@ Pages are addressed by name, not id: `/pipelines/test`, `/actions/gap-analysis`.
 
 An action definition can hold **timer** nodes (migration 0016, `workflow_nodes.seconds`, 1 s to one day, default 5 s), added through the "+" menu at the top right of the action canvas like stages in a pipeline. A timer has an input `in` and an output `out`, so a definition reads trigger → timer → output (On Pass). The caption of a timer always shows its seconds; a new timer is placed right of the last one and the output moves on if it is in the way. Executing the nodes is the job of the execution engine (see ADR-013); until then a timer is only defined.
 
+## 2.20 Names are edited in place
+
+There is no "Name" field in the inspector. The title of the inspector and the page title (top left) are renamed by clicking them: a text field with a check and a cross appears; Enter or the check saves, Escape or the cross discards (`js/components/inline-name.js`). An action shell is named by its definition and is not renamed here. A caption that repeats the title (for example "Output" under "Output") is left out, and the *On Fail* switch sits in one row with its label.
+

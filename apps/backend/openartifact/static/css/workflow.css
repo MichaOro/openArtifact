@@ -207,3 +207,18 @@
 .wf-switch[aria-checked="true"] .wf-switch__state { right: auto; left: 0.75rem; }
 .wf-switch[aria-checked="true"] .wf-switch__thumb { transform: translateX(2.5rem); background: var(--color-accent); }
 .wf-switch:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* a name edited in place (inspector heading, page title) */
+.inline-name { cursor: text; border-radius: var(--radius-sm); }
+.inline-name:not(.inline-name--editing):hover { background: var(--accent-soft); }
+.inline-name:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.inline-name--editing { display: flex; align-items: center; gap: var(--space-1); }
+.inline-name__input {
+  flex: 1; min-width: 0; height: 2rem; padding: 0 var(--space-2); font: inherit; color: inherit;
+  border: 1px solid var(--color-accent); border-radius: var(--radius-sm); background: var(--color-surface);
+}
+.inline-name__input:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent); }
+.inline-name--editing .icon-button .icon { width: 1rem; height: 1rem; }
+.inline-name__check { color: var(--color-accent); }
+.field--row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.field--row .field__label { margin: 0; }
