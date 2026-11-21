@@ -28,7 +28,8 @@ export class ProcessingPanel {
     this.onLock = onLock;
     this.onError = onError;
     this.runs = new Map();
-    this.draft = new Map(); // task id -> {pipeline, stage, action} chosen but not started
+    this.draft = new Map(); // task id -> {pipeline, stage, action} to start with
+    this.touched = new Set(); // tasks whose fields show the user's choice instead of where the run is
     this.pipelines = [];
     this.chains = new Map(); // pipeline id -> stages with their actions
     this.taskId = null;
@@ -57,12 +58,14 @@ export class ProcessingPanel {
   setRuns(runs) {
     const was = new Set([...this.runs].filter(([, r]) => r.status === "running").map(([id]) => id));
     this.runs = new Map(runs.map((run) => [run.task_id, run]));
+    this.touched.clear();
     for (const id of new Set([...was, ...this.runs.keys()])) this.#changed(id, was.has(id));
   }
 
   upsert(run) {
     const wasLocked = this.isLocked(run.task_id);
     this.runs.set(run.task_id, run);
+    this.touched.delete(run.task_id); // the fields follow the run again
     this.#changed(run.task_id, wasLocked);
   }
 
@@ -70,6 +73,7 @@ export class ProcessingPanel {
     const wasLocked = this.isLocked(taskId);
     this.runs.delete(taskId);
     this.draft.delete(taskId);
+    this.touched.delete(taskId);
     this.#changed(taskId, wasLocked);
   }
 
@@ -113,7 +117,7 @@ export class ProcessingPanel {
     let draft = this.draft.get(taskId);
     if (run && run.status !== "running" && !draft) {
       const resume = run.status === "stopped" || run.status === "failed";
-      draft = { pipeline: run.workflow_id, stage: resume ? run.stage_id : null, action: resume ? run.action_id : null };
+      draft = { pipeline: run.workflow_id, stage: resume ? run.resume_stage_id : null, action: resume ? run.resume_action_id : null };
     }
     draft ??= { pipeline: this.pipelines.length === 1 ? this.pipelines[0].id : null, stage: null, action: null };
     if (draft.pipeline && !this.pipelines.some((p) => p.id === draft.pipeline)) draft = { pipeline: null, stage: null, action: null };
@@ -132,12 +136,16 @@ export class ProcessingPanel {
     const draft = this.draft.get(this.taskId) ?? {};
     const chain = this.chains.get(draft.pipeline) ?? [];
     const stage = chain.find((s) => s.id === draft.stage);
-    const text = {
-      pipeline: locked || run ? run.workflow_name : (this.pipelines.find((p) => p.id === draft.pipeline)?.name ?? "–"),
-      stage: locked ? run.stage_name : (stage?.name ?? "–"),
-      action: locked ? (run.action_name ?? "–") : (stage?.actions.find((a) => a.id === draft.action)?.name ?? "–"),
-    };
-    if (run && !locked) text.pipeline = this.pipelines.find((p) => p.id === draft.pipeline)?.name ?? run.workflow_name;
+    // while a run exists the fields show where it is (following the flow into called pipelines), until the
+    // user picks something to start with
+    const following = run && !this.touched.has(this.taskId);
+    const text = following
+      ? { pipeline: run.pipeline_name, stage: run.stage_name ?? "–", action: run.action_name ?? "–" }
+      : {
+          pipeline: this.pipelines.find((p) => p.id === draft.pipeline)?.name ?? "–",
+          stage: stage?.name ?? "–",
+          action: stage?.actions.find((a) => a.id === draft.action)?.name ?? "–",
+        };
     for (const key of Object.keys(text)) {
       this.values[key].textContent = text[key];
       this.fields[key].setAttribute("aria-label", `${key[0].toUpperCase()}${key.slice(1)}: ${text[key]}`);
@@ -183,6 +191,7 @@ export class ProcessingPanel {
         if (key === "pipeline") Object.assign(next, { stage: null, action: null });
         if (key === "stage") next.action = null;
         this.draft.set(taskId, next);
+        this.touched.add(taskId);
         await this.#ensureDraft(taskId);
         if (this.taskId === taskId) this.render();
       },

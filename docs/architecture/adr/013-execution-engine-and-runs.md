@@ -49,7 +49,7 @@ pipeline keeps its Complete as its defined end. The call is part of the same run
 the called pipelines (nested up to five deep) and their action definitions. The node is one entry in
 the artifact's stage list (named after the called pipeline, started as a whole, no action to choose);
 inside the called pipeline the run shows the stage and action that are current. If the called pipeline
-cannot go on, or none is chosen, the run fails at the node. A pipeline cannot call itself, not even
+cannot go on, or none is chosen, the run fails at the node. The artifact follows the flow: its Pipeline, Stage and Action fields show where the run is, so they switch into the called pipeline and back, and a finished run rests where it ended (the last stage and action that ran, even inside a called pipeline). To start again, `resume_stage_id` / `resume_action_id` name the entry of the artifact's own pipeline (the calling node if the run is inside a called one); a finished run starts again at the first stage. A pipeline cannot call itself, not even
 through others (refused when linking, 422); the step limit also counts across nested pipelines.
 
 ## 3. Consequences

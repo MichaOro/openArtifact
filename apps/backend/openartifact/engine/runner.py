@@ -20,7 +20,7 @@ from typing import Any
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from openartifact.engine.chain import edge_from, pipeline_chain
+from openartifact.engine.chain import edge_from, locate, pipeline_chain
 from openartifact.engine.snapshot import NestingError, build_snapshot
 from openartifact.events import EventBus
 from openartifact.models import PipelineRun, RunStage, Task, Workflow
@@ -67,11 +67,19 @@ class RunEngine:
                 select(RunStage).where(RunStage.run_id == run.id).order_by(RunStage.position)
             )
         ).scalars()
+        where = locate(snapshot, run.stage_id)
+        nested = where["pipeline_id"] is not None
         return {
             "id": run.id,
             "task_id": run.task_id,
             "workflow_id": run.workflow_id,
             "workflow_name": snapshot["name"],
+            # where the run is, following the flow into called pipelines
+            "pipeline_id": where["pipeline_id"] or run.workflow_id,
+            "pipeline_name": where["pipeline_name"],
+            # where to start again: the entry of the run's own pipeline (the call, if it is inside one)
+            "resume_stage_id": where["entry_id"],
+            "resume_action_id": None if nested else run.action_id,
             "status": run.status,
             "started_by": run.started_by,
             "note": run.note,
@@ -188,9 +196,6 @@ class RunEngine:
                 raise RunError(409, "The artifact is not being processed")
             run.status = "stopped"
             run.note = "stopped"
-            top = self._top.pop(task_id, None)
-            if top is not None:  # inside a called pipeline: come back to its entry in this one
-                run.stage_id, run.action_id = top, None
             await session.execute(
                 update(RunStage)
                 .where(RunStage.run_id == run.id, RunStage.status == "running")
@@ -271,10 +276,9 @@ class RunEngine:
             chain = pipeline_chain(snapshot["nodes"], snapshot["edges"])
             start = next(i for i, s in enumerate(chain) if s["id"] == stage_id)
             await self._walk(task_id, snapshot, snapshot, chain, start, action_id, {"steps": 0}, 0)
-            # done: the run rests at its last entry in this pipeline, not inside a called one
             await self._save(
-                task_id, status="done", stage_id=self._top.get(task_id, stage_id), action_id=None
-            )
+                task_id, status="done"
+            )  # it rests where it ended, even inside a called pipeline
         except asyncio.CancelledError:
             raise
         except _RunFailedError as failure:
@@ -354,17 +358,11 @@ class RunEngine:
             run = await self._run_of(session, task_id)
             current = run.stage_id if run else None
         top = self._top.get(task_id) or current
-        where: dict[str, Any] = {}
-        if (
-            top != current
-        ):  # failed inside a called pipeline: the run stays at its entry in this one
-            where = {"stage_id": top, "action_id": None}
         await self._save(
             task_id,
             status="failed",
             note=note,
             stage_state=(top, "failed") if top else None,
-            **where,
         )
 
     @staticmethod

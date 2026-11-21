@@ -240,6 +240,9 @@ def test_a_run_goes_through_the_called_pipeline_and_on(client: TestClient) -> No
     _post(client, f"/api/tasks/{task['id']}/run", workflow_id=outer["id"])
     run = _wait(client, task, "done")
     assert [s["status"] for s in run["stages"]] == ["passed", "passed"]  # Stage 1 and the node
+    # the run rests where it ended: in the called pipeline, at its last stage and action
+    assert (run["pipeline_id"], run["stage_name"]) == (inner["id"], "Stage 2")
+    assert run["action_name"] == "Action" and run["resume_stage_id"] == run["stages"][1]["id"]
 
 
 def test_a_pipeline_node_without_a_pipeline_fails_the_run(client: TestClient) -> None:

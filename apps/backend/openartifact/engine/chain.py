@@ -69,3 +69,48 @@ def pipeline_chain(nodes: list[Node], edges: list[Edge]) -> list[dict[str, Any]]
         )
         link = edge_from(edges, node["id"], "end")
     return chain
+
+
+def locate(snapshot: dict[str, Any], node_id: str | None) -> dict[str, Any]:
+    """Where a node of a run is: the pipeline it belongs to, and the entry of the run's own pipeline
+    that leads there (the node itself in the outermost pipeline, else the pipeline node that calls it)."""
+    pipelines: dict[str, Any] = snapshot.get("pipelines", {})
+    if node_id is None or any(n["id"] == node_id for n in snapshot["nodes"]):
+        return {"pipeline_id": None, "pipeline_name": snapshot["name"], "entry_id": node_id}
+    owner = next(
+        (
+            pid
+            for pid, graph in pipelines.items()
+            if any(n["id"] == node_id for n in graph["nodes"])
+        ),
+        None,
+    )
+
+    def reaches(pipeline_id: str, seen: frozenset[str]) -> bool:
+        if pipeline_id == owner:
+            return True
+        graph = pipelines.get(pipeline_id)
+        if graph is None or pipeline_id in seen:
+            return False
+        return any(
+            n["kind"] == "pipeline"
+            and n["definition_id"]
+            and reaches(n["definition_id"], seen | {pipeline_id})
+            for n in graph["nodes"]
+        )
+
+    entry = next(
+        (
+            e["id"]
+            for e in pipeline_chain(snapshot["nodes"], snapshot["edges"])
+            if e["kind"] == "pipeline"
+            and e["pipeline_id"]
+            and reaches(e["pipeline_id"], frozenset())
+        ),
+        None,
+    )
+    return {
+        "pipeline_id": owner,
+        "pipeline_name": pipelines[owner]["name"] if owner else snapshot["name"],
+        "entry_id": entry,
+    }
