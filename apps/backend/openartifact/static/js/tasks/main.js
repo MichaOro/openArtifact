@@ -8,6 +8,7 @@ import { Board } from "./board.js";
 import { TaskForm } from "./create-task-form.js";
 import { DeleteTaskDialog } from "./delete-task-dialog.js";
 import { CardDragController } from "./dnd.js";
+import { ProcessingPanel, listRuns } from "./processing.js";
 import { connectEvents } from "./events.js";
 
 const board = new Board({ loadTasks: listTasks });
@@ -24,6 +25,7 @@ const board = new Board({ loadTasks: listTasks });
  *   top (other lane). position: the sort key that matches that placement, for the optimistic view.
  */
 async function moveTaskTo(task, { status = task.status, beforeId, position } = {}) {
+  if (board.locked.has(task.id)) return false;
   const laneChanged = status !== task.status;
   if (!laneChanged && beforeId === undefined) return true;
   const previous = task;
@@ -72,6 +74,7 @@ const taskForm = new TaskForm({
 /** Ids of the artifacts left by following references, so "Back" can return to them. */
 const trail = [];
 function showTask(task, { follow = false } = {}) {
+  processing.show(task.id);
   if (follow && taskForm.editing) trail.push(taskForm.editing.id);
   else if (!follow && !taskForm.modal.isOpen) trail.length = 0;
   taskForm.openView(
@@ -81,6 +84,7 @@ function showTask(task, { follow = false } = {}) {
     board.parentOf(task)?.title ?? null,
     trail.length > 0,
   );
+  taskForm.subtitle.disabled = board.locked.has(task.id);
 }
 
 const deleteDialog = new DeleteTaskDialog({
@@ -108,6 +112,18 @@ const lanePicker = new LanePicker({
   container: document.getElementById("create-task-modal"),
   inline: document.querySelector("[data-lane-chips]"),
 });
+// Pipeline / Stage / Action and Start / Stop in the rail; runs lock the artifact while they run.
+const processing = new ProcessingPanel({
+  rail: cardNavRoot,
+  picker: lanePicker,
+  onLock: (taskId, locked) => {
+    board.setLocked(taskId, locked);
+    if (taskForm.editing?.id === taskId) taskForm.subtitle.disabled = locked;
+  },
+  onError: (message) => board.showError(message),
+});
+processing.onRun = (taskId, run) => board.setRun(taskId, run);
+
 function pickLane(trigger, placement, variant = "list") {
   lanePicker.toggle({
     trigger,
@@ -146,7 +162,7 @@ new ReferencePicker({
 // Parent: any other artifact except the task itself and everything below it (no cycles).
 async function setParent(id, parentId) {
   const task = board.tasks.get(id);
-  if (!task || (task.parent_id ?? null) === parentId) return;
+  if (!task || board.locked.has(id) || (task.parent_id ?? null) === parentId) return;
   const previous = task;
   board.upsert({ ...task, parent_id: parentId });
   taskForm.setParent(board.parentOf(board.tasks.get(id))?.title ?? null);
@@ -165,7 +181,7 @@ async function setParent(id, parentId) {
 cardNavRoot.querySelector('[data-card-field="parent"]').addEventListener("click", (event) => {
   const editing = taskForm.editing;
   const task = editing && board.tasks.get(editing.id);
-  if (!task) return;
+  if (!task || board.locked.has(task.id)) return;
   const blocked = board.descendantIds(task.id);
   const items = [
     { value: "", label: "No parent", selected: !task.parent_id },
@@ -182,13 +198,15 @@ cardNavRoot.querySelector('[data-card-field="parent"]').addEventListener("click"
     onSelect: (value) => setParent(task.id, value || null),
   });
 });
-taskForm.subtitle.addEventListener("click", (event) => pickLane(event.currentTarget, "below", "chips"));
-cardNavRoot
-  .querySelector('[data-card-field="lane"]')
-  .addEventListener("click", (event) => pickLane(event.currentTarget, "left"));
+taskForm.subtitle.addEventListener("click", (event) => {
+  if (!board.locked.has(taskForm.editing?.id)) pickLane(event.currentTarget, "below", "chips");
+});
+cardNavRoot.querySelector('[data-card-field="lane"]').addEventListener("click", (event) => {
+  if (!board.locked.has(taskForm.editing?.id)) pickLane(event.currentTarget, "left");
+});
 cardNavRoot.querySelector('[data-card-action="delete"]').addEventListener("click", () => {
   const task = taskForm.editing;
-  if (!task || taskForm.busy) return;
+  if (!task || taskForm.busy || board.locked.has(task.id)) return;
   taskForm.modal.close(); // hand over from the editor to the delete confirmation
   deleteDialog.open(task, board.childCount(task.id));
 });
@@ -203,7 +221,9 @@ board.element.addEventListener("click", (event) => {
   const card = event.target.closest(".task-card");
   const task = board.taskOf(card);
   if (!task) return;
-  if (event.target.closest("[data-delete-task]")) deleteDialog.open(task, board.childCount(task.id));
+  if (event.target.closest("[data-delete-task]")) {
+    if (!board.locked.has(task.id)) deleteDialog.open(task, board.childCount(task.id));
+  }
   else showTask(task); // click anywhere else on the card opens it
 });
 
@@ -236,6 +256,7 @@ board.element.addEventListener("keydown", (event) => {
   const task = board.taskOf(card);
   if (!task) return;
 
+  if (board.locked.has(task.id) && event.key !== "Enter" && event.key !== " ") return; // being processed
   if (event.key === "Delete") {
     event.preventDefault();
     deleteDialog.open(task, board.childCount(task.id));
@@ -256,9 +277,16 @@ board.element.addEventListener("keydown", (event) => {
 // ── Live updates ──────────────────────────────────────────────────────
 
 connectEvents({
-  onOpen: () => board.load(), // first connect and every reconnect: resync
+  onOpen: () => {
+    board.load(); // first connect and every reconnect: resync
+    listRuns().then((runs) => processing.setRuns(runs)).catch(() => {});
+  },
   onEvent: (type, data) => {
-    if (type === "task.deleted") board.remove(data.id);
+    if (type === "run.updated") processing.upsert(data);
+    else if (type === "task.deleted") {
+      board.remove(data.id);
+      processing.remove(data.id);
+    }
     else if (type === "board.resync") board.load(); // lane was renumbered: positions changed
     else {
       board.upsert(data); // task.created / task.updated / task.moved

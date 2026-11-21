@@ -268,3 +268,49 @@ class WorkflowEdge(Base):
     style: Mapped[str] = mapped_column(String(16), default="curved", server_default="curved")
     source_slot: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     target_slot: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class PipelineRun(Base):
+    """The processing of one artifact in a pipeline (at most one per artifact).
+
+    Attributes:
+        status: ``running``, ``stopped``, ``done`` or ``failed``.
+        started_by: ``user`` or ``system``; the business logic is the same for both.
+        stage_id, action_id: Where the run is (node ids of the frozen pipeline).
+        note: Why it stopped or failed.
+        snapshot: JSON copy of the pipeline and the action definitions it uses, taken at the start.
+    """
+
+    __tablename__ = "pipeline_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tasks.id", ondelete="CASCADE"), unique=True
+    )
+    workflow_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("workflows.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(16))
+    started_by: Mapped[str] = mapped_column(String(16))
+    stage_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    snapshot: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
+
+
+class RunStage(Base):
+    """The status of one stage in a run: ``pending``, ``running``, ``passed``, ``failed`` or ``skipped``."""
+
+    __tablename__ = "run_stages"
+
+    run_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("pipeline_runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    stage_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    position: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16))

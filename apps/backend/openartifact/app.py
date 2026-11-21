@@ -16,6 +16,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from openartifact.config import Settings
+from openartifact.database import session_factory
+from openartifact.engine.runner import RunEngine
 from openartifact.events import EventBus
 from openartifact.exceptions import (
     ConfigurationError,
@@ -65,11 +67,14 @@ def _create_app(settings: Settings) -> FastAPI:
             logger.error("Database connection failed: %s", exc)
             raise ConfigurationError(f"Cannot connect to database: {exc}") from exc
 
+        await app.state.engine.recover()  # no run survives a restart as "running"
+
         yield
 
         # ── Shutdown ─────────────────────────────────────────
         from openartifact.database import dispose_engine
 
+        await app.state.engine.shutdown()
         app.state.event_bus.close()
 
         logger.info("Shutting down OpenArtifact 0.1.0")
@@ -84,6 +89,7 @@ def _create_app(settings: Settings) -> FastAPI:
         redoc_url=None,
     )
     app.state.event_bus = EventBus()
+    app.state.engine = RunEngine(app.state.event_bus, session_factory)
 
     # ── Exception handlers ─────────────────────────────────────────
 
@@ -140,6 +146,7 @@ def _create_app(settings: Settings) -> FastAPI:
     from openartifact.api.events import router as events_router
     from openartifact.api.routes import public_router as public_api_router
     from openartifact.api.routes import router as api_router
+    from openartifact.api.runs import router as runs_router
     from openartifact.api.tasks import router as tasks_router
     from openartifact.api.workflows import router as workflows_router
     from openartifact.web.routes import router as web_router
@@ -148,6 +155,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(api_router)
     app.include_router(tasks_router)
     app.include_router(workflows_router)
+    app.include_router(runs_router)
     app.include_router(events_router)
     app.include_router(web_router)
 

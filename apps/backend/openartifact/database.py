@@ -125,6 +125,13 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
+def session_factory() -> async_sessionmaker[AsyncSession]:
+    """Sessions for work outside a request (the execution engine) on the shared engine."""
+    if _engine is None:
+        raise ConfigurationError("Database engine not initialized")
+    return async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
+
+
 # ── Context Manager (non-FastAPI usage) ─────────────────────────────
 
 

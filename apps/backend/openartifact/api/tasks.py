@@ -9,10 +9,12 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.api.events import EventBusDep
 from openartifact.database import get_db_session
+from openartifact.models import PipelineRun
 from openartifact.tasks.repository import ParentError, PlacementError, TaskRepository
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 
@@ -21,6 +23,19 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 
 _NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+
+async def _forbid_while_processing(session: AsyncSession, task_id: str) -> None:
+    """An artifact that is being processed is changed by the system only (409)."""
+    running = await session.scalar(
+        select(PipelineRun.id).where(
+            PipelineRun.task_id == task_id, PipelineRun.status == "running"
+        )
+    )
+    if running is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="The artifact is being processed"
+        )
 
 
 @router.get("", response_model=list[TaskRead])
@@ -62,6 +77,8 @@ async def update_task(
     task = await repo.get(task_id)
     if task is None:
         raise _NOT_FOUND
+    if payload.model_fields_set & {"status", "before_id", "parent_id"}:
+        await _forbid_while_processing(session, task_id)  # lane, order and parent are locked
     try:
         result = await repo.update(task, payload)
     except (PlacementError, ParentError) as exc:
@@ -87,6 +104,7 @@ async def delete_task(task_id: str, session: SessionDep, bus: EventBusDep) -> Re
     task = await repo.get(task_id)
     if task is None:
         raise _NOT_FOUND
+    await _forbid_while_processing(session, task_id)
     detached = await repo.delete(task)
     await session.commit()
     bus.publish("task.deleted", {"id": task_id})

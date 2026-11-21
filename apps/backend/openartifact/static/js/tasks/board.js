@@ -17,6 +17,8 @@ export class Board {
     this.liveRegion = document.querySelector("[data-live-region]");
 
     this.loaded = false;
+    /** @type {Map<string, object>} */ this.runs = new Map();
+    /** @type {Set<string>} */ this.locked = new Set();
     /** @type {Map<string, object>} */ this.tasks = new Map();
     /** @type {Map<string, HTMLElement>} */ this.cards = new Map();
     /** @type {Map<string, {section: HTMLElement, list: HTMLElement, count: HTMLElement, title: string}>} */
@@ -185,7 +187,35 @@ export class Board {
     return card;
   }
 
+  /** Show the state of the artifact's run on its card (null: none). */
+  setRun(taskId, run) {
+    if (run) this.runs.set(taskId, run);
+    else this.runs.delete(taskId);
+    const card = this.cards.get(taskId);
+    if (card) this.#renderRun(card, taskId);
+  }
+
+  /** A card that is being processed cannot be moved or deleted by the user. */
+  setLocked(taskId, locked) {
+    if (locked) this.locked.add(taskId);
+    else this.locked.delete(taskId);
+    const card = this.cards.get(taskId);
+    if (card) this.#renderRun(card, taskId);
+  }
+
+  #renderRun(card, taskId) {
+    const run = this.runs.get(taskId);
+    const line = card.querySelector(".task-card__run");
+    line.textContent = run ? `${run.stage_name ?? run.workflow_name} · ${run.status}` : "";
+    line.hidden = !run;
+    line.dataset.status = run?.status ?? "";
+    const locked = this.locked.has(taskId);
+    card.classList.toggle("task-card--locked", locked);
+    card.querySelector("[data-delete-task]").disabled = locked;
+  }
+
   #renderContent(card, task) {
+    this.#renderRun(card, task.id);
     card.querySelector(".task-card__title").textContent = task.title;
     const body = card.querySelector(".task-card__body");
     body.textContent = task.body ?? "";

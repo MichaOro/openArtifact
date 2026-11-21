@@ -17,7 +17,9 @@ from openartifact.database import Base
 
 # Import all models so Alembic can detect them for autogenerate
 from openartifact.models import (  # noqa: F401
+    PipelineRun,
     Project,
+    RunStage,
     Task,
     Workflow,
     WorkflowEdge,

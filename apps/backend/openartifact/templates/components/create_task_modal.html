@@ -59,8 +59,45 @@
                 </span>
             </button>
         </li>
+        <li class="card-nav__divider" role="separator"></li>
+        <li>
+            <button type="button" class="nav-link card-nav__field" data-card-field="pipeline"
+                    aria-haspopup="listbox" aria-expanded="false" title="Pipeline">
+                {{ icon("pipeline") }}
+                <span class="nav-link__label">
+                    <span class="card-nav__key">Pipeline</span>
+                    <span class="card-nav__value" data-pipeline-value>–</span>
+                </span>
+            </button>
+        </li>
+        <li>
+            <button type="button" class="nav-link card-nav__field" data-card-field="stage"
+                    aria-haspopup="listbox" aria-expanded="false" title="Stage">
+                {{ icon("layers") }}
+                <span class="nav-link__label">
+                    <span class="card-nav__key">Stage</span>
+                    <span class="card-nav__value" data-stage-value>–</span>
+                </span>
+            </button>
+        </li>
+        <li>
+            <button type="button" class="nav-link card-nav__field" data-card-field="action"
+                    aria-haspopup="listbox" aria-expanded="false" title="Action">
+                {{ icon("action") }}
+                <span class="nav-link__label">
+                    <span class="card-nav__key">Action</span>
+                    <span class="card-nav__value" data-action-value>–</span>
+                </span>
+            </button>
+        </li>
     </ul>
     <ul class="nav-list card-nav__actions">
+        <li>
+            <button type="button" class="nav-link card-nav__run" data-card-action="run" title="Start processing">
+                {{ icon("play") }}
+                <span class="nav-link__label" data-run-label>Start processing</span>
+            </button>
+        </li>
         <li>
             <button type="button" class="nav-link nav-link--danger" data-card-action="delete" title="Delete artifact">
                 {{ icon("trash") }}
@@ -75,3 +112,4 @@
 </aside>
 </div>
 {% endcall %}
+<template id="run-icons">{% for name in ["play", "stop"] %}<span data-icon="{{ name }}">{{ icon(name) }}</span>{% endfor %}</template>

@@ -6,12 +6,14 @@ Every change is saved at once (there is no separate "save"): the editor sends wh
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.database import get_db_session
+from openartifact.engine.chain import pipeline_chain
+from openartifact.engine.snapshot import graph_of
 from openartifact.models import Workflow, WorkflowNode
 from openartifact.workflow.repository import NodeError, WorkflowRepository
 from openartifact.workflow.rules import EdgeError
@@ -89,6 +91,14 @@ async def get_workflow(workflow_id: str, session: SessionDep) -> WorkflowDetail:
         nodes=await _node_reads(repo, nodes),
         edges=[EdgeRead.model_validate(e) for e in edges],
     )
+
+
+@router.get("/{workflow_id}/stages")
+async def get_stages(workflow_id: str, session: SessionDep) -> list[dict[str, Any]]:
+    """The stages of a pipeline in the order it runs them, with their actions (to start in one)."""
+    await _workflow(WorkflowRepository(session), workflow_id)
+    graph = await graph_of(session, workflow_id)
+    return pipeline_chain(graph["nodes"], graph["edges"])
 
 
 @router.patch("/{workflow_id}", response_model=WorkflowRead)
