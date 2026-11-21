@@ -90,6 +90,12 @@
 .nav-section > .nav-list { margin-top: var(--space-1); }
 /* expanded: sub-entries are clearly indented under Pipeline (collapsed, the icons stay in one column) */
 :root:not([data-sidebar="collapsed"]) .sidebar .nav-section > .nav-list { margin-left: 1.5rem; padding-left: var(--space-1); border-left: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent); }
+@media (prefers-reduced-motion: no-preference) {
+  .nav-section.is-entering { animation: nav-section-in 280ms ease-out both; }
+  .nav-section.is-entering > .nav-list { overflow: hidden; animation: nav-sub-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+}
+@keyframes nav-section-in { from { border-color: transparent; background: transparent; } }
+@keyframes nav-sub-in { from { max-height: 0; opacity: 0; transform: translateY(-0.5rem); } to { max-height: 8rem; opacity: 1; transform: none; } }
 .nav-link--section { color: var(--color-text-primary); }
 .nav-link--section .icon { color: var(--color-accent); }
 .nav-link {
