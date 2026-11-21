@@ -566,7 +566,7 @@ def test_slugs_follow_the_name_and_are_unique_per_kind(client: TestClient) -> No
     first = _workflow(client, "Käse & Brot!")
     second = _workflow(client, "Kaese brot")
     assert (first["slug"], second["slug"]) == ("kaese-brot", "kaese-brot-2")
-    assert _workflow(client, "???")["slug"] == "stage"
+    assert _workflow(client, "???")["slug"] == "pipeline"
     as_action = client.post("/api/workflows", json={"name": "Kaese brot", "kind": "action"}).json()
     assert as_action["slug"] == "kaese-brot"  # another kind: its own names
     renamed = client.patch(f"/api/workflows/{second['id']}", json={"name": "Final"}).json()

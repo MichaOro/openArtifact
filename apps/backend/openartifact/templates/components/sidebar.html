@@ -1,10 +1,9 @@
 {% from "components/icons.html" import icon %}
-{# Add future navigation entries to `nav_items`. An entry with `children` is a section: it links to its
-   first child, and its children show only while the user is inside the section. #}
+{# Add future navigation entries to `nav_items`. An entry with `children` is a section: it is a page of its
+   own, and its children show only while the user is inside the section (on the entry or on a child). #}
 {% set nav_items = [
     {"key": "projects", "label": "Projects", "href": "/", "icon": "projects"},
-    {"key": "pipeline", "label": "Pipeline", "href": "/stages", "icon": "pipeline", "children": [
-        {"key": "workflows", "label": "Stages", "href": "/stages", "icon": "workflow"},
+    {"key": "pipeline", "label": "Pipeline", "href": "/pipelines", "icon": "pipeline", "children": [
         {"key": "actions", "label": "Actions", "href": "/actions", "icon": "action"},
     ]},
 ] %}
@@ -24,9 +23,9 @@
     <nav class="sidebar__nav" aria-label="Main navigation">
         <ul class="nav-list">
             {% for item in nav_items %}
-            {% set inside = item.children and active_nav in item.children | map(attribute="key") | list %}
+            {% set inside = item.children and (active_nav == item.key or active_nav in item.children | map(attribute="key") | list) %}
             <li{% if inside %} class="nav-section"{% endif %}>
-                {{ link(item, inside) }}
+                {{ link(item, inside and active_nav != item.key) }}
                 {% if inside %}
                 <ul class="nav-list" aria-label="{{ item.label }}" style="--n: {{ item.children | length }}">
                     {% for child in item.children %}<li style="--i: {{ loop.index0 }}">{{ link(child) }}</li>{% endfor %}

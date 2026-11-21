@@ -19,7 +19,7 @@ def _clear(api: httpx.Client) -> None:
 
 
 def _open(page: Page, base_url: str, workflow: dict[str, Any]) -> None:
-    page.goto(f"{base_url}/stages/{workflow['slug']}")
+    page.goto(f"{base_url}/pipelines/{workflow['slug']}")
     expect(page.locator(".wf-node").first).to_be_visible()
 
 
@@ -65,17 +65,17 @@ def test_create_rename_and_delete_a_workflow_from_the_list(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     _clear(api)
-    page.goto(f"{base_url}/stages")
+    page.goto(f"{base_url}/pipelines")
     expect(page.locator("[data-wf-empty]")).to_be_visible()
     page.click("[data-new-workflow]")
     page.fill("#workflow-name", "Agentic Coding")
     page.click("#name-modal [data-submit]")
-    expect(page).to_have_url(f"{base_url}/stages/agentic-coding")  # the name, not an id
+    expect(page).to_have_url(f"{base_url}/pipelines/agentic-coding")  # the name, not an id
     expect(page.locator(".wf-node--trigger")).to_have_count(1)
     expect(page.locator(".wf-node--complete")).to_have_count(1)
     expect(page.locator(".wf-edge")).to_have_count(1)  # connected by default
 
-    page.goto(f"{base_url}/stages")
+    page.goto(f"{base_url}/pipelines")
     page.locator("[data-rename]").click()
     page.fill("#workflow-name", "Renamed")
     page.click("#name-modal [data-submit]")
@@ -89,7 +89,7 @@ def test_create_rename_and_delete_a_workflow_from_the_list(
 
 def test_workflow_name_is_required(page: Page, base_url: str, api: httpx.Client) -> None:
     _clear(api)
-    page.goto(f"{base_url}/stages")
+    page.goto(f"{base_url}/pipelines")
     page.click("[data-new-workflow]")
     page.click("#name-modal [data-submit]")
     expect(page.locator("#workflow-name-error")).to_be_visible()
@@ -309,7 +309,7 @@ def test_zoom_controls_and_fit(page: Page, base_url: str, api: httpx.Client) -> 
 
 
 def test_editor_for_an_unknown_workflow_says_so(page: Page, base_url: str) -> None:
-    page.goto(f"{base_url}/stages/does-not-exist")
+    page.goto(f"{base_url}/pipelines/does-not-exist")
     expect(page.locator("[data-editor-error]")).to_contain_text("does not exist")
 
 
@@ -372,7 +372,7 @@ def test_create_an_action_definition_from_the_navigation(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     _clear_actions(api)
-    page.goto(f"{base_url}/stages")
+    page.goto(f"{base_url}/pipelines")
     page.click(".nav-link[href='/actions']")
     expect(page).to_have_url(re.compile(r"/actions$"))
     expect(page.locator("[data-wf-empty]")).to_be_visible()
@@ -498,17 +498,17 @@ def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
     definition_url = page.url
 
     page.goto(base_url)  # the navigation remembers the stage that was open
-    expect(page.locator(".sidebar a.nav-link[href^='/stages/']")).to_have_count(1)
+    expect(page.locator(".sidebar a.nav-link[href^='/pipelines/']")).to_have_count(1)
     page.goto(f"{base_url}/actions")
-    page.click(".sidebar a.nav-link[href^='/stages/']")
-    expect(page).to_have_url(re.compile(rf"/stages/{workflow['slug']}"))
+    page.click(".sidebar a.nav-link[href^='/pipelines/']")
+    expect(page).to_have_url(re.compile(rf"/pipelines/{workflow['slug']}"))
 
     page.goto(definition_url)
     page.click("[data-back]")
     selected = page.locator(".wf-node--action.is-selected")
     expect(selected.locator(".wf-node__name").first).to_have_text("Gap analysis")
     expect(page).to_have_url(
-        f"{base_url}/stages/{workflow['slug']}"
+        f"{base_url}/pipelines/{workflow['slug']}"
     )  # the hint is not left in the URL
 
 

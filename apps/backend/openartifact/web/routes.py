@@ -45,7 +45,7 @@ async def index(request: Request) -> HTMLResponse:
 
 
 _SECTIONS = {
-    "workflow": {"kind": "workflow", "nav": "workflows", "path": "/stages", "label": "Stage"},
+    "workflow": {"kind": "workflow", "nav": "pipeline", "path": "/pipelines", "label": "Pipeline"},
     "action": {"kind": "action", "nav": "actions", "path": "/actions", "label": "Action"},
 }
 
@@ -67,7 +67,7 @@ def _list_page(request: Request, section: str) -> HTMLResponse:
 async def _editor_page(
     request: Request, session: AsyncSession, section: str, slug: str
 ) -> HTMLResponse:
-    """The editor for the stage or action with this URL name.
+    """The editor for the pipeline or action with this URL name.
 
     An unknown name still renders the page; the editor then says that it does not exist.
     """
@@ -86,15 +86,15 @@ async def _editor_page(
     )
 
 
-@router.get("/stages", response_class=HTMLResponse)
-async def stages(request: Request) -> HTMLResponse:
-    """The list of stages (workflow definitions)."""
+@router.get("/pipelines", response_class=HTMLResponse)
+async def pipelines(request: Request) -> HTMLResponse:
+    """The list of pipelines (workflow definitions)."""
     return _list_page(request, "workflow")
 
 
-@router.get("/stages/{ref}", response_class=HTMLResponse)
-async def stage_editor(request: Request, ref: str, session: SessionDep) -> HTMLResponse:
-    """The editor for one stage (the graph itself is loaded through the API)."""
+@router.get("/pipelines/{ref}", response_class=HTMLResponse)
+async def pipeline_editor(request: Request, ref: str, session: SessionDep) -> HTMLResponse:
+    """The editor for one pipeline (the graph itself is loaded through the API)."""
     return await _editor_page(request, session, "workflow", ref)
 
 

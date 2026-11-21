@@ -13,7 +13,7 @@
     <button type="button" class="button button--primary" data-new-workflow>{{ icon("plus") }} New {{ section.label | lower }}</button>
 </div>
 <ul class="wf-list" data-wf-list data-kind="{{ section.kind }}" data-path="{{ section.path }}" aria-label="{{ section.label }}s"></ul>
-<p class="wf-empty glass" data-wf-empty hidden>{% if section.kind == "action" %}No actions yet. Create the first one to define what it does.{% else %}No stages yet. Create the first one to start designing it.{% endif %}</p>
+<p class="wf-empty glass" data-wf-empty hidden>{% if section.kind == "action" %}No actions yet. Create the first one to define what it does.{% else %}No pipelines yet. Create the first one to start designing it.{% endif %}</p>
 
 <template id="wf-item-template">
     <li class="wf-item glass">

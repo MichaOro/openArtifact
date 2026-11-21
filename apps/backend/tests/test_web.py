@@ -141,24 +141,23 @@ def test_root_links_assets(client: TestClient) -> None:
 
 
 def test_navigation_shows_the_pipeline_entries_only_inside_the_pipeline(client: TestClient) -> None:
-    """Projects and Pipeline are always there; Stages and Actions only once Pipeline is entered."""
+    """Projects and Pipeline are always there; Actions only once Pipeline is entered."""
     html = client.get("/").text
     assert html.count('class="nav-link"') == 2  # Projects and Pipeline
-    assert 'href="/stages"' in html  # the Pipeline entry itself
+    assert 'href="/pipelines"' in html  # the Pipeline entry itself
     assert 'href="/actions"' not in html
-    assert "Stages" not in html
-    for path in ("/stages", "/actions"):
+    for path, marked_as_section in (("/pipelines", 0), ("/actions", 1)):
         inside = client.get(path).text
-        assert 'href="/actions"' in inside and "Stages" in inside
-        assert inside.count("nav-link--section") == 1
+        assert 'href="/actions"' in inside  # the sub-entry
+        assert inside.count("nav-link--section") == marked_as_section
         assert inside.count('aria-current="page"') == 1
 
 
 def test_workflow_pages_render_and_mark_their_navigation_entry(db_client: TestClient) -> None:
-    for path in ("/stages", "/stages/any-id"):
+    for path in ("/pipelines", "/pipelines/any-id"):
         response = db_client.get(path)
         assert response.status_code == 200
-        assert 'href="/stages"' in response.text
+        assert 'href="/pipelines"' in response.text
         assert response.text.count('aria-current="page"') == 1
 
 
@@ -443,7 +442,7 @@ def test_rail_grows_the_card_instead_of_shrinking_the_form() -> None:
 def test_stage_pages_use_the_name_of_the_stage(db_client: TestClient) -> None:
     created = db_client.post("/api/workflows", json={"name": "Gap Analyses"}).json()
     assert created["slug"] == "gap-analyses"
-    page = db_client.get("/stages/gap-analyses")
+    page = db_client.get("/pipelines/gap-analyses")
     assert page.status_code == 200
     assert f'data-workflow-id="{created["id"]}"' in page.text
     assert (

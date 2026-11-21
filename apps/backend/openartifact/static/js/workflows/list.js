@@ -7,7 +7,7 @@ const listEl = document.querySelector("[data-wf-list]");
 const emptyEl = document.querySelector("[data-wf-empty]");
 const errorEl = document.querySelector("[data-list-error]");
 const { kind, path } = listEl.dataset;
-const noun = kind === "action" ? "action" : "workflow";
+const noun = kind === "action" ? "action" : "pipeline";
 const template = document.getElementById("wf-item-template");
 
 const nameModal = new Modal(document.getElementById("name-modal"));
@@ -41,8 +41,8 @@ function render() {
           onConfirm: async () => {
             await deleteWorkflow(workflow.id);
             try {
-              const last = JSON.parse(localStorage.getItem("oa-last-stage"));
-              if (last?.slug === workflow.slug) localStorage.removeItem("oa-last-stage");
+              const last = JSON.parse(localStorage.getItem("oa-last-pipeline"));
+              if (last?.slug === workflow.slug) localStorage.removeItem("oa-last-pipeline");
             } catch {
               /* nothing remembered */
             }

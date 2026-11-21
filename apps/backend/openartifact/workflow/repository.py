@@ -105,7 +105,7 @@ class WorkflowRepository:
 
     async def _unique_slug(self, name: str, kind: str, own_id: str | None) -> str:
         """The URL name for ``name``, with -2, -3 ... when another workflow of the kind has it."""
-        base = slugify(name, "stage" if kind == "workflow" else "action")
+        base = slugify(name, "pipeline" if kind == "workflow" else "action")
         slug, n = base, 2
         while await self._session.scalar(
             select(Workflow.id).where(

@@ -6,7 +6,7 @@ import { addNode, connect, createWorkflow, listWorkflows, deleteNode, disconnect
 import { Canvas } from "./canvas.js";
 import { ACTION_GAP, EDGE_STYLES, INPUTS, displayName, OUTPUTS, PAD, PORT_LABELS, SIZE, TOP_LEVEL_GAP, canConnect, fitStage } from "./graph.js";
 
-const LAST_STAGE = "oa-last-stage"; // read by main.js
+const LAST_STAGE = "oa-last-pipeline"; // read by main.js
 const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output" };
 
 export class WorkflowEditor {
@@ -100,12 +100,12 @@ export class WorkflowEditor {
   async #setupBack(slug, nodeId) {
     if (!slug) return;
     const link = this.root.querySelector("[data-back]");
-    link.href = `/stages/${encodeURIComponent(slug)}${nodeId ? `?select=${encodeURIComponent(nodeId)}` : ""}`;
+    link.href = `/pipelines/${encodeURIComponent(slug)}${nodeId ? `?select=${encodeURIComponent(nodeId)}` : ""}`;
     try {
-      const stage = (await listWorkflows("workflow")).find((w) => w.slug === slug);
-      link.textContent = stage ? `Back to ${stage.name}` : "Back to stage";
+      const pipeline = (await listWorkflows("workflow")).find((w) => w.slug === slug);
+      link.textContent = pipeline ? `Back to ${pipeline.name}` : "Back to pipeline";
     } catch {
-      link.textContent = "Back to stage";
+      link.textContent = "Back to pipeline";
     }
     link.hidden = false;
   }
@@ -378,7 +378,7 @@ export class WorkflowEditor {
   #workflowInspector() {
     const count = (kind) => [...this.nodes.values()].filter((n) => n.kind === kind).length;
     this.inspector.append(
-      this.#heading(this.workflow?.name ?? "Workflow", "Draft"),
+      this.#heading(this.workflow?.name ?? "Pipeline", "Draft"),
       this.#field("Name", this.#nameInput(this.workflow?.name ?? "", (name) => this.#renameWorkflow(name))),
       this.#note(
         this.isAction
