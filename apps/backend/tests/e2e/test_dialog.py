@@ -160,3 +160,66 @@ def test_escape_closes_the_dialog(board: Board) -> None:
     dialog = board.open().open_card("Plan")
     board.page.keyboard.press("Escape")
     expect(dialog.root).to_be_hidden()
+
+
+def test_lane_chip_row_pushes_the_form_down_instead_of_overlaying_it(board: Board) -> None:
+    board.create("Plan")
+    dialog = board.open().open_card("Plan").edit()
+    before = dialog.title_input.bounding_box()
+    dialog.lane_chip.click()
+    expect(dialog.root.locator(".lane-chips")).to_have_attribute("data-open", "")
+    dialog.settle()
+    after = dialog.title_input.bounding_box()
+    assert before is not None and after is not None and after["y"] > before["y"] + 20
+
+
+def test_lane_chips_carry_the_lane_colours(board: Board) -> None:
+    board.create("Plan")
+    dialog = board.open().open_card("Plan")
+    dialog.lane_chip.click()
+    colours = dialog.root.locator(".lane-chips [data-status]").evaluate_all(
+        "els => els.map((e) => getComputedStyle(e).backgroundColor)"
+    )
+    assert len(colours) == 2 and len(set(colours)) == 2
+
+
+def test_clicking_elsewhere_closes_the_lane_menu_but_not_the_dialog(board: Board) -> None:
+    board.create("Plan")
+    dialog = board.open().open_card("Plan")
+    dialog.lane_chip.click()
+    dialog.view_title.click()
+    expect(dialog.root.locator(".lane-chips")).not_to_have_attribute("data-open", "")
+    expect(dialog.root).to_be_visible()
+
+
+def test_rail_lane_menu_opens_to_the_left_of_the_rail(board: Board) -> None:
+    board.create("Plan")
+    dialog = board.open().open_card("Plan")
+    dialog.rail("lane").click()
+    popover = dialog.root.locator(".popover:not([hidden])").bounding_box()
+    rail = dialog.rail("lane").bounding_box()
+    assert popover is not None and rail is not None and popover["x"] + popover["width"] <= rail["x"]
+
+
+def test_rail_icons_and_toggle_share_one_column(board: Board) -> None:
+    board.create("Plan")
+    dialog = board.open().open_card("Plan")
+    centres = [
+        (box["x"] + box["width"] / 2)
+        for box in (
+            dialog.rail("lane").locator(".icon").bounding_box(),
+            dialog.root.locator('[data-card-action="delete"] .icon').bounding_box(),
+            dialog.rail_toggle.locator(".icon").bounding_box(),
+        )
+        if box is not None
+    ]
+    assert len(centres) == 3 and max(centres) - min(centres) <= 1.5
+
+
+def test_rail_toggle_announces_its_state(board: Board) -> None:
+    board.create("Plan")
+    dialog = board.open().open_card("Plan")
+    expect(dialog.rail_toggle).to_have_attribute("aria-expanded", "false")
+    dialog.rail_toggle.click()
+    expect(dialog.rail_toggle).to_have_attribute("aria-expanded", "true")
+    expect(dialog.rail_toggle).to_have_attribute("aria-label", "Collapse artifact details")
