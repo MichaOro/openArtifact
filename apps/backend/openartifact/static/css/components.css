@@ -91,12 +91,12 @@
 /* expanded: sub-entries are clearly indented under Pipeline (collapsed, the icons stay in one column) */
 :root:not([data-sidebar="collapsed"]) .sidebar .nav-section > .nav-list { margin-left: 1.5rem; padding-left: var(--space-1); border-left: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent); }
 /* Opening the group: the box fades in and grows downwards, then the entries appear one after the other
-   (about 0.5 s apart, at most ~1.5 s for all of them, however many there are). */
+   (about 0.25 s apart, at most ~0.75 s for all of them, however many there are). */
 @media (prefers-reduced-motion: no-preference) {
-  .nav-section.is-entering { animation: nav-section-in 700ms ease-out both; }
-  .nav-section.is-entering > .nav-list { overflow: hidden; animation: nav-sub-grow 800ms cubic-bezier(0.3, 0.7, 0.2, 1) 300ms both; }
+  .nav-section.is-entering { animation: nav-section-in 630ms ease-out both; }
+  .nav-section.is-entering > .nav-list { overflow: hidden; animation: nav-sub-grow 720ms cubic-bezier(0.3, 0.7, 0.2, 1) 270ms both; }
   .nav-section.is-entering > .nav-list > li {
-    animation: nav-item-in 700ms cubic-bezier(0.2, 0.8, 0.2, 1) calc(900ms + var(--i) * min(500ms, calc(1500ms / var(--n)))) both;
+    animation: nav-item-in 350ms cubic-bezier(0.2, 0.8, 0.2, 1) calc(810ms + var(--i) * min(250ms, calc(750ms / var(--n)))) both;
   }
 }
 @keyframes nav-section-in { from { border-color: transparent; background: transparent; } }
