@@ -88,6 +88,13 @@ the spirit of GitHub's project fields); **actions** (today: *Delete*) and the co
 at the bottom, the toggle in the same column as the item icons. On narrow screens the rail is a
 fixed icon rail. Built from the reusable `CollapsibleNav` component.
 
+Layout rules: text sits left of the icon (*text | icon*), the icon column hugs the right edge. The
+form column keeps its width (`--form-w`); expanding the rail makes the **card** grow leftwards
+(`--rail-w` is a registered, transitioned length, the panel is translated by half the growth), so
+the right edge and with it the toggle stay where the mouse is. The main sidebar follows the same
+idea: its toggle is the first footer item, in the icon column, and does not move when the sidebar
+expands or collapses.
+
 ### 2.7 Lane switch in the dialog, and lanes as configuration
 
 - Clicking the lane chip under the dialog title ("In Backlog") unrolls the other lanes as coloured
@@ -117,6 +124,17 @@ fixed icon rail. Built from the reusable `CollapsibleNav` component.
 Tokens `--lane-hue-1 … --lane-hue-8` (own values per theme, in `tokens.css`). Lane N always uses hue
 N (violet, amber, green, blue, pink, teal, orange, slate), cycling after eight. An element with
 `data-lane-hue="N"` receives `--lane-color`; used for the lane dot, counter, lane chip and chips.
+
+### 2.10 Parent / child artifacts
+
+`tasks.parent_id` (migration 0005): an artifact has at most one parent and can be the parent of any
+number of artifacts, which can in turn be parents (a tree). The rail's *Parent* field opens a picker
+(*No parent* plus every artifact that is not the task itself or one of its descendants); the card
+shows *Parent: …* and the number of sub-artifacts. The server rejects cycles with 422. Deleting a
+parent **detaches** its children instead of deleting them (the delete dialog says so) and publishes
+`board.resync`. There is no database foreign key (SQLite cannot add one to an existing table
+without rebuilding it); the repository keeps the relation consistent. Moving a parent to another
+lane does not move its children.
 
 ## 3. Consequences
 

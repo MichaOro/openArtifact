@@ -75,6 +75,7 @@
 | Responsive layouts | ✅ Narrow (horizontal snap board) and narrow landscape (compact); sidebar auto-collapses and overlays on narrow screens |
 | Card navigation (right rail in the task dialog) | ✅ Collapsible, collapsed by default; field *Lane*, action *Delete*; more artifact fields planned |
 | Order of cards inside a lane | ✅ Drag within a lane or across lanes at a given place; Alt+↑/↓; stored as fractional `position` (migration 0004) |
+| Parent / child artifacts | ✅ Tree: one parent, any number of children, cycle check, children detached when the parent is deleted (migration 0005) |
 | Lane colours | ✅ Palette tokens, lane N = hue N |
 | Lane switch in the dialog | ✅ Click the lane chip (hidden feature) or the rail's *Lane* field |
 | Lanes as configuration | ✅ `BOARD_LANES` is the single definition; user-defined lanes are planned, not implemented |
