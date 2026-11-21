@@ -14,6 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from openartifact.config import Settings
 from openartifact.database import session_factory
@@ -67,7 +68,10 @@ def _create_app(settings: Settings) -> FastAPI:
             logger.error("Database connection failed: %s", exc)
             raise ConfigurationError(f"Cannot connect to database: {exc}") from exc
 
-        await app.state.engine.recover()  # no run survives a restart as "running"
+        try:
+            await app.state.engine.recover()  # no run survives a restart as "running"
+        except OperationalError:
+            logger.warning("Run recovery skipped: the database is not migrated yet")
 
         yield
 

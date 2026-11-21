@@ -315,8 +315,10 @@ def test_task_dialog_has_collapsed_card_navigation_with_delete(client: TestClien
     assert 'data-card-nav data-state="collapsed"' in html
     assert "data-card-nav-toggle" in html
     assert 'aria-label="Expand artifact details"' in html
-    assert html.count("data-card-action=") == 1
-    assert 'data-card-action="delete"' in html
+    assert (
+        html.count('data-card-action="delete"') == 1
+    )  # the rail's only command (Start/Stop is in the footer)
+    assert html.count("data-card-action=") == 2
     assert "collapsible-nav.js" in client.get("/static/js/tasks/main.js").text
     assert client.get("/static/js/components/collapsible-nav.js").status_code == 200
 
@@ -414,7 +416,7 @@ def test_dialog_rail_has_lane_and_parent_fields_and_delete(client: TestClient) -
     assert 'data-card-field="lane"' in html
     assert 'data-card-field="parent"' in html
     assert "data-parent-value" in html
-    assert html.count("data-card-action=") == 1  # Delete is the only action
+    assert html.count('data-card-action="delete"') == 1  # Delete is the rail's only action
 
 
 def test_card_template_has_a_relations_line_and_delete_dialog_a_children_note(

@@ -528,11 +528,11 @@ def test_link_an_existing_action_switch_and_unlink(
     expect(select.locator("option")).to_have_count(3)  # not defined + two definitions
     select.select_option(label="With fail")
     expect(node.locator(".wf-node__name")).to_have_text("With fail")
-    expect(node).not_to_have_class(re.compile("is-no-fail"))
+    expect(node.locator(".wf-port--error")).to_be_visible()
     assert _pass_offset(node) < -5  # Pass above the middle, Error below it
     select.select_option(label="Without fail")
     expect(node.locator(".wf-node__name")).to_have_text("Without fail")
-    expect(node).to_have_class(re.compile("is-no-fail"))
+    expect(node.locator(".wf-port--error")).to_be_hidden()
     expect(node.locator(".wf-port--error")).to_be_hidden()
     assert abs(_pass_offset(node)) < 2  # Pass moves to the middle
     select.select_option(label="With fail")  # and back again
