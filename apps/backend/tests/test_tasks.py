@@ -63,7 +63,16 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
     db_path = migrated_settings.data_dir / migrated_settings.database_filename
     with sqlite3.connect(db_path) as conn:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
-        assert cols == {"id", "title", "body", "status", "position", "created_at", "updated_at"}
+        assert cols == {
+            "id",
+            "title",
+            "body",
+            "status",
+            "position",
+            "parent_id",
+            "created_at",
+            "updated_at",
+        }
         conn.execute("INSERT INTO tasks (id, title, status) VALUES ('a', 'T', 'done')")
         with pytest.raises(sqlite3.IntegrityError):
             conn.execute("INSERT INTO tasks (id, title, status) VALUES ('b', 'T', 'BACKLOG')")
@@ -93,7 +102,16 @@ def test_create_task_returns_201_with_all_fields(client: TestClient) -> None:
     )
     assert response.status_code == 201
     data = response.json()
-    assert set(data) == {"id", "title", "body", "status", "position", "created_at", "updated_at"}
+    assert set(data) == {
+        "id",
+        "title",
+        "body",
+        "status",
+        "position",
+        "parent_id",
+        "created_at",
+        "updated_at",
+    }
     assert data["title"] == "Write docs"
     assert data["body"] == "Details"
     assert data["status"] == "in_progress"
@@ -461,3 +479,124 @@ def test_migration_0004_backfills_positions_in_the_old_order(
     command.downgrade(_alembic_config(), "0003")
     with sqlite3.connect(db_path) as conn:
         assert "position" not in {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
+
+
+# ── Parent / child (a tree) ───────────────────────────────────────────
+
+
+def _parent(client: TestClient, child: dict[str, Any], parent: dict[str, Any] | None) -> Any:
+    return client.patch(
+        f"/api/tasks/{child['id']}", json={"parent_id": parent["id"] if parent else None}
+    )
+
+
+def test_new_tasks_have_no_parent(client: TestClient) -> None:
+    assert _create(client)["parent_id"] is None
+
+
+def test_set_and_clear_parent(client: TestClient) -> None:
+    parent, child = _create(client, title="p"), _create(client, title="c")
+    data = _parent(client, child, parent).json()
+    assert data["parent_id"] == parent["id"]
+    stored = {t["title"]: t["parent_id"] for t in client.get("/api/tasks").json()}
+    assert stored == {"p": None, "c": parent["id"]}
+    assert _parent(client, child, None).json()["parent_id"] is None
+
+
+def test_one_parent_can_have_many_children_and_children_can_be_parents(client: TestClient) -> None:
+    root = _create(client, title="root")
+    kids = [_create(client, title=f"kid{i}") for i in range(4)]
+    for kid in kids:
+        assert _parent(client, kid, root).status_code == 200
+    grandchild = _create(client, title="grandchild")
+    assert _parent(client, grandchild, kids[0]).status_code == 200  # a child as parent
+    by_title = {t["title"]: t["parent_id"] for t in client.get("/api/tasks").json()}
+    assert [by_title[f"kid{i}"] for i in range(4)] == [root["id"]] * 4
+    assert by_title["grandchild"] == kids[0]["id"]
+    assert by_title["root"] is None
+
+
+def test_parent_may_live_in_another_lane(client: TestClient) -> None:
+    parent, child = _create(client, status="done"), _create(client, status="backlog")
+    assert _parent(client, child, parent).status_code == 200
+
+
+def test_task_cannot_be_its_own_parent(client: TestClient) -> None:
+    task = _create(client)
+    assert _parent(client, task, task).status_code == 422
+
+
+def test_cycles_are_rejected(client: TestClient) -> None:
+    a, b, c = _create(client, title="a"), _create(client, title="b"), _create(client, title="c")
+    assert _parent(client, b, a).status_code == 200  # a <- b
+    assert _parent(client, c, b).status_code == 200  # a <- b <- c
+    assert _parent(client, a, b).status_code == 422  # direct loop
+    assert _parent(client, a, c).status_code == 422  # loop through a grandchild
+    by_title = {t["title"]: t["parent_id"] for t in client.get("/api/tasks").json()}
+    assert by_title["a"] is None
+
+
+def test_unknown_parent_is_rejected(client: TestClient) -> None:
+    task = _create(client)
+    response = client.patch(f"/api/tasks/{task['id']}", json={"parent_id": "nope"})
+    assert response.status_code == 422
+    assert client.get("/api/tasks").json()[0]["parent_id"] is None
+
+
+def test_parent_change_is_an_update_event_and_noop_is_silent(
+    client: TestClient, published: list[tuple[str, dict[str, Any]]]
+) -> None:
+    parent, child = _create(client, title="p"), _create(client, title="c")
+    published.clear()
+    _parent(client, child, parent)
+    assert [t for t, _ in published] == ["task.updated"]
+    assert published[0][1]["parent_id"] == parent["id"]
+    published.clear()
+    _parent(client, child, parent)  # same parent again
+    assert published == []
+
+
+def test_deleting_a_parent_detaches_its_children(
+    client: TestClient, published: list[tuple[str, dict[str, Any]]]
+) -> None:
+    parent, kid = _create(client, title="p"), _create(client, title="kid")
+    grandkid = _create(client, title="grandkid")
+    _parent(client, kid, parent)
+    _parent(client, grandkid, kid)
+    published.clear()
+    assert client.delete(f"/api/tasks/{parent['id']}").status_code == 204
+    by_title = {t["title"]: t["parent_id"] for t in client.get("/api/tasks").json()}
+    assert by_title == {"kid": None, "grandkid": kid["id"]}  # kid detached, subtree below it intact
+    assert [t for t, _ in published] == ["task.deleted", "board.resync"]
+
+
+def test_deleting_a_leaf_does_not_trigger_resync(
+    client: TestClient, published: list[tuple[str, dict[str, Any]]]
+) -> None:
+    leaf = _create(client)
+    published.clear()
+    client.delete(f"/api/tasks/{leaf['id']}")
+    assert [t for t, _ in published] == ["task.deleted"]
+
+
+def test_migration_0005_adds_nullable_parent_id(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(_alembic_config(), "0004")
+    db_path = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("INSERT INTO tasks (id, title) VALUES ('old', 'existing row')")
+    command.upgrade(_alembic_config(), "head")
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute("SELECT parent_id FROM tasks WHERE id='old'").fetchone() == (None,)
+        # the CHECK constraint on status survives the schema change
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute("INSERT INTO tasks (id, title, status) VALUES ('bad', 'x', 'BACKLOG')")
+    command.downgrade(_alembic_config(), "0004")
+    with sqlite3.connect(db_path) as conn:
+        assert "parent_id" not in {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
+        assert conn.execute("SELECT title FROM tasks WHERE id='old'").fetchone() == (
+            "existing row",
+        )

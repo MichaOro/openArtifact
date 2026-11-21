@@ -20,6 +20,10 @@ class PlacementError(ValueError):
     """The requested position refers to a task that is not in the target lane."""
 
 
+class ParentError(ValueError):
+    """The requested parent does not exist or would create a cycle."""
+
+
 @dataclass
 class UpdateResult:
     """Outcome of :meth:`TaskRepository.update`."""
@@ -74,6 +78,10 @@ class TaskRepository:
         sent = data.model_fields_set
         result = UpdateResult()
 
+        if "parent_id" in sent and data.parent_id != task.parent_id:
+            await self._check_parent(task, data.parent_id)
+            result.changed.add("parent_id")
+
         new_values: dict[str, str | None] = {}
         if "title" in sent and data.title is not None:
             new_values["title"] = data.title
@@ -90,16 +98,48 @@ class TaskRepository:
         if "before_id" in sent or lane_changed:
             await self._place(task, target, data, result)
 
-        for name in result.changed - {"position"}:
+        for name in result.changed - {"position", "parent_id"}:
             setattr(task, name, new_values[name])
+        if "parent_id" in result.changed:
+            task.parent_id = data.parent_id
         if result.changed or result.renumbered:
             await self._session.flush()
         return result
 
-    async def delete(self, task: Task) -> None:
-        """Delete a task."""
+    async def delete(self, task: Task) -> int:
+        """Delete a task. Its children lose their parent (they are not deleted).
+
+        Returns the number of children that were detached.
+        """
+        children = (
+            (await self._session.execute(select(Task).where(Task.parent_id == task.id)))
+            .scalars()
+            .all()
+        )
+        for child in children:
+            child.parent_id = None
         await self._session.delete(task)
         await self._session.flush()
+        return len(children)
+
+    async def _check_parent(self, task: Task, parent_id: str | None) -> None:
+        """A parent must exist and must not be the task itself or one of its descendants."""
+        if parent_id is None:
+            return
+        if parent_id == task.id:
+            raise ParentError("An artifact cannot be its own parent")
+        seen: set[str] = set()
+        current: str | None = parent_id
+        while current is not None:
+            if current == task.id:
+                raise ParentError("The parent must not be a descendant of this artifact")
+            if current in seen:  # defensive: a pre-existing cycle must not hang the request
+                break
+            seen.add(current)
+            node = await self.get(current)
+            if node is None:
+                raise ParentError("Parent artifact not found")
+            current = node.parent_id
 
     # ── ordering ──────────────────────────────────────────────────────
 

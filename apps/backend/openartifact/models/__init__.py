@@ -132,6 +132,9 @@ class Task(Base):
         title: Short title (required).
         body: Optional longer description.
         status: Lane of the task (see :class:`TaskStatus`).
+        parent_id: Optional parent artifact (a tree: one parent, any number of children). Kept
+            consistent by the repository (cycle check, children are detached on delete); there is
+            deliberately no database foreign key (SQLite cannot add one to an existing table).
         position: Sort key inside the lane, ascending (see migration 0004). Fractional so a task
             can be dropped between two others without renumbering the lane.
         created_at: Creation timestamp (UTC).
@@ -147,6 +150,7 @@ class Task(Base):
     # and a CHECK constraint (database).
     status: Mapped[str] = mapped_column(String(32), default=TaskStatus.BACKLOG.value)
     position: Mapped[float] = mapped_column(Float, default=0.0)
+    parent_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),

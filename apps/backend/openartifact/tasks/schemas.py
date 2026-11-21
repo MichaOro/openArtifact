@@ -62,6 +62,8 @@ class TaskUpdate(BaseModel):
     status: TaskStatus | None = None
     #: Position inside the (target) lane: put the task before this task. ``null`` = at the end.
     before_id: str | None = None
+    #: Parent artifact. ``null`` removes the parent.
+    parent_id: str | None = None
 
     @field_validator("body")
     @classmethod
@@ -74,7 +76,9 @@ class TaskUpdate(BaseModel):
     def _check_fields(self) -> TaskUpdate:
         sent = self.model_fields_set
         if not sent:
-            raise ValueError("At least one of title, body, status or before_id is required")
+            raise ValueError(
+                "At least one of title, body, status, before_id or parent_id is required"
+            )
         for name in ("title", "status"):
             if name in sent and getattr(self, name) is None:
                 raise ValueError(f"{name} must not be null")
@@ -91,6 +95,7 @@ class TaskRead(BaseModel):
     body: str | None
     status: TaskStatus
     position: float
+    parent_id: str | None
     created_at: datetime
     updated_at: datetime
 

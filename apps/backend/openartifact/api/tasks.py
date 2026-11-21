@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.api.events import EventBusDep
 from openartifact.database import get_db_session
-from openartifact.tasks.repository import PlacementError, TaskRepository
+from openartifact.tasks.repository import ParentError, PlacementError, TaskRepository
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -53,7 +53,8 @@ async def update_task(
     """Edit a task, move it to another lane and/or reorder it inside a lane.
 
     ``before_id`` places the task before another task of the target lane (``null``: at the
-    end); a lane change without ``before_id`` puts it at the top. Publishes ``task.moved``
+    end); a lane change without ``before_id`` puts it at the top. ``parent_id`` sets or (``null``)
+    removes the parent artifact; cycles are rejected with 422. Publishes ``task.moved``
     when only lane/order changed, ``task.updated`` for any other change (and ``board.resync``
     if neighbours had to be renumbered); nothing when the request changes nothing.
     """
@@ -63,7 +64,7 @@ async def update_task(
         raise _NOT_FOUND
     try:
         result = await repo.update(task, payload)
-    except PlacementError as exc:
+    except (PlacementError, ParentError) as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc
@@ -81,12 +82,14 @@ async def update_task(
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(task_id: str, session: SessionDep, bus: EventBusDep) -> Response:
-    """Delete a task. Publishes ``task.deleted``."""
+    """Delete a task. Publishes ``task.deleted``; its children become parentless (resync)."""
     repo = TaskRepository(session)
     task = await repo.get(task_id)
     if task is None:
         raise _NOT_FOUND
-    await repo.delete(task)
+    detached = await repo.delete(task)
     await session.commit()
     bus.publish("task.deleted", {"id": task_id})
+    if detached:
+        bus.publish("board.resync", {})  # the children lost their parent
     return Response(status_code=status.HTTP_204_NO_CONTENT)
