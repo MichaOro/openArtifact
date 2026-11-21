@@ -1,4 +1,4 @@
-/* Geometry of the workflow canvas. Pure functions over plain node/edge objects as the API returns
+/* Geometry of the graph canvas. Pure functions over plain node/edge objects as the API returns
  * them; what a kind of node looks like and may connect to comes from its view (node-types.js). */
 import { HEADER, SLOTS, slotY, typeOf } from "./node-types.js";
 

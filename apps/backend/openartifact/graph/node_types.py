@@ -16,9 +16,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from openartifact.models import NodeKind
 
 if TYPE_CHECKING:
-    from openartifact.workflow.rules import Endpoint
+    from openartifact.graph.rules import Endpoint
 
-PIPELINE = "workflow"  # the kind of a workflows row that is a pipeline
+PIPELINE = "pipeline"  # the kind of a graphs row that is a pipeline
 ACTION_DEFINITION = "action"
 
 
@@ -55,7 +55,7 @@ class NodeType:
     inputs: ClassVar[tuple[Port, ...]] = ()
     outputs: ClassVar[tuple[Port, ...]] = ()
     settings: ClassVar[tuple[Setting, ...]] = ()
-    links_to: ClassVar[str | None] = None  # the kind of workflows row ``definition_id`` points at
+    links_to: ClassVar[str | None] = None  # the kind of graphs row ``definition_id`` points at
     size: ClassVar[tuple[float, float] | None] = None  # only stages store a size of their own
 
     @property
@@ -216,7 +216,7 @@ def node_type(kind: NodeKind | str) -> NodeType:
 
 
 def kinds_in(scope: str) -> set[NodeKind]:
-    """The kinds a pipeline (``workflow``) or an action definition (``action``) may contain."""
+    """The kinds a pipeline (``pipeline``) or an action definition (``action``) may contain."""
     return {t.kind for t in NODE_TYPES.values() if scope in t.scopes}
 
 

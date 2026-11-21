@@ -17,6 +17,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from starlette.routing import Route
 
+from openartifact.api.auth import AccessGate
 from openartifact.config import Settings
 from openartifact.database import session_factory
 from openartifact.engine.runner import RunEngine
@@ -100,6 +101,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.state.engine = RunEngine(app.state.event_bus, session_factory)
     app.state.artifacts = ArtifactService(session_factory, app.state.event_bus, app.state.engine)
     app.state.settings = settings
+    app.add_middleware(AccessGate, settings=settings)
     # The MCP server (Streamable HTTP, stateless) answers at /mcp; it is open only with the API token.
     app.state.mcp_app = build_mcp(app.state.artifacts).streamable_http_app(
         stateless_http=True, json_response=True, host="0.0.0.0"
@@ -161,18 +163,20 @@ def _create_app(settings: Settings) -> FastAPI:
 
     # ── Register routes ────────────────────────────────────────────
     from openartifact.api.events import router as events_router
+    from openartifact.api.graphs import actions_router, node_types_router, pipelines_router
     from openartifact.api.routes import public_router as public_api_router
     from openartifact.api.routes import router as api_router
     from openartifact.api.runs import router as runs_router
     from openartifact.api.tasks import router as tasks_router
     from openartifact.api.v1 import router as v1_router
-    from openartifact.api.workflows import router as workflows_router
     from openartifact.web.routes import router as web_router
 
     app.include_router(public_api_router)
     app.include_router(api_router)
     app.include_router(tasks_router)
-    app.include_router(workflows_router)
+    app.include_router(node_types_router)
+    app.include_router(pipelines_router)
+    app.include_router(actions_router)
     app.include_router(runs_router)
     app.include_router(v1_router)
     app.include_router(events_router)

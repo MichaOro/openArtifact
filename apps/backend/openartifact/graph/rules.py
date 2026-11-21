@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from openartifact.graph.node_types import node_type
 from openartifact.models import NodeKind
-from openartifact.workflow.node_types import node_type
 
 
 class EdgeError(ValueError):

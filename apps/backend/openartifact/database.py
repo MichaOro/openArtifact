@@ -48,7 +48,7 @@ def _build_engine(settings: Settings) -> AsyncEngine:
     """Create an async SQLite engine with WAL mode.
 
     WAL (Write-Ahead Logging) provides concurrent reads with serializable
-    writes, which is critical for OpenArtifact's concurrent workflow pattern.
+    writes, which is critical for OpenArtifact's concurrent processing pattern.
 
     Args:
         settings: Application settings containing database configuration.

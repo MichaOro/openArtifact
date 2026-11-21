@@ -14,7 +14,7 @@ Backend Framework Selection
 The backend framework must support:
 
 - HTTP API for frontend and external integrations
-- Long-running background processes (workflow execution)
+- Long-running background processes (pipeline execution)
 - Graceful shutdown and startup lifecycle
 - Request/response validation
 - Dependency injection / service composition
@@ -95,7 +95,7 @@ The backend framework must support:
 
 ### Rationale
 
-1. **Async-first design aligns with OpenArtifact's concurrency model.** FastAPI's async/await foundation matches the platform's need for concurrent workflow execution, background processing, and external process management.
+1. **Async-first design aligns with OpenArtifact's concurrency model.** FastAPI's async/await foundation matches the platform's need for concurrent pipeline execution, background processing, and external process management.
 
 2. **Pydantic validation is critical.** OpenArtifact's artifact model requires strong schema validation. Pydantic v2 provides high-performance, declarative validation — central to the platform's core abstraction.
 

@@ -20,7 +20,7 @@ instead of patching this repository.
 
 ### 3.1 Kinds of nodes are classes
 
-- **Server** (`workflow/node_types.py`): a base class `NodeType` with the common behaviour and one
+- **Server** (`graph/node_types.py`): a base class `NodeType` with the common behaviour and one
   flat subclass per kind (`TriggerType`, `StageType`, `ActionType`, `PipelineNodeType`,
   `CompleteType`, `TimerType`, `OutputType`). A kind declares where it may be used (`scopes`),
   whether it is `fixed` or `addable`, whether it is a step (`chain`) or the end (`ending`) of the
@@ -28,8 +28,8 @@ instead of patching this repository.
   `connect_error` holds its connection rules; the base has the rule shared by the steps of the main
   line, a kind overrides it only where it differs (stage start, action). `register()` adds a kind.
   The repository, the rules and the engine read the registry; nothing lists kinds by hand any more.
-  `GET /api/workflows/node-types` publishes the descriptions.
-- **Browser** (`js/workflows/node-types.js`): a base class `NodeView` and a flat subclass per kind,
+  `GET /api/node-types` publishes the descriptions.
+- **Browser** (`js/editor/node-types.js`): a base class `NodeView` and a flat subclass per kind,
   paired with the server's description (`loadNodeTypes`). A view says how the kind looks (size,
   caption, extra markup such as the stage container), where its ports sit (`portLocal`; the default
   spreads the shown ports down each side, so an action without On Fail has its Pass in the middle by
@@ -39,7 +39,7 @@ instead of patching this repository.
 
 ### 3.2 One set of inspector blocks
 
-`js/workflows/inspector.js` builds the inspector from blocks that look and behave the same for every
+`js/editor/inspector.js` builds the inspector from blocks that look and behave the same for every
 kind: the title renamed in place (or not, for a node named after what it links to), the kind's
 settings (generated from its description), the choice of what it links to, and **one action row
 New · Edit · Delete**, always in this order, with what does not apply greyed out. A pipeline node

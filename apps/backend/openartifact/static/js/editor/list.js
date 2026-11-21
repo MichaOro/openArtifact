@@ -1,7 +1,7 @@
-/* The list of workflows or action definitions: create, rename, delete, open. */
+/* The list of pipelines or action definitions: create, rename, delete, open. */
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { Modal } from "../components/modal.js";
-import { createWorkflow, deleteWorkflow, listWorkflows, renameWorkflow } from "./api.js";
+import { createGraph, deleteGraph, listGraphs, renameGraph } from "./api.js";
 
 const listEl = document.querySelector("[data-wf-list]");
 const emptyEl = document.querySelector("[data-wf-empty]");
@@ -13,36 +13,36 @@ const template = document.getElementById("wf-item-template");
 const nameModal = new Modal(document.getElementById("name-modal"));
 const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
 const form = document.getElementById("name-form");
-const input = document.getElementById("workflow-name");
-const fieldError = document.getElementById("workflow-name-error");
+const input = document.getElementById("graph-name");
+const fieldError = document.getElementById("graph-name-error");
 const formError = nameModal.dialog.querySelector("[data-form-error]");
 const heading = nameModal.dialog.querySelector(".modal__title");
 
-let workflows = [];
+let items = [];
 let onName = null; // what to do with the entered name
 
 const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 function render() {
   listEl.replaceChildren(
-    ...workflows.map((workflow) => {
+    ...items.map((graph) => {
       const item = template.content.firstElementChild.cloneNode(true);
       const link = item.querySelector("a");
-      link.href = `${path}/${encodeURIComponent(workflow.slug)}`;
-      item.querySelector(".wf-item__name").textContent = workflow.name;
-      item.querySelector(".wf-item__meta").textContent = `Changed ${when(workflow.updated_at)}`;
-      item.querySelector("[data-rename]").addEventListener("click", () => askName(`Rename ${noun}`, workflow.name, async (name) => {
-        await renameWorkflow(workflow.id, name);
+      link.href = `${path}/${encodeURIComponent(graph.slug)}`;
+      item.querySelector(".wf-item__name").textContent = graph.name;
+      item.querySelector(".wf-item__meta").textContent = `Changed ${when(graph.updated_at)}`;
+      item.querySelector("[data-rename]").addEventListener("click", () => askName(`Rename ${noun}`, graph.name, async (name) => {
+        await renameGraph(kind, graph.id, name);
         await load();
       }));
       item.querySelector("[data-delete]").addEventListener("click", () =>
         confirm.open({
-          message: kind === "action" ? `Delete "${workflow.name}"? This cannot be undone.` : `Delete "${workflow.name}" with all its stages and actions? This cannot be undone.`,
+          message: kind === "action" ? `Delete "${graph.name}"? This cannot be undone.` : `Delete "${graph.name}" with all its stages and actions? This cannot be undone.`,
           onConfirm: async () => {
-            await deleteWorkflow(workflow.id);
+            await deleteGraph(kind, graph.id);
             try {
               const last = JSON.parse(localStorage.getItem("oa-last-pipeline"));
-              if (last?.slug === workflow.slug) localStorage.removeItem("oa-last-pipeline");
+              if (last?.slug === graph.slug) localStorage.removeItem("oa-last-pipeline");
             } catch {
               /* nothing remembered */
             }
@@ -53,12 +53,12 @@ function render() {
       return item;
     }),
   );
-  emptyEl.hidden = workflows.length > 0;
+  emptyEl.hidden = items.length > 0;
 }
 
 async function load() {
   try {
-    workflows = await listWorkflows(kind);
+    items = await listGraphs(kind);
     errorEl.hidden = true;
     render();
   } catch {
@@ -95,9 +95,9 @@ form.addEventListener("submit", async (event) => {
 });
 input.addEventListener("input", () => (fieldError.hidden = true));
 
-document.querySelector("[data-new-workflow]").addEventListener("click", () =>
+document.querySelector("[data-new-graph]").addEventListener("click", () =>
   askName(`New ${noun}`, "", async (name) => {
-    const created = await createWorkflow(name, kind);
+    const created = await createGraph(kind, name);
     window.location.assign(`${path}/${encodeURIComponent(created.slug)}`);
   }),
 );

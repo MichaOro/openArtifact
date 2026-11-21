@@ -45,6 +45,10 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
             "status",
             "position",
             "parent_id",
+            "pipeline_id",
+            "stage_id",
+            "action_id",
+            "created_by",
             "created_at",
             "updated_at",
         }
@@ -85,6 +89,10 @@ def test_create_task_returns_201_with_all_fields(client: TestClient) -> None:
         "status",
         "position",
         "parent_id",
+        "pipeline_id",
+        "stage_id",
+        "action_id",
+        "created_by",
         "created_at",
         "updated_at",
     }

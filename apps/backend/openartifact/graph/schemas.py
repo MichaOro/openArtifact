@@ -1,4 +1,4 @@
-"""Request and response models of the workflow API."""
+"""Request and response models of the pipeline and action API."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from openartifact.models import NodeKind
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 
 
-WorkflowKind = Literal["workflow", "action"]
+GraphKind = Literal["pipeline", "action"]
 Seconds = Annotated[int, Field(ge=1, le=86400)]  # a timer: one second to one day
 
 
@@ -20,21 +20,20 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class WorkflowCreate(_Strict):
-    """Body of ``POST /api/workflows`` (``kind`` ``action``: the definition of an action)."""
+class GraphCreate(_Strict):
+    """Body of ``POST /api/pipelines`` and ``POST /api/actions``."""
 
     name: Name
-    kind: WorkflowKind = "workflow"
 
 
-class WorkflowUpdate(_Strict):
-    """Body of ``PATCH /api/workflows/{id}``."""
+class GraphUpdate(_Strict):
+    """Body of ``PATCH /api/pipelines/{id}`` (or ``/api/actions/{id}``)."""
 
     name: Name
 
 
 class NodeCreate(_Strict):
-    """Body of ``POST /api/workflows/{id}/nodes``. Actions need ``stage_id`` and are placed relative to it."""
+    """Body of ``POST /api/pipelines/{id}/nodes``. Actions need ``stage_id`` and are placed relative to it."""
 
     kind: NodeKind
     name: Name | None = None
@@ -62,7 +61,7 @@ Slot = Annotated[int, Field(ge=0, le=2)]
 
 
 class EdgeCreate(_Strict):
-    """Body of ``POST /api/workflows/{id}/edges``. An existing edge on the same output is replaced."""
+    """Body of ``POST /api/pipelines/{id}/edges``. An existing edge on the same output is replaced."""
 
     source_id: str
     source_port: str
@@ -74,7 +73,7 @@ class EdgeCreate(_Strict):
 
 
 class EdgeUpdate(_Strict):
-    """Body of ``PATCH /api/workflows/{id}/edges/{edge_id}``."""
+    """Body of ``PATCH /api/pipelines/{id}/edges/{edge_id}``."""
 
     style: EdgeStyle
 
@@ -91,15 +90,15 @@ class _Timestamps(BaseModel):
         return value.isoformat().replace("+00:00", "Z")
 
 
-class WorkflowRead(_Timestamps):
-    """A workflow as returned by the API."""
+class GraphRead(_Timestamps):
+    """A pipeline or action definition as returned by the API."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     name: str
     status: str
-    kind: WorkflowKind
+    kind: GraphKind
     slug: str
 
 
@@ -139,9 +138,9 @@ class EdgeRead(BaseModel):
     target_slot: int
 
 
-class WorkflowDetail(BaseModel):
-    """A workflow with its whole graph (``GET /api/workflows/{id}``)."""
+class GraphDetail(BaseModel):
+    """A pipeline or action definition with its nodes and edges (``GET /api/pipelines/{id}``)."""
 
-    workflow: WorkflowRead
+    graph: GraphRead
     nodes: list[NodeRead]
     edges: list[EdgeRead]

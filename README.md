@@ -1,6 +1,6 @@
 # OpenArtifact
 
-**OpenArtifact** is an open-source platform for orchestrating projects, workflows, and AI agents around structured artifacts. It connects autonomous execution, deterministic processes, and human oversight in one extensible system.
+**OpenArtifact** is an open-source platform for orchestrating projects, pipelines, and AI agents around structured artifacts. It connects autonomous execution, deterministic processes, and human oversight in one extensible system.
 
 ## Vision
 
@@ -9,7 +9,7 @@ A platform where human intent and AI capability converge through **artifacts** �
 ## Core Principles
 
 1. **Artifact-first** — Every significant piece of work is an artifact with a defined schema, lifecycle, and traceability.
-2. **Deterministic orchestration** — Workflows execute according to explicit, version-controlled definitions.
+2. **Deterministic orchestration** — Pipelines execute according to explicit, version-controlled definitions.
 3. **Human oversight** — Autonomous agents operate within guardrails; humans remain in the loop at meaningful decision points.
 4. **Extensibility** — Pluggable agents, connectors, and artifact types. The platform grows with your needs.
 5. **Transparency** — Every action is traceable. Decisions, runs, and results are auditable.
@@ -140,7 +140,7 @@ uv run alembic current
 | WP-04 | Persistent storage and database migrations | ✅ Done |
 | WP-05 | Docker deployment and all-in-one distribution | ✅ Done |
 | WP-06 | Core artifact model and domain types | ⏳ Planned |
-| WP-07 | Workflow orchestration engine | ⏳ Planned |
+| WP-07 | Pipeline orchestration engine | ⏳ Planned |
 | WP-08 | AI agent integration framework | ⏳ Planned |
 | WP-09 | Human oversight and review mechanisms | ⏳ Planned |
 | WP-10 | External integrations | ⏳ Planned |

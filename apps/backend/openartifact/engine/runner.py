@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
 from openartifact.engine.snapshot import NestingError, build_snapshot
 from openartifact.events import EventBus
-from openartifact.models import PipelineRun, RunStage, Task, Workflow
+from openartifact.models import Graph, PipelineRun, RunStage, Task
 
 logger = logging.getLogger("openartifact")
 
@@ -72,10 +72,10 @@ class RunEngine:
         return {
             "id": run.id,
             "task_id": run.task_id,
-            "workflow_id": run.workflow_id,
-            "workflow_name": snapshot["name"],
+            "root_pipeline_id": run.pipeline_id,
+            "root_pipeline_name": snapshot["name"],
             # where the run is, following the flow into called pipelines
-            "pipeline_id": where["pipeline_id"] or run.workflow_id,
+            "pipeline_id": where["pipeline_id"] or run.pipeline_id,
             "pipeline_name": where["pipeline_name"],
             # where to start again: the entry of the run's own pipeline (the call, if it is inside one)
             "resume_stage_id": where["entry_id"],
@@ -111,7 +111,7 @@ class RunEngine:
     async def start(
         self,
         task_id: str,
-        workflow_id: str,
+        pipeline_id: str,
         stage_id: str | None = None,
         action_id: str | None = None,
         started_by: str = "user",
@@ -128,11 +128,11 @@ class RunEngine:
             run = await self._run_of(session, task_id)
             if run is not None and run.status == "running":
                 raise RunError(409, "The artifact is already being processed")
-            workflow = await session.get(Workflow, workflow_id)
-            if workflow is None or workflow.kind != "workflow":
+            pipeline = await session.get(Graph, pipeline_id)
+            if pipeline is None or pipeline.kind != "pipeline":
                 raise RunError(422, "That pipeline does not exist")
             try:
-                snapshot = await build_snapshot(session, workflow)
+                snapshot = await build_snapshot(session, pipeline)
             except NestingError as error:
                 raise RunError(422, str(error)) from error
             chain = pipeline_chain(snapshot["nodes"], snapshot["edges"])
@@ -154,16 +154,16 @@ class RunEngine:
                 run = PipelineRun(id=str(uuid.uuid4()), task_id=task_id)
                 session.add(run)
             else:
-                if run.workflow_id == workflow.id:
+                if run.pipeline_id == pipeline.id:
                     rows = await session.execute(select(RunStage).where(RunStage.run_id == run.id))
                     previous = {r.stage_id: r.status for r in rows.scalars()}
                 await session.execute(delete(RunStage).where(RunStage.run_id == run.id))
             # the artifact keeps what it was started with, so the next start offers the same
-            task.pipeline_id, task.stage_id = workflow.id, stage["id"]
+            task.pipeline_id, task.stage_id = pipeline.id, stage["id"]
             task.action_id = (
                 (action_id or stage["first_action_id"]) if stage["kind"] == "stage" else None
             )
-            run.workflow_id = workflow.id
+            run.pipeline_id = pipeline.id
             run.created_at = datetime.now(UTC)  # the row is reused: this is when this run began
             run.status = "running"
             run.started_by = started_by

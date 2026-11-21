@@ -1,4 +1,4 @@
-/* Workflow list and editor. Colours come from tokens.css only. */
+/* Pipeline and action lists and the editor. Colours come from tokens.css only. */
 
 /* ── List ─────────────────────────────────────────────────────────── */
 .wf-toolbar { display: flex; justify-content: flex-end; margin-bottom: var(--space-4); }

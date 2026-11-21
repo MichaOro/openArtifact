@@ -1,4 +1,4 @@
-"""Workflow definitions: port rules, API, cascades."""
+"""Graphs (pipelines and action definitions): port rules, API, cascades, migrations."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from fastapi.testclient import TestClient
 
 from alembic import command
 from openartifact.config import Settings
+from openartifact.graph.rules import EdgeError, Endpoint, validate_edge
 from openartifact.models import NodeKind
-from openartifact.workflow.rules import EdgeError, Endpoint, validate_edge
 from tests.conftest import alembic_config
 
 # ── Port rules ────────────────────────────────────────────────────────
@@ -73,91 +73,95 @@ def test_rejected_connections(
 # ── API ───────────────────────────────────────────────────────────────
 
 
-def _workflow(client: TestClient, name: str = "Flow") -> dict[str, Any]:
-    return client.post("/api/workflows", json={"name": name}).json()  # type: ignore[no-any-return]
+def _url(graph: dict[str, Any]) -> str:
+    return f"/api/{'actions' if graph['kind'] == 'action' else 'pipelines'}/{graph['id']}"
 
 
-def _node(client: TestClient, workflow: dict[str, Any], kind: str, **extra: Any) -> dict[str, Any]:
-    response = client.post(f"/api/workflows/{workflow['id']}/nodes", json={"kind": kind, **extra})
+def _pipeline(client: TestClient, name: str = "Flow") -> dict[str, Any]:
+    return client.post("/api/pipelines", json={"name": name}).json()  # type: ignore[no-any-return]
+
+
+def _node(client: TestClient, pipeline: dict[str, Any], kind: str, **extra: Any) -> dict[str, Any]:
+    response = client.post(f"{_url(pipeline)}/nodes", json={"kind": kind, **extra})
     assert response.status_code == 201, response.text
     return response.json()  # type: ignore[no-any-return]
 
 
 def _edge(
     client: TestClient,
-    workflow: dict[str, Any],
+    pipeline: dict[str, Any],
     a: dict[str, Any],
     ap: str,
     b: dict[str, Any],
     bp: str,
 ) -> Any:
     return client.post(
-        f"/api/workflows/{workflow['id']}/edges",
+        f"{_url(pipeline)}/edges",
         json={"source_id": a["id"], "source_port": ap, "target_id": b["id"], "target_port": bp},
     )
 
 
-def _graph(client: TestClient, workflow: dict[str, Any]) -> dict[str, Any]:
-    return client.get(f"/api/workflows/{workflow['id']}").json()  # type: ignore[no-any-return]
+def _graph(client: TestClient, pipeline: dict[str, Any]) -> dict[str, Any]:
+    return client.get(_url(pipeline)).json()  # type: ignore[no-any-return]
 
 
-def test_new_workflow_has_a_trigger_and_a_complete_connected_with_each_other(
+def test_new_pipeline_has_a_trigger_and_a_complete_connected_with_each_other(
     client: TestClient,
 ) -> None:
-    workflow = _workflow(client)
-    graph = _graph(client, workflow)
+    pipeline = _pipeline(client)
+    graph = _graph(client, pipeline)
     nodes = {n["kind"]: n for n in graph["nodes"]}
     assert sorted(nodes) == ["complete", "trigger"]
     assert [
         (e["source_id"], e["source_port"], e["target_id"], e["target_port"]) for e in graph["edges"]
     ] == [(nodes["trigger"]["id"], "out", nodes["complete"]["id"], "in")]
-    assert workflow["status"] == "draft"
+    assert pipeline["status"] == "draft"
 
 
-def test_workflow_crud(client: TestClient) -> None:
-    first, second = _workflow(client, "A"), _workflow(client, "B")
-    assert {w["name"] for w in client.get("/api/workflows").json()} == {"A", "B"}
-    assert client.patch(f"/api/workflows/{first['id']}", json={"name": "A2"}).json()["name"] == "A2"
-    assert client.delete(f"/api/workflows/{second['id']}").status_code == 204
-    assert [w["name"] for w in client.get("/api/workflows").json()] == ["A2"]
-    assert client.get(f"/api/workflows/{second['id']}").status_code == 404
+def test_pipeline_crud(client: TestClient) -> None:
+    first, second = _pipeline(client, "A"), _pipeline(client, "B")
+    assert {w["name"] for w in client.get("/api/pipelines").json()} == {"A", "B"}
+    assert client.patch(_url(first), json={"name": "A2"}).json()["name"] == "A2"
+    assert client.delete(_url(second)).status_code == 204
+    assert [w["name"] for w in client.get("/api/pipelines").json()] == ["A2"]
+    assert client.get(_url(second)).status_code == 404
 
 
 def test_name_is_required(client: TestClient) -> None:
-    assert client.post("/api/workflows", json={"name": "   "}).status_code == 422
-    assert client.post("/api/workflows", json={}).status_code == 422
+    assert client.post("/api/pipelines", json={"name": "   "}).status_code == 422
+    assert client.post("/api/pipelines", json={}).status_code == 422
 
 
 def test_node_kinds_and_defaults(client: TestClient) -> None:
-    workflow = _workflow(client)
-    stage = _node(client, workflow, "stage", x=100, y=50)
+    pipeline = _pipeline(client)
+    stage = _node(client, pipeline, "stage", x=100, y=50)
     assert (stage["name"], stage["width"], stage["height"]) == ("Stage", 360, 240)
-    action = _node(client, workflow, "action", stage_id=stage["id"], x=20, y=40)
+    action = _node(client, pipeline, "action", stage_id=stage["id"], x=20, y=40)
     assert (action["name"], action["stage_id"], action["width"]) == ("Action", stage["id"], None)
 
 
 def test_trigger_and_complete_cannot_be_added_or_deleted(client: TestClient) -> None:
-    workflow = _workflow(client)
-    base = f"/api/workflows/{workflow['id']}/nodes"
+    pipeline = _pipeline(client)
+    base = f"{_url(pipeline)}/nodes"
     for kind in ("trigger", "complete"):
         assert client.post(base, json={"kind": kind}).status_code == 422
-    for node in _graph(client, workflow)["nodes"]:
+    for node in _graph(client, pipeline)["nodes"]:
         assert client.delete(f"{base}/{node['id']}").status_code == 422
 
 
-def test_action_needs_a_stage_of_the_same_workflow(client: TestClient) -> None:
-    one, other = _workflow(client), _workflow(client)
+def test_action_needs_a_stage_of_the_same_pipeline(client: TestClient) -> None:
+    one, other = _pipeline(client), _pipeline(client)
     stage = _node(client, other, "stage")
-    url = f"/api/workflows/{one['id']}/nodes"
+    url = f"{_url(one)}/nodes"
     assert client.post(url, json={"kind": "action"}).status_code == 422
     assert client.post(url, json={"kind": "action", "stage_id": stage["id"]}).status_code == 422
     assert client.post(url, json={"kind": "stage", "stage_id": stage["id"]}).status_code == 422
 
 
 def test_move_rename_and_resize(client: TestClient) -> None:
-    workflow = _workflow(client)
-    stage = _node(client, workflow, "stage")
-    url = f"/api/workflows/{workflow['id']}/nodes/{stage['id']}"
+    pipeline = _pipeline(client)
+    stage = _node(client, pipeline, "stage")
+    url = f"{_url(pipeline)}/nodes/{stage['id']}"
     changed = client.patch(
         url, json={"name": "Refine", "x": 10, "y": 20, "width": 500, "height": 300}
     ).json()
@@ -168,33 +172,31 @@ def test_move_rename_and_resize(client: TestClient) -> None:
         500,
         300,
     )
-    action = _node(client, workflow, "action", stage_id=stage["id"])
+    action = _node(client, pipeline, "action", stage_id=stage["id"])
     assert (
-        client.patch(
-            f"/api/workflows/{workflow['id']}/nodes/{action['id']}", json={"width": 10}
-        ).status_code
+        client.patch(f"{_url(pipeline)}/nodes/{action['id']}", json={"width": 10}).status_code
         == 422
     )
     assert client.patch(url, json={"width": 0}).status_code == 422
 
 
 def test_connect_validates_and_replaces_the_output_edge(client: TestClient) -> None:
-    workflow = _workflow(client)
-    trigger = _graph(client, workflow)["nodes"][0]
-    one, two = _node(client, workflow, "stage"), _node(client, workflow, "stage")
-    assert _edge(client, workflow, trigger, "out", one, "start").status_code == 201
-    assert _edge(client, workflow, trigger, "out", two, "start").status_code == 201  # replaces
-    edges = _graph(client, workflow)["edges"]
+    pipeline = _pipeline(client)
+    trigger = _graph(client, pipeline)["nodes"][0]
+    one, two = _node(client, pipeline, "stage"), _node(client, pipeline, "stage")
+    assert _edge(client, pipeline, trigger, "out", one, "start").status_code == 201
+    assert _edge(client, pipeline, trigger, "out", two, "start").status_code == 201  # replaces
+    edges = _graph(client, pipeline)["edges"]
     assert [e["target_id"] for e in edges] == [two["id"]]
-    assert _edge(client, workflow, trigger, "out", trigger, "in").status_code == 422
-    assert _edge(client, workflow, one, "end", one, "start").status_code == 422
+    assert _edge(client, pipeline, trigger, "out", trigger, "in").status_code == 422
+    assert _edge(client, pipeline, one, "end", one, "start").status_code == 422
 
 
 def test_edges_remember_style_and_stage_slots(client: TestClient) -> None:
-    workflow = _workflow(client)
-    trigger = _graph(client, workflow)["nodes"][0]
-    stage = _node(client, workflow, "stage")
-    url = f"/api/workflows/{workflow['id']}/edges"
+    pipeline = _pipeline(client)
+    trigger = _graph(client, pipeline)["nodes"][0]
+    stage = _node(client, pipeline, "stage")
+    url = f"{_url(pipeline)}/edges"
     body = {
         "source_id": trigger["id"],
         "source_port": "out",
@@ -218,66 +220,63 @@ def test_edges_remember_style_and_stage_slots(client: TestClient) -> None:
 
 
 def test_inputs_take_several_edges(client: TestClient) -> None:
-    workflow = _workflow(client)
-    stage = _node(client, workflow, "stage")
-    a, b = (_node(client, workflow, "action", stage_id=stage["id"]) for _ in range(2))
-    target = _node(client, workflow, "action", stage_id=stage["id"])
-    assert _edge(client, workflow, a, "pass", target, "in").status_code == 201
-    assert _edge(client, workflow, b, "pass", target, "in").status_code == 201
-    assert _edge(client, workflow, a, "error", target, "in").status_code == 201
-    assert len(_graph(client, workflow)["edges"]) == 4  # the three and the default one
+    pipeline = _pipeline(client)
+    stage = _node(client, pipeline, "stage")
+    a, b = (_node(client, pipeline, "action", stage_id=stage["id"]) for _ in range(2))
+    target = _node(client, pipeline, "action", stage_id=stage["id"])
+    assert _edge(client, pipeline, a, "pass", target, "in").status_code == 201
+    assert _edge(client, pipeline, b, "pass", target, "in").status_code == 201
+    assert _edge(client, pipeline, a, "error", target, "in").status_code == 201
+    assert len(_graph(client, pipeline)["edges"]) == 4  # the three and the default one
 
 
-def test_edges_across_workflows_are_rejected(client: TestClient) -> None:
-    one, other = _workflow(client), _workflow(client)
+def test_edges_across_pipelines_are_rejected(client: TestClient) -> None:
+    one, other = _pipeline(client), _pipeline(client)
     stage = _node(client, other, "stage")
     trigger = _graph(client, one)["nodes"][0]
     assert _edge(client, one, trigger, "out", stage, "start").status_code == 422
 
 
 def test_disconnect(client: TestClient) -> None:
-    workflow = _workflow(client)
-    trigger = _graph(client, workflow)["nodes"][0]
-    stage = _node(client, workflow, "stage")
-    edge = _edge(client, workflow, trigger, "out", stage, "start").json()
-    assert client.delete(f"/api/workflows/{workflow['id']}/edges/{edge['id']}").status_code == 204
-    assert _graph(client, workflow)["edges"] == []
-    assert client.delete(f"/api/workflows/{workflow['id']}/edges/{edge['id']}").status_code == 404
+    pipeline = _pipeline(client)
+    trigger = _graph(client, pipeline)["nodes"][0]
+    stage = _node(client, pipeline, "stage")
+    edge = _edge(client, pipeline, trigger, "out", stage, "start").json()
+    assert client.delete(f"{_url(pipeline)}/edges/{edge['id']}").status_code == 204
+    assert _graph(client, pipeline)["edges"] == []
+    assert client.delete(f"{_url(pipeline)}/edges/{edge['id']}").status_code == 404
 
 
 def test_deleting_a_stage_removes_its_actions_and_all_their_edges(client: TestClient) -> None:
-    workflow = _workflow(client)
-    trigger = next(n for n in _graph(client, workflow)["nodes"] if n["kind"] == "trigger")
-    stage, other = _node(client, workflow, "stage"), _node(client, workflow, "stage")
-    action = _node(client, workflow, "action", stage_id=stage["id"])
-    _edge(client, workflow, trigger, "out", stage, "start")
-    _edge(client, workflow, stage, "start", action, "in")
-    _edge(client, workflow, stage, "end", other, "start")
-    assert client.delete(f"/api/workflows/{workflow['id']}/nodes/{stage['id']}").status_code == 204
-    graph = _graph(client, workflow)
+    pipeline = _pipeline(client)
+    trigger = next(n for n in _graph(client, pipeline)["nodes"] if n["kind"] == "trigger")
+    stage, other = _node(client, pipeline, "stage"), _node(client, pipeline, "stage")
+    action = _node(client, pipeline, "action", stage_id=stage["id"])
+    _edge(client, pipeline, trigger, "out", stage, "start")
+    _edge(client, pipeline, stage, "start", action, "in")
+    _edge(client, pipeline, stage, "end", other, "start")
+    assert client.delete(f"{_url(pipeline)}/nodes/{stage['id']}").status_code == 204
+    graph = _graph(client, pipeline)
     assert sorted(n["kind"] for n in graph["nodes"]) == ["complete", "stage", "trigger"]
     assert graph["edges"] == []
 
 
-def test_deleting_a_workflow_removes_everything_in_it(
+def test_deleting_a_pipeline_removes_everything_in_it(
     client: TestClient, migrated_settings: Settings
 ) -> None:
-    workflow = _workflow(client)
-    _node(client, workflow, "stage")
-    client.delete(f"/api/workflows/{workflow['id']}")
+    pipeline = _pipeline(client)
+    _node(client, pipeline, "stage")
+    client.delete(_url(pipeline))
     with sqlite3.connect(migrated_settings.data_dir / migrated_settings.database_filename) as conn:
-        assert conn.execute("SELECT COUNT(*) FROM workflow_nodes").fetchone() == (0,)
+        assert conn.execute("SELECT COUNT(*) FROM graph_nodes").fetchone() == (0,)
 
 
 def test_unknown_ids_are_404(client: TestClient) -> None:
-    workflow = _workflow(client)
-    assert client.get("/api/workflows/nope").status_code == 404
-    assert client.post("/api/workflows/nope/nodes", json={"kind": "stage"}).status_code == 404
-    assert (
-        client.patch(f"/api/workflows/{workflow['id']}/nodes/nope", json={"name": "x"}).status_code
-        == 404
-    )
-    assert client.delete(f"/api/workflows/{workflow['id']}/nodes/nope").status_code == 404
+    pipeline = _pipeline(client)
+    assert client.get("/api/pipelines/nope").status_code == 404
+    assert client.post("/api/pipelines/nope/nodes", json={"kind": "stage"}).status_code == 404
+    assert client.patch(f"{_url(pipeline)}/nodes/nope", json={"name": "x"}).status_code == 404
+    assert client.delete(f"{_url(pipeline)}/nodes/nope").status_code == 404
 
 
 def test_migration_0008_is_reversible(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -287,7 +286,7 @@ def test_migration_0008_is_reversible(settings: Settings, monkeypatch: pytest.Mo
     command.downgrade(alembic_config(), "0007")
     with sqlite3.connect(settings.data_dir / settings.database_filename) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert not {"workflows", "workflow_nodes", "workflow_edges"} & tables
+    assert not {"workflows", "workflow_nodes", "workflow_edges", "graphs"} & tables
 
 
 def test_migration_0009_merges_the_inner_and_outer_stage_ports(
@@ -368,17 +367,17 @@ def test_migration_0010_adds_defaults_and_is_reversible(
 
 
 def _action_definition(client: TestClient) -> dict[str, Any]:
-    response = client.post("/api/workflows", json={"name": "Gap analysis", "kind": "action"})
+    response = client.post("/api/actions", json={"name": "Gap analysis"})
     assert response.status_code == 201
     return response.json()  # type: ignore[no-any-return]
 
 
-def test_action_definitions_are_listed_apart_from_workflows(client: TestClient) -> None:
-    _workflow(client, "A workflow")
+def test_action_definitions_are_listed_apart_from_pipelines(client: TestClient) -> None:
+    _pipeline(client, "A pipeline")
     definition = _action_definition(client)
     assert definition["kind"] == "action"
-    assert [w["name"] for w in client.get("/api/workflows").json()] == ["A workflow"]
-    listed = client.get("/api/workflows", params={"kind": "action"}).json()
+    assert [w["name"] for w in client.get("/api/pipelines").json()] == ["A pipeline"]
+    listed = client.get("/api/actions").json()
     assert [w["id"] for w in listed] == [definition["id"]]
 
 
@@ -407,32 +406,32 @@ def test_the_output_has_separate_on_pass_and_on_fail_connectors(client: TestClie
     assert (
         _edge(client, definition, trigger, "out", output, "fail").status_code == 422
     )  # not on yet
-    url = f"/api/workflows/{definition['id']}/nodes/{output['id']}"
+    url = f"{_url(definition)}/nodes/{output['id']}"
     assert client.patch(url, json={"fail_enabled": True}).json()["fail_enabled"] is True
     assert _edge(client, definition, trigger, "out", output, "fail").status_code == 201
     assert [e["target_port"] for e in _graph(client, definition)["edges"]] == ["fail"]
     client.patch(url, json={"fail_enabled": False})  # the On Fail connector goes, and its edge
     assert _graph(client, definition)["edges"] == []
-    trigger_url = f"/api/workflows/{definition['id']}/nodes/{trigger['id']}"
+    trigger_url = f"{_url(definition)}/nodes/{trigger['id']}"
     assert client.patch(trigger_url, json={"fail_enabled": True}).status_code == 422
 
 
 def test_an_action_definition_keeps_its_trigger_and_output(client: TestClient) -> None:
     definition = _action_definition(client)
-    base = f"/api/workflows/{definition['id']}/nodes"
+    base = f"{_url(definition)}/nodes"
     for node in _graph(client, definition)["nodes"]:
         assert client.delete(f"{base}/{node['id']}").status_code == 422
     for kind in ("stage", "complete", "output", "trigger"):
         assert client.post(base, json={"kind": kind}).status_code == 422
 
 
-def test_a_workflow_has_no_output_node(client: TestClient) -> None:
-    workflow = _workflow(client)
-    response = client.post(f"/api/workflows/{workflow['id']}/nodes", json={"kind": "output"})
+def test_a_pipeline_has_no_output_node(client: TestClient) -> None:
+    pipeline = _pipeline(client)
+    response = client.post(f"{_url(pipeline)}/nodes", json={"kind": "output"})
     assert response.status_code == 422
 
 
-def test_migration_0011_marks_existing_workflows_and_is_reversible(
+def test_migration_0011_marks_existing_pipelines_and_is_reversible(
     settings: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
@@ -462,12 +461,12 @@ def test_migration_0012_adds_a_complete_and_connects_a_free_trigger(
     command.upgrade(alembic_config(), "0011")
     db = settings.data_dir / settings.database_filename
     with sqlite3.connect(db) as conn:
-        for workflow in ("free", "busy"):
-            conn.execute("INSERT INTO workflows (id, name) VALUES (?, ?)", (workflow, workflow))
+        for pipeline in ("free", "busy"):
+            conn.execute("INSERT INTO workflows (id, name) VALUES (?, ?)", (pipeline, pipeline))
             conn.execute(
                 "INSERT INTO workflow_nodes (id, workflow_id, kind, name, x) "
                 "VALUES (?, ?, 'trigger', 'T', 60)",
-                (f"t-{workflow}", workflow),
+                (f"t-{pipeline}", pipeline),
             )
         conn.execute(
             "INSERT INTO workflow_nodes (id, workflow_id, kind, name, x, width) "
@@ -497,70 +496,66 @@ def test_migration_0012_adds_a_complete_and_connects_a_free_trigger(
 
 
 def _shell(client: TestClient) -> tuple[dict[str, Any], dict[str, Any]]:
-    workflow = _workflow(client)
-    stage = _node(client, workflow, "stage")
-    return workflow, _node(client, workflow, "action", stage_id=stage["id"])
+    pipeline = _pipeline(client)
+    stage = _node(client, pipeline, "stage")
+    return pipeline, _node(client, pipeline, "action", stage_id=stage["id"])
 
 
-def _link(client: TestClient, workflow: dict[str, Any], node: dict[str, Any], target: Any) -> Any:
-    return client.patch(
-        f"/api/workflows/{workflow['id']}/nodes/{node['id']}", json={"definition_id": target}
-    )
+def _link(client: TestClient, pipeline: dict[str, Any], node: dict[str, Any], target: Any) -> Any:
+    return client.patch(f"{_url(pipeline)}/nodes/{node['id']}", json={"definition_id": target})
 
 
 def test_an_action_shell_links_to_a_definition_and_shows_its_name(client: TestClient) -> None:
-    workflow, shell = _shell(client)
+    pipeline, shell = _shell(client)
     assert shell["definition_id"] is None
     definition = _action_definition(client)
-    linked = _link(client, workflow, shell, definition["id"]).json()
+    linked = _link(client, pipeline, shell, definition["id"]).json()
     assert (linked["definition_id"], linked["definition_name"]) == (
         definition["id"],
         "Gap analysis",
     )
     assert linked["definition_fail_enabled"] is False
-    node = next(n for n in _graph(client, workflow)["nodes"] if n["id"] == shell["id"])
+    node = next(n for n in _graph(client, pipeline)["nodes"] if n["id"] == shell["id"])
     assert node["definition_name"] == "Gap analysis"
-    assert _link(client, workflow, shell, None).json()["definition_id"] is None
+    assert _link(client, pipeline, shell, None).json()["definition_id"] is None
 
 
 def test_only_actions_link_to_existing_action_definitions(client: TestClient) -> None:
-    workflow, shell = _shell(client)
-    stage = next(n for n in _graph(client, workflow)["nodes"] if n["kind"] == "stage")
+    pipeline, shell = _shell(client)
+    stage = next(n for n in _graph(client, pipeline)["nodes"] if n["kind"] == "stage")
     definition = _action_definition(client)
-    assert _link(client, workflow, stage, definition["id"]).status_code == 422
-    assert _link(client, workflow, shell, "missing").status_code == 422
-    assert _link(client, workflow, shell, workflow["id"]).status_code == 422  # not a definition
+    assert _link(client, pipeline, stage, definition["id"]).status_code == 422
+    assert _link(client, pipeline, shell, "missing").status_code == 422
+    assert _link(client, pipeline, shell, pipeline["id"]).status_code == 422  # not a definition
 
 
 def test_the_error_output_exists_only_if_the_definition_has_on_fail(client: TestClient) -> None:
-    workflow, shell = _shell(client)
+    pipeline, shell = _shell(client)
     stage_id = shell["stage_id"]
-    other = _node(client, workflow, "action", stage_id=stage_id)
+    other = _node(client, pipeline, "action", stage_id=stage_id)
     definition = _action_definition(client)
     output = next(n for n in _graph(client, definition)["nodes"] if n["kind"] == "output")
 
     def patch_output(fail: bool) -> None:
-        client.patch(
-            f"/api/workflows/{definition['id']}/nodes/{output['id']}", json={"fail_enabled": fail}
-        )
+        client.patch(f"{_url(definition)}/nodes/{output['id']}", json={"fail_enabled": fail})
 
     patch_output(True)
-    _link(client, workflow, shell, definition["id"])
-    assert _edge(client, workflow, shell, "error", other, "in").status_code == 201
+    _link(client, pipeline, shell, definition["id"])
+    assert _edge(client, pipeline, shell, "error", other, "in").status_code == 201
     patch_output(False)  # switching On Fail off removes the Error connections of linked actions
     assert [
-        e["source_port"] for e in _graph(client, workflow)["edges"] if e["source_id"] == shell["id"]
+        e["source_port"] for e in _graph(client, pipeline)["edges"] if e["source_id"] == shell["id"]
     ] == []
-    assert _edge(client, workflow, shell, "error", other, "in").status_code == 422
-    assert _edge(client, workflow, shell, "pass", other, "in").status_code == 201
+    assert _edge(client, pipeline, shell, "error", other, "in").status_code == 422
+    assert _edge(client, pipeline, shell, "pass", other, "in").status_code == 201
 
 
 def test_deleting_a_definition_turns_its_actions_back_into_shells(client: TestClient) -> None:
-    workflow, shell = _shell(client)
+    pipeline, shell = _shell(client)
     definition = _action_definition(client)
-    _link(client, workflow, shell, definition["id"])
-    assert client.delete(f"/api/workflows/{definition['id']}").status_code == 204
-    node = next(n for n in _graph(client, workflow)["nodes"] if n["id"] == shell["id"])
+    _link(client, pipeline, shell, definition["id"])
+    assert client.delete(_url(definition)).status_code == 204
+    node = next(n for n in _graph(client, pipeline)["nodes"] if n["id"] == shell["id"])
     assert node["definition_id"] is None
 
 
@@ -570,7 +565,7 @@ def test_migration_0013_is_reversible(settings: Settings, monkeypatch: pytest.Mo
     command.upgrade(alembic_config(), "head")
     db = settings.data_dir / settings.database_filename
     with sqlite3.connect(db) as conn:
-        assert "definition_id" in {r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")}
+        assert "definition_id" in {r[1] for r in conn.execute("PRAGMA table_info(graph_nodes)")}
     command.downgrade(alembic_config(), "0012")
     with sqlite3.connect(db) as conn:
         assert "definition_id" not in {
@@ -579,15 +574,15 @@ def test_migration_0013_is_reversible(settings: Settings, monkeypatch: pytest.Mo
 
 
 def test_slugs_follow_the_name_and_are_unique_per_kind(client: TestClient) -> None:
-    first = _workflow(client, "Käse & Brot!")
-    second = _workflow(client, "Kaese brot")
+    first = _pipeline(client, "Käse & Brot!")
+    second = _pipeline(client, "Kaese brot")
     assert (first["slug"], second["slug"]) == ("kaese-brot", "kaese-brot-2")
-    assert _workflow(client, "???")["slug"] == "pipeline"
-    as_action = client.post("/api/workflows", json={"name": "Kaese brot", "kind": "action"}).json()
+    assert _pipeline(client, "???")["slug"] == "pipeline"
+    as_action = client.post("/api/actions", json={"name": "Kaese brot"}).json()
     assert as_action["slug"] == "kaese-brot"  # another kind: its own names
-    renamed = client.patch(f"/api/workflows/{second['id']}", json={"name": "Final"}).json()
+    renamed = client.patch(_url(second), json={"name": "Final"}).json()
     assert renamed["slug"] == "final"
-    again = client.patch(f"/api/workflows/{first['id']}", json={"name": "Käse & Brot!"}).json()
+    again = client.patch(_url(first), json={"name": "Käse & Brot!"}).json()
     assert again["slug"] == "kaese-brot"  # renaming to the same name keeps its own slug
 
 
@@ -630,7 +625,7 @@ def test_migration_0015_points_output_edges_at_on_pass(
         conn.execute(
             "INSERT INTO workflows (id, name, kind, slug) VALUES ('w', 'W', 'workflow', 'w')"
         )
-        for node_id, workflow, kind in (
+        for node_id, pipeline, kind in (
             ("t", "a", "trigger"),
             ("o", "a", "output"),
             ("tw", "w", "trigger"),
@@ -638,13 +633,13 @@ def test_migration_0015_points_output_edges_at_on_pass(
         ):
             conn.execute(
                 "INSERT INTO workflow_nodes (id, workflow_id, kind, name) VALUES (?, ?, ?, ?)",
-                (node_id, workflow, kind, node_id),
+                (node_id, pipeline, kind, node_id),
             )
-        for edge_id, workflow, src, dst in (("e1", "a", "t", "o"), ("e2", "w", "tw", "c")):
+        for edge_id, pipeline, src, dst in (("e1", "a", "t", "o"), ("e2", "w", "tw", "c")):
             conn.execute(
                 "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, "
                 "target_port) VALUES (?, ?, ?, 'out', ?, 'in')",
-                (edge_id, workflow, src, dst),
+                (edge_id, pipeline, src, dst),
             )
     command.upgrade(alembic_config(), "0015")
     query = "SELECT id, target_port FROM workflow_edges ORDER BY id"
@@ -664,21 +659,21 @@ def test_a_timer_has_seconds_and_sits_between_trigger_and_output(client: TestCli
     timer = _node(client, definition, "timer")
     assert (timer["name"], timer["seconds"]) == ("Timer", 5)
     assert _node(client, definition, "timer", seconds=30)["seconds"] == 30
-    url = f"/api/workflows/{definition['id']}/nodes/{timer['id']}"
+    url = f"{_url(definition)}/nodes/{timer['id']}"
     assert client.patch(url, json={"seconds": 12}).json()["seconds"] == 12
     assert client.patch(url, json={"seconds": 0}).status_code == 422
     assert client.patch(url, json={"seconds": 86401}).status_code == 422
     assert _edge(client, definition, nodes["trigger"], "out", timer, "in").status_code == 201
     assert _edge(client, definition, timer, "out", nodes["output"], "pass").status_code == 201
     assert _edge(client, definition, timer, "out", timer, "in").status_code == 422  # not to itself
-    trigger_url = f"/api/workflows/{definition['id']}/nodes/{nodes['trigger']['id']}"
+    trigger_url = f"{_url(definition)}/nodes/{nodes['trigger']['id']}"
     assert client.patch(trigger_url, json={"seconds": 3}).status_code == 422
     assert client.delete(url).status_code == 204
 
 
 def test_a_pipeline_has_no_timer(client: TestClient) -> None:
-    workflow = _workflow(client)
-    response = client.post(f"/api/workflows/{workflow['id']}/nodes", json={"kind": "timer"})
+    pipeline = _pipeline(client)
+    response = client.post(f"{_url(pipeline)}/nodes", json={"kind": "timer"})
     assert response.status_code == 422
 
 
@@ -688,7 +683,144 @@ def test_migration_0016_is_reversible(settings: Settings, monkeypatch: pytest.Mo
     command.upgrade(alembic_config(), "head")
     db = settings.data_dir / settings.database_filename
     with sqlite3.connect(db) as conn:
-        assert "seconds" in {r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")}
+        assert "seconds" in {r[1] for r in conn.execute("PRAGMA table_info(graph_nodes)")}
     command.downgrade(alembic_config(), "0015")
     with sqlite3.connect(db) as conn:
         assert "seconds" not in {r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")}
+
+
+def test_a_graph_requested_under_the_wrong_kind_is_404(client: TestClient) -> None:
+    pipeline = _pipeline(client)
+    definition = _action_definition(client)
+    assert client.get(f"/api/actions/{pipeline['id']}").status_code == 404
+    assert client.get(f"/api/pipelines/{definition['id']}").status_code == 404
+    assert client.delete(f"/api/actions/{pipeline['id']}").status_code == 404
+    assert (
+        client.post(f"/api/pipelines/{definition['id']}/nodes", json={"kind": "stage"}).status_code
+        == 404
+    )
+    assert client.get(f"/api/actions/{definition['id']}/stages").status_code == 404
+    assert client.get(_url(pipeline)).status_code == 200
+
+
+def test_node_types_are_served_under_their_own_path(client: TestClient) -> None:
+    types = client.get("/api/node-types").json()
+    assert types
+    assert all(set(t["scopes"]) <= {"pipeline", "action"} for t in types)
+
+
+# ── Migration 0020: workflows become graphs ───────────────────────────
+
+
+def _upgrade_to_0019(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Any:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "0019")
+    return settings.data_dir / settings.database_filename
+
+
+def _seed_old_names(db: Any) -> None:
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "INSERT INTO workflows (id, name, kind, slug) VALUES ('p', 'P', 'workflow', 'p')"
+        )
+        conn.execute(
+            "INSERT INTO workflows (id, name, kind, slug) VALUES ('d', 'D', 'action', 'd')"
+        )
+        for node_id, graph, kind, definition in (
+            ("pt", "p", "trigger", None),
+            ("pc", "p", "complete", None),
+            ("pn", "p", "pipeline", "p"),
+            ("dt", "d", "trigger", None),
+            ("do", "d", "output", None),
+        ):
+            conn.execute(
+                "INSERT INTO workflow_nodes (id, workflow_id, kind, name, definition_id) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (node_id, graph, kind, node_id, definition),
+            )
+        conn.execute(
+            "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, target_port) "
+            "VALUES ('pe', 'p', 'pt', 'out', 'pc', 'in')"
+        )
+        conn.execute("INSERT INTO tasks (id, title, pipeline_id) VALUES ('t', 'T', 'p')")
+        conn.execute(
+            "INSERT INTO pipeline_runs (id, task_id, workflow_id, status, started_by, snapshot) "
+            "VALUES ('r', 't', 'p', 'done', 'user', '{\"workflow_id\": \"p\"}')"
+        )
+
+
+def test_migration_0020_renames_workflows_to_graphs_and_keeps_the_data(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _upgrade_to_0019(settings, monkeypatch)
+    _seed_old_names(db)
+    command.upgrade(alembic_config(), "0020")
+    with sqlite3.connect(db) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert {"graphs", "graph_nodes", "graph_edges"} <= tables
+        assert not {"workflows", "workflow_nodes", "workflow_edges"} & tables
+        assert conn.execute("SELECT id, kind, slug FROM graphs ORDER BY id").fetchall() == [
+            ("d", "action", "d"),
+            ("p", "pipeline", "p"),
+        ]
+        assert conn.execute("SELECT count(*) FROM graph_nodes").fetchone() == (5,)
+        assert conn.execute(
+            "SELECT graph_id, definition_id FROM graph_nodes WHERE id = 'pn'"
+        ).fetchone() == ("p", "p")
+        assert conn.execute(
+            "SELECT graph_id, source_id, target_id FROM graph_edges"
+        ).fetchall() == [("p", "pt", "pc")]
+        assert conn.execute("SELECT pipeline_id, snapshot FROM pipeline_runs").fetchone() == (
+            "p",
+            '{"workflow_id": "p"}',  # stored snapshots are left alone
+        )
+        assert conn.execute("SELECT pipeline_id FROM tasks").fetchone() == ("p",)
+        assert not conn.execute("PRAGMA foreign_key_check").fetchall()
+        # the foreign keys still point at the renamed tables
+        conn.execute("DELETE FROM graphs WHERE id = 'p'")
+        assert conn.execute("SELECT count(*) FROM graph_nodes WHERE graph_id = 'p'").fetchone() == (
+            0,
+        )
+        assert conn.execute("SELECT count(*) FROM graph_edges").fetchone() == (0,)
+        assert conn.execute("SELECT pipeline_id FROM tasks").fetchone() == (None,)
+        assert conn.execute("SELECT pipeline_id FROM pipeline_runs").fetchone() == (None,)
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(graph_nodes)")}
+        assert {"graph_id", "definition_id"} <= columns
+        assert "workflow_id" not in columns
+
+
+def test_migration_0020_allows_only_pipeline_and_action_kinds(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _upgrade_to_0019(settings, monkeypatch)
+    command.upgrade(alembic_config(), "0020")
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO graphs (id, name, kind, slug) VALUES ('a', 'A', 'pipeline', 'a')")
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                "INSERT INTO graphs (id, name, kind, slug) VALUES ('b', 'B', 'workflow', 'b')"
+            )
+
+
+def test_migration_0020_is_reversible(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    db = _upgrade_to_0019(settings, monkeypatch)
+    _seed_old_names(db)
+    command.upgrade(alembic_config(), "0020")
+    command.downgrade(alembic_config(), "0019")
+    with sqlite3.connect(db) as conn:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert {"workflows", "workflow_nodes", "workflow_edges"} <= tables
+        assert not {"graphs", "graph_nodes", "graph_edges"} & tables
+        assert conn.execute("SELECT id, kind FROM workflows ORDER BY id").fetchall() == [
+            ("d", "action"),
+            ("p", "workflow"),
+        ]
+        assert conn.execute("SELECT count(*) FROM workflow_nodes").fetchone() == (5,)
+        assert conn.execute("SELECT workflow_id FROM workflow_edges").fetchall() == [("p",)]
+        assert conn.execute("SELECT workflow_id FROM pipeline_runs").fetchall() == [("p",)]
+        assert conn.execute(
+            "SELECT definition_id FROM workflow_nodes WHERE id = 'pn'"
+        ).fetchone() == ("p",)
+    command.upgrade(alembic_config(), "head")

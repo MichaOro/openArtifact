@@ -4,7 +4,7 @@
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|------|------------|--------|------------|
-| 1 | SQLite write contention under heavy concurrent workflow execution | Low | Medium | WAL mode; async execution serialization; upgrade to PostgreSQL if needed |
+| 1 | SQLite write contention under heavy concurrent pipeline execution | Low | Medium | WAL mode; async execution serialization; upgrade to PostgreSQL if needed |
 | 2 | Hand-written vanilla JS becomes unstructured as board interactions grow | Medium | Medium | ES modules per feature, one state owner per concern, UI tests; reconsider a framework only if needed (ADR-010) |
 | 3a | In-process event bus: with more than one worker process, SSE clients only see events of their own worker | Low | Medium | Single `uvicorn` process today; for scale-out put a shared broker (e.g. Redis pub/sub) behind the `EventBus` interface (ADR-011) |
 | 3 | GIL limiting concurrent Python execution for CPU-bound tasks | Low | Low | Async-first architecture; multiprocessing for CPU-bound work if needed |
@@ -23,8 +23,8 @@ No intentional technical debt has been introduced at this stage.
 | `#12` references are resolved at display time | Not validated on save (a body may contain `#5` as plain text); no back-references ("referenced by") yet |
 | Parent picker without search | Becomes necessary with many artifacts |
 | `Project`/`WorkItem` models not connected to the board | To be reconciled with the artifact model in WP-06 |
-| Workflow editor: stages only grow, no undo, no live sync between tabs, edges without routing | See ADR-012 §2.4 |
-| Workflow editor: stages only grow, no undo, no live sync between tabs, edges routed only for loops | See ADR-012 §2.4 |
+| Pipeline editor: stages only grow, no undo, no live sync between tabs, edges routed only for loops | See ADR-012 §2.4 |
+| The browser API (`/api/pipelines`, `/api/actions`, `/api/tasks`, `/api/runs`, shown in Swagger UI) needs no token, only `/api/v1` and `/mcp` do | Open question in ADR-015 §6; one token for all so far, separate token definitions later with settings |
 | Runs can loop for ever (an On Error routed back to its own action, a loop between actions): only a fixed limit of 1000 steps ends them | Planned: a *Settings* area with a global loop protection (limits, behaviour), see ADR-013 §4 |
 | One run per artifact: an earlier run is overwritten when the artifact starts again | Planned: executions (a run per start) as a tab on the artifact; ADR-013 §4 |
 | Pushed `fix:` history from the bootstrap phase | Kept as is; no history rewrite on `main` |
@@ -37,7 +37,7 @@ No intentional technical debt has been introduced at this stage.
 | Frontend stack | Jinja2 shell + vanilla JS, no HTMX (ADR-010) | Decided in ADR-011 (Pointer Events, client-side rendering); revisit if the board needs virtualisation or many more interactions |
 | Docs drifted from reality | ADR-004 described a stack that was never built; corrected 2026-11-20 | Verify arc42/ADRs against code at each WP completion |
 | No auth in foundation | Defer authentication | WP-06 — implement JWT auth for multi-user |
-| No background task queue | Asyncio tasks only | WP-03 — evaluate Celery/arq for workflow scale |
+| No background task queue | Asyncio tasks only | WP-03 — evaluate Celery/arq for pipeline scale |
 
 ---
 

@@ -15,8 +15,8 @@ class ArtifactError(OpenArtifactError):
     """Errors related to artifact operations."""
 
 
-class WorkflowError(OpenArtifactError):
-    """Errors related to workflow execution."""
+class PipelineError(OpenArtifactError):
+    """Errors related to pipeline execution."""
 
 
 class ConfigurationError(OpenArtifactError):

@@ -41,7 +41,8 @@ openartifact/
 ├── web/                 # Web routes (WP-03)
 ├── templates/           # Jinja2 HTML templates (WP-03)
 ├── static/              # Static assets (WP-03)
-├── workflow/            # Workflow engine (WP-07)
+├── graph/               # Pipelines and action definitions stored as graphs (node kinds, rules)
+├── engine/              # Execution engine: runs an artifact through a pipeline
 └── tests/               # Test suite
 ```
 

@@ -160,7 +160,7 @@ class Task(Base):
         String(36), ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, default=None
     )
     pipeline_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("workflows.id", ondelete="SET NULL"), nullable=True, default=None
+        String(36), ForeignKey("graphs.id", ondelete="SET NULL"), nullable=True, default=None
     )
     stage_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
     action_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
@@ -176,7 +176,7 @@ class Task(Base):
 
 
 class NodeKind(enum.StrEnum):
-    """Kinds of nodes in a workflow definition."""
+    """Kinds of nodes in a graph."""
 
     TRIGGER = "trigger"
     STAGE = "stage"
@@ -187,25 +187,25 @@ class NodeKind(enum.StrEnum):
     PIPELINE = "pipeline"
 
 
-class Workflow(Base):
-    """A workflow definition: a graph of a trigger, stages (containing actions) and endings.
+class Graph(Base):
+    """A graph, the stored form of a pipeline or an action definition: stages (containing actions) and endings.
 
     Attributes:
         id: Unique identifier (UUID string).
         name: Display name.
         status: Lifecycle of the definition (only ``draft`` exists so far).
-        kind: ``workflow``, or ``action`` for the definition of what an action does.
+        kind: ``pipeline``, or ``action`` for the definition of what an action does.
         slug: Readable URL name, unique per kind (follows the name).
         created_at: Creation timestamp (UTC).
         updated_at: Last modification timestamp (UTC).
     """
 
-    __tablename__ = "workflows"
+    __tablename__ = "graphs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="draft")
-    kind: Mapped[str] = mapped_column(String(16), default="workflow", server_default="workflow")
+    kind: Mapped[str] = mapped_column(String(16), default="pipeline", server_default="pipeline")
     slug: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
@@ -214,8 +214,8 @@ class Workflow(Base):
     )
 
 
-class WorkflowNode(Base):
-    """A node of a workflow. Actions live inside a stage and are positioned relative to it.
+class GraphNode(Base):
+    """A node of a graph. Actions live inside a stage and are positioned relative to it.
 
     Attributes:
         kind: See :class:`NodeKind`.
@@ -228,15 +228,15 @@ class WorkflowNode(Base):
             pipeline a pipeline node calls.
     """
 
-    __tablename__ = "workflow_nodes"
+    __tablename__ = "graph_nodes"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    workflow_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("workflows.id", ondelete="CASCADE"), index=True
+    graph_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("graphs.id", ondelete="CASCADE"), index=True
     )
     kind: Mapped[str] = mapped_column(String(16))
     stage_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("workflow_nodes.id", ondelete="CASCADE"), nullable=True, index=True
+        String(36), ForeignKey("graph_nodes.id", ondelete="CASCADE"), nullable=True, index=True
     )
     name: Mapped[str] = mapped_column(String(255))
     x: Mapped[float] = mapped_column(Float, default=0.0)
@@ -246,7 +246,7 @@ class WorkflowNode(Base):
     fail_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     definition_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("workflows.id", ondelete="SET NULL"), nullable=True, default=None
+        String(36), ForeignKey("graphs.id", ondelete="SET NULL"), nullable=True, default=None
     )
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
@@ -255,25 +255,25 @@ class WorkflowNode(Base):
     )
 
 
-class WorkflowEdge(Base):
+class GraphEdge(Base):
     """A connection from an output port of one node to an input port of another.
 
     An output port has at most one edge (unique ``source_id`` + ``source_port``). ``style`` is how
     it is drawn; the slots say which of a stage's three attachment points per side it uses.
     """
 
-    __tablename__ = "workflow_edges"
+    __tablename__ = "graph_edges"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    workflow_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("workflows.id", ondelete="CASCADE"), index=True
+    graph_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("graphs.id", ondelete="CASCADE"), index=True
     )
     source_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("workflow_nodes.id", ondelete="CASCADE")
+        String(36), ForeignKey("graph_nodes.id", ondelete="CASCADE")
     )
     source_port: Mapped[str] = mapped_column(String(16))
     target_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("workflow_nodes.id", ondelete="CASCADE"), index=True
+        String(36), ForeignKey("graph_nodes.id", ondelete="CASCADE"), index=True
     )
     target_port: Mapped[str] = mapped_column(String(16))
     style: Mapped[str] = mapped_column(String(16), default="curved", server_default="curved")
@@ -299,8 +299,8 @@ class PipelineRun(Base):
     task_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("tasks.id", ondelete="CASCADE"), unique=True
     )
-    workflow_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("workflows.id", ondelete="SET NULL"), nullable=True
+    pipeline_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("graphs.id", ondelete="SET NULL"), nullable=True
     )
     status: Mapped[str] = mapped_column(String(16))
     started_by: Mapped[str] = mapped_column(String(16))

@@ -61,6 +61,11 @@ export class NodeView {
     return true;
   }
 
+  /** Whether the name is written next to the port: the outcomes (On Pass, On Error ...), not the plain input / next. */
+  labelled(port) {
+    return this.constructor.portLabels && !["in", "out"].includes(port.name);
+  }
+
   portLabel(port) {
     return [...this.inputs, ...this.outputs].find((p) => p.name === port)?.label ?? port;
   }
@@ -234,7 +239,7 @@ const TYPES = new Map();
 
 /** Load the kinds from the server and pair each with its view (the base view if it has none). */
 export async function loadNodeTypes() {
-  for (const description of await request("/api/workflows/node-types")) {
+  for (const description of await request("/api/node-types")) {
     const View = VIEWS.get(description.kind) ?? NodeView;
     TYPES.set(description.kind, new View(description));
   }
@@ -245,7 +250,7 @@ export function typeOf(nodeOrKind) {
   return TYPES.get(typeof nodeOrKind === "string" ? nodeOrKind : nodeOrKind.kind);
 }
 
-/** The kinds that may be added to a pipeline ("workflow") or an action definition ("action"). */
+/** The kinds that may be added to a pipeline ("pipeline") or an action definition ("action"). */
 export function addableIn(scope) {
   return [...TYPES.values()].filter((t) => t.addable && t.scopes.includes(scope));
 }

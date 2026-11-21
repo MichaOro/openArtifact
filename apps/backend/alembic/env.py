@@ -17,20 +17,22 @@ from openartifact.database import Base
 
 # Import all models so Alembic can detect them for autogenerate
 from openartifact.models import (  # noqa: F401
+    Graph,
+    GraphEdge,
+    GraphNode,
     PipelineRun,
     Project,
     RunStage,
     Task,
-    Workflow,
-    WorkflowEdge,
-    WorkflowNode,
     WorkItem,
 )
 
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(
+        config.config_file_name, disable_existing_loggers=False
+    )  # keep the application loggers alive
 
 # Set the target metadata for autogenerate
 target_metadata = Base.metadata
@@ -57,7 +59,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Any) -> None:
-    """Run a single migration against the connection."""
+    """Run a single migration against the connection.
+
+    Foreign keys are deliberately NOT enforced here (no ``PRAGMA foreign_keys``): migrations that
+    rebuild or rename tables (0007, 0019, 0020) rely on SQLite not cascading while they do.
+    """
     context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-sidebar="expanded">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>Sign in · OpenArtifact</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    <link rel="stylesheet" href="/static/css/forms.css">
+    <script src="/static/js/theme.js"></script>
+    <style>
+        .signin { min-height: 100vh; display: grid; place-items: center; padding: var(--space-4); }
+        .signin__card { width: min(24rem, 100%); padding: var(--space-5); border-radius: var(--radius-lg); display: grid; gap: var(--space-4); }
+        .signin__brand { display: flex; align-items: center; gap: var(--space-3); font-weight: 600; }
+        .signin__brand .sidebar__logo { display: inline-grid; }
+    </style>
+</head>
+<body>
+    <main class="signin">
+        <form class="signin__card glass" method="post" action="/login">
+            <div class="signin__brand">
+                <span class="sidebar__logo">{% from "components/icons.html" import icon %}{{ icon("logo") }}</span>
+                <span>OpenArtifact</span>
+            </div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <div class="field">
+                <label class="field__label" for="token">API token</label>
+                <input class="field__control" id="token" name="token" type="password" required autofocus
+                       autocomplete="current-password" aria-describedby="signin-error">
+                <p class="field__error" id="signin-error" role="alert" {% if not error %}hidden{% endif %}>{{ error }}</p>
+            </div>
+            <button type="submit" class="button button--primary">Sign in</button>
+        </form>
+    </main>
+</body>
+</html>

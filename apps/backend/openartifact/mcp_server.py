@@ -13,6 +13,7 @@ from collections.abc import Awaitable
 from typing import Any
 
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -29,8 +30,9 @@ INSTRUCTIONS = (
 )
 
 
-class McpError(ValueError):
-    """A tool call that cannot be done; the message goes back to the agent."""
+class McpError(ToolError):
+    """A tool call that cannot be done; the message goes back to the agent (any other exception
+    would reach it only as "Error executing tool")."""
 
 
 def _named(items: list[dict[str, Any]], wanted: str, what: str) -> dict[str, Any]:

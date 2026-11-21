@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "openartifact"
 version = "0.1.0"
-description = "OpenArtifact — Orchestrate projects, workflows, and AI agents around structured artifacts"
+description = "OpenArtifact — Orchestrate projects, pipelines, and AI agents around structured artifacts"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"

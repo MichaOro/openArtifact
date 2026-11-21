@@ -1,4 +1,4 @@
-"""URL names ("slugs") of workflows and action definitions."""
+"""URL names ("slugs") of pipelines and action definitions."""
 
 from __future__ import annotations
 

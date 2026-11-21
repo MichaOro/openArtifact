@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.snapshot import graph_of
-from openartifact.models import Workflow
+from openartifact.models import Graph
 
 
 class TargetError(ValueError):
@@ -27,8 +27,8 @@ async def resolve_target(
         if stage_id or action_id:
             raise TargetError("A stage or an action needs a pipeline")
         return None, None, None
-    pipeline = await session.get(Workflow, pipeline_id)
-    if pipeline is None or pipeline.kind != "workflow":
+    pipeline = await session.get(Graph, pipeline_id)
+    if pipeline is None or pipeline.kind != "pipeline":
         raise TargetError("That pipeline does not exist")
     graph = await graph_of(session, pipeline_id)
     chain = pipeline_chain(graph["nodes"], graph["edges"])

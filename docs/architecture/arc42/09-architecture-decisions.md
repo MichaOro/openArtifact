@@ -17,9 +17,11 @@ Architecture decisions are documented as Architecture Decision Records (ADRs) in
 | 9 | [009-technology-summary](../adr/009-technology-summary.md) | Accepted |
 | 10 | [010-frontend-without-htmx](../adr/010-frontend-without-htmx.md) | Accepted |
 | 11 | [011-board-interactions-sse-and-pointer-dnd](../adr/011-board-interactions-sse-and-pointer-dnd.md) | Accepted |
-| 12 | [012-workflow-definition-editor](../adr/012-workflow-definition-editor.md) | Accepted |
+| 12 | [012-workflow-definition-editor](../adr/012-workflow-definition-editor.md) (pipeline and action definitions; file name kept) | Accepted |
 | 13 | [013-execution-engine-and-runs](../adr/013-execution-engine-and-runs.md) | Accepted |
 | 14 | [014-building-blocks-and-extension-points](../adr/014-building-blocks-and-extension-points.md) | Accepted |
+| 15 | [015-vocabulary-and-storage-names](../adr/015-vocabulary-and-storage-names.md) | Accepted |
+| 16 | [016-access-protection-integration-api-and-mcp](../adr/016-access-protection-integration-api-and-mcp.md) | Accepted |
 
 ## Detailed Decisions
 

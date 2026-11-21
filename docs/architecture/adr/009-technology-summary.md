@@ -23,7 +23,7 @@ This ADR consolidates all technology decisions from ADR-002 through ADR-008 and 
 | **Database** | SQLite (WAL mode) | Zero-config, single-container, upgradeable to PostgreSQL |
 | **API** | REST + OpenAPI (WebSocket/SSE planned, not implemented) | Standard, documented, usable by UI and third parties |
 | **Packaging** | Docker + Docker Compose | Self-hosted distribution, port 2909 |
-| **Task Queue** | Deferred to WP-03 | Celery or arq when workflow engine is built |
+| **Task Queue** | Deferred to WP-03 | Celery or arq when pipeline engine is built |
 
 ## 4. Docker Deployment
 

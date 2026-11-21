@@ -13,9 +13,9 @@ Application Language Selection for OpenArtifact
 
 OpenArtifact is an autonomous orchestration platform requiring:
 
-- Long-running background processes (workflow execution)
+- Long-running background processes (pipeline execution)
 - External process execution (agent runs)
-- Concurrent workflow handling
+- Concurrent pipeline handling
 - Integration with AI agents and model APIs
 - Docker-based self-hosted distribution
 - Maintainability across a growing codebase

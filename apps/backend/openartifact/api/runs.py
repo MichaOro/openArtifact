@@ -35,7 +35,7 @@ class RunStart(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    workflow_id: str | None = None
+    pipeline_id: str | None = None
     stage_id: str | None = None
     action_id: str | None = None
 
@@ -56,7 +56,7 @@ async def start_run(
     """
     body = payload or RunStart()
     try:
-        return await service.start(task_id, body.workflow_id, body.stage_id, body.action_id)
+        return await service.start(task_id, body.pipeline_id, body.stage_id, body.action_id)
     except ArtifactError as error:
         raise to_http(error) from error
 

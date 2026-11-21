@@ -9,8 +9,8 @@ const send = (url, body) => request(url, { method: "POST", body: body && JSON.st
 export const listRuns = () => request("/api/runs");
 const startRun = (taskId, body) => send(`/api/tasks/${encodeURIComponent(taskId)}/run`, body);
 const stopRun = (taskId) => send(`/api/tasks/${encodeURIComponent(taskId)}/run/stop`);
-const listPipelines = () => request("/api/workflows?kind=workflow");
-const listStages = (pipelineId) => request(`/api/workflows/${encodeURIComponent(pipelineId)}/stages`);
+const listPipelines = () => request("/api/pipelines");
+const listStages = (pipelineId) => request(`/api/pipelines/${encodeURIComponent(pipelineId)}/stages`);
 
 const STATUS_TEXT = { running: "running", stopped: "stopped", done: "done", failed: "failed" };
 
@@ -117,7 +117,7 @@ export class ProcessingPanel {
     let draft = this.draft.get(taskId);
     if (run && run.status !== "running" && !draft) {
       const resume = run.status === "stopped" || run.status === "failed";
-      draft = { pipeline: run.workflow_id, stage: resume ? run.resume_stage_id : null, action: resume ? run.resume_action_id : null };
+      draft = { pipeline: run.root_pipeline_id, stage: resume ? run.resume_stage_id : null, action: resume ? run.resume_action_id : null };
     }
     draft ??= { pipeline: this.pipelines.length === 1 ? this.pipelines[0].id : null, stage: null, action: null };
     if (draft.pipeline && !this.pipelines.some((p) => p.id === draft.pipeline)) draft = { pipeline: null, stage: null, action: null };
@@ -206,7 +206,7 @@ export class ProcessingPanel {
         this.upsert(await stopRun(taskId));
       } else {
         const draft = this.draft.get(taskId);
-        this.upsert(await startRun(taskId, { workflow_id: draft.pipeline, stage_id: draft.stage, action_id: draft.action }));
+        this.upsert(await startRun(taskId, { pipeline_id: draft.pipeline, stage_id: draft.stage, action_id: draft.action }));
       }
     } catch (error) {
       this.onError(error.status === 409 ? "The artifact is already being processed." : error.message || "That did not work.");
@@ -216,6 +216,6 @@ export class ProcessingPanel {
   /** Short text for the card: the stage and the state. */
   static summary(run) {
     if (!run) return null;
-    return `${run.stage_name ?? run.workflow_name} · ${STATUS_TEXT[run.status]}`;
+    return `${run.stage_name ?? run.pipeline_name} · ${STATUS_TEXT[run.status]}`;
   }
 }

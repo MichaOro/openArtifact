@@ -3,9 +3,9 @@
 {% from "components/confirm_modal.html" import confirm_modal %}
 {% from "components/icons.html" import icon %}
 {% block title %}{{ section.label }} · OpenArtifact{% endblock %}
-{% block styles %}<link rel="stylesheet" href="/static/css/workflow.css">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="/static/css/editor.css">{% endblock %}
 {% block content %}
-<div class="wf-editor" data-workflow-id="{{ workflow_id }}" data-kind="{{ section.kind }}">
+<div class="wf-editor" data-graph-id="{{ graph_id }}" data-kind="{{ section.kind }}">
     <div class="board-alert glass" role="alert" hidden data-editor-error>
         <span data-editor-error-text></span>
         <button type="button" class="button button--ghost button--sm" data-retry>Retry</button>
@@ -53,4 +53,4 @@
 {% endcall %}
 {{ confirm_modal("confirm-modal", "Delete") }}
 {% endblock %}
-{% block scripts %}<script type="module" src="/static/js/workflows/editor-main.js"></script>{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/editor/editor-main.js"></script>{% endblock %}

@@ -13,7 +13,7 @@ Database Selection and Persistence Strategy
 
 OpenArtifact requires a relational database for:
 
-- Project, artifact, and workflow state persistence
+- Project, artifact, and pipeline state persistence
 - Execution history and audit trails
 - Configuration storage
 - Future multi-user data (user accounts, permissions)
@@ -23,7 +23,7 @@ The database must support self-hosted single-container deployment while allowing
 ## 3. Decision Drivers
 
 - Single-instance self-hosting (SQLite first)
-- Concurrent access for workflow execution
+- Concurrent access for pipeline execution
 - Transaction handling and data integrity
 - Migration support
 - Backup and recovery
@@ -73,7 +73,7 @@ The database must support self-hosted single-container deployment while allowing
 
 1. **Self-hosting is the primary distribution model.** For users running OpenArtifact via `docker compose up`, a single SQLite file is dramatically simpler than configuring PostgreSQL. One volume mount, no initialization scripts, no connection pooling configuration.
 
-2. **SQLite WAL mode supports concurrent access.** OpenArtifact's primary concurrency pattern is workflow execution (background tasks). SQLite's WAL mode allows concurrent reads and serializes writes — sufficient for the initial scope.
+2. **SQLite WAL mode supports concurrent access.** OpenArtifact's primary concurrency pattern is pipeline execution (background tasks). SQLite's WAL mode allows concurrent reads and serializes writes — sufficient for the initial scope.
 
 3. **SQL dialect compatibility.** By avoiding PostgreSQL-specific features (CTEs with window functions, advanced JSONB) and using a SQL dialect-agnostic ORM, the migration path to PostgreSQL is straightforward if needed.
 
@@ -93,5 +93,5 @@ The database must support self-hosted single-container deployment while allowing
 
 - **Easier:** Single-container deployment, local development, backup (file copy)
 - **More difficult:** Scaling beyond single-server (deferred to WP-06)
-- **Risks:** Write contention under heavy concurrent workflow execution (mitigated by WAL mode and async execution serialization)
+- **Risks:** Write contention under heavy concurrent pipeline execution (mitigated by WAL mode and async execution serialization)
 - **Trade-off:** Simpler deployment vs. future scalability; SQLite is the right starting point

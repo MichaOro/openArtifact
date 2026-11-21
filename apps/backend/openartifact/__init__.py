@@ -1,4 +1,4 @@
-"""OpenArtifact — Orchestrate projects, workflows, and AI agents."""
+"""OpenArtifact — Orchestrate projects, pipelines, and AI agents."""
 
 from openartifact.app import create_app
 

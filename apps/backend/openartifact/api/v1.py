@@ -95,7 +95,7 @@ async def start_run(
     body = payload or RunStart()
     try:
         return await service.start(
-            ref, body.workflow_id, body.stage_id, body.action_id, started_by="system"
+            ref, body.pipeline_id, body.stage_id, body.action_id, started_by="system"
         )
     except ArtifactError as error:
         raise to_http(error) from error

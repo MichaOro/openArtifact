@@ -3,14 +3,14 @@
 {% from "components/confirm_modal.html" import confirm_modal %}
 {% from "components/icons.html" import icon %}
 {% block title %}{{ section.label }}s · OpenArtifact{% endblock %}
-{% block styles %}<link rel="stylesheet" href="/static/css/workflow.css">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="/static/css/editor.css">{% endblock %}
 {% block content %}
 <div class="board-alert glass" role="alert" hidden data-list-error>
     <span data-list-error-text>{{ section.label }}s could not be loaded.</span>
     <button type="button" class="button button--ghost button--sm" data-list-retry>Retry</button>
 </div>
 <div class="wf-toolbar">
-    <button type="button" class="button button--primary" data-new-workflow>{{ icon("plus") }} New {{ section.label | lower }}</button>
+    <button type="button" class="button button--primary" data-new-graph>{{ icon("plus") }} New {{ section.label | lower }}</button>
 </div>
 <ul class="wf-list" data-wf-list data-kind="{{ section.kind }}" data-path="{{ section.path }}" aria-label="{{ section.label }}s"></ul>
 <p class="wf-empty glass" data-wf-empty hidden>{% if section.kind == "action" %}No actions yet. Create the first one to define what it does.{% else %}No pipelines yet. Create the first one to start designing it.{% endif %}</p>
@@ -31,10 +31,10 @@
 <form class="task-form" id="name-form" novalidate>
     <div class="modal__body">
         <div class="field">
-            <label class="field__label" for="workflow-name">Name <span class="field__required" aria-hidden="true">*</span></label>
-            <input class="field__control" id="workflow-name" type="text" required maxlength="255"
-                   autocomplete="off" aria-required="true" aria-describedby="workflow-name-error" data-autofocus>
-            <p class="field__error" id="workflow-name-error" role="alert" hidden></p>
+            <label class="field__label" for="graph-name">Name <span class="field__required" aria-hidden="true">*</span></label>
+            <input class="field__control" id="graph-name" type="text" required maxlength="255"
+                   autocomplete="off" aria-required="true" aria-describedby="graph-name-error" data-autofocus>
+            <p class="field__error" id="graph-name-error" role="alert" hidden></p>
         </div>
         <p class="form-error" role="alert" hidden data-form-error></p>
     </div>
@@ -46,4 +46,4 @@
 {% endcall %}
 {{ confirm_modal("confirm-modal", "Delete " ~ (section.label | lower)) }}
 {% endblock %}
-{% block scripts %}<script type="module" src="/static/js/workflows/list.js"></script>{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/editor/list.js"></script>{% endblock %}

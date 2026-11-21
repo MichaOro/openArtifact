@@ -1,24 +1,25 @@
-/* The workflow editor: owns the graph, talks to the API and connects canvas, toolbar and
+/* The graph editor: owns the graph, talks to the API and connects canvas, toolbar and
  * inspector. Changes are saved at once; if the server refuses one, the graph is reloaded. */
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { InlineName } from "../components/inline-name.js";
 import { Modal } from "../components/modal.js";
-import { addNode, connect, createWorkflow, listWorkflows, deleteNode, disconnect, loadWorkflow, renameWorkflow, restyleEdge, updateNode } from "./api.js";
+import { addNode, connect, createGraph, listGraphs, deleteNode, disconnect, loadGraph, renameGraph, restyleEdge, updateNode } from "./api.js";
 import { Canvas } from "./canvas.js";
-import { ACTION_GAP, EDGE_STYLES, displayName, PAD, TOP_LEVEL_GAP, canConnect, fitStage, sizeOf } from "./graph.js";
+import { ACTION_GAP, EDGE_STYLES, displayName, PAD, TOP_LEVEL_GAP, canConnect, fitStage, sizeOf } from "./geometry.js";
 import { InspectorBlocks, field, heading, note } from "./inspector.js";
 import { addableIn, typeOf } from "./node-types.js";
 
 const LAST_STAGE = "oa-last-pipeline"; // read by main.js
-const EDITOR_PATHS = { workflow: "/pipelines", action: "/actions" }; // where a pipeline / an action definition is edited
+const EDITOR_PATHS = { pipeline: "/pipelines", action: "/actions" }; // where a pipeline / an action definition is edited
 
-export class WorkflowEditor {
-  /** @param {HTMLElement} root the element carrying data-workflow-id */
+export class GraphEditor {
+  /** @param {HTMLElement} root the element carrying data-graph-id */
   constructor(root) {
-    this.id = root.dataset.workflowId;
+    this.id = root.dataset.graphId;
     this.root = root;
-    this.isAction = root.dataset.kind === "action"; // an action definition: trigger and output are fixed
-    this.workflow = null;
+    this.kind = root.dataset.kind;
+    this.isAction = this.kind === "action"; // an action definition: trigger and output are fixed
+    this.graph = null;
     this.nodes = new Map();
     this.edges = new Map();
     this.selection = null;
@@ -62,15 +63,15 @@ export class WorkflowEditor {
 
   async load({ fit = false } = {}) {
     try {
-      const graph = await loadWorkflow(this.id);
-      this.workflow = graph.workflow;
+      const graph = await loadGraph(this.kind, this.id);
+      this.graph = graph.graph;
       this.nodes.clear();
       this.edges.clear();
       for (const node of graph.nodes) this.nodes.set(node.id, node);
       for (const edge of graph.edges) this.edges.set(edge.id, edge);
       this.alert.hidden = true;
       this.#showTitle();
-      document.title = `${this.workflow.name} · OpenArtifact`;
+      document.title = `${this.graph.name} · OpenArtifact`;
       this.canvas.sync();
       if (fit) this.canvas.fit();
       this.#renderInspector();
@@ -78,7 +79,7 @@ export class WorkflowEditor {
       this.opened = true;
     } catch (error) {
       if (error.status === 404 && !this.isAction) localStorage.removeItem(LAST_STAGE);
-      this.#showError(error.status === 404 ? "This workflow does not exist." : "The workflow could not be loaded.", true);
+      this.#showError(error.status === 404 ? "This pipeline or action does not exist." : "It could not be loaded.", true);
     }
   }
 
@@ -102,7 +103,7 @@ export class WorkflowEditor {
     const link = this.root.querySelector("[data-back]");
     link.href = `/pipelines/${encodeURIComponent(slug)}${nodeId ? `?select=${encodeURIComponent(nodeId)}` : ""}`;
     try {
-      const pipeline = (await listWorkflows("workflow")).find((w) => w.slug === slug);
+      const pipeline = (await listGraphs("pipeline")).find((w) => w.slug === slug);
       link.textContent = pipeline ? `Back to ${pipeline.name}` : "Back to pipeline";
     } catch {
       link.textContent = "Back to pipeline";
@@ -112,9 +113,9 @@ export class WorkflowEditor {
 
   /** The navigation reopens the last stage with its action selected (see main.js). */
   #remember(nodeId) {
-    if (this.isAction || !this.workflow) return;
+    if (this.isAction || !this.graph) return;
     try {
-      localStorage.setItem(LAST_STAGE, JSON.stringify({ slug: this.workflow.slug, node: nodeId }));
+      localStorage.setItem(LAST_STAGE, JSON.stringify({ slug: this.graph.slug, node: nodeId }));
     } catch {
       /* storage unavailable: the navigation just shows the list */
     }
@@ -158,7 +159,7 @@ export class WorkflowEditor {
     const toggle = this.root.querySelector("[data-add-menu]");
     if (!toggle) return;
     const list = this.root.querySelector("[data-add-list]");
-    for (const type of addableIn(this.isAction ? "action" : "workflow")) {
+    for (const type of addableIn(this.kind)) {
       const item = document.createElement("button");
       item.type = "button";
       item.className = "wf-add__item";
@@ -208,7 +209,7 @@ export class WorkflowEditor {
     if (ending && ending.x < free) {
       ending.x = free;
       this.canvas.sync();
-      await this.#save(() => updateNode(this.id, ending.id, { x: free }));
+      await this.#save(() => updateNode(this.kind, this.id, ending.id, { x: free }));
     }
     this.canvas.reveal(created);
   }
@@ -224,7 +225,7 @@ export class WorkflowEditor {
   async #create(fields) {
     let node = null;
     const saved = await this.#save(async () => {
-      node = await addNode(this.id, fields);
+      node = await addNode(this.kind, this.id, fields);
       this.nodes.set(node.id, node);
     });
     if (!saved || !node) return null;
@@ -240,7 +241,7 @@ export class WorkflowEditor {
     if (size.width === stage.width && size.height === stage.height) return;
     Object.assign(stage, size);
     this.canvas.sync();
-    await this.#save(() => updateNode(this.id, stage.id, size));
+    await this.#save(() => updateNode(this.kind, this.id, stage.id, size));
   }
 
   // ── changing ───────────────────────────────────────────────────────
@@ -255,18 +256,18 @@ export class WorkflowEditor {
       stage.height = Math.round(stage.height);
     }
     await this.#save(async () => {
-      await updateNode(this.id, node.id, fields);
-      if (stage) await updateNode(this.id, stage.id, { width: stage.width, height: stage.height });
+      await updateNode(this.kind, this.id, node.id, fields);
+      if (stage) await updateNode(this.kind, this.id, stage.id, { width: stage.width, height: stage.height });
     });
   }
 
   /** The name in the page header, which can be renamed in place as well. */
   #showTitle() {
     const title = document.querySelector(".app-header__title");
-    if (this.titleName) this.titleName.setText(this.workflow.name);
+    if (this.titleName) this.titleName.setText(this.graph.name);
     else {
-      title.textContent = this.workflow.name;
-      this.titleName = new InlineName(title, { label: this.isAction ? "Action name" : "Pipeline name", onCommit: (name) => this.#renameWorkflow(name) });
+      title.textContent = this.graph.name;
+      this.titleName = new InlineName(title, { label: this.isAction ? "Action name" : "Pipeline name", onCommit: (name) => this.#renameGraph(name) });
     }
   }
 
@@ -275,7 +276,7 @@ export class WorkflowEditor {
     if (!trimmed || trimmed === node.name) return this.#renderInspector();
     node.name = trimmed;
     this.canvas.sync();
-    await this.#save(() => updateNode(this.id, node.id, { name: trimmed }));
+    await this.#save(() => updateNode(this.kind, this.id, node.id, { name: trimmed }));
     this.#renderInspector();
   }
 
@@ -289,19 +290,19 @@ export class WorkflowEditor {
     }
     this.canvas.sync();
     this.#renderInspector();
-    await this.#save(() => updateNode(this.id, node.id, { [key]: value }));
+    await this.#save(() => updateNode(this.kind, this.id, node.id, { [key]: value }));
   }
 
-  async #renameWorkflow(name) {
+  async #renameGraph(name) {
     const trimmed = name.trim();
-    if (!trimmed || trimmed === this.workflow.name) return this.#renderInspector();
-    this.workflow.name = trimmed;
+    if (!trimmed || trimmed === this.graph.name) return this.#renderInspector();
+    this.graph.name = trimmed;
     this.#showTitle();
     const saved = await this.#save(async () => {
-      this.workflow = await renameWorkflow(this.id, trimmed);
+      this.graph = await renameGraph(this.kind, this.id, trimmed);
     });
     if (saved) {
-      window.history.replaceState(null, "", `${window.location.pathname.replace(/[^/]+$/, "")}${encodeURIComponent(this.workflow.slug)}`);
+      window.history.replaceState(null, "", `${window.location.pathname.replace(/[^/]+$/, "")}${encodeURIComponent(this.graph.slug)}`);
       this.#remember(this.selection?.type === "node" && this.nodes.get(this.selection.id)?.kind === "action" ? this.selection.id : null);
     }
   }
@@ -309,7 +310,7 @@ export class WorkflowEditor {
   async #connect(source, sourcePort, target, targetPort, slots = {}) {
     await this.#save(async () => {
       const previous = [...this.edges.values()].find((e) => e.source_id === source.id && e.source_port === sourcePort);
-      const edge = await connect(this.id, { source_id: source.id, source_port: sourcePort, target_id: target.id, target_port: targetPort, style: previous?.style, ...slots });
+      const edge = await connect(this.kind, this.id, { source_id: source.id, source_port: sourcePort, target_id: target.id, target_port: targetPort, style: previous?.style, ...slots });
       for (const [id, old] of this.edges) if (old.source_id === source.id && old.source_port === sourcePort) this.edges.delete(id);
       this.edges.set(edge.id, edge);
     });
@@ -322,14 +323,14 @@ export class WorkflowEditor {
     if (this.selection?.id === id) this.selection = null;
     this.canvas.select(this.selection);
     this.#renderInspector();
-    await this.#save(() => disconnect(this.id, id));
+    await this.#save(() => disconnect(this.kind, this.id, id));
   }
 
   async #restyle(edge, style) {
     edge.style = style;
     this.canvas.drawEdges();
     this.#renderInspector();
-    await this.#save(() => restyleEdge(this.id, edge.id, style));
+    await this.#save(() => restyleEdge(this.kind, this.id, edge.id, style));
   }
 
   /** Fixed kinds (trigger, complete, output) come with the graph; the last one of each stays. */
@@ -348,7 +349,7 @@ export class WorkflowEditor {
     this.confirm.open({
       message: `Delete ${typeOf(node).label.toLowerCase()} "${displayName(node)}"${extra}? Its connections are removed too.`,
       onConfirm: async () => {
-        await deleteNode(this.id, node.id);
+        await deleteNode(this.kind, this.id, node.id);
         await this.load();
         this.select(null);
       },
@@ -364,15 +365,15 @@ export class WorkflowEditor {
     const sel = this.selection;
     if (sel?.type === "node" && this.nodes.has(sel.id)) return this.#nodeInspector(this.nodes.get(sel.id));
     if (sel?.type === "edge" && this.edges.has(sel.id)) return this.#edgeInspector(this.edges.get(sel.id));
-    return this.#workflowInspector();
+    return this.#graphInspector();
   }
 
-  #workflowInspector() {
+  #graphInspector() {
     const count = (kind) => [...this.nodes.values()].filter((n) => n.kind === kind).length;
     this.inspector.append(
-      heading(this.workflow?.name ?? "Pipeline", "Draft", {
+      heading(this.graph?.name ?? "Pipeline", "Draft", {
         label: this.isAction ? "Action name" : "Pipeline name",
-        onCommit: (name) => this.#renameWorkflow(name),
+        onCommit: (name) => this.#renameGraph(name),
       }),
       note(
         this.isAction
@@ -400,7 +401,7 @@ export class WorkflowEditor {
       linkUrl: (node) => this.#linkUrl(node, node.definition_slug),
       remove: (node) => this.requestDelete({ type: "node", id: node.id }),
       addAction: (stage) => this.#addAction(stage),
-      listTargets: (kind) => listWorkflows(kind),
+      listTargets: (kind) => listGraphs(kind),
       showError: (message) => this.#showError(message),
     };
   }
@@ -408,12 +409,12 @@ export class WorkflowEditor {
   /** Where the thing a node links to is edited, with the way back to this node. */
   #linkUrl(node, slug) {
     const path = EDITOR_PATHS[typeOf(node).links_to];
-    return `${path}/${encodeURIComponent(slug)}?from=${encodeURIComponent(this.workflow.slug)}&node=${encodeURIComponent(node.id)}`;
+    return `${path}/${encodeURIComponent(slug)}?from=${encodeURIComponent(this.graph.slug)}&node=${encodeURIComponent(node.id)}`;
   }
 
   async #link(node, targetId) {
     await this.#save(async () => {
-      const updated = await updateNode(this.id, node.id, { definition_id: targetId });
+      const updated = await updateNode(this.kind, this.id, node.id, { definition_id: targetId });
       Object.assign(node, {
         definition_id: updated.definition_id,
         definition_name: updated.definition_name,
@@ -465,8 +466,8 @@ export class WorkflowEditor {
   async #createAndOpen(node, name) {
     let created = null;
     const saved = await this.#save(async () => {
-      created = await createWorkflow(name, typeOf(node).links_to);
-      await updateNode(this.id, node.id, { definition_id: created.id });
+      created = await createGraph(typeOf(node).links_to, name);
+      await updateNode(this.kind, this.id, node.id, { definition_id: created.id });
     });
     if (saved && created) window.location.assign(this.#linkUrl(node, created.slug));
   }

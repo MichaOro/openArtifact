@@ -14,7 +14,7 @@ start, stop and restart at any stage.
 
 ### 2.1 Decisions
 
-1. **One run per artifact** (`pipeline_runs`, `task_id` unique) holds the state: `status`
+1. **One run per artifact** (`pipeline_runs`, `task_id` unique) holds the state: `pipeline_id` is the pipeline the run started in (renamed from `workflow_id`, ADR-015); `status`
    (`running`, `stopped`, `done`, `failed`), the current stage and action, a `note`, who started it
    (`started_by`: `user` or `system`) and a **snapshot** of the pipeline and the action definitions
    it uses. Editing a pipeline does not change a run in flight.
@@ -38,7 +38,7 @@ start, stop and restart at any stage.
 7. **UI**: the artifact dialog's rail has Pipeline, Stage and Action (defaults: the only pipeline,
    its first stage and that stage's first action); one button, *Start processing* or *Stop
    processing*, sits at the left of the reading view's footer, level with Close and Edit; the card shows the stage and state. `GET /api/runs`,
-   `POST /api/tasks/{id}/run`, `POST /api/tasks/{id}/run/stop`, `GET /api/workflows/{id}/stages`.
+   `POST /api/tasks/{id}/run`, `POST /api/tasks/{id}/run/stop`, `GET /api/pipelines/{id}/stages`.
 
 ### 2.2 Pipeline nodes (sub-pipelines)
 

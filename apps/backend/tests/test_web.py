@@ -153,7 +153,7 @@ def test_navigation_shows_the_pipeline_entries_only_inside_the_pipeline(client: 
         assert inside.count('aria-current="page"') == 1
 
 
-def test_workflow_pages_render_and_mark_their_navigation_entry(db_client: TestClient) -> None:
+def test_pipeline_pages_render_and_mark_their_navigation_entry(db_client: TestClient) -> None:
     for path in ("/pipelines", "/pipelines/any-id"):
         response = db_client.get(path)
         assert response.status_code == 200
@@ -442,11 +442,12 @@ def test_rail_grows_the_card_instead_of_shrinking_the_form() -> None:
 
 
 def test_stage_pages_use_the_name_of_the_stage(db_client: TestClient) -> None:
-    created = db_client.post("/api/workflows", json={"name": "Gap Analyses"}).json()
+    created = db_client.post("/api/pipelines", json={"name": "Gap Analyses"}).json()
     assert created["slug"] == "gap-analyses"
     page = db_client.get("/pipelines/gap-analyses")
     assert page.status_code == 200
-    assert f'data-workflow-id="{created["id"]}"' in page.text
+    assert f'data-graph-id="{created["id"]}"' in page.text
+    assert 'data-kind="pipeline"' in page.text
     assert (
         db_client.get("/actions/gap-analyses").status_code == 200
     )  # unknown here: the editor says so

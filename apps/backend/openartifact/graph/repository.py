@@ -1,4 +1,4 @@
-"""Persistence for workflow definitions. Receives an ``AsyncSession``; never creates its own."""
+"""Persistence for graph definitions. Receives an ``AsyncSession``; never creates its own."""
 
 from __future__ import annotations
 
@@ -9,43 +9,43 @@ from datetime import UTC, datetime
 from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.models import NodeKind, Workflow, WorkflowEdge, WorkflowNode
-from openartifact.workflow.node_types import fixed_in, kinds_in, node_type
-from openartifact.workflow.rules import Endpoint, validate_edge
-from openartifact.workflow.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
-from openartifact.workflow.slug import slugify
+from openartifact.graph.node_types import fixed_in, kinds_in, node_type
+from openartifact.graph.rules import Endpoint, validate_edge
+from openartifact.graph.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
+from openartifact.graph.slug import slugify
+from openartifact.models import Graph, GraphEdge, GraphNode, NodeKind
 
 
 class NodeError(ValueError):
     """The requested node (or change of it) is not valid."""
 
 
-class WorkflowRepository:
-    """Database access for workflows, their nodes and edges."""
+class GraphRepository:
+    """Database access for graphs, their nodes and edges."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    # ── workflows ─────────────────────────────────────────────────────
+    # ── graphs ─────────────────────────────────────────────────────
 
-    async def create(self, name: str, kind: str = "workflow") -> Workflow:
-        """Create a workflow with its fixed nodes, connected with each other.
+    async def create(self, name: str, kind: str = "pipeline") -> Graph:
+        """Create a graph with its fixed nodes, connected with each other.
 
-        A workflow gets a trigger and a complete, an action definition a trigger and an output.
+        A graph gets a trigger and a complete, an action definition a trigger and an output.
         """
-        workflow = Workflow(id=str(uuid.uuid4()), name=name, kind=kind)
-        workflow.slug = await self._unique_slug(name, kind, None)
-        self._session.add(workflow)
+        graph = Graph(id=str(uuid.uuid4()), name=name, kind=kind)
+        graph.slug = await self._unique_slug(name, kind, None)
+        self._session.add(graph)
         fixed = fixed_in(kind)
         start = next(t for t in fixed if t.chain)
         end = next(t for t in fixed if t.ending)
         ids = {}
-        for fixed_type, x in ((start, 60.0), (end, 316.0 if kind == "workflow" else 460.0)):
+        for fixed_type, x in ((start, 60.0), (end, 316.0 if kind == "pipeline" else 460.0)):
             ids[fixed_type.kind] = str(uuid.uuid4())
             self._session.add(
-                WorkflowNode(
+                GraphNode(
                     id=ids[fixed_type.kind],
-                    workflow_id=workflow.id,
+                    graph_id=graph.id,
                     kind=fixed_type.kind.value,
                     name=fixed_type.default_name,
                     x=x,
@@ -54,9 +54,9 @@ class WorkflowRepository:
             )
         await self._session.flush()  # the nodes must exist before the edge refers to them
         self._session.add(
-            WorkflowEdge(
+            GraphEdge(
                 id=str(uuid.uuid4()),
-                workflow_id=workflow.id,
+                graph_id=graph.id,
                 source_id=ids[start.kind],
                 source_port=start.outputs[0].name,
                 target_id=ids[end.kind],
@@ -64,96 +64,88 @@ class WorkflowRepository:
             )
         )
         await self._session.flush()
-        return workflow
+        return graph
 
-    async def list_all(self, kind: str = "workflow") -> Sequence[Workflow]:
-        """All workflows (or action definitions), most recently changed first."""
+    async def list_all(self, kind: str = "pipeline") -> Sequence[Graph]:
+        """All graphs (or action definitions), most recently changed first."""
         result = await self._session.execute(
-            select(Workflow)
-            .where(Workflow.kind == kind)
-            .order_by(Workflow.updated_at.desc(), Workflow.id)
+            select(Graph).where(Graph.kind == kind).order_by(Graph.updated_at.desc(), Graph.id)
         )
         return result.scalars().all()
 
-    async def get(self, workflow_id: str) -> Workflow | None:
-        """The workflow or ``None``."""
-        return await self._session.get(Workflow, workflow_id)
+    async def get(self, graph_id: str) -> Graph | None:
+        """The graph or ``None``."""
+        return await self._session.get(Graph, graph_id)
 
-    async def rename(self, workflow: Workflow, name: str) -> None:
+    async def rename(self, graph: Graph, name: str) -> None:
         """Change the name; the URL name follows it."""
-        workflow.name = name
-        workflow.slug = await self._unique_slug(name, workflow.kind, workflow.id)
+        graph.name = name
+        graph.slug = await self._unique_slug(name, graph.kind, graph.id)
         await self._session.flush()
 
     async def _unique_slug(self, name: str, kind: str, own_id: str | None) -> str:
-        """The URL name for ``name``, with -2, -3 ... when another workflow of the kind has it."""
-        base = slugify(name, "pipeline" if kind == "workflow" else "action")
+        """The URL name for ``name``, with -2, -3 ... when another graph of the kind has it."""
+        base = slugify(name, "pipeline" if kind == "pipeline" else "action")
         slug, n = base, 2
         while await self._session.scalar(
-            select(Workflow.id).where(
-                Workflow.kind == kind, Workflow.slug == slug, Workflow.id != (own_id or "")
+            select(Graph.id).where(
+                Graph.kind == kind, Graph.slug == slug, Graph.id != (own_id or "")
             )
         ):
             slug, n = f"{base}-{n}", n + 1
         return slug
 
-    async def find(self, kind: str, slug: str) -> Workflow | None:
-        """A workflow of the kind by its URL name."""
+    async def find(self, kind: str, slug: str) -> Graph | None:
+        """A graph of the kind by its URL name."""
         return await self._session.scalar(
-            select(Workflow).where(Workflow.kind == kind, Workflow.slug == slug)
+            select(Graph).where(Graph.kind == kind, Graph.slug == slug)
         )
 
-    async def delete(self, workflow: Workflow) -> None:
-        """Delete the workflow; its nodes and edges go with it (foreign key cascade)."""
-        await self._session.delete(workflow)
+    async def delete(self, graph: Graph) -> None:
+        """Delete the graph; its nodes and edges go with it (foreign key cascade)."""
+        await self._session.delete(graph)
         await self._session.flush()
 
-    async def graph(
-        self, workflow_id: str
-    ) -> tuple[Sequence[WorkflowNode], Sequence[WorkflowEdge]]:
-        """All nodes and edges of a workflow."""
+    async def graph(self, graph_id: str) -> tuple[Sequence[GraphNode], Sequence[GraphEdge]]:
+        """All nodes and edges of a graph."""
         nodes = await self._session.execute(
-            select(WorkflowNode)
-            .where(WorkflowNode.workflow_id == workflow_id)
-            .order_by(WorkflowNode.created_at, WorkflowNode.id)
+            select(GraphNode)
+            .where(GraphNode.graph_id == graph_id)
+            .order_by(GraphNode.created_at, GraphNode.id)
         )
         edges = await self._session.execute(
-            select(WorkflowEdge)
-            .where(WorkflowEdge.workflow_id == workflow_id)
-            .order_by(WorkflowEdge.id)
+            select(GraphEdge).where(GraphEdge.graph_id == graph_id).order_by(GraphEdge.id)
         )
         return nodes.scalars().all(), edges.scalars().all()
 
-    async def touch(self, workflow: Workflow) -> None:
-        """Mark the workflow as changed (its nodes or edges changed)."""
-        workflow.updated_at = datetime.now(UTC)
+    async def touch(self, graph: Graph) -> None:
+        """Mark the graph as changed (its nodes or edges changed)."""
+        graph.updated_at = datetime.now(UTC)
         await self._session.flush()
 
     # ── nodes ─────────────────────────────────────────────────────────
 
-    async def get_node(self, workflow_id: str, node_id: str) -> WorkflowNode | None:
-        """The node if it belongs to the workflow."""
-        node = await self._session.get(WorkflowNode, node_id)
-        return node if node is not None and node.workflow_id == workflow_id else None
+    async def get_node(self, graph_id: str, node_id: str) -> GraphNode | None:
+        """The node if it belongs to the graph."""
+        node = await self._session.get(GraphNode, node_id)
+        return node if node is not None and node.graph_id == graph_id else None
 
-    async def add_node(self, workflow: Workflow, data: NodeCreate) -> WorkflowNode:
-        """Add a node. Actions must name a stage of the same workflow."""
+    async def add_node(self, graph: Graph, data: NodeCreate) -> GraphNode:
+        """Add a node. Actions must name a stage of the same graph."""
         kind_type = node_type(data.kind)
-        if data.kind not in kinds_in(workflow.kind):
-            raise NodeError(f"A {workflow.kind} cannot contain a {data.kind.value}")
+        if data.kind not in kinds_in(graph.kind):
+            raise NodeError(f"A {graph.kind} cannot contain a {data.kind.value}")
         if kind_type.fixed:
-            raise NodeError(
-                f"A {workflow.kind} comes with its {data.kind.value}; it cannot be added"
-            )
+            raise NodeError(f"A {graph.kind} comes with its {data.kind.value}; it cannot be added")
         if data.kind is NodeKind.ACTION:
-            stage = data.stage_id and await self.get_node(workflow.id, data.stage_id)
+            stage = data.stage_id and await self.get_node(graph.id, data.stage_id)
             if not stage or stage.kind != NodeKind.STAGE.value:
-                raise NodeError("An action needs a stage of this workflow")
+                raise NodeError("An action needs a stage of this graph")
         elif data.stage_id is not None:
             raise NodeError("Only actions belong to a stage")
-        node = WorkflowNode(
+        node = GraphNode(
             id=str(uuid.uuid4()),
-            workflow_id=workflow.id,
+            graph_id=graph.id,
             kind=data.kind.value,
             stage_id=data.stage_id,
             name=data.name or kind_type.default_name,
@@ -171,7 +163,7 @@ class WorkflowRepository:
         await self._session.flush()
         return node
 
-    async def update_node(self, node: WorkflowNode, data: NodeUpdate) -> None:
+    async def update_node(self, node: GraphNode, data: NodeUpdate) -> None:
         """Rename, move or (stages) resize a node."""
         sent = data.model_fields_set
         kind_type = node_type(node.kind)
@@ -190,29 +182,29 @@ class WorkflowRepository:
         if data.fail_enabled is False:
             # the On Fail connector is gone, and so is the Error output of actions linked to this definition
             await self._session.execute(
-                delete(WorkflowEdge).where(
-                    WorkflowEdge.target_id == node.id, WorkflowEdge.target_port == "fail"
+                delete(GraphEdge).where(
+                    GraphEdge.target_id == node.id, GraphEdge.target_port == "fail"
                 )
             )
-            await self._drop_error_edges(WorkflowNode.definition_id == node.workflow_id)
+            await self._drop_error_edges(GraphNode.definition_id == node.graph_id)
 
-    async def _link(self, node: WorkflowNode, definition_id: str | None) -> None:
+    async def _link(self, node: GraphNode, definition_id: str | None) -> None:
         """Link an action to an action definition, or a pipeline node to the pipeline it calls.
 
         ``None`` turns an action back into an empty shell and a pipeline node into an unset one.
         """
-        workflow = await self._session.get(Workflow, node.workflow_id)
+        graph = await self._session.get(Graph, node.graph_id)
         links_to = node_type(node.kind).links_to
-        if links_to is None or workflow is None:
+        if links_to is None or graph is None:
             raise NodeError(f"A {node.kind} does not link to anything")
-        calls = links_to == "workflow"
+        calls = links_to == "pipeline"
         if definition_id is not None:
-            target = await self._session.get(Workflow, definition_id)
+            target = await self._session.get(Graph, definition_id)
             if target is None or target.kind != links_to:
                 raise NodeError(
                     "That pipeline does not exist" if calls else "That action does not exist"
                 )
-            if calls and await self._calls(definition_id, workflow.id):
+            if calls and await self._calls(definition_id, graph.id):
                 raise NodeError("A pipeline cannot call itself, not even through other pipelines")
         node.definition_id = definition_id
         await self._session.flush()
@@ -221,7 +213,7 @@ class WorkflowRepository:
             and definition_id is not None
             and not (await self.describe([node]))[node.id][1]
         ):
-            await self._drop_error_edges(WorkflowNode.id == node.id)
+            await self._drop_error_edges(GraphNode.id == node.id)
 
     async def _calls(self, start_id: str, wanted_id: str) -> bool:
         """Whether the pipeline ``start_id`` is, or (through its pipeline nodes) calls, ``wanted_id``."""
@@ -235,10 +227,10 @@ class WorkflowRepository:
                 continue
             seen.add(current)
             rows = await self._session.execute(
-                select(WorkflowNode.definition_id).where(
-                    WorkflowNode.workflow_id == current,
-                    WorkflowNode.kind == NodeKind.PIPELINE.value,
-                    WorkflowNode.definition_id.is_not(None),
+                select(GraphNode.definition_id).where(
+                    GraphNode.graph_id == current,
+                    GraphNode.kind == NodeKind.PIPELINE.value,
+                    GraphNode.definition_id.is_not(None),
                 )
             )
             queue.extend(row[0] for row in rows if row[0])
@@ -246,55 +238,52 @@ class WorkflowRepository:
 
     async def _drop_error_edges(self, which: ColumnElement[bool]) -> None:
         """Remove the Error connections of the actions matching ``which`` (they have no On Fail)."""
-        ids = select(WorkflowNode.id).where(which)
+        ids = select(GraphNode.id).where(which)
         await self._session.execute(
-            delete(WorkflowEdge).where(
-                WorkflowEdge.source_port == "error", WorkflowEdge.source_id.in_(ids)
-            )
+            delete(GraphEdge).where(GraphEdge.source_port == "error", GraphEdge.source_id.in_(ids))
         )
 
-    async def describe(self, nodes: Sequence[WorkflowNode]) -> dict[str, tuple[str, bool, str]]:
+    async def describe(self, nodes: Sequence[GraphNode]) -> dict[str, tuple[str, bool, str]]:
         """For linked actions: the definition's name, whether it has On Fail and its URL name."""
         wanted = {n.definition_id for n in nodes if n.definition_id}
         if not wanted:
             return {}
         rows = await self._session.execute(
-            select(Workflow.id, Workflow.name, WorkflowNode.fail_enabled, Workflow.slug)
+            select(Graph.id, Graph.name, GraphNode.fail_enabled, Graph.slug)
             .join(
-                WorkflowNode,
-                (WorkflowNode.workflow_id == Workflow.id)
-                & (WorkflowNode.kind == NodeKind.OUTPUT.value),
+                GraphNode,
+                (GraphNode.graph_id == Graph.id) & (GraphNode.kind == NodeKind.OUTPUT.value),
                 isouter=True,  # a called pipeline has no output node
             )
-            .where(Workflow.id.in_(wanted))
+            .where(Graph.id.in_(wanted))
         )
         by_definition = {row[0]: (row[1], bool(row[2]), row[3]) for row in rows}
         return {
             n.id: by_definition[n.definition_id] for n in nodes if n.definition_id in by_definition
         }
 
-    async def delete_node(self, workflow: Workflow, node: WorkflowNode) -> None:
+    async def delete_node(self, graph: Graph, node: GraphNode) -> None:
         """Delete a node; its actions (for a stage) and edges go with it (cascade)."""
         kind = NodeKind(node.kind)
         if node_type(kind).fixed:
             same = await self._session.scalar(
                 select(func.count())
-                .select_from(WorkflowNode)
-                .where(WorkflowNode.workflow_id == workflow.id, WorkflowNode.kind == kind.value)
+                .select_from(GraphNode)
+                .where(GraphNode.graph_id == graph.id, GraphNode.kind == kind.value)
             )
-            if same == 1:  # older workflows may hold several; the last one stays
-                raise NodeError(f"The {kind.value} of a {workflow.kind} stays")
+            if same == 1:  # older graphs may hold several; the last one stays
+                raise NodeError(f"The {kind.value} of a {graph.kind} stays")
         await self._session.delete(node)
         await self._session.flush()
 
     # ── edges ─────────────────────────────────────────────────────────
 
-    async def connect(self, workflow: Workflow, data: EdgeCreate) -> WorkflowEdge:
+    async def connect(self, graph: Graph, data: EdgeCreate) -> GraphEdge:
         """Connect two ports; an existing edge on the same output is replaced."""
-        source = await self.get_node(workflow.id, data.source_id)
-        target = await self.get_node(workflow.id, data.target_id)
+        source = await self.get_node(graph.id, data.source_id)
+        target = await self.get_node(graph.id, data.target_id)
         if source is None or target is None:
-            raise NodeError("Both ends of an edge must be nodes of this workflow")
+            raise NodeError("Both ends of an edge must be nodes of this graph")
         validate_edge(_endpoint(source), data.source_port, _endpoint(target), data.target_port)
         if data.target_port == "fail" and not target.fail_enabled:
             raise NodeError("That action definition has no On Fail")
@@ -309,13 +298,13 @@ class WorkflowRepository:
         ):
             raise NodeError("Only stages have more than one attachment point")
         await self._session.execute(
-            delete(WorkflowEdge).where(
-                WorkflowEdge.source_id == source.id, WorkflowEdge.source_port == data.source_port
+            delete(GraphEdge).where(
+                GraphEdge.source_id == source.id, GraphEdge.source_port == data.source_port
             )
         )
-        edge = WorkflowEdge(
+        edge = GraphEdge(
             id=str(uuid.uuid4()),
-            workflow_id=workflow.id,
+            graph_id=graph.id,
             source_id=source.id,
             source_port=data.source_port,
             target_id=target.id,
@@ -328,21 +317,21 @@ class WorkflowRepository:
         await self._session.flush()
         return edge
 
-    async def get_edge(self, workflow_id: str, edge_id: str) -> WorkflowEdge | None:
-        """The edge if it belongs to the workflow."""
-        edge = await self._session.get(WorkflowEdge, edge_id)
-        return edge if edge is not None and edge.workflow_id == workflow_id else None
+    async def get_edge(self, graph_id: str, edge_id: str) -> GraphEdge | None:
+        """The edge if it belongs to the graph."""
+        edge = await self._session.get(GraphEdge, edge_id)
+        return edge if edge is not None and edge.graph_id == graph_id else None
 
-    async def restyle(self, edge: WorkflowEdge, data: EdgeUpdate) -> None:
+    async def restyle(self, edge: GraphEdge, data: EdgeUpdate) -> None:
         """Change how an edge is drawn."""
         edge.style = data.style
         await self._session.flush()
 
-    async def disconnect(self, edge: WorkflowEdge) -> None:
+    async def disconnect(self, edge: GraphEdge) -> None:
         """Remove an edge."""
         await self._session.delete(edge)
         await self._session.flush()
 
 
-def _endpoint(node: WorkflowNode) -> Endpoint:
+def _endpoint(node: GraphNode) -> Endpoint:
     return Endpoint(id=node.id, kind=NodeKind(node.kind), stage_id=node.stage_id)

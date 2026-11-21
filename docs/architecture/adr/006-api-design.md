@@ -17,7 +17,7 @@ OpenArtifact requires an API for:
 
 - Frontend/backend communication (via HTMX/SSE/WebSocket or direct fetch)
 - Future external integrations (webhooks, provider adapters)
-- Structured workflow execution requests
+- Structured pipeline execution requests
 - Provider adapters for AI agent execution
 - Future REST API for third-party integrations
 
@@ -83,7 +83,7 @@ OpenArtifact requires an API for:
 
 3. **Versioning strategy.** URL path versioning (`/api/v1/...`) provides backward compatibility and gradual migration capability.
 
-4. **Real-time via WebSocket/SSE.** For workflow progress and event streaming, FastAPI's native WebSocket support and Server-Sent Events provide the needed real-time capability without complicating the REST API.
+4. **Real-time via WebSocket/SSE.** For pipeline progress and event streaming, FastAPI's native WebSocket support and Server-Sent Events provide the needed real-time capability without complicating the REST API.
 
 5. **Future extensibility.** The REST API serves both internal (HTMX frontend) and external (third-party integrations) consumers with the same foundation.
 
@@ -91,7 +91,7 @@ OpenArtifact requires an API for:
 
 - **Primary API:** REST with OpenAPI (FastAPI)
 - **Versioning:** URL path (`/api/v1/...`)
-- **Real-time:** WebSocket for workflow progress, SSE for event streaming
+- **Real-time:** WebSocket for pipeline progress, SSE for event streaming
 - **Documentation:** Automatic via FastAPI's OpenAPI generation
 - **Internal communication:** HTMX + standard HTTP (no separate API layer for frontend)
 - **External API:** `/api/v1/` endpoints with future JWT authentication

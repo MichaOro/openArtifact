@@ -10,6 +10,10 @@ from playwright.sync_api import expect
 from tests.e2e.helpers import Board
 
 
+def _url(graph: dict[str, Any]) -> str:
+    return f"/api/{'actions' if graph['kind'] == 'action' else 'pipelines'}/{graph['id']}"
+
+
 def _post(api: httpx.Client, url: str, **body: Any) -> dict[str, Any]:
     response = api.post(url, json=body)
     response.raise_for_status()
@@ -18,16 +22,14 @@ def _post(api: httpx.Client, url: str, **body: Any) -> dict[str, Any]:
 
 def _slow_pipeline(api: httpx.Client) -> dict[str, Any]:
     """trigger → stage → complete; the stage's action waits 30 s (a timer in its definition)."""
-    for workflow in api.get("/api/workflows").json():
-        api.delete(f"/api/workflows/{workflow['id']}")
-    for kind in ("workflow", "action"):
-        for workflow in api.get("/api/workflows", params={"kind": kind}).json():
-            api.delete(f"/api/workflows/{workflow['id']}")
-    pipeline = _post(api, "/api/workflows", name="Flow")
-    graph = api.get(f"/api/workflows/{pipeline['id']}").json()
+    for path in ("/api/pipelines", "/api/actions"):
+        for graph in api.get(path).json():
+            api.delete(f"{path}/{graph['id']}")
+    pipeline = _post(api, "/api/pipelines", name="Flow")
+    graph = api.get(_url(pipeline)).json()
     trigger = next(n for n in graph["nodes"] if n["kind"] == "trigger")
     complete = next(n for n in graph["nodes"] if n["kind"] == "complete")
-    base = f"/api/workflows/{pipeline['id']}"
+    base = _url(pipeline)
     stage = _post(api, f"{base}/nodes", kind="stage", name="Gap analysis")
     action = _post(api, f"{base}/nodes", kind="action", stage_id=stage["id"], x=24, y=48)
 
@@ -46,8 +48,8 @@ def _slow_pipeline(api: httpx.Client) -> dict[str, Any]:
     edge(action, "pass", stage, "end")
     edge(stage, "end", complete, "in")
 
-    definition = _post(api, "/api/workflows", name="Wait", kind="action")
-    dbase = f"/api/workflows/{definition['id']}"
+    definition = _post(api, "/api/actions", name="Wait")
+    dbase = _url(definition)
     nodes = api.get(dbase).json()["nodes"]
     dtrigger = next(n for n in nodes if n["kind"] == "trigger")
     output = next(n for n in nodes if n["kind"] == "output")

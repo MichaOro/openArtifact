@@ -206,7 +206,7 @@ export class Board {
   #renderRun(card, taskId) {
     const run = this.runs.get(taskId);
     const line = card.querySelector(".task-card__run");
-    line.textContent = run ? `${run.stage_name ?? run.workflow_name} · ${run.status}` : "";
+    line.textContent = run ? `${run.stage_name ?? run.pipeline_name} · ${run.status}` : "";
     line.hidden = !run;
     line.dataset.status = run?.status ?? "";
     const locked = this.locked.has(taskId);

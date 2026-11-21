@@ -18,7 +18,7 @@ from openartifact.engine.runner import RunEngine, RunError
 from openartifact.engine.snapshot import graph_of
 from openartifact.engine.targets import TargetError, resolve_target
 from openartifact.events import EventBus
-from openartifact.models import PipelineRun, Task, Workflow
+from openartifact.models import Graph, PipelineRun, Task
 from openartifact.tasks.repository import ParentError, PlacementError, TaskRepository
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 
@@ -67,7 +67,7 @@ class ArtifactService:
             pipelines = (
                 (
                     await session.execute(
-                        select(Workflow).where(Workflow.kind == "workflow").order_by(Workflow.name)
+                        select(Graph).where(Graph.kind == "pipeline").order_by(Graph.name)
                     )
                 )
                 .scalars()

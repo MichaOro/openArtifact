@@ -3,8 +3,8 @@
   "days": 14,
   "entries": [
     {
-      "name": "Routing select of the workflow inspector",
-      "file": "apps/backend/openartifact/static/js/workflows/editor.js",
+      "name": "Routing select of the graph inspector",
+      "file": "apps/backend/openartifact/static/js/editor/editor.js",
       "symbol": "#routeSelect",
       "usage": "this\\.#routeSelect\\(",
       "since": "2026-11-21",

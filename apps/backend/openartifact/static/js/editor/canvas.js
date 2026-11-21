@@ -1,11 +1,11 @@
-/* The workflow canvas: renders nodes (HTML) and edges (SVG) inside a pannable, zoomable world and
+/* The graph canvas: renders nodes (HTML) and edges (SVG) inside a pannable, zoomable world and
  * turns pointer input into callbacks. It owns no data: nodes/edges are the editor's Maps.
  *
  *  - drag a node to move it (an action stays inside its stage, which grows as needed);
  *  - drag from an output port to an input port to connect;
  *  - drag the background to pan, wheel or the zoom buttons to zoom;
  *  - click a node or an edge to select it. */
-import { PAD, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./graph.js";
+import { PAD, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./geometry.js";
 import { typeOf } from "./node-types.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -106,7 +106,7 @@ export class Canvas {
     el.dataset.side = port.side;
     el.setAttribute("aria-hidden", "true");
     el.title = port.label;
-    if (type.constructor.portLabels) el.dataset.label = port.label;
+    if (type.labelled(port)) el.dataset.label = port.label;
     return el;
   }
 

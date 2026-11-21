@@ -6,11 +6,11 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.models import Workflow, WorkflowEdge, WorkflowNode
-from openartifact.workflow.repository import WorkflowRepository
+from openartifact.graph.repository import GraphRepository
+from openartifact.models import Graph, GraphEdge, GraphNode
 
 
-def _node(node: WorkflowNode, label: str) -> dict[str, Any]:
+def _node(node: GraphNode, label: str) -> dict[str, Any]:
     return {
         "id": node.id,
         "kind": node.kind,
@@ -24,7 +24,7 @@ def _node(node: WorkflowNode, label: str) -> dict[str, Any]:
     }
 
 
-def _edge(edge: WorkflowEdge) -> dict[str, Any]:
+def _edge(edge: GraphEdge) -> dict[str, Any]:
     return {
         "source_id": edge.source_id,
         "source_port": edge.source_port,
@@ -33,10 +33,10 @@ def _edge(edge: WorkflowEdge) -> dict[str, Any]:
     }
 
 
-async def graph_of(session: AsyncSession, workflow_id: str) -> dict[str, Any]:
-    """Nodes (an action labelled with its definition's name) and edges of a workflow as dicts."""
-    repo = WorkflowRepository(session)
-    nodes, edges = await repo.graph(workflow_id)
+async def graph_of(session: AsyncSession, graph_id: str) -> dict[str, Any]:
+    """Nodes (an action labelled with its definition's name) and edges of a graph as dicts."""
+    repo = GraphRepository(session)
+    nodes, edges = await repo.graph(graph_id)
     described = await repo.describe(nodes)
     return {
         "nodes": [_node(n, described[n.id][0] if n.id in described else n.name) for n in nodes],
@@ -68,17 +68,17 @@ async def _collect(
                 raise NestingError("Pipelines are nested too deeply")
             if target not in root["pipelines"]:
                 called = await graph_of(session, target)
-                workflow = await session.get(Workflow, target)
-                called["name"] = workflow.name if workflow else ""
+                pipeline = await session.get(Graph, target)
+                called["name"] = pipeline.name if pipeline else ""
                 root["pipelines"][target] = called
                 await _collect(session, root, called, (*path, target))
 
 
-async def build_snapshot(session: AsyncSession, workflow: Workflow) -> dict[str, Any]:
+async def build_snapshot(session: AsyncSession, graph: Graph) -> dict[str, Any]:
     """The pipeline's graph plus the called pipelines and action definitions it uses, frozen."""
-    snapshot = await graph_of(session, workflow.id)
-    snapshot["name"] = workflow.name
+    snapshot = await graph_of(session, graph.id)
+    snapshot["name"] = graph.name
     snapshot["definitions"] = {}
     snapshot["pipelines"] = {}
-    await _collect(session, snapshot, snapshot, (workflow.id,))
+    await _collect(session, snapshot, snapshot, (graph.id,))
     return snapshot
