@@ -83,7 +83,7 @@
 .wf-node--output .wf-port--pass { top: 60px; left: 0; }
 .wf-node--output .wf-port--fail { top: 84px; left: 0; border-color: var(--color-danger); }
 .wf-node--output:not(.has-fail) .wf-port--fail { display: none; }
-.wf-node--output .wf-port[data-label]::after { left: 14px; right: auto; }
+.wf-node--output .wf-port[data-label]::after { left: 14px; right: auto; white-space: nowrap; }
 .wf-outcome__toggle { border: 1px dashed var(--glass-border); border-radius: 999px; background: transparent; color: var(--color-text-secondary); font: inherit; font-size: 0.6875rem; line-height: 1.25rem; padding: 0 var(--space-2); cursor: pointer; }
 .wf-outcome__toggle:hover { border-color: var(--node-color); color: var(--color-text-primary); }
 .wf-node--stage { --node-color: var(--lane-hue-1); background: color-mix(in srgb, var(--node-color) 8%, var(--surface-glass)); }
