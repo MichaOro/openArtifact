@@ -1,48 +1,27 @@
-/* Geometry and connection rules of the workflow canvas. Pure functions over plain node/edge
- * objects as the API returns them. The server (workflow/rules.py) is the authority on what may be
- * connected; canConnect() only mirrors it so the editor can offer valid targets. */
+/* Geometry of the workflow canvas. Pure functions over plain node/edge objects as the API returns
+ * them; what a kind of node looks like and may connect to comes from its view (node-types.js). */
+import { HEADER, SLOTS, slotY, typeOf } from "./node-types.js";
 
-export const HEADER = 44; // stage header height
+export { HEADER, SLOTS, slotY };
 export const PAD = 24; // space between a stage border and its actions
 export const ACTION_GAP = 64; // space between neighbouring actions
-export const TOP_LEVEL_GAP = 96; // space between a new trigger/stage/complete node and its neighbour
-export const SIZE = {
-  trigger: { width: 160, height: 64 },
-  action: { width: 190, height: 68 },
-  complete: { width: 160, height: 56 },
-  output: { width: 250, height: 104 },
-  timer: { width: 160, height: 64 },
-  pipeline: { width: 200, height: 64 },
-};
+export const TOP_LEVEL_GAP = 96; // space between a new node of the main line and its neighbour
 export const STAGE_MIN = { width: 320, height: 220 };
+export const EDGE_STYLES = { curved: "Curved", straight: "Straight", elbow: "Elbow" };
 
-// A stage has one start and one end, each serving both sides (see workflow/rules.py).
-export const OUTPUTS = { trigger: ["out"], stage: ["start", "end"], action: ["pass", "error"], complete: [], output: [], timer: ["out"], pipeline: ["out"] };
-export const INPUTS = { trigger: [], stage: ["start", "end"], action: ["in"], complete: ["in"], output: ["pass", "fail"], timer: ["in"], pipeline: ["in"] };
-
-export const PORT_LABELS = {
-  out: "Next",
-  start: "First action",
-  end: "Next",
-  pass: "On Pass",
-  error: "On Error",
-  in: "Input",
-  fail: "On Fail",
-};
-
-/** What a node is called on the canvas: a linked action carries the name of its action definition. */
+/** What a node is called on the canvas (a linked node carries the name of what it links to). */
 export function displayName(node) {
-  return node.definition_name ?? node.name;
+  return typeOf(node).displayName(node);
 }
 
-/** Node size in world units (stages carry their own). */
+/** Node size in world units. */
 export function sizeOf(node) {
-  return node.kind === "stage" ? { width: node.width, height: node.height } : SIZE[node.kind];
+  return typeOf(node).size(node);
 }
 
-/** Top-left corner on the canvas; an action's position is relative to its stage's body. */
+/** Top-left corner on the canvas; a node inside a stage is positioned relative to the stage's body. */
 export function originOf(node, nodes) {
-  if (node.kind !== "action") return { x: node.x, y: node.y };
+  if (!node.stage_id) return { x: node.x, y: node.y };
   const stage = nodes.get(node.stage_id);
   return { x: stage.x + node.x, y: stage.y + HEADER + node.y };
 }
@@ -52,49 +31,20 @@ export function boxOf(node, nodes) {
   return { ...originOf(node, nodes), ...sizeOf(node) };
 }
 
-export const SLOTS = 3; // attachment points per side of a stage, top to bottom
-export const EDGE_STYLES = { curved: "Curved", straight: "Straight", elbow: "Elbow" };
-
-/** Height of a stage's attachment point: the header, the middle and the bottom part. */
-export function slotY(height, slot) {
-  return [HEADER / 2, height / 2, height - HEADER / 2][slot];
-}
-
 /** Where a port sits on the canvas (`slot` picks one of a stage's three points per side). */
 export function portPoint(node, port, nodes, slot = 0) {
-  const { x, y } = originOf(node, nodes);
-  const { width, height } = sizeOf(node);
-  switch (`${node.kind}:${port}`) {
-    case "stage:start":
-      return { x, y: y + slotY(height, slot) };
-    case "stage:end":
-      return { x: x + width, y: y + slotY(height, slot) };
-    case "output:pass": // the input connectors of an action definition's output
-      return { x, y: y + 60 };
-    case "output:fail":
-      return { x, y: y + 84 };
-    case "action:pass": // without an Error output (its definition has no On Fail) Pass is centred
-      return { x: x + width, y: y + (node.definition_fail_enabled === false ? height / 2 : 24) };
-    case "action:error":
-      return { x: x + width, y: y + 48 };
-    default: // inputs of actions and complete nodes sit left; a trigger's output sits right
-      return port === "out" ? { x: x + width, y: y + height / 2 } : { x, y: y + height / 2 };
-  }
+  const origin = originOf(node, nodes);
+  const local = typeOf(node).portLocal(node, port, slot);
+  return { x: origin.x + local.x, y: origin.y + local.y };
 }
 
-/** May `source.sourcePort` feed `target.targetPort`? Mirrors workflow/rules.py. */
+/** May `source.sourcePort` feed `target.targetPort`? Mirrors the server's rules (node_types.py). */
 export function canConnect(source, sourcePort, target, targetPort) {
-  if (!OUTPUTS[source.kind].includes(sourcePort) || !INPUTS[target.kind].includes(targetPort)) return false;
-  if ((source.kind === "timer" || source.kind === "pipeline") && target.id === source.id) return false;
-  if (target.kind === "output" && targetPort === "fail" && !target.fail_enabled) return false;
-  if (source.kind === "stage" && sourcePort === "start") return target.kind === "action" && target.stage_id === source.id;
-  if (source.kind === "action") {
-    if (target.kind === "action") return target.stage_id === source.stage_id;
-    return target.kind === "stage" && targetPort === "end" && target.id === source.stage_id;
-  }
-  if (target.kind === "action") return false;
-  if (target.kind === "stage" && (targetPort !== "start" || target.id === source.id)) return false;
-  return !(source.kind === "trigger" && target.kind === "complete");
+  const from = typeOf(source);
+  const to = typeOf(target);
+  if (!from.outputs.some((p) => p.name === sourcePort) || !to.inputs.some((p) => p.name === targetPort)) return false;
+  if (!from.isVisible(source, sourcePort) || !to.isVisible(target, targetPort)) return false;
+  return from.canFeed(source, sourcePort, target, targetPort);
 }
 
 const CORNER = 12; // radius of rounded corners
@@ -146,8 +96,9 @@ export function fitStage(stage, actions) {
   let width = STAGE_MIN.width;
   let height = STAGE_MIN.height;
   for (const action of actions) {
-    width = Math.max(width, action.x + SIZE.action.width + PAD);
-    height = Math.max(height, HEADER + action.y + SIZE.action.height + PAD);
+    const size = sizeOf(action);
+    width = Math.max(width, action.x + size.width + PAD);
+    height = Math.max(height, HEADER + action.y + size.height + PAD);
   }
   return { width: Math.max(stage.width, width), height: Math.max(stage.height, height) };
 }

@@ -10,36 +10,10 @@ from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.models import NodeKind, Workflow, WorkflowEdge, WorkflowNode
+from openartifact.workflow.node_types import fixed_in, kinds_in, node_type
 from openartifact.workflow.rules import Endpoint, validate_edge
 from openartifact.workflow.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
 from openartifact.workflow.slug import slugify
-
-DEFAULT_NAMES = {
-    NodeKind.TRIGGER: "Trigger",
-    NodeKind.STAGE: "Stage",
-    NodeKind.ACTION: "Action",
-    NodeKind.COMPLETE: "Complete",
-    NodeKind.OUTPUT: "Output",
-    NodeKind.TIMER: "Timer",
-    NodeKind.PIPELINE: "Pipeline",
-}
-TIMER_SECONDS = 5
-# what each kind of workflow may contain, and which of those nodes come with it and stay
-ALLOWED_KINDS = {
-    "workflow": {
-        NodeKind.TRIGGER,
-        NodeKind.STAGE,
-        NodeKind.ACTION,
-        NodeKind.COMPLETE,
-        NodeKind.PIPELINE,
-    },
-    "action": {NodeKind.TRIGGER, NodeKind.OUTPUT, NodeKind.TIMER},
-}
-FIXED_KINDS = {
-    "workflow": {NodeKind.TRIGGER, NodeKind.COMPLETE},
-    "action": {NodeKind.TRIGGER, NodeKind.OUTPUT},
-}
-STAGE_SIZE = (360.0, 240.0)
 
 
 class NodeError(ValueError):
@@ -62,19 +36,18 @@ class WorkflowRepository:
         workflow = Workflow(id=str(uuid.uuid4()), name=name, kind=kind)
         workflow.slug = await self._unique_slug(name, kind, None)
         self._session.add(workflow)
-        end = NodeKind.OUTPUT if kind == "action" else NodeKind.COMPLETE
+        fixed = fixed_in(kind)
+        start = next(t for t in fixed if t.chain)
+        end = next(t for t in fixed if t.ending)
         ids = {}
-        for node_kind, x in (
-            (NodeKind.TRIGGER, 60.0),
-            (end, 316.0 if kind == "workflow" else 460.0),
-        ):
-            ids[node_kind] = str(uuid.uuid4())
+        for fixed_type, x in ((start, 60.0), (end, 316.0 if kind == "workflow" else 460.0)):
+            ids[fixed_type.kind] = str(uuid.uuid4())
             self._session.add(
                 WorkflowNode(
-                    id=ids[node_kind],
+                    id=ids[fixed_type.kind],
                     workflow_id=workflow.id,
-                    kind=node_kind.value,
-                    name=DEFAULT_NAMES[node_kind],
+                    kind=fixed_type.kind.value,
+                    name=fixed_type.default_name,
                     x=x,
                     y=164.0,
                 )
@@ -84,10 +57,10 @@ class WorkflowRepository:
             WorkflowEdge(
                 id=str(uuid.uuid4()),
                 workflow_id=workflow.id,
-                source_id=ids[NodeKind.TRIGGER],
-                source_port="out",
-                target_id=ids[end],
-                target_port="pass" if kind == "action" else "in",
+                source_id=ids[start.kind],
+                source_port=start.outputs[0].name,
+                target_id=ids[end.kind],
+                target_port=end.inputs[0].name,
             )
         )
         await self._session.flush()
@@ -165,9 +138,10 @@ class WorkflowRepository:
 
     async def add_node(self, workflow: Workflow, data: NodeCreate) -> WorkflowNode:
         """Add a node. Actions must name a stage of the same workflow."""
-        if data.kind not in ALLOWED_KINDS[workflow.kind]:
+        kind_type = node_type(data.kind)
+        if data.kind not in kinds_in(workflow.kind):
             raise NodeError(f"A {workflow.kind} cannot contain a {data.kind.value}")
-        if data.kind in FIXED_KINDS[workflow.kind]:
+        if kind_type.fixed:
             raise NodeError(
                 f"A {workflow.kind} comes with its {data.kind.value}; it cannot be added"
             )
@@ -182,12 +156,16 @@ class WorkflowRepository:
             workflow_id=workflow.id,
             kind=data.kind.value,
             stage_id=data.stage_id,
-            name=data.name or DEFAULT_NAMES[data.kind],
+            name=data.name or kind_type.default_name,
             x=data.x,
             y=data.y,
-            width=STAGE_SIZE[0] if data.kind is NodeKind.STAGE else None,
-            height=STAGE_SIZE[1] if data.kind is NodeKind.STAGE else None,
-            seconds=(data.seconds or TIMER_SECONDS) if data.kind is NodeKind.TIMER else None,
+            width=kind_type.size[0] if kind_type.size else None,
+            height=kind_type.size[1] if kind_type.size else None,
+            **{
+                s.key: getattr(data, s.key, None) or s.default
+                for s in kind_type.settings
+                if s.type == "integer"
+            },
         )
         self._session.add(node)
         await self._session.flush()
@@ -196,12 +174,12 @@ class WorkflowRepository:
     async def update_node(self, node: WorkflowNode, data: NodeUpdate) -> None:
         """Rename, move or (stages) resize a node."""
         sent = data.model_fields_set
-        if {"width", "height"} & sent and node.kind != NodeKind.STAGE.value:
+        kind_type = node_type(node.kind)
+        if {"width", "height"} & sent and kind_type.size is None:
             raise NodeError("Only stages have a size")
-        if "seconds" in sent and node.kind != NodeKind.TIMER.value:
-            raise NodeError("Only a timer has seconds")
-        if "fail_enabled" in sent and node.kind != NodeKind.OUTPUT.value:
-            raise NodeError("Only an output has On Fail")
+        own = {s.key for s in kind_type.settings}
+        for key in {"seconds", "fail_enabled"} & sent - own:
+            raise NodeError(f"A {node.kind} has no setting '{key}'")
         if "definition_id" in sent:
             await self._link(node, data.definition_id)
         for field in ("name", "x", "y", "width", "height", "fail_enabled", "seconds"):
@@ -224,16 +202,13 @@ class WorkflowRepository:
         ``None`` turns an action back into an empty shell and a pipeline node into an unset one.
         """
         workflow = await self._session.get(Workflow, node.workflow_id)
-        if (
-            node.kind not in (NodeKind.ACTION.value, NodeKind.PIPELINE.value)
-            or workflow is None
-            or workflow.kind != "workflow"
-        ):
-            raise NodeError("Only actions and pipeline nodes of a pipeline can be linked")
-        calls = node.kind == NodeKind.PIPELINE.value
+        links_to = node_type(node.kind).links_to
+        if links_to is None or workflow is None:
+            raise NodeError(f"A {node.kind} does not link to anything")
+        calls = links_to == "workflow"
         if definition_id is not None:
             target = await self._session.get(Workflow, definition_id)
-            if target is None or target.kind != ("workflow" if calls else "action"):
+            if target is None or target.kind != links_to:
                 raise NodeError(
                     "That pipeline does not exist" if calls else "That action does not exist"
                 )
@@ -301,7 +276,7 @@ class WorkflowRepository:
     async def delete_node(self, workflow: Workflow, node: WorkflowNode) -> None:
         """Delete a node; its actions (for a stage) and edges go with it (cascade)."""
         kind = NodeKind(node.kind)
-        if kind in FIXED_KINDS[workflow.kind]:
+        if node_type(kind).fixed:
             same = await self._session.scalar(
                 select(func.count())
                 .select_from(WorkflowNode)

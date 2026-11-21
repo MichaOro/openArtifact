@@ -15,6 +15,7 @@ from openartifact.database import get_db_session
 from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.snapshot import graph_of
 from openartifact.models import Workflow, WorkflowNode
+from openartifact.workflow.node_types import NODE_TYPES
 from openartifact.workflow.repository import NodeError, WorkflowRepository
 from openartifact.workflow.rules import EdgeError
 from openartifact.workflow.schemas import (
@@ -70,6 +71,12 @@ async def list_workflows(
     """List all workflows (``kind=action``: the action definitions), most recently changed first."""
     workflows = await WorkflowRepository(session).list_all(kind)
     return [WorkflowRead.model_validate(w) for w in workflows]
+
+
+@router.get("/node-types")
+async def list_node_types() -> list[dict[str, Any]]:
+    """The kinds of nodes: scope, ports, settings, what they link to (the editor draws from this)."""
+    return [t.describe() for t in NODE_TYPES.values()]
 
 
 @router.post("", response_model=WorkflowRead, status_code=status.HTTP_201_CREATED)

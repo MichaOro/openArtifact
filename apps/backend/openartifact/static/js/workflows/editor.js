@@ -5,10 +5,12 @@ import { InlineName } from "../components/inline-name.js";
 import { Modal } from "../components/modal.js";
 import { addNode, connect, createWorkflow, listWorkflows, deleteNode, disconnect, loadWorkflow, renameWorkflow, restyleEdge, updateNode } from "./api.js";
 import { Canvas } from "./canvas.js";
-import { ACTION_GAP, EDGE_STYLES, INPUTS, displayName, OUTPUTS, PAD, PORT_LABELS, SIZE, TOP_LEVEL_GAP, canConnect, fitStage } from "./graph.js";
+import { ACTION_GAP, EDGE_STYLES, displayName, PAD, TOP_LEVEL_GAP, canConnect, fitStage, sizeOf } from "./graph.js";
+import { InspectorBlocks, field, heading, note } from "./inspector.js";
+import { addableIn, typeOf } from "./node-types.js";
 
 const LAST_STAGE = "oa-last-pipeline"; // read by main.js
-const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output", timer: "Timer", pipeline: "Pipeline" };
+const EDITOR_PATHS = { workflow: "/pipelines", action: "/actions" }; // where a pipeline / an action definition is edited
 
 export class WorkflowEditor {
   /** @param {HTMLElement} root the element carrying data-workflow-id */
@@ -25,6 +27,7 @@ export class WorkflowEditor {
     this.inspector = root.querySelector("[data-inspector]");
     this.zoomLabel = root.querySelector("[data-zoom-label]");
     this.confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
+    this.blocks = new InspectorBlocks(this.#blockActions());
     this.canvas = new Canvas({
       viewport: root.querySelector("[data-viewport]"),
       nodes: this.nodes,
@@ -79,10 +82,11 @@ export class WorkflowEditor {
     }
   }
 
-  /** Coming back from an action definition: offer the way back, or select the action that was being defined. */
+  /** Opened from a node of a pipeline: offer the way back; back in a pipeline: select that node again. */
   async #onFirstLoad() {
     const params = new URLSearchParams(window.location.search);
-    if (this.isAction) return this.#setupBack(params.get("from"), params.get("node"));
+    this.#setupBack(params.get("from"), params.get("node")); // opened from a node of a pipeline
+    if (this.isAction) return undefined;
     this.#remember(null);
     const wanted = params.get("select");
     if (wanted && this.nodes.has(wanted)) {
@@ -149,11 +153,20 @@ export class WorkflowEditor {
 
   // ── adding ─────────────────────────────────────────────────────────
 
-  /** The "+" menu on the canvas; trigger and complete are always there, so it only offers stages. */
+  /** The "+" menu on the canvas offers every kind that can be added here (fixed kinds are always there). */
   #bindAddMenu() {
     const toggle = this.root.querySelector("[data-add-menu]");
     if (!toggle) return;
     const list = this.root.querySelector("[data-add-list]");
+    for (const type of addableIn(this.isAction ? "action" : "workflow")) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "wf-add__item";
+      item.setAttribute("role", "menuitem");
+      item.dataset.add = type.kind;
+      item.textContent = type.label;
+      list.append(item);
+    }
     const setOpen = (open) => {
       list.hidden = !open;
       toggle.setAttribute("aria-expanded", String(open));
@@ -185,13 +198,12 @@ export class WorkflowEditor {
    */
   async #addBeforeEnd(kind) {
     const nodes = [...this.nodes.values()];
-    const widthOf = (n) => (n.kind === "stage" ? n.width : SIZE[n.kind].width);
-    const inChain = this.isAction ? ["trigger", "timer"] : ["trigger", "stage", "pipeline"];
-    const before = nodes.filter((n) => inChain.includes(n.kind));
+    const widthOf = (n) => sizeOf(n).width;
+    const before = nodes.filter((n) => typeOf(n).chain);
     const right = Math.max(...before.map((n) => n.x + widthOf(n)), 60);
     const created = await this.#create({ kind, x: Math.round(right + TOP_LEVEL_GAP), y: kind === "stage" ? 40 : 172 });
     if (!created) return;
-    const ending = nodes.find((n) => n.kind === "complete" || n.kind === "output");
+    const ending = nodes.find((n) => typeOf(n).ending);
     const free = created.x + widthOf(created) + TOP_LEVEL_GAP;
     if (ending && ending.x < free) {
       ending.x = free;
@@ -204,7 +216,7 @@ export class WorkflowEditor {
   async #addAction(stage) {
     const actions = [...this.nodes.values()].filter((n) => n.stage_id === stage.id);
     // flows run left to right: a new action goes to the right of the last one
-    const x = actions.length ? Math.max(...actions.map((a) => a.x + SIZE.action.width)) + ACTION_GAP : PAD;
+    const x = actions.length ? Math.max(...actions.map((a) => a.x + sizeOf(a).width)) + ACTION_GAP : PAD;
     const created = await this.#create({ kind: "action", stage_id: stage.id, x, y: PAD * 2 });
     if (created) await this.#growStage(stage);
   }
@@ -267,14 +279,17 @@ export class WorkflowEditor {
     this.#renderInspector();
   }
 
-  async #setFail(node, enabled) {
-    node.fail_enabled = enabled;
-    if (!enabled) {
-      for (const [id, edge] of this.edges) if (edge.target_id === node.id && edge.target_port === "fail") this.edges.delete(id);
+  /** Change a setting of the node's kind; connections at ports that are gone with it go too. */
+  async #setSetting(node, key, value) {
+    node[key] = value;
+    const type = typeOf(node);
+    for (const [id, edge] of this.edges) {
+      const port = edge.source_id === node.id ? edge.source_port : edge.target_id === node.id ? edge.target_port : null;
+      if (port && !type.isVisible(node, port)) this.edges.delete(id);
     }
     this.canvas.sync();
     this.#renderInspector();
-    await this.#save(() => updateNode(this.id, node.id, { fail_enabled: enabled }));
+    await this.#save(() => updateNode(this.id, node.id, { [key]: value }));
   }
 
   async #renameWorkflow(name) {
@@ -317,9 +332,9 @@ export class WorkflowEditor {
     await this.#save(() => restyleEdge(this.id, edge.id, style));
   }
 
-  /** Trigger, complete and output come with the workflow; the last one of each stays. */
+  /** Fixed kinds (trigger, complete, output) come with the graph; the last one of each stays. */
   #isFixed(node) {
-    if (!["trigger", "complete", "output"].includes(node.kind)) return false;
+    if (!typeOf(node).fixed) return false;
     return [...this.nodes.values()].filter((n) => n.kind === node.kind).length <= 1;
   }
 
@@ -331,7 +346,7 @@ export class WorkflowEditor {
     const inside = [...this.nodes.values()].filter((n) => n.stage_id === node.id).length;
     const extra = inside ? ` and its ${inside} action${inside === 1 ? "" : "s"}` : "";
     this.confirm.open({
-      message: `Delete ${KIND_LABELS[node.kind].toLowerCase()} "${displayName(node)}"${extra}? Its connections are removed too.`,
+      message: `Delete ${typeOf(node).label.toLowerCase()} "${displayName(node)}"${extra}? Its connections are removed too.`,
       onConfirm: async () => {
         await deleteNode(this.id, node.id);
         await this.load();
@@ -352,42 +367,14 @@ export class WorkflowEditor {
     return this.#workflowInspector();
   }
 
-  /** Title and caption of the inspector; `rename` (label and callback) makes the title editable in place. */
-  #heading(text, caption, rename = null) {
-    const wrap = document.createElement("div");
-    wrap.className = "wf-inspector__heading";
-    const title = document.createElement("h2");
-    title.textContent = text;
-    wrap.append(title);
-    if (rename) new InlineName(title, rename);
-    if (caption && caption !== text) {
-      const small = document.createElement("p");
-      small.textContent = caption;
-      wrap.append(small);
-    }
-    return wrap;
-  }
-
-  #field(label, control) {
-    const wrap = document.createElement("div");
-    wrap.className = "field";
-    const text = document.createElement("label");
-    text.className = "field__label";
-    text.textContent = label;
-    control.id = control.id || `wf-field-${Math.random().toString(36).slice(2, 8)}`;
-    text.htmlFor = control.id;
-    wrap.append(text, control);
-    return wrap;
-  }
-
   #workflowInspector() {
     const count = (kind) => [...this.nodes.values()].filter((n) => n.kind === kind).length;
     this.inspector.append(
-      this.#heading(this.workflow?.name ?? "Pipeline", "Draft", {
+      heading(this.workflow?.name ?? "Pipeline", "Draft", {
         label: this.isAction ? "Action name" : "Pipeline name",
         onCommit: (name) => this.#renameWorkflow(name),
       }),
-      this.#note(
+      note(
         this.isAction
           ? "The trigger starts this action automatically; the output always offers On Pass and optionally On Fail."
           : `${count("stage")} stages, ${count("action")} actions. Select a node to edit it, drag from a port to connect.`,
@@ -395,142 +382,72 @@ export class WorkflowEditor {
     );
   }
 
-  #note(text) {
-    const p = document.createElement("p");
-    p.className = "wf-inspector__note";
-    p.textContent = text;
-    return p;
-  }
-
+  /** The title, then the building blocks the node's kind asks for (see node-types.js). */
   #nodeInspector(node) {
-    const el = this.inspector;
-    const calls = node.kind === "pipeline";
-    const shell = (node.kind === "action" && !this.isAction) || calls;
-    const caption = calls ? "Pipeline" : shell && !node.definition_id ? "Empty action" : KIND_LABELS[node.kind];
-    // a shell is named by its definition; every other node by its own name
-    el.append(this.#heading(displayName(node), caption, shell ? null : { label: `${KIND_LABELS[node.kind]} name`, onCommit: (name) => this.#rename(node, name) }));
-    if (calls) el.append(this.#calledPipelineSection(node));
-    else if (shell) el.append(this.#definitionSection(node));
-
-    if (node.kind === "timer") el.append(this.#secondsField(node));
-    const outputs = shell ? [] : OUTPUTS[node.kind];
-    if (outputs.length) {
-      const routing = document.createElement("div");
-      routing.className = "wf-inspector__section";
-      const title = document.createElement("h3");
-      title.textContent = "Routing";
-      routing.append(title);
-      for (const port of outputs) routing.append(this.#field(PORT_LABELS[port], this.#routeSelect(node, port)));
-      el.append(routing);
-    }
-    if (node.kind === "stage") {
-      const add = document.createElement("button");
-      add.type = "button";
-      add.className = "button button--ghost";
-      add.textContent = "Add action";
-      add.addEventListener("click", () => this.#addAction(node));
-      el.append(add);
-    }
-    if (node.kind === "output") el.append(this.#failToggle(node));
-    if ((shell && !calls) || this.#isFixed(node)) return;
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "button button--ghost wf-delete";
-    remove.textContent = `Delete ${KIND_LABELS[node.kind].toLowerCase()}`;
-    remove.addEventListener("click", () => this.requestDelete({ type: "node", id: node.id }));
-    el.append(remove);
+    const type = typeOf(node);
+    const rename = type.renamable(node) ? { label: `${type.label} name`, onCommit: (name) => this.#rename(node, name) } : null;
+    this.inspector.append(heading(displayName(node), type.caption(node) ?? type.label, rename));
+    for (const block of type.sections(node, this.blocks)) if (block) this.inspector.append(block);
   }
 
-  /** The pipeline a pipeline node calls: it runs up to its complete, then this pipeline goes on. */
-  #calledPipelineSection(node) {
-    const section = document.createElement("div");
-    section.className = "wf-inspector__section";
-    const title = document.createElement("h3");
-    title.textContent = "Calls";
-    const select = document.createElement("select");
-    select.className = "field__control";
-    select.append(new Option("Not chosen", ""));
-    select.addEventListener("change", () => this.#link(node, select.value || null));
-    section.append(title, this.#field("Pipeline", select));
-    listWorkflows("workflow").then((pipelines) => {
-      for (const pipeline of pipelines.filter((p) => p.id !== this.id)) {
-        const option = new Option(pipeline.name, pipeline.id);
-        option.selected = pipeline.id === node.definition_id;
-        select.append(option);
-      }
-    }).catch(() => this.#showError("The pipelines could not be loaded."));
-    if (node.definition_id) {
-      const open = document.createElement("a");
-      open.className = "button button--ghost";
-      open.href = `/pipelines/${encodeURIComponent(node.definition_slug)}`;
-      open.textContent = "Open pipeline";
-      section.append(open);
-    }
-    return section;
-  }
-
-  /** An action in a stage is an empty shell until it is linked to an action definition. */
-  #definitionSection(node) {
-    const section = document.createElement("div");
-    section.className = "wf-inspector__section";
-    const title = document.createElement("h3");
-    title.textContent = "Definition";
-    const select = document.createElement("select");
-    select.className = "field__control";
-    select.append(new Option("Not defined", ""));
-    select.addEventListener("change", () => this.#link(node, select.value || null));
-    section.append(title, this.#field("Action", select));
-    listWorkflows("action").then((definitions) => {
-      for (const definition of definitions) {
-        const option = new Option(definition.name, definition.id);
-        option.selected = definition.id === node.definition_id;
-        select.append(option);
-      }
-    }).catch(() => this.#showError("The actions could not be loaded."));
-
-    section.append(this.#actionBar(node));
-    return section;
-  }
-
-  /** New, Edit and Delete in one compact row: icon and a short text each. */
-  #actionBar(node) {
-    const bar = document.createElement("div");
-    bar.className = "wf-actionbar";
-    const make = (tag, icon, text, className = "") => {
-      const el = document.createElement(tag);
-      el.className = `button button--ghost button--sm ${className}`.trim();
-      if (tag === "button") el.type = "button";
-      const glyph = document.getElementById("wf-icons").content.querySelector(`[data-icon=${icon}]`).cloneNode(true);
-      el.append(glyph, document.createTextNode(text));
-      return el;
+  /** What the inspector blocks may do in this editor. */
+  #blockActions() {
+    return {
+      currentId: this.id,
+      setSetting: (node, key, value) => this.#setSetting(node, key, value),
+      link: (node, targetId) => this.#link(node, targetId),
+      askNew: (node) => this.#askNew(node),
+      linkUrl: (node) => this.#linkUrl(node, node.definition_slug),
+      remove: (node) => this.requestDelete({ type: "node", id: node.id }),
+      addAction: (stage) => this.#addAction(stage),
+      listTargets: (kind) => listWorkflows(kind),
+      showError: (message) => this.#showError(message),
     };
-    const create = make("button", "plus", "New");
-    create.addEventListener("click", () => this.#askNewAction(node));
-    const edit = make("a", "pencil", "Edit");
-    if (node.definition_id) edit.href = this.#definitionUrl(node, node.definition_slug);
-    else edit.setAttribute("aria-disabled", "true");
-    const remove = make("button", "trash", "Delete", "wf-delete");
-    remove.addEventListener("click", () => this.requestDelete({ type: "node", id: node.id }));
-    bar.append(create, edit, remove);
-    return bar;
   }
 
-  /** The small window for the title of a new action (like creating an artifact on the board). */
-  #askNewAction(node) {
-    this.newAction ??= this.#bindNewActionDialog();
-    this.newAction.node = node;
-    this.newAction.input.value = "";
-    this.newAction.error.hidden = true;
-    this.newAction.modal.open();
+  /** Where the thing a node links to is edited, with the way back to this node. */
+  #linkUrl(node, slug) {
+    const path = EDITOR_PATHS[typeOf(node).links_to];
+    return `${path}/${encodeURIComponent(slug)}?from=${encodeURIComponent(this.workflow.slug)}&node=${encodeURIComponent(node.id)}`;
   }
 
-  #bindNewActionDialog() {
-    const modal = new Modal(document.getElementById("action-modal"));
-    const input = document.getElementById("action-name");
-    const error = document.getElementById("action-name-error");
-    const dialog = { modal, input, error, node: null };
+  async #link(node, targetId) {
+    await this.#save(async () => {
+      const updated = await updateNode(this.id, node.id, { definition_id: targetId });
+      Object.assign(node, {
+        definition_id: updated.definition_id,
+        definition_name: updated.definition_name,
+        definition_slug: updated.definition_slug,
+        definition_fail_enabled: updated.definition_fail_enabled,
+      });
+    });
+    const type = typeOf(node);
+    for (const [id, edge] of this.edges) {
+      if (edge.source_id === node.id && !type.isVisible(node, edge.source_port)) this.edges.delete(id); // e.g. no On Fail
+    }
+    this.canvas.sync();
+    this.#renderInspector();
+  }
+
+  /** The small window for the name of something new to link to (like creating an artifact on the board). */
+  #askNew(node) {
+    this.newDialog ??= this.#bindNewDialog();
+    const what = typeOf(node).links_to === "action" ? "action" : "pipeline";
+    this.newDialog.node = node;
+    this.newDialog.title.textContent = `New ${what}`;
+    this.newDialog.input.value = "";
+    this.newDialog.error.hidden = true;
+    this.newDialog.modal.open();
+  }
+
+  #bindNewDialog() {
+    const root = document.getElementById("new-modal");
+    const modal = new Modal(root);
+    const input = document.getElementById("new-name");
+    const error = document.getElementById("new-name-error");
+    const dialog = { modal, input, error, title: root.querySelector(".modal__title"), node: null };
     input.addEventListener("input", () => (error.hidden = true));
-    document.getElementById("action-form").addEventListener("submit", async (event) => {
+    document.getElementById("new-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!input.value.trim()) {
         error.textContent = "Please enter a title.";
@@ -539,77 +456,23 @@ export class WorkflowEditor {
         return;
       }
       modal.close();
-      await this.#createDefinition(dialog.node, input.value);
+      await this.#createAndOpen(dialog.node, input.value.trim());
     });
     return dialog;
   }
 
-  #definitionUrl(node, definitionSlug) {
-    return `/actions/${encodeURIComponent(definitionSlug)}?from=${encodeURIComponent(this.workflow.slug)}&node=${encodeURIComponent(node.id)}`;
-  }
-
-  async #link(node, definitionId) {
-    await this.#save(async () => {
-      const updated = await updateNode(this.id, node.id, { definition_id: definitionId });
-      Object.assign(node, { definition_id: updated.definition_id, definition_name: updated.definition_name, definition_slug: updated.definition_slug, definition_fail_enabled: updated.definition_fail_enabled });
-    });
-    if (node.definition_fail_enabled === false) {
-      for (const [id, edge] of this.edges) if (edge.source_id === node.id && edge.source_port === "error") this.edges.delete(id);
-    }
-    this.canvas.sync();
-    this.#renderInspector();
-  }
-
-  /** Create an action definition under the entered name, link the shell to it and go and define it. */
-  async #createDefinition(node, name) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
+  /** Create what the node links to under the entered name, link the node to it and go and edit it. */
+  async #createAndOpen(node, name) {
     let created = null;
     const saved = await this.#save(async () => {
-      created = await createWorkflow(trimmed, "action");
+      created = await createWorkflow(name, typeOf(node).links_to);
       await updateNode(this.id, node.id, { definition_id: created.id });
     });
-    if (saved && created) window.location.assign(this.#definitionUrl(node, created.slug));
+    if (saved && created) window.location.assign(this.#linkUrl(node, created.slug));
   }
 
-  /** How long a timer pauses the run. */
-  #secondsField(node) {
-    const input = document.createElement("input");
-    input.className = "field__control";
-    input.type = "number";
-    input.min = "1";
-    input.max = "86400";
-    input.step = "1";
-    input.value = String(node.seconds);
-    input.addEventListener("change", async () => {
-      const seconds = Math.min(86400, Math.max(1, Math.round(Number(input.value) || node.seconds)));
-      input.value = String(seconds);
-      node.seconds = seconds;
-      this.canvas.sync();
-      await this.#save(() => updateNode(this.id, node.id, { seconds }));
-    });
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") input.blur();
-    });
-    return this.#field("Seconds", input);
-  }
-
-  /** A switch for On Fail (On Pass is always there). */
-  #failToggle(node) {
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "wf-switch";
-    toggle.setAttribute("role", "switch");
-    toggle.setAttribute("aria-checked", String(node.fail_enabled));
-    toggle.innerHTML = '<span class="wf-switch__state"></span><span class="wf-switch__thumb"></span>';
-    toggle.firstElementChild.textContent = node.fail_enabled ? "On" : "Off";
-    toggle.addEventListener("click", () => this.#setFail(node, !node.fail_enabled));
-    const field = this.#field("On Fail", toggle);
-    field.classList.add("field--row");
-    return field;
-  }
-
-  /** A select with every valid target of an output port: the keyboard way to connect. */
+  /** A select with every valid target of an output port: the keyboard way to connect.
+   * Quarantined since 2026-11-21 (connections are made by dragging); see quarantine.json. */
   #routeSelect(node, port) {
     const select = document.createElement("select");
     select.className = "field__control";
@@ -617,9 +480,9 @@ export class WorkflowEditor {
     select.append(none);
     const current = [...this.edges.values()].find((e) => e.source_id === node.id && e.source_port === port);
     for (const target of this.nodes.values()) {
-      for (const targetPort of INPUTS[target.kind]) {
+      for (const targetPort of typeOf(target).inputs.map((p) => p.name)) {
         if (!canConnect(node, port, target, targetPort)) continue;
-        const label = targetPort === "end" ? `${target.name} · end of stage` : target.kind === "output" ? `${target.name} · ${PORT_LABELS[targetPort]}` : displayName(target);
+        const label = targetPort === "end" ? `${target.name} · end of stage` : target.kind === "output" ? `${target.name} · ${typeOf(target).portLabel(targetPort)}` : displayName(target);
         const option = new Option(label, `${target.id}|${targetPort}`);
         select.append(option);
         if (current?.target_id === target.id && current.target_port === targetPort) option.selected = true;
@@ -659,8 +522,8 @@ export class WorkflowEditor {
       styles.append(button);
     }
     this.inspector.append(
-      this.#heading("Connection", `${source?.name ?? "?"} (${PORT_LABELS[edge.source_port]}) → ${target?.name ?? "?"}`),
-      this.#field("Line", styles),
+      heading("Connection", `${source ? displayName(source) : "?"} (${source ? typeOf(source).portLabel(edge.source_port) : "?"}) → ${target ? displayName(target) : "?"}`),
+      field("Line", styles),
       remove,
     );
   }

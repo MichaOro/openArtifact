@@ -1,0 +1,14 @@
+{
+  "about": "Code that is no longer used but not removed yet. Nothing here moves: an entry only notes it. tools/check_quarantine.py fails once an entry is 14 days old and `usage` (a regular expression for calls, not the definition) still finds nothing; then the code is removed together with its entry. If `usage` finds calls again, the entry is dropped.",
+  "days": 14,
+  "entries": [
+    {
+      "name": "Routing select of the workflow inspector",
+      "file": "apps/backend/openartifact/static/js/workflows/editor.js",
+      "symbol": "#routeSelect",
+      "usage": "this\\.#routeSelect\\(",
+      "since": "2026-11-21",
+      "reason": "Connections are made by dragging; the routing select (\"Next\") was removed from the inspector."
+    }
+  ]
+}

@@ -29,30 +29,20 @@
             </div>
             <div class="wf-add">
                 <button type="button" class="icon-button" data-add-menu aria-haspopup="menu" aria-expanded="false" aria-label="Add to the canvas" title="Add">{{ icon("plus") }}</button>
-                <div class="wf-add__menu glass" role="menu" aria-label="Add" hidden data-add-list>
-                    {% if section.kind == "workflow" %}
-                    <button type="button" class="wf-add__item" role="menuitem" data-add="stage">Stage</button>
-                    <button type="button" class="wf-add__item" role="menuitem" data-add="pipeline">Pipeline</button>
-                    {% else %}
-                    <button type="button" class="wf-add__item" role="menuitem" data-add="timer">Timer</button>
-                    {% endif %}
-                </div>
+                <div class="wf-add__menu glass" role="menu" aria-label="Add" hidden data-add-list></div>
             </div>
         </div>
         <aside class="wf-inspector glass" data-inspector aria-label="Details"></aside>
     </div>
 </div>
-{% if section.kind == "workflow" %}
-{# icons for the inspector buttons that are built in JavaScript #}
-<template id="wf-icons">{% for name in ["plus", "pencil", "trash"] %}<span data-icon="{{ name }}">{{ icon(name) }}</span>{% endfor %}</template>
-{% call modal("action-modal", "New action") %}
-<form class="task-form" id="action-form" novalidate>
+{% call modal("new-modal", "New") %}
+<form class="task-form" id="new-form" novalidate>
     <div class="modal__body">
         <div class="field">
-            <label class="field__label" for="action-name">Title <span class="field__required" aria-hidden="true">*</span></label>
-            <input class="field__control" id="action-name" type="text" required maxlength="255"
-                   autocomplete="off" aria-required="true" aria-describedby="action-name-error" data-autofocus>
-            <p class="field__error" id="action-name-error" role="alert" hidden></p>
+            <label class="field__label" for="new-name">Title <span class="field__required" aria-hidden="true">*</span></label>
+            <input class="field__control" id="new-name" type="text" required maxlength="255"
+                   autocomplete="off" aria-required="true" aria-describedby="new-name-error" data-autofocus>
+            <p class="field__error" id="new-name-error" role="alert" hidden></p>
         </div>
     </div>
     <footer class="modal__footer">
@@ -61,7 +51,6 @@
     </footer>
 </form>
 {% endcall %}
-{% endif %}
 {{ confirm_modal("confirm-modal", "Delete") }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/workflows/editor-main.js"></script>{% endblock %}

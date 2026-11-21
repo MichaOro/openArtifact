@@ -81,13 +81,7 @@
 .wf-node--pipeline { --node-color: var(--lane-hue-2); display: flex; align-items: center; padding: 0 var(--space-4); }
 .wf-node--complete { --node-color: var(--lane-hue-8); display: flex; align-items: center; padding: 0 var(--space-4); }
 .wf-node--output { --node-color: var(--lane-hue-3); padding: var(--space-3) var(--space-4); }
-.wf-node--output .wf-port--pass { top: 60px; left: 0; }
-.wf-node--output .wf-port--fail { top: 84px; left: 0; border-color: var(--color-danger); }
-.wf-node--output:not(.has-fail) .wf-port--fail { display: none; }
-.wf-node--output .wf-port[data-label]::after { left: 14px; right: auto; white-space: nowrap; }
 .wf-node--stage { --node-color: var(--lane-hue-1); background: var(--stage-bg); border-color: var(--stage-border); }
-.wf-node--action.is-no-fail .wf-port--error { display: none; }
-.wf-node--action.is-no-fail .wf-port--pass { top: 50%; }
 .wf-node__text { display: flex; flex-direction: column; min-width: 0; }
 .wf-node__name { font-size: 0.875rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wf-node__kind { font-size: 0.6875rem; color: var(--color-text-muted); }
@@ -132,18 +126,15 @@
   color: var(--color-text-muted);
   pointer-events: none;
 }
-.wf-port--pass, .wf-port--error { left: 100%; }
-.wf-port--pass { top: 24px; border-color: var(--lane-hue-3); }
-.wf-port--error { top: 48px; border-color: var(--color-danger); }
-.wf-port--pass::after, .wf-port--error::after { right: 14px; }
-.wf-port--in { left: 0; top: 50%; }
-.wf-port--out { left: 100%; top: 50%; }
+/* ports are placed by their node's view (node-types.js); here only their colour and label side */
+.wf-port--pass { border-color: var(--lane-hue-3); }
+.wf-port--error, .wf-port--fail { border-color: var(--color-danger); }
+.wf-port[data-side="right"]::after { right: 14px; }
+.wf-port[data-side="left"]::after { left: 14px; white-space: nowrap; }
 /* a stage has three points per side; only used ones show, all of them while hovering or connecting */
 .wf-node--stage > .wf-port { opacity: 0; pointer-events: none; }
 .wf-node--stage > .wf-port.is-used { opacity: 1; pointer-events: auto; }
 .wf-node--stage:hover > .wf-port, .wf-node--stage.is-selected > .wf-port, .is-connecting .wf-node--stage > .wf-port { opacity: 1; pointer-events: auto; }
-.wf-port--start { left: 0; }
-.wf-port--end { left: 100%; }
 .wf-port.is-valid { background: var(--accent-soft); border-color: var(--color-accent); transform: scale(1.35); }
 .wf-port.is-hover { background: var(--color-accent); }
 

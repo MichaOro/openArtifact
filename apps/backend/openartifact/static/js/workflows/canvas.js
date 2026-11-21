@@ -5,11 +5,10 @@
  *  - drag from an output port to an input port to connect;
  *  - drag the background to pan, wheel or the zoom buttons to zoom;
  *  - click a node or an edge to select it. */
-import { PAD, SLOTS, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf, slotY } from "./graph.js";
+import { PAD, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./graph.js";
+import { typeOf } from "./node-types.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output", timer: "Timer", pipeline: "Pipeline" };
-const OUTPUT_LABELS = { pass: "Pass", error: "Error", fail: "On Fail" };
 const DRAG_THRESHOLD = 4;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
@@ -67,14 +66,14 @@ export class Canvas {
         this.elements.delete(id);
       }
     }
-    const ordered = [...this.nodes.values()].sort((a, b) => (a.kind === "action") - (b.kind === "action"));
+    const ordered = [...this.nodes.values()].sort((a, b) => Boolean(a.stage_id) - Boolean(b.stage_id)); // containers first
     for (const node of ordered) {
       let el = this.elements.get(node.id);
       if (!el) {
         el = this.#createNode(node);
         this.elements.set(node.id, el);
       }
-      const host = node.kind === "action" ? this.elements.get(node.stage_id)?.querySelector(".wf-stage__body") : this.nodeLayer;
+      const host = node.stage_id ? this.elements.get(node.stage_id)?.querySelector(".wf-stage__body") : this.nodeLayer;
       if (host && el.parentElement !== host) host.append(el);
       this.#updateNode(node, el);
     }
@@ -82,91 +81,54 @@ export class Canvas {
   }
 
   #createNode(node) {
-    const el = document.createElement(node.kind === "stage" ? "section" : "div");
+    const type = typeOf(node);
+    const el = document.createElement(type.constructor.kind === "stage" ? "section" : "div");
     el.className = `wf-node wf-node--${node.kind}`;
     el.dataset.nodeId = node.id;
     el.tabIndex = 0;
     const name = document.createElement("strong");
     name.className = "wf-node__name";
-    const kind = document.createElement("small");
-    kind.className = "wf-node__kind";
-    kind.textContent = KIND_LABELS[node.kind];
-    if (node.kind === "stage") {
-      const header = document.createElement("header");
-      header.className = "wf-stage__header";
-      const add = document.createElement("button");
-      add.type = "button";
-      add.className = "wf-stage__add";
-      add.dataset.addAction = "";
-      add.textContent = "+ Action";
-      header.append(kind, name, add);
-      const body = document.createElement("div");
-      body.className = "wf-stage__body";
-      el.append(header, body);
-      for (let slot = 0; slot < SLOTS; slot += 1) el.append(this.#port(node, "start", "Start", slot), this.#port(node, "end", "End", slot));
-    } else {
-      const text = document.createElement("div");
-      text.className = "wf-node__text";
-      text.append(name, kind);
-      el.append(text);
-      for (const port of ["in", "out", "pass", "fail", "error"]) {
-        if (this.#hasPort(node.kind, port)) el.append(this.#port(node, port, OUTPUT_LABELS[port] ?? "Input"));
-      }
-    }
+    const caption = document.createElement("small");
+    caption.className = "wf-node__kind";
+    type.render(el, node, { name, caption });
+    for (const port of type.ports()) el.append(this.#port(node, type, port));
     return el;
   }
 
-  #hasPort(kind, port) {
-    return { trigger: ["out"], action: ["in", "pass", "error"], complete: ["in"], output: ["pass", "fail"], timer: ["in", "out"], pipeline: ["in", "out"] }[kind]?.includes(port) ?? false;
-  }
-
   /** A port dot. A stage's start and end work both ways ("both"): they receive and they feed. */
-  #port(node, port, title, slot = 0) {
+  #port(node, type, port) {
     const el = document.createElement("span");
-    el.className = `wf-port wf-port--${port}`;
-    el.dataset.port = port;
-    el.dataset.slot = String(slot);
+    el.className = `wf-port wf-port--${port.name}`;
+    el.dataset.port = port.name;
+    el.dataset.slot = String(port.slot);
     el.dataset.nodeId = node.id;
-    el.dataset.direction = node.kind === "stage" ? "both" : node.kind !== "output" && ["out", "pass", "error"].includes(port) ? "output" : "input";
+    el.dataset.direction = port.direction;
+    el.dataset.side = port.side;
     el.setAttribute("aria-hidden", "true");
-    el.title = title;
-    if (port === "pass" || port === "error" || port === "fail") el.dataset.label = node.kind === "output" ? (port === "pass" ? "On Pass" : "On Fail") : title;
+    el.title = port.label;
+    if (type.constructor.portLabels) el.dataset.label = port.label;
     return el;
   }
 
   #updateNode(node, el) {
+    const type = typeOf(node);
     const { width, height } = sizeOf(node);
     el.style.left = `${node.x}px`;
     el.style.top = `${node.y}px`;
     el.style.width = `${width}px`;
     el.style.height = `${height}px`;
     el.querySelector(".wf-node__name").textContent = displayName(node);
-    el.setAttribute("aria-label", `${KIND_LABELS[node.kind]}: ${displayName(node)}`);
-    if (node.kind === "action" && node.stage_id) {
-      el.querySelector(".wf-node__kind").textContent = node.definition_id ? "Action" : "Empty action";
-      el.classList.toggle("is-no-fail", node.definition_fail_enabled === false); // its definition has no On Fail
-    }
-    if (node.kind === "output") {
-      el.classList.toggle("has-fail", node.fail_enabled);
-    }
-    if (node.kind !== "stage" && node.kind !== "action") {
-      // the caption only says something once the node has been given another name
-      const caption = el.querySelector(".wf-node__kind");
-      caption.hidden = displayName(node) === KIND_LABELS[node.kind];
-      if (node.kind === "pipeline") {
-        caption.textContent = node.definition_id ? "Pipeline" : "No pipeline chosen";
-        caption.hidden = false;
-      }
-      if (node.kind === "timer") {
-        caption.textContent = `${node.seconds} s`; // what a timer waits for is always worth showing
-        caption.hidden = false;
-      }
-    }
-    if (node.kind === "stage") {
-      el.querySelectorAll(":scope > .wf-port").forEach((port) => {
-        port.style.top = `${slotY(height, Number(port.dataset.slot))}px`;
-      });
-    }
+    el.setAttribute("aria-label", `${type.label}: ${displayName(node)}`);
+    const caption = el.querySelector(".wf-node__kind");
+    const text = type.caption(node);
+    caption.textContent = text ?? "";
+    caption.hidden = text === null;
+    el.querySelectorAll(":scope > .wf-port").forEach((port) => {
+      const at = type.portLocal(node, port.dataset.port, Number(port.dataset.slot));
+      port.style.left = `${at.x}px`;
+      port.style.top = `${at.y}px`;
+      port.hidden = !type.isVisible(node, port.dataset.port);
+    });
     el.classList.toggle("is-selected", this.selection?.type === "node" && this.selection.id === node.id);
   }
 
@@ -372,7 +334,7 @@ export class Canvas {
 
   /** Move a node; an action stays inside its stage and makes the stage grow if needed. */
   #moveNode(node, x, y) {
-    if (node.kind === "action") {
+    if (node.stage_id) {
       node.x = Math.max(PAD / 2, x);
       node.y = Math.max(PAD / 2, y);
       const stage = this.nodes.get(node.stage_id);

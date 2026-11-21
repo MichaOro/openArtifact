@@ -191,22 +191,6 @@ def test_only_valid_targets_light_up_and_invalid_drops_do_nothing(
     expect(page.locator(".wf-port.is-valid")).to_have_count(0)
 
 
-def test_connect_through_the_inspector_with_the_keyboard(
-    page: Page, base_url: str, api: httpx.Client
-) -> None:
-    workflow = _flow(page, base_url, api)
-    trigger = page.locator(".wf-node--trigger")
-    trigger.focus()
-    page.keyboard.press("Enter")  # selects and moves focus to the inspector
-    route = page.locator(".wf-inspector select").first
-    route.select_option(label="Stage")
-    expect(page.locator(".wf-edge")).to_have_count(1)
-    _expect_edges(page, api, workflow, [("out", "start")])
-    route.select_option(label="Not connected")
-    expect(page.locator(".wf-edge")).to_have_count(0)
-    _expect_edges(page, api, workflow, [])
-
-
 def test_an_output_has_one_edge_and_reconnecting_replaces_it(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
@@ -444,7 +428,7 @@ def test_the_add_menu_offers_stages_and_trigger_and_complete_stay(
     menu = page.locator("[data-add-list]")
     expect(menu).to_be_hidden()
     page.click("[data-add-menu]")
-    expect(menu.locator("[data-add]")).to_have_text(["Stage"])
+    expect(menu.locator("[data-add]")).to_have_text(["Stage", "Pipeline"])
     page.keyboard.press("Escape")
     expect(menu).to_be_hidden()
     for kind in ("trigger", "complete"):
@@ -498,11 +482,11 @@ def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
         "aria-disabled", "true"
     )  # nothing yet
     page.click(".wf-actionbar >> text=New")
-    expect(page.locator("#action-modal")).to_be_visible()
-    page.click("#action-modal [data-submit]")
-    expect(page.locator("#action-name-error")).to_be_visible()  # a title is required
-    page.fill("#action-name", "Gap analysis")
-    page.click("#action-modal [data-submit]")
+    expect(page.locator("#new-modal")).to_be_visible()
+    page.click("#new-modal [data-submit]")
+    expect(page.locator("#new-name-error")).to_be_visible()  # a title is required
+    page.fill("#new-name", "Gap analysis")
+    page.click("#new-modal [data-submit]")
     expect(page).to_have_url(re.compile(r"/actions/gap-analysis\?from=flow&"))
     expect(page.locator(".app-header__title")).to_have_text("Gap analysis")
     expect(page.locator("[data-back]")).to_have_text("Back to Flow")
