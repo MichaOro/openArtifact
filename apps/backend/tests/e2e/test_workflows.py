@@ -394,7 +394,8 @@ def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
     output = page.locator(".wf-node--output")
     expect(output.locator(".wf-port--pass")).to_be_visible()  # a connector of its own
     expect(output.locator(".wf-port--fail")).to_be_hidden()
-    output.locator("[data-toggle-fail]").click()
+    output.locator(".wf-node__name").click()
+    page.locator(".wf-switch").click()
     expect(output.locator(".wf-port--fail")).to_be_visible()
     for _ in range(100):
         nodes = _graph(api, definition)["nodes"]
@@ -404,7 +405,7 @@ def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
     page.reload()
     expect(page.locator(".wf-node--output .wf-port--fail")).to_be_visible()
     page.locator(".wf-node--output .wf-node__name").click()
-    page.locator(".wf-inspector input[type=checkbox]").uncheck()
+    page.locator(".wf-switch").click()
     expect(page.locator(".wf-node--output .wf-port--fail")).to_be_hidden()
     expect(page.locator(".wf-inspector .wf-delete")).to_have_count(0)  # output stays
 
@@ -418,14 +419,15 @@ def test_the_trigger_is_routed_to_on_pass_or_on_fail(
     expect(page.locator(".wf-node--output")).to_be_visible()
     expect(page.locator(".wf-edge")).to_have_count(1)  # connected to On Pass by default
     _expect_edges(page, api, definition, [("out", "pass")])
-    page.locator("[data-toggle-fail]").click()
+    page.locator(".wf-node--output .wf-node__name").click()
+    page.locator(".wf-switch").click()
     _drag(
         page,
         page.locator(".wf-node--trigger .wf-port--out"),
         page.locator(".wf-node--output .wf-port--fail"),
     )
     _expect_edges(page, api, definition, [("out", "fail")])
-    page.locator("[data-toggle-fail]").click()  # switching On Fail off takes its connection along
+    page.locator(".wf-switch").click()  # switching On Fail off takes its connection along
     expect(page.locator(".wf-edge")).to_have_count(0)
     _expect_edges(page, api, definition, [])
 

@@ -45,11 +45,6 @@ export class WorkflowEditor {
     this.canvas.viewport.addEventListener("click", (event) => {
       const add = event.target.closest("[data-add-action]");
       if (add) this.#addAction(this.nodes.get(add.closest(".wf-node").dataset.nodeId));
-      const toggle = event.target.closest("[data-toggle-fail]");
-      if (toggle) {
-        const output = this.nodes.get(toggle.closest(".wf-node").dataset.nodeId);
-        this.#setFail(output, !output.fail_enabled);
-      }
     });
     this.canvas.viewport.addEventListener("keydown", (event) => {
       if ((event.key === "Delete" || event.key === "Backspace") && this.selection?.type === "edge" && !event.target.closest("input, select")) {
@@ -536,15 +531,17 @@ export class WorkflowEditor {
     if (saved && created) window.location.assign(this.#definitionUrl(node, created.slug));
   }
 
-  /** The keyboard way to switch On Fail on or off; On Pass is always there. */
+  /** A switch for On Fail (On Pass is always there). */
   #failToggle(node) {
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.checked = node.fail_enabled;
-    input.addEventListener("change", () => this.#setFail(node, input.checked));
-    const field = this.#field("Provide On Fail", input);
-    field.classList.add("field--inline");
-    return field;
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "wf-switch";
+    toggle.setAttribute("role", "switch");
+    toggle.setAttribute("aria-checked", String(node.fail_enabled));
+    toggle.innerHTML = '<span class="wf-switch__state"></span><span class="wf-switch__thumb"></span>';
+    toggle.firstElementChild.textContent = node.fail_enabled ? "On" : "Off";
+    toggle.addEventListener("click", () => this.#setFail(node, !node.fail_enabled));
+    return this.#field("On Fail", toggle);
   }
 
   /** A select with every valid target of an output port: the keyboard way to connect. */

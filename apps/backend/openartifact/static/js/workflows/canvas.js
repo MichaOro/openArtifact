@@ -109,21 +109,11 @@ export class Canvas {
       text.className = "wf-node__text";
       text.append(name, kind);
       el.append(text);
-      if (node.kind === "output") el.append(this.#failToggle());
       for (const port of ["in", "out", "pass", "fail", "error"]) {
         if (this.#hasPort(node.kind, port)) el.append(this.#port(node, port, OUTPUT_LABELS[port] ?? "Input"));
       }
     }
     return el;
-  }
-
-  /** On Fail is switched on and off with this small button; On Pass is always there. */
-  #failToggle() {
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "wf-outcome__toggle";
-    toggle.dataset.toggleFail = "";
-    return toggle;
   }
 
   #hasPort(kind, port) {
@@ -158,9 +148,10 @@ export class Canvas {
     }
     if (node.kind === "output") {
       el.classList.toggle("has-fail", node.fail_enabled);
-      const toggle = el.querySelector("[data-toggle-fail]");
-      toggle.textContent = node.fail_enabled ? "− On Fail" : "+ On Fail";
-      toggle.setAttribute("aria-pressed", String(node.fail_enabled));
+    }
+    if (node.kind !== "stage" && node.kind !== "action") {
+      // the caption only says something once the node has been given another name
+      el.querySelector(".wf-node__kind").hidden = displayName(node) === KIND_LABELS[node.kind];
     }
     if (node.kind === "stage") {
       el.querySelectorAll(":scope > .wf-port").forEach((port) => {
