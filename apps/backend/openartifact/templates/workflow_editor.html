@@ -27,14 +27,16 @@
                     <svg class="wf-edges" data-edges aria-hidden="true"></svg>
                 </div>
             </div>
-            {% if section.kind == "workflow" %}
             <div class="wf-add">
                 <button type="button" class="icon-button" data-add-menu aria-haspopup="menu" aria-expanded="false" aria-label="Add to the canvas" title="Add">{{ icon("plus") }}</button>
                 <div class="wf-add__menu glass" role="menu" aria-label="Add" hidden data-add-list>
+                    {% if section.kind == "workflow" %}
                     <button type="button" class="wf-add__item" role="menuitem" data-add="stage">Stage</button>
+                    {% else %}
+                    <button type="button" class="wf-add__item" role="menuitem" data-add="timer">Timer</button>
+                    {% endif %}
                 </div>
             </div>
-            {% endif %}
         </div>
         <aside class="wf-inspector glass" data-inspector aria-label="Details"></aside>
     </div>

@@ -91,3 +91,7 @@ The definition's *On Fail* controls the shell's Error output: without it the por
 
 Pages are addressed by name, not id: `/pipelines/test`, `/actions/gap-analysis`. `workflows.slug` (migration 0014) is derived from the name (lower-case ASCII, umlauts transliterated), unique per kind with `-2`, `-3` ... on collisions, and follows a rename (the editor replaces the URL after renaming). The API keeps ids (`/api/workflows/{id}`). The earlier `/workflows` URLs were removed without redirects, on purpose: the project is pre-release. `from`, `select` and the remembered pipeline (`oa-last-pipeline`) use the slug, so a rename elsewhere can leave a stale link that the editor reports as not found.
 
+## 2.19 The timer: first logic in an action definition
+
+An action definition can hold **timer** nodes (migration 0016, `workflow_nodes.seconds`, 1 s to one day, default 5 s), added through the "+" menu at the top right of the action canvas like stages in a pipeline. A timer has an input `in` and an output `out`, so a definition reads trigger → timer → output (On Pass). The caption of a timer always shows its seconds; a new timer is placed right of the last one and the output moves on if it is in the way. Executing the nodes is the job of the execution engine (see ADR-013); until then a timer is only defined.
+

@@ -11,12 +11,13 @@ export const SIZE = {
   action: { width: 190, height: 68 },
   complete: { width: 160, height: 56 },
   output: { width: 250, height: 104 },
+  timer: { width: 160, height: 64 },
 };
 export const STAGE_MIN = { width: 320, height: 220 };
 
 // A stage has one start and one end, each serving both sides (see workflow/rules.py).
-export const OUTPUTS = { trigger: ["out"], stage: ["start", "end"], action: ["pass", "error"], complete: [], output: [] };
-export const INPUTS = { trigger: [], stage: ["start", "end"], action: ["in"], complete: ["in"], output: ["pass", "fail"] };
+export const OUTPUTS = { trigger: ["out"], stage: ["start", "end"], action: ["pass", "error"], complete: [], output: [], timer: ["out"] };
+export const INPUTS = { trigger: [], stage: ["start", "end"], action: ["in"], complete: ["in"], output: ["pass", "fail"], timer: ["in"] };
 
 export const PORT_LABELS = {
   out: "Next",
@@ -83,6 +84,7 @@ export function portPoint(node, port, nodes, slot = 0) {
 /** May `source.sourcePort` feed `target.targetPort`? Mirrors workflow/rules.py. */
 export function canConnect(source, sourcePort, target, targetPort) {
   if (!OUTPUTS[source.kind].includes(sourcePort) || !INPUTS[target.kind].includes(targetPort)) return false;
+  if (source.kind === "timer" && target.id === source.id) return false;
   if (target.kind === "output" && targetPort === "fail" && !target.fail_enabled) return false;
   if (source.kind === "stage" && sourcePort === "start") return target.kind === "action" && target.stage_id === source.id;
   if (source.kind === "action") {

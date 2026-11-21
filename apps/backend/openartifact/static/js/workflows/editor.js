@@ -7,7 +7,7 @@ import { Canvas } from "./canvas.js";
 import { ACTION_GAP, EDGE_STYLES, INPUTS, displayName, OUTPUTS, PAD, PORT_LABELS, SIZE, TOP_LEVEL_GAP, canConnect, fitStage } from "./graph.js";
 
 const LAST_STAGE = "oa-last-pipeline"; // read by main.js
-const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output" };
+const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output", timer: "Timer" };
 
 export class WorkflowEditor {
   /** @param {HTMLElement} root the element carrying data-workflow-id */
@@ -165,7 +165,7 @@ export class WorkflowEditor {
       const item = event.target.closest("[data-add]");
       if (!item) return;
       setOpen(false);
-      this.#addStage();
+      this.#addBeforeEnd(item.dataset.add);
     });
     document.addEventListener("pointerdown", (event) => {
       if (!event.target.closest(".wf-add")) setOpen(false);
@@ -178,19 +178,23 @@ export class WorkflowEditor {
     });
   }
 
-  /** A new stage goes right of the last stage (or of the trigger); complete moves on if it is in the way. */
-  async #addStage() {
+  /**
+   * A new stage (or timer) goes right of the last one, or of the trigger; the ending (complete, or the
+   * output of an action definition) moves on if it is in the way.
+   */
+  async #addBeforeEnd(kind) {
     const nodes = [...this.nodes.values()];
-    const before = nodes.filter((n) => n.kind === "stage" || n.kind === "trigger");
-    const right = Math.max(...before.map((n) => n.x + (n.kind === "stage" ? n.width : SIZE.trigger.width)), 60);
-    const created = await this.#create({ kind: "stage", x: Math.round(right + TOP_LEVEL_GAP), y: 40 });
+    const widthOf = (n) => (n.kind === "stage" ? n.width : SIZE[n.kind].width);
+    const before = nodes.filter((n) => n.kind === kind || n.kind === "trigger");
+    const right = Math.max(...before.map((n) => n.x + widthOf(n)), 60);
+    const created = await this.#create({ kind, x: Math.round(right + TOP_LEVEL_GAP), y: kind === "stage" ? 40 : 172 });
     if (!created) return;
-    const complete = nodes.find((n) => n.kind === "complete");
-    const free = created.x + created.width + TOP_LEVEL_GAP;
-    if (complete && complete.x < free) {
-      complete.x = free;
+    const ending = nodes.find((n) => n.kind === "complete" || n.kind === "output");
+    const free = created.x + widthOf(created) + TOP_LEVEL_GAP;
+    if (ending && ending.x < free) {
+      ending.x = free;
       this.canvas.sync();
-      await this.#save(() => updateNode(this.id, complete.id, { x: free }));
+      await this.#save(() => updateNode(this.id, ending.id, { x: free }));
     }
     this.canvas.reveal(created);
   }
@@ -400,6 +404,7 @@ export class WorkflowEditor {
     if (!shell) el.append(this.#field("Name", this.#nameInput(node.name, (name) => this.#rename(node, name))));
     if (shell) el.append(this.#definitionSection(node));
 
+    if (node.kind === "timer") el.append(this.#secondsField(node));
     const outputs = shell ? [] : OUTPUTS[node.kind];
     if (outputs.length) {
       const routing = document.createElement("div");
@@ -529,6 +534,28 @@ export class WorkflowEditor {
       await updateNode(this.id, node.id, { definition_id: created.id });
     });
     if (saved && created) window.location.assign(this.#definitionUrl(node, created.slug));
+  }
+
+  /** How long a timer pauses the run. */
+  #secondsField(node) {
+    const input = document.createElement("input");
+    input.className = "field__control";
+    input.type = "number";
+    input.min = "1";
+    input.max = "86400";
+    input.step = "1";
+    input.value = String(node.seconds);
+    input.addEventListener("change", async () => {
+      const seconds = Math.min(86400, Math.max(1, Math.round(Number(input.value) || node.seconds)));
+      input.value = String(seconds);
+      node.seconds = seconds;
+      this.canvas.sync();
+      await this.#save(() => updateNode(this.id, node.id, { seconds }));
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") input.blur();
+    });
+    return this.#field("Seconds", input);
   }
 
   /** A switch for On Fail (On Pass is always there). */

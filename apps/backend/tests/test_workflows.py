@@ -653,3 +653,42 @@ def test_migration_0015_points_output_edges_at_on_pass(
     command.downgrade(alembic_config(), "0014")
     with sqlite3.connect(db) as conn:
         assert conn.execute(query).fetchall() == [("e1", "in"), ("e2", "in")]
+
+
+# ── the timer node of an action definition ────────────────────────────
+
+
+def test_a_timer_has_seconds_and_sits_between_trigger_and_output(client: TestClient) -> None:
+    definition = _action_definition(client)
+    nodes = {n["kind"]: n for n in _graph(client, definition)["nodes"]}
+    timer = _node(client, definition, "timer")
+    assert (timer["name"], timer["seconds"]) == ("Timer", 5)
+    assert _node(client, definition, "timer", seconds=30)["seconds"] == 30
+    url = f"/api/workflows/{definition['id']}/nodes/{timer['id']}"
+    assert client.patch(url, json={"seconds": 12}).json()["seconds"] == 12
+    assert client.patch(url, json={"seconds": 0}).status_code == 422
+    assert client.patch(url, json={"seconds": 86401}).status_code == 422
+    assert _edge(client, definition, nodes["trigger"], "out", timer, "in").status_code == 201
+    assert _edge(client, definition, timer, "out", nodes["output"], "pass").status_code == 201
+    assert _edge(client, definition, timer, "out", timer, "in").status_code == 422  # not to itself
+    trigger_url = f"/api/workflows/{definition['id']}/nodes/{nodes['trigger']['id']}"
+    assert client.patch(trigger_url, json={"seconds": 3}).status_code == 422
+    assert client.delete(url).status_code == 204
+
+
+def test_a_pipeline_has_no_timer(client: TestClient) -> None:
+    workflow = _workflow(client)
+    response = client.post(f"/api/workflows/{workflow['id']}/nodes", json={"kind": "timer"})
+    assert response.status_code == 422
+
+
+def test_migration_0016_is_reversible(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "head")
+    db = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db) as conn:
+        assert "seconds" in {r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")}
+    command.downgrade(alembic_config(), "0015")
+    with sqlite3.connect(db) as conn:
+        assert "seconds" not in {r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")}

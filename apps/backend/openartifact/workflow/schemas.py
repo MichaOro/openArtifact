@@ -13,6 +13,7 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 
 
 WorkflowKind = Literal["workflow", "action"]
+Seconds = Annotated[int, Field(ge=1, le=86400)]  # a timer: one second to one day
 
 
 class _Strict(BaseModel):
@@ -40,10 +41,11 @@ class NodeCreate(_Strict):
     x: float = 0.0
     y: float = 0.0
     stage_id: str | None = None
+    seconds: Seconds | None = None
 
 
 class NodeUpdate(_Strict):
-    """Body of ``PATCH``: any of name, position, size (stages), fail_enabled (outputs), definition_id (actions; ``null`` unlinks)."""
+    """Body of ``PATCH``: any of name, position, size (stages), fail_enabled (outputs), seconds (timers), definition_id (actions; ``null`` unlinks)."""
 
     name: Name | None = None
     x: float | None = None
@@ -52,6 +54,7 @@ class NodeUpdate(_Strict):
     height: Annotated[float, Field(gt=0)] | None = None
     fail_enabled: bool | None = None
     definition_id: str | None = None
+    seconds: Seconds | None = None
 
 
 EdgeStyle = Literal["curved", "straight", "elbow"]
@@ -114,6 +117,7 @@ class NodeRead(BaseModel):
     width: float | None
     height: float | None
     fail_enabled: bool
+    seconds: int | None
     definition_id: str | None
     definition_name: str | None = None
     definition_slug: str | None = None

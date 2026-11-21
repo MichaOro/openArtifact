@@ -382,7 +382,8 @@ def test_create_an_action_definition_from_the_navigation(
     expect(page).to_have_url(f"{base_url}/actions/gap-analysis")
     expect(page.locator(".wf-node--trigger")).to_have_count(1)
     expect(page.locator(".wf-node--output")).to_have_count(1)
-    expect(page.locator("[data-add]")).to_have_count(0)  # nothing to add yet
+    page.click("[data-add-menu]")
+    expect(page.locator("[data-add-list] [data-add]")).to_have_text(["Timer"])
 
 
 def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
@@ -555,3 +556,25 @@ def test_link_an_existing_action_switch_and_unlink(
     select.select_option(label="Without fail")
     select.select_option(label="Not defined")
     expect(node.locator(".wf-node__kind")).to_have_text("Empty action")
+
+
+def test_a_timer_goes_between_trigger_and_output_and_waits_for_its_seconds(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _clear_actions(api)
+    definition = api.post("/api/workflows", json={"name": "Wait", "kind": "action"}).json()
+    page.goto(f"{base_url}/actions/{definition['slug']}")
+    page.click("[data-add-menu]")
+    page.click("[data-add=timer]")
+    timer = page.locator(".wf-node--timer")
+    expect(timer).to_have_count(1)
+    expect(timer.locator(".wf-node__kind")).to_have_text("5 s")
+    page.fill(".wf-inspector input[type=number]", "12")
+    page.keyboard.press("Enter")
+    expect(timer.locator(".wf-node__kind")).to_have_text("12 s")
+    page.click("[data-zoom-fit]")
+    _drag(page, page.locator(".wf-node--trigger .wf-port--out"), timer.locator(".wf-port--in"))
+    _drag(page, timer.locator(".wf-port--out"), page.locator(".wf-node--output .wf-port--pass"))
+    _expect_edges(page, api, definition, [("out", "in"), ("out", "pass")])
+    saved = next(n for n in _graph(api, definition)["nodes"] if n["kind"] == "timer")
+    assert saved["seconds"] == 12

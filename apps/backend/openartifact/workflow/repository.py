@@ -20,11 +20,13 @@ DEFAULT_NAMES = {
     NodeKind.ACTION: "Action",
     NodeKind.COMPLETE: "Complete",
     NodeKind.OUTPUT: "Output",
+    NodeKind.TIMER: "Timer",
 }
+TIMER_SECONDS = 5
 # what each kind of workflow may contain, and which of those nodes come with it and stay
 ALLOWED_KINDS = {
     "workflow": {NodeKind.TRIGGER, NodeKind.STAGE, NodeKind.ACTION, NodeKind.COMPLETE},
-    "action": {NodeKind.TRIGGER, NodeKind.OUTPUT},
+    "action": {NodeKind.TRIGGER, NodeKind.OUTPUT, NodeKind.TIMER},
 }
 FIXED_KINDS = {
     "workflow": {NodeKind.TRIGGER, NodeKind.COMPLETE},
@@ -178,6 +180,7 @@ class WorkflowRepository:
             y=data.y,
             width=STAGE_SIZE[0] if data.kind is NodeKind.STAGE else None,
             height=STAGE_SIZE[1] if data.kind is NodeKind.STAGE else None,
+            seconds=(data.seconds or TIMER_SECONDS) if data.kind is NodeKind.TIMER else None,
         )
         self._session.add(node)
         await self._session.flush()
@@ -188,11 +191,13 @@ class WorkflowRepository:
         sent = data.model_fields_set
         if {"width", "height"} & sent and node.kind != NodeKind.STAGE.value:
             raise NodeError("Only stages have a size")
+        if "seconds" in sent and node.kind != NodeKind.TIMER.value:
+            raise NodeError("Only a timer has seconds")
         if "fail_enabled" in sent and node.kind != NodeKind.OUTPUT.value:
             raise NodeError("Only an output has On Fail")
         if "definition_id" in sent:
             await self._link(node, data.definition_id)
-        for field in ("name", "x", "y", "width", "height", "fail_enabled"):
+        for field in ("name", "x", "y", "width", "height", "fail_enabled", "seconds"):
             value = getattr(data, field)
             if field in sent and value is not None:
                 setattr(node, field, value)
