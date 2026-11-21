@@ -220,5 +220,5 @@
 .inline-name__input:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent); }
 .inline-name--editing .icon-button .icon { width: 1rem; height: 1rem; }
 .inline-name__check { color: var(--color-accent); }
-.field--row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.field--row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .field--row .field__label { margin: 0; }
