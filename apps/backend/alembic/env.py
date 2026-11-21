@@ -16,7 +16,7 @@ from openartifact.config import Settings
 from openartifact.database import Base
 
 # Import all models so Alembic can detect them for autogenerate
-from openartifact.models import Project, WorkItem  # noqa: F401
+from openartifact.models import Project, Task, WorkItem  # noqa: F401
 
 config = context.config
 

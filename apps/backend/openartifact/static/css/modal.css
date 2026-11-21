@@ -1,0 +1,186 @@
+/* Reusable modal on top of the native <dialog> element.
+   The dialog itself is the full-viewport overlay (blur + tint); the panel floats on it.
+   (Custom properties are not reliably inherited into ::backdrop, hence no ::backdrop styling.) */
+
+.modal {
+  /* reset UA dialog box */
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: var(--space-4);
+  border: 0;
+  overflow: auto;
+  color: inherit;
+  background: color-mix(in srgb, var(--color-background) 52%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.modal::backdrop { background: transparent; }
+.modal[open] { display: flex; animation: modal-overlay-in 180ms ease-out; }
+html:has(.modal[open]) { overflow: hidden; }
+
+.modal__panel {
+  /* margin:auto centres without clipping the top on short viewports */
+  margin: auto;
+  /* the form column keeps its width; the card grows by however wide the rail is */
+  --rail-w-collapsed: 3.75rem;
+  --rail-w-open: 11rem;
+  --rail-w: var(--rail-w-collapsed);
+  --form-w: min(31rem, calc(100vw - 2 * var(--space-4) - var(--rail-w-open)));
+  width: calc(var(--form-w) + var(--rail-w));
+  /* keep the left edge (the form and the rail's icon column with the toggle) where it is while
+     the card grows rightwards; never push the right edge out of the viewport */
+  --grow: max(var(--rail-w) - var(--rail-w-collapsed), 0rem);
+  --free: calc(100vw - 2 * var(--space-4) - var(--form-w) - var(--rail-w-collapsed));
+  translate: min(calc(var(--grow) / 2), max(calc((var(--free) - var(--grow)) / 2), 0rem)) 0;
+  transition: --rail-w 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background:
+    var(--glass-sheen),
+    color-mix(in srgb, var(--color-glass-card) calc(var(--glass-opacity) + 28%), transparent);
+  box-shadow:
+    var(--glass-edge),
+    0 2px 6px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) * 0.5), transparent),
+    0 28px 64px -16px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) + 10%), transparent);
+  animation: modal-panel-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5) var(--space-3);
+}
+.modal__number {
+  /* the artifact number: present, but quiet; it is looked up, not read */
+  margin: 0 0 0 auto;
+  padding-top: 0.4rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+  user-select: all;
+  white-space: nowrap;
+}
+.modal__title { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
+.modal__subtitle {
+  display: inline-block;
+  margin-top: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent);
+  color: var(--color-text-primary);
+  font-size: 0.75rem;
+  line-height: 1.5rem;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.modal__subtitle:hover { background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 34%, transparent); }
+
+/* Easter egg: clicking the lane chip unrolls the other lanes as chips *inside* the header.
+   The form below slides down to make room: no popup, no edge, just a fade. */
+.lane-chips {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 220ms ease;
+}
+.lane-chips[data-open] { grid-template-rows: 1fr; opacity: 1; }
+.lane-chips__clip { min-height: 0; overflow: hidden; }
+.lane-chips__inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) 0 var(--space-1);
+}
+.lane-chip {
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.75rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.lane-chips[data-open] .lane-chip { animation: chip-in 240ms ease-out both; animation-delay: calc(var(--i, 0) * 50ms + 80ms); }
+.lane-chip:hover,
+.lane-chip:focus-visible { background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 38%, transparent); outline: none; }
+.lane-chip:focus-visible { box-shadow: 0 0 0 2px var(--color-accent); }
+@keyframes chip-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.modal__subtitle:empty { display: none; }
+
+@property --rail-w { syntax: "<length>"; inherits: true; initial-value: 3.75rem; }
+.modal__panel:has([data-card-nav][data-state="expanded"]) { --rail-w: var(--rail-w-open); }
+.modal__panel:has([data-card-nav][hidden]) { --rail-w: 0rem; }  /* create mode: no rail */
+.modal__layout { display: grid; grid-template-columns: var(--form-w) var(--rail-w); }
+.modal__layout > .task-form,
+.modal__layout > .task-view { grid-column: 1; grid-row: 1; min-width: 0; }
+.modal__layout > .card-nav { grid-column: 2; grid-row: 1; }
+
+.modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-5) var(--space-4);
+}
+.modal__footer-start { margin-right: auto; }
+.task-view { display: flex; flex-direction: column; justify-content: space-between; }
+.task-view__title { font-size: 1.0625rem; font-weight: 600; overflow-wrap: anywhere; }
+.task-view__body { min-height: 9rem; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-text-primary); }
+.task-view__body:empty::before { content: "No description."; color: var(--color-text-muted); }
+.ref { color: var(--color-accent); text-decoration: none; border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; }
+.ref:hover { text-decoration: underline; }
+.ref:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+.ref--missing { color: var(--color-text-muted); text-decoration: line-through; }
+.confirm-text { overflow-wrap: anywhere; }
+.confirm-text__subject { font-weight: 600; }
+
+.modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--glass-border);
+}
+
+@keyframes modal-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-panel-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 640px) {
+  .modal__panel { --rail-w-open: var(--rail-w-collapsed); --form-w: calc(100vw - 2 * var(--space-3) - var(--rail-w-collapsed)); }
+  .card-nav__toggle { display: none; }
+  .card-nav .nav-link__label { opacity: 0; max-width: 0; }
+  .card-nav .nav-link { gap: 0; }
+  .modal { padding: var(--space-3); }
+  .modal__header { padding: var(--space-4) var(--space-4) var(--space-2); }
+  .modal__body { padding: var(--space-2) var(--space-4) var(--space-3); }
+  .modal__footer { padding: var(--space-3) var(--space-4); }
+}
+
+/* Narrow landscape: keep the whole form reachable without a tall panel */
+@media (max-height: 500px) {
+  .modal { padding: var(--space-2); }
+  .modal__header { padding: var(--space-3) var(--space-4) var(--space-1); }
+  .modal__subtitle { margin-top: var(--space-1); }
+  .modal__body { gap: var(--space-3); padding: var(--space-1) var(--space-4) var(--space-3); }
+  .modal__footer { padding: var(--space-2) var(--space-4); }
+  .modal textarea.field__control { min-height: 4.5rem; }
+}
+
+/* Without backdrop-filter the overlay needs to carry more of the separation itself */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .modal { background: color-mix(in srgb, var(--color-background) 86%, transparent); }
+}

@@ -9,17 +9,20 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from openartifact.config import Settings
+from openartifact.events import EventBus
 from openartifact.exceptions import (
     ConfigurationError,
     DatabaseError,
     OpenArtifactError,
 )
+from openartifact.web.static import RevalidatingStaticFiles
 
 logger = logging.getLogger("openartifact")
 
@@ -67,6 +70,8 @@ def _create_app(settings: Settings) -> FastAPI:
         # ── Shutdown ─────────────────────────────────────────
         from openartifact.database import dispose_engine
 
+        app.state.event_bus.close()
+
         logger.info("Shutting down OpenArtifact 0.1.0")
         await dispose_engine()
         logger.info("Shutdown complete")
@@ -78,6 +83,7 @@ def _create_app(settings: Settings) -> FastAPI:
         docs_url="/api/docs",
         redoc_url=None,
     )
+    app.state.event_bus = EventBus()
 
     # ── Exception handlers ─────────────────────────────────────────
 
@@ -131,13 +137,24 @@ def _create_app(settings: Settings) -> FastAPI:
         )
 
     # ── Register routes ────────────────────────────────────────────
+    from openartifact.api.events import router as events_router
     from openartifact.api.routes import public_router as public_api_router
     from openartifact.api.routes import router as api_router
+    from openartifact.api.tasks import router as tasks_router
     from openartifact.web.routes import router as web_router
 
     app.include_router(public_api_router)
     app.include_router(api_router)
+    app.include_router(tasks_router)
+    app.include_router(events_router)
     app.include_router(web_router)
+
+    # ── Static assets (CSS / JS of the web UI) ─────────────────────
+    app.mount(
+        "/static",
+        RevalidatingStaticFiles(directory=str(Path(__file__).parent / "static")),
+        name="static",
+    )
 
     return app
 

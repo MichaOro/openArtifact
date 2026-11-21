@@ -1,9 +1,11 @@
 # ADR-004: Frontend Approach
 
-**Status:** Accepted  
+> **Superseded.** The HTMX/Tailwind/Alpine stack described below was never implemented. See [ADR-010](010-frontend-without-htmx.md) for the current frontend decision. This document is kept for history.
+
+**Status:** Superseded  
 **Date:** 2026-11-18  
 **Supersedes:** —  
-**Superseded by:** —
+**Superseded by:** [ADR-010](010-frontend-without-htmx.md)
 
 ## 1. Title
 

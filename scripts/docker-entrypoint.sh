@@ -48,4 +48,5 @@ exec uvicorn \
     --host "${OPENARTIFACT_HOST}" \
     --port "${OPENARTIFACT_PORT}" \
     --log-level "${LOG_LEVEL_LOWER}" \
+    --timeout-graceful-shutdown 3 \
     --factory

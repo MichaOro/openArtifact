@@ -5,6 +5,8 @@
 **Supersedes:** —  
 **Superseded by:** —
 
+> **Amendment (2026-11-20):** References to HTMX in this ADR are obsolete ([ADR-010](010-frontend-without-htmx.md)). The decision for a REST API with OpenAPI stands on its own merits. Server-sent events are implemented (`GET /api/events`, see [ADR-011](011-board-interactions-sse-and-pointer-dnd.md)); WebSocket is **not** used.
+
 ## 1. Title
 
 API Design Approach for OpenArtifact

@@ -36,6 +36,14 @@ class Base(DeclarativeBase):
 _engine: AsyncEngine | None = None
 
 
+def _set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
+    """WAL for concurrent reads; SQLite only enforces foreign keys when asked to, per connection."""
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 def _build_engine(settings: Settings) -> AsyncEngine:
     """Create an async SQLite engine with WAL mode.
 
@@ -75,13 +83,7 @@ def _build_engine(settings: Settings) -> AsyncEngine:
         },
     )
 
-    # Enable WAL mode on every new connection for concurrent read performance
-    @event.listens_for(_engine.sync_engine, "connect")
-    def _set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
-        """Set WAL mode on new connections."""
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.close()
+    event.listen(_engine.sync_engine, "connect", _set_sqlite_pragma)
 
     return _engine
 
@@ -142,12 +144,7 @@ async def db_session_context(settings: Settings) -> AsyncGenerator[AsyncSession,
         },
     )
 
-    @event.listens_for(engine.sync_engine, "connect")
-    def _set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
-        """Set WAL mode on new connections."""
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.close()
+    event.listen(engine.sync_engine, "connect", _set_sqlite_pragma)
 
     async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

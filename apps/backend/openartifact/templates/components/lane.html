@@ -1,0 +1,20 @@
+{% from "components/icons.html" import icon %}
+{# Kanban lane. Usage: {{ lane("In Progress", "in-progress", "in_progress", hue=2) }}
+   `status` is the API value of the lane; `key` is only used for DOM ids. #}
+{% macro lane(title, key, status, count=0, hue=1) -%}
+<section class="lane glass" aria-labelledby="lane-{{ key }}-title" data-lane="{{ key }}" data-status="{{ status }}" data-lane-hue="{{ hue }}">
+    <header class="lane__header">
+        <div class="lane__heading">
+            <h2 class="lane__title" id="lane-{{ key }}-title">{{ title }}</h2>
+            <span class="lane__count" aria-label="{{ count }} artifacts">{{ count }}</span>
+        </div>
+        <button type="button" class="icon-button icon-button--sm lane__add" data-create-task
+                data-status="{{ status }}" data-lane-title="{{ title }}"
+                aria-haspopup="dialog" aria-label="Add artifact to {{ title }}" title="Add artifact">
+            {{ icon("plus") }}
+        </button>
+    </header>
+    <ul class="lane__cards" aria-label="{{ title }} artifacts"></ul>
+    <p class="empty-state">{{ icon("inbox") }}<span>No artifacts yet</span></p>
+</section>
+{%- endmacro %}
