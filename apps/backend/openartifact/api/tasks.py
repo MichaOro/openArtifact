@@ -25,7 +25,7 @@ _NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task n
 
 @router.get("", response_model=list[TaskRead])
 async def list_tasks(session: SessionDep) -> list[TaskRead]:
-    """List all tasks, newest first."""
+    """List all tasks in board order (lane, then position)."""
     tasks = await TaskRepository(session).list_all()
     return [TaskRead.model_validate(t) for t in tasks]
 

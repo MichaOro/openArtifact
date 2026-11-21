@@ -1,4 +1,1 @@
-"""Workflow engine.
-
-Core workflow execution logic will be added in WP-03.
-"""
+"""Workflow engine (planned, WP-07). Placeholder package; no behaviour yet."""

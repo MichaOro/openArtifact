@@ -69,10 +69,6 @@ export class CardDragController {
     );
   }
 
-  get isDragging() {
-    return this.drag !== null;
-  }
-
   #onPointerDown(event) {
     if (this.pending || this.drag) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -186,7 +182,7 @@ export class CardDragController {
   #reposition(lane, y) {
     const d = this.drag;
     if (!lane) {
-      this.#restore(); // over no lane: back to where it came from
+      this.#restore();
       return;
     }
     const list = lane.querySelector(".lane__cards");
@@ -200,8 +196,9 @@ export class CardDragController {
     list.insertBefore(d.card, next);
   }
 
-  #restore() {
-    const { card, origin } = this.drag;
+  /** Put the dragged card back where it came from. */
+  #restore(d = this.drag) {
+    const { card, origin } = d;
     const next = origin.next?.parentElement === origin.parent ? origin.next : null;
     if (card.parentElement === origin.parent && card.nextElementSibling === next) return;
     origin.parent.insertBefore(card, next);
@@ -260,9 +257,7 @@ export class CardDragController {
     window.setTimeout(() => (this.justDragged = false), 0);
 
     if (!lane) {
-      // aborted (Escape, pointercancel, dropped outside): put the card back
-      const next = d.origin.next?.parentElement === d.origin.parent ? d.origin.next : null;
-      d.origin.parent.insertBefore(d.card, next);
+      this.#restore(d); // aborted: Escape, pointercancel or dropped outside
       return;
     }
     const status = lane.dataset.status;

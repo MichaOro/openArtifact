@@ -52,8 +52,9 @@ export const createTask = (task) =>
   request("/api/tasks", { method: "POST", body: JSON.stringify(task) });
 
 /**
- * Partial update of a task: any of title, body, status. @param {string} id
- * @param {{title?: string, body?: string|null, status?: string}} fields
+ * Partial update of a task: any of title, body, status, parent_id (null = no parent).
+ * @param {string} id
+ * @param {{title?: string, body?: string|null, status?: string, parent_id?: string|null}} fields
  */
 export const updateTask = (id, fields) =>
   request(`/api/tasks/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(fields) });

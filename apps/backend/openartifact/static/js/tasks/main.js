@@ -69,7 +69,7 @@ const deleteDialog = new DeleteTaskDialog({
 
 new CardDragController({ board, onDrop: (task, placement) => moveTaskTo(task, placement) });
 
-// Right-hand navigation of the task dialog: collapsed by default; for now it only offers Delete.
+// Right-hand navigation of the task dialog (Lane, Parent, Delete): collapsed by default.
 const cardNavRoot = document.querySelector("[data-card-nav]");
 new CollapsibleNav(cardNavRoot, cardNavRoot.querySelector("[data-card-nav-toggle]"), "card-nav", {
   expand: "Expand artifact details",
