@@ -72,3 +72,7 @@ An edge has a `style` (`curved`, `straight`, `elbow`), chosen in the inspector a
 ## 2.14 Action definitions
 
 The definition of what an action does is edited on the same canvas, reached through the navigation entry "Actions" (`/actions`). It is a `workflows` row of `kind = action` (migration 0011), so storage, API and editor are shared; `GET /api/workflows` lists only workflows unless `?kind=action`. An action definition always has an automatic **trigger** in front and an **output** node (kind `output`, input `in`) at the end; both are created with it and cannot be deleted or added. The output always offers *On Pass*; *On Fail* is optional (`fail_enabled`, switched with a small button on the node or a checkbox in the inspector), because not every business logic has a failure case. Specialised nodes between trigger and output are planned; linking a workflow action to a definition is not built yet.
+
+## 2.15 Navigation: Pipeline
+
+The sidebar has Projects and a **Pipeline** group with **Stages** (`/workflows`, the workflow list; "workflow" stays the name in code and API, as "task" does for artifacts) and **Actions** (`/actions`). The group heading is not a link; with a collapsed sidebar it becomes a hairline and the entries stay as icons.

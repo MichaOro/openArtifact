@@ -40,7 +40,7 @@ async def index(request: Request) -> HTMLResponse:
 
 
 _SECTIONS = {
-    "workflow": {"kind": "workflow", "nav": "workflows", "path": "/workflows", "label": "Workflow"},
+    "workflow": {"kind": "workflow", "nav": "workflows", "path": "/workflows", "label": "Stage"},
     "action": {"kind": "action", "nav": "actions", "path": "/actions", "label": "Action"},
 }
 

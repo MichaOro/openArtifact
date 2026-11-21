@@ -78,6 +78,10 @@
 .sidebar__nav { flex: 1; }
 .nav-list { display: flex; flex-direction: column; gap: var(--space-1); }
 
+/* a group of entries under a heading; collapsed, the heading gives way to a hairline */
+.nav-group { display: flex; flex-direction: column; gap: var(--space-1); }
+.nav-group__title { padding: var(--space-2) var(--space-3) 0; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; }
+:root[data-sidebar="collapsed"] .sidebar .nav-group__title { height: 1px; padding: 0; margin: var(--space-2) var(--space-3) var(--space-1); background: var(--glass-border); font-size: 0; }
 .nav-link {
   display: flex;
   align-items: center;

@@ -129,12 +129,13 @@ def test_root_links_assets(client: TestClient) -> None:
 
 
 def test_navigation_lists_projects_workflows_and_actions(client: TestClient) -> None:
-    """The sidebar offers Projects, Workflows and Actions; the current page is marked."""
+    """The sidebar offers Projects and a Pipeline group with Stages and Actions; the current page is marked."""
     html = client.get("/").text
     assert html.count('class="nav-link"') == 3
     assert html.count('aria-current="page"') == 1
     assert 'href="/workflows"' in html
     assert 'href="/actions"' in html
+    assert html.count("Pipeline") == 1
 
 
 def test_workflow_pages_render_and_mark_their_navigation_entry(client: TestClient) -> None:
