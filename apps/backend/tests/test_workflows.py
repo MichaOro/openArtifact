@@ -475,3 +475,85 @@ def test_migration_0012_adds_a_complete_and_connects_a_free_trigger(
         assert conn.execute(
             "SELECT count(*) FROM workflow_edges WHERE workflow_id = 'busy'"
         ).fetchone() == (1,)  # the busy trigger keeps its own connection only
+
+
+# ── linking an action to an action definition ─────────────────────────
+
+
+def _shell(client: TestClient) -> tuple[dict[str, Any], dict[str, Any]]:
+    workflow = _workflow(client)
+    stage = _node(client, workflow, "stage")
+    return workflow, _node(client, workflow, "action", stage_id=stage["id"])
+
+
+def _link(client: TestClient, workflow: dict[str, Any], node: dict[str, Any], target: Any) -> Any:
+    return client.patch(
+        f"/api/workflows/{workflow['id']}/nodes/{node['id']}", json={"definition_id": target}
+    )
+
+
+def test_an_action_shell_links_to_a_definition_and_shows_its_name(client: TestClient) -> None:
+    workflow, shell = _shell(client)
+    assert shell["definition_id"] is None
+    definition = _action_definition(client)
+    linked = _link(client, workflow, shell, definition["id"]).json()
+    assert (linked["definition_id"], linked["definition_name"]) == (
+        definition["id"],
+        "Gap analysis",
+    )
+    assert linked["definition_fail_enabled"] is False
+    node = next(n for n in _graph(client, workflow)["nodes"] if n["id"] == shell["id"])
+    assert node["definition_name"] == "Gap analysis"
+    assert _link(client, workflow, shell, None).json()["definition_id"] is None
+
+
+def test_only_actions_link_to_existing_action_definitions(client: TestClient) -> None:
+    workflow, shell = _shell(client)
+    stage = next(n for n in _graph(client, workflow)["nodes"] if n["kind"] == "stage")
+    definition = _action_definition(client)
+    assert _link(client, workflow, stage, definition["id"]).status_code == 422
+    assert _link(client, workflow, shell, "missing").status_code == 422
+    assert _link(client, workflow, shell, workflow["id"]).status_code == 422  # not a definition
+
+
+def test_the_error_output_exists_only_if_the_definition_has_on_fail(client: TestClient) -> None:
+    workflow, shell = _shell(client)
+    stage_id = shell["stage_id"]
+    other = _node(client, workflow, "action", stage_id=stage_id)
+    definition = _action_definition(client)
+    output = next(n for n in _graph(client, definition)["nodes"] if n["kind"] == "output")
+    patch_output = lambda fail: client.patch(  # noqa: E731
+        f"/api/workflows/{definition['id']}/nodes/{output['id']}", json={"fail_enabled": fail}
+    )
+    patch_output(True)
+    _link(client, workflow, shell, definition["id"])
+    assert _edge(client, workflow, shell, "error", other, "in").status_code == 201
+    patch_output(False)  # switching On Fail off removes the Error connections of linked actions
+    assert [
+        e["source_port"] for e in _graph(client, workflow)["edges"] if e["source_id"] == shell["id"]
+    ] == []
+    assert _edge(client, workflow, shell, "error", other, "in").status_code == 422
+    assert _edge(client, workflow, shell, "pass", other, "in").status_code == 201
+
+
+def test_deleting_a_definition_turns_its_actions_back_into_shells(client: TestClient) -> None:
+    workflow, shell = _shell(client)
+    definition = _action_definition(client)
+    _link(client, workflow, shell, definition["id"])
+    assert client.delete(f"/api/workflows/{definition['id']}").status_code == 204
+    node = next(n for n in _graph(client, workflow)["nodes"] if n["id"] == shell["id"])
+    assert node["definition_id"] is None
+
+
+def test_migration_0013_is_reversible(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "head")
+    db = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db) as conn:
+        assert "definition_id" in {r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")}
+    command.downgrade(alembic_config(), "0012")
+    with sqlite3.connect(db) as conn:
+        assert "definition_id" not in {
+            r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")
+        }

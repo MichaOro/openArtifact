@@ -5,13 +5,14 @@ Every change is saved at once (there is no separate "save"): the editor sends wh
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.database import get_db_session
-from openartifact.models import Workflow
+from openartifact.models import Workflow, WorkflowNode
 from openartifact.workflow.repository import NodeError, WorkflowRepository
 from openartifact.workflow.rules import EdgeError
 from openartifact.workflow.schemas import (
@@ -39,6 +40,16 @@ def _not_found(what: str) -> HTTPException:
 
 def _invalid(error: ValueError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error))
+
+
+async def _node_reads(repo: WorkflowRepository, nodes: Sequence[WorkflowNode]) -> list[NodeRead]:
+    """Nodes as the API returns them, linked actions with their definition's name and On Fail."""
+    described = await repo.describe(nodes)
+    reads = [NodeRead.model_validate(n) for n in nodes]
+    for read in reads:
+        if read.id in described:
+            read.definition_name, read.definition_fail_enabled = described[read.id]
+    return reads
 
 
 async def _workflow(repo: WorkflowRepository, workflow_id: str) -> Workflow:
@@ -73,7 +84,7 @@ async def get_workflow(workflow_id: str, session: SessionDep) -> WorkflowDetail:
     nodes, edges = await repo.graph(workflow_id)
     return WorkflowDetail(
         workflow=WorkflowRead.model_validate(workflow),
-        nodes=[NodeRead.model_validate(n) for n in nodes],
+        nodes=await _node_reads(repo, nodes),
         edges=[EdgeRead.model_validate(e) for e in edges],
     )
 
@@ -110,7 +121,7 @@ async def add_node(workflow_id: str, payload: NodeCreate, session: SessionDep) -
         raise _invalid(error) from error
     await repo.touch(workflow)
     await session.commit()
-    return NodeRead.model_validate(node)
+    return (await _node_reads(repo, [node]))[0]
 
 
 @router.patch("/{workflow_id}/nodes/{node_id}", response_model=NodeRead)
@@ -129,7 +140,7 @@ async def update_node(
         raise _invalid(error) from error
     await repo.touch(workflow)
     await session.commit()
-    return NodeRead.model_validate(node)
+    return (await _node_reads(repo, [node]))[0]
 
 
 @router.delete("/{workflow_id}/nodes/{node_id}", status_code=status.HTTP_204_NO_CONTENT)

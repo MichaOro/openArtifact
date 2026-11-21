@@ -43,7 +43,7 @@ class NodeCreate(_Strict):
 
 
 class NodeUpdate(_Strict):
-    """Body of ``PATCH``: any of name, position, size (stages), fail_enabled (outputs)."""
+    """Body of ``PATCH``: any of name, position, size (stages), fail_enabled (outputs), definition_id (actions; ``null`` unlinks)."""
 
     name: Name | None = None
     x: float | None = None
@@ -51,6 +51,7 @@ class NodeUpdate(_Strict):
     width: Annotated[float, Field(gt=0)] | None = None
     height: Annotated[float, Field(gt=0)] | None = None
     fail_enabled: bool | None = None
+    definition_id: str | None = None
 
 
 EdgeStyle = Literal["curved", "straight", "elbow"]
@@ -112,6 +113,9 @@ class NodeRead(BaseModel):
     width: float | None
     height: float | None
     fail_enabled: bool
+    definition_id: str | None
+    definition_name: str | None = None
+    definition_fail_enabled: bool | None = None
 
 
 class EdgeRead(BaseModel):

@@ -195,20 +195,16 @@ def test_connect_through_the_inspector_with_the_keyboard(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     workflow = _flow(page, base_url, api)
-    first = page.locator(".wf-node--action").first
-    first.focus()
+    trigger = page.locator(".wf-node--trigger")
+    trigger.focus()
     page.keyboard.press("Enter")  # selects and moves focus to the inspector
-    pass_select = page.locator(".wf-inspector select").first
-    pass_select.select_option(label=_second_action_name(page))
+    route = page.locator(".wf-inspector select").first
+    route.select_option(label="Stage")
     expect(page.locator(".wf-edge")).to_have_count(1)
-    _expect_edges(page, api, workflow, [("pass", "in")])
-    pass_select.select_option(label="Not connected")
+    _expect_edges(page, api, workflow, [("out", "start")])
+    route.select_option(label="Not connected")
     expect(page.locator(".wf-edge")).to_have_count(0)
     _expect_edges(page, api, workflow, [])
-
-
-def _second_action_name(page: Page) -> str:
-    return page.locator(".wf-node--action .wf-node__name").nth(1).inner_text()
 
 
 def test_an_output_has_one_edge_and_reconnecting_replaces_it(
@@ -456,3 +452,71 @@ def test_a_new_stage_makes_room_before_complete(
             break
         page.wait_for_timeout(50)
     assert nodes["complete"]["x"] >= nodes["stage"]["x"] + nodes["stage"]["width"]
+
+
+# ── linking an action shell to an action definition ───────────────────
+
+
+def _definition(api: httpx.Client, name: str, fail: bool = False) -> dict[str, Any]:
+    definition = api.post("/api/workflows", json={"name": name, "kind": "action"}).json()
+    if fail:
+        output = next(n for n in _graph(api, definition)["nodes"] if n["kind"] == "output")
+        api.patch(
+            f"/api/workflows/{definition['id']}/nodes/{output['id']}", json={"fail_enabled": True}
+        )
+    return definition  # type: ignore[no-any-return]
+
+
+def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _clear_actions(api)
+    workflow = _flow(page, base_url, api)
+    shell = page.locator(".wf-node--action").first
+    shell.locator(".wf-node__name").click()
+    expect(page.locator(".wf-inspector h2")).to_have_text("Action")
+    expect(
+        page.locator(".wf-inspector .wf-routing, .wf-inspector h3", has_text="Routing")
+    ).to_have_count(0)
+    page.fill("input[placeholder='Name of the new action']", "Gap analysis")
+    page.click("text=Create and edit")
+    expect(page).to_have_url(re.compile(r"/actions/[0-9a-f-]{36}\?from="))
+    expect(page.locator(".app-header__title")).to_have_text("Gap analysis")
+    expect(page.locator("[data-back]")).to_have_text("Back to Flow")
+    definition_url = page.url
+
+    page.goto(base_url)  # the navigation remembers the stage that was open
+    expect(page.locator(".sidebar a.nav-link[href^='/workflows/']")).to_have_count(1)
+    page.goto(f"{base_url}/actions")
+    page.click(".sidebar a.nav-link[href^='/workflows/']")
+    expect(page).to_have_url(re.compile(rf"/workflows/{workflow['id']}"))
+
+    page.goto(definition_url)
+    page.click("[data-back]")
+    selected = page.locator(".wf-node--action.is-selected")
+    expect(selected.locator(".wf-node__name").first).to_have_text("Gap analysis")
+    expect(page).to_have_url(
+        f"{base_url}/workflows/{workflow['id']}"
+    )  # the hint is not left in the URL
+
+
+def test_link_an_existing_action_switch_and_unlink(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _clear_actions(api)
+    _definition(api, "With fail", fail=True)
+    _definition(api, "Without fail")
+    _flow(page, base_url, api)
+    node = page.locator(".wf-node--action").first
+    node.locator(".wf-node__name").click()
+    select = page.locator(".wf-inspector select")
+    expect(select.locator("option")).to_have_count(3)  # not defined + two definitions
+    select.select_option(label="With fail")
+    expect(node.locator(".wf-node__name")).to_have_text("With fail")
+    expect(node).not_to_have_class(re.compile("is-no-fail"))
+    select.select_option(label="Without fail")
+    expect(node.locator(".wf-node__name")).to_have_text("Without fail")
+    expect(node).to_have_class(re.compile("is-no-fail"))
+    expect(node.locator(".wf-port--error")).to_be_hidden()
+    select.select_option(label="Not defined")
+    expect(node.locator(".wf-node__kind")).to_have_text("Empty action")

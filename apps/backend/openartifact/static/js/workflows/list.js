@@ -40,6 +40,12 @@ function render() {
           message: kind === "action" ? `Delete "${workflow.name}"? This cannot be undone.` : `Delete "${workflow.name}" with all its stages and actions? This cannot be undone.`,
           onConfirm: async () => {
             await deleteWorkflow(workflow.id);
+            try {
+              const last = JSON.parse(localStorage.getItem("oa-last-stage"));
+              if (last?.workflow === workflow.id) localStorage.removeItem("oa-last-stage");
+            } catch {
+              /* nothing remembered */
+            }
             await load();
           },
         }),

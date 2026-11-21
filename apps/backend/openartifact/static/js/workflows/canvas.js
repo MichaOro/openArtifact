@@ -5,7 +5,7 @@
  *  - drag from an output port to an input port to connect;
  *  - drag the background to pan, wheel or the zoom buttons to zoom;
  *  - click a node or an edge to select it. */
-import { PAD, SLOTS, boxOf, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf, slotY } from "./graph.js";
+import { PAD, SLOTS, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf, slotY } from "./graph.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output" };
@@ -159,8 +159,12 @@ export class Canvas {
     el.style.top = `${node.y}px`;
     el.style.width = `${width}px`;
     el.style.height = `${height}px`;
-    el.querySelector(".wf-node__name").textContent = node.name;
-    el.setAttribute("aria-label", `${KIND_LABELS[node.kind]}: ${node.name}`);
+    el.querySelector(".wf-node__name").textContent = displayName(node);
+    el.setAttribute("aria-label", `${KIND_LABELS[node.kind]}: ${displayName(node)}`);
+    if (node.kind === "action" && node.stage_id) {
+      el.querySelector(".wf-node__kind").textContent = node.definition_id ? "Action" : "Empty action";
+      el.classList.toggle("is-no-fail", node.definition_fail_enabled === false); // its definition has no On Fail
+    }
     if (node.kind === "output") {
       el.querySelector(".wf-outcome--fail").hidden = !node.fail_enabled;
       const toggle = el.querySelector("[data-toggle-fail]");

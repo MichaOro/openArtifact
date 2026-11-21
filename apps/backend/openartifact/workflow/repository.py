@@ -6,7 +6,7 @@ import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.models import NodeKind, Workflow, WorkflowEdge, WorkflowNode
@@ -169,11 +169,53 @@ class WorkflowRepository:
             raise NodeError("Only stages have a size")
         if "fail_enabled" in sent and node.kind != NodeKind.OUTPUT.value:
             raise NodeError("Only an output has On Fail")
+        if "definition_id" in sent:
+            await self._link(node, data.definition_id)
         for field in ("name", "x", "y", "width", "height", "fail_enabled"):
             value = getattr(data, field)
             if field in sent and value is not None:
                 setattr(node, field, value)
         await self._session.flush()
+        if data.fail_enabled is False:  # actions linked to this definition lose their Error output
+            await self._drop_error_edges(WorkflowNode.definition_id == node.workflow_id)
+
+    async def _link(self, node: WorkflowNode, definition_id: str | None) -> None:
+        """Link an action to an action definition, or (``None``) turn it back into a shell."""
+        workflow = await self._session.get(Workflow, node.workflow_id)
+        if node.kind != NodeKind.ACTION.value or workflow is None or workflow.kind != "workflow":
+            raise NodeError("Only actions of a workflow can be linked to an action definition")
+        if definition_id is not None:
+            definition = await self._session.get(Workflow, definition_id)
+            if definition is None or definition.kind != "action":
+                raise NodeError("That action does not exist")
+        node.definition_id = definition_id
+        await self._session.flush()
+        if definition_id is not None and not (await self.describe([node]))[node.id][1]:
+            await self._drop_error_edges(WorkflowNode.id == node.id)
+
+    async def _drop_error_edges(self, which: ColumnElement[bool]) -> None:
+        """Remove the Error connections of the actions matching ``which`` (they have no On Fail)."""
+        ids = select(WorkflowNode.id).where(which)
+        await self._session.execute(
+            delete(WorkflowEdge).where(
+                WorkflowEdge.source_port == "error", WorkflowEdge.source_id.in_(ids)
+            )
+        )
+
+    async def describe(self, nodes: Sequence[WorkflowNode]) -> dict[str, tuple[str, bool]]:
+        """For linked actions: the definition's name and whether it has On Fail, by node id."""
+        wanted = {n.definition_id for n in nodes if n.definition_id}
+        if not wanted:
+            return {}
+        rows = await self._session.execute(
+            select(Workflow.id, Workflow.name, WorkflowNode.fail_enabled)
+            .join(WorkflowNode, WorkflowNode.workflow_id == Workflow.id)
+            .where(Workflow.id.in_(wanted), WorkflowNode.kind == NodeKind.OUTPUT.value)
+        )
+        by_definition = {row[0]: (row[1], row[2]) for row in rows}
+        return {
+            n.id: by_definition[n.definition_id] for n in nodes if n.definition_id in by_definition
+        }
 
     async def delete_node(self, workflow: Workflow, node: WorkflowNode) -> None:
         """Delete a node; its actions (for a stage) and edges go with it (cascade)."""
@@ -198,6 +240,12 @@ class WorkflowRepository:
         if source is None or target is None:
             raise NodeError("Both ends of an edge must be nodes of this workflow")
         validate_edge(_endpoint(source), data.source_port, _endpoint(target), data.target_port)
+        if (
+            data.source_port == "error"
+            and source.definition_id
+            and not (await self.describe([source]))[source.id][1]
+        ):
+            raise NodeError("That action has no On Fail")
         if (data.source_slot and source.kind != NodeKind.STAGE.value) or (
             data.target_slot and target.kind != NodeKind.STAGE.value
         ):

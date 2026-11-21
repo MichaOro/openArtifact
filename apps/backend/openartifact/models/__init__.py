@@ -210,6 +210,7 @@ class WorkflowNode(Base):
         x, y: Position on the canvas; for an action relative to its stage.
         width, height: Size of a stage (``None`` for other kinds).
         fail_enabled: Whether an output node offers *On Fail* besides *On Pass*.
+        definition_id: The action definition an action is linked to (``None``: an empty shell).
     """
 
     __tablename__ = "workflow_nodes"
@@ -228,6 +229,9 @@ class WorkflowNode(Base):
     width: Mapped[float | None] = mapped_column(Float, nullable=True)
     height: Mapped[float | None] = mapped_column(Float, nullable=True)
     fail_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    definition_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("workflows.id", ondelete="SET NULL"), nullable=True, default=None
+    )
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),

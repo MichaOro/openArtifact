@@ -29,6 +29,14 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") OA.Sidebar.collapseIfNarrow();
   });
+  // "Stages" reopens the stage (and the action) the user was last working on; editor.js writes this.
+  try {
+    var last = JSON.parse(localStorage.getItem("oa-last-stage"));
+    if (last && last.workflow && window.location.pathname !== "/workflows") {
+      var href = "/workflows/" + encodeURIComponent(last.workflow) + (last.node ? "?select=" + encodeURIComponent(last.node) : "");
+      document.querySelectorAll('.sidebar a[href="/workflows"]').forEach(function (a) { a.setAttribute("href", href); });
+    }
+  } catch (e) { /* no memory: the link shows the list */ }
   document.addEventListener("themechange", syncTheme);
   document.addEventListener("sidebarchange", syncSidebar);
   syncTheme();

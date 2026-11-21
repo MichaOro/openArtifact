@@ -2,10 +2,11 @@
  * inspector. Changes are saved at once; if the server refuses one, the graph is reloaded. */
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { Modal } from "../components/modal.js";
-import { addNode, connect, deleteNode, disconnect, loadWorkflow, renameWorkflow, restyleEdge, updateNode } from "./api.js";
+import { addNode, connect, createWorkflow, listWorkflows, deleteNode, disconnect, loadWorkflow, renameWorkflow, restyleEdge, updateNode } from "./api.js";
 import { Canvas } from "./canvas.js";
-import { ACTION_GAP, EDGE_STYLES, INPUTS, OUTPUTS, PAD, PORT_LABELS, SIZE, TOP_LEVEL_GAP, canConnect, fitStage } from "./graph.js";
+import { ACTION_GAP, EDGE_STYLES, INPUTS, displayName, OUTPUTS, PAD, PORT_LABELS, SIZE, TOP_LEVEL_GAP, canConnect, fitStage } from "./graph.js";
 
+const LAST_STAGE = "oa-last-stage"; // read by main.js
 const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output" };
 
 export class WorkflowEditor {
@@ -74,8 +75,47 @@ export class WorkflowEditor {
       this.canvas.sync();
       if (fit) this.canvas.fit();
       this.#renderInspector();
+      if (!this.opened) this.#onFirstLoad();
+      this.opened = true;
     } catch (error) {
+      if (error.status === 404 && !this.isAction) localStorage.removeItem(LAST_STAGE);
       this.#showError(error.status === 404 ? "This workflow does not exist." : "The workflow could not be loaded.", true);
+    }
+  }
+
+  /** Coming back from an action definition: offer the way back, or select the action that was being defined. */
+  async #onFirstLoad() {
+    const params = new URLSearchParams(window.location.search);
+    if (this.isAction) return this.#setupBack(params.get("from"), params.get("node"));
+    this.#remember(null);
+    const wanted = params.get("select");
+    if (wanted && this.nodes.has(wanted)) {
+      this.select({ type: "node", id: wanted });
+      this.canvas.reveal(this.nodes.get(wanted));
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    return undefined;
+  }
+
+  async #setupBack(workflowId, nodeId) {
+    if (!workflowId) return;
+    const link = this.root.querySelector("[data-back]");
+    link.href = `/workflows/${encodeURIComponent(workflowId)}${nodeId ? `?select=${encodeURIComponent(nodeId)}` : ""}`;
+    try {
+      link.textContent = `Back to ${(await loadWorkflow(workflowId)).workflow.name}`;
+    } catch {
+      link.textContent = "Back to stage";
+    }
+    link.hidden = false;
+  }
+
+  /** The navigation reopens the last stage with its action selected (see main.js). */
+  #remember(nodeId) {
+    if (this.isAction) return;
+    try {
+      localStorage.setItem(LAST_STAGE, JSON.stringify({ workflow: this.id, node: nodeId }));
+    } catch {
+      /* storage unavailable: the navigation just shows the list */
     }
   }
 
@@ -102,6 +142,8 @@ export class WorkflowEditor {
 
   select(selection, { focusInspector = false } = {}) {
     this.selection = selection;
+    const picked = selection?.type === "node" ? this.nodes.get(selection.id) : null;
+    this.#remember(picked?.kind === "action" ? picked.id : null);
     this.canvas.select(selection);
     if (selection?.type === "edge") this.canvas.viewport.focus({ preventScroll: true }); // so Delete reaches it
     this.#renderInspector();
@@ -348,9 +390,12 @@ export class WorkflowEditor {
 
   #nodeInspector(node) {
     const el = this.inspector;
-    el.append(this.#heading(node.name, KIND_LABELS[node.kind]), this.#field("Name", this.#nameInput(node.name, (name) => this.#rename(node, name))));
+    const shell = node.kind === "action" && !this.isAction;
+    el.append(this.#heading(displayName(node), shell && !node.definition_id ? "Empty action" : KIND_LABELS[node.kind]));
+    if (!shell || !node.definition_id) el.append(this.#field("Name", this.#nameInput(node.name, (name) => this.#rename(node, name))));
+    if (shell) el.append(this.#definitionSection(node));
 
-    const outputs = OUTPUTS[node.kind];
+    const outputs = shell ? [] : OUTPUTS[node.kind];
     if (outputs.length) {
       const routing = document.createElement("div");
       routing.className = "wf-inspector__section";
@@ -376,6 +421,79 @@ export class WorkflowEditor {
     remove.textContent = `Delete ${KIND_LABELS[node.kind].toLowerCase()}`;
     remove.addEventListener("click", () => this.requestDelete({ type: "node", id: node.id }));
     el.append(remove);
+  }
+
+  /** An action in a stage is an empty shell until it is linked to an action definition. */
+  #definitionSection(node) {
+    const section = document.createElement("div");
+    section.className = "wf-inspector__section";
+    const title = document.createElement("h3");
+    title.textContent = "Definition";
+    const select = document.createElement("select");
+    select.className = "field__control";
+    select.append(new Option("Not defined", ""));
+    select.addEventListener("change", () => this.#link(node, select.value || null));
+    section.append(title, this.#field("Action", select));
+    listWorkflows("action").then((definitions) => {
+      for (const definition of definitions) {
+        const option = new Option(definition.name, definition.id);
+        option.selected = definition.id === node.definition_id;
+        select.append(option);
+      }
+    }).catch(() => this.#showError("The actions could not be loaded."));
+
+    if (node.definition_id) {
+      const open = document.createElement("a");
+      open.className = "button button--ghost";
+      open.href = this.#definitionUrl(node, node.definition_id);
+      open.textContent = "Edit definition";
+      section.append(open);
+    }
+    const name = document.createElement("input");
+    name.className = "field__control";
+    name.type = "text";
+    name.maxLength = 255;
+    name.placeholder = "Name of the new action";
+    name.autocomplete = "off";
+    const create = document.createElement("button");
+    create.type = "button";
+    create.className = "button button--ghost";
+    create.textContent = "Create and edit";
+    const submit = () => this.#createDefinition(node, name.value);
+    create.addEventListener("click", submit);
+    name.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") submit();
+    });
+    section.append(this.#field("New action", name), create);
+    return section;
+  }
+
+  #definitionUrl(node, definitionId) {
+    return `/actions/${encodeURIComponent(definitionId)}?from=${encodeURIComponent(this.id)}&node=${encodeURIComponent(node.id)}`;
+  }
+
+  async #link(node, definitionId) {
+    await this.#save(async () => {
+      const updated = await updateNode(this.id, node.id, { definition_id: definitionId });
+      Object.assign(node, { definition_id: updated.definition_id, definition_name: updated.definition_name, definition_fail_enabled: updated.definition_fail_enabled });
+    });
+    if (node.definition_fail_enabled === false) {
+      for (const [id, edge] of this.edges) if (edge.source_id === node.id && edge.source_port === "error") this.edges.delete(id);
+    }
+    this.canvas.sync();
+    this.#renderInspector();
+  }
+
+  /** Create an action definition under the entered name, link the shell to it and go and define it. */
+  async #createDefinition(node, name) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    let created = null;
+    const saved = await this.#save(async () => {
+      created = await createWorkflow(trimmed, "action");
+      await updateNode(this.id, node.id, { definition_id: created.id });
+    });
+    if (saved && created) window.location.assign(this.#definitionUrl(node, created.id));
   }
 
   /** The keyboard way to switch On Fail on or off; On Pass is always there. */

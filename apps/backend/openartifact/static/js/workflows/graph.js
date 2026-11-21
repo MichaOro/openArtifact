@@ -27,6 +27,11 @@ export const PORT_LABELS = {
   in: "Input",
 };
 
+/** What a node is called on the canvas: a linked action carries the name of its action definition. */
+export function displayName(node) {
+  return node.definition_name ?? node.name;
+}
+
 /** Node size in world units (stages carry their own). */
 export function sizeOf(node) {
   return node.kind === "stage" ? { width: node.width, height: node.height } : SIZE[node.kind];
