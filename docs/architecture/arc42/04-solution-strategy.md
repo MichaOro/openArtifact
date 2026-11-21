@@ -77,6 +77,7 @@
 | Parent / child artifacts | ✅ Tree: one parent, any number of children, cycle check, foreign key with `ON DELETE SET NULL` (migrations 0005, 0007) |
 | Artifact numbers | ✅ `#n`, never reused (migration 0006); shown quietly in the dialog header; typing `#` in the body offers the board's artifacts ; in the read view `#n` is a link to that artifact, unknown numbers are struck through |
 | Workflow definitions | ✅ List and canvas editor: trigger, stages, actions, connections by dragging or through a routing select; saved at once (ADR-012). What actions do, running and versions are planned |
+| Workflow definitions | ✅ List and canvas editor: trigger, stages with one start and end, actions, connections by dragging or through a routing select, loops routed around nodes; saved at once (ADR-012). What actions do, running and versions are planned |
 | Lane colours | ✅ Palette tokens, lane N = hue N |
 | Lane switch in the dialog | ✅ Click the lane chip (hidden feature) or the rail's *Lane* field |
 | Lanes as configuration | ✅ `BOARD_LANES` is the single definition; user-defined lanes are planned, not implemented |

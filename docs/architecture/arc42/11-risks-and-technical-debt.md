@@ -24,6 +24,7 @@ No intentional technical debt has been introduced at this stage.
 | Parent picker without search | Becomes necessary with many artifacts |
 | `Project`/`WorkItem` models not connected to the board | To be reconciled with the artifact model in WP-06 |
 | Workflow editor: stages only grow, no undo, no live sync between tabs, edges without routing | See ADR-012 §2.4 |
+| Workflow editor: stages only grow, no undo, no live sync between tabs, edges routed only for loops | See ADR-012 §2.4 |
 | Pushed `fix:` history from the bootstrap phase | Kept as is; no history rewrite on `main` |
 
 **Trade-offs to revisit:**
