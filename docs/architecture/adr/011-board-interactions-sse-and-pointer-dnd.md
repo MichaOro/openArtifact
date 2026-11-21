@@ -160,4 +160,4 @@ References are plain text for now: they are neither rendered as links nor checke
   needs a shared broker (e.g. Redis pub/sub) behind the same `EventBus` interface.
 - **Limitation:** an event stream holds one connection per open tab.
 - **Risk:** hand-written drag & drop needs browser/device testing (touch behaviour differs per
-  OS). The behaviour is covered by browser tests, not by unit tests.
+  OS). The behaviour is verified by manual browser runs before every push (headless Chrome via DevTools protocol); these scripts are deliberately not versioned, so there are no automated UI tests yet.

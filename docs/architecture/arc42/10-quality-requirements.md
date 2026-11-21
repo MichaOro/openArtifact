@@ -10,7 +10,8 @@
 | Should | Concurrent execution | Multiple workflows can execute concurrently without blocking the HTTP API. |
 | Should | Reliability | The application recovers gracefully from crashes and restarts automatically. |
 | Should | Extensibility | New agent providers can be added without modifying the core application code. |
-| Could | Real-time updates | Users see workflow progress in real-time via WebSocket or SSE. |
+| Should | Real-time updates | A change on the board is visible in every open browser within a second (SSE; implemented). |
+| Should | Usability | Every board action works by mouse, touch and keyboard. |
 
 ## 10.2 Quality Tree
 
@@ -34,9 +35,8 @@ OpenArtifact Quality
 ├── Transparency (Should)
 │   ├── Audit trail
 │   └── Structured logging
-└── Real-time (Could)
-    ├── WebSocket progress
-    └── Server-Sent Events
+└── Real-time (Should)
+    └── Server-Sent Events (implemented)
 ```
 
 ---

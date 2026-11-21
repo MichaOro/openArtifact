@@ -16,12 +16,23 @@
 
 No intentional technical debt has been introduced at this stage.
 
-**Known trade-offs to revisit:**
+**Known gaps and trade-offs (deliberate):**
+
+| Item | State |
+|------|-------|
+| `#12` references in bodies are plain text | No rendering as links, no server-side validation |
+| `parent_id` without database foreign key | Consistency by the repository (SQLite limitation) |
+| Parent picker without search | Becomes necessary with many artifacts |
+| `Project`/`WorkItem` models not connected to the board | To be reconciled with the artifact model in WP-06 |
+| No automated browser tests in CI | Browser E2E runs manually before pushes; see ADR-011 |
+| Pushed `fix:` history from the bootstrap phase | Kept as is; no history rewrite on `main` |
+
+**Trade-offs to revisit:**
 
 | Trade-off | Decision | Review Point |
 |-----------|----------|--------------|
 | SQLite vs. PostgreSQL | SQLite for simplicity | WP-06 — evaluate PostgreSQL if write contention emerges |
-| Frontend stack | Jinja2 shell + vanilla JS, no HTMX (ADR-010) | When drag & drop / board API is built — decide DnD mechanism and rendering model |
+| Frontend stack | Jinja2 shell + vanilla JS, no HTMX (ADR-010) | Decided in ADR-011 (Pointer Events, client-side rendering); revisit if the board needs virtualisation or many more interactions |
 | Docs drifted from reality | ADR-004 described a stack that was never built; corrected 2026-11-20 | Verify arc42/ADRs against code at each WP completion |
 | No auth in foundation | Defer authentication | WP-06 — implement JWT auth for multi-user |
 | No background task queue | Asyncio tasks only | WP-03 — evaluate Celery/arq for workflow scale |

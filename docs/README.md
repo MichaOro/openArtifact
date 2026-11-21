@@ -21,14 +21,16 @@ The architecture documentation follows the [arc42 template](https://docs.arc42.o
 | 2 | Architecture Constraints | [02-architecture-constraints.md](arc42/02-architecture-constraints.md) | TBD |
 | 3 | Context and Scope | [03-context-and-scope.md](arc42/03-context-and-scope.md) | TBD |
 | 4 | Solution Strategy | [04-solution-strategy.md](arc42/04-solution-strategy.md) | TBD |
-| 5 | Building Block View | [05-building-block-view.md](arc42/05-building-block-view.md) | TBD |
-| 6 | Runtime View | [06-runtime-view.md](arc42/06-runtime-view.md) | TBD |
+| 5 | Building Block View | [05-building-block-view/](arc42/05-building-block-view/README.md) | TBD |
+| 6 | Runtime View | [06-runtime-view/](arc42/06-runtime-view/README.md) | TBD |
 | 7 | Deployment View | [07-deployment-view.md](arc42/07-deployment-view.md) | TBD |
-| 8 | Cross-cutting Concepts | [08-cross-cutting-concepts.md](arc42/08-cross-cutting-concepts.md) | TBD |
+| 8 | Cross-cutting Concepts | [08-cross-cutting-concepts/](arc42/08-cross-cutting-concepts/README.md) | TBD |
 | 9 | Architecture Decisions | [09-architecture-decisions.md](arc42/09-architecture-decisions.md) | See ADRs |
 | 10 | Quality Requirements | [10-quality-requirements.md](arc42/10-quality-requirements.md) | TBD |
 | 11 | Risks and Technical Debt | [11-risks-and-technical-debt.md](arc42/11-risks-and-technical-debt.md) | TBD |
 | 12 | Glossary | [12-glossary.md](arc42/12-glossary.md) | TBD |
+
+Chapters that grow are split into a folder with the same number (`05-building-block-view/`): a `README.md` as index and numbered files per topic (`05.01-…`, `05.02-…`, zero-padded so they sort correctly). Small chapters stay a single file; split a chapter once it exceeds roughly 300 lines or three independent topics.
 
 ## Architecture Decision Records (ADRs)
 
