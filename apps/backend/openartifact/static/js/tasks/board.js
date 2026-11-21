@@ -99,6 +99,11 @@ export class Board {
     return task?.parent_id ? (this.tasks.get(task.parent_id) ?? null) : null;
   }
 
+  byNumber(number) {
+    for (const t of this.tasks.values()) if (t.number === number) return t;
+    return undefined;
+  }
+
   childCount(id) {
     let n = 0;
     for (const t of this.tasks.values()) if (t.parent_id === id) n += 1;

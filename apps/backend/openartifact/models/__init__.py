@@ -135,8 +135,8 @@ class Task(Base):
         number: Human-readable artifact number (#1, #2 …), unique and never reused (see
             migration 0006).
         parent_id: Optional parent artifact (a tree: one parent, any number of children). Kept
-            consistent by the repository (cycle check, children are detached on delete); there is
-            deliberately no database foreign key (SQLite cannot add one to an existing table).
+            acyclic by the repository; the database keeps it referentially intact (foreign key,
+            ``ON DELETE SET NULL``).
         position: Sort key inside the lane, ascending (see migration 0004). Fractional so a task
             can be dropped between two others without renumbering the lane.
         created_at: Creation timestamp (UTC).
@@ -153,7 +153,9 @@ class Task(Base):
     status: Mapped[str] = mapped_column(String(32), default=TaskStatus.BACKLOG.value)
     number: Mapped[int] = mapped_column(Integer, nullable=True, unique=True)
     position: Mapped[float] = mapped_column(Float, default=0.0)
-    parent_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
+    parent_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, default=None
+    )
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),

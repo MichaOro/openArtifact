@@ -5,8 +5,7 @@ Revises: 0004
 Create Date: 2026-11-21
 
 A task has at most one parent; a task can be the parent of any number of tasks (a tree).
-No foreign key: SQLite cannot add one to an existing table without rebuilding it, and the
-application keeps the relation consistent (cycle check, detaching children on delete).
+The foreign key follows in 0007 (SQLite needs a table rebuild for it).
 """
 
 from collections.abc import Sequence

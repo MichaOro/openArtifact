@@ -640,3 +640,55 @@ def test_migration_0006_numbers_existing_tasks_oldest_first(
             ("t2", 2),
         ]
         assert conn.execute("SELECT last FROM task_number_seq").fetchone() == (2,)
+
+
+# ── Foreign key on parent_id ──────────────────────────────────────────
+
+
+def test_database_rejects_a_dangling_parent(migrated_settings: Settings) -> None:
+    db_path = migrated_settings.data_dir / migrated_settings.database_filename
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys=ON")
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute("INSERT INTO tasks (id, title, parent_id) VALUES ('a', 'A', 'missing')")
+
+
+def test_deleting_a_parent_row_nulls_the_children_in_the_database(
+    migrated_settings: Settings,
+) -> None:
+    db_path = migrated_settings.data_dir / migrated_settings.database_filename
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("INSERT INTO tasks (id, title) VALUES ('p', 'P')")
+        conn.execute("INSERT INTO tasks (id, title, parent_id) VALUES ('c', 'C', 'p')")
+        conn.execute("DELETE FROM tasks WHERE id = 'p'")
+        assert conn.execute("SELECT parent_id FROM tasks WHERE id = 'c'").fetchone() == (None,)
+
+
+def test_migration_0007_clears_dangling_parents_and_keeps_the_rest(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(_alembic_config(), "0006")
+    db_path = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("INSERT INTO tasks (id, title, number) VALUES ('p', 'P', 1)")
+        conn.execute("INSERT INTO tasks (id, title, number, parent_id) VALUES ('c', 'C', 2, 'p')")
+        conn.execute(
+            "INSERT INTO tasks (id, title, number, parent_id) VALUES ('o', 'O', 3, 'gone')"
+        )
+    command.upgrade(_alembic_config(), "head")
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute("SELECT id, number, parent_id FROM tasks ORDER BY number").fetchall()
+        assert rows == [("p", 1, None), ("c", 2, "p"), ("o", 3, None)]
+        indexes = {r[1] for r in conn.execute("PRAGMA index_list(tasks)")}
+        assert {"ux_tasks_number", "ix_tasks_parent_id"} <= indexes
+        with pytest.raises(sqlite3.IntegrityError):  # the status CHECK survived the rebuild
+            conn.execute("INSERT INTO tasks (id, title, status) VALUES ('x', 'X', 'BACKLOG')")
+    command.downgrade(_alembic_config(), "0006")
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute(
+            "INSERT INTO tasks (id, title, parent_id) VALUES ('z', 'Z', 'nowhere')"
+        )  # no FK anymore

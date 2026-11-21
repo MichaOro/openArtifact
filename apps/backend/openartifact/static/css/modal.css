@@ -123,7 +123,9 @@ html:has(.modal[open]) { overflow: hidden; }
 .modal__panel:has([data-card-nav][data-state="expanded"]) { --rail-w: var(--rail-w-open); }
 .modal__panel:has([data-card-nav][hidden]) { --rail-w: 0rem; }  /* create mode: no rail */
 .modal__layout { display: grid; grid-template-columns: var(--form-w) var(--rail-w); }
-.modal__layout > .task-form { min-width: 0; }
+.modal__layout > .task-form,
+.modal__layout > .task-view { grid-column: 1; grid-row: 1; min-width: 0; }
+.modal__layout > .card-nav { grid-column: 2; grid-row: 1; }
 
 .modal__body {
   display: flex;
@@ -131,6 +133,15 @@ html:has(.modal[open]) { overflow: hidden; }
   gap: var(--space-4);
   padding: var(--space-2) var(--space-5) var(--space-4);
 }
+.modal__footer-start { margin-right: auto; }
+.task-view { display: flex; flex-direction: column; justify-content: space-between; }
+.task-view__title { font-size: 1.0625rem; font-weight: 600; overflow-wrap: anywhere; }
+.task-view__body { min-height: 9rem; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-text-primary); }
+.task-view__body:empty::before { content: "No description."; color: var(--color-text-muted); }
+.ref { color: var(--color-accent); text-decoration: none; border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; }
+.ref:hover { text-decoration: underline; }
+.ref:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+.ref--missing { color: var(--color-text-muted); text-decoration: line-through; }
 .confirm-text { overflow-wrap: anywhere; }
 .confirm-text__subject { font-weight: 600; }
 

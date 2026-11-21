@@ -135,8 +135,8 @@ number of artifacts, which can in turn be parents (a tree). The rail's *Parent* 
 (*No parent* plus every artifact that is not the task itself or one of its descendants); the card
 shows *Parent: …* and the number of sub-artifacts. The server rejects cycles with 422. Deleting a
 parent **detaches** its children instead of deleting them (the delete dialog says so) and publishes
-`board.resync`. There is no database foreign key (SQLite cannot add one to an existing table
-without rebuilding it); the repository keeps the relation consistent. Moving a parent to another
+`board.resync`. The relation is a database foreign key since migration 0007 (§2.12); the repository
+adds what SQL cannot express (cycle check). Moving a parent to another
 lane does not move its children.
 
 ### 2.11 Artifact numbers and `#` references
@@ -150,7 +150,13 @@ artifacts were numbered oldest first. The number is read-only in the API (PATCH 
 In the body field, typing `#` (at the start or after whitespace) opens a small menu with the other
 artifacts of the board (`ReferencePicker`); digits or title text filter it, Enter/Tab inserts
 `#<number>`, Escape closes only the menu. Parent fields still show the **title**, not the number.
-References are plain text for now: they are neither rendered as links nor checked on the server.
+
+**Read and edit mode.** An existing artifact opens read-only (title, body, rail); *Edit* switches
+the same dialog to the form, *Save* returns to the read view, *Cancel* discards. In the read view
+`#12` is a link to that artifact (followed inside the dialog, with a *Back* button); a number that
+does not exist is shown struck through. References are resolved when displaying, not validated on
+save: a body may legitimately contain text like `#5` or `C#3`, and an artifact referenced later may
+not exist yet. Rendering uses DOM nodes, never `innerHTML`.
 
 ## 3. Consequences
 
@@ -161,3 +167,12 @@ References are plain text for now: they are neither rendered as links nor checke
 - **Limitation:** an event stream holds one connection per open tab.
 - **Risk:** hand-written drag & drop needs browser/device testing (touch behaviour differs per
   OS). The behaviour is verified by manual browser runs before every push (headless Chrome via DevTools protocol); these scripts are deliberately not versioned, so there are no automated UI tests yet.
+
+### 2.12 Foreign key on `parent_id`
+
+Migration 0007 rebuilds `tasks` (SQLite needs that for a new constraint) with
+`parent_id REFERENCES tasks(id) ON DELETE SET NULL`; dangling references are cleared first. Every
+connection enables `PRAGMA foreign_keys=ON`. The repository still rejects unknown parents and
+cycles (the database cannot express acyclicity) and still detaches children explicitly so it can
+report how many were affected; the constraint guarantees integrity for any other writer, and
+queries or dashboards can rely on the relation.

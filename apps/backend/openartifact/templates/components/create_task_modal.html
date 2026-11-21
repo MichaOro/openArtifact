@@ -2,6 +2,17 @@
 {% from "components/icons.html" import icon %}
 {% call modal("create-task-modal", "Create Artifact", subtitle=True) %}
 <div class="modal__layout">
+<section class="task-view" data-task-view hidden>
+    <div class="modal__body">
+        <h3 class="task-view__title" data-view-title></h3>
+        <p class="task-view__body" data-view-body></p>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost modal__footer-start" data-view-back hidden>Back</button>
+        <button type="button" class="button button--ghost" data-modal-close>Close</button>
+        <button type="button" class="button button--primary" data-view-edit>Edit</button>
+    </footer>
+</section>
 <form class="task-form" id="create-task-form" novalidate>
     <div class="modal__body">
         <div class="field">
@@ -19,7 +30,7 @@
         <p class="form-error" role="alert" hidden data-form-error></p>
     </div>
     <footer class="modal__footer">
-        <button type="button" class="button button--ghost" data-modal-close data-cancel>Cancel</button>
+        <button type="button" class="button button--ghost" data-cancel>Cancel</button>
         <button type="submit" class="button button--primary" data-submit>
             <span class="spinner" aria-hidden="true"></span>
             <span data-submit-label>Create Artifact</span>

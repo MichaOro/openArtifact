@@ -56,7 +56,32 @@ const taskForm = new TaskForm({
     board.remove(task.id);
     board.showError(`"${task.title}" no longer exists.`);
   },
+  findByNumber: (number) => board.byNumber(number),
+  onReference: (number) => {
+    const target = board.byNumber(number);
+    if (target) showTask(target, { follow: true });
+  },
+  onBack: () => {
+    const id = trail.pop();
+    const previous = id && board.tasks.get(id);
+    if (previous) showTask(previous);
+    else taskForm.modal.close();
+  },
 });
+
+/** Ids of the artifacts left by following references, so "Back" can return to them. */
+const trail = [];
+function showTask(task, { follow = false } = {}) {
+  if (follow && taskForm.editing) trail.push(taskForm.editing.id);
+  else if (!follow && !taskForm.modal.isOpen) trail.length = 0;
+  taskForm.openView(
+    task,
+    board.laneTitle(task.status),
+    board.laneHue(task.status),
+    board.parentOf(task)?.title ?? null,
+    trail.length > 0,
+  );
+}
 
 const deleteDialog = new DeleteTaskDialog({
   modal: new Modal(document.getElementById("delete-task-modal")),
@@ -174,15 +199,12 @@ document.querySelectorAll("[data-create-task]").forEach((button) => {
   button.addEventListener("click", () => taskForm.open(button.dataset.status, button.dataset.laneTitle, board.laneHue(button.dataset.status)));
 });
 
-const editTask = (task) =>
-  taskForm.openEdit(task, board.laneTitle(task.status), board.laneHue(task.status), board.parentOf(task)?.title ?? null);
-
 board.element.addEventListener("click", (event) => {
   const card = event.target.closest(".task-card");
   const task = board.taskOf(card);
   if (!task) return;
   if (event.target.closest("[data-delete-task]")) deleteDialog.open(task, board.childCount(task.id));
-  else editTask(task); // click anywhere else on the card opens it for editing
+  else showTask(task); // click anywhere else on the card opens it
 });
 
 /** Keyboard reorder inside the lane: -1 = one place up, +1 = one place down. */
@@ -219,7 +241,7 @@ board.element.addEventListener("keydown", (event) => {
     deleteDialog.open(task, board.childCount(task.id));
   } else if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
-    editTask(task);
+    showTask(task);
   } else if (event.altKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
     event.preventDefault();
     const index = board.statuses.indexOf(task.status) + (event.key === "ArrowLeft" ? -1 : 1);
@@ -238,7 +260,10 @@ connectEvents({
   onEvent: (type, data) => {
     if (type === "task.deleted") board.remove(data.id);
     else if (type === "board.resync") board.load(); // lane was renumbered: positions changed
-    else board.upsert(data); // task.created / task.updated / task.moved
+    else {
+      board.upsert(data); // task.created / task.updated / task.moved
+      taskForm.refreshView(data);
+    }
   },
 });
 

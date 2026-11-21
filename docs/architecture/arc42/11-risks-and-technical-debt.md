@@ -20,8 +20,7 @@ No intentional technical debt has been introduced at this stage.
 
 | Item | State |
 |------|-------|
-| `#12` references in bodies are plain text | No rendering as links, no server-side validation |
-| `parent_id` without database foreign key | Consistency by the repository (SQLite limitation) |
+| `#12` references are resolved at display time | Not validated on save (a body may contain `#5` as plain text); no back-references ("referenced by") yet |
 | Parent picker without search | Becomes necessary with many artifacts |
 | `Project`/`WorkItem` models not connected to the board | To be reconciled with the artifact model in WP-06 |
 | No automated browser tests in CI | Browser E2E runs manually before pushes; see ADR-011 |

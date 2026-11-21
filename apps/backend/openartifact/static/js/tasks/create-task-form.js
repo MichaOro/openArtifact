@@ -1,5 +1,8 @@
-/* Form logic for the task modal: creates a task or edits an existing one.
- * No markup knowledge beyond the data-/id hooks below; what happens with the saved task is
+import { renderReferences } from "./references.js";
+
+/* The task modal in three modes: "create" (form), "view" (read-only, references are links) and
+ * "edit" (form). An existing artifact opens in view mode; saving an edit returns to it.
+ * No markup knowledge beyond the data-/id hooks below; what happens with a saved task is
  * delegated via onSaved, so this module never touches the board. */
 
 export class TaskForm {
@@ -10,13 +13,18 @@ export class TaskForm {
    * @param {(id: string, fields: {title: string, body: string|null}) => Promise<object>} options.updateTask
    * @param {(task: object) => void} options.onSaved called with the created/updated task
    * @param {(task: object) => void} options.onGone called when an edited task no longer exists
+   * @param {(number: number) => object|undefined} options.findByNumber resolves "#n" references
+   * @param {(number: number) => void} options.onReference a reference link was followed
+   * @param {() => void} options.onBack the Back button was pressed
    */
-  constructor({ modal, createTask, updateTask, onSaved, onGone }) {
+  constructor({ modal, createTask, updateTask, onSaved, onGone, findByNumber, onReference, onBack }) {
     this.modal = modal;
     this.createTask = createTask;
     this.updateTask = updateTask;
     this.onSaved = onSaved;
     this.onGone = onGone;
+    this.findByNumber = findByNumber;
+    this.mode = "create";
     this.busy = false;
     this.status = "backlog";
     /** The task being edited, or null when creating. */
@@ -42,6 +50,10 @@ export class TaskForm {
     this.laneTitle = "";
     this.parentField = root.querySelector('[data-card-field="parent"]');
     this.parentValue = root.querySelector("[data-parent-value]");
+    this.view = root.querySelector("[data-task-view]");
+    this.viewTitle = root.querySelector("[data-view-title]");
+    this.viewBody = root.querySelector("[data-view-body]");
+    this.backButton = root.querySelector("[data-view-back]");
 
     // Closing (X, Cancel, Escape, overlay) is blocked while a request is running.
     modal.canClose = () => !this.busy;
@@ -51,31 +63,68 @@ export class TaskForm {
       this.submit();
     });
     this.titleInput.addEventListener("input", () => this.#setTitleError(""));
+    this.cancelButton.addEventListener("click", () => (this.mode === "edit" ? this.#showView() : this.modal.close()));
+    root.querySelector("[data-view-edit]").addEventListener("click", () => this.startEdit());
+    this.backButton.addEventListener("click", () => onBack());
+    this.viewBody.addEventListener("click", (event) => {
+      const link = event.target.closest("a[data-number]");
+      if (!link) return;
+      event.preventDefault();
+      onReference(Number(link.dataset.number));
+    });
   }
 
   /** Open in create mode for a lane. The draft is kept if the user dismissed the modal earlier. */
   open(status, laneTitle, hue) {
     this.#leaveEditMode();
     this.status = status;
+    this.mode = "create";
     this.#present("Create Artifact", "Create Artifact");
     this.#showNumber(null);
     this.setLane(status, laneTitle, hue);
     this.modal.open();
   }
 
-  /** Open in edit mode, prefilled with the task. */
-  openEdit(task, laneTitle, hue, parentTitle = null) {
-    if (!this.editing) {
-      this.draft = { title: this.titleInput.value, body: this.bodyInput.value };
-    }
+  /** Open an existing artifact read-only; `canGoBack` shows the Back button. */
+  openView(task, laneTitle, hue, parentTitle = null, canGoBack = false) {
     this.editing = task;
-    this.titleInput.value = task.title;
-    this.bodyInput.value = task.body ?? "";
-    this.#present("Edit Artifact", "Save");
-    this.#showNumber(task.number);
+    this.backButton.hidden = !canGoBack;
     this.setLane(task.status, laneTitle, hue);
     this.setParent(parentTitle);
-    this.modal.open();
+    this.#showNumber(task.number);
+    this.#showView();
+    if (!this.modal.isOpen) this.modal.open();
+  }
+
+  /** Update the read-only view when the artifact (or what it references) changed elsewhere. */
+  refreshView(task) {
+    if (this.mode !== "view" || this.editing?.id !== task.id) return;
+    this.editing = task;
+    this.#showView();
+  }
+
+  /** Switch from the read-only view to the form. */
+  startEdit() {
+    const task = this.editing;
+    if (!task || this.mode !== "view") return;
+    if (!this.draft) this.draft = { title: this.titleInput.value, body: this.bodyInput.value };
+    this.titleInput.value = task.title;
+    this.bodyInput.value = task.body ?? "";
+    this.mode = "edit";
+    this.#present("Edit Artifact", "Save");
+    this.view.hidden = true;
+    this.form.hidden = false;
+    this.titleInput.focus();
+  }
+
+  #showView() {
+    const task = this.editing;
+    this.mode = "view";
+    this.#present("Artifact", "Save");
+    this.form.hidden = true;
+    this.view.hidden = false;
+    this.viewTitle.textContent = task.title;
+    this.viewBody.replaceChildren(renderReferences(task.body ?? "", this.findByNumber));
   }
 
   /** The artifact number in the header (only for saved artifacts). */
@@ -83,7 +132,7 @@ export class TaskForm {
     if (!this.numberLabel) return;
     this.numberLabel.hidden = number == null;
     this.numberLabel.textContent = number == null ? "" : `#${number}`;
-    this.numberLabel.title = "Artifact number: reference it as #" + number;
+    this.numberLabel.title = `Artifact number: reference it as #${number}`;
   }
 
   /** Show the parent of the task being edited (null = none). */
@@ -141,13 +190,14 @@ export class TaskForm {
     const task = this.editing;
     const body = this.bodyInput.value.trim() || null;
     if (title === task.title && body === (task.body ?? null)) {
-      this.modal.close(); // nothing to save
+      this.#showView(); // nothing to save
       return;
     }
     await this.#run(
       () => this.updateTask(task.id, { title, body }),
       (saved) => {
-        this.#leaveEditMode();
+        this.editing = saved;
+        this.#showView();
         this.onSaved(saved);
       },
       (error) => {
@@ -158,17 +208,18 @@ export class TaskForm {
         this.onGone(task);
         return true;
       },
+      { close: false },
     );
   }
 
   /** Shared request lifecycle: busy state, error display, close on success. */
-  async #run(request, onSuccess, onError = () => false) {
+  async #run(request, onSuccess, onError = () => false, { close = true } = {}) {
     this.#setFormError("");
     this.#setBusy(true);
     try {
       const result = await request();
       this.#setBusy(false);
-      this.modal.close();
+      if (close) this.modal.close();
       onSuccess(result);
     } catch (error) {
       this.#setBusy(false);
@@ -179,9 +230,11 @@ export class TaskForm {
   #leaveEditMode() {
     if (!this.editing) return;
     this.editing = null;
-    this.titleInput.value = this.draft?.title ?? "";
-    this.bodyInput.value = this.draft?.body ?? "";
-    this.draft = null;
+    if (this.draft) {
+      this.titleInput.value = this.draft.title;
+      this.bodyInput.value = this.draft.body;
+      this.draft = null;
+    }
   }
 
   #present(heading, submitLabel) {
@@ -189,6 +242,11 @@ export class TaskForm {
     this.submitLabel.textContent = submitLabel;
     this.#setTitleError("");
     this.#setFormError("");
+    if (this.mode === "create") {
+      this.view.hidden = true;
+      this.form.hidden = false;
+      this.backButton.hidden = true;
+    }
     if (this.cardNav) this.cardNav.hidden = !this.editing; // task actions only exist for saved tasks
   }
 
