@@ -6,7 +6,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.models import Task
@@ -43,6 +43,7 @@ class TaskRepository:
         """Insert a task at the top of its lane and flush so defaults are populated."""
         task = Task(
             id=str(uuid.uuid4()),
+            number=await self._next_number(),
             title=data.title,
             body=data.body,
             status=data.status.value,
@@ -51,6 +52,13 @@ class TaskRepository:
         self._session.add(task)
         await self._session.flush()
         return task
+
+    async def _next_number(self) -> int:
+        """Hand out the next artifact number; numbers of deleted artifacts are never reused."""
+        result = await self._session.execute(
+            text("UPDATE task_number_seq SET last = last + 1 WHERE id = 1 RETURNING last")
+        )
+        return int(result.scalar_one())
 
     async def list_all(self) -> Sequence[Task]:
         """Return all tasks in board order: by lane, then position (ties: newest first)."""

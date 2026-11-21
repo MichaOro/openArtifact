@@ -18,7 +18,7 @@ import enum
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Float, ForeignKey, String, Text
+from sqlalchemy import Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from openartifact.database import Base
@@ -132,6 +132,8 @@ class Task(Base):
         title: Short title (required).
         body: Optional longer description.
         status: Lane of the task (see :class:`TaskStatus`).
+        number: Human-readable artifact number (#1, #2 …), unique and never reused (see
+            migration 0006).
         parent_id: Optional parent artifact (a tree: one parent, any number of children). Kept
             consistent by the repository (cycle check, children are detached on delete); there is
             deliberately no database foreign key (SQLite cannot add one to an existing table).
@@ -149,6 +151,7 @@ class Task(Base):
     # Plain string column; the allowed values are enforced by TaskStatus (API)
     # and a CHECK constraint (database).
     status: Mapped[str] = mapped_column(String(32), default=TaskStatus.BACKLOG.value)
+    number: Mapped[int] = mapped_column(Integer, nullable=True, unique=True)
     position: Mapped[float] = mapped_column(Float, default=0.0)
     parent_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

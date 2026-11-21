@@ -136,6 +136,19 @@ parent **detaches** its children instead of deleting them (the delete dialog say
 without rebuilding it); the repository keeps the relation consistent. Moving a parent to another
 lane does not move its children.
 
+### 2.11 Artifact numbers and `#` references
+
+`tasks.number` (migration 0006): every artifact gets a sequential number (#1, #2 …), unique and
+**never reused**: it comes from a counter table (`task_number_seq`), not from `max(number)+1`, so
+a `#12` written into another artifact never silently changes its meaning after a delete. Existing
+artifacts were numbered oldest first. The number is read-only in the API (PATCH with `number` is a
+422) and shown quietly (muted, small) left of the close button of the edit dialog.
+
+In the body field, typing `#` (at the start or after whitespace) opens a small menu with the other
+artifacts of the board (`ReferencePicker`); digits or title text filter it, Enter/Tab inserts
+`#<number>`, Escape closes only the menu. Parent fields still show the **title**, not the number.
+References are plain text for now: they are neither rendered as links nor checked on the server.
+
 ## 3. Consequences
 
 - **Easier:** consistent multi-tab behaviour with little code; no polling; no client framework.

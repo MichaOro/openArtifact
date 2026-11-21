@@ -2,6 +2,7 @@
 import { CollapsibleNav } from "../components/collapsible-nav.js";
 import { LanePicker } from "../components/lane-picker.js";
 import { Modal } from "../components/modal.js";
+import { ReferencePicker } from "../components/reference-picker.js";
 import { createTask, deleteTask, listTasks, placeTask, updateTask } from "./api.js";
 import { Board } from "./board.js";
 import { TaskForm } from "./create-task-form.js";
@@ -106,6 +107,17 @@ function pickLane(trigger, placement, variant = "list") {
     },
   });
 }
+// "#" in the body offers the artifacts of the board (not the one being edited).
+new ReferencePicker({
+  textarea: taskForm.bodyInput,
+  container: document.getElementById("create-task-modal"),
+  getItems: () =>
+    board
+      .inBoardOrder()
+      .filter((t) => t.id !== taskForm.editing?.id)
+      .map((t) => ({ number: t.number, title: t.title, hue: board.laneHue(t.status) })),
+});
+
 // Parent: any other artifact except the task itself and everything below it (no cycles).
 async function setParent(id, parentId) {
   const task = board.tasks.get(id);

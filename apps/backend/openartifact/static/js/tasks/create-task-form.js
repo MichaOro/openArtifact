@@ -31,6 +31,7 @@ export class TaskForm {
     this.bodyInput = this.form.elements.namedItem("body");
     this.titleError = root.querySelector("#task-title-error");
     this.formError = root.querySelector("[data-form-error]");
+    this.numberLabel = root.querySelector("[data-modal-number]");
     this.subtitle = root.querySelector("[data-modal-subtitle]");
     this.submitButton = root.querySelector("[data-submit]");
     this.submitLabel = root.querySelector("[data-submit-label]");
@@ -57,6 +58,7 @@ export class TaskForm {
     this.#leaveEditMode();
     this.status = status;
     this.#present("Create Artifact", "Create Artifact");
+    this.#showNumber(null);
     this.setLane(status, laneTitle, hue);
     this.modal.open();
   }
@@ -70,9 +72,18 @@ export class TaskForm {
     this.titleInput.value = task.title;
     this.bodyInput.value = task.body ?? "";
     this.#present("Edit Artifact", "Save");
+    this.#showNumber(task.number);
     this.setLane(task.status, laneTitle, hue);
     this.setParent(parentTitle);
     this.modal.open();
+  }
+
+  /** The artifact number in the header (only for saved artifacts). */
+  #showNumber(number) {
+    if (!this.numberLabel) return;
+    this.numberLabel.hidden = number == null;
+    this.numberLabel.textContent = number == null ? "" : `#${number}`;
+    this.numberLabel.title = "Artifact number: reference it as #" + number;
   }
 
   /** Show the parent of the task being edited (null = none). */

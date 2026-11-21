@@ -65,6 +65,7 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
         cols = {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
         assert cols == {
             "id",
+            "number",
             "title",
             "body",
             "status",
@@ -104,6 +105,7 @@ def test_create_task_returns_201_with_all_fields(client: TestClient) -> None:
     data = response.json()
     assert set(data) == {
         "id",
+        "number",
         "title",
         "body",
         "status",
@@ -600,3 +602,41 @@ def test_migration_0005_adds_nullable_parent_id(
         assert conn.execute("SELECT title FROM tasks WHERE id='old'").fetchone() == (
             "existing row",
         )
+
+
+# ── Artifact numbers (#1, #2 …) ───────────────────────────────────────
+
+
+def test_numbers_count_up_and_are_never_reused(client: TestClient) -> None:
+    first, second = _create(client, title="a"), _create(client, title="b")
+    assert (first["number"], second["number"]) == (1, 2)
+    client.delete(f"/api/tasks/{second['id']}")
+    assert _create(client, title="c")["number"] == 3  # 2 stays retired
+
+
+def test_number_cannot_be_changed_through_the_api(client: TestClient) -> None:
+    task = _create(client)
+    assert client.patch(f"/api/tasks/{task['id']}", json={"number": 99}).status_code == 422
+    assert client.get("/api/tasks").json()[0]["number"] == task["number"]
+
+
+def test_migration_0006_numbers_existing_tasks_oldest_first(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(_alembic_config(), "0005")
+    db_path = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db_path) as conn:
+        for tid, created in (("t2", "2026-01-02 10:00:00"), ("t1", "2026-01-01 10:00:00")):
+            conn.execute(
+                "INSERT INTO tasks (id, title, status, created_at) VALUES (?, ?, 'backlog', ?)",
+                (tid, tid, created),
+            )
+    command.upgrade(_alembic_config(), "head")
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute("SELECT id, number FROM tasks ORDER BY number").fetchall() == [
+            ("t1", 1),
+            ("t2", 2),
+        ]
+        assert conn.execute("SELECT last FROM task_number_seq").fetchone() == (2,)
