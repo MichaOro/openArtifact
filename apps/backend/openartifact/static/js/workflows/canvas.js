@@ -5,7 +5,7 @@
  *  - drag from an output port to an input port to connect;
  *  - drag the background to pan, wheel or the zoom buttons to zoom;
  *  - click a node or an edge to select it. */
-import { PAD, canConnect, curve, fitStage, originOf, portPoint, sizeOf } from "./graph.js";
+import { PAD, boxOf, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./graph.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete" };
@@ -103,15 +103,14 @@ export class Canvas {
       const body = document.createElement("div");
       body.className = "wf-stage__body";
       el.append(header, body);
-      for (const [port, label] of [["entry", "Start"], ["exit", "End"]]) el.append(this.#port(node, port, "inner", label));
-      el.append(this.#port(node, "in"), this.#port(node, "out"));
+      el.append(this.#port(node, "start", "Start"), this.#port(node, "end", "End"));
     } else {
       const text = document.createElement("div");
       text.className = "wf-node__text";
       text.append(name, kind);
       el.append(text);
       for (const port of ["in", "out", "pass", "error"]) {
-        if (this.#hasPort(node.kind, port)) el.append(this.#port(node, port, "", OUTPUT_LABELS[port]));
+        if (this.#hasPort(node.kind, port)) el.append(this.#port(node, port, OUTPUT_LABELS[port] ?? "Input"));
       }
     }
     return el;
@@ -121,14 +120,16 @@ export class Canvas {
     return { trigger: ["out"], action: ["in", "pass", "error"], complete: ["in"] }[kind]?.includes(port) ?? false;
   }
 
-  #port(node, port, extra = "", label = "") {
+  /** A port dot. A stage's start and end work both ways ("both"): they receive and they feed. */
+  #port(node, port, title) {
     const el = document.createElement("span");
-    el.className = `wf-port wf-port--${port}${extra ? ` wf-port--${extra}` : ""}`;
+    el.className = `wf-port wf-port--${port}`;
     el.dataset.port = port;
     el.dataset.nodeId = node.id;
-    el.dataset.direction = ["out", "entry", "pass", "error"].includes(port) ? "output" : "input";
+    el.dataset.direction = node.kind === "stage" ? "both" : ["out", "pass", "error"].includes(port) ? "output" : "input";
     el.setAttribute("aria-hidden", "true");
-    if (label) el.dataset.label = label;
+    el.title = title;
+    if (port === "pass" || port === "error") el.dataset.label = title;
     return el;
   }
 
@@ -150,7 +151,7 @@ export class Canvas {
       const source = this.nodes.get(edge.source_id);
       const target = this.nodes.get(edge.target_id);
       if (!source || !target) continue;
-      const d = curve(portPoint(source, edge.source_port, this.nodes), portPoint(target, edge.target_port, this.nodes));
+      const d = edgePath(portPoint(source, edge.source_port, this.nodes), portPoint(target, edge.target_port, this.nodes), boxOf(source, this.nodes), boxOf(target, this.nodes));
       const group = svg("g", { class: `wf-edge wf-edge--${edge.source_port}`, "data-edge-id": edge.id });
       if (this.selection?.type === "edge" && this.selection.id === edge.id) group.classList.add("is-selected");
       group.append(svg("path", { class: "wf-edge__hit", d }), svg("path", { class: "wf-edge__line", d, "marker-end": `url(#wf-arrow-${edge.source_port === "error" ? "error" : "pass"})` }));
@@ -252,7 +253,7 @@ export class Canvas {
   #onPointerDown(event) {
     if (event.button !== 0 || this.gesture) return;
     const port = event.target.closest(".wf-port");
-    if (port?.dataset.direction === "output") return this.#startConnect(event, port);
+    if (port && port.dataset.direction !== "input") return this.#startConnect(event, port);
     if (event.target.closest("button, input, select, a")) return;
     const edge = event.target.closest(".wf-edge");
     if (edge) {
@@ -276,8 +277,8 @@ export class Canvas {
     const from = portPoint(node, port.dataset.port, this.nodes);
     const line = svg("path", { class: "wf-edge__line wf-edge__line--draft" });
     this.edgeLayer.append(line);
-    this.gesture = { type: "connect", pointerId: event.pointerId, node, port: port.dataset.port, from, line };
-    for (const el of this.viewport.querySelectorAll('.wf-port[data-direction="input"]')) {
+    this.gesture = { type: "connect", pointerId: event.pointerId, node, port: port.dataset.port, from, box: boxOf(node, this.nodes), line };
+    for (const el of this.viewport.querySelectorAll('.wf-port:not([data-direction="output"])')) {
       const target = this.nodes.get(el.dataset.nodeId);
       el.classList.toggle("is-valid", canConnect(node, port.dataset.port, target, el.dataset.port));
     }
@@ -291,7 +292,7 @@ export class Canvas {
     if (!g || event.pointerId !== g.pointerId) return;
     if (g.type === "connect") {
       const to = this.#toWorld(event);
-      g.line.setAttribute("d", curve(g.from, to));
+      g.line.setAttribute("d", edgePath(g.from, to, g.box, g.box, { routed: false }));
       const over = document.elementFromPoint(event.clientX, event.clientY)?.closest(".wf-port.is-valid");
       this.viewport.querySelectorAll(".wf-port.is-hover").forEach((el) => el.classList.toggle("is-hover", el === over));
       over?.classList.add("is-hover");

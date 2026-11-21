@@ -3,7 +3,9 @@
 Ports:
 
 * trigger: ``out``
-* stage: ``in``, ``out`` (to other stages) and the inner pair ``entry`` / ``exit`` (to and from its actions)
+* stage: ``start`` and ``end``. Each serves both sides: ``start`` receives from the trigger or a
+  previous stage and feeds the first action; ``end`` receives from the stage's actions and leads on
+  to the next stage or an ending. Which side an edge is on follows from its other end.
 * action: ``in``, ``pass``, ``error`` (only inside its own stage)
 * complete: ``in``
 """
@@ -16,13 +18,13 @@ from openartifact.models import NodeKind
 
 OUTPUT_PORTS = {
     NodeKind.TRIGGER: ("out",),
-    NodeKind.STAGE: ("out", "entry"),
+    NodeKind.STAGE: ("start", "end"),
     NodeKind.ACTION: ("pass", "error"),
     NodeKind.COMPLETE: (),
 }
 INPUT_PORTS = {
     NodeKind.TRIGGER: (),
-    NodeKind.STAGE: ("in", "exit"),
+    NodeKind.STAGE: ("start", "end"),
     NodeKind.ACTION: ("in",),
     NodeKind.COMPLETE: ("in",),
 }
@@ -48,27 +50,28 @@ def validate_edge(source: Endpoint, source_port: str, target: Endpoint, target_p
     if target_port not in INPUT_PORTS[target.kind]:
         raise EdgeError(f"A {target.kind.value} has no input '{target_port}'")
 
-    if source.kind is NodeKind.STAGE and source_port == "entry":
-        # inner start of a stage: only to an action of that stage
+    if source.kind is NodeKind.STAGE and source_port == "start":
+        # the stage's start feeds the first action, which must be inside it
         if target.kind is not NodeKind.ACTION or target.stage_id != source.id:
             raise EdgeError("The start of a stage connects to an action inside that stage")
     elif source.kind is NodeKind.ACTION:
-        # inside a stage: to another action of the same stage, or to the stage's exit
+        # inside a stage: to another action of the same stage, or to the stage's end
         if target.kind is NodeKind.ACTION:
             if target.stage_id != source.stage_id:
                 raise EdgeError("Actions connect only to actions of their own stage")
-        elif target.kind is NodeKind.STAGE and target_port == "exit":
+        elif target.kind is NodeKind.STAGE and target_port == "end":
             if target.id != source.stage_id:
-                raise EdgeError("An action connects only to the exit of its own stage")
+                raise EdgeError("An action connects only to the end of its own stage")
         else:
-            raise EdgeError("An action connects to actions of its stage or to the stage exit")
+            raise EdgeError("An action connects to actions of its stage or to the stage end")
     else:
-        # trigger / stage output: between top-level nodes
-        if target.kind is NodeKind.STAGE and target_port == "exit":
-            raise EdgeError("The exit of a stage is fed by its own actions")
+        # trigger or the end of a stage: on to the start of another stage, or to an ending
         if target.kind is NodeKind.ACTION:
             raise EdgeError("Stages connect to stages; actions are reached from inside a stage")
-        if target.kind is NodeKind.STAGE and target.id == source.id:
-            raise EdgeError("A stage cannot be connected to itself")
+        if target.kind is NodeKind.STAGE:
+            if target_port != "start":
+                raise EdgeError("The end of a stage is fed by its own actions")
+            if target.id == source.id:
+                raise EdgeError("A stage cannot be connected to itself")
         if source.kind is NodeKind.TRIGGER and target.kind is NodeKind.COMPLETE:
             raise EdgeError("A trigger starts a stage")

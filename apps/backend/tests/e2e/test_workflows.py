@@ -38,6 +38,17 @@ def _drag(page: Page, source: Locator, target: Locator) -> None:
     page.mouse.up()
 
 
+def _expect_edges(
+    page: Page, api: httpx.Client, workflow: dict[str, Any], expected: list[tuple[str, str]]
+) -> None:
+    """The server's edges become `expected` (changes are saved asynchronously, so this polls)."""
+    for _ in range(100):
+        if _edges(api, workflow) == expected:
+            return
+        page.wait_for_timeout(50)
+    assert _edges(api, workflow) == expected
+
+
 def _edges(api: httpx.Client, workflow: dict[str, Any]) -> list[tuple[str, str]]:
     return sorted((e["source_port"], e["target_port"]) for e in _graph(api, workflow)["edges"])
 
@@ -119,11 +130,11 @@ def test_connect_by_dragging_between_ports(page: Page, base_url: str, api: httpx
     _drag(
         page,
         page.locator(".wf-node--trigger .wf-port--out"),
-        page.locator(".wf-node--stage > .wf-port--in"),
+        page.locator(".wf-node--stage > .wf-port--start"),
     )
     _drag(
         page,
-        page.locator(".wf-node--stage > .wf-port--entry"),
+        page.locator(".wf-node--stage > .wf-port--start"),
         page.locator(".wf-node--action").first.locator(".wf-port--in"),
     )
     _drag(
@@ -134,15 +145,20 @@ def test_connect_by_dragging_between_ports(page: Page, base_url: str, api: httpx
     _drag(
         page,
         page.locator(".wf-node--action").nth(1).locator(".wf-port--error"),
-        page.locator(".wf-node--stage > .wf-port--exit"),
+        page.locator(".wf-node--stage > .wf-port--end"),
     )
     expect(page.locator(".wf-edge")).to_have_count(4)
-    assert _edges(api, workflow) == [
-        ("entry", "in"),
-        ("error", "exit"),
-        ("out", "in"),
-        ("pass", "in"),
-    ]
+    _expect_edges(
+        page,
+        api,
+        workflow,
+        [
+            ("error", "end"),
+            ("out", "start"),
+            ("pass", "in"),
+            ("start", "in"),
+        ],
+    )
 
 
 def test_only_valid_targets_light_up_and_invalid_drops_do_nothing(
@@ -160,11 +176,11 @@ def test_only_valid_targets_light_up_and_invalid_drops_do_nothing(
     valid = page.locator(".wf-port.is-valid")
     # an action may reach actions of its own stage and the end of its own stage, nothing else
     expect(valid).to_have_count(3)
-    stage_in = page.locator(".wf-node--stage").nth(1).locator("> .wf-port--in")
+    stage_in = page.locator(".wf-node--stage").nth(1).locator("> .wf-port--start")
     tx, ty = _centre(stage_in)
     page.mouse.move(tx, ty, steps=6)
     page.mouse.up()
-    assert _edges(api, workflow) == []
+    _expect_edges(page, api, workflow, [])
     expect(page.locator(".wf-port.is-valid")).to_have_count(0)
 
 
@@ -178,10 +194,10 @@ def test_connect_through_the_inspector_with_the_keyboard(
     pass_select = page.locator(".wf-inspector select").first
     pass_select.select_option(label=_second_action_name(page))
     expect(page.locator(".wf-edge")).to_have_count(1)
-    assert _edges(api, workflow) == [("pass", "in")]
+    _expect_edges(page, api, workflow, [("pass", "in")])
     pass_select.select_option(label="Not connected")
     expect(page.locator(".wf-edge")).to_have_count(0)
-    assert _edges(api, workflow) == []
+    _expect_edges(page, api, workflow, [])
 
 
 def _second_action_name(page: Page) -> str:
@@ -198,9 +214,9 @@ def test_an_output_has_one_edge_and_reconnecting_replaces_it(
         first.locator(".wf-port--pass"),
         page.locator(".wf-node--action").nth(1).locator(".wf-port--in"),
     )
-    _drag(page, first.locator(".wf-port--pass"), page.locator(".wf-node--stage > .wf-port--exit"))
+    _drag(page, first.locator(".wf-port--pass"), page.locator(".wf-node--stage > .wf-port--end"))
     expect(page.locator(".wf-edge")).to_have_count(1)
-    assert _edges(api, workflow) == [("pass", "exit")]
+    _expect_edges(page, api, workflow, [("pass", "end")])
 
 
 def test_error_may_loop_back_to_its_own_input(page: Page, base_url: str, api: httpx.Client) -> None:
@@ -208,7 +224,7 @@ def test_error_may_loop_back_to_its_own_input(page: Page, base_url: str, api: ht
     first = page.locator(".wf-node--action").first
     _drag(page, first.locator(".wf-port--error"), first.locator(".wf-port--in"))
     expect(page.locator(".wf-edge")).to_have_count(1)
-    assert _edges(api, workflow) == [("error", "in")]
+    _expect_edges(page, api, workflow, [("error", "in")])
 
 
 def test_select_and_delete_an_edge(page: Page, base_url: str, api: httpx.Client) -> None:
@@ -216,13 +232,13 @@ def test_select_and_delete_an_edge(page: Page, base_url: str, api: httpx.Client)
     _drag(
         page,
         page.locator(".wf-node--trigger .wf-port--out"),
-        page.locator(".wf-node--stage > .wf-port--in"),
+        page.locator(".wf-node--stage > .wf-port--start"),
     )
     page.locator(".wf-edge__hit").first.click(force=True)
     expect(page.locator(".wf-inspector h2")).to_have_text("Connection")
     page.keyboard.press("Delete")
     expect(page.locator(".wf-edge")).to_have_count(0)
-    assert _edges(api, workflow) == []
+    _expect_edges(page, api, workflow, [])
 
 
 def test_move_rename_and_delete_a_node(page: Page, base_url: str, api: httpx.Client) -> None:
@@ -235,7 +251,11 @@ def test_move_rename_and_delete_a_node(page: Page, base_url: str, api: httpx.Cli
     page.mouse.move(x + 60, y + 30, steps=6)
     page.mouse.up()
     expect(page.locator(".wf-inspector h2")).to_have_text("Action")
-    moved = next(n for n in _graph(api, workflow)["nodes"] if n["id"] == before["id"])
+    for _ in range(100):  # saved asynchronously
+        moved = next(n for n in _graph(api, workflow)["nodes"] if n["id"] == before["id"])
+        if (moved["x"], moved["y"]) != (before["x"], before["y"]):
+            break
+        page.wait_for_timeout(50)
     assert (moved["x"], moved["y"]) != (before["x"], before["y"])
 
     name = page.locator(".wf-inspector input").first

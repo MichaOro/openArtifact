@@ -21,7 +21,7 @@ A workflow is a graph of **nodes** and **edges** between their **ports**.
 | Node | Ports | Meaning |
 |------|-------|---------|
 | Trigger | out | Start of the workflow (placeholder; manual, webhook or event later). Every workflow starts with one. |
-| Stage | in, out; inner: entry, exit | An isolated container of actions. Stages connect to other stages through `in`/`out`. Its actions connect to the stage through `entry` (start) and `exit` (end). |
+| Stage | start, end | An isolated container of actions. Each port serves both sides: `start` receives from the trigger or a previous stage and feeds the first action; `end` receives from the stage's actions and leads on to the next stage or an ending. Which side an edge is on follows from its other end (migration 0009 merged the former `in`/`entry` and `out`/`exit`). |
 | Action | in, pass, error | A business execution, a container for now. Connects only to actions of its own stage or to its stage's `exit`. `error` may also go to its own input. |
 | Complete | in | Ends the workflow; stands outside any stage. |
 
@@ -53,10 +53,14 @@ opens it, arrows nudge, Delete removes.
 What an action does, running workflows, versions and a "Runs" view, undo, resizing stages by hand,
 multi-select, pinch zoom, and syncing the editor between tabs.
 
+Edges that go forward are smooth curves. An edge that has to go back (a loop into the node's own
+input, or to a node further left) leaves to the right, runs below both nodes and returns from the
+left with rounded corners, so it never cuts across a node (`edgePath` in `graph.js`).
+
 ## 3. Consequences
 
 - **Easier:** new node kinds or ports need an entry in the rules, the port tables and the canvas;
   the graph shape does not change.
-- **Limitation:** a stage only grows, never shrinks, and edges are plain curves without routing
-  around nodes, so crossing lines are possible.
+- **Limitation:** a stage only grows, never shrinks; edges are routed only for loops and backward
+  connections, so other lines can still cross nodes or each other.
 - **Risk:** large graphs re-draw all edges on every pointer move; fine for tens of nodes.

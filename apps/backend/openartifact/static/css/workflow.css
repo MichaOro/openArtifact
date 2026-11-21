@@ -122,12 +122,9 @@
 .wf-port--pass::after, .wf-port--error::after { right: 14px; }
 .wf-port--in { left: 0; top: 50%; }
 .wf-port--out { left: 100%; top: 50%; }
-.wf-node--stage > .wf-port--in, .wf-node--stage > .wf-port--out { top: 22px; }
-.wf-node--stage > .wf-port--entry, .wf-node--stage > .wf-port--exit { top: calc(44px + (100% - 44px) / 2); }
-.wf-port--entry { left: 0; }
-.wf-port--exit { left: 100%; }
-.wf-port--entry::after { left: 14px; }
-.wf-port--exit::after { right: 14px; }
+.wf-node--stage > .wf-port--start, .wf-node--stage > .wf-port--end { top: 22px; }
+.wf-port--start { left: 0; }
+.wf-port--end { left: 100%; }
 .wf-port.is-valid { background: var(--accent-soft); border-color: var(--color-accent); transform: scale(1.35); }
 .wf-port.is-hover { background: var(--color-accent); }
 

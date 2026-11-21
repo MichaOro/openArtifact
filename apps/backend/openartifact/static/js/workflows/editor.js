@@ -320,7 +320,7 @@ export class WorkflowEditor {
     for (const target of this.nodes.values()) {
       for (const targetPort of INPUTS[target.kind]) {
         if (!canConnect(node, port, target, targetPort)) continue;
-        const label = targetPort === "exit" ? `${target.name} · end of stage` : target.name;
+        const label = targetPort === "end" ? `${target.name} · end of stage` : target.name;
         const option = new Option(label, `${target.id}|${targetPort}`);
         select.append(option);
         if (current?.target_id === target.id && current.target_port === targetPort) option.selected = true;

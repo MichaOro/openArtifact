@@ -28,15 +28,15 @@ END = Endpoint("e", NodeKind.COMPLETE)
 @pytest.mark.parametrize(
     ("source", "source_port", "target", "target_port"),
     [
-        (TRIGGER, "out", S1, "in"),
-        (S1, "out", S2, "in"),
-        (S1, "out", END, "in"),
-        (S1, "entry", A1, "in"),
+        (TRIGGER, "out", S1, "start"),
+        (S1, "end", S2, "start"),
+        (S1, "end", END, "in"),
+        (S1, "start", A1, "in"),
         (A1, "pass", A2, "in"),
         (A1, "error", A2, "in"),
         (A1, "error", A1, "in"),  # an error may retry the same action
-        (A1, "pass", S1, "exit"),
-        (A1, "error", S1, "exit"),  # allowed on purpose
+        (A1, "pass", S1, "end"),
+        (A1, "error", S1, "end"),  # allowed on purpose
     ],
 )
 def test_allowed_connections(
@@ -50,14 +50,14 @@ def test_allowed_connections(
     [
         (TRIGGER, "out", A1, "in"),  # actions are reached from inside a stage
         (TRIGGER, "out", END, "in"),
-        (TRIGGER, "in", S1, "in"),  # no such output
-        (S1, "out", S1, "in"),  # not to itself
-        (S1, "out", S2, "exit"),  # the exit is fed from inside
-        (S1, "entry", B1, "in"),  # an action of another stage
-        (S1, "entry", S2, "in"),
+        (TRIGGER, "in", S1, "start"),  # no such output
+        (S1, "end", S1, "start"),  # not to itself
+        (S1, "end", S2, "end"),  # the end is fed from inside
+        (S1, "start", B1, "in"),  # an action of another stage
+        (S1, "start", S2, "start"),
         (A1, "pass", B1, "in"),  # across stages
-        (A1, "pass", S2, "exit"),
-        (A1, "pass", S1, "in"),  # the stage's outer input
+        (A1, "pass", S2, "end"),
+        (A1, "pass", S1, "start"),  # the stage's start is fed from outside
         (A1, "pass", END, "in"),
         (END, "pass", A1, "in"),  # no such output
         (A1, "pass", A2, "pass"),  # no such input
@@ -169,12 +169,12 @@ def test_connect_validates_and_replaces_the_output_edge(client: TestClient) -> N
     workflow = _workflow(client)
     trigger = _graph(client, workflow)["nodes"][0]
     one, two = _node(client, workflow, "stage"), _node(client, workflow, "stage")
-    assert _edge(client, workflow, trigger, "out", one, "in").status_code == 201
-    assert _edge(client, workflow, trigger, "out", two, "in").status_code == 201  # replaces
+    assert _edge(client, workflow, trigger, "out", one, "start").status_code == 201
+    assert _edge(client, workflow, trigger, "out", two, "start").status_code == 201  # replaces
     edges = _graph(client, workflow)["edges"]
     assert [e["target_id"] for e in edges] == [two["id"]]
     assert _edge(client, workflow, trigger, "out", trigger, "in").status_code == 422
-    assert _edge(client, workflow, one, "out", one, "in").status_code == 422
+    assert _edge(client, workflow, one, "end", one, "start").status_code == 422
 
 
 def test_inputs_take_several_edges(client: TestClient) -> None:
@@ -192,14 +192,14 @@ def test_edges_across_workflows_are_rejected(client: TestClient) -> None:
     one, other = _workflow(client), _workflow(client)
     stage = _node(client, other, "stage")
     trigger = _graph(client, one)["nodes"][0]
-    assert _edge(client, one, trigger, "out", stage, "in").status_code == 422
+    assert _edge(client, one, trigger, "out", stage, "start").status_code == 422
 
 
 def test_disconnect(client: TestClient) -> None:
     workflow = _workflow(client)
     trigger = _graph(client, workflow)["nodes"][0]
     stage = _node(client, workflow, "stage")
-    edge = _edge(client, workflow, trigger, "out", stage, "in").json()
+    edge = _edge(client, workflow, trigger, "out", stage, "start").json()
     assert client.delete(f"/api/workflows/{workflow['id']}/edges/{edge['id']}").status_code == 204
     assert _graph(client, workflow)["edges"] == []
     assert client.delete(f"/api/workflows/{workflow['id']}/edges/{edge['id']}").status_code == 404
@@ -210,9 +210,9 @@ def test_deleting_a_stage_removes_its_actions_and_all_their_edges(client: TestCl
     trigger = _graph(client, workflow)["nodes"][0]
     stage, other = _node(client, workflow, "stage"), _node(client, workflow, "stage")
     action = _node(client, workflow, "action", stage_id=stage["id"])
-    _edge(client, workflow, trigger, "out", stage, "in")
-    _edge(client, workflow, stage, "entry", action, "in")
-    _edge(client, workflow, stage, "out", other, "in")
+    _edge(client, workflow, trigger, "out", stage, "start")
+    _edge(client, workflow, stage, "start", action, "in")
+    _edge(client, workflow, stage, "end", other, "start")
     assert client.delete(f"/api/workflows/{workflow['id']}/nodes/{stage['id']}").status_code == 204
     graph = _graph(client, workflow)
     assert sorted(n["kind"] for n in graph["nodes"]) == ["stage", "trigger"]
@@ -248,3 +248,52 @@ def test_migration_0008_is_reversible(settings: Settings, monkeypatch: pytest.Mo
     with sqlite3.connect(settings.data_dir / settings.database_filename) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert not {"workflows", "workflow_nodes", "workflow_edges"} & tables
+
+
+def test_migration_0009_merges_the_inner_and_outer_stage_ports(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "0008")
+    db = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO workflows (id, name) VALUES ('w', 'W')")
+        for node_id, kind, stage in (
+            ("t", "trigger", None),
+            ("s", "stage", None),
+            ("a", "action", "s"),
+            ("s2", "stage", None),
+        ):
+            conn.execute(
+                "INSERT INTO workflow_nodes (id, workflow_id, kind, stage_id, name) VALUES (?, 'w', ?, ?, ?)",
+                (node_id, kind, stage, node_id),
+            )
+        for edge_id, src, sp, dst, dp in (
+            ("e1", "t", "out", "s", "in"),
+            ("e2", "s", "entry", "a", "in"),
+            ("e3", "a", "pass", "s", "exit"),
+            ("e4", "s", "out", "s2", "in"),
+        ):
+            conn.execute(
+                "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, target_port) "
+                "VALUES (?, 'w', ?, ?, ?, ?)",
+                (edge_id, src, sp, dst, dp),
+            )
+    command.upgrade(alembic_config(), "0009")
+    query = "SELECT id, source_port, target_port FROM workflow_edges ORDER BY id"
+    with sqlite3.connect(db) as conn:
+        assert conn.execute(query).fetchall() == [
+            ("e1", "out", "start"),
+            ("e2", "start", "in"),
+            ("e3", "pass", "end"),
+            ("e4", "end", "start"),
+        ]
+    command.downgrade(alembic_config(), "0008")
+    with sqlite3.connect(db) as conn:
+        assert conn.execute(query).fetchall() == [
+            ("e1", "out", "in"),
+            ("e2", "entry", "in"),
+            ("e3", "pass", "exit"),
+            ("e4", "out", "in"),
+        ]
