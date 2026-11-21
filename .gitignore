@@ -193,3 +193,6 @@ temp/
 # Documentation builds
 _site/
 .jekyll-cache/
+
+# Playwright
+test-results/

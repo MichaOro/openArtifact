@@ -166,7 +166,7 @@ not exist yet. Rendering uses DOM nodes, never `innerHTML`.
   needs a shared broker (e.g. Redis pub/sub) behind the same `EventBus` interface.
 - **Limitation:** an event stream holds one connection per open tab.
 - **Risk:** hand-written drag & drop needs browser/device testing (touch behaviour differs per
-  OS). The behaviour is verified by manual browser runs before every push (headless Chrome via DevTools protocol); these scripts are deliberately not versioned, so there are no automated UI tests yet.
+  OS). The behaviour is covered by Playwright browser tests (`apps/backend/tests/e2e/`, CI job `e2e`), including touch gestures via the DevTools protocol.
 
 ### 2.12 Foreign key on `parent_id`
 

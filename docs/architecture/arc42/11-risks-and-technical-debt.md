@@ -23,7 +23,6 @@ No intentional technical debt has been introduced at this stage.
 | `#12` references are resolved at display time | Not validated on save (a body may contain `#5` as plain text); no back-references ("referenced by") yet |
 | Parent picker without search | Becomes necessary with many artifacts |
 | `Project`/`WorkItem` models not connected to the board | To be reconciled with the artifact model in WP-06 |
-| No automated browser tests in CI | Browser E2E runs manually before pushes; see ADR-011 |
 | Pushed `fix:` history from the bootstrap phase | Kept as is; no history rewrite on `main` |
 
 **Trade-offs to revisit:**

@@ -41,6 +41,7 @@ dev = [
     "httpx>=0.28.0",
     "coverage>=7.6.0",
     "factory-boy>=3.3.0",
+    "pytest-playwright>=0.6.0",
 ]
 
 [project.scripts]
@@ -101,6 +102,9 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
+# Browser tests are slow and need a browser: run them explicitly with `pytest -m e2e`.
+addopts = "-m 'not e2e'"
+markers = ["e2e: browser tests against a running application (pytest -m e2e)"]
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning",

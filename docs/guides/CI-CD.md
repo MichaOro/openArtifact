@@ -5,7 +5,7 @@ This guide documents the automated CI/CD pipeline, Docker build process, and rel
 ## Overview
 
 ```
-Developer → PR → CI (lint → typecheck → test → docker build) → main → Release (docker publish)
+Developer → PR → CI (lint → typecheck → test → browser tests → docker build) → main → Release (docker publish)
 ```
 
 All checks run automatically. No manual intervention is required for development builds.
@@ -25,8 +25,9 @@ All checks run automatically. No manual intervention is required for development
 1. **Ruff lint** — `ruff check .`
 2. **Ruff format** — `ruff format --check .`
 3. **mypy** — `mypy .` (strict mode)
-4. **pytest** — Full test suite with coverage
-5. **Docker build** — Production image build (main only)
+4. **pytest** — Unit and API tests with coverage (browser tests excluded)
+5. **Browser tests** — `pytest -m e2e` (Playwright, headless Chromium, traces of failures are uploaded)
+6. **Docker build** — Production image build (main only)
 
 ### Workflow Files
 
