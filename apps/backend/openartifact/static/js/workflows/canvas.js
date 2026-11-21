@@ -9,7 +9,7 @@ import { PAD, SLOTS, boxOf, displayName, canConnect, edgePath, fitStage, originO
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output" };
-const OUTPUT_LABELS = { pass: "Pass", error: "Error" };
+const OUTPUT_LABELS = { pass: "Pass", error: "Error", fail: "On Fail" };
 const DRAG_THRESHOLD = 4;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
@@ -109,34 +109,25 @@ export class Canvas {
       text.className = "wf-node__text";
       text.append(name, kind);
       el.append(text);
-      if (node.kind === "output") el.append(this.#outcomes());
-      for (const port of ["in", "out", "pass", "error"]) {
+      if (node.kind === "output") el.append(this.#failToggle());
+      for (const port of ["in", "out", "pass", "fail", "error"]) {
         if (this.#hasPort(node.kind, port)) el.append(this.#port(node, port, OUTPUT_LABELS[port] ?? "Input"));
       }
     }
     return el;
   }
 
-  /** The outcomes of an action: On Pass is always there, On Fail is switched on with the small button. */
-  #outcomes() {
-    const wrap = document.createElement("div");
-    wrap.className = "wf-outcomes";
-    const pass = document.createElement("span");
-    pass.className = "wf-outcome wf-outcome--pass";
-    pass.textContent = "On Pass";
-    const fail = document.createElement("span");
-    fail.className = "wf-outcome wf-outcome--fail";
-    fail.textContent = "On Fail";
+  /** On Fail is switched on and off with this small button; On Pass is always there. */
+  #failToggle() {
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "wf-outcome__toggle";
     toggle.dataset.toggleFail = "";
-    wrap.append(pass, fail, toggle);
-    return wrap;
+    return toggle;
   }
 
   #hasPort(kind, port) {
-    return { trigger: ["out"], action: ["in", "pass", "error"], complete: ["in"], output: ["in"] }[kind]?.includes(port) ?? false;
+    return { trigger: ["out"], action: ["in", "pass", "error"], complete: ["in"], output: ["pass", "fail"] }[kind]?.includes(port) ?? false;
   }
 
   /** A port dot. A stage's start and end work both ways ("both"): they receive and they feed. */
@@ -146,10 +137,10 @@ export class Canvas {
     el.dataset.port = port;
     el.dataset.slot = String(slot);
     el.dataset.nodeId = node.id;
-    el.dataset.direction = node.kind === "stage" ? "both" : ["out", "pass", "error"].includes(port) ? "output" : "input";
+    el.dataset.direction = node.kind === "stage" ? "both" : node.kind !== "output" && ["out", "pass", "error"].includes(port) ? "output" : "input";
     el.setAttribute("aria-hidden", "true");
     el.title = title;
-    if (port === "pass" || port === "error") el.dataset.label = title;
+    if (port === "pass" || port === "error" || port === "fail") el.dataset.label = node.kind === "output" ? (port === "pass" ? "On Pass" : "On Fail") : title;
     return el;
   }
 
@@ -166,7 +157,7 @@ export class Canvas {
       el.classList.toggle("is-no-fail", node.definition_fail_enabled === false); // its definition has no On Fail
     }
     if (node.kind === "output") {
-      el.querySelector(".wf-outcome--fail").hidden = !node.fail_enabled;
+      el.classList.toggle("has-fail", node.fail_enabled);
       const toggle = el.querySelector("[data-toggle-fail]");
       toggle.textContent = node.fail_enabled ? "− On Fail" : "+ On Fail";
       toggle.setAttribute("aria-pressed", String(node.fail_enabled));

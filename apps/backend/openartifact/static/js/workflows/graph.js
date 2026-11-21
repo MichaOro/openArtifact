@@ -10,13 +10,13 @@ export const SIZE = {
   trigger: { width: 160, height: 64 },
   action: { width: 190, height: 68 },
   complete: { width: 160, height: 56 },
-  output: { width: 250, height: 88 },
+  output: { width: 250, height: 104 },
 };
 export const STAGE_MIN = { width: 320, height: 220 };
 
 // A stage has one start and one end, each serving both sides (see workflow/rules.py).
 export const OUTPUTS = { trigger: ["out"], stage: ["start", "end"], action: ["pass", "error"], complete: [], output: [] };
-export const INPUTS = { trigger: [], stage: ["start", "end"], action: ["in"], complete: ["in"], output: ["in"] };
+export const INPUTS = { trigger: [], stage: ["start", "end"], action: ["in"], complete: ["in"], output: ["pass", "fail"] };
 
 export const PORT_LABELS = {
   out: "Next",
@@ -25,6 +25,7 @@ export const PORT_LABELS = {
   pass: "On Pass",
   error: "On Error",
   in: "Input",
+  fail: "On Fail",
 };
 
 /** What a node is called on the canvas: a linked action carries the name of its action definition. */
@@ -66,6 +67,10 @@ export function portPoint(node, port, nodes, slot = 0) {
       return { x, y: y + slotY(height, slot) };
     case "stage:end":
       return { x: x + width, y: y + slotY(height, slot) };
+    case "output:pass": // the input connectors of an action definition's output
+      return { x, y: y + 60 };
+    case "output:fail":
+      return { x, y: y + 84 };
     case "action:pass": // without an Error output (its definition has no On Fail) Pass is centred
       return { x: x + width, y: y + (node.definition_fail_enabled === false ? height / 2 : 24) };
     case "action:error":
@@ -78,6 +83,7 @@ export function portPoint(node, port, nodes, slot = 0) {
 /** May `source.sourcePort` feed `target.targetPort`? Mirrors workflow/rules.py. */
 export function canConnect(source, sourcePort, target, targetPort) {
   if (!OUTPUTS[source.kind].includes(sourcePort) || !INPUTS[target.kind].includes(targetPort)) return false;
+  if (target.kind === "output" && targetPort === "fail" && !target.fail_enabled) return false;
   if (source.kind === "stage" && sourcePort === "start") return target.kind === "action" && target.stage_id === source.id;
   if (source.kind === "action") {
     if (target.kind === "action") return target.stage_id === source.stage_id;

@@ -390,37 +390,44 @@ def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
 ) -> None:
     _clear_actions(api)
     definition = api.post("/api/workflows", json={"name": "Check", "kind": "action"}).json()
-    page.goto(f"{base_url}/actions/{definition['id']}")
+    page.goto(f"{base_url}/actions/{definition['slug']}")
     output = page.locator(".wf-node--output")
-    expect(output.locator(".wf-outcome--pass")).to_be_visible()
-    expect(output.locator(".wf-outcome--fail")).to_be_hidden()
+    expect(output.locator(".wf-port--pass")).to_be_visible()  # a connector of its own
+    expect(output.locator(".wf-port--fail")).to_be_hidden()
     output.locator("[data-toggle-fail]").click()
-    expect(output.locator(".wf-outcome--fail")).to_be_visible()
+    expect(output.locator(".wf-port--fail")).to_be_visible()
     for _ in range(100):
         nodes = _graph(api, definition)["nodes"]
         if next(n for n in nodes if n["kind"] == "output")["fail_enabled"]:
             break
         page.wait_for_timeout(50)
     page.reload()
-    expect(page.locator(".wf-node--output .wf-outcome--fail")).to_be_visible()
+    expect(page.locator(".wf-node--output .wf-port--fail")).to_be_visible()
     page.locator(".wf-node--output .wf-node__name").click()
     page.locator(".wf-inspector input[type=checkbox]").uncheck()
-    expect(page.locator(".wf-node--output .wf-outcome--fail")).to_be_hidden()
+    expect(page.locator(".wf-node--output .wf-port--fail")).to_be_hidden()
     expect(page.locator(".wf-inspector .wf-delete")).to_have_count(0)  # output stays
 
 
-def test_trigger_connects_to_the_output(page: Page, base_url: str, api: httpx.Client) -> None:
+def test_the_trigger_is_routed_to_on_pass_or_on_fail(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
     _clear_actions(api)
     definition = api.post("/api/workflows", json={"name": "Check", "kind": "action"}).json()
-    page.goto(f"{base_url}/actions/{definition['id']}")
+    page.goto(f"{base_url}/actions/{definition['slug']}")
     expect(page.locator(".wf-node--output")).to_be_visible()
+    expect(page.locator(".wf-edge")).to_have_count(1)  # connected to On Pass by default
+    _expect_edges(page, api, definition, [("out", "pass")])
+    page.locator("[data-toggle-fail]").click()
     _drag(
         page,
         page.locator(".wf-node--trigger .wf-port--out"),
-        page.locator(".wf-node--output .wf-port--in"),
+        page.locator(".wf-node--output .wf-port--fail"),
     )
-    expect(page.locator(".wf-edge")).to_have_count(1)
-    _expect_edges(page, api, definition, [("out", "in")])
+    _expect_edges(page, api, definition, [("out", "fail")])
+    page.locator("[data-toggle-fail]").click()  # switching On Fail off takes its connection along
+    expect(page.locator(".wf-edge")).to_have_count(0)
+    _expect_edges(page, api, definition, [])
 
 
 def test_the_add_menu_offers_stages_and_trigger_and_complete_stay(

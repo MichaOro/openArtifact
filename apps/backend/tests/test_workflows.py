@@ -388,16 +388,32 @@ def test_an_action_definition_starts_with_trigger_and_output(client: TestClient)
     assert all(n["fail_enabled"] is False for n in graph["nodes"])
 
 
-def test_trigger_feeds_the_output_and_on_fail_is_optional(client: TestClient) -> None:
+def test_an_action_definition_starts_with_trigger_connected_to_on_pass(
+    client: TestClient,
+) -> None:
+    definition = _action_definition(client)
+    graph = _graph(client, definition)
+    nodes = {n["kind"]: n for n in graph["nodes"]}
+    assert [(e["source_port"], e["target_id"], e["target_port"]) for e in graph["edges"]] == [
+        ("out", nodes["output"]["id"], "pass")
+    ]
+
+
+def test_the_output_has_separate_on_pass_and_on_fail_connectors(client: TestClient) -> None:
     definition = _action_definition(client)
     nodes = {n["kind"]: n for n in _graph(client, definition)["nodes"]}
+    trigger, output = nodes["trigger"], nodes["output"]
+    assert _edge(client, definition, trigger, "out", output, "in").status_code == 422  # gone
     assert (
-        _edge(client, definition, nodes["trigger"], "out", nodes["output"], "in").status_code == 201
-    )
-    url = f"/api/workflows/{definition['id']}/nodes/{nodes['output']['id']}"
+        _edge(client, definition, trigger, "out", output, "fail").status_code == 422
+    )  # not on yet
+    url = f"/api/workflows/{definition['id']}/nodes/{output['id']}"
     assert client.patch(url, json={"fail_enabled": True}).json()["fail_enabled"] is True
-    assert client.patch(url, json={"fail_enabled": False}).json()["fail_enabled"] is False
-    trigger_url = f"/api/workflows/{definition['id']}/nodes/{nodes['trigger']['id']}"
+    assert _edge(client, definition, trigger, "out", output, "fail").status_code == 201
+    assert [e["target_port"] for e in _graph(client, definition)["edges"]] == ["fail"]
+    client.patch(url, json={"fail_enabled": False})  # the On Fail connector goes, and its edge
+    assert _graph(client, definition)["edges"] == []
+    trigger_url = f"/api/workflows/{definition['id']}/nodes/{trigger['id']}"
     assert client.patch(trigger_url, json={"fail_enabled": True}).status_code == 422
 
 
@@ -598,3 +614,42 @@ def test_migration_0014_gives_existing_rows_unique_slugs(
     command.downgrade(alembic_config(), "0013")
     with sqlite3.connect(db) as conn:
         assert "slug" not in {r[1] for r in conn.execute("PRAGMA table_info(workflows)")}
+
+
+def test_migration_0015_points_output_edges_at_on_pass(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "0014")
+    db = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "INSERT INTO workflows (id, name, kind, slug) VALUES ('a', 'A', 'action', 'a')"
+        )
+        conn.execute(
+            "INSERT INTO workflows (id, name, kind, slug) VALUES ('w', 'W', 'workflow', 'w')"
+        )
+        for node_id, workflow, kind in (
+            ("t", "a", "trigger"),
+            ("o", "a", "output"),
+            ("tw", "w", "trigger"),
+            ("c", "w", "complete"),
+        ):
+            conn.execute(
+                "INSERT INTO workflow_nodes (id, workflow_id, kind, name) VALUES (?, ?, ?, ?)",
+                (node_id, workflow, kind, node_id),
+            )
+        for edge_id, workflow, src, dst in (("e1", "a", "t", "o"), ("e2", "w", "tw", "c")):
+            conn.execute(
+                "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, "
+                "target_port) VALUES (?, ?, ?, 'out', ?, 'in')",
+                (edge_id, workflow, src, dst),
+            )
+    command.upgrade(alembic_config(), "0015")
+    query = "SELECT id, target_port FROM workflow_edges ORDER BY id"
+    with sqlite3.connect(db) as conn:
+        assert conn.execute(query).fetchall() == [("e1", "pass"), ("e2", "in")]
+    command.downgrade(alembic_config(), "0014")
+    with sqlite3.connect(db) as conn:
+        assert conn.execute(query).fetchall() == [("e1", "in"), ("e2", "in")]

@@ -78,7 +78,7 @@ class WorkflowRepository:
                 source_id=ids[NodeKind.TRIGGER],
                 source_port="out",
                 target_id=ids[end],
-                target_port="in",
+                target_port="pass" if kind == "action" else "in",
             )
         )
         await self._session.flush()
@@ -197,7 +197,13 @@ class WorkflowRepository:
             if field in sent and value is not None:
                 setattr(node, field, value)
         await self._session.flush()
-        if data.fail_enabled is False:  # actions linked to this definition lose their Error output
+        if data.fail_enabled is False:
+            # the On Fail connector is gone, and so is the Error output of actions linked to this definition
+            await self._session.execute(
+                delete(WorkflowEdge).where(
+                    WorkflowEdge.target_id == node.id, WorkflowEdge.target_port == "fail"
+                )
+            )
             await self._drop_error_edges(WorkflowNode.definition_id == node.workflow_id)
 
     async def _link(self, node: WorkflowNode, definition_id: str | None) -> None:
@@ -261,6 +267,8 @@ class WorkflowRepository:
         if source is None or target is None:
             raise NodeError("Both ends of an edge must be nodes of this workflow")
         validate_edge(_endpoint(source), data.source_port, _endpoint(target), data.target_port)
+        if data.target_port == "fail" and not target.fail_enabled:
+            raise NodeError("That action definition has no On Fail")
         if (
             data.source_port == "error"
             and source.definition_id
