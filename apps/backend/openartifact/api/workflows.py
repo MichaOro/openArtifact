@@ -48,7 +48,9 @@ async def _node_reads(repo: WorkflowRepository, nodes: Sequence[WorkflowNode]) -
     reads = [NodeRead.model_validate(n) for n in nodes]
     for read in reads:
         if read.id in described:
-            read.definition_name, read.definition_fail_enabled = described[read.id]
+            read.definition_name, read.definition_fail_enabled, read.definition_slug = described[
+                read.id
+            ]
     return reads
 
 

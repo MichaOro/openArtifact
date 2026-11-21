@@ -32,9 +32,9 @@
   // "Stages" reopens the stage (and the action) the user was last working on; editor.js writes this.
   try {
     var last = JSON.parse(localStorage.getItem("oa-last-stage"));
-    if (last && last.workflow && window.location.pathname !== "/workflows") {
-      var href = "/workflows/" + encodeURIComponent(last.workflow) + (last.node ? "?select=" + encodeURIComponent(last.node) : "");
-      document.querySelectorAll('.sidebar a[href="/workflows"]').forEach(function (a) { a.setAttribute("href", href); });
+    if (last && last.slug && window.location.pathname !== "/stages") {
+      var href = "/stages/" + encodeURIComponent(last.slug) + (last.node ? "?select=" + encodeURIComponent(last.node) : "");
+      document.querySelectorAll('.sidebar a[href="/stages"]').forEach(function (a) { a.setAttribute("href", href); });
     }
   } catch (e) { /* no memory: the link shows the list */ }
   document.addEventListener("themechange", syncTheme);

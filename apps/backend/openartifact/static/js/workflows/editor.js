@@ -97,12 +97,13 @@ export class WorkflowEditor {
     return undefined;
   }
 
-  async #setupBack(workflowId, nodeId) {
-    if (!workflowId) return;
+  async #setupBack(slug, nodeId) {
+    if (!slug) return;
     const link = this.root.querySelector("[data-back]");
-    link.href = `/workflows/${encodeURIComponent(workflowId)}${nodeId ? `?select=${encodeURIComponent(nodeId)}` : ""}`;
+    link.href = `/stages/${encodeURIComponent(slug)}${nodeId ? `?select=${encodeURIComponent(nodeId)}` : ""}`;
     try {
-      link.textContent = `Back to ${(await loadWorkflow(workflowId)).workflow.name}`;
+      const stage = (await listWorkflows("workflow")).find((w) => w.slug === slug);
+      link.textContent = stage ? `Back to ${stage.name}` : "Back to stage";
     } catch {
       link.textContent = "Back to stage";
     }
@@ -111,9 +112,9 @@ export class WorkflowEditor {
 
   /** The navigation reopens the last stage with its action selected (see main.js). */
   #remember(nodeId) {
-    if (this.isAction) return;
+    if (this.isAction || !this.workflow) return;
     try {
-      localStorage.setItem(LAST_STAGE, JSON.stringify({ workflow: this.id, node: nodeId }));
+      localStorage.setItem(LAST_STAGE, JSON.stringify({ slug: this.workflow.slug, node: nodeId }));
     } catch {
       /* storage unavailable: the navigation just shows the list */
     }
@@ -267,7 +268,13 @@ export class WorkflowEditor {
     if (!trimmed || trimmed === this.workflow.name) return this.#renderInspector();
     this.workflow.name = trimmed;
     document.querySelector(".app-header__title").textContent = trimmed;
-    await this.#save(() => renameWorkflow(this.id, trimmed));
+    const saved = await this.#save(async () => {
+      this.workflow = await renameWorkflow(this.id, trimmed);
+    });
+    if (saved) {
+      window.history.replaceState(null, "", `${window.location.pathname.replace(/[^/]+$/, "")}${encodeURIComponent(this.workflow.slug)}`);
+      this.#remember(this.selection?.type === "node" && this.nodes.get(this.selection.id)?.kind === "action" ? this.selection.id : null);
+    }
   }
 
   async #connect(source, sourcePort, target, targetPort, slots = {}) {
@@ -461,7 +468,7 @@ export class WorkflowEditor {
     const create = make("button", "plus", "New");
     create.addEventListener("click", () => this.#askNewAction(node));
     const edit = make("a", "pencil", "Edit");
-    if (node.definition_id) edit.href = this.#definitionUrl(node, node.definition_id);
+    if (node.definition_id) edit.href = this.#definitionUrl(node, node.definition_slug);
     else edit.setAttribute("aria-disabled", "true");
     const remove = make("button", "trash", "Delete", "wf-delete");
     remove.addEventListener("click", () => this.requestDelete({ type: "node", id: node.id }));
@@ -498,14 +505,14 @@ export class WorkflowEditor {
     return dialog;
   }
 
-  #definitionUrl(node, definitionId) {
-    return `/actions/${encodeURIComponent(definitionId)}?from=${encodeURIComponent(this.id)}&node=${encodeURIComponent(node.id)}`;
+  #definitionUrl(node, definitionSlug) {
+    return `/actions/${encodeURIComponent(definitionSlug)}?from=${encodeURIComponent(this.workflow.slug)}&node=${encodeURIComponent(node.id)}`;
   }
 
   async #link(node, definitionId) {
     await this.#save(async () => {
       const updated = await updateNode(this.id, node.id, { definition_id: definitionId });
-      Object.assign(node, { definition_id: updated.definition_id, definition_name: updated.definition_name, definition_fail_enabled: updated.definition_fail_enabled });
+      Object.assign(node, { definition_id: updated.definition_id, definition_name: updated.definition_name, definition_slug: updated.definition_slug, definition_fail_enabled: updated.definition_fail_enabled });
     });
     if (node.definition_fail_enabled === false) {
       for (const [id, edge] of this.edges) if (edge.source_id === node.id && edge.source_port === "error") this.edges.delete(id);
@@ -523,7 +530,7 @@ export class WorkflowEditor {
       created = await createWorkflow(trimmed, "action");
       await updateNode(this.id, node.id, { definition_id: created.id });
     });
-    if (saved && created) window.location.assign(this.#definitionUrl(node, created.id));
+    if (saved && created) window.location.assign(this.#definitionUrl(node, created.slug));
   }
 
   /** The keyboard way to switch On Fail on or off; On Pass is always there. */

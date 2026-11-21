@@ -28,7 +28,7 @@ function render() {
     ...workflows.map((workflow) => {
       const item = template.content.firstElementChild.cloneNode(true);
       const link = item.querySelector("a");
-      link.href = `${path}/${encodeURIComponent(workflow.id)}`;
+      link.href = `${path}/${encodeURIComponent(workflow.slug)}`;
       item.querySelector(".wf-item__name").textContent = workflow.name;
       item.querySelector(".wf-item__meta").textContent = `Changed ${when(workflow.updated_at)}`;
       item.querySelector("[data-rename]").addEventListener("click", () => askName(`Rename ${noun}`, workflow.name, async (name) => {
@@ -42,7 +42,7 @@ function render() {
             await deleteWorkflow(workflow.id);
             try {
               const last = JSON.parse(localStorage.getItem("oa-last-stage"));
-              if (last?.workflow === workflow.id) localStorage.removeItem("oa-last-stage");
+              if (last?.slug === workflow.slug) localStorage.removeItem("oa-last-stage");
             } catch {
               /* nothing remembered */
             }
@@ -98,7 +98,7 @@ input.addEventListener("input", () => (fieldError.hidden = true));
 document.querySelector("[data-new-workflow]").addEventListener("click", () =>
   askName(`New ${noun}`, "", async (name) => {
     const created = await createWorkflow(name, kind);
-    window.location.assign(`${path}/${encodeURIComponent(created.id)}`);
+    window.location.assign(`${path}/${encodeURIComponent(created.slug)}`);
   }),
 );
 document.querySelector("[data-list-retry]").addEventListener("click", load);

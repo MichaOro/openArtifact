@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from openartifact.models import NodeKind, Workflow, WorkflowEdge, WorkflowNode
 from openartifact.workflow.rules import Endpoint, validate_edge
 from openartifact.workflow.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
+from openartifact.workflow.slug import slugify
 
 DEFAULT_NAMES = {
     NodeKind.TRIGGER: "Trigger",
@@ -50,6 +51,7 @@ class WorkflowRepository:
         A workflow gets a trigger and a complete, an action definition a trigger and an output.
         """
         workflow = Workflow(id=str(uuid.uuid4()), name=name, kind=kind)
+        workflow.slug = await self._unique_slug(name, kind, None)
         self._session.add(workflow)
         end = NodeKind.OUTPUT if kind == "action" else NodeKind.COMPLETE
         ids = {}
@@ -96,9 +98,28 @@ class WorkflowRepository:
         return await self._session.get(Workflow, workflow_id)
 
     async def rename(self, workflow: Workflow, name: str) -> None:
-        """Change the name."""
+        """Change the name; the URL name follows it."""
         workflow.name = name
+        workflow.slug = await self._unique_slug(name, workflow.kind, workflow.id)
         await self._session.flush()
+
+    async def _unique_slug(self, name: str, kind: str, own_id: str | None) -> str:
+        """The URL name for ``name``, with -2, -3 ... when another workflow of the kind has it."""
+        base = slugify(name, "stage" if kind == "workflow" else "action")
+        slug, n = base, 2
+        while await self._session.scalar(
+            select(Workflow.id).where(
+                Workflow.kind == kind, Workflow.slug == slug, Workflow.id != (own_id or "")
+            )
+        ):
+            slug, n = f"{base}-{n}", n + 1
+        return slug
+
+    async def find(self, kind: str, slug: str) -> Workflow | None:
+        """A workflow of the kind by its URL name."""
+        return await self._session.scalar(
+            select(Workflow).where(Workflow.kind == kind, Workflow.slug == slug)
+        )
 
     async def delete(self, workflow: Workflow) -> None:
         """Delete the workflow; its nodes and edges go with it (foreign key cascade)."""
@@ -202,17 +223,17 @@ class WorkflowRepository:
             )
         )
 
-    async def describe(self, nodes: Sequence[WorkflowNode]) -> dict[str, tuple[str, bool]]:
-        """For linked actions: the definition's name and whether it has On Fail, by node id."""
+    async def describe(self, nodes: Sequence[WorkflowNode]) -> dict[str, tuple[str, bool, str]]:
+        """For linked actions: the definition's name, whether it has On Fail and its URL name."""
         wanted = {n.definition_id for n in nodes if n.definition_id}
         if not wanted:
             return {}
         rows = await self._session.execute(
-            select(Workflow.id, Workflow.name, WorkflowNode.fail_enabled)
+            select(Workflow.id, Workflow.name, WorkflowNode.fail_enabled, Workflow.slug)
             .join(WorkflowNode, WorkflowNode.workflow_id == Workflow.id)
             .where(Workflow.id.in_(wanted), WorkflowNode.kind == NodeKind.OUTPUT.value)
         )
-        by_definition = {row[0]: (row[1], row[2]) for row in rows}
+        by_definition = {row[0]: (row[1], row[2], row[3]) for row in rows}
         return {
             n.id: by_definition[n.definition_id] for n in nodes if n.definition_id in by_definition
         }

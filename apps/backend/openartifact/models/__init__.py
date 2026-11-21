@@ -184,6 +184,7 @@ class Workflow(Base):
         name: Display name.
         status: Lifecycle of the definition (only ``draft`` exists so far).
         kind: ``workflow``, or ``action`` for the definition of what an action does.
+        slug: Readable URL name, unique per kind (follows the name).
         created_at: Creation timestamp (UTC).
         updated_at: Last modification timestamp (UTC).
     """
@@ -194,6 +195,7 @@ class Workflow(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="draft")
     kind: Mapped[str] = mapped_column(String(16), default="workflow", server_default="workflow")
+    slug: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),

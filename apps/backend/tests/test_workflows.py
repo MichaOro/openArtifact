@@ -560,3 +560,41 @@ def test_migration_0013_is_reversible(settings: Settings, monkeypatch: pytest.Mo
         assert "definition_id" not in {
             r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")
         }
+
+
+def test_slugs_follow_the_name_and_are_unique_per_kind(client: TestClient) -> None:
+    first = _workflow(client, "Käse & Brot!")
+    second = _workflow(client, "Kaese brot")
+    assert (first["slug"], second["slug"]) == ("kaese-brot", "kaese-brot-2")
+    assert _workflow(client, "???")["slug"] == "stage"
+    as_action = client.post("/api/workflows", json={"name": "Kaese brot", "kind": "action"}).json()
+    assert as_action["slug"] == "kaese-brot"  # another kind: its own names
+    renamed = client.patch(f"/api/workflows/{second['id']}", json={"name": "Final"}).json()
+    assert renamed["slug"] == "final"
+    again = client.patch(f"/api/workflows/{first['id']}", json={"name": "Käse & Brot!"}).json()
+    assert again["slug"] == "kaese-brot"  # renaming to the same name keeps its own slug
+
+
+def test_migration_0014_gives_existing_rows_unique_slugs(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "0013")
+    db = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db) as conn:
+        for row_id, name, kind in (
+            ("a", "Test", "workflow"),
+            ("b", "test", "workflow"),
+            ("c", "Test", "action"),
+        ):
+            conn.execute(
+                "INSERT INTO workflows (id, name, kind) VALUES (?, ?, ?)", (row_id, name, kind)
+            )
+    command.upgrade(alembic_config(), "0014")
+    with sqlite3.connect(db) as conn:
+        slugs = dict(conn.execute("SELECT id, slug FROM workflows"))
+    assert slugs == {"a": "test", "b": "test-2", "c": "test"}
+    command.downgrade(alembic_config(), "0013")
+    with sqlite3.connect(db) as conn:
+        assert "slug" not in {r[1] for r in conn.execute("PRAGMA table_info(workflows)")}

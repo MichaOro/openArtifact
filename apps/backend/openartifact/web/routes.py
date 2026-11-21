@@ -6,16 +6,21 @@ Serves the web application shell and renders HTML templates.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.database import get_db_session
 from openartifact.tasks.lanes import BOARD_LANES, LANE_HUES
+from openartifact.workflow.repository import WorkflowRepository
 
 APP_VERSION = "0.1.0"
 
 router = APIRouter()
+SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 
 
@@ -40,7 +45,7 @@ async def index(request: Request) -> HTMLResponse:
 
 
 _SECTIONS = {
-    "workflow": {"kind": "workflow", "nav": "workflows", "path": "/workflows", "label": "Stage"},
+    "workflow": {"kind": "workflow", "nav": "workflows", "path": "/stages", "label": "Stage"},
     "action": {"kind": "action", "nav": "actions", "path": "/actions", "label": "Action"},
 }
 
@@ -59,8 +64,15 @@ def _list_page(request: Request, section: str) -> HTMLResponse:
     )
 
 
-def _editor_page(request: Request, section: str, workflow_id: str) -> HTMLResponse:
+async def _editor_page(
+    request: Request, session: AsyncSession, section: str, slug: str
+) -> HTMLResponse:
+    """The editor for the stage or action with this URL name.
+
+    An unknown name still renders the page; the editor then says that it does not exist.
+    """
     info = _SECTIONS[section]
+    workflow = await WorkflowRepository(session).find(info["kind"], slug)
     return templates.TemplateResponse(
         request=request,
         name="workflow_editor.html",
@@ -68,22 +80,22 @@ def _editor_page(request: Request, section: str, workflow_id: str) -> HTMLRespon
             "page_title": info["label"],
             "active_nav": info["nav"],
             "app_version": APP_VERSION,
-            "workflow_id": workflow_id,
+            "workflow_id": workflow.id if workflow else slug,
             "section": info,
         },
     )
 
 
-@router.get("/workflows", response_class=HTMLResponse)
-async def workflows(request: Request) -> HTMLResponse:
-    """The list of workflow definitions."""
+@router.get("/stages", response_class=HTMLResponse)
+async def stages(request: Request) -> HTMLResponse:
+    """The list of stages (workflow definitions)."""
     return _list_page(request, "workflow")
 
 
-@router.get("/workflows/{workflow_id}", response_class=HTMLResponse)
-async def workflow_editor(request: Request, workflow_id: str) -> HTMLResponse:
-    """The editor for one workflow definition (the graph itself is loaded through the API)."""
-    return _editor_page(request, "workflow", workflow_id)
+@router.get("/stages/{ref}", response_class=HTMLResponse)
+async def stage_editor(request: Request, ref: str, session: SessionDep) -> HTMLResponse:
+    """The editor for one stage (the graph itself is loaded through the API)."""
+    return await _editor_page(request, session, "workflow", ref)
 
 
 @router.get("/actions", response_class=HTMLResponse)
@@ -92,7 +104,7 @@ async def actions(request: Request) -> HTMLResponse:
     return _list_page(request, "action")
 
 
-@router.get("/actions/{workflow_id}", response_class=HTMLResponse)
-async def action_editor(request: Request, workflow_id: str) -> HTMLResponse:
-    """The editor for one action definition (same canvas as a workflow)."""
-    return _editor_page(request, "action", workflow_id)
+@router.get("/actions/{ref}", response_class=HTMLResponse)
+async def action_editor(request: Request, ref: str, session: SessionDep) -> HTMLResponse:
+    """The editor for one action definition (same canvas as a stage)."""
+    return await _editor_page(request, session, "action", ref)

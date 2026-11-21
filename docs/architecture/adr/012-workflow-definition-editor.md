@@ -40,7 +40,7 @@ tabs yet.
 
 ### 2.3 Editor
 
-Server-rendered pages (`/workflows`, `/workflows/{id}`) with vanilla JS modules, no library and
+Server-rendered pages (`/stages`, `/stages/{name}`, `/actions`, `/actions/{name}`) with vanilla JS modules, no library and
 no build step (ADR-010). Nodes are HTML elements (accessible, stylable with the tokens) inside a
 transformed "world"; edges are SVG paths drawn over them. Pan, zoom, moving nodes and dragging from
 a port to connect use Pointer Events, so mouse, touch and pen work alike. An action stays inside
@@ -86,4 +86,8 @@ Every workflow has exactly one trigger and one complete, created with it and con
 An action created in a stage is an empty shell. Selecting it offers, instead of routing selects, a choice of an existing action definition or a new one by name. A link is `workflow_nodes.definition_id` (migration 0013, `ON DELETE SET NULL`: deleting the definition makes the action a shell again). The node API returns `definition_name` and `definition_fail_enabled` for linked actions; the canvas shows the definition's name, so a rename in Actions shows in Stages. The inspector of a shell shows the definition choice and one compact row **New · Edit · Delete** (icon and short text; Edit is disabled until a definition is linked; Delete removes the action from the stage, not the definition). *New* opens a small window over the blurred canvas asking for the title; on *Create* the definition is created, the shell linked, and the editor opens `/actions/{id}?from=<workflow>&node=<action>`, where a "Back to ..." link returns to `/workflows/{id}?select=<action>` with the shell selected. The editor stores the last stage and action in `localStorage` (`oa-last-stage`) and `main.js` points the navigation's Stages/Pipeline links there; a vanished workflow clears it.
 
 The definition's *On Fail* controls the shell's Error output: without it the port is hidden, existing Error connections are removed when On Fail is switched off or the link is made, and the API refuses a new one. Unlinked shells show both outputs. Connecting actions is done by dragging only; the routing selects remain for trigger and stages as the keyboard path.
+
+## 2.18 Readable URLs
+
+Pages are addressed by name, not id: `/stages/test`, `/actions/gap-analysis`. `workflows.slug` (migration 0014) is derived from the name (lower-case ASCII, umlauts transliterated), unique per kind with `-2`, `-3` ... on collisions, and follows a rename (the editor replaces the URL after renaming). The API keeps ids (`/api/workflows/{id}`). The earlier `/workflows` URLs were removed without redirects, on purpose: the project is pre-release. `from`, `select` and the remembered stage (`oa-last-stage`) use the slug, so a rename elsewhere can leave a stale link that the editor reports as not found.
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -13,13 +14,13 @@ from fastapi.testclient import TestClient
 from openartifact.api.routes import public_router as api_public_router
 from openartifact.api.routes import router as api_router
 from openartifact.app import _create_app
+from openartifact.config import Settings
 from openartifact.web.routes import router as web_router
 
 
 @pytest.fixture
 def app() -> FastAPI:
     """FastAPI app with all routes attached."""
-    from openartifact.config import Settings
 
     settings = Settings()
     a = _create_app(settings)
@@ -42,6 +43,17 @@ def app() -> FastAPI:
 def client(app: FastAPI) -> TestClient:
     """Test client for the full app."""
     return TestClient(app)
+
+
+@pytest.fixture
+def db_client(migrated_settings: Settings) -> Generator[TestClient, None, None]:
+    """Test client with the real lifespan on a migrated database, for pages that read it."""
+    a = _create_app(migrated_settings)
+    a.include_router(api_public_router)
+    a.include_router(api_router)
+    a.include_router(web_router)
+    with TestClient(a) as c:
+        yield c
 
 
 # ── Root path (web shell) ─────────────────────────────────────────────
@@ -132,27 +144,27 @@ def test_navigation_shows_the_pipeline_entries_only_inside_the_pipeline(client: 
     """Projects and Pipeline are always there; Stages and Actions only once Pipeline is entered."""
     html = client.get("/").text
     assert html.count('class="nav-link"') == 2  # Projects and Pipeline
-    assert 'href="/workflows"' in html  # the Pipeline entry itself
+    assert 'href="/stages"' in html  # the Pipeline entry itself
     assert 'href="/actions"' not in html
     assert "Stages" not in html
-    for path in ("/workflows", "/actions"):
+    for path in ("/stages", "/actions"):
         inside = client.get(path).text
         assert 'href="/actions"' in inside and "Stages" in inside
         assert inside.count("nav-link--section") == 1
         assert inside.count('aria-current="page"') == 1
 
 
-def test_workflow_pages_render_and_mark_their_navigation_entry(client: TestClient) -> None:
-    for path in ("/workflows", "/workflows/any-id"):
-        response = client.get(path)
+def test_workflow_pages_render_and_mark_their_navigation_entry(db_client: TestClient) -> None:
+    for path in ("/stages", "/stages/any-id"):
+        response = db_client.get(path)
         assert response.status_code == 200
-        assert 'href="/workflows"' in response.text
+        assert 'href="/stages"' in response.text
         assert response.text.count('aria-current="page"') == 1
 
 
-def test_action_pages_render_and_mark_their_navigation_entry(client: TestClient) -> None:
+def test_action_pages_render_and_mark_their_navigation_entry(db_client: TestClient) -> None:
     for path in ("/actions", "/actions/any-id"):
-        response = client.get(path)
+        response = db_client.get(path)
         assert response.status_code == 200
         assert 'href="/actions"' in response.text
         assert response.text.count('aria-current="page"') == 1
@@ -426,3 +438,15 @@ def test_rail_grows_the_card_instead_of_shrinking_the_form() -> None:
     ).read_text()
     assert "--form-w" in css and "--rail-w" in css
     assert "grid-template-columns: var(--form-w) var(--rail-w)" in css
+
+
+def test_stage_pages_use_the_name_of_the_stage(db_client: TestClient) -> None:
+    created = db_client.post("/api/workflows", json={"name": "Gap Analyses"}).json()
+    assert created["slug"] == "gap-analyses"
+    page = db_client.get("/stages/gap-analyses")
+    assert page.status_code == 200
+    assert f'data-workflow-id="{created["id"]}"' in page.text
+    assert (
+        db_client.get("/actions/gap-analyses").status_code == 200
+    )  # unknown here: the editor says so
+    assert db_client.get("/workflows").status_code == 404  # the earlier URL is gone

@@ -97,6 +97,7 @@ class WorkflowRead(_Timestamps):
     name: str
     status: str
     kind: WorkflowKind
+    slug: str
 
 
 class NodeRead(BaseModel):
@@ -115,6 +116,7 @@ class NodeRead(BaseModel):
     fail_enabled: bool
     definition_id: str | None
     definition_name: str | None = None
+    definition_slug: str | None = None
     definition_fail_enabled: bool | None = None
 
 
