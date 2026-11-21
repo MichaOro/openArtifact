@@ -121,7 +121,12 @@
   color: var(--color-text-muted);
   font-size: 0.8125rem;
 }
-:root[data-sidebar="collapsed"] .sidebar__footer { justify-content: center; }
+/* The toggle never moves: it sits in the same column as the nav icons whether the sidebar is
+   collapsed or expanded (nav-link padding + half an icon = 1.375rem; the button's own centre
+   is 1.25rem), so the user can click it repeatedly without moving the mouse. */
+.sidebar__footer { justify-content: flex-start; }
+.sidebar-toggle { margin-left: 0.125rem; }
+.sidebar__footer-text { margin-left: auto; }
 
 /* ── Icon button ─────────────────────────────────────────────────── */
 .icon-button {
@@ -354,6 +359,8 @@ body.is-dragging * { cursor: grabbing !important; }
   overflow: hidden;
 }
 .task-card__body[hidden] { display: none; }
+.task-card__meta { font-size: 0.6875rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.task-card__meta[hidden] { display: none; }
 
 .board-alert {
   display: flex;
@@ -402,7 +409,16 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 .card-nav__actions { margin-top: auto; }
 /* the toggle sits in the same column as the item icons: nav-link icon centre is
    padding (space-3) + half the 1.25rem icon; the 2rem button centres its icon at 1rem */
-.card-nav__toggle { align-self: flex-start; margin-left: calc(var(--space-3) + 0.625rem - 1rem); }
+.card-nav { box-sizing: border-box; width: var(--rail-w); overflow: hidden; }
+/* text | icon: the icon column hugs the right edge and stays put while the card grows leftwards;
+   the toggle sits in that column (nav-link padding + half an icon = 1.375rem; button centre 1rem). */
+.card-nav .nav-link { flex-direction: row-reverse; }
+.card-nav__toggle { align-self: flex-end; margin-right: calc(var(--space-3) + 0.625rem - 1rem); }
+.card-nav .nav-link__label { text-align: right; text-overflow: ellipsis; }
+.card-nav__field .nav-link__label { align-items: flex-end; }
+.card-nav__value { flex-direction: row-reverse; max-width: 100%; }
+.card-nav__field[data-card-field="parent"] .card-nav__value::before { display: none; }
+.card-nav__value > span { overflow: hidden; text-overflow: ellipsis; }
 .card-nav__field .nav-link__label { display: flex; flex-direction: column; line-height: 1.2; }
 .card-nav__key { font-size: 0.6875rem; color: var(--color-text-muted); }
 .card-nav__value { font-size: 0.8125rem; color: var(--color-text-primary); white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-2); }
@@ -415,7 +431,7 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 }
 .card-nav__toggle .icon { transition: transform var(--transition-base); }
 .card-nav[data-state="collapsed"] .card-nav__toggle .icon { transform: rotate(180deg); }
-.card-nav .nav-link__label { overflow: hidden; transition: opacity var(--transition-base), max-width var(--transition-base); max-width: 9rem; }
+.card-nav .nav-link__label { overflow: hidden; transition: opacity var(--transition-base), max-width var(--transition-base); max-width: 7.5rem; }
 .card-nav[data-state="collapsed"] .nav-link__label { opacity: 0; max-width: 0; }
 .card-nav .nav-link { transition: gap var(--transition-base), background var(--transition-fast), color var(--transition-fast); }
 /* no gap next to a hidden label, otherwise the collapsed rail is wider than its icon */
@@ -430,6 +446,9 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
   flex-direction: column;
   gap: var(--space-1);
   min-width: 12rem;
+  max-width: 18rem;
+  max-height: min(55vh, 20rem);
+  overflow-y: auto;
   padding: var(--space-2);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
@@ -455,6 +474,17 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
   font-size: 0.875rem;
   text-align: left;
   cursor: pointer;
+}
+.popover__option { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.popover__option[aria-selected="true"] { font-weight: 600; background: var(--accent-soft); }
+.popover__option[data-lane-hue]::before {
+  content: "";
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: var(--space-2);
+  border-radius: 50%;
+  background: var(--lane-color, var(--color-accent));
 }
 .popover__option:hover,
 .popover__option:focus-visible { background: var(--accent-soft); outline: none; }

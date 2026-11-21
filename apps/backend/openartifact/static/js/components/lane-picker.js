@@ -30,11 +30,11 @@ export class LanePicker {
 
     for (const host of [this.el, this.inner].filter(Boolean)) {
       host.addEventListener("click", (event) => {
-        const option = event.target.closest("[data-status]");
+        const option = event.target.closest("[data-value]");
         if (!option) return;
         const select = this.onSelect;
         this.close();
-        select?.(option.dataset.status);
+        select?.(option.dataset.value);
       });
       host.addEventListener("keydown", (event) => this.#onKeydown(event, host));
     }
@@ -61,19 +61,26 @@ export class LanePicker {
    * Open (or close, if already open for the same trigger).
    * @param {object} options
    * @param {HTMLElement} options.trigger
-   * @param {{status: string, title: string, hue?: number|string}[]} options.lanes all lanes in board order
-   * @param {string} options.current status of the current lane (not offered)
-   * @param {(status: string) => void} options.onSelect
+   * @param {{status: string, title: string, hue?: number|string}[]} [options.lanes] lanes in board order
+   * @param {string} [options.current] with `lanes`: status of the current lane (not offered)
+   * @param {{value: string, label: string, hue?: number|string, selected?: boolean}[]} [options.items]
+   *   generic choices (instead of `lanes`), e.g. the possible parents
+   * @param {string} [options.caption] heading of the list variant
+   * @param {(value: string) => void} options.onSelect
    * @param {"below"|"left"} [options.placement] for the "list" variant
    * @param {"list"|"chips"} [options.variant]
    */
-  toggle({ trigger, lanes, current, onSelect, placement = "below", variant = "list" }) {
+  toggle({ trigger, lanes = [], current, items = null, caption = "Move to", onSelect, placement = "below", variant = "list" }) {
     if (this.isOpen && this.trigger === trigger) {
       this.close();
       return;
     }
-    const others = lanes.filter((lane) => lane.status !== current);
-    if (others.length === 0) return;
+    const choices =
+      items ??
+      lanes
+        .filter((lane) => lane.status !== current)
+        .map((lane) => ({ value: lane.status, label: lane.title, hue: lane.hue, lane: true }));
+    if (choices.length === 0) return;
 
     this.close({ restoreFocus: false });
     this.trigger = trigger;
@@ -81,13 +88,16 @@ export class LanePicker {
     const chips = variant === "chips" && this.inline !== null;
     this.mode = chips ? "chips" : "list";
 
-    const options = others.map((lane, i) => {
+    const options = choices.map((item, i) => {
       const option = document.createElement("button");
       option.type = "button";
       option.setAttribute("role", "option");
-      option.dataset.status = lane.status;
-      option.textContent = lane.title;
-      if (lane.hue) option.dataset.laneHue = String(lane.hue);
+      option.dataset.value = item.value;
+      if (item.lane) option.dataset.status = item.value; // lane options keep the status hook
+      option.textContent = item.label;
+      option.title = item.label;
+      option.setAttribute("aria-selected", String(Boolean(item.selected)));
+      if (item.hue) option.dataset.laneHue = String(item.hue);
       option.style.setProperty("--i", String(i));
       option.className = chips ? "lane-chip" : "popover__option";
       return option;
@@ -99,11 +109,11 @@ export class LanePicker {
       this.inline.removeAttribute("aria-hidden");
       this.inline.setAttribute("data-open", "");
     } else {
-      const caption = document.createElement("p");
-      caption.className = "popover__caption";
-      caption.textContent = "Move to";
-      caption.setAttribute("aria-hidden", "true");
-      this.el.replaceChildren(caption, ...options);
+      const caption_el = document.createElement("p");
+      caption_el.className = "popover__caption";
+      caption_el.textContent = caption;
+      caption_el.setAttribute("aria-hidden", "true");
+      this.el.replaceChildren(caption_el, ...options);
       this.el.hidden = false;
       this.#position(trigger, placement);
     }
@@ -139,7 +149,7 @@ export class LanePicker {
   }
 
   #onKeydown(event, host) {
-    const options = [...host.querySelectorAll("[data-status]")];
+    const options = [...host.querySelectorAll("[data-value]")];
     const index = options.indexOf(document.activeElement);
     const step = (delta) => options[(index + delta + options.length) % options.length]?.focus();
     switch (event.key) {

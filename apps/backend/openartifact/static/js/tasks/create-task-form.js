@@ -39,6 +39,8 @@ export class TaskForm {
     this.laneField = root.querySelector('[data-card-field="lane"]');
     this.laneValue = root.querySelector("[data-lane-value]");
     this.laneTitle = "";
+    this.parentField = root.querySelector('[data-card-field="parent"]');
+    this.parentValue = root.querySelector("[data-parent-value]");
 
     // Closing (X, Cancel, Escape, overlay) is blocked while a request is running.
     modal.canClose = () => !this.busy;
@@ -60,7 +62,7 @@ export class TaskForm {
   }
 
   /** Open in edit mode, prefilled with the task. */
-  openEdit(task, laneTitle, hue) {
+  openEdit(task, laneTitle, hue, parentTitle = null) {
     if (!this.editing) {
       this.draft = { title: this.titleInput.value, body: this.bodyInput.value };
     }
@@ -69,7 +71,14 @@ export class TaskForm {
     this.bodyInput.value = task.body ?? "";
     this.#present("Edit Artifact", "Save");
     this.setLane(task.status, laneTitle, hue);
+    this.setParent(parentTitle);
     this.modal.open();
+  }
+
+  /** Show the parent of the task being edited (null = none). */
+  setParent(parentTitle) {
+    if (this.parentValue) this.parentValue.textContent = parentTitle ?? "None";
+    this.parentField?.setAttribute("aria-label", `Parent: ${parentTitle ?? "none"}. Change parent`);
   }
 
   /** Lane of the task being edited, or the target lane of a new task. */

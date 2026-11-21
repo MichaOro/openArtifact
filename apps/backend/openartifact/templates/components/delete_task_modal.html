@@ -2,6 +2,7 @@
 {% call modal("delete-task-modal", "Delete Artifact") %}
 <div class="modal__body">
     <p class="confirm-text">Delete <strong class="confirm-text__subject" data-task-title></strong>? This cannot be undone.</p>
+    <p class="confirm-text" data-children-note hidden></p>
     <p class="form-error" role="alert" hidden data-form-error></p>
 </div>
 <footer class="modal__footer">

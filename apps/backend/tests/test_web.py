@@ -371,3 +371,36 @@ def test_task_dialog_has_inline_lane_chip_row(client: TestClient) -> None:
 def test_tasks_can_be_reordered_by_keyboard_and_pointer_markup(client: TestClient) -> None:
     html = client.get("/").text
     assert "Alt+ArrowUp Alt+ArrowDown" in html
+
+
+# ── Parent artifacts, rail layout, sidebar toggle ─────────────────────
+
+
+def test_dialog_rail_has_lane_and_parent_fields_and_delete(client: TestClient) -> None:
+    html = client.get("/").text
+    assert 'data-card-field="lane"' in html
+    assert 'data-card-field="parent"' in html
+    assert "data-parent-value" in html
+    assert html.count("data-card-action=") == 1  # Delete is the only action
+
+
+def test_card_template_has_a_relations_line_and_delete_dialog_a_children_note(
+    client: TestClient,
+) -> None:
+    html = client.get("/").text
+    assert 'class="task-card__meta" hidden' in html
+    assert "data-children-note" in html
+
+
+def test_sidebar_toggle_comes_first_in_the_footer_so_it_never_moves(client: TestClient) -> None:
+    html = client.get("/").text
+    footer = html[html.index('class="sidebar__footer"') :]
+    assert footer.index("data-sidebar-toggle") < footer.index("sidebar__footer-text")
+
+
+def test_rail_grows_the_card_instead_of_shrinking_the_form() -> None:
+    css = (
+        Path(__file__).parent.parent / "openartifact" / "static" / "css" / "modal.css"
+    ).read_text()
+    assert "--form-w" in css and "--rail-w" in css
+    assert "grid-template-columns: var(--form-w) var(--rail-w)" in css

@@ -24,7 +24,15 @@ html:has(.modal[open]) { overflow: hidden; }
 .modal__panel {
   /* margin:auto centres without clipping the top on short viewports */
   margin: auto;
-  width: min(35rem, 100%);
+  /* the form column keeps its width; the card grows by however wide the rail is */
+  --rail-w-collapsed: 3.75rem;
+  --rail-w-open: 11rem;
+  --rail-w: var(--rail-w-collapsed);
+  --form-w: min(31rem, calc(100vw - 2 * var(--space-4) - var(--rail-w-open)));
+  width: calc(var(--form-w) + var(--rail-w));
+  /* keep the right edge (and with it the rail toggle) where it is while the card grows */
+  translate: calc(max(var(--rail-w) - var(--rail-w-collapsed), 0rem) / -2) 0;
+  transition: --rail-w 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background:
@@ -96,7 +104,10 @@ html:has(.modal[open]) { overflow: hidden; }
 @keyframes chip-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .modal__subtitle:empty { display: none; }
 
-.modal__layout { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+@property --rail-w { syntax: "<length>"; inherits: true; initial-value: 3.75rem; }
+.modal__panel:has([data-card-nav][data-state="expanded"]) { --rail-w: var(--rail-w-open); }
+.modal__panel:has([data-card-nav][hidden]) { --rail-w: 0rem; }  /* create mode: no rail */
+.modal__layout { display: grid; grid-template-columns: var(--form-w) var(--rail-w); }
 .modal__layout > .task-form { min-width: 0; }
 
 .modal__body {
@@ -123,6 +134,7 @@ html:has(.modal[open]) { overflow: hidden; }
 }
 
 @media (max-width: 640px) {
+  .modal__panel { --rail-w-open: var(--rail-w-collapsed); --form-w: calc(100vw - 2 * var(--space-3) - var(--rail-w-collapsed)); }
   .card-nav__toggle { display: none; }
   .card-nav .nav-link__label { opacity: 0; max-width: 0; }
   .card-nav .nav-link { gap: 0; }

@@ -17,6 +17,7 @@ export class DeleteTaskDialog {
     const root = modal.dialog;
     this.titleEl = root.querySelector("[data-task-title]");
     this.errorEl = root.querySelector("[data-form-error]");
+    this.childrenNote = root.querySelector("[data-children-note]");
     this.confirmButton = root.querySelector("[data-confirm]");
     this.cancelButton = root.querySelector("[data-cancel]");
 
@@ -24,9 +25,14 @@ export class DeleteTaskDialog {
     this.confirmButton.addEventListener("click", () => this.confirm());
   }
 
-  open(task) {
+  open(task, childCount = 0) {
     this.task = task;
     this.titleEl.textContent = task.title;
+    this.childrenNote.hidden = childCount === 0;
+    this.childrenNote.textContent =
+      childCount === 0
+        ? ""
+        : `Its ${childCount} sub-artifact${childCount === 1 ? "" : "s"} will lose their parent but are not deleted.`;
     this.#setError("");
     this.modal.open();
   }

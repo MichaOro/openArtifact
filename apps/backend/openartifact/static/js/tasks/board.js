@@ -82,6 +82,7 @@ export class Board {
       if (isNew && this.loaded) card.classList.add("task-card--new");
     }
     this.#updateCounts();
+    this.#renderRelations();
     return card;
   }
 
@@ -90,6 +91,41 @@ export class Board {
     this.cards.delete(id);
     this.tasks.delete(id);
     this.#updateCounts();
+    this.#renderRelations();
+  }
+
+  /** Parent task data of a task, or null. */
+  parentOf(task) {
+    return task?.parent_id ? (this.tasks.get(task.parent_id) ?? null) : null;
+  }
+
+  childCount(id) {
+    let n = 0;
+    for (const t of this.tasks.values()) if (t.parent_id === id) n += 1;
+    return n;
+  }
+
+  /** The task itself and everything below it (a task must not become a child of these). */
+  descendantIds(id) {
+    const found = new Set();
+    const queue = [id];
+    while (queue.length) {
+      const current = queue.pop();
+      for (const t of this.tasks.values()) {
+        if (t.parent_id === current && !found.has(t.id)) {
+          found.add(t.id);
+          queue.push(t.id);
+        }
+      }
+    }
+    return found;
+  }
+
+  /** All tasks in the order they appear on screen (lane by lane, top to bottom). */
+  inBoardOrder() {
+    return this.statuses.flatMap((status) =>
+      [...this.lanes.get(status).list.children].map((card) => this.taskOf(card)).filter(Boolean),
+    );
   }
 
   /** Sort key for a task dropped between two neighbours (either may be null). */
@@ -167,6 +203,25 @@ export class Board {
     if (a.position !== b.position) return a.position < b.position ? -1 : 1;
     if (a.created_at !== b.created_at) return a.created_at > b.created_at ? -1 : 1;
     return a.id < b.id ? -1 : 1;
+  }
+
+  /** Show "Parent: …" and the number of children on the cards (they depend on other tasks). */
+  #renderRelations() {
+    const children = new Map();
+    for (const t of this.tasks.values()) {
+      if (t.parent_id) children.set(t.parent_id, (children.get(t.parent_id) ?? 0) + 1);
+    }
+    for (const [id, card] of this.cards) {
+      const task = this.tasks.get(id);
+      const parent = this.parentOf(task);
+      const n = children.get(id) ?? 0;
+      const parts = [];
+      if (parent) parts.push(`Parent: ${parent.title}`);
+      if (n) parts.push(`${n} sub-artifact${n === 1 ? "" : "s"}`);
+      const meta = card.querySelector(".task-card__meta");
+      meta.textContent = parts.join(" · ");
+      meta.hidden = parts.length === 0;
+    }
   }
 
   #updateCounts() {

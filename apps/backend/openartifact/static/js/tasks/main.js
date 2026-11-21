@@ -106,6 +106,45 @@ function pickLane(trigger, placement, variant = "list") {
     },
   });
 }
+// Parent: any other artifact except the task itself and everything below it (no cycles).
+async function setParent(id, parentId) {
+  const task = board.tasks.get(id);
+  if (!task || (task.parent_id ?? null) === parentId) return;
+  const previous = task;
+  board.upsert({ ...task, parent_id: parentId });
+  taskForm.setParent(board.parentOf(board.tasks.get(id))?.title ?? null);
+  try {
+    board.upsert(await updateTask(id, { parent_id: parentId }));
+  } catch (error) {
+    if (error.status === 404) {
+      board.remove(id);
+    } else {
+      board.upsert(previous);
+      taskForm.setParent(board.parentOf(previous)?.title ?? null);
+      board.showError(`Could not change the parent of "${task.title}": ${error.status === 422 ? "that would create a loop." : "please try again."}`);
+    }
+  }
+}
+cardNavRoot.querySelector('[data-card-field="parent"]').addEventListener("click", (event) => {
+  const editing = taskForm.editing;
+  const task = editing && board.tasks.get(editing.id);
+  if (!task) return;
+  const blocked = board.descendantIds(task.id);
+  const items = [
+    { value: "", label: "No parent", selected: !task.parent_id },
+    ...board
+      .inBoardOrder()
+      .filter((t) => t.id !== task.id && !blocked.has(t.id))
+      .map((t) => ({ value: t.id, label: t.title, hue: board.laneHue(t.status), selected: t.id === task.parent_id })),
+  ];
+  lanePicker.toggle({
+    trigger: event.currentTarget,
+    items,
+    caption: "Parent",
+    placement: "left",
+    onSelect: (value) => setParent(task.id, value || null),
+  });
+});
 taskForm.subtitle.addEventListener("click", (event) => pickLane(event.currentTarget, "below", "chips"));
 cardNavRoot
   .querySelector('[data-card-field="lane"]')
@@ -114,7 +153,7 @@ cardNavRoot.querySelector('[data-card-action="delete"]').addEventListener("click
   const task = taskForm.editing;
   if (!task || taskForm.busy) return;
   taskForm.modal.close(); // hand over from the editor to the delete confirmation
-  deleteDialog.open(task);
+  deleteDialog.open(task, board.childCount(task.id));
 });
 
 // ── DOM events ────────────────────────────────────────────────────────
@@ -123,13 +162,14 @@ document.querySelectorAll("[data-create-task]").forEach((button) => {
   button.addEventListener("click", () => taskForm.open(button.dataset.status, button.dataset.laneTitle, board.laneHue(button.dataset.status)));
 });
 
-const editTask = (task) => taskForm.openEdit(task, board.laneTitle(task.status), board.laneHue(task.status));
+const editTask = (task) =>
+  taskForm.openEdit(task, board.laneTitle(task.status), board.laneHue(task.status), board.parentOf(task)?.title ?? null);
 
 board.element.addEventListener("click", (event) => {
   const card = event.target.closest(".task-card");
   const task = board.taskOf(card);
   if (!task) return;
-  if (event.target.closest("[data-delete-task]")) deleteDialog.open(task);
+  if (event.target.closest("[data-delete-task]")) deleteDialog.open(task, board.childCount(task.id));
   else editTask(task); // click anywhere else on the card opens it for editing
 });
 
@@ -164,7 +204,7 @@ board.element.addEventListener("keydown", (event) => {
 
   if (event.key === "Delete") {
     event.preventDefault();
-    deleteDialog.open(task);
+    deleteDialog.open(task, board.childCount(task.id));
   } else if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
     editTask(task);
