@@ -99,3 +99,7 @@ An action definition can hold **timer** nodes (migration 0016, `workflow_nodes.s
 
 There is no "Name" field in the inspector. The title of the inspector and the page title (top left) are renamed by clicking them: a text field with a check and a cross appears; Enter or the check saves, Escape or the cross discards (`js/components/inline-name.js`). An action shell is named by its definition and is not renamed here. A caption that repeats the title (for example "Output" under "Output") is left out, and the *On Fail* switch sits in one row with its label.
 
+## 2.21 Routing selects removed
+
+The inspector no longer offers the routing select ("Next", "On Pass" ...) on any kind; connections are made by dragging. The code is kept in quarantine (ADR-014 §3.6). The inspector, the ports and the "+" menu now come from the node kinds (ADR-014 §3.1, §3.2).
+

@@ -36,6 +36,7 @@ All checks run automatically. No manual intervention is required for development
 | `.github/workflows/ci.yml` | Main CI pipeline |
 | `.github/workflows/release.yml` | Version-tagged release |
 | `.github/workflows/pr-build.yml` | PR preview build |
+| `.github/workflows/quarantine.yml` | Weekly: fails when quarantined code (`quarantine.json`) has been unused for 14 days, as a reminder to remove it (`tools/check_quarantine.py`, ADR-014 §3.6) |
 
 ## Docker Build
 

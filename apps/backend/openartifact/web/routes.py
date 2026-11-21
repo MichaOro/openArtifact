@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.database import get_db_session
 from openartifact.tasks.lanes import BOARD_LANES, LANE_HUES
+from openartifact.web import navigation
 from openartifact.workflow.repository import WorkflowRepository
 
 APP_VERSION = "0.1.0"
@@ -22,6 +23,7 @@ APP_VERSION = "0.1.0"
 router = APIRouter()
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+templates.env.globals["navigation"] = navigation
 
 
 @router.get("/", response_class=HTMLResponse)

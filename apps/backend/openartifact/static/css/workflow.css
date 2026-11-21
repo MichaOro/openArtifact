@@ -129,7 +129,7 @@
 /* ports are placed by their node's view (node-types.js); here only their colour and label side */
 .wf-port--pass { border-color: var(--lane-hue-3); }
 .wf-port--error, .wf-port--fail { border-color: var(--color-danger); }
-.wf-port[data-side="right"]::after { right: 14px; }
+.wf-port[data-side="right"]::after { right: 14px; white-space: nowrap; }
 .wf-port[data-side="left"]::after { left: 14px; white-space: nowrap; }
 /* a stage has three points per side; only used ones show, all of them while hovering or connecting */
 .wf-node--stage > .wf-port { opacity: 0; pointer-events: none; }

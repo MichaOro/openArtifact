@@ -19,6 +19,7 @@ Architecture decisions are documented as Architecture Decision Records (ADRs) in
 | 11 | [011-board-interactions-sse-and-pointer-dnd](../adr/011-board-interactions-sse-and-pointer-dnd.md) | Accepted |
 | 12 | [012-workflow-definition-editor](../adr/012-workflow-definition-editor.md) | Accepted |
 | 13 | [013-execution-engine-and-runs](../adr/013-execution-engine-and-runs.md) | Accepted |
+| 14 | [014-building-blocks-and-extension-points](../adr/014-building-blocks-and-extension-points.md) | Accepted |
 
 ## Detailed Decisions
 

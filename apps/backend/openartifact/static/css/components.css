@@ -450,7 +450,7 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 .card-nav .nav-link__label { text-align: left; text-overflow: ellipsis; }
 .card-nav__field .nav-link__label { align-items: flex-start; }
 .card-nav__value { max-width: 100%; }
-.card-nav__field[data-card-field="parent"] .card-nav__value::before { display: none; }
+.card-nav__value--plain::before { display: none; }
 .card-nav__value > span { overflow: hidden; text-overflow: ellipsis; }
 .card-nav__field .nav-link__label { display: flex; flex-direction: column; line-height: 1.2; }
 .card-nav__key { font-size: 0.6875rem; color: var(--color-text-muted); }
