@@ -83,13 +83,13 @@
 .nav-section {
   padding: var(--space-1);
   margin-inline: calc(-1 * (var(--space-1) + 1px)); /* icons stay in line with the other entries */
-  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  border: 1px solid var(--nav-group-border);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
+  background: var(--nav-group-bg);
 }
 .nav-section > .nav-list { margin-top: var(--space-1); }
 /* expanded: sub-entries are clearly indented under Pipeline (collapsed, the icons stay in one column) */
-:root:not([data-sidebar="collapsed"]) .sidebar .nav-section > .nav-list { margin-left: 1.5rem; padding-left: var(--space-1); border-left: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent); }
+:root:not([data-sidebar="collapsed"]) .sidebar .nav-section > .nav-list { margin-left: 1.5rem; padding-left: var(--space-1); border-left: 1px solid var(--nav-group-border); }
 /* Opening the group: the box fades in and grows downwards, then the entries appear one after the other
    (about 0.25 s apart, at most ~0.75 s for all of them, however many there are). */
 @media (prefers-reduced-motion: no-preference) {
@@ -115,10 +115,10 @@
   white-space: nowrap;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
-.nav-link:hover { background: var(--accent-soft); color: var(--color-text-primary); }
+.nav-link:hover { background: var(--nav-hover-bg); color: var(--color-text-primary); }
 .nav-link[aria-current="page"] {
-  background: var(--accent-soft);
-  color: var(--color-text-primary);
+  background: var(--nav-current-bg);
+  color: var(--color-accent);
   box-shadow: inset 2px 0 0 var(--color-accent);
 }
 .nav-link[aria-current="page"] .icon { color: var(--color-accent); }

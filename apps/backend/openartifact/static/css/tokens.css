@@ -94,6 +94,11 @@
   /* stage container of the workflow editor: a neutral step darker than the canvas, not a violet tint */
   --stage-bg: color-mix(in srgb, var(--color-text-primary) 5%, var(--color-background));
   --stage-border: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
+  /* navigation: neutral fills; the violet is kept for the current entry's bar and text */
+  --nav-hover-bg: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  --nav-current-bg: color-mix(in srgb, var(--color-text-primary) 9%, transparent);
+  --nav-group-bg: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  --nav-group-border: color-mix(in srgb, var(--color-text-primary) 18%, transparent);
 
   --glass-opacity: 56%;
   --glass-border-opacity: 90%;
@@ -140,6 +145,10 @@
   /* stage container of the workflow editor: dark violet on dark violet, one step lighter than the canvas */
   --stage-bg: color-mix(in srgb, var(--lane-hue-1) 8%, color-mix(in srgb, var(--color-surface) 62%, transparent));
   --stage-border: color-mix(in srgb, var(--lane-hue-1) 55%, var(--glass-border));
+  --nav-hover-bg: var(--accent-soft);
+  --nav-current-bg: var(--accent-soft);
+  --nav-group-bg: color-mix(in srgb, var(--color-accent) 5%, transparent);
+  --nav-group-border: color-mix(in srgb, var(--color-accent) 45%, transparent);
 
   --glass-opacity: 52%;
   --glass-border-opacity: 80%;

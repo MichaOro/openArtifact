@@ -211,7 +211,6 @@
 
 /* a name edited in place (inspector heading, page title) */
 .inline-name { cursor: text; border-radius: var(--radius-sm); }
-.inline-name:not(.inline-name--editing):hover { background: var(--accent-soft); }
 .inline-name:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .inline-name--editing { display: flex; align-items: center; gap: var(--space-1); }
 .inline-name__input {
