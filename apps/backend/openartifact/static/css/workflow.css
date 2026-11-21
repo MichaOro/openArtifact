@@ -181,6 +181,10 @@
 .wf-delete { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 45%, var(--glass-border)); }
 .wf-delete:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent); }
 
+.wf-actionbar { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+.wf-actionbar .button { gap: var(--space-1); padding: 0 var(--space-2); }
+.wf-actionbar .icon { width: 1rem; height: 1rem; }
+.wf-actionbar a.button[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
 .wf-styles { display: flex; gap: var(--space-1); }
 .wf-style { flex: 1; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text-secondary); cursor: pointer; font: inherit; }
 .wf-style[aria-pressed="true"] { border-color: var(--color-accent); background: var(--accent-soft); color: var(--color-text); }

@@ -265,10 +265,16 @@ def test_move_rename_and_delete_a_node(page: Page, base_url: str, api: httpx.Cli
         page.wait_for_timeout(50)
     assert (moved["x"], moved["y"]) != (before["x"], before["y"])
 
+    expect(page.locator(".wf-inspector input")).to_have_count(
+        0
+    )  # a shell is named by its definition
+    trigger = page.locator(".wf-node--trigger")
+    trigger.locator(".wf-node__name").click()
     name = page.locator(".wf-inspector input").first
-    name.fill("Gap analysis")
+    name.fill("Manual start")
     name.press("Enter")
-    expect(action.locator(".wf-node__name")).to_have_text("Gap analysis")
+    expect(trigger.locator(".wf-node__name")).to_have_text("Manual start")
+    action.locator(".wf-node__name").click()
 
     page.locator(".wf-inspector .wf-delete").click()
     page.click("#confirm-modal [data-confirm]")
@@ -475,11 +481,17 @@ def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
     shell = page.locator(".wf-node--action").first
     shell.locator(".wf-node__name").click()
     expect(page.locator(".wf-inspector h2")).to_have_text("Action")
-    expect(
-        page.locator(".wf-inspector .wf-routing, .wf-inspector h3", has_text="Routing")
-    ).to_have_count(0)
-    page.fill("input[placeholder='Name of the new action']", "Gap analysis")
-    page.click("text=Create and edit")
+    expect(page.locator(".wf-inspector h3", has_text="Routing")).to_have_count(0)
+    expect(page.locator(".wf-actionbar .button")).to_have_text(["New", "Edit", "Delete"])
+    expect(page.locator(".wf-actionbar a")).to_have_attribute(
+        "aria-disabled", "true"
+    )  # nothing yet
+    page.click(".wf-actionbar >> text=New")
+    expect(page.locator("#action-modal")).to_be_visible()
+    page.click("#action-modal [data-submit]")
+    expect(page.locator("#action-name-error")).to_be_visible()  # a title is required
+    page.fill("#action-name", "Gap analysis")
+    page.click("#action-modal [data-submit]")
     expect(page).to_have_url(re.compile(r"/actions/[0-9a-f-]{36}\?from="))
     expect(page.locator(".app-header__title")).to_have_text("Gap analysis")
     expect(page.locator("[data-back]")).to_have_text("Back to Flow")

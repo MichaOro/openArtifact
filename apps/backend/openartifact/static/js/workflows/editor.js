@@ -392,7 +392,7 @@ export class WorkflowEditor {
     const el = this.inspector;
     const shell = node.kind === "action" && !this.isAction;
     el.append(this.#heading(displayName(node), shell && !node.definition_id ? "Empty action" : KIND_LABELS[node.kind]));
-    if (!shell || !node.definition_id) el.append(this.#field("Name", this.#nameInput(node.name, (name) => this.#rename(node, name))));
+    if (!shell) el.append(this.#field("Name", this.#nameInput(node.name, (name) => this.#rename(node, name))));
     if (shell) el.append(this.#definitionSection(node));
 
     const outputs = shell ? [] : OUTPUTS[node.kind];
@@ -414,7 +414,7 @@ export class WorkflowEditor {
       el.append(add);
     }
     if (node.kind === "output") el.append(this.#failToggle(node));
-    if (this.#isFixed(node)) return;
+    if (shell || this.#isFixed(node)) return;
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "button button--ghost wf-delete";
@@ -442,30 +442,60 @@ export class WorkflowEditor {
       }
     }).catch(() => this.#showError("The actions could not be loaded."));
 
-    if (node.definition_id) {
-      const open = document.createElement("a");
-      open.className = "button button--ghost";
-      open.href = this.#definitionUrl(node, node.definition_id);
-      open.textContent = "Edit definition";
-      section.append(open);
-    }
-    const name = document.createElement("input");
-    name.className = "field__control";
-    name.type = "text";
-    name.maxLength = 255;
-    name.placeholder = "Name of the new action";
-    name.autocomplete = "off";
-    const create = document.createElement("button");
-    create.type = "button";
-    create.className = "button button--ghost";
-    create.textContent = "Create and edit";
-    const submit = () => this.#createDefinition(node, name.value);
-    create.addEventListener("click", submit);
-    name.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") submit();
-    });
-    section.append(this.#field("New action", name), create);
+    section.append(this.#actionBar(node));
     return section;
+  }
+
+  /** New, Edit and Delete in one compact row: icon and a short text each. */
+  #actionBar(node) {
+    const bar = document.createElement("div");
+    bar.className = "wf-actionbar";
+    const make = (tag, icon, text, className = "") => {
+      const el = document.createElement(tag);
+      el.className = `button button--ghost button--sm ${className}`.trim();
+      if (tag === "button") el.type = "button";
+      const glyph = document.getElementById("wf-icons").content.querySelector(`[data-icon=${icon}]`).cloneNode(true);
+      el.append(glyph, document.createTextNode(text));
+      return el;
+    };
+    const create = make("button", "plus", "New");
+    create.addEventListener("click", () => this.#askNewAction(node));
+    const edit = make("a", "pencil", "Edit");
+    if (node.definition_id) edit.href = this.#definitionUrl(node, node.definition_id);
+    else edit.setAttribute("aria-disabled", "true");
+    const remove = make("button", "trash", "Delete", "wf-delete");
+    remove.addEventListener("click", () => this.requestDelete({ type: "node", id: node.id }));
+    bar.append(create, edit, remove);
+    return bar;
+  }
+
+  /** The small window for the title of a new action (like creating an artifact on the board). */
+  #askNewAction(node) {
+    this.newAction ??= this.#bindNewActionDialog();
+    this.newAction.node = node;
+    this.newAction.input.value = "";
+    this.newAction.error.hidden = true;
+    this.newAction.modal.open();
+  }
+
+  #bindNewActionDialog() {
+    const modal = new Modal(document.getElementById("action-modal"));
+    const input = document.getElementById("action-name");
+    const error = document.getElementById("action-name-error");
+    const dialog = { modal, input, error, node: null };
+    input.addEventListener("input", () => (error.hidden = true));
+    document.getElementById("action-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!input.value.trim()) {
+        error.textContent = "Please enter a title.";
+        error.hidden = false;
+        input.focus();
+        return;
+      }
+      modal.close();
+      await this.#createDefinition(dialog.node, input.value);
+    });
+    return dialog;
   }
 
   #definitionUrl(node, definitionId) {

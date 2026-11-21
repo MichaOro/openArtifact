@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "components/modal.html" import modal %}
 {% from "components/confirm_modal.html" import confirm_modal %}
 {% from "components/icons.html" import icon %}
 {% block title %}{{ section.label }} · OpenArtifact{% endblock %}
@@ -38,6 +39,26 @@
         <aside class="wf-inspector glass" data-inspector aria-label="Details"></aside>
     </div>
 </div>
+{% if section.kind == "workflow" %}
+{# icons for the inspector buttons that are built in JavaScript #}
+<template id="wf-icons">{% for name in ["plus", "pencil", "trash"] %}<span data-icon="{{ name }}">{{ icon(name) }}</span>{% endfor %}</template>
+{% call modal("action-modal", "New action") %}
+<form class="task-form" id="action-form" novalidate>
+    <div class="modal__body">
+        <div class="field">
+            <label class="field__label" for="action-name">Title <span class="field__required" aria-hidden="true">*</span></label>
+            <input class="field__control" id="action-name" type="text" required maxlength="255"
+                   autocomplete="off" aria-required="true" aria-describedby="action-name-error" data-autofocus>
+            <p class="field__error" id="action-name-error" role="alert" hidden></p>
+        </div>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-modal-close>Cancel</button>
+        <button type="submit" class="button button--primary" data-submit>Create</button>
+    </footer>
+</form>
+{% endcall %}
+{% endif %}
 {{ confirm_modal("confirm-modal", "Delete") }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/workflows/editor-main.js"></script>{% endblock %}
