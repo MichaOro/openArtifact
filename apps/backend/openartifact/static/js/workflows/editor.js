@@ -294,7 +294,11 @@ export class WorkflowEditor {
     this.inspector.append(
       this.#heading(this.workflow?.name ?? "Workflow", "Draft"),
       this.#field("Name", this.#nameInput(this.workflow?.name ?? "", (name) => this.#renameWorkflow(name))),
-      this.#note(`${count("stage")} stages, ${count("action")} actions. Select a node to edit it, drag from a port to connect.`),
+      this.#note(
+        this.isAction
+          ? "The trigger starts this action automatically; the output always offers On Pass and optionally On Fail."
+          : `${count("stage")} stages, ${count("action")} actions. Select a node to edit it, drag from a port to connect.`,
+      ),
     );
   }
 

@@ -10,7 +10,7 @@ export const SIZE = {
   trigger: { width: 160, height: 64 },
   action: { width: 190, height: 68 },
   complete: { width: 160, height: 56 },
-  output: { width: 190, height: 96 },
+  output: { width: 250, height: 88 },
 };
 export const STAGE_MIN = { width: 320, height: 220 };
 
