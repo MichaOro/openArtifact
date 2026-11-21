@@ -88,10 +88,13 @@ the spirit of GitHub's project fields); **actions** (today: *Delete*) and the co
 at the bottom, the toggle in the same column as the item icons. On narrow screens the rail is a
 fixed icon rail. Built from the reusable `CollapsibleNav` component.
 
-Layout rules: text sits left of the icon (*text | icon*), the icon column hugs the right edge. The
-form column keeps its width (`--form-w`); expanding the rail makes the **card** grow leftwards
-(`--rail-w` is a registered, transitioned length, the panel is translated by half the growth), so
-the right edge and with it the toggle stay where the mouse is. The main sidebar follows the same
+Layout rules: icon left of the text (*icon | text*), the icon column sits right next to the form.
+The form column keeps its width and **position** (`--form-w`); expanding the rail makes the card
+grow **rightwards** (`--rail-w` is a registered, transitioned length; the panel is translated by
+half the growth so its left edge stays put, limited so the right edge never leaves the viewport).
+The labels fade in while the card widens. The toggle stays in the icon column, so the mouse can
+stay where it is. On viewports too tight for the growth the card shifts left by just the missing
+amount. The main sidebar follows the same
 idea: its toggle is the first footer item, in the icon column, and does not move when the sidebar
 expands or collapses.
 

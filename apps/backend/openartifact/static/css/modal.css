@@ -30,8 +30,11 @@ html:has(.modal[open]) { overflow: hidden; }
   --rail-w: var(--rail-w-collapsed);
   --form-w: min(31rem, calc(100vw - 2 * var(--space-4) - var(--rail-w-open)));
   width: calc(var(--form-w) + var(--rail-w));
-  /* keep the right edge (and with it the rail toggle) where it is while the card grows */
-  translate: calc(max(var(--rail-w) - var(--rail-w-collapsed), 0rem) / -2) 0;
+  /* keep the left edge (the form and the rail's icon column with the toggle) where it is while
+     the card grows rightwards; never push the right edge out of the viewport */
+  --grow: max(var(--rail-w) - var(--rail-w-collapsed), 0rem);
+  --free: calc(100vw - 2 * var(--space-4) - var(--form-w) - var(--rail-w-collapsed));
+  translate: min(calc(var(--grow) / 2), max(calc((var(--free) - var(--grow)) / 2), 0rem)) 0;
   transition: --rail-w 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
