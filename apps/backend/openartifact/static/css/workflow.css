@@ -182,8 +182,9 @@
 .wf-delete { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 45%, var(--glass-border)); }
 .wf-delete:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent); }
 
-.wf-actionbar { display: flex; gap: var(--space-1); flex-wrap: wrap; }
-.wf-actionbar .button { gap: var(--space-1); padding: 0 var(--space-2); }
+/* three equal buttons across the full width: New flush left with the select above, Delete flush right */
+.wf-actionbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.wf-actionbar .button { width: 100%; justify-content: center; gap: var(--space-1); padding: 0 var(--space-2); }
 .wf-actionbar .icon { width: 1rem; height: 1rem; }
 .wf-actionbar a.button[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
 .wf-styles { display: flex; gap: var(--space-1); }
