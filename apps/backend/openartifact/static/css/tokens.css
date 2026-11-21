@@ -91,6 +91,10 @@
   --lane-hue-7: #c05621; /* orange */
   --lane-hue-8: #5a6475; /* slate */
 
+  /* stage container of the workflow editor: a neutral step darker than the canvas, not a violet tint */
+  --stage-bg: color-mix(in srgb, var(--color-text-primary) 5%, var(--color-background));
+  --stage-border: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
+
   --glass-opacity: 56%;
   --glass-border-opacity: 90%;
   --text-muted-mix: 90%;
@@ -132,6 +136,10 @@
   --lane-hue-6: #4fd1c5;
   --lane-hue-7: #fb923c;
   --lane-hue-8: #94a3b8;
+
+  /* stage container of the workflow editor: dark violet on dark violet, one step lighter than the canvas */
+  --stage-bg: color-mix(in srgb, var(--lane-hue-1) 8%, color-mix(in srgb, var(--color-surface) 62%, transparent));
+  --stage-border: color-mix(in srgb, var(--lane-hue-1) 55%, var(--glass-border));
 
   --glass-opacity: 52%;
   --glass-border-opacity: 80%;
