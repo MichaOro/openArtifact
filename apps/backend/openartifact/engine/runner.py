@@ -122,7 +122,8 @@ class RunEngine:
         status, the others are marked ``skipped``.
         """
         async with self._factory()() as session:
-            if await session.get(Task, task_id) is None:
+            task = await session.get(Task, task_id)
+            if task is None:
                 raise RunError(404, "Artifact not found")
             run = await self._run_of(session, task_id)
             if run is not None and run.status == "running":
@@ -157,6 +158,11 @@ class RunEngine:
                     rows = await session.execute(select(RunStage).where(RunStage.run_id == run.id))
                     previous = {r.stage_id: r.status for r in rows.scalars()}
                 await session.execute(delete(RunStage).where(RunStage.run_id == run.id))
+            # the artifact keeps what it was started with, so the next start offers the same
+            task.pipeline_id, task.stage_id = workflow.id, stage["id"]
+            task.action_id = (
+                (action_id or stage["first_action_id"]) if stage["kind"] == "stage" else None
+            )
             run.workflow_id = workflow.id
             run.created_at = datetime.now(UTC)  # the row is reused: this is when this run began
             run.status = "running"

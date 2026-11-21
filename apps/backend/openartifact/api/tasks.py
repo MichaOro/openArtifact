@@ -1,113 +1,87 @@
-"""Task API routes (prefix ``/api/tasks``).
+"""Task API routes (prefix ``/api/tasks``), the browser's way in.
 
-Every successful change is published on the event bus so that all connected
-browsers (see ``GET /api/events``) update without polling.
+A thin layer over :class:`~openartifact.tasks.service.ArtifactService`, which holds the rules and
+publishes the events (see ``GET /api/events``) so that all connected browsers update without polling.
 """
 
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
-from openartifact.api.events import EventBusDep
-from openartifact.database import get_db_session
-from openartifact.models import PipelineRun
-from openartifact.tasks.repository import ParentError, PlacementError, TaskRepository
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
+from openartifact.tasks.service import ArtifactError, ArtifactService
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
-SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 
-_NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+def get_artifacts(request: Request) -> ArtifactService:
+    """The application's artifact service."""
+    service: ArtifactService = request.app.state.artifacts
+    return service
 
 
-async def _forbid_while_processing(session: AsyncSession, task_id: str) -> None:
-    """An artifact that is being processed is changed by the system only (409)."""
-    running = await session.scalar(
-        select(PipelineRun.id).where(
-            PipelineRun.task_id == task_id, PipelineRun.status == "running"
-        )
-    )
-    if running is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="The artifact is being processed"
-        )
+ServiceDep = Annotated[ArtifactService, Depends(get_artifacts)]
+
+
+def to_http(error: ArtifactError) -> HTTPException:
+    """The HTTP form of a refused request."""
+    return HTTPException(status_code=error.status, detail=error.message)
 
 
 @router.get("", response_model=list[TaskRead])
-async def list_tasks(session: SessionDep) -> list[TaskRead]:
+async def list_tasks(service: ServiceDep) -> list[TaskRead]:
     """List all tasks in board order (lane, then position)."""
-    tasks = await TaskRepository(session).list_all()
-    return [TaskRead.model_validate(t) for t in tasks]
+    return await service.list_all()
+
+
+@router.get("/{task_id}", response_model=TaskRead)
+async def get_task(task_id: str, service: ServiceDep) -> TaskRead:
+    """One task by id."""
+    try:
+        return await service.get(task_id)
+    except ArtifactError as error:
+        raise to_http(error) from error
 
 
 @router.post("", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
-async def create_task(payload: TaskCreate, session: SessionDep, bus: EventBusDep) -> TaskRead:
+async def create_task(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     """Create a task in the given lane.
 
-    Validation: ``title`` is required (1-255 chars after trimming), ``body`` is
-    optional, ``status`` must be ``backlog``, ``in_progress`` or ``done``.
-    Publishes ``task.created``.
+    ``title`` is required (1-255 chars after trimming), ``body`` is optional, ``status`` must be
+    ``backlog``, ``in_progress`` or ``done``; ``parent_id`` makes it a child; ``pipeline_id`` (with
+    ``stage_id`` and ``action_id``, default the first ones) says where it starts. Publishes
+    ``task.created``.
     """
-    task = await TaskRepository(session).create(payload)
-    # Commit before responding/publishing so a reload right after sees the row.
-    await session.commit()
-    created = TaskRead.model_validate(task)
-    bus.publish("task.created", created.model_dump(mode="json"))
-    return created
+    try:
+        return await service.create(payload, created_by="user")
+    except ArtifactError as error:
+        raise to_http(error) from error
 
 
 @router.patch("/{task_id}", response_model=TaskRead)
-async def update_task(
-    task_id: str, payload: TaskUpdate, session: SessionDep, bus: EventBusDep
-) -> TaskRead:
-    """Edit a task, move it to another lane and/or reorder it inside a lane.
+async def update_task(task_id: str, payload: TaskUpdate, service: ServiceDep) -> TaskRead:
+    """Edit a task, move it to another lane, reorder it, give it a parent or a pipeline.
 
-    ``before_id`` places the task before another task of the target lane (``null``: at the
-    end); a lane change without ``before_id`` puts it at the top. ``parent_id`` sets or (``null``)
-    removes the parent artifact; cycles are rejected with 422. Publishes ``task.moved``
-    when only lane/order changed, ``task.updated`` for any other change (and ``board.resync``
-    if neighbours had to be renumbered); nothing when the request changes nothing.
+    ``before_id`` places the task before another task of the target lane (``null``: at the end); a
+    lane change without ``before_id`` puts it at the top. ``parent_id: null`` removes the parent,
+    cycles are rejected with 422. Lane, order, parent and pipeline are locked (409) while the artifact
+    is processed. Publishes ``task.moved`` when only lane/order changed, ``task.updated`` for any
+    other change (and ``board.resync`` if neighbours had to be renumbered).
     """
-    repo = TaskRepository(session)
-    task = await repo.get(task_id)
-    if task is None:
-        raise _NOT_FOUND
-    if payload.model_fields_set & {"status", "before_id", "parent_id"}:
-        await _forbid_while_processing(session, task_id)  # lane, order and parent are locked
     try:
-        result = await repo.update(task, payload)
-    except (PlacementError, ParentError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-        ) from exc
-    if not result.changed and not result.renumbered:
-        return TaskRead.model_validate(task)
-    await session.commit()
-    updated = TaskRead.model_validate(task)
-    # lane/position only -> "moved"; anything touching the content -> "updated"
-    moved_only = result.changed <= {"status", "position"}
-    bus.publish("task.moved" if moved_only else "task.updated", updated.model_dump(mode="json"))
-    if result.renumbered:
-        bus.publish("board.resync", {})  # other tasks of the lane got new positions
-    return updated
+        return await service.update(task_id, payload)
+    except ArtifactError as error:
+        raise to_http(error) from error
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_task(task_id: str, session: SessionDep, bus: EventBusDep) -> Response:
-    """Delete a task. Publishes ``task.deleted``; its children become parentless (resync)."""
-    repo = TaskRepository(session)
-    task = await repo.get(task_id)
-    if task is None:
-        raise _NOT_FOUND
-    await _forbid_while_processing(session, task_id)
-    detached = await repo.delete(task)
-    await session.commit()
-    bus.publish("task.deleted", {"id": task_id})
-    if detached:
-        bus.publish("board.resync", {})  # the children lost their parent
+async def delete_task(task_id: str, service: ServiceDep) -> Response:
+    """Delete a task (not while it is processed). Publishes ``task.deleted``; its children become
+    parentless (resync)."""
+    try:
+        await service.delete(task_id)
+    except ArtifactError as error:
+        raise to_http(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)

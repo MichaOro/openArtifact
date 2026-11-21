@@ -15,6 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
+from starlette.routing import Route
 
 from openartifact.config import Settings
 from openartifact.database import session_factory
@@ -25,6 +26,8 @@ from openartifact.exceptions import (
     DatabaseError,
     OpenArtifactError,
 )
+from openartifact.mcp_server import TokenProtected, build_mcp
+from openartifact.tasks.service import ArtifactService
 from openartifact.web.static import RevalidatingStaticFiles
 
 logger = logging.getLogger("openartifact")
@@ -73,7 +76,8 @@ def _create_app(settings: Settings) -> FastAPI:
         except OperationalError:
             logger.warning("Run recovery skipped: the database is not migrated yet")
 
-        yield
+        async with app.state.mcp_app.router.lifespan_context(app.state.mcp_app):
+            yield
 
         # ── Shutdown ─────────────────────────────────────────
         from openartifact.database import dispose_engine
@@ -94,6 +98,15 @@ def _create_app(settings: Settings) -> FastAPI:
     )
     app.state.event_bus = EventBus()
     app.state.engine = RunEngine(app.state.event_bus, session_factory)
+    app.state.artifacts = ArtifactService(session_factory, app.state.event_bus, app.state.engine)
+    app.state.settings = settings
+    # The MCP server (Streamable HTTP, stateless) answers at /mcp; it is open only with the API token.
+    app.state.mcp_app = build_mcp(app.state.artifacts).streamable_http_app(
+        stateless_http=True, json_response=True, host="0.0.0.0"
+    )
+    app.router.routes.append(
+        Route("/mcp", endpoint=TokenProtected(app.state.mcp_app, settings.api_token))
+    )
 
     # ── Exception handlers ─────────────────────────────────────────
 
@@ -152,6 +165,7 @@ def _create_app(settings: Settings) -> FastAPI:
     from openartifact.api.routes import router as api_router
     from openartifact.api.runs import router as runs_router
     from openartifact.api.tasks import router as tasks_router
+    from openartifact.api.v1 import router as v1_router
     from openartifact.api.workflows import router as workflows_router
     from openartifact.web.routes import router as web_router
 
@@ -160,6 +174,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(tasks_router)
     app.include_router(workflows_router)
     app.include_router(runs_router)
+    app.include_router(v1_router)
     app.include_router(events_router)
     app.include_router(web_router)
 

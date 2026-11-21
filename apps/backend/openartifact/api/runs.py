@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.api.tasks import ServiceDep, to_http
 from openartifact.database import get_db_session
-from openartifact.engine.runner import RunEngine, RunError
+from openartifact.engine.runner import RunEngine
+from openartifact.tasks.service import ArtifactError
 
 router = APIRouter(prefix="/api", tags=["runs"])
 
@@ -26,11 +28,14 @@ EngineDep = Annotated[RunEngine, Depends(get_engine)]
 
 
 class RunStart(BaseModel):
-    """Body of ``POST /api/tasks/{id}/run``: the pipeline, and optionally where to start in it."""
+    """Body of ``POST /api/tasks/{id}/run``: the pipeline, and optionally where to start in it.
+
+    Everything may be left out: the artifact then starts with the pipeline, stage and action it has.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    workflow_id: str
+    workflow_id: str | None = None
     stage_id: str | None = None
     action_id: str | None = None
 
@@ -42,21 +47,24 @@ async def list_runs(session: SessionDep, engine: EngineDep) -> list[dict[str, An
 
 
 @router.post("/tasks/{task_id}/run", status_code=201)
-async def start_run(task_id: str, payload: RunStart, engine: EngineDep) -> dict[str, Any]:
+async def start_run(
+    task_id: str, service: ServiceDep, payload: RunStart | None = None
+) -> dict[str, Any]:
     """Start processing an artifact (``stage_id``/``action_id`` default to the first ones).
 
     Stages before the starting stage count as done. Publishes ``run.updated`` on every step.
     """
+    body = payload or RunStart()
     try:
-        return await engine.start(task_id, payload.workflow_id, payload.stage_id, payload.action_id)
-    except RunError as error:
-        raise HTTPException(status_code=error.status, detail=error.message) from error
+        return await service.start(task_id, body.workflow_id, body.stage_id, body.action_id)
+    except ArtifactError as error:
+        raise to_http(error) from error
 
 
 @router.post("/tasks/{task_id}/run/stop")
-async def stop_run(task_id: str, engine: EngineDep) -> dict[str, Any]:
+async def stop_run(task_id: str, service: ServiceDep) -> dict[str, Any]:
     """Stop the processing of an artifact; it keeps its stage and action."""
     try:
-        return await engine.stop(task_id)
-    except RunError as error:
-        raise HTTPException(status_code=error.status, detail=error.message) from error
+        return await service.stop(task_id)
+    except ArtifactError as error:
+        raise to_http(error) from error

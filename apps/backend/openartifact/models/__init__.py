@@ -137,6 +137,9 @@ class Task(Base):
         parent_id: Optional parent artifact (a tree: one parent, any number of children). Kept
             acyclic by the repository; the database keeps it referentially intact (foreign key,
             ``ON DELETE SET NULL``).
+        pipeline_id, stage_id, action_id: The pipeline, stage and action the artifact starts with
+            (migration 0019); ``None`` until a pipeline is chosen.
+        created_by: How it was created: ``user``, ``api``, ``mcp`` or ``action``.
         position: Sort key inside the lane, ascending (see migration 0004). Fractional so a task
             can be dropped between two others without renumbering the lane.
         created_at: Creation timestamp (UTC).
@@ -156,6 +159,12 @@ class Task(Base):
     parent_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, default=None
     )
+    pipeline_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("workflows.id", ondelete="SET NULL"), nullable=True, default=None
+    )
+    stage_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
+    action_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
+    created_by: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),

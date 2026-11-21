@@ -32,6 +32,12 @@ class TaskCreate(BaseModel):
     ]
     body: Annotated[str | None, Field(max_length=BODY_MAX_LENGTH)] = None
     status: TaskStatus = TaskStatus.BACKLOG
+    #: Parent artifact (the new one becomes its child).
+    parent_id: str | None = None
+    #: Pipeline to start with; the stage and action default to the first ones of the pipeline.
+    pipeline_id: str | None = None
+    stage_id: str | None = None
+    action_id: str | None = None
 
     @field_validator("body")
     @classmethod
@@ -64,6 +70,10 @@ class TaskUpdate(BaseModel):
     before_id: str | None = None
     #: Parent artifact. ``null`` removes the parent.
     parent_id: str | None = None
+    #: Pipeline, stage and action to start with (``pipeline_id: null`` clears all three).
+    pipeline_id: str | None = None
+    stage_id: str | None = None
+    action_id: str | None = None
 
     @field_validator("body")
     @classmethod
@@ -76,9 +86,7 @@ class TaskUpdate(BaseModel):
     def _check_fields(self) -> TaskUpdate:
         sent = self.model_fields_set
         if not sent:
-            raise ValueError(
-                "At least one of title, body, status, before_id or parent_id is required"
-            )
+            raise ValueError("At least one field to change is required")
         for name in ("title", "status"):
             if name in sent and getattr(self, name) is None:
                 raise ValueError(f"{name} must not be null")
@@ -97,6 +105,10 @@ class TaskRead(BaseModel):
     status: TaskStatus
     position: float
     parent_id: str | None
+    pipeline_id: str | None
+    stage_id: str | None
+    action_id: str | None
+    created_by: str
     created_at: datetime
     updated_at: datetime
 

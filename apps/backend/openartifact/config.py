@@ -44,6 +44,9 @@ class Settings(BaseSettings):
 
     # ── Security ────────────────────────────────────────────────────
     secret_key: str = "change-me-in-production"
+    #: Token for the integration API (``/api/v1``) and the MCP server (``/mcp``). Empty: both are
+    #: switched off (401), because they would otherwise be open to anyone who can reach the port.
+    api_token: str = ""
 
     # ── Logging ─────────────────────────────────────────────────────
     log_level: str = "INFO"
