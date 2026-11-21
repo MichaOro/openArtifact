@@ -17,6 +17,7 @@ Architecture decisions are documented as Architecture Decision Records (ADRs) in
 | 9 | [009-technology-summary](../adr/009-technology-summary.md) | Accepted |
 | 10 | [010-frontend-without-htmx](../adr/010-frontend-without-htmx.md) | Accepted |
 | 11 | [011-board-interactions-sse-and-pointer-dnd](../adr/011-board-interactions-sse-and-pointer-dnd.md) | Accepted |
+| 12 | [012-workflow-definition-editor](../adr/012-workflow-definition-editor.md) | Accepted |
 
 ## Detailed Decisions
 
