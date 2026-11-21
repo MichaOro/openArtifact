@@ -36,9 +36,7 @@ export class WorkflowEditor {
       },
     });
 
-    root.querySelectorAll("[data-add]").forEach((button) =>
-      button.addEventListener("click", () => this.#addTopLevel(button.dataset.add)),
-    );
+    this.#bindAddMenu();
     root.querySelector("[data-zoom-in]").addEventListener("click", () => this.canvas.zoomBy(1.2));
     root.querySelector("[data-zoom-out]").addEventListener("click", () => this.canvas.zoomBy(1 / 1.2));
     root.querySelector("[data-zoom-fit]").addEventListener("click", () => this.canvas.fit());
@@ -112,14 +110,51 @@ export class WorkflowEditor {
 
   // ── adding ─────────────────────────────────────────────────────────
 
-  /** A new trigger goes left of everything, anything else right of everything, on the flow's row. */
-  async #addTopLevel(kind) {
-    const top = [...this.nodes.values()].filter((n) => n.kind !== "action");
-    const left = Math.min(...top.map((n) => n.x), 60);
-    const right = Math.max(...top.map((n) => n.x + (n.kind === "stage" ? n.width : SIZE[n.kind].width)), 60);
-    const x = kind === "trigger" ? left - SIZE.trigger.width - TOP_LEVEL_GAP : right + TOP_LEVEL_GAP;
-    const created = await this.#create({ kind, x: Math.round(x), y: kind === "stage" ? 40 : 160 });
-    if (created) this.canvas.reveal(created);
+  /** The "+" menu on the canvas; trigger and complete are always there, so it only offers stages. */
+  #bindAddMenu() {
+    const toggle = this.root.querySelector("[data-add-menu]");
+    if (!toggle) return;
+    const list = this.root.querySelector("[data-add-list]");
+    const setOpen = (open) => {
+      list.hidden = !open;
+      toggle.setAttribute("aria-expanded", String(open));
+    };
+    toggle.addEventListener("click", () => {
+      setOpen(list.hidden);
+      if (!list.hidden) list.querySelector("button")?.focus();
+    });
+    list.addEventListener("click", (event) => {
+      const item = event.target.closest("[data-add]");
+      if (!item) return;
+      setOpen(false);
+      this.#addStage();
+    });
+    document.addEventListener("pointerdown", (event) => {
+      if (!event.target.closest(".wf-add")) setOpen(false);
+    });
+    this.root.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !list.hidden) {
+        setOpen(false);
+        toggle.focus();
+      }
+    });
+  }
+
+  /** A new stage goes right of the last stage (or of the trigger); complete moves on if it is in the way. */
+  async #addStage() {
+    const nodes = [...this.nodes.values()];
+    const before = nodes.filter((n) => n.kind === "stage" || n.kind === "trigger");
+    const right = Math.max(...before.map((n) => n.x + (n.kind === "stage" ? n.width : SIZE.trigger.width)), 60);
+    const created = await this.#create({ kind: "stage", x: Math.round(right + TOP_LEVEL_GAP), y: 40 });
+    if (!created) return;
+    const complete = nodes.find((n) => n.kind === "complete");
+    const free = created.x + created.width + TOP_LEVEL_GAP;
+    if (complete && complete.x < free) {
+      complete.x = free;
+      this.canvas.sync();
+      await this.#save(() => updateNode(this.id, complete.id, { x: free }));
+    }
+    this.canvas.reveal(created);
   }
 
   async #addAction(stage) {
@@ -219,8 +254,10 @@ export class WorkflowEditor {
     await this.#save(() => restyleEdge(this.id, edge.id, style));
   }
 
+  /** Trigger, complete and output come with the workflow; the last one of each stays. */
   #isFixed(node) {
-    return this.isAction && (node.kind === "trigger" || node.kind === "output");
+    if (!["trigger", "complete", "output"].includes(node.kind)) return false;
+    return [...this.nodes.values()].filter((n) => n.kind === node.kind).length <= 1;
   }
 
   /** Delete a node after confirming; a stage takes its actions with it. */

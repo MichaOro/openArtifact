@@ -12,23 +12,27 @@
     <div class="wf-bar glass" role="toolbar" aria-label="{{ section.label }} tools">
         <a class="button button--ghost button--sm" href="{{ section.path }}">All {{ section.label | lower }}s</a>
         <span class="wf-bar__spacer"></span>
-        {% if section.kind == "workflow" %}
-        <button type="button" class="button button--ghost button--sm" data-add="trigger">+ Trigger</button>
-        <button type="button" class="button button--ghost button--sm" data-add="stage">+ Stage</button>
-        <button type="button" class="button button--ghost button--sm" data-add="complete">+ Complete</button>
-        <span class="wf-bar__spacer"></span>
-        {% endif %}
         <button type="button" class="button button--ghost button--sm" data-zoom-out aria-label="Zoom out">−</button>
         <span class="wf-bar__zoom" data-zoom-label aria-live="polite">100%</span>
         <button type="button" class="button button--ghost button--sm" data-zoom-in aria-label="Zoom in">+</button>
         <button type="button" class="button button--ghost button--sm" data-zoom-fit>Fit</button>
     </div>
     <div class="wf-main">
-        <div class="wf-viewport glass" data-viewport tabindex="-1" role="application" aria-label="{{ section.label }} canvas">
-            <div class="wf-world" data-world>
-                <div data-nodes></div>
-                <svg class="wf-edges" data-edges aria-hidden="true"></svg>
+        <div class="wf-canvas">
+            <div class="wf-viewport glass" data-viewport tabindex="-1" role="application" aria-label="{{ section.label }} canvas">
+                <div class="wf-world" data-world>
+                    <div data-nodes></div>
+                    <svg class="wf-edges" data-edges aria-hidden="true"></svg>
+                </div>
             </div>
+            {% if section.kind == "workflow" %}
+            <div class="wf-add">
+                <button type="button" class="icon-button" data-add-menu aria-haspopup="menu" aria-expanded="false" aria-label="Add to the canvas" title="Add">{{ icon("plus") }}</button>
+                <div class="wf-add__menu glass" role="menu" aria-label="Add" hidden data-add-list>
+                    <button type="button" class="wf-add__item" role="menuitem" data-add="stage">Stage</button>
+                </div>
+            </div>
+            {% endif %}
         </div>
         <aside class="wf-inspector glass" data-inspector aria-label="Details"></aside>
     </div>

@@ -28,6 +28,7 @@ END = Endpoint("e", NodeKind.COMPLETE)
 @pytest.mark.parametrize(
     ("source", "source_port", "target", "target_port"),
     [
+        (TRIGGER, "out", END, "in"),  # the default connection
         (TRIGGER, "out", S1, "start"),
         (S1, "end", S2, "start"),
         (S1, "end", END, "in"),
@@ -49,7 +50,6 @@ def test_allowed_connections(
     ("source", "source_port", "target", "target_port"),
     [
         (TRIGGER, "out", A1, "in"),  # actions are reached from inside a stage
-        (TRIGGER, "out", END, "in"),
         (TRIGGER, "in", S1, "start"),  # no such output
         (S1, "end", S1, "start"),  # not to itself
         (S1, "end", S2, "end"),  # the end is fed from inside
@@ -101,11 +101,16 @@ def _graph(client: TestClient, workflow: dict[str, Any]) -> dict[str, Any]:
     return client.get(f"/api/workflows/{workflow['id']}").json()  # type: ignore[no-any-return]
 
 
-def test_new_workflow_starts_with_a_trigger(client: TestClient) -> None:
+def test_new_workflow_has_a_trigger_and_a_complete_connected_with_each_other(
+    client: TestClient,
+) -> None:
     workflow = _workflow(client)
     graph = _graph(client, workflow)
-    assert [n["kind"] for n in graph["nodes"]] == ["trigger"]
-    assert graph["edges"] == []
+    nodes = {n["kind"]: n for n in graph["nodes"]}
+    assert sorted(nodes) == ["complete", "trigger"]
+    assert [
+        (e["source_id"], e["source_port"], e["target_id"], e["target_port"]) for e in graph["edges"]
+    ] == [(nodes["trigger"]["id"], "out", nodes["complete"]["id"], "in")]
     assert workflow["status"] == "draft"
 
 
@@ -129,7 +134,15 @@ def test_node_kinds_and_defaults(client: TestClient) -> None:
     assert (stage["name"], stage["width"], stage["height"]) == ("Stage", 360, 240)
     action = _node(client, workflow, "action", stage_id=stage["id"], x=20, y=40)
     assert (action["name"], action["stage_id"], action["width"]) == ("Action", stage["id"], None)
-    assert _node(client, workflow, "complete")["name"] == "Complete"
+
+
+def test_trigger_and_complete_cannot_be_added_or_deleted(client: TestClient) -> None:
+    workflow = _workflow(client)
+    base = f"/api/workflows/{workflow['id']}/nodes"
+    for kind in ("trigger", "complete"):
+        assert client.post(base, json={"kind": kind}).status_code == 422
+    for node in _graph(client, workflow)["nodes"]:
+        assert client.delete(f"{base}/{node['id']}").status_code == 422
 
 
 def test_action_needs_a_stage_of_the_same_workflow(client: TestClient) -> None:
@@ -212,7 +225,7 @@ def test_inputs_take_several_edges(client: TestClient) -> None:
     assert _edge(client, workflow, a, "pass", target, "in").status_code == 201
     assert _edge(client, workflow, b, "pass", target, "in").status_code == 201
     assert _edge(client, workflow, a, "error", target, "in").status_code == 201
-    assert len(_graph(client, workflow)["edges"]) == 3
+    assert len(_graph(client, workflow)["edges"]) == 4  # the three and the default one
 
 
 def test_edges_across_workflows_are_rejected(client: TestClient) -> None:
@@ -234,7 +247,7 @@ def test_disconnect(client: TestClient) -> None:
 
 def test_deleting_a_stage_removes_its_actions_and_all_their_edges(client: TestClient) -> None:
     workflow = _workflow(client)
-    trigger = _graph(client, workflow)["nodes"][0]
+    trigger = next(n for n in _graph(client, workflow)["nodes"] if n["kind"] == "trigger")
     stage, other = _node(client, workflow, "stage"), _node(client, workflow, "stage")
     action = _node(client, workflow, "action", stage_id=stage["id"])
     _edge(client, workflow, trigger, "out", stage, "start")
@@ -242,7 +255,7 @@ def test_deleting_a_stage_removes_its_actions_and_all_their_edges(client: TestCl
     _edge(client, workflow, stage, "end", other, "start")
     assert client.delete(f"/api/workflows/{workflow['id']}/nodes/{stage['id']}").status_code == 204
     graph = _graph(client, workflow)
-    assert sorted(n["kind"] for n in graph["nodes"]) == ["stage", "trigger"]
+    assert sorted(n["kind"] for n in graph["nodes"]) == ["complete", "stage", "trigger"]
     assert graph["edges"] == []
 
 
@@ -423,3 +436,42 @@ def test_migration_0011_marks_existing_workflows_and_is_reversible(
     with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT id FROM workflows").fetchall() == [("w",)]
         assert conn.execute("SELECT count(*) FROM workflow_nodes").fetchone() == (0,)
+
+
+def test_migration_0012_adds_a_complete_and_connects_a_free_trigger(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "0011")
+    db = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db) as conn:
+        for workflow in ("free", "busy"):
+            conn.execute("INSERT INTO workflows (id, name) VALUES (?, ?)", (workflow, workflow))
+            conn.execute(
+                "INSERT INTO workflow_nodes (id, workflow_id, kind, name, x) "
+                "VALUES (?, ?, 'trigger', 'T', 60)",
+                (f"t-{workflow}", workflow),
+            )
+        conn.execute(
+            "INSERT INTO workflow_nodes (id, workflow_id, kind, name, x, width) "
+            "VALUES ('s', 'busy', 'stage', 'S', 300, 360)"
+        )
+        conn.execute(
+            "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, target_port) "
+            "VALUES ('e', 'busy', 't-busy', 'out', 's', 'start')"
+        )
+    command.upgrade(alembic_config(), "0012")
+    with sqlite3.connect(db) as conn:
+        completes = dict(
+            conn.execute("SELECT workflow_id, x FROM workflow_nodes WHERE kind = 'complete'")
+        )
+        edges = conn.execute(
+            "SELECT workflow_id, source_id FROM workflow_edges ORDER BY 1"
+        ).fetchall()
+    assert completes == {"free": 60 + 160 + 96, "busy": 300 + 360 + 96}
+    assert edges == [("busy", "t-busy"), ("free", "t-free")]
+    with sqlite3.connect(db) as conn:
+        assert conn.execute(
+            "SELECT count(*) FROM workflow_edges WHERE workflow_id = 'busy'"
+        ).fetchone() == (1,)  # the busy trigger keeps its own connection only

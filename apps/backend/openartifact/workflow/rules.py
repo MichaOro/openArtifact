@@ -76,5 +76,3 @@ def validate_edge(source: Endpoint, source_port: str, target: Endpoint, target_p
                 raise EdgeError("The end of a stage is fed by its own actions")
             if target.id == source.id:
                 raise EdgeError("A stage cannot be connected to itself")
-        if source.kind is NodeKind.TRIGGER and target.kind is NodeKind.COMPLETE:
-            raise EdgeError("A trigger starts a stage")

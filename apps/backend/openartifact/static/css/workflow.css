@@ -37,6 +37,13 @@
 .wf-bar__zoom { min-width: 3rem; text-align: center; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
 .wf-main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: var(--space-3); min-height: 0; }
 
+.wf-canvas { position: relative; display: flex; min-height: 0; min-width: 0; }
+.wf-canvas > .wf-viewport { flex: 1; min-width: 0; }
+.wf-add { position: absolute; top: var(--space-3); right: var(--space-3); z-index: 5; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); }
+.wf-add__menu { display: flex; flex-direction: column; min-width: 9rem; padding: var(--space-1); border-radius: var(--radius-md); }
+.wf-add__menu[hidden] { display: none; }
+.wf-add__item { padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-primary); font: inherit; text-align: left; cursor: pointer; }
+.wf-add__item:hover, .wf-add__item:focus-visible { background: var(--accent-soft); outline: none; }
 .wf-viewport {
   position: relative;
   overflow: hidden;

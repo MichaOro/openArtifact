@@ -49,6 +49,11 @@ def _expect_edges(
     assert _edges(api, workflow) == expected, _graph(api, workflow)["edges"]
 
 
+def _add_stage(page: Page) -> None:
+    page.click("[data-add-menu]")
+    page.click("[data-add=stage]")
+
+
 def _edges(api: httpx.Client, workflow: dict[str, Any]) -> list[tuple[str, str]]:
     return sorted((e["source_port"], e["target_port"]) for e in _graph(api, workflow)["edges"])
 
@@ -66,9 +71,9 @@ def test_create_rename_and_delete_a_workflow_from_the_list(
     page.fill("#workflow-name", "Agentic Coding")
     page.click("#name-modal [data-submit]")
     expect(page).to_have_url(re.compile(r"/workflows/[0-9a-f-]{36}$"))
-    expect(page.locator(".wf-node--trigger")).to_have_count(
-        1
-    )  # every workflow starts with a trigger
+    expect(page.locator(".wf-node--trigger")).to_have_count(1)
+    expect(page.locator(".wf-node--complete")).to_have_count(1)
+    expect(page.locator(".wf-edge")).to_have_count(1)  # connected by default
 
     page.goto(f"{base_url}/workflows")
     page.locator("[data-rename]").click()
@@ -100,13 +105,13 @@ def test_add_stage_and_actions_and_they_persist(
     _clear(api)
     workflow = api.post("/api/workflows", json={"name": "Flow"}).json()
     _open(page, base_url, workflow)
-    page.click("[data-add=stage]")
+    _add_stage(page)
     expect(page.locator(".wf-node--stage")).to_have_count(1)
     page.locator("[data-add-action]").click()
     page.locator("[data-add-action]").click()
     expect(page.locator(".wf-node--action")).to_have_count(2)
     kinds = sorted(n["kind"] for n in _graph(api, workflow)["nodes"])
-    assert kinds == ["action", "action", "stage", "trigger"]
+    assert kinds == ["action", "action", "complete", "stage", "trigger"]
     page.reload()
     expect(page.locator(".wf-node--action")).to_have_count(2)
     expect(page.locator(".wf-node--action").first).to_be_visible()
@@ -116,8 +121,10 @@ def _flow(page: Page, base_url: str, api: httpx.Client) -> dict[str, Any]:
     """A workflow with a trigger, one stage and two actions in it, opened in the editor."""
     _clear(api)
     workflow = api.post("/api/workflows", json={"name": "Flow"}).json()
+    for edge in _graph(api, workflow)["edges"]:  # start without the default connection
+        api.delete(f"/api/workflows/{workflow['id']}/edges/{edge['id']}")
     _open(page, base_url, workflow)
-    page.click("[data-add=stage]")
+    _add_stage(page)
     page.locator("[data-add-action]").click()
     page.locator("[data-add-action]").click()
     expect(page.locator(".wf-node--action")).to_have_count(2)
@@ -165,7 +172,7 @@ def test_only_valid_targets_light_up_and_invalid_drops_do_nothing(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     workflow = _flow(page, base_url, api)
-    page.click("[data-add=stage]")
+    _add_stage(page)
     expect(page.locator(".wf-node--stage")).to_have_count(2)
     page.click("[data-zoom-fit]")
     first = page.locator(".wf-node--action").first.locator(".wf-port--pass")
@@ -281,7 +288,7 @@ def test_deleting_a_stage_asks_and_takes_its_actions_along(
     expect(page.locator("#confirm-modal [data-confirm-message]")).to_contain_text("2 actions")
     page.click("#confirm-modal [data-confirm]")
     expect(page.locator(".wf-node--stage")).to_have_count(0)
-    assert [n["kind"] for n in _graph(api, workflow)["nodes"]] == ["trigger"]
+    assert sorted(n["kind"] for n in _graph(api, workflow)["nodes"]) == ["complete", "trigger"]
 
 
 def test_zoom_controls_and_fit(page: Page, base_url: str, api: httpx.Client) -> None:
@@ -412,3 +419,40 @@ def test_trigger_connects_to_the_output(page: Page, base_url: str, api: httpx.Cl
     )
     expect(page.locator(".wf-edge")).to_have_count(1)
     _expect_edges(page, api, definition, [("out", "in")])
+
+
+def test_the_add_menu_offers_stages_and_trigger_and_complete_stay(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _clear(api)
+    workflow = api.post("/api/workflows", json={"name": "Flow"}).json()
+    _open(page, base_url, workflow)
+    expect(page.locator(".wf-bar [data-add]")).to_have_count(0)  # no longer in the toolbar
+    menu = page.locator("[data-add-list]")
+    expect(menu).to_be_hidden()
+    page.click("[data-add-menu]")
+    expect(menu.locator("[data-add]")).to_have_text(["Stage"])
+    page.keyboard.press("Escape")
+    expect(menu).to_be_hidden()
+    for kind in ("trigger", "complete"):
+        page.locator(f".wf-node--{kind} .wf-node__name").click()
+        expect(page.locator(".wf-inspector .wf-delete")).to_have_count(0)
+        page.keyboard.press("Delete")
+        expect(page.locator(f".wf-node--{kind}")).to_have_count(1)
+        expect(page.locator("#confirm-modal[open]")).to_have_count(0)
+
+
+def test_a_new_stage_makes_room_before_complete(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _clear(api)
+    workflow = api.post("/api/workflows", json={"name": "Flow"}).json()
+    _open(page, base_url, workflow)
+    _add_stage(page)
+    expect(page.locator(".wf-node--stage")).to_have_count(1)
+    for _ in range(100):
+        nodes = {n["kind"]: n for n in _graph(api, workflow)["nodes"]}
+        if nodes["complete"]["x"] >= nodes["stage"]["x"] + nodes["stage"]["width"]:
+            break
+        page.wait_for_timeout(50)
+    assert nodes["complete"]["x"] >= nodes["stage"]["x"] + nodes["stage"]["width"]
