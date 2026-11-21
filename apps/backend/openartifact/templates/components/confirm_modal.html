@@ -1,0 +1,17 @@
+{% from "components/modal.html" import modal %}
+{# Generic confirmation dialog (behaviour in static/js/components/confirm-dialog.js). #}
+{% macro confirm_modal(id, title) -%}
+{% call modal(id, title) %}
+<div class="modal__body">
+    <p class="confirm-text" data-confirm-message></p>
+    <p class="form-error" role="alert" hidden data-form-error></p>
+</div>
+<footer class="modal__footer">
+    <button type="button" class="button button--ghost" data-modal-close data-cancel>Cancel</button>
+    <button type="button" class="button button--danger" data-confirm>
+        <span class="spinner" aria-hidden="true"></span>
+        <span data-confirm-label>Delete</span>
+    </button>
+</footer>
+{% endcall %}
+{%- endmacro %}

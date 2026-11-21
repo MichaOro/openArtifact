@@ -37,3 +37,28 @@ async def index(request: Request) -> HTMLResponse:
             "lane_hues": LANE_HUES,
         },
     )
+
+
+@router.get("/workflows", response_class=HTMLResponse)
+async def workflows(request: Request) -> HTMLResponse:
+    """The list of workflow definitions."""
+    return templates.TemplateResponse(
+        request=request,
+        name="workflows.html",
+        context={"page_title": "Workflows", "active_nav": "workflows", "app_version": APP_VERSION},
+    )
+
+
+@router.get("/workflows/{workflow_id}", response_class=HTMLResponse)
+async def workflow_editor(request: Request, workflow_id: str) -> HTMLResponse:
+    """The editor for one workflow definition (the graph itself is loaded through the API)."""
+    return templates.TemplateResponse(
+        request=request,
+        name="workflow_editor.html",
+        context={
+            "page_title": "Workflow",
+            "active_nav": "workflows",
+            "app_version": APP_VERSION,
+            "workflow_id": workflow_id,
+        },
+    )

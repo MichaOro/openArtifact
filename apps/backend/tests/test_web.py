@@ -128,12 +128,20 @@ def test_root_links_assets(client: TestClient) -> None:
     assert "/static/js/theme.js" in html
 
 
-def test_navigation_contains_only_projects(client: TestClient) -> None:
-    """Sidebar navigation has exactly one entry: Projects."""
+def test_navigation_lists_projects_and_workflows(client: TestClient) -> None:
+    """The sidebar offers Projects and Workflows; the current page is marked."""
     html = client.get("/").text
-    assert html.count('class="nav-link"') == 1
-    assert 'aria-current="page"' in html
-    assert "Projects" in html
+    assert html.count('class="nav-link"') == 2
+    assert html.count('aria-current="page"') == 1
+    assert 'href="/workflows"' in html
+
+
+def test_workflow_pages_render_and_mark_their_navigation_entry(client: TestClient) -> None:
+    for path in ("/workflows", "/workflows/any-id"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert 'href="/workflows"' in response.text
+        assert response.text.count('aria-current="page"') == 1
 
 
 def test_board_has_three_empty_lanes(client: TestClient) -> None:

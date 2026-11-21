@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "components/modal.html" import modal %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/icons.html" import icon %}
+{% block title %}Workflows · OpenArtifact{% endblock %}
+{% block styles %}<link rel="stylesheet" href="/static/css/workflow.css">{% endblock %}
+{% block content %}
+<div class="board-alert glass" role="alert" hidden data-list-error>
+    <span data-list-error-text>Workflows could not be loaded.</span>
+    <button type="button" class="button button--ghost button--sm" data-list-retry>Retry</button>
+</div>
+<div class="wf-toolbar">
+    <button type="button" class="button button--primary" data-new-workflow>{{ icon("plus") }} New workflow</button>
+</div>
+<ul class="wf-list" data-wf-list aria-label="Workflows"></ul>
+<p class="wf-empty glass" data-wf-empty hidden>No workflows yet. Create the first one to start designing stages and actions.</p>
+
+<template id="wf-item-template">
+    <li class="wf-item glass">
+        <a class="wf-item__link" href="#">
+            <h3 class="wf-item__name"></h3>
+            <p class="wf-item__meta"></p>
+        </a>
+        <span class="wf-chip">Draft</span>
+        <button type="button" class="icon-button icon-button--sm" data-rename aria-label="Rename workflow" title="Rename">{{ icon("pencil") }}</button>
+        <button type="button" class="icon-button icon-button--sm" data-delete aria-label="Delete workflow" title="Delete">{{ icon("trash") }}</button>
+    </li>
+</template>
+
+{% call modal("name-modal", "Workflow") %}
+<form class="task-form" id="name-form" novalidate>
+    <div class="modal__body">
+        <div class="field">
+            <label class="field__label" for="workflow-name">Name <span class="field__required" aria-hidden="true">*</span></label>
+            <input class="field__control" id="workflow-name" type="text" required maxlength="255"
+                   autocomplete="off" aria-required="true" aria-describedby="workflow-name-error" data-autofocus>
+            <p class="field__error" id="workflow-name-error" role="alert" hidden></p>
+        </div>
+        <p class="form-error" role="alert" hidden data-form-error></p>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-modal-close>Cancel</button>
+        <button type="submit" class="button button--primary" data-submit>Save</button>
+    </footer>
+</form>
+{% endcall %}
+{{ confirm_modal("confirm-modal", "Delete workflow") }}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/workflows/list.js"></script>{% endblock %}
