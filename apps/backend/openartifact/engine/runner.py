@@ -14,6 +14,7 @@ import json
 import logging
 import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, select, update
@@ -149,6 +150,7 @@ class RunEngine:
                     previous = {r.stage_id: r.status for r in rows.scalars()}
                 await session.execute(delete(RunStage).where(RunStage.run_id == run.id))
             run.workflow_id = workflow.id
+            run.created_at = datetime.now(UTC)  # the row is reused: this is when this run began
             run.status = "running"
             run.started_by = started_by
             run.stage_id = stage["id"]
@@ -269,7 +271,10 @@ class RunEngine:
             chain = pipeline_chain(snapshot["nodes"], snapshot["edges"])
             start = next(i for i, s in enumerate(chain) if s["id"] == stage_id)
             await self._walk(task_id, snapshot, snapshot, chain, start, action_id, {"steps": 0}, 0)
-            await self._save(task_id, status="done", action_id=None)
+            # done: the run rests at its last entry in this pipeline, not inside a called one
+            await self._save(
+                task_id, status="done", stage_id=self._top.get(task_id, stage_id), action_id=None
+            )
         except asyncio.CancelledError:
             raise
         except _RunFailedError as failure:

@@ -281,6 +281,7 @@ class PipelineRun(Base):
         stage_id, action_id: Where the run is (node ids of the frozen pipeline).
         note: Why it stopped or failed.
         snapshot: JSON copy of the pipeline and the action definitions it uses, taken at the start.
+        created_at: When the current run began (the row is reused when the artifact is started again).
     """
 
     __tablename__ = "pipeline_runs"
