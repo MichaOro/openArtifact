@@ -21,11 +21,18 @@ DEFAULT_NAMES = {
     NodeKind.COMPLETE: "Complete",
     NodeKind.OUTPUT: "Output",
     NodeKind.TIMER: "Timer",
+    NodeKind.PIPELINE: "Pipeline",
 }
 TIMER_SECONDS = 5
 # what each kind of workflow may contain, and which of those nodes come with it and stay
 ALLOWED_KINDS = {
-    "workflow": {NodeKind.TRIGGER, NodeKind.STAGE, NodeKind.ACTION, NodeKind.COMPLETE},
+    "workflow": {
+        NodeKind.TRIGGER,
+        NodeKind.STAGE,
+        NodeKind.ACTION,
+        NodeKind.COMPLETE,
+        NodeKind.PIPELINE,
+    },
     "action": {NodeKind.TRIGGER, NodeKind.OUTPUT, NodeKind.TIMER},
 }
 FIXED_KINDS = {
@@ -212,18 +219,55 @@ class WorkflowRepository:
             await self._drop_error_edges(WorkflowNode.definition_id == node.workflow_id)
 
     async def _link(self, node: WorkflowNode, definition_id: str | None) -> None:
-        """Link an action to an action definition, or (``None``) turn it back into a shell."""
+        """Link an action to an action definition, or a pipeline node to the pipeline it calls.
+
+        ``None`` turns an action back into an empty shell and a pipeline node into an unset one.
+        """
         workflow = await self._session.get(Workflow, node.workflow_id)
-        if node.kind != NodeKind.ACTION.value or workflow is None or workflow.kind != "workflow":
-            raise NodeError("Only actions of a workflow can be linked to an action definition")
+        if (
+            node.kind not in (NodeKind.ACTION.value, NodeKind.PIPELINE.value)
+            or workflow is None
+            or workflow.kind != "workflow"
+        ):
+            raise NodeError("Only actions and pipeline nodes of a pipeline can be linked")
+        calls = node.kind == NodeKind.PIPELINE.value
         if definition_id is not None:
-            definition = await self._session.get(Workflow, definition_id)
-            if definition is None or definition.kind != "action":
-                raise NodeError("That action does not exist")
+            target = await self._session.get(Workflow, definition_id)
+            if target is None or target.kind != ("workflow" if calls else "action"):
+                raise NodeError(
+                    "That pipeline does not exist" if calls else "That action does not exist"
+                )
+            if calls and await self._calls(definition_id, workflow.id):
+                raise NodeError("A pipeline cannot call itself, not even through other pipelines")
         node.definition_id = definition_id
         await self._session.flush()
-        if definition_id is not None and not (await self.describe([node]))[node.id][1]:
+        if (
+            not calls
+            and definition_id is not None
+            and not (await self.describe([node]))[node.id][1]
+        ):
             await self._drop_error_edges(WorkflowNode.id == node.id)
+
+    async def _calls(self, start_id: str, wanted_id: str) -> bool:
+        """Whether the pipeline ``start_id`` is, or (through its pipeline nodes) calls, ``wanted_id``."""
+        seen: set[str] = set()
+        queue = [start_id]
+        while queue:
+            current = queue.pop()
+            if current == wanted_id:
+                return True
+            if current in seen:
+                continue
+            seen.add(current)
+            rows = await self._session.execute(
+                select(WorkflowNode.definition_id).where(
+                    WorkflowNode.workflow_id == current,
+                    WorkflowNode.kind == NodeKind.PIPELINE.value,
+                    WorkflowNode.definition_id.is_not(None),
+                )
+            )
+            queue.extend(row[0] for row in rows if row[0])
+        return False
 
     async def _drop_error_edges(self, which: ColumnElement[bool]) -> None:
         """Remove the Error connections of the actions matching ``which`` (they have no On Fail)."""
@@ -241,10 +285,15 @@ class WorkflowRepository:
             return {}
         rows = await self._session.execute(
             select(Workflow.id, Workflow.name, WorkflowNode.fail_enabled, Workflow.slug)
-            .join(WorkflowNode, WorkflowNode.workflow_id == Workflow.id)
-            .where(Workflow.id.in_(wanted), WorkflowNode.kind == NodeKind.OUTPUT.value)
+            .join(
+                WorkflowNode,
+                (WorkflowNode.workflow_id == Workflow.id)
+                & (WorkflowNode.kind == NodeKind.OUTPUT.value),
+                isouter=True,  # a called pipeline has no output node
+            )
+            .where(Workflow.id.in_(wanted))
         )
-        by_definition = {row[0]: (row[1], row[2], row[3]) for row in rows}
+        by_definition = {row[0]: (row[1], bool(row[2]), row[3]) for row in rows}
         return {
             n.id: by_definition[n.definition_id] for n in nodes if n.definition_id in by_definition
         }

@@ -8,6 +8,7 @@ Ports:
   to the next stage or an ending. Which side an edge is on follows from its other end.
 * action: ``in``, ``pass``, ``error`` (only inside its own stage)
 * complete: ``in``
+* pipeline (only in pipelines): ``in``, ``out``; sits in the chain of stages and calls another pipeline
 * timer (only in action definitions): ``in``, ``out``
 * output (only in action definitions): ``pass`` and ``fail`` (the latter only while the definition
   has On Fail switched on); they are the connectors the action's outcomes *On Pass* / *On Fail*
@@ -27,6 +28,7 @@ OUTPUT_PORTS = {
     NodeKind.COMPLETE: (),
     NodeKind.OUTPUT: (),
     NodeKind.TIMER: ("out",),
+    NodeKind.PIPELINE: ("out",),
 }
 INPUT_PORTS = {
     NodeKind.TRIGGER: (),
@@ -35,6 +37,7 @@ INPUT_PORTS = {
     NodeKind.COMPLETE: ("in",),
     NodeKind.OUTPUT: ("pass", "fail"),
     NodeKind.TIMER: ("in",),
+    NodeKind.PIPELINE: ("in",),
 }
 
 
@@ -58,8 +61,8 @@ def validate_edge(source: Endpoint, source_port: str, target: Endpoint, target_p
     if target_port not in INPUT_PORTS[target.kind]:
         raise EdgeError(f"A {target.kind.value} has no input '{target_port}'")
 
-    if source.kind is NodeKind.TIMER and target.id == source.id:
-        raise EdgeError("A timer cannot feed itself")
+    if source.kind in (NodeKind.TIMER, NodeKind.PIPELINE) and target.id == source.id:
+        raise EdgeError(f"A {source.kind.value} cannot feed itself")
     if source.kind is NodeKind.STAGE and source_port == "start":
         # the stage's start feeds the first action, which must be inside it
         if target.kind is not NodeKind.ACTION or target.stage_id != source.id:

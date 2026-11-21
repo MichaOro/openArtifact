@@ -175,6 +175,7 @@ class NodeKind(enum.StrEnum):
     COMPLETE = "complete"
     OUTPUT = "output"
     TIMER = "timer"
+    PIPELINE = "pipeline"
 
 
 class Workflow(Base):
@@ -214,7 +215,8 @@ class WorkflowNode(Base):
         width, height: Size of a stage (``None`` for other kinds).
         fail_enabled: Whether an output node offers *On Fail* besides *On Pass*.
         seconds: How long a timer pauses the run.
-        definition_id: The action definition an action is linked to (``None``: an empty shell).
+        definition_id: What an action is linked to (an action definition; ``None``: an empty shell), or the
+            pipeline a pipeline node calls.
     """
 
     __tablename__ = "workflow_nodes"

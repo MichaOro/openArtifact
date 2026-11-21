@@ -19,10 +19,11 @@ def edge_from(edges: list[Edge], node_id: str, port: str) -> Edge | None:
 
 
 def pipeline_chain(nodes: list[Node], edges: list[Edge]) -> list[dict[str, Any]]:
-    """The stages in the order the pipeline runs them, each with its actions.
+    """The entries the pipeline runs, in order: stages (with their actions) and pipeline nodes.
 
-    Follows trigger → stage → stage ... and stops at a complete, an open end or a loop. Stages that
-    are not on that path are not part of the pipeline.
+    Follows trigger → stage or pipeline node → ... and stops at a complete, an open end or a loop.
+    Stages that are not on that path are not part of the pipeline. A pipeline node is an entry of
+    kind ``pipeline`` named after the pipeline it calls (``pipeline_id``, ``None`` if none is set).
     """
     by_id = {n["id"]: n for n in nodes}
     trigger = next((n for n in nodes if n["kind"] == "trigger"), None)
@@ -30,27 +31,41 @@ def pipeline_chain(nodes: list[Node], edges: list[Edge]) -> list[dict[str, Any]]
     seen: set[str] = set()
     link = edge_from(edges, trigger["id"], "out") if trigger else None
     while link is not None:
-        stage = by_id.get(link["target_id"])
-        if stage is None or stage["kind"] != "stage" or stage["id"] in seen:
+        node = by_id.get(link["target_id"])
+        if node is None or node["kind"] not in ("stage", "pipeline") or node["id"] in seen:
             break
-        seen.add(stage["id"])
+        seen.add(node["id"])
+        if node["kind"] == "pipeline":
+            chain.append(
+                {
+                    "id": node["id"],
+                    "kind": "pipeline",
+                    "name": node["label"],
+                    "pipeline_id": node["definition_id"],
+                    "first_action_id": None,
+                    "actions": [],
+                }
+            )
+            link = edge_from(edges, node["id"], "out")
+            continue
         actions = sorted(
-            (n for n in nodes if n["stage_id"] == stage["id"] and n["kind"] == "action"),
+            (n for n in nodes if n["stage_id"] == node["id"] and n["kind"] == "action"),
             key=lambda n: (n["x"], n["y"]),
         )
-        start = edge_from(edges, stage["id"], "start")
+        start = edge_from(edges, node["id"], "start")
         first = (
             start["target_id"]
-            if start and by_id.get(start["target_id"], {}).get("stage_id") == stage["id"]
+            if start and by_id.get(start["target_id"], {}).get("stage_id") == node["id"]
             else (actions[0]["id"] if actions else None)
         )
         chain.append(
             {
-                "id": stage["id"],
-                "name": stage["name"],
+                "id": node["id"],
+                "kind": "stage",
+                "name": node["name"],
                 "first_action_id": first,
                 "actions": [{"id": a["id"], "name": a["label"]} for a in actions],
             }
         )
-        link = edge_from(edges, stage["id"], "end")
+        link = edge_from(edges, node["id"], "end")
     return chain

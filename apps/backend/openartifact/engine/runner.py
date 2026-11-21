@@ -20,7 +20,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from openartifact.engine.chain import edge_from, pipeline_chain
-from openartifact.engine.snapshot import build_snapshot
+from openartifact.engine.snapshot import NestingError, build_snapshot
 from openartifact.events import EventBus
 from openartifact.models import PipelineRun, RunStage, Task, Workflow
 
@@ -52,13 +52,15 @@ class RunEngine:
         self._bus = bus
         self._factory = factory
         self._jobs: dict[str, asyncio.Task[None]] = {}
+        self._top: dict[str, str] = {}  # the entry of the pipeline a run is in (it may be deeper)
 
     # ── reading ───────────────────────────────────────────────────────
 
     async def read(self, session: AsyncSession, run: PipelineRun) -> dict[str, Any]:
         """The run as the API returns it: where it is, in names, and the status of every stage."""
         snapshot = json.loads(run.snapshot)
-        labels = {n["id"]: n["label"] for n in snapshot["nodes"]}
+        graphs = [snapshot, *snapshot.get("pipelines", {}).values()]
+        labels = {n["id"]: n["label"] for graph in graphs for n in graph["nodes"]}
         stages = (
             await session.execute(
                 select(RunStage).where(RunStage.run_id == run.id).order_by(RunStage.position)
@@ -119,7 +121,10 @@ class RunEngine:
             workflow = await session.get(Workflow, workflow_id)
             if workflow is None or workflow.kind != "workflow":
                 raise RunError(422, "That pipeline does not exist")
-            snapshot = await build_snapshot(session, workflow)
+            try:
+                snapshot = await build_snapshot(session, workflow)
+            except NestingError as error:
+                raise RunError(422, str(error)) from error
             chain = pipeline_chain(snapshot["nodes"], snapshot["edges"])
             if not chain:
                 raise RunError(422, "The pipeline has no stages from its trigger on")
@@ -147,7 +152,9 @@ class RunEngine:
             run.status = "running"
             run.started_by = started_by
             run.stage_id = stage["id"]
-            run.action_id = action_id or stage["first_action_id"]
+            run.action_id = (
+                (action_id or stage["first_action_id"]) if stage["kind"] == "stage" else None
+            )
             run.note = None
             run.snapshot = json.dumps(snapshot)
             await session.flush()
@@ -179,6 +186,9 @@ class RunEngine:
                 raise RunError(409, "The artifact is not being processed")
             run.status = "stopped"
             run.note = "stopped"
+            top = self._top.pop(task_id, None)
+            if top is not None:  # inside a called pipeline: come back to its entry in this one
+                run.stage_id, run.action_id = top, None
             await session.execute(
                 update(RunStage)
                 .where(RunStage.run_id == run.id, RunStage.status == "running")
@@ -257,34 +267,8 @@ class RunEngine:
                 snapshot = json.loads(run.snapshot)
                 stage_id, action_id = run.stage_id, run.action_id
             chain = pipeline_chain(snapshot["nodes"], snapshot["edges"])
-            nodes = {n["id"]: n for n in snapshot["nodes"]}
-            steps = 0
-            for stage in chain[next(i for i, s in enumerate(chain) if s["id"] == stage_id) :]:
-                action = action_id or stage["first_action_id"]
-                action_id = None
-                await self._save(
-                    task_id,
-                    stage_id=stage["id"],
-                    action_id=action,
-                    stage_state=(stage["id"], "running"),
-                )
-                while action is not None:
-                    steps += 1
-                    if steps > MAX_STEPS:
-                        raise _RunFailedError("The pipeline does not come to an end")
-                    node = nodes[action]
-                    await self._save(task_id, action_id=action)
-                    passed = await self._run_action(node, snapshot)
-                    edge = edge_from(snapshot["edges"], action, "pass" if passed else "error")
-                    if edge is None:
-                        raise _RunFailedError(
-                            f'"{node["label"]}" has no On Pass connection'
-                            if passed
-                            else f'"{node["label"]}" failed'
-                        )
-                    target = nodes[edge["target_id"]]
-                    action = target["id"] if target["kind"] == "action" else None
-                await self._save(task_id, stage_state=(stage["id"], "passed"))
+            start = next(i for i, s in enumerate(chain) if s["id"] == stage_id)
+            await self._walk(task_id, snapshot, snapshot, chain, start, action_id, {"steps": 0}, 0)
             await self._save(task_id, status="done", action_id=None)
         except asyncio.CancelledError:
             raise
@@ -295,16 +279,87 @@ class RunEngine:
             await self._fail(task_id, "Internal error")
         finally:
             self._jobs.pop(task_id, None)
+            self._top.pop(task_id, None)
+
+    async def _walk(
+        self,
+        task_id: str,
+        snapshot: dict[str, Any],
+        graph: dict[str, Any],
+        chain: list[dict[str, Any]],
+        start: int,
+        action_id: str | None,
+        state: dict[str, int],
+        depth: int,
+    ) -> None:
+        """Run the entries of a chain from ``start`` on; a pipeline node runs its pipeline the same way.
+
+        Only the entries of the outermost pipeline have a status of their own (``run_stages``); inside
+        a called pipeline the run shows the stage and action that are current.
+        """
+        top = depth == 0
+        nodes = {n["id"]: n for n in graph["nodes"]}
+        for entry in chain[start:]:
+            if top:
+                self._top[task_id] = entry["id"]
+            if entry["kind"] == "pipeline":
+                called = snapshot["pipelines"].get(entry["pipeline_id"] or "")
+                if called is None:
+                    raise _RunFailedError(f'"{entry["name"]}" has no pipeline chosen')
+                await self._save(
+                    task_id,
+                    stage_id=entry["id"],
+                    action_id=None,
+                    stage_state=(entry["id"], "running") if top else None,
+                )
+                inner = pipeline_chain(called["nodes"], called["edges"])
+                await self._walk(task_id, snapshot, called, inner, 0, None, state, depth + 1)
+                if top:
+                    await self._save(task_id, stage_state=(entry["id"], "passed"))
+                continue
+            action = action_id or entry["first_action_id"]
+            action_id = None
+            await self._save(
+                task_id,
+                stage_id=entry["id"],
+                action_id=action,
+                stage_state=(entry["id"], "running") if top else None,
+            )
+            while action is not None:
+                state["steps"] += 1
+                if state["steps"] > MAX_STEPS:
+                    raise _RunFailedError("The pipeline does not come to an end")
+                node = nodes[action]
+                await self._save(task_id, action_id=action)
+                passed = await self._run_action(node, snapshot)
+                edge = edge_from(graph["edges"], action, "pass" if passed else "error")
+                if edge is None:
+                    raise _RunFailedError(
+                        f'"{node["label"]}" has no On Pass connection'
+                        if passed
+                        else f'"{node["label"]}" failed'
+                    )
+                target = nodes[edge["target_id"]]
+                action = target["id"] if target["kind"] == "action" else None
+            if top:
+                await self._save(task_id, stage_state=(entry["id"], "passed"))
 
     async def _fail(self, task_id: str, note: str) -> None:
         async with self._factory()() as session:
             run = await self._run_of(session, task_id)
-            stage_id = run.stage_id if run else None
+            current = run.stage_id if run else None
+        top = self._top.get(task_id) or current
+        where: dict[str, Any] = {}
+        if (
+            top != current
+        ):  # failed inside a called pipeline: the run stays at its entry in this one
+            where = {"stage_id": top, "action_id": None}
         await self._save(
             task_id,
             status="failed",
             note=note,
-            stage_state=(stage_id, "failed") if stage_id else None,
+            stage_state=(top, "failed") if top else None,
+            **where,
         )
 
     @staticmethod

@@ -25,7 +25,7 @@ No intentional technical debt has been introduced at this stage.
 | `Project`/`WorkItem` models not connected to the board | To be reconciled with the artifact model in WP-06 |
 | Workflow editor: stages only grow, no undo, no live sync between tabs, edges without routing | See ADR-012 §2.4 |
 | Workflow editor: stages only grow, no undo, no live sync between tabs, edges routed only for loops | See ADR-012 §2.4 |
-| Runs can loop for ever (an On Error routed back to its own action, a loop between actions): only a fixed limit of 1000 steps ends them | Planned: a *Settings* area with a global loop protection (limits, behaviour), reconsidered together with pipeline blocks; see ADR-013 §4 |
+| Runs can loop for ever (an On Error routed back to its own action, a loop between actions): only a fixed limit of 1000 steps ends them | Planned: a *Settings* area with a global loop protection (limits, behaviour), see ADR-013 §4 |
 | One run per artifact: an earlier run is overwritten when the artifact starts again | Planned: executions (a run per start) as a tab on the artifact; ADR-013 §4 |
 | Pushed `fix:` history from the bootstrap phase | Kept as is; no history rewrite on `main` |
 

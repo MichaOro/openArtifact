@@ -40,6 +40,18 @@ start, stop and restart at any stage.
    processing*, sits at the left of the reading view's footer, level with Close and Edit; the card shows the stage and state. `GET /api/runs`,
    `POST /api/tasks/{id}/run`, `POST /api/tasks/{id}/run/stop`, `GET /api/workflows/{id}/stages`.
 
+### 2.2 Pipeline nodes (sub-pipelines)
+
+A node of kind `pipeline` (migration 0018) sits in the chain like a stage, with an input and an
+output, added through the "+" menu of the pipeline editor. Its `definition_id` names the pipeline it
+calls. Running it runs that pipeline up to its *Complete*, then the calling pipeline goes on; every
+pipeline keeps its Complete as its defined end. The call is part of the same run: the snapshot holds
+the called pipelines (nested up to five deep) and their action definitions. The node is one entry in
+the artifact's stage list (named after the called pipeline, started as a whole, no action to choose);
+inside the called pipeline the run shows the stage and action that are current. If the called pipeline
+cannot go on, or none is chosen, the run fails at the node. A pipeline cannot call itself, not even
+through others (refused when linking, 422); the step limit also counts across nested pipelines.
+
 ## 3. Consequences
 
 - Fully visible, restartable state; a second browser follows through SSE.
@@ -52,12 +64,10 @@ start, stop and restart at any stage.
 
 - **Executions.** Today an artifact has one run row; starting again overwrites it. Planned: a run per
   start, shown on the artifact as a tab ("Executions") next to the reading view, with the stages and
-  actions each run went through.
-- **Pipeline blocks.** A node that calls another pipeline like a sub-workflow in n8n, so pipelines
-  can be stacked; every pipeline keeps its *Complete* as its defined end and returns there.
+  actions each run went through, including the nested pipelines of pipeline nodes.
 - **Settings and loop protection.** A *Settings* area. The only protection against endless loops
   is a fixed limit of 1000 steps per run (an *On Error* routed back to its own action loops for
   ever until then). A global protection (limits, behaviour on reaching them, a warning when a
-  definition can loop) is to be designed there, together with pipeline blocks.
+  definition can loop) is to be designed there.
 - **Human-in-the-loop** (a `waiting` status) and **automatic starts** of sub-artifacts by the system.
 

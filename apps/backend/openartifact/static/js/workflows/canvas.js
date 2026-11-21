@@ -8,7 +8,7 @@
 import { PAD, SLOTS, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf, slotY } from "./graph.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output", timer: "Timer" };
+const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output", timer: "Timer", pipeline: "Pipeline" };
 const OUTPUT_LABELS = { pass: "Pass", error: "Error", fail: "On Fail" };
 const DRAG_THRESHOLD = 4;
 const MIN_ZOOM = 0.25;
@@ -117,7 +117,7 @@ export class Canvas {
   }
 
   #hasPort(kind, port) {
-    return { trigger: ["out"], action: ["in", "pass", "error"], complete: ["in"], output: ["pass", "fail"], timer: ["in", "out"] }[kind]?.includes(port) ?? false;
+    return { trigger: ["out"], action: ["in", "pass", "error"], complete: ["in"], output: ["pass", "fail"], timer: ["in", "out"], pipeline: ["in", "out"] }[kind]?.includes(port) ?? false;
   }
 
   /** A port dot. A stage's start and end work both ways ("both"): they receive and they feed. */
@@ -153,6 +153,10 @@ export class Canvas {
       // the caption only says something once the node has been given another name
       const caption = el.querySelector(".wf-node__kind");
       caption.hidden = displayName(node) === KIND_LABELS[node.kind];
+      if (node.kind === "pipeline") {
+        caption.textContent = node.definition_id ? "Pipeline" : "No pipeline chosen";
+        caption.hidden = false;
+      }
       if (node.kind === "timer") {
         caption.textContent = `${node.seconds} s`; // what a timer waits for is always worth showing
         caption.hidden = false;

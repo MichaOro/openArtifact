@@ -8,7 +8,7 @@ import { Canvas } from "./canvas.js";
 import { ACTION_GAP, EDGE_STYLES, INPUTS, displayName, OUTPUTS, PAD, PORT_LABELS, SIZE, TOP_LEVEL_GAP, canConnect, fitStage } from "./graph.js";
 
 const LAST_STAGE = "oa-last-pipeline"; // read by main.js
-const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output", timer: "Timer" };
+const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output", timer: "Timer", pipeline: "Pipeline" };
 
 export class WorkflowEditor {
   /** @param {HTMLElement} root the element carrying data-workflow-id */
@@ -186,7 +186,8 @@ export class WorkflowEditor {
   async #addBeforeEnd(kind) {
     const nodes = [...this.nodes.values()];
     const widthOf = (n) => (n.kind === "stage" ? n.width : SIZE[n.kind].width);
-    const before = nodes.filter((n) => n.kind === kind || n.kind === "trigger");
+    const inChain = this.isAction ? ["trigger", "timer"] : ["trigger", "stage", "pipeline"];
+    const before = nodes.filter((n) => inChain.includes(n.kind));
     const right = Math.max(...before.map((n) => n.x + widthOf(n)), 60);
     const created = await this.#create({ kind, x: Math.round(right + TOP_LEVEL_GAP), y: kind === "stage" ? 40 : 172 });
     if (!created) return;
@@ -330,7 +331,7 @@ export class WorkflowEditor {
     const inside = [...this.nodes.values()].filter((n) => n.stage_id === node.id).length;
     const extra = inside ? ` and its ${inside} action${inside === 1 ? "" : "s"}` : "";
     this.confirm.open({
-      message: `Delete ${KIND_LABELS[node.kind].toLowerCase()} "${node.name}"${extra}? Its connections are removed too.`,
+      message: `Delete ${KIND_LABELS[node.kind].toLowerCase()} "${displayName(node)}"${extra}? Its connections are removed too.`,
       onConfirm: async () => {
         await deleteNode(this.id, node.id);
         await this.load();
@@ -403,11 +404,13 @@ export class WorkflowEditor {
 
   #nodeInspector(node) {
     const el = this.inspector;
-    const shell = node.kind === "action" && !this.isAction;
-    const caption = shell && !node.definition_id ? "Empty action" : KIND_LABELS[node.kind];
+    const calls = node.kind === "pipeline";
+    const shell = (node.kind === "action" && !this.isAction) || calls;
+    const caption = calls ? "Pipeline" : shell && !node.definition_id ? "Empty action" : KIND_LABELS[node.kind];
     // a shell is named by its definition; every other node by its own name
     el.append(this.#heading(displayName(node), caption, shell ? null : { label: `${KIND_LABELS[node.kind]} name`, onCommit: (name) => this.#rename(node, name) }));
-    if (shell) el.append(this.#definitionSection(node));
+    if (calls) el.append(this.#calledPipelineSection(node));
+    else if (shell) el.append(this.#definitionSection(node));
 
     if (node.kind === "timer") el.append(this.#secondsField(node));
     const outputs = shell ? [] : OUTPUTS[node.kind];
@@ -429,13 +432,41 @@ export class WorkflowEditor {
       el.append(add);
     }
     if (node.kind === "output") el.append(this.#failToggle(node));
-    if (shell || this.#isFixed(node)) return;
+    if ((shell && !calls) || this.#isFixed(node)) return;
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "button button--ghost wf-delete";
     remove.textContent = `Delete ${KIND_LABELS[node.kind].toLowerCase()}`;
     remove.addEventListener("click", () => this.requestDelete({ type: "node", id: node.id }));
     el.append(remove);
+  }
+
+  /** The pipeline a pipeline node calls: it runs up to its complete, then this pipeline goes on. */
+  #calledPipelineSection(node) {
+    const section = document.createElement("div");
+    section.className = "wf-inspector__section";
+    const title = document.createElement("h3");
+    title.textContent = "Calls";
+    const select = document.createElement("select");
+    select.className = "field__control";
+    select.append(new Option("Not chosen", ""));
+    select.addEventListener("change", () => this.#link(node, select.value || null));
+    section.append(title, this.#field("Pipeline", select));
+    listWorkflows("workflow").then((pipelines) => {
+      for (const pipeline of pipelines.filter((p) => p.id !== this.id)) {
+        const option = new Option(pipeline.name, pipeline.id);
+        option.selected = pipeline.id === node.definition_id;
+        select.append(option);
+      }
+    }).catch(() => this.#showError("The pipelines could not be loaded."));
+    if (node.definition_id) {
+      const open = document.createElement("a");
+      open.className = "button button--ghost";
+      open.href = `/pipelines/${encodeURIComponent(node.definition_slug)}`;
+      open.textContent = "Open pipeline";
+      section.append(open);
+    }
+    return section;
   }
 
   /** An action in a stage is an empty shell until it is linked to an action definition. */
@@ -588,7 +619,7 @@ export class WorkflowEditor {
     for (const target of this.nodes.values()) {
       for (const targetPort of INPUTS[target.kind]) {
         if (!canConnect(node, port, target, targetPort)) continue;
-        const label = targetPort === "end" ? `${target.name} · end of stage` : target.kind === "output" ? `${target.name} · ${PORT_LABELS[targetPort]}` : target.name;
+        const label = targetPort === "end" ? `${target.name} · end of stage` : target.kind === "output" ? `${target.name} · ${PORT_LABELS[targetPort]}` : displayName(target);
         const option = new Option(label, `${target.id}|${targetPort}`);
         select.append(option);
         if (current?.target_id === target.id && current.target_port === targetPort) option.selected = true;

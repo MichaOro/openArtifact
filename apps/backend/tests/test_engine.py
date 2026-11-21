@@ -191,3 +191,72 @@ def test_runs_are_published_as_events_and_removed_with_their_artifact(client: Te
     _wait(client, task, "done")
     assert client.delete(f"/api/tasks/{task['id']}").status_code == 204
     assert client.get("/api/runs").json() == []
+
+
+# ── pipeline nodes: a pipeline that calls another pipeline ────────────
+
+
+def _call(client: TestClient, caller: dict[str, Any], called: dict[str, Any]) -> dict[str, Any]:
+    """A pipeline node in ``caller`` (between its last stage and complete) that calls ``called``."""
+    graph = client.get(f"/api/workflows/{caller['id']}").json()
+    complete = next(n for n in graph["nodes"] if n["kind"] == "complete")
+    last_stage = caller["stages"][-1][0]
+    block = _node(client, caller, "pipeline")
+    _connect(client, caller, last_stage, "end", block, "in")
+    _connect(client, caller, block, "out", complete, "in")
+    response = client.patch(
+        f"/api/workflows/{caller['id']}/nodes/{block['id']}", json={"definition_id": called["id"]}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["definition_name"] == called["name"]
+    return block
+
+
+def test_a_pipeline_node_joins_the_chain_and_a_pipeline_cannot_call_itself(
+    client: TestClient,
+) -> None:
+    outer, inner = _pipeline(client, stages=1), _pipeline(client, stages=1)
+    outer["name"] = "Flow"
+    block = _call(client, outer, inner)
+    chain = client.get(f"/api/workflows/{outer['id']}/stages").json()
+    assert [(e["kind"], e["name"]) for e in chain] == [("stage", "Stage 1"), ("pipeline", "Flow")]
+    assert chain[1]["pipeline_id"] == inner["id"]
+    url = f"/api/workflows/{outer['id']}/nodes/{block['id']}"
+    assert client.patch(url, json={"definition_id": outer["id"]}).status_code == 422  # itself
+    inner_block = _node(client, inner, "pipeline")  # inner → outer would close a circle
+    response = client.patch(
+        f"/api/workflows/{inner['id']}/nodes/{inner_block['id']}",
+        json={"definition_id": outer["id"]},
+    )
+    assert response.status_code == 422
+    action = client.post("/api/workflows", json={"name": "An action", "kind": "action"}).json()
+    assert client.patch(url, json={"definition_id": action["id"]}).status_code == 422
+
+
+def test_a_run_goes_through_the_called_pipeline_and_on(client: TestClient) -> None:
+    outer, inner = _pipeline(client, stages=1), _pipeline(client, stages=2)
+    _call(client, outer, inner)
+    task = _task(client)
+    _post(client, f"/api/tasks/{task['id']}/run", workflow_id=outer["id"])
+    run = _wait(client, task, "done")
+    assert [s["status"] for s in run["stages"]] == ["passed", "passed"]  # Stage 1 and the node
+
+
+def test_a_pipeline_node_without_a_pipeline_fails_the_run(client: TestClient) -> None:
+    outer = _pipeline(client, stages=1)
+    graph = client.get(f"/api/workflows/{outer['id']}").json()
+    complete = next(n for n in graph["nodes"] if n["kind"] == "complete")
+    block = _node(client, outer, "pipeline")
+    _connect(client, outer, outer["stages"][0][0], "end", block, "in")
+    _connect(client, outer, block, "out", complete, "in")
+    task = _task(client)
+    _post(client, f"/api/tasks/{task['id']}/run", workflow_id=outer["id"])
+    run = _wait(client, task, "failed")
+    assert "no pipeline" in run["note"]
+    assert run["stages"][1]["status"] == "failed"
+
+
+def test_a_pipeline_node_calls_only_pipelines_in_a_pipeline(client: TestClient) -> None:
+    definition = client.post("/api/workflows", json={"name": "Def", "kind": "action"}).json()
+    response = client.post(f"/api/workflows/{definition['id']}/nodes", json={"kind": "pipeline"})
+    assert response.status_code == 422

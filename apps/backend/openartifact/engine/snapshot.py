@@ -44,12 +44,41 @@ async def graph_of(session: AsyncSession, workflow_id: str) -> dict[str, Any]:
     }
 
 
+MAX_NESTING = 5  # pipelines calling pipelines calling ...
+
+
+class NestingError(ValueError):
+    """The pipeline calls itself or nests too deeply to be frozen."""
+
+
+async def _collect(
+    session: AsyncSession, root: dict[str, Any], graph: dict[str, Any], path: tuple[str, ...]
+) -> None:
+    """Add the action definitions and the called pipelines (recursively) of ``graph`` to ``root``."""
+    for node in graph["nodes"]:
+        target = node["definition_id"]
+        if not target:
+            continue
+        if node["kind"] == "action" and target not in root["definitions"]:
+            root["definitions"][target] = await graph_of(session, target)
+        elif node["kind"] == "pipeline":
+            if target in path:
+                raise NestingError("The pipeline calls itself")
+            if len(path) >= MAX_NESTING:
+                raise NestingError("Pipelines are nested too deeply")
+            if target not in root["pipelines"]:
+                called = await graph_of(session, target)
+                workflow = await session.get(Workflow, target)
+                called["name"] = workflow.name if workflow else ""
+                root["pipelines"][target] = called
+                await _collect(session, root, called, (*path, target))
+
+
 async def build_snapshot(session: AsyncSession, workflow: Workflow) -> dict[str, Any]:
-    """The pipeline's graph plus the graph of every action definition it links to."""
+    """The pipeline's graph plus the called pipelines and action definitions it uses, frozen."""
     snapshot = await graph_of(session, workflow.id)
     snapshot["name"] = workflow.name
-    snapshot["definitions"] = {
-        definition_id: await graph_of(session, definition_id)
-        for definition_id in {n["definition_id"] for n in snapshot["nodes"] if n["definition_id"]}
-    }
+    snapshot["definitions"] = {}
+    snapshot["pipelines"] = {}
+    await _collect(session, snapshot, snapshot, (workflow.id,))
     return snapshot

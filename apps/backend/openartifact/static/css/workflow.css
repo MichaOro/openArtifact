@@ -78,6 +78,7 @@
 .wf-node--trigger { --node-color: var(--lane-hue-6); display: flex; align-items: center; padding: 0 var(--space-4); }
 .wf-node--action { --node-color: var(--lane-hue-4); display: flex; align-items: center; padding: 0 var(--space-4); }
 .wf-node--timer { --node-color: var(--lane-hue-5); display: flex; align-items: center; padding: 0 var(--space-4); }
+.wf-node--pipeline { --node-color: var(--lane-hue-2); display: flex; align-items: center; padding: 0 var(--space-4); }
 .wf-node--complete { --node-color: var(--lane-hue-8); display: flex; align-items: center; padding: 0 var(--space-4); }
 .wf-node--output { --node-color: var(--lane-hue-3); padding: var(--space-3) var(--space-4); }
 .wf-node--output .wf-port--pass { top: 60px; left: 0; }
