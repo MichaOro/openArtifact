@@ -512,6 +512,14 @@ def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
     )  # the hint is not left in the URL
 
 
+def _pass_offset(node: Locator) -> float:
+    """How far the Pass port sits above (negative) or below the middle of the node."""
+    port = node.locator(".wf-port--pass").bounding_box()
+    box = node.bounding_box()
+    assert port is not None and box is not None
+    return (port["y"] + port["height"] / 2) - (box["y"] + box["height"] / 2)
+
+
 def test_link_an_existing_action_switch_and_unlink(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
@@ -526,9 +534,15 @@ def test_link_an_existing_action_switch_and_unlink(
     select.select_option(label="With fail")
     expect(node.locator(".wf-node__name")).to_have_text("With fail")
     expect(node).not_to_have_class(re.compile("is-no-fail"))
+    assert _pass_offset(node) < -5  # Pass above the middle, Error below it
     select.select_option(label="Without fail")
     expect(node.locator(".wf-node__name")).to_have_text("Without fail")
     expect(node).to_have_class(re.compile("is-no-fail"))
     expect(node.locator(".wf-port--error")).to_be_hidden()
+    assert abs(_pass_offset(node)) < 2  # Pass moves to the middle
+    select.select_option(label="With fail")  # and back again
+    expect(node.locator(".wf-port--error")).to_be_visible()
+    assert _pass_offset(node) < -5
+    select.select_option(label="Without fail")
     select.select_option(label="Not defined")
     expect(node.locator(".wf-node__kind")).to_have_text("Empty action")

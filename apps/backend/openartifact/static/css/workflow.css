@@ -87,6 +87,7 @@
 .wf-outcome__toggle:hover { border-color: var(--node-color); color: var(--color-text-primary); }
 .wf-node--stage { --node-color: var(--lane-hue-1); background: color-mix(in srgb, var(--node-color) 8%, var(--surface-glass)); }
 .wf-node--action.is-no-fail .wf-port--error { display: none; }
+.wf-node--action.is-no-fail .wf-port--pass { top: 50%; }
 .wf-node__text { display: flex; flex-direction: column; min-width: 0; }
 .wf-node__name { font-size: 0.875rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wf-node__kind { font-size: 0.6875rem; color: var(--color-text-muted); }

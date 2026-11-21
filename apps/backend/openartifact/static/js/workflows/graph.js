@@ -66,8 +66,8 @@ export function portPoint(node, port, nodes, slot = 0) {
       return { x, y: y + slotY(height, slot) };
     case "stage:end":
       return { x: x + width, y: y + slotY(height, slot) };
-    case "action:pass":
-      return { x: x + width, y: y + 24 };
+    case "action:pass": // without an Error output (its definition has no On Fail) Pass is centred
+      return { x: x + width, y: y + (node.definition_fail_enabled === false ? height / 2 : 24) };
     case "action:error":
       return { x: x + width, y: y + 48 };
     default: // inputs of actions and complete nodes sit left; a trigger's output sits right
