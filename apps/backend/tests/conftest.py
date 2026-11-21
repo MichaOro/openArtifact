@@ -6,12 +6,17 @@ will be added alongside implementation in WP-03.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any
 
 import pytest
+from alembic.config import Config
+from fastapi.testclient import TestClient
 
+import openartifact.database as db_mod
+from alembic import command
+from openartifact.app import _create_app
 from openartifact.config import Settings
 
 
@@ -46,3 +51,27 @@ def app_routes() -> Callable[[Any], list[str]]:
                     _find_paths(subroute, paths)
 
     return _collect
+
+
+def alembic_config() -> Config:
+    backend_dir = Path(__file__).resolve().parent.parent
+    cfg = Config(str(backend_dir / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend_dir / "alembic"))
+    return cfg
+
+
+@pytest.fixture
+def migrated_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
+    """Settings pointing at a temp database with all migrations applied."""
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "head")
+    return settings
+
+
+@pytest.fixture
+def client(migrated_settings: Settings) -> Generator[TestClient, None, None]:
+    """Test client with the real lifespan (shared engine) on a migrated database."""
+    with TestClient(_create_app(migrated_settings)) as c:
+        yield c
+    assert db_mod._engine is None

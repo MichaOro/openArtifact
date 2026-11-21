@@ -3,34 +3,16 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable, Generator
-from pathlib import Path
+from collections.abc import Callable
 from typing import Any
 
 import pytest
-from alembic.config import Config
 from fastapi.testclient import TestClient
 
-import openartifact.database as db_mod
 from alembic import command
 from openartifact.app import _create_app
 from openartifact.config import Settings
-
-
-def _alembic_config() -> Config:
-    backend_dir = Path(__file__).resolve().parent.parent
-    cfg = Config(str(backend_dir / "alembic.ini"))
-    cfg.set_main_option("script_location", str(backend_dir / "alembic"))
-    return cfg
-
-
-@pytest.fixture
-def migrated_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
-    """Settings pointing at a temp database with all migrations applied."""
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(_alembic_config(), "head")
-    return settings
+from tests.conftest import alembic_config
 
 
 @pytest.fixture
@@ -46,14 +28,6 @@ def published(client: TestClient) -> list[tuple[str, dict[str, Any]]]:
 
     bus.publish = spy
     return events
-
-
-@pytest.fixture
-def client(migrated_settings: Settings) -> Generator[TestClient, None, None]:
-    """Test client with the real lifespan (shared engine) on a migrated database."""
-    with TestClient(_create_app(migrated_settings)) as c:
-        yield c
-    assert db_mod._engine is None
 
 
 # ── Migration ─────────────────────────────────────────────────────────
@@ -80,7 +54,7 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
 
 
 def test_migration_downgrade_removes_tasks(migrated_settings: Settings) -> None:
-    command.downgrade(_alembic_config(), "0002")
+    command.downgrade(alembic_config(), "0002")
     db_path = migrated_settings.data_dir / migrated_settings.database_filename
     with sqlite3.connect(db_path) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -461,7 +435,7 @@ def test_migration_0004_backfills_positions_in_the_old_order(
 ) -> None:
     monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
     monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(_alembic_config(), "0003")
+    command.upgrade(alembic_config(), "0003")
     db_path = settings.data_dir / settings.database_filename
     with sqlite3.connect(db_path) as conn:
         for tid, status, created in (
@@ -474,11 +448,11 @@ def test_migration_0004_backfills_positions_in_the_old_order(
                 "INSERT INTO tasks (id, title, status, created_at) VALUES (?, ?, ?, ?)",
                 (tid, tid, status, created),
             )
-    command.upgrade(_alembic_config(), "head")
+    command.upgrade(alembic_config(), "head")
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute("SELECT id, position FROM tasks ORDER BY status, position").fetchall()
     assert rows == [("t3", 0.0), ("t2", 1.0), ("t1", 2.0), ("t4", 0.0)]  # newest first, per lane
-    command.downgrade(_alembic_config(), "0003")
+    command.downgrade(alembic_config(), "0003")
     with sqlite3.connect(db_path) as conn:
         assert "position" not in {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
 
@@ -586,17 +560,17 @@ def test_migration_0005_adds_nullable_parent_id(
 ) -> None:
     monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
     monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(_alembic_config(), "0004")
+    command.upgrade(alembic_config(), "0004")
     db_path = settings.data_dir / settings.database_filename
     with sqlite3.connect(db_path) as conn:
         conn.execute("INSERT INTO tasks (id, title) VALUES ('old', 'existing row')")
-    command.upgrade(_alembic_config(), "head")
+    command.upgrade(alembic_config(), "head")
     with sqlite3.connect(db_path) as conn:
         assert conn.execute("SELECT parent_id FROM tasks WHERE id='old'").fetchone() == (None,)
         # the CHECK constraint on status survives the schema change
         with pytest.raises(sqlite3.IntegrityError):
             conn.execute("INSERT INTO tasks (id, title, status) VALUES ('bad', 'x', 'BACKLOG')")
-    command.downgrade(_alembic_config(), "0004")
+    command.downgrade(alembic_config(), "0004")
     with sqlite3.connect(db_path) as conn:
         assert "parent_id" not in {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
         assert conn.execute("SELECT title FROM tasks WHERE id='old'").fetchone() == (
@@ -625,7 +599,7 @@ def test_migration_0006_numbers_existing_tasks_oldest_first(
 ) -> None:
     monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
     monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(_alembic_config(), "0005")
+    command.upgrade(alembic_config(), "0005")
     db_path = settings.data_dir / settings.database_filename
     with sqlite3.connect(db_path) as conn:
         for tid, created in (("t2", "2026-01-02 10:00:00"), ("t1", "2026-01-01 10:00:00")):
@@ -633,7 +607,7 @@ def test_migration_0006_numbers_existing_tasks_oldest_first(
                 "INSERT INTO tasks (id, title, status, created_at) VALUES (?, ?, 'backlog', ?)",
                 (tid, tid, created),
             )
-    command.upgrade(_alembic_config(), "head")
+    command.upgrade(alembic_config(), "head")
     with sqlite3.connect(db_path) as conn:
         assert conn.execute("SELECT id, number FROM tasks ORDER BY number").fetchall() == [
             ("t1", 1),
@@ -670,7 +644,7 @@ def test_migration_0007_clears_dangling_parents_and_keeps_the_rest(
 ) -> None:
     monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
     monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(_alembic_config(), "0006")
+    command.upgrade(alembic_config(), "0006")
     db_path = settings.data_dir / settings.database_filename
     with sqlite3.connect(db_path) as conn:
         conn.execute("INSERT INTO tasks (id, title, number) VALUES ('p', 'P', 1)")
@@ -678,7 +652,7 @@ def test_migration_0007_clears_dangling_parents_and_keeps_the_rest(
         conn.execute(
             "INSERT INTO tasks (id, title, number, parent_id) VALUES ('o', 'O', 3, 'gone')"
         )
-    command.upgrade(_alembic_config(), "head")
+    command.upgrade(alembic_config(), "head")
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute("SELECT id, number, parent_id FROM tasks ORDER BY number").fetchall()
         assert rows == [("p", 1, None), ("c", 2, "p"), ("o", 3, None)]
@@ -686,7 +660,7 @@ def test_migration_0007_clears_dangling_parents_and_keeps_the_rest(
         assert {"ux_tasks_number", "ix_tasks_parent_id"} <= indexes
         with pytest.raises(sqlite3.IntegrityError):  # the status CHECK survived the rebuild
             conn.execute("INSERT INTO tasks (id, title, status) VALUES ('x', 'X', 'BACKLOG')")
-    command.downgrade(_alembic_config(), "0006")
+    command.downgrade(alembic_config(), "0006")
     with sqlite3.connect(db_path) as conn:
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute(

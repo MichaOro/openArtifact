@@ -9,7 +9,7 @@ from openartifact.config import Settings
 from openartifact.database import db_session_context
 from openartifact.models import WorkItemStatus
 from openartifact.repositories import ProjectRepository, WorkItemRepository
-from tests.test_tasks import _alembic_config
+from tests.conftest import alembic_config
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def migrated(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
     """Settings pointing at a temp database with all migrations applied."""
     monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
     monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(_alembic_config(), "head")
+    command.upgrade(alembic_config(), "head")
     return settings
 
 

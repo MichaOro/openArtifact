@@ -1,0 +1,170 @@
+"""Workflow definition API (prefix ``/api/workflows``).
+
+Every change is saved at once (there is no separate "save"): the editor sends what the user did.
+"""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from openartifact.database import get_db_session
+from openartifact.models import Workflow
+from openartifact.workflow.repository import NodeError, WorkflowRepository
+from openartifact.workflow.rules import EdgeError
+from openartifact.workflow.schemas import (
+    EdgeCreate,
+    EdgeRead,
+    NodeCreate,
+    NodeRead,
+    NodeUpdate,
+    WorkflowCreate,
+    WorkflowDetail,
+    WorkflowRead,
+    WorkflowUpdate,
+)
+
+router = APIRouter(prefix="/api/workflows", tags=["workflows"])
+
+SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+
+
+def _not_found(what: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{what} not found")
+
+
+def _invalid(error: ValueError) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error))
+
+
+async def _workflow(repo: WorkflowRepository, workflow_id: str) -> Workflow:
+    workflow = await repo.get(workflow_id)
+    if workflow is None:
+        raise _not_found("Workflow")
+    return workflow
+
+
+@router.get("", response_model=list[WorkflowRead])
+async def list_workflows(session: SessionDep) -> list[WorkflowRead]:
+    """List all workflows, most recently changed first."""
+    workflows = await WorkflowRepository(session).list_all()
+    return [WorkflowRead.model_validate(w) for w in workflows]
+
+
+@router.post("", response_model=WorkflowRead, status_code=status.HTTP_201_CREATED)
+async def create_workflow(payload: WorkflowCreate, session: SessionDep) -> WorkflowRead:
+    """Create a workflow; it starts with a trigger."""
+    workflow = await WorkflowRepository(session).create(payload.name)
+    await session.commit()
+    return WorkflowRead.model_validate(workflow)
+
+
+@router.get("/{workflow_id}", response_model=WorkflowDetail)
+async def get_workflow(workflow_id: str, session: SessionDep) -> WorkflowDetail:
+    """A workflow with all its nodes and edges."""
+    repo = WorkflowRepository(session)
+    workflow = await _workflow(repo, workflow_id)
+    nodes, edges = await repo.graph(workflow_id)
+    return WorkflowDetail(
+        workflow=WorkflowRead.model_validate(workflow),
+        nodes=[NodeRead.model_validate(n) for n in nodes],
+        edges=[EdgeRead.model_validate(e) for e in edges],
+    )
+
+
+@router.patch("/{workflow_id}", response_model=WorkflowRead)
+async def rename_workflow(
+    workflow_id: str, payload: WorkflowUpdate, session: SessionDep
+) -> WorkflowRead:
+    """Rename a workflow."""
+    repo = WorkflowRepository(session)
+    workflow = await _workflow(repo, workflow_id)
+    await repo.rename(workflow, payload.name)
+    await session.commit()
+    return WorkflowRead.model_validate(workflow)
+
+
+@router.delete("/{workflow_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_workflow(workflow_id: str, session: SessionDep) -> Response:
+    """Delete a workflow with everything in it."""
+    repo = WorkflowRepository(session)
+    await repo.delete(await _workflow(repo, workflow_id))
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{workflow_id}/nodes", response_model=NodeRead, status_code=status.HTTP_201_CREATED)
+async def add_node(workflow_id: str, payload: NodeCreate, session: SessionDep) -> NodeRead:
+    """Add a trigger, stage, action (inside a stage) or complete node."""
+    repo = WorkflowRepository(session)
+    workflow = await _workflow(repo, workflow_id)
+    try:
+        node = await repo.add_node(workflow, payload)
+    except NodeError as error:
+        raise _invalid(error) from error
+    await repo.touch(workflow)
+    await session.commit()
+    return NodeRead.model_validate(node)
+
+
+@router.patch("/{workflow_id}/nodes/{node_id}", response_model=NodeRead)
+async def update_node(
+    workflow_id: str, node_id: str, payload: NodeUpdate, session: SessionDep
+) -> NodeRead:
+    """Rename, move or resize a node."""
+    repo = WorkflowRepository(session)
+    workflow = await _workflow(repo, workflow_id)
+    node = await repo.get_node(workflow_id, node_id)
+    if node is None:
+        raise _not_found("Node")
+    try:
+        await repo.update_node(node, payload)
+    except NodeError as error:
+        raise _invalid(error) from error
+    await repo.touch(workflow)
+    await session.commit()
+    return NodeRead.model_validate(node)
+
+
+@router.delete("/{workflow_id}/nodes/{node_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_node(workflow_id: str, node_id: str, session: SessionDep) -> Response:
+    """Delete a node with its edges (and, for a stage, its actions)."""
+    repo = WorkflowRepository(session)
+    workflow = await _workflow(repo, workflow_id)
+    node = await repo.get_node(workflow_id, node_id)
+    if node is None:
+        raise _not_found("Node")
+    await repo.delete_node(node)
+    await repo.touch(workflow)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{workflow_id}/edges", response_model=EdgeRead, status_code=status.HTTP_201_CREATED)
+async def connect(workflow_id: str, payload: EdgeCreate, session: SessionDep) -> EdgeRead:
+    """Connect an output port to an input port; the output's previous edge is replaced."""
+    repo = WorkflowRepository(session)
+    workflow = await _workflow(repo, workflow_id)
+    try:
+        edge = await repo.connect(workflow, payload)
+    except (NodeError, EdgeError) as error:
+        raise _invalid(error) from error
+    await repo.touch(workflow)
+    await session.commit()
+    return EdgeRead.model_validate(edge)
+
+
+@router.delete("/{workflow_id}/edges/{edge_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def disconnect(workflow_id: str, edge_id: str, session: SessionDep) -> Response:
+    """Remove a connection."""
+    repo = WorkflowRepository(session)
+    workflow = await _workflow(repo, workflow_id)
+    edge = await repo.get_edge(workflow_id, edge_id)
+    if edge is None:
+        raise _not_found("Edge")
+    await repo.disconnect(edge)
+    await repo.touch(workflow)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

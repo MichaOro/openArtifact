@@ -164,3 +164,89 @@ class Task(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<Task(id={self.id!r}, status={self.status!r})>"
+
+
+class NodeKind(enum.StrEnum):
+    """Kinds of nodes in a workflow definition."""
+
+    TRIGGER = "trigger"
+    STAGE = "stage"
+    ACTION = "action"
+    COMPLETE = "complete"
+
+
+class Workflow(Base):
+    """A workflow definition: a graph of a trigger, stages (containing actions) and endings.
+
+    Attributes:
+        id: Unique identifier (UUID string).
+        name: Display name.
+        status: Lifecycle of the definition (only ``draft`` exists so far).
+        created_at: Creation timestamp (UTC).
+        updated_at: Last modification timestamp (UTC).
+    """
+
+    __tablename__ = "workflows"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft")
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
+class WorkflowNode(Base):
+    """A node of a workflow. Actions live inside a stage and are positioned relative to it.
+
+    Attributes:
+        kind: See :class:`NodeKind`.
+        stage_id: The stage an action belongs to (``None`` for all other kinds).
+        x, y: Position on the canvas; for an action relative to its stage.
+        width, height: Size of a stage (``None`` for other kinds).
+    """
+
+    __tablename__ = "workflow_nodes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workflow_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workflows.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(16))
+    stage_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("workflow_nodes.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255))
+    x: Mapped[float] = mapped_column(Float, default=0.0)
+    y: Mapped[float] = mapped_column(Float, default=0.0)
+    width: Mapped[float | None] = mapped_column(Float, nullable=True)
+    height: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
+class WorkflowEdge(Base):
+    """A connection from an output port of one node to an input port of another.
+
+    An output port has at most one edge (unique ``source_id`` + ``source_port``).
+    """
+
+    __tablename__ = "workflow_edges"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workflow_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workflows.id", ondelete="CASCADE"), index=True
+    )
+    source_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workflow_nodes.id", ondelete="CASCADE")
+    )
+    source_port: Mapped[str] = mapped_column(String(16))
+    target_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workflow_nodes.id", ondelete="CASCADE"), index=True
+    )
+    target_port: Mapped[str] = mapped_column(String(16))

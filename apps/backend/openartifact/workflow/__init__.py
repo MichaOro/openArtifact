@@ -1,1 +1,1 @@
-"""Workflow engine (planned, WP-07). Placeholder package; no behaviour yet."""
+"""Workflow definitions: a graph of a trigger, stages that contain actions, and endings."""

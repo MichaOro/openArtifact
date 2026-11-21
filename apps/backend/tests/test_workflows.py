@@ -1,0 +1,250 @@
+"""Workflow definitions: port rules, API, cascades."""
+
+from __future__ import annotations
+
+import sqlite3
+from typing import Any
+
+import pytest
+from fastapi.testclient import TestClient
+
+from alembic import command
+from openartifact.config import Settings
+from openartifact.models import NodeKind
+from openartifact.workflow.rules import EdgeError, Endpoint, validate_edge
+from tests.conftest import alembic_config
+
+# ── Port rules ────────────────────────────────────────────────────────
+
+TRIGGER = Endpoint("t", NodeKind.TRIGGER)
+S1 = Endpoint("s1", NodeKind.STAGE)
+S2 = Endpoint("s2", NodeKind.STAGE)
+A1 = Endpoint("a1", NodeKind.ACTION, stage_id="s1")
+A2 = Endpoint("a2", NodeKind.ACTION, stage_id="s1")
+B1 = Endpoint("b1", NodeKind.ACTION, stage_id="s2")
+END = Endpoint("e", NodeKind.COMPLETE)
+
+
+@pytest.mark.parametrize(
+    ("source", "source_port", "target", "target_port"),
+    [
+        (TRIGGER, "out", S1, "in"),
+        (S1, "out", S2, "in"),
+        (S1, "out", END, "in"),
+        (S1, "entry", A1, "in"),
+        (A1, "pass", A2, "in"),
+        (A1, "error", A2, "in"),
+        (A1, "error", A1, "in"),  # an error may retry the same action
+        (A1, "pass", S1, "exit"),
+        (A1, "error", S1, "exit"),  # allowed on purpose
+    ],
+)
+def test_allowed_connections(
+    source: Endpoint, source_port: str, target: Endpoint, target_port: str
+) -> None:
+    validate_edge(source, source_port, target, target_port)
+
+
+@pytest.mark.parametrize(
+    ("source", "source_port", "target", "target_port"),
+    [
+        (TRIGGER, "out", A1, "in"),  # actions are reached from inside a stage
+        (TRIGGER, "out", END, "in"),
+        (TRIGGER, "in", S1, "in"),  # no such output
+        (S1, "out", S1, "in"),  # not to itself
+        (S1, "out", S2, "exit"),  # the exit is fed from inside
+        (S1, "entry", B1, "in"),  # an action of another stage
+        (S1, "entry", S2, "in"),
+        (A1, "pass", B1, "in"),  # across stages
+        (A1, "pass", S2, "exit"),
+        (A1, "pass", S1, "in"),  # the stage's outer input
+        (A1, "pass", END, "in"),
+        (END, "pass", A1, "in"),  # no such output
+        (A1, "pass", A2, "pass"),  # no such input
+    ],
+)
+def test_rejected_connections(
+    source: Endpoint, source_port: str, target: Endpoint, target_port: str
+) -> None:
+    with pytest.raises(EdgeError):
+        validate_edge(source, source_port, target, target_port)
+
+
+# ── API ───────────────────────────────────────────────────────────────
+
+
+def _workflow(client: TestClient, name: str = "Flow") -> dict[str, Any]:
+    return client.post("/api/workflows", json={"name": name}).json()  # type: ignore[no-any-return]
+
+
+def _node(client: TestClient, workflow: dict[str, Any], kind: str, **extra: Any) -> dict[str, Any]:
+    response = client.post(f"/api/workflows/{workflow['id']}/nodes", json={"kind": kind, **extra})
+    assert response.status_code == 201, response.text
+    return response.json()  # type: ignore[no-any-return]
+
+
+def _edge(
+    client: TestClient,
+    workflow: dict[str, Any],
+    a: dict[str, Any],
+    ap: str,
+    b: dict[str, Any],
+    bp: str,
+) -> Any:
+    return client.post(
+        f"/api/workflows/{workflow['id']}/edges",
+        json={"source_id": a["id"], "source_port": ap, "target_id": b["id"], "target_port": bp},
+    )
+
+
+def _graph(client: TestClient, workflow: dict[str, Any]) -> dict[str, Any]:
+    return client.get(f"/api/workflows/{workflow['id']}").json()  # type: ignore[no-any-return]
+
+
+def test_new_workflow_starts_with_a_trigger(client: TestClient) -> None:
+    workflow = _workflow(client)
+    graph = _graph(client, workflow)
+    assert [n["kind"] for n in graph["nodes"]] == ["trigger"]
+    assert graph["edges"] == []
+    assert workflow["status"] == "draft"
+
+
+def test_workflow_crud(client: TestClient) -> None:
+    first, second = _workflow(client, "A"), _workflow(client, "B")
+    assert {w["name"] for w in client.get("/api/workflows").json()} == {"A", "B"}
+    assert client.patch(f"/api/workflows/{first['id']}", json={"name": "A2"}).json()["name"] == "A2"
+    assert client.delete(f"/api/workflows/{second['id']}").status_code == 204
+    assert [w["name"] for w in client.get("/api/workflows").json()] == ["A2"]
+    assert client.get(f"/api/workflows/{second['id']}").status_code == 404
+
+
+def test_name_is_required(client: TestClient) -> None:
+    assert client.post("/api/workflows", json={"name": "   "}).status_code == 422
+    assert client.post("/api/workflows", json={}).status_code == 422
+
+
+def test_node_kinds_and_defaults(client: TestClient) -> None:
+    workflow = _workflow(client)
+    stage = _node(client, workflow, "stage", x=100, y=50)
+    assert (stage["name"], stage["width"], stage["height"]) == ("Stage", 360, 240)
+    action = _node(client, workflow, "action", stage_id=stage["id"], x=20, y=40)
+    assert (action["name"], action["stage_id"], action["width"]) == ("Action", stage["id"], None)
+    assert _node(client, workflow, "complete")["name"] == "Complete"
+
+
+def test_action_needs_a_stage_of_the_same_workflow(client: TestClient) -> None:
+    one, other = _workflow(client), _workflow(client)
+    stage = _node(client, other, "stage")
+    url = f"/api/workflows/{one['id']}/nodes"
+    assert client.post(url, json={"kind": "action"}).status_code == 422
+    assert client.post(url, json={"kind": "action", "stage_id": stage["id"]}).status_code == 422
+    assert client.post(url, json={"kind": "stage", "stage_id": stage["id"]}).status_code == 422
+
+
+def test_move_rename_and_resize(client: TestClient) -> None:
+    workflow = _workflow(client)
+    stage = _node(client, workflow, "stage")
+    url = f"/api/workflows/{workflow['id']}/nodes/{stage['id']}"
+    changed = client.patch(
+        url, json={"name": "Refine", "x": 10, "y": 20, "width": 500, "height": 300}
+    ).json()
+    assert (changed["name"], changed["x"], changed["y"], changed["width"], changed["height"]) == (
+        "Refine",
+        10,
+        20,
+        500,
+        300,
+    )
+    action = _node(client, workflow, "action", stage_id=stage["id"])
+    assert (
+        client.patch(
+            f"/api/workflows/{workflow['id']}/nodes/{action['id']}", json={"width": 10}
+        ).status_code
+        == 422
+    )
+    assert client.patch(url, json={"width": 0}).status_code == 422
+
+
+def test_connect_validates_and_replaces_the_output_edge(client: TestClient) -> None:
+    workflow = _workflow(client)
+    trigger = _graph(client, workflow)["nodes"][0]
+    one, two = _node(client, workflow, "stage"), _node(client, workflow, "stage")
+    assert _edge(client, workflow, trigger, "out", one, "in").status_code == 201
+    assert _edge(client, workflow, trigger, "out", two, "in").status_code == 201  # replaces
+    edges = _graph(client, workflow)["edges"]
+    assert [e["target_id"] for e in edges] == [two["id"]]
+    assert _edge(client, workflow, trigger, "out", trigger, "in").status_code == 422
+    assert _edge(client, workflow, one, "out", one, "in").status_code == 422
+
+
+def test_inputs_take_several_edges(client: TestClient) -> None:
+    workflow = _workflow(client)
+    stage = _node(client, workflow, "stage")
+    a, b = (_node(client, workflow, "action", stage_id=stage["id"]) for _ in range(2))
+    target = _node(client, workflow, "action", stage_id=stage["id"])
+    assert _edge(client, workflow, a, "pass", target, "in").status_code == 201
+    assert _edge(client, workflow, b, "pass", target, "in").status_code == 201
+    assert _edge(client, workflow, a, "error", target, "in").status_code == 201
+    assert len(_graph(client, workflow)["edges"]) == 3
+
+
+def test_edges_across_workflows_are_rejected(client: TestClient) -> None:
+    one, other = _workflow(client), _workflow(client)
+    stage = _node(client, other, "stage")
+    trigger = _graph(client, one)["nodes"][0]
+    assert _edge(client, one, trigger, "out", stage, "in").status_code == 422
+
+
+def test_disconnect(client: TestClient) -> None:
+    workflow = _workflow(client)
+    trigger = _graph(client, workflow)["nodes"][0]
+    stage = _node(client, workflow, "stage")
+    edge = _edge(client, workflow, trigger, "out", stage, "in").json()
+    assert client.delete(f"/api/workflows/{workflow['id']}/edges/{edge['id']}").status_code == 204
+    assert _graph(client, workflow)["edges"] == []
+    assert client.delete(f"/api/workflows/{workflow['id']}/edges/{edge['id']}").status_code == 404
+
+
+def test_deleting_a_stage_removes_its_actions_and_all_their_edges(client: TestClient) -> None:
+    workflow = _workflow(client)
+    trigger = _graph(client, workflow)["nodes"][0]
+    stage, other = _node(client, workflow, "stage"), _node(client, workflow, "stage")
+    action = _node(client, workflow, "action", stage_id=stage["id"])
+    _edge(client, workflow, trigger, "out", stage, "in")
+    _edge(client, workflow, stage, "entry", action, "in")
+    _edge(client, workflow, stage, "out", other, "in")
+    assert client.delete(f"/api/workflows/{workflow['id']}/nodes/{stage['id']}").status_code == 204
+    graph = _graph(client, workflow)
+    assert sorted(n["kind"] for n in graph["nodes"]) == ["stage", "trigger"]
+    assert graph["edges"] == []
+
+
+def test_deleting_a_workflow_removes_everything_in_it(
+    client: TestClient, migrated_settings: Settings
+) -> None:
+    workflow = _workflow(client)
+    _node(client, workflow, "stage")
+    client.delete(f"/api/workflows/{workflow['id']}")
+    with sqlite3.connect(migrated_settings.data_dir / migrated_settings.database_filename) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM workflow_nodes").fetchone() == (0,)
+
+
+def test_unknown_ids_are_404(client: TestClient) -> None:
+    workflow = _workflow(client)
+    assert client.get("/api/workflows/nope").status_code == 404
+    assert client.post("/api/workflows/nope/nodes", json={"kind": "stage"}).status_code == 404
+    assert (
+        client.patch(f"/api/workflows/{workflow['id']}/nodes/nope", json={"name": "x"}).status_code
+        == 404
+    )
+    assert client.delete(f"/api/workflows/{workflow['id']}/nodes/nope").status_code == 404
+
+
+def test_migration_0008_is_reversible(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "head")
+    command.downgrade(alembic_config(), "0007")
+    with sqlite3.connect(settings.data_dir / settings.database_filename) as conn:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert not {"workflows", "workflow_nodes", "workflow_edges"} & tables
