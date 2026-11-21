@@ -159,11 +159,17 @@ html:has(.modal[open]) { overflow: hidden; }
   to { opacity: 1; transform: none; }
 }
 
-@media (max-width: 640px) {
-  .modal__panel { --rail-w-open: var(--rail-w-collapsed); --form-w: calc(100vw - 2 * var(--space-3) - var(--rail-w-collapsed)); }
+/* Too narrow for the card to grow without moving the form: the rail stays a fixed icon bar.
+   820px = form (31rem) + rail growth (7.25rem, twice, because the card is centred) + gutters. */
+@media (max-width: 820px) {
+  .modal__panel { --rail-w-open: var(--rail-w-collapsed); }
   .card-nav__toggle { display: none; }
   .card-nav .nav-link__label { opacity: 0; max-width: 0; }
   .card-nav .nav-link { gap: 0; }
+}
+
+@media (max-width: 640px) {
+  .modal__panel { --form-w: calc(100vw - 2 * var(--space-3) - var(--rail-w-collapsed)); }
   .modal { padding: var(--space-3); }
   .modal__header { padding: var(--space-4) var(--space-4) var(--space-2); }
   .modal__body { padding: var(--space-2) var(--space-4) var(--space-3); }
