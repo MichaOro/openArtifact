@@ -88,6 +88,8 @@
   background: color-mix(in srgb, var(--color-accent) 5%, transparent);
 }
 .nav-section > .nav-list { margin-top: var(--space-1); }
+/* expanded: sub-entries are clearly indented under Pipeline (collapsed, the icons stay in one column) */
+:root:not([data-sidebar="collapsed"]) .sidebar .nav-section > .nav-list { margin-left: 1.5rem; padding-left: var(--space-1); border-left: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent); }
 .nav-link--section { color: var(--color-text-primary); }
 .nav-link--section .icon { color: var(--color-accent); }
 .nav-link {
