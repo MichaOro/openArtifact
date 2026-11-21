@@ -36,8 +36,8 @@ start, stop and restart at any stage.
 6. **Restart of the container**: a run that was `running` is set to `stopped` with the note
    "interrupted"; it does not continue by itself.
 7. **UI**: the artifact dialog's rail has Pipeline, Stage and Action (defaults: the only pipeline,
-   its first stage and that stage's first action) and one button that is *Start processing* or
-   *Stop processing* in the same place; the card shows the stage and state. `GET /api/runs`,
+   its first stage and that stage's first action); one button, *Start processing* or *Stop
+   processing*, sits at the left of the reading view's footer, level with Close and Edit; the card shows the stage and state. `GET /api/runs`,
    `POST /api/tasks/{id}/run`, `POST /api/tasks/{id}/run/stop`, `GET /api/workflows/{id}/stages`.
 
 ## 3. Consequences

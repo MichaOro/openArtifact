@@ -393,8 +393,6 @@ body.is-dragging * { cursor: grabbing !important; }
 .task-card__run[data-status="stopped"], .task-card__run[data-status="done"] { color: var(--color-text-muted); }
 .task-card--locked { cursor: default; }
 .card-nav__divider { height: 1px; margin: var(--space-1) var(--space-2); background: var(--glass-border); }
-.card-nav__run { color: var(--color-accent); }
-.card-nav__run[data-state="running"] { color: var(--color-danger); }
 .card-nav [data-locked="true"] { opacity: 0.5; pointer-events: none; }
 
 .board-alert {

@@ -18,11 +18,12 @@ export class ProcessingPanel {
   /**
    * @param {object} options
    * @param {HTMLElement} options.rail the card navigation of the dialog
+   * @param {HTMLElement} options.button the Start / Stop button (in the footer of the dialog's reading view)
    * @param {import("../components/lane-picker.js").LanePicker} options.picker the popover list used by the other rail fields
    * @param {(taskId: string, locked: boolean) => void} options.onLock called when a task is locked or unlocked
    * @param {(message: string) => void} options.onError
    */
-  constructor({ rail, picker, onLock, onError }) {
+  constructor({ rail, button, picker, onLock, onError }) {
     this.picker = picker;
     this.onLock = onLock;
     this.onError = onError;
@@ -38,8 +39,8 @@ export class ProcessingPanel {
     this.values = Object.fromEntries(
       ["pipeline", "stage", "action"].map((key) => [key, rail.querySelector(`[data-${key}-value]`)]),
     );
-    this.button = rail.querySelector('[data-card-action="run"]');
-    this.buttonLabel = rail.querySelector("[data-run-label]");
+    this.button = button;
+    this.buttonLabel = button.querySelector("[data-run-label]");
     this.buttonIcon = this.button.querySelector(".icon");
     this.lockedFields = rail.querySelectorAll('[data-card-field="lane"], [data-card-field="parent"], [data-card-field="pipeline"], [data-card-field="stage"], [data-card-field="action"]');
 

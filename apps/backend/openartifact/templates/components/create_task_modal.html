@@ -8,7 +8,13 @@
         <p class="task-view__body" data-view-body></p>
     </div>
     <footer class="modal__footer">
-        <button type="button" class="button button--ghost modal__footer-start" data-view-back hidden>Back</button>
+        <div class="modal__footer-start">
+            <button type="button" class="button button--ghost" data-view-back hidden>Back</button>
+            <button type="button" class="button button--ghost card-run" data-card-action="run" data-state="idle" title="Start processing">
+                {{ icon("play") }}
+                <span data-run-label>Start processing</span>
+            </button>
+        </div>
         <button type="button" class="button button--ghost" data-modal-close>Close</button>
         <button type="button" class="button button--primary" data-view-edit>Edit</button>
     </footer>
@@ -92,12 +98,6 @@
         </li>
     </ul>
     <ul class="nav-list card-nav__actions">
-        <li>
-            <button type="button" class="nav-link card-nav__run" data-card-action="run" title="Start processing">
-                {{ icon("play") }}
-                <span class="nav-link__label" data-run-label>Start processing</span>
-            </button>
-        </li>
         <li>
             <button type="button" class="nav-link nav-link--danger" data-card-action="delete" title="Delete artifact">
                 {{ icon("trash") }}

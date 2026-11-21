@@ -115,6 +115,7 @@ const lanePicker = new LanePicker({
 // Pipeline / Stage / Action and Start / Stop in the rail; runs lock the artifact while they run.
 const processing = new ProcessingPanel({
   rail: cardNavRoot,
+  button: document.querySelector('[data-card-action="run"]'),
   picker: lanePicker,
   onLock: (taskId, locked) => {
     board.setLocked(taskId, locked);
