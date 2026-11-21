@@ -25,10 +25,10 @@
         <ul class="nav-list">
             {% for item in nav_items %}
             {% set inside = item.children and active_nav in item.children | map(attribute="key") | list %}
-            <li>
+            <li{% if inside %} class="nav-section"{% endif %}>
                 {{ link(item, inside) }}
                 {% if inside %}
-                <ul class="nav-list nav-sub" aria-label="{{ item.label }}">
+                <ul class="nav-list" aria-label="{{ item.label }}">
                     {% for child in item.children %}<li>{{ link(child) }}</li>{% endfor %}
                 </ul>
                 {% endif %}
