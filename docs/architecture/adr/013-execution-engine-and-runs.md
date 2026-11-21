@@ -47,3 +47,17 @@ start, stop and restart at any stage.
 - Only a timer is business logic so far; the other nodes of an action definition come later.
 - Human-in-the-loop (a `waiting` status) and automatic starts by the system are prepared (one start
   path, `started_by`) but not built.
+
+## 4. Planned (not built)
+
+- **Executions.** Today an artifact has one run row; starting again overwrites it. Planned: a run per
+  start, shown on the artifact as a tab ("Executions") next to the reading view, with the stages and
+  actions each run went through.
+- **Pipeline blocks.** A node that calls another pipeline like a sub-workflow in n8n, so pipelines
+  can be stacked; every pipeline keeps its *Complete* as its defined end and returns there.
+- **Settings and loop protection.** A *Settings* area. The only protection against endless loops
+  is a fixed limit of 1000 steps per run (an *On Error* routed back to its own action loops for
+  ever until then). A global protection (limits, behaviour on reaching them, a warning when a
+  definition can loop) is to be designed there, together with pipeline blocks.
+- **Human-in-the-loop** (a `waiting` status) and **automatic starts** of sub-artifacts by the system.
+
