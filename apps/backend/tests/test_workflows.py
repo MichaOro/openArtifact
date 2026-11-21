@@ -522,9 +522,12 @@ def test_the_error_output_exists_only_if_the_definition_has_on_fail(client: Test
     other = _node(client, workflow, "action", stage_id=stage_id)
     definition = _action_definition(client)
     output = next(n for n in _graph(client, definition)["nodes"] if n["kind"] == "output")
-    patch_output = lambda fail: client.patch(  # noqa: E731
-        f"/api/workflows/{definition['id']}/nodes/{output['id']}", json={"fail_enabled": fail}
-    )
+
+    def patch_output(fail: bool) -> None:
+        client.patch(
+            f"/api/workflows/{definition['id']}/nodes/{output['id']}", json={"fail_enabled": fail}
+        )
+
     patch_output(True)
     _link(client, workflow, shell, definition["id"])
     assert _edge(client, workflow, shell, "error", other, "in").status_code == 201
