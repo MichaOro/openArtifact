@@ -39,26 +39,60 @@ async def index(request: Request) -> HTMLResponse:
     )
 
 
-@router.get("/workflows", response_class=HTMLResponse)
-async def workflows(request: Request) -> HTMLResponse:
-    """The list of workflow definitions."""
+_SECTIONS = {
+    "workflow": {"kind": "workflow", "nav": "workflows", "path": "/workflows", "label": "Workflow"},
+    "action": {"kind": "action", "nav": "actions", "path": "/actions", "label": "Action"},
+}
+
+
+def _list_page(request: Request, section: str) -> HTMLResponse:
+    info = _SECTIONS[section]
     return templates.TemplateResponse(
         request=request,
         name="workflows.html",
-        context={"page_title": "Workflows", "active_nav": "workflows", "app_version": APP_VERSION},
+        context={
+            "page_title": f"{info['label']}s",
+            "active_nav": info["nav"],
+            "app_version": APP_VERSION,
+            "section": info,
+        },
     )
+
+
+def _editor_page(request: Request, section: str, workflow_id: str) -> HTMLResponse:
+    info = _SECTIONS[section]
+    return templates.TemplateResponse(
+        request=request,
+        name="workflow_editor.html",
+        context={
+            "page_title": info["label"],
+            "active_nav": info["nav"],
+            "app_version": APP_VERSION,
+            "workflow_id": workflow_id,
+            "section": info,
+        },
+    )
+
+
+@router.get("/workflows", response_class=HTMLResponse)
+async def workflows(request: Request) -> HTMLResponse:
+    """The list of workflow definitions."""
+    return _list_page(request, "workflow")
 
 
 @router.get("/workflows/{workflow_id}", response_class=HTMLResponse)
 async def workflow_editor(request: Request, workflow_id: str) -> HTMLResponse:
     """The editor for one workflow definition (the graph itself is loaded through the API)."""
-    return templates.TemplateResponse(
-        request=request,
-        name="workflow_editor.html",
-        context={
-            "page_title": "Workflow",
-            "active_nav": "workflows",
-            "app_version": APP_VERSION,
-            "workflow_id": workflow_id,
-        },
-    )
+    return _editor_page(request, "workflow", workflow_id)
+
+
+@router.get("/actions", response_class=HTMLResponse)
+async def actions(request: Request) -> HTMLResponse:
+    """The list of action definitions."""
+    return _list_page(request, "action")
+
+
+@router.get("/actions/{workflow_id}", response_class=HTMLResponse)
+async def action_editor(request: Request, workflow_id: str) -> HTMLResponse:
+    """The editor for one action definition (same canvas as a workflow)."""
+    return _editor_page(request, "action", workflow_id)

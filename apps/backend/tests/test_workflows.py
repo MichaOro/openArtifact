@@ -352,3 +352,74 @@ def test_migration_0010_adds_defaults_and_is_reversible(
     with sqlite3.connect(db) as conn:
         columns = {r[1] for r in conn.execute("PRAGMA table_info(workflow_edges)")}
     assert not {"style", "source_slot", "target_slot"} & columns
+
+
+def _action_definition(client: TestClient) -> dict[str, Any]:
+    response = client.post("/api/workflows", json={"name": "Gap analysis", "kind": "action"})
+    assert response.status_code == 201
+    return response.json()  # type: ignore[no-any-return]
+
+
+def test_action_definitions_are_listed_apart_from_workflows(client: TestClient) -> None:
+    _workflow(client, "A workflow")
+    definition = _action_definition(client)
+    assert definition["kind"] == "action"
+    assert [w["name"] for w in client.get("/api/workflows").json()] == ["A workflow"]
+    listed = client.get("/api/workflows", params={"kind": "action"}).json()
+    assert [w["id"] for w in listed] == [definition["id"]]
+
+
+def test_an_action_definition_starts_with_trigger_and_output(client: TestClient) -> None:
+    graph = _graph(client, _action_definition(client))
+    assert sorted(n["kind"] for n in graph["nodes"]) == ["output", "trigger"]
+    assert all(n["fail_enabled"] is False for n in graph["nodes"])
+
+
+def test_trigger_feeds_the_output_and_on_fail_is_optional(client: TestClient) -> None:
+    definition = _action_definition(client)
+    nodes = {n["kind"]: n for n in _graph(client, definition)["nodes"]}
+    assert (
+        _edge(client, definition, nodes["trigger"], "out", nodes["output"], "in").status_code == 201
+    )
+    url = f"/api/workflows/{definition['id']}/nodes/{nodes['output']['id']}"
+    assert client.patch(url, json={"fail_enabled": True}).json()["fail_enabled"] is True
+    assert client.patch(url, json={"fail_enabled": False}).json()["fail_enabled"] is False
+    trigger_url = f"/api/workflows/{definition['id']}/nodes/{nodes['trigger']['id']}"
+    assert client.patch(trigger_url, json={"fail_enabled": True}).status_code == 422
+
+
+def test_an_action_definition_keeps_its_trigger_and_output(client: TestClient) -> None:
+    definition = _action_definition(client)
+    base = f"/api/workflows/{definition['id']}/nodes"
+    for node in _graph(client, definition)["nodes"]:
+        assert client.delete(f"{base}/{node['id']}").status_code == 422
+    for kind in ("stage", "complete", "output", "trigger"):
+        assert client.post(base, json={"kind": kind}).status_code == 422
+
+
+def test_a_workflow_has_no_output_node(client: TestClient) -> None:
+    workflow = _workflow(client)
+    response = client.post(f"/api/workflows/{workflow['id']}/nodes", json={"kind": "output"})
+    assert response.status_code == 422
+
+
+def test_migration_0011_marks_existing_workflows_and_is_reversible(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
+    command.upgrade(alembic_config(), "0010")
+    db = settings.data_dir / settings.database_filename
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO workflows (id, name) VALUES ('w', 'W')")
+    command.upgrade(alembic_config(), "0011")
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT kind FROM workflows").fetchall() == [("workflow",)]
+        conn.execute("INSERT INTO workflows (id, name, kind) VALUES ('a', 'A', 'action')")
+        conn.execute(
+            "INSERT INTO workflow_nodes (id, workflow_id, kind, name) VALUES ('o', 'a', 'output', 'O')"
+        )
+    command.downgrade(alembic_config(), "0010")
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT id FROM workflows").fetchall() == [("w",)]
+        assert conn.execute("SELECT count(*) FROM workflow_nodes").fetchone() == (0,)

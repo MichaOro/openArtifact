@@ -68,3 +68,7 @@ left with rounded corners, so it never cuts across a node (`edgePath` in `graph.
 ## 2.13 Line style and routing
 
 An edge has a `style` (`curved`, `straight`, `elbow`), chosen in the inspector and stored per edge (migration 0010, `PATCH .../edges/{id}`). Connections that go backward or have less than 48 units of horizontal room are routed below both nodes with rounded corners (sharp for `straight`) instead of bending sharply.
+
+## 2.14 Action definitions
+
+The definition of what an action does is edited on the same canvas, reached through the navigation entry "Actions" (`/actions`). It is a `workflows` row of `kind = action` (migration 0011), so storage, API and editor are shared; `GET /api/workflows` lists only workflows unless `?kind=action`. An action definition always has an automatic **trigger** in front and an **output** node (kind `output`, input `in`) at the end; both are created with it and cannot be deleted or added. The output always offers *On Pass*; *On Fail* is optional (`fail_enabled`, switched with a small button on the node or a checkbox in the inspector), because not every business logic has a failure case. Specialised nodes between trigger and output are planned; linking a workflow action to a definition is not built yet.

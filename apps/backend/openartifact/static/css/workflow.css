@@ -71,6 +71,13 @@
 .wf-node--trigger { --node-color: var(--lane-hue-6); display: flex; align-items: center; padding: 0 var(--space-4); }
 .wf-node--action { --node-color: var(--lane-hue-4); display: flex; align-items: center; padding: 0 var(--space-4); }
 .wf-node--complete { --node-color: var(--lane-hue-8); display: flex; align-items: center; padding: 0 var(--space-4); }
+.wf-node--output { --node-color: var(--lane-hue-3); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: var(--space-2); padding: 0 var(--space-4); }
+.wf-outcomes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.wf-outcome { padding: 0 var(--space-2); border-radius: 999px; border: 1px solid var(--lane-hue-3); font-size: 0.6875rem; line-height: 1.25rem; }
+.wf-outcome--fail { border-color: var(--color-danger); }
+.wf-outcome[hidden] { display: none; }
+.wf-outcome__toggle { border: 1px dashed var(--glass-border); border-radius: 999px; background: transparent; color: var(--color-text-secondary); font: inherit; font-size: 0.6875rem; line-height: 1.25rem; padding: 0 var(--space-2); cursor: pointer; }
+.wf-outcome__toggle:hover { border-color: var(--node-color); color: var(--color-text-primary); }
 .wf-node--stage { --node-color: var(--lane-hue-1); background: color-mix(in srgb, var(--node-color) 8%, var(--surface-glass)); }
 .wf-node__text { display: flex; flex-direction: column; min-width: 0; }
 .wf-node__name { font-size: 0.875rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

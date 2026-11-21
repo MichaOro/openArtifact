@@ -6,13 +6,14 @@ import { addNode, connect, deleteNode, disconnect, loadWorkflow, renameWorkflow,
 import { Canvas } from "./canvas.js";
 import { ACTION_GAP, EDGE_STYLES, INPUTS, OUTPUTS, PAD, PORT_LABELS, SIZE, TOP_LEVEL_GAP, canConnect, fitStage } from "./graph.js";
 
-const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete" };
+const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output" };
 
 export class WorkflowEditor {
   /** @param {HTMLElement} root the element carrying data-workflow-id */
   constructor(root) {
     this.id = root.dataset.workflowId;
     this.root = root;
+    this.isAction = root.dataset.kind === "action"; // an action definition: trigger and output are fixed
     this.workflow = null;
     this.nodes = new Map();
     this.edges = new Map();
@@ -45,6 +46,11 @@ export class WorkflowEditor {
     this.canvas.viewport.addEventListener("click", (event) => {
       const add = event.target.closest("[data-add-action]");
       if (add) this.#addAction(this.nodes.get(add.closest(".wf-node").dataset.nodeId));
+      const toggle = event.target.closest("[data-toggle-fail]");
+      if (toggle) {
+        const output = this.nodes.get(toggle.closest(".wf-node").dataset.nodeId);
+        this.#setFail(output, !output.fail_enabled);
+      }
     });
     this.canvas.viewport.addEventListener("keydown", (event) => {
       if ((event.key === "Delete" || event.key === "Backspace") && this.selection?.type === "edge" && !event.target.closest("input, select")) {
@@ -172,6 +178,13 @@ export class WorkflowEditor {
     this.#renderInspector();
   }
 
+  async #setFail(node, enabled) {
+    node.fail_enabled = enabled;
+    this.canvas.sync();
+    this.#renderInspector();
+    await this.#save(() => updateNode(this.id, node.id, { fail_enabled: enabled }));
+  }
+
   async #renameWorkflow(name) {
     const trimmed = name.trim();
     if (!trimmed || trimmed === this.workflow.name) return this.#renderInspector();
@@ -206,11 +219,15 @@ export class WorkflowEditor {
     await this.#save(() => restyleEdge(this.id, edge.id, style));
   }
 
+  #isFixed(node) {
+    return this.isAction && (node.kind === "trigger" || node.kind === "output");
+  }
+
   /** Delete a node after confirming; a stage takes its actions with it. */
   requestDelete(selection) {
     if (selection.type === "edge") return this.#removeEdge(selection.id);
     const node = this.nodes.get(selection.id);
-    if (!node) return undefined;
+    if (!node || this.#isFixed(node)) return undefined;
     const inside = [...this.nodes.values()].filter((n) => n.stage_id === node.id).length;
     const extra = inside ? ` and its ${inside} action${inside === 1 ? "" : "s"}` : "";
     this.confirm.open({
@@ -310,12 +327,25 @@ export class WorkflowEditor {
       add.addEventListener("click", () => this.#addAction(node));
       el.append(add);
     }
+    if (node.kind === "output") el.append(this.#failToggle(node));
+    if (this.#isFixed(node)) return;
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "button button--ghost wf-delete";
     remove.textContent = `Delete ${KIND_LABELS[node.kind].toLowerCase()}`;
     remove.addEventListener("click", () => this.requestDelete({ type: "node", id: node.id }));
     el.append(remove);
+  }
+
+  /** The keyboard way to switch On Fail on or off; On Pass is always there. */
+  #failToggle(node) {
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = node.fail_enabled;
+    input.addEventListener("change", () => this.#setFail(node, input.checked));
+    const field = this.#field("Provide On Fail", input);
+    field.classList.add("field--inline");
+    return field;
   }
 
   /** A select with every valid target of an output port: the keyboard way to connect. */

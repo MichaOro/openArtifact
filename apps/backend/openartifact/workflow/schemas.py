@@ -12,14 +12,18 @@ from openartifact.models import NodeKind
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 
 
+WorkflowKind = Literal["workflow", "action"]
+
+
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
 class WorkflowCreate(_Strict):
-    """Body of ``POST /api/workflows``."""
+    """Body of ``POST /api/workflows`` (``kind`` ``action``: the definition of an action)."""
 
     name: Name
+    kind: WorkflowKind = "workflow"
 
 
 class WorkflowUpdate(_Strict):
@@ -39,13 +43,14 @@ class NodeCreate(_Strict):
 
 
 class NodeUpdate(_Strict):
-    """Body of ``PATCH``: any of name, position, size (size only for stages)."""
+    """Body of ``PATCH``: any of name, position, size (stages), fail_enabled (outputs)."""
 
     name: Name | None = None
     x: float | None = None
     y: float | None = None
     width: Annotated[float, Field(gt=0)] | None = None
     height: Annotated[float, Field(gt=0)] | None = None
+    fail_enabled: bool | None = None
 
 
 EdgeStyle = Literal["curved", "straight", "elbow"]
@@ -90,6 +95,7 @@ class WorkflowRead(_Timestamps):
     id: str
     name: str
     status: str
+    kind: WorkflowKind
 
 
 class NodeRead(BaseModel):
@@ -105,6 +111,7 @@ class NodeRead(BaseModel):
     y: float
     width: float | None
     height: float | None
+    fail_enabled: bool
 
 
 class EdgeRead(BaseModel):

@@ -349,3 +349,66 @@ def test_choose_the_line_style_of_a_connection(
     assert _graph(api, workflow)["edges"][0]["style"] == "elbow"
     page.reload()
     expect(page.locator(".wf-edge")).to_have_count(1)
+
+
+# ── action definitions ────────────────────────────────────────────────
+
+
+def _clear_actions(api: httpx.Client) -> None:
+    for definition in api.get("/api/workflows", params={"kind": "action"}).json():
+        api.delete(f"/api/workflows/{definition['id']}")
+
+
+def test_create_an_action_definition_from_the_navigation(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _clear_actions(api)
+    page.goto(f"{base_url}/workflows")
+    page.click(".nav-link[href='/actions']")
+    expect(page).to_have_url(re.compile(r"/actions$"))
+    expect(page.locator("[data-wf-empty]")).to_be_visible()
+    page.click("[data-new-workflow]")
+    page.fill("#workflow-name", "Gap analysis")
+    page.click("#name-modal [data-submit]")
+    expect(page).to_have_url(re.compile(r"/actions/[0-9a-f-]{36}$"))
+    expect(page.locator(".wf-node--trigger")).to_have_count(1)
+    expect(page.locator(".wf-node--output")).to_have_count(1)
+    expect(page.locator("[data-add]")).to_have_count(0)  # nothing to add yet
+
+
+def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _clear_actions(api)
+    definition = api.post("/api/workflows", json={"name": "Check", "kind": "action"}).json()
+    page.goto(f"{base_url}/actions/{definition['id']}")
+    output = page.locator(".wf-node--output")
+    expect(output.locator(".wf-outcome--pass")).to_be_visible()
+    expect(output.locator(".wf-outcome--fail")).to_be_hidden()
+    output.locator("[data-toggle-fail]").click()
+    expect(output.locator(".wf-outcome--fail")).to_be_visible()
+    for _ in range(100):
+        nodes = _graph(api, definition)["nodes"]
+        if next(n for n in nodes if n["kind"] == "output")["fail_enabled"]:
+            break
+        page.wait_for_timeout(50)
+    page.reload()
+    expect(page.locator(".wf-node--output .wf-outcome--fail")).to_be_visible()
+    page.locator(".wf-node--output .wf-node__name").click()
+    page.locator(".wf-inspector input[type=checkbox]").uncheck()
+    expect(page.locator(".wf-node--output .wf-outcome--fail")).to_be_hidden()
+    expect(page.locator(".wf-inspector .wf-delete")).to_have_count(0)  # output stays
+
+
+def test_trigger_connects_to_the_output(page: Page, base_url: str, api: httpx.Client) -> None:
+    _clear_actions(api)
+    definition = api.post("/api/workflows", json={"name": "Check", "kind": "action"}).json()
+    page.goto(f"{base_url}/actions/{definition['id']}")
+    expect(page.locator(".wf-node--output")).to_be_visible()
+    _drag(
+        page,
+        page.locator(".wf-node--trigger .wf-port--out"),
+        page.locator(".wf-node--output .wf-port--in"),
+    )
+    expect(page.locator(".wf-edge")).to_have_count(1)
+    _expect_edges(page, api, definition, [("out", "in")])

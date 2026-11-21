@@ -18,7 +18,7 @@ import enum
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from openartifact.database import Base
@@ -173,6 +173,7 @@ class NodeKind(enum.StrEnum):
     STAGE = "stage"
     ACTION = "action"
     COMPLETE = "complete"
+    OUTPUT = "output"
 
 
 class Workflow(Base):
@@ -182,6 +183,7 @@ class Workflow(Base):
         id: Unique identifier (UUID string).
         name: Display name.
         status: Lifecycle of the definition (only ``draft`` exists so far).
+        kind: ``workflow``, or ``action`` for the definition of what an action does.
         created_at: Creation timestamp (UTC).
         updated_at: Last modification timestamp (UTC).
     """
@@ -191,6 +193,7 @@ class Workflow(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="draft")
+    kind: Mapped[str] = mapped_column(String(16), default="workflow", server_default="workflow")
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),
@@ -206,6 +209,7 @@ class WorkflowNode(Base):
         stage_id: The stage an action belongs to (``None`` for all other kinds).
         x, y: Position on the canvas; for an action relative to its stage.
         width, height: Size of a stage (``None`` for other kinds).
+        fail_enabled: Whether an output node offers *On Fail* besides *On Pass*.
     """
 
     __tablename__ = "workflow_nodes"
@@ -223,6 +227,7 @@ class WorkflowNode(Base):
     y: Mapped[float] = mapped_column(Float, default=0.0)
     width: Mapped[float | None] = mapped_column(Float, nullable=True)
     height: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fail_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),

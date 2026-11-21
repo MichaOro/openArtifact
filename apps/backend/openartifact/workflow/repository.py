@@ -18,7 +18,12 @@ DEFAULT_NAMES = {
     NodeKind.STAGE: "Stage",
     NodeKind.ACTION: "Action",
     NodeKind.COMPLETE: "Complete",
+    NodeKind.OUTPUT: "Output",
 }
+# what an action definition is made of: only these may be added by hand, the first two are fixed
+WORKFLOW_KINDS = {NodeKind.TRIGGER, NodeKind.STAGE, NodeKind.ACTION, NodeKind.COMPLETE}
+ACTION_KINDS = {NodeKind.TRIGGER, NodeKind.OUTPUT}
+FIXED_KINDS = {NodeKind.TRIGGER, NodeKind.OUTPUT}
 STAGE_SIZE = (360.0, 240.0)
 
 
@@ -34,27 +39,36 @@ class WorkflowRepository:
 
     # ── workflows ─────────────────────────────────────────────────────
 
-    async def create(self, name: str) -> Workflow:
-        """Create a workflow with a trigger, because every workflow starts with one."""
-        workflow = Workflow(id=str(uuid.uuid4()), name=name)
+    async def create(self, name: str, kind: str = "workflow") -> Workflow:
+        """Create a workflow with a trigger, because every workflow starts with one.
+
+        An action definition also gets its output node: it always has an input and outcomes.
+        """
+        workflow = Workflow(id=str(uuid.uuid4()), name=name, kind=kind)
         self._session.add(workflow)
-        self._session.add(
-            WorkflowNode(
-                id=str(uuid.uuid4()),
-                workflow_id=workflow.id,
-                kind=NodeKind.TRIGGER.value,
-                name=DEFAULT_NAMES[NodeKind.TRIGGER],
-                x=60.0,
-                y=160.0,
-            )
+        kinds = [(NodeKind.TRIGGER, 60.0)] + (
+            [(NodeKind.OUTPUT, 460.0)] if kind == "action" else []
         )
+        for node_kind, x in kinds:
+            self._session.add(
+                WorkflowNode(
+                    id=str(uuid.uuid4()),
+                    workflow_id=workflow.id,
+                    kind=node_kind.value,
+                    name=DEFAULT_NAMES[node_kind],
+                    x=x,
+                    y=160.0,
+                )
+            )
         await self._session.flush()
         return workflow
 
-    async def list_all(self) -> Sequence[Workflow]:
-        """All workflows, most recently changed first."""
+    async def list_all(self, kind: str = "workflow") -> Sequence[Workflow]:
+        """All workflows (or action definitions), most recently changed first."""
         result = await self._session.execute(
-            select(Workflow).order_by(Workflow.updated_at.desc(), Workflow.id)
+            select(Workflow)
+            .where(Workflow.kind == kind)
+            .order_by(Workflow.updated_at.desc(), Workflow.id)
         )
         return result.scalars().all()
 
@@ -102,6 +116,10 @@ class WorkflowRepository:
 
     async def add_node(self, workflow: Workflow, data: NodeCreate) -> WorkflowNode:
         """Add a node. Actions must name a stage of the same workflow."""
+        if data.kind not in (ACTION_KINDS if workflow.kind == "action" else WORKFLOW_KINDS):
+            raise NodeError(f"A {workflow.kind} cannot contain a {data.kind.value}")
+        if data.kind in FIXED_KINDS and workflow.kind == "action":
+            raise NodeError(f"An action definition has exactly one {data.kind.value}")
         if data.kind is NodeKind.ACTION:
             stage = data.stage_id and await self.get_node(workflow.id, data.stage_id)
             if not stage or stage.kind != NodeKind.STAGE.value:
@@ -128,14 +146,18 @@ class WorkflowRepository:
         sent = data.model_fields_set
         if {"width", "height"} & sent and node.kind != NodeKind.STAGE.value:
             raise NodeError("Only stages have a size")
-        for field in ("name", "x", "y", "width", "height"):
+        if "fail_enabled" in sent and node.kind != NodeKind.OUTPUT.value:
+            raise NodeError("Only an output has On Fail")
+        for field in ("name", "x", "y", "width", "height", "fail_enabled"):
             value = getattr(data, field)
             if field in sent and value is not None:
                 setattr(node, field, value)
         await self._session.flush()
 
-    async def delete_node(self, node: WorkflowNode) -> None:
+    async def delete_node(self, workflow: Workflow, node: WorkflowNode) -> None:
         """Delete a node; its actions (for a stage) and edges go with it (cascade)."""
+        if workflow.kind == "action" and NodeKind(node.kind) in FIXED_KINDS:
+            raise NodeError("The trigger and the output of an action definition stay")
         await self._session.delete(node)
         await self._session.flush()
 

@@ -8,6 +8,7 @@ Ports:
   to the next stage or an ending. Which side an edge is on follows from its other end.
 * action: ``in``, ``pass``, ``error`` (only inside its own stage)
 * complete: ``in``
+* output (only in action definitions): ``in``; its outcomes *On Pass* / *On Fail* are not ports
 """
 
 from __future__ import annotations
@@ -21,12 +22,14 @@ OUTPUT_PORTS = {
     NodeKind.STAGE: ("start", "end"),
     NodeKind.ACTION: ("pass", "error"),
     NodeKind.COMPLETE: (),
+    NodeKind.OUTPUT: (),
 }
 INPUT_PORTS = {
     NodeKind.TRIGGER: (),
     NodeKind.STAGE: ("start", "end"),
     NodeKind.ACTION: ("in",),
     NodeKind.COMPLETE: ("in",),
+    NodeKind.OUTPUT: ("in",),
 }
 
 

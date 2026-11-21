@@ -23,6 +23,7 @@ from openartifact.workflow.schemas import (
     NodeUpdate,
     WorkflowCreate,
     WorkflowDetail,
+    WorkflowKind,
     WorkflowRead,
     WorkflowUpdate,
 )
@@ -48,16 +49,18 @@ async def _workflow(repo: WorkflowRepository, workflow_id: str) -> Workflow:
 
 
 @router.get("", response_model=list[WorkflowRead])
-async def list_workflows(session: SessionDep) -> list[WorkflowRead]:
-    """List all workflows, most recently changed first."""
-    workflows = await WorkflowRepository(session).list_all()
+async def list_workflows(
+    session: SessionDep, kind: WorkflowKind = "workflow"
+) -> list[WorkflowRead]:
+    """List all workflows (``kind=action``: the action definitions), most recently changed first."""
+    workflows = await WorkflowRepository(session).list_all(kind)
     return [WorkflowRead.model_validate(w) for w in workflows]
 
 
 @router.post("", response_model=WorkflowRead, status_code=status.HTTP_201_CREATED)
 async def create_workflow(payload: WorkflowCreate, session: SessionDep) -> WorkflowRead:
-    """Create a workflow; it starts with a trigger."""
-    workflow = await WorkflowRepository(session).create(payload.name)
+    """Create a workflow; it starts with a trigger (an action definition also with its output)."""
+    workflow = await WorkflowRepository(session).create(payload.name, payload.kind)
     await session.commit()
     return WorkflowRead.model_validate(workflow)
 
@@ -137,7 +140,10 @@ async def delete_node(workflow_id: str, node_id: str, session: SessionDep) -> Re
     node = await repo.get_node(workflow_id, node_id)
     if node is None:
         raise _not_found("Node")
-    await repo.delete_node(node)
+    try:
+        await repo.delete_node(workflow, node)
+    except NodeError as error:
+        raise _invalid(error) from error
     await repo.touch(workflow)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

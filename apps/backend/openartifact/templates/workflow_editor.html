@@ -1,28 +1,30 @@
 {% extends "base.html" %}
 {% from "components/confirm_modal.html" import confirm_modal %}
 {% from "components/icons.html" import icon %}
-{% block title %}Workflow · OpenArtifact{% endblock %}
+{% block title %}{{ section.label }} · OpenArtifact{% endblock %}
 {% block styles %}<link rel="stylesheet" href="/static/css/workflow.css">{% endblock %}
 {% block content %}
-<div class="wf-editor" data-workflow-id="{{ workflow_id }}">
+<div class="wf-editor" data-workflow-id="{{ workflow_id }}" data-kind="{{ section.kind }}">
     <div class="board-alert glass" role="alert" hidden data-editor-error>
         <span data-editor-error-text></span>
         <button type="button" class="button button--ghost button--sm" data-retry>Retry</button>
     </div>
-    <div class="wf-bar glass" role="toolbar" aria-label="Workflow tools">
-        <a class="button button--ghost button--sm" href="/workflows">All workflows</a>
+    <div class="wf-bar glass" role="toolbar" aria-label="{{ section.label }} tools">
+        <a class="button button--ghost button--sm" href="{{ section.path }}">All {{ section.label | lower }}s</a>
         <span class="wf-bar__spacer"></span>
+        {% if section.kind == "workflow" %}
         <button type="button" class="button button--ghost button--sm" data-add="trigger">+ Trigger</button>
         <button type="button" class="button button--ghost button--sm" data-add="stage">+ Stage</button>
         <button type="button" class="button button--ghost button--sm" data-add="complete">+ Complete</button>
         <span class="wf-bar__spacer"></span>
+        {% endif %}
         <button type="button" class="button button--ghost button--sm" data-zoom-out aria-label="Zoom out">−</button>
         <span class="wf-bar__zoom" data-zoom-label aria-live="polite">100%</span>
         <button type="button" class="button button--ghost button--sm" data-zoom-in aria-label="Zoom in">+</button>
         <button type="button" class="button button--ghost button--sm" data-zoom-fit>Fit</button>
     </div>
     <div class="wf-main">
-        <div class="wf-viewport glass" data-viewport tabindex="-1" role="application" aria-label="Workflow canvas">
+        <div class="wf-viewport glass" data-viewport tabindex="-1" role="application" aria-label="{{ section.label }} canvas">
             <div class="wf-world" data-world>
                 <div data-nodes></div>
                 <svg class="wf-edges" data-edges aria-hidden="true"></svg>

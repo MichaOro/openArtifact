@@ -128,12 +128,13 @@ def test_root_links_assets(client: TestClient) -> None:
     assert "/static/js/theme.js" in html
 
 
-def test_navigation_lists_projects_and_workflows(client: TestClient) -> None:
-    """The sidebar offers Projects and Workflows; the current page is marked."""
+def test_navigation_lists_projects_workflows_and_actions(client: TestClient) -> None:
+    """The sidebar offers Projects, Workflows and Actions; the current page is marked."""
     html = client.get("/").text
-    assert html.count('class="nav-link"') == 2
+    assert html.count('class="nav-link"') == 3
     assert html.count('aria-current="page"') == 1
     assert 'href="/workflows"' in html
+    assert 'href="/actions"' in html
 
 
 def test_workflow_pages_render_and_mark_their_navigation_entry(client: TestClient) -> None:
@@ -141,6 +142,14 @@ def test_workflow_pages_render_and_mark_their_navigation_entry(client: TestClien
         response = client.get(path)
         assert response.status_code == 200
         assert 'href="/workflows"' in response.text
+        assert response.text.count('aria-current="page"') == 1
+
+
+def test_action_pages_render_and_mark_their_navigation_entry(client: TestClient) -> None:
+    for path in ("/actions", "/actions/any-id"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert 'href="/actions"' in response.text
         assert response.text.count('aria-current="page"') == 1
 
 

@@ -8,7 +8,7 @@
 import { PAD, SLOTS, boxOf, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf, slotY } from "./graph.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete" };
+const KIND_LABELS = { trigger: "Trigger", stage: "Stage", action: "Action", complete: "Complete", output: "Output" };
 const OUTPUT_LABELS = { pass: "Pass", error: "Error" };
 const DRAG_THRESHOLD = 4;
 const MIN_ZOOM = 0.25;
@@ -109,6 +109,7 @@ export class Canvas {
       text.className = "wf-node__text";
       text.append(name, kind);
       el.append(text);
+      if (node.kind === "output") el.append(this.#outcomes());
       for (const port of ["in", "out", "pass", "error"]) {
         if (this.#hasPort(node.kind, port)) el.append(this.#port(node, port, OUTPUT_LABELS[port] ?? "Input"));
       }
@@ -116,8 +117,26 @@ export class Canvas {
     return el;
   }
 
+  /** The outcomes of an action: On Pass is always there, On Fail is switched on with the small button. */
+  #outcomes() {
+    const wrap = document.createElement("div");
+    wrap.className = "wf-outcomes";
+    const pass = document.createElement("span");
+    pass.className = "wf-outcome wf-outcome--pass";
+    pass.textContent = "On Pass";
+    const fail = document.createElement("span");
+    fail.className = "wf-outcome wf-outcome--fail";
+    fail.textContent = "On Fail";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "wf-outcome__toggle";
+    toggle.dataset.toggleFail = "";
+    wrap.append(pass, fail, toggle);
+    return wrap;
+  }
+
   #hasPort(kind, port) {
-    return { trigger: ["out"], action: ["in", "pass", "error"], complete: ["in"] }[kind]?.includes(port) ?? false;
+    return { trigger: ["out"], action: ["in", "pass", "error"], complete: ["in"], output: ["in"] }[kind]?.includes(port) ?? false;
   }
 
   /** A port dot. A stage's start and end work both ways ("both"): they receive and they feed. */
@@ -142,6 +161,12 @@ export class Canvas {
     el.style.height = `${height}px`;
     el.querySelector(".wf-node__name").textContent = node.name;
     el.setAttribute("aria-label", `${KIND_LABELS[node.kind]}: ${node.name}`);
+    if (node.kind === "output") {
+      el.querySelector(".wf-outcome--fail").hidden = !node.fail_enabled;
+      const toggle = el.querySelector("[data-toggle-fail]");
+      toggle.textContent = node.fail_enabled ? "− On Fail" : "+ On Fail";
+      toggle.setAttribute("aria-pressed", String(node.fail_enabled));
+    }
     if (node.kind === "stage") {
       el.querySelectorAll(":scope > .wf-port").forEach((port) => {
         port.style.top = `${slotY(height, Number(port.dataset.slot))}px`;

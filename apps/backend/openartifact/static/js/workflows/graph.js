@@ -10,12 +10,13 @@ export const SIZE = {
   trigger: { width: 160, height: 64 },
   action: { width: 190, height: 68 },
   complete: { width: 160, height: 56 },
+  output: { width: 190, height: 96 },
 };
 export const STAGE_MIN = { width: 320, height: 220 };
 
 // A stage has one start and one end, each serving both sides (see workflow/rules.py).
-export const OUTPUTS = { trigger: ["out"], stage: ["start", "end"], action: ["pass", "error"], complete: [] };
-export const INPUTS = { trigger: [], stage: ["start", "end"], action: ["in"], complete: ["in"] };
+export const OUTPUTS = { trigger: ["out"], stage: ["start", "end"], action: ["pass", "error"], complete: [], output: [] };
+export const INPUTS = { trigger: [], stage: ["start", "end"], action: ["in"], complete: ["in"], output: ["in"] };
 
 export const PORT_LABELS = {
   out: "Next",

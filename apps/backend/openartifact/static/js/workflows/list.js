@@ -1,4 +1,4 @@
-/* The workflow list: create, rename, delete, open. */
+/* The list of workflows or action definitions: create, rename, delete, open. */
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { Modal } from "../components/modal.js";
 import { createWorkflow, deleteWorkflow, listWorkflows, renameWorkflow } from "./api.js";
@@ -6,6 +6,8 @@ import { createWorkflow, deleteWorkflow, listWorkflows, renameWorkflow } from ".
 const listEl = document.querySelector("[data-wf-list]");
 const emptyEl = document.querySelector("[data-wf-empty]");
 const errorEl = document.querySelector("[data-list-error]");
+const { kind, path } = listEl.dataset;
+const noun = kind === "action" ? "action" : "workflow";
 const template = document.getElementById("wf-item-template");
 
 const nameModal = new Modal(document.getElementById("name-modal"));
@@ -26,16 +28,16 @@ function render() {
     ...workflows.map((workflow) => {
       const item = template.content.firstElementChild.cloneNode(true);
       const link = item.querySelector("a");
-      link.href = `/workflows/${encodeURIComponent(workflow.id)}`;
+      link.href = `${path}/${encodeURIComponent(workflow.id)}`;
       item.querySelector(".wf-item__name").textContent = workflow.name;
       item.querySelector(".wf-item__meta").textContent = `Changed ${when(workflow.updated_at)}`;
-      item.querySelector("[data-rename]").addEventListener("click", () => askName("Rename workflow", workflow.name, async (name) => {
+      item.querySelector("[data-rename]").addEventListener("click", () => askName(`Rename ${noun}`, workflow.name, async (name) => {
         await renameWorkflow(workflow.id, name);
         await load();
       }));
       item.querySelector("[data-delete]").addEventListener("click", () =>
         confirm.open({
-          message: `Delete "${workflow.name}" with all its stages and actions? This cannot be undone.`,
+          message: kind === "action" ? `Delete "${workflow.name}"? This cannot be undone.` : `Delete "${workflow.name}" with all its stages and actions? This cannot be undone.`,
           onConfirm: async () => {
             await deleteWorkflow(workflow.id);
             await load();
@@ -50,7 +52,7 @@ function render() {
 
 async function load() {
   try {
-    workflows = await listWorkflows();
+    workflows = await listWorkflows(kind);
     errorEl.hidden = true;
     render();
   } catch {
@@ -88,9 +90,9 @@ form.addEventListener("submit", async (event) => {
 input.addEventListener("input", () => (fieldError.hidden = true));
 
 document.querySelector("[data-new-workflow]").addEventListener("click", () =>
-  askName("New workflow", "", async (name) => {
-    const created = await createWorkflow(name);
-    window.location.assign(`/workflows/${encodeURIComponent(created.id)}`);
+  askName(`New ${noun}`, "", async (name) => {
+    const created = await createWorkflow(name, kind);
+    window.location.assign(`${path}/${encodeURIComponent(created.id)}`);
   }),
 );
 document.querySelector("[data-list-retry]").addEventListener("click", load);
