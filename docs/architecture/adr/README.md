@@ -52,7 +52,6 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 
 - The file name of ADR-012 keeps the word "workflow"; the content uses the vocabulary of
   [ADR-015](015-vocabulary-and-storage-names.md). Links stay valid, so the file is not renamed.
-- ADR-034 is reserved (If/Switch nodes).
 - ADR-009 is deprecated: it was the bootstrap plan. ADR-004 is superseded by ADR-010.
 - ADR-001 to ADR-016 are written in the long form of the template (drivers and options), later ones partly in the
   short form. Old ADRs are not rewritten.

@@ -61,11 +61,15 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Run engine: start, stop, jump, sub-pipelines, timer node, recovery on restart | Built | ADR-013, ADR-018 |
 | Code node (`sh`, `python`), resource limits, leftover cleanup | Built; no sandbox, needs an API token (or an explicit development switch) | ADR-021, ADR-023 |
 | HTTP node with SSRF guard | Built | ADR-021, ADR-023 |
-| Credential store | Built as API only; no UI | ADR-024 |
+| Run context: variables and node results of a run, `${node...}` / `${var...}` / `${card...}` references | Built | ADR-033 |
+| If and Switch nodes, editor suggestions for references | Built | ADR-034 |
+| Artifact types with typed card parameters | Built | ADR-035 |
+| User-defined lanes with a card look per lane; one UI language (primary, destructive, neutral) | Built | ADR-011, ADR-036 |
+| Credential store | Built as API; no page of its own (the provider dialog can store an API key) | ADR-024, ADR-037 |
 | Execution history per artifact with retention policy | Built | ADR-025 |
 | Flow view of an execution (read-only, frozen snapshot) | Built | ADR-027 |
 | Global executions page and API | Built | ADR-028 |
-| Integration API (`/api/v1`) and MCP server (18 tools) | Built | ADR-016 |
+| Integration API (`/api/v1`) and MCP server (19 tools) | Built | ADR-016 |
 | Access protection and request hardening | Built | ADR-016, ADR-017 |
 | Settings area in the UI: loop protection, wall-clock deadlines, separate tokens | Not built except *Settings › LLM providers* (a run is cut off at 1000 steps; limits are environment variables) | ADR-037 |
 | Human-in-the-loop (a `waiting` status), automatic starts by the system | Not built (`started_by` knows `system`, nothing sets it) | |
@@ -88,8 +92,9 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Drag and drop | Mouse, touch and keyboard (Alt+arrows); Pointer Events, optimistic with rollback (ADR-011) |
 | Live updates | SSE (`GET /api/events`), all tabs stay in sync, resync on reconnect; no WebSocket |
 | Artifact dialog | Tabs Details and History; card navigation rail (lane, parent, pipeline, stage, action, start/stop, delete); sizing rule in [5.7](05-building-block-view/05.07-frontend-dialogs-tabs-and-flow-viewer.md) (ADR-029) |
+| Agents and providers | Agent list and page (draft, publish, versions with rollback, preview, uses); *Settings › LLM providers* (test, models, defaults); Agent node inspector with inherited and overridden settings; the request of an agent step in the history (ADR-037) |
 | Pipeline and action editor | List and canvas: trigger, stages with one start and end, actions, connections by dragging (curved, straight or elbow; three attachment points per stage side); changes saved at once; inspector with settings per node kind including Code and HTTP (ADR-012, ADR-014, ADR-022) |
 | Processing | Start and stop at a chosen pipeline, stage and action; the card is locked while it runs; state pushed by SSE (ADR-013) |
 | History tab, flow page, executions page | List, detail with steps, retention editor, delete and clear; read-only flow on the editor canvas with drill-in; global list with filters and summary |
-| Not implemented | Priorities, tags, due dates, assignees; reordering lanes; UI for credentials; keyboard creation of graph connections |
+| Not implemented | Priorities, tags, due dates, assignees; reordering lanes; a page for credentials; keyboard creation of graph connections |
 | Never used | HTMX, Tailwind CSS, Alpine.js (ADR-010) |

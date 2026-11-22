@@ -251,7 +251,7 @@ The HTML pages (`/`, `/pipelines`, `/pipelines/{ref}`, `/actions`, `/actions/{re
 
 ## MCP tools
 
-`/mcp` offers 18 tools over Streamable HTTP. They go through the same service as the REST API; a refused
+`/mcp` offers 19 tools over Streamable HTTP. They go through the same service as the REST API; a refused
 call returns the reason as the tool's error text. Artifacts are addressed by number (`12` or `#12`) or id.
 Pipeline, stage and action are given by name.
 

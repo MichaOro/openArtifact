@@ -6,8 +6,8 @@ Automated tests live next to the application they test, in `apps/backend/tests/`
 
 | Kind | Location | Run | Size (at the time of writing) |
 |------|----------|-----|------|
-| Unit and API tests | `tests/test_*.py` | `pytest` | about 640 tests |
-| Browser tests (Playwright) | `tests/e2e/` | `pytest -m e2e` | about 190 tests |
+| Unit and API tests | `tests/test_*.py` | `pytest` | about 1,240 tests |
+| Browser tests (Playwright) | `tests/e2e/` | `pytest -m e2e` | about 240 tests |
 
 ## Layout
 
@@ -15,6 +15,7 @@ Automated tests live next to the application they test, in `apps/backend/tests/`
 tests/
 ├── conftest.py        fixtures of the unit and API tests (settings, template database, client, event spy)
 ├── helpers.py         builders and waiting helpers shared by the API tests and the browser tests
+├── agent_support.py   a local OpenAI-compatible server (FakeLlm) and builders for providers and agents
 ├── test_<area>.py     one file per area (below)
 └── e2e/
     ├── conftest.py    starts a real server on a free port; marks every test below it `e2e`
@@ -26,7 +27,9 @@ The areas: services and API (`test_tasks.py`, `test_graphs.py`, `test_health.py`
 `test_integration.py` for `/api/v1` and MCP), access and hardening (`test_access.py`, `test_security.py`),
 the engine (`test_engine.py`, `test_chain.py`, `test_task_target.py`), execution nodes
 (`test_code_runner.py`, `test_code_hardening.py`, `test_http_runner.py`, `test_execution_nodes.py`),
-credentials (`test_secrets.py`), history (`test_history.py`, `test_history_global.py`,
+credentials (`test_secrets.py`), agents and providers (`test_agent_render.py` and `test_agent_runtime.py` without a
+database, `test_agents_api.py`, `test_providers_api.py`, `test_agent_node.py` for runs, `test_agents_misc.py`; a local
+stand-in answers like a provider, so no test calls a real one), history (`test_history.py`, `test_history_global.py`,
 `test_execution_flow.py`), migrations (`test_migrations.py`, which also runs `alembic check` so the models
 cannot drift from the migrations), configuration, logging and the lifespan. The browser tests cover the
 board, dialogs, editor, processing, history, executions page, flow view, execution nodes, access and the CSP

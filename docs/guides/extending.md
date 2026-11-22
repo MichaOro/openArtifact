@@ -6,7 +6,7 @@ would ([ADR-014](../architecture/adr/014-building-blocks-and-extension-points.md
 | Extension point | Registry | Section |
 |-----------------|----------|---------|
 | A kind of node | `NODE_TYPES` (`graph/node_types.py`), `EXECUTORS` (`engine/executors.py`), `VIEWS` (`static/js/editor/node-types.js`) | [Add a kind of node](#add-a-kind-of-node) |
-| A type of node setting | `SETTING_TYPES` (server), `CONTROLS` (`static/js/editor/setting-controls.js`) | [Add a setting type](#add-a-setting-type) |
+| A type of node setting | `Setting.validate` (server), `CONTROLS` (`static/js/editor/setting-controls.js`) | [Add a setting type](#add-a-setting-type) |
 | A navigation entry | `SIDEBAR`, `ARTIFACT_RAIL` (`web/navigation.py`) | [Add a navigation entry](#add-a-navigation-entry) |
 | A server-sent event | `EventBus.publish`, `EVENT_TYPES` (`static/js/tasks/events.js`) | [Add an event type](#add-an-event-type) |
 | A dialog with fields | `form_modal` macro and `FormDialog` | [Add a dialog](#add-a-dialog) |
@@ -120,16 +120,17 @@ model for anything new.
 
 ## Add a setting type
 
-A setting is one `Setting(key, label, type, ...)` in a node type. The types are `integer`, `switch`, `text`
-(one line), `lines` (several lines), `code` (source code, monospace) and `select` (one of `options`). Settings
-are bounded by `minimum` / `maximum` (integers), `max_length` (texts; the default is 2000 for `text` and 20000 for `lines` and `code`) and `options`; `check` is an extra validation function for a text (not sent to the editor;
+A setting is one `Setting(key, label, type, ...)` in a node type. The types are `integer`, `number` (whole or
+decimal), `switch`, `text` (one line), `lines` (several lines), `code` (source code, monospace) and `select` (one of
+`options`). Settings are bounded by `minimum` / `maximum` (integers and numbers), `max_length` (texts; the default is 2000 for `text` and 20000 for `lines` and `code`) and `options`; `check` is an extra validation function for a text (not sent to the editor;
 raise `SettingError`); `placeholder` and `help` are shown in the inspector. `Setting.validate` is the one
 place that decides whether a value fits. Using an existing type needs only the `Setting` entry.
 
 A new type:
 
-1. Add its name to `SETTING_TYPES` and its default length (if a text) to `_DEFAULT_MAX_LENGTH` in
-   `graph/node_types.py`; add its branch to `Setting.validate` (and `describe`, if it publishes more).
+1. Add its branch to `Setting.validate` in `graph/node_types.py` (and to `describe`, if it publishes more), and its
+   default length to `_DEFAULT_MAX_LENGTH` if it is a text. There is no list of type names besides that: a type is
+   what `validate` accepts.
 2. Add a control class to `static/js/editor/setting-controls.js`: subclass `SettingControl` (or
    `LinesControl`), implement `createInput(value)` (and `read`, `parse`, `hint` if the value is not the
    input's text), and list it in `CONTROLS`. A type the browser does not know is shown as a text field.
