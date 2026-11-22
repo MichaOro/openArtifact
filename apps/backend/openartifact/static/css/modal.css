@@ -28,7 +28,12 @@ html:has(.modal[open]) { overflow: hidden; }
   --rail-w-collapsed: 3.75rem;
   --rail-w-open: 11rem;
   --rail-w: var(--rail-w-collapsed);
-  --form-w: min(31rem, calc(100vw - 2 * var(--space-4) - var(--rail-w-open)));
+  /* the base width of every dialog (form column plus the collapsed rail) and what a saved artifact
+     may grow to: width = clamp(base, ratio * height, max) */
+  --dialog-base-w: 34.75rem;
+  --dialog-max-w: 800px;
+  --dialog-ratio: 0.62;
+  --form-w: min(calc(var(--dialog-base-w) - var(--rail-w-collapsed)), calc(100vw - 2 * var(--space-4) - var(--rail-w-open)));
   width: calc(var(--form-w) + var(--rail-w));
   /* keep the left edge (the form and the rail's icon column with the toggle) where it is while
      the card grows rightwards; never push the right edge out of the viewport */
@@ -105,8 +110,25 @@ html:has(.modal[open]) { overflow: hidden; }
 .card-run[data-state="running"] { color: var(--color-danger); }
 .card-run:disabled { opacity: 0.5; }
 .task-view, .task-form { display: flex; flex-direction: column; justify-content: space-between; }
-/* reading and editing take the same room, so the buttons below stay where they are */
-.modal__panel:not(:has([data-card-nav][hidden])) .modal__layout { min-height: min(24rem, 70vh); }
+/* A saved artifact (view and edit) is sized once from its content, see .modal__panel--fit: the
+   height is --fit-h (set by artifact-dialog.js), the width follows from it. The body area scrolls
+   while header, footer and rail stay put; the textarea fills the same area, so editing does not
+   change the size. */
+.modal__panel--fit {
+  display: flex;
+  flex-direction: column;
+  height: var(--fit-h);
+  --form-w: min(
+    calc(clamp(var(--dialog-base-w), calc(var(--fit-h) * var(--dialog-ratio)), var(--dialog-max-w)) - var(--rail-w-collapsed)),
+    calc(100vw - 2 * var(--space-4) - var(--rail-w-open))
+  );
+}
+.modal__panel--fit .modal__layout { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.modal__panel--fit .task-view,
+.modal__panel--fit .task-form { min-height: 0; }
+.modal__panel--fit .modal__body { flex: 1; min-height: 0; overflow-y: auto; }
+.modal__panel--fit .field:has(textarea) { flex: 1; min-height: 0; }
+.modal__panel--fit textarea.field__control { flex: 1; min-height: 4.5rem; }
 .task-view__body { min-height: 9rem; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-text-primary); }
 .task-view__body:empty::before { content: "No description."; color: var(--color-text-muted); }
 .ref { color: var(--color-accent); text-decoration: none; border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; }

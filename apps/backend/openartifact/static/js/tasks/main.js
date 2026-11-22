@@ -7,7 +7,7 @@ import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { KEYS } from "../storage.js";
 import { createTask, deleteTask, listRuns, listTasks, placeTask, updateTask } from "./api.js";
 import { Board } from "./board.js";
-import { TaskForm } from "./create-task-form.js";
+import { ArtifactDialog } from "./artifact-dialog.js";
 import { CardDragController } from "./dnd.js";
 import { ProcessingPanel } from "./processing.js";
 import { connectEvents } from "./events.js";
@@ -50,7 +50,7 @@ async function moveTaskTo(task, { status = task.status, beforeId, position } = {
   }
 }
 
-const taskForm = new TaskForm({
+const artifactDialog = new ArtifactDialog({
   modal: new Modal(document.getElementById("create-task-modal")),
   createTask,
   updateTask,
@@ -68,7 +68,7 @@ const taskForm = new TaskForm({
     const id = trail.pop();
     const previous = id && board.tasks.get(id);
     if (previous) showTask(previous);
-    else taskForm.modal.close();
+    else artifactDialog.modal.close();
   },
 });
 
@@ -76,16 +76,16 @@ const taskForm = new TaskForm({
 const trail = [];
 function showTask(task, { follow = false } = {}) {
   processing.show(task.id);
-  if (follow && taskForm.editing) trail.push(taskForm.editing.id);
-  else if (!follow && !taskForm.modal.isOpen) trail.length = 0;
-  taskForm.openView(
+  if (follow && artifactDialog.editing) trail.push(artifactDialog.editing.id);
+  else if (!follow && !artifactDialog.modal.isOpen) trail.length = 0;
+  artifactDialog.openView(
     task,
     board.laneTitle(task.status),
     board.laneHue(task.status),
     board.parentOf(task)?.title ?? null,
     trail.length > 0,
   );
-  taskForm.subtitle.disabled = board.locked.has(task.id);
+  artifactDialog.subtitle.disabled = board.locked.has(task.id);
 }
 
 const deleteDialog = new ConfirmDialog(new Modal(document.getElementById("delete-task-modal")));
@@ -132,7 +132,7 @@ const processing = new ProcessingPanel({
   picker: lanePicker,
   onLock: (taskId, locked) => {
     board.setLocked(taskId, locked);
-    if (taskForm.editing?.id === taskId) taskForm.subtitle.disabled = locked;
+    if (artifactDialog.editing?.id === taskId) artifactDialog.subtitle.disabled = locked;
   },
   onError: (message) => board.showError(message),
 });
@@ -144,33 +144,33 @@ function pickLane(trigger, placement, variant = "list") {
     placement,
     variant,
     label: "Move to lane",
-    current: taskForm.currentStatus(),
+    current: artifactDialog.currentStatus(),
     lanes: board.statuses.map((status) => ({
       status,
       title: board.laneTitle(status),
       hue: board.laneHue(status),
     })),
     onSelect: async (status) => {
-      const editing = taskForm.editing;
-      const previous = taskForm.currentStatus();
-      taskForm.setLane(status, board.laneTitle(status), board.laneHue(status));
+      const editing = artifactDialog.editing;
+      const previous = artifactDialog.currentStatus();
+      artifactDialog.setLane(status, board.laneTitle(status), board.laneHue(status));
       if (!editing) return; // new task: only the target lane changes
       const task = board.tasks.get(editing.id) ?? editing;
       const moved = await moveTaskTo(task, { status });
-      if (!moved && taskForm.editing?.id === editing.id) {
-        taskForm.setLane(previous, board.laneTitle(previous), board.laneHue(previous));
+      if (!moved && artifactDialog.editing?.id === editing.id) {
+        artifactDialog.setLane(previous, board.laneTitle(previous), board.laneHue(previous));
       }
     },
   });
 }
 // "#" in the body offers the artifacts of the board (not the one being edited).
 new ReferencePicker({
-  textarea: taskForm.bodyInput,
+  textarea: artifactDialog.bodyInput,
   container: document.getElementById("create-task-modal"),
   getItems: () =>
     board
       .inBoardOrder()
-      .filter((t) => t.id !== taskForm.editing?.id)
+      .filter((t) => t.id !== artifactDialog.editing?.id)
       .map((t) => ({ number: t.number, title: t.title, hue: board.laneHue(t.status) })),
 });
 
@@ -180,7 +180,7 @@ async function setParent(id, parentId) {
   if (!task || board.locked.has(id) || (task.parent_id ?? null) === parentId) return;
   const previous = task;
   board.upsert({ ...task, parent_id: parentId });
-  taskForm.setParent(board.parentOf(board.tasks.get(id))?.title ?? null);
+  artifactDialog.setParent(board.parentOf(board.tasks.get(id))?.title ?? null);
   try {
     board.upsert(await updateTask(id, { parent_id: parentId }));
   } catch (error) {
@@ -188,13 +188,13 @@ async function setParent(id, parentId) {
       board.remove(id);
     } else {
       board.upsert(previous);
-      taskForm.setParent(board.parentOf(previous)?.title ?? null);
+      artifactDialog.setParent(board.parentOf(previous)?.title ?? null);
       board.showError(`Could not change the parent of "${task.title}": ${error.status === 422 ? "that would create a loop." : "please try again."}`);
     }
   }
 }
 cardNavRoot.querySelector('[data-card-field="parent"]').addEventListener("click", (event) => {
-  const editing = taskForm.editing;
+  const editing = artifactDialog.editing;
   const task = editing && board.tasks.get(editing.id);
   if (!task || board.locked.has(task.id)) return;
   const blocked = board.descendantIds(task.id);
@@ -213,23 +213,23 @@ cardNavRoot.querySelector('[data-card-field="parent"]').addEventListener("click"
     onSelect: (value) => setParent(task.id, value || null),
   });
 });
-taskForm.subtitle.addEventListener("click", (event) => {
-  if (!board.locked.has(taskForm.editing?.id)) pickLane(event.currentTarget, "below", "chips");
+artifactDialog.subtitle.addEventListener("click", (event) => {
+  if (!board.locked.has(artifactDialog.editing?.id)) pickLane(event.currentTarget, "below", "chips");
 });
 cardNavRoot.querySelector('[data-card-field="lane"]').addEventListener("click", (event) => {
-  if (!board.locked.has(taskForm.editing?.id)) pickLane(event.currentTarget, "left");
+  if (!board.locked.has(artifactDialog.editing?.id)) pickLane(event.currentTarget, "left");
 });
 cardNavRoot.querySelector('[data-card-action="delete"]').addEventListener("click", () => {
-  const task = taskForm.editing;
-  if (!task || taskForm.busy || board.locked.has(task.id)) return;
-  taskForm.modal.close(); // hand over from the editor to the delete confirmation
+  const task = artifactDialog.editing;
+  if (!task || artifactDialog.busy || board.locked.has(task.id)) return;
+  artifactDialog.modal.close(); // hand over from the editor to the delete confirmation
   confirmDelete(task);
 });
 
 // ── DOM events ────────────────────────────────────────────────────────
 
 document.querySelectorAll("[data-create-task]").forEach((button) => {
-  button.addEventListener("click", () => taskForm.open(button.dataset.status, button.dataset.laneTitle, board.laneHue(button.dataset.status)));
+  button.addEventListener("click", () => artifactDialog.openCreate(button.dataset.status, button.dataset.laneTitle, board.laneHue(button.dataset.status)));
 });
 
 board.element.addEventListener("click", (event) => {
@@ -310,7 +310,7 @@ connectEvents({
     else if (type === "board.resync") board.load(); // lane was renumbered: positions changed
     else {
       board.upsert(data); // task.created / task.updated / task.moved
-      taskForm.refreshView(data);
+      artifactDialog.refreshView(data);
     }
   },
 });

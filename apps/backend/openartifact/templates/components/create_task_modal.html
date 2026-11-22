@@ -1,4 +1,9 @@
 {% from "components/modal.html" import modal %}
+{% from "components/form_modal.html" import dialog_form %}
+{% set ARTIFACT_FIELDS = [
+    {"name": "title", "label": "Title", "kind": "text", "required": True, "maxlength": 255, "placeholder": "Enter artifact title..."},
+    {"name": "body", "label": "Body", "kind": "textarea", "maxlength": 10000, "rows": 6, "hint": "optional", "placeholder": "Describe your artifact..."},
+] %}
 {% from "components/icons.html" import icon %}
 {% from "components/nav.html" import nav_items %}
 {% call modal("create-task-modal", "Create Artifact", subtitle=True) %}
@@ -20,30 +25,7 @@
         <button type="button" class="button button--primary" data-view-edit>Edit</button>
     </footer>
 </section>
-<form class="task-form" id="create-task-form" novalidate>
-    <div class="modal__body">
-        <div class="field">
-            <label class="field__label" for="task-title">Title <span class="field__required" aria-hidden="true">*</span></label>
-            <input class="field__control" id="task-title" name="title" type="text" required
-                   maxlength="255" autocomplete="off" placeholder="Enter artifact title..."
-                   aria-required="true" aria-describedby="task-title-error" data-autofocus>
-            <p class="field__error" id="task-title-error" role="alert" hidden></p>
-        </div>
-        <div class="field">
-            <label class="field__label" for="task-body">Body <span class="field__hint">(optional)</span></label>
-            <textarea class="field__control" id="task-body" name="body" rows="6"
-                      maxlength="10000" placeholder="Describe your artifact..."></textarea>
-        </div>
-        <p class="form-error" role="alert" hidden data-form-error></p>
-    </div>
-    <footer class="modal__footer">
-        <button type="button" class="button button--ghost" data-cancel>Cancel</button>
-        <button type="submit" class="button button--primary" data-submit>
-            <span class="spinner" aria-hidden="true"></span>
-            <span data-submit-label>Create Artifact</span>
-        </button>
-    </footer>
-</form>
+{{ dialog_form("create-task-modal", ARTIFACT_FIELDS) }}
 <aside class="card-nav" id="card-nav" data-card-nav data-state="collapsed" aria-label="Artifact details" hidden>
     <ul class="nav-list card-nav__fields">
         {{ nav_items(navigation.ARTIFACT_RAIL.groups.fields) }}

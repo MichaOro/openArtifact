@@ -1,8 +1,8 @@
 /* The list of pipelines or action definitions: create, rename, delete, open. */
 import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
+import { FormDialog } from "../components/form-dialog.js";
 import { Modal } from "../components/modal.js";
-import { NameDialog } from "../components/name-dialog.js";
 import { KEYS, readJson, removeStorage } from "../storage.js";
 import { createGraph, deleteGraph, listGraphs, renameGraph } from "./api.js";
 
@@ -13,7 +13,7 @@ const noun = kind === "action" ? "action" : "pipeline";
 const template = document.getElementById("ge-item-template");
 
 const banner = new AlertBar();
-const nameDialog = new NameDialog(document.getElementById("name-modal"));
+const nameDialog = new FormDialog(new Modal(document.getElementById("name-modal")));
 const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
 
 let items = [];
@@ -35,8 +35,9 @@ function render() {
       item.querySelector("[data-rename]").addEventListener("click", () =>
         nameDialog.open({
           title: `Rename ${noun}`,
-          value: graph.name,
-          onSubmit: async (name) => {
+          values: { name: graph.name },
+          submitLabel: "Save",
+          onSubmit: async ({ name }) => {
             await renameGraph(kind, graph.id, name);
             await load();
           },
@@ -71,7 +72,7 @@ async function load() {
 document.querySelector("[data-new-graph]").addEventListener("click", () =>
   nameDialog.open({
     title: `New ${noun}`,
-    onSubmit: async (name) => {
+    onSubmit: async ({ name }) => {
       const created = await createGraph(kind, name);
       window.location.assign(`${path}/${encodeURIComponent(created.slug)}`);
     },

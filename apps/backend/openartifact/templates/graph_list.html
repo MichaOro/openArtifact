@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "components/alert.html" import alert %}
 {% from "components/confirm_modal.html" import confirm_modal %}
-{% from "components/name_modal.html" import name_modal %}
+{% from "components/form_modal.html" import form_modal, NAME_FIELDS %}
 {% from "components/icons.html" import icon %}
 {% block title %}{{ section.label }}s · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">{% endblock %}
@@ -25,7 +25,7 @@
     </li>
 </template>
 
-{{ name_modal("name-modal", section.label) }}
+{{ form_modal("name-modal", section.label, NAME_FIELDS) }}
 {{ confirm_modal("confirm-modal", "Delete " ~ (section.label | lower)) }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/editor/list.js"></script>{% endblock %}

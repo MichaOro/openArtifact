@@ -1,22 +1,17 @@
 /* Generic confirmation dialog (templates/components/confirm_modal.html): shows a message, runs an
  * async action on confirm, keeps the dialog open and shows the error if the action fails. */
+import { ActionDialog } from "./action-dialog.js";
 
-export class ConfirmDialog {
+export class ConfirmDialog extends ActionDialog {
   /** @param {import("./modal.js").Modal} modal */
   constructor(modal) {
-    this.modal = modal;
-    this.busy = false;
+    super(modal);
     this.action = null;
     this.onClose = null;
-    const root = modal.dialog;
-    this.message = root.querySelector("[data-confirm-message]");
-    this.note = root.querySelector("[data-confirm-note]");
-    this.error = root.querySelector("[data-form-error]");
-    this.confirmButton = root.querySelector("[data-confirm]");
-    this.cancelButton = root.querySelector("[data-cancel]");
-    this.label = root.querySelector("[data-confirm-label]");
-    modal.canClose = () => !this.busy;
-    this.confirmButton.addEventListener("click", () => this.#confirm());
+    this.message = this.root.querySelector("[data-confirm-message]");
+    this.note = this.root.querySelector("[data-confirm-note]");
+    this.label = this.root.querySelector("[data-confirm-label]");
+    this.submitButton.addEventListener("click", () => this.#confirm());
   }
 
   /**
@@ -37,7 +32,7 @@ export class ConfirmDialog {
       this.note.hidden = !note;
     }
     this.label.textContent = confirmLabel;
-    this.error.hidden = true;
+    this.setError("");
     this.modal.open();
   }
 
@@ -54,25 +49,7 @@ export class ConfirmDialog {
   }
 
   async #confirm() {
-    if (this.busy || !this.action) return;
-    this.#setBusy(true);
-    this.error.hidden = true;
-    try {
-      await this.action();
-    } catch (error) {
-      this.#setBusy(false);
-      this.error.textContent = error.detail ?? (error.message || "That did not work. Please try again.");
-      this.error.hidden = false;
-      return;
-    }
-    this.#setBusy(false);
-    this.modal.close();
-    this.onClose?.();
-  }
-
-  #setBusy(busy) {
-    this.busy = busy;
-    for (const button of [this.confirmButton, this.cancelButton]) button?.setAttribute("aria-disabled", String(busy));
-    this.confirmButton.setAttribute("aria-busy", String(busy));
+    if (!this.action) return;
+    if (await this.run(this.action)) this.onClose?.();
   }
 }

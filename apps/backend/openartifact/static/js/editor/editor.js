@@ -2,9 +2,9 @@
  * at once; if the server refuses one, the graph is reloaded and the reason shown. */
 import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
+import { FormDialog } from "../components/form-dialog.js";
 import { InlineName } from "../components/inline-name.js";
 import { Modal } from "../components/modal.js";
-import { NameDialog } from "../components/name-dialog.js";
 import { KEYS, removeStorage } from "../storage.js";
 import { AddMenu } from "./add-menu.js";
 import { createGraph, listGraphs } from "./api.js";
@@ -33,7 +33,7 @@ export class GraphEditor {
     this.alert.onRetry(() => this.load());
     this.zoomLabel = root.querySelector("[data-zoom-label]");
     this.confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
-    this.nameDialog = new NameDialog(document.getElementById("new-modal"));
+    this.nameDialog = new FormDialog(new Modal(document.getElementById("new-modal")));
     this.blocks = new InspectorBlocks(this.#blockActions(), this.model);
     this.inspector = new InspectorPanel(root.querySelector("[data-inspector]"), this.blocks, this.model);
     this.canvas = new Canvas({
@@ -343,7 +343,7 @@ export class GraphEditor {
   /** Ask for the name of something new to link to (like creating an artifact on the board). */
   #askNew(node) {
     const what = typeOf(node).links_to === "action" ? "action" : "pipeline";
-    this.nameDialog.open({ title: `New ${what}`, onSubmit: (name) => this.#createAndOpen(node, name) });
+    this.nameDialog.open({ title: `New ${what}`, onSubmit: ({ name }) => this.#createAndOpen(node, name) });
   }
 
   /** Create what the node links to under the entered name, link the node to it and go and edit it. */

@@ -1,10 +1,15 @@
-/* The task modal in three modes: "create" (form), "view" (read-only, references are links) and
- * "edit" (form). An existing artifact opens in view mode; saving an edit returns to it.
- * No markup knowledge beyond the data-/id hooks below; what happens with a saved task is
- * delegated via onSaved, so this module never touches the board. */
+/* The artifact dialog: a FormDialog (title, body) in three modes: "create" (form), "view"
+ * (read-only, references are links) and "edit" (form). An existing artifact opens in view mode;
+ * saving an edit returns to it. Adds to the base only what is artifact-specific: the view, the
+ * number, the lane chip, the rail's parent/lane fields and the draft. Where a saved artifact
+ * goes is delegated via createTask/updateTask/onSaved, so this module never touches the board. */
+import { FormDialog } from "../components/form-dialog.js";
 import { renderReferences } from "./references.js";
 
-export class TaskForm {
+/** Share of the viewport height a saved artifact's dialog may use at most. */
+const AVAILABLE_HEIGHT = 0.9;
+
+export class ArtifactDialog extends FormDialog {
   /**
    * @param {object} options
    * @param {import("../components/modal.js").Modal} options.modal
@@ -17,52 +22,38 @@ export class TaskForm {
    * @param {() => void} options.onBack the Back button was pressed
    */
   constructor({ modal, createTask, updateTask, onSaved, onGone, findByNumber, onReference, onBack }) {
-    this.modal = modal;
+    super(modal);
     this.createTask = createTask;
     this.updateTask = updateTask;
     this.onSaved = onSaved;
     this.onGone = onGone;
     this.findByNumber = findByNumber;
     this.mode = "create";
-    this.busy = false;
     this.status = "backlog";
     /** The task being edited, or null when creating. */
     this.editing = null;
     /** Create-mode draft, parked while an edit is open. */
     this.draft = null;
 
-    const root = modal.dialog;
-    this.form = root.querySelector("form");
-    this.heading = root.querySelector(".modal__title");
-    this.titleInput = this.form.elements.namedItem("title");
-    this.bodyInput = this.form.elements.namedItem("body");
-    this.titleError = root.querySelector("#task-title-error");
-    this.formError = root.querySelector("[data-form-error]");
+    const root = this.root;
+    this.titleInput = this.fields.get("title").control;
+    this.bodyInput = this.fields.get("body").control;
     this.numberLabel = root.querySelector("[data-modal-number]");
     this.subtitle = root.querySelector("[data-modal-subtitle]");
-    this.submitButton = root.querySelector("[data-submit]");
-    this.submitLabel = root.querySelector("[data-submit-label]");
-    this.cancelButton = root.querySelector("[data-cancel]");
     this.cardNav = root.querySelector("[data-card-nav]");
     this.laneField = root.querySelector('[data-card-field="lane"]');
     this.laneValue = root.querySelector("[data-lane-value]");
     this.laneTitle = "";
     this.parentField = root.querySelector('[data-card-field="parent"]');
     this.parentValue = root.querySelector("[data-parent-value]");
+    this.panel = root.querySelector(".modal__panel");
+    /** Height of the saved artifact's content without any limit; measured when it is opened. */
+    this.naturalHeight = 0;
     this.view = root.querySelector("[data-task-view]");
     this.viewTitle = root.querySelector("[data-view-title]");
     this.viewBody = root.querySelector("[data-view-body]");
     this.backButton = root.querySelector("[data-view-back]");
 
-    // Closing (X, Cancel, Escape, overlay) is blocked while a request is running.
-    modal.canClose = () => !this.busy;
-
-    this.form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      this.submit();
-    });
-    this.titleInput.addEventListener("input", () => this.#setTitleError(""));
-    this.cancelButton.addEventListener("click", () => (this.mode === "edit" ? this.#showView() : this.modal.close()));
     root.querySelector("[data-view-edit]").addEventListener("click", () => this.startEdit());
     this.backButton.addEventListener("click", () => onBack());
     this.viewBody.addEventListener("click", (event) => {
@@ -71,14 +62,16 @@ export class TaskForm {
       event.preventDefault();
       onReference(Number(link.dataset.number));
     });
+    window.addEventListener("resize", () => this.#applyFit());
   }
 
-  /** Open in create mode for a lane. The draft is kept if the user dismissed the modal earlier. */
-  open(status, laneTitle, hue) {
+  /** Open in create mode for a lane. The draft is kept if the user dismissed the dialog earlier. */
+  openCreate(status, laneTitle, hue) {
     this.#leaveEditMode();
     this.status = status;
     this.mode = "create";
-    this.#present("Create Artifact", "Create Artifact");
+    this.#present("Create Artifact");
+    this.#unfit();
     this.#showNumber(null);
     this.setLane(status, laneTitle, hue);
     this.modal.open();
@@ -93,6 +86,7 @@ export class TaskForm {
     this.#showNumber(task.number);
     this.#showView();
     if (!this.modal.isOpen) this.modal.open();
+    this.#fit();
   }
 
   /** Update the read-only view when the artifact (or what it references) changed elsewhere. */
@@ -106,22 +100,88 @@ export class TaskForm {
   startEdit() {
     const task = this.editing;
     if (!task || this.mode !== "view") return;
-    if (!this.draft) this.draft = { title: this.titleInput.value, body: this.bodyInput.value };
-    this.titleInput.value = task.title;
-    this.bodyInput.value = task.body ?? "";
+    this.draft ??= this.snapshot();
+    this.setValues({ title: task.title, body: task.body ?? "" });
     this.mode = "edit";
     this.#present("Edit Artifact", "Save");
-    this.view.hidden = true;
-    this.form.hidden = false;
     this.titleInput.focus();
+  }
+
+  /** Cancel in edit mode goes back to the view instead of closing. */
+  cancel() {
+    if (this.mode === "edit") this.#showView();
+    else super.cancel();
+  }
+
+  /** Saving an edit stays open: it returns to the view. */
+  get closesOnSuccess() {
+    return this.mode !== "edit";
+  }
+
+  async submit() {
+    if (this.mode === "edit" && !this.busy && this.validate() && !this.#changed()) {
+      this.#showView(); // nothing to save
+      return;
+    }
+    await super.submit();
+  }
+
+  showError(error) {
+    if (this.mode === "edit" && error.status === 404) {
+      // Deleted elsewhere in the meantime.
+      const task = this.editing;
+      this.#leaveEditMode();
+      this.modal.close();
+      this.onGone(task);
+      return;
+    }
+    super.showError(error);
+  }
+
+  #changed() {
+    const { title, body } = this.#editValues(this.values());
+    return title !== this.editing.title || body !== (this.editing.body ?? null);
+  }
+
+  #editValues({ title, body }) {
+    return { title, body: body.trim() || null };
+  }
+
+  async #create({ title, body }) {
+    this.onSaved(await this.createTask({ title, body, status: this.status }));
+  }
+
+  async #save(values) {
+    const saved = await this.updateTask(this.editing.id, this.#editValues(values));
+    this.editing = saved;
+    this.#showView();
+    this.onSaved(saved);
+  }
+
+  /** Size the dialog from the content of the artifact just opened; view and edit keep that size. */
+  #fit() {
+    this.#unfit();
+    this.naturalHeight = this.panel.offsetHeight;
+    this.panel.classList.add("modal__panel--fit");
+    this.#applyFit();
+  }
+
+  #unfit() {
+    this.panel.classList.remove("modal__panel--fit");
+    this.panel.style.removeProperty("--fit-h");
+  }
+
+  /** Height: the content, but at most AVAILABLE_HEIGHT of the window. The width follows in CSS. */
+  #applyFit() {
+    if (!this.panel.classList.contains("modal__panel--fit")) return;
+    const height = Math.min(this.naturalHeight, Math.floor(window.innerHeight * AVAILABLE_HEIGHT));
+    this.panel.style.setProperty("--fit-h", `${height}px`);
   }
 
   #showView() {
     const task = this.editing;
     this.mode = "view";
     this.#present("Artifact", "Save");
-    this.form.hidden = true;
-    this.view.hidden = false;
     this.viewTitle.textContent = task.title;
     this.viewBody.replaceChildren(renderReferences(task.body ?? "", this.findByNumber));
   }
@@ -158,124 +218,23 @@ export class TaskForm {
     this.laneField?.setAttribute("aria-label", `Lane: ${laneTitle}. Change lane`);
   }
 
-  async submit() {
-    if (this.busy) return; // no double submit
-
-    const title = this.titleInput.value.trim();
-    if (!title) {
-      this.#setTitleError("Please enter a title.");
-      this.titleInput.focus();
-      return;
-    }
-
-    if (this.editing) {
-      await this.#saveEdit(title);
-    } else {
-      await this.#saveNew(title);
-    }
-  }
-
-  async #saveNew(title) {
-    await this.#run(
-      () => this.createTask({ title, body: this.bodyInput.value, status: this.status }),
-      (task) => {
-        this.form.reset();
-        this.onSaved(task);
-      },
-    );
-  }
-
-  async #saveEdit(title) {
-    const task = this.editing;
-    const body = this.bodyInput.value.trim() || null;
-    if (title === task.title && body === (task.body ?? null)) {
-      this.#showView(); // nothing to save
-      return;
-    }
-    await this.#run(
-      () => this.updateTask(task.id, { title, body }),
-      (saved) => {
-        this.editing = saved;
-        this.#showView();
-        this.onSaved(saved);
-      },
-      (error) => {
-        if (error.status !== 404) return false;
-        // Deleted elsewhere in the meantime.
-        this.#leaveEditMode();
-        this.modal.close();
-        this.onGone(task);
-        return true;
-      },
-      { close: false },
-    );
-  }
-
-  /** Shared request lifecycle: busy state, error display, close on success. */
-  async #run(request, onSuccess, onError = () => false, { close = true } = {}) {
-    this.#setFormError("");
-    this.#setBusy(true);
-    try {
-      const result = await request();
-      this.#setBusy(false);
-      if (close) this.modal.close();
-      onSuccess(result);
-    } catch (error) {
-      this.#setBusy(false);
-      if (!onError(error)) this.#showError(error);
-    }
-  }
-
   #leaveEditMode() {
     if (!this.editing) return;
     this.editing = null;
     if (this.draft) {
-      this.titleInput.value = this.draft.title;
-      this.bodyInput.value = this.draft.body;
+      this.setValues(this.draft);
       this.draft = null;
     }
   }
 
-  #present(heading, submitLabel) {
-    this.heading.textContent = heading;
-    this.submitLabel.textContent = submitLabel;
-    this.#setTitleError("");
-    this.#setFormError("");
-    if (this.mode === "create") {
-      this.view.hidden = true;
-      this.form.hidden = false;
-      this.backButton.hidden = true;
-    }
+  /** Heading, submit text and target for the current mode; shows the form or the view. */
+  #present(title, submitLabel) {
+    const editing = this.mode === "edit";
+    this.present({ title, submitLabel, onSubmit: (values) => (editing ? this.#save(values) : this.#create(values)) });
+    const showView = this.mode === "view";
+    this.view.hidden = !showView;
+    this.form.hidden = showView;
+    if (this.mode === "create") this.backButton.hidden = true;
     if (this.cardNav) this.cardNav.hidden = !this.editing; // task actions only exist for saved tasks
-  }
-
-  #showError(error) {
-    const fieldMessage = error.fieldErrors?.title;
-    if (fieldMessage) {
-      this.#setTitleError(fieldMessage);
-      this.titleInput.focus();
-    } else {
-      this.#setFormError(error.message || "The artifact could not be saved. Please try again.");
-    }
-  }
-
-  #setBusy(busy) {
-    this.busy = busy;
-    // aria-disabled (not `disabled`) so the focused button keeps focus inside the dialog.
-    this.submitButton.setAttribute("aria-disabled", String(busy));
-    this.submitButton.setAttribute("aria-busy", String(busy));
-    this.cancelButton.setAttribute("aria-disabled", String(busy));
-    this.form.setAttribute("aria-busy", String(busy));
-  }
-
-  #setTitleError(message) {
-    this.titleError.textContent = message;
-    this.titleError.hidden = !message;
-    this.titleInput.setAttribute("aria-invalid", String(Boolean(message)));
-  }
-
-  #setFormError(message) {
-    this.formError.textContent = message;
-    this.formError.hidden = !message;
   }
 }
