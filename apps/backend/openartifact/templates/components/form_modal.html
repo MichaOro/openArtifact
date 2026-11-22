@@ -1,0 +1,41 @@
+{% from "components/modal.html" import modal %}
+{# The dialog with input fields (behaviour in static/js/components/form-dialog.js).
+   fields: a list of {name, label, kind: "text"|"textarea", required, maxlength, rows, placeholder, hint}.
+   Hooks: field control #<id>-field-<name>, its error #<id>-field-<name>-error; [data-submit] and [data-cancel]. #}
+{% macro dialog_form(id, fields, submit="Create") -%}
+<form class="task-form" id="{{ id }}-form" novalidate>
+    <div class="modal__body">
+        {% for field in fields %}
+        <div class="field" data-field>
+            <label class="field__label" for="{{ id }}-field-{{ field.name }}">{{ field.label }}{% if field.required %} <span class="field__required" aria-hidden="true">*</span>{% elif field.hint %} <span class="field__hint">({{ field.hint }})</span>{% endif %}</label>
+            {% if field.kind == "textarea" %}
+            <textarea class="field__control" id="{{ id }}-field-{{ field.name }}" name="{{ field.name }}" rows="{{ field.rows or 6 }}"
+                      {% if field.maxlength %}maxlength="{{ field.maxlength }}"{% endif %} {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
+                      aria-describedby="{{ id }}-field-{{ field.name }}-error"{% if loop.first %} data-autofocus{% endif %}></textarea>
+            {% else %}
+            <input class="field__control" id="{{ id }}-field-{{ field.name }}" name="{{ field.name }}" type="text"
+                   {% if field.required %}required aria-required="true"{% endif %} {% if field.maxlength %}maxlength="{{ field.maxlength }}"{% endif %}
+                   {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %} autocomplete="off"
+                   aria-describedby="{{ id }}-field-{{ field.name }}-error"{% if loop.first %} data-autofocus{% endif %}>
+            {% endif %}
+            <p class="field__error" id="{{ id }}-field-{{ field.name }}-error" role="alert" hidden data-field-error></p>
+        </div>
+        {% endfor %}
+        <p class="form-error" role="alert" hidden data-form-error></p>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-cancel>Cancel</button>
+        <button type="submit" class="button button--primary" data-submit>
+            <span class="spinner" aria-hidden="true"></span>
+            <span data-submit-label>{{ submit }}</span>
+        </button>
+    </footer>
+</form>
+{%- endmacro %}
+
+{% macro form_modal(id, title, fields, submit="Create") -%}
+{% call modal(id, title) %}{{ dialog_form(id, fields, submit) }}{% endcall %}
+{%- endmacro %}
+
+{# One required single-line field: the dialogs that ask for a name (new / rename pipeline, action, stage). #}
+{% set NAME_FIELDS = [{"name": "name", "label": "Name", "kind": "text", "required": True, "maxlength": 255}] %}

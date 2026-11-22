@@ -28,7 +28,12 @@ html:has(.modal[open]) { overflow: hidden; }
   --rail-w-collapsed: 3.75rem;
   --rail-w-open: 11rem;
   --rail-w: var(--rail-w-collapsed);
-  --form-w: min(31rem, calc(100vw - 2 * var(--space-4) - var(--rail-w-open)));
+  /* the base width of every dialog (form column plus the collapsed rail) and what a saved artifact
+     may grow to: width = clamp(base, ratio * height, max) */
+  --dialog-base-w: 34.75rem;
+  --dialog-max-w: 800px;
+  --dialog-ratio: 0.62;
+  --form-w: min(calc(var(--dialog-base-w) - var(--rail-w-collapsed)), calc(100vw - 2 * var(--space-4) - var(--rail-w-open)));
   width: calc(var(--form-w) + var(--rail-w));
   /* keep the left edge (the form and the rail's icon column with the toggle) where it is while
      the card grows rightwards; never push the right edge out of the viewport */
@@ -67,12 +72,11 @@ html:has(.modal[open]) { overflow: hidden; }
   user-select: all;
   white-space: nowrap;
 }
-.modal__title { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
 .modal__subtitle {
   display: inline-block;
   margin-top: var(--space-2);
   padding: 0 var(--space-2);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent);
   color: var(--color-text-primary);
   font-size: 0.75rem;
@@ -84,39 +88,6 @@ html:has(.modal[open]) { overflow: hidden; }
 }
 .modal__subtitle:hover { background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 34%, transparent); }
 
-/* Easter egg: clicking the lane chip unrolls the other lanes as chips *inside* the header.
-   The form below slides down to make room: no popup, no edge, just a fade. */
-.lane-chips {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition: grid-template-rows 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 220ms ease;
-}
-.lane-chips[data-open] { grid-template-rows: 1fr; opacity: 1; }
-.lane-chips__clip { min-height: 0; overflow: hidden; }
-.lane-chips__inner {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-3) 0 var(--space-1);
-}
-.lane-chip {
-  padding: 0 var(--space-3);
-  border: 0;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent);
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: 0.75rem;
-  line-height: 1.75rem;
-  cursor: pointer;
-  transition: background var(--transition-fast), transform var(--transition-fast);
-}
-.lane-chips[data-open] .lane-chip { animation: chip-in 240ms ease-out both; animation-delay: calc(var(--i, 0) * 50ms + 80ms); }
-.lane-chip:hover,
-.lane-chip:focus-visible { background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 38%, transparent); outline: none; }
-.lane-chip:focus-visible { box-shadow: 0 0 0 2px var(--color-accent); }
-@keyframes chip-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .modal__subtitle:empty { display: none; }
 
 @property --rail-w { syntax: "<length>"; inherits: true; initial-value: 3.75rem; }
@@ -133,9 +104,32 @@ html:has(.modal[open]) { overflow: hidden; }
   gap: var(--space-4);
   padding: var(--space-2) var(--space-5) var(--space-4);
 }
-.modal__footer-start { margin-right: auto; }
-.task-view { display: flex; flex-direction: column; justify-content: space-between; }
-.task-view__title { font-size: 1.0625rem; font-weight: 600; overflow-wrap: anywhere; }
+.modal__footer-start { display: flex; gap: var(--space-2); margin-right: auto; }
+.card-run { color: var(--color-accent); }
+.card-run .icon { width: 1rem; height: 1rem; margin-right: var(--space-1); }
+.card-run[data-state="running"] { color: var(--color-danger); }
+.card-run:disabled { opacity: 0.5; }
+.task-view, .task-form { display: flex; flex-direction: column; justify-content: space-between; }
+/* A saved artifact (view and edit) is sized once from its content, see .modal__panel--fit: the
+   height is --fit-h (set by artifact-dialog.js), the width follows from it. The body area scrolls
+   while header, footer and rail stay put; the textarea fills the same area, so editing does not
+   change the size. */
+.modal__panel--fit {
+  display: flex;
+  flex-direction: column;
+  height: var(--fit-h);
+  --form-w: min(
+    calc(clamp(var(--dialog-base-w), calc(var(--fit-h) * var(--dialog-ratio)), var(--dialog-max-w)) - var(--rail-w-collapsed)),
+    calc(100vw - 2 * var(--space-4) - var(--rail-w-open))
+  );
+}
+.modal__panel--fit[data-measuring] { height: auto; }
+.modal__panel--fit .modal__layout { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.modal__panel--fit .task-view,
+.modal__panel--fit .task-form { min-height: 0; }
+.modal__panel--fit .modal__body { flex: 1; min-height: 0; overflow-y: auto; }
+.modal__panel--fit .field:has(textarea) { flex: 1; min-height: 0; }
+.modal__panel--fit textarea.field__control { flex: 1; min-height: 4.5rem; }
 .task-view__body { min-height: 9rem; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-text-primary); }
 .task-view__body:empty::before { content: "No description."; color: var(--color-text-muted); }
 .ref { color: var(--color-accent); text-decoration: none; border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; }
@@ -159,11 +153,14 @@ html:has(.modal[open]) { overflow: hidden; }
   to { opacity: 1; transform: none; }
 }
 
+/* Too narrow for the card to grow without moving the form: the rail stays a fixed icon bar.
+   820px = form (31rem) + rail growth (7.25rem, twice, because the card is centred) + gutters. */
+@media (max-width: 820px) {
+  .modal__panel { --rail-w-open: var(--rail-w-collapsed); }
+}
+
 @media (max-width: 640px) {
-  .modal__panel { --rail-w-open: var(--rail-w-collapsed); --form-w: calc(100vw - 2 * var(--space-3) - var(--rail-w-collapsed)); }
-  .card-nav__toggle { display: none; }
-  .card-nav .nav-link__label { opacity: 0; max-width: 0; }
-  .card-nav .nav-link { gap: 0; }
+  .modal__panel { --form-w: calc(100vw - 2 * var(--space-3) - var(--rail-w-collapsed)); }
   .modal { padding: var(--space-3); }
   .modal__header { padding: var(--space-4) var(--space-4) var(--space-2); }
   .modal__body { padding: var(--space-2) var(--space-4) var(--space-3); }

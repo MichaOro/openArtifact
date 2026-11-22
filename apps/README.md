@@ -1,10 +1,5 @@
 # apps
 
-Application source code.
+- `backend/` — the only application. It also serves the web UI from `openartifact/static` and `openartifact/templates` (no separate frontend build; ADR-004 is superseded by ADR-010). See [backend/README.md](backend/README.md).
 
-- `backend/` — Backend application (technology TBD)
-- `frontend/` — Frontend application (technology TBD)
-
-## Note
-
-The specific technology stack for backend and frontend will be defined in WP-01 (Define Technical Foundation and Technology Decisions). No implementation-specific directories or files should be added until those decisions are made.
+There is no second application and no shared-library folder; do not add one without an ADR.

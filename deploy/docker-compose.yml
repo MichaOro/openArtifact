@@ -1,27 +1,52 @@
-# docker-compose.yml — OpenArtifact Deployment
+# OpenArtifact on Docker Compose. Run every command from the repository root:
 #
-# Start: docker compose up -d
-# Stop:  docker compose down
-# Logs:  docker compose logs -f
-# Health: docker inspect --format='{{.State.Health.Status}}' openartifact
-# Update: docker compose pull && docker compose up -d
-# Backup: docker run --rm -v openartifact-data:/data -v $(pwd):/backup alpine cp /data/openartifact.db /backup/
+#   cp deploy/.env.example deploy/.env        (once, then edit the values)
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#   docker compose -f deploy/docker-compose.yml ps          (shows the health state)
+#   docker compose -f deploy/docker-compose.yml logs -f
+#   docker compose -f deploy/docker-compose.yml down        (the data survives)
 #
-# Data survives `docker compose down`. Use `docker compose down -v` only to remove persistent data.
+# Update from source: git pull && docker compose -f deploy/docker-compose.yml up -d --build
+# Update a released image: docker compose -f deploy/docker-compose.yml pull && ... up -d
+#
+# The data lives in the named volume "openartifact-data" (deploy_openartifact-data under the default
+# project name). `down -v` deletes it. Back up with SQLite's backup API, not by copying the live file:
+#   docker compose -f deploy/docker-compose.yml exec openartifact python -c 'import sqlite3; d = sqlite3.connect("/data/backup.db"); sqlite3.connect("/data/openartifact.db").backup(d); d.close()'
+#   docker compose -f deploy/docker-compose.yml cp openartifact:/data/backup.db .
+#
+# Published address and port (set in deploy/.env or the environment): OPENARTIFACT_BIND (default
+# 127.0.0.1, use 0.0.0.0 to reach it from other machines) and OPENARTIFACT_PUBLISHED_PORT (default
+# 2909). OPENARTIFACT_PORT (also read from deploy/.env) is the port the application listens on inside
+# the container; the mapping and the health check follow it.
+#
+# Memory: the container limit (mem_limit, 1g) must stay clearly above what one Code node may use
+# (OPENARTIFACT_CODE_MEMORY_LIMIT_MB, default 512, an address-space limit per process): the application
+# needs about 150-250 MB itself, so a Code node at its limit plus the application fits, whereas equal
+# values would let the kernel OOM-kill the whole container instead of just the node. Raise both together.
 
 services:
   openartifact:
+    image: ghcr.io/michaoro/openartifact:${OPENARTIFACT_TAG:-latest}
     build:
       context: ..
       dockerfile: Dockerfile
     ports:
-      - "2909:2909"
+      - "${OPENARTIFACT_BIND:-127.0.0.1}:${OPENARTIFACT_PUBLISHED_PORT:-2909}:${OPENARTIFACT_PORT:-2909}"
     volumes:
       - openartifact-data:/data
     env_file: .env
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:2909/health')\""]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${OPENARTIFACT_PORT:-2909}/health')"]
       interval: 30s
       timeout: 10s
       retries: 3

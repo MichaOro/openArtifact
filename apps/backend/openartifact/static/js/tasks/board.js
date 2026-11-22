@@ -4,6 +4,7 @@
  * change came from (own API response, SSE event from any tab, optimistic drag & drop).
  * Both are idempotent, so the same change arriving twice is harmless.
  * Content is always set via textContent (never innerHTML). */
+import { AlertBar } from "../components/alert-bar.js";
 
 export class Board {
   /** @param {{loadTasks: () => Promise<object[]>}} options */
@@ -11,12 +12,12 @@ export class Board {
     this.loadTasks = loadTasks;
     this.element = document.querySelector(".board");
     this.template = document.getElementById("task-card-template");
-    this.errorBox = document.querySelector("[data-board-error]");
-    this.errorText = document.querySelector("[data-board-error-text]");
-    this.retryButton = document.querySelector("[data-board-retry]");
+    this.alert = new AlertBar();
     this.liveRegion = document.querySelector("[data-live-region]");
 
     this.loaded = false;
+    /** @type {Map<string, object>} */ this.runs = new Map();
+    /** @type {Set<string>} */ this.locked = new Set();
     /** @type {Map<string, object>} */ this.tasks = new Map();
     /** @type {Map<string, HTMLElement>} */ this.cards = new Map();
     /** @type {Map<string, {section: HTMLElement, list: HTMLElement, count: HTMLElement, title: string}>} */
@@ -31,7 +32,7 @@ export class Board {
       });
     });
 
-    this.retryButton?.addEventListener("click", () => this.load());
+    this.alert.onRetry(() => this.load());
   }
 
   /** Lane order as shown on screen (left to right). */
@@ -166,17 +167,17 @@ export class Board {
     window.setTimeout(() => (this.liveRegion.textContent = message), 50);
   }
 
-  /** @param {{retry?: boolean}} options retry: offer the "Retry" button (load errors) */
-  showError(message, { retry = false } = {}) {
-    this.errorText.textContent = message;
-    if (this.retryButton) this.retryButton.hidden = !retry;
-    this.errorBox.hidden = false;
-    window.clearTimeout(this._errorTimer);
-    if (!retry) this._errorTimer = window.setTimeout(() => this.#clearError(), 6000);
+  /**
+   * @param {string} message
+   * @param {{retry?: boolean, sticky?: boolean}} options retry: offer the "Retry" button (load errors);
+   *   sticky: keep it (the others disappear by themselves)
+   */
+  showError(message, { retry = false, sticky = false } = {}) {
+    this.alert.show(message, { retry, autoHide: retry || sticky ? 0 : 6000 });
   }
 
   #clearError() {
-    this.errorBox.hidden = true;
+    this.alert.hide();
   }
 
   #createCard(task) {
@@ -185,7 +186,35 @@ export class Board {
     return card;
   }
 
+  /** Show the state of the artifact's run on its card (null: none). */
+  setRun(taskId, run) {
+    if (run) this.runs.set(taskId, run);
+    else this.runs.delete(taskId);
+    const card = this.cards.get(taskId);
+    if (card) this.#renderRun(card, taskId);
+  }
+
+  /** A card that is being processed cannot be moved or deleted by the user. */
+  setLocked(taskId, locked) {
+    if (locked) this.locked.add(taskId);
+    else this.locked.delete(taskId);
+    const card = this.cards.get(taskId);
+    if (card) this.#renderRun(card, taskId);
+  }
+
+  #renderRun(card, taskId) {
+    const run = this.runs.get(taskId);
+    const line = card.querySelector(".task-card__run");
+    line.textContent = run ? `${run.stage_name ?? run.pipeline_name} · ${run.status}` : "";
+    line.hidden = !run;
+    line.dataset.status = run?.status ?? "";
+    const locked = this.locked.has(taskId);
+    card.classList.toggle("task-card--locked", locked);
+    card.querySelector("[data-delete-task]").disabled = locked;
+  }
+
   #renderContent(card, task) {
+    this.#renderRun(card, task.id);
     card.querySelector(".task-card__title").textContent = task.title;
     const body = card.querySelector(".task-card__body");
     body.textContent = task.body ?? "";

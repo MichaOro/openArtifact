@@ -15,12 +15,6 @@ from openartifact.config import Settings
 from openartifact.exceptions import ConfigurationError
 
 
-@pytest.fixture(autouse=True)
-async def clean_engine() -> None:
-    """Make sure no engine leaks between tests."""
-    await db_mod.dispose_engine()
-
-
 def test_lifespan_connects_database_and_disposes_on_shutdown(settings: Settings) -> None:
     """Startup opens the database; shutdown disposes the shared engine."""
     app = _create_app(settings)
@@ -58,12 +52,28 @@ def test_lifespan_no_warning_with_custom_secret_key(
     assert "Using default SECRET_KEY" not in caplog.text
 
 
+def test_lifespan_warns_when_code_nodes_run_without_a_token(
+    settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Opt-in for Code nodes in open mode is flagged once at startup; with a token it is not."""
+    opted_in = settings.model_copy(update={"code_nodes_without_token": True, "api_token": ""})
+    with caplog.at_level(logging.WARNING, logger="openartifact"), TestClient(_create_app(opted_in)):
+        pass
+    assert caplog.text.count("OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN is on") == 1
+
+    caplog.clear()
+    refused = settings.model_copy(update={"code_nodes_without_token": False, "api_token": ""})
+    with caplog.at_level(logging.WARNING, logger="openartifact"), TestClient(_create_app(refused)):
+        pass
+    assert "OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN is on" not in caplog.text
+
+
 def test_lifespan_wraps_unexpected_database_errors(settings: Settings) -> None:
     """Unexpected connection errors surface as ConfigurationError."""
     app = _create_app(settings)
 
     with (
-        patch("openartifact.database._build_engine", side_effect=RuntimeError("boom")),
+        patch("openartifact.database.build_engine", side_effect=RuntimeError("boom")),
         pytest.raises(ConfigurationError, match="Cannot connect to database: boom"),
         TestClient(app),
     ):
@@ -76,7 +86,7 @@ def test_lifespan_propagates_configuration_errors(settings: Settings) -> None:
 
     with (
         patch(
-            "openartifact.database._build_engine",
+            "openartifact.database.build_engine",
             side_effect=ConfigurationError("bad dir"),
         ),
         pytest.raises(ConfigurationError, match=r"^bad dir$"),

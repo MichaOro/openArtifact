@@ -86,6 +86,21 @@
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 textarea.field__control { min-height: 8rem; resize: none; line-height: 1.5; }
+textarea.field__control--code,
+textarea.field__control--lines { resize: vertical; }
+.field__control--code {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+  min-height: 12rem;
+}
+.field__help,
+.field__meta,
+.field__status { font-size: 0.75rem; color: var(--color-text-muted); }
+.field__status:empty { display: none; }
+.field__meta.is-over { color: var(--color-danger); }
 
 .field__control[aria-invalid="true"] { border-color: var(--color-danger); }
 .field__error,

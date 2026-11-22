@@ -1,0 +1,126 @@
+# ADR-014: Building blocks and extension points
+
+**Status:** Accepted  
+**Date:** 2026-11-21  
+**Supersedes:** —  
+**Superseded by:** —  
+**Amends:** [ADR-012](012-workflow-definition-editor.md) (routing select)  
+**Amended by:** [ADR-019](019-module-boundaries-and-single-sources.md) (module boundaries, registry-derived settings), [ADR-021](021-execution-nodes-as-executors.md) (executors), [ADR-022](022-node-settings-as-json-config.md) (settings as JSON), [ADR-030](030-accessibility-scope.md) (accessibility)
+
+## 1. Title
+
+The system is built from reusable building blocks (kinds of nodes, inspector blocks, navigation
+entries) registered in registries, so that it can later take third-party extensions without forks.
+
+## 2. Context
+
+The editor and the navigation had grown case by case: each kind of node had its own inspector
+buttons, the routing select appeared on some kinds and not on others, and the rules of a kind lived
+in three places (server rules, a mirror in the browser, the inspector). The sidebar and the rail of
+the artifact dialog were written separately although they are the same thing. The long-term goal is
+community extensions (nodes, actions, navigation entries, pages such as dashboards) that plug in
+instead of patching this repository.
+
+## 3. Decision
+
+### 3.1 Kinds of nodes are classes
+
+- **Server** (`graph/node_types.py`): a base class `NodeType` with the common behaviour and one
+  flat subclass per kind (`TriggerType`, `StageType`, `ActionType`, `PipelineNodeType`,
+  `CompleteType`, `TimerType`, `OutputType`). A kind declares where it may be used (`scopes`),
+  whether it is `fixed` or `addable`, whether it is a step (`chain`) or the end (`ending`) of the
+  main line, its `inputs` / `outputs`, its `settings` (a number, a switch) and what it `links_to`.
+  `connect_error` holds its connection rules; the base has the rule shared by the steps of the main
+  line, a kind overrides it only where it differs (stage start, action). `register()` adds a kind.
+  The repository (including which node settings it accepts) and the rules read the registry; the engine still
+  executes kinds by name (`engine/runner.py` branches on `trigger`, `output` and `timer`), so a new kind that runs
+  also needs a branch there.
+  `GET /api/node-types` publishes the descriptions.
+- **Browser** (`js/editor/node-types.js`): a base class `NodeView` and a flat subclass per kind,
+  paired with the server's description (`loadNodeTypes`). A view says how the kind looks (size,
+  caption, extra markup such as the stage container), where its ports sit (`portLocal`; the default
+  spreads the shown ports down each side, so an action without On Fail has its Pass in the middle by
+  itself), which ports a node shows (`isVisible`), mirrors the rules (`canFeed`) and lists its
+  inspector blocks (`sections`). `registerView()` adds a view; a kind without one uses `NodeView`.
+- The "+" menu lists every `addable` kind of the scope; fixed kinds come with the graph.
+
+### 3.2 One set of inspector blocks
+
+`js/editor/inspector.js` builds the inspector from blocks that look and behave the same for every
+kind: the title renamed in place (or not, for a node named after what it links to), the kind's
+settings (generated from its description), the choice of what it links to, and **one action row
+New · Edit · Delete**, always in this order, with what does not apply greyed out. A pipeline node
+and an action therefore offer the same row: New creates a pipeline or an action definition (a small
+window asks for the title), Edit opens it with the way back, Delete removes the node.
+
+### 3.3 Navigation entries are classes
+
+`web/navigation.py` has `NavItem` and its kinds `NavLink` (a page; with `children` a section),
+`NavField` (a value of the open artifact chosen from a list), `NavAction` (a command) and
+`NavDivider`. A `Navigation` is an ordered list of entries in groups. The sidebar (`SIDEBAR`) and
+the rail of the artifact dialog (`ARTIFACT_RAIL`) are two `Navigation`s rendered by the same
+template building block (`components/nav.html`); a new entry or sub-entry is one more object and
+gets the same alignment, icon column and label behaviour.
+
+### 3.4 Structure: as simple as possible, as rich as useful
+
+The default is a thin base class with flat subclasses and blocks put together, because deep
+hierarchies are hard to follow for whoever extends the system. This is a default, not a limit:
+deeper hierarchies, intermediate base classes or nested blocks are explicitly welcome where they
+make the code easier to maintain, more modular or closer to the building-block idea, as long as they
+do not complicate the system for nothing or produce boilerplate.
+
+### 3.5 Extension points, not yet extensions
+
+The registries (`register` for node kinds, `registerView` for their views, `Navigation.add` for
+entries) are the extension points; the built-in parts use them exactly as an extension would. Loading
+third-party extensions is **not built**. When it is, the plan is:
+
+- an extension is a package with a manifest (name, version, the contract version it targets) that
+  registers node kinds, views, navigation entries and pages through these functions;
+- a contract version, so the application can refuse an extension written for another one;
+- pages (for example a dashboard over the application's data) as a further registry next to the
+  navigation, reading the data through the API;
+- a trust model first: a server extension runs with the application's full rights, so extensions
+  must be installed deliberately and are not sandboxed; browser parts are ES modules served from the
+  extension.
+
+### 3.6 Quarantine of unused code
+
+Code that falls out of use is not deleted at once. It stays where it is and gets an entry in
+`quarantine.json` (what, where, since when, a regular expression for its calls).
+`tools/check_quarantine.py`, run weekly by `.github/workflows/quarantine.yml`, fails once an entry
+has had no calls for 14 days, as the reminder to remove the code and the entry; if calls show up
+again, it says to drop the entry. An entry may carry an optional `ignore` array of path globs (for example
+`"apps/backend/tests/*"`) that are not searched for that entry, so code that only tests call can be quarantined;
+the script reads the files from `git ls-files` (`.py`, `.js`, `.html`, `.css`, `.toml`, `.yml`, `.sh`), and a `symbol`
+that no longer occurs in its file is reported as information, not as an error. The first entry is the routing select of the inspector, removed
+from the UI because connections are made by dragging.
+
+## 4. Consequences
+
+- A new kind of node is a server class and, if it looks special, a view class; a new navigation
+  entry is one object. The rules exist once on the server and once, as a mirror, in the view.
+- The editor needs the descriptions before it draws (one request when it opens).
+- Connecting by keyboard is no longer possible (the routing select is gone); dragging is the way. This is a known
+  limitation, not a decision for good (arc42 chapter 11).
+
+## Update (2026-11-22): registry-derived settings and module moves
+
+- A node setting is still a column of `graph_nodes` plus a field of `NodeUpdate`, but the repository derives the
+  allowed setting keys from the registry (`NODE_TYPES`, the `settings` of each kind) instead of a hard-coded set;
+  the timer's bounds exist once in `node_types.py`. `GraphKind` is a `StrEnum` in the models, and `Ports` names
+  the connectors. See [ADR-019](019-module-boundaries-and-single-sources.md).
+- The sidebar's inline script moved to `static/js/nav-section.js`; the templates have no inline scripts left.
+- The steps for a new node kind or navigation entry are in the [extending guide](../../guides/extending.md).
+
+## Update (2026-11-22): executors, JSON settings, quarantine
+
+- **Kinds and engine.** The registry of node types now has `code` and `http` next to the timer, and the engine runs
+  a kind through a registered executor instead of branching on its name ([ADR-021](021-execution-nodes-as-executors.md)); the sentence in §3.1 that a new
+  kind "also needs a branch" in the engine is outdated.
+- **Settings.** A new setting is an entry in the kind's `settings` and a value in `graph_nodes.config`, not a column
+  and a schema field ([ADR-022](022-node-settings-as-json-config.md)); the first update above describes the older, column-based way.
+- **Quarantine (§3.6).** The quarantined code was removed ([ADR-032](032-removal-of-the-unused-workspace-model.md)); in the end state `quarantine.json` has no entries
+  and the `static` job of the CI checks that file together with the JavaScript syntax and the relative links of the
+  documentation. The mechanism stays for the next time code falls out of use.

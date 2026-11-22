@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% from "components/lane.html" import lane %}
 {% from "components/icons.html" import icon %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
 {% block title %}Projects · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/task-dialog.css">
+<link rel="stylesheet" href="/static/css/history.css">{% endblock %}
 {% block content %}
-<div class="board-alert glass" role="alert" hidden data-board-error>
-    <span data-board-error-text>Artifacts could not be loaded.</span>
-    <button type="button" class="button button--ghost button--sm" data-board-retry>Retry</button>
-</div>
+{{ alert("Artifacts could not be loaded.") }}
 <div class="board" role="group" aria-label="Kanban board">
     {% for board_lane in lanes %}
     {{ lane(board_lane.title, board_lane.key, board_lane.status.value, hue=loop.index0 % lane_hues + 1) }}
@@ -19,6 +20,7 @@
             <h3 class="task-card__title"></h3>
             <p class="task-card__body"></p>
             <p class="task-card__meta" hidden></p>
+            <p class="task-card__run" hidden></p>
         </div>
         <button type="button" class="icon-button icon-button--sm task-card__delete" data-delete-task
                 aria-label="Delete artifact" title="Delete artifact">{{ icon("trash") }}</button>
@@ -28,7 +30,8 @@
 <div class="visually-hidden" role="status" aria-live="polite" data-live-region></div>
 
 {% include "components/create_task_modal.html" %}
-{% include "components/delete_task_modal.html" %}
+{{ confirm_modal("delete-task-modal", "Delete Artifact", note="data-children-note") }}
+{{ confirm_modal("delete-execution-modal", "Delete execution", note="data-history-note") }}
 {% endblock %}
 {% block scripts %}
 <script type="module" src="/static/js/tasks/main.js"></script>

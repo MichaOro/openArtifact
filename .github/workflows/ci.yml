@@ -8,7 +8,12 @@
 #   1. Python linting + formatting (Ruff)
 #   2. Strict type checking (mypy)
 #   3. Test execution + coverage
-#   4. Docker image build + smoke test (main branch only)
+#   4. Browser tests (Playwright, headless Chromium)
+#   5. Docker image build + smoke test, run as deployed (read-only, no capabilities, token)
+#
+# Beside the Python stages: a JavaScript syntax check and a Markdown link check (job "static").
+#
+# Dependency audit runs in audit.yml.
 
 name: CI
 
@@ -17,20 +22,28 @@ on:
     branches: [main]
     paths:
       - "apps/backend/**"
+      - "docs/**"
+      - "**/*.md"
       - "Dockerfile"
       - ".dockerignore"
       - "deploy/**"
-      - "pyproject.toml"
-      - ".github/workflows/**"
+      - "scripts/**"
+      - "tools/**"
+      - "quarantine.json"
+      - ".github/**"
   pull_request:
     branches: [main]
     paths:
       - "apps/backend/**"
+      - "docs/**"
+      - "**/*.md"
       - "Dockerfile"
       - ".dockerignore"
       - "deploy/**"
-      - "pyproject.toml"
-      - ".github/workflows/**"
+      - "scripts/**"
+      - "tools/**"
+      - "quarantine.json"
+      - ".github/**"
 
 permissions:
   contents: read
@@ -64,6 +77,42 @@ jobs:
         run: |
           cd apps/backend
           ruff format --check .
+
+  # ── Static checks: JavaScript syntax, Markdown links ────────────
+
+  static:
+    name: JavaScript syntax + Markdown links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: JavaScript syntax (node --check)
+        run: |
+          # The sources are ES modules: check copies with the .mjs extension.
+          tmp="$(mktemp -d)"
+          status=0
+          while IFS= read -r -d '' f; do
+            cp "$f" "$tmp/check.mjs"
+            node --check "$tmp/check.mjs" || { echo "::error file=$f::syntax error"; status=1; }
+          done < <(find apps/backend/openartifact/static/js -name '*.js' -print0)
+          exit $status
+
+      - name: JavaScript unit tests (node --test)
+        run: node --test 'apps/backend/tests/js/*.test.mjs'
+
+      - name: Markdown relative links and anchors
+        run: python tools/check_links.py
+
+      - name: Quarantine
+        run: python tools/check_quarantine.py
 
   # ── Stage 2: Type Checking ──────────────────────────────────────
 
@@ -113,15 +162,10 @@ jobs:
           cd apps/backend
           pip install --no-cache-dir -e ".[dev]"
 
-      - name: Run test suite
+      - name: Run test suite with coverage
         run: |
           cd apps/backend
-          python -m pytest -v --tb=short
-
-      - name: Generate coverage report
-        run: |
-          cd apps/backend
-          coverage run -m pytest -q
+          coverage run -m pytest -v --tb=short
           coverage report
           coverage xml
 
@@ -133,15 +177,46 @@ jobs:
           path: apps/backend/coverage.xml
           retention-days: 30
 
-  # ── Stage 4: Docker Build + Smoke Test (main only) ──────────────
+  # ── Stage 4: Browser Tests ──────────────────────────────────────
+
+  e2e:
+    name: Browser tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies and browser
+        run: |
+          cd apps/backend
+          pip install --no-cache-dir -e ".[dev]"
+          playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: |
+          cd apps/backend
+          python -m pytest -m e2e -v --tb=short --tracing retain-on-failure
+
+      - name: Keep traces of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/backend/test-results/
+          if-no-files-found: ignore
+
+  # ── Stage 5: Docker Build + Smoke Test ──────────────────────────
 
   docker:
     name: Docker build + smoke test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [test]
-    permissions:
-      packages: write
+    needs: [test, e2e]
     steps:
       - uses: actions/checkout@v4
 
@@ -158,45 +233,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Runs the image like deploy/docker-compose.yml: read-only root, tmpfs /tmp, no capabilities,
+      # no-new-privileges, a throw-away token and key. Imports every module, waits for /health,
+      # expects 401 on /api/tasks without the token and 200 with it.
       - name: Container smoke test
-        run: |
-          # Start container in detached mode with named volume
-          docker run -d \
-            --name openartifact-smoke \
-            -p 2909:2909 \
-            -e OPENARTIFACT_DATA_DIR=/data \
-            -e OPENARTIFACT_SECRET_KEY=smoke-test-key \
-            -e OPENARTIFACT_LOG_LEVEL=DEBUG \
-            openartifact:test
-
-          # Wait for migrations and server startup (max 15s)
-          echo "Waiting for server startup..."
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:2909/health > /dev/null 2>&1; then
-              echo "Server is healthy!"
-              break
-            fi
-            if [ $i -eq 30 ]; then
-              echo "ERROR: Server failed to start within 15 seconds"
-              docker logs openartifact-smoke
-              exit 1
-            fi
-            sleep 0.5
-          done
-
-          # Verify health endpoint
-          echo "Health check response:"
-          curl -sf http://localhost:2909/health
-
-          # Verify web interface
-          echo ""
-          echo "Web interface check:"
-          curl -sf -o /dev/null -w "%{http_code}" http://localhost:2909/
-
-          # Verify /api/info endpoint
-          echo ""
-          echo "API info check:"
-          curl -sf http://localhost:2909/api/info
-
-          # Cleanup
-          docker rm -f openartifact-smoke
+        run: tools/smoke_container.sh openartifact:test

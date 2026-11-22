@@ -1,0 +1,5 @@
+{
+  "about": "Code that is no longer used but not removed yet. Nothing here moves: an entry only notes it. tools/check_quarantine.py fails once an entry is 14 days old and `usage` (a regular expression for calls, not the definition) still finds nothing; then the code is removed together with its entry. If `usage` finds calls again, the entry is dropped.",
+  "days": 14,
+  "entries": []
+}

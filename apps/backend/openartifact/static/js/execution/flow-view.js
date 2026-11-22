@@ -1,0 +1,121 @@
+/* The canvas of the flow page: the editor's Canvas and node views, read-only, drawing one graph of the
+ * frozen snapshot with the walk of one visit on it. What was walked is shown by classes and small
+ * badges on the nodes and edges; never by colour alone (every state has its own icon and word, a node
+ * that did not run is dashed as well as dimmed, a walked edge is thicker and numbered). */
+import { icon } from "../components/icons.js";
+import { Canvas } from "../editor/canvas.js";
+import { typeOf } from "../editor/node-types.js";
+import { nameOf } from "./visit-model.js";
+
+/** state -> [word for people, word of the aria label, icon] */
+export const STATES = {
+  pass: ["Passed", "passed", "check"],
+  fail: ["Failed", "failed", "x"],
+  running: ["Running", "running", "clock"],
+  stopped: ["Stopped here", "stopped here", "stop"],
+  skipped: ["Skipped", "skipped", "chevrons-right"],
+  "not-run": ["Not run", "not run", null],
+};
+const READABLE = 0.4; // fitting a wide flow does not shrink it below this: it is panned instead
+const STATE_CLASSES = Object.keys(STATES).map((state) => `ef-state-${state}`);
+
+export class FlowView {
+  /**
+   * @param {object} options
+   * @param {HTMLElement} options.viewport the [data-viewport] element
+   * @param {(node: object) => void} options.onActivate a node was clicked or Enter was pressed on it
+   * @param {() => void} options.onClear the background was clicked
+   * @param {(zoom: number) => void} options.onZoom
+   */
+  constructor({ viewport, onActivate, onClear, onZoom }) {
+    this.viewport = viewport;
+    this.nodes = new Map();
+    this.edges = new Map();
+    this.walk = null;
+    this.canvas = new Canvas({
+      viewport,
+      nodes: this.nodes,
+      edges: this.edges,
+      readOnly: true,
+      minZoom: 0.1,
+      handlers: {
+        onSelect: () => onClear(),
+        onOpen: (node) => onActivate(node),
+        onZoom,
+        onNodeDrawn: (node, el) => this.#decorateNode(node, el),
+        onEdgeDrawn: (edge, group) => this.#decorateEdge(edge, group),
+      },
+    });
+    viewport.classList.add("ef-viewport");
+  }
+
+  /**
+   * Draw a graph with the walk of one visit.
+   * @param {object} graph a graph of the flow response
+   * @param {{states: Map, edgeOrder: Map}} walk what FlowModel.describe() says
+   * @param {{fit?: boolean}} options fit: show all of it (a different graph)
+   */
+  show(graph, walk, { fit = false } = {}) {
+    this.walk = walk;
+    this.nodes.clear();
+    this.edges.clear();
+    // left to right: this is the order the nodes are reached with the keyboard
+    for (const node of [...graph.nodes].sort((a, b) => a.x - b.x || a.y - b.y)) this.nodes.set(node.id, node);
+    for (const edge of graph.edges) this.edges.set(edge.id, edge);
+    this.canvas.selection = this.canvas.selection && this.nodes.has(this.canvas.selection.id) ? this.canvas.selection : null;
+    this.canvas.sync();
+    if (fit) this.fit();
+  }
+
+  select(nodeId) {
+    this.canvas.select(nodeId && this.nodes.has(nodeId) ? { type: "node", id: nodeId } : null);
+    if (nodeId && this.nodes.has(nodeId)) this.canvas.reveal(this.nodes.get(nodeId));
+  }
+
+  zoomBy = (factor) => this.canvas.zoomBy(factor);
+  fit = () => this.canvas.fit({ floor: READABLE });
+
+  #decorateNode(node, el) {
+    const info = this.walk?.states.get(node.id) ?? { state: "not-run", passes: 0 };
+    const [, word, glyph] = STATES[info.state];
+    el.classList.remove(...STATE_CLASSES);
+    el.classList.add(`ef-state-${info.state}`);
+    el.classList.toggle("is-dim", info.state === "not-run" || info.state === "skipped");
+    el.classList.toggle("has-child", info.passes > 0);
+
+    let badge = el.querySelector(":scope > .ef-badge");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "ef-badge";
+      badge.setAttribute("aria-hidden", "true");
+      el.append(badge);
+    }
+    badge.hidden = !glyph;
+    badge.replaceChildren(...(glyph ? [icon(glyph)] : []));
+    if (info.passes > 1) badge.append(`×${info.passes}`);
+    badge.dataset.state = info.state;
+    badge.title = word;
+
+    const facts = [word, info.step?.exit_code != null ? `exit code ${info.step.exit_code}` : null, info.passes > 1 ? `${info.passes} passes` : null, info.passes ? "Enter opens it" : null];
+    el.setAttribute("aria-label", `${typeOf(node).label}: ${nameOf(node)}, ${facts.filter(Boolean).join(", ")}`);
+    el.title = info.state === "not-run" ? "Not run" : "";
+  }
+
+  #decorateEdge(edge, group) {
+    const order = this.walk?.edgeOrder.get(edge.id);
+    group.classList.toggle("is-walked", order !== undefined);
+    group.classList.toggle("is-idle", order === undefined);
+    if (order === undefined) return;
+    const line = group.querySelector(".ge-edge__line");
+    const middle = line.getPointAtLength(line.getTotalLength() / 2);
+    const mark = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    mark.setAttribute("class", "ef-edge__order");
+    mark.setAttribute("transform", `translate(${middle.x} ${middle.y})`);
+    const disc = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    disc.setAttribute("r", "9");
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.textContent = String(order);
+    mark.append(disc, text);
+    group.append(mark);
+  }
+}

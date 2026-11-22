@@ -1,19 +1,10 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="light" data-sidebar="expanded">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <title>{% block title %}OpenArtifact{% endblock %}</title>
-    <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/base.css">
-    <link rel="stylesheet" href="/static/css/components.css">
-    <link rel="stylesheet" href="/static/css/forms.css">
+{% extends "base_bare.html" %}
+{% from "components/icons.html" import icon, icon_names %}
+{% block styles %}
     <link rel="stylesheet" href="/static/css/modal.css">
-    {# Blocking on purpose: applies stored/system theme before first paint (no flash). #}
-    <script src="/static/js/theme.js"></script>
-</head>
-<body>
+    {% block page_styles %}{% endblock %}
+{% endblock %}
+{% block body %}
     <div class="app-shell">
         {% include "components/sidebar.html" %}
         <div class="main">
@@ -23,7 +14,8 @@
             </main>
         </div>
     </div>
-    <script src="/static/js/main.js" defer></script>
+    {# Every icon once; static/js/components/icons.js clones them. #}
+    <template id="icons">{% for name in icon_names %}<span data-icon="{{ name }}">{{ icon(name) }}</span>{% endfor %}</template>
+    <script type="module" src="/static/js/main.js"></script>
     {% block scripts %}{% endblock %}
-</body>
-</html>
+{% endblock %}

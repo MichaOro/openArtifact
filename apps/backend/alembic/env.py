@@ -1,7 +1,4 @@
-"""Alembic environment configuration.
-
-Handles migration execution with proper database engine and session setup.
-"""
+"""Alembic environment: runs the migrations against the configured database file."""
 
 from __future__ import annotations
 
@@ -9,19 +6,17 @@ import asyncio
 from logging.config import fileConfig
 from typing import Any
 
-from sqlalchemy.ext.asyncio import create_async_engine
-
 from alembic import context
+from openartifact import models  # noqa: F401  (registers every table on Base.metadata)
 from openartifact.config import Settings
-from openartifact.database import Base
-
-# Import all models so Alembic can detect them for autogenerate
-from openartifact.models import Project, Task, WorkItem  # noqa: F401
+from openartifact.database import Base, create_engine_for
 
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(
+        config.config_file_name, disable_existing_loggers=False
+    )  # keep the application loggers alive
 
 # Set the target metadata for autogenerate
 target_metadata = Base.metadata
@@ -39,8 +34,6 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,
-        compare_server_default=True,
     )
 
     with context.begin_transaction():
@@ -48,7 +41,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Any) -> None:
-    """Run a single migration against the connection."""
+    """Run a single migration against the connection.
+
+    Foreign keys are deliberately NOT enforced here (no ``PRAGMA foreign_keys``): migrations that
+    rebuild or rename tables (0007, 0019, 0020) rely on SQLite not cascading while they do.
+    """
     context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
@@ -56,16 +53,10 @@ def do_run_migrations(connection: Any) -> None:
 
 
 async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode using async engine.
-
-    Creates an engine from settings, connects, and runs all pending migrations.
-    """
+    """Connect with an engine of the configured database and run all pending migrations."""
     settings = Settings()
-    connect_args = {"check_same_thread": False, "timeout": 30}
-    engine = create_async_engine(
-        settings.database_url,
-        connect_args=connect_args,
-    )
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    engine = create_engine_for(settings, pragmas=False)
 
     async with engine.connect() as connection:
         await connection.run_sync(do_run_migrations)
@@ -74,10 +65,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
-
-    Runs migrations using an async engine via trio.
-    """
+    """Run migrations in 'online' mode (the async engine is driven by asyncio)."""
     asyncio.run(run_async_migrations())
 
 

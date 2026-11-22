@@ -5,7 +5,9 @@
 **Status:** Superseded  
 **Date:** 2026-11-18  
 **Supersedes:** —  
-**Superseded by:** [ADR-010](010-frontend-without-htmx.md)
+**Superseded by:** [ADR-010](010-frontend-without-htmx.md)  
+**Amends:** —  
+**Amended by:** —
 
 ## 1. Title
 
@@ -16,7 +18,7 @@ Frontend Application Approach
 OpenArtifact requires a web-based user interface for:
 
 - Project and artifact management
-- Workflow orchestration and monitoring
+- Pipeline orchestration and monitoring
 - Human oversight (approvals, interventions)
 - Configuration and settings
 - Real-time progress updates
@@ -70,7 +72,7 @@ The frontend must be served by the same application instance (no separate public
 
 **Strengths:**
 - Best of both worlds
-- HTMX for standard CRUD and workflow management
+- HTMX for standard CRUD and pipeline management
 - React for interactive dashboards and real-time views
 
 **Weaknesses:**
@@ -84,7 +86,7 @@ The frontend must be served by the same application instance (no separate public
 
 ### Rationale
 
-1. **Aligns with OpenArtifact's orchestration philosophy.** HTMX is server-driven: the server determines what the user sees, and HTML fragments are swapped into the page. This mirrors how OpenArtifact orchestrates workflows — the server is the source of truth, and the UI is a view layer.
+1. **Aligns with OpenArtifact's orchestration philosophy.** HTMX is server-driven: the server determines what the user sees, and HTML fragments are swapped into the page. This mirrors how OpenArtifact orchestrates pipelines — the server is the source of truth, and the UI is a view layer.
 
 2. **No build step.** For a self-hosted application, eliminating the frontend build pipeline significantly reduces deployment complexity. The frontend is served directly by FastAPI (static file serving or Jinja2 templates).
 
@@ -100,12 +102,12 @@ The frontend must be served by the same application instance (no separate public
 - **Jinja2** for server-side template rendering
 - **Tailwind CSS** for styling (via CDN or minimal build)
 - **Alpine.js** for lightweight client-side interactivity (dropdowns, toggles)
-- **WebSocket** for real-time workflow progress (via FastAPI WebSocket support)
+- **WebSocket** for real-time pipeline progress (via FastAPI WebSocket support)
 - React can be added later for complex visualizations if needed
 
 ## 6. Consequences
 
 - **Easier:** Deployment (no build step), server-side rendering, smaller Docker image
 - **More difficult:** Complex real-time dashboards, client-side state management
-- **Risks:** UI may feel less "app-like" for complex workflows (mitigated by WebSocket progress streams)
+- **Risks:** UI may feel less "app-like" for complex pipelines (mitigated by WebSocket progress streams)
 - **Trade-off:** Less interactive UI vs. build complexity; HTMX is the right trade-off for OpenArtifact's scope

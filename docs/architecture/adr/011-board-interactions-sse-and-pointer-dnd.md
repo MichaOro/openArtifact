@@ -3,7 +3,9 @@
 **Status:** Accepted  
 **Date:** 2026-11-20  
 **Supersedes:** —  
-**Superseded by:** —
+**Superseded by:** —  
+**Amends:** [ADR-009](009-technology-summary.md) (real-time updates)  
+**Amended by:** —
 
 ## 1. Context
 
@@ -158,16 +160,6 @@ does not exist is shown struck through. References are resolved when displaying,
 save: a body may legitimately contain text like `#5` or `C#3`, and an artifact referenced later may
 not exist yet. Rendering uses DOM nodes, never `innerHTML`.
 
-## 3. Consequences
-
-- **Easier:** consistent multi-tab behaviour with little code; no polling; no client framework.
-- **Limitation:** the bus is process-local. With several worker processes a client would only see
-  events published by its own worker. The container runs a single `uvicorn` process; scaling out
-  needs a shared broker (e.g. Redis pub/sub) behind the same `EventBus` interface.
-- **Limitation:** an event stream holds one connection per open tab.
-- **Risk:** hand-written drag & drop needs browser/device testing (touch behaviour differs per
-  OS). The behaviour is verified by manual browser runs before every push (headless Chrome via DevTools protocol); these scripts are deliberately not versioned, so there are no automated UI tests yet.
-
 ### 2.12 Foreign key on `parent_id`
 
 Migration 0007 rebuilds `tasks` (SQLite needs that for a new constraint) with
@@ -176,3 +168,21 @@ connection enables `PRAGMA foreign_keys=ON`. The repository still rejects unknow
 cycles (the database cannot express acyclicity) and still detaches children explicitly so it can
 report how many were affected; the constraint guarantees integrity for any other writer, and
 queries or dashboards can rely on the relation.
+
+## 3. Consequences
+
+- **Easier:** consistent multi-tab behaviour with little code; no polling; no client framework.
+- **Limitation:** the bus is process-local. With several worker processes a client would only see
+  events published by its own worker. The container runs a single `uvicorn` process; scaling out
+  needs a shared broker (e.g. Redis pub/sub) behind the same `EventBus` interface.
+- **Limitation:** an event stream holds one connection per open tab.
+- **Risk:** hand-written drag & drop needs browser/device testing (touch behaviour differs per
+  OS). The behaviour is covered by Playwright browser tests (`apps/backend/tests/e2e/`, CI job `e2e`), including touch gestures via the DevTools protocol.
+
+## Update (2026-11-22): the full event list
+
+`GET /api/events` carries more than the `task.*` events of §2.1: `task.created`, `task.updated`, `task.moved`,
+`task.deleted`, `run.updated` (a run, same schema as the REST run), `execution.updated` (`task_id` and the summary of
+an execution, when it starts and when its status changes), `execution.deleted` (`task_id` and `id`) and
+`board.resync` (the client should reload). The pages of the execution history use them ([ADR-025](025-execution-history-and-retention.md), [ADR-028](028-global-executions-page-and-keyset-paging.md)). The
+board's keyboard operation and the known limits of the editor are in [ADR-030](030-accessibility-scope.md).

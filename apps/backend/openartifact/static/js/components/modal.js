@@ -4,8 +4,12 @@
  * restores focus to the opener on close, and handles Escape. This class adds:
  *  - close via overlay click, [data-modal-close] buttons and Escape, all routed
  *    through close() so a `canClose` guard can veto them (e.g. while saving);
- *  - initial focus on [data-autofocus].
+ *  - initial focus on [data-autofocus];
+ *  - a stack of the open modals: a modal opened over another (a confirmation over the artifact
+ *    dialog) is the only one Escape closes.
  */
+const opened = [];
+
 export class Modal {
   /** @param {HTMLDialogElement} dialog */
   constructor(dialog) {
@@ -18,9 +22,13 @@ export class Modal {
     // even if focus sits on <body>. (Browsers make the `cancel` event non-cancelable on
     // repeated Escape presses, so `cancel` is only a fallback.)
     document.addEventListener("keydown", (event) => {
-      if (event.key !== "Escape" || !dialog.open) return;
+      if (event.key !== "Escape" || !dialog.open || opened.at(-1) !== this) return;
       event.preventDefault();
       this.close();
+    });
+    dialog.addEventListener("close", () => {
+      const index = opened.indexOf(this);
+      if (index >= 0) opened.splice(index, 1);
     });
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
@@ -46,7 +54,10 @@ export class Modal {
   }
 
   open() {
-    if (!this.dialog.open) this.dialog.showModal();
+    if (!this.dialog.open) {
+      this.dialog.showModal();
+      opened.push(this);
+    }
     const target = this.dialog.querySelector("[data-autofocus]");
     if (target instanceof HTMLElement) target.focus();
   }

@@ -3,7 +3,9 @@
 **Status:** Accepted  
 **Date:** 2026-11-18  
 **Supersedes:** —  
-**Superseded by:** —
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** [ADR-010](010-frontend-without-htmx.md) (HTMX), [ADR-016](016-access-protection-integration-api-and-mcp.md) (authentication)
 
 > **Amendment (2026-11-20):** References to HTMX in this ADR are obsolete ([ADR-010](010-frontend-without-htmx.md)). The decision for a REST API with OpenAPI stands on its own merits. Server-sent events are implemented (`GET /api/events`, see [ADR-011](011-board-interactions-sse-and-pointer-dnd.md)); WebSocket is **not** used.
 
@@ -17,7 +19,7 @@ OpenArtifact requires an API for:
 
 - Frontend/backend communication (via HTMX/SSE/WebSocket or direct fetch)
 - Future external integrations (webhooks, provider adapters)
-- Structured workflow execution requests
+- Structured pipeline execution requests
 - Provider adapters for AI agent execution
 - Future REST API for third-party integrations
 
@@ -83,7 +85,7 @@ OpenArtifact requires an API for:
 
 3. **Versioning strategy.** URL path versioning (`/api/v1/...`) provides backward compatibility and gradual migration capability.
 
-4. **Real-time via WebSocket/SSE.** For workflow progress and event streaming, FastAPI's native WebSocket support and Server-Sent Events provide the needed real-time capability without complicating the REST API.
+4. **Real-time via WebSocket/SSE.** For pipeline progress and event streaming, FastAPI's native WebSocket support and Server-Sent Events provide the needed real-time capability without complicating the REST API.
 
 5. **Future extensibility.** The REST API serves both internal (HTMX frontend) and external (third-party integrations) consumers with the same foundation.
 
@@ -91,7 +93,7 @@ OpenArtifact requires an API for:
 
 - **Primary API:** REST with OpenAPI (FastAPI)
 - **Versioning:** URL path (`/api/v1/...`)
-- **Real-time:** WebSocket for workflow progress, SSE for event streaming
+- **Real-time:** WebSocket for pipeline progress, SSE for event streaming
 - **Documentation:** Automatic via FastAPI's OpenAPI generation
 - **Internal communication:** HTMX + standard HTTP (no separate API layer for frontend)
 - **External API:** `/api/v1/` endpoints with future JWT authentication
@@ -102,3 +104,11 @@ OpenArtifact requires an API for:
 - **More difficult:** Real-time status updates (mitigated by WebSocket/SSE), streaming large datasets
 - **Risks:** REST polling overhead for real-time features (mitigated by SSE/WebSocket fallback)
 - **Trade-off:** Simpler API design vs. GraphQL's flexibility; REST is sufficient for OpenArtifact's scope
+
+## Update (2026-11-22): authentication
+
+The "future JWT authentication" mentioned above was not built. [ADR-016](016-access-protection-integration-api-and-mcp.md)
+protects the whole application with one API token (bearer header or a session cookie from the sign-in page),
+and [ADR-017](017-request-hardening-and-signed-sessions.md) adds request hardening and signed, expiring
+sessions. The health check is `GET /health` only (`/api/health` was removed). Run objects are typed and
+documented in OpenAPI ([ADR-018](018-typed-runs-one-error-one-persistence-rule.md)).

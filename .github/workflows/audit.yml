@@ -1,0 +1,36 @@
+# Known vulnerabilities in the declared runtime dependencies (pip-audit), weekly and when the
+# dependency list changes. The ranges from pyproject.toml are resolved fresh, as in the image.
+name: Audit
+
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/backend/pyproject.toml"
+      - ".github/workflows/audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Declared runtime dependencies
+        run: |
+          # The list from pyproject.toml, the same one the Dockerfile installs.
+          python -c "import tomllib; print('\n'.join(tomllib.load(open('apps/backend/pyproject.toml', 'rb'))['project']['dependencies']))" > "$RUNNER_TEMP/requirements.txt"
+          cat "$RUNNER_TEMP/requirements.txt"
+      - name: Audit them
+        run: |
+          pip install --no-cache-dir pip-audit
+          # -r resolves the declared ranges in a throw-away environment and audits what comes out.
+          pip-audit -r "$RUNNER_TEMP/requirements.txt" --progress-spinner off

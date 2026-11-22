@@ -3,7 +3,9 @@
 **Status:** Accepted  
 **Date:** 2026-11-18  
 **Supersedes:** —  
-**Superseded by:** —
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** [ADR-020](020-sqlite-stays-postgres-as-data-source.md)
 
 ## 1. Title
 
@@ -121,3 +123,23 @@ scripts/docker-entrypoint.sh — Entry point with migration and health check
 - **More difficult:** Multi-server deployments (deferred to WP-06)
 - **Risks:** SQLite write contention under heavy load (mitigated by WAL mode)
 - **Trade-off:** Slightly more maintainable docker-compose files vs. single config; justified by flexibility
+
+## Update (2026-11-22): what was built
+
+The history above is kept; reality differs in these points.
+
+- **Option C was not built.** There is no `docker-compose.postgres.yml` and none is planned: the application's own
+  data stays in SQLite ([ADR-020](020-sqlite-stays-postgres-as-data-source.md)). One container, one volume.
+- **Variable names.** All settings carry the prefix `OPENARTIFACT_` (`OPENARTIFACT_HOST`, `OPENARTIFACT_PORT`,
+  `OPENARTIFACT_DATA_DIR`, `OPENARTIFACT_DATABASE_FILENAME`, ...; there is no `DATABASE_PATH`). Every setting is
+  listed in the [configuration reference](../../guides/configuration.md).
+- **The secret key** is enforced, not simply "required": the application refuses to start with a missing or
+  default `OPENARTIFACT_SECRET_KEY` as soon as `OPENARTIFACT_API_TOKEN` is set. Without a token it only warns.
+- **File layout.** `deploy/` holds `docker-compose.yml`, `.env.example` and a README; the `Dockerfile` and
+  `.dockerignore` are at the repository root (the build context), and `scripts/docker-entrypoint.sh` runs
+  `alembic upgrade head` and then `exec openartifact`, the one way the server is started.
+- **Compose.** The compose file is published on `127.0.0.1` by default (`OPENARTIFACT_BIND`,
+  `OPENARTIFACT_PUBLISHED_PORT`), names a released image next to the build, and hardens the container: read-only
+  root file system with only `/data` and a tmpfs `/tmp` writable, all capabilities dropped, `no-new-privileges`,
+  256 processes and 512 MB. `deploy/.env` is required.
+- **Backup** is SQLite's backup API, with a written restore procedure ([operations guide](../../guides/operations.md)).

@@ -3,7 +3,9 @@
 **Status:** Accepted  
 **Date:** 2026-11-18  
 **Supersedes:** —  
-**Superseded by:** —
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** —
 
 ## 1. Title
 
@@ -13,9 +15,9 @@ Application Language Selection for OpenArtifact
 
 OpenArtifact is an autonomous orchestration platform requiring:
 
-- Long-running background processes (workflow execution)
+- Long-running background processes (pipeline execution)
 - External process execution (agent runs)
-- Concurrent workflow handling
+- Concurrent pipeline handling
 - Integration with AI agents and model APIs
 - Docker-based self-hosted distribution
 - Maintainability across a growing codebase
@@ -114,3 +116,10 @@ The language must serve as the foundation for the application runtime, not just 
 - **More difficult:** True multi-threading (mitigated by architecture), cold start optimization
 - **Risks:** GIL limitation for CPU-bound work (mitigated by async architecture and potential multiprocessing for heavy computation)
 - **Trade-off:** Slightly larger Docker images vs. Go; justified by AI ecosystem advantages
+
+## Update (2026-11-22): task queue and external processes
+
+The history above is kept. "Task Queue: asyncio + Celery (optional, deferred to WP-03)" was not built and is
+withdrawn: there is no task queue, runs are in-process `asyncio` tasks ([ADR-013](013-execution-engine-and-runs.md)).
+The `subprocess` argument (point 5) became real: Code nodes run as child processes
+([ADR-021](021-execution-nodes-as-executors.md), [ADR-023](023-safety-model-of-execution-nodes.md)).

@@ -14,7 +14,7 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from typing import Any
 
-logger = logging.getLogger("openartifact")
+logger = logging.getLogger(__name__)
 
 # Sentinel placed in a subscriber queue to end its stream.
 _CLOSE = None
@@ -38,8 +38,9 @@ class Event:
 class EventBus:
     """Fan-out of events to subscriber queues."""
 
-    def __init__(self, max_queue: int = 100) -> None:
+    def __init__(self, max_queue: int = 100, max_subscribers: int = 50) -> None:
         self._max_queue = max_queue
+        self._max_subscribers = max_subscribers
         self._subscribers: set[_Queue] = set()
         self._next_id = 1
         self._closed = False
@@ -47,6 +48,11 @@ class EventBus:
     @property
     def subscriber_count(self) -> int:
         return len(self._subscribers)
+
+    @property
+    def full(self) -> bool:
+        """Whether no further client may subscribe."""
+        return len(self._subscribers) >= self._max_subscribers
 
     def subscribe(self) -> _Queue:
         queue: _Queue = asyncio.Queue(maxsize=self._max_queue)

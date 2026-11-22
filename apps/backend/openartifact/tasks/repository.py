@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.models import Task
+from openartifact.models import CreatedBy, Task
 from openartifact.tasks.schemas import TaskCreate, TaskUpdate
 
 # Below this distance between two neighbours the lane is renumbered before inserting between them.
@@ -18,6 +18,10 @@ MIN_POSITION_GAP = 1e-6
 
 class PlacementError(ValueError):
     """The requested position refers to a task that is not in the target lane."""
+
+
+#: The (pipeline, stage, action) an artifact starts with; all ``None`` until a pipeline is chosen.
+Target = tuple[str | None, str | None, str | None]
 
 
 class ParentError(ValueError):
@@ -39,8 +43,19 @@ class TaskRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def create(self, data: TaskCreate) -> Task:
-        """Insert a task at the top of its lane and flush so defaults are populated."""
+    async def create(
+        self,
+        data: TaskCreate,
+        *,
+        created_by: CreatedBy = CreatedBy.USER,
+        target: Target = (None, None, None),
+    ) -> Task:
+        """Insert a task at the top of its lane and flush so defaults are populated.
+
+        ``target`` is the resolved (pipeline, stage, action) it starts with; the parent must exist.
+        """
+        if data.parent_id is not None and await self.get(data.parent_id) is None:
+            raise ParentError("Parent artifact not found")
         task = Task(
             id=str(uuid.uuid4()),
             number=await self._next_number(),
@@ -48,6 +63,11 @@ class TaskRepository:
             body=data.body,
             status=data.status.value,
             position=await self._top_position(data.status.value),
+            parent_id=data.parent_id,
+            pipeline_id=target[0],
+            stage_id=target[1],
+            action_id=target[2],
+            created_by=created_by,
         )
         self._session.add(task)
         await self._session.flush()
@@ -71,7 +91,9 @@ class TaskRepository:
         """Return the task or ``None``."""
         return await self._session.get(Task, task_id)
 
-    async def update(self, task: Task, data: TaskUpdate) -> UpdateResult:
+    async def update(
+        self, task: Task, data: TaskUpdate, *, start_at: Target | None = None
+    ) -> UpdateResult:
         """Apply the sent fields and, if requested, move/reorder the task.
 
         Placement rules:
@@ -90,6 +112,10 @@ class TaskRepository:
             await self._check_parent(task, data.parent_id)
             result.changed.add("parent_id")
 
+        if start_at is not None and start_at != (task.pipeline_id, task.stage_id, task.action_id):
+            task.pipeline_id, task.stage_id, task.action_id = start_at
+            result.changed.add("pipeline")
+
         new_values: dict[str, str | None] = {}
         if "title" in sent and data.title is not None:
             new_values["title"] = data.title
@@ -106,7 +132,7 @@ class TaskRepository:
         if "before_id" in sent or lane_changed:
             await self._place(task, target, data, result)
 
-        for name in result.changed - {"position", "parent_id"}:
+        for name in result.changed - {"position", "parent_id", "pipeline"}:
             setattr(task, name, new_values[name])
         if "parent_id" in result.changed:
             task.parent_id = data.parent_id

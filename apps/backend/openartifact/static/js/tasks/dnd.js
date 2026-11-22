@@ -74,6 +74,7 @@ export class CardDragController {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     const card = event.target.closest(".task-card");
     if (!card || event.target.closest("button")) return;
+    if (this.board.locked.has(card.dataset.taskId)) return; // being processed: the system moves it
 
     this.pending = {
       card,

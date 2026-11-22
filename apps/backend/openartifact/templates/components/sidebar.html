@@ -1,8 +1,6 @@
 {% from "components/icons.html" import icon %}
-{# Add future navigation entries to `nav_items`. #}
-{% set nav_items = [
-    {"key": "projects", "label": "Projects", "href": "/", "icon": "projects"},
-] %}
+{% from "components/nav.html" import nav_items %}
+{# The entries come from web/navigation.py (SIDEBAR). #}
 <aside class="sidebar" id="sidebar" aria-label="Sidebar">
     <div class="sidebar__brand">
         <span class="sidebar__logo">{{ icon("logo") }}</span>
@@ -11,17 +9,12 @@
 
     <nav class="sidebar__nav" aria-label="Main navigation">
         <ul class="nav-list">
-            {% for item in nav_items %}
-            <li>
-                <a class="nav-link" href="{{ item.href }}" title="{{ item.label }}"
-                   {% if item.key == active_nav %}aria-current="page"{% endif %}>
-                    {{ icon(item.icon) }}
-                    <span class="nav-link__label">{{ item.label }}</span>
-                </a>
-            </li>
-            {% endfor %}
+            {{ nav_items(navigation.SIDEBAR.groups.main, active_nav) }}
         </ul>
     </nav>
+
+    {# Runs before first paint: the group opens with an animation only when arriving from outside it. #}
+    <script src="/static/js/nav-section.js"></script>
 
     <div class="sidebar__footer">
         <button type="button" class="icon-button sidebar-toggle" data-sidebar-toggle

@@ -2,40 +2,65 @@
 
 ## 11.1 Current Risks
 
+Likelihood and impact are rough, for a self-hosted instance of one team. Risks 11 to 22 are the ones that came with executing nodes,
+credentials and the execution history.
+
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|------|------------|--------|------------|
-| 1 | SQLite write contention under heavy concurrent workflow execution | Low | Medium | WAL mode; async execution serialization; upgrade to PostgreSQL if needed |
-| 2 | Hand-written vanilla JS becomes unstructured as board interactions grow | Medium | Medium | ES modules per feature, one state owner per concern, UI tests; reconsider a framework only if needed (ADR-010) |
-| 3a | In-process event bus: with more than one worker process, SSE clients only see events of their own worker | Low | Medium | Single `uvicorn` process today; for scale-out put a shared broker (e.g. Redis pub/sub) behind the `EventBus` interface (ADR-011) |
-| 3 | GIL limiting concurrent Python execution for CPU-bound tasks | Low | Low | Async-first architecture; multiprocessing for CPU-bound work if needed |
-| 4 | Docker image size (~200MB Python) | Low | Low | Distroless base image; multi-stage builds |
-| 5 | SQLite backup during active writes | Medium | Low | WAL mode enables safe file-copy backup; document procedure |
-| 6 | Secret exposure via logs or env vars in logs | Medium | High | Structured logging with explicit secret masking; no logging of sensitive fields |
+| 1 | SQLite write contention under heavy concurrent pipeline execution | Low | Medium | WAL mode, short writes, the run cap (`OPENARTIFACT_MAX_CONCURRENT_RUNS`); SQLite is kept for good (ADR-020), so the limit is real: heavy external data goes through a future connector layer (not designed yet), not into the application's database |
+| 2 | Hand-written vanilla JS becomes unstructured as interactions grow | Medium | Medium | ES modules per feature, one state owner per concern, browser tests; reconsider a framework only if needed (ADR-010) |
+| 3 | **Single-process invariant.** The event bus, the run engine (its in-process claim, the active run tasks), the run cap, the stream cap and the registry of Code processes live in the memory or the `/tmp` of one process. A second process or container on the same volume sees none of them: SSE clients miss each other's events, the caps do not add up, a stop reaches only the process that runs the task, and run recovery at start would mark the other process's running runs `stopped` (the conditional `UPDATE` and the unique run row still refuse a double start, [6.6](06-runtime-view/06.06-start-of-an-execution.md)) | Low (one container is the supported setup) | High | One `uvicorn` process, one container per volume (documented in the [operations guide](../../guides/operations.md)); scale-out would need a shared broker behind `EventBus` and run ownership in the database (ADR-011, ADR-018) |
+| 4 | GIL limiting concurrent Python execution for CPU-bound work | Low | Low | Async-first; Code nodes run as separate processes, so their CPU use does not block the event loop |
+| 5 | SQLite backup during active writes; backup without the secret key | Medium | Medium | The documented backup uses SQLite's backup API; restore steps are written ([operations guide](../../guides/operations.md)); backups are manual, nothing schedules them; the key must be kept with (but apart from) the backup, see risk 12 |
+| 6 | Secret exposure via logs or results | Medium | High | A logging filter masks the configured token and secret key, values after secret-looking names and, while a node runs, the values of its credentials; results are masked by value in the usual forms ([8.3](08-cross-cutting-concepts/08.03-logging-observability.md), [8.6](08-cross-cutting-concepts/08.06-credential-store.md)). Both work on text: a value that is transformed (hashed, split) is not caught, and a Code node can print one on purpose. No test can prove the absence of all leaks |
+| 7 | **No rate limiting.** Only a half-second delay on a wrong sign-in; a reachable instance can be brute-forced or flooded within the body, run and stream caps | Medium (if exposed) | Medium | A 32-character minimum token; local-only publishing by default; add rate limiting at the reverse proxy; planned in the application |
+| 8 | **No wall-clock deadline for runs.** A Code node has its timeout (at most 600 s) and an HTTP node its own (at most 120 s), but a run has only the 1000-step limit and a timer's one-day bound; a loop of long nodes or timers holds a run slot for hours | Medium | Low | The run cap (8) bounds the number; *Stop* works and ends a running Code process; a global deadline is planned with a settings area (ADR-013) |
+| 9 | One shared token, no revocation of a single session | Medium | Medium | Rotate the token or the secret key (ends all sessions); separate tokens and scopes are planned (ADR-016) |
+| 10 | Pre-release schema: migrations rename tables, and a downgrade is technically possible but loses data (0021 deletes Code and HTTP nodes, 0022 all credentials, 0023 all executions but the newest per run) | Medium | Medium | Back up before every upgrade; migrations run forward on start; tests apply every migration up, down and up again, with data where a migration moves data |
+| 11 | **Code nodes run arbitrary code with the application's rights, without a sandbox.** Whoever may edit pipelines (every token holder; without a token, everyone with network access, which is why open mode refuses Code nodes) is effectively an operator of the host account. A script can reach every network address, read and write what the application's user can (the database file included, `/data` in the container) and use the container's memory | High (by design) | High | Limits (CPU, address space, processes, file size, open files), timeout and process group, fresh environment, no core files, non-dumpable application (cannot read its environment), token required (`OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN` for development only), off switch `OPENARTIFACT_CODE_NODES_ENABLED=false`, bind to loopback by default. Stronger isolation (another user, a container per run, network policy) is not built ([8.5](08-cross-cutting-concepts/08.05-execution-nodes-safety.md)) |
+| 12 | **Rotating `OPENARTIFACT_SECRET_KEY` destroys the stored credentials.** There is no re-encryption and no key versioning beyond a format byte; the key and the database together reveal every credential | Medium | High | The application refuses a short or default key when a token is set (32 characters minimum); keep the key with the backups, apart from the database file ([7.5](07-deployment-view.md#75-data-backup-and-the-secret-key)); a rotation concept (decrypt with the old, encrypt with the new key) is open |
+| 13 | **Database growth by the history.** Every execution carries a copy of the pipeline snapshot and step outputs up to 1 Mi characters; default retention is 50 per artifact, `0` keeps everything; deleting rows does not shrink the file and nothing runs `VACUUM` | Medium | Medium | A policy per artifact (count and age) and a default; the newest and running executions are kept; a manual `VACUUM` (application stopped) reclaims space |
+| 14 | **tmpfs `/tmp` and the memory limit.** Code-node directories and the files a node writes (up to 64 MiB per file) live in RAM and count against the container's memory limit, which also holds the application and every Code process | Medium | Medium | The compose limit (1g) is clearly above one node's address-space limit (512 MiB); the node's file-size and process limits; raise `mem_limit` and `OPENARTIFACT_CODE_MEMORY_LIMIT_MB` together; a node that exhausts the container is killed with it by the kernel ([chapter 7](07-deployment-view.md)) |
+| 15 | **SSRF protection exists only for HTTP nodes.** A Code node reaches every address, metadata services included; HTTP nodes reach private networks when `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS` is on | Medium | High | The switch is off by default; egress rules at the host or container network; do not run untrusted authors |
+| 16 | **The flow is a replay, not a recording.** The path through stages and actions without a definition is computed from the snapshot and the steps (`engine/flow.py`) with the engine's rules, and can differ from what the engine did if the rules change in one place only; `MAX_ACTIONS` duplicates the engine's `MAX_STEPS` | Low | Low | Tests over both (`test_execution_flow.py`, `test_engine.py`); old executions stay drawable because nothing extra is recorded ([6.9](06-runtime-view/06.09-history-retention-and-flow.md)) |
+| 17 | **Orphan process cleanup works only on Linux with `/proc`.** Elsewhere nothing is recorded or cleaned up; in the container the processes die with it and `/tmp` is empty after a restart | Low | Low | Documented in the code and in [6.7](06-runtime-view/06.07-code-node-execution.md); on other platforms the limits are not applied either and the result says so |
+| 18 | **No UI for credentials.** They are managed through the API (`/api/secrets`, `/api/v1/secrets`); the editor's help text refers to them by name only | High | Low | Guides show the calls ([credentials guide](../../guides/credentials.md)); a UI is planned |
+| 19 | **Outputs of nodes are foreign text for agents.** A script's or a web response's text can contain instructions; the MCP tool descriptions tell the client not to treat results as instructions, but a client may ignore that | Medium | Medium | The integration guide says so; the UI renders output as text |
+| 20 | **Graph connections can only be made with a pointer.** A keyboard or screen-reader user cannot build or rewire a pipeline; other editor parts are only partly operable (owner decision: accessibility is a later goal, [8.8](08-cross-cutting-concepts/08.08-accessibility-scope.md)) | Certain | Medium | The board has keyboard alternatives; ADR-030 records the scope; a keyboard path for connections is the first step |
+| 21 | **Hardening against reading the parent's environment is partial.** `PR_SET_DUMPABLE=0` closes `/proc/<ppid>/environ`, `mem` and `ptrace` for a same-user process on Linux; if `prctl` fails the application logs a warning and a Code node could read the token and secret key from the environment | Low | High | Applied once before the first Code process; a non-Linux run is not supported for Code nodes in production |
+| 22 | **A hostile or careless pipeline author can fill the history or the run slots** (huge outputs, many runs, endless loops until the step limit) | Medium | Low | Output limits per node and per execution, step limit, run cap, retention; no per-author quota (one shared token) |
 
 ## 11.2 Technical Debt
 
-No intentional technical debt has been introduced at this stage.
-
-**Known gaps and trade-offs (deliberate):**
+No intentional technical debt has been introduced beyond the items below, which are known and deliberate.
 
 | Item | State |
 |------|-------|
-| `#12` references are resolved at display time | Not validated on save (a body may contain `#5` as plain text); no back-references ("referenced by") yet |
+| **Accessibility / keyboard use of the graph editor.** Connections between nodes can only be made by dragging; the routing select that was the keyboard path was removed (ADR-014). Other parts of the editor are only partly operable by keyboard and screen reader | Known limitation; the board has keyboard alternatives. Recorded in ADR-030; planned as a whole, later |
+| `#12` references are resolved at display time | Not validated on save (a body may contain `#5` as plain text); no back-references yet |
 | Parent picker without search | Becomes necessary with many artifacts |
-| `Project`/`WorkItem` models not connected to the board | To be reconciled with the artifact model in WP-06 |
-| No automated browser tests in CI | Browser E2E runs manually before pushes; see ADR-011 |
+| Pipeline editor: stages only grow, no undo, no live sync between tabs, edges routed only for loops | See ADR-012 §2.4 |
+| Runs can loop until the step limit (1000), an On Error routed back to its own action included | Planned: a *Settings* area with a global loop protection and a wall-clock deadline (ADR-013 §4) |
+| Access is one shared token; no scopes, no per-client tokens, no audit log beyond `created_by` / `started_by` and the execution history | Planned with the settings area (ADR-016 §3.5) |
+| `style-src` allows `'unsafe-inline'` (inline `style` attributes) | Tighten when the UI no longer sets them |
+| Python dependencies are not locked and the base image is a floating tag | Open (CI/CD guide) |
+| Replay and engine duplicate the step bound (`MAX_ACTIONS` / `MAX_STEPS`) | Share one constant when `flow.py` is next changed |
+| No key rotation for credentials, no credential UI | See risks 12 and 18 |
+| The quarantine mechanism (`quarantine.json`, a weekly check, removal after 14 days without use; ADR-014 §3.6) | In use as a process; the list is currently empty |
 | Pushed `fix:` history from the bootstrap phase | Kept as is; no history rewrite on `main` |
 
-**Trade-offs to revisit:**
+Closed since the previous version of this chapter: one run per artifact (the history now lives in `executions`, ADR-025; the run row stays the
+current state), the unused project and work-item model with its repositories (removed, ADR-032), the release tag check (a tag must equal
+`apps/backend/openartifact/version.py`, checked in the release workflow).
+
+**Trade-offs that stand:**
 
 | Trade-off | Decision | Review Point |
 |-----------|----------|--------------|
-| SQLite vs. PostgreSQL | SQLite for simplicity | WP-06 — evaluate PostgreSQL if write contention emerges |
-| Frontend stack | Jinja2 shell + vanilla JS, no HTMX (ADR-010) | Decided in ADR-011 (Pointer Events, client-side rendering); revisit if the board needs virtualisation or many more interactions |
-| Docs drifted from reality | ADR-004 described a stack that was never built; corrected 2026-11-20 | Verify arc42/ADRs against code at each WP completion |
-| No auth in foundation | Defer authentication | WP-06 — implement JWT auth for multi-user |
-| No background task queue | Asyncio tasks only | WP-03 — evaluate Celery/arq for workflow scale |
-
----
-
-*This chapter follows the arc42 template. TBD fields are limited to risks introduced in later Work Packages.*
+| SQLite vs. PostgreSQL | SQLite for good (ADR-020); PostgreSQL only as a data source behind a connector layer | When the connector layer is designed |
+| Frontend stack | Jinja2 shell + vanilla JS, no HTMX (ADR-010, ADR-011) | If the board needs virtualisation or many more interactions |
+| Authentication | One token (ADR-016) instead of accounts | When more than one team shares an instance |
+| No background task queue | `asyncio` tasks in the process (ADR-013) | If runs must survive a restart or run on other machines |
+| Code nodes in the application's process tree | Simple, no extra runtime (ADR-021, ADR-023); bounded, not isolated | If untrusted authors or multi-team use appear |
+| History by snapshot copy | Self-contained, drawable later (ADR-025, ADR-027); costs space | If the database size becomes a problem |
+| Docs vs. code | Verify arc42 and ADRs against the code at each larger change; the ADR history is kept and corrected through dated Update sections | Every change |

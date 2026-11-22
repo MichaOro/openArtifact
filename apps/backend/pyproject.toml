@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openartifact"
-version = "0.1.0"
-description = "OpenArtifact — Orchestrate projects, workflows, and AI agents around structured artifacts"
+dynamic = ["version"]
+description = "OpenArtifact — Orchestrate projects, pipelines, and AI agents around structured artifacts"
 readme = "README.md"
-license = "MIT"
+license = "Apache-2.0"
 requires-python = ">=3.12"
 authors = [
     { name = "OpenArtifact Contributors" },
@@ -15,13 +15,14 @@ authors = [
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
     "fastapi>=0.115.0",
+    "starlette>=1.6.0",
     "uvicorn[standard]>=0.34.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
@@ -29,7 +30,9 @@ dependencies = [
     "aiosqlite>=0.21.0",
     "alembic>=1.14.0",
     "jinja2>=3.1.5",
-    "gunicorn>=23.0.0",
+    "mcp>=2.3.0",
+    "cryptography>=41.0.0",
+    "httpx>=0.28.0",
 ]
 
 [project.optional-dependencies]
@@ -38,13 +41,17 @@ dev = [
     "mypy>=1.14.0",
     "pytest>=8.3.0",
     "pytest-asyncio>=0.25.0",
-    "httpx>=0.28.0",
+    "pytest-xdist>=3.6.0",
+    "pytest-timeout>=2.3.0",
     "coverage>=7.6.0",
-    "factory-boy>=3.3.0",
+    "pytest-playwright>=0.6.0",
 ]
 
 [project.scripts]
 openartifact = "openartifact.cli:main"
+
+[tool.hatch.version]
+path = "openartifact/version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["openartifact"]
@@ -88,19 +95,17 @@ check_untyped_defs = true
 disallow_untyped_decorators = true
 no_implicit_optional = true
 
-[[tool.mypy.overrides]]
-module = [
-    "uvicorn.*",
-    "pytest.*",
-]
-ignore_missing_imports = true
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
+# A hanging test fails after two minutes instead of stalling the run. Parallel runs are opt-in: `pytest -n auto`.
+timeout = 120
+# Browser tests are slow and need a browser: run them explicitly with `pytest -m e2e`.
+addopts = "-m 'not e2e'"
+markers = ["e2e: browser tests against a running application (pytest -m e2e)"]
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning",
@@ -109,6 +114,9 @@ filterwarnings = [
 
 [tool.coverage.run]
 source = ["openartifact"]
+branch = true
+# SQLAlchemy's async layer switches greenlets: without this every line after an awaited query counts as missed.
+concurrency = ["greenlet", "thread"]
 omit = [
     "*/tests/*",
     "*/cli.py",
@@ -116,4 +124,4 @@ omit = [
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 80
+fail_under = 95

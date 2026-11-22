@@ -2,46 +2,29 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from fastapi.testclient import TestClient
 
-from openartifact.api.routes import public_router as api_public_router
-from openartifact.api.routes import router as api_router
 from openartifact.app import _create_app
-from openartifact.web.routes import router as web_router
+from openartifact.config import Settings
+from openartifact.version import __version__
+from tests.helpers import bare_settings
 
 
 @pytest.fixture
-def app() -> FastAPI:
-    """FastAPI app with all routes attached."""
-    from openartifact.config import Settings
-
-    settings = Settings()
-    a = _create_app(settings)
-    a.include_router(api_public_router)
-    a.include_router(api_router)
-    a.include_router(web_router)
-    # Serve static files for template test
-    Jinja2Templates(
-        directory=str(Path(__file__).parent.parent / "openartifact" / "templates"),
-    )
-    a.mount(
-        "/static",
-        StaticFiles(directory=str(Path(__file__).parent.parent / "openartifact" / "static")),
-        name="static",
-    )
-    return a
+def client() -> TestClient:
+    """Test client on the application with its routes and static files."""
+    return TestClient(_create_app(bare_settings()))
 
 
 @pytest.fixture
-def client(app: FastAPI) -> TestClient:
-    """Test client for the full app."""
-    return TestClient(app)
+def db_client(migrated_settings: Settings) -> Generator[TestClient, None, None]:
+    """Test client with the real lifespan on a migrated database, for pages that read it."""
+    with TestClient(_create_app(migrated_settings)) as c:
+        yield c
 
 
 # ── Root path (web shell) ─────────────────────────────────────────────
@@ -62,7 +45,7 @@ def test_root_contains_html(client: TestClient) -> None:
 def test_root_contains_version(client: TestClient) -> None:
     """Root page displays version."""
     response = client.get("/")
-    assert "0.1.0" in response.text
+    assert __version__ in response.text
 
 
 def test_root_loads_no_external_scripts(client: TestClient) -> None:
@@ -70,40 +53,6 @@ def test_root_loads_no_external_scripts(client: TestClient) -> None:
     response = client.get("/")
     assert "htmx" not in response.text
     assert "https://" not in response.text.replace("https://www.w3.org", "")
-
-
-# ── Health endpoints ──────────────────────────────────────────────────
-
-
-def test_health_public_returns_200(client: TestClient) -> None:
-    """Public health endpoint returns HTTP 200."""
-    response = client.get("/health")
-    assert response.status_code == 200
-
-
-def test_health_public_is_json(client: TestClient) -> None:
-    """Public health endpoint returns JSON content type."""
-    response = client.get("/health")
-    assert "application/json" in response.headers["content-type"]
-
-
-def test_health_api_returns_200(client: TestClient) -> None:
-    """Legacy health endpoint returns HTTP 200."""
-    response = client.get("/api/health")
-    assert response.status_code == 200
-
-
-def test_health_api_is_json(client: TestClient) -> None:
-    """Legacy health endpoint returns JSON content type."""
-    response = client.get("/api/health")
-    assert "application/json" in response.headers["content-type"]
-
-
-def test_health_responses_are_equivalent(client: TestClient) -> None:
-    """Both health endpoints return identical data."""
-    pub = client.get("/health").json()
-    api = client.get("/api/health").json()
-    assert pub == api
 
 
 # ── UI shell: layout, design system, kanban ───────────────────────────
@@ -128,12 +77,33 @@ def test_root_links_assets(client: TestClient) -> None:
     assert "/static/js/theme.js" in html
 
 
-def test_navigation_contains_only_projects(client: TestClient) -> None:
-    """Sidebar navigation has exactly one entry: Projects."""
+def test_navigation_shows_the_pipeline_entries_only_inside_the_pipeline(client: TestClient) -> None:
+    """Projects, Pipeline and Executions are always there; Actions only once Pipeline is entered."""
     html = client.get("/").text
-    assert html.count('class="nav-link"') == 1
-    assert 'aria-current="page"' in html
-    assert "Projects" in html
+    assert html.count('class="nav-link"') == 3  # Projects, Pipeline and Executions
+    assert 'href="/pipelines"' in html  # the Pipeline entry itself
+    assert 'href="/actions"' not in html
+    for path, marked_as_section in (("/pipelines", 0), ("/actions", 1)):
+        inside = client.get(path).text
+        assert 'href="/actions"' in inside  # the sub-entry
+        assert inside.count("nav-link--section") == marked_as_section
+        assert inside.count('aria-current="page"') == 1
+
+
+def test_pipeline_pages_render_and_mark_their_navigation_entry(db_client: TestClient) -> None:
+    for path in ("/pipelines", "/pipelines/any-id"):
+        response = db_client.get(path)
+        assert response.status_code == 200
+        assert 'href="/pipelines"' in response.text
+        assert response.text.count('aria-current="page"') == 1
+
+
+def test_action_pages_render_and_mark_their_navigation_entry(db_client: TestClient) -> None:
+    for path in ("/actions", "/actions/any-id"):
+        response = db_client.get(path)
+        assert response.status_code == 200
+        assert 'href="/actions"' in response.text
+        assert response.text.count('aria-current="page"') == 1
 
 
 def test_board_has_three_empty_lanes(client: TestClient) -> None:
@@ -219,6 +189,7 @@ def test_create_task_modal_markup(client: TestClient) -> None:
     assert 'aria-label="Close dialog"' in html
     assert "Cancel</button>" in html
     assert 'type="submit"' in html
+    assert "<span data-submit-label>Create</span>" in html
 
 
 def test_task_modules_are_served(client: TestClient) -> None:
@@ -228,8 +199,19 @@ def test_task_modules_are_served(client: TestClient) -> None:
         "/static/js/tasks/main.js",
         "/static/js/tasks/api.js",
         "/static/js/tasks/board.js",
-        "/static/js/tasks/create-task-form.js",
+        "/static/js/tasks/artifact-dialog.js",
+        "/static/js/tasks/history-tab.js",
+        "/static/js/tasks/history-list.js",
+        "/static/js/tasks/history-detail.js",
+        "/static/js/tasks/history-api.js",
+        "/static/js/tasks/history-format.js",
+        "/static/js/tasks/history-step.js",
+        "/static/js/tasks/retention-editor.js",
+        "/static/js/components/tabs.js",
+        "/static/css/history.css",
         "/static/js/components/modal.js",
+        "/static/js/components/action-dialog.js",
+        "/static/js/components/form-dialog.js",
         "/static/css/forms.css",
         "/static/css/modal.css",
     ):
@@ -282,8 +264,10 @@ def test_task_dialog_has_collapsed_card_navigation_with_delete(client: TestClien
     assert 'data-card-nav data-state="collapsed"' in html
     assert "data-card-nav-toggle" in html
     assert 'aria-label="Expand artifact details"' in html
-    assert html.count("data-card-action=") == 1
-    assert 'data-card-action="delete"' in html
+    assert (
+        html.count('data-card-action="delete"') == 1
+    )  # the rail's only command (Start/Stop is in the footer)
+    assert html.count("data-card-action=") == 2
     assert "collapsible-nav.js" in client.get("/static/js/tasks/main.js").text
     assert client.get("/static/js/components/collapsible-nav.js").status_code == 200
 
@@ -381,7 +365,7 @@ def test_dialog_rail_has_lane_and_parent_fields_and_delete(client: TestClient) -
     assert 'data-card-field="lane"' in html
     assert 'data-card-field="parent"' in html
     assert "data-parent-value" in html
-    assert html.count("data-card-action=") == 1  # Delete is the only action
+    assert html.count('data-card-action="delete"') == 1  # Delete is the rail's only action
 
 
 def test_card_template_has_a_relations_line_and_delete_dialog_a_children_note(
@@ -404,3 +388,112 @@ def test_rail_grows_the_card_instead_of_shrinking_the_form() -> None:
     ).read_text()
     assert "--form-w" in css and "--rail-w" in css
     assert "grid-template-columns: var(--form-w) var(--rail-w)" in css
+
+
+def test_stage_pages_use_the_name_of_the_stage(db_client: TestClient) -> None:
+    created = db_client.post("/api/pipelines", json={"name": "Gap Analyses"}).json()
+    assert created["slug"] == "gap-analyses"
+    page = db_client.get("/pipelines/gap-analyses")
+    assert page.status_code == 200
+    assert f'data-graph-id="{created["id"]}"' in page.text
+    assert 'data-kind="pipeline"' in page.text
+    assert (
+        db_client.get("/actions/gap-analyses").status_code == 200
+    )  # unknown here: the editor says so
+    assert db_client.get("/workflows").status_code == 404  # the earlier URL is gone
+
+
+def test_name_dialogs_are_the_shared_form_dialog(client: TestClient) -> None:
+    """Pipeline/action lists and the editor render the same form_modal with one Name field."""
+    for path in ("/pipelines", "/actions"):
+        html = client.get(path).text
+        assert 'id="name-modal-field-name"' in html
+        assert 'id="name-modal-field-name-error"' in html
+        assert "<span data-submit-label>Create</span>" in html
+        assert "data-cancel" in html
+
+
+def test_the_execution_flow_page_and_its_modules_are_served(client: TestClient) -> None:
+    """The flow page of an execution is a sub-page of the board; whether the execution exists is the page's business."""
+    page = client.get("/artifacts/7/executions/abc")
+    assert page.status_code == 200
+    assert 'data-task-ref="7"' in page.text and 'data-execution-id="abc"' in page.text
+    assert 'type="module" src="/static/js/execution/flow-page.js"' in page.text
+    assert 'id="history-step-template"' in page.text
+    assert page.text.count('aria-current="page"') == 1  # the sidebar marks Executions
+    assert 'href="/executions" title="Executions"' in page.text
+    for path in (
+        "/static/js/execution/flow-page.js",
+        "/static/js/execution/flow-client.js",
+        "/static/js/execution/flow-view.js",
+        "/static/js/execution/flow-panel.js",
+        "/static/js/execution/visit-model.js",
+        "/static/js/execution/breadcrumb.js",
+        "/static/css/execution.css",
+        "/static/js/tasks/history-step.js",
+    ):
+        assert client.get(path).status_code == 200, path
+
+
+def test_the_executions_page_and_its_modules_are_served(client: TestClient) -> None:
+    """The global execution list: page, sidebar entry (marked on it and on the flow page), modules, styles."""
+    page = client.get("/executions")
+    assert page.status_code == 200
+    assert 'type="module" src="/static/js/executions/page.js"' in page.text
+    assert 'data-page-size="50"' in page.text and 'id="ex-row-template"' in page.text
+    assert page.text.count('aria-current="page"') == 1
+    assert 'href="/executions" title="Executions"' in page.text
+    assert '<caption class="visually-hidden">' in page.text and page.text.count('scope="col"') == 10
+    assert 'data-page-size="2"' in client.get("/executions?page_size=2").text
+    assert 'data-page-size="200"' in client.get("/executions?page_size=9999").text
+    assert 'data-page-size="1"' in client.get("/executions?page_size=0").text
+    for path in (
+        "/static/js/executions/page.js",
+        "/static/js/executions/api.js",
+        "/static/js/executions/filters.js",
+        "/static/js/executions/filter-bar.js",
+        "/static/js/executions/summary.js",
+        "/static/js/executions/table.js",
+        "/static/js/tasks/history-row.js",
+        "/static/css/executions.css",
+    ):
+        assert client.get(path).status_code == 200, path
+
+
+def test_the_board_opens_an_artifact_given_in_the_url(client: TestClient) -> None:
+    """``/?artifact=12`` is what the global execution list links to; the board's script handles it."""
+    assert client.get("/?artifact=12").status_code == 200
+    script = client.get("/static/js/tasks/main.js").text
+    assert 'get("artifact")' in script
+
+
+def test_the_history_tab_links_to_the_flow_page(client: TestClient) -> None:
+    html = client.get("/").text
+    assert "data-detail-flow" in html and ">Open flow</a>" in html
+    assert html.count('id="history-step-template"') == 1
+
+
+# ── the sign-in form body ─────────────────────────────────────────────
+
+
+def test_a_sign_in_body_without_a_declared_length_above_the_limit_gets_413_before_any_check(
+    migrated_settings: Settings,
+) -> None:
+    token = "web-token-" + "x" * 30
+    settings = migrated_settings.model_copy(update={"api_token": token, "secret_key": "k" * 40})
+
+    def chunks() -> Generator[bytes, None, None]:
+        yield b"token=" + token.encode() + b"&next=/"  # the right token ...
+        for _ in range(5):
+            yield b"&pad=" + b"a" * 1000  # ... but a body no sign-in form needs
+
+    with TestClient(_create_app(settings)) as app:
+        response = app.post(
+            "/login",
+            content=chunks(),  # a generator is sent chunked, with no Content-Length
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            follow_redirects=False,
+        )
+        assert (response.status_code, response.text) == (413, "The request is too large")
+        assert "set-cookie" not in response.headers
+        assert app.get("/api/tasks").status_code == 401  # it did not sign in

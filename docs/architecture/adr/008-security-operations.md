@@ -3,7 +3,9 @@
 **Status:** Accepted  
 **Date:** 2026-11-18  
 **Supersedes:** —  
-**Superseded by:** —
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** [ADR-016](016-access-protection-integration-api-and-mcp.md), [ADR-017](017-request-hardening-and-signed-sessions.md), [ADR-023](023-safety-model-of-execution-nodes.md) (execution nodes), [ADR-024](024-credential-store.md) (credential store)
 
 ## 1. Title
 
@@ -92,3 +94,24 @@ Integrate with HashiCorp Vault or similar for secret management.
 - **More difficult:** Secret rotation (deferred), multi-instance secret sharing (deferred)
 - **Risks:** Secrets in `.env` file at rest (mitigated by file permissions on host)
 - **Trade-off:** Simpler initial setup vs. enterprise-grade secret management; justified by self-hosted scope
+
+## Update (2026-11-22): what was added
+
+The history above is kept. "Authentication ... not required for the initial foundation" and "JSON formatter" are
+no longer accurate.
+
+- **Access protection:** one API token for the whole application ([ADR-016](016-access-protection-integration-api-and-mcp.md)),
+  with request hardening, signed expiring sessions and security headers ([ADR-017](017-request-hardening-and-signed-sessions.md)).
+- **Logging:** one handler on the `openartifact` logger writing to stdout in one plain text format (there is no JSON
+  format). A filter masks the configured token and secret key and any value after a secret-looking name
+  (`password`, `token`, `api_key`, `authorization`, ...) in messages, arguments and tracebacks. See
+  [arc42 8.3](../arc42/08-cross-cutting-concepts/08.03-logging-observability.md).
+- **Container:** non-root user, read-only root file system, no capabilities, `no-new-privileges`, process and memory
+  limits; `.dockerignore` is an allow-list.
+- **Health check:** `GET /health` only, open without a token and under any `Host` header.
+- **Secret manager:** still deferred. File permissions on the database file are not set by the application.
+
+- **Secrets (update):** "Environment variables only; no secrets in code or database" no longer holds for credentials
+  of execution nodes: they are stored encrypted in the database ([ADR-024](024-credential-store.md)). Application settings (token, secret key)
+  stay environment variables. "File permissions 600" for the database file was never implemented and remains open.
+- **Execution nodes:** the safety model of Code and HTTP nodes is [ADR-023](023-safety-model-of-execution-nodes.md).
