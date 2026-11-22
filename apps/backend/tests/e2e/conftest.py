@@ -37,7 +37,7 @@ def base_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     """Migrate a temporary database and serve the application from it."""
     port = _free_port()
     env = {
-        **os.environ,
+        **{k: v for k, v in os.environ.items() if not k.upper().startswith("OPENARTIFACT_")},
         "OPENARTIFACT_DATA_DIR": str(tmp_path_factory.mktemp("data")),
         "OPENARTIFACT_HOST": "127.0.0.1",
         "OPENARTIFACT_PORT": str(port),

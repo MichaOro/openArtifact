@@ -1,11 +1,15 @@
-"""Shared test fixtures.
+"""Shared test fixtures: isolated settings, a migrated database and a client with the real lifespan.
 
-Fixtures for database sessions, application client, and test data factories
-will be added alongside implementation in WP-03.
+The database is migrated once per session into a template file; every test gets a copy, so a test
+costs milliseconds instead of running all migrations again. Tests never see the developer's
+``OPENARTIFACT_*`` environment or ``.env``.
 """
 
 from __future__ import annotations
 
+import os
+import shutil
+import sqlite3
 from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any
@@ -20,10 +24,17 @@ from openartifact.app import _create_app
 from openartifact.config import Settings
 
 
+@pytest.fixture(autouse=True)
+def _isolated_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Whatever the developer has exported (a token, a data directory ...) must not change a test."""
+    for name in [n for n in os.environ if n.upper().startswith("OPENARTIFACT_")]:
+        monkeypatch.delenv(name)
+
+
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     """Provide settings pointing to a temporary directory."""
-    return Settings(data_dir=tmp_path, database_filename="test.db")
+    return Settings(data_dir=tmp_path, database_filename="test.db", _env_file=None)  # type: ignore[call-arg]
 
 
 @pytest.fixture
@@ -60,12 +71,27 @@ def alembic_config() -> Config:
     return cfg
 
 
+@pytest.fixture(scope="session")
+def _migrated_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A database with every migration applied, built once and copied for each test."""
+    directory = tmp_path_factory.mktemp("template")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv("OPENARTIFACT_DATA_DIR", str(directory))
+        patch.setenv("OPENARTIFACT_DATABASE_FILENAME", "template.db")
+        command.upgrade(alembic_config(), "head")
+    with sqlite3.connect(directory / "template.db") as conn:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    return directory / "template.db"
+
+
 @pytest.fixture
-def migrated_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
-    """Settings pointing at a temp database with all migrations applied."""
+def migrated_settings(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch, _migrated_template: Path
+) -> Settings:
+    """Settings pointing at a temp database with all migrations applied (a copy of the template)."""
+    shutil.copy(_migrated_template, settings.data_dir / settings.database_filename)
     monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
     monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "head")
     return settings
 
 
