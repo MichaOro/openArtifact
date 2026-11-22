@@ -56,15 +56,6 @@ class Limits:
 
     @classmethod
     def from_settings(cls, settings: Settings, secrets: SecretResolver | None = None) -> Limits:
-        if (
-            not settings.api_token
-            and settings.code_nodes_enabled
-            and settings.code_nodes_without_token
-        ):
-            logger.warning(
-                "OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN is on and no API token is set: everyone who can "
-                "reach this port can run code as the application's user"
-            )
         return cls(
             settings.code_nodes_enabled,
             settings.code_output_limit_bytes,

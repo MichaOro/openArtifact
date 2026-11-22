@@ -70,6 +70,12 @@ def _create_app(settings: Settings) -> FastAPI:
                 "everyone who can reach port %d; set a token before exposing the application",
                 settings.port,
             )
+            if settings.code_nodes_enabled and settings.code_nodes_without_token:
+                logger.warning(
+                    "OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN is on and no API token is set: everyone who "
+                    "can reach port %d can run code as the application's user",
+                    settings.port,
+                )
 
         # ── Database initialization ──────────────────────────
         try:

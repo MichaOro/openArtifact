@@ -52,6 +52,22 @@ def test_lifespan_no_warning_with_custom_secret_key(
     assert "Using default SECRET_KEY" not in caplog.text
 
 
+def test_lifespan_warns_when_code_nodes_run_without_a_token(
+    settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Opt-in for Code nodes in open mode is flagged once at startup; with a token it is not."""
+    opted_in = settings.model_copy(update={"code_nodes_without_token": True, "api_token": ""})
+    with caplog.at_level(logging.WARNING, logger="openartifact"), TestClient(_create_app(opted_in)):
+        pass
+    assert caplog.text.count("OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN is on") == 1
+
+    caplog.clear()
+    refused = settings.model_copy(update={"code_nodes_without_token": False, "api_token": ""})
+    with caplog.at_level(logging.WARNING, logger="openartifact"), TestClient(_create_app(refused)):
+        pass
+    assert "OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN is on" not in caplog.text
+
+
 def test_lifespan_wraps_unexpected_database_errors(settings: Settings) -> None:
     """Unexpected connection errors surface as ConfigurationError."""
     app = _create_app(settings)

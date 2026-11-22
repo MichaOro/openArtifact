@@ -204,17 +204,11 @@ async def test_code_nodes_in_open_mode_need_the_opt_in(
         assert (result.outcome, result.reason, result.output) == ("fail", _OPEN, "")
 
 
-def test_the_opt_in_logs_one_warning_when_the_limits_are_built(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    with caplog.at_level("WARNING", logger="openartifact.engine.executors"):
-        Limits.from_settings(bare_settings())
-        Limits.from_settings(bare_settings(api_token="t" * 40, code_nodes_without_token=True))
-        assert not caplog.records
+def test_building_the_limits_does_not_log(caplog: pytest.LogCaptureFixture) -> None:
+    """The opt-in warning belongs to the application start (it is logged there, formatted)."""
+    with caplog.at_level("WARNING", logger="openartifact"):
         Limits.from_settings(bare_settings(code_nodes_without_token=True))
-    assert [r.getMessage().split(" ")[0] for r in caplog.records] == [
-        "OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN"
-    ]
+    assert not caplog.records
 
 
 _READ_PARENT_ENVIRON = """
