@@ -19,6 +19,14 @@ from typing import Any, Protocol
 
 from openartifact.agents.runtime import run_node as run_agent_node
 from openartifact.config import Settings
+from openartifact.credentials.refs import (
+    SecretReferenceError,
+    mask_data,
+    mask_text,
+    names_in,
+    parse_name_lines,
+)
+from openartifact.credentials.store import SecretResolveError
 from openartifact.engine.branching import evaluate_if, evaluate_switch
 from openartifact.engine.code_runner import CodeLimits, run_code
 from openartifact.engine.context import RunView
@@ -26,14 +34,6 @@ from openartifact.engine.http_runner import run_http
 from openartifact.engine.results import NodeResult, failed
 from openartifact.logging_config import masked_in_logs
 from openartifact.models import NodeKind
-from openartifact.secret_refs import (
-    SecretReferenceError,
-    mask_data,
-    mask_text,
-    names_in,
-    parse_name_lines,
-)
-from openartifact.secret_store import SecretResolveError
 
 logger = logging.getLogger(__name__)
 

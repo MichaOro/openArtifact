@@ -10,7 +10,7 @@ from collections import Counter
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 
-from openartifact.secret_refs import forms_of
+from openartifact.credentials.refs import forms_of
 
 #: Names whose value is masked wherever ``name=value``, ``name: value`` or ``'name': 'value'``
 #: shows up in a message (also ``Authorization: Bearer <token>``).

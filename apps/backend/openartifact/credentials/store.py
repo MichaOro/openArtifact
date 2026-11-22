@@ -18,13 +18,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from openartifact.config import DEFAULT_SECRET_KEY, Settings
+from openartifact.credentials.crypto import SecretUnreadableError, decrypt, encrypt
+from openartifact.credentials.refs import REFERENCE, is_name, parse_name_lines
 from openartifact.database import SessionOpener
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import node_type
 from openartifact.models import Graph, GraphNode, NodeKind, Secret
 from openartifact.schemas_common import UtcDateTime
-from openartifact.secret_crypto import SecretUnreadableError, decrypt, encrypt
-from openartifact.secret_refs import REFERENCE, is_name, parse_name_lines
 
 MAX_VALUE_BYTES = 8 * 1024
 NOT_CONFIGURED = "Set OPENARTIFACT_API_TOKEN and OPENARTIFACT_SECRET_KEY first"

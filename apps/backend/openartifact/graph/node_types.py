@@ -21,14 +21,14 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from openartifact.agents import schemas as agent_rules
 from openartifact.agents.render import MappingError, parse_mapping, prompt_problems
-from openartifact.engine.context import VAR_NAME, ContextError, check_url_placement
-from openartifact.models import GraphKind, NodeKind
-from openartifact.secret_refs import (
+from openartifact.credentials.refs import (
     SecretReferenceError,
     check_url_references,
     names_in,
     parse_name_lines,
 )
+from openartifact.engine.context import VAR_NAME, ContextError, check_url_placement
+from openartifact.models import GraphKind, NodeKind
 
 if TYPE_CHECKING:
     from openartifact.graph.rules import Endpoint

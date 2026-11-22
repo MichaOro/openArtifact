@@ -18,11 +18,8 @@ from fastapi.testclient import TestClient
 from alembic import command
 from openartifact.app import _create_app
 from openartifact.config import Settings
-from openartifact.engine.executors import Limits, _code, _http
-from openartifact.graph.node_types import node_type
-from openartifact.models import NodeKind
-from openartifact.secret_crypto import SecretUnreadableError, decrypt, encrypt
-from openartifact.secret_refs import (
+from openartifact.credentials.crypto import SecretUnreadableError, decrypt, encrypt
+from openartifact.credentials.refs import (
     SecretReferenceError,
     check_url_references,
     mask_data,
@@ -30,7 +27,10 @@ from openartifact.secret_refs import (
     parse_name_lines,
     substitute,
 )
-from openartifact.secret_store import SecretResolveError
+from openartifact.credentials.store import SecretResolveError
+from openartifact.engine.executors import Limits, _code, _http
+from openartifact.graph.node_types import node_type
+from openartifact.models import NodeKind
 from tests.helpers import alembic_config
 from tests.helpers import build_pipeline as _pipeline
 from tests.helpers import graph_url as _url

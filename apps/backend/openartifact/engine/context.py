@@ -15,7 +15,7 @@ without a type has none.
 ``NAME`` is the node's name as the editor shows it, with every character outside ``A-Z a-z 0-9 _ -``
 replaced by ``_`` (so ``Fetch user`` is ``Fetch_user``). References are replaced literally by text: a value
 is never evaluated and never scanned for references again (a response that contains ``${var.x}`` or
-``${secret:X}`` stays that text). Secret references (``${secret:NAME}``, see ``secret_refs``) are replaced in
+``${secret:X}`` stays that text). Secret references (``${secret:NAME}``, see ``credentials.refs``) are replaced in
 the same single pass. Anything that cannot be resolved raises :class:`ContextError` with a reason that names
 the reference: nothing is ever replaced by an empty string.
 
@@ -47,7 +47,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
-from openartifact.secret_refs import in_scheme_or_host
+from openartifact.credentials.refs import in_scheme_or_host
 
 if TYPE_CHECKING:
     from openartifact.engine.results import NodeResult

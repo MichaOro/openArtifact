@@ -48,6 +48,8 @@ from openartifact.agents.schemas import (
     ProviderWrite,
 )
 from openartifact.config import Settings
+from openartifact.credentials.refs import is_name
+from openartifact.credentials.store import SecretResolveError, SecretStore
 from openartifact.database import SessionOpener
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
@@ -60,8 +62,6 @@ from openartifact.models import (
     NodeKind,
     ProviderKind,
 )
-from openartifact.secret_refs import is_name
-from openartifact.secret_store import SecretResolveError, SecretStore
 
 #: A whole connection test (all its requests) takes at most this long.
 CHECK_TIMEOUT_SECONDS = 45.0

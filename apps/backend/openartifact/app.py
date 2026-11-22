@@ -24,6 +24,7 @@ from openartifact.api.executions import router as executions_router
 from openartifact.api.graphs import actions_router, node_types_router, pipelines_router
 from openartifact.api.hardening import BodyLimit, CrossSiteGuard, HostCheck, SecurityHeaders
 from openartifact.api.lanes import router as lanes_router
+from openartifact.api.mcp import build_mcp
 from openartifact.api.routes import public_router as public_api_router
 from openartifact.api.routes import router as api_router
 from openartifact.api.runs import router as runs_router
@@ -32,6 +33,7 @@ from openartifact.api.tasks import router as tasks_router
 from openartifact.api.v1 import router as v1_router
 from openartifact.artifact_types.service import ArtifactTypeService
 from openartifact.config import DEFAULT_SECRET_KEY, Settings, get_settings
+from openartifact.credentials.store import SecretStore
 from openartifact.engine.executors import Limits
 from openartifact.engine.runner import RunEngine
 from openartifact.events import EventBus
@@ -41,8 +43,6 @@ from openartifact.exceptions import (
     OpenArtifactError,
 )
 from openartifact.logging_config import configure_logging
-from openartifact.mcp_server import build_mcp
-from openartifact.secret_store import SecretStore
 from openartifact.security import AccessGate, TokenProtected, require_api_token
 from openartifact.tasks.service import ArtifactService
 from openartifact.version import __version__

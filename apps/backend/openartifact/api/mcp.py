@@ -19,10 +19,10 @@ from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.api.contract import ARTIFACT_EXECUTIONS_MAX_LIMIT
 from openartifact.artifact_types.service import ArtifactTypeService
+from openartifact.credentials.store import SecretStore
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, StartedBy
-from openartifact.secret_store import SecretStore
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 from openartifact.tasks.service import ArtifactService
 

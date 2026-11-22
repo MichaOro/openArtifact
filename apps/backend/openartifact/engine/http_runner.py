@@ -24,10 +24,10 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from openartifact.credentials.refs import SecretReferenceError, check_url_references
 from openartifact.engine.context import ContextError, RunView, check_url_placement
 from openartifact.engine.results import NodeResult, failed
 from openartifact.graph.node_types import SettingError, parse_status_spec
-from openartifact.secret_refs import SecretReferenceError, check_url_references
 
 TRUNCATED_MARK = "[response truncated]"
 MAX_ADDRESSES = 4

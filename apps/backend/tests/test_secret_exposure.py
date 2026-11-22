@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from openartifact.app import _create_app
 from openartifact.config import Settings
-from openartifact.secret_refs import forms_of
+from openartifact.credentials.refs import forms_of
 from tests.helpers import build_pipeline, make_task, wait_for_run
 from tests.test_execution_nodes import _definition, _start, _use
 

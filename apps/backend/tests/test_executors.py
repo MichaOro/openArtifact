@@ -8,11 +8,11 @@ from typing import Any
 
 import pytest
 
+from openartifact.credentials.store import SecretResolveError
 from openartifact.engine import executors
 from openartifact.engine.executors import EXECUTORS, Limits
 from openartifact.engine.results import NodeResult
 from openartifact.models import NodeKind
-from openartifact.secret_store import SecretResolveError
 
 SECRET = "hunter2-value"
 

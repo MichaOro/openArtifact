@@ -30,6 +30,7 @@ from openartifact.api.lanes import (
 from openartifact.api.schemas import PipelineChainRead
 from openartifact.api.secrets import StoreDep
 from openartifact.artifact_types.schemas import ArtifactTypeRead, ArtifactTypeWrite
+from openartifact.credentials.store import SecretRead, SecretWrite
 from openartifact.engine.flow_schemas import ExecutionFlow
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.engine.schemas import (
@@ -45,7 +46,6 @@ from openartifact.engine.schemas import (
 )
 from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, StartedBy
-from openartifact.secret_store import SecretRead, SecretWrite
 from openartifact.security import require_api_token
 from openartifact.tasks.schemas import (
     LaneRead,

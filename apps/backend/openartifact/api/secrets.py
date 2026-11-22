@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from openartifact.api.contract import GATED, errors
-from openartifact.secret_store import SecretRead, SecretStore, SecretUse, SecretWrite
+from openartifact.credentials.store import SecretRead, SecretStore, SecretUse, SecretWrite
 
 router = APIRouter(prefix="/api/secrets", tags=["secrets"], responses=GATED)
 
