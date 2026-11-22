@@ -3,108 +3,59 @@
 ## 7.1 Runtime-Environment Overview
 
 ```
-┌───────────────────────────────────────────────────────────┐
-│              Docker Host (Linux)                           │
-│                                                            │
-│  ┌───────────────────────────────────────────────────────┐│
-│  │  OpenArtifact Container (UID 1000, non-root)          ││
-│  │                                                       ││
-│  │  ┌─────────────┐  ┌──────────────┐                   ││
-│  │  │  FastAPI    │  │   SQLite     │                   ││
-│  │  │  (Port 2909)│  │  (WAL mode)  │                   ││
-│  │  │  Uvicorn    │  │  /data/      │                   ││
-│  │  └──────┬──────┘  └──────┬───────┘                   ││
-│  │         │                │                           ││
-│  │  docker-entrypoint.sh                                    ││
-│  │    alembic → uvicorn --factory                         ││
-│  └──────────┬─────────────────────────────────────────────┘│
-│             │                                              │
-│  ┌──────────▼─────────────────────────────────────────────┐│
-│  │  Docker Volume: openartifact-data                      ││
-│  │  /data/                                                ││
-│  │    openartifact.db                                     ││
-│  │    openartifact.db-wal                                 ││
-│  │    openartifact.db-shm                                 ││
-│  └───────────────────────────────────────────────────────┘│
-└───────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│ Docker host (Linux)                                           │
+│                                                               │
+│   optional TLS reverse proxy (nginx, Caddy) ── 443            │
+│        │                                                      │
+│        ▼  127.0.0.1:2909 (OPENARTIFACT_BIND : PUBLISHED_PORT) │
+│  ┌───────────────────────────────────────────────────────┐    │
+│  │ openartifact container (UID 1000, read-only root fs)  │    │
+│  │   docker-entrypoint.sh: alembic upgrade head          │    │
+│  │   → openartifact (uvicorn, one process, port 2909)    │    │
+│  │   writable: /data (volume) and /tmp (tmpfs)           │    │
+│  └──────────────┬────────────────────────────────────────┘    │
+│                 ▼                                              │
+│  volume openartifact-data → /data: openartifact.db (+ -wal, -shm)
+└───────────────────────────────────────────────────────────────┘
 ```
+
+One container per volume: the application keeps the event bus, the run engine and the caps in memory of one
+process (chapter 11).
 
 ## 7.2 Development Environment
 
-- Local Python 3.12+ with `uv` for package management
-- SQLite (local file, no server)
-- `uv run openartifact` to start
-- `uv run alembic upgrade head` for migrations
-- `docker compose -f deploy/docker-compose.yml up` for full integration testing
+- Local Python 3.12+ with `uv` or `pip` (CI uses pip); SQLite, a local file, no server
+- The default data directory `/data` is usually not writable on a workstation: set `OPENARTIFACT_DATA_DIR=./.data`
+  (for example in `apps/backend/.env`), run `alembic upgrade head`, then `openartifact`
+- `docker compose -f deploy/docker-compose.yml up --build` for integration testing
+
+The commands are in the [README](../../../README.md#development) and the [testing guide](../../guides/testing.md).
 
 ## 7.3 Deployment Environment
 
-### Docker Image
+The deployment is defined by files, not copied here, so that it cannot drift:
+
+| What | File |
+|------|------|
+| Service, volume, hardening, health check, port mapping | [`deploy/docker-compose.yml`](../../../deploy/docker-compose.yml) |
+| Settings (copy to `deploy/.env`, required) | [`deploy/.env.example`](../../../deploy/.env.example) |
+| Image build (multi-stage, `python:3.12-slim`, non-root user) | [`Dockerfile`](../../../Dockerfile) and the allow-list [`.dockerignore`](../../../.dockerignore) |
+| Start: migrations, then the server | [`scripts/docker-entrypoint.sh`](../../../scripts/docker-entrypoint.sh) |
 
 | Aspect | Configuration |
 |--------|---------------|
-| Build | Multi-stage (builder + runtime) |
-| Base Image | python:3.12-slim |
-| Runtime User | openartifact (UID 1000, non-root) |
-| Port | 2909 (configurable) |
-| Volume | `/data` — persistent application data |
-| Health check | `curl -f http://localhost:2909/health` |
+| Image | built from source (`build:`) or `ghcr.io/michaoro/openartifact:${OPENARTIFACT_TAG:-latest}` ([CI/CD guide](../../guides/CI-CD.md)) |
+| Runtime user | `openartifact` (UID 1000, non-root); `/app` and the installed package belong to root |
+| Container hardening | read-only root file system, tmpfs `/tmp`, `cap_drop: ALL`, `no-new-privileges`, 256 processes, 512 MB |
+| Port | the application listens on `OPENARTIFACT_PORT` (2909); published as `OPENARTIFACT_BIND:OPENARTIFACT_PUBLISHED_PORT` (default `127.0.0.1:2909`, local only) |
+| Volume | `openartifact-data` at `/data` (named `deploy_openartifact-data` under the default compose project name) |
+| Health check | `GET /health` through Python's `urllib` (no `curl` in the image), every 30 s, 30 s start period |
 | Restart | `restart: unless-stopped` |
-| Env config | `.env` file or Docker env |
+| Configuration | `deploy/.env` (all `OPENARTIFACT_*` settings, [reference](../../guides/configuration.md)) |
+| TLS | not in the application; a reverse proxy ([guide](../../guides/reverse-proxy.md)) |
 
-### Dockerfile Structure
-
-```
-Stage 1 (builder):
-  - python:3.12-slim
-  - Install dependencies from pyproject.toml
-  - Copy application source
-
-Stage 2 (runtime):
-  - python:3.12-slim
-  - Copy installed wheels from builder
-  - Copy application source + alembic config
-  - Create /data with correct ownership
-  - USER openartifact (non-root)
-  - ENTRYPOINT: docker-entrypoint.sh
-```
-
-### Docker Compose
-
-```yaml
-services:
-  openartifact:
-    build: .
-    ports:
-      - "2909:2909"
-    volumes:
-      - openartifact-data:/data
-    env_file: .env
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:2909/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-volumes:
-  openartifact-data:
-```
-
-### User Commands
-
-| Action | Command |
-|--------|---------|
-| Build & start | `docker compose -f deploy/docker-compose.yml up -d` |
-| Stop | `docker compose -f deploy/docker-compose.yml down` |
-| Logs | `docker compose -f deploy/docker-compose.yml logs -f` |
-| Health | `docker inspect --format='{{.State.Health.Status}}' openartifact` |
-| Update | `docker compose pull && docker compose up -d` |
-| Backup | `docker run --rm -v openartifact-data:/data -v $(pwd):/backup alpine cp /data/openartifact.db /backup/` |
-
-**Important:** `docker compose down` does NOT delete persistent data. The volume `openartifact-data` survives. Use `docker compose down -v` only to remove persistent data.
-
----
-
-*This chapter follows the arc42 template. Deployment details documented as WP-05 completed.*
+The commands for start, update, health, backup and restore are in the [operations guide](../../guides/operations.md):
+`docker compose -f deploy/docker-compose.yml ps` shows the health state, an update from source is
+`git pull && docker compose -f deploy/docker-compose.yml up -d --build`, and a backup uses SQLite's backup API (the
+database runs in WAL mode, so copying the file is not safe). `docker compose down` keeps the volume; `down -v` deletes it.

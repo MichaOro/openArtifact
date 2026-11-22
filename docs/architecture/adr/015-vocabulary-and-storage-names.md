@@ -1,6 +1,11 @@
 # ADR-015: Vocabulary and storage names
 
-> **Status:** **Accepted**
+**Status:** Accepted  
+**Date:** 2026-11-21  
+**Supersedes:** —  
+**Superseded by:** —  
+**Amends:** [ADR-012](012-workflow-definition-editor.md), [ADR-013](013-execution-engine-and-runs.md)  
+**Amended by:** [ADR-016](016-access-protection-integration-api-and-mcp.md) (resolves §6)
 
 ## 1. Title
 
@@ -70,7 +75,8 @@ ids, foreign keys and edges.
   `{pipeline_id, stage_id, action_id}`; a run reports `pipeline_id` (where it is now) and
   `root_pipeline_id` (where it started).
 - Browser: `js/editor/`, `css/editor.css`, templates `graph_list.html` and `graph_editor.html`,
-  `data-graph-id`. Class names `wf-*` are kept for now.
+  `data-graph-id`. The class prefix was `wf-` at first; it is now `ge-` (graph editor, e.g. `ge-node`, `ge-port`,
+  `ge-inspector`, `data-ge-list`); `editor.css` keeps its name.
 - `/api/v1/*` paths and the MCP tools keep their names.
 
 ## 6. Consequences
@@ -78,5 +84,6 @@ ids, foreign keys and edges.
 - **Easier:** one word everywhere; a new graph kind needs one registry entry and a router.
 - **Cost:** old ADRs and revisions 0008-0019 still say "workflow"; ADR-012 keeps its file name and
   carries a note. Local databases need `alembic upgrade head`.
-- **Not decided here:** whether the browser API (`/api/pipelines`, `/api/actions`, `/api/tasks`)
-  should require the API token as `/api/v1` and `/mcp` do.
+- **Not decided here** (resolved by [ADR-016](016-access-protection-integration-api-and-mcp.md) §3.4): whether the
+  browser API (`/api/pipelines`, `/api/actions`, `/api/tasks`) should require the API token as `/api/v1` and
+  `/mcp` do. It does, once a token is configured.

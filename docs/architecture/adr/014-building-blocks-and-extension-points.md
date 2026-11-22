@@ -1,6 +1,11 @@
 # ADR-014: Building blocks and extension points
 
-> **Status:** **Accepted**
+**Status:** Accepted  
+**Date:** 2026-11-21  
+**Supersedes:** —  
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** [ADR-019](019-module-boundaries-and-single-sources.md) (module boundaries, registry-derived settings)
 
 ## 1. Title
 
@@ -27,7 +32,9 @@ instead of patching this repository.
   main line, its `inputs` / `outputs`, its `settings` (a number, a switch) and what it `links_to`.
   `connect_error` holds its connection rules; the base has the rule shared by the steps of the main
   line, a kind overrides it only where it differs (stage start, action). `register()` adds a kind.
-  The repository, the rules and the engine read the registry; nothing lists kinds by hand any more.
+  The repository (including which node settings it accepts) and the rules read the registry; the engine still
+  executes kinds by name (`engine/runner.py` branches on `trigger`, `output` and `timer`), so a new kind that runs
+  also needs a branch there.
   `GET /api/node-types` publishes the descriptions.
 - **Browser** (`js/editor/node-types.js`): a base class `NodeView` and a flat subclass per kind,
   paired with the server's description (`loadNodeTypes`). A view says how the kind looks (size,
@@ -84,7 +91,10 @@ Code that falls out of use is not deleted at once. It stays where it is and gets
 `quarantine.json` (what, where, since when, a regular expression for its calls).
 `tools/check_quarantine.py`, run weekly by `.github/workflows/quarantine.yml`, fails once an entry
 has had no calls for 14 days, as the reminder to remove the code and the entry; if calls show up
-again, it says to drop the entry. The first entry is the routing select of the inspector, removed
+again, it says to drop the entry. An entry may carry an optional `ignore` array of path globs (for example
+`"apps/backend/tests/*"`) that are not searched for that entry, so code that only tests call can be quarantined;
+the script reads the files from `git ls-files` (`.py`, `.js`, `.html`, `.css`, `.toml`, `.yml`, `.sh`), and a `symbol`
+that no longer occurs in its file is reported as information, not as an error. The first entry is the routing select of the inspector, removed
 from the UI because connections are made by dragging.
 
 ## 4. Consequences
@@ -92,4 +102,14 @@ from the UI because connections are made by dragging.
 - A new kind of node is a server class and, if it looks special, a view class; a new navigation
   entry is one object. The rules exist once on the server and once, as a mirror, in the view.
 - The editor needs the descriptions before it draws (one request when it opens).
-- Connecting by keyboard is no longer possible (the routing select is gone); dragging is the way.
+- Connecting by keyboard is no longer possible (the routing select is gone); dragging is the way. This is a known
+  limitation, not a decision for good (arc42 chapter 11).
+
+## 5. Update (2026-11-22)
+
+- A node setting is still a column of `graph_nodes` plus a field of `NodeUpdate`, but the repository derives the
+  allowed setting keys from the registry (`NODE_TYPES`, the `settings` of each kind) instead of a hard-coded set;
+  the timer's bounds exist once in `node_types.py`. `GraphKind` is a `StrEnum` in the models, and `Ports` names
+  the connectors. See [ADR-019](019-module-boundaries-and-single-sources.md).
+- The sidebar's inline script moved to `static/js/nav-section.js`; the templates have no inline scripts left.
+- The steps for a new node kind or navigation entry are in the [extending guide](../../guides/extending.md).

@@ -3,7 +3,9 @@
 **Status:** Accepted  
 **Date:** 2026-11-20  
 **Supersedes:** —  
-**Superseded by:** —
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** —
 
 ## 1. Context
 
@@ -158,6 +160,15 @@ does not exist is shown struck through. References are resolved when displaying,
 save: a body may legitimately contain text like `#5` or `C#3`, and an artifact referenced later may
 not exist yet. Rendering uses DOM nodes, never `innerHTML`.
 
+### 2.12 Foreign key on `parent_id`
+
+Migration 0007 rebuilds `tasks` (SQLite needs that for a new constraint) with
+`parent_id REFERENCES tasks(id) ON DELETE SET NULL`; dangling references are cleared first. Every
+connection enables `PRAGMA foreign_keys=ON`. The repository still rejects unknown parents and
+cycles (the database cannot express acyclicity) and still detaches children explicitly so it can
+report how many were affected; the constraint guarantees integrity for any other writer, and
+queries or dashboards can rely on the relation.
+
 ## 3. Consequences
 
 - **Easier:** consistent multi-tab behaviour with little code; no polling; no client framework.
@@ -167,12 +178,3 @@ not exist yet. Rendering uses DOM nodes, never `innerHTML`.
 - **Limitation:** an event stream holds one connection per open tab.
 - **Risk:** hand-written drag & drop needs browser/device testing (touch behaviour differs per
   OS). The behaviour is covered by Playwright browser tests (`apps/backend/tests/e2e/`, CI job `e2e`), including touch gestures via the DevTools protocol.
-
-### 2.12 Foreign key on `parent_id`
-
-Migration 0007 rebuilds `tasks` (SQLite needs that for a new constraint) with
-`parent_id REFERENCES tasks(id) ON DELETE SET NULL`; dangling references are cleared first. Every
-connection enables `PRAGMA foreign_keys=ON`. The repository still rejects unknown parents and
-cycles (the database cannot express acyclicity) and still detaches children explicitly so it can
-report how many were affected; the constraint guarantees integrity for any other writer, and
-queries or dashboards can rely on the relation.

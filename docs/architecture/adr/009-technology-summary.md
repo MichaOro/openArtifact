@@ -3,7 +3,9 @@
 **Status:** Accepted  
 **Date:** 2026-11-18  
 **Supersedes:** —  
-**Superseded by:** —
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** [ADR-011](011-board-interactions-sse-and-pointer-dnd.md), [ADR-020](020-sqlite-stays-postgres-as-data-source.md)
 
 ## 1. Title
 
@@ -64,3 +66,16 @@ The following arc42 chapters have been updated:
 1. What is the exact artifact schema (WP-02)?
 2. Which AI agent providers will be supported first (WP-04)?
 3. What is the deployment target architecture — single-server or multi-server (WP-06)?
+
+## 8. Update (2026-11-22)
+
+The history above is kept; corrections.
+
+- **Variables** are `OPENARTIFACT_HOST` and `OPENARTIFACT_PORT` (all settings have the prefix `OPENARTIFACT_`, see the
+  [configuration reference](../../guides/configuration.md)), not `PORT` and `HOST`.
+- **Live updates** are implemented as server-sent events ([ADR-011](011-board-interactions-sse-and-pointer-dnd.md)); WebSocket
+  is not used.
+- **Database:** SQLite is the application's database for good; "upgradeable to PostgreSQL" is withdrawn
+  ([ADR-020](020-sqlite-stays-postgres-as-data-source.md)). PostgreSQL may return as a data source behind a connector layer.
+- **Task queue:** none. Runs are in-process `asyncio` tasks ([ADR-013](013-execution-engine-and-runs.md)).
+- **Work packages:** the numbering above is the bootstrap plan and is not maintained; the living status is arc42 4.4.

@@ -1,6 +1,11 @@
 # ADR-013: Execution engine and pipeline runs
 
-> **Status:** **Accepted**
+**Status:** Accepted  
+**Date:** 2026-11-21  
+**Supersedes:** —  
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** [ADR-015](015-vocabulary-and-storage-names.md) (vocabulary), [ADR-018](018-typed-runs-one-error-one-persistence-rule.md) (run model, atomic start)
 
 ## 1. Title
 
@@ -71,3 +76,21 @@ through others (refused when linking, 422); the step limit also counts across ne
   definition can loop) is to be designed there.
 - **Human-in-the-loop** (a `waiting` status) and **automatic starts** of sub-artifacts by the system.
 
+## 5. Update (2026-11-22): atomic start and limits
+
+The decisions above stand; [ADR-018](018-typed-runs-one-error-one-persistence-rule.md) adds how a start is made safe.
+
+- **Atomic start.** `RunEngine` claims an artifact before its first `await` (an in-process set), then changes the
+  artifact with a conditional `UPDATE`, and inserts the run row with `INSERT ... ON CONFLICT DO NOTHING` on
+  `pipeline_runs.task_id`. A lost race answers `409`; stopping while a start is in progress answers `409` too.
+- **Run cap.** At most `OPENARTIFACT_MAX_CONCURRENT_RUNS` (default 8) runs are active; another start answers `429`.
+- **Steps** are counted across the pipeline and action loops together (1000, nesting up to 5), so a loop inside an action
+  cannot escape the limit.
+- **Events.** Starting an artifact in a pipeline publishes `task.updated` (the fresh artifact) in addition to
+  `run.updated` when its pipeline, stage or action changed. Event streams are capped by
+  `OPENARTIFACT_MAX_SSE_SUBSCRIBERS` (default 50, `503`).
+- **Typed run.** `RunRead` / `RunStageRead` (`engine/schemas.py`) describe a run everywhere it is returned
+  (`/api/runs`, `POST .../run`, `/api/v1/artifacts/{ref}/run`, the `run.updated` event); `updated_at` is ISO-8601 UTC
+  with a `Z` suffix.
+- **Not built:** no wall-clock deadline per run or per node (only the step limit and the timer's bound of one day),
+  see arc42 chapter 11.

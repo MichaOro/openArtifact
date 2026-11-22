@@ -16,18 +16,22 @@ All checks run automatically. No manual intervention is required for development
 
 | Event | Branch | Action |
 |-------|--------|--------|
-| PR to main | `main` | Full CI (lint, typecheck, test, docker build) |
-| Push to main | `main` | Full CI + Docker build + smoke test |
-| Version tag (`v0.1.0`) | — | Release workflow |
+| PR to main | `main` | CI (lint, type check, tests, browser tests) and the PR image build |
+| Push to main | `main` | CI + Docker build + smoke test |
+| Version tag (`v0.1.0`, the `v` is required) | — | Release workflow |
+| Weekly (Monday), pyproject changes | — | Dependency audit and quarantine check |
+
+CI and the PR build run only when the change touches `apps/backend/**`, `Dockerfile`, `.dockerignore`,
+`deploy/**`, `scripts/**`, `README.md` or `.github/workflows/**`.
 
 ### Stages
 
 1. **Ruff lint** — `ruff check .`
 2. **Ruff format** — `ruff format --check .`
 3. **mypy** — `mypy .` (strict mode)
-4. **pytest** — Unit and API tests with coverage (browser tests excluded)
+4. **pytest** — Unit and API tests, run once under coverage (browser tests excluded; `coverage.xml` is uploaded). See the [testing guide](testing.md)
 5. **Browser tests** — `pytest -m e2e` (Playwright, headless Chromium, traces of failures are uploaded)
-6. **Docker build** — Production image build (main only)
+6. **Docker build and smoke test** — Image build, start, `/health`, `/` and `/api/info` (push to main only; the job has read-only permissions)
 
 ### Workflow Files
 
@@ -35,7 +39,9 @@ All checks run automatically. No manual intervention is required for development
 |------|---------|
 | `.github/workflows/ci.yml` | Main CI pipeline |
 | `.github/workflows/release.yml` | Version-tagged release |
-| `.github/workflows/pr-build.yml` | PR preview build |
+| `.github/workflows/pr-build.yml` | PR preview build (no push, no `packages` permission) |
+| `.github/workflows/audit.yml` | `pip-audit` of the installed runtime dependencies; weekly, on dependency changes and by hand |
+| `.github/dependabot.yml` | Weekly update pull requests for pip (`apps/backend`), the Dockerfile base image and GitHub Actions |
 | `.github/workflows/quarantine.yml` | Weekly: fails when quarantined code (`quarantine.json`) has been unused for 14 days, as a reminder to remove it (`tools/check_quarantine.py`, ADR-014 §3.6) |
 
 ## Docker Build
@@ -44,13 +50,13 @@ All checks run automatically. No manual intervention is required for development
 
 | Repository | URL |
 |------------|-----|
-| Primary | `ghcr.io/michaoro/openartifact` |
+| Primary | `ghcr.io/michaoro/openartifact` (the repository name, lower-cased by the workflow) |
 
 ### Tagging Scheme
 
 | Trigger | Tags |
 |---------|------|
-| Version tag `v0.1.0` | `0.1.0`, `0.1`, `latest`, `sha-<commit>` |
+| Version tag `v0.1.0` | `0.1.0`, `0.1.0.<run number>`, `sha-<full commit sha>`, `latest` (there is no `0.1` tag) |
 | PR build | `pr-<number>` (not published) |
 | Development builds | Not published |
 
@@ -77,6 +83,9 @@ Follow [Semantic Versioning](https://semver.org/):
 - **MINOR** — New features (backward compatible)
 - **PATCH** — Bug fixes
 
+The version is written in one place, `apps/backend/openartifact/version.py`; the package build, `/health`,
+`/api/info`, Swagger and the sidebar read it. Change that file in the release commit.
+
 For OpenArtifact (pre-1.0), use `0.MINOR.PATCH` for breaking changes as MINOR.
 
 ### 2. Create a Release Tag
@@ -95,7 +104,8 @@ git push origin v0.1.0
 
 The release workflow triggers automatically on tag push:
 
-1. Validates the version tag
+1. Starts on tags matching `v<major>.<minor>.<patch>` (no further validation: the tag is not compared with
+   `apps/backend/openartifact/version.py`, so set the version there before tagging)
 2. Builds the Docker image
 3. Pushes to GHCR with appropriate tags
 4. Creates a GitHub Release with auto-generated notes
@@ -111,26 +121,29 @@ docker run -d \
   --name openartifact \
   -p 2909:2909 \
   -v openartifact-data:/data \
+  -e OPENARTIFACT_API_TOKEN="$(openssl rand -hex 32)" \
   -e OPENARTIFACT_SECRET_KEY="$(openssl rand -hex 32)" \
   ghcr.io/michaoro/openartifact:0.1.0
 
 # Check health
 curl http://localhost:2909/health
 
-# Verify version
-curl http://localhost:2909/api/info
+# The version is in the health answer (/api/info needs the token)
+curl http://localhost:2909/health
 ```
 
 ### 5. Upgrade Instructions
 
-Users upgrade by pulling the new image:
+Back up first ([operations guide](operations.md#backup)), then pull the new image. The compose file names
+the image `ghcr.io/michaoro/openartifact:${OPENARTIFACT_TAG:-latest}`; set `OPENARTIFACT_TAG` in `deploy/.env` to
+pin a version.
 
 ```bash
 docker compose -f deploy/docker-compose.yml pull
 docker compose -f deploy/docker-compose.yml up -d
 ```
 
-The `/data` volume preserves all persistent data.
+The `/data` volume preserves all persistent data; migrations run when the container starts.
 
 ## Required Repository Settings
 
@@ -168,7 +181,7 @@ The following GitHub repository settings must be configured for CI/CD to work:
 ### Docker Build Fails — Dependencies
 
 - Verify `pyproject.toml` dependencies are resolvable
-- Check Python version matches `.python-version`
+- Check that the Python version is 3.12 (`requires-python`)
 
 ### Release Fails — GHCR Permissions
 

@@ -3,7 +3,9 @@
 **Status:** Accepted  
 **Date:** 2026-11-20  
 **Supersedes:** [ADR-004](004-frontend-approach.md)  
-**Superseded by:** —
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** —
 
 ## 1. Context
 
@@ -55,6 +57,6 @@ Drag & drop and real-time updates were decided in [ADR-011](011-board-interactio
 
 - **Modal:** native `<dialog>` wrapped by `static/js/components/modal.js` (reusable). Native `showModal()` gives focus trap, inert background and focus restore. Escape is handled at document level, because browsers make the `cancel` event non-cancelable on repeated Escape presses, which would let a user dismiss the dialog while a request is running.
 - **Busy state:** buttons use `aria-disabled` instead of `disabled`, otherwise the focused submit button loses focus and keyboard events leave the dialog.
-- **Form logic** (`tasks/create-task-form.js`), **rendering** (`tasks/board.js`) and **HTTP** (`tasks/api.js`) are separate modules.
+- **Form logic** (`tasks/artifact-dialog.js`), **rendering** (`tasks/board.js`) and **HTTP** (`tasks/api.js`) are separate modules.
 - **Data model:** table `tasks` (`id`, `title`, `body`, `status`, `created_at`, `updated_at`) is intentionally independent of `work_items`, which is bound to the not-yet-built project workspace and has a different status set.
 - **Semantic error colour:** `--color-danger` was added to the tokens (error text and invalid borders only).

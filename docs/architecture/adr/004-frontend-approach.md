@@ -5,7 +5,9 @@
 **Status:** Superseded  
 **Date:** 2026-11-18  
 **Supersedes:** —  
-**Superseded by:** [ADR-010](010-frontend-without-htmx.md)
+**Superseded by:** [ADR-010](010-frontend-without-htmx.md)  
+**Amends:** —  
+**Amended by:** —
 
 ## 1. Title
 

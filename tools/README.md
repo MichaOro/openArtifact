@@ -3,7 +3,8 @@
 Development tooling, standard library only.
 
 - `check_quarantine.py` — checks `quarantine.json` (unused code that waits 14 days before it is
-  removed); run weekly by `.github/workflows/quarantine.yml`.
+  removed); run weekly by `.github/workflows/quarantine.yml`. The rule for contributors is in
+  [CONTRIBUTING](../.github/CONTRIBUTING.md#unused-code-quarantine).
 
 An entry's `usage` is a regular expression that matches calls, not the definition. The script reads
 the tracked `.py`, `.js`, `.html`, `.css`, `.toml`, `.yml` and `.sh` files (`git ls-files`; a file walk

@@ -3,7 +3,9 @@
 **Status:** Accepted  
 **Date:** 2026-11-18  
 **Supersedes:** —  
-**Superseded by:** —
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** [ADR-020](020-sqlite-stays-postgres-as-data-source.md)
 
 ## 1. Title
 
@@ -95,3 +97,18 @@ The database must support self-hosted single-container deployment while allowing
 - **More difficult:** Scaling beyond single-server (deferred to WP-06)
 - **Risks:** Write contention under heavy concurrent pipeline execution (mitigated by WAL mode and async execution serialization)
 - **Trade-off:** Simpler deployment vs. future scalability; SQLite is the right starting point
+
+## 7. Update (2026-11-22): SQLite stays, PostgreSQL is not an upgrade path
+
+The history above is kept. Two statements in it no longer hold and are corrected by
+[ADR-020](020-sqlite-stays-postgres-as-data-source.md):
+
+- "Same engine as PostgreSQL" and "a configuration change (connection string)" were never true. `database_url`
+  is built as `sqlite+aiosqlite` from the data directory and file name, the engine is created with SQLite-only
+  connection arguments and the WAL and foreign-key pragmas are set per connection, and several migrations use
+  SQLite's batch mode. Moving to PostgreSQL would need code changes, and it is **not planned**.
+- openArtifact's own data stays in SQLite (one file in one container). PostgreSQL may come later as a *data
+  source* that pipelines read through a connector layer, not as the application's database.
+- "Built-in backup (file copy)" is only safe with SQLite's backup API in WAL mode; see the
+  [operations guide](../../guides/operations.md#backup).
+- The ORM is SQLAlchemy with Alembic (not SQLModel).

@@ -1,6 +1,11 @@
 # ADR-016: Access protection, integration API and MCP
 
-> **Status:** **Accepted**
+**Status:** Accepted  
+**Date:** 2026-11-21  
+**Supersedes:** —  
+**Superseded by:** —  
+**Amends:** [ADR-006](006-api-design.md), [ADR-015](015-vocabulary-and-storage-names.md) §6  
+**Amended by:** [ADR-017](017-request-hardening-and-signed-sessions.md) (sessions, hardening)
 
 ## 1. Title
 
@@ -50,19 +55,20 @@ refused call returns the reason as the tool's error text (`ToolError`). It is a 
 ### 3.4 One token protects everything
 
 `OPENARTIFACT_API_TOKEN` (settings). With a token configured, `AccessGate` (ASGI middleware, in
-`api/auth.py`) guards **every** path except `/health`, `/api/health`, the sign-in page and the static
+`security.py`) guards **every** path except `/health`, the sign-in page and the static
 files: pages, the browser's API, `/api/events`, Swagger and `openapi.json`, `/api/v1`, `/mcp`.
 A request is let through with `Authorization: Bearer <token>` (scripts, agents, Swagger's *Authorize*)
 or with the session cookie of a browser that signed in. A browser asking for a page without either is
 sent to `/login?next=...`; everything else gets `401`.
 
-- **Sign-in** (`/login`, `/logout`): the user enters the token once; the cookie `oa_session` is
-  `HMAC(secret_key, token)`, `HttpOnly`, `SameSite=Strict`, `Secure` over HTTPS, 30 days. The token
-  itself is never in the cookie. A wrong token costs half a second. `next` may only be a path of the
+- **Sign-in** (`/login`, `/logout`): the user enters the token once; the cookie `oa_session` carries a
+  signature of the token, `HttpOnly`, `SameSite=Strict`, `Secure` over HTTPS, 30 days (the exact format is
+  amended by [ADR-017](017-request-hardening-and-signed-sessions.md)). The token itself is never in the cookie. A wrong token costs half a second. `next` may only be a path of the
   application. The header offers *Sign out* while a token is configured.
 - **Without a token** the application is open as before (development), but `/api/v1` and `/mcp`
   answer `401` regardless: they are meant to be reached from outside and are closed by default.
-- The compose file reads the token from `deploy/.env` (not in git; `.env.example` explains it).
+- The compose file reads the token from `deploy/.env` (not in git; `.env.example` explains it). `deploy/.env` is
+  required and sits next to the compose file.
 - **Planned:** with a *Settings* area, separate tokens (browser, integration, MCP), their lifetime
   and scopes. Until then the browser sign-in and the integration share the one token.
 
@@ -79,3 +85,17 @@ planned settings (ADR-013 §4).
 - Every way in shares validation and locking, so a rule is written once.
 - The SQLite migrations run with a plain file backup as the only protection for a half-finished DDL:
   back up the database file before an upgrade that renames tables (see ADR-015).
+
+## 5. Update (2026-11-22)
+
+- **Module.** Access protection (`AccessGate`, `TokenProtected`, `token_matches`, `token_error`, the session cookie
+  and `require_api_token`) is in `openartifact/security.py`; there is no `api/auth.py`. `TokenProtected` moved there
+  from `mcp_server.py`.
+- **Open paths** are `/health`, `/login`, `/logout` and `/static/`. `/api/health` was removed; `/api/info` and
+  `/api/docs` need the token.
+- **Secret key.** It is enforced once a token is set: the application refuses to start with a token shorter than 32
+  characters or a missing or default `OPENARTIFACT_SECRET_KEY`.
+- **Sessions and hardening** (signed, expiring session value; Host check; CSRF guard; body limit; headers) are
+  [ADR-017](017-request-hardening-and-signed-sessions.md). Behind a TLS proxy see the
+  [reverse proxy guide](../../guides/reverse-proxy.md).
+- **Not decided here** still holds: rate limiting, per-client tokens, OAuth for MCP clients, user accounts.

@@ -3,7 +3,9 @@
 **Status:** Accepted  
 **Date:** 2026-11-18  
 **Supersedes:** —  
-**Superseded by:** —
+**Superseded by:** —  
+**Amends:** —  
+**Amended by:** —
 
 ## 1. Title
 
@@ -118,3 +120,8 @@ The backend framework must support:
 - **More difficult:** Background task orchestration (deferred to WP-03), plugin architecture design
 - **Risks:** FastAPI ecosystem growth (mitigated by Starlette's stability)
 - **Trade-off:** No built-in admin interface or ORM — intentional, keeps framework minimal
+
+## Update (2026-11-22)
+
+`gunicorn` and `factory_boy` are no longer dependencies (the server is `uvicorn`, started through the `openartifact` command). There is no background task queue: runs are in-process
+`asyncio` tasks ([ADR-013](013-execution-engine-and-runs.md)). The ORM is SQLAlchemy with Alembic.
