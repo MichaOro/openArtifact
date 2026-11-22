@@ -20,6 +20,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from openartifact.models import GraphKind, NodeKind
+from openartifact.secret_refs import (
+    SecretReferenceError,
+    check_url_references,
+    names_in,
+    parse_name_lines,
+)
 
 if TYPE_CHECKING:
     from openartifact.graph.rules import Endpoint
@@ -59,6 +65,30 @@ def parse_status_spec(spec: str) -> list[tuple[int, int]]:
 
 def _check_status(value: str) -> None:
     parse_status_spec(value)
+
+
+def _references(check: Callable[[str], None]) -> Callable[[str], None]:
+    """``check`` as a setting rule: a malformed secret reference is a :class:`SettingError`."""
+
+    def rule(value: str) -> None:
+        try:
+            check(value)
+        except SecretReferenceError as error:
+            raise SettingError(str(error)) from error
+
+    return rule
+
+
+def _check_url(value: str) -> None:
+    check_url_references(value)
+
+
+def _check_text_references(value: str) -> None:
+    names_in(value)
+
+
+def _check_secret_names(value: str) -> None:
+    parse_name_lines(value)
 
 
 class Ports:
@@ -387,7 +417,27 @@ class CodeType(_ExecutionType):
             default="",
             max_length=CODE_MAX_CHARS,
             stored_in="config",
-            help="No secrets here: the code is stored and shown in plain text.",
+            help=(
+                "Stored and shown in plain text, so no secrets in here: ${secret:NAME} is not "
+                "replaced in code. List the secrets the code needs in 'Secrets' below; they come "
+                "as environment variables."
+            ),
+        ),
+        Setting(
+            "secrets",
+            "Secrets",
+            "lines",
+            default="",
+            max_length=2000,
+            placeholder="API_KEY",
+            stored_in="config",
+            help=(
+                "One secret name per line (capitals, digits, underscores). Each is available to "
+                "the code as an environment variable of that name, for example $API_KEY or "
+                "os.environ['API_KEY']. Manage the values under Secrets; a missing secret fails "
+                "the node."
+            ),
+            check=_references(_check_secret_names),
         ),
         Setting(
             "timeout_seconds",
@@ -417,6 +467,11 @@ class HttpType(_ExecutionType):
             default="",
             placeholder="https://example.org/hook",
             stored_in="config",
+            help=(
+                "Use ${secret:NAME} for a stored secret in the path or the query (it is "
+                "percent-encoded there); not in the scheme or host."
+            ),
+            check=_references(_check_url),
         ),
         Setting(
             "headers",
@@ -425,7 +480,11 @@ class HttpType(_ExecutionType):
             default="",
             placeholder="Name: value",
             stored_in="config",
-            help="One 'Name: value' per line. No secrets here: they are stored in plain text.",
+            help=(
+                "One 'Name: value' per line, stored in plain text: put a secret in as "
+                "${secret:NAME}, for example 'Authorization: Bearer ${secret:API_TOKEN}'."
+            ),
+            check=_references(_check_text_references),
         ),
         Setting(
             "body",
@@ -433,7 +492,11 @@ class HttpType(_ExecutionType):
             "lines",
             default="",
             stored_in="config",
-            help="Sent as it is. No secrets here.",
+            help=(
+                "Sent as it is, stored in plain text: put a secret in as ${secret:NAME}, which "
+                "is replaced by its value when the node runs."
+            ),
+            check=_references(_check_text_references),
         ),
         Setting(
             "timeout_seconds",

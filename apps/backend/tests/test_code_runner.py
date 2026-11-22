@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import time
 from pathlib import Path
 
@@ -134,7 +135,10 @@ async def test_the_environment_holds_no_openartifact_variable(
     sh = await _run("env")
     py = await _run("import os\nprint(sorted(os.environ))", "python")
     for result in (sh, py):
-        assert "OPENARTIFACT" not in result.output
+        # the one random marker the orphan cleanup recognises a process by is allowed
+        assert "OPENARTIFACT" not in re.sub(
+            r"OPENARTIFACT_CODE_RUN(\W+[0-9a-f]{32})?", "", result.output
+        )
         assert "very-secret" not in result.output
         assert "SOMETHING_ELSE" not in result.output
     assert {line.split("=")[0] for line in sh.output.split()} >= {"PATH", "HOME"}

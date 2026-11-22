@@ -11,15 +11,27 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass, field
 from typing import Any
 
 from openartifact.config import Settings
-from openartifact.engine.code_runner import run_code
+from openartifact.engine.code_runner import CodeLimits, run_code
 from openartifact.engine.http_runner import run_http
 from openartifact.engine.results import NodeResult, failed
+from openartifact.logging_config import masked_in_logs
 from openartifact.models import NodeKind
+from openartifact.secret_refs import (
+    SecretReferenceError,
+    mask_data,
+    mask_text,
+    names_in,
+    parse_name_lines,
+)
+from openartifact.secret_store import SecretResolveError
+
+#: Gives the values of secrets by name; raises :class:`SecretResolveError`.
+SecretResolver = Callable[[Sequence[str]], Awaitable[dict[str, str]]]
 
 
 @dataclass(frozen=True)
@@ -30,14 +42,24 @@ class Limits:
     code_output_limit_bytes: int = 65536
     http_response_limit_bytes: int = 1024 * 1024
     http_allow_private_networks: bool = False
+    code: CodeLimits = field(default_factory=CodeLimits)
+    #: Where a node's secrets come from (the credential store); ``None``: no secret can be used.
+    secrets: SecretResolver | None = None
 
     @classmethod
-    def from_settings(cls, settings: Settings) -> Limits:
+    def from_settings(cls, settings: Settings, secrets: SecretResolver | None = None) -> Limits:
         return cls(
             settings.code_nodes_enabled,
             settings.code_output_limit_bytes,
             settings.http_response_limit_bytes,
             settings.http_allow_private_networks,
+            CodeLimits(
+                settings.code_memory_limit_mb,
+                settings.code_process_limit,
+                settings.code_file_size_limit_mb,
+                settings.code_open_files_limit,
+            ),
+            secrets,
         )
 
 
@@ -59,24 +81,83 @@ def register_executor(kind: NodeKind, run: Executor, *, by_outcome: bool = True)
     EXECUTORS[kind] = Registered(run, by_outcome)
 
 
+async def _resolve(names: list[str], limits: Limits) -> dict[str, str]:
+    """The values of the secrets a node uses (executor-side, so snapshots only ever hold names)."""
+    if not names:
+        return {}
+    if limits.secrets is None:
+        raise SecretResolveError("Secrets are not available")
+    return await limits.secrets(names)
+
+
+def _masked(result: NodeResult, values: dict[str, str]) -> NodeResult:
+    """The result with every form of every used secret value replaced by ``***``."""
+    used = list(values.values())
+    if not used:
+        return result
+    result.output = mask_text(result.output, used)
+    if result.reason is not None:
+        result.reason = mask_text(result.reason, used)
+    if result.data is not None:
+        result.data = mask_data(result.data, used)
+    return result
+
+
+async def _with_secrets(
+    names: list[str], limits: Limits, run: Callable[[dict[str, str]], Awaitable[NodeResult]]
+) -> NodeResult:
+    """Run a node with the values of ``names``; whatever it returns or raises is masked."""
+    try:
+        values = await _resolve(names, limits)
+    except SecretResolveError as error:
+        return failed(str(error))
+    with masked_in_logs(values.values()):
+        try:
+            result = await run(values)
+        except Exception as error:  # the text of an exception may hold a URL or an echoed value
+            result = failed(f"The node failed ({type(error).__name__})")
+        return _masked(result, values)
+
+
 async def _code(node: dict[str, Any], limits: Limits) -> NodeResult:
     if not limits.code_nodes_enabled:
         return failed("Code nodes are disabled")
     config = node["config"]
-    return await run_code(
-        config["language"],
-        config["code"],
-        config["timeout_seconds"],
-        limits.code_output_limit_bytes,
-    )
+    try:
+        names = parse_name_lines(str(config.get("secrets") or ""))
+    except SecretReferenceError as error:
+        return failed(str(error))
+
+    async def run(values: dict[str, str]) -> NodeResult:
+        return await run_code(
+            config["language"],
+            config["code"],
+            config["timeout_seconds"],
+            limits.code_output_limit_bytes,
+            env=values,
+            limits=limits.code,
+            node_id=str(node.get("id") or ""),
+        )
+
+    return await _with_secrets(names, limits, run)
 
 
 async def _http(node: dict[str, Any], limits: Limits) -> NodeResult:
-    return await run_http(
-        node["config"],
-        response_limit_bytes=limits.http_response_limit_bytes,
-        allow_private_networks=limits.http_allow_private_networks,
-    )
+    config = node["config"]
+    try:
+        names = names_in(*(str(config.get(k) or "") for k in ("url", "headers", "body")))
+    except SecretReferenceError as error:
+        return failed(str(error))
+
+    async def run(values: dict[str, str]) -> NodeResult:
+        return await run_http(
+            config,
+            response_limit_bytes=limits.http_response_limit_bytes,
+            allow_private_networks=limits.http_allow_private_networks,
+            secrets=values,
+        )
+
+    return await _with_secrets(names, limits, run)
 
 
 async def _timer(node: dict[str, Any], limits: Limits) -> NodeResult:

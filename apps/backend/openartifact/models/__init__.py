@@ -23,6 +23,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -441,3 +442,23 @@ class RunNodeResult(Base):
     data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     started_at: Mapped[datetime] = mapped_column()
     finished_at: Mapped[datetime] = mapped_column()
+
+
+class Secret(Base):
+    """A named secret for execution nodes, encrypted at rest (see ``secret_crypto.py``).
+
+    Nodes refer to it by ``name`` only; ``value`` is ``version | nonce | AES-GCM ciphertext`` with the
+    name as associated data. The API never returns it.
+    """
+
+    __tablename__ = "secrets"
+    __table_args__ = (Index("ux_secrets_name", "name", unique=True),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(64))
+    value: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )

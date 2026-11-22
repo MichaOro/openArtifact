@@ -17,6 +17,7 @@ import ipaddress
 import re
 import socket
 import time
+from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -24,6 +25,7 @@ import httpx
 
 from openartifact.engine.results import NodeResult, failed
 from openartifact.graph.node_types import SettingError, parse_status_spec
+from openartifact.secret_refs import SecretReferenceError, check_url_references, substitute
 
 TRUNCATED_MARK = "[response truncated]"
 MAX_ADDRESSES = 4
@@ -142,25 +144,43 @@ async def run_http(
     *,
     response_limit_bytes: int,
     allow_private_networks: bool,
+    secrets: Mapping[str, str] | None = None,
 ) -> NodeResult:
-    """Send the request the node describes; pass when the status is an accepted one."""
+    """Send the request the node describes; pass when the status is an accepted one.
+
+    ``secrets`` holds the values of the ``${secret:NAME}`` references in the URL, headers and body.
+    They are put in here, and only here: the URL after the substitution (percent-encoded values) is
+    the one that is vetted for SSRF, and a reference before the path is refused.
+    """
+    values = secrets or {}
     url = str(config.get("url") or "").strip()
     if not url:
         return failed("The URL is empty")
     started = time.monotonic()
     timeout = int(config.get("timeout_seconds") or 30)
     try:
+        check_url_references(url)
+        url = substitute(url, values, percent_encode=True)
         scheme, host, port = _url_parts(url)
-        headers = parse_headers(str(config.get("headers") or ""))
+        headers = {
+            name: substitute(value, values)
+            for name, value in parse_headers(str(config.get("headers") or "")).items()
+        }
+        for name, value in headers.items():
+            if any((ord(c) < 32 and c != "\t") or ord(c) == 127 for c in value):
+                raise ValueError(f"The header '{name}' has a control character")
         accepted = str(config.get("success_status") or "200-299")
         parse_status_spec(accepted)
-    except (ValueError, SettingError) as error:
-        return failed(str(error) if isinstance(error, SettingError) else _clean(error))
+    except (ValueError, SettingError, SecretReferenceError) as error:
+        return failed(
+            str(error) if isinstance(error, SettingError | SecretReferenceError) else _clean(error)
+        )
     try:
         async with asyncio.timeout(timeout):
             addresses = await vetted_addresses(host, port, allow_private_networks)
+            body = substitute(str(config.get("body") or ""), values)
             return await _send(
-                config, url, scheme, host, port, headers, accepted, addresses,
+                {**config, "body": body}, url, scheme, host, port, headers, accepted, addresses,
                 timeout, response_limit_bytes, started,
             )  # fmt: skip
     except AddressRefusedError as error:

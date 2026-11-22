@@ -13,9 +13,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, Response, status
 
 from openartifact.api.deps import ServiceDep
+from openartifact.api.secrets import StoreDep
 from openartifact.engine.schemas import NodeResultRead, RunRead
 from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, StartedBy
+from openartifact.secret_store import SecretRead, SecretWrite
 from openartifact.security import require_api_token
 from openartifact.tasks.schemas import RunStart, TaskCreate, TaskRead, TaskUpdate
 
@@ -95,3 +97,27 @@ async def start_run(ref: str, service: ServiceDep, payload: RunStart | None = No
 async def stop_run(ref: str, service: ServiceDep) -> RunRead:
     """Stop processing; the artifact keeps its stage and action."""
     return await service.stop(ref)
+
+
+@router.get("/secrets", response_model=list[SecretRead])
+async def list_secrets(store: StoreDep) -> list[SecretRead]:
+    """The names of the stored secrets with their dates (never the values)."""
+    return await store.names()
+
+
+@router.put("/secrets/{name}", response_model=SecretRead)
+async def put_secret(
+    name: str, payload: SecretWrite, store: StoreDep, response: Response
+) -> SecretRead:
+    """Create or replace a secret (201 when created); the value is never returned."""
+    read, created = await store.put(name, payload.value)
+    if created:
+        response.status_code = status.HTTP_201_CREATED
+    return read
+
+
+@router.delete("/secrets/{name}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_secret(name: str, store: StoreDep) -> Response:
+    """Delete a secret; nodes that still refer to it fail with "Secret NAME does not exist"."""
+    await store.delete(name)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

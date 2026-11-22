@@ -10,6 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_SECRET_KEY = "change-me-in-production"
@@ -78,6 +79,18 @@ class Settings(BaseSettings):
     #: Whether HTTP nodes may call loopback, private, link-local and metadata addresses. Off by
     #: default (protects the host network); self-hosters calling their own services switch it on.
     http_allow_private_networks: bool = False
+
+    #: Address space (virtual memory) of a Code node's process in MiB (``RLIMIT_AS``). Python and the
+    #: shell need little; runtimes that reserve much address space (Java, Node.js, Go) need more.
+    code_memory_limit_mb: int = Field(default=512, ge=64, le=65536)
+    #: Processes and threads a Code node may add (``RLIMIT_NPROC``). The kernel counts per user, not
+    #: per process tree, so the limit is the user's current count plus this number. Does not apply
+    #: to a process that runs as root.
+    code_process_limit: int = Field(default=64, ge=1, le=4096)
+    #: Largest file in MiB a Code node's process may write (``RLIMIT_FSIZE``).
+    code_file_size_limit_mb: int = Field(default=64, ge=1, le=10240)
+    #: Open files of a Code node's process (``RLIMIT_NOFILE``).
+    code_open_files_limit: int = Field(default=256, ge=16, le=65536)
 
     # ── Logging ─────────────────────────────────────────────────────
     log_level: str = "INFO"

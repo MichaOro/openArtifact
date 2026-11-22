@@ -155,7 +155,7 @@ def test_the_kinds_are_not_offered_by_the_menu_until_the_editor_can_draw_them() 
 def test_a_new_node_has_the_defaults_and_stores_what_was_set(client: TestClient) -> None:
     action = _post(client, "/api/actions", name="A")
     plain = _node(client, action, "code")
-    assert plain["config"] == {"language": "sh", "code": "", "timeout_seconds": 30}
+    assert plain["config"] == {"language": "sh", "code": "", "secrets": "", "timeout_seconds": 30}
     node = _node(client, action, "http", config={"url": "https://example.org", "method": "POST"})
     assert node["config"]["method"] == "POST"
     assert node["config"]["success_status"] == "200-299"
@@ -168,7 +168,12 @@ def test_config_is_merged_per_key_and_null_resets_a_key(client: TestClient) -> N
     node = _node(client, action, "code", config={"code": "echo 1", "timeout_seconds": 5})
     url = f"{_url(action)}/nodes/{node['id']}"
     config = client.patch(url, json={"config": {"language": "python"}}).json()["config"]
-    assert config == {"language": "python", "code": "echo 1", "timeout_seconds": 5}
+    assert config == {
+        "language": "python",
+        "code": "echo 1",
+        "secrets": "",
+        "timeout_seconds": 5,
+    }
     config = client.patch(url, json={"config": {"timeout_seconds": None}}).json()["config"]
     assert config["timeout_seconds"] == 30 and config["code"] == "echo 1"
     assert client.patch(url, json={"name": "Renamed"}).json()["config"]["code"] == "echo 1"

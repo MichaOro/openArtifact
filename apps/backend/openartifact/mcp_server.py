@@ -17,6 +17,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, StartedBy, TaskStatus
+from openartifact.secret_store import SecretStore
 from openartifact.tasks.schemas import TaskCreate, TaskUpdate
 from openartifact.tasks.service import ArtifactService
 
@@ -72,7 +73,7 @@ async def _target(
     )
 
 
-def build_mcp(service: ArtifactService) -> MCPServer:
+def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
     """The server with its tools (see the module docstring)."""
     mcp = MCPServer("OpenArtifact", instructions=INSTRUCTIONS)
 
@@ -185,5 +186,11 @@ def build_mcp(service: ArtifactService) -> MCPServer:
         if results is None:
             return []
         return [r.model_dump(mode="json") for r in results]
+
+    @mcp.tool()
+    async def list_secrets() -> list[dict[str, Any]]:
+        """The names of the stored secrets (with their dates) that Code and HTTP nodes may refer to as
+        ${secret:NAME}. Values are never available through this server."""
+        return [s.model_dump(mode="json") for s in await guarded(secrets.names())]
 
     return mcp

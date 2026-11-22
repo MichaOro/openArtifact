@@ -5,7 +5,12 @@ from __future__ import annotations
 import logging
 import re
 import sys
-from collections.abc import Iterable
+import threading
+from collections import Counter
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
+
+from openartifact.secret_refs import forms_of
 
 #: Names whose value is masked wherever ``name=value``, ``name: value`` or ``'name': 'value'``
 #: shows up in a message (also ``Authorization: Bearer <token>``).
@@ -27,6 +32,30 @@ MASK = "***"
 MIN_SECRET_LENGTH = 8
 
 
+_masked_lock = threading.Lock()
+_masked_values: Counter[str] = Counter()
+
+
+@contextmanager
+def masked_in_logs(values: Iterable[str]) -> Iterator[None]:
+    """Mask these values (secrets a node uses) in every log line while the block runs.
+
+    Unlike the configured token and key, they are short-lived, so they are registered only for the
+    duration of the call; unlike ``MIN_SECRET_LENGTH`` for those, every length counts here.
+    """
+    held = [form for value in values if value for form in forms_of(value)]
+    with _masked_lock:
+        _masked_values.update(held)
+    try:
+        yield
+    finally:
+        with _masked_lock:
+            _masked_values.subtract(held)
+            for value in held:
+                if _masked_values[value] <= 0:
+                    del _masked_values[value]
+
+
 class _SensitiveFilter(logging.Filter):
     """Masks secrets in the finished message, the formatted arguments and a traceback.
 
@@ -39,7 +68,9 @@ class _SensitiveFilter(logging.Filter):
         self._secrets = tuple(s for s in secrets if len(s) >= MIN_SECRET_LENGTH)
 
     def _mask(self, text: str) -> str:
-        for secret in self._secrets:
+        with _masked_lock:
+            current = sorted(_masked_values, key=len, reverse=True)
+        for secret in (*self._secrets, *current):
             text = text.replace(secret, MASK)
         return _SECRET_VALUE.sub(rf"\1\2{MASK}", text)
 

@@ -22,6 +22,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.database import SessionOpener
+from openartifact.engine import code_registry
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
 from openartifact.engine.executors import EXECUTORS, Limits
 from openartifact.engine.results import NodeResult
@@ -340,7 +341,12 @@ class RunEngine:
         return result
 
     async def recover(self) -> None:
-        """After a restart no run is running any more; the ones that were are stopped."""
+        """After a restart no run is running any more; the ones that were are stopped.
+
+        Code processes an earlier, hard-killed application left behind are ended first.
+        """
+        killed = await asyncio.to_thread(code_registry.cleanup_leftovers)
+        logger.info("Cleaned up %d leftover code process(es)", killed)
         async with self._session() as session:
             runs = (
                 (
