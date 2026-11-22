@@ -60,7 +60,10 @@ def test_create_task_returns_201_with_all_fields(client: TestClient) -> None:
         "created_by",
         "created_at",
         "updated_at",
+        "type_id",
+        "parameters",
     }
+    assert (data["type_id"], data["parameters"]) == (None, {})  # untyped unless a type is given
     assert data["title"] == "Write docs"
     assert data["body"] == "Details"
     assert data["status"] == "in_progress"
@@ -519,13 +522,20 @@ def test_number_cannot_be_changed_through_the_api(client: TestClient) -> None:
 
 # ── Foreign key on parent_id ──────────────────────────────────────────
 
+#: A task row as the database requires it (lane, number, position, origin, dates); id, number and parent vary.
+_ROW = (
+    "INSERT INTO tasks (id, title, status, number, position, created_by, created_at, updated_at, parent_id) "
+    "VALUES (?, 'T', 'backlog', ?, 0, 'user', '2026-01-01', '2026-01-01', ?)"
+)
+
 
 def test_database_rejects_a_dangling_parent(migrated_settings: Settings) -> None:
     db_path = migrated_settings.data_dir / migrated_settings.database_filename
     with sqlite3.connect(db_path) as conn:
         conn.execute("PRAGMA foreign_keys=ON")
-        with pytest.raises(sqlite3.IntegrityError):
-            conn.execute("INSERT INTO tasks (id, title, parent_id) VALUES ('a', 'A', 'missing')")
+        # every other column valid, so the only thing that can fail is the dangling parent
+        with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY constraint failed"):
+            conn.execute(_ROW, ("a", 1, "missing"))
 
 
 def test_deleting_a_parent_row_nulls_the_children_in_the_database(
@@ -534,8 +544,8 @@ def test_deleting_a_parent_row_nulls_the_children_in_the_database(
     db_path = migrated_settings.data_dir / migrated_settings.database_filename
     with sqlite3.connect(db_path) as conn:
         conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute("INSERT INTO tasks (id, title) VALUES ('p', 'P')")
-        conn.execute("INSERT INTO tasks (id, title, parent_id) VALUES ('c', 'C', 'p')")
+        conn.execute(_ROW, ("p", 1, None))
+        conn.execute(_ROW, ("c", 2, "p"))
         conn.execute("DELETE FROM tasks WHERE id = 'p'")
         assert conn.execute("SELECT parent_id FROM tasks WHERE id = 'c'").fetchone() == (None,)
 

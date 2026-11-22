@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from openartifact.schemas_common import UtcDateTime
 
 INPUT_NAME = re.compile(r"[a-z][a-z0-9_]{0,31}")
-INPUT_TYPES = ("string", "number", "boolean")
 MAX_INPUTS = 30
 PROMPT_MAX_CHARS = 20000
 NAME_MAX = 100

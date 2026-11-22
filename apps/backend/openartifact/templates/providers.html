@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
 {% block content %}
 {{ alert("Providers could not be loaded.") }}
-<div class="ge-toolbar">
+<div class="action-row">
     <button type="button" class="button button--primary" data-new-provider>{{ icon("plus") }} New provider</button>
 </div>
 <p class="ag-intro">A provider is where agents send their requests: OpenRouter, or any endpoint with an OpenAI-compatible API. Its API key is kept in the secret store; the provider only refers to it by name. Only models that are switched on can be chosen for an agent.</p>

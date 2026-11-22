@@ -1,5 +1,14 @@
 {
   "about": "Code that is no longer used but not removed yet. Nothing here moves: an entry only notes it. tools/check_quarantine.py fails once an entry is 14 days old and `usage` (a regular expression for calls, not the definition) still finds nothing; then the code is removed together with its entry. If `usage` finds calls again, the entry is dropped.",
   "days": 14,
-  "entries": []
+  "entries": [
+    {
+      "name": "Unused list of node reference fields in the run context",
+      "file": "apps/backend/openartifact/engine/context.py",
+      "symbol": "_FIELDS = ",
+      "since": "2026-11-23",
+      "usage": "(?<!def )\\b_FIELDS\\b(?! = )",
+      "why": "Defined next to SYNTAX_HINT, which spells the fields itself; nothing reads _FIELDS. Found in the dead-code review of 2026-11-23."
+    }
+  ]
 }

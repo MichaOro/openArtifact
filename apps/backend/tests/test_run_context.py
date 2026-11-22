@@ -953,7 +953,14 @@ def test_migration_0028_adds_the_column_and_goes_down_and_up_with_data(
     def state() -> tuple[set[str], Any, Any]:
         with sqlite3.connect(path) as conn:
             columns = {r[1] for r in conn.execute("PRAGMA table_info(executions)")}
-            lanes = conn.execute("SELECT status, title FROM lane_titles").fetchall()
+            tables = {
+                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
+            lanes = (
+                conn.execute("SELECT status, title FROM lane_titles").fetchall()
+                if "lane_titles" in tables
+                else None
+            )
             ctx = (
                 conn.execute("SELECT context FROM executions").fetchone()
                 if "context" in columns

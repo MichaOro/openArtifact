@@ -87,10 +87,6 @@ def parse_mapping(text: str) -> dict[str, str]:
     return mapping
 
 
-def format_mapping(mapping: Mapping[str, str]) -> str:
-    return "\n".join(f"{name} = {value}" for name, value in mapping.items())
-
-
 def _text(value: Any) -> str:
     if isinstance(value, str):
         return value

@@ -60,7 +60,7 @@ function inputRow(input = { name: "", type: "string", required: false, default: 
   requiredLabel.append(required, el("span", "", "Required"));
   const fallback = Object.assign(el("input", "field__control"), { type: "text", value: input.default == null ? "" : String(input.default), autocomplete: "off" });
   const description = Object.assign(el("input", "field__control"), { type: "text", value: input.description ?? "", maxLength: 200, autocomplete: "off" });
-  const remove = el("button", "icon-button icon-button--sm");
+  const remove = el("button", "icon-button icon-button--sm is-danger");
   remove.type = "button";
   remove.title = "Remove input";
   remove.setAttribute("aria-label", "Remove input");

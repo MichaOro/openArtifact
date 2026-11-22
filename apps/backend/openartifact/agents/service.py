@@ -17,7 +17,6 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,19 +78,6 @@ def publish_problems(config: AgentConfig, providers: Mapping[str, ProviderInfo])
         else:
             problems += found
     return problems
-
-
-def parse_config(data: Any) -> AgentConfig:
-    """A configuration from JSON data; 422 with one line per problem."""
-    try:
-        return AgentConfig.model_validate(data)
-    except ValidationError as error:
-        lines = []
-        for item in error.errors():
-            where = ".".join(str(p) for p in item["loc"])
-            text = str(item["msg"]).removeprefix("Value error, ")
-            lines.append(f"{where}: {text}" if where else text)
-        raise ArtifactError(422, "\n".join(lines)) from error
 
 
 class AgentService:

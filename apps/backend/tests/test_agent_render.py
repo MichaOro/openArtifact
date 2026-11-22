@@ -11,7 +11,6 @@ from openartifact.agents.render import (
     MappingError,
     RenderError,
     fill,
-    format_mapping,
     input_problems,
     parse_mapping,
     placeholders,
@@ -27,9 +26,8 @@ from openartifact.agents.resolve import (
     setting_states,
 )
 from openartifact.agents.schemas import OVERRIDABLE, AgentConfig, InputSpec
-from openartifact.agents.service import parse_config, publish_problems
+from openartifact.agents.service import publish_problems
 from openartifact.engine.context import NodeIndex, RunContext, RunView
-from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import SettingError, node_type
 
 # ── the configuration ────────────────────────────────────────────────
@@ -106,16 +104,6 @@ def test_a_stored_configuration_survives_a_round_trip_and_garbage_is_the_default
     assert AgentConfig.loads(None) == AgentConfig()
 
 
-def test_a_wrong_configuration_is_reported_one_line_per_problem() -> None:
-    with pytest.raises(ArtifactError) as caught:
-        parse_config({"retries": 9, "inputs": [{"name": "Bad"}]})
-    assert caught.value.status == 422
-    lines = caught.value.message.splitlines()
-    assert len(lines) == 2
-    assert lines[0].startswith("inputs.0.name: an input name has lowercase letters")
-    assert lines[1].startswith("retries:")
-
-
 # ── prompts ──────────────────────────────────────────────────────────
 
 
@@ -150,7 +138,6 @@ def test_a_prompt_takes_only_declared_input_placeholders() -> None:
 def test_a_mapping_is_name_equals_value_per_line() -> None:
     mapping = parse_mapping("ticket = ${node.Fetch.output}\n\n  input.context=a = b \nempty =\n")
     assert mapping == {"ticket": "${node.Fetch.output}", "context": "a = b", "empty": ""}
-    assert parse_mapping(format_mapping(mapping)) == mapping
     assert parse_mapping("") == {}
 
 

@@ -146,8 +146,8 @@ const dialog = new ProviderDialog(new Modal(document.getElementById("provider-mo
 
 // ── the list ───────────────────────────────────────────────────────────
 
-function tool(text, glyph, onClick, label = text) {
-  const button = el("button", "button button--ghost button--sm");
+function tool(text, glyph, onClick, label = text, danger = false) {
+  const button = el("button", `button button--ghost button--sm${danger ? " is-danger" : ""}`);
   button.type = "button";
   if (glyph) button.append(icon(glyph));
   button.append(document.createTextNode(text));
@@ -184,7 +184,7 @@ function modelRow(provider, model) {
   if (!model.available) row.append(chip("No longer listed", "warn"));
   if (model.source === "manual") {
     row.append(chip("By hand"));
-    const remove = el("button", "icon-button icon-button--sm");
+    const remove = el("button", "icon-button icon-button--sm is-danger");
     remove.type = "button";
     remove.title = "Delete model";
     remove.setAttribute("aria-label", `Delete model ${model.model_id}`);
@@ -255,7 +255,7 @@ function card(provider) {
           await deleteProvider(provider.id);
           await load();
         },
-      }), `Delete provider ${provider.name}`),
+      }), `Delete provider ${provider.name}`, true),
   );
   head.append(el("h3", "ag-provider__name", provider.name), chips, tools);
   const facts = el("dl", "ag-provider__facts");
