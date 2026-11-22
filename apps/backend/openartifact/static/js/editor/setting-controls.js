@@ -4,6 +4,7 @@
  * keeps what the user typed when the save is refused. Add a type by subclassing SettingControl and
  * listing it in CONTROLS. */
 import { field } from "./field.js";
+import { suggestReferences } from "./reference-suggest.js";
 
 const AUTOSAVE_MS = 800; // multi-line fields save this long after the last keystroke
 const INDENT = "  ";
@@ -27,8 +28,10 @@ class SettingControl {
    * @param {object} setting the server's description of the setting
    * @param {*} value what is stored now
    * @param {(value: *) => Promise<string|null>} save resolves to null, or to why the value was refused
+   * @param {{nodes: () => object[], exceptId?: string}|null} suggest the graph's nodes, for the suggestions
+   *   of a text that takes references (null: none)
    */
-  constructor(setting, value, save) {
+  constructor(setting, value, save, suggest = null) {
     this.setting = setting;
     this.saved = value;
     this.save = save;
@@ -37,6 +40,7 @@ class SettingControl {
     this.input = this.createInput(value);
     this.input.dataset.focusKey = `setting-${setting.key}`;
     this.input.addEventListener("change", () => this.commit());
+    if (suggest && setting.references && this.constructor.suggests) suggestReferences(this.input, suggest, { allowSecrets: setting.references === "all" });
     this.element = this.build();
   }
 
@@ -56,6 +60,9 @@ class SettingControl {
 
   /** Whether the layout puts label and control on one line. */
   static row = false;
+
+  /** Whether the control offers suggestions for ${...} references (text and lines, not code). */
+  static suggests = false;
 
   /** Text under the control that is not the setting's own help (null: none). */
   hint() {
@@ -194,6 +201,8 @@ class SwitchControl extends SettingControl {
 }
 
 class TextControl extends SettingControl {
+  static suggests = true;
+
   createInput(value) {
     const input = element("input", "field__control");
     input.type = "text";
@@ -211,6 +220,8 @@ class TextControl extends SettingControl {
 
 /** Several lines: saved a moment after typing stops and when the field is left; a counter shows the length. */
 class LinesControl extends SettingControl {
+  static suggests = true;
+
   createInput(value) {
     const area = element("textarea", `field__control ${this.constructor.inputClass}`.trim());
     area.spellcheck = false;
@@ -251,6 +262,7 @@ class LinesControl extends SettingControl {
 
 /** Source code: monospace, Tab indents; Escape then Tab leaves the field (so the keyboard is never trapped). */
 class CodeControl extends LinesControl {
+  static suggests = false; // the code text is never interpolated, so a reference in it means nothing
   static inputClass = "field__control--code";
   static rows = 10;
 
@@ -302,6 +314,6 @@ const CONTROLS = {
 };
 
 /** The control for a setting; a type this editor does not know is shown as plain text. */
-export function createControl(setting, value, save) {
-  return new (CONTROLS[setting.type] ?? TextControl)(setting, value, save);
+export function createControl(setting, value, save, suggest = null) {
+  return new (CONTROLS[setting.type] ?? TextControl)(setting, value, save, suggest);
 }

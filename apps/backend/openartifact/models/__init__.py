@@ -186,6 +186,8 @@ class NodeKind(enum.StrEnum):
     PIPELINE = "pipeline"
     CODE = "code"
     HTTP = "http"
+    IF = "if"
+    SWITCH = "switch"
 
 
 class Graph(Base):

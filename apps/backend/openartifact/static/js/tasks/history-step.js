@@ -4,8 +4,8 @@
 import { icon } from "../components/icons.js";
 import { formatDuration, secondsBetween, setChip } from "./history-format.js";
 
-const KIND_ICONS = { code: "code", http: "http", timer: "clock", trigger: "play", output: "check" };
-const PORTS = { pass: "On Pass", fail: "On Fail", out: "Next" };
+const KIND_ICONS = { code: "code", http: "http", timer: "clock", trigger: "play", output: "check", if: "if", switch: "switch" };
+const PORTS = { pass: "On Pass", fail: "On Fail", out: "Next", yes: "Yes", no: "No", else: "Else" };
 
 /** How long a step took ("0.4 s"), null while it has not finished. */
 export function stepDuration(step) {
@@ -15,7 +15,7 @@ export function stepDuration(step) {
 
 /** "On Pass", "Exit code: 0", "0.4 s" ... as one line. */
 function stepFacts(step) {
-  return [step.port ? `Port: ${PORTS[step.port] ?? step.port}` : null, step.exit_code != null ? `Exit code: ${step.exit_code}` : null, stepDuration(step)].filter(Boolean);
+  return [step.port ? `Port: ${PORTS[step.port] ?? step.port.replace(/^case_(\d)$/, "Case $1")}` : null, step.exit_code != null ? `Exit code: ${step.exit_code}` : null, stepDuration(step)].filter(Boolean);
 }
 
 /**

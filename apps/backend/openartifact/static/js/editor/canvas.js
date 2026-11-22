@@ -15,7 +15,7 @@ const DRAG_THRESHOLD = 4;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
 const NUDGE = 8;
-const FAILING_PORTS = ["error", "fail"]; // their connections are drawn as failures
+const FAILING_PORTS = ["error", "fail", "else"]; // their connections are drawn as failures
 
 const svg = (name, attributes = {}) => {
   const el = document.createElementNS(SVG_NS, name);
@@ -115,9 +115,15 @@ export class Canvas {
     el.dataset.direction = port.direction;
     el.dataset.side = port.side;
     el.setAttribute("aria-hidden", "true");
-    el.title = port.label;
-    if (type.labelled(port)) el.dataset.label = port.label;
+    this.#name(el, node, type, port);
     return el;
+  }
+
+  /** Title and written label of a port (a Switch takes them from the value of its case). */
+  #name(el, node, type, port) {
+    const label = type.portLabel(port.name, node);
+    el.title = label;
+    if (type.labelled(port)) el.dataset.label = label;
   }
 
   #updateNode(node, el) {
@@ -138,6 +144,7 @@ export class Canvas {
       port.style.left = `${at.x}px`;
       port.style.top = `${at.y}px`;
       port.hidden = !type.isVisible(node, port.dataset.port);
+      this.#name(port, node, type, { name: port.dataset.port });
     });
     el.classList.toggle("is-selected", this.selection?.type === "node" && this.selection.id === node.id);
     this.handlers.onNodeDrawn?.(node, el);

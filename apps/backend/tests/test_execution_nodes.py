@@ -159,6 +159,7 @@ def test_a_new_node_has_the_defaults_and_stores_what_was_set(client: TestClient)
         "language": "sh",
         "code": "",
         "secrets": "",
+        "sets_variables": "",
         "timeout_seconds": 30,
         "on_failure": "fail",
     }
@@ -178,6 +179,7 @@ def test_config_is_merged_per_key_and_null_resets_a_key(client: TestClient) -> N
         "language": "python",
         "code": "echo 1",
         "secrets": "",
+        "sets_variables": "",
         "timeout_seconds": 5,
         "on_failure": "fail",
     }

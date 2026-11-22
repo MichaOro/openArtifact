@@ -130,12 +130,18 @@
 .ge-node--pipeline { --node-color: var(--node-pipeline); }
 .ge-node--complete { --node-color: var(--node-complete); }
 .ge-node--code,
-.ge-node--http { display: flex; align-items: center; gap: var(--space-3); padding: 0 4.5rem 0 var(--space-4); } /* room for On Pass / On Fail */
+.ge-node--http,
+.ge-node--if,
+.ge-node--switch { display: flex; align-items: center; gap: var(--space-3); padding: 0 4.5rem 0 var(--space-4); } /* room for On Pass / On Fail */
 .ge-node--code { --node-color: var(--node-code); }
 .ge-node--http { --node-color: var(--node-http); }
+.ge-node--if,
+.ge-node--switch { --node-color: var(--node-branch); }
 .ge-node__icon { flex: none; width: 1.25rem; height: 1.25rem; color: var(--node-color); }
 .ge-node--code .ge-node__kind,
-.ge-node--http .ge-node__kind { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ge-node--http .ge-node__kind,
+.ge-node--if .ge-node__kind,
+.ge-node--switch .ge-node__kind { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ge-node--output { --node-color: var(--node-output); padding: var(--space-3) var(--space-4); }
 .ge-node--stage { --node-color: var(--node-stage); background: var(--stage-bg); border-color: var(--stage-border); }
 .ge-node__text { display: flex; flex-direction: column; min-width: 0; }
@@ -198,7 +204,10 @@
 /* ports are placed by their node's view (node-types.js); here only their colour and label side */
 .ge-port--pass { border-color: var(--edge-pass); }
 .ge-port--error,
+.ge-port--else,
 .ge-port--fail { border-color: var(--color-danger); }
+.ge-port--no { border-color: var(--color-text-secondary); }
+.ge-port--yes { border-color: var(--edge-pass); }
 .ge-port[data-side="right"]::after { right: 14px; white-space: nowrap; }
 .ge-port[data-side="left"]::after { left: 14px; white-space: nowrap; }
 /* a stage has three points per side; only used ones show, all of them while hovering or connecting */
@@ -214,7 +223,9 @@
 .ge-edge__hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
 .ge-edge__line { fill: none; stroke: var(--color-text-secondary); stroke-width: 2; pointer-events: none; }
 .ge-edge--pass .ge-edge__line { stroke: var(--edge-pass); }
+.ge-edge--yes .ge-edge__line { stroke: var(--edge-pass); }
 .ge-edge--error .ge-edge__line,
+.ge-edge--else .ge-edge__line,
 .ge-edge--fail .ge-edge__line { stroke: var(--color-danger); stroke-dasharray: 6 4; }
 .ge-edge:hover .ge-edge__line,
 .ge-edge.is-selected .ge-edge__line { stroke-width: 3; }
@@ -343,3 +354,8 @@
 /* a label and its control on one line (the switches of the inspector) */
 .field--row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .field--row .field__label { margin: 0; }
+
+/* the conditions of an If node: one folded group per row */
+.ge-group { border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
+.ge-group[open] { display: flex; flex-direction: column; gap: var(--space-3); }
+.ge-group > summary { cursor: pointer; font-size: 0.8125rem; font-weight: 500; color: var(--color-text-secondary); }

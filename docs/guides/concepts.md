@@ -65,6 +65,8 @@ many actions.
 | Timer | Waits 1 second to 1 day | Next |
 | Code | Runs shell or Python text | On Pass or On Fail |
 | HTTP request | Calls an HTTP address | On Pass or On Fail |
+| If | Compares values of the run context | Yes, No or Else |
+| Switch | Compares one value with up to six cases | Case 1 ... 6 or Else |
 
 Details in the [execution nodes guide](execution-nodes.md). Further kinds are added through a registry
 ([Extending](extending.md)).

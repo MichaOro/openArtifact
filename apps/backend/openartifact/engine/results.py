@@ -21,6 +21,8 @@ class NodeResult:
     duration: float = 0.0
     #: Variables the node sets in the run context (a Code node's ``"vars"``); only a passing node's count.
     variables: dict[str, Any] | None = None
+    #: The output the node leaves by, for kinds that choose it themselves (If, Switch); ``None``: by outcome.
+    port: str | None = None
 
     def __post_init__(self) -> None:
         if self.reason is not None:

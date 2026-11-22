@@ -19,7 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from openartifact.engine.context import ContextError, check_url_placement
+from openartifact.engine.context import VAR_NAME, ContextError, check_url_placement
 from openartifact.models import GraphKind, NodeKind
 from openartifact.secret_refs import (
     SecretReferenceError,
@@ -39,7 +39,30 @@ TIMER_MAX_SECONDS = 86400
 #: Whether the "+" menu of the browser editor offers the Code and HTTP nodes.
 EXECUTION_NODES_ADDABLE = True
 CODE_MAX_CHARS = 20000
+MAX_DECLARED_VARIABLES = 100
 HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
+#: Conditions of an If node and cases of a Switch node (see ``engine/branching.py``).
+IF_ROWS = 5
+SWITCH_CASES = 6
+CONDITION_TEXT_CHARS = 500
+OPERATORS = (
+    "equals",
+    "not equals",
+    "contains",
+    "not contains",
+    "starts with",
+    "ends with",
+    "is empty",
+    "is not empty",
+    "greater than",
+    "less than",
+    "greater or equal",
+    "less or equal",
+    "is true",
+    "is false",
+)
+#: Operators that look at the left side only (the right side is ignored).
+UNARY_OPERATORS = frozenset({"is empty", "is not empty", "is true", "is false"})
 _DEFAULT_MAX_LENGTH = {"text": 2000, "lines": 20000, "code": CODE_MAX_CHARS}
 
 
@@ -94,6 +117,27 @@ def _check_secret_names(value: str) -> None:
     parse_name_lines(value)
 
 
+def _check_variable_names(value: str) -> None:
+    names = [line.strip() for line in value.splitlines() if line.strip()]
+    if len(names) > MAX_DECLARED_VARIABLES:
+        raise SettingError(f"At most {MAX_DECLARED_VARIABLES} variables")
+    for name in names:
+        if not VAR_NAME.fullmatch(name):
+            raise SettingError(
+                "One variable name per line: lowercase letters, digits and underscores, "
+                "starting with a letter"
+            )
+
+
+def _check_condition_text(value: str) -> None:
+    """A condition reads the run context only: a secret in it could be leaked by branching on it."""
+    if "${secret" in value:
+        raise SettingError(
+            "${secret:NAME} cannot be used in a condition: a branch could reveal the secret"
+        )
+    _check_text_references(value)
+
+
 class Ports:
     """The names of the connectors that the rules and the engine refer to."""
 
@@ -104,6 +148,13 @@ class Ports:
     PASS = "pass"
     ERROR = "error"
     FAIL = "fail"
+    YES = "yes"
+    NO = "no"
+    ELSE = "else"
+
+    @staticmethod
+    def case(number: int) -> str:
+        return f"case_{number}"
 
 
 @dataclass(frozen=True)
@@ -137,6 +188,11 @@ class Setting:
     help: str | None = None
     stored_in: str = "column"
     check: Callable[[str], None] | None = None
+    #: Settings of one group (a condition row) are shown together under this title.
+    group: str | None = None
+    #: What the editor may suggest while the user types ``${``: ``"context"`` (node results and
+    #: variables) or ``"all"`` (and secret names). ``None``: the text takes no references.
+    references: str | None = None
 
     def describe(self) -> dict[str, Any]:
         """The editor's description; the old keys keep their meaning, new ones are only added."""
@@ -157,6 +213,10 @@ class Setting:
             data["placeholder"] = self.placeholder
         if self.help is not None:
             data["help"] = self.help
+        if self.group is not None:
+            data["group"] = self.group
+        if self.references is not None:
+            data["references"] = self.references
         return data
 
     def validate(self, value: Any) -> Any:
@@ -207,6 +267,8 @@ class NodeType:
         None  # the kind of graphs row ``definition_id`` points at
     )
     size: ClassVar[tuple[float, float] | None] = None  # only stages store a size of their own
+    #: Config settings whose text may hold ``${node...}`` / ``${var...}`` (checked for hints on save).
+    reference_keys: ClassVar[tuple[str, ...]] = ()
 
     @property
     def default_name(self) -> str:
@@ -412,7 +474,7 @@ class _ExecutionType(NodeType):
     addable = EXECUTION_NODES_ADDABLE
     chain = True
     inputs = (Port(Ports.IN, "Input"),)
-    outputs = (Port(Ports.PASS, "On Pass"), Port(Ports.FAIL, "On Fail"))
+    outputs: ClassVar[tuple[Port, ...]] = (Port(Ports.PASS, "On Pass"), Port(Ports.FAIL, "On Fail"))
 
 
 class CodeType(_ExecutionType):
@@ -462,6 +524,21 @@ class CodeType(_ExecutionType):
             check=_references(_check_secret_names),
         ),
         Setting(
+            "sets_variables",
+            "Sets variables",
+            "lines",
+            default="",
+            max_length=2000,
+            placeholder="ticket_priority",
+            stored_in="config",
+            help=(
+                'Optional: the variable names this code sets (one per line, as in "vars"). '
+                "Documents the node and feeds the suggestions; a difference between this list and "
+                "what the code really sets is noted in the step, it does not fail the node."
+            ),
+            check=_check_variable_names,
+        ),
+        Setting(
             "timeout_seconds",
             "Timeout (seconds)",
             "integer",
@@ -479,6 +556,7 @@ class HttpType(_ExecutionType):
 
     kind = NodeKind.HTTP
     label = "HTTP request"
+    reference_keys = ("url", "headers", "body")
     settings = (
         Setting(
             "method", "Method", "select", default="GET", options=HTTP_METHODS, stored_in="config"
@@ -490,6 +568,7 @@ class HttpType(_ExecutionType):
             default="",
             placeholder="https://example.org/hook",
             stored_in="config",
+            references="all",
             help=(
                 "Use ${secret:NAME} for a stored secret and ${node.NAME.output} or ${var.NAME} for "
                 "the result of an earlier node or a variable in the path or the query (replaced "
@@ -504,6 +583,7 @@ class HttpType(_ExecutionType):
             default="",
             placeholder="Name: value",
             stored_in="config",
+            references="all",
             help=(
                 "One 'Name: value' per line, stored in plain text: put a secret in as "
                 "${secret:NAME}, for example 'Authorization: Bearer ${secret:API_TOKEN}'. "
@@ -517,6 +597,7 @@ class HttpType(_ExecutionType):
             "lines",
             default="",
             stored_in="config",
+            references="all",
             help=(
                 "Sent as it is, stored in plain text: put a secret in as ${secret:NAME}, which "
                 "is replaced by its value when the node runs. ${node.NAME.output}, "
@@ -546,6 +627,139 @@ class HttpType(_ExecutionType):
         ),
         ON_FAILURE,
     )
+
+
+def _if_settings() -> tuple[Setting, ...]:
+    rows: list[Setting] = []
+    for n in range(1, IF_ROWS + 1):
+        group = f"Condition {n}"
+        rows += [
+            Setting(
+                f"left_{n}",
+                "Value",
+                "text",
+                default="",
+                max_length=CONDITION_TEXT_CHARS,
+                placeholder="${var.priority}" if n == 1 else None,
+                stored_in="config",
+                group=group,
+                references="context",
+                help="Text, may hold ${node.NAME.output} or ${var.name}. Empty: the row is unused."
+                if n == 1
+                else None,
+                check=_check_condition_text,
+            ),
+            Setting(
+                f"operator_{n}",
+                "Operator",
+                "select",
+                default="equals",
+                options=OPERATORS,
+                stored_in="config",
+                group=group,
+            ),
+            Setting(
+                f"right_{n}",
+                "Compare with",
+                "text",
+                default="",
+                max_length=CONDITION_TEXT_CHARS,
+                stored_in="config",
+                group=group,
+                references="context",
+                help="Ignored by is empty, is not empty, is true and is false." if n == 1 else None,
+                check=_check_condition_text,
+            ),
+        ]
+    return (
+        Setting(
+            "combine",
+            "Conditions",
+            "select",
+            default="all",
+            options=("all", "any"),
+            stored_in="config",
+            help="all: every used condition must hold (and). any: one is enough (or).",
+        ),
+        Setting(
+            "case_sensitive",
+            "Case sensitive",
+            "switch",
+            default=True,
+            stored_in="config",
+            help="Off: texts are compared without regard to upper and lower case.",
+        ),
+        *rows,
+    )
+
+
+class IfType(_ExecutionType):
+    """Compares values of the run context and leaves by Yes, No or Else (cannot be evaluated)."""
+
+    kind = NodeKind.IF
+    label = "If"
+    outputs = (Port(Ports.YES, "Yes"), Port(Ports.NO, "No"), Port(Ports.ELSE, "Else"))
+    settings = _if_settings()
+    reference_keys = tuple(
+        f"{side}_{n}" for n in range(1, IF_ROWS + 1) for side in ("left", "right")
+    )
+
+
+class SwitchType(_ExecutionType):
+    """Compares one value with up to six cases and leaves by the first case that matches, or Else."""
+
+    kind = NodeKind.SWITCH
+    label = "Switch"
+    outputs = (
+        *(Port(Ports.case(n), f"Case {n}") for n in range(1, SWITCH_CASES + 1)),
+        Port(Ports.ELSE, "Else"),
+    )
+    settings = (
+        Setting(
+            "value",
+            "Value",
+            "text",
+            default="",
+            max_length=CONDITION_TEXT_CHARS,
+            placeholder="${var.priority}",
+            stored_in="config",
+            references="context",
+            help="Text, may hold ${node.NAME.output} or ${var.name}.",
+            check=_check_condition_text,
+        ),
+        *(
+            Setting(
+                Ports.case(n),
+                f"Case {n}",
+                "text",
+                default="",
+                max_length=200,
+                stored_in="config",
+                help="Empty: this case is unused and its output is hidden." if n == 1 else None,
+            )
+            for n in range(1, SWITCH_CASES + 1)
+        ),
+        Setting(
+            "case_sensitive",
+            "Case sensitive",
+            "switch",
+            default=True,
+            stored_in="config",
+            help="Off: texts are compared without regard to upper and lower case.",
+        ),
+    )
+    reference_keys = ("value",)
+
+    def connect_error(
+        self, source: Endpoint, source_port: str, target: Endpoint, target_port: str
+    ) -> str | None:
+        if source_port.startswith("case_"):
+            case = (source.config or {}).get(source_port)
+            if not isinstance(case, str) or not case.strip():
+                return (
+                    f"{source_port.replace('_', ' ').capitalize()} is unused: give it a value first"
+                )
+        return super().connect_error(source, source_port, target, target_port)
 
 
 NODE_TYPES: dict[NodeKind, NodeType] = {}
@@ -581,5 +795,7 @@ for _type in (
     OutputType(),
     CodeType(),
     HttpType(),
+    IfType(),
+    SwitchType(),
 ):
     register(_type)

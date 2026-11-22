@@ -600,7 +600,7 @@ class RunEngine:
         """Run an action's definition from its trigger: True for On Pass, False for On Fail.
 
         Every node on the way is recorded as a step of the run. A node that has an executor is run and
-        leaves by the port of its outcome. An action that is not linked to a definition is an empty
+        leaves by the port of its outcome (or by the port it chose itself). An action that is not linked to a definition is an empty
         shell and passes at once (and has no steps).
         """
         if not node["definition_id"]:
@@ -638,7 +638,7 @@ class RunEngine:
                     walk.context.set_vars(result.variables)
                 except ContextError as error:
                     result = replace(result, outcome="fail", reason=f"Invalid vars: {error}")
-            port = (
+            port = result.port or (
                 (Ports.PASS if result.outcome == "pass" else Ports.FAIL)
                 if executor.by_outcome
                 else Ports.OUT

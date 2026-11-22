@@ -32,6 +32,7 @@
   --node-complete: var(--lane-hue-8);
   --node-code: var(--lane-hue-7);
   --node-http: var(--lane-hue-4);
+  --node-branch: var(--lane-hue-5);
   --edge-pass: var(--lane-hue-3);
 }
 

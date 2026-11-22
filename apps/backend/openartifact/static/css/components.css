@@ -506,6 +506,9 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
 }
+/* the suggestions for ${...} references of the node editor: the text, then what it is */
+.popover--suggest { z-index: 40; max-width: min(26rem, calc(100vw - 1rem)); font-family: var(--font-mono); }
+.popover--suggest .popover__detail { margin: 0 0 0 auto; padding-left: var(--space-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-sans, inherit); }
 @keyframes popover-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
 /* ── Narrow: the sidebar never takes width from the board ─────────

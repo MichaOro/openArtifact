@@ -151,16 +151,17 @@ class GraphRepository:
         return nodes.scalars().all(), edges.scalars().all()
 
     async def reference_hints(self, node: GraphNode) -> list[str]:
-        """Problems with the ``${node...}`` references of an HTTP node's URL, headers and body.
+        """Problems with the ``${node...}`` references of a node's settings (HTTP: URL, headers, body; If, Switch).
 
         Only hints (the node is saved anyway): names that two nodes of the same action share, names
         no node of any action has, malformed references. Which pipeline runs the action, and so which
         nodes are around it, is only known at run time, where such a reference fails the node.
         """
-        if node.kind != NodeKind.HTTP:
+        kind = node_type(node.kind)
+        if not kind.reference_keys:
             return []
-        config = node_type(node.kind).effective_config(node.config)
-        text = "\n".join(str(config.get(k) or "") for k in ("url", "headers", "body"))
+        config = kind.effective_config(node.config)
+        text = "\n".join(str(config.get(k) or "") for k in kind.reference_keys)
         if "${" not in text:
             return []
         graph = await self._session.get(Graph, node.graph_id)
@@ -176,7 +177,9 @@ class GraphRepository:
         others = await self._session.execute(
             select(GraphNode.name).where(
                 GraphNode.graph_id != node.graph_id,
-                GraphNode.kind.in_([NodeKind.CODE, NodeKind.HTTP, NodeKind.TIMER]),
+                GraphNode.kind.in_(
+                    [NodeKind.CODE, NodeKind.HTTP, NodeKind.TIMER, NodeKind.IF, NodeKind.SWITCH]
+                ),
             )
         )
         keys = {node_key(name) for (name,) in others}
@@ -248,6 +251,19 @@ class GraphRepository:
             if field in sent and value is not None:
                 setattr(node, field, value)
         await self._session.flush()
+        if node.kind == NodeKind.SWITCH and data.config is not None:
+            unused = [
+                p
+                for p in node_type(node.kind).output_names()
+                if p.startswith("case_") and not str((node.config or {}).get(p) or "").strip()
+            ]
+            await (
+                self._session.execute(  # a case without a value has no output: its connection goes
+                    delete(GraphEdge).where(
+                        GraphEdge.source_id == node.id, GraphEdge.source_port.in_(unused)
+                    )
+                )
+            )
         if data.fail_enabled is False:
             # the On Fail connector is gone, and so is the Error output of actions linked to this definition
             await self._session.execute(
@@ -405,4 +421,6 @@ class GraphRepository:
 
 
 def _endpoint(node: GraphNode) -> Endpoint:
-    return Endpoint(id=node.id, kind=NodeKind(node.kind), stage_id=node.stage_id)
+    return Endpoint(
+        id=node.id, kind=NodeKind(node.kind), stage_id=node.stage_id, config=node.config
+    )

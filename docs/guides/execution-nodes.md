@@ -1,4 +1,4 @@
-# Execution nodes: Code and HTTP
+# Execution nodes: Code, HTTP, If and Switch
 
 The nodes that do work inside an action definition (see [Concepts](concepts.md)). You add them in the
 action editor with the "+" menu and set them in the inspector; every setting is saved as you type or leave
@@ -13,9 +13,9 @@ Settings of the application that affect the nodes are in the [configuration refe
 When a run reaches an action that is linked to a definition, the engine walks the definition:
 
 1. It starts at the **trigger** and records a step for it.
-2. It follows the connection leaving the current node. A node with an executor (timer, Code, HTTP) runs; the
+2. It follows the connection leaving the current node. A node with an executor (timer, Code, HTTP, If, Switch) runs; the
    engine records its result as a step and leaves by the port that matches the outcome: **On Pass** or **On Fail**
-   for Code and HTTP, **Next** for the timer (which always passes).
+   for Code and HTTP, **Next** for the timer (which always passes), the branch the node chose for If and Switch.
 3. Reaching the **Output** by its **On Pass** connector makes the action pass; reaching it by **On Fail**
    makes the action fail. The Output's On Fail connector exists only when its switch is on.
 4. If a leaving port has no connection (a dead end), the action fails.
@@ -107,7 +107,9 @@ print(json.dumps({"ok": True, "vars": {"user": "bob", "limit": 5}}))
 
 Names are lowercase letters, digits and `_`, starting with a letter (at most 64 characters, at most 100 per
 node); values are JSON (text, number, true/false, null, list, object, nested at most 3 levels). An invalid name or
-value fails the node with `Invalid vars: ...`. Only a passing node sets variables. The line must be short enough to
+value fails the node with `Invalid vars: ...`. Only a passing node sets variables. The optional **Sets variables** setting (one name per line) documents which
+variables the code sets and feeds the editor's suggestions; if it is not empty and the node passed, the step's reason
+notes a difference (`undeclared variable 'x'`, `declared variable 'y' was not set`). It is a hint: the node still passes. The line must be short enough to
 survive the 8 KiB tail of the output the protocol is read from. All variables together may use 32 KiB; a node that
 would exceed it fails. HTTP nodes do not set variables (their parsed body is not stored; use `data` and the
 `output` of the node, or a Code node that reads `context.json` and sets the variable).
@@ -321,6 +323,77 @@ curl -X POST   $BASE/api/actions/$ID/edges -H 'Content-Type: application/json' \
 Then link an action of a pipeline to it (`PATCH /api/pipelines/$P/nodes/$ACTION` with
 `{"definition_id": "$ID"}`) and start an artifact in the pipeline (`POST /api/tasks/$TASK/run`). The
 [API reference](api-reference.md) lists every route.
+
+## If and Switch nodes
+
+Two nodes that choose the way on by a value of the [run context](#the-run-context-and-references). They do no work
+of their own and cannot fail open (there is no *If the node fails* setting). There is no scripting, no regular
+expression and no loop: a fixed list of comparisons.
+
+### If
+
+Up to five conditions (rows **Condition 1** to **5**; a row whose *Value* is empty is unused) joined by *all*
+(and) or *any* (or). Each row has a *Value* (text, may hold `${node.NAME.output}` or `${var.name}`), an *Operator*
+and *Compare with* (text, may hold references; ignored by the operators without a right side).
+
+| Outputs | Meaning |
+|---------|---------|
+| **Yes** | The conditions hold (all, or any) |
+| **No** | They do not |
+| **Else** | They could not be evaluated: an unresolvable reference, a side that is not a number or a boolean where one is needed, or no condition set. The step is a failure with the reason; if nothing is connected at Else, the action fails |
+
+| Operator | Holds when | Right side |
+|----------|------------|------------|
+| equals / not equals | equal; as numbers when both sides are numbers (`1.0` equals `1`), otherwise as text | yes |
+| contains / not contains | the left text contains the right text | yes |
+| starts with / ends with | the left text starts or ends with the right text | yes |
+| greater than / less than / greater or equal / less or equal | numeric comparison; both sides must be numbers, otherwise **Else** | yes |
+| is true / is false | the left side is `true` or `false` (lowercase, JSON); anything else goes to **Else** | no |
+| is empty / is not empty | empty text, only white space, `null`, `[]` or `{}` | no |
+
+Comparison rules: both sides are trimmed of white space first (so the newline at the end of a Code node's output does
+not matter); text is compared **case-sensitively** unless *Case sensitive* is switched off; a number is an optional
+sign, digits, an optional decimal point and an optional exponent (`-3`, `+2.5`, `1e3`), no thousands separators; all
+conditions are evaluated, and an error in any of them sends the node to **Else** (the reason names the first one).
+`${secret:NAME}` is refused in conditions when you save (a branch could reveal a secret); only the run context is a
+source.
+
+The step records the way taken and what was compared (values cut at 200 characters):
+
+```json
+{"condition": true,
+ "rows": [{"left": "high", "operator": "equals", "right": "high", "result": true},
+          {"left": "7", "operator": "greater than", "right": "5", "result": true}]}
+```
+
+outcome `pass` for Yes and No, outcome `fail` with port `else` (and `"condition": null`) when it could not be decided.
+
+### Switch
+
+Compares one *Value* with up to six *cases* (texts, compared exactly after trimming; *Case sensitive* is on by
+default) and leaves by the first case that matches: outputs **Case 1** ... **Case 6** and **Else**. In the editor a
+case shows its text as the label of its output, and a case without a value has no output at all (connections to it are
+refused, and emptying a case removes its connection). **Else** is taken when no case matches (outcome `pass`) or when
+the value cannot be resolved (outcome `fail`, with the reason). Step data: `{"value": "gold", "matched": "case_2"}`,
+`matched` is `null` for Else.
+
+### Example: support triage
+
+A Code node *Classify* reads the text of the ticket from `context.json`, prints
+`{"ok": true, "vars": {"priority": "high", "score": 7}}` and declares `priority` and `score` under *Sets variables*.
+An **If** node *Is urgent* with `${var.priority}` equals `high` and `${var.score}` greater than `5` (all) leads by
+**Yes** to an HTTP node that pages on-call, by **No** to a Code node that queues the ticket, and by **Else** (the
+variable was not set, the score is no number) to the Output's **On Fail**. A **Switch** on `${var.tier}` with the
+cases `silver`, `gold`, `platinum` sends each tier to its own handling and everything else by **Else**.
+
+### Suggestions while typing
+
+In every text field that takes references (HTTP URL, headers and body; the If and Switch values) typing `${` (or
+pressing Ctrl+Space inside an open `${`) opens a list under the caret: `node.NAME.output`, `exit_code`, `outcome`,
+`reason` and `data.` for the nodes of the action being edited, `var.name` for the variables the Code nodes declare, and
+the names of your secrets (`secret:NAME`) in the fields that allow them (not in conditions). Arrow keys move, Enter or
+Tab insert (the closing `}` is added), Escape closes the list and keeps the text, typing narrows it. Suggestions are
+hints; nothing is checked in the browser and the Code text gets none (it is never interpolated).
 
 ## What a failure does to the way on
 

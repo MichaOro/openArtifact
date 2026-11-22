@@ -7,6 +7,7 @@ an edge against them.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from openartifact.graph.node_types import node_type
 from openartifact.models import NodeKind
@@ -23,6 +24,8 @@ class Endpoint:
     id: str
     kind: NodeKind
     stage_id: str | None = None
+    #: The node's settings in config (only kinds whose rules depend on them look at it).
+    config: dict[str, Any] | None = None
 
 
 def validate_edge(source: Endpoint, source_port: str, target: Endpoint, target_port: str) -> None:

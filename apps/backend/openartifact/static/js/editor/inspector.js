@@ -102,16 +102,38 @@ export class InspectorBlocks {
       button.addEventListener("click", () => this.editor.restyle(edge, value));
       styles.append(button);
     }
-    const route = `${source ? displayName(source) : "?"} (${source ? typeOf(source).portLabel(edge.source_port) : "?"}) → ${target ? displayName(target) : "?"}`;
+    const route = `${source ? displayName(source) : "?"} (${source ? typeOf(source).portLabel(edge.source_port, source) : "?"}) → ${target ? displayName(target) : "?"}`;
     return [heading("Connection", route), field("Line", styles), remove];
   }
 
-  /** The kind's settings, one control per setting (see setting-controls.js), or nothing. */
+  /** The kind's settings, one control per setting (see setting-controls.js), or nothing. Settings of one
+   * `group` (the rows of an If node's conditions) are shown together; a group whose first value is empty
+   * is folded away, so five rows do not fill the panel. */
   settings(node) {
     const settings = typeOf(node).settings;
     if (!settings.length) return null;
-    const controls = settings.map((setting) => createControl(setting, settingValue(node, setting), (value) => this.editor.saveSetting(node, setting, value)));
-    return section(null, ...controls.map((control) => control.element));
+    const suggest = this.editor.suggestions?.(node) ?? null;
+    const control = (setting) => createControl(setting, settingValue(node, setting), (value) => this.editor.saveSetting(node, setting, value), suggest);
+    const parts = [];
+    for (const setting of settings) {
+      const made = control(setting);
+      if (!setting.group) {
+        parts.push(made.element);
+        continue;
+      }
+      let group = parts.at(-1);
+      if (group?.dataset.group !== setting.group) {
+        group = document.createElement("details");
+        group.className = "ge-group";
+        group.dataset.group = setting.group;
+        const used = String(settingValue(node, setting) ?? "").trim() !== ""; // the first setting of a group is its main value
+        group.append(Object.assign(document.createElement("summary"), { textContent: used ? setting.group : `${setting.group} (empty)` }));
+        group.open = used || setting.key.endsWith("_1");
+        parts.push(group);
+      }
+      group.append(made.element);
+    }
+    return section(null, ...parts);
   }
 
   /** The choice of what the node links to (an action definition, a pipeline to call). */

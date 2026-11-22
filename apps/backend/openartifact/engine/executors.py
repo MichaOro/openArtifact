@@ -3,7 +3,8 @@
 An executor is an async function ``(node, limits) -> NodeResult`` registered for a kind of node
 (:func:`register_executor`), the same way a node type is registered. The engine looks the kind up,
 runs it, stores the result (a step of the run, see ``RunNodeResult``) and leaves the node by the port
-that matches the outcome: *On Pass* or *On Fail* for kinds with ``by_outcome``, *Next* for the rest.
+that matches the outcome: *On Pass* or *On Fail* for kinds with ``by_outcome``, *Next* for the rest, or
+by the port the result names itself (``NodeResult.port``: the If and Switch nodes choose their branch).
 Triggers and outputs have no executor: the engine handles them itself (start and end of a definition).
 """
 
@@ -17,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from openartifact.config import Settings
+from openartifact.engine.branching import evaluate_if, evaluate_switch
 from openartifact.engine.code_runner import CodeLimits, run_code
 from openartifact.engine.context import RunView
 from openartifact.engine.http_runner import run_http
@@ -160,7 +162,24 @@ async def _code(node: dict[str, Any], limits: Limits, view: RunView | None = Non
             context_json=(view or RunView()).dumps(),
         )
 
-    return await _with_secrets(names, limits, run)
+    return _note_variables(await _with_secrets(names, limits, run), config)
+
+
+def _note_variables(result: NodeResult, config: dict[str, Any]) -> NodeResult:
+    """A passing node's reason says where its variables differ from ``sets_variables`` (a hint only)."""
+    declared = {line.strip() for line in str(config.get("sets_variables") or "").splitlines()}
+    declared.discard("")
+    if result.outcome != "pass" or not declared:
+        return result
+    notes = [f"undeclared variable '{n}'" for n in sorted(set(result.variables or {}) - declared)]
+    notes += [
+        f"declared variable '{n}' was not set"
+        for n in sorted(declared - set(result.variables or {}))
+    ]
+    if notes:
+        result.reason = "; ".join(notes)
+        result.__post_init__()
+    return result
 
 
 async def _http(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
@@ -188,6 +207,16 @@ async def _timer(node: dict[str, Any], limits: Limits, view: RunView | None = No
     return NodeResult("pass", duration=time.monotonic() - started)
 
 
+async def _if(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
+    return evaluate_if(node["config"], view or RunView())
+
+
+async def _switch(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
+    return evaluate_switch(node["config"], view or RunView())
+
+
 register_executor(NodeKind.CODE, _code)
 register_executor(NodeKind.HTTP, _http)
 register_executor(NodeKind.TIMER, _timer, by_outcome=False)
+register_executor(NodeKind.IF, _if, by_outcome=False)
+register_executor(NodeKind.SWITCH, _switch, by_outcome=False)

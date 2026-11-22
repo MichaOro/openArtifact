@@ -74,7 +74,8 @@ export class NodeView {
     return this.constructor.portLabels && !["in", "out"].includes(port.name);
   }
 
-  portLabel(port) {
+  /** The name of a port; a kind may take it from the node (a Switch shows the value of the case). */
+  portLabel(port, node = null) {
     return [...this.inputs, ...this.outputs].find((p) => p.name === port)?.label ?? port;
   }
 
@@ -234,7 +235,7 @@ class OutputView extends NodeView {
   }
 }
 
-/** A step that does work and ends in On Pass or On Fail (the Code and HTTP nodes). */
+/** A step that does work and ends in On Pass or On Fail (Code, HTTP); If and Switch have their own outputs. */
 class ExecutionView extends NodeView {
   static size = { width: 250, height: 84 };
   static portLabels = true;
@@ -252,6 +253,65 @@ class CodeView extends ExecutionView {
   caption(node) {
     const first = (node.config?.code ?? "").split("\n").find((line) => line.trim() !== "");
     return `${node.config?.language ?? "sh"} · ${first?.trim() ?? "no code yet"}`;
+  }
+}
+
+/** Longest text a card shows of a condition. */
+const SHORT = 40;
+const short = (text) => (text.length > SHORT ? `${text.slice(0, SHORT)}…` : text);
+
+class IfView extends ExecutionView {
+  static kind = "if";
+  static icon = "if";
+  static size = { width: 250, height: 104 };
+
+  /** The first condition and how many more there are. */
+  caption(node) {
+    const config = node.config ?? {};
+    const used = [1, 2, 3, 4, 5].filter((n) => (config[`left_${n}`] ?? "").trim() !== "");
+    if (!used.length) return "no condition yet";
+    const n = used[0];
+    const operator = config[`operator_${n}`] ?? "equals";
+    const unary = ["is empty", "is not empty", "is true", "is false"].includes(operator);
+    const first = short(`${config[`left_${n}`]} ${operator}${unary ? "" : ` ${config[`right_${n}`] ?? ""}`}`.trim());
+    return used.length > 1 ? `${first} +${used.length - 1} more` : first;
+  }
+}
+
+class SwitchView extends ExecutionView {
+  static kind = "switch";
+  static icon = "switch";
+
+  #usedCases(node) {
+    return [1, 2, 3, 4, 5, 6].filter((n) => (node.config?.[`case_${n}`] ?? "").trim() !== "");
+  }
+
+  /** The value and the number of cases. */
+  caption(node) {
+    const value = (node.config?.value ?? "").trim();
+    const cases = this.#usedCases(node).length;
+    return `${value ? short(value) : "no value yet"} · ${cases} ${cases === 1 ? "case" : "cases"}`;
+  }
+
+  /** The ports of cases without a value are not there; Else always is. */
+  isVisible(node, port) {
+    return !port.startsWith("case_") || (node.config?.[port] ?? "").trim() !== "";
+  }
+
+  /** The card grows with its visible outputs. */
+  size(node) {
+    const visible = this.outputs.filter((p) => this.isVisible(node, p.name)).length;
+    return { width: 250, height: Math.max(84, 26 * visible + 20) };
+  }
+
+  /** A case is shown by its value, as the user wrote it. */
+  portLabel(port, node = null) {
+    const value = port.startsWith("case_") ? node?.config?.[port]?.trim() : "";
+    return value ? short(value) : super.portLabel(port, node);
+  }
+
+  canFeed(source, sourcePort, target, targetPort) {
+    return this.isVisible(source, sourcePort) && super.canFeed(source, sourcePort, target, targetPort);
   }
 }
 
@@ -285,7 +345,7 @@ export function registerView(View) {
   VIEWS.set(View.kind, View);
 }
 
-[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView].forEach(registerView);
+[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView, IfView, SwitchView].forEach(registerView);
 
 const TYPES = new Map();
 

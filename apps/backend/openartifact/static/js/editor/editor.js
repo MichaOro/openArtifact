@@ -310,6 +310,7 @@ export class GraphEditor {
   #blockActions() {
     return {
       saveSetting: (node, setting, value) => this.#saveSetting(node, setting, value),
+      suggestions: (node) => ({ nodes: () => [...this.nodes.values()], exceptId: node.id }),
       link: (node, targetId) => this.#link(node, targetId),
       askNew: (node) => this.#askNew(node),
       linkUrl: (node) => this.#linkUrl(node, node.definition_slug),

@@ -61,6 +61,7 @@ model for anything new.
 
    register_executor(NodeKind.MYKIND, _mykind)            # leaves by On Pass / On Fail
    register_executor(NodeKind.TIMER, _timer, by_outcome=False)  # leaves by the single Next output
+   register_executor(NodeKind.IF, _if, by_outcome=False)         # leaves by the port the result names
    ```
 
    `node` is the frozen node of the run's snapshot: `node["config"]` holds every config setting (defaults
@@ -68,7 +69,8 @@ model for anything new.
    (`engine/results.py`): `outcome` (`"pass"` or `"fail"`), optional `exit_code`, `output` (text),
    `reason` (a sentence for people, cut at 1000 characters), `data` (a JSON object) and `duration`; use
    `failed("reason")` for a node that could not even start. The engine stores the result as a step, picks
-   the port from the outcome and carries on; a kind without an executor passes at once through `out` and
+   the port from the outcome (or the one the result names: set `NodeResult.port` to an output of the kind, as the If and Switch
+   nodes do, and declare those outputs in the node type; a settings group and `references` on a `Setting` shape the inspector) and carries on; a kind without an executor passes at once through `out` and
    leaves a step without output. Limits the executor needs go through `Limits` (built from `Settings` in
    `Limits.from_settings`): add the setting in `config.py` (with bounds) and a field there, never read
    `os.environ`. Keep new bounds once, in `node_types.py`.

@@ -96,6 +96,11 @@ export const NODE_TYPES = [
   kind("output", "Output", { fixed: true, scopes: ["action"], ending: true, inputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
   kind("code", "Code", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
   kind("http", "HTTP request", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
+  kind("if", "If", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("yes", "Yes"), port("no", "No"), port("else", "Else")] }),
+  kind("switch", "Switch", {
+    addable: true, chain: true, scopes: ["action"], inputs: [port("in")],
+    outputs: [...[1, 2, 3, 4, 5, 6].map((n) => port(`case_${n}`, `Case ${n}`)), port("else", "Else")],
+  }),
   kind("note", "Note", { addable: true, scopes: ["action"] }), // a kind without a view of its own
 ];
 

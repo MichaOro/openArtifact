@@ -47,6 +47,8 @@ class SettingRead(BaseModel):
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None
+    group: str | None = None
+    references: str | None = None
 
 
 class NodeTypeRead(BaseModel):

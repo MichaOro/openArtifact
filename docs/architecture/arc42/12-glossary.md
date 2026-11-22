@@ -44,6 +44,7 @@
 | Run context | The variables and the latest result of every node that ran in an execution, stored in `executions.context` (at most 64 KiB), written with every step and read by later nodes (ADR-033). |
 | Reference (context) | `${node.NAME.output}`, `${node.NAME.data.key}`, `${var.name}` in an HTTP node's URL path or query, header values or body; replaced by text when the node runs, fails the node if it cannot be resolved. Not the same as a secret reference. |
 | Variable | A named JSON value a Code node sets with `"vars"` in its result line; part of the run context. |
+| Branching node | An If or Switch node: compares values of the run context and leaves by a port of its own choice (`yes` / `no` / `else`, `case_1` ... `case_6` / `else`); `else` means the comparison could not be decided (ADR-034). |
 | Open mode | Running without `OPENARTIFACT_API_TOKEN`: pages and the browser API are open, `/api/v1` and `/mcp` answer 401, Code nodes are refused and credentials cannot be saved. |
 | Orphan process | A background process started by a Code node that outlives a hard-killed application; the next start ends it using the registry (`code_registry`). |
 | Quarantine | Unused code that is listed in `quarantine.json` and removed after 14 days without use (ADR-014 §3.6). |

@@ -96,7 +96,7 @@ it. Context values are text from outside (responses, script output): `${node...}
 them literally, never evaluate them and never search them for references again (no injection into the secret
 references or the URL: in a URL they are percent-encoded and never allowed in the scheme or host). The context is
 never logged (only ids and sizes). A node that is allowed to read a secret can still leak it into a variable on
-purpose, like anywhere else. `context.json` is a temporary file in the node's own temporary directory.
+purpose, like anywhere else. `${secret:NAME}` is refused in the conditions of If and Switch nodes: a branch could reveal a secret bit by bit; the context is their only source. `context.json` is a temporary file in the node's own temporary directory.
 
 ### 5. Code node hardening, and its honest limits
 

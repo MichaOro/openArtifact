@@ -43,6 +43,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [031](031-licence-apache-2-0.md) | Licence Apache-2.0 | Accepted | 2026-11-22 | — |
 | [032](032-removal-of-the-unused-workspace-model.md) | Removal of the unused workspace model (Project/WorkItem) and repositories | Accepted | 2026-11-22 | amends ADR-018, ADR-019 |
 | [033](033-run-context.md) | Run context | Accepted | 2026-11-22 | amends ADR-021, ADR-025 |
+| [034](034-branching-nodes-and-reference-suggestions.md) | Branching nodes and reference suggestions | Accepted | 2026-11-22 | amends ADR-021, ADR-022 |
 
 ## Notes
 
