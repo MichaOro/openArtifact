@@ -101,6 +101,33 @@ def test_a_running_artifact_is_locked_until_it_is_stopped(client: TestClient) ->
     assert client.delete(url).status_code == 204
 
 
+def test_an_artifact_can_start_again_the_moment_its_run_is_over(client: TestClient) -> None:
+    """The in-process job is forgotten before the final events go out, not after.
+
+    A client that has seen `done` in the database must not be refused ("already being processed")
+    while the engine is still publishing: the guard follows the database state.
+    """
+    engine = client.app.state.engine  # type: ignore[attr-defined]
+    seen: list[bool] = []
+    real_publish = engine._publish
+
+    async def watching(task_id: str) -> None:
+        seen.append(task_id in engine._jobs)
+        await real_publish(task_id)
+
+    engine._publish = watching
+    pipeline = build_pipeline(client, stages=1)
+    task = make_task(client)
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    wait_for_run(client, task, "done")
+    assert seen and not seen[-1], "the finished run was still registered while publishing"
+    # and it really can start again at once, many times in a row
+    for _ in range(3):
+        again = client.post(f"/api/tasks/{task['id']}/run", json={"pipeline_id": pipeline["id"]})
+        assert again.status_code == 201, again.text
+        wait_for_run(client, task, "done")
+
+
 def test_an_action_without_a_way_to_its_output_fails_the_run(client: TestClient) -> None:
     pipeline = build_pipeline(client, stages=1)
     definition = post(client, "/api/actions", name="Broken")

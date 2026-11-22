@@ -464,9 +464,23 @@ class RunEngine:
                 )
             changes = await self._close_execution(session, run) if status is not None else None
             await session.commit()
+        if status in (RunStatus.DONE, RunStatus.FAILED):
+            self._release(
+                task_id
+            )  # the run is over in the database: the artifact may start again now
         await self._publish(task_id)
         if changes is not None:
             self.history.publish(changes)
+
+    def _release(self, task_id: str) -> None:
+        """Forget the job of a run that is over, if the caller is that job.
+
+        Without this the artifact stayed refused ("already being processed") for the few
+        milliseconds that publishing the final events takes, although its status already says
+        done or failed. A stopped run is removed by :meth:`stop`, not here.
+        """
+        if self._jobs.get(task_id) is asyncio.current_task():
+            del self._jobs[task_id]
 
     async def _execute(self, task_id: str, execution_id: str) -> None:
         walk: _Walk | None = None
@@ -493,8 +507,7 @@ class RunEngine:
             await self._fail(task_id, "Internal error", walk)
         finally:
             # a stopped run must not remove the bookkeeping of the run that replaced it
-            if self._jobs.get(task_id) is asyncio.current_task():
-                del self._jobs[task_id]
+            self._release(task_id)
 
     async def _walk(
         self,
