@@ -54,7 +54,7 @@ No intentional technical debt has been introduced beyond the items below, which 
 
 Closed since the previous version of this chapter: one run per artifact (the history now lives in `executions`, ADR-025; the run row stays the
 current state), the unused project and work-item model with its repositories (removed, ADR-032), the release tag check (a tag must equal
-`apps/backend/openartifact/version.py`, checked in the release workflow).
+`openartifact/version.py`, checked in the release workflow).
 
 **Trade-offs that stand:**
 

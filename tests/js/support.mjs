@@ -1,7 +1,7 @@
 /* Unit tests of the pure frontend modules, with Node's built-in runner (no npm packages):
- *   node --test 'apps/backend/tests/js/*.test.mjs'
+ *   node --test 'tests/js/*.test.mjs'
  * add --experimental-test-coverage for the line coverage. The tests import the modules from
- * apps/backend/openartifact/static/js directly; this file holds the stand-ins for what they need
+ * openartifact/static/js directly; this file holds the stand-ins for what they need
  * from a browser. */
 
 /* A minimal stand-in for the few DOM calls the pure modules make (createElement, fragments,

@@ -59,6 +59,8 @@ packages = ["openartifact"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+# Markdown has its own checks (tools/check_links.py); ruff formats Python only.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = [
@@ -75,6 +77,10 @@ select = [
 ignore = [
     "E501",   # line length handled by formatter
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Command-line tools report on standard output.
+"tools/*" = ["T201"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["openartifact"]

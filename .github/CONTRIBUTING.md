@@ -15,7 +15,6 @@ Thank you for your interest in OpenArtifact. This guide covers setup, the checks
 ## Setup
 
 ```bash
-cd apps/backend
 uv sync --all-extras                      # or: pip install -e ".[dev]"  (CI uses pip)
 printf 'OPENARTIFACT_DATA_DIR=./.data\nOPENARTIFACT_HOST=127.0.0.1\n' > .env   # /data is not writable on a workstation; the host defaults to 0.0.0.0
 uv run alembic upgrade head               # create the database
@@ -28,7 +27,7 @@ set `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` in `.env`. Never do that on a r
 
 ## Local Quality Checks
 
-Run these from `apps/backend` before opening a PR; CI runs the same:
+Run these from the repository root before opening a PR; CI runs the same:
 
 ```bash
 ruff check .                  # 1. lint

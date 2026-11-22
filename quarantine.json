@@ -4,7 +4,7 @@
   "entries": [
     {
       "name": "Unused list of node reference fields in the run context",
-      "file": "apps/backend/openartifact/engine/context.py",
+      "file": "openartifact/engine/context.py",
       "symbol": "_FIELDS = ",
       "since": "2026-11-23",
       "usage": "(?<!def )\\b_FIELDS\\b(?! = )",

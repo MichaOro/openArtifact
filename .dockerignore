@@ -1,11 +1,11 @@
 # Allow-list: the build context contains only what the Dockerfile copies.
 *
 
-!apps/backend/pyproject.toml
-!apps/backend/README.md
-!apps/backend/openartifact/
-!apps/backend/alembic/
-!apps/backend/alembic.ini
+!pyproject.toml
+!README.md
+!openartifact/
+!alembic/
+!alembic.ini
 !scripts/docker-entrypoint.sh
 
 # Caches inside the allowed folders, and secrets wherever they sit.

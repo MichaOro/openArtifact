@@ -21,7 +21,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "apps/backend/**"
+      - "openartifact/**"
+      - "tests/**"
+      - "alembic/**"
+      - "alembic.ini"
+      - "pyproject.toml"
       - "docs/**"
       - "**/*.md"
       - "Dockerfile"
@@ -34,7 +38,11 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "apps/backend/**"
+      - "openartifact/**"
+      - "tests/**"
+      - "alembic/**"
+      - "alembic.ini"
+      - "pyproject.toml"
       - "docs/**"
       - "**/*.md"
       - "Dockerfile"
@@ -65,17 +73,14 @@ jobs:
 
       - name: Install dev dependencies
         run: |
-          cd apps/backend
           pip install --no-cache-dir -e ".[dev]"
 
       - name: Ruff lint
         run: |
-          cd apps/backend
           ruff check .
 
       - name: Ruff format check
         run: |
-          cd apps/backend
           ruff format --check .
 
   # ── Static checks: JavaScript syntax, Markdown links ────────────
@@ -102,11 +107,11 @@ jobs:
           while IFS= read -r -d '' f; do
             cp "$f" "$tmp/check.mjs"
             node --check "$tmp/check.mjs" || { echo "::error file=$f::syntax error"; status=1; }
-          done < <(find apps/backend/openartifact/static/js -name '*.js' -print0)
+          done < <(find openartifact/static/js -name '*.js' -print0)
           exit $status
 
       - name: JavaScript unit tests (node --test)
-        run: node --test 'apps/backend/tests/js/*.test.mjs'
+        run: node --test 'tests/js/*.test.mjs'
 
       - name: Markdown relative links and anchors
         run: python tools/check_links.py
@@ -131,12 +136,10 @@ jobs:
 
       - name: Install dev dependencies
         run: |
-          cd apps/backend
           pip install --no-cache-dir -e ".[dev]"
 
       - name: mypy strict type check
         run: |
-          cd apps/backend
           mypy .
 
   # ── Stage 3: Test Suite ─────────────────────────────────────────
@@ -159,12 +162,10 @@ jobs:
 
       - name: Install dev dependencies
         run: |
-          cd apps/backend
           pip install --no-cache-dir -e ".[dev]"
 
       - name: Run test suite with coverage
         run: |
-          cd apps/backend
           coverage run -m pytest -v --tb=short
           coverage report
           coverage xml
@@ -174,7 +175,7 @@ jobs:
         if: always()
         with:
           name: coverage-report
-          path: apps/backend/coverage.xml
+          path: coverage.xml
           retention-days: 30
 
   # ── Stage 4: Browser Tests ──────────────────────────────────────
@@ -194,13 +195,11 @@ jobs:
 
       - name: Install dependencies and browser
         run: |
-          cd apps/backend
           pip install --no-cache-dir -e ".[dev]"
           playwright install --with-deps chromium
 
       - name: Run browser tests
         run: |
-          cd apps/backend
           python -m pytest -m e2e -v --tb=short --tracing retain-on-failure
 
       - name: Keep traces of failed tests
@@ -208,7 +207,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-traces
-          path: apps/backend/test-results/
+          path: test-results/
           if-no-files-found: ignore
 
   # ── Stage 5: Docker Build + Smoke Test ──────────────────────────

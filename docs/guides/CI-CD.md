@@ -54,7 +54,7 @@ filters of `ci.yml` and `pr-build.yml`.
 | `.github/workflows/release.yml` | Version-tagged release; refuses a tag that differs from `version.py` |
 | `.github/workflows/pr-build.yml` | PR preview build (no push, no `packages` permission) |
 | `.github/workflows/audit.yml` | `pip-audit` of the installed runtime dependencies; weekly, on dependency changes and by hand |
-| `.github/dependabot.yml` | Weekly update pull requests for pip (`apps/backend`), the Dockerfile base image and GitHub Actions |
+| `.github/dependabot.yml` | Weekly update pull requests for pip (`pyproject.toml` at the root), the Dockerfile base image and GitHub Actions |
 | `.github/workflows/quarantine.yml` | Weekly: fails when quarantined code (`quarantine.json`) has been unused for 14 days, as a reminder to remove it (`tools/check_quarantine.py`, ADR-014 §3.6) |
 
 ## Docker Build
@@ -96,7 +96,7 @@ Follow [Semantic Versioning](https://semver.org/):
 - **MINOR** — New features (backward compatible)
 - **PATCH** — Bug fixes
 
-The version is written in one place, `apps/backend/openartifact/version.py`; the package build, `/health`,
+The version is written in one place, `openartifact/version.py`; the package build, `/health`,
 `/api/info`, Swagger and the sidebar read it. Change that file in the release commit.
 
 For OpenArtifact (pre-1.0), use `0.MINOR.PATCH` for breaking changes as MINOR.
@@ -118,7 +118,7 @@ git push origin v0.1.0
 The release workflow triggers automatically on tag push:
 
 1. Starts on tags matching `v<major>.<minor>.<patch>` and first checks that the tag (without the `v`) equals
-   the version in `apps/backend/openartifact/version.py`; if not, the workflow fails before anything is
+   the version in `openartifact/version.py`; if not, the workflow fails before anything is
    built or published. Set the version there, commit it, then tag that commit.
 2. Builds the Docker image
 3. Pushes to GHCR with appropriate tags
@@ -199,7 +199,7 @@ The following GitHub repository settings must be configured for CI/CD to work:
 
 ### CI Fails — Python Tests
 
-- Run locally: `cd apps/backend && ruff check . && ruff format --check . && mypy . && pytest`
+- Run locally: `ruff check . && ruff format --check . && mypy . && pytest` (from the repository root)
 - Check async test setup (pytest-asyncio)
 
 ### Docker Build Fails — Dependencies
@@ -215,7 +215,7 @@ The following GitHub repository settings must be configured for CI/CD to work:
 
 ### Release Fails — Tag and Version Differ
 
-- The workflow compares the tag with `apps/backend/openartifact/version.py`. Delete the tag
+- The workflow compares the tag with `openartifact/version.py`. Delete the tag
   (`git push --delete origin vX.Y.Z`, `git tag -d vX.Y.Z`), fix the version in a commit, tag again.
 
 ### Smoke Test Fails

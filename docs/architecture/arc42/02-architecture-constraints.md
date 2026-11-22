@@ -22,7 +22,7 @@
 - Multiple AI coding agents may work on the codebase concurrently
 - Architecture documentation (arc42 + ADRs) must evolve with implementation
 - Technology decisions must be documented before implementation
-- Release tags equal `apps/backend/openartifact/version.py`; tests run under coverage in CI (see the [CI/CD guide](../../guides/CI-CD.md))
+- Release tags equal `openartifact/version.py`; tests run under coverage in CI (see the [CI/CD guide](../../guides/CI-CD.md))
 
 ## 2.3 Contractual Constraints
 

@@ -35,7 +35,6 @@ Open <http://localhost:2909> and sign in with the token. `curl http://localhost:
 ## Development
 
 ```bash
-cd apps/backend
 uv sync --all-extras                  # or: pip install -e ".[dev]"
 printf 'OPENARTIFACT_DATA_DIR=./.data\nOPENARTIFACT_HOST=127.0.0.1\n' > .env
 uv run alembic upgrade head           # create the database
@@ -44,7 +43,7 @@ uv run openartifact                   # http://localhost:2909
 
 `OPENARTIFACT_HOST` defaults to `0.0.0.0`; bind to loopback on a workstation, especially without a token. In open mode (no
 token) Code nodes are refused; for local work only, add `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` to `.env`. Checks, tests
-and conventions: [CONTRIBUTING](.github/CONTRIBUTING.md) and [apps/backend/README.md](apps/backend/README.md). The interactive
+and conventions: [CONTRIBUTING](.github/CONTRIBUTING.md) and the [development guide](docs/guides/development.md). The interactive
 API documentation of a running instance is at `/api/docs`.
 
 ## Concepts

@@ -1,7 +1,6 @@
 # Testing
 
-Automated tests live next to the application they test, in `apps/backend/tests/`. All commands run from
-`apps/backend` after the [development setup](../../README.md#development) (`pip install -e ".[dev]"` or
+Automated tests live in `tests/` at the repository root. All commands run from the root after the [development setup](../../README.md#development) (`pip install -e ".[dev]"` or
 `uv sync --all-extras`).
 
 | Kind | Location | Run | Size (at the time of writing) |
@@ -41,7 +40,6 @@ resource limits elsewhere, and says so in its result.
 ## Unit and API tests
 
 ```bash
-cd apps/backend
 pytest                      # everything except the browser tests (addopts: -m 'not e2e')
 pytest tests/test_tasks.py  # one file
 pytest -k "timer"           # by name
@@ -171,7 +169,7 @@ CI runs a `static` job (JavaScript syntax, relative links in the Markdown files,
 `lint` (Ruff lint and format check), `type-check` (mypy), `test` (pytest under coverage) and `e2e`
 (Playwright) in that order; see the [CI/CD guide](CI-CD.md). Locally, the three commands above and `pytest`
 cover the same ground except for the static checks (`python tools/check_links.py`,
-`python tools/check_quarantine.py`, and the JavaScript unit tests: `node --test 'apps/backend/tests/js/*.test.mjs'`,
+`python tools/check_quarantine.py`, and the JavaScript unit tests: `node --test 'tests/js/*.test.mjs'`,
 quote the glob; they take a few seconds and need no npm packages).
 
 ## Writing tests

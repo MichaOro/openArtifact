@@ -35,7 +35,7 @@ user; the container is their only boundary ([8.5](08-cross-cutting-concepts/08.0
 
 - Local Python 3.12+ with `uv` or `pip` (CI uses pip); SQLite, a local file, no server
 - The default data directory `/data` is usually not writable on a workstation: set `OPENARTIFACT_DATA_DIR=./.data`
-  (for example in `apps/backend/.env`), run `alembic upgrade head`, then `openartifact`
+  (for example in `.env` at the repository root), run `alembic upgrade head`, then `openartifact`
 - `docker compose -f deploy/docker-compose.yml up --build` for integration testing
 
 The commands are in the [README](../../../README.md#development) and the [testing guide](../../guides/testing.md).

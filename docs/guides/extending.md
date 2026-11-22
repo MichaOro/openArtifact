@@ -17,7 +17,7 @@ change inside this repository. Wording: the UI says artifact, pipeline, stage an
 ([ADR-015](../architecture/adr/015-vocabulary-and-storage-names.md)). Never "workflow". The domain
 vocabulary is in the [concepts guide](concepts.md).
 
-All paths are below `apps/backend/openartifact/` unless stated.
+All paths are below `openartifact/` unless stated.
 
 ## Add a kind of node
 
@@ -47,7 +47,7 @@ model for anything new.
    check constraint `ck_graph_nodes_kind` on `graph_nodes`, which lists the kinds: copy the pattern of
    `alembic/versions/0021_execution_nodes.py` (a batch alter that drops and recreates the constraint) and
    write the downgrade (it must remove nodes of the new kind, because the old constraint cannot hold them).
-   Create migrations with `cd apps/backend && alembic revision -m "..."`. The model does not declare that
+   Create migrations with `alembic revision -m "..."` (from the repository root). The model does not declare that
    constraint, so `alembic check` (run by `tests/test_migrations.py`) will not tell you about a missing
    one: the node-creation test for the new kind will. A setting as a column of its own (the way `seconds`
    and `fail_enabled` work) additionally needs a field on `NodeUpdate` / `NodeRead` in `graph/schemas.py`

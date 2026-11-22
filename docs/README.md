@@ -9,7 +9,7 @@ Index of everything under `docs/`. The product is described in the [repository R
 | New to the project | [Repository README](../README.md), then [Concepts](guides/concepts.md) |
 | Operating it | [Security for operators](guides/security.md), [Operate the Docker deployment](guides/operations.md), [Configuration reference](guides/configuration.md) |
 | Using the API or MCP | [Sign in and use the API and MCP](guides/integration.md), [API reference](guides/api-reference.md), [Credentials](guides/credentials.md) |
-| Developing | [CONTRIBUTING](../.github/CONTRIBUTING.md), [Extending the application](guides/extending.md), [Testing](guides/testing.md), [backend README](../apps/backend/README.md) |
+| Developing | [CONTRIBUTING](../.github/CONTRIBUTING.md), [Extending the application](guides/extending.md), [Testing](guides/testing.md), [Development](guides/development.md) |
 | Reviewing the architecture | [arc42 chapter 4](architecture/arc42/04-solution-strategy.md) (built and planned), [chapter 5](architecture/arc42/05-building-block-view/README.md), [chapter 8](architecture/arc42/08-cross-cutting-concepts/README.md), [chapter 11](architecture/arc42/11-risks-and-technical-debt.md), the [ADRs](architecture/adr/) |
 
 To report a vulnerability: [SECURITY.md](../SECURITY.md).

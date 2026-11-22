@@ -2,8 +2,8 @@
 
 Every setting is an environment variable with the prefix `OPENARTIFACT_`. The application reads them
 from the process environment and, outside Docker, from a `.env` file in its working directory
-(`apps/backend/.env` for a local run). The single source of names, defaults and bounds is
-[`config.py`](../../apps/backend/openartifact/config.py); a variable it does not know is ignored. A
+(`.env` at the repository root for a local run). The single source of names, defaults and bounds is
+[`config.py`](../../openartifact/config.py); a variable it does not know is ignored. A
 value outside its bounds, or one of the wrong type, stops the start with an error that names the variable.
 
 With Docker Compose the variables go into `deploy/.env` (copy of [`deploy/.env.example`](../../deploy/.env.example));
@@ -120,7 +120,7 @@ FORWARDED_ALLOW_IPS=172.18.0.1
 OPENARTIFACT_BIND=127.0.0.1
 ```
 
-## Example `.env` for a local run (`apps/backend/.env`)
+## Example `.env` for a local run (at the repository root)
 
 ```ini
 OPENARTIFACT_HOST=127.0.0.1
