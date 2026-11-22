@@ -28,7 +28,7 @@ URL). Every start leaves an execution in the history.
 
 ## Terms
 
-**Artifact.** The unit of work: a card on the board with a title, a body, a lane (the board starts with Backlog, In Progress and Done; lanes can be added, renamed by clicking the name or through the lane's menu, and deleted when they are empty; the API names a lane by its unchanging key, e.g. `backlog`, `in_progress`, `done`), an optional parent and a
+**Artifact.** The unit of work: a card on the board with a title, a body, a lane (the board starts with Backlog, In Progress and Done; lanes can be added, renamed by clicking the name or through the lane's menu, deleted when they are empty, and given a look in their Settings: a *finished* lane shows its cards' titles struck through; the API names a lane by its unchanging key, e.g. `backlog`, `in_progress`, `done`), an optional parent and a
 permanent number (`#12`, never reused; `#12` in another artifact's body is a link). An artifact is processed by
 at most one run at a time. While that run is running the artifact is locked: its lane, parent, target, type and parameters cannot be
 changed and it cannot be deleted (title and body stay editable); stopping the run releases it. In the
@@ -118,6 +118,15 @@ replayed from the snapshot and the steps; it is not stored separately.
 **Retention.** The rule that removes old executions: per artifact by count (keep the last N) and/or age (keep
 the last H hours), with an application default of 50 executions. The newest execution and a running one are
 never removed by it.
+
+## UI conventions
+
+Every control has one of three roles, so a new page looks like the others. **Primary** (purple, `button--primary`): what creates
+something (New action, Add lane) or confirms a form; creating buttons sit in a row at the top right of the page content, and the page
+header holds only the title, the theme toggle and sign out. **Destructive** (red, the modifier `is-danger`): what deletes or discards;
+text buttons and menu items are red, icon buttons turn red when hovered or focused, a disabled one stays dimmed. **Neutral**
+(`button--ghost`, `icon-button`): everything else, such as the selector of pipelines or the zoom controls. Scroll areas share one
+scrollbar with a transparent track. The reasons are in [ADR-036](../architecture/adr/036-ui-conventions-and-lane-settings.md).
 
 ## Names in code and API
 

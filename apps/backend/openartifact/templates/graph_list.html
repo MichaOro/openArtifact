@@ -7,7 +7,7 @@
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">{% endblock %}
 {% block content %}
 {{ alert(section.label ~ "s could not be loaded.") }}
-<div class="ge-toolbar">
+<div class="action-row">
     <button type="button" class="button button--primary" data-new-graph>{{ icon("plus") }} New {{ section.label | lower }}</button>
 </div>
 <ul class="ge-list" data-ge-list data-kind="{{ section.kind }}" data-path="{{ section.path }}" aria-label="{{ section.label }}s"></ul>
@@ -21,7 +21,7 @@
         </a>
         <span class="ge-chip">Draft</span>
         <button type="button" class="icon-button icon-button--sm" data-rename aria-label="Rename {{ section.label | lower }}" title="Rename">{{ icon("pencil") }}</button>
-        <button type="button" class="icon-button icon-button--sm" data-delete aria-label="Delete {{ section.label | lower }}" title="Delete">{{ icon("trash") }}</button>
+        <button type="button" class="icon-button icon-button--sm is-danger" data-delete aria-label="Delete {{ section.label | lower }}" title="Delete">{{ icon("trash") }}</button>
     </li>
 </template>
 

@@ -86,7 +86,8 @@ html:has(.modal[open]) { overflow: hidden; }
   cursor: pointer;
   transition: background var(--transition-fast);
 }
-.modal__subtitle:hover { background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 34%, transparent); }
+.modal__subtitle--static { cursor: default; }
+.modal__subtitle:not(.modal__subtitle--static):hover { background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 34%, transparent); }
 
 .modal__subtitle:empty { display: none; }
 

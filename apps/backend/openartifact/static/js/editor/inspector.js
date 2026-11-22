@@ -83,7 +83,7 @@ export class InspectorBlocks {
     const target = this.model.nodes.get(edge.target_id);
     const remove = document.createElement("button");
     remove.type = "button";
-    remove.className = "button button--ghost ge-delete";
+    remove.className = "button button--ghost is-danger ge-delete";
     remove.dataset.focusKey = "remove";
     remove.textContent = "Delete connection";
     remove.addEventListener("click", () => this.editor.removeEdge(edge.id));
@@ -191,7 +191,7 @@ export class InspectorBlocks {
     const editLink = make("a", "pencil", "Edit");
     if (edit) editLink.href = edit;
     else editLink.setAttribute("aria-disabled", "true");
-    const removeButton = make("button", "trash", "Delete", "ge-delete");
+    const removeButton = make("button", "trash", "Delete", "is-danger ge-delete");
     if (remove) removeButton.addEventListener("click", () => this.editor.remove(node));
     else removeButton.disabled = true;
     bar.append(newButton, editLink, removeButton);

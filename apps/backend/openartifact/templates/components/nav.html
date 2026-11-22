@@ -33,7 +33,7 @@
     </li>
 {% elif item.kind == "action" %}
     <li>
-        <button type="button" class="nav-link{% if item.danger %} nav-link--danger{% endif %}" data-card-action="{{ item.key }}" title="{{ item.tooltip }}">
+        <button type="button" class="nav-link{% if item.danger %} is-danger{% endif %}" data-card-action="{{ item.key }}" title="{{ item.tooltip }}">
             {{ icon(item.icon) }}
             <span class="nav-link__label">{{ item.label }}</span>
         </button>

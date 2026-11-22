@@ -10,8 +10,8 @@ from fastapi import APIRouter, status
 
 from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import ServiceDep
-from openartifact.tasks.lanes import MAX_LANES, NOT_EMPTY_MESSAGE, TITLE_MAX_LENGTH
-from openartifact.tasks.schemas import LaneRead, LaneWrite
+from openartifact.tasks.lanes import LANE_STYLES, MAX_LANES, NOT_EMPTY_MESSAGE, TITLE_MAX_LENGTH
+from openartifact.tasks.schemas import LaneRead, LaneUpdate, LaneWrite
 
 router = APIRouter(prefix="/api/lanes", tags=["lanes"], responses=GATED)
 
@@ -21,15 +21,18 @@ TITLE_RULES = (
 )
 LANES_DESCRIPTION = (
     "The lanes in board order: ``status`` (the key artifacts carry), ``key`` (its DOM form), ``title``, "
-    "``position``, ``hue``, ``artifact_count`` and ``deletable`` (empty and not the last lane)."
+    "``position``, ``hue``, ``style`` (``normal`` or ``finished``: how its cards are drawn), "
+    "``artifact_count`` and ``deletable`` (empty and not the last lane)."
 )
 CREATE_DESCRIPTION = (
     f"Append a lane. {TITLE_RULES} A board has at most {MAX_LANES} lanes (422). Returns the lanes "
     "and publishes ``board.lanes``."
 )
-RENAME_DESCRIPTION = (
-    f"Change a lane's title (its ``status`` key stays). {TITLE_RULES} Returns the lanes and "
-    "publishes ``board.lanes``."
+UPDATE_DESCRIPTION = (
+    "Change a lane's ``title`` and/or ``style`` (its ``status`` key stays); at least one is required "
+    f"(422). {TITLE_RULES} ``style`` is one of {', '.join(f'``{s}``' for s in LANE_STYLES)}: in a "
+    "``finished`` lane the card titles are struck through and dimmed, nothing else changes. Returns "
+    "the lanes and publishes ``board.lanes``."
 )
 DELETE_DESCRIPTION = (
     f'Delete a lane. 409 with "{NOT_EMPTY_MESSAGE}" while it holds artifacts, and for the last '
@@ -59,12 +62,12 @@ async def create_lane(payload: LaneWrite, service: ServiceDep) -> list[LaneRead]
 @router.put(
     "/{status}",
     response_model=list[LaneRead],
-    summary="Rename a lane",
-    description=RENAME_DESCRIPTION,
+    summary="Change a lane",
+    description=UPDATE_DESCRIPTION,
     responses=errors(404, 422, write=True, body=True),
 )
-async def rename_lane(status: str, payload: LaneWrite, service: ServiceDep) -> list[LaneRead]:
-    return await service.rename_lane(status, payload.title)
+async def update_lane(status: str, payload: LaneUpdate, service: ServiceDep) -> list[LaneRead]:
+    return await service.update_lane(status, payload.title, payload.style)
 
 
 @router.delete(

@@ -215,6 +215,10 @@
   min-height: 0;
 }
 
+/* The row of creating buttons at the top right of a page's content (New action, Add lane, ...). */
+.action-row { display: flex; justify-content: flex-end; margin-bottom: var(--space-4); }
+.action-row--slim { margin-bottom: var(--space-3); }
+
 /* ── Kanban ──────────────────────────────────────────────────────── */
 .board {
   display: grid;
@@ -377,7 +381,6 @@
 .task-card:hover .task-card__delete,
 .task-card:focus-within .task-card__delete,
 .task-card__delete:focus-visible { opacity: 1; }
-.task-card__delete:hover { color: var(--color-danger); background: transparent; border-color: var(--glass-border); }
 @media (hover: none) { .task-card__delete { opacity: 1; } }
 
 /* Touch: the card itself is the handle. Vertical swipes stay native (scroll the lane),
@@ -437,6 +440,13 @@ body.is-dragging * { cursor: grabbing !important; }
 .task-card__run[data-status="failed"] { color: var(--color-danger); }
 .task-card__run[data-status="stopped"], .task-card__run[data-status="done"] { color: var(--color-text-muted); }
 .task-card--locked { cursor: default; }
+
+/* A lane with style "finished" (lanes.style, ADR-036): the cards look done. Only the title is struck
+   through and muted; the body stays readable, so against the dimming its colour is raised from muted to secondary. The same rules
+   draw the preview of the lane settings dialog. */
+.lane--finished .task-card:not(.task-card--placeholder) { opacity: 0.75; }
+.lane--finished .task-card__title { text-decoration: line-through; color: var(--color-text-muted); }
+.lane--finished .task-card__body { color: var(--color-text-secondary); }
 .alert-bar {
   display: flex;
   align-items: center;

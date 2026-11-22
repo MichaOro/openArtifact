@@ -100,7 +100,7 @@ def build_mcp(
     @mcp.tool()
     async def list_lanes() -> list[dict[str, Any]]:
         """The current board lanes in order: ``status`` (the key the other tools take as ``lane``), ``title``
-        (what the user sees), ``artifact_count`` and ``deletable``. Read only: lanes are managed in the browser
+        (what the user sees), ``style`` (``normal`` or ``finished``), ``artifact_count`` and ``deletable``. Read only: lanes are managed in the browser
         or through the REST API."""
         return [lane.model_dump(mode="json") for lane in await service.lanes()]
 

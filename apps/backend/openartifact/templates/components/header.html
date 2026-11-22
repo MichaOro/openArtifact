@@ -2,9 +2,6 @@
 <header class="app-header">
     <h1 class="app-header__title">{{ page_title }}</h1>
     <div class="app-header__tools">
-        {% if active_nav == "board" %}
-        <button type="button" class="button button--ghost button--sm" data-add-lane aria-haspopup="dialog">{{ icon("plus") }}<span>Add lane</span></button>
-        {% endif %}
         <button type="button" class="icon-button theme-toggle" data-theme-toggle
                 aria-pressed="false" aria-label="Switch theme">
             {{ icon("sun", "icon--sun") }}{{ icon("moon", "icon--moon") }}

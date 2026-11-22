@@ -123,6 +123,8 @@ class Lane(Base):
     key: Mapped[str] = mapped_column(String(32), primary_key=True)
     title: Mapped[str] = mapped_column(String(40, collation="NOCASE"))
     position: Mapped[int] = mapped_column(Integer)
+    #: How the lane draws its cards: ``normal`` or ``finished`` (migration 0032, ``LANE_STYLES``).
+    style: Mapped[str] = mapped_column(String(16), default="normal", server_default="normal")
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC), server_default=func.current_timestamp()
     )

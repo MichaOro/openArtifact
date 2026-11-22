@@ -63,6 +63,7 @@ def test_the_default_lanes(client: TestClient) -> None:
             "title": "Backlog",
             "position": 0,
             "hue": 1,
+            "style": "normal",
             "artifact_count": 0,
             "deletable": True,
         },
@@ -72,6 +73,7 @@ def test_the_default_lanes(client: TestClient) -> None:
             "title": "In Progress",
             "position": 1,
             "hue": 2,
+            "style": "normal",
             "artifact_count": 0,
             "deletable": True,
         },
@@ -81,6 +83,7 @@ def test_the_default_lanes(client: TestClient) -> None:
             "title": "Done",
             "position": 2,
             "hue": 3,
+            "style": "normal",
             "artifact_count": 0,
             "deletable": True,
         },
@@ -157,6 +160,43 @@ def test_a_lane_is_renamed_trimmed_and_its_key_stays(client: TestClient) -> None
     assert client.get(f"/api/tasks/{task['id']}").json()["status"] == "in_progress"
     # a lane may take another case of its own title
     assert _titles(_rename(client, "done", "DONE").json())[2] == "DONE"
+
+
+def _restyle(client: TestClient, status: str, prefix: str = "/api/lanes", **body: Any) -> Any:
+    return client.put(f"{prefix}/{status}", json=body)
+
+
+def test_a_lane_is_normal_until_its_style_is_changed(client: TestClient) -> None:
+    assert {lane["style"] for lane in client.get("/api/lanes").json()} == {"normal"}
+    assert _titles(_add(client, "Review").json())[3] == "Review"
+    assert _add(client, "Review 2").json()[4]["style"] == "normal"
+    lanes = _restyle(client, "done", style="finished").json()
+    assert [lane["style"] for lane in lanes[:3]] == ["normal", "normal", "finished"]
+    assert [lane["style"] for lane in client.get("/api/lanes").json()[:3]] == [
+        "normal",
+        "normal",
+        "finished",
+    ]
+    assert 'class="lane glass lane--finished"' in client.get("/").text
+    # a rename keeps the style, a style change keeps the title; both can come together
+    assert _rename(client, "done", "Shipped").json()[2]["style"] == "finished"
+    both = _restyle(client, "done", title="Closed", style="normal").json()[2]
+    assert (both["title"], both["style"]) == ("Closed", "normal")
+    assert _restyle(client, "done", style="normal").json()[2]["title"] == "Closed"
+
+
+def test_changing_a_lane_needs_a_title_or_a_style_and_a_known_style(client: TestClient) -> None:
+    assert _restyle(client, "done").status_code == 422
+    assert _restyle(client, "done", title=None, style=None).status_code == 422
+    unknown = _restyle(client, "done", style="done")
+    assert unknown.status_code == 422
+    assert "Valid styles: normal, finished" in unknown.text
+    assert _restyle(client, "done", color="red").status_code == 422
+    assert _restyle(client, "nope", style="finished").status_code == 404
+    assert _restyle(client, "done", title="Backlog", style="finished").status_code == 422
+    assert (
+        client.get("/api/lanes").json()[2]["style"] == "normal"
+    )  # a refused change changes nothing
 
 
 def test_an_unknown_lane_is_404(client: TestClient) -> None:
@@ -297,6 +337,9 @@ def test_every_change_publishes_board_lanes(client: TestClient) -> None:
     assert _titles(events[1].data["lanes"])[2] == "Shipped"
     assert _titles(events[2].data["lanes"]) == ["Backlog", "In Progress", "Shipped"]
     assert queue.empty()  # a lane change never moves an artifact
+    _restyle(client, "done", style="finished")
+    event = queue.get_nowait()
+    assert event.type == "board.lanes" and event.data["lanes"][2]["style"] == "finished"
     description = client.get("/openapi.json").json()["paths"]["/api/events"]["get"]["description"]
     assert "board.lanes" in description
 
@@ -320,6 +363,11 @@ def test_the_integration_api_mirrors_the_lanes_and_needs_the_token(secured: Test
     assert _titles(secured.get("/api/lanes").json())[0] == "Ideas"
     assert _rename(secured, "nope", "x", v1).status_code == 404
     assert _rename(secured, "done", "Ideas", v1).status_code == 422
+    styled = _restyle(secured, "done", v1, style="finished")
+    assert styled.status_code == 200 and styled.json()[2]["style"] == "finished"
+    assert secured.get("/api/lanes").json()[2]["style"] == "finished"
+    assert _restyle(secured, "done", v1, style="shiny").status_code == 422
+    assert _restyle(secured, "done", v1).status_code == 422
     assert _add(secured, "ideas", v1).status_code == 422
     artifact = secured.post("/api/v1/artifacts", json={"title": "x", "status": "review"})
     assert artifact.status_code == 201
@@ -346,6 +394,7 @@ def _mcp(client: TestClient, name: str, **arguments: Any) -> dict[str, Any]:
 def test_the_mcp_tools_follow_the_current_lanes(secured: TestClient) -> None:
     _add(secured, "Review")
     _rename(secured, "in_progress", "Doing")
+    _restyle(secured, "done", style="finished")
     result = _mcp(secured, "list_lanes")
     lanes = [json.loads(item["text"]) for item in result["content"]]
     assert [(lane["status"], lane["title"]) for lane in lanes] == [
@@ -354,6 +403,7 @@ def test_the_mcp_tools_follow_the_current_lanes(secured: TestClient) -> None:
         ("done", "Done"),
         ("review", "Review"),
     ]
+    assert [lane["style"] for lane in lanes] == ["normal", "normal", "finished", "normal"]
     created = _mcp(secured, "create_artifact", title="x", lane="review")
     assert json.loads(created["content"][0]["text"])["status"] == "review"
     default = _mcp(secured, "create_artifact", title="y")
@@ -425,3 +475,45 @@ def test_migration_0030_up_down_up_with_data(at_revision: Callable[[str], Path])
     with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT COUNT(*) FROM lanes").fetchone()[0] == 3
         assert conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 3
+
+
+def test_migration_0032_up_down_up_with_data(at_revision: Callable[[str], Path]) -> None:
+    db = at_revision("0031")
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO lanes (key, title, position) VALUES ('review', 'Review', 3)")
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, position, number) VALUES ('t1', 'T', 'review', 0, 1)"
+        )
+    command.upgrade(alembic_config(), "0032")
+    with sqlite3.connect(db) as conn:
+        rows = conn.execute("SELECT key, style FROM lanes ORDER BY position").fetchall()
+        assert rows == [
+            ("backlog", "normal"),
+            ("in_progress", "normal"),
+            ("done", "normal"),
+            ("review", "normal"),
+        ]
+        conn.execute("UPDATE lanes SET style = 'finished' WHERE key = 'done'")
+        with pytest.raises(sqlite3.IntegrityError):  # the safety net behind the service's check
+            conn.execute("UPDATE lanes SET style = 'shiny' WHERE key = 'done'")
+        with pytest.raises(sqlite3.IntegrityError):  # the default is not "no value"
+            conn.execute(
+                "INSERT INTO lanes (key, title, position, style) VALUES ('x', 'X', 9, NULL)"
+            )
+        conn.execute("INSERT INTO lanes (key, title, position) VALUES ('later', 'Later', 9)")
+        assert conn.execute("SELECT style FROM lanes WHERE key = 'later'").fetchone() == ("normal",)
+        conn.execute("DELETE FROM lanes WHERE key = 'later'")
+
+    command.downgrade(alembic_config(), "0031")
+    with sqlite3.connect(db) as conn:
+        columns = [row[1] for row in conn.execute("PRAGMA table_info(lanes)")]
+        assert "style" not in columns
+        assert conn.execute("SELECT key, title FROM lanes ORDER BY position").fetchall()[-1] == (
+            "review",
+            "Review",
+        )
+        assert conn.execute("SELECT status FROM tasks WHERE id = 't1'").fetchone() == ("review",)
+
+    command.upgrade(alembic_config(), "0032")
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM lanes WHERE style = 'normal'").fetchone()[0] == 4

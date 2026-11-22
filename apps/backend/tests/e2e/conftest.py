@@ -117,7 +117,7 @@ DEFAULT_LANES = (("backlog", "Backlog"), ("in_progress", "In Progress"), ("done"
 
 
 def _reset_lanes(client: httpx.Client) -> None:
-    """Delete the lanes a test added, restore deleted default lanes (at the end) and their titles."""
+    """Delete the lanes a test added, restore deleted default lanes (at the end), their titles and the normal style."""
     keys = [lane["status"] for lane in client.get("/api/lanes").json()]
     for key in keys:
         if key not in dict(DEFAULT_LANES):
@@ -126,6 +126,9 @@ def _reset_lanes(client: httpx.Client) -> None:
         if key not in keys:
             client.post("/api/lanes", json={"title": title}).raise_for_status()
     lanes = client.get("/api/lanes").json()
+    for lane in lanes:
+        if lane["style"] != "normal":
+            client.put(f"/api/lanes/{lane['status']}", json={"style": "normal"}).raise_for_status()
     if [(lane["status"], lane["title"]) for lane in lanes] != list(DEFAULT_LANES):
         for key, _ in DEFAULT_LANES:  # through temporary titles: the defaults may be swapped
             client.put(f"/api/lanes/{key}", json={"title": f"~{key}"}).raise_for_status()

@@ -132,10 +132,12 @@ class ArtifactService:
         """Append a lane; publishes ``board.lanes``."""
         return await self._change_lanes(lambda session: lane_rules.create_lane(session, title))
 
-    async def rename_lane(self, status: str, title: str) -> list[LaneRead]:
-        """Change a lane's title; publishes ``board.lanes``."""
+    async def update_lane(
+        self, status: str, title: str | None = None, style: str | None = None
+    ) -> list[LaneRead]:
+        """Change a lane's title and/or style; publishes ``board.lanes``."""
         return await self._change_lanes(
-            lambda session: lane_rules.rename_lane(session, status, title)
+            lambda session: lane_rules.update_lane(session, status, title, style)
         )
 
     async def delete_lane(self, status: str) -> list[LaneRead]:

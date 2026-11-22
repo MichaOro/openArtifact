@@ -5,7 +5,7 @@
 | Term | Definition |
 |------|------------|
 | Artifact | Structured unit of work within OpenArtifact; a card on the board. **UI wording:** the interface always says "artifact" (never task, issue or work package). In code, API and database the same thing is still named `task` (`/api/tasks`, table `tasks`); that is an implementation name, not product language. Every artifact has a permanent number (`#12`) that is never reused and can be referenced as `#12` in other artifacts' bodies. |
-| Lane | A column of the board, a row of the table `lanes` (a `key` that artifacts carry in `status`, a title, a position). The owner can add, rename and delete lanes (only empty ones). The lane at position N has colour N of the lane palette (cycling after 8). |
+| Lane | A column of the board, a row of the table `lanes` (a `key` that artifacts carry in `status`, a title, a position, a style). The owner can add, rename and delete lanes (only empty ones) and choose in the lane's Settings whether its cards look finished (struck-through, dimmed titles). The lane at position N has colour N of the lane palette (cycling after 8). |
 | Orchestration | Carrying artifacts through pipelines: the run engine starts, executes, stops and records the runs. |
 | Agent | An LLM-driven client of the integration API or the MCP server. Agents that run *inside* a pipeline are planned, not built. |
 | Pipeline | What an artifact runs through: a trigger, stages and a complete, connected by edges (ADR-012, ADR-013). Pages `/pipelines`. Formerly called "workflow" (ADR-015). |

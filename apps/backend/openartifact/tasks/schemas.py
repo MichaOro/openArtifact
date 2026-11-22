@@ -145,6 +145,8 @@ class LaneRead(BaseModel):
     position: int
     #: Palette index of the lane's colour (1 to 8), by place on the board.
     hue: int
+    #: How the lane draws its cards: ``normal``, or ``finished`` (titles struck through and dimmed).
+    style: str
     artifact_count: int
     #: Whether the lane could be deleted now: it holds no artifacts and is not the last lane.
     deletable: bool
@@ -156,3 +158,12 @@ class LaneWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str
+
+
+class LaneUpdate(BaseModel):
+    """Payload for changing a lane: a new ``title``, a new ``style``, or both (at least one)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = None
+    style: str | None = None

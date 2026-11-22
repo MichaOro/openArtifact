@@ -38,10 +38,6 @@
 }
 /* no gap next to a hidden label, otherwise the collapsed rail is wider than its icon */
 .card-nav[data-state="collapsed"] .nav-link { gap: 0; }
-.card-nav .nav-link--danger:hover {
-  color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-}
 .card-nav__field .nav-link__label {
   display: flex;
   flex-direction: column;
@@ -169,3 +165,23 @@
 .param-confirm__text { flex: 1 1 14rem; }
 .param-locked { font-size: 0.75rem; color: var(--color-text-muted); }
 .param-locked[hidden] { display: none; }
+
+/* ── Lane settings dialog: sections, and a preview drawn with the real card classes ── */
+.settings-section { display: flex; flex-direction: column; gap: var(--space-3); }
+.settings-section__title {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.lane-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+}
+.lane-preview__caption { margin: 0; font-size: 0.75rem; color: var(--color-text-muted); }
+.lane-preview__cards { display: flex; flex-direction: column; gap: var(--space-3); }
+.lane-preview .task-card { cursor: default; }

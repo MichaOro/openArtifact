@@ -24,6 +24,8 @@ LANE_HUES = 8
 MAX_LANES = 12
 TITLE_MAX_LENGTH = 40
 KEY_MAX_LENGTH = 32
+#: How a lane draws its cards; the first is the default.
+LANE_STYLES = ("normal", "finished")
 NOT_EMPTY_MESSAGE = "A lane can only be deleted when it contains no artifacts."
 
 
@@ -80,6 +82,7 @@ async def effective_lanes(session: AsyncSession) -> list[LaneRead]:
             title=lane.title,
             position=lane.position,
             hue=index % LANE_HUES + 1,
+            style=lane.style,
             artifact_count=counts.get(lane.key, 0),
             deletable=counts.get(lane.key, 0) == 0 and len(rows) > 1,
         )
@@ -133,15 +136,28 @@ async def create_lane(session: AsyncSession, title: str) -> list[LaneRead]:
     return await effective_lanes(session)
 
 
-async def rename_lane(session: AsyncSession, key: str, title: str) -> list[LaneRead]:
-    """Change a lane's title (its key stays). Raises :class:`LaneError`: 404 unknown, 422 bad title."""
+async def update_lane(
+    session: AsyncSession, key: str, title: str | None, style: str | None
+) -> list[LaneRead]:
+    """Change a lane's title and/or style (its key stays).
+
+    Raises :class:`LaneError`: 404 unknown, 422 for nothing to change, a bad title or an unknown style.
+    """
     lanes = await _rows(session)
     lane = next((row for row in lanes if row.key == key), None)
     if lane is None:
         raise LaneError(404, f"Unknown lane '{key}'")
-    chosen = clean_title(title)
-    _check_unique(lanes, chosen, ignoring=key)
-    lane.title = chosen
+    if title is None and style is None:
+        raise LaneError(422, "Give a title, a style, or both.")
+    if style is not None and style not in LANE_STYLES:
+        raise LaneError(422, f"Unknown style '{style}'. Valid styles: {', '.join(LANE_STYLES)}")
+    chosen = lane.title
+    if title is not None:
+        chosen = clean_title(title)
+        _check_unique(lanes, chosen, ignoring=key)
+        lane.title = chosen
+    if style is not None:
+        lane.style = style
     try:
         await session.commit()
     except IntegrityError as error:

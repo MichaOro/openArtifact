@@ -216,6 +216,15 @@ an artifact, so no `task.*` event or resync follows.
 The page renders the lanes from the table with the `lane()` macro and once more, empty, into `<template id="lane-template">`; `Board.setLanes`
 clones that template for a lane that appears and removes one that disappears, so lanes come and go without a reload (drag and drop, the lane
 picker and the dialog chips read the lanes from the board). Each lane header has the name (click to rename in place, `InlineName`, the same
-component as the graph editor), the count, the plus and a menu button (`ActionMenu`: Rename, Delete; Delete is greyed out and explains why
-while the lane holds artifacts). "Add lane" is in the page header and opens the shared `FormDialog`. With more than three lanes the board
+component as the graph editor), the count, the plus and a menu button (`ActionMenu`: Rename, Settings, Delete; Delete is red and greyed out and explains why
+while the lane holds artifacts). "Add lane" opens the shared `FormDialog`. With more than three lanes the board
 scrolls sideways (lane width at least 17rem). Hues cycle by position (8 hues).
+
+## Update (2026-11-22): lane settings and where "Add lane" sits
+
+"Add lane" moved out of the page header into an `action-row` at the top right of the board (purple, like the other creating
+buttons); the header keeps only the title, the theme toggle and sign out. The lane menu gained **Settings** (between Rename and
+Delete): a dialog for how the lane draws its cards. First setting: `lanes.style` `normal` | `finished` (migration 0032;
+`PUT /api/lanes/{status}` takes `title` and/or `style`; `LaneRead.style`); a finished lane gets `lane--finished` and its
+cards show struck-through, muted titles. Details: [ADR-036](036-ui-conventions-and-lane-settings.md).
+

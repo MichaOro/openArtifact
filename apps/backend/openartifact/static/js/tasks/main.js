@@ -14,6 +14,7 @@ import { connectEvents } from "./events.js";
 import { HistoryTab } from "./history-tab.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { LaneControls, listLanes } from "./lanes.js";
+import { LaneSettingsDialog } from "./lane-settings.js";
 import { listTypes } from "../artifact-types/api.js";
 
 const board = new Board({ loadTasks: listTasks, renameLane: (status, title) => laneControls.rename(status, title) });
@@ -58,6 +59,7 @@ const laneControls = new LaneControls({
   board,
   addDialog: new FormDialog(new Modal(document.getElementById("add-lane-modal"))),
   confirm: new ConfirmDialog(new Modal(document.getElementById("delete-lane-modal"))),
+  settings: new LaneSettingsDialog(new Modal(document.getElementById("lane-settings-modal"))),
   onLanes: (lanes) => showLanes(lanes),
 });
 

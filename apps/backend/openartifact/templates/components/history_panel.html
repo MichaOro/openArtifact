@@ -9,7 +9,7 @@
     <div class="history__list-view" data-history-list-view>
         <div class="history__toolbar">
             <p class="history__summary" data-history-summary>Loading executions...</p>
-            <button type="button" class="button button--ghost button--sm" data-history-clear>Clear finished</button>
+            <button type="button" class="button button--ghost button--sm is-danger" data-history-clear>Clear finished</button>
         </div>
         <details class="history-policy" data-policy>
             <summary class="history-policy__summary"><span class="history-policy__title">Keep history</span><span class="history-policy__state" data-policy-state></span></summary>
@@ -45,7 +45,7 @@
         <div class="history-detail__bar">
             <button type="button" class="button button--ghost button--sm" data-detail-back>Back</button>
             <a class="button button--ghost button--sm" href="#" data-detail-flow>Open flow</a>
-            <button type="button" class="button button--ghost button--sm history-detail__delete" data-detail-delete>Delete execution</button>
+            <button type="button" class="button button--ghost button--sm is-danger history-detail__delete" data-detail-delete>Delete execution</button>
         </div>
         <h3 class="history-detail__heading" id="history-detail-heading" tabindex="-1" data-detail-heading></h3>
         <dl class="history-facts" data-detail-facts></dl>
@@ -66,7 +66,7 @@
             <span class="history-row__meta" data-row-meta></span>
             <span class="history-row__note" data-row-note hidden></span>
         </button>
-        <button type="button" class="icon-button icon-button--sm history-row__delete" data-row-delete></button>
+        <button type="button" class="icon-button icon-button--sm is-danger history-row__delete" data-row-delete></button>
     </li>
 </template>
 {% include "components/history_step_template.html" %}

@@ -128,7 +128,6 @@
 .history-row__meta { grid-area: meta; justify-self: end; font-size: 0.75rem; color: var(--color-text-muted); white-space: nowrap; }
 .history-row__note { grid-area: note; font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .history-row__delete { margin-right: var(--space-2); }
-.history-row__delete:hover { color: var(--color-danger); }
 .history-row__delete[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
 .history-row__delete[aria-disabled="true"]:hover { color: var(--color-text-secondary); background: var(--glass-bg); border-color: var(--glass-border); }
 

@@ -146,8 +146,8 @@ export class FieldsEditor extends ActionDialog {
     const head = element("div", "at-field__head");
     head.append(element("span", "at-field__title"));
     const tools = element("span", "at-field__tools");
-    const tool = (name, label, symbol, action) => {
-      const button = element("button", "icon-button icon-button--sm");
+    const tool = (name, label, symbol, action, extraClass = "") => {
+      const button = element("button", `icon-button icon-button--sm ${extraClass}`.trim());
       button.type = "button";
       button.dataset.move = name;
       button.setAttribute("aria-label", label);
@@ -159,7 +159,7 @@ export class FieldsEditor extends ActionDialog {
     tools.append(
       tool("up", "Move parameter up", "arrow-up", () => this.#move(row, -1)),
       tool("down", "Move parameter down", "arrow-down", () => this.#move(row, 1)),
-      tool("remove", "Remove parameter", "trash", () => this.#remove(row)),
+      tool("remove", "Remove parameter", "trash", () => this.#remove(row), "is-danger"),
     );
     head.append(tools);
 

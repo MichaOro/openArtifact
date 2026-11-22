@@ -46,6 +46,18 @@
   border-color: var(--accent-ring);
 }
 
+/* ── Destructive controls: ONE definition (ADR-036) ───────────────────────────────────────────────
+   Add `is-danger` to any control that deletes or discards: text buttons and menu items are red at
+   rest, icon buttons turn red on hover and focus; the red tint is the same everywhere. The solid
+   `button--danger` is only for the confirming button of a dialog. Disabled controls stay as they are. */
+.is-danger:is(.button--ghost, .menu__item):not(:disabled):not([aria-disabled="true"]) { color: var(--color-danger); }
+.button--ghost.is-danger:not(:disabled):not([aria-disabled="true"]) { border-color: var(--danger-ring); }
+:is(.button, .icon-button, .menu__item, .nav-link).is-danger:is(:hover, :focus-visible):not(:disabled):not([aria-disabled="true"]) {
+  color: var(--color-danger);
+  background: var(--danger-soft);
+  border-color: var(--danger-ring);
+}
+
 /* ── Spinner (visible while a button is aria-busy) ───────────────── */
 .spinner {
   display: none;

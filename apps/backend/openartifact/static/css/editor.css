@@ -3,7 +3,6 @@
  * execution.css reuse it for the canvas. */
 
 /* ── List ─────────────────────────────────────────────────────────── */
-.ge-toolbar { display: flex; justify-content: flex-end; margin-bottom: var(--space-4); }
 .ge-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
 .ge-item {
   display: flex;
@@ -263,12 +262,6 @@
     transition: box-shadow var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
   }
 }
-
-.ge-delete {
-  color: var(--color-danger);
-  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--glass-border));
-}
-.ge-delete:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent); }
 
 /* three equal buttons across the full width: New flush left with the select above, Delete flush right */
 .ge-actionbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }

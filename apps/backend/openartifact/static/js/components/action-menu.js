@@ -44,8 +44,9 @@ export class ActionMenu {
   /**
    * Open under `trigger`, or close if it is already open for it.
    * @param {HTMLElement} trigger
-   * @param {{label: string, icon: string, onSelect: () => void, disabledReason?: string}[]} items
-   *   `disabledReason` set: the entry is disabled and shows that text as its hint
+   * @param {{label: string, icon: string, onSelect: () => void, disabledReason?: string, danger?: boolean}[]} items
+   *   `disabledReason` set: the entry is disabled and shows that text as its hint; `danger`: it deletes
+   *   something and is drawn in the destructive colour (is-danger)
    * @param {string} label what assistive technology calls the menu
    */
   toggle(trigger, items, label) {
@@ -77,10 +78,10 @@ export class ActionMenu {
     if (restoreFocus) this.trigger.focus();
   }
 
-  #entry({ label, icon: iconName, onSelect, disabledReason }) {
+  #entry({ label, icon: iconName, onSelect, disabledReason, danger = false }) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "menu__item";
+    button.className = danger ? "menu__item is-danger" : "menu__item";
     button.setAttribute("role", "menuitem");
     button.append(icon(iconName), label);
     if (disabledReason) {

@@ -207,6 +207,8 @@ def test_the_menu_works_with_the_keyboard(board: Board) -> None:
     expect(menu).to_have_attribute("role", "menu")
     expect(_item(board.page, "Rename")).to_be_focused()
     board.page.keyboard.press("ArrowDown")
+    expect(_item(board.page, "Settings")).to_be_focused()
+    board.page.keyboard.press("ArrowDown")
     expect(_item(board.page, "Delete")).to_be_focused()
     board.page.keyboard.press("ArrowDown")
     expect(_item(board.page, "Rename")).to_be_focused()  # wraps
@@ -247,7 +249,8 @@ def test_delete_is_greyed_out_with_a_hint_while_the_lane_has_artifacts(board: Bo
     expect(delete).to_have_attribute("aria-describedby", hint.get_attribute("id") or "")
     board.page.locator(".menu__item", has_text="Rename").hover()
     expect(hint).to_be_hidden()
-    board.page.keyboard.press("ArrowDown")  # on keyboard focus
+    board.page.keyboard.press("ArrowDown")  # on keyboard focus: Settings first
+    board.page.keyboard.press("ArrowDown")
     expect(delete).to_be_focused()
     expect(hint).to_be_visible()
     expect(hint).to_have_text(HINT)

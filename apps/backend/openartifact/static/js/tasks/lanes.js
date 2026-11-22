@@ -1,16 +1,19 @@
-/* Adding, renaming and deleting lanes: the "Add lane" dialog, each lane's menu (Rename, Delete) and the
- * API calls. Renaming by clicking a lane's name is done by the board (InlineName); both end up in the
- * same request. Only titles change, never the status key artifacts carry. */
+/* Adding, renaming, restyling and deleting lanes: the "Add lane" dialog, each lane's menu (Rename,
+ * Settings, Delete) and the API calls. Renaming by clicking a lane's name is done by the board
+ * (InlineName); both end up in the same request. Only titles and styles change, never the status key
+ * artifacts carry. */
 import { ActionMenu } from "../components/action-menu.js";
 import { request } from "../http.js";
 import { deleteBlockedReason } from "./lane-rules.js";
 
 const lanePath = (status) => `/api/lanes/${encodeURIComponent(status)}`;
-const send = (url, method, title) => request(url, { method, body: title === undefined ? undefined : JSON.stringify({ title }) });
+const send = (url, method, body) => request(url, { method, body: body === undefined ? undefined : JSON.stringify(body) });
 
 export const listLanes = () => request("/api/lanes");
-export const addLane = (title) => send("/api/lanes", "POST", title);
-export const renameLane = (status, title) => send(lanePath(status), "PUT", title);
+export const addLane = (title) => send("/api/lanes", "POST", { title });
+/** Change a lane's title and/or style ({title, style}); resolves to the lanes. */
+export const updateLane = (status, changes) => send(lanePath(status), "PUT", changes);
+export const renameLane = (status, title) => updateLane(status, { title });
 export const deleteLane = (status) => send(lanePath(status), "DELETE");
 
 export class LaneControls {
@@ -19,10 +22,11 @@ export class LaneControls {
    * @param {import("./board.js").Board} options.board
    * @param {import("../components/form-dialog.js").FormDialog} options.addDialog one field: the title
    * @param {import("../components/confirm-dialog.js").ConfirmDialog} options.confirm
+   * @param {import("./lane-settings.js").LaneSettingsDialog} options.settings
    * @param {(lanes: object[]) => void} options.onLanes shows the lanes the server answered with
    */
-  constructor({ board, addDialog, confirm, onLanes }) {
-    Object.assign(this, { board, addDialog, confirm, onLanes });
+  constructor({ board, addDialog, confirm, settings, onLanes }) {
+    Object.assign(this, { board, addDialog, confirm, settings, onLanes });
     this.menu = new ActionMenu();
     board.element.addEventListener("click", (event) => {
       const button = event.target.closest("[data-lane-menu]");
@@ -52,10 +56,23 @@ export class LaneControls {
       button,
       [
         { label: "Rename", icon: "pencil", onSelect: () => this.board.editLaneName(status) },
-        { label: "Delete", icon: "trash", disabledReason, onSelect: () => this.#confirmDelete(status, title) },
+        { label: "Settings", icon: "settings", onSelect: () => this.#openSettings(status) },
+        { label: "Delete", icon: "trash", danger: true, disabledReason, onSelect: () => this.#confirmDelete(status, title) },
       ],
       `Lane ${title}`,
     );
+  }
+
+  #openSettings(status) {
+    this.settings.open({
+      title: this.board.laneTitle(status),
+      hue: this.board.laneHue(status),
+      style: this.board.laneStyle(status),
+      onSave: async (style) => {
+        this.onLanes(await updateLane(status, { style }));
+        this.board.announce(`Settings of lane ${this.board.laneTitle(status)} saved`);
+      },
+    });
   }
 
   #openAdd() {

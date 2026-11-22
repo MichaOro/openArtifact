@@ -25,7 +25,7 @@ from openartifact.api.lanes import (
     CREATE_DESCRIPTION,
     DELETE_DESCRIPTION,
     LANES_DESCRIPTION,
-    RENAME_DESCRIPTION,
+    UPDATE_DESCRIPTION,
 )
 from openartifact.api.schemas import PipelineChainRead
 from openartifact.api.secrets import StoreDep
@@ -49,6 +49,7 @@ from openartifact.secret_store import SecretRead, SecretWrite
 from openartifact.security import require_api_token
 from openartifact.tasks.schemas import (
     LaneRead,
+    LaneUpdate,
     LaneWrite,
     RunStart,
     TaskCreate,
@@ -97,12 +98,12 @@ async def create_lane(payload: LaneWrite, service: ServiceDep) -> list[LaneRead]
 @router.put(
     "/lanes/{status}",
     response_model=list[LaneRead],
-    summary="Rename a lane",
-    description=RENAME_DESCRIPTION,
+    summary="Change a lane",
+    description=UPDATE_DESCRIPTION,
     responses=errors(404, 422, write=True, body=True),
 )
-async def rename_lane(status: str, payload: LaneWrite, service: ServiceDep) -> list[LaneRead]:
-    return await service.rename_lane(status, payload.title)
+async def update_lane(status: str, payload: LaneUpdate, service: ServiceDep) -> list[LaneRead]:
+    return await service.update_lane(status, payload.title, payload.style)
 
 
 @router.delete(

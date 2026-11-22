@@ -45,6 +45,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [033](033-run-context.md) | Run context | Accepted | 2026-11-22 | amends ADR-021, ADR-025 |
 | [034](034-branching-nodes-and-reference-suggestions.md) | Branching nodes and reference suggestions | Accepted | 2026-11-22 | amends ADR-021, ADR-022 |
 | [035](035-artifact-types-and-card-parameters.md) | Artifact types and card parameters | Accepted | 2026-11-22 | amends ADR-022, ADR-033 |
+| [036](036-ui-conventions-and-lane-settings.md) | UI conventions and lane settings | Accepted | 2026-11-22 | amends ADR-011, ADR-029 |
 
 ## Notes
 

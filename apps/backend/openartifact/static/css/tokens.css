@@ -93,6 +93,7 @@
   --color-on-accent: #ffffff;
   --color-danger: #b3261e; /* error text/borders only */
   --color-highlight: var(--color-glass-card); /* light reflections = pearl white */
+  --scrollbar-thumb: #c1c1c1;
 
   /* Lane palette: lane N always uses hue N (cycles after 8). Darker steps for the light theme. */
   --lane-hue-1: #8050e8; /* violet */
@@ -145,6 +146,7 @@
   --color-on-accent: #080519;
   --color-danger: #ff8fa3;
   --color-highlight: var(--color-text-primary); /* light reflections = white */
+  --scrollbar-thumb: #6b6b6b;
 
   --lane-hue-1: #9665ff;
   --lane-hue-2: #e5b04a;
@@ -183,6 +185,8 @@
   --color-text-muted: color-mix(in srgb, var(--color-text-secondary) var(--text-muted-mix), transparent);
   --accent-soft: color-mix(in srgb, var(--color-accent) 16%, transparent);
   --accent-ring: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  --danger-soft: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  --danger-ring: color-mix(in srgb, var(--color-danger) 45%, var(--glass-border));
 
   /* Glass material: tinted fill + soft top-left sheen */
   --glass-bg: color-mix(in srgb, var(--color-glass-card) var(--glass-opacity), transparent);

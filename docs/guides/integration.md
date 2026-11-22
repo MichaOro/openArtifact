@@ -72,7 +72,7 @@ The most used routes (all 24 are listed with errors in the [API reference](api-r
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /api/v1/pipelines` | Pipelines with stages in running order and the actions of each stage |
-| `GET`, `POST /api/v1/lanes`, `PUT`, `DELETE /api/v1/lanes/{status}` | The lanes (at most 12); add one (`{"title": "Review"}`), rename one, delete an empty one (`409` while it holds artifacts). Artifacts use the lane's key (`status`, e.g. `backlog`, `in_progress`, `done`, or `review` for a lane added later), whatever the lane is called; without a lane an artifact goes to the first lane, an unknown key is `422` and lists the valid ones |
+| `GET`, `POST /api/v1/lanes`, `PUT`, `DELETE /api/v1/lanes/{status}` | The lanes (at most 12); add one (`{"title": "Review"}`), change one (`PUT` with `{"title"?, "style"?}`, at least one; `style` is `normal` or `finished`: how its cards look), delete an empty one (`409` while it holds artifacts). Artifacts use the lane's key (`status`, e.g. `backlog`, `in_progress`, `done`, or `review` for a lane added later), whatever the lane is called; without a lane an artifact goes to the first lane, an unknown key is `422` and lists the valid ones |
 | `GET /api/v1/artifacts`, `POST /api/v1/artifacts` | List, create (`title`, optional `body`, `status`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`) |
 | `GET`, `POST /api/v1/artifact-types`, `GET`, `PUT`, `DELETE /api/v1/artifact-types/{ref}` | Artifact types and their typed parameters; an artifact takes `type_id` and `parameters` (checked when saved, see below) |
 | `GET`, `PATCH`, `DELETE /api/v1/artifacts/{ref}` | Read, change (partial), delete; `ref` is the number (`12`) or the id |
@@ -210,7 +210,7 @@ Tools (14; all go through the same service as the browser and the REST API; argu
 | Tool | Purpose |
 |------|---------|
 | `list_pipelines` | Pipelines with stages and actions |
-| `list_lanes` | The current lanes with their keys and titles (read only; lanes are managed in the browser or over REST) |
+| `list_lanes` | The current lanes with their keys, titles and styles (read only; lanes are managed in the browser or over REST) |
 | `list_artifacts(lane?)` | Artifacts in board order, optionally one lane (a key from `list_lanes`) |
 | `get_artifact(artifact)` | One artifact by number (`12` or `#12`) or id |
 | `create_artifact(title, body?, lane?, parent?, pipeline?, stage?, action?)` | Create; pipeline, stage and action by name, parent by number; not started |

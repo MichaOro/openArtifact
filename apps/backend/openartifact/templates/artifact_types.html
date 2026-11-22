@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/static/css/artifact-types.css">{% endblock %}
 {% block content %}
 {{ alert("Artifact types could not be loaded.") }}
-<div class="ge-toolbar">
+<div class="action-row">
     <button type="button" class="button button--primary" data-new-type>{{ icon("plus") }} New artifact type</button>
 </div>
 <p class="at-intro">An artifact type gives its artifacts typed parameters, such as an urgency or a customer tier. Pipelines read them as <code>${card.NAME}</code>.</p>
@@ -26,7 +26,7 @@
         </div>
         <button type="button" class="button button--ghost button--sm" data-edit-fields>Parameters</button>
         <button type="button" class="icon-button icon-button--sm" data-rename aria-label="Rename artifact type" title="Rename">{{ icon("pencil") }}</button>
-        <button type="button" class="icon-button icon-button--sm" data-delete aria-label="Delete artifact type" title="Delete">{{ icon("trash") }}</button>
+        <button type="button" class="icon-button icon-button--sm is-danger" data-delete aria-label="Delete artifact type" title="Delete">{{ icon("trash") }}</button>
     </li>
 </template>
 

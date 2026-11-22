@@ -29,7 +29,7 @@ export class Board {
     /** @type {Set<string>} */ this.locked = new Set();
     /** @type {Map<string, object>} */ this.tasks = new Map();
     /** @type {Map<string, HTMLElement>} */ this.cards = new Map();
-    /** @type {Map<string, {section: HTMLElement, list: HTMLElement, count: HTMLElement, name: InlineName, title: string, hue: string}>} */
+    /** @type {Map<string, {section: HTMLElement, list: HTMLElement, count: HTMLElement, name: InlineName, title: string, hue: string, style: string}>} */
     this.lanes = new Map();
     document.querySelectorAll("[data-lane]").forEach((section) => {
       this.lanes.set(section.dataset.status, this.#adopt(section));
@@ -58,7 +58,7 @@ export class Board {
   }
 
   /**
-   * Show the lanes the server sent ([{status, key, title, hue}], in board order): lanes that are
+   * Show the lanes the server sent ([{status, key, title, hue, style}], in board order): lanes that are
    * new get a section built from the server's own template, lanes that are gone disappear, titles,
    * labels and colours are updated. No reload.
    */
@@ -83,6 +83,7 @@ export class Board {
       count: section.querySelector(".lane__count"),
       title: nameEl.textContent.trim(),
       hue: section.dataset.laneHue,
+      style: section.classList.contains("lane--finished") ? "finished" : "normal",
     };
     lane.name = new InlineName(nameEl, {
       label: "Lane name",
@@ -93,9 +94,10 @@ export class Board {
     return lane;
   }
 
-  #applyLane(lane, { status, key, title, hue }) {
+  #applyLane(lane, { status, key, title, hue, style }) {
     const { section } = lane;
-    Object.assign(lane, { title, hue: String(hue) });
+    Object.assign(lane, { title, hue: String(hue), style });
+    section.classList.toggle("lane--finished", style === "finished");
     Object.assign(section.dataset, { lane: key, status, laneHue: String(hue) });
     section.setAttribute("aria-labelledby", `lane-${key}-title`);
     section.querySelector(".lane__title").id = `lane-${key}-title`;
@@ -107,6 +109,11 @@ export class Board {
     add.setAttribute("aria-label", `Add artifact to ${title}`);
     section.querySelector("[data-lane-menu]").setAttribute("aria-label", `Options for lane ${title}`);
     lane.list.setAttribute("aria-label", `${title} artifacts`);
+  }
+
+  /** How a lane draws its cards: "normal" or "finished". */
+  laneStyle(status) {
+    return this.lanes.get(status)?.style ?? "normal";
   }
 
   /** Palette index of a lane (drives its colour via data-lane-hue). */
