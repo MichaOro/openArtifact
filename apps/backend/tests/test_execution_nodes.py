@@ -155,7 +155,13 @@ def test_the_menu_offers_the_execution_kinds_the_editor_can_draw() -> None:
 def test_a_new_node_has_the_defaults_and_stores_what_was_set(client: TestClient) -> None:
     action = _post(client, "/api/actions", name="A")
     plain = _node(client, action, "code")
-    assert plain["config"] == {"language": "sh", "code": "", "secrets": "", "timeout_seconds": 30}
+    assert plain["config"] == {
+        "language": "sh",
+        "code": "",
+        "secrets": "",
+        "timeout_seconds": 30,
+        "on_failure": "fail",
+    }
     node = _node(client, action, "http", config={"url": "https://example.org", "method": "POST"})
     assert node["config"]["method"] == "POST"
     assert node["config"]["success_status"] == "200-299"
@@ -173,6 +179,7 @@ def test_config_is_merged_per_key_and_null_resets_a_key(client: TestClient) -> N
         "code": "echo 1",
         "secrets": "",
         "timeout_seconds": 5,
+        "on_failure": "fail",
     }
     config = client.patch(url, json={"config": {"timeout_seconds": None}}).json()["config"]
     assert config["timeout_seconds"] == 30 and config["code"] == "echo 1"
@@ -321,6 +328,50 @@ def test_on_fail_can_be_routed_on_and_the_run_continues(client: TestClient) -> N
     _fail_to_error(client, pipeline)
     _start(client, pipeline, task)
     assert _work(_wait(client, task, "done"))[0]["outcome"] == "fail"
+
+
+def test_a_node_set_to_continue_fails_open_and_its_step_still_shows_the_failure(
+    client: TestClient,
+) -> None:
+    """`on_failure: continue` leaves by On Pass although the code failed; nothing else changes."""
+    pipeline, task = _pipeline(client, stages=1), _make_task(client)
+    _use(
+        client,
+        pipeline,
+        _definition(client, "code", code="echo broken; exit 4", on_failure="continue"),
+    )
+    _start(client, pipeline, task)
+    run = _wait(client, task, "done")  # no error route is needed: the action passed
+    step = _work(run)[0]
+    assert (step["outcome"], step["port"], step["exit_code"]) == ("fail", "pass", 4)
+    assert step["reason"] == "Exit code 4 (continued through On Pass)"
+    assert [r["kind"] for r in run["node_results"]][-1] == "output"
+    assert run["node_results"][-1]["outcome"] == "pass"  # the definition reached its On Pass output
+
+
+def test_a_node_that_passes_is_not_changed_by_the_fail_open_setting(client: TestClient) -> None:
+    pipeline, task = _pipeline(client, stages=1), _make_task(client)
+    _use(client, pipeline, _definition(client, "code", code="echo fine", on_failure="continue"))
+    _start(client, pipeline, task)
+    step = _work(_wait(client, task, "done"))[0]
+    assert (step["outcome"], step["port"], step["reason"]) == ("pass", "pass", None)
+
+
+def test_the_default_is_to_fail_and_only_two_values_are_accepted(client: TestClient) -> None:
+    action = _post(client, "/api/actions", name="Defaults")
+    node = _node(client, action, "code")
+    assert node["config"]["on_failure"] == "fail"
+    patch = f"{_url(action)}/nodes/{node['id']}"
+    assert client.patch(patch, json={"config": {"on_failure": "continue"}}).status_code == 200
+    assert client.patch(patch, json={"config": {"on_failure": "ignore"}}).status_code == 422
+    kinds = {t["kind"]: t for t in client.get("/api/node-types").json()}
+    for kind in ("code", "http"):
+        setting = next(x for x in kinds[kind]["settings"] if x["key"] == "on_failure")
+        assert (setting["type"], setting["default"], setting["options"]) == (
+            "select",
+            "fail",
+            ["fail", "continue"],
+        )
 
 
 def test_a_code_node_on_a_dead_end_counts_as_fail(client: TestClient) -> None:

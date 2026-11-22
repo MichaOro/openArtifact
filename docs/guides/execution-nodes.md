@@ -252,6 +252,21 @@ Then link an action of a pipeline to it (`PATCH /api/pipelines/$P/nodes/$ACTION`
 `{"definition_id": "$ID"}`) and start an artifact in the pipeline (`POST /api/tasks/$TASK/run`). The
 [API reference](api-reference.md) lists every route.
 
+## What a failure does to the way on
+
+Both nodes leave by **On Pass** or **On Fail**. The setting **If the node fails** (`on_failure`) chooses what a
+failure means for the way on:
+
+- `fail` (the default, closed): the node leaves by On Fail. If nothing is connected there, the action fails and
+  so does the run.
+- `continue` (fail open): the node leaves by On Pass although it failed. The step is still recorded as a failure
+  with its reason, followed by "(continued through On Pass)", so the history and the flow view show what happened.
+  A node that passes is not affected.
+
+The Code node ends when the shell ends: a background process that keeps the output open (`sleep 300 &` without a
+redirect) does not hold the node until the timeout. Whatever the code left running is killed with the process
+group when the node ends.
+
 ## When something fails
 
 | Reason shown | Cause |

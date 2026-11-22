@@ -127,6 +127,23 @@ async def test_a_child_left_in_the_background_does_not_survive(tmp_path: Path) -
     assert await _gone(int(pidfile.read_text()))
 
 
+async def test_a_background_child_holding_the_output_does_not_delay_the_node(
+    tmp_path: Path,
+) -> None:
+    """`sleep 300 &` keeps stdout open: the node ends with the shell, not with the timeout."""
+    pidfile = tmp_path / "pid"
+    started = time.monotonic()
+    result = await _run(f"sleep 300 &\necho $! > {pidfile}\necho done", timeout=20)
+    assert (result.outcome, result.exit_code, result.output) == ("pass", 0, "done\n")
+    assert time.monotonic() - started < 5, "waited for the pipe instead of the process"
+    assert await _gone(int(pidfile.read_text()))  # and nothing of the node stays alive
+
+
+async def test_the_exit_code_of_a_shell_with_a_background_child_is_kept() -> None:
+    result = await _run("sleep 300 &\nexit 3", timeout=20)
+    assert (result.outcome, result.exit_code) == ("fail", 3)
+
+
 async def test_the_environment_holds_no_openartifact_variable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

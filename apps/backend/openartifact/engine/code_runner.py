@@ -59,6 +59,8 @@ except ImportError:  # not a Unix: no limits can be applied
 logger = logging.getLogger(__name__)
 
 KILL_GRACE_SECONDS = 2.0
+#: How often the exit of the process is looked at.
+EXIT_POLL_SECONDS = 0.02
 #: How long to wait for the pipes to close after the process ended (a background child may hold them).
 DRAIN_SECONDS = 1.0
 #: The tail of stdout always kept, so the last line (the result protocol) survives truncation.
@@ -226,6 +228,17 @@ def _exit_reason(code: int, output: str, limits: CodeLimits) -> str:
     return f"Exit code {code}"
 
 
+async def _exited(process: asyncio.subprocess.Process) -> None:
+    """Return when the process has exited, whatever still holds its pipes open.
+
+    ``Process.wait()`` also waits until the pipes are closed, so a background child that keeps stdout
+    (``sleep 300 &`` without a redirect) would hold the node until the timeout although the shell is
+    long done. ``returncode`` is set the moment the process exits.
+    """
+    while process.returncode is None:
+        await asyncio.sleep(EXIT_POLL_SECONDS)
+
+
 async def run_code(
     language: str,
     code: str,
@@ -284,12 +297,12 @@ async def run_code(
         ]
         timed_out = False
         try:
-            await asyncio.wait_for(process.wait(), timeout_seconds)
+            await asyncio.wait_for(_exited(process), timeout_seconds)
         except TimeoutError:
             timed_out = True
             _kill_group(process.pid, signal.SIGTERM)
             with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(process.wait(), KILL_GRACE_SECONDS)
+                await asyncio.wait_for(_exited(process), KILL_GRACE_SECONDS)
         _kill_group(process.pid, signal.SIGKILL)  # whatever it left behind
         _, pending = await asyncio.wait(readers, timeout=DRAIN_SECONDS)
         for task in pending:
@@ -340,7 +353,7 @@ async def run_code(
             _kill_group(process.pid, signal.SIGKILL)
             if process.returncode is None:  # cancelled: reap it so that no transport is left open
                 with contextlib.suppress(Exception):
-                    await asyncio.wait_for(process.wait(), KILL_GRACE_SECONDS)
+                    await asyncio.wait_for(_exited(process), KILL_GRACE_SECONDS)
         for task in readers:
             task.cancel()
         shutil.rmtree(directory, ignore_errors=True)

@@ -384,6 +384,22 @@ class OutputType(NodeType):
     settings = (Setting("fail_enabled", "On Fail", "switch", default=False),)
 
 
+#: Shared by the execution nodes: what a failure of the node does to the way on.
+ON_FAILURE = Setting(
+    "on_failure",
+    "If the node fails",
+    "select",
+    default="fail",
+    options=("fail", "continue"),
+    stored_in="config",
+    help=(
+        "fail (the default): leave by On Fail, the action fails if nothing is connected there. "
+        "continue: leave by On Pass although the node failed (fail open); the step still shows "
+        "the failure and its reason."
+    ),
+)
+
+
 class _ExecutionType(NodeType):
     """A step of an action definition that does work and ends in On Pass or On Fail."""
 
@@ -446,6 +462,7 @@ class CodeType(_ExecutionType):
             default=30,
             stored_in="config",
         ),
+        ON_FAILURE,
     )
 
 
@@ -515,6 +532,7 @@ class HttpType(_ExecutionType):
             help="Comma-separated codes or ranges, for example 200-299, 404.",
             check=_check_status,
         ),
+        ON_FAILURE,
     )
 
 

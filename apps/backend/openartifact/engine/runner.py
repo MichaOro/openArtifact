@@ -16,7 +16,7 @@ import asyncio
 import json
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -610,6 +610,14 @@ class RunEngine:
                 if executor.by_outcome
                 else Ports.OUT
             )
+            if port == Ports.FAIL and (current.get("config") or {}).get("on_failure") == "continue":
+                port = (
+                    Ports.PASS
+                )  # fail open: the step keeps its failure and reason, the way on is On Pass
+                result = replace(
+                    result,
+                    reason=f"{result.reason or 'The node failed'} (continued through On Pass)",
+                )
             await self._record(
                 walk, node["definition_id"], current, result.outcome, port, result, started
             )
