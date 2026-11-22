@@ -1,4 +1,4 @@
-/* The global execution list: summary counters, filter bar, table (cards on a phone). Colours come from
+/* The global execution list (prefix ex- = executions list): summary counters, filter bar, table (cards on a phone). Colours come from
  * tokens.css only. A status is never colour alone: every chip has an icon and a word, a selected toggle
  * has a tick and a thicker border, a pressed counter is outlined. Chips are styled in history.css. */
 

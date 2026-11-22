@@ -1,4 +1,6 @@
-/* Pipeline and action lists and the editor. Colours come from tokens.css only. */
+/* Pipeline and action lists and the editor. Colours come from tokens.css only.
+ * Prefix: ge- = graph editor (lists, canvas, nodes, ports, edges, inspector); components.css and
+ * execution.css reuse it for the canvas. */
 
 /* ── List ─────────────────────────────────────────────────────────── */
 .ge-toolbar { display: flex; justify-content: flex-end; margin-bottom: var(--space-4); }

@@ -1,4 +1,4 @@
-/* The flow page of one execution: the editor's canvas (editor.css), read-only, with the walk drawn on
+/* The flow page of one execution (prefix ef- = execution flow; its canvas reuses ge-, its rows history-): the editor's canvas (editor.css), read-only, with the walk drawn on
  * it, and a side panel. Colours come from tokens.css only. A state is never colour alone: every one
  * has an icon and a word, what did not run is dashed as well as dimmed, a walked edge is thick and
  * numbered. */

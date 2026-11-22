@@ -1,8 +1,7 @@
 /* Geometry of the graph canvas. Pure functions over plain node/edge objects as the API returns
  * them; what a kind of node looks like and may connect to comes from its view (node-types.js). */
-import { HEADER, SLOTS, slotY, typeOf } from "./node-types.js";
+import { HEADER, typeOf } from "./node-types.js";
 
-export { HEADER, SLOTS, slotY };
 export const PAD = 24; // space between a stage border and its actions
 export const ACTION_GAP = 64; // space between neighbouring actions
 export const TOP_LEVEL_GAP = 96; // space between a new node of the main line and its neighbour

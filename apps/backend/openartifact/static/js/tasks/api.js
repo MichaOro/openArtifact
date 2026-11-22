@@ -1,8 +1,6 @@
 /* Thin client for the /api/tasks endpoints, the runs of the tasks and the stages of a pipeline. */
 
-import { ApiError, request } from "../http.js";
-
-export { ApiError };
+import { request } from "../http.js";
 
 export const listTasks = () => request("/api/tasks");
 

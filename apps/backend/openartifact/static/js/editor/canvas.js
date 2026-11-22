@@ -195,12 +195,6 @@ export class Canvas {
     return { x: (event.clientX - rect.left - this.view.x) / this.view.zoom, y: (event.clientY - rect.top - this.view.y) / this.view.zoom };
   }
 
-  /** The canvas point in the middle of the visible area. */
-  center() {
-    const rect = this.viewport.getBoundingClientRect();
-    return { x: (rect.width / 2 - this.view.x) / this.view.zoom, y: (rect.height / 2 - this.view.y) / this.view.zoom };
-  }
-
   zoomBy(factor, anchor = null) {
     const rect = this.viewport.getBoundingClientRect();
     const px = anchor ? anchor.x : rect.width / 2;

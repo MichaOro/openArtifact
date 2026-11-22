@@ -9,7 +9,7 @@ import { KEYS, removeStorage } from "../storage.js";
 import { AddMenu } from "./add-menu.js";
 import { createGraph, listGraphs } from "./api.js";
 import { Canvas } from "./canvas.js";
-import { TOP_LEVEL_GAP, actionsOf, canConnect, displayName, fitStage, nextActionPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
+import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
 import { GraphModel } from "./graph-model.js";
 import { InspectorBlocks } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
@@ -363,33 +363,5 @@ export class GraphEditor {
     this.targets = {};
     await this.model.updateNode(node.id, { definition_id: created.id });
     window.location.assign(this.#linkUrl(node, created.slug));
-  }
-
-  /** A select with every valid target of an output port: the keyboard way to connect.
-   * Quarantined since 2026-11-21 (connections are made by dragging); see quarantine.json. */
-  #routeSelect(node, port) {
-    const select = document.createElement("select");
-    select.className = "field__control";
-    const none = new Option("Not connected", "");
-    select.append(none);
-    const current = this.model.edgeFrom(node.id, port);
-    for (const target of this.nodes.values()) {
-      for (const targetPort of typeOf(target).inputs.map((p) => p.name)) {
-        if (!canConnect(node, port, target, targetPort)) continue;
-        const label = targetPort === "end" ? `${target.name} · end of stage` : target.kind === "output" ? `${target.name} · ${typeOf(target).portLabel(targetPort)}` : displayName(target);
-        const option = new Option(label, `${target.id}|${targetPort}`);
-        select.append(option);
-        if (current?.target_id === target.id && current.target_port === targetPort) option.selected = true;
-      }
-    }
-    select.addEventListener("change", async () => {
-      if (!select.value) {
-        if (current) await this.#removeEdge(current.id);
-        return;
-      }
-      const [targetId, targetPort] = select.value.split("|");
-      await this.#connect(node, port, this.nodes.get(targetId), targetPort);
-    });
-    return select;
   }
 }

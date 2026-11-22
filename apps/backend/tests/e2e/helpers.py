@@ -21,8 +21,6 @@ from tests.helpers import (
     slow_pipeline,
 )
 
-LANES = ("backlog", "in_progress", "done")
-
 
 class Board:
     """The Kanban page: lookups, a few compound actions and the REST client for set-up."""

@@ -1,6 +1,8 @@
 /* The tabs of the artifact dialog and its History tab: list, one execution, retention editor.
    Loaded by the board with the dialog. Colours via tokens only; a status is never colour alone
-   (every chip has an icon and a word). */
+   (every chip has an icon and a word).
+   Prefix: history- = this tab (also the execution rows on the flow page); the status chips defined
+   here are shared with executions.css and execution.css. */
 
 /* ── Tabs ────────────────────────────────────────────────────────── */
 .task-tabs {
