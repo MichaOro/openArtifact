@@ -136,11 +136,13 @@ def _reset_lanes(client: httpx.Client) -> None:
 @pytest.fixture
 def api(base_url: str) -> Iterator[httpx.Client]:
     """REST client; the server is emptied before each test: runs stopped, artifacts, pipelines and
-    action definitions deleted, the lanes back to the three defaults (the server lives for the whole session)."""
+    action definitions and artifact types deleted, the lanes back to the three defaults (the server lives for the whole session)."""
     with httpx.Client(base_url=base_url) as client:
         for task in client.get("/api/tasks").json():
             client.post(f"/api/tasks/{task['id']}/run/stop")  # 409 when nothing runs
             assert client.delete(f"/api/tasks/{task['id']}").status_code == 204
+        for kind in client.get("/api/artifact-types").json():
+            assert client.delete(f"/api/artifact-types/{kind['id']}").status_code == 204
         _reset_lanes(client)
         for path in ("/api/pipelines", "/api/actions"):
             for graph in client.get(path).json():

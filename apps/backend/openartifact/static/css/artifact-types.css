@@ -1,0 +1,50 @@
+/* The artifact types page and the editor of a type's parameters. Colours come from tokens.css only.
+ * Prefix: at- (artifact types). The list itself reuses the ge- list of editor.css. */
+
+.at-intro { margin: 0 0 var(--space-4); color: var(--color-text-muted); max-width: 48rem; }
+.at-intro code,
+.at-editor__lead code { font-family: var(--font-mono); font-size: 0.8125rem; }
+.at-item { align-items: flex-start; flex-wrap: wrap; }
+.at-item .button,
+.at-item .icon-button { align-self: center; }
+.at-item .ge-item__name { color: var(--color-text-primary); }
+.at-item__fields { font-size: 0.8125rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.at-item__fields:empty { display: none; }
+.at-item__hint { font-size: 0.75rem; color: var(--color-text-muted); }
+.at-item__hint[hidden] { display: none; }
+.at-item [data-delete][aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+
+/* ── The editor dialog: wider than the artifact dialog, no rail ───────────────────────────────── */
+#fields-modal .modal__panel {
+  --rail-w: 0rem;
+  --rail-w-collapsed: 0rem;
+  --rail-w-open: 0rem;
+  --form-w: min(50rem, calc(100vw - 2 * var(--space-4)));
+  translate: none;
+}
+.at-editor__lead { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); }
+.at-fields { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.at-field {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-background) 30%, transparent);
+}
+.at-field__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.at-field__title { font-weight: 600; overflow-wrap: anywhere; }
+.at-field__tools { display: flex; gap: var(--space-1); }
+.at-field__tools .icon-button:disabled { opacity: 0.35; cursor: default; }
+.at-field__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--space-3); align-items: start; }
+.at-field__item--wide { grid-column: 1 / -1; }
+.at-check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; align-self: end; font-size: 0.875rem; }
+.at-check input { width: 1.1rem; height: 1.1rem; accent-color: var(--color-accent); }
+.at-add { align-self: flex-start; }
+.at-add .icon { width: 1rem; height: 1rem; }
+
+@media (max-width: 640px) {
+  .at-field { padding: var(--space-3); }
+  .at-item .ge-item__link { flex-basis: 100%; }
+  .at-item .button { margin-left: auto; }
+}

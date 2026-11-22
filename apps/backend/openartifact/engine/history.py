@@ -27,6 +27,7 @@ from typing import Any
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.engine.context import RunContext
 from openartifact.engine.schemas import ExecutionRead, HistoryPolicy
 from openartifact.events import EventBus
 from openartifact.models import Execution, PipelineRun, RunNodeResult, RunStatus, Task
@@ -89,8 +90,9 @@ class ExecutionHistory:
         stage_id: str | None,
         action_id: str | None,
         started_by: str,
+        context: RunContext,
     ) -> Execution:
-        """Add a running execution with the next number of the artifact (it is not committed)."""
+        """Add a running execution with the next number of the artifact and its first context (not committed)."""
         labels = labels_of(snapshot)
         now = utcnow()
         task.execution_seq += 1
@@ -109,6 +111,7 @@ class ExecutionHistory:
             status=RunStatus.RUNNING,
             started_by=started_by,
             snapshot=json.dumps(snapshot),
+            context=context.dumps(),
             created_at=now,
             started_at=now,
         )

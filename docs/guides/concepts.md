@@ -30,13 +30,23 @@ URL). Every start leaves an execution in the history.
 
 **Artifact.** The unit of work: a card on the board with a title, a body, a lane (the board starts with Backlog, In Progress and Done; lanes can be added, renamed by clicking the name or through the lane's menu, and deleted when they are empty; the API names a lane by its unchanging key, e.g. `backlog`, `in_progress`, `done`), an optional parent and a
 permanent number (`#12`, never reused; `#12` in another artifact's body is a link). An artifact is processed by
-at most one run at a time. While that run is running the artifact is locked: its lane, parent and target cannot be
+at most one run at a time. While that run is running the artifact is locked: its lane, parent, target, type and parameters cannot be
 changed and it cannot be deleted (title and body stay editable); stopping the run releases it. In the
 code and the API an artifact is a `task`.
 
-**Run context.** The values an execution keeps while it runs: variables a Code node sets and the latest result of
-every node that ran. Later nodes use them through references such as `${node.Fetch_user.output}` and `${var.user}`
-(HTTP nodes) or the file `context.json` (Code nodes). It is stored with the execution and shown in its history
+**Artifact type and parameters.** An artifact can have a type, which you define on the *Artifact types* page (sidebar):
+a name and a list of typed parameters (text, number, yes/no, choice) with a label, whether a value is required, a default
+and, for a choice, the allowed values. The artifact dialog then shows these as form fields; a wrong value (a typo in a
+choice, a number out of range, a missing required value) is refused when you save, not when a run fails. Which
+parameters exist is data of the type, so a second kind of artifact with its own parameters needs no code. The type
+and the parameters are locked while the artifact is processed. A type that artifacts use cannot be deleted, and its
+parameters cannot be removed or changed in a way that could invalidate stored values
+([details](execution-nodes.md#card-parameters-card)).
+
+**Run context.** The values an execution keeps while it runs: the artifact's parameters as they were when it started
+(`card`), variables a Code node sets and the latest result of
+every node that ran. Later nodes use them through references such as `${node.Fetch_user.output}`, `${var.user}` and
+`${card.urgency}` (HTTP nodes) or the file `context.json` (Code nodes). It is stored with the execution and shown in its history
 ([execution nodes](execution-nodes.md#the-run-context-and-references)).
 
 **Pipeline.** What an artifact runs through: a trigger, a main line of stages (and pipeline nodes) and a

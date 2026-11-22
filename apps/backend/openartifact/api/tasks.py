@@ -59,8 +59,9 @@ async def create_task(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     ``title`` is required (1-255 chars after trimming), ``body`` is optional, ``status`` is a lane
     key (``GET /api/lanes``; left out: the first lane, an unknown key is 422 and lists the valid ones,
     409 if the lane was deleted meanwhile); ``parent_id`` makes it a child; ``pipeline_id`` (with
-    ``stage_id`` and ``action_id``, default the first ones) says where it starts. Publishes
-    ``task.created``.
+    ``stage_id`` and ``action_id``, default the first ones) says where it starts; ``type_id`` and
+    ``parameters`` give it an artifact type and values for its parameters (checked now: 422 with one
+    ``Parameter NAME: ...`` sentence per problem). Publishes ``task.created``.
     """
     return await service.create(payload, created_by=CreatedBy.USER)
 
@@ -76,8 +77,10 @@ async def update_task(task_id: str, payload: TaskUpdate, service: ServiceDep) ->
 
     ``before_id`` places the task before another task of the target lane (``null``: at the end); a
     lane change without ``before_id`` puts it at the top. ``parent_id: null`` removes the parent,
-    cycles are rejected with 422. Lane, order, parent and pipeline are locked (409) while the artifact
-    is processed. Publishes ``task.moved`` when only lane/order changed, ``task.updated`` for any
+    cycles are rejected with 422. ``parameters`` are merged into the stored ones (``null`` clears one to its
+    default); changing ``type_id`` needs the stored values to be valid for the new type, or
+    ``reset_parameters: true``. Lane, order, parent, pipeline, type and parameters are locked (409) while
+    the artifact is processed. Publishes ``task.moved`` when only lane/order changed, ``task.updated`` for any
     other change (and ``board.resync`` if neighbours had to be renumbered).
     """
     return await service.update(task_id, payload)

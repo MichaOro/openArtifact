@@ -14,6 +14,7 @@ import { connectEvents } from "./events.js";
 import { HistoryTab } from "./history-tab.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { LaneControls, listLanes } from "./lanes.js";
+import { listTypes } from "../artifact-types/api.js";
 
 const board = new Board({ loadTasks: listTasks, renameLane: (status, title) => laneControls.rename(status, title) });
 
@@ -112,6 +113,13 @@ function showTask(task, { follow = false } = {}) {
     trail.length > 0,
   );
   artifactDialog.subtitle.disabled = board.locked.has(task.id);
+  artifactDialog.lockParameters(board.locked.has(task.id));
+}
+
+/** The artifact types: the dialog's Type select and the type names on the cards. */
+function showTypes(types) {
+  artifactDialog.setTypes(types);
+  board.setTypeNames(types);
 }
 
 const deleteDialog = new ConfirmDialog(new Modal(document.getElementById("delete-task-modal")));
@@ -158,7 +166,10 @@ const processing = new ProcessingPanel({
   picker: lanePicker,
   onLock: (taskId, locked) => {
     board.setLocked(taskId, locked);
-    if (artifactDialog.editing?.id === taskId) artifactDialog.subtitle.disabled = locked;
+    if (artifactDialog.editing?.id === taskId) {
+      artifactDialog.subtitle.disabled = locked;
+      artifactDialog.lockParameters(locked);
+    }
   },
   onError: (message) => board.showError(message),
 });
@@ -327,6 +338,7 @@ connectEvents({
   onOpen: () => {
     board.load(); // first connect and every reconnect: resync
     listLanes().then(showLanes).catch(() => {});
+    listTypes().then(showTypes).catch(() => {});
     listRuns().then((runs) => processing.setRuns(runs)).catch(() => {});
     history.load(); // missed events are not replayed
   },
@@ -338,6 +350,7 @@ connectEvents({
       processing.remove(data.id);
     }
     else if (type === "board.lanes") showLanes(data.lanes);
+    else if (type === "artifact_types.changed") showTypes(data.types);
     else if (type === "board.resync") board.load(); // lane was renumbered: positions changed
     else {
       board.upsert(data); // task.created / task.updated / task.moved

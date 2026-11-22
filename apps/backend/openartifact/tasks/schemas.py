@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+import json
+from typing import Annotated, Any
 
 from pydantic import (
     AfterValidator,
@@ -10,6 +11,7 @@ from pydantic import (
     ConfigDict,
     Field,
     StringConstraints,
+    field_validator,
     model_validator,
 )
 
@@ -47,6 +49,10 @@ class TaskCreate(BaseModel):
     pipeline_id: str | None = None
     stage_id: str | None = None
     action_id: str | None = None
+    #: Artifact type (``null``: none) and the values of its parameters, checked now (422 names the
+    #: parameter); defaults of the type fill what is not given.
+    type_id: str | None = None
+    parameters: dict[str, Any] = Field(default_factory=dict)
 
 
 class TaskUpdate(BaseModel):
@@ -69,13 +75,19 @@ class TaskUpdate(BaseModel):
     pipeline_id: str | None = None
     stage_id: str | None = None
     action_id: str | None = None
+    #: Artifact type (``null``: none). Its parameters must stay valid: see ``reset_parameters``.
+    type_id: str | None = None
+    #: Parameter values to set; the others stay (``null`` as a value clears one to its default).
+    parameters: dict[str, Any] | None = None
+    #: Drop the stored values first, so that a type can change although they do not fit the new one.
+    reset_parameters: bool = False
 
     @model_validator(mode="after")
     def _check_fields(self) -> TaskUpdate:
         sent = self.model_fields_set
         if not sent:
             raise ValueError("At least one field to change is required")
-        for name in ("title", "status"):
+        for name in ("title", "status", "parameters", "reset_parameters"):
             if name in sent and getattr(self, name) is None:
                 raise ValueError(f"{name} must not be null")
         return self
@@ -109,9 +121,17 @@ class TaskRead(BaseModel):
     pipeline_id: str | None
     stage_id: str | None
     action_id: str | None
+    type_id: str | None
+    #: The values of the type's parameters by name (only those that are set).
+    parameters: dict[str, Any]
     created_by: str
     created_at: UtcDateTime
     updated_at: UtcDateTime
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def _from_json(cls, value: Any) -> Any:
+        return json.loads(value) if isinstance(value, str) else value
 
 
 class LaneRead(BaseModel):

@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import undefer
 
+from openartifact.artifact_types.service import assign_new, assign_update
 from openartifact.database import SessionOpener
 from openartifact.engine import history as history_module
 from openartifact.engine import history_query
@@ -56,7 +57,19 @@ from openartifact.tasks.repository import ParentError, PlacementError, TaskRepos
 from openartifact.tasks.schemas import LaneRead, TaskCreate, TaskRead, TaskUpdate
 
 LANE_GONE = "The lane no longer exists."
-LOCKED_FIELDS = {"status", "before_id", "parent_id", "pipeline_id", "stage_id", "action_id"}
+LOCKED_FIELDS = {
+    "status",
+    "before_id",
+    "parent_id",
+    "pipeline_id",
+    "stage_id",
+    "action_id",
+    "type_id",
+    "parameters",
+    "reset_parameters",
+}
+#: The fields of a task update that change its type or its parameters.
+PARAMETER_FIELDS = {"type_id", "parameters", "reset_parameters"}
 
 
 #: The fields of a task that say where it starts.
@@ -359,6 +372,8 @@ class ArtifactService:
                 task = await TaskRepository(session).create(
                     data, status=status, created_by=created_by, target=target
                 )
+                assignment = await assign_new(session, data.type_id, data.parameters)
+                task.type_id, task.parameters = assignment.type_id, assignment.text
                 await session.commit()
             except lane_rules.LaneError as error:
                 raise ArtifactError(error.code, error.message) from error
@@ -388,8 +403,24 @@ class ArtifactService:
                     start_at = await resolve_target(session, *requested_target(task, payload))
                 except TargetError as error:
                     raise ArtifactError(422, str(error)) from error
+            assignment = None
+            if payload.model_fields_set & PARAMETER_FIELDS:
+                assignment = await assign_update(
+                    session,
+                    task,
+                    type_id=payload.type_id,
+                    type_sent="type_id" in payload.model_fields_set,
+                    values=payload.parameters,
+                    reset=payload.reset_parameters,
+                )
             try:
                 result = await repo.update(task, payload, start_at=start_at)
+                if assignment is not None and (assignment.type_id, assignment.text) != (
+                    task.type_id,
+                    task.parameters,
+                ):
+                    task.type_id, task.parameters = assignment.type_id, assignment.text
+                    result.changed.add("parameters")
                 if not result.changed and not result.renumbered:
                     return TaskRead.model_validate(task)
                 await session.commit()

@@ -196,9 +196,12 @@ class ContextNodeRead(BaseModel):
 class RunContextRead(BaseModel):
     """The context of an execution: ``vars`` set by Code nodes and ``nodes``, the latest result of each
     node by its key (the node's name with characters outside ``A-Za-z0-9_-`` as ``_``). Read it with
-    ``${var.NAME}`` and ``${node.KEY.output}`` in HTTP nodes, or from ``context.json`` in Code nodes."""
+    ``${var.NAME}`` and ``${node.KEY.output}`` in HTTP nodes, or from ``context.json`` in Code nodes.
+    ``card`` is a copy of the artifact's parameters taken when the execution started
+    (``${card.NAME}``); it does not follow later changes of the artifact."""
 
     vars: dict[str, Any]
+    card: dict[str, Any] = {}
     nodes: dict[str, ContextNodeRead]
 
     @classmethod
@@ -208,7 +211,7 @@ class RunContextRead(BaseModel):
         try:
             return cls.model_validate(data)
         except ValueError:
-            return cls(vars={}, nodes={})
+            return cls(vars={}, card={}, nodes={})
 
 
 class ExecutionDetail(ExecutionRead):

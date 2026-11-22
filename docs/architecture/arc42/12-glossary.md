@@ -41,7 +41,9 @@
 | Credential (secret) | A named value stored encrypted in the credential store (AES-256-GCM); nodes use it by name. Managed through the API only; values are never returned (ADR-024, [8.6](08-cross-cutting-concepts/08.06-credential-store.md)). |
 | Secret reference | How a node names a credential: `${secret:NAME}` in an HTTP node's path, query, headers or body, or a list of names in a Code node's `secrets` setting. |
 | Masking | Replacing a credential's value (as it is, percent-encoded, Base64, JSON-escaped) with `***` in a node's result and in log lines ([6.8](06-runtime-view/06.08-credential-resolution.md)). |
-| Run context | The variables and the latest result of every node that ran in an execution, stored in `executions.context` (at most 64 KiB), written with every step and read by later nodes (ADR-033). |
+| Artifact type | A kind of artifact the user defines (name plus typed parameters: text, number, boolean, choice); data, not code. An artifact has at most one (`tasks.type_id`) (ADR-035). |
+| Card parameter | A typed value of an artifact defined by its type, checked when saved and readable in runs as `${card.NAME}`; plain user data, never a secret (ADR-035). |
+| Run context | The `card` (the artifact's parameters at the start), the variables and the latest result of every node that ran in an execution, stored in `executions.context` (at most 64 KiB), written with every step and read by later nodes (ADR-033). |
 | Reference (context) | `${node.NAME.output}`, `${node.NAME.data.key}`, `${var.name}` in an HTTP node's URL path or query, header values or body; replaced by text when the node runs, fails the node if it cannot be resolved. Not the same as a secret reference. |
 | Variable | A named JSON value a Code node sets with `"vars"` in its result line; part of the run context. |
 | Branching node | An If or Switch node: compares values of the run context and leaves by a port of its own choice (`yes` / `no` / `else`, `case_1` ... `case_6` / `else`); `else` means the comparison could not be decided (ADR-034). |
