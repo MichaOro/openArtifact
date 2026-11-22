@@ -127,6 +127,13 @@
 .ge-node--timer { --node-color: var(--node-timer); }
 .ge-node--pipeline { --node-color: var(--node-pipeline); }
 .ge-node--complete { --node-color: var(--node-complete); }
+.ge-node--code,
+.ge-node--http { display: flex; align-items: center; gap: var(--space-3); padding: 0 4.5rem 0 var(--space-4); } /* room for On Pass / On Fail */
+.ge-node--code { --node-color: var(--node-code); }
+.ge-node--http { --node-color: var(--node-http); }
+.ge-node__icon { flex: none; width: 1.25rem; height: 1.25rem; color: var(--node-color); }
+.ge-node--code .ge-node__kind,
+.ge-node--http .ge-node__kind { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ge-node--output { --node-color: var(--node-output); padding: var(--space-3) var(--space-4); }
 .ge-node--stage { --node-color: var(--node-stage); background: var(--stage-bg); border-color: var(--stage-border); }
 .ge-node__text { display: flex; flex-direction: column; min-width: 0; }
@@ -205,7 +212,8 @@
 .ge-edge__hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
 .ge-edge__line { fill: none; stroke: var(--color-text-secondary); stroke-width: 2; pointer-events: none; }
 .ge-edge--pass .ge-edge__line { stroke: var(--edge-pass); }
-.ge-edge--error .ge-edge__line { stroke: var(--color-danger); stroke-dasharray: 6 4; }
+.ge-edge--error .ge-edge__line,
+.ge-edge--fail .ge-edge__line { stroke: var(--color-danger); stroke-dasharray: 6 4; }
 .ge-edge:hover .ge-edge__line,
 .ge-edge.is-selected .ge-edge__line { stroke-width: 3; }
 .ge-edge__line--draft { stroke: var(--color-accent); stroke-dasharray: 4 4; }
@@ -225,6 +233,7 @@
 .ge-inspector__heading p,
 .ge-inspector__note { font-size: 0.8125rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
 .ge-inspector__section { display: flex; flex-direction: column; gap: var(--space-3); }
+.ge-setting { display: flex; flex-direction: column; gap: var(--space-1); }
 .ge-inspector__section h3 {
   font-size: 0.75rem;
   letter-spacing: 0.06em;

@@ -13,14 +13,22 @@ export class InspectorPanel {
 
   /** @param {{type: "node"|"edge", id: string}|null} selection */
   render(selection) {
-    const key = this.element.contains(document.activeElement) ? document.activeElement.dataset.focusKey : null;
+    const active = document.activeElement;
+    const key = this.element.contains(active) ? active.dataset.focusKey : null;
+    const caret = key && typeof active.selectionStart === "number" ? [active.selectionStart, active.selectionEnd, active.scrollTop] : null;
     this.element.replaceChildren(...this.#content(selection));
-    if (key) this.element.querySelector(`[data-focus-key="${key}"]`)?.focus();
+    const control = key ? this.element.querySelector(`[data-focus-key="${key}"]`) : null;
+    if (!control) return;
+    control.focus();
+    if (caret && typeof control.setSelectionRange === "function") {
+      control.setSelectionRange(caret[0], caret[1]);
+      control.scrollTop = caret[2];
+    }
   }
 
   /** Move focus to the first control (Enter on a node). */
   focusFirst() {
-    this.element.querySelector("input, select, button")?.focus();
+    this.element.querySelector("input, select, textarea, button")?.focus();
   }
 
   #content(selection) {

@@ -35,9 +35,8 @@ ACTION_DEFINITION = GraphKind.ACTION
 #: A timer pauses for one second to one day.
 TIMER_MIN_SECONDS = 1
 TIMER_MAX_SECONDS = 86400
-#: Whether the "+" menu of the browser editor offers the Code and HTTP nodes. The editor's inspector
-#: draws only integer and switch settings so far; flip this to True together with its new controls.
-EXECUTION_NODES_ADDABLE = False
+#: Whether the "+" menu of the browser editor offers the Code and HTTP nodes.
+EXECUTION_NODES_ADDABLE = True
 CODE_MAX_CHARS = 20000
 HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
 SETTING_TYPES = ("integer", "switch", "text", "lines", "code", "select")

@@ -3,6 +3,7 @@
  * to); a view class adds how it looks and which inspector building blocks it shows. `NodeView` has the
  * common behaviour, a kind overrides only what differs. Kinds are registered with `registerView`, the
  * way an extension would add one (ADR-014). */
+import { icon } from "../components/icons.js";
 import { request } from "../http.js";
 
 export const HEADER = 44; // stage header height
@@ -17,6 +18,7 @@ export class NodeView {
   static kind = null;
   static size = { width: 160, height: 64 };
   static portLabels = false; // write the port names next to the ports
+  static icon = null; // an icon of icons.html shown in the card
 
   /** @param {object} description what the server says about the kind */
   constructor(description) {
@@ -38,11 +40,17 @@ export class NodeView {
     return this.displayName(node) === this.label ? null : this.label;
   }
 
+  /** The line under the title in the inspector. */
+  subtitle(node) {
+    return this.caption(node) ?? this.label;
+  }
+
   /** Fill the node element; the canvas adds the ports. */
   render(el, node, parts) {
     const text = document.createElement("div");
     text.className = "ge-node__text";
     text.append(parts.name, parts.caption);
+    if (this.constructor.icon) el.append(icon(this.constructor.icon, "ge-node__icon"));
     el.append(text);
   }
 
@@ -226,6 +234,48 @@ class OutputView extends NodeView {
   }
 }
 
+/** A step that does work and ends in On Pass or On Fail (the Code and HTTP nodes). */
+class ExecutionView extends NodeView {
+  static size = { width: 250, height: 84 };
+  static portLabels = true;
+
+  subtitle() {
+    return this.label;
+  }
+}
+
+class CodeView extends ExecutionView {
+  static kind = "code";
+  static icon = "code";
+
+  /** Language and first line of the code. */
+  caption(node) {
+    const first = (node.config?.code ?? "").split("\n").find((line) => line.trim() !== "");
+    return `${node.config?.language ?? "sh"} · ${first?.trim() ?? "no code yet"}`;
+  }
+}
+
+class HttpView extends ExecutionView {
+  static kind = "http";
+  static icon = "http";
+
+  /** Method, host and path; the query string (it may carry a token) is never shown. */
+  caption(node) {
+    const { method = "GET", url = "" } = node.config ?? {};
+    return `${method} ${hostAndPath(url) || "no URL yet"}`;
+  }
+}
+
+/** `https://user:pw@example.org/hook?token=x#y` as `example.org/hook`. */
+function hostAndPath(url) {
+  try {
+    const { host, pathname } = new URL(url);
+    return `${host}${pathname === "/" ? "" : pathname}`;
+  } catch {
+    return url.split(/[?#]/)[0].replace(/^[^/]*@/, "");
+  }
+}
+
 const VIEWS = new Map();
 
 /** Make a view class known for its kind (built-in kinds use this as an extension would). */
@@ -233,7 +283,7 @@ export function registerView(View) {
   VIEWS.set(View.kind, View);
 }
 
-[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView].forEach(registerView);
+[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView].forEach(registerView);
 
 const TYPES = new Map();
 

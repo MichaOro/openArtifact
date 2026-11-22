@@ -3,10 +3,10 @@
  * kind, the choice of what it links to, and one action row New · Edit · Delete. */
 import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
+import { field } from "./field.js";
 import { EDGE_STYLES, displayName } from "./geometry.js";
 import { typeOf } from "./node-types.js";
-
-let fieldCount = 0;
+import { createControl, settingValue } from "./setting-controls.js";
 
 /** Title and caption; `rename` ({label, onCommit}) makes the title editable in place. */
 export function heading(text, caption, rename = null) {
@@ -22,19 +22,6 @@ export function heading(text, caption, rename = null) {
     small.textContent = caption;
     wrap.append(small);
   }
-  return wrap;
-}
-
-/** A labelled control; `row` puts label and control on one line. */
-export function field(label, control, { row = false } = {}) {
-  const wrap = document.createElement("div");
-  wrap.className = row ? "field field--row" : "field";
-  const text = document.createElement("label");
-  text.className = "field__label";
-  text.textContent = label;
-  control.id ||= `ge-field-${(fieldCount += 1)}`;
-  text.htmlFor = control.id;
-  wrap.append(text, control);
   return wrap;
 }
 
@@ -57,50 +44,9 @@ function section(title, ...children) {
   return wrap;
 }
 
-/** An On / Off switch with its state written in it. */
-function switchControl(key, on, onChange) {
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "ge-switch";
-  toggle.dataset.focusKey = `setting-${key}`;
-  toggle.setAttribute("role", "switch");
-  toggle.setAttribute("aria-checked", String(on));
-  const state = document.createElement("span");
-  state.className = "ge-switch__state";
-  state.textContent = on ? "On" : "Off";
-  const thumb = document.createElement("span");
-  thumb.className = "ge-switch__thumb";
-  toggle.append(state, thumb);
-  toggle.addEventListener("click", () => onChange(!on));
-  return toggle;
-}
-
-function integerControl(setting, value, onChange) {
-  const input = document.createElement("input");
-  input.className = "field__control";
-  input.dataset.focusKey = `setting-${setting.key}`;
-  input.type = "number";
-  input.step = "1";
-  if (setting.minimum != null) input.min = String(setting.minimum);
-  if (setting.maximum != null) input.max = String(setting.maximum);
-  input.value = String(value ?? setting.default ?? "");
-  input.addEventListener("change", () => {
-    let number = Math.round(Number(input.value));
-    if (!Number.isFinite(number)) number = value;
-    if (setting.minimum != null) number = Math.max(setting.minimum, number);
-    if (setting.maximum != null) number = Math.min(setting.maximum, number);
-    input.value = String(number);
-    if (number !== value) onChange(number);
-  });
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") input.blur();
-  });
-  return input;
-}
-
 /**
  * The blocks for one editor. `editor` provides what the blocks do:
- *   setSetting(node, key, value), link(node, targetId), askNew(node), linkUrl(node), remove(node),
+ *   saveSetting(node, setting, value) (resolves to null, or to why it was refused), link(node, targetId), askNew(node), linkUrl(node), remove(node),
  *   addAction(stage), listTargets(kind), showError(message), renameNode(node, name),
  *   renameGraph(name), removeEdge(id), restyle(edge, style)
  * `model` is the GraphModel the blocks describe.
@@ -128,7 +74,7 @@ export class InspectorBlocks {
   title(node) {
     const type = typeOf(node);
     const rename = type.renamable(node) ? { label: `${type.label} name`, onCommit: (name) => this.editor.renameNode(node, name) } : null;
-    return heading(displayName(node), type.caption(node) ?? type.label, rename);
+    return heading(displayName(node), type.subtitle(node), rename);
   }
 
   /** A connection: where it goes, its line style, and removing it. */
@@ -160,18 +106,12 @@ export class InspectorBlocks {
     return [heading("Connection", route), field("Line", styles), remove];
   }
 
-  /** The kind's settings (a number, a switch ...), or nothing. */
+  /** The kind's settings, one control per setting (see setting-controls.js), or nothing. */
   settings(node) {
     const settings = typeOf(node).settings;
     if (!settings.length) return null;
-    return section(
-      null,
-      ...settings.map((setting) =>
-        setting.type === "switch"
-          ? field(setting.label, switchControl(setting.key, Boolean(node[setting.key]), (on) => this.editor.setSetting(node, setting.key, on)), { row: true })
-          : field(setting.label, integerControl(setting, node[setting.key], (n) => this.editor.setSetting(node, setting.key, n))),
-      ),
-    );
+    const controls = settings.map((setting) => createControl(setting, settingValue(node, setting), (value) => this.editor.saveSetting(node, setting, value)));
+    return section(null, ...controls.map((control) => control.element));
   }
 
   /** The choice of what the node links to (an action definition, a pipeline to call). */

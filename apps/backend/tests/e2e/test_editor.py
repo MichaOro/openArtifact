@@ -411,7 +411,9 @@ def test_create_an_action_definition_from_the_navigation(
     expect(page.locator(".ge-node--trigger")).to_have_count(1)
     expect(page.locator(".ge-node--output")).to_have_count(1)
     page.click("[data-add-menu]")
-    expect(page.locator("[data-add-list] [data-add]")).to_have_text(["Timer"])
+    expect(page.locator("[data-add-list] [data-add]")).to_have_text(
+        ["Timer", "Code", "HTTP request"]
+    )
 
 
 def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(

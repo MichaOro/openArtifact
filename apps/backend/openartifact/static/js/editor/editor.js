@@ -218,13 +218,24 @@ export class GraphEditor {
     return this.#renderInspector();
   }
 
-  /** Change a setting of the node's kind; connections at ports that are gone with it go too. */
-  async #setSetting(node, key, value) {
-    node[key] = value;
-    this.model.dropHiddenEdges(node);
+  /**
+   * Save one setting of a node: a column of the node, or a key of its `config` (the server's
+   * description says which). Resolves to null, or to why the server refused it; a refusal changes
+   * nothing here, so what the user typed stays in the inspector.
+   */
+  async #saveSetting(node, setting, value) {
+    const inConfig = setting.stored_in === "config";
+    try {
+      const updated = await this.model.updateNode(node.id, inConfig ? { config: { [setting.key]: value } } : { [setting.key]: value });
+      if (inConfig) node.config = updated.config;
+      else node[setting.key] = updated[setting.key];
+    } catch (error) {
+      return error.detail ?? Object.values(error.fieldErrors ?? {})[0] ?? error.message;
+    }
+    this.model.dropHiddenEdges(node); // connections at ports that are gone with it (e.g. no On Fail)
     this.canvas.sync();
-    this.#renderInspector();
-    await this.#save(() => this.model.updateNode(node.id, { [key]: value }));
+    this.alert.hide();
+    return null;
   }
 
   async #renameGraph(name) {
@@ -295,7 +306,7 @@ export class GraphEditor {
 
   #blockActions() {
     return {
-      setSetting: (node, key, value) => this.#setSetting(node, key, value),
+      saveSetting: (node, setting, value) => this.#saveSetting(node, setting, value),
       link: (node, targetId) => this.#link(node, targetId),
       askNew: (node) => this.#askNew(node),
       linkUrl: (node) => this.#linkUrl(node, node.definition_slug),

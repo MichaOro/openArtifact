@@ -13,6 +13,7 @@ const DRAG_THRESHOLD = 4;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
 const NUDGE = 8;
+const FAILING_PORTS = ["error", "fail"]; // their connections are drawn as failures
 
 const svg = (name, attributes = {}) => {
   const el = document.createElementNS(SVG_NS, name);
@@ -144,7 +145,7 @@ export class Canvas {
       const d = edgePath(portPoint(source, edge.source_port, this.nodes, edge.source_slot), portPoint(target, edge.target_port, this.nodes, edge.target_slot), boxOf(source, this.nodes), boxOf(target, this.nodes), { style: edge.style });
       const group = svg("g", { class: `ge-edge ge-edge--${edge.source_port}`, "data-edge-id": edge.id });
       if (this.selection?.type === "edge" && this.selection.id === edge.id) group.classList.add("is-selected");
-      group.append(svg("path", { class: "ge-edge__hit", d }), svg("path", { class: "ge-edge__line", d, "marker-end": `url(#ge-arrow-${edge.source_port === "error" ? "error" : "pass"})` }));
+      group.append(svg("path", { class: "ge-edge__hit", d }), svg("path", { class: "ge-edge__line", d, "marker-end": `url(#ge-arrow-${FAILING_PORTS.includes(edge.source_port) ? "error" : "pass"})` }));
       this.edgeLayer.append(group);
       used.add(`${edge.source_id}|${edge.source_port}|${edge.source_slot}`).add(`${edge.target_id}|${edge.target_port}|${edge.target_slot}`);
     }

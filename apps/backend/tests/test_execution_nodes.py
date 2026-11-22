@@ -146,9 +146,9 @@ def test_the_old_settings_keep_their_shape(client: TestClient) -> None:
     assert described["output"]["settings"][0]["type"] == "switch"
 
 
-def test_the_kinds_are_not_offered_by_the_menu_until_the_editor_can_draw_them() -> None:
-    assert NODE_TYPES[NodeKind.CODE].addable is False
-    assert NODE_TYPES[NodeKind.HTTP].addable is False
+def test_the_menu_offers_the_execution_kinds_the_editor_can_draw() -> None:
+    assert NODE_TYPES[NodeKind.CODE].addable is True
+    assert NODE_TYPES[NodeKind.HTTP].addable is True
     assert NODE_TYPES[NodeKind.TIMER].addable is True
 
 
