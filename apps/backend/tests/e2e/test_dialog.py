@@ -245,6 +245,21 @@ def test_a_short_artifact_keeps_the_base_width(board: Board) -> None:
     assert height < 700  # as tall as its content, not as tall as the window
 
 
+def test_a_medium_artifact_leaves_no_empty_space_below_the_text(board: Board) -> None:
+    """The height is measured at the width the dialog ends up with, so the text fills it."""
+    board.page.set_viewport_size({"width": 1312, "height": 1400})
+    board.create(
+        "Plan",
+        body="A line of text that is long enough to wrap in a narrow card. " * 3 + "Item\n" * 28,
+    )
+    dialog = board.open().open_card("Plan")
+    dialog.settle()
+    body = dialog.root.locator("[data-task-view] .modal__body")
+    spare = body.evaluate("el => el.clientHeight - el.scrollHeight")
+    assert 0 <= spare <= 48, f"{spare}px empty below the text, panel {_size(dialog)}"
+    assert _size(dialog)[1] < 1400 * 0.9
+
+
 def test_the_size_is_identical_in_view_and_edit_and_after_saving(board: Board) -> None:
     board.page.set_viewport_size({"width": 1312, "height": 1400})
     board.create("Plan", body="Some text\n" * 12)

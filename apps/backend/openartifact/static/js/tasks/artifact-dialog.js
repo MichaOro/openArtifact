@@ -8,6 +8,7 @@ import { renderReferences } from "./references.js";
 
 /** Share of the viewport height a saved artifact's dialog may use at most. */
 const AVAILABLE_HEIGHT = 0.9;
+const FIT_SLACK = 10;
 
 export class ArtifactDialog extends FormDialog {
   /**
@@ -48,7 +49,7 @@ export class ArtifactDialog extends FormDialog {
     this.parentValue = root.querySelector("[data-parent-value]");
     this.panel = root.querySelector(".modal__panel");
     /** Height of the saved artifact's content without any limit; measured when it is opened. */
-    this.naturalHeight = 0;
+    this.fittedHeight = 0;
     this.view = root.querySelector("[data-task-view]");
     this.viewTitle = root.querySelector("[data-view-title]");
     this.viewBody = root.querySelector("[data-view-body]");
@@ -159,11 +160,35 @@ export class ArtifactDialog extends FormDialog {
   }
 
   /** Size the dialog from the content of the artifact just opened; view and edit keep that size. */
+  /** Size the dialog once from its content (see .modal__panel--fit): the smallest height whose
+   * resulting width (0.62 x height, within the limits) lets the content fit, at most 90 % of the window. */
   #fit() {
     this.#unfit();
-    this.naturalHeight = this.panel.offsetHeight;
     this.panel.classList.add("modal__panel--fit");
+    const limit = Math.floor(window.innerHeight * AVAILABLE_HEIGHT);
+    if (this.#contentHeightAt(limit) > limit) {
+      this.fittedHeight = limit; // more than the window allows: the body scrolls
+    } else {
+      // the content's height falls as the height (so the width) grows: find where they meet
+      let low = 0;
+      let high = limit;
+      for (let i = 0; i < 10 && high - low > 4; i++) {
+        const middle = Math.floor((low + high) / 2);
+        if (this.#contentHeightAt(middle) <= middle) high = middle;
+        else low = middle;
+      }
+      this.fittedHeight = Math.min(high + FIT_SLACK, limit); // rounding between measuring and the fixed layout
+    }
     this.#applyFit();
+  }
+
+  /** The height the content needs when the dialog's height (and so its width) is `height`. */
+  #contentHeightAt(height) {
+    this.panel.style.setProperty("--fit-h", `${height}px`);
+    this.panel.dataset.measuring = "";
+    const needed = this.panel.offsetHeight;
+    delete this.panel.dataset.measuring;
+    return needed;
   }
 
   #unfit() {
@@ -171,10 +196,10 @@ export class ArtifactDialog extends FormDialog {
     this.panel.style.removeProperty("--fit-h");
   }
 
-  /** Height: the content, but at most AVAILABLE_HEIGHT of the window. The width follows in CSS. */
+  /** Height: the fitted one, but at most AVAILABLE_HEIGHT of the window. The width follows in CSS. */
   #applyFit() {
     if (!this.panel.classList.contains("modal__panel--fit")) return;
-    const height = Math.min(this.naturalHeight, Math.floor(window.innerHeight * AVAILABLE_HEIGHT));
+    const height = Math.min(this.fittedHeight, Math.floor(window.innerHeight * AVAILABLE_HEIGHT));
     this.panel.style.setProperty("--fit-h", `${height}px`);
   }
 

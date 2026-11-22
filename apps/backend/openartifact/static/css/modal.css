@@ -123,6 +123,7 @@ html:has(.modal[open]) { overflow: hidden; }
     calc(100vw - 2 * var(--space-4) - var(--rail-w-open))
   );
 }
+.modal__panel--fit[data-measuring] { height: auto; }
 .modal__panel--fit .modal__layout { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
 .modal__panel--fit .task-view,
 .modal__panel--fit .task-form { min-height: 0; }
