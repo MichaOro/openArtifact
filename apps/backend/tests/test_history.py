@@ -608,6 +608,25 @@ def test_the_integration_api_mirrors_the_history(secured: TestClient) -> None:
     assert bare.get(f"/api/tasks/{task['id']}/executions").status_code == 401
 
 
+def test_an_execution_records_how_it_was_started(secured: TestClient) -> None:
+    """The history says whether the browser, the integration API or the MCP server started a run."""
+    pipeline, task = build_pipeline(secured, stages=1), make_task(secured)
+    ref = task["number"]
+    _run(secured, pipeline, task, "done")
+    assert (
+        secured.post(
+            f"/api/v1/artifacts/{ref}/run", json={"pipeline_id": pipeline["id"]}
+        ).status_code
+        == 201
+    )
+    wait_for_run(secured, task, "done", where=lambda run: run["execution_number"] == 2)
+    started = _mcp_tool(secured, "start_processing", artifact=str(ref), pipeline=pipeline["id"])
+    assert not started.get("isError"), started
+    wait_for_run(secured, task, "done", where=lambda run: run["execution_number"] == 3)
+    items = secured.get(f"/api/tasks/{task['id']}/executions").json()["items"]
+    assert [(e["number"], e["started_by"]) for e in items] == [(3, "mcp"), (2, "api"), (1, "user")]
+
+
 def test_mcp_reads_the_history_and_cannot_delete(secured: TestClient) -> None:
     pipeline, task = build_pipeline(secured, stages=1), make_task(secured)
     _run(secured, pipeline, task, "done")
@@ -783,3 +802,29 @@ def test_a_migrated_database_shows_the_old_run_as_execution_one(
         assert client.get("/api/tasks/t2/executions").json()["items"][0]["status"] == "stopped"
         run = next(r for r in client.get("/api/runs").json() if r["task_id"] == "t1")
         assert (run["execution_number"], len(run["node_results"])) == (1, 2)
+
+
+def test_migration_0024_allows_api_and_mcp_and_downgrades_to_system(
+    unmigrated_settings: Settings,
+) -> None:
+    path = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+    cfg = alembic_config()
+    command.upgrade(cfg, "0023")
+    _seed_old_runs(path)
+    with sqlite3.connect(path) as conn, pytest.raises(sqlite3.IntegrityError):
+        conn.execute("UPDATE pipeline_runs SET started_by = 'api'")  # before: only user and system
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE pipeline_runs SET started_by = 'api' WHERE task_id = 't1'")
+        conn.execute("UPDATE pipeline_runs SET started_by = 'mcp' WHERE task_id = 't2'")
+        conn.execute("UPDATE executions SET started_by = 'api' WHERE task_id = 't1'")
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute("UPDATE pipeline_runs SET started_by = 'robot'")
+    command.downgrade(cfg, "0023")
+    with sqlite3.connect(path) as conn:
+        assert {r[0] for r in conn.execute("SELECT started_by FROM pipeline_runs")} <= {
+            "user",
+            "system",
+        }
+        assert "api" not in {r[0] for r in conn.execute("SELECT started_by FROM executions")}
+    command.upgrade(cfg, "head")

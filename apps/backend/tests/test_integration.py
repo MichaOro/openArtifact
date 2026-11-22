@@ -94,7 +94,7 @@ def test_creating_and_starting_are_two_calls(api: TestClient) -> None:
     started = api.post(f"/api/v1/artifacts/{created['number']}/run")  # the artifact's own pipeline
     assert started.status_code == 201, started.text
     assert (started.json()["started_by"], started.json()["root_pipeline_id"]) == (
-        "system",
+        "api",
         pipeline["id"],
     )
     run = wait_until(
@@ -227,7 +227,7 @@ def test_an_agent_follows_an_artifact(api: TestClient) -> None:
     assert status["status"] == "done"
     assert status["root_pipeline_id"] == pipeline["id"]
     assert [s["status"] for s in status["stages"]] == ["passed"]
-    assert status["started_by"] == "system"
+    assert status["started_by"] == "mcp"
 
 
 def test_an_agent_lists_pipelines_and_artifacts_and_reads_one(api: TestClient) -> None:
@@ -394,8 +394,8 @@ def test_every_interface_starts_a_run_through_the_one_engine_path(
 
     assert calls == [
         (tasks[0]["id"], "user"),
-        (tasks[1]["id"], "system"),
-        (tasks[2]["id"], "system"),
+        (tasks[1]["id"], "api"),
+        (tasks[2]["id"], "mcp"),
     ]
     for task in tasks:
         wait_for_run(api, task, "done")

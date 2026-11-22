@@ -160,7 +160,7 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
         Stages before the starting stage count as done."""
         pipeline_id, stage_id, action_id = await _target(service, pipeline, stage, action)
         run = await guarded(
-            service.start(artifact, pipeline_id, stage_id, action_id, started_by=StartedBy.SYSTEM)
+            service.start(artifact, pipeline_id, stage_id, action_id, started_by=StartedBy.MCP)
         )
         return run.model_dump(mode="json")
 

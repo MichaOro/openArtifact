@@ -219,10 +219,13 @@ class CreatedBy(enum.StrEnum):
 
 
 class StartedBy(enum.StrEnum):
-    """Who started a run (``pipeline_runs.started_by``); the business logic is the same for both."""
+    """How a run was started (``pipeline_runs.started_by``, ``executions.started_by``); the business
+    logic is the same for all of them, the history shows the way."""
 
-    USER = "user"
-    SYSTEM = "system"
+    USER = "user"  # the browser
+    API = "api"  # the REST integration API
+    MCP = "mcp"  # the MCP server
+    SYSTEM = "system"  # the application itself
 
 
 class RunStatus(enum.StrEnum):
@@ -371,7 +374,7 @@ class PipelineRun(Base):
 
     Attributes:
         status: ``running``, ``stopped``, ``done`` or ``failed``.
-        started_by: ``user`` or ``system``; the business logic is the same for both.
+        started_by: ``user``, ``api``, ``mcp`` or ``system`` (see :class:`StartedBy`).
         stage_id, action_id: Where the run is (node ids of the frozen pipeline).
         note: Why it stopped or failed.
         snapshot: JSON copy of the pipeline and the action definitions it uses, taken at the start.
@@ -414,7 +417,7 @@ class Execution(Base):
         final_stage_name, final_action_name: Where the run was when the execution ended.
         status: ``running``, ``done``, ``failed`` or ``stopped`` (``RunStatus``).
         note: Why it stopped or failed.
-        started_by: ``user`` or ``system``.
+        started_by: ``user``, ``api``, ``mcp`` or ``system``.
         step_count: Number of steps recorded in ``run_node_results``.
         snapshot: The frozen pipeline (JSON), so the execution can be shown as a graph later; deferred.
         finished_at: ``None`` while it runs.

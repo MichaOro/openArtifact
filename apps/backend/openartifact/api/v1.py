@@ -96,7 +96,7 @@ async def start_run(ref: str, service: ServiceDep, payload: RunStart | None = No
     """Start processing. Without a body it starts with the pipeline, stage and action the artifact has."""
     body = payload or RunStart()
     return await service.start(
-        ref, body.pipeline_id, body.stage_id, body.action_id, started_by=StartedBy.SYSTEM
+        ref, body.pipeline_id, body.stage_id, body.action_id, started_by=StartedBy.API
     )
 
 
