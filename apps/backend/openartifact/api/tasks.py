@@ -2,32 +2,18 @@
 
 A thin layer over :class:`~openartifact.tasks.service.ArtifactService`, which holds the rules and
 publishes the events (see ``GET /api/events``) so that all connected browsers update without polling.
+A refused request is an ``ArtifactError``; the application answers it (see ``app.py``).
 """
 
 from __future__ import annotations
 
-from typing import Annotated
+from fastapi import APIRouter, Response, status
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-
+from openartifact.api.deps import ServiceDep
+from openartifact.models import CreatedBy
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
-from openartifact.tasks.service import ArtifactError, ArtifactService
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
-
-
-def get_artifacts(request: Request) -> ArtifactService:
-    """The application's artifact service."""
-    service: ArtifactService = request.app.state.artifacts
-    return service
-
-
-ServiceDep = Annotated[ArtifactService, Depends(get_artifacts)]
-
-
-def to_http(error: ArtifactError) -> HTTPException:
-    """The HTTP form of a refused request."""
-    return HTTPException(status_code=error.status, detail=error.message)
 
 
 @router.get("", response_model=list[TaskRead])
@@ -39,10 +25,7 @@ async def list_tasks(service: ServiceDep) -> list[TaskRead]:
 @router.get("/{task_id}", response_model=TaskRead)
 async def get_task(task_id: str, service: ServiceDep) -> TaskRead:
     """One task by id."""
-    try:
-        return await service.get(task_id)
-    except ArtifactError as error:
-        raise to_http(error) from error
+    return await service.get(task_id)
 
 
 @router.post("", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
@@ -54,10 +37,7 @@ async def create_task(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     ``stage_id`` and ``action_id``, default the first ones) says where it starts. Publishes
     ``task.created``.
     """
-    try:
-        return await service.create(payload, created_by="user")
-    except ArtifactError as error:
-        raise to_http(error) from error
+    return await service.create(payload, created_by=CreatedBy.USER)
 
 
 @router.patch("/{task_id}", response_model=TaskRead)
@@ -70,18 +50,12 @@ async def update_task(task_id: str, payload: TaskUpdate, service: ServiceDep) ->
     is processed. Publishes ``task.moved`` when only lane/order changed, ``task.updated`` for any
     other change (and ``board.resync`` if neighbours had to be renumbered).
     """
-    try:
-        return await service.update(task_id, payload)
-    except ArtifactError as error:
-        raise to_http(error) from error
+    return await service.update(task_id, payload)
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(task_id: str, service: ServiceDep) -> Response:
     """Delete a task (not while it is processed). Publishes ``task.deleted``; its children become
     parentless (resync)."""
-    try:
-        await service.delete(task_id)
-    except ArtifactError as error:
-        raise to_http(error) from error
+    await service.delete(task_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

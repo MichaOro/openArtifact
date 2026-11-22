@@ -3,24 +3,22 @@
 The tools are a thin layer over :class:`~openartifact.tasks.service.ArtifactService`, the same
 operations the REST API offers, with names instead of ids where an agent would use them: a pipeline,
 stage or action may be given by name, an artifact by its number (``12`` or ``#12``). Creating and
-starting an artifact are separate tools. A request needs the API token (``Authorization: Bearer``).
+starting an artifact are separate tools. A request needs the API token (``Authorization: Bearer``),
+which :class:`~openartifact.security.TokenProtected` checks before the request reaches this server.
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Awaitable
 from typing import Any
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from starlette.responses import JSONResponse
-from starlette.types import ASGIApp, Receive, Scope, Send
 
-from openartifact.api.auth import token_error
-from openartifact.models import TaskStatus
+from openartifact.exceptions import ArtifactError
+from openartifact.models import CreatedBy, StartedBy, TaskStatus
 from openartifact.tasks.schemas import TaskCreate, TaskUpdate
-from openartifact.tasks.service import ArtifactError, ArtifactService
+from openartifact.tasks.service import ArtifactService
 
 INSTRUCTIONS = (
     "OpenArtifact is a Kanban board whose cards (artifacts) are processed by pipelines. "
@@ -33,6 +31,14 @@ INSTRUCTIONS = (
 class McpError(ToolError):
     """A tool call that cannot be done; the message goes back to the agent (any other exception
     would reach it only as "Error executing tool")."""
+
+
+def _lane(value: str) -> TaskStatus:
+    try:
+        return TaskStatus(value)
+    except ValueError as error:
+        *first, last = (s.value for s in TaskStatus)
+        raise McpError(f"lane must be {', '.join(first)} or {last}") from error
 
 
 def _named(items: list[dict[str, Any]], wanted: str, what: str) -> dict[str, Any]:
@@ -105,10 +111,7 @@ def build_mcp(service: ArtifactService) -> MCPServer:
         """Create an artifact (card). ``lane`` is backlog, in_progress or done; ``parent`` is the number of
         another artifact; ``pipeline`` (by name) is where it starts, with the first stage and its first
         action unless ``stage`` and ``action`` (by name) say otherwise. It is not started."""
-        try:
-            lane_value = TaskStatus(lane)
-        except ValueError as error:
-            raise McpError("lane must be backlog, in_progress or done") from error
+        lane_value = _lane(lane)
         pipeline_id, stage_id, action_id = await _target(service, pipeline, stage, action)
         parent_id = (await guarded(service.get(parent))).id if parent else None
         data = TaskCreate(
@@ -120,7 +123,9 @@ def build_mcp(service: ArtifactService) -> MCPServer:
             stage_id=stage_id,
             action_id=action_id,
         )
-        return (await guarded(service.create(data, created_by="mcp"))).model_dump(mode="json")
+        return (await guarded(service.create(data, created_by=CreatedBy.MCP))).model_dump(
+            mode="json"
+        )
 
     @mcp.tool()
     async def update_artifact(
@@ -136,10 +141,7 @@ def build_mcp(service: ArtifactService) -> MCPServer:
         if body is not None:
             fields["body"] = body
         if lane is not None:
-            try:
-                fields["status"] = TaskStatus(lane)
-            except ValueError as error:
-                raise McpError("lane must be backlog, in_progress or done") from error
+            fields["status"] = _lane(lane)
         if not fields:
             raise McpError("Give a title, a body or a lane to change")
         return (await guarded(service.update(artifact, TaskUpdate(**fields)))).model_dump(
@@ -156,14 +158,15 @@ def build_mcp(service: ArtifactService) -> MCPServer:
         """Start processing an artifact. Without a choice it starts with the pipeline, stage and action it has.
         Stages before the starting stage count as done."""
         pipeline_id, stage_id, action_id = await _target(service, pipeline, stage, action)
-        return await guarded(
-            service.start(artifact, pipeline_id, stage_id, action_id, started_by="system")
+        run = await guarded(
+            service.start(artifact, pipeline_id, stage_id, action_id, started_by=StartedBy.SYSTEM)
         )
+        return run.model_dump(mode="json")
 
     @mcp.tool()
     async def stop_processing(artifact: str) -> dict[str, Any]:
         """Stop processing an artifact; it keeps its stage and action."""
-        return await guarded(service.stop(artifact))
+        return (await guarded(service.stop(artifact))).model_dump(mode="json")
 
     @mcp.tool()
     async def get_processing_status(artifact: str) -> dict[str, Any]:
@@ -171,27 +174,6 @@ def build_mcp(service: ArtifactService) -> MCPServer:
         run = await guarded(service.run(artifact))
         if run is None:
             return {"status": "never processed"}
-        result: dict[str, Any] = json.loads(json.dumps(run, default=str))
-        return result
+        return run.model_dump(mode="json")
 
     return mcp
-
-
-class TokenProtected:
-    """ASGI wrapper that lets a request through only with the API token."""
-
-    def __init__(self, app: ASGIApp, token: str) -> None:
-        self.app = app
-        self.token = token
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http":
-            header = dict(scope["headers"]).get(b"authorization")
-            message = token_error(self.token, header.decode() if header else None)
-            if message is not None:
-                response = JSONResponse(
-                    {"detail": message}, status_code=401, headers={"WWW-Authenticate": "Bearer"}
-                )
-                await response(scope, receive, send)
-                return
-        await self.app(scope, receive, send)

@@ -13,13 +13,28 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from openartifact.models import NodeKind
+from openartifact.models import GraphKind, NodeKind
 
 if TYPE_CHECKING:
     from openartifact.graph.rules import Endpoint
 
-PIPELINE = "pipeline"  # the kind of a graphs row that is a pipeline
-ACTION_DEFINITION = "action"
+PIPELINE = GraphKind.PIPELINE
+ACTION_DEFINITION = GraphKind.ACTION
+#: A timer pauses for one second to one day.
+TIMER_MIN_SECONDS = 1
+TIMER_MAX_SECONDS = 86400
+
+
+class Ports:
+    """The names of the connectors that the rules and the engine refer to."""
+
+    IN = "in"
+    OUT = "out"
+    START = "start"
+    END = "end"
+    PASS = "pass"
+    ERROR = "error"
+    FAIL = "fail"
 
 
 @dataclass(frozen=True)
@@ -47,7 +62,7 @@ class NodeType:
 
     kind: ClassVar[NodeKind]
     label: ClassVar[str]
-    scopes: ClassVar[frozenset[str]] = frozenset({PIPELINE})
+    scopes: ClassVar[frozenset[GraphKind]] = frozenset({PIPELINE})
     fixed: ClassVar[bool] = False  # comes with the graph, cannot be added or deleted
     addable: ClassVar[bool] = False  # offered in the "+" menu
     chain: ClassVar[bool] = False  # a step of the main line (new ones are placed after these)
@@ -55,7 +70,9 @@ class NodeType:
     inputs: ClassVar[tuple[Port, ...]] = ()
     outputs: ClassVar[tuple[Port, ...]] = ()
     settings: ClassVar[tuple[Setting, ...]] = ()
-    links_to: ClassVar[str | None] = None  # the kind of graphs row ``definition_id`` points at
+    links_to: ClassVar[GraphKind | None] = (
+        None  # the kind of graphs row ``definition_id`` points at
+    )
     size: ClassVar[tuple[float, float] | None] = None  # only stages store a size of their own
 
     @property
@@ -80,7 +97,7 @@ class NodeType:
             return f"A {self.kind.value} cannot feed itself"
         if target.kind is NodeKind.ACTION:
             return "Stages connect to stages; actions are reached from inside a stage"
-        if target.kind is NodeKind.STAGE and target_port != "start":
+        if target.kind is NodeKind.STAGE and target_port != Ports.START:
             return "The end of a stage is fed by its own actions"
         return None
 
@@ -89,7 +106,7 @@ class NodeType:
         return {
             "kind": self.kind.value,
             "label": self.label,
-            "scopes": sorted(self.scopes),
+            "scopes": sorted(s.value for s in self.scopes),
             "fixed": self.fixed,
             "addable": self.addable,
             "chain": self.chain,
@@ -97,7 +114,7 @@ class NodeType:
             "inputs": [{"name": p.name, "label": p.label} for p in self.inputs],
             "outputs": [{"name": p.name, "label": p.label} for p in self.outputs],
             "settings": [s.__dict__ for s in self.settings],
-            "links_to": self.links_to,
+            "links_to": self.links_to.value if self.links_to else None,
         }
 
 
@@ -107,7 +124,7 @@ class TriggerType(NodeType):
     scopes = frozenset({PIPELINE, ACTION_DEFINITION})
     fixed = True
     chain = True
-    outputs = (Port("out", "Next"),)
+    outputs = (Port(Ports.OUT, "Next"),)
 
 
 class StageType(NodeType):
@@ -118,14 +135,14 @@ class StageType(NodeType):
     label = "Stage"
     addable = True
     chain = True
-    inputs = (Port("start", "Start"), Port("end", "End"))
-    outputs = (Port("start", "First action"), Port("end", "Next"))
+    inputs = (Port(Ports.START, "Start"), Port(Ports.END, "End"))
+    outputs = (Port(Ports.START, "First action"), Port(Ports.END, "Next"))
     size = (360.0, 240.0)
 
     def connect_error(
         self, source: Endpoint, source_port: str, target: Endpoint, target_port: str
     ) -> str | None:
-        if source_port == "start":
+        if source_port == Ports.START:
             if target.kind is not NodeKind.ACTION or target.stage_id != source.id:
                 return "The start of a stage connects to an action inside that stage"
             return None
@@ -139,8 +156,8 @@ class ActionType(NodeType):
 
     kind = NodeKind.ACTION
     label = "Action"
-    inputs = (Port("in", "Input"),)
-    outputs = (Port("pass", "On Pass"), Port("error", "On Error"))
+    inputs = (Port(Ports.IN, "Input"),)
+    outputs = (Port(Ports.PASS, "On Pass"), Port(Ports.ERROR, "On Error"))
     links_to = ACTION_DEFINITION
 
     def connect_error(
@@ -150,7 +167,7 @@ class ActionType(NodeType):
             if target.stage_id != source.stage_id:
                 return "Actions connect only to actions of their own stage"
             return None
-        if target.kind is NodeKind.STAGE and target_port == "end":
+        if target.kind is NodeKind.STAGE and target_port == Ports.END:
             return (
                 None
                 if target.id == source.stage_id
@@ -166,8 +183,8 @@ class PipelineNodeType(NodeType):
     label = "Pipeline"
     addable = True
     chain = True
-    inputs = (Port("in", "Input"),)
-    outputs = (Port("out", "Next"),)
+    inputs = (Port(Ports.IN, "Input"),)
+    outputs = (Port(Ports.OUT, "Next"),)
     links_to = PIPELINE
 
 
@@ -176,7 +193,7 @@ class CompleteType(NodeType):
     label = "Complete"
     fixed = True
     ending = True
-    inputs = (Port("in", "Input"),)
+    inputs = (Port(Ports.IN, "Input"),)
 
 
 class TimerType(NodeType):
@@ -185,9 +202,18 @@ class TimerType(NodeType):
     scopes = frozenset({ACTION_DEFINITION})
     addable = True
     chain = True
-    inputs = (Port("in", "Input"),)
-    outputs = (Port("out", "Next"),)
-    settings = (Setting("seconds", "Seconds", "integer", minimum=1, maximum=86400, default=5),)
+    inputs = (Port(Ports.IN, "Input"),)
+    outputs = (Port(Ports.OUT, "Next"),)
+    settings = (
+        Setting(
+            "seconds",
+            "Seconds",
+            "integer",
+            minimum=TIMER_MIN_SECONDS,
+            maximum=TIMER_MAX_SECONDS,
+            default=5,
+        ),
+    )
 
 
 class OutputType(NodeType):
@@ -198,7 +224,7 @@ class OutputType(NodeType):
     scopes = frozenset({ACTION_DEFINITION})
     fixed = True
     ending = True
-    inputs = (Port("pass", "On Pass"), Port("fail", "On Fail"))
+    inputs = (Port(Ports.PASS, "On Pass"), Port(Ports.FAIL, "On Fail"))
     settings = (Setting("fail_enabled", "On Fail", "switch", default=False),)
 
 
@@ -215,12 +241,12 @@ def node_type(kind: NodeKind | str) -> NodeType:
     return NODE_TYPES[NodeKind(kind)]
 
 
-def kinds_in(scope: str) -> set[NodeKind]:
+def kinds_in(scope: GraphKind) -> set[NodeKind]:
     """The kinds a pipeline (``pipeline``) or an action definition (``action``) may contain."""
     return {t.kind for t in NODE_TYPES.values() if scope in t.scopes}
 
 
-def fixed_in(scope: str) -> list[NodeType]:
+def fixed_in(scope: GraphKind) -> list[NodeType]:
     """The kinds that come with a new graph of that scope, in order (start first)."""
     return [t for t in NODE_TYPES.values() if scope in t.scopes and t.fixed]
 

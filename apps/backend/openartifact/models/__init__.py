@@ -1,30 +1,34 @@
-"""Domain models for OpenArtifact.
+"""Database models and the value sets stored in their string columns.
 
-Defines the core entities used by the Project Workspace MVP:
+Live: ``Task`` (an artifact, a card on the board; ``TaskStatus`` is its lane), ``Graph``,
+``GraphNode`` and ``GraphEdge`` (a pipeline or an action definition and what it is made of) and
+``PipelineRun`` with ``RunStage`` (the processing of a task). ``TaskNumberSeq`` is the counter that
+numbers tasks. ``Project`` and ``WorkItem`` are left from the first iteration and nothing uses them
+(see quarantine.json).
 
-- ``Project`` — a container for related work items.
-- ``WorkItem`` — an individual task belonging to a project.
-- ``WorkItemStatus`` — the board status of a work item.
-- ``Task`` — a card on the Kanban board (``TaskStatus`` = its lane).
-
-The four status values describe the *board* state only. They are deliberately
-decoupled from any future pipeline or execution stages so that the board can
-be reconfigured without touching the execution layer.
+The indexes and constraints declared here are the ones the migrations create; ``alembic check``
+(tests/test_migrations.py) fails when the two drift apart.
 """
 
 from __future__ import annotations
 
 import enum
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, false
+from sqlalchemy import (
+    Boolean,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    false,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from openartifact.database import Base
-
-if TYPE_CHECKING:
-    pass
 
 
 class WorkItemStatus(enum.StrEnum):
@@ -61,6 +65,7 @@ class Project(Base):
     """
 
     __tablename__ = "projects"
+    __table_args__ = (Index("ix_projects_created_at", "created_at"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -90,6 +95,12 @@ class WorkItem(Base):
     """
 
     __tablename__ = "work_items"
+    __table_args__ = (
+        Index("ix_work_items_project_id", "project_id"),
+        Index("ix_work_items_status", "status"),
+        Index("ix_work_items_project_status", "project_id", "status"),
+        Index("ix_work_items_project_status_position", "project_id", "status", "position"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     project_id: Mapped[str] = mapped_column(
@@ -99,9 +110,7 @@ class WorkItem(Base):
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[WorkItemStatus] = mapped_column(
-        default=WorkItemStatus.BACKLOG,
-    )
+    status: Mapped[WorkItemStatus] = mapped_column(String(32), default=WorkItemStatus.BACKLOG)
     position: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
@@ -124,8 +133,7 @@ class TaskStatus(enum.StrEnum):
 class Task(Base):
     """A card on the Kanban board.
 
-    Intentionally minimal (see migration 0003). It is independent of
-    ``WorkItem``, which is bound to the not-yet-built project workspace.
+    Intentionally minimal (see migration 0003).
 
     Attributes:
         id: Unique task identifier (UUID string).
@@ -147,6 +155,12 @@ class Task(Base):
     """
 
     __tablename__ = "tasks"
+    __table_args__ = (
+        Index("ux_tasks_number", "number", unique=True),
+        Index("ix_tasks_parent_id", "parent_id"),
+        Index("ix_tasks_status_position", "status", "position"),
+        Index("ix_tasks_status_created_at", "status", "created_at"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -154,7 +168,7 @@ class Task(Base):
     # Plain string column; the allowed values are enforced by TaskStatus (API)
     # and a CHECK constraint (database).
     status: Mapped[str] = mapped_column(String(32), default=TaskStatus.BACKLOG.value)
-    number: Mapped[int] = mapped_column(Integer, nullable=True, unique=True)
+    number: Mapped[int] = mapped_column(Integer, nullable=True)
     position: Mapped[float] = mapped_column(Float, default=0.0)
     parent_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, default=None
@@ -173,6 +187,57 @@ class Task(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<Task(id={self.id!r}, status={self.status!r})>"
+
+
+class TaskNumberSeq(Base):
+    """The counter behind ``Task.number`` (one row, ``id = 1``): numbers are never reused."""
+
+    __tablename__ = "task_number_seq"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last: Mapped[int] = mapped_column(Integer)
+
+
+class CreatedBy(enum.StrEnum):
+    """How a task came to be (``tasks.created_by``)."""
+
+    USER = "user"
+    API = "api"
+    MCP = "mcp"
+    ACTION = "action"
+
+
+class StartedBy(enum.StrEnum):
+    """Who started a run (``pipeline_runs.started_by``); the business logic is the same for both."""
+
+    USER = "user"
+    SYSTEM = "system"
+
+
+class RunStatus(enum.StrEnum):
+    """State of a run (``pipeline_runs.status``)."""
+
+    RUNNING = "running"
+    STOPPED = "stopped"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class StageStatus(enum.StrEnum):
+    """State of one stage of a run (``run_stages.status``)."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    PASSED = "passed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class GraphKind(enum.StrEnum):
+    """What a ``graphs`` row is: a pipeline, or the definition of what an action does."""
+
+    PIPELINE = "pipeline"
+    ACTION = "action"
 
 
 class NodeKind(enum.StrEnum):
@@ -201,6 +266,7 @@ class Graph(Base):
     """
 
     __tablename__ = "graphs"
+    __table_args__ = (Index("ux_graphs_kind_slug", "kind", "slug", unique=True),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -263,6 +329,7 @@ class GraphEdge(Base):
     """
 
     __tablename__ = "graph_edges"
+    __table_args__ = (UniqueConstraint("source_id", "source_port", name="ux_graph_edges_output"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     graph_id: Mapped[str] = mapped_column(

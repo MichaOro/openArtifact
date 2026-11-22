@@ -5,18 +5,15 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from openartifact.api.routes import router
 from openartifact.app import _create_app
 from openartifact.config import Settings
+from openartifact.version import __version__
 
 
 @pytest.fixture
 def client() -> TestClient:
-    """Test client with routes attached."""
-    settings = Settings()
-    app = _create_app(settings)
-    app.include_router(router)
-    return TestClient(app)
+    """Test client on the application with its routes."""
+    return TestClient(_create_app(Settings()))
 
 
 def test_info_returns_200(client: TestClient) -> None:
@@ -30,7 +27,7 @@ def test_info_response_schema(client: TestClient) -> None:
     response = client.get("/api/info")
     data = response.json()
     assert data["application"] == "OpenArtifact"
-    assert data["version"] == "0.1.0"
+    assert data["version"] == __version__
     assert data["status"] == "running"
     assert "environment" in data
 

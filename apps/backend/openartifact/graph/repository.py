@@ -5,19 +5,33 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import NamedTuple
 
 from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.graph.node_types import fixed_in, kinds_in, node_type
+from openartifact.graph.node_types import NODE_TYPES, Ports, fixed_in, kinds_in, node_type
 from openartifact.graph.rules import Endpoint, validate_edge
 from openartifact.graph.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
 from openartifact.graph.slug import slugify
-from openartifact.models import Graph, GraphEdge, GraphNode, NodeKind
+from openartifact.models import Graph, GraphEdge, GraphKind, GraphNode, NodeKind
 
 
 class NodeError(ValueError):
     """The requested node (or change of it) is not valid."""
+
+
+class LinkInfo(NamedTuple):
+    """What a linked node shows of the graph it links to."""
+
+    name: str
+    fail_enabled: bool  # the definition has an On Fail output
+    slug: str
+
+
+def _setting_keys() -> set[str]:
+    """The settings any kind of node has (they are columns of the node, see ``NodeType.settings``)."""
+    return {s.key for t in NODE_TYPES.values() for s in t.settings}
 
 
 class GraphRepository:
@@ -28,10 +42,10 @@ class GraphRepository:
 
     # ── graphs ─────────────────────────────────────────────────────
 
-    async def create(self, name: str, kind: str = "pipeline") -> Graph:
+    async def create(self, name: str, kind: GraphKind = GraphKind.PIPELINE) -> Graph:
         """Create a graph with its fixed nodes, connected with each other.
 
-        A graph gets a trigger and a complete, an action definition a trigger and an output.
+        A pipeline gets a trigger and a complete, an action definition a trigger and an output.
         """
         graph = Graph(id=str(uuid.uuid4()), name=name, kind=kind)
         graph.slug = await self._unique_slug(name, kind, None)
@@ -40,7 +54,7 @@ class GraphRepository:
         start = next(t for t in fixed if t.chain)
         end = next(t for t in fixed if t.ending)
         ids = {}
-        for fixed_type, x in ((start, 60.0), (end, 316.0 if kind == "pipeline" else 460.0)):
+        for fixed_type, x in ((start, 60.0), (end, 316.0 if kind == GraphKind.PIPELINE else 460.0)):
             ids[fixed_type.kind] = str(uuid.uuid4())
             self._session.add(
                 GraphNode(
@@ -66,7 +80,7 @@ class GraphRepository:
         await self._session.flush()
         return graph
 
-    async def list_all(self, kind: str = "pipeline") -> Sequence[Graph]:
+    async def list_all(self, kind: GraphKind = GraphKind.PIPELINE) -> Sequence[Graph]:
         """All graphs (or action definitions), most recently changed first."""
         result = await self._session.execute(
             select(Graph).where(Graph.kind == kind).order_by(Graph.updated_at.desc(), Graph.id)
@@ -85,7 +99,7 @@ class GraphRepository:
 
     async def _unique_slug(self, name: str, kind: str, own_id: str | None) -> str:
         """The URL name for ``name``, with -2, -3 ... when another graph of the kind has it."""
-        base = slugify(name, "pipeline" if kind == "pipeline" else "action")
+        base = slugify(name, GraphKind(kind).value)
         slug, n = base, 2
         while await self._session.scalar(
             select(Graph.id).where(
@@ -95,7 +109,7 @@ class GraphRepository:
             slug, n = f"{base}-{n}", n + 1
         return slug
 
-    async def find(self, kind: str, slug: str) -> Graph | None:
+    async def find(self, kind: GraphKind, slug: str) -> Graph | None:
         """A graph of the kind by its URL name."""
         return await self._session.scalar(
             select(Graph).where(Graph.kind == kind, Graph.slug == slug)
@@ -133,7 +147,7 @@ class GraphRepository:
     async def add_node(self, graph: Graph, data: NodeCreate) -> GraphNode:
         """Add a node. Actions must name a stage of the same graph."""
         kind_type = node_type(data.kind)
-        if data.kind not in kinds_in(graph.kind):
+        if data.kind not in kinds_in(GraphKind(graph.kind)):
             raise NodeError(f"A {graph.kind} cannot contain a {data.kind.value}")
         if kind_type.fixed:
             raise NodeError(f"A {graph.kind} comes with its {data.kind.value}; it cannot be added")
@@ -170,11 +184,12 @@ class GraphRepository:
         if {"width", "height"} & sent and kind_type.size is None:
             raise NodeError("Only stages have a size")
         own = {s.key for s in kind_type.settings}
-        for key in {"seconds", "fail_enabled"} & sent - own:
+        settings = _setting_keys()
+        for key in settings & sent - own:
             raise NodeError(f"A {node.kind} has no setting '{key}'")
         if "definition_id" in sent:
             await self._link(node, data.definition_id)
-        for field in ("name", "x", "y", "width", "height", "fail_enabled", "seconds"):
+        for field in ("name", "x", "y", "width", "height", *sorted(settings)):
             value = getattr(data, field)
             if field in sent and value is not None:
                 setattr(node, field, value)
@@ -183,7 +198,7 @@ class GraphRepository:
             # the On Fail connector is gone, and so is the Error output of actions linked to this definition
             await self._session.execute(
                 delete(GraphEdge).where(
-                    GraphEdge.target_id == node.id, GraphEdge.target_port == "fail"
+                    GraphEdge.target_id == node.id, GraphEdge.target_port == Ports.FAIL
                 )
             )
             await self._drop_error_edges(GraphNode.definition_id == node.graph_id)
@@ -197,7 +212,7 @@ class GraphRepository:
         links_to = node_type(node.kind).links_to
         if links_to is None or graph is None:
             raise NodeError(f"A {node.kind} does not link to anything")
-        calls = links_to == "pipeline"
+        calls = links_to == GraphKind.PIPELINE
         if definition_id is not None:
             target = await self._session.get(Graph, definition_id)
             if target is None or target.kind != links_to:
@@ -211,7 +226,7 @@ class GraphRepository:
         if (
             not calls
             and definition_id is not None
-            and not (await self.describe([node]))[node.id][1]
+            and not (await self.describe([node]))[node.id].fail_enabled
         ):
             await self._drop_error_edges(GraphNode.id == node.id)
 
@@ -240,11 +255,13 @@ class GraphRepository:
         """Remove the Error connections of the actions matching ``which`` (they have no On Fail)."""
         ids = select(GraphNode.id).where(which)
         await self._session.execute(
-            delete(GraphEdge).where(GraphEdge.source_port == "error", GraphEdge.source_id.in_(ids))
+            delete(GraphEdge).where(
+                GraphEdge.source_port == Ports.ERROR, GraphEdge.source_id.in_(ids)
+            )
         )
 
-    async def describe(self, nodes: Sequence[GraphNode]) -> dict[str, tuple[str, bool, str]]:
-        """For linked actions: the definition's name, whether it has On Fail and its URL name."""
+    async def describe(self, nodes: Sequence[GraphNode]) -> dict[str, LinkInfo]:
+        """For linked nodes: the definition's name, whether it has On Fail and its URL name."""
         wanted = {n.definition_id for n in nodes if n.definition_id}
         if not wanted:
             return {}
@@ -257,7 +274,7 @@ class GraphRepository:
             )
             .where(Graph.id.in_(wanted))
         )
-        by_definition = {row[0]: (row[1], bool(row[2]), row[3]) for row in rows}
+        by_definition = {row[0]: LinkInfo(row[1], bool(row[2]), row[3]) for row in rows}
         return {
             n.id: by_definition[n.definition_id] for n in nodes if n.definition_id in by_definition
         }
@@ -285,12 +302,12 @@ class GraphRepository:
         if source is None or target is None:
             raise NodeError("Both ends of an edge must be nodes of this graph")
         validate_edge(_endpoint(source), data.source_port, _endpoint(target), data.target_port)
-        if data.target_port == "fail" and not target.fail_enabled:
+        if data.target_port == Ports.FAIL and not target.fail_enabled:
             raise NodeError("That action definition has no On Fail")
         if (
-            data.source_port == "error"
+            data.source_port == Ports.ERROR
             and source.definition_id
-            and not (await self.describe([source]))[source.id][1]
+            and not (await self.describe([source]))[source.id].fail_enabled
         ):
             raise NodeError("That action has no On Fail")
         if (data.source_slot and source.kind != NodeKind.STAGE.value) or (

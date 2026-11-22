@@ -1,6 +1,5 @@
-"""OpenArtifact — Orchestrate projects, pipelines, and AI agents."""
+"""OpenArtifact: a Kanban board of artifacts that pipelines process."""
 
-from openartifact.app import create_app
+from openartifact.version import __version__
 
-__version__ = "0.1.0"
-__all__ = ["create_app"]
+__all__ = ["__version__"]

@@ -12,11 +12,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Response, status
 
-from openartifact.api.auth import require_api_token
-from openartifact.api.runs import RunStart
-from openartifact.api.tasks import ServiceDep, to_http
-from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
-from openartifact.tasks.service import ArtifactError
+from openartifact.api.deps import ServiceDep
+from openartifact.engine.schemas import RunRead
+from openartifact.exceptions import ArtifactError
+from openartifact.models import CreatedBy, StartedBy
+from openartifact.security import require_api_token
+from openartifact.tasks.schemas import RunStart, TaskCreate, TaskRead, TaskUpdate
 
 router = APIRouter(
     prefix="/api/v1",
@@ -41,70 +42,47 @@ async def list_artifacts(service: ServiceDep) -> list[TaskRead]:
 async def create_artifact(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     """Create an artifact: title, body, lane, parent and the pipeline it starts with (its first stage and
     action unless chosen). It is not started; call ``POST /artifacts/{ref}/run`` for that."""
-    try:
-        return await service.create(payload, created_by="api")
-    except ArtifactError as error:
-        raise to_http(error) from error
+    return await service.create(payload, created_by=CreatedBy.API)
 
 
 @router.get("/artifacts/{ref}", response_model=TaskRead)
 async def get_artifact(ref: str, service: ServiceDep) -> TaskRead:
     """One artifact by id or number."""
-    try:
-        return await service.get(ref)
-    except ArtifactError as error:
-        raise to_http(error) from error
+    return await service.get(ref)
 
 
 @router.patch("/artifacts/{ref}", response_model=TaskRead)
 async def update_artifact(ref: str, payload: TaskUpdate, service: ServiceDep) -> TaskRead:
     """Change an artifact (lane, order, parent and pipeline are locked with 409 while it is processed)."""
-    try:
-        return await service.update(ref, payload)
-    except ArtifactError as error:
-        raise to_http(error) from error
+    return await service.update(ref, payload)
 
 
 @router.delete("/artifacts/{ref}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_artifact(ref: str, service: ServiceDep) -> Response:
     """Delete an artifact (not while it is processed)."""
-    try:
-        await service.delete(ref)
-    except ArtifactError as error:
-        raise to_http(error) from error
+    await service.delete(ref)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/artifacts/{ref}/run")
-async def get_run(ref: str, service: ServiceDep) -> dict[str, Any]:
+@router.get("/artifacts/{ref}/run", response_model=RunRead)
+async def get_run(ref: str, service: ServiceDep) -> RunRead:
     """How the processing of the artifact stands: status, where it is, the status of every stage."""
-    try:
-        run = await service.run(ref)
-    except ArtifactError as error:
-        raise to_http(error) from error
+    run = await service.run(ref)
     if run is None:
-        raise to_http(ArtifactError(404, "The artifact was never processed"))
+        raise ArtifactError(404, "The artifact was never processed")
     return run
 
 
-@router.post("/artifacts/{ref}/run", status_code=status.HTTP_201_CREATED)
-async def start_run(
-    ref: str, service: ServiceDep, payload: RunStart | None = None
-) -> dict[str, Any]:
+@router.post("/artifacts/{ref}/run", status_code=status.HTTP_201_CREATED, response_model=RunRead)
+async def start_run(ref: str, service: ServiceDep, payload: RunStart | None = None) -> RunRead:
     """Start processing. Without a body it starts with the pipeline, stage and action the artifact has."""
     body = payload or RunStart()
-    try:
-        return await service.start(
-            ref, body.pipeline_id, body.stage_id, body.action_id, started_by="system"
-        )
-    except ArtifactError as error:
-        raise to_http(error) from error
+    return await service.start(
+        ref, body.pipeline_id, body.stage_id, body.action_id, started_by=StartedBy.SYSTEM
+    )
 
 
-@router.post("/artifacts/{ref}/run/stop")
-async def stop_run(ref: str, service: ServiceDep) -> dict[str, Any]:
+@router.post("/artifacts/{ref}/run/stop", response_model=RunRead)
+async def stop_run(ref: str, service: ServiceDep) -> RunRead:
     """Stop processing; the artifact keeps its stage and action."""
-    try:
-        return await service.stop(ref)
-    except ArtifactError as error:
-        raise to_http(error) from error
+    return await service.stop(ref)

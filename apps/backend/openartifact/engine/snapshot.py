@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.graph.repository import GraphRepository
-from openartifact.models import Graph, GraphEdge, GraphNode
+from openartifact.models import Graph, GraphEdge, GraphNode, NodeKind
 
 
 def _node(node: GraphNode, label: str) -> dict[str, Any]:
@@ -39,7 +39,7 @@ async def graph_of(session: AsyncSession, graph_id: str) -> dict[str, Any]:
     nodes, edges = await repo.graph(graph_id)
     described = await repo.describe(nodes)
     return {
-        "nodes": [_node(n, described[n.id][0] if n.id in described else n.name) for n in nodes],
+        "nodes": [_node(n, described[n.id].name if n.id in described else n.name) for n in nodes],
         "edges": [_edge(e) for e in edges],
     }
 
@@ -59,9 +59,9 @@ async def _collect(
         target = node["definition_id"]
         if not target:
             continue
-        if node["kind"] == "action" and target not in root["definitions"]:
+        if node["kind"] == NodeKind.ACTION and target not in root["definitions"]:
             root["definitions"][target] = await graph_of(session, target)
-        elif node["kind"] == "pipeline":
+        elif node["kind"] == NodeKind.PIPELINE:
             if target in path:
                 raise NestingError("The pipeline calls itself")
             if len(path) >= MAX_NESTING:

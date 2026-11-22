@@ -265,3 +265,53 @@ def test_a_pipeline_node_calls_only_pipelines_in_a_pipeline(client: TestClient) 
     definition = client.post("/api/actions", json={"name": "Def"}).json()
     response = client.post(f"{_url(definition)}/nodes", json={"kind": "pipeline"})
     assert response.status_code == 422
+
+
+# ── how a run is returned and what a start publishes ──────────────────
+
+
+def _drain(queue: Any) -> list[Any]:
+    events = []
+    while not queue.empty():
+        events.append(queue.get_nowait())
+    return events
+
+
+def test_a_run_is_returned_typed_with_utc_timestamps_everywhere(client: TestClient) -> None:
+    """The start, the list and the ``run.updated`` event all write ``updated_at`` the way tasks do."""
+    pipeline = _pipeline(client, stages=1)
+    task = _task(client)
+    queue = client.app.state.event_bus.subscribe()  # type: ignore[attr-defined]
+    started = _post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    _wait(client, task, "done")
+    listed = _run(client, task)
+    published = [e.data for e in _drain(queue) if e.type == "run.updated"]
+
+    assert published
+    for run in (started, listed, *published):
+        assert run["updated_at"].endswith("Z"), run["updated_at"]
+        assert "+" not in run["updated_at"]
+    assert set(started) == set(listed) == set(published[0])
+    assert listed["status"] == "done"
+    assert {s["status"] for s in listed["stages"]} == {"passed"}
+
+
+def test_the_first_start_tells_the_boards_that_the_artifact_got_a_pipeline(
+    client: TestClient,
+) -> None:
+    """The engine sets the artifact's pipeline, stage and action: ``task.updated`` says so."""
+    pipeline = _pipeline(client, stages=1)
+    task = _task(client)
+    queue = client.app.state.event_bus.subscribe()  # type: ignore[attr-defined]
+    _post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    _wait(client, task, "done")
+
+    updates = [e.data for e in _drain(queue) if e.type == "task.updated"]
+    assert [u["id"] for u in updates] == [task["id"]]
+    assert updates[0]["pipeline_id"] == pipeline["id"]
+    assert updates[0]["stage_id"] == pipeline["stages"][0][0]["id"]
+
+    # starting again with what the artifact has changes nothing, so nothing is published
+    _post(client, f"/api/tasks/{task['id']}/run")
+    _wait(client, task, "done")
+    assert not [e for e in _drain(queue) if e.type == "task.updated"]

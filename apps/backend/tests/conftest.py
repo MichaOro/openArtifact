@@ -7,21 +7,25 @@ costs milliseconds instead of running all migrations again. Tests never see the 
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import sqlite3
-from collections.abc import Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 import pytest
 from alembic.config import Config
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import openartifact.database as db_mod
 from alembic import command
 from openartifact.app import _create_app
 from openartifact.config import Settings
+from openartifact.database import create_engine_for
 
 
 @pytest.fixture(autouse=True)
@@ -29,6 +33,23 @@ def _isolated_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """Whatever the developer has exported (a token, a data directory ...) must not change a test."""
     for name in [n for n in os.environ if n.upper().startswith("OPENARTIFACT_")]:
         monkeypatch.delenv(name)
+
+
+@pytest.fixture(autouse=True)
+def _restore_logging() -> Generator[None, None, None]:
+    """``configure_logging`` (run by ``create_app``) changes shared loggers: put them back."""
+    names = ("openartifact", "mcp", "httpx")
+    saved = {
+        n: (list(lg.handlers), lg.level, lg.propagate)
+        for n in names
+        if (lg := logging.getLogger(n))
+    }
+    yield
+    for name, (handlers, level, propagate) in saved.items():
+        logger = logging.getLogger(name)
+        logger.handlers[:] = handlers
+        logger.setLevel(level)
+        logger.propagate = propagate
 
 
 @pytest.fixture
@@ -101,3 +122,19 @@ def client(migrated_settings: Settings) -> Generator[TestClient, None, None]:
     with TestClient(_create_app(migrated_settings)) as c:
         yield c
     assert db_mod._engine is None
+
+
+@asynccontextmanager
+async def db_session_context(settings: Settings) -> AsyncGenerator[AsyncSession, None]:
+    """A session on its own engine (not the shared one), committed on success, for tests."""
+    engine = create_engine_for(settings)
+    try:
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+    finally:
+        await engine.dispose()

@@ -1,7 +1,4 @@
-"""Alembic environment configuration.
-
-Handles migration execution with proper database engine and session setup.
-"""
+"""Alembic environment: runs the migrations against the configured database file."""
 
 from __future__ import annotations
 
@@ -9,23 +6,10 @@ import asyncio
 from logging.config import fileConfig
 from typing import Any
 
-from sqlalchemy.ext.asyncio import create_async_engine
-
 from alembic import context
+from openartifact import models  # noqa: F401  (registers every table on Base.metadata)
 from openartifact.config import Settings
-from openartifact.database import Base
-
-# Import all models so Alembic can detect them for autogenerate
-from openartifact.models import (  # noqa: F401
-    Graph,
-    GraphEdge,
-    GraphNode,
-    PipelineRun,
-    Project,
-    RunStage,
-    Task,
-    WorkItem,
-)
+from openartifact.database import Base, create_engine_for
 
 config = context.config
 
@@ -50,8 +34,6 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,
-        compare_server_default=True,
     )
 
     with context.begin_transaction():
@@ -71,16 +53,8 @@ def do_run_migrations(connection: Any) -> None:
 
 
 async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode using async engine.
-
-    Creates an engine from settings, connects, and runs all pending migrations.
-    """
-    settings = Settings()
-    connect_args = {"check_same_thread": False, "timeout": 30}
-    engine = create_async_engine(
-        settings.database_url,
-        connect_args=connect_args,
-    )
+    """Connect with an engine of the configured database and run all pending migrations."""
+    engine = create_engine_for(Settings(), pragmas=False)
 
     async with engine.connect() as connection:
         await connection.run_sync(do_run_migrations)
@@ -89,10 +63,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
-
-    Runs migrations using an async engine via trio.
-    """
+    """Run migrations in 'online' mode (the async engine is driven by asyncio)."""
     asyncio.run(run_async_migrations())
 
 

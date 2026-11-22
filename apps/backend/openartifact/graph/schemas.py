@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from openartifact.models import NodeKind
+from openartifact.graph.node_types import TIMER_MAX_SECONDS, TIMER_MIN_SECONDS
+from openartifact.models import GraphKind, NodeKind
+from openartifact.schemas_common import UtcDateTime
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 
-
-GraphKind = Literal["pipeline", "action"]
-Seconds = Annotated[int, Field(ge=1, le=86400)]  # a timer: one second to one day
+Coordinate = Annotated[float, Field(allow_inf_nan=False, ge=-1e6, le=1e6)]
+Extent = Annotated[float, Field(allow_inf_nan=False, gt=0, le=1e6)]  # width or height
+Seconds = Annotated[int, Field(ge=TIMER_MIN_SECONDS, le=TIMER_MAX_SECONDS)]
 
 
 class _Strict(BaseModel):
@@ -37,20 +38,21 @@ class NodeCreate(_Strict):
 
     kind: NodeKind
     name: Name | None = None
-    x: float = 0.0
-    y: float = 0.0
+    x: Coordinate = 0.0
+    y: Coordinate = 0.0
     stage_id: str | None = None
     seconds: Seconds | None = None
 
 
 class NodeUpdate(_Strict):
-    """Body of ``PATCH``: any of name, position, size (stages), fail_enabled (outputs), seconds (timers), definition_id (actions; ``null`` unlinks)."""
+    """Body of ``PATCH``: any of name, position, size (stages), fail_enabled (outputs), seconds (timers),
+    definition_id (what an action or a pipeline node links to; ``null`` unlinks)."""
 
     name: Name | None = None
-    x: float | None = None
-    y: float | None = None
-    width: Annotated[float, Field(gt=0)] | None = None
-    height: Annotated[float, Field(gt=0)] | None = None
+    x: Coordinate | None = None
+    y: Coordinate | None = None
+    width: Extent | None = None
+    height: Extent | None = None
     fail_enabled: bool | None = None
     definition_id: str | None = None
     seconds: Seconds | None = None
@@ -79,15 +81,8 @@ class EdgeUpdate(_Strict):
 
 
 class _Timestamps(BaseModel):
-    created_at: datetime
-    updated_at: datetime
-
-    @field_serializer("created_at", "updated_at")
-    def _utc(self, value: datetime) -> str:
-        """SQLite returns naive datetimes; they are always UTC."""
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=UTC)
-        return value.isoformat().replace("+00:00", "Z")
+    created_at: UtcDateTime
+    updated_at: UtcDateTime
 
 
 class GraphRead(_Timestamps):

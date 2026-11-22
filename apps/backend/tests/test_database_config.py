@@ -11,7 +11,7 @@ from pydantic_settings import SettingsConfigDict
 from sqlalchemy import text
 
 from openartifact.config import Settings
-from openartifact.database import _build_engine, dispose_engine
+from openartifact.database import build_engine, dispose_engine
 
 
 class _TestSettings(Settings):
@@ -70,7 +70,7 @@ def test_engine_creation_creates_data_dir() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         db_dir = Path(tmpdir) / "nonexistent" / "db"
         s = _TestSettings(data_dir=db_dir, database_filename="test.db")
-        engine = _build_engine(s)
+        engine = build_engine(s)
         assert engine is not None
         assert db_dir.exists()
 
@@ -79,8 +79,8 @@ def test_engine_returns_singleton() -> None:
     """Building engine twice returns the same engine instance."""
     with tempfile.TemporaryDirectory() as tmpdir:
         s = _TestSettings(data_dir=Path(tmpdir), database_filename="test.db")
-        e1 = _build_engine(s)
-        e2 = _build_engine(s)
+        e1 = build_engine(s)
+        e2 = build_engine(s)
         assert e1 is e2
 
 
@@ -88,7 +88,7 @@ async def test_engine_connectivity() -> None:
     """Engine can connect and execute a simple query."""
     with tempfile.TemporaryDirectory() as tmpdir:
         s = _TestSettings(data_dir=Path(tmpdir), database_filename="test.db")
-        engine = _build_engine(s)
+        engine = build_engine(s)
         async with engine.connect() as conn:
             result = await conn.execute(text("SELECT 1"))
             row = result.fetchone()
@@ -100,7 +100,7 @@ async def test_wal_mode_enabled() -> None:
     """WAL mode is enabled on the database engine."""
     with tempfile.TemporaryDirectory() as tmpdir:
         s = _TestSettings(data_dir=Path(tmpdir), database_filename="test.db")
-        engine = _build_engine(s)
+        engine = build_engine(s)
         async with engine.connect() as conn:
             result = await conn.execute(text("PRAGMA journal_mode"))
             row = result.fetchone()
@@ -112,7 +112,7 @@ async def test_dispose_engine() -> None:
     """Disposing engine resets the global and releases connections."""
     with tempfile.TemporaryDirectory() as tmpdir:
         s = _TestSettings(data_dir=Path(tmpdir), database_filename="test.db")
-        engine = _build_engine(s)
+        engine = build_engine(s)
         assert engine is not None
         await dispose_engine()
         import openartifact.database as db_mod

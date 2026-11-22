@@ -1,4 +1,1 @@
-"""API endpoints.
-
-Router definitions will be added starting in WP-03.
-"""
+"""The HTTP interfaces: the browser API, the integration API (``/api/v1``), events and health."""

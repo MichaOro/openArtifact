@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from openartifact.app import _create_app
 from openartifact.config import Settings
 
-TOKEN = "t0ken-for-the-tests"
+TOKEN = "t0ken-for-the-tests-" + "x" * 20
 HTML = {"Accept": "text/html"}
 BEARER = {"Authorization": f"Bearer {TOKEN}"}
 
@@ -59,7 +59,6 @@ def test_api_swagger_and_the_openapi_document_are_closed_without_the_token(
 
 def test_health_the_sign_in_page_and_static_files_stay_open(secured: TestClient) -> None:
     assert secured.get("/health").status_code == 200
-    assert secured.get("/api/health").status_code == 200
     assert secured.get("/login").status_code == 200
     assert secured.get("/static/css/tokens.css").status_code == 200
 

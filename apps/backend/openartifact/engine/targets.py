@@ -2,15 +2,48 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.snapshot import graph_of
-from openartifact.models import Graph
+from openartifact.models import Graph, GraphKind
 
 
 class TargetError(ValueError):
     """The chosen pipeline, stage or action does not exist or does not fit together."""
+
+
+async def load_pipeline(session: AsyncSession, pipeline_id: str) -> Graph:
+    """The pipeline with this id (an action definition is not one)."""
+    pipeline = await session.get(Graph, pipeline_id)
+    if pipeline is None or pipeline.kind != GraphKind.PIPELINE:
+        raise TargetError("That pipeline does not exist")
+    return pipeline
+
+
+def pick_start(
+    chain: list[dict[str, Any]], stage_id: str | None, action_id: str | None
+) -> tuple[int, dict[str, Any], str | None]:
+    """The entry of a pipeline's chain to start at, as (index, entry, action id).
+
+    The first entry and, in a stage, that stage's first action are the defaults; a pipeline node
+    has no action. Every check of "does this stage and action fit this pipeline" is here.
+    """
+    if not chain:
+        raise TargetError("The pipeline has no stages from its trigger on")
+    index = (
+        0 if stage_id is None else next((i for i, s in enumerate(chain) if s["id"] == stage_id), -1)
+    )
+    if index < 0:
+        raise TargetError("That stage is not part of the pipeline")
+    entry = chain[index]
+    if action_id is None:
+        return index, entry, entry["first_action_id"]
+    if action_id not in {a["id"] for a in entry["actions"]}:
+        raise TargetError("That action is not in the stage")
+    return index, entry, action_id
 
 
 async def resolve_target(
@@ -27,18 +60,9 @@ async def resolve_target(
         if stage_id or action_id:
             raise TargetError("A stage or an action needs a pipeline")
         return None, None, None
-    pipeline = await session.get(Graph, pipeline_id)
-    if pipeline is None or pipeline.kind != "pipeline":
-        raise TargetError("That pipeline does not exist")
+    await load_pipeline(session, pipeline_id)
     graph = await graph_of(session, pipeline_id)
-    chain = pipeline_chain(graph["nodes"], graph["edges"])
-    if not chain:
-        raise TargetError("The pipeline has no stages from its trigger on")
-    stage = chain[0] if stage_id is None else next((s for s in chain if s["id"] == stage_id), None)
-    if stage is None:
-        raise TargetError("That stage is not part of the pipeline")
-    if action_id is None:
-        return pipeline_id, stage["id"], stage["first_action_id"]
-    if action_id not in {a["id"] for a in stage["actions"]}:
-        raise TargetError("That action is not in the stage")
-    return pipeline_id, stage["id"], action_id
+    _, entry, action = pick_start(
+        pipeline_chain(graph["nodes"], graph["edges"]), stage_id, action_id
+    )
+    return pipeline_id, entry["id"], action

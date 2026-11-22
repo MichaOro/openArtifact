@@ -6,10 +6,9 @@ import pytest
 
 from alembic import command
 from openartifact.config import Settings
-from openartifact.database import db_session_context
 from openartifact.models import WorkItemStatus
 from openartifact.repositories import ProjectRepository, WorkItemRepository
-from tests.conftest import alembic_config
+from tests.conftest import alembic_config, db_session_context
 
 
 @pytest.fixture

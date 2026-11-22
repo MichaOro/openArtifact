@@ -3,30 +3,17 @@
 # OpenArtifact Docker entrypoint
 #
 # 1. Run Alembic migrations to initialize or upgrade the database
-# 2. Start the uvicorn server
+# 2. Start the application (the openartifact command)
 #
 # All configuration via OPENARTIFACT_ environment variables.
 # ─────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-export OPENARTIFACT_PORT="${OPENARTIFACT_PORT:-2909}"
-export OPENARTIFACT_HOST="${OPENARTIFACT_HOST:-0.0.0.0}"
-export OPENARTIFACT_LOG_LEVEL="${OPENARTIFACT_LOG_LEVEL:-INFO}"
-export OPENARTIFACT_DATA_DIR="${OPENARTIFACT_DATA_DIR:-/data}"
-export OPENARTIFACT_DATABASE_FILENAME="${OPENARTIFACT_DATABASE_FILENAME:-openartifact.db}"
-
-# Uvicorn expects lowercase log level
-LOG_LEVEL_LOWER="$(echo "${OPENARTIFACT_LOG_LEVEL}" | tr '[:upper:]' '[:lower:]')"
-
+# The settings (host, port, log level, data directory) are read by the application itself from the
+# OPENARTIFACT_ environment; the defaults live in openartifact/config.py.
+DATA_DIR="${OPENARTIFACT_DATA_DIR:-/data}"
 echo "=== OpenArtifact Docker Entrypoint ==="
-echo "Port: ${OPENARTIFACT_PORT}"
-echo "Host: ${OPENARTIFACT_HOST}"
-echo "Log level: ${OPENARTIFACT_LOG_LEVEL}"
-echo "Data directory: ${OPENARTIFACT_DATA_DIR}"
-echo "Database file: ${OPENARTIFACT_DATABASE_FILENAME}"
-
-# Make openartifact package importable from /app
-export PYTHONPATH="/app:${PYTHONPATH:-}"
+echo "Data directory: ${DATA_DIR}"
 
 # ── Database migration ─────────────────────────────────────────────
 echo ""
@@ -43,10 +30,7 @@ fi
 # ── Start application ──────────────────────────────────────────────
 echo ""
 echo "--- Starting OpenArtifact ---"
-exec uvicorn \
-    openartifact.app:create_app \
-    --host "${OPENARTIFACT_HOST}" \
-    --port "${OPENARTIFACT_PORT}" \
-    --log-level "${LOG_LEVEL_LOWER}" \
-    --timeout-graceful-shutdown 3 \
-    --factory
+# The same command as outside the image (openartifact.cli), so logging and shutdown behave the same.
+# Behind a TLS-terminating proxy set FORWARDED_ALLOW_IPS (read by uvicorn) to the proxy's address, so
+# that X-Forwarded-Proto is trusted and the session cookie is issued as Secure.
+exec openartifact

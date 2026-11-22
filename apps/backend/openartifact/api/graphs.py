@@ -7,12 +7,11 @@ change is saved at once (there is no separate "save"): the editor sends what the
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Response, status
 
-from openartifact.database import get_db_session
+from openartifact.api.deps import SessionDep
 from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.snapshot import graph_of
 from openartifact.graph.node_types import NODE_TYPES
@@ -24,18 +23,15 @@ from openartifact.graph.schemas import (
     EdgeUpdate,
     GraphCreate,
     GraphDetail,
-    GraphKind,
     GraphRead,
     GraphUpdate,
     NodeCreate,
     NodeRead,
     NodeUpdate,
 )
-from openartifact.models import Graph, GraphNode
+from openartifact.models import Graph, GraphKind, GraphNode
 
-SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
-
-_LABELS: dict[GraphKind, str] = {"pipeline": "Pipeline", "action": "Action"}
+_LABELS: dict[GraphKind, str] = {GraphKind.PIPELINE: "Pipeline", GraphKind.ACTION: "Action"}
 
 
 def _not_found(what: str) -> HTTPException:
@@ -52,9 +48,10 @@ async def _node_reads(repo: GraphRepository, nodes: Sequence[GraphNode]) -> list
     reads = [NodeRead.model_validate(n) for n in nodes]
     for read in reads:
         if read.id in described:
-            read.definition_name, read.definition_fail_enabled, read.definition_slug = described[
-                read.id
-            ]
+            link = described[read.id]
+            read.definition_name = link.name
+            read.definition_fail_enabled = link.fail_enabled
+            read.definition_slug = link.slug
     return reads
 
 
@@ -99,7 +96,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             edges=[EdgeRead.model_validate(e) for e in edges],
         )
 
-    if kind == "pipeline":
+    if kind == GraphKind.PIPELINE:
 
         @router.get("/{graph_id}/stages", name="get_stages")
         async def get_stages(graph_id: str, session: SessionDep) -> list[dict[str, Any]]:
@@ -238,8 +235,8 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
     return router
 
 
-pipelines_router = build_graph_router("pipeline")
-actions_router = build_graph_router("action")
+pipelines_router = build_graph_router(GraphKind.PIPELINE)
+actions_router = build_graph_router(GraphKind.ACTION)
 
 node_types_router = APIRouter(prefix="/api", tags=["node-types"])
 

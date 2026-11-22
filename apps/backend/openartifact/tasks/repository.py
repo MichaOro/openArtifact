@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.models import Task
+from openartifact.models import CreatedBy, Task
 from openartifact.tasks.schemas import TaskCreate, TaskUpdate
 
 # Below this distance between two neighbours the lane is renumbered before inserting between them.
@@ -47,7 +47,7 @@ class TaskRepository:
         self,
         data: TaskCreate,
         *,
-        created_by: str = "user",
+        created_by: CreatedBy = CreatedBy.USER,
         target: Target = (None, None, None),
     ) -> Task:
         """Insert a task at the top of its lane and flush so defaults are populated.

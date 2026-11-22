@@ -2,32 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from openartifact.events import EventBus, event_stream
+from openartifact.api.deps import EventBusDep
+from openartifact.events import event_stream
 
 router = APIRouter(prefix="/api", tags=["events"])
 
 
-def get_event_bus(request: Request) -> EventBus:
-    """Return the application's event bus."""
-    bus: EventBus = request.app.state.event_bus
-    return bus
-
-
-EventBusDep = Annotated[EventBus, Depends(get_event_bus)]
-
-
 @router.get("/events")
 async def stream_events(bus: EventBusDep) -> StreamingResponse:
-    """Stream board events: ``task.created``, ``task.moved`` and ``task.deleted``.
+    """Stream board events: ``task.created``, ``task.updated``, ``task.moved``, ``task.deleted``,
+    ``board.resync`` and ``run.updated`` (the state of a run, see ``GET /api/runs``).
 
     Clients that (re)connect should reload ``GET /api/tasks`` to resync, because
     events that happened while disconnected are not replayed.
     """
+    if bus.full:
+        raise HTTPException(503, "Too many open event streams")
     return StreamingResponse(
         event_stream(bus),
         media_type="text/event-stream",

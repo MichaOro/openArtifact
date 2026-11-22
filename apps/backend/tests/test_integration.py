@@ -13,7 +13,7 @@ from openartifact.app import _create_app
 from openartifact.config import Settings
 from tests.test_engine import _pipeline
 
-TOKEN = "integration-token"
+TOKEN = "integration-token-" + "x" * 20
 HEADERS = {"Authorization": f"Bearer {TOKEN}"}
 MCP_HEADERS = {**HEADERS, "Accept": "application/json, text/event-stream"}
 

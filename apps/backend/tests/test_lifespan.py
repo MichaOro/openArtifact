@@ -63,7 +63,7 @@ def test_lifespan_wraps_unexpected_database_errors(settings: Settings) -> None:
     app = _create_app(settings)
 
     with (
-        patch("openartifact.database._build_engine", side_effect=RuntimeError("boom")),
+        patch("openartifact.database.build_engine", side_effect=RuntimeError("boom")),
         pytest.raises(ConfigurationError, match="Cannot connect to database: boom"),
         TestClient(app),
     ):
@@ -76,7 +76,7 @@ def test_lifespan_propagates_configuration_errors(settings: Settings) -> None:
 
     with (
         patch(
-            "openartifact.database._build_engine",
+            "openartifact.database.build_engine",
             side_effect=ConfigurationError("bad dir"),
         ),
         pytest.raises(ConfigurationError, match=r"^bad dir$"),

@@ -14,7 +14,7 @@ from alembic.config import Config
 
 from alembic import command
 from openartifact.config import Settings
-from openartifact.database import _build_engine, dispose_engine
+from openartifact.database import build_engine, dispose_engine
 
 
 def _reset_engine() -> None:
@@ -41,7 +41,7 @@ async def test_fresh_database_connection(settings: Settings) -> None:
     """Fresh database connection succeeds without pre-existing files."""
     from sqlalchemy import text
 
-    engine = _build_engine(settings)
+    engine = build_engine(settings)
     assert engine is not None
     async with engine.connect() as conn:
         result = await conn.execute(text("SELECT 1"))
@@ -55,7 +55,7 @@ async def test_database_file_created(tmp_path: Path) -> None:
     from sqlalchemy import text
 
     settings = Settings(data_dir=tmp_path, database_filename="test.db")
-    engine = _build_engine(settings)
+    engine = build_engine(settings)
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
     assert (tmp_path / "test.db").exists()
@@ -65,14 +65,14 @@ async def test_persistence_across_reconnect(settings: Settings) -> None:
     """Data persists across engine reconnection."""
     from sqlalchemy import text
 
-    engine = _build_engine(settings)
+    engine = build_engine(settings)
     async with engine.connect() as conn:
         await conn.execute(text("CREATE TABLE persist_test (key TEXT)"))
         await conn.commit()
 
     # Dispose and reconnect
     await dispose_engine()
-    engine2 = _build_engine(settings)
+    engine2 = build_engine(settings)
     async with engine2.connect() as conn:
         result = await conn.execute(
             text("SELECT name FROM sqlite_master WHERE type='table' AND name='persist_test'")
@@ -140,3 +140,26 @@ def test_upgrade_head_and_downgrade_on_sqlite(
     with sqlite3.connect(db_path) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         assert not {"projects", "work_items"} & tables
+
+
+def test_the_models_describe_exactly_what_the_migrations_create(
+    migrated_settings: Settings,
+) -> None:
+    """``alembic check``: no table, column, index or constraint differs between models and migrations."""
+    from tests.conftest import alembic_config
+
+    command.check(alembic_config())
+
+
+def test_alembic_check_notices_a_difference(migrated_settings: Settings) -> None:
+    """The check above is not vacuous: a missing index is reported."""
+    import sqlite3
+
+    from alembic.util import CommandError
+
+    from tests.conftest import alembic_config
+
+    with sqlite3.connect(migrated_settings.data_dir / migrated_settings.database_filename) as conn:
+        conn.execute("DROP INDEX ix_tasks_parent_id")
+    with pytest.raises(CommandError, match="New upgrade operations detected"):
+        command.check(alembic_config())

@@ -1,1 +1,1 @@
-"""Kanban task feature: request/response schemas and persistence."""
+"""Artifacts (tasks): schemas, persistence, the lanes of the board and the service all interfaces share."""

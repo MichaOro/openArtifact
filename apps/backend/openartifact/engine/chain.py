@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from openartifact.graph.node_types import Ports
+from openartifact.models import NodeKind
+
 Node = dict[str, Any]
 Edge = dict[str, Any]
 
@@ -29,30 +32,34 @@ def pipeline_chain(nodes: list[Node], edges: list[Edge]) -> list[dict[str, Any]]
     trigger = next((n for n in nodes if n["kind"] == "trigger"), None)
     chain: list[dict[str, Any]] = []
     seen: set[str] = set()
-    link = edge_from(edges, trigger["id"], "out") if trigger else None
+    link = edge_from(edges, trigger["id"], Ports.OUT) if trigger else None
     while link is not None:
         node = by_id.get(link["target_id"])
-        if node is None or node["kind"] not in ("stage", "pipeline") or node["id"] in seen:
+        if (
+            node is None
+            or node["kind"] not in (NodeKind.STAGE, NodeKind.PIPELINE)
+            or node["id"] in seen
+        ):
             break
         seen.add(node["id"])
-        if node["kind"] == "pipeline":
+        if node["kind"] == NodeKind.PIPELINE:
             chain.append(
                 {
                     "id": node["id"],
-                    "kind": "pipeline",
+                    "kind": NodeKind.PIPELINE,
                     "name": node["label"],
                     "pipeline_id": node["definition_id"],
                     "first_action_id": None,
                     "actions": [],
                 }
             )
-            link = edge_from(edges, node["id"], "out")
+            link = edge_from(edges, node["id"], Ports.OUT)
             continue
         actions = sorted(
-            (n for n in nodes if n["stage_id"] == node["id"] and n["kind"] == "action"),
+            (n for n in nodes if n["stage_id"] == node["id"] and n["kind"] == NodeKind.ACTION),
             key=lambda n: (n["x"], n["y"]),
         )
-        start = edge_from(edges, node["id"], "start")
+        start = edge_from(edges, node["id"], Ports.START)
         first = (
             start["target_id"]
             if start and by_id.get(start["target_id"], {}).get("stage_id") == node["id"]
@@ -61,13 +68,13 @@ def pipeline_chain(nodes: list[Node], edges: list[Edge]) -> list[dict[str, Any]]
         chain.append(
             {
                 "id": node["id"],
-                "kind": "stage",
+                "kind": NodeKind.STAGE,
                 "name": node["name"],
                 "first_action_id": first,
                 "actions": [{"id": a["id"], "name": a["label"]} for a in actions],
             }
         )
-        link = edge_from(edges, node["id"], "end")
+        link = edge_from(edges, node["id"], Ports.END)
     return chain
 
 
@@ -93,7 +100,7 @@ def locate(snapshot: dict[str, Any], node_id: str | None) -> dict[str, Any]:
         if graph is None or pipeline_id in seen:
             return False
         return any(
-            n["kind"] == "pipeline"
+            n["kind"] == NodeKind.PIPELINE
             and n["definition_id"]
             and reaches(n["definition_id"], seen | {pipeline_id})
             for n in graph["nodes"]
@@ -103,7 +110,7 @@ def locate(snapshot: dict[str, Any], node_id: str | None) -> dict[str, Any]:
         (
             e["id"]
             for e in pipeline_chain(snapshot["nodes"], snapshot["edges"])
-            if e["kind"] == "pipeline"
+            if e["kind"] == NodeKind.PIPELINE
             and e["pipeline_id"]
             and reaches(e["pipeline_id"], frozenset())
         ),
