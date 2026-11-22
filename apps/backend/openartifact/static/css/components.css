@@ -340,6 +340,130 @@
 .inline-name__check { color: var(--color-accent); }
 .inline-name__error { flex: 1 1 100%; margin: 0; font-size: 0.75rem; font-weight: 400; letter-spacing: normal; text-transform: none; color: var(--color-danger); }
 
+/* Task card: lighter, more opaque than the lane so it reads as a separate layer */
+.task-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-fill-hover);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-highlight) calc(var(--edge-strength) * 0.6), transparent),
+    0 1px 2px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) * 0.5), transparent),
+    0 6px 14px -8px color-mix(in srgb, var(--shadow-color) var(--shadow-strength), transparent);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.task-card:hover { border-color: var(--glass-border-hover); }
+.task-card__content { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+/* Delete: revealed on hover/focus, always visible where there is no hover (touch) */
+.task-card__delete {
+  margin: calc(var(--space-1) * -1) calc(var(--space-1) * -1) 0 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--color-text-muted);
+  opacity: 0;
+}
+.task-card:hover .task-card__delete,
+.task-card:focus-within .task-card__delete,
+.task-card__delete:focus-visible { opacity: 1; }
+.task-card__delete:hover { color: var(--color-danger); background: transparent; border-color: var(--glass-border); }
+@media (hover: none) { .task-card__delete { opacity: 1; } }
+
+/* Touch: the card itself is the handle. Vertical swipes stay native (scroll the lane),
+   horizontal swipes are left to the drag controller (a card moves between lanes sideways). */
+@media (hover: none), (pointer: coarse) {
+  .task-card { touch-action: pan-y; }
+}
+
+/* Drag & drop states */
+.task-card--placeholder { opacity: 0.35; }
+.task-card--ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 200;
+  margin: 0;
+  pointer-events: none;
+  cursor: grabbing;
+  opacity: 0.96;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-highlight) calc(var(--edge-strength) * 0.6), transparent),
+    0 18px 40px -10px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) + 12%), transparent);
+  will-change: transform;
+}
+body.is-dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+/* Snap points would fight the edge auto-scroll while a card is being dragged */
+body.is-dragging .board { scroll-snap-type: none; }
+body.is-dragging * { cursor: grabbing !important; }
+.task-card--new { animation: card-in 220ms ease-out; }
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.task-card__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.task-card__body {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* Long text must not blow up the lane */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
+}
+.task-card__body[hidden] { display: none; }
+.task-card__meta { font-size: 0.6875rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.task-card__meta[hidden] { display: none; }
+.task-card__run { font-size: 0.6875rem; font-weight: 600; color: var(--color-accent); overflow-wrap: anywhere; }
+.task-card__run[hidden] { display: none; }
+.task-card__run[data-status="failed"] { color: var(--color-danger); }
+.task-card__run[data-status="stopped"], .task-card__run[data-status="done"] { color: var(--color-text-muted); }
+.task-card--locked { cursor: default; }
+.alert-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+}
+.alert-bar[hidden] { display: none; }
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-3);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-highlight) calc(var(--sheen-strength) * 0.3), transparent);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
 .empty-state .icon { width: 1.5rem; height: 1.5rem; opacity: 0.75; }
 .lane__cards:empty { display: none; }
 .lane__cards:not(:empty) + .empty-state { display: none; }

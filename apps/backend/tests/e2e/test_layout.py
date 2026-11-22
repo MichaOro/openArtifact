@@ -91,3 +91,21 @@ def test_no_horizontal_page_overflow_on_a_phone(board: Board) -> None:
     assert board.page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     box = dialog.root.locator(".modal__panel").bounding_box()
     assert box is not None and box["x"] >= 0 and box["x"] + box["width"] <= 390
+
+
+def test_a_card_is_drawn_as_a_card(board: Board) -> None:
+    """A stylesheet edit once dropped every card rule: the text stood bare in the lane. Look at the result."""
+    board.create("A card with a body", body="some text under the title")
+    board.open()
+    card = board.card("A card with a body")
+    expect(card).to_be_visible()
+    style = card.evaluate(
+        """el => { const s = getComputedStyle(el);
+                   return {radius: s.borderTopLeftRadius, pad: s.paddingTop, border: s.borderTopWidth,
+                           display: s.display, grab: s.cursor}; }"""
+    )
+    assert style["display"] == "grid"
+    assert style["radius"] != "0px" and style["pad"] != "0px" and style["border"] != "0px"
+    assert style["grab"] == "grab"
+    weight = card.locator(".task-card__title").evaluate("el => getComputedStyle(el).fontWeight")
+    assert int(weight) >= 500
