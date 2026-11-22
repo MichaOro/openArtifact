@@ -28,7 +28,7 @@ URL). Every start leaves an execution in the history.
 
 ## Terms
 
-**Artifact.** The unit of work: a card on the board with a title, a body, a lane (Backlog, In Progress, Done: the board shows them under titles the user can change with the pencil in the lane header; the code and the API keep `backlog`, `in_progress`, `done`), an optional parent and a
+**Artifact.** The unit of work: a card on the board with a title, a body, a lane (the board starts with Backlog, In Progress and Done; lanes can be added, renamed by clicking the name or through the lane's menu, and deleted when they are empty; the API names a lane by its unchanging key, e.g. `backlog`, `in_progress`, `done`), an optional parent and a
 permanent number (`#12`, never reused; `#12` in another artifact's body is a link). An artifact is processed by
 at most one run at a time. While that run is running the artifact is locked: its lane, parent and target cannot be
 changed and it cannot be deleted (title and body stay editable); stopping the run releases it. In the

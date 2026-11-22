@@ -12,9 +12,10 @@ import { CardDragController } from "./dnd.js";
 import { ProcessingPanel } from "./processing.js";
 import { connectEvents } from "./events.js";
 import { HistoryTab } from "./history-tab.js";
-import { LaneRenamer, listLanes } from "./lane-rename.js";
+import { FormDialog } from "../components/form-dialog.js";
+import { LaneControls, listLanes } from "./lanes.js";
 
-const board = new Board({ loadTasks: listTasks });
+const board = new Board({ loadTasks: listTasks, renameLane: (status, title) => laneControls.rename(status, title) });
 
 // ── Actions ───────────────────────────────────────────────────────────
 
@@ -52,9 +53,14 @@ async function moveTaskTo(task, { status = task.status, beforeId, position } = {
   }
 }
 
-new LaneRenamer({ modal: new Modal(document.getElementById("rename-lane-modal")), board });
+const laneControls = new LaneControls({
+  board,
+  addDialog: new FormDialog(new Modal(document.getElementById("add-lane-modal"))),
+  confirm: new ConfirmDialog(new Modal(document.getElementById("delete-lane-modal"))),
+  onLanes: (lanes) => showLanes(lanes),
+});
 
-/** Show new lane titles everywhere: board, and the open artifact dialog's lane chip and rail. */
+/** Show the lanes everywhere: board, and the open artifact dialog's lane chip and rail. */
 function showLanes(lanes) {
   board.setLanes(lanes);
   if (artifactDialog.modal.isOpen) {
@@ -248,8 +254,9 @@ cardNavRoot.querySelector('[data-card-action="delete"]').addEventListener("click
 
 // ── DOM events ────────────────────────────────────────────────────────
 
-document.querySelectorAll("[data-create-task]").forEach((button) => {
-  button.addEventListener("click", () => artifactDialog.openCreate(button.dataset.status, button.dataset.laneTitle, board.laneHue(button.dataset.status)));
+board.element.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-create-task]");
+  if (button) artifactDialog.openCreate(button.dataset.status, button.dataset.laneTitle, board.laneHue(button.dataset.status));
 });
 
 board.element.addEventListener("click", (event) => {

@@ -43,8 +43,10 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
 | GET | `/api/v1/pipelines` | Pipelines with their stages in running order and the actions of each stage (the ids to start with) | |
-| GET | `/api/v1/lanes` | The board lanes in order: `status` (the code artifacts use), `key`, `title` (as shown), `default_title`, `hue` | |
-| PUT | `/api/v1/lanes/{status}` | Rename a lane: body `{"title": "Review"}`; 1 to 40 characters, no control characters, different from the other lanes (ignoring case); `null`, empty or the default text restores the default. Answers the lanes; publishes `board.lanes` | 404, 422 |
+| GET | `/api/v1/lanes` | The board lanes in order: `status` (the key artifacts use), `key` (DOM form), `title`, `position`, `hue`, `artifact_count`, `deletable` | |
+| POST | `/api/v1/lanes` | Add a lane: body `{"title": "Review"}`; 1 to 40 characters, no control characters, different from the other lanes (ignoring case); at most 12 lanes; appended at the end; `201`, answers the lanes | 422 |
+| PUT | `/api/v1/lanes/{status}` | Rename a lane (its key stays): body `{"title": "Review"}`, same title rules; answers the lanes | 404, 422 |
+| DELETE | `/api/v1/lanes/{status}` | Delete a lane: `409` "A lane can only be deleted when it contains no artifacts." while it holds artifacts, and for the last lane; answers the remaining lanes | 404, 409 |
 | GET | `/api/v1/artifacts` | All artifacts in board order | |
 | POST | `/api/v1/artifacts` | Create an artifact (`title`, `body`, `status`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`); not started; `201` | 422 |
 | GET | `/api/v1/artifacts/{ref}` | One artifact | 404 |
@@ -77,8 +79,10 @@ match the integration API where the names match.
 
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
-| GET | `/api/lanes` | The lanes in board order: `[{"status": "in_progress", "key": "in-progress", "title": "Review", "default_title": "In Progress", "hue": 2}, ...]` | |
-| PUT | `/api/lanes/{status}` | Rename: body `{"title": string \| null}`; same rules as `PUT /api/v1/lanes/{status}`; answers the lanes | 404, 422 |
+| GET | `/api/lanes` | The lanes in board order: `[{"status": "in_progress", "key": "in-progress", "title": "Review", "position": 1, "hue": 2, "artifact_count": 0, "deletable": true}, ...]` | |
+| POST | `/api/lanes` | Add a lane (body `{"title": string}`, same rules as `POST /api/v1/lanes`); `201`; publishes `board.lanes` | 422 |
+| PUT | `/api/lanes/{status}` | Rename: body `{"title": string}`; answers the lanes; publishes `board.lanes` | 404, 422 |
+| DELETE | `/api/lanes/{status}` | Delete an empty lane (not the last); answers the lanes; publishes `board.lanes` | 404, 409 |
 
 Only the title changes; artifacts keep their `status` code.
 
@@ -87,7 +91,7 @@ Only the title changes; artifacts keep their `status` code.
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
 | GET | `/api/tasks` | All tasks in board order (lane, then position) | |
-| POST | `/api/tasks` | Create a task in a lane; `201` | 422 |
+| POST | `/api/tasks` | Create a task in a lane (`status` is a lane key; left out: the first lane; an unknown key is 422 and lists the valid ones); `201` | 409, 422 |
 | GET | `/api/tasks/{task_id}` | One task | 404 |
 | PATCH | `/api/tasks/{task_id}` | Edit, move to another lane, reorder (`before_id`), set parent or pipeline | 404, 409, 422 |
 | DELETE | `/api/tasks/{task_id}` | Delete (not while processed); `204` | 404, 409 |
@@ -171,8 +175,8 @@ Pipeline, stage and action are given by name.
 | Tool | Arguments | Purpose |
 |------|-----------|---------|
 | `list_pipelines` | | Pipelines with stages and actions |
-| `list_lanes` | | The lanes with their titles (`status`, `title`, `default_title`); read only |
-| `list_artifacts` | `lane?` | Artifacts in board order; `lane`: `backlog`, `in_progress`, `done` |
+| `list_lanes` | | The current lanes (`status`, `title`, `artifact_count`, `deletable`); read only. The keys are what `lane` takes |
+| `list_artifacts` | `lane?` | Artifacts in board order; `lane`: a key from `list_lanes` |
 | `get_artifact` | `artifact` | One artifact |
 | `create_artifact` | `title`, `body?`, `lane?`, `parent?`, `pipeline?`, `stage?`, `action?` | Create; not started; records `created_by: mcp` |
 | `update_artifact` | `artifact`, `title?`, `body?`, `lane?` | Change; not while processed |
@@ -200,7 +204,7 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `task.updated` | the task | an artifact changes |
 | `task.moved` | the task | lane or position changes |
 | `task.deleted` | `{"id"}` | an artifact is deleted |
-| `board.lanes` | `{"lanes": [...]}` (as `GET /api/lanes`) | a lane was renamed or reset |
+| `board.lanes` | `{"lanes": [...]}` (as `GET /api/lanes`) | a lane was added, renamed or deleted |
 | `board.resync` | `{}` | other tasks got new positions or lost their parent: reload the board |
 | `run.updated` | the run state (as `GET /api/runs`) | a run starts, advances or ends |
 | `execution.updated` | `{"task_id", "execution"}` (the summary) | an execution starts and at every status change |

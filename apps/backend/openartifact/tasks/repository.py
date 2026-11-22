@@ -47,10 +47,11 @@ class TaskRepository:
         self,
         data: TaskCreate,
         *,
+        status: str,
         created_by: CreatedBy = CreatedBy.USER,
         target: Target = (None, None, None),
     ) -> Task:
-        """Insert a task at the top of its lane and flush so defaults are populated.
+        """Insert a task at the top of lane ``status`` and flush so defaults are populated.
 
         ``target`` is the resolved (pipeline, stage, action) it starts with; the parent must exist.
         """
@@ -61,8 +62,8 @@ class TaskRepository:
             number=await self._next_number(),
             title=data.title,
             body=data.body,
-            status=data.status.value,
-            position=await self._top_position(data.status.value),
+            status=status,
+            position=await self._top_position(status),
             parent_id=data.parent_id,
             pipeline_id=target[0],
             stage_id=target[1],
@@ -122,7 +123,7 @@ class TaskRepository:
         if "body" in sent:
             new_values["body"] = data.body
         if "status" in sent and data.status is not None:
-            new_values["status"] = data.status.value
+            new_values["status"] = data.status
         for name, value in new_values.items():
             if getattr(task, name) != value:
                 result.changed.add(name)

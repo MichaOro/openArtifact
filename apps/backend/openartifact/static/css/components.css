@@ -225,6 +225,15 @@
   flex: 1;
   min-height: 0;
 }
+/* More than three lanes: they keep a readable width and the board scrolls sideways */
+.board:has(.lane:nth-child(4)) {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(17rem, 1fr);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: var(--space-2);
+}
 
 .lane {
   display: flex;
@@ -242,11 +251,14 @@
 .lane__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
   padding: 0 var(--space-1);
 }
+/* while the name is edited it gets the whole header */
+.lane__header:has(.inline-name--editing) > :not(.lane__title) { display: none; }
 .lane__title {
+  flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -290,158 +302,44 @@
   margin: -4px;
 }
 
-.lane__heading { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
-
 .icon-button--sm { width: 2rem; height: 2rem; border-radius: var(--radius-sm); }
 .icon-button--sm .icon { width: 1rem; height: 1rem; }
 
-/* Subtle add button: only reveals its container on hover/focus */
-.lane__add {
+/* Subtle buttons at the right end of the lane header (add artifact, options) */
+.lane__add,
+.lane__menu {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
   color: var(--color-text-muted);
 }
+/* the name: one line with an ellipsis (the full title is in its title attribute) */
+.lane__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lane__name.inline-name--editing { flex: 1; overflow: visible; flex-wrap: wrap; white-space: normal; text-transform: none; letter-spacing: normal; }
 
-/* The pencil next to the lane title: dimmed until the lane is hovered or the button focused (full strength on touch screens) */
-.lane__rename {
-  width: 1.75rem;
-  height: 1.75rem;
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  color: var(--color-text-muted);
-}
-@media (hover: hover) {
-  .lane__rename { opacity: 0.45; }
-  .lane:hover .lane__rename,
-  .lane__rename:focus-visible { opacity: 1; }
-}
-
-/* Task card: lighter, more opaque than the lane so it reads as a separate layer */
-.task-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: var(--space-2);
-  min-width: 0;
-  flex: none;
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  background: var(--glass-fill-hover);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--color-highlight) calc(var(--edge-strength) * 0.6), transparent),
-    0 1px 2px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) * 0.5), transparent),
-    0 6px 14px -8px color-mix(in srgb, var(--shadow-color) var(--shadow-strength), transparent);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-.task-card:hover { border-color: var(--glass-border-hover); }
-.task-card__content { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-
-/* Delete: revealed on hover/focus, always visible where there is no hover (touch) */
-.task-card__delete {
-  margin: calc(var(--space-1) * -1) calc(var(--space-1) * -1) 0 0;
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  color: var(--color-text-muted);
-  opacity: 0;
-}
-.task-card:hover .task-card__delete,
-.task-card:focus-within .task-card__delete,
-.task-card__delete:focus-visible { opacity: 1; }
-.task-card__delete:hover { color: var(--color-danger); background: transparent; border-color: var(--glass-border); }
-@media (hover: none) { .task-card__delete { opacity: 1; } }
-
-/* Touch: the card itself is the handle. Vertical swipes stay native (scroll the lane),
-   horizontal swipes are left to the drag controller (a card moves between lanes sideways). */
-@media (hover: none), (pointer: coarse) {
-  .task-card { touch-action: pan-y; }
-}
-
-/* Drag & drop states */
-.task-card--placeholder { opacity: 0.35; }
-.task-card--ghost {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 200;
-  margin: 0;
-  pointer-events: none;
-  cursor: grabbing;
-  opacity: 0.96;
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--color-highlight) calc(var(--edge-strength) * 0.6), transparent),
-    0 18px 40px -10px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) + 12%), transparent);
-  will-change: transform;
-}
-body.is-dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
-/* Snap points would fight the edge auto-scroll while a card is being dragged */
-body.is-dragging .board { scroll-snap-type: none; }
-body.is-dragging * { cursor: grabbing !important; }
-.task-card--new { animation: card-in 220ms ease-out; }
-@keyframes card-in {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: none; }
-}
-.task-card__title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-.task-card__body {
-  color: var(--color-text-muted);
-  font-size: 0.8125rem;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  /* Long text must not blow up the lane */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 6;
-  line-clamp: 6;
-  overflow: hidden;
-}
-.task-card__body[hidden] { display: none; }
-.task-card__meta { font-size: 0.6875rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
-.task-card__meta[hidden] { display: none; }
-.task-card__run { font-size: 0.6875rem; font-weight: 600; color: var(--color-accent); overflow-wrap: anywhere; }
-.task-card__run[hidden] { display: none; }
-.task-card__run[data-status="failed"] { color: var(--color-danger); }
-.task-card__run[data-status="stopped"], .task-card__run[data-status="done"] { color: var(--color-text-muted); }
-.task-card--locked { cursor: default; }
-.alert-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  color: var(--color-danger);
-}
-.alert-bar[hidden] { display: none; }
-
-.empty-state {
+/* a name edited in place (inspector heading, page title) */
+.inline-name { cursor: text; border-radius: var(--radius-sm); }
+.inline-name:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.inline-name--editing { display: flex; align-items: center; gap: var(--space-1); }
+.inline-name__input {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-5) var(--space-3);
-  border: 1px dashed var(--glass-border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-highlight) calc(var(--sheen-strength) * 0.3), transparent);
-  color: var(--color-text-muted);
-  font-size: 0.8125rem;
-  text-align: center;
+  min-width: 0;
+  height: 2rem;
+  padding: 0 var(--space-2);
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
 }
+.inline-name__input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+.inline-name--editing .icon-button .icon { width: 1rem; height: 1rem; }
+.inline-name__check { color: var(--color-accent); }
+.inline-name__error { flex: 1 1 100%; margin: 0; font-size: 0.75rem; font-weight: 400; letter-spacing: normal; text-transform: none; color: var(--color-danger); }
+
 .empty-state .icon { width: 1.5rem; height: 1.5rem; opacity: 0.75; }
 .lane__cards:empty { display: none; }
 .lane__cards:not(:empty) + .empty-state { display: none; }
@@ -508,6 +406,59 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 }
 @keyframes popover-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
+/* ── Menu button's menu (lane options) ─────────────────────────────── */
+.menu {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 11rem;
+  padding: var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-glass-card) 96%, var(--color-background));
+  box-shadow: var(--shadow-card-hover);
+  animation: popover-in 140ms ease-out;
+}
+.menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 2.5rem;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+.menu__item .icon { width: 1rem; height: 1rem; flex: none; }
+.menu__item:hover,
+.menu__item:focus-visible { background: var(--accent-soft); outline: none; }
+.menu__item[aria-disabled="true"] { color: var(--color-text-muted); opacity: 0.6; cursor: not-allowed; }
+.menu__item[aria-disabled="true"]:hover,
+.menu__item[aria-disabled="true"]:focus-visible { background: transparent; }
+.menu__item[aria-disabled="true"]:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.menu__hint {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  width: max-content;
+  max-width: 15rem;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card-hover);
+  font-size: 0.75rem;
+  color: var(--color-text-primary);
+}
+.menu__hint[hidden] { display: none; }
+
 /* ── Narrow: the sidebar never takes width from the board ─────────
    The grid column stays at the collapsed width; an expanded sidebar overlays the board.
    (Media query must match `narrowQuery` in theme.js.) */
@@ -534,7 +485,8 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 /* Narrow (portrait phones, small tablets): lanes become a horizontal swipe board with
    snap points; the next lane peeks in so it is obvious that there is more. */
 @media (max-width: 960px) {
-  .board {
+  .board,
+  .board:has(.lane:nth-child(4)) {
     grid-template-columns: none;
     grid-auto-flow: column;
     grid-auto-columns: min(calc(100% - 2.5rem), 22rem);

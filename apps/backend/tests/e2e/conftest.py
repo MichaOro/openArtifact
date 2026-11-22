@@ -113,16 +113,35 @@ def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]
     }
 
 
+DEFAULT_LANES = (("backlog", "Backlog"), ("in_progress", "In Progress"), ("done", "Done"))
+
+
+def _reset_lanes(client: httpx.Client) -> None:
+    """Delete the lanes a test added, restore deleted default lanes (at the end) and their titles."""
+    keys = [lane["status"] for lane in client.get("/api/lanes").json()]
+    for key in keys:
+        if key not in dict(DEFAULT_LANES):
+            client.delete(f"/api/lanes/{key}").raise_for_status()
+    for key, title in DEFAULT_LANES:
+        if key not in keys:
+            client.post("/api/lanes", json={"title": title}).raise_for_status()
+    lanes = client.get("/api/lanes").json()
+    if [(lane["status"], lane["title"]) for lane in lanes] != list(DEFAULT_LANES):
+        for key, _ in DEFAULT_LANES:  # through temporary titles: the defaults may be swapped
+            client.put(f"/api/lanes/{key}", json={"title": f"~{key}"}).raise_for_status()
+        for key, title in DEFAULT_LANES:
+            client.put(f"/api/lanes/{key}", json={"title": title}).raise_for_status()
+
+
 @pytest.fixture
 def api(base_url: str) -> Iterator[httpx.Client]:
     """REST client; the server is emptied before each test: runs stopped, artifacts, pipelines and
-    action definitions deleted, lane titles reset (the server lives for the whole session)."""
+    action definitions deleted, the lanes back to the three defaults (the server lives for the whole session)."""
     with httpx.Client(base_url=base_url) as client:
         for task in client.get("/api/tasks").json():
             client.post(f"/api/tasks/{task['id']}/run/stop")  # 409 when nothing runs
             assert client.delete(f"/api/tasks/{task['id']}").status_code == 204
-        for lane in ("backlog", "in_progress", "done"):
-            client.put(f"/api/lanes/{lane}", json={"title": None}).raise_for_status()
+        _reset_lanes(client)
         for path in ("/api/pipelines", "/api/actions"):
             for graph in client.get(path).json():
                 assert client.delete(f"{path}/{graph['id']}").status_code == 204

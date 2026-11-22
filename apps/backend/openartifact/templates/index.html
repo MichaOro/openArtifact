@@ -12,9 +12,11 @@
 {{ alert("Artifacts could not be loaded.") }}
 <div class="board" role="group" aria-label="Kanban board">
     {% for board_lane in lanes %}
-    {{ lane(board_lane.title, board_lane.key, board_lane.status.value, hue=board_lane.hue, default_title=board_lane.default_title) }}
+    {{ lane(board_lane.title, board_lane.key, board_lane.status, count=board_lane.artifact_count, hue=board_lane.hue) }}
     {% endfor %}
 </div>
+
+<template id="lane-template">{{ lane("", "", "") }}</template>
 
 <template id="task-card-template">
     <li class="task-card" tabindex="0" aria-keyshortcuts="Enter Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown Delete" aria-haspopup="dialog">
@@ -32,7 +34,8 @@
 <div class="visually-hidden" role="status" aria-live="polite" data-live-region></div>
 
 {% include "components/create_task_modal.html" %}
-{{ form_modal("rename-lane-modal", "Rename lane", LANE_FIELDS, submit="Save", reset="Reset to default") }}
+{{ form_modal("add-lane-modal", "Add lane", LANE_FIELDS, submit="Add lane") }}
+{{ confirm_modal("delete-lane-modal", "Delete lane") }}
 {{ confirm_modal("delete-task-modal", "Delete Artifact", note="data-children-note") }}
 {{ confirm_modal("delete-execution-modal", "Delete execution", note="data-history-note") }}
 {% endblock %}

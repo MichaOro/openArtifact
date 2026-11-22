@@ -103,10 +103,10 @@ def test_board_has_three_empty_lanes(client: TestClient) -> None:
     """Board shows Backlog / In Progress / Done, empty, counters at 0."""
     html = client.get("/").text
     for title in ("Backlog", "In Progress", "Done"):
-        assert f">{title}</h2>" in html
-    assert html.count('class="lane__count"') == 3
-    assert html.count(">0</span>") == 3
-    assert html.count("No artifacts yet") == 3
+        assert f">{title}</span></h2>" in html
+    assert html.count('class="lane__count"') == 4  # three lanes and the template for new ones
+    assert html.count(">0</span>") == 4
+    assert html.count("No artifacts yet") == 4
     assert "data-task-id" not in html  # cards are rendered client-side; none are baked in
 
 
@@ -166,7 +166,7 @@ def test_no_hex_colors_outside_tokens() -> None:
 def test_each_lane_has_an_add_button_with_its_status(client: TestClient) -> None:
     """Every lane gets a + button that carries the lane's API status."""
     html = client.get("/").text
-    assert html.count("data-create-task") == 3
+    assert html.count("data-create-task") == 4  # three lanes and the template for new ones
     for status, title in (("backlog", "Backlog"), ("in_progress", "In Progress"), ("done", "Done")):
         assert f'data-status="{status}" data-lane-title="{title}"' in html
         assert f'aria-label="Add artifact to {title}"' in html
@@ -268,25 +268,16 @@ def test_task_dialog_has_collapsed_card_navigation_with_delete(client: TestClien
 # ── Lanes are configuration, not markup ───────────────────────────────
 
 
-def test_lane_config_covers_every_status_exactly_once() -> None:
-    """BOARD_LANES is the single source of the lanes; it must match the allowed statuses."""
-    from openartifact.models import TaskStatus
-    from openartifact.tasks.lanes import BOARD_LANES
-
-    assert [lane.status for lane in BOARD_LANES] == list(TaskStatus)
-    assert [lane.key for lane in BOARD_LANES] == ["backlog", "in-progress", "done"]
-
-
-def test_board_renders_lanes_from_config(client: TestClient) -> None:
-    """Lane order, titles and API status come from BOARD_LANES."""
-    from openartifact.tasks.lanes import BOARD_LANES
-
+def test_board_renders_lanes_from_the_database(client: TestClient) -> None:
+    """Lane order, titles and API status come from the ``lanes`` table."""
     html = client.get("/").text
-    positions = [html.index(f'data-status="{lane.status.value}"') for lane in BOARD_LANES]
+    lanes = client.get("/api/lanes").json()
+    assert [lane["key"] for lane in lanes] == ["backlog", "in-progress", "done"]
+    positions = [html.index(f'data-status="{lane["status"]}"') for lane in lanes]
     assert positions == sorted(positions)
-    for lane in BOARD_LANES:
-        assert f'data-lane="{lane.key}" data-status="{lane.status.value}"' in html
-        assert f">{lane.title}</h2>" in html
+    for lane in lanes:
+        assert f'data-lane="{lane["key"]}" data-status="{lane["status"]}"' in html
+        assert f">{lane['title']}</span></h2>" in html
 
 
 def test_task_dialog_offers_lane_switch(client: TestClient) -> None:
@@ -305,13 +296,13 @@ def test_task_dialog_offers_lane_switch(client: TestClient) -> None:
 
 
 def test_each_lane_gets_its_own_hue(client: TestClient) -> None:
-    from openartifact.tasks.lanes import BOARD_LANES, LANE_HUES
+    from openartifact.tasks.lanes import LANE_HUES
 
     html = client.get("/").text
-    for index, lane in enumerate(BOARD_LANES):
+    for index, lane in enumerate(client.get("/api/lanes").json()):
         hue = index % LANE_HUES + 1
         assert (
-            f'data-lane="{lane.key}" data-status="{lane.status.value}" data-lane-hue="{hue}"'
+            f'data-lane="{lane["key"]}" data-status="{lane["status"]}" data-lane-hue="{hue}"'
             in html
         )
 

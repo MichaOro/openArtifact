@@ -1,6 +1,6 @@
 """Database models and the value sets stored in their string columns.
 
-Live: ``Task`` (an artifact, a card on the board; ``TaskStatus`` is its lane), ``Graph``,
+Live: ``Task`` (an artifact, a card on the board; ``status`` is the key of its ``Lane``), ``Lane``, ``Graph``,
 ``GraphNode`` and ``GraphEdge`` (a pipeline or an action definition and what it is made of) and
 ``PipelineRun`` with ``RunStage`` (the current processing of a task) and ``Execution`` (the history: one
 row per start, with the steps it recorded in ``RunNodeResult``). ``TaskNumberSeq`` is the counter that
@@ -28,18 +28,11 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     false,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from openartifact.database import Base
-
-
-class TaskStatus(enum.StrEnum):
-    """Lane of a board task. The value is what is stored in ``tasks.status``."""
-
-    BACKLOG = "backlog"
-    IN_PROGRESS = "in_progress"
-    DONE = "done"
 
 
 class Task(Base):
@@ -51,7 +44,7 @@ class Task(Base):
         id: Unique task identifier (UUID string).
         title: Short title (required).
         body: Optional longer description.
-        status: Lane of the task (see :class:`TaskStatus`).
+        status: Key of the task's lane (``lanes.key``, foreign key ``ON DELETE RESTRICT``, migration 0029).
         number: Human-readable artifact number (#1, #2 …), unique and never reused (see
             migration 0006).
         parent_id: Optional parent artifact (a tree: one parent, any number of children). Kept
@@ -81,9 +74,9 @@ class Task(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Plain string column; the allowed values are enforced by TaskStatus (API)
-    # and a CHECK constraint (database).
-    status: Mapped[str] = mapped_column(String(32), default=TaskStatus.BACKLOG.value)
+    status: Mapped[str] = mapped_column(
+        String(32), ForeignKey("lanes.key", ondelete="RESTRICT", name="fk_tasks_status_lanes")
+    )
     number: Mapped[int] = mapped_column(Integer, nullable=True)
     position: Mapped[float] = mapped_column(Float, default=0.0)
     parent_id: Mapped[str | None] = mapped_column(
@@ -108,16 +101,24 @@ class Task(Base):
         return f"<Task(id={self.id!r}, status={self.status!r})>"
 
 
-class LaneTitle(Base):
-    """A lane title the user changed (only overrides; a lane without a row shows its default).
+class Lane(Base):
+    """A column of the board (migration 0029).
 
-    The CHECK on ``status`` exists in migration 0027 only, like ``ck_tasks_status`` in 0003.
+    ``key`` is what artifacts carry in ``tasks.status``: generated from the first title, never
+    changed. ``position`` orders the lanes on the board. Titles are unique ignoring case (``NOCASE`` folds ASCII letters; the service compares with ``casefold``).
     """
 
-    __tablename__ = "lane_titles"
+    __tablename__ = "lanes"
 
-    status: Mapped[str] = mapped_column(String(20), primary_key=True)
-    title: Mapped[str] = mapped_column(String(40))
+    key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    title: Mapped[str] = mapped_column(String(40, collation="NOCASE"))
+    position: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC), server_default=func.current_timestamp()
+    )
+
+
+Index("ux_lanes_title", Lane.title, unique=True)
 
 
 class TaskNumberSeq(Base):

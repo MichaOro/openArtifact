@@ -263,7 +263,7 @@ def test_an_agent_changes_an_artifact(api: TestClient) -> None:
     empty = _tool(api, "update_artifact", artifact="1")
     assert empty["isError"] and "Give a title, a body or a lane" in _text(empty)
     bad_lane = _tool(api, "update_artifact", artifact="1", lane="sideways")
-    assert bad_lane["isError"] and "lane must be backlog, in_progress or done" in _text(bad_lane)
+    assert bad_lane["isError"] and "Valid lanes: backlog, in_progress, done" in _text(bad_lane)
     assert _tool(api, "update_artifact", artifact="99", title="x")["isError"]
 
 
@@ -306,7 +306,7 @@ def test_an_agent_names_stage_and_action_and_gets_errors_for_what_does_not_fit(
             "Unknown stage 'Nope'. Available: Stage 1, Stage 2",
         ),
         ({"pipeline": "Flow", "stage": "Stage 1", "action": "Nope"}, "Unknown action"),
-        ({"lane": "sideways"}, "lane must be"),
+        ({"lane": "sideways"}, "Unknown lane 'sideways'"),
         ({"parent": "#99"}, "not found"),
     ]:
         result = _tool(api, "create_artifact", title="x", **arguments)

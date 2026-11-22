@@ -8,9 +8,11 @@ artifact came from) exist in one place. Every method opens its own session and c
 from __future__ import annotations
 
 import json
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import undefer
 
@@ -47,12 +49,12 @@ from openartifact.models import (
     RunStatus,
     StartedBy,
     Task,
-    TaskStatus,
 )
-from openartifact.tasks.lanes import LaneTitleError, effective_lanes, rename_lane
+from openartifact.tasks import lanes as lane_rules
 from openartifact.tasks.repository import ParentError, PlacementError, TaskRepository
 from openartifact.tasks.schemas import LaneRead, TaskCreate, TaskRead, TaskUpdate
 
+LANE_GONE = "The lane no longer exists."
 LOCKED_FIELDS = {"status", "before_id", "parent_id", "pipeline_id", "stage_id", "action_id"}
 
 
@@ -108,21 +110,32 @@ class ArtifactService:
             return TaskRead.model_validate(await self._task(session, ref))
 
     async def lanes(self) -> list[LaneRead]:
-        """The board lanes with their current titles."""
+        """The board lanes in order."""
         async with self._session() as session:
-            return await effective_lanes(session)
+            return await lane_rules.effective_lanes(session)
 
-    async def rename_lane(self, status: str, title: str | None) -> list[LaneRead]:
-        """Give a lane its own title (``None``: back to the default); publishes ``board.lanes``."""
-        try:
-            lane = TaskStatus(status)
-        except ValueError as error:
-            raise ArtifactError(404, f"Unknown lane '{status}'") from error
+    async def create_lane(self, title: str) -> list[LaneRead]:
+        """Append a lane; publishes ``board.lanes``."""
+        return await self._change_lanes(lambda session: lane_rules.create_lane(session, title))
+
+    async def rename_lane(self, status: str, title: str) -> list[LaneRead]:
+        """Change a lane's title; publishes ``board.lanes``."""
+        return await self._change_lanes(
+            lambda session: lane_rules.rename_lane(session, status, title)
+        )
+
+    async def delete_lane(self, status: str) -> list[LaneRead]:
+        """Delete a lane that holds no artifacts; publishes ``board.lanes``."""
+        return await self._change_lanes(lambda session: lane_rules.delete_lane(session, status))
+
+    async def _change_lanes(
+        self, change: Callable[[AsyncSession], Awaitable[list[LaneRead]]]
+    ) -> list[LaneRead]:
         async with self._session() as session:
             try:
-                lanes = await rename_lane(session, lane, title)
-            except LaneTitleError as error:
-                raise ArtifactError(422, str(error)) from error
+                lanes = await change(session)
+            except lane_rules.LaneError as error:
+                raise ArtifactError(error.code, error.message) from error
         self._bus.publish(
             "board.lanes", {"lanes": [lane.model_dump(mode="json") for lane in lanes]}
         )
@@ -323,15 +336,24 @@ class ArtifactService:
         """Create an artifact: lane, optional parent, optional pipeline with its first stage and action."""
         async with self._session() as session:
             try:
+                status = (
+                    await lane_rules.first_lane(session)
+                    if data.status is None
+                    else await lane_rules.require_lane(session, data.status)
+                )
                 target = await resolve_target(
                     session, data.pipeline_id, data.stage_id, data.action_id
                 )
                 task = await TaskRepository(session).create(
-                    data, created_by=created_by, target=target
+                    data, status=status, created_by=created_by, target=target
                 )
+                await session.commit()
+            except lane_rules.LaneError as error:
+                raise ArtifactError(error.code, error.message) from error
             except (TargetError, ParentError) as error:
                 raise ArtifactError(422, str(error)) from error
-            await session.commit()
+            except IntegrityError as error:  # the lane was deleted in the meantime
+                raise ArtifactError(409, LANE_GONE) from error
             created = TaskRead.model_validate(task)
         self._bus.publish("task.created", created.model_dump(mode="json"))
         return created
@@ -343,6 +365,11 @@ class ArtifactService:
             task = await self._task(session, ref)
             if payload.model_fields_set & LOCKED_FIELDS:
                 await self._forbid_while_processing(session, task.id)
+            if payload.status is not None:
+                try:
+                    await lane_rules.require_lane(session, payload.status)
+                except lane_rules.LaneError as error:
+                    raise ArtifactError(error.code, error.message) from error
             start_at = None
             if payload.model_fields_set & TARGET_FIELDS:
                 try:
@@ -351,11 +378,13 @@ class ArtifactService:
                     raise ArtifactError(422, str(error)) from error
             try:
                 result = await repo.update(task, payload, start_at=start_at)
+                if not result.changed and not result.renumbered:
+                    return TaskRead.model_validate(task)
+                await session.commit()
             except (PlacementError, ParentError) as error:
                 raise ArtifactError(422, str(error)) from error
-            if not result.changed and not result.renumbered:
-                return TaskRead.model_validate(task)
-            await session.commit()
+            except IntegrityError as error:  # the lane was deleted in the meantime
+                raise ArtifactError(409, LANE_GONE) from error
             updated = TaskRead.model_validate(task)
         # lane/position only -> "moved"; anything touching the content -> "updated"
         moved_only = result.changed <= {"status", "position"}

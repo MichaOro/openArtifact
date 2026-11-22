@@ -209,8 +209,11 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
             "created_at",
             "updated_at",
         }
+        conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("INSERT INTO tasks (id, title, status) VALUES ('a', 'T', 'done')")
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(
+            sqlite3.IntegrityError
+        ):  # the status must be a lane (foreign key since 0029)
             conn.execute("INSERT INTO tasks (id, title, status) VALUES ('b', 'T', 'BACKLOG')")
 
 

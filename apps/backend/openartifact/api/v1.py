@@ -20,7 +20,12 @@ from openartifact.api.contract import (
 )
 from openartifact.api.deps import ServiceDep
 from openartifact.api.executions import LIST_DESCRIPTION
-from openartifact.api.lanes import RENAME_DESCRIPTION
+from openartifact.api.lanes import (
+    CREATE_DESCRIPTION,
+    DELETE_DESCRIPTION,
+    LANES_DESCRIPTION,
+    RENAME_DESCRIPTION,
+)
 from openartifact.api.schemas import PipelineChainRead
 from openartifact.api.secrets import StoreDep
 from openartifact.engine.flow_schemas import ExecutionFlow
@@ -41,7 +46,7 @@ from openartifact.secret_store import SecretRead, SecretWrite
 from openartifact.security import require_api_token
 from openartifact.tasks.schemas import (
     LaneRead,
-    LaneRename,
+    LaneWrite,
     RunStart,
     TaskCreate,
     TaskRead,
@@ -67,11 +72,23 @@ async def list_pipelines(service: ServiceDep) -> list[dict[str, Any]]:
     return await service.pipelines()
 
 
-@router.get("/lanes", response_model=list[LaneRead], summary="List the lanes")
+@router.get(
+    "/lanes", response_model=list[LaneRead], summary="List the lanes", description=LANES_DESCRIPTION
+)
 async def list_lanes(service: ServiceDep) -> list[LaneRead]:
-    """The board lanes in order: ``status`` is the code artifacts use (``backlog``, ``in_progress``,
-    ``done``), ``title`` what the user sees (lanes can be renamed)."""
     return await service.lanes()
+
+
+@router.post(
+    "/lanes",
+    response_model=list[LaneRead],
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a lane",
+    description=CREATE_DESCRIPTION,
+    responses=errors(422, write=True, body=True),
+)
+async def create_lane(payload: LaneWrite, service: ServiceDep) -> list[LaneRead]:
+    return await service.create_lane(payload.title)
 
 
 @router.put(
@@ -81,8 +98,19 @@ async def list_lanes(service: ServiceDep) -> list[LaneRead]:
     description=RENAME_DESCRIPTION,
     responses=errors(404, 422, write=True, body=True),
 )
-async def rename_lane(status: str, payload: LaneRename, service: ServiceDep) -> list[LaneRead]:
+async def rename_lane(status: str, payload: LaneWrite, service: ServiceDep) -> list[LaneRead]:
     return await service.rename_lane(status, payload.title)
+
+
+@router.delete(
+    "/lanes/{status}",
+    response_model=list[LaneRead],
+    summary="Delete a lane",
+    description=DELETE_DESCRIPTION,
+    responses=errors(404, 409, 422, write=True),
+)
+async def delete_lane(status: str, service: ServiceDep) -> list[LaneRead]:
+    return await service.delete_lane(status)
 
 
 @router.get("/artifacts", response_model=list[TaskRead], summary="List artifacts")
@@ -96,10 +124,11 @@ async def list_artifacts(service: ServiceDep) -> list[TaskRead]:
     response_model=TaskRead,
     status_code=status.HTTP_201_CREATED,
     summary="Create an artifact",
-    responses=errors(422, write=True, body=True),
+    responses=errors(409, 422, write=True, body=True),
 )
 async def create_artifact(payload: TaskCreate, service: ServiceDep) -> TaskRead:
-    """Create an artifact: title, body, lane, parent and the pipeline it starts with (its first stage and
+    """Create an artifact: title, body, lane (a key of ``GET /lanes``, default the first lane; an unknown
+    one is 422 and lists the valid keys), parent and the pipeline it starts with (its first stage and
     action unless chosen). It is not started; call ``POST /artifacts/{ref}/run`` for that."""
     return await service.create(payload, created_by=CreatedBy.API)
 
