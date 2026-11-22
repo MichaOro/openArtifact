@@ -59,7 +59,7 @@ The database is SQLite in WAL mode and stays so ([ADR-020](../architecture/adr/0
 | Variable | Type | Default | Bounds | Meaning |
 |----------|------|---------|--------|---------|
 | `OPENARTIFACT_CODE_NODES_ENABLED` | boolean | `true` | | Whether Code nodes run. Code runs as a child of the application with the application's own rights (hardened against reading the parent's environment, no sandbox); off: a Code node fails with "Code nodes are disabled". |
-| `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN` | boolean | `false` | | **Being added.** Code nodes need `OPENARTIFACT_API_TOKEN`. In open mode (no token) they are refused unless this is `true`. It exists for local development on `127.0.0.1`; never set it on a reachable instance. |
+| `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN` | boolean | `false` | | Code nodes need `OPENARTIFACT_API_TOKEN`. In open mode (no token) they are refused unless this is `true`. It exists for local development on `127.0.0.1`; never set it on a reachable instance. |
 | `OPENARTIFACT_CODE_OUTPUT_LIMIT_BYTES` | integer | `65536` | at least 1 | Largest stdout and stderr (each, in bytes) kept of a Code node; the rest is cut off. |
 | `OPENARTIFACT_CODE_MEMORY_LIMIT_MB` | integer | `512` | 64 to 65536 | Address space (virtual memory) of a Code node's process in MiB (`RLIMIT_AS`). Python and the shell need little; runtimes that reserve much address space (Java, Node.js, Go) need more. |
 | `OPENARTIFACT_CODE_PROCESS_LIMIT` | integer | `64` | 1 to 4096 | Processes and threads a Code node may add (`RLIMIT_NPROC`). The kernel counts per user, not per process tree, so the limit is the user's current count plus this number. Does not apply to a process that runs as root. |

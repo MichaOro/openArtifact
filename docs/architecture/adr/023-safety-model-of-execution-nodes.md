@@ -40,7 +40,7 @@ and start it is an operator of the application, not a user of a sandbox.
   killed hard; `code_registry` ends leftovers of the process group at the next start.
 - The environment holds `PATH`, `LANG`, `HOME`, the secrets the node asked for and one random marker; never an
   application setting. Output is bounded (`OPENARTIFACT_CODE_OUTPUT_LIMIT_BYTES`).
-- The application sets `PR_SET_DUMPABLE` to 0 on itself, which hardens it against being read by its own children:
+- The application sets `PR_SET_DUMPABLE` to 0 on itself (when the first Code process is started), which hardens it against being read by its own children:
   a code process cannot read the parent's `/proc/<pid>/environ` (where the token and the secret key live).
   This is hardening, not a sandbox.
 

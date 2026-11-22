@@ -33,8 +33,8 @@ should use `/api/v1` and MCP. Open without a token: `/health`, `/login`, `/logou
 | `503` | more open event streams than `OPENARTIFACT_MAX_SSE_SUBSCRIBERS` (only `/api/events`) |
 
 Errors are JSON `{"detail": "..."}`. The columns "Errors" below list the statuses specific to a route in
-addition to these. The OpenAPI schema is being extended to declare these error answers per route; until
-then it shows only the success status and `422`.
+addition to these. The OpenAPI schema (`/api/docs`, `/openapi.json`) declares them per route and lists the
+68 operations of the API only (the HTML pages are not part of it); `tests/test_openapi.py` guards the contract.
 
 ## Integration API (`/api/v1`)
 

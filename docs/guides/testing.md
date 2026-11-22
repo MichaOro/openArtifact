@@ -168,7 +168,8 @@ CI runs a `static` job (JavaScript syntax, relative links in the Markdown files,
 `lint` (Ruff lint and format check), `type-check` (mypy), `test` (pytest under coverage) and `e2e`
 (Playwright) in that order; see the [CI/CD guide](CI-CD.md). Locally, the three commands above and `pytest`
 cover the same ground except for the static checks (`python tools/check_links.py`,
-`python tools/check_quarantine.py`).
+`python tools/check_quarantine.py`, and the JavaScript unit tests: `node --test 'apps/backend/tests/js/*.test.mjs'`,
+quote the glob; they take a few seconds and need no npm packages).
 
 ## Writing tests
 
