@@ -17,6 +17,9 @@ import { rememberPipeline, setupBack } from "./navigation.js";
 import { typeOf } from "./node-types.js";
 
 export class GraphEditor {
+  #linkTurns = new Map(); // node id -> the number of the newest link request
+  #linkQueue = new Map(); // node id -> the link request in flight (or done)
+
   /** @param {HTMLElement} root the element carrying data-graph-id */
   constructor(root) {
     this.root = root;
@@ -336,9 +339,21 @@ export class GraphEditor {
     return `${path}/${encodeURIComponent(slug)}?from=${encodeURIComponent(this.model.graph.slug)}&node=${encodeURIComponent(node.id)}`;
   }
 
-  async #link(node, targetId) {
+  /** Links of one node are sent one after the other, and only the newest one is shown, so the screen
+   * always agrees with the server's last word however quickly the choice is changed. */
+  #link(node, targetId) {
+    const turn = (this.#linkTurns.get(node.id) ?? 0) + 1;
+    this.#linkTurns.set(node.id, turn);
+    const queued = (this.#linkQueue.get(node.id) ?? Promise.resolve()).then(() => this.#sendLink(node, targetId, turn));
+    this.#linkQueue.set(node.id, queued);
+    return queued;
+  }
+
+  async #sendLink(node, targetId, turn) {
+    const newest = () => this.#linkTurns.get(node.id) === turn;
     await this.#save(async () => {
       const updated = await this.model.updateNode(node.id, { definition_id: targetId });
+      if (!newest()) return; // a later choice is already queued: its answer is the one to show
       Object.assign(node, {
         definition_id: updated.definition_id,
         definition_name: updated.definition_name,
@@ -346,6 +361,7 @@ export class GraphEditor {
         definition_fail_enabled: updated.definition_fail_enabled,
       });
     });
+    if (!newest()) return;
     this.model.dropHiddenEdges(node); // e.g. no On Fail
     this.canvas.sync();
     this.#renderInspector();

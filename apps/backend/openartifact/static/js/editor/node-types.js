@@ -268,11 +268,13 @@ class HttpView extends ExecutionView {
 
 /** `https://user:pw@example.org/hook?token=x#y` as `example.org/hook`. */
 function hostAndPath(url) {
+  const plain = () => url.split(/[?#]/)[0].replace(/^[^/]*@/, "");
   try {
     const { host, pathname } = new URL(url);
-    return `${host}${pathname === "/" ? "" : pathname}`;
+    // `user:pw@host/path` without a scheme parses as an opaque URL with no host: never show the userinfo
+    return host ? `${host}${pathname === "/" ? "" : pathname}` : plain();
   } catch {
-    return url.split(/[?#]/)[0].replace(/^[^/]*@/, "");
+    return plain();
   }
 }
 

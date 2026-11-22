@@ -105,6 +105,9 @@ jobs:
           done < <(find apps/backend/openartifact/static/js -name '*.js' -print0)
           exit $status
 
+      - name: JavaScript unit tests (node --test)
+        run: node --test 'apps/backend/tests/js/*.test.mjs'
+
       - name: Markdown relative links and anchors
         run: python tools/check_links.py
 
