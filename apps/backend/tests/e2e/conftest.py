@@ -116,11 +116,13 @@ def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]
 @pytest.fixture
 def api(base_url: str) -> Iterator[httpx.Client]:
     """REST client; the server is emptied before each test: runs stopped, artifacts, pipelines and
-    action definitions deleted (the server lives for the whole session)."""
+    action definitions deleted, lane titles reset (the server lives for the whole session)."""
     with httpx.Client(base_url=base_url) as client:
         for task in client.get("/api/tasks").json():
             client.post(f"/api/tasks/{task['id']}/run/stop")  # 409 when nothing runs
             assert client.delete(f"/api/tasks/{task['id']}").status_code == 204
+        for lane in ("backlog", "in_progress", "done"):
+            client.put(f"/api/lanes/{lane}", json={"title": None}).raise_for_status()
         for path in ("/api/pipelines", "/api/actions"):
             for graph in client.get(path).json():
                 assert client.delete(f"{path}/{graph['id']}").status_code == 204

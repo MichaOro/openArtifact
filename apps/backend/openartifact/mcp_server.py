@@ -25,6 +25,7 @@ from openartifact.tasks.service import ArtifactService
 
 INSTRUCTIONS = (
     "OpenArtifact is a Kanban board whose cards (artifacts) are processed by pipelines. "
+    "Lanes (backlog, in_progress, done) can carry user-chosen titles; list_lanes shows them. "
     "Use list_pipelines to see the pipelines with their stages and actions, create_artifact to add a "
     "card (optionally with a parent and the pipeline it starts with), start_processing to run it "
     "through its pipeline and get_processing_status to follow it. Artifacts are addressed by number."
@@ -90,6 +91,12 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
         """The pipelines with their stages in running order and the actions of every stage (names and ids
         to give to ``create_artifact`` and ``start_processing``)."""
         return await service.pipelines()
+
+    @mcp.tool()
+    async def list_lanes() -> list[dict[str, Any]]:
+        """The board lanes in order: ``status`` (backlog, in_progress or done, what the other tools take)
+        and ``title`` (the name the user gave it, e.g. "Review"). Read only."""
+        return [lane.model_dump(mode="json") for lane in await service.lanes()]
 
     @mcp.tool()
     async def list_artifacts(lane: str | None = None) -> list[dict[str, Any]]:

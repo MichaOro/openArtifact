@@ -181,3 +181,5 @@ html:has(.modal[open]) { overflow: hidden; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .modal { background: color-mix(in srgb, var(--color-background) 86%, transparent); }
 }
+
+.modal__footer [data-reset] { white-space: nowrap; }

@@ -11,13 +11,6 @@ from fastapi.testclient import TestClient
 from openartifact.app import _create_app
 from openartifact.config import Settings
 from openartifact.version import __version__
-from tests.helpers import bare_settings
-
-
-@pytest.fixture
-def client() -> TestClient:
-    """Test client on the application with its routes and static files."""
-    return TestClient(_create_app(bare_settings()))
 
 
 @pytest.fixture
@@ -78,9 +71,9 @@ def test_root_links_assets(client: TestClient) -> None:
 
 
 def test_navigation_shows_the_pipeline_entries_only_inside_the_pipeline(client: TestClient) -> None:
-    """Projects, Pipeline and Executions are always there; Actions only once Pipeline is entered."""
+    """Board, Pipeline and Executions are always there; Actions only once Pipeline is entered."""
     html = client.get("/").text
-    assert html.count('class="nav-link"') == 3  # Projects, Pipeline and Executions
+    assert html.count('class="nav-link"') == 3  # Board, Pipeline and Executions
     assert 'href="/pipelines"' in html  # the Pipeline entry itself
     assert 'href="/actions"' not in html
     for path, marked_as_section in (("/pipelines", 0), ("/actions", 1)):

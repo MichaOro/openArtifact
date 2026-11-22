@@ -112,3 +112,23 @@ class TaskRead(BaseModel):
     created_by: str
     created_at: UtcDateTime
     updated_at: UtcDateTime
+
+
+class LaneRead(BaseModel):
+    """A board lane as shown: ``status`` is the code the artifact API uses, ``title`` what the user sees."""
+
+    status: TaskStatus
+    #: DOM-friendly form of ``status`` (``in-progress``).
+    key: str
+    title: str
+    default_title: str
+    #: Palette index of the lane's colour (1 to 8).
+    hue: int
+
+
+class LaneRename(BaseModel):
+    """Payload for renaming a lane: ``title: null`` (or empty, or the default text) restores the default."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None

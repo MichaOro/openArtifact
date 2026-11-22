@@ -20,7 +20,7 @@ export class Board {
     /** @type {Set<string>} */ this.locked = new Set();
     /** @type {Map<string, object>} */ this.tasks = new Map();
     /** @type {Map<string, HTMLElement>} */ this.cards = new Map();
-    /** @type {Map<string, {section: HTMLElement, list: HTMLElement, count: HTMLElement, title: string}>} */
+    /** @type {Map<string, {section: HTMLElement, list: HTMLElement, count: HTMLElement, title: string, hue: string, fallback: string}>} */
     this.lanes = new Map();
     document.querySelectorAll("[data-lane]").forEach((section) => {
       this.lanes.set(section.dataset.status, {
@@ -29,6 +29,7 @@ export class Board {
         count: section.querySelector(".lane__count"),
         title: section.querySelector(".lane__title").textContent.trim(),
         hue: section.dataset.laneHue,
+        fallback: section.dataset.laneDefault,
       });
     });
 
@@ -42,6 +43,28 @@ export class Board {
 
   laneTitle(status) {
     return this.lanes.get(status)?.title ?? status;
+  }
+
+  /** Whether the lane has a title of its own (not the default). */
+  laneIsCustom(status) {
+    const lane = this.lanes.get(status);
+    return Boolean(lane) && lane.title !== lane.fallback;
+  }
+
+  /** Show the lane titles the server sent ([{status, title, default_title}]): headers, labels, no reload. */
+  setLanes(lanes) {
+    for (const { status, title, default_title: fallback } of lanes) {
+      const lane = this.lanes.get(status);
+      if (!lane) continue;
+      Object.assign(lane, { title, fallback });
+      lane.section.dataset.laneDefault = fallback;
+      lane.section.querySelector(".lane__title").textContent = title;
+      lane.section.querySelector("[data-rename-lane]").setAttribute("aria-label", `Rename lane ${title}`);
+      const add = lane.section.querySelector("[data-create-task]");
+      add.dataset.laneTitle = title;
+      add.setAttribute("aria-label", `Add artifact to ${title}`);
+      lane.list.setAttribute("aria-label", `${title} artifacts`);
+    }
   }
 
   /** Palette index of a lane (drives its colour via data-lane-hue). */

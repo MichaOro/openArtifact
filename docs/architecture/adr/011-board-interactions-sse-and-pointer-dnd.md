@@ -186,3 +186,16 @@ queries or dashboards can rely on the relation.
 an execution, when it starts and when its status changes), `execution.deleted` (`task_id` and `id`) and
 `board.resync` (the client should reload). The pages of the execution history use them ([ADR-025](025-execution-history-and-retention.md), [ADR-028](028-global-executions-page-and-keyset-paging.md)). The
 board's keyboard operation and the known limits of the editor are in [ADR-030](030-accessibility-scope.md).
+
+
+## Update (2026-11-22): lane titles are renamable
+
+The three lanes stay fixed (`backlog`, `in_progress`, `done`, the codes the API and MCP use); their **titles** can be changed by the
+user. The table `lane_titles` (migration 0027) holds only the overrides, `BOARD_LANES` supplies the defaults and a lane without a row
+shows its default. `GET /api/lanes` and `PUT /api/lanes/{status}` (mirrored on `/api/v1/lanes`, MCP tool `list_lanes`) read and change
+them: titles are trimmed, 1 to 40 characters, free of control characters and unique among the lanes ignoring case (422 otherwise);
+`null`, empty or the default text restores the default. A rename publishes `board.lanes` (`{"lanes": [...]}`); the other tabs update
+headers, labels and an open dialog without a reload. Like every event it is not replayed, so the page reads `GET /api/lanes` again on
+every (re)connect. The page renders the effective lanes on the server and the board JavaScript still reads the titles from the DOM. The
+pencil in the lane header opens a one-field `FormDialog` with "Reset to default". The sidebar entry that was called Projects is called
+**Board**.

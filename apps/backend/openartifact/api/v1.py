@@ -20,6 +20,7 @@ from openartifact.api.contract import (
 )
 from openartifact.api.deps import ServiceDep
 from openartifact.api.executions import LIST_DESCRIPTION
+from openartifact.api.lanes import RENAME_DESCRIPTION
 from openartifact.api.schemas import PipelineChainRead
 from openartifact.api.secrets import StoreDep
 from openartifact.engine.flow_schemas import ExecutionFlow
@@ -38,7 +39,14 @@ from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, StartedBy
 from openartifact.secret_store import SecretRead, SecretWrite
 from openartifact.security import require_api_token
-from openartifact.tasks.schemas import RunStart, TaskCreate, TaskRead, TaskUpdate
+from openartifact.tasks.schemas import (
+    LaneRead,
+    LaneRename,
+    RunStart,
+    TaskCreate,
+    TaskRead,
+    TaskUpdate,
+)
 
 router = APIRouter(
     prefix="/api/v1",
@@ -57,6 +65,24 @@ router = APIRouter(
 async def list_pipelines(service: ServiceDep) -> list[dict[str, Any]]:
     """The pipelines with their stages in running order and the actions of each stage (the ids to start with)."""
     return await service.pipelines()
+
+
+@router.get("/lanes", response_model=list[LaneRead], summary="List the lanes")
+async def list_lanes(service: ServiceDep) -> list[LaneRead]:
+    """The board lanes in order: ``status`` is the code artifacts use (``backlog``, ``in_progress``,
+    ``done``), ``title`` what the user sees (lanes can be renamed)."""
+    return await service.lanes()
+
+
+@router.put(
+    "/lanes/{status}",
+    response_model=list[LaneRead],
+    summary="Rename a lane",
+    description=RENAME_DESCRIPTION,
+    responses=errors(404, 422, write=True, body=True),
+)
+async def rename_lane(status: str, payload: LaneRename, service: ServiceDep) -> list[LaneRead]:
+    return await service.rename_lane(status, payload.title)
 
 
 @router.get("/artifacts", response_model=list[TaskRead], summary="List artifacts")

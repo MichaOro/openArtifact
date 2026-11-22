@@ -84,7 +84,7 @@ NOTHING = "\u2013"  # an en dash: nothing chosen yet
 
 SIDEBAR = (
     Navigation("sidebar")
-    .add(NavLink("projects", "Projects", "projects", href="/"))
+    .add(NavLink("board", "Board", "board", href="/"))
     .add(
         NavLink(
             "pipeline",

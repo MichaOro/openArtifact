@@ -303,6 +303,21 @@
   color: var(--color-text-muted);
 }
 
+/* The pencil next to the lane title: dimmed until the lane is hovered or the button focused (full strength on touch screens) */
+.lane__rename {
+  width: 1.75rem;
+  height: 1.75rem;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--color-text-muted);
+}
+@media (hover: hover) {
+  .lane__rename { opacity: 0.45; }
+  .lane:hover .lane__rename,
+  .lane__rename:focus-visible { opacity: 1; }
+}
+
 /* Task card: lighter, more opaque than the lane so it reads as a separate layer */
 .task-card {
   display: grid;
