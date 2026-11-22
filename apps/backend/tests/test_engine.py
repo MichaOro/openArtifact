@@ -345,7 +345,7 @@ def test_an_action_that_passes_without_an_on_pass_connection_fails_the_run(
 def test_a_timer_that_finishes_lets_the_run_go_on(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import openartifact.engine.runner as runner
+    import openartifact.engine.executors as executors
 
     waited: list[float] = []
     real_asyncio = asyncio
@@ -355,7 +355,7 @@ def test_a_timer_that_finishes_lets_the_run_go_on(
         await real_asyncio.sleep(0)
 
     monkeypatch.setattr(
-        runner, "asyncio", SimpleNamespace(**{**vars(real_asyncio), "sleep": sleep})
+        executors, "asyncio", SimpleNamespace(**{**vars(real_asyncio), "sleep": sleep})
     )
     pipeline = slow_pipeline(client, seconds=3600)
     task = make_task(client)

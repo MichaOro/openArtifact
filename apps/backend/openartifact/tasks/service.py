@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from openartifact.database import SessionOpener
 from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.runner import RunEngine
-from openartifact.engine.schemas import RunRead
+from openartifact.engine.schemas import NodeResultRead, RunRead
 from openartifact.engine.snapshot import graph_of
 from openartifact.engine.targets import TargetError, resolve_target
 from openartifact.events import EventBus
@@ -117,6 +117,15 @@ class ArtifactService:
             task = await self._task(session, ref)
             run = await session.scalar(select(PipelineRun).where(PipelineRun.task_id == task.id))
             return None if run is None else await self._engine.read(session, run)
+
+    async def run_results(self, ref: str) -> list[NodeResultRead] | None:
+        """Every step of the artifact's run inside action definitions, or ``None`` if it never ran."""
+        async with self._session() as session:
+            task = await self._task(session, ref)
+            run = await session.scalar(select(PipelineRun).where(PipelineRun.task_id == task.id))
+            if run is None:
+                return None
+            return (await self._engine.node_results(session, run.id))[0]
 
     # ── changing ──────────────────────────────────────────────────────
 

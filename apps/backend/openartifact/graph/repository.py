@@ -5,12 +5,20 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.graph.node_types import NODE_TYPES, Ports, fixed_in, kinds_in, node_type
+from openartifact.graph.node_types import (
+    NODE_TYPES,
+    NodeType,
+    Ports,
+    SettingError,
+    fixed_in,
+    kinds_in,
+    node_type,
+)
 from openartifact.graph.rules import Endpoint, validate_edge
 from openartifact.graph.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
 from openartifact.graph.slug import slugify
@@ -30,8 +38,17 @@ class LinkInfo(NamedTuple):
 
 
 def _setting_keys() -> set[str]:
-    """The settings any kind of node has (they are columns of the node, see ``NodeType.settings``)."""
-    return {s.key for t in NODE_TYPES.values() for s in t.settings}
+    """The settings any kind of node has as a column of the node (the others are in ``config``)."""
+    return {s.key for t in NODE_TYPES.values() for s in t.settings if s.stored_in == "column"}
+
+
+def _merged_config(
+    kind_type: NodeType, stored: dict[str, Any] | None, changes: dict[str, Any]
+) -> dict[str, Any]:
+    try:
+        return kind_type.merge_config(stored, changes)
+    except SettingError as error:
+        raise NodeError(str(error)) from error
 
 
 class GraphRepository:
@@ -157,10 +174,12 @@ class GraphRepository:
                 raise NodeError("An action needs a stage of this graph")
         elif data.stage_id is not None:
             raise NodeError("Only actions belong to a stage")
+        config = _merged_config(kind_type, None, data.config or {})
         node = GraphNode(
             id=str(uuid.uuid4()),
             graph_id=graph.id,
             kind=data.kind.value,
+            config=config,
             stage_id=data.stage_id,
             name=data.name or kind_type.default_name,
             x=data.x,
@@ -170,7 +189,7 @@ class GraphRepository:
             **{
                 s.key: getattr(data, s.key, None) or s.default
                 for s in kind_type.settings
-                if s.type == "integer"
+                if s.type == "integer" and s.stored_in == "column"
             },
         )
         self._session.add(node)
@@ -187,6 +206,8 @@ class GraphRepository:
         settings = _setting_keys()
         for key in settings & sent - own:
             raise NodeError(f"A {node.kind} has no setting '{key}'")
+        if data.config is not None:
+            node.config = _merged_config(kind_type, node.config, data.config)
         if "definition_id" in sent:
             await self._link(node, data.definition_id)
         for field in ("name", "x", "y", "width", "height", *sorted(settings)):

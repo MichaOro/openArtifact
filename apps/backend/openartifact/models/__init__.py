@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import enum
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Float,
     ForeignKey,
@@ -250,6 +252,8 @@ class NodeKind(enum.StrEnum):
     OUTPUT = "output"
     TIMER = "timer"
     PIPELINE = "pipeline"
+    CODE = "code"
+    HTTP = "http"
 
 
 class Graph(Base):
@@ -290,6 +294,8 @@ class GraphNode(Base):
         width, height: Size of a stage (``None`` for other kinds).
         fail_enabled: Whether an output node offers *On Fail* besides *On Pass*.
         seconds: How long a timer pauses the run.
+        config: The settings of kinds that keep them as one JSON object (Code, HTTP): only the keys that
+            were set; the defaults of the kind fill in the rest (``NodeType.effective_config``).
         definition_id: What an action is linked to (an action definition; ``None``: an empty shell), or the
             pipeline a pipeline node calls.
     """
@@ -311,6 +317,7 @@ class GraphNode(Base):
     height: Mapped[float | None] = mapped_column(Float, nullable=True)
     fail_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, server_default="{}")
     definition_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("graphs.id", ondelete="SET NULL"), nullable=True, default=None
     )
@@ -393,3 +400,44 @@ class RunStage(Base):
     name: Mapped[str] = mapped_column(String(255))
     position: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(16))
+
+
+class RunNodeResult(Base):
+    """One step of a run inside an action definition: every node the engine executed, in order.
+
+    ``seq`` counts the steps of the run from 1; ``port`` is the connector the run left the node by
+    (``pass``, ``fail`` or ``out``; none for an output node, which ends the action, where
+    ``outcome`` says which input was reached). Code and HTTP nodes also carry ``exit_code``,
+    ``output`` (text only, bounded), ``reason`` and ``data``; the other nodes leave these empty.
+    The position is given by ``pipeline_id`` (the pipeline whose action this is: the run's own or a
+    called one), ``depth`` (0 for the run's own), ``top_stage_id`` (the entry of the run's own
+    pipeline it is inside), ``stage_id``, ``action_id`` and ``definition_id`` (the action
+    definition ``node_id`` belongs to). Ids point into the frozen snapshot, so there are no foreign
+    keys but ``run_id``. Rows go with the run and are replaced when the artifact is started again.
+    """
+
+    __tablename__ = "run_node_results"
+    __table_args__ = (Index("ux_run_node_results_run_seq", "run_id", "seq", unique=True),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("pipeline_runs.id", ondelete="CASCADE")
+    )
+    seq: Mapped[int] = mapped_column(Integer)
+    pipeline_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    depth: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    top_stage_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    stage_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    definition_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    node_id: Mapped[str] = mapped_column(String(36))
+    node_name: Mapped[str] = mapped_column(String(255), default="", server_default="")
+    kind: Mapped[str] = mapped_column(String(16))
+    outcome: Mapped[str] = mapped_column(String(8))
+    port: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output: Mapped[str] = mapped_column(Text, default="", server_default="")
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    started_at: Mapped[datetime] = mapped_column()
+    finished_at: Mapped[datetime] = mapped_column()

@@ -13,7 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Response, status
 
 from openartifact.api.deps import ServiceDep
-from openartifact.engine.schemas import RunRead
+from openartifact.engine.schemas import NodeResultRead, RunRead
 from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, StartedBy
 from openartifact.security import require_api_token
@@ -71,6 +71,15 @@ async def get_run(ref: str, service: ServiceDep) -> RunRead:
     if run is None:
         raise ArtifactError(404, "The artifact was never processed")
     return run
+
+
+@router.get("/artifacts/{ref}/run/results", response_model=list[NodeResultRead])
+async def get_run_results(ref: str, service: ServiceDep) -> list[NodeResultRead]:
+    """Every step of the run inside action definitions, in order, with complete outputs."""
+    results = await service.run_results(ref)
+    if results is None:
+        raise ArtifactError(404, "The artifact was never processed")
+    return results
 
 
 @router.post("/artifacts/{ref}/run", status_code=status.HTTP_201_CREATED, response_model=RunRead)

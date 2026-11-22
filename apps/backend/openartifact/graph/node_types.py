@@ -1,5 +1,9 @@
 """The kinds of nodes, as classes: one place that says what a node is and what it may do.
 
+Settings are values the user sets on a node in the inspector. The older ones (``seconds``,
+``fail_enabled``) are columns of the node; every newer one lives in the node's ``config`` JSON
+object (see :class:`Setting.stored_in`), so a new kind needs no new column.
+
 A :class:`NodeType` describes a kind of node: where it may be used (a pipeline or an action
 definition), whether it comes with the graph and stays (``fixed``) or is added through the "+"
 menu (``addable``), its ports, its settings and what it links to. ``connect_error`` holds its
@@ -10,6 +14,8 @@ Every kind is registered through :func:`register`, the same way an extension wou
 
 from __future__ import annotations
 
+import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -23,6 +29,36 @@ ACTION_DEFINITION = GraphKind.ACTION
 #: A timer pauses for one second to one day.
 TIMER_MIN_SECONDS = 1
 TIMER_MAX_SECONDS = 86400
+#: Whether the "+" menu of the browser editor offers the Code and HTTP nodes. The editor's inspector
+#: draws only integer and switch settings so far; flip this to True together with its new controls.
+EXECUTION_NODES_ADDABLE = False
+CODE_MAX_CHARS = 20000
+HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
+SETTING_TYPES = ("integer", "switch", "text", "lines", "code", "select")
+_DEFAULT_MAX_LENGTH = {"text": 2000, "lines": 20000, "code": CODE_MAX_CHARS}
+
+
+class SettingError(ValueError):
+    """A value does not fit the setting it is meant for (the message never repeats the value)."""
+
+
+def parse_status_spec(spec: str) -> list[tuple[int, int]]:
+    """``"200-299, 404"`` as ranges ``[(200, 299), (404, 404)]``; raises :class:`SettingError`."""
+    ranges = []
+    for part in spec.split(","):
+        match = re.fullmatch(r"\s*(\d{3})\s*(?:-\s*(\d{3})\s*)?", part)
+        if not match:
+            raise SettingError("Use status codes or ranges such as '200-299, 404'")
+        low = int(match[1])
+        high = int(match[2] or low)
+        if not (100 <= low <= high <= 599):
+            raise SettingError("Status codes are 100 to 599, a range goes upwards")
+        ranges.append((low, high))
+    return ranges
+
+
+def _check_status(value: str) -> None:
+    parse_status_spec(value)
 
 
 class Ports:
@@ -47,14 +83,78 @@ class Port:
 
 @dataclass(frozen=True)
 class Setting:
-    """A value the user sets on a node in the inspector (stored in the column of the same name)."""
+    """A value the user sets on a node in the inspector.
+
+    ``type``: ``integer`` and ``switch`` as before; ``text`` (one line), ``lines`` (several lines),
+    ``code`` (several lines, source code) and ``select`` (one of ``options``) are new. Integers
+    are bound by ``minimum``/``maximum``, texts by ``max_length``. ``stored_in`` says where the
+    value lives: the node's column of the same name (``"column"``, the older settings) or its
+    ``config`` object (``"config"``). ``check`` is an extra rule for a text (not sent to the editor).
+    """
 
     key: str
     label: str
-    type: str  # "integer" or "switch"
+    type: str
     minimum: int | None = None
     maximum: int | None = None
     default: Any = None
+    options: tuple[str, ...] | None = None
+    max_length: int | None = None
+    placeholder: str | None = None
+    help: str | None = None
+    stored_in: str = "column"
+    check: Callable[[str], None] | None = None
+
+    def describe(self) -> dict[str, Any]:
+        """The editor's description; the old keys keep their meaning, new ones are only added."""
+        data: dict[str, Any] = {
+            "key": self.key,
+            "label": self.label,
+            "type": self.type,
+            "minimum": self.minimum,
+            "maximum": self.maximum,
+            "default": self.default,
+            "stored_in": self.stored_in,
+        }
+        if self.options is not None:
+            data["options"] = list(self.options)
+        if self.type in _DEFAULT_MAX_LENGTH:
+            data["max_length"] = self.max_length or _DEFAULT_MAX_LENGTH[self.type]
+        if self.placeholder is not None:
+            data["placeholder"] = self.placeholder
+        if self.help is not None:
+            data["help"] = self.help
+        return data
+
+    def validate(self, value: Any) -> Any:
+        """The value as it is stored, or :class:`SettingError`."""
+        if self.type == "integer":
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise SettingError(f"'{self.key}' must be a whole number")
+            if (self.minimum is not None and value < self.minimum) or (
+                self.maximum is not None and value > self.maximum
+            ):
+                raise SettingError(f"'{self.key}' must be {self.minimum} to {self.maximum}")
+            return value
+        if self.type == "switch":
+            if not isinstance(value, bool):
+                raise SettingError(f"'{self.key}' must be true or false")
+            return value
+        if not isinstance(value, str):
+            raise SettingError(f"'{self.key}' must be text")
+        if self.type == "select":
+            if value not in (self.options or ()):
+                raise SettingError(f"'{self.key}' must be one of: {', '.join(self.options or ())}")
+            return value
+        if "\x00" in value:
+            raise SettingError(f"'{self.key}' must not contain NUL characters")
+        if len(value) > (self.max_length or _DEFAULT_MAX_LENGTH.get(self.type, 2000)):
+            raise SettingError(f"'{self.key}' is too long")
+        if self.type == "text" and ("\n" in value or "\r" in value):
+            raise SettingError(f"'{self.key}' is a single line")
+        if self.check is not None:
+            self.check(value)
+        return value
 
 
 class NodeType:
@@ -85,6 +185,34 @@ class NodeType:
     def output_names(self) -> tuple[str, ...]:
         return tuple(p.name for p in self.outputs)
 
+    @property
+    def config_settings(self) -> tuple[Setting, ...]:
+        """The settings kept in the node's ``config`` object."""
+        return tuple(s for s in self.settings if s.stored_in == "config")
+
+    def effective_config(self, stored: dict[str, Any] | None) -> dict[str, Any]:
+        """The kind's config settings: what is stored, the defaults for the rest."""
+        stored = stored or {}
+        return {s.key: stored.get(s.key, s.default) for s in self.config_settings}
+
+    def merge_config(
+        self, stored: dict[str, Any] | None, changes: dict[str, Any]
+    ) -> dict[str, Any]:
+        """``stored`` with ``changes`` validated and merged per key (``None`` resets a key).
+
+        Raises :class:`SettingError` for an unknown key or a value that does not fit.
+        """
+        known = {s.key: s for s in self.config_settings}
+        merged = dict(stored or {})
+        for key, value in changes.items():
+            if key not in known:
+                raise SettingError(f"A {self.kind.value} has no setting '{key}'")
+            if value is None:
+                merged.pop(key, None)
+            else:
+                merged[key] = known[key].validate(value)
+        return merged
+
     def connect_error(
         self, source: Endpoint, source_port: str, target: Endpoint, target_port: str
     ) -> str | None:
@@ -113,7 +241,7 @@ class NodeType:
             "ending": self.ending,
             "inputs": [{"name": p.name, "label": p.label} for p in self.inputs],
             "outputs": [{"name": p.name, "label": p.label} for p in self.outputs],
-            "settings": [s.__dict__ for s in self.settings],
+            "settings": [s.describe() for s in self.settings],
             "links_to": self.links_to.value if self.links_to else None,
         }
 
@@ -228,6 +356,107 @@ class OutputType(NodeType):
     settings = (Setting("fail_enabled", "On Fail", "switch", default=False),)
 
 
+class _ExecutionType(NodeType):
+    """A step of an action definition that does work and ends in On Pass or On Fail."""
+
+    scopes = frozenset({ACTION_DEFINITION})
+    addable = EXECUTION_NODES_ADDABLE
+    chain = True
+    inputs = (Port(Ports.IN, "Input"),)
+    outputs = (Port(Ports.PASS, "On Pass"), Port(Ports.FAIL, "On Fail"))
+
+
+class CodeType(_ExecutionType):
+    """Runs shell or Python text stored in the node. It runs with the rights of the application."""
+
+    kind = NodeKind.CODE
+    label = "Code"
+    settings = (
+        Setting(
+            "language",
+            "Language",
+            "select",
+            default="sh",
+            options=("sh", "python"),
+            stored_in="config",
+        ),
+        Setting(
+            "code",
+            "Code",
+            "code",
+            default="",
+            max_length=CODE_MAX_CHARS,
+            stored_in="config",
+            help="No secrets here: the code is stored and shown in plain text.",
+        ),
+        Setting(
+            "timeout_seconds",
+            "Timeout (seconds)",
+            "integer",
+            minimum=1,
+            maximum=600,
+            default=30,
+            stored_in="config",
+        ),
+    )
+
+
+class HttpType(_ExecutionType):
+    """Calls an HTTP address and passes when the status is one of the accepted ones."""
+
+    kind = NodeKind.HTTP
+    label = "HTTP request"
+    settings = (
+        Setting(
+            "method", "Method", "select", default="GET", options=HTTP_METHODS, stored_in="config"
+        ),
+        Setting(
+            "url",
+            "URL",
+            "text",
+            default="",
+            placeholder="https://example.org/hook",
+            stored_in="config",
+        ),
+        Setting(
+            "headers",
+            "Headers",
+            "lines",
+            default="",
+            placeholder="Name: value",
+            stored_in="config",
+            help="One 'Name: value' per line. No secrets here: they are stored in plain text.",
+        ),
+        Setting(
+            "body",
+            "Body",
+            "lines",
+            default="",
+            stored_in="config",
+            help="Sent as it is. No secrets here.",
+        ),
+        Setting(
+            "timeout_seconds",
+            "Timeout (seconds)",
+            "integer",
+            minimum=1,
+            maximum=120,
+            default=30,
+            stored_in="config",
+        ),
+        Setting(
+            "success_status",
+            "Success status",
+            "text",
+            default="200-299",
+            max_length=100,
+            stored_in="config",
+            help="Comma-separated codes or ranges, for example 200-299, 404.",
+            check=_check_status,
+        ),
+    )
+
+
 NODE_TYPES: dict[NodeKind, NodeType] = {}
 
 
@@ -259,5 +488,7 @@ for _type in (
     CompleteType(),
     TimerType(),
     OutputType(),
+    CodeType(),
+    HttpType(),
 ):
     register(_type)

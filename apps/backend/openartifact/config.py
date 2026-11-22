@@ -67,6 +67,18 @@ class Settings(BaseSettings):
     #: Open event streams (browser tabs); a further one gets ``503``.
     max_sse_subscribers: int = 50
 
+    # ── Code and HTTP nodes ─────────────────────────────────────────
+    #: Whether Code nodes run. Code runs as a child of the application with the application's own
+    #: rights (no sandbox); off: a Code node fails with "Code nodes are disabled".
+    code_nodes_enabled: bool = True
+    #: Largest stdout and stderr (each, in bytes) kept of a Code node; the rest is cut off.
+    code_output_limit_bytes: int = 65536
+    #: Largest response body (bytes) an HTTP node reads; the rest is cut off.
+    http_response_limit_bytes: int = 1024 * 1024
+    #: Whether HTTP nodes may call loopback, private, link-local and metadata addresses. Off by
+    #: default (protects the host network); self-hosters calling their own services switch it on.
+    http_allow_private_networks: bool = False
+
     # ── Logging ─────────────────────────────────────────────────────
     log_level: str = "INFO"
 

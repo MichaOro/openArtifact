@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.graph.node_types import node_type
 from openartifact.graph.repository import GraphRepository
 from openartifact.models import Graph, GraphEdge, GraphNode, NodeKind
 
@@ -19,6 +20,7 @@ def _node(node: GraphNode, label: str) -> dict[str, Any]:
         "label": label,
         "definition_id": node.definition_id,
         "seconds": node.seconds,
+        "config": node_type(node.kind).effective_config(node.config),
         "x": node.x,
         "y": node.y,
     }

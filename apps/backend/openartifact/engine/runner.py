@@ -23,7 +23,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.database import SessionOpener
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
-from openartifact.engine.schemas import RunRead, RunStageRead
+from openartifact.engine.executors import EXECUTORS, Limits
+from openartifact.engine.results import NodeResult
+from openartifact.engine.schemas import NodeResultRead, RunRead, RunStageRead
 from openartifact.engine.snapshot import NestingError, build_snapshot
 from openartifact.engine.targets import TargetError, load_pipeline, pick_start
 from openartifact.events import EventBus
@@ -32,6 +34,7 @@ from openartifact.graph.node_types import Ports
 from openartifact.models import (
     NodeKind,
     PipelineRun,
+    RunNodeResult,
     RunStage,
     RunStatus,
     StageStatus,
@@ -41,6 +44,13 @@ from openartifact.models import (
 
 logger = logging.getLogger(__name__)
 
+#: All outputs of one run together; when it is exceeded the oldest outputs are removed.
+RUN_OUTPUT_LIMIT_CHARS = 1024 * 1024
+#: Longest output stored for one node.
+RESULT_OUTPUT_LIMIT_CHARS = 256 * 1024
+REMOVED_OUTPUT = "[output removed: the results of this run are limited]"
+#: Steps a run read carries (the newest); ``results`` of the run has them all.
+RUN_READ_RESULTS = 200
 MAX_STEPS = 1000  # a pipeline that loops for ever fails instead of running for ever
 _UNSET: Any = object()
 
@@ -58,6 +68,12 @@ class _Walk:
     steps: int = 0
     #: The entry of the outermost pipeline the run is in (the walk may be deeper, in a called one).
     top_entry: str | None = None
+    #: Where the run is while it executes an action (stored with every step it records).
+    pipeline_id: str | None = None
+    depth: int = 0
+    stage_id: str | None = None
+    action_id: str | None = None
+    seq: int = 0
 
     def step(self) -> None:
         """Count a step; actions and the nodes of their definitions count against the same limit."""
@@ -74,10 +90,12 @@ class RunEngine:
         bus: EventBus,
         session: SessionOpener,
         max_runs: int = 8,
+        limits: Limits | None = None,
     ) -> None:
         self._bus = bus
         self._session = session
         self._max_runs = max_runs
+        self._limits = limits or Limits()
         # artifacts whose start has not reached its background task
         self._starting: set[str] = set()
         self._jobs: dict[str, asyncio.Task[None]] = {}
@@ -94,6 +112,7 @@ class RunEngine:
                 select(RunStage).where(RunStage.run_id == run.id).order_by(RunStage.position)
             )
         ).scalars()
+        results, results_cut = await self.node_results(session, run.id, preview=True)
         where = locate(snapshot, run.stage_id)
         nested = where["pipeline_id"] is not None
         return RunRead(
@@ -116,8 +135,36 @@ class RunEngine:
                 RunStageRead(id=s.stage_id, name=s.name, status=StageStatus(s.status))
                 for s in stages
             ],
+            node_results=results,
+            node_results_truncated=results_cut,
             updated_at=run.updated_at,
         )
+
+    @staticmethod
+    async def node_results(
+        session: AsyncSession, run_id: str, *, preview: bool = False
+    ) -> tuple[list[NodeResultRead], bool]:
+        """The steps of the run in order and whether older ones were left out.
+
+        ``preview`` is what a run read carries: the last ``RUN_READ_RESULTS`` steps with long
+        outputs cut. Without it: all steps, complete.
+        """
+        query = select(RunNodeResult).where(RunNodeResult.run_id == run_id)
+        if not preview:
+            rows = (await session.execute(query.order_by(RunNodeResult.seq))).scalars().all()
+            return [NodeResultRead.of(row) for row in rows], False
+        newest = (
+            (
+                await session.execute(
+                    query.order_by(RunNodeResult.seq.desc()).limit(RUN_READ_RESULTS + 1)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        cut = len(newest) > RUN_READ_RESULTS
+        rows = list(reversed(newest[:RUN_READ_RESULTS]))
+        return [NodeResultRead.of(row, preview=True) for row in rows], cut
 
     async def list_all(self, session: AsyncSession) -> list[RunRead]:
         """Every run."""
@@ -269,6 +316,7 @@ class RunEngine:
                 rows = await session.execute(select(RunStage).where(RunStage.run_id == run.id))
                 previous = {r.stage_id: r.status for r in rows.scalars()}
             await session.execute(delete(RunStage).where(RunStage.run_id == run.id))
+            await session.execute(delete(RunNodeResult).where(RunNodeResult.run_id == run.id))
         return run, previous
 
     async def stop(self, task_id: str) -> RunRead:
@@ -366,11 +414,11 @@ class RunEngine:
                 run = await self._run_of(session, task_id)
                 if run is None:
                     return
-                walk = _Walk(task_id, json.loads(run.snapshot))
-                stage_id, action_id = run.stage_id, run.action_id
+                walk = _Walk(task_id, json.loads(run.snapshot), pipeline_id=run.pipeline_id)
+                stage_id, action_id, run_pipeline = run.stage_id, run.action_id, run.pipeline_id
             chain = pipeline_chain(walk.snapshot["nodes"], walk.snapshot["edges"])
             start = next(i for i, s in enumerate(chain) if s["id"] == stage_id)
-            await self._walk(walk, walk.snapshot, chain, start, action_id, 0)
+            await self._walk(walk, walk.snapshot, chain, start, action_id, 0, run_pipeline)
             # it rests where it ended, even inside a called pipeline
             await self._save(task_id, status=RunStatus.DONE)
         except asyncio.CancelledError:
@@ -393,6 +441,7 @@ class RunEngine:
         start: int,
         action_id: str | None,
         depth: int,
+        pipeline_id: str | None,
     ) -> None:
         """Run the entries of a chain from ``start`` on; a pipeline node runs its pipeline the same way.
 
@@ -412,10 +461,11 @@ class RunEngine:
                     walk.task_id, stage_id=entry["id"], action_id=None, stage_state=running
                 )
                 inner = pipeline_chain(called["nodes"], called["edges"])
-                await self._walk(walk, called, inner, 0, None, depth + 1)
+                await self._walk(walk, called, inner, 0, None, depth + 1, entry["pipeline_id"])
             else:
                 first = action_id or entry["first_action_id"]
                 action_id = None
+                walk.stage_id, walk.pipeline_id, walk.depth = entry["id"], pipeline_id, depth
                 await self._save(
                     walk.task_id, stage_id=entry["id"], action_id=first, stage_state=running
                 )
@@ -430,6 +480,7 @@ class RunEngine:
         while action is not None:
             walk.step()
             node = nodes[action]
+            walk.action_id = action
             await self._save(walk.task_id, action_id=action)
             passed = await self._run_action(node, walk)
             edge = edge_from(graph["edges"], action, Ports.PASS if passed else Ports.ERROR)
@@ -454,24 +505,124 @@ class RunEngine:
             stage_state=(top, StageStatus.FAILED) if top else None,
         )
 
-    @staticmethod
-    async def _run_action(node: dict[str, Any], walk: _Walk) -> bool:
+    async def _run_action(self, node: dict[str, Any], walk: _Walk) -> bool:
         """Run an action's definition from its trigger: True for On Pass, False for On Fail.
 
-        An action that is not linked to a definition is an empty shell and passes at once.
+        Every node on the way is recorded as a step of the run. A node that has an executor is run and
+        leaves by the port of its outcome. An action that is not linked to a definition is an empty
+        shell and passes at once (and has no steps).
         """
         if not node["definition_id"]:
             return True
         definition = walk.snapshot["definitions"][node["definition_id"]]
         nodes = {n["id"]: n for n in definition["nodes"]}
         current = next(n for n in definition["nodes"] if n["kind"] == NodeKind.TRIGGER)
+        now = datetime.now(UTC)
+        await self._record(walk, node["definition_id"], current, "pass", Ports.OUT, None, now)
+        port = Ports.OUT
         while True:
             walk.step()
-            edge = edge_from(definition["edges"], current["id"], Ports.OUT)
+            edge = edge_from(definition["edges"], current["id"], port)
             if edge is None:
                 return False  # a dead end: the action did not come to its output
             current = nodes[edge["target_id"]]
+            started = datetime.now(UTC)
             if current["kind"] == NodeKind.OUTPUT:
-                return bool(edge["target_port"] == Ports.PASS)
-            if current["kind"] == NodeKind.TIMER:
-                await asyncio.sleep(current["seconds"] or 0)
+                passed = edge["target_port"] == Ports.PASS
+                outcome = "pass" if passed else "fail"
+                await self._record(
+                    walk, node["definition_id"], current, outcome, None, None, started
+                )
+                return bool(passed)
+            executor = EXECUTORS.get(NodeKind(current["kind"]))
+            if executor is None:
+                port = Ports.OUT
+                await self._record(
+                    walk, node["definition_id"], current, "pass", port, None, started
+                )
+                continue
+            result = await executor.run(current, self._limits)
+            port = (
+                (Ports.PASS if result.outcome == "pass" else Ports.FAIL)
+                if executor.by_outcome
+                else Ports.OUT
+            )
+            await self._record(
+                walk, node["definition_id"], current, result.outcome, port, result, started
+            )
+
+    async def _record(
+        self,
+        walk: _Walk,
+        definition_id: str,
+        node: dict[str, Any],
+        outcome: str,
+        port: str | None,
+        result: NodeResult | None,
+        started: datetime,
+    ) -> None:
+        """Store one step of the run (never logged but as id, kind and outcome: the output may hold anything)."""
+        logger.info(
+            "Node %s (%s) of artifact %s: %s", node["id"], node["kind"], walk.task_id, outcome
+        )
+        walk.seq += 1
+        output = result.output[:RESULT_OUTPUT_LIMIT_CHARS] if result else ""
+        async with self._session() as session:
+            run = await self._run_of(session, walk.task_id)
+            if run is None:
+                return
+            session.add(
+                RunNodeResult(
+                    id=str(uuid.uuid4()),
+                    run_id=run.id,
+                    seq=walk.seq,
+                    pipeline_id=walk.pipeline_id,
+                    depth=walk.depth,
+                    top_stage_id=walk.top_entry,
+                    stage_id=walk.stage_id,
+                    action_id=walk.action_id,
+                    definition_id=definition_id,
+                    node_id=node["id"],
+                    node_name=node["name"],
+                    kind=node["kind"],
+                    outcome=outcome,
+                    port=port,
+                    exit_code=result.exit_code if result else None,
+                    output=output,
+                    reason=result.reason if result else None,
+                    data=result.data if result else None,
+                    started_at=started,
+                    finished_at=datetime.now(UTC),
+                )
+            )
+            await session.flush()
+            if output:
+                await self._trim_outputs(session, run.id)
+            await session.commit()
+        if result is not None:  # the steps without output show up with the next save of the run
+            await self._publish(walk.task_id)
+
+    @staticmethod
+    async def _trim_outputs(session: AsyncSession, run_id: str) -> None:
+        """Keep all outputs of the run within ``RUN_OUTPUT_LIMIT_CHARS``: the oldest go first."""
+        rows = (
+            (
+                await session.execute(
+                    select(RunNodeResult)
+                    .where(RunNodeResult.run_id == run_id)
+                    .order_by(RunNodeResult.seq)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        total = sum(len(r.output) for r in rows)
+        for row in rows[:-1]:
+            if total <= RUN_OUTPUT_LIMIT_CHARS:
+                break
+            total -= len(row.output) - len(REMOVED_OUTPUT)
+            row.output = REMOVED_OUTPUT
+        if (
+            total > RUN_OUTPUT_LIMIT_CHARS
+        ):  # the newest alone is too long (cannot be: it is bounded)
+            rows[-1].output = rows[-1].output[:RUN_OUTPUT_LIMIT_CHARS]

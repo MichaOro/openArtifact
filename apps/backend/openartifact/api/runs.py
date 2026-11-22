@@ -5,7 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from openartifact.api.deps import EngineDep, ServiceDep, SessionDep
-from openartifact.engine.schemas import RunRead
+from openartifact.engine.schemas import NodeResultRead, RunRead
+from openartifact.exceptions import ArtifactError
 from openartifact.tasks.schemas import RunStart
 
 router = APIRouter(prefix="/api", tags=["runs"])
@@ -15,6 +16,15 @@ router = APIRouter(prefix="/api", tags=["runs"])
 async def list_runs(session: SessionDep, engine: EngineDep) -> list[RunRead]:
     """Every run: the state of the artifacts that were processed."""
     return await engine.list_all(session)
+
+
+@router.get("/runs/{task_id}/results", response_model=list[NodeResultRead])
+async def list_results(task_id: str, service: ServiceDep) -> list[NodeResultRead]:
+    """Every step of the artifact's run inside action definitions, in order, with complete outputs."""
+    results = await service.run_results(task_id)
+    if results is None:
+        raise ArtifactError(404, "The artifact was never processed")
+    return results
 
 
 @router.post("/tasks/{task_id}/run", status_code=201, response_model=RunRead)

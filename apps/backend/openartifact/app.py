@@ -24,6 +24,7 @@ from openartifact.api.runs import router as runs_router
 from openartifact.api.tasks import router as tasks_router
 from openartifact.api.v1 import router as v1_router
 from openartifact.config import DEFAULT_SECRET_KEY, Settings, get_settings
+from openartifact.engine.executors import Limits
 from openartifact.engine.runner import RunEngine
 from openartifact.events import EventBus
 from openartifact.exceptions import (
@@ -108,7 +109,10 @@ def _create_app(settings: Settings) -> FastAPI:
     )
     app.state.event_bus = EventBus(max_subscribers=settings.max_sse_subscribers)
     app.state.engine = RunEngine(
-        app.state.event_bus, database.new_session, max_runs=settings.max_concurrent_runs
+        app.state.event_bus,
+        database.new_session,
+        max_runs=settings.max_concurrent_runs,
+        limits=Limits.from_settings(settings),
     )
     app.state.artifacts = ArtifactService(
         database.new_session, app.state.event_bus, app.state.engine

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -42,11 +42,13 @@ class NodeCreate(_Strict):
     y: Coordinate = 0.0
     stage_id: str | None = None
     seconds: Seconds | None = None
+    config: dict[str, Any] | None = None
 
 
 class NodeUpdate(_Strict):
     """Body of ``PATCH``: any of name, position, size (stages), fail_enabled (outputs), seconds (timers),
-    definition_id (what an action or a pipeline node links to; ``null`` unlinks)."""
+    definition_id (what an action or a pipeline node links to; ``null`` unlinks), config (the settings
+    of Code and HTTP nodes, merged per key; ``null`` as a value resets a key)."""
 
     name: Name | None = None
     x: Coordinate | None = None
@@ -56,6 +58,7 @@ class NodeUpdate(_Strict):
     fail_enabled: bool | None = None
     definition_id: str | None = None
     seconds: Seconds | None = None
+    config: dict[str, Any] | None = None
 
 
 EdgeStyle = Literal["curved", "straight", "elbow"]
@@ -112,6 +115,8 @@ class NodeRead(BaseModel):
     height: float | None
     fail_enabled: bool
     seconds: int | None
+    #: Settings of Code and HTTP nodes, defaults filled in (``{}`` for other kinds).
+    config: dict[str, Any] = Field(default_factory=dict)
     definition_id: str | None
     definition_name: str | None = None
     definition_slug: str | None = None

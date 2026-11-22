@@ -168,6 +168,7 @@ def test_mcp_lists_its_tools(api: TestClient) -> None:
         "start_processing",
         "stop_processing",
         "get_processing_status",
+        "get_processing_results",
     } <= names
 
 

@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 from openartifact.api.deps import SessionDep
 from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.snapshot import graph_of
-from openartifact.graph.node_types import NODE_TYPES
+from openartifact.graph.node_types import NODE_TYPES, node_type
 from openartifact.graph.repository import GraphRepository, NodeError
 from openartifact.graph.rules import EdgeError
 from openartifact.graph.schemas import (
@@ -46,7 +46,8 @@ async def _node_reads(repo: GraphRepository, nodes: Sequence[GraphNode]) -> list
     """Nodes as the API returns them, linked actions with their definition's name and On Fail."""
     described = await repo.describe(nodes)
     reads = [NodeRead.model_validate(n) for n in nodes]
-    for read in reads:
+    for read, node in zip(reads, nodes, strict=True):
+        read.config = node_type(node.kind).effective_config(node.config)
         if read.id in described:
             link = described[read.id]
             read.definition_name = link.name

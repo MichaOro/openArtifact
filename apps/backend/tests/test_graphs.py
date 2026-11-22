@@ -482,6 +482,8 @@ def test_node_types_are_served_under_their_own_path(client: TestClient) -> None:
         "complete",
         "timer",
         "output",
+        "code",
+        "http",
     }
     timer = by_kind["timer"]
     assert (timer["scopes"], timer["addable"], timer["fixed"]) == (["action"], True, False)
@@ -493,6 +495,7 @@ def test_node_types_are_served_under_their_own_path(client: TestClient) -> None:
             "minimum": 1,
             "maximum": 86400,
             "default": 5,
+            "stored_in": "column",
         }
     ]
     stage = by_kind["stage"]
