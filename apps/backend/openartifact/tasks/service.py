@@ -31,6 +31,7 @@ from openartifact.engine.schemas import (
     HistoryPolicyResult,
     HistoryPolicyWrite,
     NodeResultRead,
+    RunContextRead,
     RunRead,
 )
 from openartifact.engine.snapshot import graph_of
@@ -237,11 +238,22 @@ class ArtifactService:
         """One execution with all its steps (names of stage and action filled in from its snapshot)."""
         async with self._session() as session:
             task = await self._task(session, ref)
-            row = await self._execution(session, task.id, execution_id, with_snapshot=True)
+            row = await self._execution(
+                session, task.id, execution_id, with_snapshot=True, with_context=True
+            )
             steps, _ = await self._engine.node_results(session, row.id)
             return ExecutionDetail(
-                **ExecutionRead.of(row).model_dump(), steps=self._named(steps, row.snapshot)
+                **ExecutionRead.of(row).model_dump(),
+                steps=self._named(steps, row.snapshot),
+                context=RunContextRead.of(row.context),
             )
+
+    async def execution_context(self, ref: str, execution_id: str) -> RunContextRead:
+        """The run context of one execution (variables and the latest result of each node)."""
+        async with self._session() as session:
+            task = await self._task(session, ref)
+            row = await self._execution(session, task.id, execution_id, with_context=True)
+            return RunContextRead.of(row.context)
 
     async def execution_flow(self, ref: str, execution_id: str, outputs: bool) -> ExecutionFlow:
         """The frozen graphs of an execution, its steps (outputs only if asked for) and the path it took."""
@@ -433,11 +445,18 @@ class ArtifactService:
 
     @staticmethod
     async def _execution(
-        session: AsyncSession, task_id: str, execution_id: str, *, with_snapshot: bool = False
+        session: AsyncSession,
+        task_id: str,
+        execution_id: str,
+        *,
+        with_snapshot: bool = False,
+        with_context: bool = False,
     ) -> Execution:
         query = select(Execution).where(Execution.id == execution_id, Execution.task_id == task_id)
         if with_snapshot:
             query = query.options(undefer(Execution.snapshot))
+        if with_context:
+            query = query.options(undefer(Execution.context))
         row = await session.scalar(query)
         if row is None:
             raise ArtifactError(404, "Execution not found")

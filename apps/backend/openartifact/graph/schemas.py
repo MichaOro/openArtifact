@@ -121,6 +121,9 @@ class NodeRead(BaseModel):
     definition_name: str | None = None
     definition_slug: str | None = None
     definition_fail_enabled: bool | None = None
+    #: Hints about the node's ``${node...}`` / ``${var...}`` references (unknown or ambiguous node
+    #: names, malformed references) on a node just created or changed; the node is saved anyway.
+    warnings: list[str] = Field(default_factory=list)
 
 
 class EdgeRead(BaseModel):

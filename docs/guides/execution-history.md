@@ -23,6 +23,10 @@ flow) is in [Concepts](concepts.md).
   nodes, output. See [Execution nodes](execution-nodes.md#results) for the fields. Output per step is kept up to
   256 KiB and per execution up to 1 MiB in total; when the total is exceeded the oldest outputs are replaced by
   a note, the newest stays.
+- **The run context** (`context`): the variables and the latest result of each node, kept with the execution and
+  updated with every step, so it survives a restart: after a restart the context of the interrupted execution is
+  unchanged. It is at most 64 KiB, with each node's output cut to 4 KiB (the step has the whole output). See
+  [Execution nodes](execution-nodes.md#the-run-context-and-references). It is deleted with its execution.
 - **A snapshot**: the pipeline and every action definition and pipeline it uses, frozen when the execution
   started. The flow view draws from it, so editing or deleting the pipeline later changes nothing about an
   old execution. Secrets are never in it, only the names the nodes refer to.
@@ -93,9 +97,13 @@ cursor and live updates. Each row has links to the artifact, the pipeline (while
 | One artifact's executions | `GET /api/tasks/{id}/executions` | `GET /api/v1/artifacts/{ref}/executions` | `list_executions` |
 | One execution with steps | `GET .../executions/{eid}` | the same under `/api/v1/artifacts/{ref}` | `get_execution` |
 | Flow | `GET .../executions/{eid}/flow` (`?outputs=true` includes step output) | the same | `get_execution_flow` |
+| The run context | `GET .../executions/{eid}/context` (also part of `GET .../executions/{eid}` as `context`) | the same | part of `get_execution` |
 | One step with full output | `GET .../executions/{eid}/steps/{step}` | the same | - |
 | Delete one / clear | `DELETE .../executions/{eid}`, `DELETE /api/tasks/{id}/executions` | delete one only | - |
 | Policy | `PUT /api/tasks/{id}/history-policy` | `PUT /api/v1/artifacts/{ref}/history-policy` | - |
+
+The execution detail carries the `context`; the lists do not (a run read has only `context_size`). The context is text
+from what ran, like step output.
 
 The global list is paged with a cursor (`next_cursor` goes into `cursor`; paging stays stable while executions
 are added or deleted), `limit` 1 to 200. The full route list with schemas is in the
@@ -107,7 +115,8 @@ as an instruction.
 The history lives in the application's SQLite file, in three places: the `executions` row with the
 **snapshot** (the JSON of the pipeline and definitions used, which includes the code and request
 settings of the nodes, typically some kilobytes), the `run_node_results` rows with the **outputs** (up to
-1 MiB per execution) and small indexes.
+1 MiB per execution), the **context** (at most 64 KiB, in the execution row) and small indexes. The context counts
+toward the retention budget: per execution at most about 1 MiB of output plus 64 KiB of context.
 
 With the default policy the worst case is bounded: artifacts x 50 executions x (snapshot + at most 1 MiB of
 output). Typical executions are far smaller than that bound, because most nodes print little, but a
@@ -123,3 +132,5 @@ What to do about it:
 - Deleting rows gives the space back: the database runs with `auto_vacuum = FULL`, so the file shrinks (a database
   from an earlier version is converted once at the next start, see [Operate](operations.md#database-size-and-history-retention)).
 - The backup contains the history, so it grows with it.
+- The run context ([ADR-033](../architecture/adr/033-run-context.md)) is part of the execution row: deleting the
+  execution removes it, and the file shrinks as described above.

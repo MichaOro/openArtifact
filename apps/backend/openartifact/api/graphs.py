@@ -170,7 +170,9 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             raise _invalid(error) from error
         await repo.touch(graph)
         await session.commit()
-        return (await _node_reads(repo, [node]))[0]
+        read = (await _node_reads(repo, [node]))[0]
+        read.warnings = await repo.reference_hints(node)
+        return read
 
     @router.patch(
         "/{graph_id}/nodes/{node_id}",
@@ -182,7 +184,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
     async def update_node(
         graph_id: str, node_id: str, payload: NodeUpdate, session: SessionDep
     ) -> NodeRead:
-        """Rename, move or resize a node."""
+        """Rename, move or resize a node. ``warnings`` lists problems with the node's context references."""
         repo = GraphRepository(session)
         graph = await _graph(repo, graph_id)
         node = await repo.get_node(graph_id, node_id)
@@ -194,7 +196,9 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             raise _invalid(error) from error
         await repo.touch(graph)
         await session.commit()
-        return (await _node_reads(repo, [node]))[0]
+        read = (await _node_reads(repo, [node]))[0]
+        read.warnings = await repo.reference_hints(node)
+        return read
 
     @router.delete(
         "/{graph_id}/nodes/{node_id}",

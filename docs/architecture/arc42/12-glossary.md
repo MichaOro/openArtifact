@@ -41,6 +41,9 @@
 | Credential (secret) | A named value stored encrypted in the credential store (AES-256-GCM); nodes use it by name. Managed through the API only; values are never returned (ADR-024, [8.6](08-cross-cutting-concepts/08.06-credential-store.md)). |
 | Secret reference | How a node names a credential: `${secret:NAME}` in an HTTP node's path, query, headers or body, or a list of names in a Code node's `secrets` setting. |
 | Masking | Replacing a credential's value (as it is, percent-encoded, Base64, JSON-escaped) with `***` in a node's result and in log lines ([6.8](06-runtime-view/06.08-credential-resolution.md)). |
+| Run context | The variables and the latest result of every node that ran in an execution, stored in `executions.context` (at most 64 KiB), written with every step and read by later nodes (ADR-033). |
+| Reference (context) | `${node.NAME.output}`, `${node.NAME.data.key}`, `${var.name}` in an HTTP node's URL path or query, header values or body; replaced by text when the node runs, fails the node if it cannot be resolved. Not the same as a secret reference. |
+| Variable | A named JSON value a Code node sets with `"vars"` in its result line; part of the run context. |
 | Open mode | Running without `OPENARTIFACT_API_TOKEN`: pages and the browser API are open, `/api/v1` and `/mcp` answer 401, Code nodes are refused and credentials cannot be saved. |
 | Orphan process | A background process started by a Code node that outlives a hard-killed application; the next start ends it using the registry (`code_registry`). |
 | Quarantine | Unused code that is listed in `quarantine.json` and removed after 14 days without use (ADR-014 §3.6). |

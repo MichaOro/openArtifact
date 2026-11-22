@@ -340,6 +340,8 @@ class Execution(Base):
         started_by: ``user``, ``api``, ``mcp`` or ``system``.
         step_count: Number of steps recorded in ``run_node_results``.
         snapshot: The frozen pipeline (JSON), so the execution can be shown as a graph later; deferred.
+        context: The run context (JSON: variables and the results of the nodes that ran), written with
+            every step; the only place it is kept (the run reads it through ``pipeline_runs.execution_id``); deferred.
         finished_at: ``None`` while it runs.
     """
 
@@ -367,6 +369,7 @@ class Execution(Base):
     started_by: Mapped[str] = mapped_column(String(16))
     step_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     snapshot: Mapped[str] = mapped_column(Text, default="{}", server_default="{}", deferred=True)
+    context: Mapped[str] = mapped_column(Text, default="{}", server_default="{}", deferred=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     finished_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None)

@@ -3,6 +3,7 @@
  * selected one. Everything shown is text (textContent): names, outputs and reasons come from what ran. */
 import { icon } from "../components/icons.js";
 import { typeOf } from "../editor/node-types.js";
+import { contextBlock } from "../tasks/context-block.js";
 import { formatDuration, formatTime, secondsBetween, setChip } from "../tasks/history-format.js";
 import { fillStep, stepDuration } from "../tasks/history-step.js";
 import { STATES } from "./flow-view.js";
@@ -24,11 +25,12 @@ export class FlowPanel {
    * @param {HTMLElement} options.root the <aside>
    * @param {HTMLTemplateElement} options.stepTemplate
    * @param {(step: object) => Promise<object>} options.loadStep the step with its whole output (only when it is opened)
+   * @param {() => Promise<object>} options.loadContext the run context of the execution (only when its block is opened)
    * @param {(nodeId: string) => void} options.onSelect
    * @param {(visit: object) => void} options.onOpen go down into a visit
    * @param {(visit: object) => void} options.onPass show another pass
    */
-  constructor({ root, stepTemplate, loadStep, onSelect, onOpen, onPass }) {
+  constructor({ root, stepTemplate, loadStep, loadContext, onSelect, onOpen, onPass }) {
     this.root = root;
     this.stepTemplate = stepTemplate;
     this.loadStep = loadStep;
@@ -42,6 +44,9 @@ export class FlowPanel {
     this.path = root.querySelector("[data-panel-path]");
     this.pathEmpty = root.querySelector("[data-panel-path-empty]");
     this.detail = root.querySelector("[data-panel-detail]");
+    this.loadContext = loadContext;
+    this.context = contextBlock({ key: "context", onOpen: () => this.refreshContext() });
+    root.querySelector("[data-panel-context]").append(this.context);
     this.outputs = new Map(); // step id -> the loaded step
     this.view = null;
     root.querySelector("[data-pass-prev]").addEventListener("click", () => this.#pass(-1));
@@ -75,6 +80,17 @@ export class FlowPanel {
     this.#path(walk, view.selected);
     this.#details(view);
     if (refocus != null) this.path.querySelector(`[data-position="${refocus}"] .ef-path__main`)?.focus({ preventScroll: true });
+  }
+
+  /** Load the run context again, if its block is open (it changes while the execution runs). */
+  async refreshContext() {
+    if (!this.context.open) return;
+    try {
+      this.context.show(await this.loadContext());
+    } catch {
+      this.context.show({ vars: {}, nodes: {} });
+      this.context.querySelector("pre").textContent = "The run context could not be loaded. Close and open the block to try again.";
+    }
   }
 
   focusTitle() {

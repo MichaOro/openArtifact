@@ -19,6 +19,8 @@ class NodeResult:
     reason: str | None = None
     data: dict[str, Any] | None = None
     duration: float = 0.0
+    #: Variables the node sets in the run context (a Code node's ``"vars"``); only a passing node's count.
+    variables: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.reason is not None:

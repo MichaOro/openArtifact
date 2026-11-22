@@ -3,6 +3,7 @@
  * the parts to override or to add to; show() / update() are what the tab calls. The flow of the
  * execution is a page of its own (static/js/execution/); this view links to it ("Open flow"). */
 import { executionSeconds, formatDuration, formatTime, originLabel, setChip } from "./history-format.js";
+import { contextBlock } from "./context-block.js";
 import { fillStep } from "./history-step.js";
 
 export class HistoryDetail {
@@ -19,6 +20,7 @@ export class HistoryDetail {
     this.note = root.querySelector("[data-detail-note]");
     this.steps = root.querySelector("[data-detail-steps]");
     this.empty = root.querySelector("[data-detail-empty]");
+    this.contextHost = root.querySelector("[data-detail-context]");
     this.stepTemplate = document.getElementById("history-step-template");
     this.deleteButton = root.querySelector("[data-detail-delete]");
     this.flowLink = root.querySelector("[data-detail-flow]");
@@ -40,6 +42,7 @@ export class HistoryDetail {
     this.execution = summary;
     this.loaded = false;
     this.steps.replaceChildren();
+    this.contextHost.replaceChildren();
     this.empty.hidden = true;
     this.renderSummary(summary);
   }
@@ -58,6 +61,15 @@ export class HistoryDetail {
     const open = new Set([...this.steps.querySelectorAll("details[open]")].map((block) => block.dataset.key));
     this.steps.replaceChildren(...(detail.steps ?? []).map((step) => this.renderStep(step, open)));
     this.empty.hidden = !this.loaded || this.steps.children.length > 0;
+    this.renderContext(detail.context);
+  }
+
+  /** The run context of the execution, read-only and collapsed (kept open if the user had opened it). */
+  renderContext(context) {
+    const wasOpen = this.contextHost.querySelector("details")?.open ?? false;
+    const block = contextBlock({ key: "context", open: wasOpen });
+    block.show(context);
+    this.contextHost.replaceChildren(block);
   }
 
   focusHeading() {

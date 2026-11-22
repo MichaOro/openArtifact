@@ -9,5 +9,8 @@ export const loadFlow = (ref, executionId) => request(`${task(ref)}/executions/$
 /** One step with its whole output. */
 export const loadStep = (ref, executionId, stepId) => request(`${task(ref)}/executions/${encodeURIComponent(executionId)}/steps/${encodeURIComponent(stepId)}`);
 
+/** The run context of the execution (variables and the latest result of each node). */
+export const loadContext = (ref, executionId) => request(`${task(ref)}/executions/${encodeURIComponent(executionId)}/context`);
+
 /** The artifact the execution belongs to (number and title for the page header). */
 export const loadTask = (ref) => request(task(ref));

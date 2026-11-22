@@ -7,7 +7,7 @@ import { loadNodeTypes } from "../editor/node-types.js";
 import { connectEvents } from "../tasks/events.js";
 import { executionSeconds, formatDuration, formatTime, originLabel, setChip } from "../tasks/history-format.js";
 import { Breadcrumb } from "./breadcrumb.js";
-import { loadFlow, loadStep, loadTask } from "./flow-client.js";
+import { loadContext, loadFlow, loadStep, loadTask } from "./flow-client.js";
 import { FlowPanel } from "./flow-panel.js";
 import { FlowView } from "./flow-view.js";
 import { FlowModel } from "./visit-model.js";
@@ -42,6 +42,7 @@ class FlowPage {
       root: root.querySelector("[data-panel]"),
       stepTemplate: document.getElementById("history-step-template"),
       loadStep: (step) => loadStep(this.ref, this.executionId, step.id),
+      loadContext: () => loadContext(this.ref, this.executionId),
       onSelect: (nodeId) => this.select(nodeId),
       onOpen: (visit) => this.go(visit),
       onPass: (visit) => this.go(visit, { keepSelection: true }),
@@ -72,6 +73,7 @@ class FlowPage {
       root.querySelector("[data-body]").hidden = false;
       this.#renderHead();
       this.#show(first ? this.#visitFromUrl() : this.visit && this.model.visit(this.visit.index), { fit: first });
+      this.panel.refreshContext();
     } catch (error) {
       if (error.status === 404) this.#vanished(this.model ? "This execution was deleted." : "This execution does not exist. It was deleted, or the link is not right.");
       else this.alert.show(error.message || "The flow could not be loaded.", { retry: true });

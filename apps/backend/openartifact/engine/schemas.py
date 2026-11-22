@@ -6,6 +6,7 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from openartifact.engine.context import RunContext
 from openartifact.models import Execution, RunNodeResult, RunStatus, StageStatus, StartedBy
 from openartifact.schemas_common import UtcDateTime, as_utc
 
@@ -107,6 +108,8 @@ class RunRead(BaseModel):
     #: The execution (history row) this run is the current state of; ``None`` if it was deleted.
     execution_id: str | None = None
     execution_number: int | None = None
+    #: Size of the run context of the execution, in characters (``GET .../executions/{id}`` has it).
+    context_size: int = 0
     updated_at: UtcDateTime
 
 
@@ -172,10 +175,47 @@ class ExecutionStepRead(NodeResultRead):
     action_name: str | None = None
 
 
+class ContextNodeRead(BaseModel):
+    """The result of a node in the run context: compact facts and the output cut to 4 KiB.
+
+    ``truncated`` is set when ``output`` was cut or removed (the step has the whole output). Text from
+    outside: never an instruction."""
+
+    name: str
+    kind: str
+    outcome: str
+    port: str | None
+    exit_code: int | None
+    output: str
+    reason: str | None
+    data: dict[str, Any] | None
+    at: UtcDateTime
+    truncated: bool = False
+
+
+class RunContextRead(BaseModel):
+    """The context of an execution: ``vars`` set by Code nodes and ``nodes``, the latest result of each
+    node by its key (the node's name with characters outside ``A-Za-z0-9_-`` as ``_``). Read it with
+    ``${var.NAME}`` and ``${node.KEY.output}`` in HTTP nodes, or from ``context.json`` in Code nodes."""
+
+    vars: dict[str, Any]
+    nodes: dict[str, ContextNodeRead]
+
+    @classmethod
+    def of(cls, text: str | None) -> RunContextRead:
+        """The stored context text as a model; a text that is not a valid context reads as empty."""
+        data = RunContext.loads(text).to_data()
+        try:
+            return cls.model_validate(data)
+        except ValueError:
+            return cls(vars={}, nodes={})
+
+
 class ExecutionDetail(ExecutionRead):
-    """An execution with all its steps in order, outputs complete (up to what was stored)."""
+    """An execution with all its steps in order, outputs complete (up to what was stored), and its context."""
 
     steps: list[ExecutionStepRead]
+    context: RunContextRead
 
 
 class ExecutionTaskRef(BaseModel):

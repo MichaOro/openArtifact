@@ -79,7 +79,7 @@ The most used routes (all 22 are listed with errors in the [API reference](api-r
 | `POST /api/v1/artifacts/{ref}/run` | Start (body optional) |
 | `POST /api/v1/artifacts/{ref}/run/stop` | Stop; the artifact keeps its stage and action |
 | `GET /api/v1/artifacts/{ref}/run/results` | Every step inside action definitions, with complete outputs |
-| `GET /api/v1/executions`, `.../artifacts/{ref}/executions[/{id}[/flow]]` | History, see [below](#executions-and-history) |
+| `GET /api/v1/executions`, `.../artifacts/{ref}/executions[/{id}[/flow\|/context]]` | History, see [below](#executions-and-history); the execution carries its run `context` |
 | `GET`, `PUT`, `DELETE /api/v1/secrets[/{name}]` | Credentials, see [below](#credentials) |
 
 Rules that scripts meet:
@@ -104,6 +104,8 @@ curl -s -H "Authorization: Bearer $TOKEN" "$OA/api/v1/artifacts/12/executions?li
 
 # one execution with all steps, its flow (graphs, walked path; add ?outputs=true for step output), one step
 curl -s -H "Authorization: Bearer $TOKEN" $OA/api/v1/artifacts/12/executions/<execution_id>
+# the run context (variables Code nodes set, latest result of each node) is in it as "context", or alone:
+curl -s -H "Authorization: Bearer $TOKEN" $OA/api/v1/artifacts/12/executions/<execution_id>/context
 curl -s -H "Authorization: Bearer $TOKEN" "$OA/api/v1/artifacts/12/executions/<execution_id>/flow"
 curl -s -H "Authorization: Bearer $TOKEN" $OA/api/v1/artifacts/12/executions/<execution_id>/steps/<step_id>
 

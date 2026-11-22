@@ -53,12 +53,14 @@ GET /api/tasks -> TaskRead[]
 GET /api/tasks/{task_id} -> TaskRead
 GET /api/tasks/{task_id}/executions -> ExecutionList
 GET /api/tasks/{task_id}/executions/{execution_id} -> ExecutionDetail
+GET /api/tasks/{task_id}/executions/{execution_id}/context -> RunContextRead
 GET /api/tasks/{task_id}/executions/{execution_id}/flow -> ExecutionFlow
 GET /api/tasks/{task_id}/executions/{execution_id}/steps/{step_id} -> ExecutionStepRead
 GET /api/v1/artifacts -> TaskRead[]
 GET /api/v1/artifacts/{ref} -> TaskRead
 GET /api/v1/artifacts/{ref}/executions -> ExecutionList
 GET /api/v1/artifacts/{ref}/executions/{execution_id} -> ExecutionDetail
+GET /api/v1/artifacts/{ref}/executions/{execution_id}/context -> RunContextRead
 GET /api/v1/artifacts/{ref}/executions/{execution_id}/flow -> ExecutionFlow
 GET /api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id} -> ExecutionStepRead
 GET /api/v1/artifacts/{ref}/run -> RunRead

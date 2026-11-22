@@ -10,6 +10,7 @@ from typing import Any, NamedTuple
 from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.engine.context import NodeIndex, node_key, problems
 from openartifact.graph.node_types import (
     NODE_TYPES,
     NodeType,
@@ -148,6 +149,38 @@ class GraphRepository:
             select(GraphEdge).where(GraphEdge.graph_id == graph_id).order_by(GraphEdge.id)
         )
         return nodes.scalars().all(), edges.scalars().all()
+
+    async def reference_hints(self, node: GraphNode) -> list[str]:
+        """Problems with the ``${node...}`` references of an HTTP node's URL, headers and body.
+
+        Only hints (the node is saved anyway): names that two nodes of the same action share, names
+        no node of any action has, malformed references. Which pipeline runs the action, and so which
+        nodes are around it, is only known at run time, where such a reference fails the node.
+        """
+        if node.kind != NodeKind.HTTP:
+            return []
+        config = node_type(node.kind).effective_config(node.config)
+        text = "\n".join(str(config.get(k) or "") for k in ("url", "headers", "body"))
+        if "${" not in text:
+            return []
+        graph = await self._session.get(Graph, node.graph_id)
+        siblings, _ = await self.graph(node.graph_id)
+        local = NodeIndex.of_graphs(
+            [
+                {
+                    "name": graph.name if graph else "",
+                    "nodes": [{"id": n.id, "name": n.name, "kind": n.kind} for n in siblings],
+                }
+            ]
+        )
+        others = await self._session.execute(
+            select(GraphNode.name).where(
+                GraphNode.graph_id != node.graph_id,
+                GraphNode.kind.in_([NodeKind.CODE, NodeKind.HTTP, NodeKind.TIMER]),
+            )
+        )
+        keys = {node_key(name) for (name,) in others}
+        return problems(text, local, lambda key: key in keys)
 
     async def touch(self, graph: Graph) -> None:
         """Mark the graph as changed (its nodes or edges changed)."""

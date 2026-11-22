@@ -89,6 +89,15 @@ when a node runs and masked in results and logs. Needs a token and a key. The ma
 catch a deliberate leak; a node that can read a secret can always exfiltrate it. See
 [Credentials](credentials.md).
 
+The **run context** (variables and the results of the nodes that ran, stored with the execution, shown in the
+History and read by later nodes) is built from the results *after* secret masking, so a secret a node printed is
+`***` there and in the `context.json` the next Code node gets. A secret used in an HTTP node's request does not enter
+it. Context values are text from outside (responses, script output): `${node...}` and `${var...}` references paste
+them literally, never evaluate them and never search them for references again (no injection into the secret
+references or the URL: in a URL they are percent-encoded and never allowed in the scheme or host). The context is
+never logged (only ids and sizes). A node that is allowed to read a secret can still leak it into a variable on
+purpose, like anywhere else. `context.json` is a temporary file in the node's own temporary directory.
+
 ### 5. Code node hardening, and its honest limits
 
 A Code node runs arbitrary shell or Python text from an action definition. What the application does:

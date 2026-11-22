@@ -34,6 +34,11 @@ at most one run at a time. While that run is running the artifact is locked: its
 changed and it cannot be deleted (title and body stay editable); stopping the run releases it. In the
 code and the API an artifact is a `task`.
 
+**Run context.** The values an execution keeps while it runs: variables a Code node sets and the latest result of
+every node that ran. Later nodes use them through references such as `${node.Fetch_user.output}` and `${var.user}`
+(HTTP nodes) or the file `context.json` (Code nodes). It is stored with the execution and shown in its history
+([execution nodes](execution-nodes.md#the-run-context-and-references)).
+
 **Pipeline.** What an artifact runs through: a trigger, a main line of stages (and pipeline nodes) and a
 complete node, joined by connections you draw in the editor. A pipeline can be started at any stage, and
 at any action inside it; the stages before the starting point count as done (or skipped, if the artifact

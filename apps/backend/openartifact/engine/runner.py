@@ -16,17 +16,18 @@ import asyncio
 import json
 import logging
 import uuid
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, delete, select, update
+from sqlalchemy import CursorResult, delete, func, select, update
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.database import SessionOpener
 from openartifact.engine import code_registry
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
+from openartifact.engine.context import ContextError, NodeIndex, RunContext, RunView
 from openartifact.engine.executors import EXECUTORS, Limits
 from openartifact.engine.history import Changes, ExecutionHistory, utcnow
 from openartifact.engine.results import NodeResult
@@ -81,6 +82,9 @@ class _Walk:
     stage_id: str | None = None
     action_id: str | None = None
     seq: int = 0
+    #: The context of the execution (kept in ``executions.context``, written with every step).
+    context: RunContext = field(default_factory=RunContext)
+    index: NodeIndex = field(default_factory=NodeIndex)
 
     def step(self) -> None:
         """Count a step; actions and the nodes of their definitions count against the same limit."""
@@ -122,13 +126,17 @@ class RunEngine:
             )
         ).scalars()
         results, results_cut = await self.node_results(session, run.execution_id, preview=True)
-        execution_number = (
-            None
-            if run.execution_id is None
-            else await session.scalar(
-                select(Execution.number).where(Execution.id == run.execution_id)
-            )
-        )
+        execution_number, context_size = None, 0
+        if run.execution_id is not None:
+            row = (
+                await session.execute(
+                    select(Execution.number, func.length(Execution.context)).where(
+                        Execution.id == run.execution_id
+                    )
+                )
+            ).one_or_none()
+            if row is not None:
+                execution_number, context_size = row[0], row[1] or 0
         where = locate(snapshot, run.stage_id)
         nested = where["pipeline_id"] is not None
         return RunRead(
@@ -155,6 +163,7 @@ class RunEngine:
             node_results_truncated=results_cut,
             execution_id=run.execution_id,
             execution_number=execution_number,
+            context_size=context_size,
             updated_at=run.updated_at,
         )
 
@@ -493,6 +502,12 @@ class RunEngine:
                     task_id, execution_id, json.loads(run.snapshot), pipeline_id=run.pipeline_id
                 )
                 stage_id, action_id, run_pipeline = run.stage_id, run.action_id, run.pipeline_id
+                walk.context = RunContext.loads(
+                    await session.scalar(
+                        select(Execution.context).where(Execution.id == execution_id)
+                    )
+                )
+                walk.index = NodeIndex.of_snapshot(walk.snapshot)
             chain = pipeline_chain(walk.snapshot["nodes"], walk.snapshot["edges"])
             start = next(i for i, s in enumerate(chain) if s["id"] == stage_id)
             await self._walk(walk, walk.snapshot, chain, start, action_id, 0, run_pipeline)
@@ -617,7 +632,12 @@ class RunEngine:
                     walk, node["definition_id"], current, "pass", port, None, started
                 )
                 continue
-            result = await executor.run(current, self._limits)
+            result = await executor.run(current, self._limits, RunView(walk.context, walk.index))
+            if result.outcome == "pass" and result.variables:
+                try:
+                    walk.context.set_vars(result.variables)
+                except ContextError as error:
+                    result = replace(result, outcome="fail", reason=f"Invalid vars: {error}")
             port = (
                 (Ports.PASS if result.outcome == "pass" else Ports.FAIL)
                 if executor.by_outcome
@@ -651,6 +671,10 @@ class RunEngine:
         )
         walk.seq += 1
         output = result.output[:RESULT_OUTPUT_LIMIT_CHARS] if result else ""
+        changes: dict[str, Any] = {"step_count": Execution.step_count + 1}
+        if result is not None:  # the context is the node's result, as it is stored (masked, capped)
+            walk.context.record(node, result, port)
+            changes["context"] = walk.context.dumps()
         async with self._session() as session:
             run = await self._run_of(session, walk.task_id)
             if run is None:
@@ -682,9 +706,7 @@ class RunEngine:
             )
             await session.flush()
             await session.execute(
-                update(Execution)
-                .where(Execution.id == walk.execution_id)
-                .values(step_count=Execution.step_count + 1)
+                update(Execution).where(Execution.id == walk.execution_id).values(**changes)
             )
             if output and walk.execution_id is not None:
                 await self._trim_outputs(session, walk.execution_id)

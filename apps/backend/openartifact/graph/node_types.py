@@ -19,6 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from openartifact.engine.context import ContextError, check_url_placement
 from openartifact.models import GraphKind, NodeKind
 from openartifact.secret_refs import (
     SecretReferenceError,
@@ -79,6 +80,10 @@ def _references(check: Callable[[str], None]) -> Callable[[str], None]:
 
 def _check_url(value: str) -> None:
     check_url_references(value)
+    try:
+        check_url_placement(value)
+    except ContextError as error:
+        raise SettingError(str(error)) from error
 
 
 def _check_text_references(value: str) -> None:
@@ -433,8 +438,11 @@ class CodeType(_ExecutionType):
             stored_in="config",
             help=(
                 "Stored and shown in plain text, so no secrets in here: ${secret:NAME} is not "
-                "replaced in code. List the secrets the code needs in 'Secrets' below; they come "
-                "as environment variables."
+                "replaced in code, and neither are ${node...} or ${var...}. List the secrets the "
+                "code needs in 'Secrets' below; they come as environment variables. The run "
+                "context (variables and earlier results) is the file context.json in the working "
+                "directory. To set variables, print a last line like "
+                '{"ok": true, "vars": {"name": "value"}}.'
             ),
         ),
         Setting(
@@ -483,8 +491,9 @@ class HttpType(_ExecutionType):
             placeholder="https://example.org/hook",
             stored_in="config",
             help=(
-                "Use ${secret:NAME} for a stored secret in the path or the query (it is "
-                "percent-encoded there); not in the scheme or host."
+                "Use ${secret:NAME} for a stored secret and ${node.NAME.output} or ${var.NAME} for "
+                "the result of an earlier node or a variable in the path or the query (replaced "
+                "text is percent-encoded there); not in the scheme or host."
             ),
             check=_references(_check_url),
         ),
@@ -497,7 +506,8 @@ class HttpType(_ExecutionType):
             stored_in="config",
             help=(
                 "One 'Name: value' per line, stored in plain text: put a secret in as "
-                "${secret:NAME}, for example 'Authorization: Bearer ${secret:API_TOKEN}'."
+                "${secret:NAME}, for example 'Authorization: Bearer ${secret:API_TOKEN}'. "
+                "${node.NAME.output} and ${var.NAME} insert an earlier result or variable."
             ),
             check=_references(_check_text_references),
         ),
@@ -509,7 +519,9 @@ class HttpType(_ExecutionType):
             stored_in="config",
             help=(
                 "Sent as it is, stored in plain text: put a secret in as ${secret:NAME}, which "
-                "is replaced by its value when the node runs."
+                "is replaced by its value when the node runs. ${node.NAME.output}, "
+                "${node.NAME.data.key} and ${var.NAME} insert an earlier node's result or a "
+                "variable (NAME: the node's name with spaces as _)."
             ),
             check=_references(_check_text_references),
         ),

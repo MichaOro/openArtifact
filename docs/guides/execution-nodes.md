@@ -54,6 +54,75 @@ A `reason` is a sentence for people, cut at 1000 characters. Output is text: any
 server answers ends up in it (and in the history, and in whatever agent reads it), so treat it as untrusted.
 Used secrets are masked in all of these ([Credentials](credentials.md)).
 
+## The run context and references
+
+Every execution has a **context**: the variables Code nodes set and the latest result of every node that ran. A later
+node can use it, however many steps earlier the value was produced. It is stored with the execution, so it survives a
+server restart and is shown in the History tab ([Execution history](execution-history.md)).
+
+```json
+{"vars": {"user": "bob"},
+ "nodes": {"Fetch_user": {"name": "Fetch user", "kind": "http", "outcome": "pass", "port": "pass",
+                          "exit_code": null, "output": "{\"id\": 7}", "reason": null,
+                          "data": {"status": 200, "content_type": "application/json", "truncated": false},
+                          "at": "2026-11-22T10:00:00.000Z"}}}
+```
+
+**References.** In an HTTP node's URL, headers and body:
+
+| Reference | Value |
+|-----------|-------|
+| `${node.NAME.output}` | the node's output (a node keeps at most 4 KiB of it in the context; the step has all) |
+| `${node.NAME.exit_code}`, `.outcome`, `.reason` | exit code, `pass` or `fail`, the reason (`null` text when there is none) |
+| `${node.NAME.data}` | the node's data as compact JSON |
+| `${node.NAME.data.key.sub.0}` | one value in the data; numbers index lists |
+| `${var.name}` | a variable |
+
+`NAME` is the node's name as the editor shows it, with every character outside letters, digits, `_` and `-`
+written as `_` (`Fetch user` is `Fetch_user`). Text is inserted as it is; numbers, lists and objects as compact
+JSON. In the URL the inserted text is percent-encoded; a reference is allowed in the path and the query, never in
+the scheme or the host (refused already when you save). There is no expression language: no arithmetic, no
+conditions. Inserted values are text, never evaluated, and never searched for references again, so a response that
+contains `${var.x}` or `${secret:X}` stays that text. Context references are replaced together with
+`${secret:NAME}`.
+
+**Failure.** A reference that cannot be resolved fails the node, and the reason names it, for example
+`${node.Fetch_user.data.id}: the data of node "Fetch_user" has no 'id'`, `${var.token}: variable 'token' is not set`,
+`${node.Later.output}: node "Later" has not run yet`, `... no node is named "X"`. Nothing is replaced by an empty
+string.
+
+**Names are not unique.** A reference resolves to the node of the frozen pipeline that has that name. If two
+different nodes have it, the reference fails with `ambiguous node name "Same": "Same" (code) in action "A" and "Same"
+(http) in action "B"; rename one of them`, so nothing is picked silently; the default names (`Code`, `HTTP request`)
+are ambiguous as soon as two nodes use them, so rename the ones you refer to. A node that ran several times (the
+same action in two stages) keeps its **latest** result. When you save an HTTP node, the answer carries `warnings`:
+ambiguous names inside the action, names no action has, malformed references. The node is saved anyway; at run time
+these are errors.
+
+**Setting variables.** A Code node ends with a result line (see the *Result protocol* below). Add `"vars"`:
+
+```python
+print(json.dumps({"ok": True, "vars": {"user": "bob", "limit": 5}}))
+```
+
+Names are lowercase letters, digits and `_`, starting with a letter (at most 64 characters, at most 100 per
+node); values are JSON (text, number, true/false, null, list, object, nested at most 3 levels). An invalid name or
+value fails the node with `Invalid vars: ...`. Only a passing node sets variables. The line must be short enough to
+survive the 8 KiB tail of the output the protocol is read from. All variables together may use 32 KiB; a node that
+would exceed it fails. HTTP nodes do not set variables (their parsed body is not stored; use `data` and the
+`output` of the node, or a Code node that reads `context.json` and sets the variable).
+
+**Code nodes read `context.json`.** The text of a Code node is never interpolated. The file `context.json` in the
+node's working directory holds the whole context, written (read-only) just before the script starts:
+`json.load(open("context.json"))["vars"]["user"]`. It is a temporary file in the node's own temporary directory
+(`/tmp`, usually memory) and is removed with it when the node ends; nothing about it is written to disk
+permanently. Changes the script makes to it are not read back.
+
+**Limits and safety.** The whole context is at most 64 KiB (when it grows, the oldest node results lose their
+output, then their data, then are dropped; variables are never dropped). It is built from the masked results, so
+a secret a node printed is `***` in it and in `context.json`. The values are text from outside (responses, script
+output), so treat them as untrusted, like any output.
+
 ## Code node
 
 Runs shell or Python text stored in the node.
@@ -89,7 +158,8 @@ boolean `ok`:
 
 `ok: false` fails the node even with exit code 0; `reason` (a string) becomes the reason; `data` (an
 object, at most 16384 characters when serialised) is stored on the step, for a pass as well as a fail.
-Anything else on that last line (not JSON, no boolean `ok`) is just output.
+Anything else on that last line (not JSON, no boolean `ok`) is just output. `vars` sets variables in the
+[run context](#the-run-context-and-references).
 
 **Output caps.** Standard output and standard error are each read up to `OPENARTIFACT_CODE_OUTPUT_LIMIT_BYTES`
 (64 KiB); beyond that `[output truncated]` is appended, but the last 8 KiB of standard output is always
@@ -281,4 +351,5 @@ group when the node ends.
 | `HTTP N is not an accepted status (...)` | The server answered, but not with an accepted code |
 | `The connection failed (...)`, `The request failed (...)` | Network error (only the exception's type is shown, never its text) |
 | `Secret NAME does not exist`, `Secret NAME cannot be read: the secret key changed` | See [Credentials](credentials.md) |
+| `${node...}: ...`, `${var...}: ...`, `malformed reference ...`, `ambiguous node name ...`, `Invalid vars: ...` | A context reference or a reported variable that cannot be used, see [the run context](#the-run-context-and-references) |
 | `The node failed (ErrorType)` | An unexpected error in the node; details are in the application log, never in the result |

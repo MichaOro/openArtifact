@@ -69,6 +69,22 @@ def substitute(text: str, values: Mapping[str, str], *, percent_encode: bool = F
     return REFERENCE.sub(put, text)
 
 
+def in_scheme_or_host(url: str, pattern: re.Pattern[str]) -> bool:
+    """Whether ``pattern`` matches in the scheme or the authority of ``url`` (or ``url`` has no scheme).
+
+    A reference is allowed in the path and the query, never before them: it could change where the
+    request goes. ``urlsplit`` raises :class:`ValueError` for an address that cannot be taken apart.
+    """
+    head = url.strip()
+    scheme_end = head.find("://")
+    rest = head[scheme_end + 3 :] if scheme_end >= 0 else head
+    authority_end = min((i for i in (rest.find(c) for c in "/?#") if i >= 0), default=len(rest))
+    if scheme_end < 0 or pattern.search(head[: scheme_end + 3] + rest[:authority_end]):
+        return True
+    urlsplit(head)
+    return False
+
+
 def check_url_references(url: str) -> None:
     """References are allowed in the path and query of a URL, not before them (scheme, host, port).
 
@@ -77,16 +93,11 @@ def check_url_references(url: str) -> None:
     names_in(url)
     if REFERENCE.search(url) is None:
         return
-    head = url.strip()
-    scheme_end = head.find("://")
-    rest = head[scheme_end + 3 :] if scheme_end >= 0 else head
-    authority_end = min((i for i in (rest.find(c) for c in "/?#") if i >= 0), default=len(rest))
-    if scheme_end < 0 or REFERENCE.search(head[: scheme_end + 3] + rest[:authority_end]):
+    if in_scheme_or_host(url, REFERENCE):
         raise SecretReferenceError(
             "A secret reference is allowed in the path, the query, the headers and the body, "
             "not in the scheme or the host of the address"
         )
-    urlsplit(head)  # raises ValueError for an address that cannot be taken apart at all
 
 
 def check_env_names(names: Iterable[str]) -> None:

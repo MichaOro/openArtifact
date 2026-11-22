@@ -55,7 +55,8 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | POST | `/api/v1/artifacts/{ref}/run/stop` | Stop; the artifact keeps its stage and action | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run/results` | Every step of the run inside action definitions, in order, with complete outputs | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions` | The artifact's executions, newest first, without steps, with the retention policy; `limit` 1 to 500 (default 100) | 404, 422 |
-| GET | `/api/v1/artifacts/{ref}/executions/{execution_id}` | One execution with all its steps | 404 |
+| GET | `/api/v1/artifacts/{ref}/executions/{execution_id}` | One execution with all its steps and its run `context` | 404 |
+| GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/context` | The run context alone (variables, latest result of each node; text from outside) | 404 |
 | DELETE | `/api/v1/artifacts/{ref}/executions/{execution_id}` | Delete one execution; `204` | 404, 409 (still running) |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/flow` | The graphs as frozen at the start, the path walked through them, the steps (`?outputs=true` adds step outputs) | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id}` | One step with its complete output | 404 |
@@ -108,7 +109,8 @@ Only the title changes; artifacts keep their `status` code.
 | GET | `/api/executions` | All artifacts' executions, filters and keyset paging (as `/api/v1/executions`) | 422 |
 | GET | `/api/tasks/{task_id}/executions` | One artifact's executions with policy | 404 |
 | DELETE | `/api/tasks/{task_id}/executions` | Delete every finished execution (a running one stays); answers `{"deleted": n}` | 404 |
-| GET | `/api/tasks/{task_id}/executions/{execution_id}` | One execution with all steps | 404 |
+| GET | `/api/tasks/{task_id}/executions/{execution_id}` | One execution with all steps and its run `context` (variables and the latest result of each node) | 404 |
+| GET | `/api/tasks/{task_id}/executions/{execution_id}/context` | The run context alone | 404 |
 | DELETE | `/api/tasks/{task_id}/executions/{execution_id}` | Delete one; `204` | 404, 409 (running) |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/flow` | Frozen graphs, walked path, steps | 404 |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/steps/{step_id}` | One step with complete output | 404 |

@@ -184,6 +184,7 @@
 .history-step__reason { font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .history-step__reason { color: var(--color-text-primary); }
 .history-step__block summary { cursor: pointer; font-size: 0.75rem; color: var(--color-text-secondary); }
+.history-context > .button { margin-top: var(--space-1); }
 .history-step__block summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
 .history-step__pre {
   max-height: 12rem;

@@ -42,6 +42,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [030](030-accessibility-scope.md) | Accessibility scope | Accepted | 2026-11-22 | amends ADR-012, ADR-014 |
 | [031](031-licence-apache-2-0.md) | Licence Apache-2.0 | Accepted | 2026-11-22 | — |
 | [032](032-removal-of-the-unused-workspace-model.md) | Removal of the unused workspace model (Project/WorkItem) and repositories | Accepted | 2026-11-22 | amends ADR-018, ADR-019 |
+| [033](033-run-context.md) | Run context | Accepted | 2026-11-22 | amends ADR-021, ADR-025 |
 
 ## Notes
 

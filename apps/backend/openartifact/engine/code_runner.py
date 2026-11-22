@@ -1,6 +1,7 @@
 """Runs the text of a Code node as a child process, bounded in time, output and resources.
 
-The code is written to a fresh private directory under the system temp directory and run with
+The code is written to a fresh private directory under the system temp directory (together with
+``context.json``, the run context, read-only; it goes with the directory) and run with
 ``sh`` or the application's own Python (``-I``, isolated). The environment holds ``PATH``, ``LANG``,
 ``HOME``, the secrets the node asked for (``NAME=value``) and one random marker
 (``OPENARTIFACT_CODE_RUN``, see ``code_registry``); never an application setting: the API token and the
@@ -48,6 +49,7 @@ from pathlib import Path
 from typing import Any
 
 from openartifact.engine import code_registry
+from openartifact.engine.context import ContextError, check_vars
 from openartifact.engine.results import NodeResult, failed
 from openartifact.security import protect_process_memory
 
@@ -69,6 +71,8 @@ MAX_DATA_JSON_CHARS = 16384
 TRUNCATED_MARK = "[output truncated]"
 #: CPU time a process may use beyond the wall-clock timeout before the kernel ends it.
 CPU_MARGIN_SECONDS = 5
+#: The file in the node's working directory that holds the run context (JSON, written before the start).
+CONTEXT_FILE = "context.json"
 #: The wrapper exits with this code, after this first line on stderr, when a limit cannot be applied.
 LIMIT_FAILED_CODE = 125
 LIMIT_FAILED_MARK = "OPENARTIFACT_LIMITS:"
@@ -248,13 +252,16 @@ async def run_code(
     env: Mapping[str, str] | None = None,
     limits: CodeLimits | None = None,
     node_id: str = "",
+    context_json: str | None = None,
 ) -> NodeResult:
     """Run ``code`` (``sh`` or ``python``) and return how it ended.
 
     Passes on exit code 0 (unless the result protocol says ``ok: false``). Fails on any other exit
     code, on a timeout ("Timeout after N s"), on a resource limit that stops it and when the code is
-    empty. ``env`` (the secrets the node asked for) is added to the environment. The child and
-    everything it started are killed on a timeout and when this task is cancelled.
+    empty. ``context_json`` becomes the read-only file ``context.json`` in the working directory
+    (a temporary file: it is removed with the directory). ``env`` (the secrets the node asked for) is
+    added to the environment. The child and everything it started are killed on a timeout and when
+    this task is cancelled.
     """
     if not code.strip():
         return failed("The code is empty")
@@ -268,6 +275,10 @@ async def run_code(
     try:
         script = Path(directory) / ("script.py" if language == "python" else "script.sh")
         script.write_text(code, encoding="utf-8")
+        if context_json is not None:
+            context_file = Path(directory) / CONTEXT_FILE
+            context_file.write_text(context_json, encoding="utf-8")
+            context_file.chmod(0o400)
         argv = [sys.executable, "-I", str(script)] if language == "python" else ["sh", str(script)]
         marker = code_registry.new_marker()
         if resource is not None:
@@ -345,7 +356,17 @@ async def run_code(
                     "fail", 0, output, reason or "The code reported ok: false", data, duration
                 )
             )
-        return _noted(NodeResult("pass", 0, output, None, data, duration))
+        variables = None
+        if report is not None and "vars" in report:
+            try:
+                variables = check_vars(report["vars"])
+            except ContextError as error:
+                return _noted(
+                    NodeResult("fail", 0, output, f"Invalid vars: {error}", data, duration)
+                )
+        result = NodeResult("pass", 0, output, None, data, duration)
+        result.variables = variables
+        return _noted(result)
     finally:
         # also on cancellation (the run was stopped): nothing of the node may stay alive
         code_registry.forget(entry)

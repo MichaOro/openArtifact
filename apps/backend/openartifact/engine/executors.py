@@ -14,10 +14,11 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from openartifact.config import Settings
 from openartifact.engine.code_runner import CodeLimits, run_code
+from openartifact.engine.context import RunView
 from openartifact.engine.http_runner import run_http
 from openartifact.engine.results import NodeResult, failed
 from openartifact.logging_config import masked_in_logs
@@ -73,7 +74,12 @@ class Limits:
         )
 
 
-Executor = Callable[[dict[str, Any], Limits], Awaitable[NodeResult]]
+class Executor(Protocol):
+    """``(node, limits, view)``: ``view`` is what the node may read of its run (the context)."""
+
+    def __call__(
+        self, node: dict[str, Any], limits: Limits, view: RunView | None = None
+    ) -> Awaitable[NodeResult]: ...
 
 
 @dataclass(frozen=True)
@@ -110,6 +116,8 @@ def _masked(result: NodeResult, values: dict[str, str]) -> NodeResult:
         result.reason = mask_text(result.reason, used)
     if result.data is not None:
         result.data = mask_data(result.data, used)
+    if result.variables is not None:
+        result.variables = mask_data(result.variables, used)
     return result
 
 
@@ -129,7 +137,7 @@ async def _with_secrets(
         return _masked(result, values)
 
 
-async def _code(node: dict[str, Any], limits: Limits) -> NodeResult:
+async def _code(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     if not limits.code_nodes_enabled:
         return failed("Code nodes are disabled")
     if limits.code_blocked_in_open_mode:
@@ -149,12 +157,13 @@ async def _code(node: dict[str, Any], limits: Limits) -> NodeResult:
             env=values,
             limits=limits.code,
             node_id=str(node.get("id") or ""),
+            context_json=(view or RunView()).dumps(),
         )
 
     return await _with_secrets(names, limits, run)
 
 
-async def _http(node: dict[str, Any], limits: Limits) -> NodeResult:
+async def _http(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     config = node["config"]
     try:
         names = names_in(*(str(config.get(k) or "") for k in ("url", "headers", "body")))
@@ -167,12 +176,13 @@ async def _http(node: dict[str, Any], limits: Limits) -> NodeResult:
             response_limit_bytes=limits.http_response_limit_bytes,
             allow_private_networks=limits.http_allow_private_networks,
             secrets=values,
+            view=view,
         )
 
     return await _with_secrets(names, limits, run)
 
 
-async def _timer(node: dict[str, Any], limits: Limits) -> NodeResult:
+async def _timer(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     started = time.monotonic()
     await asyncio.sleep(node["seconds"] or 0)
     return NodeResult("pass", duration=time.monotonic() - started)

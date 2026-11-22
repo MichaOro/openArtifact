@@ -23,9 +23,10 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from openartifact.engine.context import ContextError, RunView, check_url_placement
 from openartifact.engine.results import NodeResult, failed
 from openartifact.graph.node_types import SettingError, parse_status_spec
-from openartifact.secret_refs import SecretReferenceError, check_url_references, substitute
+from openartifact.secret_refs import SecretReferenceError, check_url_references
 
 TRUNCATED_MARK = "[response truncated]"
 MAX_ADDRESSES = 4
@@ -145,14 +146,18 @@ async def run_http(
     response_limit_bytes: int,
     allow_private_networks: bool,
     secrets: Mapping[str, str] | None = None,
+    view: RunView | None = None,
 ) -> NodeResult:
     """Send the request the node describes; pass when the status is an accepted one.
 
-    ``secrets`` holds the values of the ``${secret:NAME}`` references in the URL, headers and body.
-    They are put in here, and only here: the URL after the substitution (percent-encoded values) is
-    the one that is vetted for SSRF, and a reference before the path is refused.
+    ``secrets`` holds the values of the ``${secret:NAME}`` references in the URL, headers and body;
+    ``view`` the run context the ``${node...}`` and ``${var...}`` references read. Both are put in
+    here, and only here, in one pass (a replaced value is not scanned again): the URL after the
+    substitution (percent-encoded values) is the one that is vetted for SSRF, and a reference before
+    the path is refused. A reference that cannot be resolved fails the node.
     """
     values = secrets or {}
+    view = view or RunView()
     url = str(config.get("url") or "").strip()
     if not url:
         return failed("The URL is empty")
@@ -160,12 +165,14 @@ async def run_http(
     timeout = int(config.get("timeout_seconds") or 30)
     try:
         check_url_references(url)
-        url = substitute(url, values, percent_encode=True)
+        check_url_placement(url)
+        url = view.render(url, secrets=values, percent_encode=True)
         scheme, host, port = _url_parts(url)
         headers = {
-            name: substitute(value, values)
+            name: view.render(value, secrets=values)
             for name, value in parse_headers(str(config.get("headers") or "")).items()
         }
+        body = view.render(str(config.get("body") or ""), secrets=values)
         for name, value in headers.items():
             if any((ord(c) < 32 and c != "\t") or ord(c) == 127 for c in value):
                 raise ValueError(f"The header '{name}' has a control character")
@@ -173,12 +180,13 @@ async def run_http(
         parse_status_spec(accepted)
     except (ValueError, SettingError, SecretReferenceError) as error:
         return failed(
-            str(error) if isinstance(error, SettingError | SecretReferenceError) else _clean(error)
+            str(error)
+            if isinstance(error, SettingError | SecretReferenceError | ContextError)
+            else _clean(error)
         )
     try:
         async with asyncio.timeout(timeout):
             addresses = await vetted_addresses(host, port, allow_private_networks)
-            body = substitute(str(config.get("body") or ""), values)
             return await _send(
                 {**config, "body": body}, url, scheme, host, port, headers, accepted, addresses,
                 timeout, response_limit_bytes, started,
