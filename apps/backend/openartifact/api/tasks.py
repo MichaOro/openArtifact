@@ -7,9 +7,17 @@ A refused request is an ``ArtifactError``; the application answers it (see ``app
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Query, Response, status
 
 from openartifact.api.deps import ServiceDep
+from openartifact.engine.schemas import (
+    ExecutionDetail,
+    ExecutionList,
+    HistoryPolicyResult,
+    HistoryPolicyWrite,
+)
 from openartifact.models import CreatedBy
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 
@@ -59,3 +67,51 @@ async def delete_task(task_id: str, service: ServiceDep) -> Response:
     parentless (resync)."""
     await service.delete(task_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{task_id}/executions", response_model=ExecutionList)
+async def list_executions(
+    task_id: str, service: ServiceDep, limit: Annotated[int, Query(ge=1, le=500)] = 100
+) -> ExecutionList:
+    """The artifact's executions (one per start, restarts included), newest first, without steps.
+
+    ``items`` has at most ``limit`` (default 100, at most 500) summaries, ``total`` counts all of
+    them, ``policy`` is the retention policy (``keep_last``, ``keep_hours``; ``effective_default_keep``
+    is what applies when neither is set, ``0``: no limit). ``task_id`` is the id or the number.
+    """
+    return await service.executions(task_id, limit)
+
+
+@router.delete("/{task_id}/executions")
+async def clear_executions(task_id: str, service: ServiceDep) -> dict[str, int]:
+    """Delete every finished execution of the artifact; a running one stays. Returns ``{"deleted": n}``.
+    Publishes ``execution.deleted`` for each."""
+    return {"deleted": await service.clear_executions(task_id)}
+
+
+@router.get("/{task_id}/executions/{execution_id}", response_model=ExecutionDetail)
+async def get_execution(task_id: str, execution_id: str, service: ServiceDep) -> ExecutionDetail:
+    """One execution with all its steps in order (outputs complete, up to the stored limit)."""
+    return await service.execution(task_id, execution_id)
+
+
+@router.delete("/{task_id}/executions/{execution_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_execution(task_id: str, execution_id: str, service: ServiceDep) -> Response:
+    """Delete one execution with its steps; 409 while it is running, 404 if unknown.
+    Publishes ``execution.deleted``."""
+    await service.delete_execution(task_id, execution_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/{task_id}/history-policy", response_model=HistoryPolicyResult)
+async def set_history_policy(
+    task_id: str, payload: HistoryPolicyWrite, service: ServiceDep
+) -> HistoryPolicyResult:
+    """Set the retention policy of the artifact's execution history and apply it at once.
+
+    ``keep_last`` (1-1000) and ``keep_hours`` (1-8760) are each ``null`` for no limit of that kind;
+    when both are set an execution must satisfy both to be kept; when neither is set the application
+    default applies. The newest and any running execution are never deleted by it. Returns the
+    policy and how many executions were deleted.
+    """
+    return await service.set_history_policy(task_id, payload)

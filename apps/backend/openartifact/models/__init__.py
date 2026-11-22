@@ -2,7 +2,8 @@
 
 Live: ``Task`` (an artifact, a card on the board; ``TaskStatus`` is its lane), ``Graph``,
 ``GraphNode`` and ``GraphEdge`` (a pipeline or an action definition and what it is made of) and
-``PipelineRun`` with ``RunStage`` (the processing of a task). ``TaskNumberSeq`` is the counter that
+``PipelineRun`` with ``RunStage`` (the current processing of a task) and ``Execution`` (the history: one
+row per start, with the steps it recorded in ``RunNodeResult``). ``TaskNumberSeq`` is the counter that
 numbers tasks. ``Project`` and ``WorkItem`` are left from the first iteration and nothing uses them
 (see quarantine.json).
 
@@ -151,6 +152,10 @@ class Task(Base):
         pipeline_id, stage_id, action_id: The pipeline, stage and action the artifact starts with
             (migration 0019); ``None`` until a pipeline is chosen.
         created_by: How it was created: ``user``, ``api``, ``mcp`` or ``action``.
+        history_keep_last, history_keep_hours: The retention policy of the execution history (migration
+            0023): keep at most this many executions and/or none older than this many hours; both
+            ``None``: the application default applies. See ``engine/history.py``.
+        execution_seq: The last execution number handed out for this artifact (never reused).
         position: Sort key inside the lane, ascending (see migration 0004). Fractional so a task
             can be dropped between two others without renumbering the lane.
         created_at: Creation timestamp (UTC).
@@ -182,6 +187,9 @@ class Task(Base):
     stage_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
     action_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
     created_by: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
+    history_keep_last: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    history_keep_hours: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    execution_seq: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),
@@ -357,7 +365,9 @@ class GraphEdge(Base):
 
 
 class PipelineRun(Base):
-    """The processing of one artifact in a pipeline (at most one per artifact).
+    """The current processing of one artifact in a pipeline (at most one per artifact).
+
+    The history of earlier starts is in ``Execution``; ``execution_id`` points to the current one.
 
     Attributes:
         status: ``running``, ``stopped``, ``done`` or ``failed``.
@@ -383,10 +393,55 @@ class PipelineRun(Base):
     action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     snapshot: Mapped[str] = mapped_column(Text)
+    execution_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("executions.id", ondelete="SET NULL"), nullable=True, default=None
+    )
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
+
+
+class Execution(Base):
+    """One run attempt of an artifact: every start (and restart) of it in a pipeline, kept as history.
+
+    Attributes:
+        number: Per artifact, from 1, never reused (``tasks.execution_seq`` counts).
+        pipeline_id, pipeline_name: The pipeline started in; the name is a copy (pipelines change and
+            go away). No foreign key: the history outlives the pipeline.
+        started_stage_*, started_action_*: Where it started (copies); ``None`` for executions that were
+            backfilled from a run of before migration 0023, where this is not known.
+        final_stage_name, final_action_name: Where the run was when the execution ended.
+        status: ``running``, ``done``, ``failed`` or ``stopped`` (``RunStatus``).
+        note: Why it stopped or failed.
+        started_by: ``user`` or ``system``.
+        step_count: Number of steps recorded in ``run_node_results``.
+        snapshot: The frozen pipeline (JSON), so the execution can be shown as a graph later; deferred.
+        finished_at: ``None`` while it runs.
+    """
+
+    __tablename__ = "executions"
+    __table_args__ = (Index("ux_executions_task_number", "task_id", "number", unique=True),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("tasks.id", ondelete="CASCADE"))
+    number: Mapped[int] = mapped_column(Integer)
+    pipeline_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    pipeline_name: Mapped[str] = mapped_column(String(255), default="", server_default="")
+    started_stage_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    started_stage_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    started_action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    started_action_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    final_stage_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    final_action_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(16))
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_by: Mapped[str] = mapped_column(String(16))
+    step_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    snapshot: Mapped[str] = mapped_column(Text, default="{}", server_default="{}", deferred=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    finished_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None)
 
 
 class RunStage(Base):
@@ -406,7 +461,7 @@ class RunStage(Base):
 class RunNodeResult(Base):
     """One step of a run inside an action definition: every node the engine executed, in order.
 
-    ``seq`` counts the steps of the run from 1; ``port`` is the connector the run left the node by
+    ``seq`` counts the steps of the execution from 1; ``port`` is the connector the run left the node by
     (``pass``, ``fail`` or ``out``; none for an output node, which ends the action, where
     ``outcome`` says which input was reached). Code and HTTP nodes also carry ``exit_code``,
     ``output`` (text only, bounded), ``reason`` and ``data``; the other nodes leave these empty.
@@ -414,15 +469,22 @@ class RunNodeResult(Base):
     called one), ``depth`` (0 for the run's own), ``top_stage_id`` (the entry of the run's own
     pipeline it is inside), ``stage_id``, ``action_id`` and ``definition_id`` (the action
     definition ``node_id`` belongs to). Ids point into the frozen snapshot, so there are no foreign
-    keys but ``run_id``. Rows go with the run and are replaced when the artifact is started again.
+    keys but ``run_id`` and ``execution_id``. A row belongs to the execution that recorded it (migration
+    0023) and goes with it (retention, deleting it); a restart of the artifact leaves the rows of its
+    earlier executions alone. ``run_id`` is kept for the run that recorded it.
     """
 
     __tablename__ = "run_node_results"
-    __table_args__ = (Index("ux_run_node_results_run_seq", "run_id", "seq", unique=True),)
+    __table_args__ = (
+        Index("ux_run_node_results_execution_seq", "execution_id", "seq", unique=True),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     run_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("pipeline_runs.id", ondelete="CASCADE")
+    )
+    execution_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("executions.id", ondelete="CASCADE"), nullable=True
     )
     seq: Mapped[int] = mapped_column(Integer)
     pipeline_id: Mapped[str | None] = mapped_column(String(36), nullable=True)

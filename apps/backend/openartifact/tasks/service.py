@@ -7,21 +7,34 @@ artifact came from) exist in one place. Every method opens its own session and c
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import undefer
 
 from openartifact.database import SessionOpener
 from openartifact.engine.chain import pipeline_chain
+from openartifact.engine.history import Changes, labels_of
 from openartifact.engine.runner import RunEngine
-from openartifact.engine.schemas import NodeResultRead, RunRead
+from openartifact.engine.schemas import (
+    ExecutionDetail,
+    ExecutionList,
+    ExecutionRead,
+    ExecutionStepRead,
+    HistoryPolicyResult,
+    HistoryPolicyWrite,
+    NodeResultRead,
+    RunRead,
+)
 from openartifact.engine.snapshot import graph_of
 from openartifact.engine.targets import TargetError, resolve_target
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.models import (
     CreatedBy,
+    Execution,
     Graph,
     GraphKind,
     PipelineRun,
@@ -125,7 +138,102 @@ class ArtifactService:
             run = await session.scalar(select(PipelineRun).where(PipelineRun.task_id == task.id))
             if run is None:
                 return None
-            return (await self._engine.node_results(session, run.id))[0]
+            return (await self._engine.node_results(session, run.execution_id))[0]
+
+    # ── execution history ─────────────────────────────────────────────
+
+    async def executions(self, ref: str, limit: int = 100) -> ExecutionList:
+        """The newest ``limit`` executions of the artifact (newest first), their total and the policy."""
+        async with self._session() as session:
+            task = await self._task(session, ref)
+            rows = (
+                (
+                    await session.execute(
+                        select(Execution)
+                        .where(Execution.task_id == task.id)
+                        .order_by(Execution.number.desc())
+                        .limit(limit)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            total = await session.scalar(
+                select(func.count()).select_from(Execution).where(Execution.task_id == task.id)
+            )
+            return ExecutionList(
+                items=[ExecutionRead.of(r) for r in rows],
+                total=total or 0,
+                policy=self._engine.history.policy_of(task),
+            )
+
+    async def execution(self, ref: str, execution_id: str) -> ExecutionDetail:
+        """One execution with all its steps (names of stage and action filled in from its snapshot)."""
+        async with self._session() as session:
+            task = await self._task(session, ref)
+            row = await self._execution(session, task.id, execution_id, with_snapshot=True)
+            steps, _ = await self._engine.node_results(session, row.id)
+            try:
+                labels = labels_of(json.loads(row.snapshot))
+            except (ValueError, KeyError):
+                labels = {}
+            return ExecutionDetail(
+                **ExecutionRead.of(row).model_dump(),
+                steps=[
+                    ExecutionStepRead(
+                        **step.model_dump(),
+                        stage_name=labels.get(step.stage_id or ""),
+                        action_name=labels.get(step.action_id or ""),
+                    )
+                    for step in steps
+                ],
+            )
+
+    async def delete_execution(self, ref: str, execution_id: str) -> None:
+        """Delete one execution with its steps (409 while it runs)."""
+        async with self._session() as session:
+            task = await self._task(session, ref)
+            row = await self._execution(session, task.id, execution_id)
+            if row.status == RunStatus.RUNNING:
+                raise ArtifactError(409, "The execution is running; stop it first")
+            changes = Changes()
+            await self._engine.history.remove(session, task.id, [row.id], changes)
+            await session.commit()
+        self._engine.history.publish(changes)
+
+    async def clear_executions(self, ref: str) -> int:
+        """Delete every finished execution of the artifact (the running one stays); returns how many."""
+        async with self._session() as session:
+            task = await self._task(session, ref)
+            ids = list(
+                (
+                    await session.scalars(
+                        select(Execution.id).where(
+                            Execution.task_id == task.id, Execution.status != RunStatus.RUNNING
+                        )
+                    )
+                ).all()
+            )
+            changes = Changes()
+            await self._engine.history.remove(session, task.id, ids, changes)
+            await session.commit()
+        self._engine.history.publish(changes)
+        return len(ids)
+
+    async def set_history_policy(self, ref: str, policy: HistoryPolicyWrite) -> HistoryPolicyResult:
+        """Replace the artifact's retention policy and apply it at once."""
+        async with self._session() as session:
+            task = await self._task(session, ref)
+            task.history_keep_last = policy.keep_last
+            task.history_keep_hours = policy.keep_hours
+            changes = Changes()
+            deleted = await self._engine.history.prune(session, task, changes)
+            await session.commit()
+            result = HistoryPolicyResult(
+                policy=self._engine.history.policy_of(task), deleted=deleted
+            )
+        self._engine.history.publish(changes)
+        return result
 
     # ── changing ──────────────────────────────────────────────────────
 
@@ -240,6 +348,18 @@ class ArtifactService:
         if task is None:
             raise ArtifactError(404, "Artifact not found")
         return task
+
+    @staticmethod
+    async def _execution(
+        session: AsyncSession, task_id: str, execution_id: str, *, with_snapshot: bool = False
+    ) -> Execution:
+        query = select(Execution).where(Execution.id == execution_id, Execution.task_id == task_id)
+        if with_snapshot:
+            query = query.options(undefer(Execution.snapshot))
+        row = await session.scalar(query)
+        if row is None:
+            raise ArtifactError(404, "Execution not found")
+        return row
 
     @staticmethod
     async def _forbid_while_processing(session: AsyncSession, task_id: str) -> None:

@@ -14,7 +14,10 @@ router = APIRouter(prefix="/api", tags=["events"])
 @router.get("/events")
 async def stream_events(bus: EventBusDep) -> StreamingResponse:
     """Stream board events: ``task.created``, ``task.updated``, ``task.moved``, ``task.deleted``,
-    ``board.resync`` and ``run.updated`` (the state of a run, see ``GET /api/runs``).
+    ``board.resync``, ``run.updated`` (the state of a run, see ``GET /api/runs``),
+    ``execution.updated`` (``{"task_id", "execution"}``: the summary of an execution, when it starts
+    and whenever its status changes) and ``execution.deleted`` (``{"task_id", "id"}``: by hand,
+    by retention or because the artifact's policy changed).
 
     Clients that (re)connect should reload ``GET /api/tasks`` to resync, because
     events that happened while disconnected are not replayed.

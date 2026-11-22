@@ -116,6 +116,7 @@ def _create_app(settings: Settings) -> FastAPI:
         database.new_session,
         max_runs=settings.max_concurrent_runs,
         limits=Limits.from_settings(settings, app.state.secret_store.resolve),
+        history_default_keep=settings.execution_history_default_keep,
     )
     app.state.artifacts = ArtifactService(
         database.new_session, app.state.event_bus, app.state.engine

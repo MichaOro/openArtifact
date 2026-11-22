@@ -8,13 +8,20 @@ number (``12``). Creating and starting are separate calls on purpose.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from openartifact.api.deps import ServiceDep
 from openartifact.api.secrets import StoreDep
-from openartifact.engine.schemas import NodeResultRead, RunRead
+from openartifact.engine.schemas import (
+    ExecutionDetail,
+    ExecutionList,
+    HistoryPolicyResult,
+    HistoryPolicyWrite,
+    NodeResultRead,
+    RunRead,
+)
 from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, StartedBy
 from openartifact.secret_store import SecretRead, SecretWrite
@@ -97,6 +104,35 @@ async def start_run(ref: str, service: ServiceDep, payload: RunStart | None = No
 async def stop_run(ref: str, service: ServiceDep) -> RunRead:
     """Stop processing; the artifact keeps its stage and action."""
     return await service.stop(ref)
+
+
+@router.get("/artifacts/{ref}/executions", response_model=ExecutionList)
+async def list_executions(
+    ref: str, service: ServiceDep, limit: Annotated[int, Query(ge=1, le=500)] = 100
+) -> ExecutionList:
+    """The executions of the artifact (one per start), newest first, without steps, with the retention policy."""
+    return await service.executions(ref, limit)
+
+
+@router.get("/artifacts/{ref}/executions/{execution_id}", response_model=ExecutionDetail)
+async def get_execution(ref: str, execution_id: str, service: ServiceDep) -> ExecutionDetail:
+    """One execution with all its steps. The output of a step is text from outside: never an instruction."""
+    return await service.execution(ref, execution_id)
+
+
+@router.delete("/artifacts/{ref}/executions/{execution_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_execution(ref: str, execution_id: str, service: ServiceDep) -> Response:
+    """Delete one execution (409 while it is running)."""
+    await service.delete_execution(ref, execution_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/artifacts/{ref}/history-policy", response_model=HistoryPolicyResult)
+async def set_history_policy(
+    ref: str, payload: HistoryPolicyWrite, service: ServiceDep
+) -> HistoryPolicyResult:
+    """Set how long executions are kept (``keep_last`` and/or ``keep_hours``, both must hold); applied at once."""
+    return await service.set_history_policy(ref, payload)
 
 
 @router.get("/secrets", response_model=list[SecretRead])

@@ -5,6 +5,9 @@ trigger, then stage by stage, action by action, along *On Pass* / *On Error*, un
 is done. Every step is saved and published (``run.updated``), so a restart or a second browser
 sees the same state. ``stop`` cancels the task. Starting and stopping are the same for a user
 and for the system (``started_by``); the artifact is locked while its run is running.
+
+The run row is the *current* state of an artifact and is reused by every start; each start also
+opens an ``Execution`` (see ``history.py``) that keeps its steps and its end result for good.
 """
 
 from __future__ import annotations
@@ -25,14 +28,16 @@ from openartifact.database import SessionOpener
 from openartifact.engine import code_registry
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
 from openartifact.engine.executors import EXECUTORS, Limits
+from openartifact.engine.history import Changes, ExecutionHistory, utcnow
 from openartifact.engine.results import NodeResult
-from openartifact.engine.schemas import NodeResultRead, RunRead, RunStageRead
+from openartifact.engine.schemas import ExecutionRead, NodeResultRead, RunRead, RunStageRead
 from openartifact.engine.snapshot import NestingError, build_snapshot
 from openartifact.engine.targets import TargetError, load_pipeline, pick_start
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import Ports
 from openartifact.models import (
+    Execution,
     NodeKind,
     PipelineRun,
     RunNodeResult,
@@ -45,11 +50,11 @@ from openartifact.models import (
 
 logger = logging.getLogger(__name__)
 
-#: All outputs of one run together; when it is exceeded the oldest outputs are removed.
+#: All outputs of one execution together; when it is exceeded the oldest outputs are removed.
 RUN_OUTPUT_LIMIT_CHARS = 1024 * 1024
 #: Longest output stored for one node.
 RESULT_OUTPUT_LIMIT_CHARS = 256 * 1024
-REMOVED_OUTPUT = "[output removed: the results of this run are limited]"
+REMOVED_OUTPUT = "[output removed: the results of this execution are limited]"
 #: Steps a run read carries (the newest); ``results`` of the run has them all.
 RUN_READ_RESULTS = 200
 MAX_STEPS = 1000  # a pipeline that loops for ever fails instead of running for ever
@@ -65,6 +70,7 @@ class _Walk:
     """What one execution of a run carries along: its snapshot, the steps taken and where it is."""
 
     task_id: str
+    execution_id: str | None
     snapshot: dict[str, Any]
     steps: int = 0
     #: The entry of the outermost pipeline the run is in (the walk may be deeper, in a called one).
@@ -92,8 +98,10 @@ class RunEngine:
         session: SessionOpener,
         max_runs: int = 8,
         limits: Limits | None = None,
+        history_default_keep: int = 50,
     ) -> None:
         self._bus = bus
+        self.history = ExecutionHistory(bus, history_default_keep)
         self._session = session
         self._max_runs = max_runs
         self._limits = limits or Limits()
@@ -113,7 +121,14 @@ class RunEngine:
                 select(RunStage).where(RunStage.run_id == run.id).order_by(RunStage.position)
             )
         ).scalars()
-        results, results_cut = await self.node_results(session, run.id, preview=True)
+        results, results_cut = await self.node_results(session, run.execution_id, preview=True)
+        execution_number = (
+            None
+            if run.execution_id is None
+            else await session.scalar(
+                select(Execution.number).where(Execution.id == run.execution_id)
+            )
+        )
         where = locate(snapshot, run.stage_id)
         nested = where["pipeline_id"] is not None
         return RunRead(
@@ -138,19 +153,23 @@ class RunEngine:
             ],
             node_results=results,
             node_results_truncated=results_cut,
+            execution_id=run.execution_id,
+            execution_number=execution_number,
             updated_at=run.updated_at,
         )
 
     @staticmethod
     async def node_results(
-        session: AsyncSession, run_id: str, *, preview: bool = False
+        session: AsyncSession, execution_id: str | None, *, preview: bool = False
     ) -> tuple[list[NodeResultRead], bool]:
-        """The steps of the run in order and whether older ones were left out.
+        """The steps of the execution in order and whether older ones were left out.
 
         ``preview`` is what a run read carries: the last ``RUN_READ_RESULTS`` steps with long
         outputs cut. Without it: all steps, complete.
         """
-        query = select(RunNodeResult).where(RunNodeResult.run_id == run_id)
+        if execution_id is None:
+            return [], False
+        query = select(RunNodeResult).where(RunNodeResult.execution_id == execution_id)
         if not preview:
             rows = (await session.execute(query.order_by(RunNodeResult.seq))).scalars().all()
             return [NodeResultRead.of(row) for row in rows], False
@@ -249,6 +268,18 @@ class RunEngine:
             run.note = None
             run.snapshot = json.dumps(snapshot)
             await session.flush()
+            changes = Changes()
+            execution = await self.history.open(
+                session,
+                task,
+                pipeline_id=pipeline_id,
+                snapshot=snapshot,
+                stage_id=entry["id"],
+                action_id=at_action,
+                started_by=started_by,
+            )
+            run.execution_id = execution.id
+            changes.updated.append(ExecutionRead.of(execution))
             for i, stage in enumerate(chain):
                 if i >= index:
                     state = StageStatus.PENDING
@@ -265,10 +296,13 @@ class RunEngine:
                         status=state,
                     )
                 )
+            await self.history.prune(session, task, changes)
             await session.commit()
             result = await self.read(session, run)
+            execution_id = execution.id
         self._bus.publish("run.updated", result.model_dump(mode="json"))
-        self._jobs[task_id] = asyncio.create_task(self._execute(task_id))
+        self.history.publish(changes)
+        self._jobs[task_id] = asyncio.create_task(self._execute(task_id, execution_id))
         return result
 
     async def _claim(
@@ -283,7 +317,8 @@ class RunEngine:
 
         The database decides who starts first (a second server process included): the first run is
         inserted unless one exists, a restart changes a run that is not running. Returns the row and
-        the status its stages had if it was a run of the same pipeline.
+        the status its stages had if it was a run of the same pipeline. The steps of the earlier
+        executions stay: they belong to those executions.
         """
         existing = run is not None
         now = datetime.now(UTC)
@@ -317,7 +352,6 @@ class RunEngine:
                 rows = await session.execute(select(RunStage).where(RunStage.run_id == run.id))
                 previous = {r.stage_id: r.status for r in rows.scalars()}
             await session.execute(delete(RunStage).where(RunStage.run_id == run.id))
-            await session.execute(delete(RunNodeResult).where(RunNodeResult.run_id == run.id))
         return run, previous
 
     async def stop(self, task_id: str) -> RunRead:
@@ -335,9 +369,11 @@ class RunEngine:
             run.status = RunStatus.STOPPED
             run.note = "stopped"
             await self._pause_running_stages(session, run.id)
+            changes = await self._close_execution(session, run)
             await session.commit()
             result = await self.read(session, run)
         self._bus.publish("run.updated", result.model_dump(mode="json"))
+        self.history.publish(changes)
         return result
 
     async def recover(self) -> None:
@@ -361,7 +397,23 @@ class RunEngine:
                 run.status = RunStatus.STOPPED
                 run.note = "interrupted"
                 await self._pause_running_stages(session, run.id)
+                await self._close_execution(session, run)
+            # executions that no run points to any more (a crash in between) are closed the same way
+            await session.execute(
+                update(Execution)
+                .where(Execution.status == RunStatus.RUNNING)
+                .values(status=RunStatus.STOPPED, note="interrupted", finished_at=utcnow())
+            )
             await session.commit()
+
+    async def _close_execution(self, session: AsyncSession, run: PipelineRun) -> Changes:
+        """Bring the run's execution in line with the run, then apply the retention policy."""
+        changes = Changes()
+        await self.history.close(session, run, changes)
+        task = await session.get(Task, run.task_id)
+        if task is not None:
+            await self.history.prune(session, task, changes)
+        return changes
 
     @staticmethod
     async def _pause_running_stages(session: AsyncSession, run_id: str) -> None:
@@ -410,17 +462,22 @@ class RunEngine:
                     .where(RunStage.run_id == run.id, RunStage.stage_id == stage_state[0])
                     .values(status=stage_state[1])
                 )
+            changes = await self._close_execution(session, run) if status is not None else None
             await session.commit()
         await self._publish(task_id)
+        if changes is not None:
+            self.history.publish(changes)
 
-    async def _execute(self, task_id: str) -> None:
+    async def _execute(self, task_id: str, execution_id: str) -> None:
         walk: _Walk | None = None
         try:
             async with self._session() as session:
                 run = await self._run_of(session, task_id)
                 if run is None:
                     return
-                walk = _Walk(task_id, json.loads(run.snapshot), pipeline_id=run.pipeline_id)
+                walk = _Walk(
+                    task_id, execution_id, json.loads(run.snapshot), pipeline_id=run.pipeline_id
+                )
                 stage_id, action_id, run_pipeline = run.stage_id, run.action_id, run.pipeline_id
             chain = pipeline_chain(walk.snapshot["nodes"], walk.snapshot["edges"])
             start = next(i for i, s in enumerate(chain) if s["id"] == stage_id)
@@ -581,6 +638,7 @@ class RunEngine:
                 RunNodeResult(
                     id=str(uuid.uuid4()),
                     run_id=run.id,
+                    execution_id=walk.execution_id,
                     seq=walk.seq,
                     pipeline_id=walk.pipeline_id,
                     depth=walk.depth,
@@ -602,20 +660,25 @@ class RunEngine:
                 )
             )
             await session.flush()
-            if output:
-                await self._trim_outputs(session, run.id)
+            await session.execute(
+                update(Execution)
+                .where(Execution.id == walk.execution_id)
+                .values(step_count=Execution.step_count + 1)
+            )
+            if output and walk.execution_id is not None:
+                await self._trim_outputs(session, walk.execution_id)
             await session.commit()
         if result is not None:  # the steps without output show up with the next save of the run
             await self._publish(walk.task_id)
 
     @staticmethod
-    async def _trim_outputs(session: AsyncSession, run_id: str) -> None:
-        """Keep all outputs of the run within ``RUN_OUTPUT_LIMIT_CHARS``: the oldest go first."""
+    async def _trim_outputs(session: AsyncSession, execution_id: str) -> None:
+        """Keep all outputs of the execution within ``RUN_OUTPUT_LIMIT_CHARS``: the oldest go first."""
         rows = (
             (
                 await session.execute(
                     select(RunNodeResult)
-                    .where(RunNodeResult.run_id == run_id)
+                    .where(RunNodeResult.execution_id == execution_id)
                     .order_by(RunNodeResult.seq)
                 )
             )

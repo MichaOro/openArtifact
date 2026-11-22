@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
-from openartifact.models import RunNodeResult, RunStatus, StageStatus, StartedBy
-from openartifact.schemas_common import UtcDateTime
+from openartifact.models import Execution, RunNodeResult, RunStatus, StageStatus, StartedBy
+from openartifact.schemas_common import UtcDateTime, as_utc
 
 
 class RunStageRead(BaseModel):
@@ -104,4 +104,111 @@ class RunRead(BaseModel):
     #: ``node_results_truncated`` says older ones were left out. The whole list: ``GET /api/runs/{task_id}/results``.
     node_results: list[NodeResultRead] = []
     node_results_truncated: bool = False
+    #: The execution (history row) this run is the current state of; ``None`` if it was deleted.
+    execution_id: str | None = None
+    execution_number: int | None = None
     updated_at: UtcDateTime
+
+
+class ExecutionRead(BaseModel):
+    """One execution (a run attempt) of an artifact, as the history list shows it: no steps, no outputs.
+
+    ``started_*`` is where it started and is ``None`` for executions made from runs of before the
+    history existed. ``duration_seconds`` and ``finished_at`` are ``None`` while it runs.
+    """
+
+    id: str
+    task_id: str
+    number: int
+    status: RunStatus
+    note: str | None
+    pipeline_id: str | None
+    pipeline_name: str
+    started_stage_id: str | None
+    started_stage_name: str | None
+    started_action_id: str | None
+    started_action_name: str | None
+    final_stage_name: str | None
+    final_action_name: str | None
+    started_by: StartedBy
+    started_at: UtcDateTime
+    finished_at: UtcDateTime | None
+    duration_seconds: float | None
+    step_count: int
+
+    @classmethod
+    def of(cls, row: Execution) -> ExecutionRead:
+        finished = row.finished_at
+        return cls(
+            id=row.id,
+            task_id=row.task_id,
+            number=row.number,
+            status=RunStatus(row.status),
+            note=row.note,
+            pipeline_id=row.pipeline_id,
+            pipeline_name=row.pipeline_name,
+            started_stage_id=row.started_stage_id,
+            started_stage_name=row.started_stage_name,
+            started_action_id=row.started_action_id,
+            started_action_name=row.started_action_name,
+            final_stage_name=row.final_stage_name,
+            final_action_name=row.final_action_name,
+            started_by=StartedBy(row.started_by),
+            started_at=row.started_at,
+            finished_at=finished,
+            duration_seconds=(
+                None
+                if finished is None
+                else max((as_utc(finished) - as_utc(row.started_at)).total_seconds(), 0.0)
+            ),
+            step_count=row.step_count,
+        )
+
+
+class ExecutionStepRead(NodeResultRead):
+    """A step of an execution: the node result plus the names of its stage and action, where known."""
+
+    stage_name: str | None = None
+    action_name: str | None = None
+
+
+class ExecutionDetail(ExecutionRead):
+    """An execution with all its steps in order, outputs complete (up to what was stored)."""
+
+    steps: list[ExecutionStepRead]
+
+
+class HistoryPolicy(BaseModel):
+    """The retention policy of an artifact. Both limits set: an execution must satisfy both to be kept.
+
+    ``keep_last`` and ``keep_hours`` ``None``: no limit of that kind; with neither set the application
+    default (``effective_default_keep`` executions, ``0``: all) applies.
+    """
+
+    keep_last: int | None
+    keep_hours: int | None
+    effective_default_keep: int
+
+
+class ExecutionList(BaseModel):
+    """The newest executions of an artifact (``total`` counts all of them) and its policy."""
+
+    items: list[ExecutionRead]
+    total: int
+    policy: HistoryPolicy
+
+
+class HistoryPolicyWrite(BaseModel):
+    """The body of ``PUT .../history-policy``: replaces the whole policy (a missing field is ``null``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    keep_last: Annotated[int, Field(strict=True, ge=1, le=1000)] | None = None
+    keep_hours: Annotated[int, Field(strict=True, ge=1, le=8760)] | None = None
+
+
+class HistoryPolicyResult(BaseModel):
+    """The saved policy and how many executions the pruning that followed deleted."""
+
+    policy: HistoryPolicy
+    deleted: int

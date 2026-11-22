@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     #: Open event streams (browser tabs); a further one gets ``503``.
     max_sse_subscribers: int = 50
 
+    # ── Execution history ───────────────────────────────────────────
+    #: How many executions of an artifact are kept when its owner has set no retention policy of its
+    #: own; the oldest finished ones beyond that are deleted. ``0`` keeps all of them: the database then
+    #: grows with every run (outputs of up to 1 MiB each), so use it only with a policy per artifact.
+    execution_history_default_keep: int = Field(default=50, ge=0, le=100000)
+
     # ── Code and HTTP nodes ─────────────────────────────────────────
     #: Whether Code nodes run. Code runs as a child of the application with the application's own
     #: rights (no sandbox); off: a Code node fails with "Code nodes are disabled".
