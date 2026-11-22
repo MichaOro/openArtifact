@@ -2,15 +2,9 @@
  * button of the dialog's rail, and the state of every run (kept current by `run.updated` events).
  * While a run is running the artifact is locked: lane, parent, pipeline, stage and action can only
  * be changed by the system, and the card cannot be moved or deleted. */
-import { request } from "../http.js";
-
-const send = (url, body) => request(url, { method: "POST", body: body && JSON.stringify(body) });
-
-export const listRuns = () => request("/api/runs");
-const startRun = (taskId, body) => send(`/api/tasks/${encodeURIComponent(taskId)}/run`, body);
-const stopRun = (taskId) => send(`/api/tasks/${encodeURIComponent(taskId)}/run/stop`);
-const listPipelines = () => request("/api/pipelines");
-const listStages = (pipelineId) => request(`/api/pipelines/${encodeURIComponent(pipelineId)}/stages`);
+import { icon } from "../components/icons.js";
+import { listGraphs } from "../editor/api.js";
+import { listStages, startRun, stopRun } from "./api.js";
 
 const STATUS_TEXT = { running: "running", stopped: "stopped", done: "done", failed: "failed" };
 
@@ -94,7 +88,7 @@ export class ProcessingPanel {
 
   async #loadPipelines() {
     try {
-      this.pipelines = await listPipelines();
+      this.pipelines = await listGraphs("pipeline");
     } catch {
       this.onError("The pipelines could not be loaded.");
     }
@@ -159,13 +153,8 @@ export class ProcessingPanel {
     this.button.disabled = !locked && !canStart;
     this.buttonLabel.textContent = locked ? "Stop processing" : "Start processing";
     this.button.title = locked ? "Stop processing" : canStart ? "Start processing" : "Choose a pipeline first";
-    this.buttonIcon.replaceWith(this.#icon(locked ? "stop" : "play"));
+    this.buttonIcon.replaceWith(icon(locked ? "stop" : "play"));
     this.buttonIcon = this.button.querySelector(".icon");
-  }
-
-  #icon(name) {
-    const template = document.getElementById("run-icons");
-    return template.content.querySelector(`[data-icon=${name}]`).firstElementChild.cloneNode(true);
   }
 
   async #pick(key, trigger) {

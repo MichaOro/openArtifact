@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from playwright.sync_api import expect
 
 from tests.e2e.helpers import Board
@@ -62,3 +64,27 @@ def test_delete_dialog_warns_that_children_lose_their_parent(board: Board) -> No
     board.page.locator("#delete-task-modal [data-confirm]").click()
     expect(board.card("Parent")).to_have_count(0)
     board.expect_field("Child", "parent_id", None)
+
+
+def test_an_expired_sign_in_sends_the_browser_to_the_sign_in_page(board: Board) -> None:
+    board.page.route(
+        "**/api/tasks",
+        lambda route: route.fulfill(status=401, json={"detail": "Sign in"}),
+    )
+    board.page.route(
+        "**/login*",
+        lambda route: route.fulfill(status=200, body="sign in", content_type="text/html"),
+    )
+    board.page.goto(board.base_url)
+    expect(board.page).to_have_url(re.compile(r"/login\?next=%2F$"))
+
+
+def test_a_refused_event_stream_is_reported_instead_of_leaving_a_stale_board(board: Board) -> None:
+    board.create("Visible")
+    board.page.route(
+        "**/api/events",
+        lambda route: route.fulfill(status=401, json={"detail": "Sign in"}),
+    )
+    board.open()
+    expect(board.page.locator("[data-alert]")).to_contain_text("Live updates stopped")
+    expect(board.card("Visible")).to_be_visible()

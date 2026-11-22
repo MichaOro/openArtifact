@@ -112,7 +112,7 @@ def test_failed_move_is_rolled_back_with_an_error(board: Board) -> None:
         ),
     )
     board.drag(card(board, "backlog", 3), card(board, "backlog", 1), edge="top")
-    expect(board.page.locator("[data-board-error]")).to_be_visible()
+    expect(board.page.locator("[data-alert]")).to_be_visible()
     assert board.titles("backlog") == ["C", "B", "A"]
 
 

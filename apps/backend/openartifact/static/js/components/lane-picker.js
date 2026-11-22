@@ -1,4 +1,4 @@
-/* Lane picker. Generic: it only gets a list of {status, title, hue} and a callback, so
+/* Lane picker (also used for the parent and the pipeline fields). Generic: it only gets a list of {status, title, hue} and a callback, so
  * user-defined lanes later need no change here. Two presentations:
  *
  *  - "list":  a small listbox popover (positioned next to a trigger);
@@ -6,6 +6,8 @@
  *             (the lane-chip easter egg); the content below slides down to make room.
  *
  * Both live inside the open <dialog>: only elements inside it are above it (top layer). */
+
+import { placePopover } from "./popover.js";
 
 export class LanePicker {
   /**
@@ -24,7 +26,6 @@ export class LanePicker {
     this.el = document.createElement("div");
     this.el.className = "popover";
     this.el.setAttribute("role", "listbox");
-    this.el.setAttribute("aria-label", "Move to lane");
     this.el.hidden = true;
     container.append(this.el);
 
@@ -66,11 +67,12 @@ export class LanePicker {
    * @param {{value: string, label: string, hue?: number|string, selected?: boolean}[]} [options.items]
    *   generic choices (instead of `lanes`), e.g. the possible parents
    * @param {string} [options.caption] heading of the list variant
+   * @param {string} [options.label] what assistive technology announces for the list (default: the caption)
    * @param {(value: string) => void} options.onSelect
    * @param {"below"|"left"} [options.placement] for the "list" variant
    * @param {"list"|"chips"} [options.variant]
    */
-  toggle({ trigger, lanes = [], current, items = null, caption = "Move to", onSelect, placement = "below", variant = "list" }) {
+  toggle({ trigger, lanes = [], current, items = null, caption = "Move to", label = caption, onSelect, placement = "below", variant = "list" }) {
     if (this.isOpen && this.trigger === trigger) {
       this.close();
       return;
@@ -114,6 +116,7 @@ export class LanePicker {
       caption_el.textContent = caption;
       caption_el.setAttribute("aria-hidden", "true");
       this.el.replaceChildren(caption_el, ...options);
+      this.el.setAttribute("aria-label", label);
       this.el.hidden = false;
       this.#position(trigger, placement);
     }
@@ -137,15 +140,12 @@ export class LanePicker {
   }
 
   #position(trigger, placement) {
-    const margin = 8;
     const t = trigger.getBoundingClientRect();
-    const p = this.el.getBoundingClientRect();
-    let left = placement === "left" ? t.left - p.width - margin : t.left;
-    let top = placement === "left" ? t.top : t.bottom + 6;
-    if (top + p.height > window.innerHeight - margin) top = Math.max(margin, t.top - p.height - 6);
-    left = Math.min(Math.max(margin, left), window.innerWidth - p.width - margin);
-    this.el.style.left = `${left}px`;
-    this.el.style.top = `${top}px`;
+    placePopover(this.el, (size) => ({
+      left: placement === "left" ? t.left - size.width - 8 : t.left,
+      top: placement === "left" ? t.top : t.bottom + 6,
+      flipTop: t.top - size.height - 6,
+    }));
   }
 
   #onKeydown(event, host) {

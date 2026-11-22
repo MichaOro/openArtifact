@@ -1,4 +1,6 @@
-{# Inline SVG icon macro (Lucide-style, stroke = currentColor). Add new icons here. #}
+{# Inline SVG icon macro (Lucide-style, stroke = currentColor). Add new icons here, and to `icon_names`:
+   base.html renders every icon once into <template id="icons"> for static/js/components/icons.js. #}
+{% set icon_names = ["projects", "pipeline", "action", "play", "stop", "layers", "logout", "pencil", "chevrons-left", "sun", "moon", "inbox", "parent", "columns", "chevrons-right", "plus", "trash", "x", "check", "logo"] %}
 {% macro icon(name, class="") -%}
 <svg class="icon {{ class }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
 {%- if name == "projects" %}<rect x="3" y="3" width="5" height="18" rx="1.5"/><rect x="10" y="3" width="5" height="12" rx="1.5"/><rect x="17" y="3" width="4" height="8" rx="1.5"/>
@@ -19,6 +21,7 @@
 {%- elif name == "plus" %}<path d="M12 5v14M5 12h14"/>
 {%- elif name == "trash" %}<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>
 {%- elif name == "x" %}<path d="M18 6 6 18M6 6l12 12"/>
+{%- elif name == "check" %}<path d="M20 6 9 17l-5-5"/>
 {%- elif name == "logo" %}<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m12 12 8-4.5M12 12v9M12 12 4 7.5"/>
 {%- endif %}</svg>
 {%- endmacro %}

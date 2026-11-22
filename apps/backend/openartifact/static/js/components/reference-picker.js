@@ -3,6 +3,8 @@
  * Focus stays in the textarea (aria-activedescendant), so typing is never interrupted.
  * Generic: it only gets a function that returns {number, title, hue} items. */
 
+import { placePopover } from "./popover.js";
+
 const TRIGGER = /(^|\s)#([^\s#]*)$/;
 
 export class ReferencePicker {
@@ -62,7 +64,6 @@ export class ReferencePicker {
     this.matches = this.getItems().filter(
       (item) => String(item.number).startsWith(query.replace(/^0+/, "")) || item.title.toLowerCase().includes(query),
     );
-    // an exact number typed in full is better offered first
     if (this.matches.length === 0) return this.close();
     this.active = 0;
     this.#render();
@@ -147,7 +148,7 @@ export class ReferencePicker {
     for (const prop of ["fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "padding", "border", "boxSizing", "whiteSpace", "wordWrap", "overflowWrap", "tabSize"]) {
       mirror.style[prop] = style[prop];
     }
-    mirror.style.cssText += `;position:fixed;visibility:hidden;top:0;left:0;width:${ta.clientWidth + (parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)) * 1}px;white-space:pre-wrap;overflow-wrap:break-word`;
+    mirror.style.cssText += `;position:fixed;visibility:hidden;top:0;left:0;width:${ta.clientWidth + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)}px;white-space:pre-wrap;overflow-wrap:break-word`;
     mirror.textContent = ta.value.slice(0, this.start);
     const marker = document.createElement("span");
     marker.textContent = "#";
@@ -157,13 +158,13 @@ export class ReferencePicker {
     const mirrorBox = mirror.getBoundingClientRect();
     mirror.remove();
     const box = ta.getBoundingClientRect();
-    const margin = 8;
-    const menu = this.el.getBoundingClientRect();
-    let left = box.left + (markerBox.left - mirrorBox.left) - ta.scrollLeft;
-    let top = box.top + (markerBox.bottom - mirrorBox.top) - ta.scrollTop + 4;
-    if (top + menu.height > window.innerHeight - margin) top = Math.max(margin, top - menu.height - markerBox.height - 8);
-    left = Math.min(Math.max(margin, left), window.innerWidth - menu.width - margin);
-    this.el.style.left = `${left}px`;
-    this.el.style.top = `${top}px`;
+    placePopover(this.el, (menu) => {
+      const top = box.top + (markerBox.bottom - mirrorBox.top) - ta.scrollTop + 4;
+      return {
+        left: box.left + (markerBox.left - mirrorBox.left) - ta.scrollLeft,
+        top,
+        flipTop: top - menu.height - markerBox.height - 8,
+      };
+    });
   }
 }

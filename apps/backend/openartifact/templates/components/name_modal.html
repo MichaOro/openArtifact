@@ -1,0 +1,21 @@
+{% from "components/modal.html" import modal %}
+{# Dialog that asks for a name (behaviour in static/js/components/name-dialog.js): create or rename. #}
+{% macro name_modal(id, title, submit="Save") -%}
+{% call modal(id, title) %}
+<form class="task-form" id="{{ id }}-form" novalidate>
+    <div class="modal__body">
+        <div class="field">
+            <label class="field__label" for="{{ id }}-input">Name <span class="field__required" aria-hidden="true">*</span></label>
+            <input class="field__control" id="{{ id }}-input" type="text" required maxlength="255"
+                   autocomplete="off" aria-required="true" aria-describedby="{{ id }}-error" data-autofocus>
+            <p class="field__error" id="{{ id }}-error" role="alert" hidden></p>
+        </div>
+        <p class="form-error" role="alert" hidden data-form-error></p>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-modal-close>Cancel</button>
+        <button type="submit" class="button button--primary" data-submit>{{ submit }}</button>
+    </footer>
+</form>
+{% endcall %}
+{%- endmacro %}

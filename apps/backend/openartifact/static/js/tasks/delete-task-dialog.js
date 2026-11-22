@@ -1,4 +1,5 @@
-/* Confirmation dialog for deleting a task. Same busy/guard rules as the create form. */
+/* Confirmation dialog for deleting a task. Unused since the board deletes through ConfirmDialog
+ * (components/confirm-dialog.js); in quarantine, see quarantine.json. */
 
 export class DeleteTaskDialog {
   /**

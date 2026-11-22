@@ -1,11 +1,20 @@
-/* Central theme + sidebar state manager.
- * Loaded synchronously in <head> so the correct state is applied before first paint. */
+/* Central theme + sidebar state manager, and the one guarded access to localStorage (with the names
+ * of every stored key) that the other scripts use: classic scripts through window.OpenArtifact,
+ * modules through storage.js. Loaded synchronously in <head> so the correct state is applied
+ * before first paint. */
 (function () {
   "use strict";
 
   var root = document.documentElement;
-  var THEME_KEY = "openartifact-theme";
-  var SIDEBAR_KEY = "openartifact-sidebar";
+  var KEYS = {
+    theme: "openartifact-theme",
+    sidebar: "openartifact-sidebar",
+    cardNav: "openartifact-card-nav",
+    lastPipeline: "oa-last-pipeline", // the pipeline (and action) last worked on; read by main.js
+    navSection: "oa-nav-section" // sessionStorage: whether the last page was inside the nav group
+  };
+  var THEME_KEY = KEYS.theme;
+  var SIDEBAR_KEY = KEYS.sidebar;
   var media = window.matchMedia("(prefers-color-scheme: dark)");
   var narrowQuery = window.matchMedia("(max-width: 640px), (max-height: 500px) and (max-width: 960px)");
 
@@ -14,6 +23,9 @@
   }
   function write(key, value) {
     try { window.localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
+  }
+  function remove(key) {
+    try { window.localStorage.removeItem(key); } catch (e) { /* storage unavailable */ }
   }
 
   var Theme = {
@@ -77,5 +89,5 @@
 
   Theme.init();
   Sidebar.init();
-  window.OpenArtifact = { Theme: Theme, Sidebar: Sidebar };
+  window.OpenArtifact = { Theme: Theme, Sidebar: Sidebar, keys: KEYS, storage: { read: read, write: write, remove: remove } };
 })();

@@ -1,9 +1,11 @@
 {% from "components/modal.html" import modal %}
-{# Generic confirmation dialog (behaviour in static/js/components/confirm-dialog.js). #}
-{% macro confirm_modal(id, title) -%}
+{# Generic confirmation dialog (behaviour in static/js/components/confirm-dialog.js).
+   `note`: adds a second line under the message; its value is an extra attribute name that marks it. #}
+{% macro confirm_modal(id, title, note=none) -%}
 {% call modal(id, title) %}
 <div class="modal__body">
     <p class="confirm-text" data-confirm-message></p>
+    {% if note %}<p class="confirm-text" data-confirm-note {{ note }} hidden></p>{% endif %}
     <p class="form-error" role="alert" hidden data-form-error></p>
 </div>
 <footer class="modal__footer">

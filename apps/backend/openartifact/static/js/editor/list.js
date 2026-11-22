@@ -1,51 +1,53 @@
 /* The list of pipelines or action definitions: create, rename, delete, open. */
+import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { Modal } from "../components/modal.js";
+import { NameDialog } from "../components/name-dialog.js";
+import { KEYS, readJson, removeStorage } from "../storage.js";
 import { createGraph, deleteGraph, listGraphs, renameGraph } from "./api.js";
 
-const listEl = document.querySelector("[data-wf-list]");
-const emptyEl = document.querySelector("[data-wf-empty]");
-const errorEl = document.querySelector("[data-list-error]");
+const listEl = document.querySelector("[data-ge-list]");
+const emptyEl = document.querySelector("[data-ge-empty]");
 const { kind, path } = listEl.dataset;
 const noun = kind === "action" ? "action" : "pipeline";
-const template = document.getElementById("wf-item-template");
+const template = document.getElementById("ge-item-template");
 
-const nameModal = new Modal(document.getElementById("name-modal"));
+const banner = new AlertBar();
+const nameDialog = new NameDialog(document.getElementById("name-modal"));
 const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
-const form = document.getElementById("name-form");
-const input = document.getElementById("graph-name");
-const fieldError = document.getElementById("graph-name-error");
-const formError = nameModal.dialog.querySelector("[data-form-error]");
-const heading = nameModal.dialog.querySelector(".modal__title");
 
 let items = [];
-let onName = null; // what to do with the entered name
 
 const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+/** The sidebar's "Pipeline" must not reopen a pipeline that is gone. */
+function forget(slug) {
+  if (readJson(KEYS.lastPipeline)?.slug === slug) removeStorage(KEYS.lastPipeline);
+}
 
 function render() {
   listEl.replaceChildren(
     ...items.map((graph) => {
       const item = template.content.firstElementChild.cloneNode(true);
-      const link = item.querySelector("a");
-      link.href = `${path}/${encodeURIComponent(graph.slug)}`;
-      item.querySelector(".wf-item__name").textContent = graph.name;
-      item.querySelector(".wf-item__meta").textContent = `Changed ${when(graph.updated_at)}`;
-      item.querySelector("[data-rename]").addEventListener("click", () => askName(`Rename ${noun}`, graph.name, async (name) => {
-        await renameGraph(kind, graph.id, name);
-        await load();
-      }));
+      item.querySelector("a").href = `${path}/${encodeURIComponent(graph.slug)}`;
+      item.querySelector(".ge-item__name").textContent = graph.name;
+      item.querySelector(".ge-item__meta").textContent = `Changed ${when(graph.updated_at)}`;
+      item.querySelector("[data-rename]").addEventListener("click", () =>
+        nameDialog.open({
+          title: `Rename ${noun}`,
+          value: graph.name,
+          onSubmit: async (name) => {
+            await renameGraph(kind, graph.id, name);
+            await load();
+          },
+        }),
+      );
       item.querySelector("[data-delete]").addEventListener("click", () =>
         confirm.open({
           message: kind === "action" ? `Delete "${graph.name}"? This cannot be undone.` : `Delete "${graph.name}" with all its stages and actions? This cannot be undone.`,
           onConfirm: async () => {
             await deleteGraph(kind, graph.id);
-            try {
-              const last = JSON.parse(localStorage.getItem("oa-last-pipeline"));
-              if (last?.slug === graph.slug) localStorage.removeItem("oa-last-pipeline");
-            } catch {
-              /* nothing remembered */
-            }
+            forget(graph.slug);
             await load();
           },
         }),
@@ -59,48 +61,22 @@ function render() {
 async function load() {
   try {
     items = await listGraphs(kind);
-    errorEl.hidden = true;
+    banner.hide();
     render();
   } catch {
-    errorEl.hidden = false;
+    banner.show(`${noun[0].toUpperCase()}${noun.slice(1)}s could not be loaded.`, { retry: true });
   }
 }
-
-function askName(title, value, action) {
-  heading.textContent = title;
-  input.value = value;
-  fieldError.hidden = true;
-  formError.hidden = true;
-  onName = action;
-  nameModal.open();
-  input.select();
-}
-
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const name = input.value.trim();
-  if (!name) {
-    fieldError.textContent = "Please enter a name.";
-    fieldError.hidden = false;
-    input.focus();
-    return;
-  }
-  try {
-    await onName(name);
-    nameModal.close();
-  } catch (error) {
-    formError.textContent = error.message || "Could not save. Please try again.";
-    formError.hidden = false;
-  }
-});
-input.addEventListener("input", () => (fieldError.hidden = true));
 
 document.querySelector("[data-new-graph]").addEventListener("click", () =>
-  askName(`New ${noun}`, "", async (name) => {
-    const created = await createGraph(kind, name);
-    window.location.assign(`${path}/${encodeURIComponent(created.slug)}`);
+  nameDialog.open({
+    title: `New ${noun}`,
+    onSubmit: async (name) => {
+      const created = await createGraph(kind, name);
+      window.location.assign(`${path}/${encodeURIComponent(created.slug)}`);
+    },
   }),
 );
-document.querySelector("[data-list-retry]").addEventListener("click", load);
+banner.onRetry(load);
 
 load();

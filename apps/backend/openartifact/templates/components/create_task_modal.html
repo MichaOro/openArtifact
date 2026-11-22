@@ -44,7 +44,7 @@
         </button>
     </footer>
 </form>
-<aside class="card-nav" data-card-nav data-state="collapsed" aria-label="Artifact details" hidden>
+<aside class="card-nav" id="card-nav" data-card-nav data-state="collapsed" aria-label="Artifact details" hidden>
     <ul class="nav-list card-nav__fields">
         {{ nav_items(navigation.ARTIFACT_RAIL.groups.fields) }}
     </ul>
@@ -52,10 +52,9 @@
         {{ nav_items(navigation.ARTIFACT_RAIL.groups.actions) }}
     </ul>
     <button type="button" class="icon-button icon-button--sm card-nav__toggle" data-card-nav-toggle
-            aria-controls="card-nav-fields" aria-expanded="false" aria-label="Expand artifact details">
+            aria-controls="card-nav" aria-expanded="false" aria-label="Expand artifact details">
         {{ icon("chevrons-right") }}
     </button>
 </aside>
 </div>
 {% endcall %}
-<template id="run-icons">{% for name in ["play", "stop"] %}<span data-icon="{{ name }}">{{ icon(name) }}</span>{% endfor %}</template>

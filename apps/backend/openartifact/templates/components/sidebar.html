@@ -14,16 +14,7 @@
     </nav>
 
     {# Runs before first paint: the group opens with an animation only when arriving from outside it. #}
-    <script>
-        (function () {
-            var section = document.querySelector(".sidebar .nav-section");
-            try {
-                var was = sessionStorage.getItem("oa-nav-section") === "1";
-                if (section && !was) section.classList.add("is-entering");
-                sessionStorage.setItem("oa-nav-section", section ? "1" : "0");
-            } catch (e) { /* storage unavailable: no animation */ }
-        })();
-    </script>
+    <script src="/static/js/nav-section.js"></script>
 
     <div class="sidebar__footer">
         <button type="button" class="icon-button sidebar-toggle" data-sidebar-toggle

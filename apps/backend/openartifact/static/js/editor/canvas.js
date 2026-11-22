@@ -5,8 +5,8 @@
  *  - drag from an output port to an input port to connect;
  *  - drag the background to pan, wheel or the zoom buttons to zoom;
  *  - click a node or an edge to select it. */
-import { PAD, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./geometry.js";
-import { typeOf } from "./node-types.js";
+import { PAD, actionsOf, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./geometry.js";
+import { HEADER, typeOf } from "./node-types.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
@@ -26,8 +26,8 @@ export class Canvas {
    * @param {HTMLElement} options.viewport
    * @param {Map<string, object>} options.nodes
    * @param {Map<string, object>} options.edges
-   * @param {object} options.handlers onSelect(selection|null), onMoved(node), onConnect(source, port, target, port),
-   *   onAddAction(stage), onDelete(selection), onZoom(zoom)
+   * @param {object} options.handlers onSelect(selection|null, {focusInspector}), onMoved(node),
+   *   onConnect(source, port, target, port, {source_slot, target_slot}), onDelete(selection), onZoom(zoom)
    */
   constructor({ viewport, nodes, edges, handlers }) {
     this.viewport = viewport;
@@ -43,6 +43,7 @@ export class Canvas {
     this.nodeLayer = viewport.querySelector("[data-nodes]");
     this.edgeLayer = viewport.querySelector("[data-edges]");
     this.edgeLayer.append(this.#markers());
+    viewport.style.setProperty("--ge-stage-header", `${HEADER}px`); // read by editor.css
 
     viewport.addEventListener("pointerdown", (event) => this.#onPointerDown(event));
     viewport.addEventListener("pointermove", (event) => this.#onPointerMove(event));
@@ -73,7 +74,7 @@ export class Canvas {
         el = this.#createNode(node);
         this.elements.set(node.id, el);
       }
-      const host = node.stage_id ? this.elements.get(node.stage_id)?.querySelector(".wf-stage__body") : this.nodeLayer;
+      const host = node.stage_id ? this.elements.get(node.stage_id)?.querySelector(".ge-stage__body") : this.nodeLayer;
       if (host && el.parentElement !== host) host.append(el);
       this.#updateNode(node, el);
     }
@@ -83,13 +84,13 @@ export class Canvas {
   #createNode(node) {
     const type = typeOf(node);
     const el = document.createElement(type.constructor.kind === "stage" ? "section" : "div");
-    el.className = `wf-node wf-node--${node.kind}`;
+    el.className = `ge-node ge-node--${node.kind}`;
     el.dataset.nodeId = node.id;
     el.tabIndex = 0;
     const name = document.createElement("strong");
-    name.className = "wf-node__name";
+    name.className = "ge-node__name";
     const caption = document.createElement("small");
-    caption.className = "wf-node__kind";
+    caption.className = "ge-node__kind";
     type.render(el, node, { name, caption });
     for (const port of type.ports()) el.append(this.#port(node, type, port));
     return el;
@@ -98,7 +99,7 @@ export class Canvas {
   /** A port dot. A stage's start and end work both ways ("both"): they receive and they feed. */
   #port(node, type, port) {
     const el = document.createElement("span");
-    el.className = `wf-port wf-port--${port.name}`;
+    el.className = `ge-port ge-port--${port.name}`;
     el.dataset.port = port.name;
     el.dataset.slot = String(port.slot);
     el.dataset.nodeId = node.id;
@@ -117,13 +118,13 @@ export class Canvas {
     el.style.top = `${node.y}px`;
     el.style.width = `${width}px`;
     el.style.height = `${height}px`;
-    el.querySelector(".wf-node__name").textContent = displayName(node);
+    el.querySelector(".ge-node__name").textContent = displayName(node);
     el.setAttribute("aria-label", `${type.label}: ${displayName(node)}`);
-    const caption = el.querySelector(".wf-node__kind");
+    const caption = el.querySelector(".ge-node__kind");
     const text = type.caption(node);
     caption.textContent = text ?? "";
     caption.hidden = text === null;
-    el.querySelectorAll(":scope > .wf-port").forEach((port) => {
+    el.querySelectorAll(":scope > .ge-port").forEach((port) => {
       const at = type.portLocal(node, port.dataset.port, Number(port.dataset.slot));
       port.style.left = `${at.x}px`;
       port.style.top = `${at.y}px`;
@@ -134,20 +135,20 @@ export class Canvas {
 
   /** Redraw every edge (cheap: a handful of paths). */
   drawEdges() {
-    this.edgeLayer.querySelectorAll(".wf-edge").forEach((el) => el.remove());
+    this.edgeLayer.querySelectorAll(".ge-edge").forEach((el) => el.remove());
     const used = new Set();
     for (const edge of this.edges.values()) {
       const source = this.nodes.get(edge.source_id);
       const target = this.nodes.get(edge.target_id);
       if (!source || !target) continue;
       const d = edgePath(portPoint(source, edge.source_port, this.nodes, edge.source_slot), portPoint(target, edge.target_port, this.nodes, edge.target_slot), boxOf(source, this.nodes), boxOf(target, this.nodes), { style: edge.style });
-      const group = svg("g", { class: `wf-edge wf-edge--${edge.source_port}`, "data-edge-id": edge.id });
+      const group = svg("g", { class: `ge-edge ge-edge--${edge.source_port}`, "data-edge-id": edge.id });
       if (this.selection?.type === "edge" && this.selection.id === edge.id) group.classList.add("is-selected");
-      group.append(svg("path", { class: "wf-edge__hit", d }), svg("path", { class: "wf-edge__line", d, "marker-end": `url(#wf-arrow-${edge.source_port === "error" ? "error" : "pass"})` }));
+      group.append(svg("path", { class: "ge-edge__hit", d }), svg("path", { class: "ge-edge__line", d, "marker-end": `url(#ge-arrow-${edge.source_port === "error" ? "error" : "pass"})` }));
       this.edgeLayer.append(group);
       used.add(`${edge.source_id}|${edge.source_port}|${edge.source_slot}`).add(`${edge.target_id}|${edge.target_port}|${edge.target_slot}`);
     }
-    for (const el of this.nodeLayer.querySelectorAll(".wf-node--stage > .wf-port")) {
+    for (const el of this.nodeLayer.querySelectorAll(".ge-node--stage > .ge-port")) {
       el.classList.toggle("is-used", used.has(`${el.dataset.nodeId}|${el.dataset.port}|${el.dataset.slot}`));
     }
   }
@@ -155,8 +156,8 @@ export class Canvas {
   #markers() {
     const defs = svg("defs");
     for (const kind of ["pass", "error"]) {
-      const marker = svg("marker", { id: `wf-arrow-${kind}`, viewBox: "0 0 10 10", refX: "9", refY: "5", markerUnits: "userSpaceOnUse", markerWidth: "10", markerHeight: "10", orient: "auto" });
-      marker.append(svg("path", { d: "M 0 1 L 9 5 L 0 9 z", class: `wf-arrow wf-arrow--${kind}` }));
+      const marker = svg("marker", { id: `ge-arrow-${kind}`, viewBox: "0 0 10 10", refX: "9", refY: "5", markerUnits: "userSpaceOnUse", markerWidth: "10", markerHeight: "10", orient: "auto" });
+      marker.append(svg("path", { d: "M 0 1 L 9 5 L 0 9 z", class: `ge-arrow ge-arrow--${kind}` }));
       defs.append(marker);
     }
     return defs;
@@ -173,7 +174,6 @@ export class Canvas {
   #applyView() {
     const { x, y, zoom } = this.view;
     this.world.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
-    this.viewport.style.setProperty("--wf-zoom", String(zoom));
     this.handlers.onZoom?.(zoom);
   }
 
@@ -245,15 +245,15 @@ export class Canvas {
 
   #onPointerDown(event) {
     if (event.button !== 0 || this.gesture) return;
-    const port = event.target.closest(".wf-port");
+    const port = event.target.closest(".ge-port");
     if (port && port.dataset.direction !== "input") return this.#startConnect(event, port);
     if (event.target.closest("button, input, select, a")) return;
-    const edge = event.target.closest(".wf-edge");
+    const edge = event.target.closest(".ge-edge");
     if (edge) {
       this.handlers.onSelect({ type: "edge", id: edge.dataset.edgeId });
       return;
     }
-    const el = event.target.closest(".wf-node");
+    const el = event.target.closest(".ge-node");
     if (el) return this.#startMove(event, this.nodes.get(el.dataset.nodeId));
     this.gesture = { type: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { ...this.view }, moved: false };
     this.viewport.setPointerCapture(event.pointerId);
@@ -269,10 +269,10 @@ export class Canvas {
     const node = this.nodes.get(port.dataset.nodeId);
     const slot = Number(port.dataset.slot);
     const from = portPoint(node, port.dataset.port, this.nodes, slot);
-    const line = svg("path", { class: "wf-edge__line wf-edge__line--draft" });
+    const line = svg("path", { class: "ge-edge__line ge-edge__line--draft" });
     this.edgeLayer.append(line);
     this.gesture = { type: "connect", pointerId: event.pointerId, node, port: port.dataset.port, slot, from, box: boxOf(node, this.nodes), line };
-    for (const el of this.viewport.querySelectorAll('.wf-port:not([data-direction="output"])')) {
+    for (const el of this.viewport.querySelectorAll('.ge-port:not([data-direction="output"])')) {
       const target = this.nodes.get(el.dataset.nodeId);
       el.classList.toggle("is-valid", canConnect(node, port.dataset.port, target, el.dataset.port));
     }
@@ -287,8 +287,8 @@ export class Canvas {
     if (g.type === "connect") {
       const to = this.#toWorld(event);
       g.line.setAttribute("d", edgePath(g.from, to, g.box, g.box, { routed: false }));
-      const over = document.elementFromPoint(event.clientX, event.clientY)?.closest(".wf-port.is-valid");
-      this.viewport.querySelectorAll(".wf-port.is-hover").forEach((el) => el.classList.toggle("is-hover", el === over));
+      const over = document.elementFromPoint(event.clientX, event.clientY)?.closest(".ge-port.is-valid");
+      this.viewport.querySelectorAll(".ge-port.is-hover").forEach((el) => el.classList.toggle("is-hover", el === over));
       over?.classList.add("is-hover");
       return;
     }
@@ -308,7 +308,7 @@ export class Canvas {
     const g = this.gesture;
     if (!g || event.pointerId !== g.pointerId) return;
     if (g.type === "connect") {
-      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".wf-port.is-valid");
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".ge-port.is-valid");
       this.#cancelGesture();
       if (target) {
         this.handlers.onConnect(g.node, g.port, this.nodes.get(target.dataset.nodeId), target.dataset.port, { source_slot: g.slot, target_slot: Number(target.dataset.slot) });
@@ -328,7 +328,7 @@ export class Canvas {
     if (g.type === "connect") {
       g.line.remove();
       this.viewport.classList.remove("is-connecting");
-      this.viewport.querySelectorAll(".wf-port.is-valid, .wf-port.is-hover").forEach((el) => el.classList.remove("is-valid", "is-hover"));
+      this.viewport.querySelectorAll(".ge-port.is-valid, .ge-port.is-hover").forEach((el) => el.classList.remove("is-valid", "is-hover"));
     }
   }
 
@@ -338,8 +338,7 @@ export class Canvas {
       node.x = Math.max(PAD / 2, x);
       node.y = Math.max(PAD / 2, y);
       const stage = this.nodes.get(node.stage_id);
-      const actions = [...this.nodes.values()].filter((n) => n.stage_id === stage.id);
-      Object.assign(stage, fitStage(stage, actions));
+      Object.assign(stage, fitStage(stage, actionsOf(stage, this.nodes)));
       this.#updateNode(stage, this.elements.get(stage.id));
     } else {
       node.x = x;
@@ -351,7 +350,7 @@ export class Canvas {
 
   /** Arrow keys nudge the focused node; Delete removes it. */
   #onKeydown(event) {
-    const el = event.target.closest?.(".wf-node");
+    const el = event.target.closest?.(".ge-node");
     if (!el || event.target.closest("input, select, button")) return;
     const node = this.nodes.get(el.dataset.nodeId);
     const step = event.shiftKey ? NUDGE * 4 : NUDGE;

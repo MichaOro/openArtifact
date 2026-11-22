@@ -91,6 +91,28 @@ function polyline(points, radius) {
   return `${d} L ${last.x} ${last.y}`;
 }
 
+/** The actions inside a stage. */
+export function actionsOf(stage, nodes) {
+  return [...nodes.values()].filter((n) => n.stage_id === stage.id);
+}
+
+/**
+ * Where a new stage (or timer) goes: right of the last node of the main line, or of the trigger.
+ * `nodes` is the editor's Map of nodes.
+ */
+export function nextTopLevelPosition(nodes, kind) {
+  const line = [...nodes.values()].filter((n) => typeOf(n).chain);
+  const right = Math.max(...line.map((n) => n.x + sizeOf(n).width), 60);
+  return { x: Math.round(right + TOP_LEVEL_GAP), y: kind === "stage" ? 40 : 172 };
+}
+
+/** Where a new action goes: flows run left to right, so right of the last action of its stage. */
+export function nextActionPosition(stage, nodes) {
+  const actions = actionsOf(stage, nodes);
+  const x = actions.length ? Math.max(...actions.map((a) => a.x + sizeOf(a).width)) + ACTION_GAP : PAD;
+  return { x, y: PAD * 2 };
+}
+
 /** The smallest stage size that still contains all its actions. */
 export function fitStage(stage, actions) {
   let width = STAGE_MIN.width;

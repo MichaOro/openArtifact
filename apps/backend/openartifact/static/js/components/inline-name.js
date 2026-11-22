@@ -1,23 +1,7 @@
 /* A name that is edited in place: click it (or press Enter on it) to get a text field with a check
  * and a cross; Enter or the check saves, Escape or the cross discards. */
 
-const ICONS = { check: "M20 6 9 17l-5-5", cross: "M18 6 6 18M6 6l12 12" };
-
-function icon(name) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("class", "icon");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  svg.setAttribute("aria-hidden", "true");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", ICONS[name]);
-  svg.append(path);
-  return svg;
-}
+import { icon } from "./icons.js";
 
 export class InlineName {
   /**
@@ -84,6 +68,7 @@ export class InlineName {
     const commit = () => {
       const name = input.value.trim();
       this.#show();
+      this.element.focus(); // the field that had focus is gone
       if (name && name !== this.text) this.onCommit(name);
     };
     input.addEventListener("keydown", (event) => {
@@ -101,7 +86,10 @@ export class InlineName {
     this.element.removeAttribute("role");
     this.element.removeAttribute("tabindex");
     this.element.removeAttribute("aria-label");
-    this.element.replaceChildren(input, button("check", "Save name", commit), button("cross", "Discard", () => this.#show()));
+    this.element.replaceChildren(input, button("check", "Save name", commit), button("x", "Discard", () => {
+        this.#show();
+        this.element.focus();
+      }));
     input.focus();
     input.select();
   }

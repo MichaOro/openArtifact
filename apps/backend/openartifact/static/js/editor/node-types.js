@@ -41,7 +41,7 @@ export class NodeView {
   /** Fill the node element; the canvas adds the ports. */
   render(el, node, parts) {
     const text = document.createElement("div");
-    text.className = "wf-node__text";
+    text.className = "ge-node__text";
     text.append(parts.name, parts.caption);
     el.append(text);
   }
@@ -123,15 +123,15 @@ class StageView extends NodeView {
 
   render(el, node, parts) {
     const header = document.createElement("header");
-    header.className = "wf-stage__header";
+    header.className = "ge-stage__header";
     const add = document.createElement("button");
     add.type = "button";
-    add.className = "wf-stage__add";
+    add.className = "ge-stage__add";
     add.dataset.addAction = "";
     add.textContent = "+ Action";
     header.append(parts.caption, parts.name, add);
     const body = document.createElement("div");
-    body.className = "wf-stage__body";
+    body.className = "ge-stage__body";
     el.append(header, body);
   }
 

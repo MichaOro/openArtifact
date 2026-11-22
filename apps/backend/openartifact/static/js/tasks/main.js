@@ -3,12 +3,13 @@ import { CollapsibleNav } from "../components/collapsible-nav.js";
 import { LanePicker } from "../components/lane-picker.js";
 import { Modal } from "../components/modal.js";
 import { ReferencePicker } from "../components/reference-picker.js";
-import { createTask, deleteTask, listTasks, placeTask, updateTask } from "./api.js";
+import { ConfirmDialog } from "../components/confirm-dialog.js";
+import { KEYS } from "../storage.js";
+import { createTask, deleteTask, listRuns, listTasks, placeTask, updateTask } from "./api.js";
 import { Board } from "./board.js";
 import { TaskForm } from "./create-task-form.js";
-import { DeleteTaskDialog } from "./delete-task-dialog.js";
 import { CardDragController } from "./dnd.js";
-import { ProcessingPanel, listRuns } from "./processing.js";
+import { ProcessingPanel } from "./processing.js";
 import { connectEvents } from "./events.js";
 
 const board = new Board({ loadTasks: listTasks });
@@ -87,20 +88,32 @@ function showTask(task, { follow = false } = {}) {
   taskForm.subtitle.disabled = board.locked.has(task.id);
 }
 
-const deleteDialog = new DeleteTaskDialog({
-  modal: new Modal(document.getElementById("delete-task-modal")),
-  deleteTask,
-  onDeleted: (task) => {
-    board.remove(task.id);
-    board.announce(`${task.title} deleted`);
-  },
-});
+const deleteDialog = new ConfirmDialog(new Modal(document.getElementById("delete-task-modal")));
+
+/** Ask, then delete the artifact; one that is already gone (404) is the outcome the user wanted. */
+function confirmDelete(task) {
+  const children = board.childCount(task.id);
+  deleteDialog.open({
+    message: "Delete {subject}? This cannot be undone.",
+    subject: task.title,
+    note: children === 0 ? "" : `Its ${children} sub-artifact${children === 1 ? "" : "s"} will lose their parent but are not deleted.`,
+    onConfirm: async () => {
+      try {
+        await deleteTask(task.id);
+      } catch (error) {
+        if (error.status !== 404) throw error;
+      }
+      board.remove(task.id);
+      board.announce(`${task.title} deleted`);
+    },
+  });
+}
 
 new CardDragController({ board, onDrop: (task, placement) => moveTaskTo(task, placement) });
 
 // Right-hand navigation of the task dialog (Lane, Parent, Delete): collapsed by default.
 const cardNavRoot = document.querySelector("[data-card-nav]");
-new CollapsibleNav(cardNavRoot, cardNavRoot.querySelector("[data-card-nav-toggle]"), "card-nav", {
+new CollapsibleNav(cardNavRoot, cardNavRoot.querySelector("[data-card-nav-toggle]"), KEYS.cardNav, {
   expand: "Expand artifact details",
   collapse: "Collapse artifact details",
 });
@@ -130,6 +143,7 @@ function pickLane(trigger, placement, variant = "list") {
     trigger,
     placement,
     variant,
+    label: "Move to lane",
     current: taskForm.currentStatus(),
     lanes: board.statuses.map((status) => ({
       status,
@@ -209,7 +223,7 @@ cardNavRoot.querySelector('[data-card-action="delete"]').addEventListener("click
   const task = taskForm.editing;
   if (!task || taskForm.busy || board.locked.has(task.id)) return;
   taskForm.modal.close(); // hand over from the editor to the delete confirmation
-  deleteDialog.open(task, board.childCount(task.id));
+  confirmDelete(task);
 });
 
 // ── DOM events ────────────────────────────────────────────────────────
@@ -223,7 +237,7 @@ board.element.addEventListener("click", (event) => {
   const task = board.taskOf(card);
   if (!task) return;
   if (event.target.closest("[data-delete-task]")) {
-    if (!board.locked.has(task.id)) deleteDialog.open(task, board.childCount(task.id));
+    if (!board.locked.has(task.id)) confirmDelete(task);
   }
   else showTask(task); // click anywhere else on the card opens it
 });
@@ -260,7 +274,7 @@ board.element.addEventListener("keydown", (event) => {
   if (board.locked.has(task.id) && event.key !== "Enter" && event.key !== " ") return; // being processed
   if (event.key === "Delete") {
     event.preventDefault();
-    deleteDialog.open(task, board.childCount(task.id));
+    confirmDelete(task);
   } else if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
     showTask(task);
@@ -278,6 +292,11 @@ board.element.addEventListener("keydown", (event) => {
 // ── Live updates ──────────────────────────────────────────────────────
 
 connectEvents({
+  onClosed: () => {
+    // The stream is refused for good, e.g. the sign-in expired: any request then goes to the sign-in page.
+    listTasks().catch(() => {});
+    board.showError("Live updates stopped. Reload the page or sign in again.", { sticky: true });
+  },
   onOpen: () => {
     board.load(); // first connect and every reconnect: resync
     listRuns().then((runs) => processing.setRuns(runs)).catch(() => {});

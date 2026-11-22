@@ -1,4 +1,4 @@
-/* Thin client for the /api/tasks endpoints. */
+/* Thin client for the /api/tasks endpoints, the runs of the tasks and the stages of a pipeline. */
 
 import { ApiError, request } from "../http.js";
 
@@ -35,3 +35,15 @@ export const placeTask = (id, { status, beforeId } = {}) => {
 /** @param {string} id */
 export const deleteTask = (id) =>
   request(`/api/tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+const post = (url, body) => request(url, { method: "POST", body: body && JSON.stringify(body) });
+
+export const listRuns = () => request("/api/runs");
+
+/** @param {string} taskId @param {{pipeline_id: string, stage_id: string, action_id: string|null}} start where to start */
+export const startRun = (taskId, start) => post(`/api/tasks/${encodeURIComponent(taskId)}/run`, start);
+
+export const stopRun = (taskId) => post(`/api/tasks/${encodeURIComponent(taskId)}/run/stop`);
+
+/** The stages of a pipeline with their actions (the pipelines themselves: listGraphs("pipeline")). */
+export const listStages = (pipelineId) => request(`/api/pipelines/${encodeURIComponent(pipelineId)}/stages`);

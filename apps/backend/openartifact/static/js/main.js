@@ -1,44 +1,42 @@
-/* UI wiring: binds toggles to the central state manager and keeps ARIA in sync. */
-(function () {
-  "use strict";
-  var OA = window.OpenArtifact;
-  if (!OA) return;
+/* UI wiring of the shell: binds the toggles to the theme and sidebar state (theme.js) and keeps
+ * their ARIA in sync. */
+import { KEYS, readJson } from "./storage.js";
 
-  var themeBtn = document.querySelector("[data-theme-toggle]");
-  var sidebarBtn = document.querySelector("[data-sidebar-toggle]");
+const { Theme, Sidebar } = window.OpenArtifact;
+const themeButton = document.querySelector("[data-theme-toggle]");
+const sidebarButton = document.querySelector("[data-sidebar-toggle]");
 
-  function syncTheme() {
-    if (!themeBtn) return;
-    var dark = OA.Theme.current() === "dark";
-    themeBtn.setAttribute("aria-pressed", String(dark));
-    themeBtn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
-  }
-  function syncSidebar() {
-    if (!sidebarBtn) return;
-    var expanded = OA.Sidebar.current() !== "collapsed";
-    sidebarBtn.setAttribute("aria-expanded", String(expanded));
-    sidebarBtn.setAttribute("aria-label", expanded ? "Collapse sidebar" : "Expand sidebar");
-  }
+function syncTheme() {
+  if (!themeButton) return;
+  const dark = Theme.current() === "dark";
+  themeButton.setAttribute("aria-pressed", String(dark));
+  themeButton.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+}
 
-  if (themeBtn) themeBtn.addEventListener("click", OA.Theme.toggle);
-  if (sidebarBtn) sidebarBtn.addEventListener("click", OA.Sidebar.toggle);
-  // Narrow: the expanded sidebar is an overlay, so tapping outside it (or Escape) closes it.
-  document.addEventListener("pointerdown", function (e) {
-    if (OA.Sidebar.isNarrow() && !e.target.closest("#sidebar")) OA.Sidebar.collapseIfNarrow();
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") OA.Sidebar.collapseIfNarrow();
-  });
-  // "Pipeline" reopens the pipeline (and the action) the user was last working on; editor.js writes this.
-  try {
-    var last = JSON.parse(localStorage.getItem("oa-last-pipeline"));
-    if (last && last.slug && window.location.pathname !== "/pipelines") {
-      var href = "/pipelines/" + encodeURIComponent(last.slug) + (last.node ? "?select=" + encodeURIComponent(last.node) : "");
-      document.querySelectorAll('.sidebar a[href="/pipelines"]').forEach(function (a) { a.setAttribute("href", href); });
-    }
-  } catch (e) { /* no memory: the link shows the list */ }
-  document.addEventListener("themechange", syncTheme);
-  document.addEventListener("sidebarchange", syncSidebar);
-  syncTheme();
-  syncSidebar();
-})();
+function syncSidebar() {
+  if (!sidebarButton) return;
+  const expanded = Sidebar.current() !== "collapsed";
+  sidebarButton.setAttribute("aria-expanded", String(expanded));
+  sidebarButton.setAttribute("aria-label", expanded ? "Collapse sidebar" : "Expand sidebar");
+}
+
+themeButton?.addEventListener("click", Theme.toggle);
+sidebarButton?.addEventListener("click", Sidebar.toggle);
+// Narrow: the expanded sidebar is an overlay, so tapping outside it (or Escape) closes it.
+document.addEventListener("pointerdown", (event) => {
+  if (Sidebar.isNarrow() && !event.target.closest("#sidebar")) Sidebar.collapseIfNarrow();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") Sidebar.collapseIfNarrow();
+});
+
+// "Pipeline" reopens the pipeline (and the action) the user was last working on; the editor writes this.
+const last = readJson(KEYS.lastPipeline);
+if (last?.slug && window.location.pathname !== "/pipelines") {
+  const href = `/pipelines/${encodeURIComponent(last.slug)}${last.node ? `?select=${encodeURIComponent(last.node)}` : ""}`;
+  document.querySelectorAll('.sidebar a[href="/pipelines"]').forEach((a) => a.setAttribute("href", href));
+}
+document.addEventListener("themechange", syncTheme);
+document.addEventListener("sidebarchange", syncSidebar);
+syncTheme();
+syncSidebar();

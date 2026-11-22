@@ -1,9 +1,8 @@
-import { renderReferences } from "./references.js";
-
 /* The task modal in three modes: "create" (form), "view" (read-only, references are links) and
  * "edit" (form). An existing artifact opens in view mode; saving an edit returns to it.
  * No markup knowledge beyond the data-/id hooks below; what happens with a saved task is
  * delegated via onSaved, so this module never touches the board. */
+import { renderReferences } from "./references.js";
 
 export class TaskForm {
   /**

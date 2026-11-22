@@ -1,56 +1,41 @@
 {% extends "base.html" %}
-{% from "components/modal.html" import modal %}
+{% from "components/alert.html" import alert %}
 {% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/name_modal.html" import name_modal %}
 {% from "components/icons.html" import icon %}
 {% block title %}{{ section.label }} · OpenArtifact{% endblock %}
-{% block styles %}<link rel="stylesheet" href="/static/css/editor.css">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">{% endblock %}
 {% block content %}
-<div class="wf-editor" data-graph-id="{{ graph_id }}" data-kind="{{ section.kind }}">
-    <div class="board-alert glass" role="alert" hidden data-editor-error>
-        <span data-editor-error-text></span>
-        <button type="button" class="button button--ghost button--sm" data-retry>Retry</button>
-    </div>
-    <div class="wf-bar glass" role="toolbar" aria-label="{{ section.label }} tools">
+{# data-*-path: where a pipeline / an action definition is edited (the links between them). #}
+<div class="ge-editor" data-graph-id="{{ graph_id }}" data-kind="{{ section.kind }}"
+     data-pipelines-path="/pipelines" data-actions-path="/actions">
+    {{ alert() }}
+    <div class="ge-bar glass" role="toolbar" aria-label="{{ section.label }} tools">
         <a class="button button--ghost button--sm" href="{{ section.path }}">All {{ section.label | lower }}s</a>
         <a class="button button--ghost button--sm" href="#" data-back hidden></a>
-        <span class="wf-bar__spacer"></span>
+        <span class="ge-bar__spacer"></span>
         <button type="button" class="button button--ghost button--sm" data-zoom-out aria-label="Zoom out">−</button>
-        <span class="wf-bar__zoom" data-zoom-label aria-live="polite">100%</span>
+        <span class="ge-bar__zoom" data-zoom-label aria-live="polite">100%</span>
         <button type="button" class="button button--ghost button--sm" data-zoom-in aria-label="Zoom in">+</button>
         <button type="button" class="button button--ghost button--sm" data-zoom-fit>Fit</button>
     </div>
-    <div class="wf-main">
-        <div class="wf-canvas">
-            <div class="wf-viewport glass" data-viewport tabindex="-1" role="application" aria-label="{{ section.label }} canvas">
-                <div class="wf-world" data-world>
+    <div class="ge-main">
+        <div class="ge-canvas">
+            <div class="ge-viewport glass" data-viewport tabindex="-1" role="application" aria-label="{{ section.label }} canvas">
+                <div class="ge-world" data-world>
                     <div data-nodes></div>
-                    <svg class="wf-edges" data-edges aria-hidden="true"></svg>
+                    <svg class="ge-edges" data-edges aria-hidden="true"></svg>
                 </div>
             </div>
-            <div class="wf-add">
-                <button type="button" class="icon-button" data-add-menu aria-haspopup="menu" aria-expanded="false" aria-label="Add to the canvas" title="Add">{{ icon("plus") }}</button>
-                <div class="wf-add__menu glass" role="menu" aria-label="Add" hidden data-add-list></div>
+            <div class="ge-add">
+                <button type="button" class="icon-button" data-add-menu aria-controls="ge-add-list" aria-expanded="false" aria-label="Add to the canvas" title="Add">{{ icon("plus") }}</button>
+                <div class="ge-add__menu glass" id="ge-add-list" aria-label="Add" hidden data-add-list></div>
             </div>
         </div>
-        <aside class="wf-inspector glass" data-inspector aria-label="Details"></aside>
+        <aside class="ge-inspector glass" data-inspector aria-label="Details"></aside>
     </div>
 </div>
-{% call modal("new-modal", "New") %}
-<form class="task-form" id="new-form" novalidate>
-    <div class="modal__body">
-        <div class="field">
-            <label class="field__label" for="new-name">Title <span class="field__required" aria-hidden="true">*</span></label>
-            <input class="field__control" id="new-name" type="text" required maxlength="255"
-                   autocomplete="off" aria-required="true" aria-describedby="new-name-error" data-autofocus>
-            <p class="field__error" id="new-name-error" role="alert" hidden></p>
-        </div>
-    </div>
-    <footer class="modal__footer">
-        <button type="button" class="button button--ghost" data-modal-close>Cancel</button>
-        <button type="submit" class="button button--primary" data-submit>Create</button>
-    </footer>
-</form>
-{% endcall %}
+{{ name_modal("new-modal", "New", submit="Create") }}
 {{ confirm_modal("confirm-modal", "Delete") }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/editor/editor-main.js"></script>{% endblock %}
