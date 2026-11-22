@@ -98,7 +98,7 @@ The database must support self-hosted single-container deployment while allowing
 - **Risks:** Write contention under heavy concurrent pipeline execution (mitigated by WAL mode and async execution serialization)
 - **Trade-off:** Simpler deployment vs. future scalability; SQLite is the right starting point
 
-## 7. Update (2026-11-22): SQLite stays, PostgreSQL is not an upgrade path
+## Update (2026-11-22): SQLite stays, PostgreSQL is not an upgrade path
 
 The history above is kept. Two statements in it no longer hold and are corrected by
 [ADR-020](020-sqlite-stays-postgres-as-data-source.md):

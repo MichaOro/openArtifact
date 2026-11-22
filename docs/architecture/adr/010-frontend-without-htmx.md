@@ -4,8 +4,8 @@
 **Date:** 2026-11-20  
 **Supersedes:** [ADR-004](004-frontend-approach.md)  
 **Superseded by:** —  
-**Amends:** —  
-**Amended by:** —
+**Amends:** [ADR-006](006-api-design.md) (HTMX)  
+**Amended by:** [ADR-029](029-dialog-system.md) (dialogs)
 
 ## 1. Context
 
@@ -60,3 +60,9 @@ Drag & drop and real-time updates were decided in [ADR-011](011-board-interactio
 - **Form logic** (`tasks/artifact-dialog.js`), **rendering** (`tasks/board.js`) and **HTTP** (`tasks/api.js`) are separate modules.
 - **Data model:** table `tasks` (`id`, `title`, `body`, `status`, `created_at`, `updated_at`) is intentionally independent of `work_items`, which is bound to the not-yet-built project workspace and has a different status set.
 - **Semantic error colour:** `--color-danger` was added to the tokens (error text and invalid borders only).
+
+## Update (2026-11-22): dialogs and later tables
+
+The history above is kept. §6 (the first modal, the `tasks` table next to a `work_items` table) describes the first
+interaction. The dialog behaviour has since grown into one hierarchy ([ADR-029](029-dialog-system.md)); the `work_items` table and its model
+no longer exist ([ADR-032](032-removal-of-the-unused-workspace-model.md)).

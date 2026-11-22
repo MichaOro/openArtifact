@@ -4,8 +4,8 @@
 **Date:** 2026-11-22  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** [ADR-016](016-access-protection-integration-api-and-mcp.md)  
-**Amended by:** —
+**Amends:** [ADR-016](016-access-protection-integration-api-and-mcp.md), [ADR-008](008-security-operations.md)  
+**Amended by:** [ADR-023](023-safety-model-of-execution-nodes.md) (code nodes), [ADR-024](024-credential-store.md) (secret key)
 
 ## 1. Title
 
@@ -92,3 +92,10 @@ is empty or the default. Without a token it starts open and logs a warning; `/ap
 - **Not decided or built:** rate limiting (beyond the half-second delay on a wrong token), per-session
   revocation, separate tokens per client, an audit log. These are listed in arc42 chapter 11.
 - `style-src` still allows `'unsafe-inline'` because the UI sets inline style attributes.
+
+## Update (2026-11-22): the secret key is also the credential key
+
+The secret key signs sessions (§5.2) and, through a separate derivation, encrypts stored credentials ([ADR-024](024-credential-store.md)).
+Rotating the token or the key still ends all sessions; changing the key additionally makes stored credentials
+unreadable. The key must be at least 32 characters when a token is set or credentials are stored; Code nodes
+need a token ([ADR-023](023-safety-model-of-execution-nodes.md)).

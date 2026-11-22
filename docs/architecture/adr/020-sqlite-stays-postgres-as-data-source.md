@@ -24,7 +24,7 @@ Meanwhile the product direction is clear: one self-hosted container for one team
 - **SQLite is the application's database, permanently.** One file in one volume in one container. There is no
   PostgreSQL override, no `DATABASE_URL` setting, and no plan to build one.
 - **PostgreSQL will only come later as a data source** that pipelines and actions read through a connector layer
-  (board card "OPT 11"), the same way other external systems would be connected. It is not designed yet.
+  (planned, not designed), the same way other external systems would be connected. It is not designed yet.
 - The consequences of "one process, one volume" are accepted and documented (arc42 chapter 11): the event bus, the
   run engine and the run cap live in process memory; do not run several containers on one volume.
 - Backup is SQLite's backup API and a written restore procedure ([operations guide](../../guides/operations.md)).

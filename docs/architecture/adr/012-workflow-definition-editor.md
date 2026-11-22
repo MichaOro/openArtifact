@@ -7,7 +7,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** —  
-**Amended by:** [ADR-014](014-building-blocks-and-extension-points.md) (routing select), [ADR-015](015-vocabulary-and-storage-names.md) (vocabulary)
+**Amended by:** [ADR-014](014-building-blocks-and-extension-points.md) (routing select), [ADR-015](015-vocabulary-and-storage-names.md) (vocabulary), [ADR-030](030-accessibility-scope.md) (accessibility)
 
 ## 1. Context
 
@@ -97,7 +97,7 @@ There is no "Name" field in the inspector. The title of the inspector and the pa
 
 ### 2.21 Routing selects removed
 
-The inspector no longer offers the routing select ("Next", "On Pass" ...) on any kind; connections are made by dragging. The code is kept in quarantine (ADR-014 §3.6). The inspector, the ports and the "+" menu now come from the node kinds (ADR-014 §3.1, §3.2).
+The inspector no longer offers the routing select ("Next", "On Pass" ...) on any kind; connections are made by dragging. The code was first kept in quarantine (ADR-014 §3.6) and has since been removed. The inspector, the ports and the "+" menu now come from the node kinds (ADR-014 §3.1, §3.2).
 
 ## 3. Consequences
 
@@ -107,14 +107,19 @@ The inspector no longer offers the routing select ("Next", "On Pass" ...) on any
   connections, so other lines can still cross nodes or each other.
 - **Risk:** large graphs re-draw all edges on every pointer move; fine for tens of nodes.
 
-## 4. Update (2026-11-22)
+## Update (2026-11-22): connections, editor modules
 
 The history above is kept; what changed afterwards.
 
 - The routing select is gone ([ADR-014](014-building-blocks-and-extension-points.md)), so **connections are made by
   dragging only**. The keyboard alternative that §2.3 and §2.21 once described does not exist; this is a known
-  limitation (arc42 chapter 11), planned with the accessibility work (board card OPT 12).
+  limitation (arc42 chapter 11), a later goal, see [ADR-030](030-accessibility-scope.md).
 - The graph editor's CSS classes use the prefix `ge-` (`ge-node`, `ge-port`, `ge-inspector`), no longer `wf-`
   ([ADR-015](015-vocabulary-and-storage-names.md)). The editor is split into modules: `editor.js` (orchestrator),
   `graph-model.js`, `inspector-panel.js`, `inspector.js` (blocks), `add-menu.js`, `navigation.js`, `geometry.js`.
 - The "+" menu is a plain disclosure list, not an ARIA menu.
+- Timers, Code nodes and HTTP nodes are executed by the engine through registered executors
+  ([ADR-021](021-execution-nodes-as-executors.md)); the sentence in §2.19 that a timer "is only defined until
+  then" is outdated. Node settings beyond the timer's live in a JSON `config`
+  ([ADR-022](022-node-settings-as-json-config.md)). The missing keyboard way to connect nodes is a scope decision
+  in [ADR-030](030-accessibility-scope.md).

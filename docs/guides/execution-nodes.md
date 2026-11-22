@@ -1,0 +1,269 @@
+# Execution nodes: Code and HTTP
+
+The nodes that do work inside an action definition (see [Concepts](concepts.md)). You add them in the
+action editor with the "+" menu and set them in the inspector; every setting is saved as you type or leave
+the field. This guide is the reference for what each node does, what it returns, what limits it has and how a
+failure is routed. Read [Security](security.md) before you let anyone other than yourself edit actions: a Code
+node runs arbitrary code with the application's rights.
+
+Settings of the application that affect the nodes are in the [configuration reference](configuration.md).
+
+## How an action definition runs
+
+When a run reaches an action that is linked to a definition, the engine walks the definition:
+
+1. It starts at the **trigger** and records a step for it.
+2. It follows the connection leaving the current node. A node with an executor (timer, Code, HTTP) runs; the
+   engine records its result as a step and leaves by the port that matches the outcome: **On Pass** or **On Fail**
+   for Code and HTTP, **Next** for the timer (which always passes).
+3. Reaching the **Output** by its **On Pass** connector makes the action pass; reaching it by **On Fail**
+   makes the action fail. The Output's On Fail connector exists only when its switch is on.
+4. If a leaving port has no connection (a dead end), the action fails.
+5. Actions and the nodes of their definitions count against one limit of 1000 steps per run; a run that
+   exceeds it (a loop through On Error that never ends) fails with "The pipeline does not come to an end".
+
+Back in the pipeline, a **passed** action leaves by its **On Pass** connection and a **failed** one by its
+**On Error** connection. If the connection that is needed does not exist, the run fails with a note naming
+the action ("X failed" or "X has no On Pass connection"). So a failure path is something you draw:
+
+- *Retry or recover:* connect On Error of the action to an earlier action of the same stage (a loop) or to a
+  different action that cleans up.
+- *Notify and fail:* inside the definition, connect a Code or HTTP node's **On Fail** to a second HTTP node
+  that posts to a chat webhook, then to the Output's **On Fail**.
+- *Tolerate a failure:* connect On Error to the end of the stage; the run goes on as if the action had passed.
+
+Stopping a run cancels the node that is running: a Code node's process group is killed, an HTTP request is
+abandoned.
+
+## Results
+
+Every executed node leaves one step with these fields (all visible in the History tab and the flow view, and
+returned by the API under the execution):
+
+| Field | Timer | Code | HTTP |
+|-------|-------|------|------|
+| `outcome` | always `pass` | `pass` or `fail` | `pass` or `fail` |
+| `port` | `out` | `pass` or `fail` | `pass` or `fail` |
+| `exit_code` | none | the process exit code (negative: ended by a signal) | none |
+| `output` | none | stdout, then `[stderr]` and stderr | the response body |
+| `reason` | none | why it failed; may come from the code | why it failed |
+| `data` | none | an object the code reported, at most 16384 characters of JSON | `status`, `content_type`, `truncated` |
+| duration | the wait | wall time | wall time |
+
+A `reason` is a sentence for people, cut at 1000 characters. Output is text: anything the code prints or the
+server answers ends up in it (and in the history, and in whatever agent reads it), so treat it as untrusted.
+Used secrets are masked in all of these ([Credentials](credentials.md)).
+
+## Code node
+
+Runs shell or Python text stored in the node.
+
+| Setting | Values | Default |
+|---------|--------|---------|
+| Language | `sh` or `python` | `sh` |
+| Code | up to 20000 characters | empty (an empty program fails with "The code is empty") |
+| Secrets | one secret name per line, up to 32 | none |
+| Timeout (seconds) | 1 to 600 | 30 |
+
+**How it runs.** The code is written to a new private directory (mode 0700) under the system temporary
+directory and run as a child process of the application: `sh script.sh`, or the application's own Python
+interpreter in isolated mode (`python -I script.py`: no `PYTHON*` variables, no user site directory). The
+working directory and `HOME` are that directory, which is deleted afterwards. Standard input is empty. The
+child leads its own process group, so a timeout or a stopped run ends everything it started.
+
+The shell is the image's `sh`; the image is a slim Python image, so do not rely on tools such as `curl` or
+`git` being present. Python's standard library is.
+
+**Environment.** Exactly `PATH`, `LANG`, `HOME`, the secrets the node lists (each as a variable of its name)
+and one random marker variable `OPENARTIFACT_CODE_RUN` that the application uses to clean up leftovers. No
+application setting reaches the process: not the API token, not the secret key. The names `PATH`, `HOME`,
+`LANG` and anything starting with `OPENARTIFACT_` cannot be used as secret names in a node.
+
+**Result protocol.** The exit code decides: `0` passes, anything else fails (`reason`: "Exit code N"). The
+code may say more by printing, as the **last non-empty line of standard output**, one JSON object with a
+boolean `ok`:
+
+```json
+{"ok": false, "reason": "nothing to do", "data": {"n": 3}}
+```
+
+`ok: false` fails the node even with exit code 0; `reason` (a string) becomes the reason; `data` (an
+object, at most 16384 characters when serialised) is stored on the step, for a pass as well as a fail.
+Anything else on that last line (not JSON, no boolean `ok`) is just output.
+
+**Output caps.** Standard output and standard error are each read up to `OPENARTIFACT_CODE_OUTPUT_LIMIT_BYTES`
+(64 KiB); beyond that `[output truncated]` is appended, but the last 8 KiB of standard output is always
+kept for the protocol line. A step keeps at most 256 KiB of output, and all outputs of one execution together
+at most 1 MiB; beyond that the oldest outputs are replaced by `[output removed: the results of this execution
+are limited]`.
+
+**Limits.** Applied by a small wrapper before the code starts; if a limit cannot be applied the node fails
+instead of running unlimited.
+
+| Limit | Value | Setting |
+|-------|-------|---------|
+| Wall time | the node's timeout; then SIGTERM, 2 s later SIGKILL of the whole group; reason "Timeout after N s" | Timeout |
+| CPU time | timeout + 5 s (`RLIMIT_CPU`) | - |
+| Address space | 512 MiB (`RLIMIT_AS`) | `OPENARTIFACT_CODE_MEMORY_LIMIT_MB` |
+| Processes and threads added | 64 (`RLIMIT_NPROC`; counted per user) | `OPENARTIFACT_CODE_PROCESS_LIMIT` |
+| File size written | 64 MiB (`RLIMIT_FSIZE`) | `OPENARTIFACT_CODE_FILE_SIZE_LIMIT_MB` |
+| Open files | 256 (`RLIMIT_NOFILE`) | `OPENARTIFACT_CODE_OPEN_FILES_LIMIT` |
+| Core files | none | - |
+
+Runtimes that reserve a lot of address space (Java, Node.js, Go) need a higher memory limit. The limits are
+Linux resource limits, not a container: where the `resource` module is missing (not Linux) the code runs
+without them and the result's reason says so.
+
+**What the limits do not do.** There is no network isolation (the code can reach every address the application
+can, including internal services that HTTP nodes refuse), no file system isolation (it reads and writes what
+the application's user can read and write) and it runs as the application's own user. Memory and process
+limits are per process and per user, not a control group. Details and the consequences are in
+[Security](security.md).
+
+**Switches.** `OPENARTIFACT_CODE_NODES_ENABLED=false` makes every Code node fail with "Code nodes are
+disabled". Code nodes also require `OPENARTIFACT_API_TOKEN`: an open application (no token) refuses them
+unless `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` is set, which is for local development only.
+
+### Code examples
+
+A shell step that passes and prints (output: `hello`, then `[stderr]` and `oops`):
+
+```sh
+echo hello
+echo oops >&2
+```
+
+A Python step that decides for itself (the node fails with the reason "nothing to do" and keeps the data):
+
+```python
+import json
+print("working")
+print(json.dumps({"ok": False, "reason": "nothing to do", "data": {"n": 3}}))
+```
+
+A step that uses a secret (Secrets setting: `API_KEY`). The step passes; its output shows `key=***`:
+
+```sh
+echo "key=$API_KEY"
+```
+
+Never put the secret's value in the code itself: the code is stored and shown in plain text, and
+`${secret:NAME}` is **not** replaced inside code.
+
+## HTTP node
+
+Sends one request and passes when the status is accepted.
+
+| Setting | Values | Default |
+|---------|--------|---------|
+| Method | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` | `GET` |
+| URL | `http` or `https`, up to 2000 characters, no user name or password | empty (fails with "The URL is empty") |
+| Headers | one `Name: value` per line | none |
+| Body | text, up to 20000 characters, sent as UTF-8 | none |
+| Timeout (seconds) | 1 to 120; covers name resolution, connecting, sending and reading | 30 |
+| Success status | comma separated codes or ranges, 100 to 599, for example `200-299, 404` | `200-299` |
+
+**Secrets.** Write `${secret:NAME}` in the URL's path or query (percent-encoded there), in a header value or in
+the body; the value is put in when the node runs. A reference in the scheme or host of the URL is refused,
+already when you save the setting. The three fields are stored in plain text, so the reference, not the value,
+belongs there: `Authorization: Bearer ${secret:API_TOKEN}`.
+
+**Request details.** The headers `Host`, `Content-Length`, `Transfer-Encoding` and `Connection` cannot be set;
+`Accept-Encoding: identity` is sent unless you set it. No `Content-Type` is added: set it yourself for a body.
+**Redirects are not followed**: a `301` is just a status, which fails unless you list it under Success status.
+Proxy variables of the environment are ignored.
+
+**Response.** The body is read up to `OPENARTIFACT_HTTP_RESPONSE_LIMIT_BYTES` (1 MiB), uncompressed; beyond
+that `[response truncated]` is appended and `data.truncated` is true. The step's `output` is the body as
+text; `data` is `{"status": 200, "content_type": "...", "truncated": false}`. A status outside the accepted
+set fails the node with "HTTP 404 is not an accepted status (200-299)" but still keeps the body and the
+data, so a failure path can inspect them.
+
+**SSRF protection.** The host name is resolved by the application and **every** address is checked before
+any connection; the request then goes to the checked address itself (the URL's host is replaced by the IP,
+`Host` and the TLS server name stay the original), so the name cannot resolve to something else between the
+check and the connection (DNS rebinding). One refused address refuses the host.
+
+| Address | Refused |
+|---------|---------|
+| Loopback, private (10/8, 172.16/12, 192.168/16, fc00::/7), link-local, carrier-grade NAT and other non-public addresses | unless `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS=true` |
+| Unspecified (`0.0.0.0`, `::`) and multicast | always |
+| Cloud metadata: `169.254.169.254`, `169.254.170.2`, `100.100.100.200`, `fd00:ec2::254` | always |
+
+IPv4-mapped and NAT64 IPv6 addresses are judged by the IPv4 address inside them; numeric forms such as `0x7f.1`
+are judged as the IP they are. A refused address fails the node with "The address is not allowed (...)".
+
+**The private-network switch.** Off by default, so a node cannot be pointed at the host's own network. Switch
+it on only if the nodes must call services on your network (a database API, a home server). With it on,
+a node can also call the application itself on its loopback address; together with a stored token that is
+equivalent to the owner's own access, which is the trust level an action editor already has.
+
+### HTTP examples
+
+A health check that accepts `200-299` (the default), method `GET`, URL `https://example.org/health`.
+
+A call with a secret in the header and one in the query. With the secret `API_KEY` stored, the stored
+settings are
+
+```
+method:   GET
+url:      https://api.example.org/v1/items?key=${secret:API_KEY}
+headers:  Authorization: Bearer ${secret:API_KEY}
+```
+
+and the request goes out with the value substituted. If the server echoes it back, the step's output shows
+`***` in its place.
+
+A call where 404 is a normal answer: set Success status to `200-299, 404`.
+
+A POST with a JSON body:
+
+```
+method:   POST
+url:      https://hooks.example.org/notify
+headers:  Content-Type: application/json
+body:     {"text": "deployment finished"}
+```
+
+The metadata endpoint is never reachable: `http://169.254.169.254/latest` fails with "The address is not
+allowed (cloud metadata address)".
+
+### The same through the API
+
+A definition is built with the graph API. The calls below create an action definition `Ping` with an HTTP
+node between the trigger and the Output (On Pass and On Fail); `$ID` stands for ids returned by the
+previous calls. Use the browser API (`/api/...`; it takes the token as a bearer header or a session) or
+the editor.
+
+```bash
+curl -X POST $BASE/api/actions -H 'Content-Type: application/json' -d '{"name": "Ping"}'
+#   returns the definition with its id; GET /api/actions/$ID lists its nodes (trigger, output) and the
+#   default trigger -> output edge, which must be deleted first:
+curl -X DELETE $BASE/api/actions/$ID/edges/$EDGE
+curl -X PATCH  $BASE/api/actions/$ID/nodes/$OUTPUT -H 'Content-Type: application/json' -d '{"fail_enabled": true}'
+curl -X POST   $BASE/api/actions/$ID/nodes -H 'Content-Type: application/json' \
+     -d '{"kind": "http", "config": {"method": "GET", "url": "https://example.org/health"}}'
+curl -X POST   $BASE/api/actions/$ID/edges -H 'Content-Type: application/json' \
+     -d '{"source_id": "'$TRIGGER'", "source_port": "out",  "target_id": "'$HTTP'",   "target_port": "in"}'
+#   likewise: $HTTP pass -> $OUTPUT pass, and $HTTP fail -> $OUTPUT fail
+```
+
+Then link an action of a pipeline to it (`PATCH /api/pipelines/$P/nodes/$ACTION` with
+`{"definition_id": "$ID"}`) and start an artifact in the pipeline (`POST /api/tasks/$TASK/run`). The
+[API reference](api-reference.md) lists every route.
+
+## When something fails
+
+| Reason shown | Cause |
+|--------------|-------|
+| `The code is empty` / `The URL is empty` | Nothing to run |
+| `Code nodes are disabled` | `OPENARTIFACT_CODE_NODES_ENABLED=false` |
+| `Exit code N`, `Killed by signal N` | The process ended that way; the output has the details |
+| `Timeout after N s` | The node's timeout; the process group was killed |
+| `CPU time limit exceeded`, `File size limit exceeded (N MiB)`, `... (memory limit of N MiB exceeded?)` | A resource limit |
+| `The resource limits could not be applied (...)` | The platform refused a limit; the code did not run |
+| `The address is not allowed (...)`, `The host name could not be resolved` | SSRF rules or DNS |
+| `HTTP N is not an accepted status (...)` | The server answered, but not with an accepted code |
+| `The connection failed (...)`, `The request failed (...)` | Network error (only the exception's type is shown, never its text) |
+| `Secret NAME does not exist`, `Secret NAME cannot be read: the secret key changed` | See [Credentials](credentials.md) |
+| `The node failed (ErrorType)` | An unexpected error in the node; details are in the application log, never in the result |

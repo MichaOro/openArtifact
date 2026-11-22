@@ -1,170 +1,139 @@
 # OpenArtifact
 
-**OpenArtifact** is an open-source platform for orchestrating projects, pipelines, and AI agents around structured artifacts. It connects autonomous execution, deterministic processes, and human oversight in one extensible system.
+OpenArtifact is a self-hosted board of **artifacts** (cards) that you move through **pipelines** of stages and actions. An
+action is a small graph of execution nodes (timer, Code, HTTP, output) that the in-process run engine executes when an
+artifact enters a stage. Every execution is recorded, so you can see afterwards what ran, in which order, with which output.
 
-## Vision
+It is one Python process (FastAPI) with a SQLite database and a web UI without a build step. A browser API, an integration API
+(`/api/v1`) and an MCP server (`/mcp`) let scripts and AI agents create artifacts and start and read runs.
 
-A platform where human intent and AI capability converge through **artifacts** — structured, versioned, and traceable units of work that serve as the single source of truth across the entire lifecycle of a project.
+Status: pre-release (`0.1.x`), built for a single operator or a small trusted team. Read [Status and limitations](#status-and-limitations)
+before you expose it.
 
-## Core Principles
-
-1. **Artifact-first** — Every significant piece of work is an artifact with a defined schema, lifecycle, and traceability.
-2. **Deterministic orchestration** — Pipelines execute according to explicit, version-controlled definitions.
-3. **Human oversight** — Autonomous agents operate within guardrails; humans remain in the loop at meaningful decision points.
-4. **Extensibility** — Pluggable agents, connectors, and artifact types. The platform grows with your needs.
-5. **Transparency** — Every action is traceable. Decisions, runs, and results are auditable.
-
-## Quick Start — Docker
+## Quick start with Docker (about 5 minutes)
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/MichaOro/openArtifact.git
-cd openArtifact
+git clone https://github.com/MichaOro/openArtifact.git && cd openArtifact
 
-# 2. Configure (required: the compose file reads deploy/.env)
-cp deploy/.env.example deploy/.env
-#    Set OPENARTIFACT_API_TOKEN and OPENARTIFACT_SECRET_KEY, each with: openssl rand -hex 32
-#    (with a token the whole application asks for it; see "Access protection" below)
+cp deploy/.env.example deploy/.env        # the compose file reads deploy/.env
+#   set OPENARTIFACT_API_TOKEN and OPENARTIFACT_SECRET_KEY, each with: openssl rand -hex 32
 
-# 3. Build and start
 docker compose -f deploy/docker-compose.yml up -d --build
-
-# 4. Open http://localhost:2909 and sign in with the token
-
-# 5. Check health (the state shows "healthy" after the start period)
-docker compose -f deploy/docker-compose.yml ps
-curl http://localhost:2909/health
-
-# 6. Stop (the data stays)
-docker compose -f deploy/docker-compose.yml down
 ```
 
-The container is published on `127.0.0.1` only; `OPENARTIFACT_BIND=0.0.0.0` opens it to the network, and
-[Run behind a reverse proxy](docs/guides/reverse-proxy.md) describes TLS.
+Open <http://localhost:2909> and sign in with the token. `curl http://localhost:2909/health` checks the service.
+`docker compose -f deploy/docker-compose.yml down` stops it; the `openartifact-data` volume (the database) stays.
 
-### Docker Compose Commands
-
-| Action | Command |
-|--------|---------|
-| Start | `docker compose -f deploy/docker-compose.yml up -d` |
-| Stop | `docker compose -f deploy/docker-compose.yml down` |
-| View logs | `docker compose -f deploy/docker-compose.yml logs -f` |
-| Check health | `docker compose -f deploy/docker-compose.yml ps` |
-| Update from source | `git pull && docker compose -f deploy/docker-compose.yml up -d --build` |
-| Update a released image | `docker compose -f deploy/docker-compose.yml pull && docker compose -f deploy/docker-compose.yml up -d` |
-| Backup and restore | [Operate the Docker deployment](docs/guides/operations.md) |
-
-**Important:** `docker compose down` does **not** delete persistent data. The `openartifact-data` volume survives. Use
-`docker compose down -v` only to remove it. Back up before every update.
-
-### Access protection
-
-With `OPENARTIFACT_API_TOKEN` set, browsers get a sign-in page and scripts and agents send
-`Authorization: Bearer <token>` (also for the integration API `/api/v1` and the MCP server `/mcp`). Without a token the pages
-and the browser API are open to everyone who can reach the port, and `/api/v1` and `/mcp` are closed. The application refuses
-to start with a token shorter than 32 characters or without a secret key of your own. Details and `curl` and MCP examples:
-[Sign in and use the API and MCP](docs/guides/integration.md).
-
-### Configuration
-
-Every setting is an `OPENARTIFACT_*` environment variable (in Docker: `deploy/.env`). The complete list with defaults is the
-[configuration reference](docs/guides/configuration.md); the ones you will touch first:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENARTIFACT_API_TOKEN` | *(empty)* | Access token, at least 32 characters; set it |
-| `OPENARTIFACT_SECRET_KEY` | *(change me)* | Signs the session cookie; required once a token is set |
-| `OPENARTIFACT_ALLOWED_HOSTS` | *(empty)* | Host names the application answers to (empty: no check) |
-| `OPENARTIFACT_COOKIE_SECURE` | `auto` | `true` behind a TLS proxy |
-| `OPENARTIFACT_BIND` / `OPENARTIFACT_PUBLISHED_PORT` | `127.0.0.1` / `2909` | Compose only: where the container is published |
-| `OPENARTIFACT_LOG_LEVEL` | `INFO` | Logging verbosity |
+- The token is required: Code nodes, the credential store and the integration API are refused without it. Without a token the
+  pages and the browser API are open to everyone who can reach the port.
+- The secret key (at least 32 characters) signs the session cookie and encrypts stored credentials. Do not change it
+  afterwards: stored credentials could no longer be read.
+- The container is published on `127.0.0.1` only. For network access and TLS see
+  [Run behind a reverse proxy](docs/guides/reverse-proxy.md); update, backup and restore are in
+  [Operate the Docker deployment](docs/guides/operations.md).
 
 ## Development
 
-### Setup
-
-```bash
-# 1. Navigate to the backend project
-cd apps/backend
-
-# 2. Install the dependencies (uv, or pip as CI does)
-uv sync --all-extras          # or: pip install -e ".[dev]"
-
-# 3. Keep the data local; /data (the default) is not writable on a workstation
-echo 'OPENARTIFACT_DATA_DIR=./.data' > .env
-
-# 4. Create the database
-uv run alembic upgrade head
-
-# 5. Run the application: http://localhost:2909
-uv run openartifact
-```
-
-Without `uv`, run the same commands without the `uv run` prefix inside your virtual environment.
-
-### Quality Commands
-
-| Command | Description |
-|---------|-------------|
-| `uv run pytest` | Unit and API tests (browser tests excluded) |
-| `uv run pytest -m e2e` | Browser tests (once: `playwright install chromium`); see [Testing](docs/guides/testing.md) |
-| `uv run ruff check .` | Lint code |
-| `uv run ruff format --check .` | Check formatting |
-| `uv run mypy .` | Type checking |
-| `uv run coverage run -m pytest && uv run coverage report` | Tests with coverage |
-
-### Database Migrations
-
 ```bash
 cd apps/backend
-
-# Create a new migration after modifying models (then check it with: alembic check)
-uv run alembic revision --autogenerate -m "description"
-
-# Apply migrations
-uv run alembic upgrade head
-
-# Rollback one migration
-uv run alembic downgrade -1
-
-# Show current schema version
-uv run alembic current
+uv sync --all-extras                  # or: pip install -e ".[dev]"
+printf 'OPENARTIFACT_DATA_DIR=./.data\nOPENARTIFACT_HOST=127.0.0.1\n' > .env
+uv run alembic upgrade head           # create the database
+uv run openartifact                   # http://localhost:2909
 ```
 
-Contributing: see [CONTRIBUTING](.github/CONTRIBUTING.md).
+`OPENARTIFACT_HOST` defaults to `0.0.0.0`; bind to loopback on a workstation, especially without a token. In open mode (no
+token) Code nodes are refused; for local work only, add `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` to `.env`. Checks, tests
+and conventions: [CONTRIBUTING](.github/CONTRIBUTING.md) and [apps/backend/README.md](apps/backend/README.md). The interactive
+API documentation of a running instance is at `/api/docs`.
+
+## Concepts
+
+| Term | Meaning |
+|------|---------|
+| Artifact | A card on the board with a title, a description and a lane. The unit of work that is moved and processed (`task` in the code and the API) |
+| Pipeline | The path an artifact takes: a trigger, stages in order, a completion. Edited as a graph |
+| Stage | A step of a pipeline; contains actions. Entering a stage starts its actions |
+| Action | One unit of work inside a stage, linked to an action definition. Continues on *Pass* or *Error* |
+| Action definition | What an action does: a graph of execution nodes between a trigger and an output |
+| Execution node | A node of an action definition: Timer (wait), Code (shell or Python), HTTP (request), Output (result and routing) |
+| Run | The current processing state of an artifact (live, shown on the board) |
+| Execution | The recorded history of one run: a frozen snapshot of the pipeline, its steps and outputs, kept by retention |
+| Flow | The read-only view of an execution on the editor canvas, with the walked path highlighted |
+
+More with examples: [Concepts](docs/guides/concepts.md). Terms of the architecture: [glossary](docs/architecture/arc42/12-glossary.md).
+
+## What it does today
+
+- Board of artifacts with lanes, live updates (server-sent events) and a pipeline per artifact.
+- Editor for pipelines and action definitions with Timer, Code, HTTP and Output nodes
+  ([execution nodes](docs/guides/execution-nodes.md)); the run engine executes stages and actions in-process.
+- Code nodes run shell or Python as a child process with CPU, memory, process, file and output limits; HTTP nodes refuse
+  loopback, private and metadata addresses unless you allow them.
+- Credential store: secrets are encrypted in the database and referenced by name from nodes, never returned by the API
+  ([Credentials](docs/guides/credentials.md); API only, there is no UI for it yet).
+- Execution history per artifact with steps and outputs, retention policy (default keep 50), delete and clear
+  ([Execution history](docs/guides/execution-history.md)).
+- Flow view of one execution and a global executions page (`/executions`) across all artifacts, with filters and summary.
+- Integration API (`/api/v1`) and an MCP server (`/mcp`, 14 tools) with token authentication
+  ([Sign in and use the API and MCP](docs/guides/integration.md), [API reference](docs/guides/api-reference.md)).
+
+Planned and not implemented: AI agent nodes, Git and webhook connectors, extension packaging. The authoritative list is
+[arc42 chapter 4.3](docs/architecture/arc42/04-solution-strategy.md#43-built-and-planned).
+
+## Architecture in short
+
+```
+Browser / script / MCP client
+        | HTTP, SSE
+        v
+FastAPI app (one process)
+  web pages + browser API  |  /api/v1  |  /mcp        <- access gate (token, session cookie)
+        |
+  task service ---- run engine (asyncio) ---- executors: Timer, Code (child process), HTTP
+        |                    |
+        +------ SQLite (WAL, one file, Alembic migrations): artifacts, graphs, runs,
+                executions, encrypted secrets
+```
+
+Frontend: Jinja2 templates, CSS design tokens and vanilla JavaScript, no build step. Details:
+[arc42 building block view](docs/architecture/arc42/05-building-block-view/README.md),
+[runtime view](docs/architecture/arc42/06-runtime-view/README.md) and the
+[architecture decision records](docs/architecture/adr/).
+
+## Status and limitations
+
+- Pre-release, version `0.1.x`. The application's own data stays in SQLite; PostgreSQL may later come only as a data source
+  through a connector layer, not as the application database.
+- **No sandbox for Code nodes.** Code runs as the application's user, with resource limits, without network or file system
+  isolation. The application is hardened against Code reading its parent's environment (API token and secret key), but anyone who
+  may edit a pipeline can run code in the container. Give edit access only to people you trust.
+  See [SECURITY.md](SECURITY.md) and [Security for operators](docs/guides/security.md).
+- A token is required for Code nodes and credentials; without one the instance is open to everyone who reaches the port.
+- Single process, single database file: do not run several instances against one database. The in-process event bus and
+  run engine do not scale out.
+- Accessibility is limited: connections in the graph editor are made by dragging (no keyboard-only way) and screen reader
+  support is not tested. A later goal.
+- There is no user management: one shared token, no roles.
+- Further known risks and technical debt: [arc42 chapter 11](docs/architecture/arc42/11-risks-and-technical-debt.md).
 
 ## Documentation
 
-- **Index:** [docs/README.md](docs/README.md)
-- **Guides:** [configuration](docs/guides/configuration.md), [API and MCP](docs/guides/integration.md), [operations](docs/guides/operations.md), [reverse proxy](docs/guides/reverse-proxy.md), [extending](docs/guides/extending.md), [testing](docs/guides/testing.md), [CI/CD](docs/guides/CI-CD.md)
-- **Architecture (arc42):** [docs/architecture/arc42/](docs/architecture/arc42/) — 12 chapters; what is built and what is planned: [chapter 4](docs/architecture/arc42/04-solution-strategy.md#43-built-and-planned); known limitations: [chapter 11](docs/architecture/arc42/11-risks-and-technical-debt.md)
-- **Architecture Decision Records:** [docs/architecture/adr/](docs/architecture/adr/)
+Start at the [documentation map](docs/README.md). Configuration: every setting is an `OPENARTIFACT_*` environment variable
+(in Docker: `deploy/.env`), see the [configuration reference](docs/guides/configuration.md).
 
-## Technology Stack
+| You want to | Read |
+|-------------|------|
+| Run it | [Operations](docs/guides/operations.md), [reverse proxy](docs/guides/reverse-proxy.md), [configuration](docs/guides/configuration.md), [security](docs/guides/security.md) |
+| Use the API or MCP | [Integration](docs/guides/integration.md), [API reference](docs/guides/api-reference.md) |
+| Understand the model | [Concepts](docs/guides/concepts.md), [arc42](docs/architecture/arc42/), [ADRs](docs/architecture/adr/) |
+| Change the code | [CONTRIBUTING](.github/CONTRIBUTING.md), [extending](docs/guides/extending.md), [testing](docs/guides/testing.md), [CI/CD](docs/guides/CI-CD.md) |
 
-| Layer | Technology |
-|-------|------------|
-| Language | Python 3.12+ |
-| Backend | FastAPI + Pydantic v2 |
-| Frontend | Jinja2 + CSS design tokens + vanilla JS (no build step) |
-| Database | SQLite (WAL mode), for good; PostgreSQL may come later as a data source, not as the application database |
-| Migration | Alembic |
-| Execution | In-process `asyncio` run engine |
-| Interfaces | Web UI, REST (`/api`, `/api/v1`), MCP (`/mcp`), server-sent events |
-| Deployment | Docker + Docker Compose (one container, one volume) |
+## Contributing and security
 
-## Status
-
-Pre-release (version `0.1.0`). The artifact board, the pipeline and action editor, the run engine, the integration API, the
-MCP server and the access protection are built; the roadmap and the known limitations are in
-[arc42 chapter 4.3](docs/architecture/arc42/04-solution-strategy.md#43-built-and-planned) and
-[chapter 11](docs/architecture/arc42/11-risks-and-technical-debt.md). The bootstrap phase is tagged `bootstrap-complete`; product
-work happens on feature branches.
+Contributions are welcome: read [CONTRIBUTING](.github/CONTRIBUTING.md) first. Report vulnerabilities as described in
+[SECURITY.md](SECURITY.md), not in a public issue.
 
 ## License
 
-OpenArtifact is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
-
-## Contributing
-
-Contributions are welcome. Read [CONTRIBUTING](.github/CONTRIBUTING.md) and the architecture documentation before proposing changes to the core system.
+Apache License 2.0, see [LICENSE](LICENSE).

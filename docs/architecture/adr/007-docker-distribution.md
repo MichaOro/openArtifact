@@ -124,7 +124,7 @@ scripts/docker-entrypoint.sh — Entry point with migration and health check
 - **Risks:** SQLite write contention under heavy load (mitigated by WAL mode)
 - **Trade-off:** Slightly more maintainable docker-compose files vs. single config; justified by flexibility
 
-## 7. Update (2026-11-22): what was built
+## Update (2026-11-22): what was built
 
 The history above is kept; reality differs in these points.
 

@@ -10,7 +10,7 @@ The application checks several things that a proxy can break; this guide lists w
 |-------------|-----|
 | **Pass the original `Host` header** (nginx: `proxy_set_header Host $host;`) | The cross-site guard compares the browser's `Origin` with `Host` on every unsafe request; with a rewritten `Host` every write from the browser fails with `403`. `OPENARTIFACT_ALLOWED_HOSTS` is checked against it too. |
 | **Send `X-Forwarded-Proto`** and set `FORWARDED_ALLOW_IPS` | uvicorn trusts forwarded headers only from the addresses in `FORWARDED_ALLOW_IPS` (default `127.0.0.1`). From another container the application would see `http` and issue the session cookie without `Secure`. |
-| **Do not buffer the event stream** | `GET /api/events` is a server-sent event stream; buffering delays live updates. |
+| **Do not buffer the event stream** | `GET /api/events` is a server-sent event stream (board, run and `execution.*` events, a `: ping` comment every 15 s); buffering delays live updates, and a read timeout shorter than 15 s would cut it. The application already sends `X-Accel-Buffering: no`. |
 | **Allow request bodies of at least 1 MiB** | The application's own cap is `OPENARTIFACT_MAX_REQUEST_BYTES` (default 1 MiB, `413`). nginx's default `client_max_body_size` is also 1 MiB; set it to match. |
 | **Do not remove security headers** | The application sends CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` and, over HTTPS, `Strict-Transport-Security`. |
 | **Terminate TLS** | The cookie is only `Secure` over HTTPS, and the token travels in clear text otherwise. |
@@ -89,3 +89,9 @@ After signing in, the browser's cookie list shows `__Host-oa_session` with `Secu
 There is no rate limiting in the application beyond a half-second delay on a wrong token; add it at the
 proxy if the instance is reachable from the internet. The application is built for one process: do not
 run several containers against the same volume (see the risks in arc42 chapter 11).
+
+Behind the proxy the same rules apply as without it: [Security](security.md) describes what the token
+protects and why anyone who may run a Code node effectively operates the server; a published address
+instead of a proxy is covered in [Operate the Docker deployment](operations.md#reaching-a-loopback-only-instance-from-another-machine).
+The interactive API page `/api/docs` loads its scripts from `cdn.jsdelivr.net`: it stays empty on a host
+without internet access, the schema at `/openapi.json` does not need it.

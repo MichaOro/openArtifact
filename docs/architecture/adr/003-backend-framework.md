@@ -121,7 +121,9 @@ The backend framework must support:
 - **Risks:** FastAPI ecosystem growth (mitigated by Starlette's stability)
 - **Trade-off:** No built-in admin interface or ORM — intentional, keeps framework minimal
 
-## Update (2026-11-22)
+## Update (2026-11-22): server and task queue
 
 `gunicorn` and `factory_boy` are no longer dependencies (the server is `uvicorn`, started through the `openartifact` command). There is no background task queue: runs are in-process
 `asyncio` tasks ([ADR-013](013-execution-engine-and-runs.md)). The ORM is SQLAlchemy with Alembic.
+
+Dependencies added since: `httpx` (HTTP nodes, [ADR-021](021-execution-nodes-as-executors.md)) and `cryptography` (credential store, [ADR-024](024-credential-store.md)).

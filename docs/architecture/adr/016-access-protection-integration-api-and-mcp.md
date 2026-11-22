@@ -4,8 +4,8 @@
 **Date:** 2026-11-21  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** [ADR-006](006-api-design.md), [ADR-015](015-vocabulary-and-storage-names.md) §6  
-**Amended by:** [ADR-017](017-request-hardening-and-signed-sessions.md) (sessions, hardening)
+**Amends:** [ADR-006](006-api-design.md), [ADR-008](008-security-operations.md), [ADR-015](015-vocabulary-and-storage-names.md) §6  
+**Amended by:** [ADR-017](017-request-hardening-and-signed-sessions.md) (sessions, hardening), [ADR-026](026-origin-of-a-run-started-by.md) (origin of a run)
 
 ## 1. Title
 
@@ -86,7 +86,7 @@ planned settings (ADR-013 §4).
 - The SQLite migrations run with a plain file backup as the only protection for a half-finished DDL:
   back up the database file before an upgrade that renames tables (see ADR-015).
 
-## 5. Update (2026-11-22)
+## Update (2026-11-22): module, open paths, secret key
 
 - **Module.** Access protection (`AccessGate`, `TokenProtected`, `token_matches`, `token_error`, the session cookie
   and `require_api_token`) is in `openartifact/security.py`; there is no `api/auth.py`. `TokenProtected` moved there
@@ -99,3 +99,12 @@ planned settings (ADR-013 §4).
   [ADR-017](017-request-hardening-and-signed-sessions.md). Behind a TLS proxy see the
   [reverse proxy guide](../../guides/reverse-proxy.md).
 - **Not decided here** still holds: rate limiting, per-client tokens, OAuth for MCP clients, user accounts.
+
+## Update (2026-11-22): origin of runs, tools, secrets
+
+- A run started through `/api/v1` has `started_by: api`, one started through MCP has `started_by: mcp`; `system` is
+  reserved ([ADR-026](026-origin-of-a-run-started-by.md)). §3.2 ("`started_by: system`") is the older state.
+- The MCP server has **14 tools** now, not eight: besides the artifact and run tools of §3.3 there are
+  `list_executions`, `list_all_executions`, `get_execution`, `get_execution_flow` ([ADR-025](025-execution-history-and-retention.md), [ADR-028](028-global-executions-page-and-keyset-paging.md)) and `list_secrets`
+  ([ADR-024](024-credential-store.md)). The integration API has the matching routes (`/api/v1/executions`, `/api/v1/secrets`).
+- Features that use credentials need a token ([ADR-023](023-safety-model-of-execution-nodes.md), [ADR-024](024-credential-store.md)).

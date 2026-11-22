@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-014](014-building-blocks-and-extension-points.md)  
-**Amended by:** —
+**Amended by:** [ADR-022](022-node-settings-as-json-config.md) (settings), [ADR-032](032-removal-of-the-unused-workspace-model.md) (unused code removed)
 
 ## 1. Title
 
@@ -59,3 +59,14 @@ and the templates contain no inline scripts, which is what lets the Content-Secu
 - Access protection and hardening can be read in two short modules; both are on the path of `/mcp`.
 - Unused code is not deleted at once but quarantined (`Project`/`WorkItem` models and `repositories/`, `BOARD_STATUSES`,
   `PipelineError`, `DatabaseError`); `release.yml` does not yet compare the version with the tag.
+
+## Update (2026-11-22): modules added, quarantine closed
+
+- The table in §3.1 predates `engine/` (executors, runners, history, flow, `code_registry`), `secret_crypto.py`,
+  `secret_store.py` and `secret_refs.py`; chapter 5 of arc42 lists them.
+- Node settings are described by `Setting` and stored in JSON ([ADR-022](022-node-settings-as-json-config.md)).
+- The step bound exists twice on purpose (`engine/runner.py` `MAX_STEPS`, `engine/flow.py` `MAX_ACTIONS`, both 1000):
+  the replay keeps its own constant ([ADR-027](027-execution-flow-by-replay-over-the-frozen-snapshot.md)), an exception to "one source".
+- The quarantined code of §4 (`Project`/`WorkItem`, `repositories/`, `BOARD_STATUSES`, `PipelineError`,
+  `DatabaseError`) was removed ([ADR-032](032-removal-of-the-unused-workspace-model.md)); a release tag must equal `version.py` (see the
+  [CI/CD guide](../../guides/CI-CD.md)); the sentence in §4 that `release.yml` does not compare them is outdated.

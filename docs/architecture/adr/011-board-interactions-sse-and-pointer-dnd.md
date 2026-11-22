@@ -4,7 +4,7 @@
 **Date:** 2026-11-20  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** —  
+**Amends:** [ADR-009](009-technology-summary.md) (real-time updates)  
 **Amended by:** —
 
 ## 1. Context
@@ -178,3 +178,11 @@ queries or dashboards can rely on the relation.
 - **Limitation:** an event stream holds one connection per open tab.
 - **Risk:** hand-written drag & drop needs browser/device testing (touch behaviour differs per
   OS). The behaviour is covered by Playwright browser tests (`apps/backend/tests/e2e/`, CI job `e2e`), including touch gestures via the DevTools protocol.
+
+## Update (2026-11-22): the full event list
+
+`GET /api/events` carries more than the `task.*` events of §2.1: `task.created`, `task.updated`, `task.moved`,
+`task.deleted`, `run.updated` (a run, same schema as the REST run), `execution.updated` (`task_id` and the summary of
+an execution, when it starts and when its status changes), `execution.deleted` (`task_id` and `id`) and
+`board.resync` (the client should reload). The pages of the execution history use them ([ADR-025](025-execution-history-and-retention.md), [ADR-028](028-global-executions-page-and-keyset-paging.md)). The
+board's keyboard operation and the known limits of the editor are in [ADR-030](030-accessibility-scope.md).

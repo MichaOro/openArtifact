@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** —  
-**Amended by:** [ADR-015](015-vocabulary-and-storage-names.md) (vocabulary), [ADR-018](018-typed-runs-one-error-one-persistence-rule.md) (run model, atomic start)
+**Amended by:** [ADR-015](015-vocabulary-and-storage-names.md) (vocabulary), [ADR-018](018-typed-runs-one-error-one-persistence-rule.md) (run model, atomic start), [ADR-021](021-execution-nodes-as-executors.md) (executors), [ADR-025](025-execution-history-and-retention.md) (history), [ADR-026](026-origin-of-a-run-started-by.md) (origin)
 
 ## 1. Title
 
@@ -76,7 +76,7 @@ through others (refused when linking, 422); the step limit also counts across ne
   definition can loop) is to be designed there.
 - **Human-in-the-loop** (a `waiting` status) and **automatic starts** of sub-artifacts by the system.
 
-## 5. Update (2026-11-22): atomic start and limits
+## Update (2026-11-22): atomic start and limits
 
 The decisions above stand; [ADR-018](018-typed-runs-one-error-one-persistence-rule.md) adds how a start is made safe.
 
@@ -94,3 +94,15 @@ The decisions above stand; [ADR-018](018-typed-runs-one-error-one-persistence-ru
   with a `Z` suffix.
 - **Not built:** no wall-clock deadline per run or per node (only the step limit and the timer's bound of one day),
   see arc42 chapter 11.
+
+## Update (2026-11-22): executions, node executors, origin
+
+The history above is kept; §3 and §4 are partly overtaken.
+
+- **Executions are built.** Every start leaves an execution with its steps and the frozen snapshot, shown as a
+  History tab on the artifact and on a global page ([ADR-025](025-execution-history-and-retention.md), [ADR-027](027-execution-flow-by-replay-over-the-frozen-snapshot.md), [ADR-028](028-global-executions-page-and-keyset-paging.md)). "No history of earlier runs yet" and the
+  "Planned (not built): Executions" item of §4 no longer hold. Still planned and not built: a *Settings* area with a
+  global loop protection, `waiting` (human-in-the-loop) and automatic starts by the system.
+- **Business logic beyond the timer:** Code and HTTP nodes run through the executor registry ([ADR-021](021-execution-nodes-as-executors.md)); their safety
+  is [ADR-023](023-safety-model-of-execution-nodes.md).
+- **`started_by`** is `user`, `api`, `mcp` or `system` ([ADR-026](026-origin-of-a-run-started-by.md)); §2.1 (`user` or `system`) is the older state.

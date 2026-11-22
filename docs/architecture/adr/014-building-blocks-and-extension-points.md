@@ -4,8 +4,8 @@
 **Date:** 2026-11-21  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** —  
-**Amended by:** [ADR-019](019-module-boundaries-and-single-sources.md) (module boundaries, registry-derived settings)
+**Amends:** [ADR-012](012-workflow-definition-editor.md) (routing select)  
+**Amended by:** [ADR-019](019-module-boundaries-and-single-sources.md) (module boundaries, registry-derived settings), [ADR-021](021-execution-nodes-as-executors.md) (executors), [ADR-022](022-node-settings-as-json-config.md) (settings as JSON), [ADR-030](030-accessibility-scope.md) (accessibility)
 
 ## 1. Title
 
@@ -105,7 +105,7 @@ from the UI because connections are made by dragging.
 - Connecting by keyboard is no longer possible (the routing select is gone); dragging is the way. This is a known
   limitation, not a decision for good (arc42 chapter 11).
 
-## 5. Update (2026-11-22)
+## Update (2026-11-22): registry-derived settings and module moves
 
 - A node setting is still a column of `graph_nodes` plus a field of `NodeUpdate`, but the repository derives the
   allowed setting keys from the registry (`NODE_TYPES`, the `settings` of each kind) instead of a hard-coded set;
@@ -113,3 +113,14 @@ from the UI because connections are made by dragging.
   the connectors. See [ADR-019](019-module-boundaries-and-single-sources.md).
 - The sidebar's inline script moved to `static/js/nav-section.js`; the templates have no inline scripts left.
 - The steps for a new node kind or navigation entry are in the [extending guide](../../guides/extending.md).
+
+## Update (2026-11-22): executors, JSON settings, quarantine
+
+- **Kinds and engine.** The registry of node types now has `code` and `http` next to the timer, and the engine runs
+  a kind through a registered executor instead of branching on its name ([ADR-021](021-execution-nodes-as-executors.md)); the sentence in §3.1 that a new
+  kind "also needs a branch" in the engine is outdated.
+- **Settings.** A new setting is an entry in the kind's `settings` and a value in `graph_nodes.config`, not a column
+  and a schema field ([ADR-022](022-node-settings-as-json-config.md)); the first update above describes the older, column-based way.
+- **Quarantine (§3.6).** The quarantined code was removed ([ADR-032](032-removal-of-the-unused-workspace-model.md)); in the end state `quarantine.json` has no entries
+  and the `static` job of the CI checks that file together with the JavaScript syntax and the relative links of the
+  documentation. The mechanism stays for the next time code falls out of use.

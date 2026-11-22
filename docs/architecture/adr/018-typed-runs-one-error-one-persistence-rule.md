@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-013](013-execution-engine-and-runs.md)  
-**Amended by:** —
+**Amended by:** [ADR-032](032-removal-of-the-unused-workspace-model.md) (unused errors removed)
 
 ## 1. Title
 
@@ -66,3 +66,8 @@ a stop during a start is `409`, and more than `OPENARTIFACT_MAX_CONCURRENT_RUNS`
 - A new service method commits explicitly; forgetting it loses the change instead of half-saving it.
 - The in-process claim is not shared between processes; the database guards still refuse a double start, but caps and event delivery assume one process (arc42 chapter 11).
 - Anything that wants a `503` for database failures needs a handler that is not built.
+
+## Update (2026-11-22): unused errors removed
+
+`PipelineError` and `DatabaseError` of §3.1 were never used and are removed ([ADR-032](032-removal-of-the-unused-workspace-model.md)). A raw database error ends in
+the generic `500` handler.

@@ -1,11 +1,13 @@
 # ADR-009: Technology Summary and Implementation Roadmap
 
-**Status:** Accepted  
+> **Deprecated.** The stack summary and the work-package roadmap below are the bootstrap plan and are no longer maintained; nothing replaces them as one decision. The living views are arc42 chapters 4 and 5 and the ADRs that followed. This document is kept for history.
+
+**Status:** Deprecated  
 **Date:** 2026-11-18  
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** —  
-**Amended by:** [ADR-011](011-board-interactions-sse-and-pointer-dnd.md), [ADR-020](020-sqlite-stays-postgres-as-data-source.md)
+**Amended by:** [ADR-011](011-board-interactions-sse-and-pointer-dnd.md) (real-time updates), [ADR-020](020-sqlite-stays-postgres-as-data-source.md)
 
 ## 1. Title
 
@@ -67,7 +69,7 @@ The following arc42 chapters have been updated:
 2. Which AI agent providers will be supported first (WP-04)?
 3. What is the deployment target architecture — single-server or multi-server (WP-06)?
 
-## 8. Update (2026-11-22)
+## Update (2026-11-22): deprecated
 
 The history above is kept; corrections.
 
@@ -78,4 +80,5 @@ The history above is kept; corrections.
 - **Database:** SQLite is the application's database for good; "upgradeable to PostgreSQL" is withdrawn
   ([ADR-020](020-sqlite-stays-postgres-as-data-source.md)). PostgreSQL may return as a data source behind a connector layer.
 - **Task queue:** none. Runs are in-process `asyncio` tasks ([ADR-013](013-execution-engine-and-runs.md)).
+- **Status:** deprecated. The ADRs 021 to 032 record what was decided after this roadmap (execution nodes, credentials, history).
 - **Work packages:** the numbering above is the bootstrap plan and is not maintained; the living status is arc42 4.4.

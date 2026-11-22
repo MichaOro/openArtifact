@@ -5,7 +5,8 @@ This guide documents the automated CI/CD pipeline, Docker build process, and rel
 ## Overview
 
 ```
-Developer → PR → CI (lint → typecheck → test → browser tests → docker build) → main → Release (docker publish)
+Developer → PR → CI (static → lint → typecheck → test → browser tests) → main → docker smoke test
+Maintainer → tag vX.Y.Z (equal to version.py) → Release (image on GHCR, GitHub Release)
 ```
 
 All checks run automatically. No manual intervention is required for development builds.
@@ -16,29 +17,41 @@ All checks run automatically. No manual intervention is required for development
 
 | Event | Branch | Action |
 |-------|--------|--------|
-| PR to main | `main` | CI (lint, type check, tests, browser tests) and the PR image build |
-| Push to main | `main` | CI + Docker build + smoke test |
+| PR to main | `main` | CI (static checks, lint, type check, tests, browser tests) and the PR image build |
+| Push to main | `main` | CI + Docker build + container smoke test |
 | Version tag (`v0.1.0`, the `v` is required) | — | Release workflow |
 | Weekly (Monday), pyproject changes | — | Dependency audit and quarantine check |
 
-CI and the PR build run only when the change touches `apps/backend/**`, `Dockerfile`, `.dockerignore`,
-`deploy/**`, `scripts/**`, `README.md` or `.github/workflows/**`.
+CI and the PR build are path-filtered: they run only when the change touches one of the paths listed at the
+top of `.github/workflows/ci.yml` (the backend, the Dockerfile, `deploy/`, `scripts/`, `tools/`, the
+documentation and the workflows themselves). A pull request that touches only other paths (for example
+`LICENSE`) is not checked; if you add a new top-level directory with code or documentation, add it to the
+filters of `ci.yml` and `pr-build.yml`.
 
 ### Stages
 
-1. **Ruff lint** — `ruff check .`
-2. **Ruff format** — `ruff format --check .`
-3. **mypy** — `mypy .` (strict mode)
-4. **pytest** — Unit and API tests, run once under coverage (browser tests excluded; `coverage.xml` is uploaded). See the [testing guide](testing.md)
-5. **Browser tests** — `pytest -m e2e` (Playwright, headless Chromium, traces of failures are uploaded)
-6. **Docker build and smoke test** — Image build, start, `/health`, `/` and `/api/info` (push to main only; the job has read-only permissions)
+1. **static** — needs no Python dependencies: JavaScript syntax check of every file under `static/js`, the
+   relative links of all Markdown files (`python tools/check_links.py`) and the quarantine file
+   (`python tools/check_quarantine.py`; `quarantine.json` is empty at the moment, so any entry added to it
+   starts the 14-day clock).
+2. **lint** (job `lint`) — `ruff check .` and `ruff format --check .`
+3. **type-check** — `mypy .` (strict mode)
+4. **test** — `coverage run -m pytest`, run **once** under coverage, then `coverage report` (fails below
+   `fail_under = 95`) and `coverage xml` (uploaded as an artifact). Browser tests excluded. See the
+   [testing guide](testing.md).
+5. **e2e** — `pytest -m e2e` (Playwright, headless Chromium, traces of failures are uploaded)
+6. **docker** — builds the image and runs `tools/smoke_container.sh` against it (push to main only; the job
+   has read-only permissions). The smoke test starts the image **as deployed**: read-only root file system,
+   tmpfs `/tmp`, `--cap-drop ALL`, an API token and a secret key, as the compose file does. It checks `/health`
+   (200 without a token), that `/` and `/api/info` answer `401` without the token and `200` with it, and
+   removes the container.
 
 ### Workflow Files
 
 | File | Purpose |
 |------|---------|
-| `.github/workflows/ci.yml` | Main CI pipeline |
-| `.github/workflows/release.yml` | Version-tagged release |
+| `.github/workflows/ci.yml` | Main CI pipeline (jobs `static`, `lint`, `type-check`, `test`, `e2e`, `docker`) |
+| `.github/workflows/release.yml` | Version-tagged release; refuses a tag that differs from `version.py` |
 | `.github/workflows/pr-build.yml` | PR preview build (no push, no `packages` permission) |
 | `.github/workflows/audit.yml` | `pip-audit` of the installed runtime dependencies; weekly, on dependency changes and by hand |
 | `.github/dependabot.yml` | Weekly update pull requests for pip (`apps/backend`), the Dockerfile base image and GitHub Actions |
@@ -104,8 +117,9 @@ git push origin v0.1.0
 
 The release workflow triggers automatically on tag push:
 
-1. Starts on tags matching `v<major>.<minor>.<patch>` (no further validation: the tag is not compared with
-   `apps/backend/openartifact/version.py`, so set the version there before tagging)
+1. Starts on tags matching `v<major>.<minor>.<patch>` and first checks that the tag (without the `v`) equals
+   the version in `apps/backend/openartifact/version.py`; if not, the workflow fails before anything is
+   built or published. Set the version there, commit it, then tag that commit.
 2. Builds the Docker image
 3. Pushes to GHCR with appropriate tags
 4. Creates a GitHub Release with auto-generated notes
@@ -125,12 +139,14 @@ docker run -d \
   -e OPENARTIFACT_SECRET_KEY="$(openssl rand -hex 32)" \
   ghcr.io/michaoro/openartifact:0.1.0
 
-# Check health
-curl http://localhost:2909/health
-
-# The version is in the health answer (/api/info needs the token)
+# Check health (the answer carries the version; /api/info needs the token)
 curl http://localhost:2909/health
 ```
+
+This `docker run` is the shortest way to try an image. For anything that stays running use the compose file
+(`deploy/docker-compose.yml`), which is the hardened reference: read-only root file system, tmpfs `/tmp`
+(Code nodes need a writable `/tmp`), `cap_drop: ALL`, `no-new-privileges`, process and memory limits. Do not
+rebuild those flags by hand; see the [operations guide](operations.md).
 
 ### 5. Upgrade Instructions
 
@@ -173,6 +189,14 @@ The following GitHub repository settings must be configured for CI/CD to work:
 - Ensure `.dockerignore` excludes `.venv/` and large directories
 - Check that `Dockerfile` paths match the repository structure
 
+### CI Fails — Static Checks
+
+- Links: run `python tools/check_links.py` from the repository root; it names the file and the broken
+  relative link or anchor.
+- Quarantine: `python tools/check_quarantine.py` names the entry that is stale or overdue; remove the code
+  and the entry (see [CONTRIBUTING](../../.github/CONTRIBUTING.md)).
+- JavaScript: the job reports the file and line of the syntax error (`node --check <file>` reproduces it).
+
 ### CI Fails — Python Tests
 
 - Run locally: `cd apps/backend && ruff check . && ruff format --check . && mypy . && pytest`
@@ -189,8 +213,14 @@ The following GitHub repository settings must be configured for CI/CD to work:
 - Ensure `GITHUB_TOKEN` has `packages: write` access
 - Repository must have "Packages" permission enabled
 
+### Release Fails — Tag and Version Differ
+
+- The workflow compares the tag with `apps/backend/openartifact/version.py`. Delete the tag
+  (`git push --delete origin vX.Y.Z`, `git tag -d vX.Y.Z`), fix the version in a commit, tag again.
+
 ### Smoke Test Fails
 
 - Check container logs: `docker logs openartifact-smoke`
 - Migration must succeed before the server starts
 - Verify port 2909 is not already in use
+- The container runs read-only with a tmpfs `/tmp`: a change that writes elsewhere than `/data` and `/tmp` fails here first
