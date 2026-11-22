@@ -1,12 +1,9 @@
 /* One execution of the history: the summary and its steps in order. Everything is text (textContent,
- * never innerHTML): output, reasons and data come from what ran. A later stage that shows the process
- * flow of an execution extends this class: renderFacts() and renderStep() are the parts to override or
- * to add to; show() / update() are what the tab calls. */
-import { icon } from "../components/icons.js";
-import { executionSeconds, formatDuration, formatTime, originLabel, secondsBetween, setChip } from "./history-format.js";
-
-const KIND_ICONS = { code: "code", http: "http", timer: "clock", trigger: "play", output: "check" };
-const PORTS = { pass: "On Pass", fail: "On Fail", out: "Next" };
+ * never innerHTML): output, reasons and data come from what ran. renderFacts() and renderStep() are
+ * the parts to override or to add to; show() / update() are what the tab calls. The flow of the
+ * execution is a page of its own (static/js/execution/); this view links to it ("Open flow"). */
+import { executionSeconds, formatDuration, formatTime, originLabel, setChip } from "./history-format.js";
+import { fillStep } from "./history-step.js";
 
 export class HistoryDetail {
   /**
@@ -24,6 +21,8 @@ export class HistoryDetail {
     this.empty = root.querySelector("[data-detail-empty]");
     this.stepTemplate = document.getElementById("history-step-template");
     this.deleteButton = root.querySelector("[data-detail-delete]");
+    this.flowLink = root.querySelector("[data-detail-flow]");
+    this.taskNumber = null; // set by the tab: the flow page's URL names the artifact by its number
     this.execution = null;
     this.loaded = false;
     root.querySelector("[data-detail-back]").addEventListener("click", () => onBack());
@@ -70,9 +69,15 @@ export class HistoryDetail {
     const running = execution.status === "running";
     this.deleteButton.setAttribute("aria-disabled", String(running));
     this.deleteButton.title = running ? "Stop it first" : "";
+    this.flowLink.href = this.flowHref(execution);
     this.note.textContent = execution.note ?? "";
     this.note.hidden = !execution.note;
     this.renderFacts(execution);
+  }
+
+  /** Where the read-only flow of the execution is shown (a page of its own; the same URL the global menu will use). */
+  flowHref(execution) {
+    return `/artifacts/${encodeURIComponent(this.taskNumber ?? execution.task_id)}/executions/${encodeURIComponent(execution.id)}`;
   }
 
   /** The summary list: a term and its value (text or a node) per line. */
@@ -111,50 +116,6 @@ export class HistoryDetail {
 
   /** One step as a list item. `open` holds the keys of the blocks the user had opened. */
   renderStep(step, open = new Set()) {
-    const item = this.stepTemplate.content.firstElementChild.cloneNode(true);
-    item.dataset.stepId = step.id;
-    item.dataset.outcome = step.outcome;
-    item.dataset.kind = step.kind;
-    item.style.setProperty("--depth", String(step.depth ?? 0));
-    item.querySelector("[data-step-seq]").textContent = String(step.seq);
-    item.querySelector("[data-step-kind-icon]").replaceChildren(icon(KIND_ICONS[step.kind] ?? "action"));
-    item.querySelector("[data-step-name]").textContent = step.node_name ?? step.kind;
-    item.querySelector("[data-step-kind]").textContent = step.kind;
-    setChip(item.querySelector("[data-step-outcome]"), step.outcome);
-
-    const where = [step.stage_name, step.action_name].filter(Boolean).join(" › ");
-    const whereEl = item.querySelector("[data-step-where]");
-    whereEl.textContent = where;
-    whereEl.hidden = !where;
-
-    const facts = [
-      step.port ? `Port: ${PORTS[step.port] ?? step.port}` : null,
-      step.exit_code != null ? `Exit code: ${step.exit_code}` : null,
-      this.#stepDuration(step),
-    ].filter(Boolean);
-    const factsEl = item.querySelector("[data-step-facts]");
-    factsEl.textContent = facts.join(" · ");
-    factsEl.hidden = facts.length === 0;
-
-    const reason = item.querySelector("[data-step-reason]");
-    reason.textContent = step.reason ? `Reason: ${step.reason}` : "";
-    reason.hidden = !step.reason;
-
-    this.#block(item.querySelector("[data-step-output]"), `${step.id}:output`, step.output, open);
-    item.querySelector("[data-step-truncated]").hidden = !step.output_truncated;
-    this.#block(item.querySelector("[data-step-data]"), `${step.id}:data`, step.data == null ? "" : JSON.stringify(step.data, null, 2), open);
-    return item;
-  }
-
-  #stepDuration(step) {
-    const seconds = secondsBetween(step.started_at, step.finished_at);
-    return seconds == null || !step.finished_at ? null : formatDuration(seconds);
-  }
-
-  #block(details, key, text, open) {
-    details.hidden = !text;
-    details.dataset.key = key;
-    details.open = open.has(key);
-    details.querySelector("pre").textContent = text;
+    return fillStep(this.stepTemplate, step, open);
   }
 }

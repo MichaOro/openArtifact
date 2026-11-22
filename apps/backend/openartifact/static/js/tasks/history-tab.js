@@ -62,6 +62,7 @@ export class HistoryTab {
   show(task) {
     const same = task.id === this.taskId;
     this.taskId = task.id;
+    this.detail.taskNumber = task.number;
     this.#showList();
     if (!same) {
       this.list.render([]);

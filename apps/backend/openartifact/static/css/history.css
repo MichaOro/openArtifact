@@ -150,7 +150,8 @@
 .history-policy__help { margin: 0; }
 
 /* ── One execution ───────────────────────────────────────────────── */
-.history-detail__bar { display: flex; justify-content: space-between; gap: var(--space-2); }
+.history-detail__bar { display: flex; gap: var(--space-2); }
+.history-detail__delete { margin-left: auto; }
 .history-detail__delete[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 .history-detail__heading { font-size: 1rem; }
 .history-detail__heading:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }

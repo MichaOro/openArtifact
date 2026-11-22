@@ -7,6 +7,7 @@ import pytest
 from playwright.sync_api import ConsoleMessage, Page, expect
 
 from tests.e2e.conftest import SECURED_TOKEN
+from tests.e2e.helpers import echo_pipeline, execution_of, flow_url, run_started
 
 
 def _watch(page: Page) -> list[str]:
@@ -23,7 +24,7 @@ def _watch(page: Page) -> list[str]:
 
 
 def test_the_policy_is_strict_on_every_page(base_url: str, api: httpx.Client) -> None:
-    for path in ("/", "/pipelines", "/actions", "/login"):
+    for path in ("/", "/pipelines", "/actions", "/login", "/artifacts/1/executions/x"):
         csp = httpx.get(f"{base_url}{path}", follow_redirects=True).headers[
             "content-security-policy"
         ]
@@ -56,6 +57,19 @@ def test_the_editor_runs_without_a_violation(page: Page, base_url: str, api: htt
     problems = _watch(page)
     page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
     expect(page.locator(".ge-node").first).to_be_visible()
+    page.wait_for_load_state("networkidle")
+    assert problems == []
+
+
+def test_the_execution_flow_runs_without_a_violation(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    task = api.post("/api/tasks", json={"title": "Seen"}).json()
+    run_started(api, task, echo_pipeline(api))
+    problems = _watch(page)
+    page.goto(flow_url(base_url, task, execution_of(api, task)))
+    expect(page.locator(".ge-node").first).to_be_visible()
+    page.locator(".ge-node--action").click()
     page.wait_for_load_state("networkidle")
     assert problems == []
 

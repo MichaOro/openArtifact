@@ -1,5 +1,7 @@
 /* The graph canvas: renders nodes (HTML) and edges (SVG) inside a pannable, zoomable world and
  * turns pointer input into callbacks. It owns no data: nodes/edges are the editor's Maps.
+ * With `readOnly` (the flow view of an execution) nodes do not move, ports do not connect, nothing
+ * is deleted and edges cannot be picked: only panning, zooming and the notifications remain.
  *
  *  - drag a node to move it (an action stays inside its stage, which grows as needed);
  *  - drag from an output port to an input port to connect;
@@ -28,13 +30,19 @@ export class Canvas {
    * @param {Map<string, object>} options.nodes
    * @param {Map<string, object>} options.edges
    * @param {object} options.handlers onSelect(selection|null, {focusInspector}), onMoved(node),
-   *   onConnect(source, port, target, port, {source_slot, target_slot}), onDelete(selection), onZoom(zoom)
+   *   onConnect(source, port, target, port, {source_slot, target_slot}), onDelete(selection), onZoom(zoom);
+   *   read-only: onOpen(node) (Enter on a node), onNodeDrawn(node, el) and onEdgeDrawn(edge, group)
+   *   to decorate what was drawn
+   * @param {boolean} [options.readOnly]
+   * @param {number} [options.minZoom] how far it may zoom out (a wide flow on a phone needs less than the editor)
    */
-  constructor({ viewport, nodes, edges, handlers }) {
+  constructor({ viewport, nodes, edges, handlers, readOnly = false, minZoom = MIN_ZOOM }) {
     this.viewport = viewport;
     this.nodes = nodes;
     this.edges = edges;
     this.handlers = handlers;
+    this.readOnly = readOnly;
+    this.minZoom = minZoom;
     this.view = { x: 40, y: 40, zoom: 1 };
     this.selection = null;
     this.elements = new Map();
@@ -132,6 +140,7 @@ export class Canvas {
       port.hidden = !type.isVisible(node, port.dataset.port);
     });
     el.classList.toggle("is-selected", this.selection?.type === "node" && this.selection.id === node.id);
+    this.handlers.onNodeDrawn?.(node, el);
   }
 
   /** Redraw every edge (cheap: a handful of paths). */
@@ -145,8 +154,10 @@ export class Canvas {
       const d = edgePath(portPoint(source, edge.source_port, this.nodes, edge.source_slot), portPoint(target, edge.target_port, this.nodes, edge.target_slot), boxOf(source, this.nodes), boxOf(target, this.nodes), { style: edge.style });
       const group = svg("g", { class: `ge-edge ge-edge--${edge.source_port}`, "data-edge-id": edge.id });
       if (this.selection?.type === "edge" && this.selection.id === edge.id) group.classList.add("is-selected");
-      group.append(svg("path", { class: "ge-edge__hit", d }), svg("path", { class: "ge-edge__line", d, "marker-end": `url(#ge-arrow-${FAILING_PORTS.includes(edge.source_port) ? "error" : "pass"})` }));
+      const line = svg("path", { class: "ge-edge__line", d, "marker-end": `url(#ge-arrow-${FAILING_PORTS.includes(edge.source_port) ? "error" : "pass"})` });
+      group.append(...(this.readOnly ? [line] : [svg("path", { class: "ge-edge__hit", d }), line]));
       this.edgeLayer.append(group);
+      this.handlers.onEdgeDrawn?.(edge, group);
       used.add(`${edge.source_id}|${edge.source_port}|${edge.source_slot}`).add(`${edge.target_id}|${edge.target_port}|${edge.target_slot}`);
     }
     for (const el of this.nodeLayer.querySelectorAll(".ge-node--stage > .ge-port")) {
@@ -194,7 +205,7 @@ export class Canvas {
     const rect = this.viewport.getBoundingClientRect();
     const px = anchor ? anchor.x : rect.width / 2;
     const py = anchor ? anchor.y : rect.height / 2;
-    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, this.view.zoom * factor));
+    const zoom = Math.min(MAX_ZOOM, Math.max(this.minZoom, this.view.zoom * factor));
     const ratio = zoom / this.view.zoom;
     this.view = { x: px - (px - this.view.x) * ratio, y: py - (py - this.view.y) * ratio, zoom };
     this.#applyView();
@@ -218,8 +229,12 @@ export class Canvas {
     this.#applyView();
   }
 
-  /** Zoom and move so everything is visible (never zooms in beyond 100%). */
-  fit() {
+  /**
+   * Zoom and move so everything is visible (never zooms in beyond 100%). With `floor` it does not
+   * zoom out below that: a wider graph then starts at its left edge and is panned, instead of
+   * becoming too small to read.
+   */
+  fit({ floor = 0 } = {}) {
     const rect = this.viewport.getBoundingClientRect();
     if (this.nodes.size === 0 || rect.width === 0) return;
     let [minX, minY, maxX, maxY] = [Infinity, Infinity, -Infinity, -Infinity];
@@ -230,8 +245,8 @@ export class Canvas {
     }
     const margin = 48;
     const zoom = Math.min(1, MAX_ZOOM, (rect.width - 2 * margin) / (maxX - minX), (rect.height - 2 * margin) / (maxY - minY));
-    this.view = { zoom: Math.max(MIN_ZOOM, zoom), x: 0, y: 0 };
-    this.view.x = (rect.width - (maxX - minX) * this.view.zoom) / 2 - minX * this.view.zoom;
+    this.view = { zoom: Math.max(this.minZoom, floor, zoom), x: 0, y: 0 };
+    this.view.x = Math.max(margin - minX * this.view.zoom, (rect.width - (maxX - minX) * this.view.zoom) / 2 - minX * this.view.zoom);
     this.view.y = (rect.height - (maxY - minY) * this.view.zoom) / 2 - minY * this.view.zoom;
     this.#applyView();
   }
@@ -246,6 +261,10 @@ export class Canvas {
 
   #onPointerDown(event) {
     if (event.button !== 0 || this.gesture) return;
+    if (this.readOnly) {
+      if (event.target.closest("button, input, select, a")) return;
+      return this.#startPan(event, event.target.closest(".ge-node")); // a click on a node activates it (see #onPointerUp)
+    }
     const port = event.target.closest(".ge-port");
     if (port && port.dataset.direction !== "input") return this.#startConnect(event, port);
     if (event.target.closest("button, input, select, a")) return;
@@ -256,7 +275,11 @@ export class Canvas {
     }
     const el = event.target.closest(".ge-node");
     if (el) return this.#startMove(event, this.nodes.get(el.dataset.nodeId));
-    this.gesture = { type: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { ...this.view }, moved: false };
+    this.#startPan(event);
+  }
+
+  #startPan(event, nodeEl = null) {
+    this.gesture = { type: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { ...this.view }, moved: false, nodeEl };
     this.viewport.setPointerCapture(event.pointerId);
   }
 
@@ -318,7 +341,10 @@ export class Canvas {
     }
     this.gesture = null;
     this.viewport.releasePointerCapture?.(event.pointerId);
-    if (g.type === "pan" && !g.moved) this.handlers.onSelect(null);
+    if (g.type === "pan" && !g.moved && g.nodeEl) {
+      this.focusNode(g.nodeEl.dataset.nodeId);
+      this.handlers.onOpen?.(this.nodes.get(g.nodeEl.dataset.nodeId));
+    } else if (g.type === "pan" && !g.moved) this.handlers.onSelect(null);
     if (g.type === "move" && g.moved) this.handlers.onMoved(g.node);
   }
 
@@ -354,6 +380,13 @@ export class Canvas {
     const el = event.target.closest?.(".ge-node");
     if (!el || event.target.closest("input, select, button")) return;
     const node = this.nodes.get(el.dataset.nodeId);
+    if (this.readOnly) {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        this.handlers.onOpen?.(node);
+      }
+      return;
+    }
     const step = event.shiftKey ? NUDGE * 4 : NUDGE;
     const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[event.key];
     if (delta) {

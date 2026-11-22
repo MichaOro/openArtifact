@@ -10,7 +10,16 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
-from tests.helpers import build_definition, build_pipeline, connect, kind_of, link, node
+from tests.helpers import (
+    build_definition,
+    build_pipeline,
+    connect,
+    graph_url,
+    kind_of,
+    link,
+    node,
+    slow_pipeline,
+)
 
 LANES = ("backlog", "in_progress", "done")
 
@@ -217,3 +226,143 @@ def executions(client: httpx.Client, task: dict[str, Any]) -> list[dict[str, Any
 def wait_executions(client: httpx.Client, task: dict[str, Any], statuses: list[str]) -> None:
     """The statuses of the artifact's executions (newest first) become `statuses` (polls)."""
     Board._eventually(lambda: [e["status"] for e in executions(client, task)], statuses, 15)
+
+
+# ── flows of an execution ────────────────────────────────────────────
+
+
+def arrange(client: httpx.Client, graph: dict[str, Any]) -> None:
+    """Lay the top-level nodes of a graph out left to right (the builders create them all at 0, 0)."""
+    nodes = client.get(graph_url(graph)).json()["nodes"]
+    order = ["trigger", "stage", "timer", "code", "http", "pipeline", "complete", "output"]
+    line = sorted((n for n in nodes if n["stage_id"] is None), key=lambda n: order.index(n["kind"]))
+    x = 40.0
+    for n in line:
+        wide = {"stage": 400, "code": 290, "output": 0}.get(n["kind"], 240)
+        y = 40 if n["kind"] in ("stage", "output", "code") else 110
+        client.patch(
+            f"{graph_url(graph)}/nodes/{n['id']}", json={"x": x, "y": y}
+        ).raise_for_status()
+        x += wide
+
+
+def code_definition(
+    client: httpx.Client, name: str, code: str, node_name: str | None = None
+) -> dict[str, Any]:
+    """An action definition: trigger -> a Python Code node -> Output (On Pass and On Fail)."""
+    definition = build_definition(client, name, output=None, fail_enabled=True)
+    trigger, output = kind_of(client, definition, "trigger"), kind_of(client, definition, "output")
+    step = node(
+        client,
+        definition,
+        "code",
+        name=node_name or name.lower(),
+        config={"language": "python", "code": code},
+    )
+    connect(client, definition, trigger, "out", step, "in")
+    connect(client, definition, step, "pass", output, "pass")
+    connect(client, definition, step, "fail", output, "fail")
+    arrange(client, definition)
+    return definition
+
+
+def two_stage_pipeline(client: httpx.Client) -> dict[str, Any]:
+    """Stage "Build" runs the definition "Compile", stage "Ship" runs "Deliver" (both print a line)."""
+    pipeline = build_pipeline(client, stages=2, name="Release flow", stage_name="Stage {}")
+    for (stage, action), (stage_name, definition_name) in zip(
+        pipeline["stages"], [("Build", "Compile"), ("Ship", "Deliver")], strict=True
+    ):
+        client.patch(f"{graph_url(pipeline)}/nodes/{stage['id']}", json={"name": stage_name})
+        link(
+            client,
+            pipeline,
+            action,
+            code_definition(client, definition_name, f"print('{definition_name} done')"),
+        )
+    arrange(client, pipeline)
+    return pipeline
+
+
+def failing_pipeline(client: httpx.Client) -> dict[str, Any]:
+    """One action whose Code node exits with 1; its On Error leads to the end of the stage, so the
+    execution still ends "done"."""
+    pipeline = build_pipeline(client, stages=1, name="Failing flow", stage_name="Check")
+    stage, action = pipeline["stages"][0]
+    link(
+        client,
+        pipeline,
+        action,
+        code_definition(client, "Verify", "import sys\nprint('broken')\nsys.exit(1)"),
+    )
+    connect(client, pipeline, action, "error", stage, "end")
+    arrange(client, pipeline)
+    return pipeline
+
+
+def nested_pipeline(client: httpx.Client) -> tuple[dict[str, Any], dict[str, Any]]:
+    """An outer pipeline that calls an inner one (one stage, one Code action). Returns (outer, inner)."""
+    inner = build_pipeline(client, stages=1, name="Inner flow", stage_name="Inner stage")
+    link(client, inner, inner["stages"][0][1], code_definition(client, "Inner work", "print('in')"))
+    outer = build_pipeline(client, stages=1, name="Outer flow", stage_name="Outer stage")
+    complete = kind_of(client, outer, "complete")
+    call = node(client, outer, "pipeline")
+    connect(client, outer, outer["stages"][0][0], "end", call, "in")
+    connect(client, outer, call, "out", complete, "in")
+    response = client.patch(
+        f"{graph_url(outer)}/nodes/{call['id']}", json={"definition_id": inner["id"]}
+    )
+    assert response.status_code == 200, response.text
+    arrange(client, inner)
+    arrange(client, outer)
+    return outer, inner
+
+
+def retry_pipeline(client: httpx.Client, marker: str) -> dict[str, Any]:
+    """One action that fails the first time it runs and passes the second: its On Error leads back
+    to itself. ``marker`` is a path the Code node creates on the first run."""
+    pipeline = build_pipeline(client, stages=1, name="Retry flow", stage_name="Flaky stage")
+    action = pipeline["stages"][0][1]
+    code = (
+        "import os, sys\n"
+        f"marker = {marker!r}\n"
+        "if os.path.exists(marker):\n"
+        "    print('second try')\n"
+        "else:\n"
+        "    open(marker, 'w').close()\n"
+        "    print('first try')\n"
+        "    sys.exit(1)\n"
+    )
+    link(client, pipeline, action, code_definition(client, "Flaky", code))
+    connect(client, pipeline, action, "error", action, "in")
+    arrange(client, pipeline)
+    return pipeline
+
+
+def slow_flow(client: httpx.Client, seconds: int = 4) -> dict[str, Any]:
+    """A pipeline whose action first prints, then waits (a timer): a run that stays running a while."""
+    pipeline = slow_pipeline(client, seconds=seconds, stage_name="Waiting stage")
+    arrange(client, pipeline)
+    return pipeline
+
+
+def execution_of(client: httpx.Client, task: dict[str, Any], number: int = 1) -> dict[str, Any]:
+    """The execution of the artifact with this number."""
+    return next(e for e in executions(client, task) if e["number"] == number)
+
+
+def flow_url(base_url: str, task: dict[str, Any], execution: dict[str, Any]) -> str:
+    """The page of the flow of an execution."""
+    return f"{base_url}/artifacts/{task['number']}/executions/{execution['id']}"
+
+
+def run_started(
+    client: httpx.Client, task: dict[str, Any], pipeline: dict[str, Any], **at: Any
+) -> None:
+    """Start the artifact (optionally at a stage or an action) and wait until it is no longer running."""
+    response = client.post(
+        f"/api/tasks/{task['id']}/run", json={"pipeline_id": pipeline["id"], **at}
+    )
+    assert response.status_code in (200, 201), response.text
+    Board._eventually(
+        lambda: all(e["status"] != "running" for e in executions(client, task)), True, 20
+    )

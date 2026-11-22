@@ -137,6 +137,26 @@ async def action_editor(request: Request, ref: str, session: SessionDep) -> HTML
     return await _editor_page(request, session, "action", ref)
 
 
+@router.get("/artifacts/{ref}/executions/{execution_id}", response_class=HTMLResponse)
+async def execution_flow(request: Request, ref: str, execution_id: str) -> HTMLResponse:
+    """The read-only flow of one execution of an artifact (``ref``: its number or id).
+
+    The page loads everything through the API; an execution that does not exist (any more) is
+    reported by the page itself. It is a sub-page of the board, so the sidebar marks Projects.
+    """
+    return templates.TemplateResponse(
+        request=request,
+        name="execution_flow.html",
+        context={
+            "page_title": "Execution flow",
+            "active_nav": "projects",
+            "app_version": APP_VERSION,
+            "task_ref": ref,
+            "execution_id": execution_id,
+        },
+    )
+
+
 # ── sign-in (only when an API token is configured, see security.py) ─────────
 
 

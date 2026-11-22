@@ -44,6 +44,7 @@
     <section class="history-detail" aria-labelledby="history-detail-heading" data-history-detail hidden>
         <div class="history-detail__bar">
             <button type="button" class="button button--ghost button--sm" data-detail-back>Back</button>
+            <a class="button button--ghost button--sm" href="#" data-detail-flow>Open flow</a>
             <button type="button" class="button button--ghost button--sm history-detail__delete" data-detail-delete>Delete execution</button>
         </div>
         <h3 class="history-detail__heading" id="history-detail-heading" tabindex="-1" data-detail-heading></h3>
@@ -67,25 +68,4 @@
         <button type="button" class="icon-button icon-button--sm history-row__delete" data-row-delete></button>
     </li>
 </template>
-<template id="history-step-template">
-    <li class="history-step">
-        <div class="history-step__head">
-            <span class="history-step__seq" data-step-seq></span>
-            <span class="history-step__kind" data-step-kind-icon></span>
-            <span class="history-step__name"><span data-step-name></span> <span class="history-step__kind-text" data-step-kind></span></span>
-            <span class="history-chip" data-step-outcome><span data-chip-icon></span><span data-chip-text></span></span>
-        </div>
-        <p class="history-step__where" data-step-where hidden></p>
-        <p class="history-step__facts" data-step-facts></p>
-        <p class="history-step__reason" data-step-reason hidden></p>
-        <details class="history-step__block" data-step-output hidden>
-            <summary>Output</summary>
-            <pre class="history-step__pre" tabindex="0"></pre>
-            <p class="field__help" data-step-truncated hidden>The output was cut off: only the beginning is kept.</p>
-        </details>
-        <details class="history-step__block" data-step-data hidden>
-            <summary>Data</summary>
-            <pre class="history-step__pre" tabindex="0"></pre>
-        </details>
-    </li>
-</template>
+{% include "components/history_step_template.html" %}

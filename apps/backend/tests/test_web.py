@@ -205,6 +205,7 @@ def test_task_modules_are_served(client: TestClient) -> None:
         "/static/js/tasks/history-detail.js",
         "/static/js/tasks/history-api.js",
         "/static/js/tasks/history-format.js",
+        "/static/js/tasks/history-step.js",
         "/static/js/tasks/retention-editor.js",
         "/static/js/components/tabs.js",
         "/static/css/history.css",
@@ -410,3 +411,30 @@ def test_name_dialogs_are_the_shared_form_dialog(client: TestClient) -> None:
         assert 'id="name-modal-field-name-error"' in html
         assert "<span data-submit-label>Create</span>" in html
         assert "data-cancel" in html
+
+
+def test_the_execution_flow_page_and_its_modules_are_served(client: TestClient) -> None:
+    """The flow page of an execution is a sub-page of the board; whether the execution exists is the page's business."""
+    page = client.get("/artifacts/7/executions/abc")
+    assert page.status_code == 200
+    assert 'data-task-ref="7"' in page.text and 'data-execution-id="abc"' in page.text
+    assert 'type="module" src="/static/js/execution/flow-page.js"' in page.text
+    assert 'id="history-step-template"' in page.text
+    assert 'aria-current="page"' in page.text  # the sidebar marks Projects
+    for path in (
+        "/static/js/execution/flow-page.js",
+        "/static/js/execution/flow-client.js",
+        "/static/js/execution/flow-view.js",
+        "/static/js/execution/flow-panel.js",
+        "/static/js/execution/visit-model.js",
+        "/static/js/execution/breadcrumb.js",
+        "/static/css/execution.css",
+        "/static/js/tasks/history-step.js",
+    ):
+        assert client.get(path).status_code == 200, path
+
+
+def test_the_history_tab_links_to_the_flow_page(client: TestClient) -> None:
+    html = client.get("/").text
+    assert "data-detail-flow" in html and ">Open flow</a>" in html
+    assert html.count('id="history-step-template"') == 1
