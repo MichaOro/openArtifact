@@ -7,6 +7,7 @@ sequential migration execution, and migration failure handling.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -81,40 +82,22 @@ def test_alembic_env_py_exists() -> None:
     assert env_path.exists()
 
 
-def test_upgrade_head_and_downgrade_on_sqlite(unmigrated_settings: Settings) -> None:
-    """All migrations apply to a fresh SQLite database and can be reverted."""
-    db_path = unmigrated_settings.data_dir / unmigrated_settings.database_filename
-
-    command.upgrade(alembic_config(), "head")
-
-    with sqlite3.connect(db_path) as conn:
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        assert not {"projects", "work_items"} & tables
-
-    command.downgrade(alembic_config(), "0001")
-
-    with sqlite3.connect(db_path) as conn:
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        assert not {"projects", "work_items"} & tables
-
-
 def test_migration_0026_drops_and_restores_the_unused_tables(
-    unmigrated_settings: Settings,
+    at_revision: Callable[[str], Path],
 ) -> None:
     """Down recreates projects and work_items as migration 0002 made them; up drops them again."""
-    db_path = unmigrated_settings.data_dir / unmigrated_settings.database_filename
-    command.upgrade(alembic_config(), "0025")
-    with sqlite3.connect(db_path) as conn:
+    db = at_revision("0025")
+    with sqlite3.connect(db) as conn:
         conn.execute("INSERT INTO projects (id, name) VALUES ('p1', 'Demo')")
         conn.execute("INSERT INTO work_items (id, project_id, title) VALUES ('w1', 'p1', 'T')")
 
     command.upgrade(alembic_config(), "0026")
-    with sqlite3.connect(db_path) as conn:
+    with sqlite3.connect(db) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert not {"projects", "work_items"} & tables
 
     command.downgrade(alembic_config(), "0025")
-    with sqlite3.connect(db_path) as conn:
+    with sqlite3.connect(db) as conn:
         indexes = {
             r[0]
             for r in conn.execute(
@@ -141,7 +124,7 @@ def test_migration_0026_drops_and_restores_the_unused_tables(
         assert conn.execute("SELECT COUNT(*) FROM work_items").fetchone()[0] == 0
 
     command.upgrade(alembic_config(), "head")
-    with sqlite3.connect(db_path) as conn:
+    with sqlite3.connect(db) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert not {"projects", "work_items"} & tables
 
@@ -231,19 +214,20 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
             conn.execute("INSERT INTO tasks (id, title, status) VALUES ('b', 'T', 'BACKLOG')")
 
 
-def test_migration_downgrade_removes_tasks(migrated_settings: Settings) -> None:
+def test_migration_downgrade_removes_tasks(at_revision: Callable[[str], Path]) -> None:
+    db = at_revision("0003")
     command.downgrade(alembic_config(), "0002")
-    db_path = migrated_settings.data_dir / migrated_settings.database_filename
-    with sqlite3.connect(db_path) as conn:
+    with sqlite3.connect(db) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert "tasks" not in tables
     assert "work_items" in tables
 
 
-def test_migration_0004_backfills_positions_in_the_old_order(unmigrated_settings: Settings) -> None:
-    command.upgrade(alembic_config(), "0003")
-    db_path = unmigrated_settings.data_dir / unmigrated_settings.database_filename
-    with sqlite3.connect(db_path) as conn:
+def test_migration_0004_backfills_positions_in_the_old_order(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0003")
+    with sqlite3.connect(db) as conn:
         for tid, status, created in (
             ("t1", "backlog", "2026-01-01 10:00:00"),
             ("t2", "backlog", "2026-01-01 11:00:00"),
@@ -254,45 +238,45 @@ def test_migration_0004_backfills_positions_in_the_old_order(unmigrated_settings
                 "INSERT INTO tasks (id, title, status, created_at) VALUES (?, ?, ?, ?)",
                 (tid, tid, status, created),
             )
-    command.upgrade(alembic_config(), "head")
-    with sqlite3.connect(db_path) as conn:
+    command.upgrade(alembic_config(), "0004")
+    with sqlite3.connect(db) as conn:
         rows = conn.execute("SELECT id, position FROM tasks ORDER BY status, position").fetchall()
     assert rows == [("t3", 0.0), ("t2", 1.0), ("t1", 2.0), ("t4", 0.0)]  # newest first, per lane
     command.downgrade(alembic_config(), "0003")
-    with sqlite3.connect(db_path) as conn:
+    with sqlite3.connect(db) as conn:
         assert "position" not in {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
 
 
-def test_migration_0005_adds_nullable_parent_id(unmigrated_settings: Settings) -> None:
-    command.upgrade(alembic_config(), "0004")
-    db_path = unmigrated_settings.data_dir / unmigrated_settings.database_filename
-    with sqlite3.connect(db_path) as conn:
+def test_migration_0005_adds_nullable_parent_id(at_revision: Callable[[str], Path]) -> None:
+    db = at_revision("0004")
+    with sqlite3.connect(db) as conn:
         conn.execute("INSERT INTO tasks (id, title) VALUES ('old', 'existing row')")
-    command.upgrade(alembic_config(), "head")
-    with sqlite3.connect(db_path) as conn:
+    command.upgrade(alembic_config(), "0005")
+    with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT parent_id FROM tasks WHERE id='old'").fetchone() == (None,)
         # the CHECK constraint on status survives the schema change
         with pytest.raises(sqlite3.IntegrityError):
             conn.execute("INSERT INTO tasks (id, title, status) VALUES ('bad', 'x', 'BACKLOG')")
     command.downgrade(alembic_config(), "0004")
-    with sqlite3.connect(db_path) as conn:
+    with sqlite3.connect(db) as conn:
         assert "parent_id" not in {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
         assert conn.execute("SELECT title FROM tasks WHERE id='old'").fetchone() == (
             "existing row",
         )
 
 
-def test_migration_0006_numbers_existing_tasks_oldest_first(unmigrated_settings: Settings) -> None:
-    command.upgrade(alembic_config(), "0005")
-    db_path = unmigrated_settings.data_dir / unmigrated_settings.database_filename
-    with sqlite3.connect(db_path) as conn:
+def test_migration_0006_numbers_existing_tasks_oldest_first(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0005")
+    with sqlite3.connect(db) as conn:
         for tid, created in (("t2", "2026-01-02 10:00:00"), ("t1", "2026-01-01 10:00:00")):
             conn.execute(
                 "INSERT INTO tasks (id, title, status, created_at) VALUES (?, ?, 'backlog', ?)",
                 (tid, tid, created),
             )
-    command.upgrade(alembic_config(), "head")
-    with sqlite3.connect(db_path) as conn:
+    command.upgrade(alembic_config(), "0006")
+    with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT id, number FROM tasks ORDER BY number").fetchall() == [
             ("t1", 1),
             ("t2", 2),
@@ -301,18 +285,17 @@ def test_migration_0006_numbers_existing_tasks_oldest_first(unmigrated_settings:
 
 
 def test_migration_0007_clears_dangling_parents_and_keeps_the_rest(
-    unmigrated_settings: Settings,
+    at_revision: Callable[[str], Path],
 ) -> None:
-    command.upgrade(alembic_config(), "0006")
-    db_path = unmigrated_settings.data_dir / unmigrated_settings.database_filename
-    with sqlite3.connect(db_path) as conn:
+    db = at_revision("0006")
+    with sqlite3.connect(db) as conn:
         conn.execute("INSERT INTO tasks (id, title, number) VALUES ('p', 'P', 1)")
         conn.execute("INSERT INTO tasks (id, title, number, parent_id) VALUES ('c', 'C', 2, 'p')")
         conn.execute(
             "INSERT INTO tasks (id, title, number, parent_id) VALUES ('o', 'O', 3, 'gone')"
         )
-    command.upgrade(alembic_config(), "head")
-    with sqlite3.connect(db_path) as conn:
+    command.upgrade(alembic_config(), "0007")
+    with sqlite3.connect(db) as conn:
         rows = conn.execute("SELECT id, number, parent_id FROM tasks ORDER BY number").fetchall()
         assert rows == [("p", 1, None), ("c", 2, "p"), ("o", 3, None)]
         indexes = {r[1] for r in conn.execute("PRAGMA index_list(tasks)")}
@@ -320,28 +303,42 @@ def test_migration_0007_clears_dangling_parents_and_keeps_the_rest(
         with pytest.raises(sqlite3.IntegrityError):  # the status CHECK survived the rebuild
             conn.execute("INSERT INTO tasks (id, title, status) VALUES ('x', 'X', 'BACKLOG')")
     command.downgrade(alembic_config(), "0006")
-    with sqlite3.connect(db_path) as conn:
+    with sqlite3.connect(db) as conn:
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute(
             "INSERT INTO tasks (id, title, parent_id) VALUES ('z', 'Z', 'nowhere')"
         )  # no FK anymore
 
 
-def test_migration_0008_is_reversible(unmigrated_settings: Settings) -> None:
+def test_artifacts_survive_every_later_migration(at_revision: Callable[[str], Path]) -> None:
+    """Rows written at revision 0006 are still there, unchanged, at the newest revision."""
+    db = at_revision("0006")
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO tasks (id, title, number, status) VALUES ('p', 'P', 1, 'done')")
+        conn.execute("INSERT INTO tasks (id, title, number, parent_id) VALUES ('c', 'C', 2, 'p')")
     command.upgrade(alembic_config(), "head")
+    with sqlite3.connect(db) as conn:
+        assert conn.execute(
+            "SELECT id, title, number, status, parent_id, created_by, pipeline_id "
+            "FROM tasks ORDER BY number"
+        ).fetchall() == [
+            ("p", "P", 1, "done", None, "user", None),
+            ("c", "C", 2, "backlog", "p", "user", None),
+        ]
+
+
+def test_migration_0008_is_reversible(at_revision: Callable[[str], Path]) -> None:
+    db = at_revision("0008")
     command.downgrade(alembic_config(), "0007")
-    with sqlite3.connect(
-        unmigrated_settings.data_dir / unmigrated_settings.database_filename
-    ) as conn:
+    with sqlite3.connect(db) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert not {"workflows", "workflow_nodes", "workflow_edges", "graphs"} & tables
 
 
 def test_migration_0009_merges_the_inner_and_outer_stage_ports(
-    unmigrated_settings: Settings,
+    at_revision: Callable[[str], Path],
 ) -> None:
-    command.upgrade(alembic_config(), "0008")
-    db = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+    db = at_revision("0008")
     with sqlite3.connect(db) as conn:
         conn.execute("INSERT INTO workflows (id, name) VALUES ('w', 'W')")
         for node_id, kind, stage in (
@@ -384,9 +381,8 @@ def test_migration_0009_merges_the_inner_and_outer_stage_ports(
         ]
 
 
-def test_migration_0010_adds_defaults_and_is_reversible(unmigrated_settings: Settings) -> None:
-    command.upgrade(alembic_config(), "0009")
-    db = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+def test_migration_0010_adds_defaults_and_is_reversible(at_revision: Callable[[str], Path]) -> None:
+    db = at_revision("0009")
     with sqlite3.connect(db) as conn:
         conn.execute("INSERT INTO workflows (id, name) VALUES ('w', 'W')")
         for node_id, kind in (("t", "trigger"), ("s", "stage")):
@@ -409,10 +405,9 @@ def test_migration_0010_adds_defaults_and_is_reversible(unmigrated_settings: Set
 
 
 def test_migration_0011_marks_existing_pipelines_and_is_reversible(
-    unmigrated_settings: Settings,
+    at_revision: Callable[[str], Path],
 ) -> None:
-    command.upgrade(alembic_config(), "0010")
-    db = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+    db = at_revision("0010")
     with sqlite3.connect(db) as conn:
         conn.execute("INSERT INTO workflows (id, name) VALUES ('w', 'W')")
     command.upgrade(alembic_config(), "0011")
@@ -429,10 +424,9 @@ def test_migration_0011_marks_existing_pipelines_and_is_reversible(
 
 
 def test_migration_0012_adds_a_complete_and_connects_a_free_trigger(
-    unmigrated_settings: Settings,
+    at_revision: Callable[[str], Path],
 ) -> None:
-    command.upgrade(alembic_config(), "0011")
-    db = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+    db = at_revision("0011")
     with sqlite3.connect(db) as conn:
         for pipeline in ("free", "busy"):
             conn.execute("INSERT INTO workflows (id, name) VALUES (?, ?)", (pipeline, pipeline))
@@ -465,11 +459,10 @@ def test_migration_0012_adds_a_complete_and_connects_a_free_trigger(
         ).fetchone() == (1,)  # the busy trigger keeps its own connection only
 
 
-def test_migration_0013_is_reversible(unmigrated_settings: Settings) -> None:
-    command.upgrade(alembic_config(), "head")
-    db = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+def test_migration_0013_is_reversible(at_revision: Callable[[str], Path]) -> None:
+    db = at_revision("0013")
     with sqlite3.connect(db) as conn:
-        assert "definition_id" in {r[1] for r in conn.execute("PRAGMA table_info(graph_nodes)")}
+        assert "definition_id" in {r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")}
     command.downgrade(alembic_config(), "0012")
     with sqlite3.connect(db) as conn:
         assert "definition_id" not in {
@@ -477,9 +470,10 @@ def test_migration_0013_is_reversible(unmigrated_settings: Settings) -> None:
         }
 
 
-def test_migration_0014_gives_existing_rows_unique_slugs(unmigrated_settings: Settings) -> None:
-    command.upgrade(alembic_config(), "0013")
-    db = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+def test_migration_0014_gives_existing_rows_unique_slugs(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0013")
     with sqlite3.connect(db) as conn:
         for row_id, name, kind in (
             ("a", "Test", "workflow"),
@@ -498,9 +492,8 @@ def test_migration_0014_gives_existing_rows_unique_slugs(unmigrated_settings: Se
         assert "slug" not in {r[1] for r in conn.execute("PRAGMA table_info(workflows)")}
 
 
-def test_migration_0015_points_output_edges_at_on_pass(unmigrated_settings: Settings) -> None:
-    command.upgrade(alembic_config(), "0014")
-    db = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+def test_migration_0015_points_output_edges_at_on_pass(at_revision: Callable[[str], Path]) -> None:
+    db = at_revision("0014")
     with sqlite3.connect(db) as conn:
         conn.execute(
             "INSERT INTO workflows (id, name, kind, slug) VALUES ('a', 'A', 'action', 'a')"
@@ -533,19 +526,13 @@ def test_migration_0015_points_output_edges_at_on_pass(unmigrated_settings: Sett
         assert conn.execute(query).fetchall() == [("e1", "in"), ("e2", "in")]
 
 
-def test_migration_0016_is_reversible(unmigrated_settings: Settings) -> None:
-    command.upgrade(alembic_config(), "head")
-    db = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+def test_migration_0016_is_reversible(at_revision: Callable[[str], Path]) -> None:
+    db = at_revision("0016")
     with sqlite3.connect(db) as conn:
-        assert "seconds" in {r[1] for r in conn.execute("PRAGMA table_info(graph_nodes)")}
+        assert "seconds" in {r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")}
     command.downgrade(alembic_config(), "0015")
     with sqlite3.connect(db) as conn:
         assert "seconds" not in {r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")}
-
-
-def _upgrade_to_0019(settings: Settings) -> Any:
-    command.upgrade(alembic_config(), "0019")
-    return settings.data_dir / settings.database_filename
 
 
 def _seed_old_names(db: Any) -> None:
@@ -580,9 +567,9 @@ def _seed_old_names(db: Any) -> None:
 
 
 def test_migration_0020_renames_workflows_to_graphs_and_keeps_the_data(
-    unmigrated_settings: Settings,
+    at_revision: Callable[[str], Path],
 ) -> None:
-    db = _upgrade_to_0019(unmigrated_settings)
+    db = at_revision("0019")
     _seed_old_names(db)
     command.upgrade(alembic_config(), "0020")
     with sqlite3.connect(db) as conn:
@@ -621,9 +608,9 @@ def test_migration_0020_renames_workflows_to_graphs_and_keeps_the_data(
 
 
 def test_migration_0020_allows_only_pipeline_and_action_kinds(
-    unmigrated_settings: Settings,
+    at_revision: Callable[[str], Path],
 ) -> None:
-    db = _upgrade_to_0019(unmigrated_settings)
+    db = at_revision("0019")
     command.upgrade(alembic_config(), "0020")
     with sqlite3.connect(db) as conn:
         conn.execute("INSERT INTO graphs (id, name, kind, slug) VALUES ('a', 'A', 'pipeline', 'a')")
@@ -633,8 +620,8 @@ def test_migration_0020_allows_only_pipeline_and_action_kinds(
             )
 
 
-def test_migration_0020_is_reversible(unmigrated_settings: Settings) -> None:
-    db = _upgrade_to_0019(unmigrated_settings)
+def test_migration_0020_is_reversible(at_revision: Callable[[str], Path]) -> None:
+    db = at_revision("0019")
     _seed_old_names(db)
     command.upgrade(alembic_config(), "0020")
     command.downgrade(alembic_config(), "0019")
@@ -653,3 +640,111 @@ def test_migration_0020_is_reversible(unmigrated_settings: Settings) -> None:
             "SELECT definition_id FROM workflow_nodes WHERE id = 'pn'"
         ).fetchone() == ("p",)
     command.upgrade(alembic_config(), "head")
+
+
+def test_migration_0017_adds_pipeline_runs_with_their_constraints(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0016")
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO tasks (id, title, number) VALUES ('t', 'T', 1)")
+        conn.execute("INSERT INTO workflows (id, name, slug) VALUES ('w', 'W', 'w')")
+    command.upgrade(alembic_config(), "0017")
+    run = "INSERT INTO pipeline_runs (id, task_id, workflow_id, status, started_by, snapshot) "
+    with sqlite3.connect(db) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute(run + "VALUES ('r', 't', 'w', 'running', 'user', '{}')")
+        conn.execute(
+            "INSERT INTO run_stages (run_id, stage_id, name, position, status) "
+            "VALUES ('r', 's1', 'Build', 0, 'pending')"
+        )
+        with pytest.raises(sqlite3.IntegrityError, match="ck_pipeline_runs_status"):
+            conn.execute(run + "VALUES ('x', 't', 'w', 'paused', 'user', '{}')")
+        with pytest.raises(sqlite3.IntegrityError, match="ck_pipeline_runs_started_by"):
+            conn.execute(run + "VALUES ('x', 't', 'w', 'running', 'robot', '{}')")
+        with pytest.raises(sqlite3.IntegrityError):  # one run per artifact
+            conn.execute(run + "VALUES ('x', 't', 'w', 'done', 'user', '{}')")
+        with pytest.raises(sqlite3.IntegrityError, match="ck_run_stages_status"):
+            conn.execute(
+                "INSERT INTO run_stages (run_id, stage_id, name, position, status) "
+                "VALUES ('r', 's2', 'Test', 1, 'maybe')"
+            )
+        conn.execute("DELETE FROM workflows WHERE id = 'w'")  # the run outlives its pipeline
+        assert conn.execute("SELECT workflow_id FROM pipeline_runs").fetchall() == [(None,)]
+        conn.execute("DELETE FROM tasks WHERE id = 't'")  # but not its artifact
+        assert conn.execute("SELECT count(*) FROM pipeline_runs").fetchone() == (0,)
+        assert conn.execute("SELECT count(*) FROM run_stages").fetchone() == (0,)
+
+    command.downgrade(alembic_config(), "0016")
+    with sqlite3.connect(db) as conn:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert not {"pipeline_runs", "run_stages"} & tables
+
+
+def test_migration_0018_allows_pipeline_nodes_and_downgrade_removes_them_with_their_edges(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0017")
+    node = "INSERT INTO workflow_nodes (id, workflow_id, kind, name) VALUES (?, 'w', ?, ?)"
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO workflows (id, name, slug) VALUES ('w', 'W', 'w')")
+        with pytest.raises(sqlite3.IntegrityError, match="ck_workflow_nodes_kind"):
+            conn.execute(node, ("p", "pipeline", "P"))
+    command.upgrade(alembic_config(), "0018")
+    with sqlite3.connect(db) as conn:
+        for node_id, kind in (("t", "trigger"), ("p", "pipeline"), ("s", "stage")):
+            conn.execute(node, (node_id, kind, node_id))
+        for edge_id, source, port, target in (
+            ("e1", "t", "out", "p"),
+            ("e2", "p", "pass", "s"),
+            ("e3", "t", "other", "s"),
+        ):
+            conn.execute(
+                "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, "
+                "target_port) VALUES (?, 'w', ?, ?, ?, 'start')",
+                (edge_id, source, port, target),
+            )
+
+    command.downgrade(alembic_config(), "0017")
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT id FROM workflow_nodes ORDER BY id").fetchall() == [
+            ("s",),
+            ("t",),
+        ]
+        assert conn.execute("SELECT id FROM workflow_edges").fetchall() == [("e3",)]
+        with pytest.raises(sqlite3.IntegrityError, match="ck_workflow_nodes_kind"):
+            conn.execute(node, ("p2", "pipeline", "P"))
+
+
+def test_migration_0019_adds_the_target_and_origin_columns_and_keeps_the_artifacts(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0018")
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO tasks (id, title, number) VALUES ('old', 'Old', 1)")
+        conn.execute("INSERT INTO workflows (id, name, slug) VALUES ('w', 'W', 'w')")
+    command.upgrade(alembic_config(), "0019")
+    with sqlite3.connect(db) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+        assert conn.execute(
+            "SELECT title, pipeline_id, stage_id, action_id, created_by FROM tasks"
+        ).fetchall() == [("Old", None, None, None, "user")]
+        conn.execute(
+            "INSERT INTO tasks (id, title, number, pipeline_id, stage_id, action_id, created_by) "
+            "VALUES ('new', 'New', 2, 'w', 's', 'a', 'mcp')"
+        )
+        with pytest.raises(sqlite3.IntegrityError, match="ck_tasks_created_by"):
+            conn.execute(
+                "INSERT INTO tasks (id, title, number, created_by) VALUES ('x', 'X', 3, 'bot')"
+            )
+        conn.execute("DELETE FROM workflows WHERE id = 'w'")  # the artifact keeps living
+        assert conn.execute("SELECT pipeline_id FROM tasks WHERE id = 'new'").fetchone() == (None,)
+
+    command.downgrade(alembic_config(), "0018")
+    with sqlite3.connect(db) as conn:
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
+        assert not {"pipeline_id", "stage_id", "action_id", "created_by"} & columns
+        assert conn.execute("SELECT id, title, number FROM tasks ORDER BY number").fetchall() == [
+            ("old", "Old", 1),
+            ("new", "New", 2),
+        ]

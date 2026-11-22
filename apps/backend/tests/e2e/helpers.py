@@ -22,6 +22,32 @@ from tests.helpers import (
 )
 
 
+def eventually(read: Callable[[], Any], expected: Any, timeout: float = 5.0) -> None:
+    """`read()` becomes `expected` (server-side effects are asynchronous: polls without a browser sleep)."""
+    deadline = time.monotonic() + timeout
+    while read() != expected:
+        if time.monotonic() > deadline:
+            raise AssertionError(f"expected {expected!r}, got {read()!r}")
+        time.sleep(0.02)
+
+
+def centre(locator: Locator) -> tuple[float, float]:
+    """The middle of an element in page coordinates."""
+    box = locator.bounding_box()
+    assert box is not None
+    return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+
+
+def drag(page: Page, source: Locator, target: Locator, steps: int = 10) -> None:
+    """Drag from the middle of `source` to the middle of `target` and release."""
+    sx, sy = centre(source)
+    tx, ty = centre(target)
+    page.mouse.move(sx, sy)
+    page.mouse.down()
+    page.mouse.move(tx, ty, steps=steps)
+    page.mouse.up()
+
+
 class Board:
     """The Kanban page: lookups, a few compound actions and the REST client for set-up."""
 
@@ -61,11 +87,7 @@ class Board:
 
     @staticmethod
     def _eventually(read: Callable[[], Any], expected: Any, timeout: float = 5.0) -> None:
-        deadline = time.monotonic() + timeout
-        while read() != expected:
-            if time.monotonic() > deadline:
-                raise AssertionError(f"expected {expected!r}, the server has {read()!r}")
-            time.sleep(0.05)
+        eventually(read, expected, timeout)
 
     def patch(self, task: dict[str, Any], **fields: Any) -> None:
         """Change an artifact over REST, as another client would."""

@@ -538,3 +538,36 @@ def test_deleting_a_parent_row_nulls_the_children_in_the_database(
         conn.execute("INSERT INTO tasks (id, title, parent_id) VALUES ('c', 'C', 'p')")
         conn.execute("DELETE FROM tasks WHERE id = 'p'")
         assert conn.execute("SELECT parent_id FROM tasks WHERE id = 'c'").fetchone() == (None,)
+
+
+# ── runs that never happened, and data that is already broken ────────
+
+
+def test_the_results_of_an_artifact_that_was_never_processed_are_404(client: TestClient) -> None:
+    task = _create(client, title="Idle")
+    for url in (f"/api/runs/{task['id']}/results", f"/api/runs/{task['number']}/results"):
+        response = client.get(url)
+        assert response.status_code == 404
+        assert response.json()["detail"] == "The artifact was never processed"
+    assert client.get("/api/runs/nope/results").json()["detail"] == "Artifact not found"
+
+
+def test_the_service_has_no_results_for_an_artifact_that_never_ran(client: TestClient) -> None:
+    task = _create(client, title="Idle")
+    service = client.app.state.artifacts  # type: ignore[attr-defined]
+    assert client.portal is not None
+    assert client.portal.call(service.run_results, task["id"]) is None
+
+
+def test_a_parent_cycle_already_in_the_data_does_not_hang_a_new_assignment(
+    client: TestClient, migrated_settings: Settings
+) -> None:
+    """Only broken data can hold a cycle; checking a new parent must still end."""
+    a, b, c = _create(client, title="a"), _create(client, title="b"), _create(client, title="c")
+    path = migrated_settings.data_dir / migrated_settings.database_filename
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE tasks SET parent_id = ? WHERE id = ?", (b["id"], a["id"]))
+        conn.execute("UPDATE tasks SET parent_id = ? WHERE id = ?", (a["id"], b["id"]))
+    response = client.patch(f"/api/tasks/{c['id']}", json={"parent_id": a["id"]})
+    assert response.status_code == 200
+    assert response.json()["parent_id"] == a["id"]

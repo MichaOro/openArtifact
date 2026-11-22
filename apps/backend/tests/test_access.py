@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Generator, MutableMapping
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from openartifact.app import _create_app
 from openartifact.config import Settings
+from openartifact.security import TokenProtected
 
 TOKEN = "t0ken-for-the-tests-" + "x" * 20
 HTML = {"Accept": "text/html"}
@@ -139,3 +141,42 @@ def test_the_mcp_server_accepts_the_bearer_token_behind_the_gate(secured: TestCl
     headers = {**BEARER, "Accept": "application/json, text/event-stream"}
     assert secured.post("/mcp", json=init).status_code == 401
     assert secured.post("/mcp", json=init, headers=headers).status_code == 200
+
+
+# ── the gate in front of the mounted MCP server, below the HTTP level ──
+
+
+async def _through_token_gate(
+    scope: MutableMapping[str, Any],
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Run a scope through ``TokenProtected``; returns what reached the application and what was sent."""
+    reached: list[str] = []
+    sent: list[dict[str, Any]] = []
+
+    async def application(scope: Any, receive: Any, send: Any) -> None:
+        reached.append(scope["type"])
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.disconnect"}
+
+    async def send(message: MutableMapping[str, Any]) -> None:
+        sent.append(dict(message))
+
+    gate = TokenProtected(application, Settings(api_token=TOKEN, _env_file=None))  # type: ignore[call-arg]
+    await gate(scope, receive, send)
+    return reached, sent
+
+
+async def test_the_token_gate_lets_the_lifespan_of_the_mounted_app_through() -> None:
+    reached, sent = await _through_token_gate({"type": "lifespan"})
+    assert (reached, sent) == (["lifespan"], [])
+
+
+async def test_the_token_gate_refuses_a_request_without_the_token_and_passes_one_with_it() -> None:
+    refused_reached, refused = await _through_token_gate({"type": "http", "headers": []})
+    assert refused_reached == []
+    assert refused[0]["status"] == 401
+    allowed_reached, allowed = await _through_token_gate(
+        {"type": "http", "headers": [(b"authorization", f"Bearer {TOKEN}".encode())]}
+    )
+    assert (allowed_reached, allowed) == (["http"], [])

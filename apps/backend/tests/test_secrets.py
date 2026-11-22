@@ -117,6 +117,11 @@ def test_masking_covers_the_usual_forms() -> None:
     assert mask_data({"k": [VALUE, 1, {VALUE: None}]}, [VALUE]) == {"k": ["***", 1, {"***": None}]}
 
 
+def test_a_reference_without_a_value_stays_literal() -> None:
+    assert substitute("${secret:A} ${secret:B}", {"A": "x"}) == "x ${secret:B}"
+    assert substitute("?k=${secret:B}", {}, percent_encode=True) == "?k=${secret:B}"
+
+
 # ── the application with a token and a key ───────────────────────────
 
 
@@ -477,3 +482,53 @@ def test_migration_0022_goes_up_down_and_up(
     with sqlite3.connect(path) as conn:
         assert conn.execute("SELECT count(*) FROM secrets").fetchone() == (0,)
     command.check(cfg)
+
+
+# ── the store: nothing to resolve, nodes that do not name the secret ─
+
+
+def test_resolving_no_names_needs_no_database_and_gives_nothing(secured: TestClient) -> None:
+    store = secured.app.state.secret_store  # type: ignore[attr-defined]
+    assert secured.portal is not None
+    assert secured.portal.call(store.resolve, []) == {}
+    assert secured.portal.call(store.resolve, ()) == {}
+
+
+def test_uses_lists_only_nodes_that_name_the_secret_and_skips_a_broken_code_setting(
+    secured: TestClient, migrated_settings: Settings
+) -> None:
+    _put(secured, "API_KEY")
+    _put(secured, "OTHER_KEY")
+    mentions = _definition(secured, "http", url="https://example.org/?k=${secret:API_KEY}")
+    unrelated = _definition(secured, "http", url="https://example.org/?k=${secret:OTHER_KEY}")
+    code = _definition(secured, "code", language="sh", code="true", secrets="API_KEY")
+    broken = _definition(secured, "code", language="sh", code="true", secrets="API_KEY")
+    plain = _definition(secured, "http", url="https://example.org/")
+    # a setting the API would refuse, as an old or hand-edited database may hold it
+    path = migrated_settings.data_dir / migrated_settings.database_filename
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "UPDATE graph_nodes SET config = ? WHERE id = ?",
+            (
+                json.dumps({"language": "sh", "code": "true", "secrets": "not a name!"}),
+                broken["node"]["id"],
+            ),
+        )
+    found = secured.get("/api/secrets/API_KEY/uses")
+    assert found.status_code == 200
+    assert sorted(u["node_id"] for u in found.json()) == sorted(
+        [mentions["node"]["id"], code["node"]["id"]]
+    )
+    other = secured.get("/api/secrets/OTHER_KEY/uses").json()
+    assert [u["node_id"] for u in other] == [unrelated["node"]["id"]]
+    assert secured.get("/api/secrets/NOBODY_USES_THIS/uses").json() == []
+    assert plain["node"]["id"] not in found.text
+
+
+def test_the_timestamps_of_a_replaced_secret_keep_created_and_move_updated(
+    secured: TestClient,
+) -> None:
+    created = _put(secured, "API_KEY").json()
+    replaced = _put(secured, "API_KEY", "another-value-1").json()
+    assert replaced["created_at"] == created["created_at"]
+    assert replaced["updated_at"] >= created["updated_at"]

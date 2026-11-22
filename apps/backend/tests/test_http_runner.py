@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
+import socket
 import threading
 import time
 from collections.abc import Iterator
@@ -28,9 +30,11 @@ class _Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length) if length else b""
         _Handler.hits.append((self.command, self.path, dict(self.headers.items()), body))
-        if self.path == "/redirect":
+        if self.path in ("/redirect", "/to-meta"):
             self.send_response(302)
-            self.send_header("Location", "/landed")
+            self.send_header(
+                "Location", "/landed" if self.path == "/redirect" else "http://169.254.169.254/"
+            )
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
@@ -57,17 +61,28 @@ class _Handler(BaseHTTPRequestHandler):
 def server() -> Iterator[int]:
     _Handler.hits = []
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    httpd.block_on_close = False  # a handler still sleeping (/slow) must not delay the teardown
+    threading.Thread(
+        target=httpd.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+    ).start()
     yield httpd.server_address[1]
     httpd.shutdown()
     httpd.server_close()
 
 
 async def _call(
-    url: str, *, allow: bool = True, limit: int = 1024 * 1024, **config: Any
+    url: str,
+    *,
+    allow: bool = True,
+    limit: int = 1024 * 1024,
+    secrets: dict[str, str] | None = None,
+    **config: Any,
 ) -> NodeResult:
     return await run_http(
-        {"url": url, **config}, response_limit_bytes=limit, allow_private_networks=allow
+        {"url": url, **config},
+        response_limit_bytes=limit,
+        allow_private_networks=allow,
+        secrets=secrets,
     )
 
 
@@ -260,3 +275,117 @@ def test_address_rules() -> None:
     assert address_problem(ip("fe80::1"), False)
     assert address_problem(ip("64:ff9b::7f00:1"), False)  # NAT64 of 127.0.0.1
     assert address_problem(ip("10.0.0.1"), True) is None
+
+
+@pytest.mark.parametrize(
+    ("address", "problem"),
+    [
+        ("::ffff:169.254.169.254", "cloud metadata address"),
+        ("64:ff9b::a9fe:a9fe", "cloud metadata address"),
+        ("::ffff:0.0.0.0", "unspecified or multicast address"),
+        ("::ffff:224.0.0.1", "unspecified or multicast address"),
+        ("64:ff9b::e000:1", "unspecified or multicast address"),
+    ],
+)
+def test_mapped_and_nat64_forms_are_judged_by_their_ipv4_address_even_when_private_is_allowed(
+    address: str, problem: str
+) -> None:
+    assert address_problem(ipaddress.ip_address(address), True) == problem
+
+
+@pytest.mark.parametrize(
+    "host", ["[::ffff:169.254.169.254]", "[64:ff9b::a9fe:a9fe]", "[::ffff:0.0.0.0]"]
+)
+async def test_a_mapped_metadata_or_unspecified_host_is_refused_end_to_end_with_private_allowed(
+    server: int, host: str
+) -> None:
+    result = await _call(f"http://{host}:{server}/", allow=True)
+    assert result.outcome == "fail"
+    assert result.reason in (
+        "The address is not allowed (cloud metadata address)",
+        "The address is not allowed (unspecified or multicast address)",
+    )
+    assert _Handler.hits == []
+
+
+async def test_a_redirect_to_the_metadata_address_is_not_followed_and_not_called(
+    server: int,
+) -> None:
+    result = await _call(f"http://127.0.0.1:{server}/to-meta", allow=True)
+    assert (result.outcome, result.data and result.data["status"]) == ("fail", 302)
+    assert [h[1] for h in _Handler.hits] == ["/to-meta"]  # the Location was never requested
+
+
+@pytest.mark.parametrize("answer", [socket.gaierror("no such host"), []], ids=["error", "empty"])
+async def test_a_failing_or_empty_resolution_refuses_the_host_without_a_connection(
+    monkeypatch: pytest.MonkeyPatch, server: int, answer: Exception | list[Any]
+) -> None:
+    asked: list[str] = []
+
+    async def getaddrinfo(host: str, port: int, **kwargs: Any) -> list[Any]:
+        asked.append(host)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", getaddrinfo)
+    result = await _call(f"http://gone.example:{server}/")
+    assert (result.outcome, result.reason) == ("fail", "The host name could not be resolved")
+    assert asked == ["gone.example"]
+    assert _Handler.hits == []
+
+
+async def test_duplicate_addresses_are_listed_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def getaddrinfo(host: str, port: int, **kwargs: Any) -> list[Any]:
+        return [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("fe80::1%eth0", port, 0, 2)),
+        ]
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", getaddrinfo)
+    assert await http_runner._resolve("x.example", 80) == [
+        ipaddress.ip_address("93.184.216.34"),
+        ipaddress.ip_address("fe80::1"),
+    ]
+
+
+@pytest.mark.parametrize("value", ["a\x01b", "a\x7fb", "a\x00b"])
+def test_a_control_character_in_a_header_value_is_refused(value: str) -> None:
+    with pytest.raises(ValueError, match="control character"):
+        parse_headers(f"X-Test: {value}")
+
+
+async def test_a_header_injection_through_a_secret_value_never_reaches_the_server(
+    server: int,
+) -> None:
+    result = await _call(
+        f"http://127.0.0.1:{server}/",
+        headers="X-Token: ${secret:T}",
+        secrets={"T": "abc\r\nX-Evil: 1"},
+    )
+    assert result.outcome == "fail"
+    assert result.reason == "The header 'X-Token' has a control character"
+    assert _Handler.hits == []
+
+
+async def test_a_dropped_connection_fails_with_the_error_type() -> None:
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+
+    def hang_up() -> None:
+        connection, _ = listener.accept()
+        connection.recv(4096)
+        connection.close()
+
+    thread = threading.Thread(target=hang_up, daemon=True)
+    thread.start()
+    try:
+        result = await _call(f"http://127.0.0.1:{port}/")
+    finally:
+        thread.join(5)
+        listener.close()
+    assert (result.outcome, result.reason) == ("fail", "The request failed (RemoteProtocolError)")
+    assert result.duration is not None and result.duration > 0

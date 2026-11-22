@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import threading
 from collections.abc import Generator
 from typing import Any
 
@@ -399,3 +401,90 @@ def test_every_interface_starts_a_run_through_the_one_engine_path(
     ]
     for task in tasks:
         wait_for_run(api, task, "done")
+
+
+# ── runs that never happened, secrets, the event stream ───────────────
+
+
+def test_the_results_of_an_artifact_that_was_never_processed_are_404(api: TestClient) -> None:
+    created = _create(api, title="Idle")
+    for ref in (created["id"], created["number"]):
+        response = api.get(f"/api/v1/artifacts/{ref}/run/results")
+        assert (response.status_code, response.json()["detail"]) == (
+            404,
+            "The artifact was never processed",
+        )
+    assert api.get("/api/v1/artifacts/nope/run/results").json()["detail"] == "Artifact not found"
+
+
+def test_putting_a_secret_twice_creates_then_replaces_and_never_returns_the_value(
+    api: TestClient,
+) -> None:
+    first = api.put("/api/v1/secrets/TOKEN_A", json={"value": "first-value"})
+    second = api.put("/api/v1/secrets/TOKEN_A", json={"value": "second-value"})
+    assert (first.status_code, second.status_code) == (201, 200)
+    for response in (first, second):
+        assert set(response.json()) == {"name", "created_at", "updated_at"}
+        assert "value" not in response.text
+    assert first.json()["created_at"] == second.json()["created_at"]
+    assert [s["name"] for s in api.get("/api/v1/secrets").json()] == ["TOKEN_A"]
+
+
+def test_the_event_stream_answers_as_text_event_stream_and_starts_with_a_retry_frame(
+    api: TestClient,
+) -> None:
+    """Read the real endpoint through the ASGI interface: the stream never ends, so stop it after a frame."""
+    sent: list[dict[str, Any]] = []
+    first_frame = threading.Event()
+    stop: list[asyncio.Event] = []
+
+    async def make_stop() -> None:
+        stop.append(asyncio.Event())
+
+    async def consume() -> None:
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/api/events",
+            "raw_path": b"/api/events",
+            "query_string": b"",
+            "root_path": "",
+            "headers": [
+                (b"host", b"testserver"),
+                (b"authorization", HEADERS["Authorization"].encode()),
+            ],
+            "client": ("127.0.0.1", 1),
+            "server": ("testserver", 80),
+        }
+
+        async def receive() -> dict[str, Any]:
+            await stop[0].wait()
+            return {"type": "http.disconnect"}
+
+        async def send(message: dict[str, Any]) -> None:
+            sent.append(message)
+            if message["type"] == "http.response.body" and message.get("body"):
+                first_frame.set()
+
+        await api.app(scope, receive, send)  # type: ignore[arg-type]
+
+    assert api.portal is not None
+    api.portal.call(make_stop)
+    done = api.portal.start_task_soon(consume)
+    assert first_frame.wait(10)
+    created = _create(api, title="Seen")
+    wait_until(lambda: b"task.created" in b"".join(m.get("body", b"") for m in sent), bool)
+    api.portal.call(stop[0].set)
+    done.result(10)
+
+    start = sent[0]
+    assert start["status"] == 200
+    headers = {k.decode(): v.decode() for k, v in start["headers"]}
+    assert headers["content-type"].startswith("text/event-stream")
+    assert headers["cache-control"] == "no-cache"
+    body = b"".join(m.get("body", b"") for m in sent).decode()
+    assert body.startswith("retry:")
+    assert f'"id":"{created["id"]}"' in body

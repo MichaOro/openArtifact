@@ -356,13 +356,14 @@ def test_the_database_refuses_a_second_start_even_without_the_in_process_guard(
     task = make_task(client)
     engine = client.app.state.engine  # type: ignore[attr-defined]
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    jobs = dict(engine._jobs)
     engine._jobs.clear()  # as if another server process held the run
-    assert (
-        client.post(
-            f"/api/tasks/{task['id']}/run", json={"pipeline_id": pipeline["id"]}
-        ).status_code
-        == 409
-    )
+    refused = client.post(f"/api/tasks/{task['id']}/run", json={"pipeline_id": pipeline["id"]})
+    engine._jobs.update(jobs)  # the first run is still ours: stop it, or it outlives the engine
+    assert refused.status_code == 409
+    assert client.post(f"/api/tasks/{task['id']}/run/stop").status_code == 200
+    assert not engine._jobs
+    assert wait_for_run(client, task, "stopped")["note"] == "stopped"
 
 
 def test_a_stopped_run_does_not_take_the_bookkeeping_of_its_successor(client: TestClient) -> None:

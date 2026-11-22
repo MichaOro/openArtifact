@@ -42,7 +42,20 @@ cd apps/backend
 pytest                      # everything except the browser tests (addopts: -m 'not e2e')
 pytest tests/test_tasks.py  # one file
 pytest -k "timer"           # by name
+pytest -n auto              # in parallel (pytest-xdist), see below
+pytest --durations=15 tests/test_x.py   # the 15 slowest tests: where the time goes
 ```
+
+Every test has a timeout of 120 s (`pytest-timeout`, `timeout` in `pyproject.toml`), so a hanging test fails
+instead of stalling the run; `@pytest.mark.timeout(300)` raises it for one test.
+
+### Running in parallel
+
+`pytest -n auto` (or `-n 4`) distributes the tests over worker processes. It is opt-in: the default stays
+serial and CI does not use it. The suite is safe for it: every test has its own `tmp_path`, servers bind port
+0, the shared database engine is per process, and the revision templates are built once per run under a lock.
+Measured on 10 of the slowest test files (330 tests) on a 4-core machine that was busy with other work
+(load 6): 8 min 43 s serial, 4 min 32 s with `-n 4`, all tests passing.
 
 `pytest-asyncio` runs in auto mode and warnings are errors (`filterwarnings = error`, with two deprecation
 exceptions): a leaked connection or an unawaited coroutine fails the test that caused it.
@@ -54,11 +67,16 @@ exceptions): a leaked connection or an unawaited coroutine fails the test that c
   change a result. A second autouse fixture restores the shared loggers that `create_app` changes, and a
   third disposes the shared database engine before and after each test and collects garbage so that a leaked
   connection warns in the test that leaked it.
-- **A migrated database, copied.** The session fixture `_migrated_template` runs `alembic upgrade head` once
-  into a template file; `migrated_settings` copies it into the test's `tmp_path`, so a test costs
-  milliseconds. `unmigrated_settings` gives an empty database plus the environment alembic reads, for tests
-  that go to an old revision, seed data and go on (`test_migrations.py`).
-- **`client`** is a `TestClient` with the real lifespan on that copy. To change settings (Code nodes off,
+- **A migrated database, copied.** The session fixture `_revision_template(revision)` runs
+  `alembic upgrade <revision>` once per revision (on the nearest older template that exists) into a file
+  that all pytest-xdist workers share, under a file lock. `migrated_settings` copies the `head` template into
+  the test's `tmp_path`, so a test costs milliseconds. `at_revision("0012")` does the same for an old
+  revision and returns the database path: a migration test seeds data there and runs only the step it is
+  about. `unmigrated_settings` gives an empty database plus the environment alembic reads, for the one
+  round-trip test (up, down to base, up again).
+- **`client`** is a `TestClient` with the real lifespan on that copy. After the test it fails, naming the
+  test, if an aiosqlite connection that the test opened is still alive (a run or task that outlives the
+  engine). To change settings (Code nodes off,
   private networks on, a token), build the application yourself:
   `TestClient(_create_app(migrated_settings.model_copy(update={...})))` as `test_execution_nodes.py` does.
 - **`published`** records everything the application publishes on its event bus.

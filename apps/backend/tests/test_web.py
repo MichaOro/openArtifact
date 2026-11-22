@@ -471,3 +471,29 @@ def test_the_history_tab_links_to_the_flow_page(client: TestClient) -> None:
     html = client.get("/").text
     assert "data-detail-flow" in html and ">Open flow</a>" in html
     assert html.count('id="history-step-template"') == 1
+
+
+# ── the sign-in form body ─────────────────────────────────────────────
+
+
+def test_a_sign_in_body_without_a_declared_length_above_the_limit_gets_413_before_any_check(
+    migrated_settings: Settings,
+) -> None:
+    token = "web-token-" + "x" * 30
+    settings = migrated_settings.model_copy(update={"api_token": token, "secret_key": "k" * 40})
+
+    def chunks() -> Generator[bytes, None, None]:
+        yield b"token=" + token.encode() + b"&next=/"  # the right token ...
+        for _ in range(5):
+            yield b"&pad=" + b"a" * 1000  # ... but a body no sign-in form needs
+
+    with TestClient(_create_app(settings)) as app:
+        response = app.post(
+            "/login",
+            content=chunks(),  # a generator is sent chunked, with no Content-Length
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            follow_redirects=False,
+        )
+        assert (response.status_code, response.text) == (413, "The request is too large")
+        assert "set-cookie" not in response.headers
+        assert app.get("/api/tasks").status_code == 401  # it did not sign in

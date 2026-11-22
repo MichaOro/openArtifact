@@ -41,6 +41,8 @@ dev = [
     "mypy>=1.14.0",
     "pytest>=8.3.0",
     "pytest-asyncio>=0.25.0",
+    "pytest-xdist>=3.6.0",
+    "pytest-timeout>=2.3.0",
     "coverage>=7.6.0",
     "pytest-playwright>=0.6.0",
 ]
@@ -99,6 +101,8 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
+# A hanging test fails after two minutes instead of stalling the run. Parallel runs are opt-in: `pytest -n auto`.
+timeout = 120
 # Browser tests are slow and need a browser: run them explicitly with `pytest -m e2e`.
 addopts = "-m 'not e2e'"
 markers = ["e2e: browser tests against a running application (pytest -m e2e)"]

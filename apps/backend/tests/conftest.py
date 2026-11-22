@@ -1,23 +1,29 @@
 """Shared test fixtures: isolated settings, a migrated database and a client with the real lifespan.
 
-The database is migrated once per session into a template file; every test gets a copy, so a test
-costs milliseconds instead of running all migrations again. Tests never see the developer's
-``OPENARTIFACT_*`` environment or ``.env``.
+The database is migrated once per revision into a template file; every test gets a copy, so a test
+costs milliseconds instead of running the migrations again. The templates live in a directory shared
+by all pytest-xdist workers and are built under a file lock, so ``-n`` builds each one once per run.
+Tests never see the developer's ``OPENARTIFACT_*`` environment or ``.env``.
 """
 
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import gc
 import logging
 import os
 import shutil
 import sqlite3
+import weakref
 from collections.abc import Callable, Generator
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
+import aiosqlite
 import pytest
+from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 
 import openartifact.database as db_mod
@@ -103,17 +109,49 @@ def app_routes() -> Callable[[Any], list[str]]:
     return _collect
 
 
-@pytest.fixture(scope="session")
-def _migrated_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """A database with every migration applied, built once and copied for each test."""
-    directory = tmp_path_factory.mktemp("template")
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setenv("OPENARTIFACT_DATA_DIR", str(directory))
-        patch.setenv("OPENARTIFACT_DATABASE_FILENAME", "template.db")
-        command.upgrade(alembic_config(), "head")
-    with sqlite3.connect(directory / "template.db") as conn:
+def _checkpoint(path: Path) -> None:
+    with closing(sqlite3.connect(path)) as conn:
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    return directory / "template.db"
+
+
+@pytest.fixture(scope="session")
+def _revision_template(tmp_path_factory: pytest.TempPathFactory) -> Callable[[str], Path]:
+    """``template(revision)``: a database migrated to that revision (``"head"`` is the newest).
+
+    Built once per revision, on the nearest older template that already exists, so that a test of
+    one migration step does not pay for all the steps before it. Under pytest-xdist the templates
+    sit next to the worker directories and a lock file per revision makes the first worker build
+    while the others wait.
+    """
+    base = tmp_path_factory.getbasetemp()
+    root = (base.parent if os.environ.get("PYTEST_XDIST_WORKER") else base) / "revision-templates"
+    root.mkdir(exist_ok=True)
+    script = ScriptDirectory.from_config(alembic_config())
+    order = [r.revision for r in reversed(list(script.walk_revisions()))]
+    head = order[-1]
+
+    def template(revision: str) -> Path:
+        revision = head if revision == "head" else revision
+        target = root / f"{revision}.db"
+        with (root / f"{revision}.lock").open("w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            if target.exists():
+                return target
+            older = [r for r in order[: order.index(revision)] if (root / f"{r}.db").exists()]
+            work = root / f"{revision}.{os.getpid()}.building"
+            if older:
+                shutil.copy(root / f"{older[-1]}.db", work)
+            with pytest.MonkeyPatch.context() as patch:
+                patch.setenv("OPENARTIFACT_DATA_DIR", str(root))
+                patch.setenv("OPENARTIFACT_DATABASE_FILENAME", work.name)
+                command.upgrade(alembic_config(), revision)
+            _checkpoint(work)
+            for leftover in root.glob(f"{work.name}-*"):
+                leftover.unlink()
+            work.replace(target)
+        return target
+
+    return template
 
 
 @pytest.fixture
@@ -126,20 +164,75 @@ def unmigrated_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> 
 
 
 @pytest.fixture
-def migrated_settings(unmigrated_settings: Settings, _migrated_template: Path) -> Settings:
-    """Settings pointing at a temp database with all migrations applied (a copy of the template)."""
-    shutil.copy(
-        _migrated_template, unmigrated_settings.data_dir / unmigrated_settings.database_filename
-    )
-    return unmigrated_settings
+def at_revision(
+    unmigrated_settings: Settings, _revision_template: Callable[[str], Path]
+) -> Callable[[str], Path]:
+    """``at_revision("0012")`` puts a copy of the database at that revision in place and returns its path;
+    the test then runs only the step it is about."""
+    path = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+
+    def put(revision: str) -> Path:
+        shutil.copy(_revision_template(revision), path)
+        return path
+
+    return put
 
 
 @pytest.fixture
-def client(migrated_settings: Settings) -> Generator[TestClient, None, None]:
-    """Test client with the real lifespan (shared engine) on a migrated database."""
+def migrated_settings(
+    unmigrated_settings: Settings, at_revision: Callable[[str], Path]
+) -> Settings:
+    """Settings pointing at a temp database with all migrations applied (a copy of the template)."""
+    at_revision("head")
+    return unmigrated_settings
+
+
+@pytest.fixture(scope="session")
+def _open_connections() -> Generator[weakref.WeakSet[aiosqlite.Connection], None, None]:
+    """Every aiosqlite connection created in this process (weakly held)."""
+    created: weakref.WeakSet[aiosqlite.Connection] = weakref.WeakSet()
+    original = aiosqlite.Connection.__init__
+
+    def remember(self: aiosqlite.Connection, *args: Any, **kwargs: Any) -> None:
+        original(self, *args, **kwargs)
+        created.add(self)
+
+    aiosqlite.Connection.__init__ = remember  # type: ignore[method-assign]
+    yield created
+    aiosqlite.Connection.__init__ = original  # type: ignore[method-assign]
+
+
+def _live(created: weakref.WeakSet[aiosqlite.Connection]) -> set[aiosqlite.Connection]:
+    return {c for c in created if c._thread.is_alive()}
+
+
+@pytest.fixture
+def client(
+    migrated_settings: Settings,
+    request: pytest.FixtureRequest,
+    _open_connections: weakref.WeakSet[aiosqlite.Connection],
+) -> Generator[TestClient, None, None]:
+    """Test client with the real lifespan (shared engine) on a migrated database.
+
+    After the test no database connection may be alive: a leftover means something (a run, a task)
+    kept using the engine after shutdown, and fails here, at its source, not in a later test.
+    """
+    before = _live(_open_connections)
     with TestClient(_create_app(migrated_settings)) as c:
         yield c
     assert db_mod._engine is None
+    leaked = _live(_open_connections) - before
+    for connection in leaked:
+        connection._thread.join(
+            timeout=2
+        )  # closing is asynchronous: give the thread a moment to end
+    if leaked:
+        gc.collect()
+        leaked = {c for c in leaked if c._thread.is_alive()}
+    assert not leaked, (
+        f"{request.node.nodeid} left {len(leaked)} aiosqlite connection(s) open after the client "
+        "shut down: a background run or task still uses the engine"
+    )
 
 
 @pytest.fixture

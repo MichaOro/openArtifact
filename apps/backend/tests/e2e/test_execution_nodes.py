@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
+from tests.e2e.helpers import drag as _drag
+from tests.e2e.helpers import eventually
 from tests.helpers import graph_url
 
 
@@ -33,32 +34,12 @@ def _stored(api: httpx.Client, definition: dict[str, Any], kind: str) -> dict[st
 
 def _config(api: httpx.Client, definition: dict[str, Any], kind: str, **expected: Any) -> None:
     """The stored config of the node becomes (at least) `expected`; saving is asynchronous."""
-    config: dict[str, Any] = {}
-    for _ in range(100):
-        config = _stored(api, definition, kind)["config"]
-        if all(config.get(k) == v for k, v in expected.items()):
-            return
-        page_wait()
-    raise AssertionError(f"expected {expected!r}, the server has {config!r}")
 
+    def stored() -> dict[str, Any]:
+        config: dict[str, Any] = _stored(api, definition, kind)["config"]
+        return {k: config.get(k) for k in expected}
 
-def page_wait() -> None:
-    time.sleep(0.05)
-
-
-def _centre(locator: Locator) -> tuple[float, float]:
-    box = locator.bounding_box()
-    assert box is not None
-    return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
-
-
-def _drag(page: Page, source: Locator, target: Locator) -> None:
-    sx, sy = _centre(source)
-    tx, ty = _centre(target)
-    page.mouse.move(sx, sy)
-    page.mouse.down()
-    page.mouse.move(tx, ty, steps=10)
-    page.mouse.up()
+    eventually(stored, expected)
 
 
 def _edges(api: httpx.Client, definition: dict[str, Any]) -> list[tuple[str, str]]:
@@ -67,11 +48,7 @@ def _edges(api: httpx.Client, definition: dict[str, Any]) -> list[tuple[str, str
 
 
 def _expect_edges(api: httpx.Client, definition: dict[str, Any], expected: list[Any]) -> None:
-    for _ in range(100):
-        if _edges(api, definition) == expected:
-            return
-        page_wait()
-    assert _edges(api, definition) == expected
+    eventually(lambda: _edges(api, definition), expected)
 
 
 def _select(page: Page, kind: str) -> Locator:
@@ -148,6 +125,10 @@ def test_the_code_field_indents_with_tab_and_escape_then_tab_leaves_it(
     page.keyboard.press("Escape")
     page.keyboard.press("Tab")
     expect(code).not_to_be_focused()
+    expect(
+        inspector.get_by_label("Secrets")
+    ).to_be_focused()  # the field after Code (migration 0022)
+    page.keyboard.press("Tab")
     expect(inspector.get_by_label("Timeout (seconds)")).to_be_focused()
 
 

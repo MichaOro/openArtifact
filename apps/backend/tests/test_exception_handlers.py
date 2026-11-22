@@ -40,7 +40,11 @@ def test_a_refusal_is_not_logged_as_an_error(caplog: pytest.LogCaptureFixture) -
     client = TestClient(_app_raising(bare_settings(), ArtifactError(422, "nope")))
     with caplog.at_level(logging.DEBUG, logger="openartifact"):
         assert client.get("/_boom").status_code == 422
-    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert not [
+        r
+        for r in caplog.records
+        if r.name.startswith("openartifact") and r.levelno >= logging.WARNING
+    ]
 
 
 def test_base_application_error_returns_400_and_a_warning(

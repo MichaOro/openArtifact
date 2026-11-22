@@ -6,8 +6,9 @@ import re
 from typing import Any
 
 import httpx
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import Locator, Page, Route, expect
 
+from tests.e2e.helpers import centre, drag, eventually
 from tests.helpers import graph_url
 
 
@@ -20,30 +21,11 @@ def _open(page: Page, base_url: str, pipeline: dict[str, Any]) -> None:
     expect(page.locator(".ge-node").first).to_be_visible()
 
 
-def _centre(locator: Locator) -> tuple[float, float]:
-    box = locator.bounding_box()
-    assert box is not None
-    return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
-
-
-def _drag(page: Page, source: Locator, target: Locator) -> None:
-    sx, sy = _centre(source)
-    tx, ty = _centre(target)
-    page.mouse.move(sx, sy)
-    page.mouse.down()
-    page.mouse.move(tx, ty, steps=10)
-    page.mouse.up()
-
-
 def _expect_edges(
     page: Page, api: httpx.Client, pipeline: dict[str, Any], expected: list[tuple[str, str]]
 ) -> None:
     """The server's edges become `expected` (changes are saved asynchronously, so this polls)."""
-    for _ in range(100):
-        if _edges(api, pipeline) == expected:
-            return
-        page.wait_for_timeout(50)
-    assert _edges(api, pipeline) == expected, _graph(api, pipeline)["edges"]
+    eventually(lambda: _edges(api, pipeline), expected)
 
 
 def _add_stage(page: Page) -> None:
@@ -127,22 +109,22 @@ def _flow(page: Page, base_url: str, api: httpx.Client) -> dict[str, Any]:
 
 def test_connect_by_dragging_between_ports(page: Page, base_url: str, api: httpx.Client) -> None:
     pipeline = _flow(page, base_url, api)
-    _drag(
+    drag(
         page,
         page.locator(".ge-node--trigger .ge-port--out"),
         page.locator(".ge-node--stage > .ge-port--start[data-slot='0']"),
     )
-    _drag(
+    drag(
         page,
         page.locator(".ge-node--stage > .ge-port--start[data-slot='0']"),
         page.locator(".ge-node--action").first.locator(".ge-port--in"),
     )
-    _drag(
+    drag(
         page,
         page.locator(".ge-node--action").first.locator(".ge-port--pass"),
         page.locator(".ge-node--action").nth(1).locator(".ge-port--in"),
     )
-    _drag(
+    drag(
         page,
         page.locator(".ge-node--action").nth(1).locator(".ge-port--error"),
         page.locator(".ge-node--stage > .ge-port--end[data-slot='0']"),
@@ -169,7 +151,7 @@ def test_only_valid_targets_light_up_and_invalid_drops_do_nothing(
     expect(page.locator(".ge-node--stage")).to_have_count(2)
     page.click("[data-zoom-fit]")
     first = page.locator(".ge-node--action").first.locator(".ge-port--pass")
-    x, y = _centre(first)
+    x, y = centre(first)
     page.mouse.move(x, y)
     page.mouse.down()
     page.mouse.move(x + 40, y + 40, steps=4)
@@ -177,7 +159,7 @@ def test_only_valid_targets_light_up_and_invalid_drops_do_nothing(
     # an action may reach actions of its own stage and the end of its own stage (3 points), nothing else
     expect(valid).to_have_count(5)
     stage_in = page.locator(".ge-node--stage").nth(1).locator("> .ge-port--start[data-slot='0']")
-    tx, ty = _centre(stage_in)
+    tx, ty = centre(stage_in)
     page.mouse.move(tx, ty, steps=6)
     page.mouse.up()
     _expect_edges(page, api, pipeline, [])
@@ -189,12 +171,12 @@ def test_an_output_has_one_edge_and_reconnecting_replaces_it(
 ) -> None:
     pipeline = _flow(page, base_url, api)
     first = page.locator(".ge-node--action").first
-    _drag(
+    drag(
         page,
         first.locator(".ge-port--pass"),
         page.locator(".ge-node--action").nth(1).locator(".ge-port--in"),
     )
-    _drag(
+    drag(
         page,
         first.locator(".ge-port--pass"),
         page.locator(".ge-node--stage > .ge-port--end[data-slot='0']"),
@@ -206,14 +188,14 @@ def test_an_output_has_one_edge_and_reconnecting_replaces_it(
 def test_error_may_loop_back_to_its_own_input(page: Page, base_url: str, api: httpx.Client) -> None:
     pipeline = _flow(page, base_url, api)
     first = page.locator(".ge-node--action").first
-    _drag(page, first.locator(".ge-port--error"), first.locator(".ge-port--in"))
+    drag(page, first.locator(".ge-port--error"), first.locator(".ge-port--in"))
     expect(page.locator(".ge-edge")).to_have_count(1)
     _expect_edges(page, api, pipeline, [("error", "in")])
 
 
 def test_select_and_delete_an_edge(page: Page, base_url: str, api: httpx.Client) -> None:
     pipeline = _flow(page, base_url, api)
-    _drag(
+    drag(
         page,
         page.locator(".ge-node--trigger .ge-port--out"),
         page.locator(".ge-node--stage > .ge-port--start[data-slot='0']"),
@@ -226,7 +208,7 @@ def test_select_and_delete_an_edge(page: Page, base_url: str, api: httpx.Client)
 
 
 def _connect_trigger_to_stage(page: Page) -> None:
-    _drag(
+    drag(
         page,
         page.locator(".ge-node--trigger .ge-port--out"),
         page.locator(".ge-node--stage > .ge-port--start[data-slot='0']"),
@@ -275,29 +257,25 @@ def test_the_page_title_keeps_focus_after_it_is_renamed(
     page.keyboard.press("Enter")
     expect(title).to_have_text("Flow two")
     expect(title).to_be_focused()
-    for _ in range(100):
-        if _graph(api, pipeline)["graph"]["name"] == "Flow two":
-            break
-        page.wait_for_timeout(50)
-    assert _graph(api, pipeline)["graph"]["name"] == "Flow two"
+    eventually(lambda: _graph(api, pipeline)["graph"]["name"], "Flow two")
 
 
 def test_move_rename_and_delete_a_node(page: Page, base_url: str, api: httpx.Client) -> None:
     pipeline = _flow(page, base_url, api)
     action = page.locator(".ge-node--action").first
     before = next(n for n in _graph(api, pipeline)["nodes"] if n["kind"] == "action")
-    x, y = _centre(action.locator(".ge-node__name"))
+    x, y = centre(action.locator(".ge-node__name"))
     page.mouse.move(x, y)
     page.mouse.down()
     page.mouse.move(x + 60, y + 30, steps=6)
     page.mouse.up()
     expect(page.locator(".ge-inspector h2")).to_have_text("Action")
-    for _ in range(100):  # saved asynchronously
-        moved = next(n for n in _graph(api, pipeline)["nodes"] if n["id"] == before["id"])
-        if (moved["x"], moved["y"]) != (before["x"], before["y"]):
-            break
-        page.wait_for_timeout(50)
-    assert (moved["x"], moved["y"]) != (before["x"], before["y"])
+
+    def moved() -> bool:  # saved asynchronously
+        node = next(n for n in _graph(api, pipeline)["nodes"] if n["id"] == before["id"])
+        return (node["x"], node["y"]) != (before["x"], before["y"])
+
+    eventually(moved, True)
 
     expect(page.locator(".ge-inspector input")).to_have_count(
         0
@@ -355,23 +333,20 @@ def test_a_stage_offers_three_points_per_side_and_shows_the_used_one(
     expect(ports).to_have_count(3)
     page.mouse.move(0, 0)
     expect(ports.nth(1)).to_have_css("opacity", "0")
-    _drag(page, page.locator(".ge-node--trigger .ge-port--out"), ports.nth(1))
+    drag(page, page.locator(".ge-node--trigger .ge-port--out"), ports.nth(1))
     page.mouse.move(0, 0)
     expect(ports.nth(1)).to_have_css("opacity", "1")
     expect(ports.nth(0)).to_have_css("opacity", "0")
-    for _ in range(100):
-        edges = _graph(api, pipeline)["edges"]
-        if edges:
-            break
-        page.wait_for_timeout(50)
-    assert (edges[0]["target_slot"], edges[0]["source_slot"]) == (1, 0)
+    eventually(lambda: bool(_graph(api, pipeline)["edges"]), True)
+    edge = _graph(api, pipeline)["edges"][0]
+    assert (edge["target_slot"], edge["source_slot"]) == (1, 0)
 
 
 def test_choose_the_line_style_of_a_connection(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     pipeline = _flow(page, base_url, api)
-    _drag(
+    drag(
         page,
         page.locator(".ge-node--trigger .ge-port--out"),
         page.locator(".ge-node--stage > .ge-port--start[data-slot='0']"),
@@ -385,11 +360,7 @@ def test_choose_the_line_style_of_a_connection(
     assert straight is not None and " C " not in straight and " Q " not in straight
     page.click(".ge-style[data-style=elbow]")
     expect(page.locator(".ge-style[data-style=elbow]")).to_have_attribute("aria-pressed", "true")
-    for _ in range(100):
-        if _graph(api, pipeline)["edges"][0]["style"] == "elbow":
-            break
-        page.wait_for_timeout(50)
-    assert _graph(api, pipeline)["edges"][0]["style"] == "elbow"
+    eventually(lambda: _graph(api, pipeline)["edges"][0]["style"], "elbow")
     page.reload()
     expect(page.locator(".ge-edge")).to_have_count(1)
 
@@ -427,11 +398,12 @@ def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
     output.locator(".ge-node__name").click()
     page.locator(".ge-switch").click()
     expect(output.locator(".ge-port--fail")).to_be_visible()
-    for _ in range(100):
-        nodes = _graph(api, definition)["nodes"]
-        if next(n for n in nodes if n["kind"] == "output")["fail_enabled"]:
-            break
-        page.wait_for_timeout(50)
+    eventually(
+        lambda: next(n for n in _graph(api, definition)["nodes"] if n["kind"] == "output")[
+            "fail_enabled"
+        ],
+        True,
+    )
     page.reload()
     expect(page.locator(".ge-node--output .ge-port--fail")).to_be_visible()
     page.locator(".ge-node--output .ge-node__name").click()
@@ -450,7 +422,7 @@ def test_the_trigger_is_routed_to_on_pass_or_on_fail(
     _expect_edges(page, api, definition, [("out", "pass")])
     page.locator(".ge-node--output .ge-node__name").click()
     page.locator(".ge-switch").click()
-    _drag(
+    drag(
         page,
         page.locator(".ge-node--trigger .ge-port--out"),
         page.locator(".ge-node--output .ge-port--fail"),
@@ -488,12 +460,12 @@ def test_a_new_stage_makes_room_before_complete(
     _open(page, base_url, pipeline)
     _add_stage(page)
     expect(page.locator(".ge-node--stage")).to_have_count(1)
-    for _ in range(100):
+
+    def room() -> bool:
         nodes = {n["kind"]: n for n in _graph(api, pipeline)["nodes"]}
-        if nodes["complete"]["x"] >= nodes["stage"]["x"] + nodes["stage"]["width"]:
-            break
-        page.wait_for_timeout(50)
-    assert nodes["complete"]["x"] >= nodes["stage"]["x"] + nodes["stage"]["width"]
+        return bool(nodes["complete"]["x"] >= nodes["stage"]["x"] + nodes["stage"]["width"])
+
+    eventually(room, True)
 
 
 # ── linking an action shell to an action definition ───────────────────
@@ -553,31 +525,87 @@ def _pass_offset(node: Locator) -> float:
     return (port["y"] + port["height"] / 2) - (box["y"] + box["height"] / 2)
 
 
+def _linked_name(api: httpx.Client, pipeline: dict[str, Any]) -> str | None:
+    action = next(n for n in _graph(api, pipeline)["nodes"] if n["kind"] == "action")
+    name: str | None = action["definition_name"]
+    return name
+
+
 def test_link_an_existing_action_switch_and_unlink(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     _definition(api, "With fail", fail=True)
     _definition(api, "Without fail")
-    _flow(page, base_url, api)
+    pipeline = _flow(page, base_url, api)
     node = page.locator(".ge-node--action").first
     node.locator(".ge-node__name").click()
     select = page.locator(".ge-inspector select")
     expect(select.locator("option")).to_have_count(3)  # not defined + two definitions
-    select.select_option(label="With fail")
+
+    def choose(label: str) -> None:
+        """Select an entry and wait until screen and server both show it."""
+        select.select_option(label=label)
+        eventually(lambda: _linked_name(api, pipeline), None if label == "Not defined" else label)
+
+    choose("With fail")
     expect(node.locator(".ge-node__name")).to_have_text("With fail")
     expect(node.locator(".ge-port--error")).to_be_visible()
     assert _pass_offset(node) < -5  # Pass above the middle, Error below it
-    select.select_option(label="Without fail")
+    choose("Without fail")
     expect(node.locator(".ge-node__name")).to_have_text("Without fail")
     expect(node.locator(".ge-port--error")).to_be_hidden()
-    expect(node.locator(".ge-port--error")).to_be_hidden()
     assert abs(_pass_offset(node)) < 2  # Pass moves to the middle
-    select.select_option(label="With fail")  # and back again
+    choose("With fail")  # and back again
     expect(node.locator(".ge-port--error")).to_be_visible()
     assert _pass_offset(node) < -5
-    select.select_option(label="Without fail")
-    select.select_option(label="Not defined")
+    choose("Without fail")
+    choose("Not defined")
     expect(node.locator(".ge-node__kind")).to_have_text("Empty action")
+
+
+def test_two_quick_link_changes_end_with_server_and_screen_in_agreement(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _definition(api, "With fail", fail=True)
+    pipeline = _flow(page, base_url, api)
+    node = page.locator(".ge-node--action").first
+    node.locator(".ge-node__name").click()
+    select = page.locator(".ge-inspector select")
+    expect(select.locator("option")).to_have_count(2)
+    armed = [False]
+
+    def slow_first_answer(route: Route) -> None:
+        """The answer to the first change arrives late, as on a slow connection."""
+        response = route.fetch()
+        if armed[0]:
+            armed[0] = False
+            page.wait_for_timeout(300)  # lets the second request overtake it, if it may
+        route.fulfill(response=response)
+
+    page.route(
+        lambda url: "/nodes/" in url,
+        lambda r: slow_first_answer(r) if r.request.method == "PATCH" else r.continue_(),
+    )
+    for _ in range(5):
+        armed[0] = True
+        # both changes happen in one browser task, before any answer can arrive
+        select.evaluate(
+            """(el) => {
+                for (const label of ["With fail", "Not defined"]) {
+                    el.value = [...el.options].find((o) => o.textContent === label).value;
+                    el.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+            }"""
+        )
+        # the screen is checked first: waiting on it also lets the delayed answer through
+        expect(node.locator(".ge-node__kind")).to_have_text("Empty action")
+        eventually(lambda: _linked_name(api, pipeline), None)
+        select.select_option(label="With fail")
+        expect(node.locator(".ge-node__name")).to_have_text("With fail")
+        eventually(lambda: _linked_name(api, pipeline), "With fail")
+        select.select_option(label="Not defined")
+        expect(node.locator(".ge-node__kind")).to_have_text("Empty action")
+        eventually(lambda: _linked_name(api, pipeline), None)
 
 
 def test_a_timer_goes_between_trigger_and_output_and_waits_for_its_seconds(
@@ -594,8 +622,8 @@ def test_a_timer_goes_between_trigger_and_output_and_waits_for_its_seconds(
     page.keyboard.press("Enter")
     expect(timer.locator(".ge-node__kind")).to_have_text("12 s")
     page.click("[data-zoom-fit]")
-    _drag(page, page.locator(".ge-node--trigger .ge-port--out"), timer.locator(".ge-port--in"))
-    _drag(page, timer.locator(".ge-port--out"), page.locator(".ge-node--output .ge-port--pass"))
+    drag(page, page.locator(".ge-node--trigger .ge-port--out"), timer.locator(".ge-port--in"))
+    drag(page, timer.locator(".ge-port--out"), page.locator(".ge-node--output .ge-port--pass"))
     _expect_edges(page, api, definition, [("out", "in"), ("out", "pass")])
     saved = next(n for n in _graph(api, definition)["nodes"] if n["kind"] == "timer")
     assert saved["seconds"] == 12
