@@ -24,14 +24,21 @@ def _watch(page: Page) -> list[str]:
 
 
 def test_the_policy_is_strict_on_every_page(base_url: str, api: httpx.Client) -> None:
-    for path in ("/", "/pipelines", "/actions", "/login", "/artifacts/1/executions/x"):
+    for path in (
+        "/",
+        "/pipelines",
+        "/actions",
+        "/executions",
+        "/login",
+        "/artifacts/1/executions/x",
+    ):
         csp = httpx.get(f"{base_url}{path}", follow_redirects=True).headers[
             "content-security-policy"
         ]
         assert "script-src 'self'" in csp and "'unsafe-inline'" not in csp.split("style-src")[0]
 
 
-@pytest.mark.parametrize("path", ["/", "/pipelines", "/actions", "/login"])
+@pytest.mark.parametrize("path", ["/", "/pipelines", "/actions", "/executions", "/login"])
 def test_pages_run_without_a_policy_violation(page: Page, base_url: str, path: str) -> None:
     problems = _watch(page)
     page.goto(f"{base_url}{path}")
@@ -70,6 +77,19 @@ def test_the_execution_flow_runs_without_a_violation(
     page.goto(flow_url(base_url, task, execution_of(api, task)))
     expect(page.locator(".ge-node").first).to_be_visible()
     page.locator(".ge-node--action").click()
+    page.wait_for_load_state("networkidle")
+    assert problems == []
+
+
+def test_the_executions_page_with_rows_runs_without_a_violation(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    task = api.post("/api/tasks", json={"title": "Seen"}).json()
+    run_started(api, task, echo_pipeline(api))
+    problems = _watch(page)
+    page.goto(f"{base_url}/executions?status=done&range=24h")
+    expect(page.locator(".ex-row")).to_have_count(1)
+    page.locator("[data-delete]").hover()
     page.wait_for_load_state("networkidle")
     assert problems == []
 

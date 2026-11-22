@@ -78,9 +78,9 @@ def test_root_links_assets(client: TestClient) -> None:
 
 
 def test_navigation_shows_the_pipeline_entries_only_inside_the_pipeline(client: TestClient) -> None:
-    """Projects and Pipeline are always there; Actions only once Pipeline is entered."""
+    """Projects, Pipeline and Executions are always there; Actions only once Pipeline is entered."""
     html = client.get("/").text
-    assert html.count('class="nav-link"') == 2  # Projects and Pipeline
+    assert html.count('class="nav-link"') == 3  # Projects, Pipeline and Executions
     assert 'href="/pipelines"' in html  # the Pipeline entry itself
     assert 'href="/actions"' not in html
     for path, marked_as_section in (("/pipelines", 0), ("/actions", 1)):
@@ -420,7 +420,8 @@ def test_the_execution_flow_page_and_its_modules_are_served(client: TestClient) 
     assert 'data-task-ref="7"' in page.text and 'data-execution-id="abc"' in page.text
     assert 'type="module" src="/static/js/execution/flow-page.js"' in page.text
     assert 'id="history-step-template"' in page.text
-    assert 'aria-current="page"' in page.text  # the sidebar marks Projects
+    assert page.text.count('aria-current="page"') == 1  # the sidebar marks Executions
+    assert 'href="/executions" title="Executions"' in page.text
     for path in (
         "/static/js/execution/flow-page.js",
         "/static/js/execution/flow-client.js",
@@ -432,6 +433,38 @@ def test_the_execution_flow_page_and_its_modules_are_served(client: TestClient) 
         "/static/js/tasks/history-step.js",
     ):
         assert client.get(path).status_code == 200, path
+
+
+def test_the_executions_page_and_its_modules_are_served(client: TestClient) -> None:
+    """The global execution list: page, sidebar entry (marked on it and on the flow page), modules, styles."""
+    page = client.get("/executions")
+    assert page.status_code == 200
+    assert 'type="module" src="/static/js/executions/page.js"' in page.text
+    assert 'data-page-size="50"' in page.text and 'id="ex-row-template"' in page.text
+    assert page.text.count('aria-current="page"') == 1
+    assert 'href="/executions" title="Executions"' in page.text
+    assert '<caption class="visually-hidden">' in page.text and page.text.count('scope="col"') == 10
+    assert 'data-page-size="2"' in client.get("/executions?page_size=2").text
+    assert 'data-page-size="200"' in client.get("/executions?page_size=9999").text
+    assert 'data-page-size="1"' in client.get("/executions?page_size=0").text
+    for path in (
+        "/static/js/executions/page.js",
+        "/static/js/executions/api.js",
+        "/static/js/executions/filters.js",
+        "/static/js/executions/filter-bar.js",
+        "/static/js/executions/summary.js",
+        "/static/js/executions/table.js",
+        "/static/js/tasks/history-row.js",
+        "/static/css/executions.css",
+    ):
+        assert client.get(path).status_code == 200, path
+
+
+def test_the_board_opens_an_artifact_given_in_the_url(client: TestClient) -> None:
+    """``/?artifact=12`` is what the global execution list links to; the board's script handles it."""
+    assert client.get("/?artifact=12").status_code == 200
+    script = client.get("/static/js/tasks/main.js").text
+    assert 'get("artifact")' in script
 
 
 def test_the_history_tab_links_to_the_flow_page(client: TestClient) -> None:

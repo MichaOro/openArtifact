@@ -137,19 +137,38 @@ async def action_editor(request: Request, ref: str, session: SessionDep) -> HTML
     return await _editor_page(request, session, "action", ref)
 
 
+@router.get("/executions", response_class=HTMLResponse)
+async def executions(request: Request, page_size: int = 50) -> HTMLResponse:
+    """The executions of all artifacts, newest first, with filters (the page loads them through the API).
+
+    ``page_size`` (1 to 200, default 50) is how many rows one request fetches; the filters live in the
+    query string and are read by the page.
+    """
+    return templates.TemplateResponse(
+        request=request,
+        name="executions.html",
+        context={
+            "page_title": "Executions",
+            "active_nav": "executions",
+            "app_version": APP_VERSION,
+            "page_size": max(1, min(page_size, 200)),
+        },
+    )
+
+
 @router.get("/artifacts/{ref}/executions/{execution_id}", response_class=HTMLResponse)
 async def execution_flow(request: Request, ref: str, execution_id: str) -> HTMLResponse:
     """The read-only flow of one execution of an artifact (``ref``: its number or id).
 
     The page loads everything through the API; an execution that does not exist (any more) is
-    reported by the page itself. It is a sub-page of the board, so the sidebar marks Projects.
+    reported by the page itself. It belongs to the execution area, so the sidebar marks Executions.
     """
     return templates.TemplateResponse(
         request=request,
         name="execution_flow.html",
         context={
             "page_title": "Execution flow",
-            "active_nav": "projects",
+            "active_nav": "executions",
             "app_version": APP_VERSION,
             "task_ref": ref,
             "execution_id": execution_id,

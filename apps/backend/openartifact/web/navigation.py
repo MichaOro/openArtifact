@@ -94,6 +94,7 @@ SIDEBAR = (
             children=(NavLink("actions", "Actions", "action", href="/actions"),),
         )
     )
+    .add(NavLink("executions", "Executions", "list", href="/executions"))
 )
 
 ARTIFACT_RAIL = (

@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/icons.html" import icon %}
+{% block title %}Executions · OpenArtifact{% endblock %}
+{% block page_styles %}
+<link rel="stylesheet" href="/static/css/history.css">
+<link rel="stylesheet" href="/static/css/executions.css">
+{% endblock %}
+{% block content %}
+{# The executions of all artifacts (behaviour in static/js/executions/page.js). The list is a real table:
+   every row has the same cells under column headers. Narrow screens show each row as a card. #}
+<div class="ex" data-executions data-page-size="{{ page_size }}">
+    {{ alert("Executions could not be loaded.") }}
+    <h2 class="visually-hidden">Executions</h2>
+
+    <section class="ex-summary" aria-label="Summary">
+        <button type="button" class="ex-count glass" data-summary="running" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">Running now</span></button>
+        <button type="button" class="ex-count glass" data-summary="failed_24h" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">Failed in the last 24 h</span></button>
+        <button type="button" class="ex-count glass" data-summary="done_24h" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">Done in the last 24 h</span></button>
+        <button type="button" class="ex-count glass" data-summary="total" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">Total</span></button>
+    </section>
+
+    <form class="ex-filters glass" role="search" aria-label="Filter executions" novalidate data-filters>
+        <details class="ex-filters__disclosure" open data-filters-disclosure>
+            <summary class="ex-filters__summary"><span>Filters</span><span class="ex-filters__active" data-filters-active></span></summary>
+            <div class="ex-filters__body">
+                <div class="field ex-field">
+                    <label class="field__label" for="ex-q">Search</label>
+                    <input class="field__control" id="ex-q" name="q" type="search" autocomplete="off" placeholder="Artifact title, #number, note">
+                </div>
+                <div class="field ex-field">
+                    <label class="field__label" for="ex-pipeline">Pipeline</label>
+                    <input class="field__control" id="ex-pipeline" name="pipeline" type="text" autocomplete="off" placeholder="Name or part of it">
+                </div>
+                <fieldset class="ex-group">
+                    <legend class="ex-group__legend">Status</legend>
+                    <div class="ex-group__items">
+                        {% for value, label in [("running", "Running"), ("done", "Done"), ("failed", "Failed"), ("stopped", "Stopped")] %}
+                        <label class="ex-toggle history-chip" data-status="{{ value }}"><input type="checkbox" class="ex-toggle__input" name="status" value="{{ value }}"><span class="ex-toggle__tick" aria-hidden="true">{{ icon("check") }}</span><span>{{ label }}</span></label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <fieldset class="ex-group">
+                    <legend class="ex-group__legend">Started by</legend>
+                    <div class="ex-group__items">
+                        {% for value, label in [("user", "User"), ("api", "API"), ("mcp", "MCP"), ("system", "System")] %}
+                        <label class="ex-toggle history-chip"><input type="checkbox" class="ex-toggle__input" name="started_by" value="{{ value }}"><span class="ex-toggle__tick" aria-hidden="true">{{ icon("check") }}</span><span>{{ label }}</span></label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <fieldset class="ex-group">
+                    <legend class="ex-group__legend">Started</legend>
+                    <div class="ex-group__items">
+                        {% for value, label in [("1h", "Last hour"), ("24h", "24 hours"), ("7d", "7 days"), ("all", "All")] %}
+                        <label class="ex-toggle ex-toggle--range history-chip"><input type="radio" class="ex-toggle__input" name="range" value="{{ value }}"><span class="ex-toggle__tick" aria-hidden="true">{{ icon("check") }}</span><span>{{ label }}</span></label>
+                        {% endfor %}
+                    </div>
+                    <p class="ex-custom" data-custom hidden><span data-custom-text></span> <button type="button" class="button button--ghost button--sm" data-custom-clear>Clear</button></p>
+                </fieldset>
+                <div class="ex-filters__actions">
+                    <button type="button" class="button button--ghost button--sm" data-reset hidden>Reset filters</button>
+                </div>
+            </div>
+        </details>
+    </form>
+
+    <div class="visually-hidden" role="status" aria-live="polite" data-live></div>
+    <div class="ex-bar">
+        <p class="ex-bar__count" role="status" aria-live="polite" data-count>Loading executions...</p>
+        <button type="button" class="button button--primary button--sm" data-new hidden></button>
+    </div>
+
+    <div class="ex-list" data-list aria-busy="true">
+        <div class="ex-scroll">
+        <table class="ex-table glass" data-table hidden>
+            <caption class="visually-hidden">Executions of all artifacts, newest first</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Status</th>
+                    <th scope="col">Artifact</th>
+                    <th scope="col">Execution</th>
+                    <th scope="col">Pipeline</th>
+                    <th scope="col">Started</th>
+                    <th scope="col">Duration</th>
+                    <th scope="col">Started by</th>
+                    <th scope="col">Steps</th>
+                    <th scope="col">Note</th>
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody data-rows tabindex="-1"></tbody>
+        </table>
+        </div>
+        <div class="ex-empty glass" data-empty-none hidden>
+            {{ icon("list") }}
+            <p class="ex-empty__title">No executions yet</p>
+            <p>Start processing an artifact on the board and its executions appear here.</p>
+            <a class="button button--primary button--sm" href="/">Go to the board</a>
+        </div>
+        <div class="ex-empty glass" data-empty-match hidden>
+            {{ icon("list") }}
+            <p class="ex-empty__title">No execution matches these filters</p>
+            <button type="button" class="button button--ghost button--sm" data-reset>Reset filters</button>
+        </div>
+        <div class="ex-more">
+            <button type="button" class="button button--ghost" data-more hidden>Load more</button>
+        </div>
+    </div>
+</div>
+
+<template id="ex-row-template">
+    <tr class="ex-row">
+        <td class="ex-row__status" data-label="Status"><span class="history-chip"><span data-chip-icon></span><span data-chip-text></span></span></td>
+        <td class="ex-row__artifact" data-label="Artifact"><a class="ex-link" data-artifact></a></td>
+        <td class="ex-row__number" data-label="Execution"><a class="ex-link ex-link--open" data-open></a></td>
+        <td class="ex-row__pipeline" data-label="Pipeline"><a class="ex-link" data-pipeline-link hidden></a><span data-pipeline-text></span> <span class="ex-deleted" data-pipeline-gone hidden>(deleted)</span></td>
+        <td class="ex-row__time" data-label="Started"><time data-time></time></td>
+        <td class="ex-row__duration" data-label="Duration" data-duration></td>
+        <td class="ex-row__origin" data-label="Started by" data-origin></td>
+        <td class="ex-row__steps" data-label="Steps" data-steps></td>
+        <td class="ex-row__note" data-label="Note"><span data-note></span></td>
+        <td class="ex-row__actions"><button type="button" class="icon-button icon-button--sm history-row__delete" data-delete></button></td>
+    </tr>
+</template>
+
+{{ confirm_modal("confirm-modal", "Delete execution", note="data-delete-note") }}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/executions/page.js"></script>{% endblock %}

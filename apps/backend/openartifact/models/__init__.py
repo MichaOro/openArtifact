@@ -424,7 +424,12 @@ class Execution(Base):
     """
 
     __tablename__ = "executions"
-    __table_args__ = (Index("ux_executions_task_number", "task_id", "number", unique=True),)
+    __table_args__ = (
+        Index("ux_executions_task_number", "task_id", "number", unique=True),
+        # The global execution list: newest first, with or without a status filter (migration 0025).
+        Index("ix_executions_started_at", "started_at", "id"),
+        Index("ix_executions_status_started_at", "status", "started_at", "id"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     task_id: Mapped[str] = mapped_column(String(36), ForeignKey("tasks.id", ondelete="CASCADE"))

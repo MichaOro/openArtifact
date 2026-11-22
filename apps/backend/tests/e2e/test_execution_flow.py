@@ -418,7 +418,7 @@ def test_open_flow_in_the_history_tab_goes_to_the_page(
     expect(page.locator("[data-head-title]")).to_have_text(
         f"Execution #1 of #{task['number']} Item"
     )
-    expect(page.locator(".sidebar a[aria-current=page]")).to_have_text("Projects")
+    expect(page.locator(".sidebar a[aria-current=page]")).to_have_text("Executions")
 
 
 # ── layout and policy ──────────────────────────────────────────────────

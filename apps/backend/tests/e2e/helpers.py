@@ -299,6 +299,14 @@ def failing_pipeline(client: httpx.Client) -> dict[str, Any]:
     return pipeline
 
 
+def ending_in_failure(client: httpx.Client) -> dict[str, Any]:
+    """A pipeline whose action ends in On Fail, so the execution ends ``failed``."""
+    pipeline = build_pipeline(client, stages=1, name="Failing build", stage_name="Check")
+    definition = build_definition(client, "Fails", output="fail", fail_enabled=True)
+    link(client, pipeline, pipeline["stages"][0][1], definition)
+    return pipeline
+
+
 def nested_pipeline(client: httpx.Client) -> tuple[dict[str, Any], dict[str, Any]]:
     """An outer pipeline that calls an inner one (one stage, one Code action). Returns (outer, inner)."""
     inner = build_pipeline(client, stages=1, name="Inner flow", stage_name="Inner stage")

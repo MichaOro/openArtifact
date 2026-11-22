@@ -15,6 +15,7 @@ from typing import Any
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
+from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, StartedBy, TaskStatus
 from openartifact.secret_store import SecretStore
@@ -194,6 +195,37 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
         if not 1 <= limit <= 500:
             raise McpError("limit must be between 1 and 500")
         return (await guarded(service.executions(artifact, limit))).model_dump(mode="json")
+
+    @mcp.tool()
+    async def list_all_executions(
+        status: str | None = None,
+        started_by: str | None = None,
+        pipeline: str | None = None,
+        query: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int = DEFAULT_LIMIT,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        """The executions of ALL artifacts, newest first, without steps, with each artifact's number and
+        title. Filters (all optional): ``status`` (comma separated: running, done, failed, stopped),
+        ``started_by`` (user, api, mcp, system), ``pipeline`` (id, or part of its name), ``query`` (part of
+        the title, pipeline name or note, or an artifact number), ``since`` / ``until`` (ISO 8601, UTC).
+        ``limit`` is 1 to 200; pass ``next_cursor`` as ``cursor`` for the next page. ``summary`` counts
+        running, failed and done (24 h) and all executions."""
+        if not 1 <= limit <= MAX_LIMIT:
+            raise McpError(f"limit must be between 1 and {MAX_LIMIT}")
+        page = service.all_executions(
+            status=status,
+            started_by=started_by,
+            pipeline=pipeline,
+            q=query,
+            since=since,
+            until=until,
+            limit=limit,
+            cursor=cursor,
+        )
+        return (await guarded(page)).model_dump(mode="json")
 
     @mcp.tool()
     async def get_execution(artifact: str, execution: str) -> dict[str, Any]:

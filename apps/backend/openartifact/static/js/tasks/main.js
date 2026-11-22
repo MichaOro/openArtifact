@@ -325,4 +325,10 @@ connectEvents({
   },
 });
 
-board.load(); // do not depend on the event stream for the first paint
+// `/?artifact=12` opens that artifact once the board has loaded (the global execution list links here).
+const wanted = new URLSearchParams(window.location.search).get("artifact");
+board.load().then(() => {
+  // do not depend on the event stream for the first paint
+  const task = wanted && [...board.tasks.values()].find((t) => String(t.number) === wanted.replace(/^#/, ""));
+  if (task) showTask(task);
+});

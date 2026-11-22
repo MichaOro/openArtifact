@@ -16,6 +16,7 @@ from starlette.routing import Route
 
 from openartifact import database
 from openartifact.api.events import router as events_router
+from openartifact.api.executions import router as executions_router
 from openartifact.api.graphs import actions_router, node_types_router, pipelines_router
 from openartifact.api.hardening import BodyLimit, CrossSiteGuard, HostCheck, SecurityHeaders
 from openartifact.api.routes import public_router as public_api_router
@@ -180,6 +181,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(public_api_router)
     app.include_router(api_router)
     app.include_router(tasks_router)
+    app.include_router(executions_router)
     app.include_router(node_types_router)
     app.include_router(pipelines_router)
     app.include_router(actions_router)

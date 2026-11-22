@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import undefer
 
 from openartifact.database import SessionOpener
+from openartifact.engine import history as history_module
+from openartifact.engine import history_query
 from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.flow import build_flow
 from openartifact.engine.flow_schemas import ExecutionFlow
@@ -24,6 +26,7 @@ from openartifact.engine.schemas import (
     ExecutionDetail,
     ExecutionList,
     ExecutionRead,
+    ExecutionsPage,
     ExecutionStepRead,
     HistoryPolicyResult,
     HistoryPolicyWrite,
@@ -168,6 +171,27 @@ class ArtifactService:
                 items=[ExecutionRead.of(r) for r in rows],
                 total=total or 0,
                 policy=self._engine.history.policy_of(task),
+            )
+
+    async def all_executions(
+        self,
+        *,
+        status: str | None = None,
+        started_by: str | None = None,
+        pipeline: str | None = None,
+        q: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int = history_query.DEFAULT_LIMIT,
+        cursor: str | None = None,
+    ) -> ExecutionsPage:
+        """The executions of all artifacts, newest first, one page (see ``engine/history_query.py``)."""
+        flt = history_query.ExecutionFilter.parse(
+            status=status, started_by=started_by, pipeline=pipeline, q=q, since=since, until=until
+        )
+        async with self._session() as session:
+            return await history_query.list_executions(
+                session, flt, limit=limit, cursor=cursor, now=history_module.utcnow()
             )
 
     @staticmethod

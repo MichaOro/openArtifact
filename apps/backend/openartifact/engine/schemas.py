@@ -178,6 +178,42 @@ class ExecutionDetail(ExecutionRead):
     steps: list[ExecutionStepRead]
 
 
+class ExecutionTaskRef(BaseModel):
+    """The artifact an execution belongs to, as the global list names it."""
+
+    id: str
+    number: int
+    title: str
+
+
+class ExecutionOverview(ExecutionRead):
+    """An execution in the global list: its summary, its artifact and whether its pipeline still exists
+    (``pipeline_id`` is a copy; the pipeline may have been deleted since)."""
+
+    task: ExecutionTaskRef
+    pipeline_exists: bool
+
+
+class ExecutionsSummary(BaseModel):
+    """Counters of the global list, independent of its filters. ``failed_24h`` and ``done_24h`` count the
+    executions that *started* in the last 24 hours; ``total`` is every execution there is."""
+
+    running: int
+    failed_24h: int
+    done_24h: int
+    total: int
+
+
+class ExecutionsPage(BaseModel):
+    """A page of the global list, newest first. ``total`` counts everything the filters match;
+    ``next_cursor`` is ``None`` on the last page."""
+
+    items: list[ExecutionOverview]
+    next_cursor: str | None
+    total: int
+    summary: ExecutionsSummary
+
+
 class HistoryPolicy(BaseModel):
     """The retention policy of an artifact. Both limits set: an execution must satisfy both to be kept.
 

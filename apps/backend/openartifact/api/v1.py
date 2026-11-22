@@ -13,11 +13,14 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from openartifact.api.deps import ServiceDep
+from openartifact.api.executions import LIST_DESCRIPTION
 from openartifact.api.secrets import StoreDep
 from openartifact.engine.flow_schemas import ExecutionFlow
+from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.engine.schemas import (
     ExecutionDetail,
     ExecutionList,
+    ExecutionsPage,
     ExecutionStepRead,
     HistoryPolicyResult,
     HistoryPolicyWrite,
@@ -106,6 +109,30 @@ async def start_run(ref: str, service: ServiceDep, payload: RunStart | None = No
 async def stop_run(ref: str, service: ServiceDep) -> RunRead:
     """Stop processing; the artifact keeps its stage and action."""
     return await service.stop(ref)
+
+
+@router.get("/executions", response_model=ExecutionsPage, description=LIST_DESCRIPTION)
+async def list_all_executions(
+    service: ServiceDep,
+    status: str | None = None,
+    started_by: str | None = None,
+    pipeline: str | None = None,
+    q: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
+    cursor: str | None = None,
+) -> ExecutionsPage:
+    return await service.all_executions(
+        status=status,
+        started_by=started_by,
+        pipeline=pipeline,
+        q=q,
+        since=since,
+        until=until,
+        limit=limit,
+        cursor=cursor,
+    )
 
 
 @router.get("/artifacts/{ref}/executions", response_model=ExecutionList)
