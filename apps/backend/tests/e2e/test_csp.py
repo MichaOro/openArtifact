@@ -116,3 +116,19 @@ def test_an_inline_script_is_really_blocked(page: Page, base_url: str) -> None:
     )
     assert page.evaluate("window.__ran === undefined")
     assert any("Content Security Policy" in p for p in problems)
+
+
+def test_renaming_a_lane_runs_without_a_violation(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    problems = _watch(page)
+    page.goto(base_url)
+    page.locator('[data-lane][data-status="done"] [data-rename-lane]').click()
+    field = page.locator("#rename-lane-modal-field-title")
+    field.fill("Shipped")
+    field.press("Enter")
+    expect(page.locator('[data-lane][data-status="done"] .lane__title')).to_have_text(
+        "Shipped", use_inner_text=False
+    )
+    page.wait_for_load_state("networkidle")
+    assert problems == []

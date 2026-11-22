@@ -40,6 +40,7 @@ GET /api/actions/{graph_id} -> GraphDetail
 GET /api/events -> -
 GET /api/executions -> ExecutionsPage
 GET /api/info -> InfoRead
+GET /api/lanes -> LaneRead[]
 GET /api/node-types -> NodeTypeRead[]
 GET /api/pipelines -> GraphRead[]
 GET /api/pipelines/{graph_id} -> GraphDetail
@@ -63,6 +64,7 @@ GET /api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id} -> Executi
 GET /api/v1/artifacts/{ref}/run -> RunRead
 GET /api/v1/artifacts/{ref}/run/results -> NodeResultRead[]
 GET /api/v1/executions -> ExecutionsPage
+GET /api/v1/lanes -> LaneRead[]
 GET /api/v1/pipelines -> PipelineChainRead[]
 GET /api/v1/secrets -> SecretRead[]
 GET /health -> HealthRead
@@ -86,9 +88,11 @@ POST /api/tasks/{task_id}/run/stop -> RunRead
 POST /api/v1/artifacts -> TaskRead
 POST /api/v1/artifacts/{ref}/run -> RunRead
 POST /api/v1/artifacts/{ref}/run/stop -> RunRead
+PUT /api/lanes/{status} -> LaneRead[]
 PUT /api/secrets/{name} -> SecretRead
 PUT /api/tasks/{task_id}/history-policy -> HistoryPolicyResult
 PUT /api/v1/artifacts/{ref}/history-policy -> HistoryPolicyResult
+PUT /api/v1/lanes/{status} -> LaneRead[]
 PUT /api/v1/secrets/{name} -> SecretRead
 """.splitlines()
 

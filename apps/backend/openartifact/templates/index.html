@@ -2,15 +2,17 @@
 {% from "components/lane.html" import lane %}
 {% from "components/icons.html" import icon %}
 {% from "components/alert.html" import alert %}
+{% from "components/form_modal.html" import form_modal %}
+{% set LANE_FIELDS = [{"name": "title", "label": "Lane name", "kind": "text", "required": True, "maxlength": 40}] %}
 {% from "components/confirm_modal.html" import confirm_modal %}
-{% block title %}Projects · OpenArtifact{% endblock %}
+{% block title %}Board · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/task-dialog.css">
 <link rel="stylesheet" href="/static/css/history.css">{% endblock %}
 {% block content %}
 {{ alert("Artifacts could not be loaded.") }}
 <div class="board" role="group" aria-label="Kanban board">
     {% for board_lane in lanes %}
-    {{ lane(board_lane.title, board_lane.key, board_lane.status.value, hue=loop.index0 % lane_hues + 1) }}
+    {{ lane(board_lane.title, board_lane.key, board_lane.status.value, hue=board_lane.hue, default_title=board_lane.default_title) }}
     {% endfor %}
 </div>
 
@@ -30,6 +32,7 @@
 <div class="visually-hidden" role="status" aria-live="polite" data-live-region></div>
 
 {% include "components/create_task_modal.html" %}
+{{ form_modal("rename-lane-modal", "Rename lane", LANE_FIELDS, submit="Save", reset="Reset to default") }}
 {{ confirm_modal("delete-task-modal", "Delete Artifact", note="data-children-note") }}
 {{ confirm_modal("delete-execution-modal", "Delete execution", note="data-history-note") }}
 {% endblock %}

@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.api.deps import SessionDep
+from openartifact.api.deps import ServiceDep, SessionDep
 from openartifact.graph.repository import GraphRepository
 from openartifact.models import GraphKind
 from openartifact.security import (
@@ -24,7 +24,6 @@ from openartifact.security import (
     session_value,
     token_matches,
 )
-from openartifact.tasks.lanes import BOARD_LANES, LANE_HUES
 from openartifact.version import __version__ as APP_VERSION  # noqa: N812
 from openartifact.web import navigation
 
@@ -46,17 +45,16 @@ templates.env.globals["navigation"] = navigation
 
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def index(request: Request) -> HTMLResponse:
+async def index(request: Request, service: ServiceDep) -> HTMLResponse:
     """The board."""
     return templates.TemplateResponse(
         request=request,
         name="index.html",
         context={
-            "page_title": "Projects",
-            "active_nav": "projects",
+            "page_title": "Board",
+            "active_nav": "board",
             "app_version": APP_VERSION,
-            "lanes": BOARD_LANES,
-            "lane_hues": LANE_HUES,
+            "lanes": await service.lanes(),
         },
     )
 

@@ -47,9 +47,11 @@ from openartifact.models import (
     RunStatus,
     StartedBy,
     Task,
+    TaskStatus,
 )
+from openartifact.tasks.lanes import LaneTitleError, effective_lanes, rename_lane
 from openartifact.tasks.repository import ParentError, PlacementError, TaskRepository
-from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
+from openartifact.tasks.schemas import LaneRead, TaskCreate, TaskRead, TaskUpdate
 
 LOCKED_FIELDS = {"status", "before_id", "parent_id", "pipeline_id", "stage_id", "action_id"}
 
@@ -104,6 +106,27 @@ class ArtifactService:
         """One artifact by id, or by its number (``12`` or ``#12``)."""
         async with self._session() as session:
             return TaskRead.model_validate(await self._task(session, ref))
+
+    async def lanes(self) -> list[LaneRead]:
+        """The board lanes with their current titles."""
+        async with self._session() as session:
+            return await effective_lanes(session)
+
+    async def rename_lane(self, status: str, title: str | None) -> list[LaneRead]:
+        """Give a lane its own title (``None``: back to the default); publishes ``board.lanes``."""
+        try:
+            lane = TaskStatus(status)
+        except ValueError as error:
+            raise ArtifactError(404, f"Unknown lane '{status}'") from error
+        async with self._session() as session:
+            try:
+                lanes = await rename_lane(session, lane, title)
+            except LaneTitleError as error:
+                raise ArtifactError(422, str(error)) from error
+        self._bus.publish(
+            "board.lanes", {"lanes": [lane.model_dump(mode="json") for lane in lanes]}
+        )
+        return lanes
 
     async def pipelines(self) -> list[dict[str, Any]]:
         """The pipelines with their stages in running order and the actions of every stage."""

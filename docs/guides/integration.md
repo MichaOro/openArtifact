@@ -67,11 +67,12 @@ curl -s -H "Authorization: Bearer $TOKEN" $OA/api/v1/artifacts/12/run
 curl -s -X POST -H "Authorization: Bearer $TOKEN" $OA/api/v1/artifacts/12/run/stop
 ```
 
-The most used routes (all 20 are listed with errors in the [API reference](api-reference.md)):
+The most used routes (all 22 are listed with errors in the [API reference](api-reference.md)):
 
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /api/v1/pipelines` | Pipelines with stages in running order and the actions of each stage |
+| `GET /api/v1/lanes`, `PUT /api/v1/lanes/{status}` | The lanes with their titles; rename one (`{"title": "Review"}`, `null` restores the default). Artifacts always use the status code (`backlog`, `in_progress`, `done`), whatever the lane is called |
 | `GET /api/v1/artifacts`, `POST /api/v1/artifacts` | List, create (`title`, optional `body`, `status`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`) |
 | `GET`, `PATCH`, `DELETE /api/v1/artifacts/{ref}` | Read, change (partial), delete; `ref` is the number (`12`) or the id |
 | `GET /api/v1/artifacts/{ref}/run` | State of the run: status, where it is, every stage |
@@ -190,6 +191,7 @@ Tools (14; all go through the same service as the browser and the REST API; argu
 | Tool | Purpose |
 |------|---------|
 | `list_pipelines` | Pipelines with stages and actions |
+| `list_lanes` | The lanes with their titles (read only) |
 | `list_artifacts(lane?)` | Artifacts in board order, optionally one lane (`backlog`, `in_progress`, `done`) |
 | `get_artifact(artifact)` | One artifact by number (`12` or `#12`) or id |
 | `create_artifact(title, body?, lane?, parent?, pipeline?, stage?, action?)` | Create; pipeline, stage and action by name, parent by number; not started |

@@ -1,8 +1,9 @@
 {% from "components/modal.html" import modal %}
-{# The dialog with input fields (behaviour in static/js/components/form-dialog.js).
+{# `reset`: the label of an optional extra button [data-reset] at the start of the footer.
+   The dialog with input fields (behaviour in static/js/components/form-dialog.js).
    fields: a list of {name, label, kind: "text"|"textarea", required, maxlength, rows, placeholder, hint}.
    Hooks: field control #<id>-field-<name>, its error #<id>-field-<name>-error; [data-submit] and [data-cancel]. #}
-{% macro dialog_form(id, fields, submit="Create") -%}
+{% macro dialog_form(id, fields, submit="Create", reset="") -%}
 <form class="task-form" id="{{ id }}-form" novalidate>
     <div class="modal__body">
         {% for field in fields %}
@@ -24,6 +25,7 @@
         <p class="form-error" role="alert" hidden data-form-error></p>
     </div>
     <footer class="modal__footer">
+        {% if reset %}<button type="button" class="button button--ghost modal__footer-start" data-reset hidden>{{ reset }}</button>{% endif %}
         <button type="button" class="button button--ghost" data-cancel>Cancel</button>
         <button type="submit" class="button button--primary" data-submit>
             <span class="spinner" aria-hidden="true"></span>
@@ -33,8 +35,8 @@
 </form>
 {%- endmacro %}
 
-{% macro form_modal(id, title, fields, submit="Create") -%}
-{% call modal(id, title) %}{{ dialog_form(id, fields, submit) }}{% endcall %}
+{% macro form_modal(id, title, fields, submit="Create", reset="") -%}
+{% call modal(id, title) %}{{ dialog_form(id, fields, submit, reset) }}{% endcall %}
 {%- endmacro %}
 
 {# One required single-line field: the dialogs that ask for a name (new / rename pipeline, action, stage). #}

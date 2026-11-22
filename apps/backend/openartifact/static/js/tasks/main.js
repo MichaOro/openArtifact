@@ -12,6 +12,7 @@ import { CardDragController } from "./dnd.js";
 import { ProcessingPanel } from "./processing.js";
 import { connectEvents } from "./events.js";
 import { HistoryTab } from "./history-tab.js";
+import { LaneRenamer, listLanes } from "./lane-rename.js";
 
 const board = new Board({ loadTasks: listTasks });
 
@@ -48,6 +49,17 @@ async function moveTaskTo(task, { status = task.status, beforeId, position } = {
       board.showError(`Could not move "${task.title}". Please try again.`);
     }
     return false;
+  }
+}
+
+new LaneRenamer({ modal: new Modal(document.getElementById("rename-lane-modal")), board });
+
+/** Show new lane titles everywhere: board, and the open artifact dialog's lane chip and rail. */
+function showLanes(lanes) {
+  board.setLanes(lanes);
+  if (artifactDialog.modal.isOpen) {
+    const status = artifactDialog.currentStatus();
+    artifactDialog.setLane(status, board.laneTitle(status), board.laneHue(status));
   }
 }
 
@@ -307,6 +319,7 @@ connectEvents({
   },
   onOpen: () => {
     board.load(); // first connect and every reconnect: resync
+    listLanes().then(showLanes).catch(() => {});
     listRuns().then((runs) => processing.setRuns(runs)).catch(() => {});
     history.load(); // missed events are not replayed
   },
@@ -317,6 +330,7 @@ connectEvents({
       board.remove(data.id);
       processing.remove(data.id);
     }
+    else if (type === "board.lanes") showLanes(data.lanes);
     else if (type === "board.resync") board.load(); // lane was renumbered: positions changed
     else {
       board.upsert(data); // task.created / task.updated / task.moved

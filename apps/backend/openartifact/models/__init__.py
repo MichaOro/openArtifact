@@ -108,6 +108,18 @@ class Task(Base):
         return f"<Task(id={self.id!r}, status={self.status!r})>"
 
 
+class LaneTitle(Base):
+    """A lane title the user changed (only overrides; a lane without a row shows its default).
+
+    The CHECK on ``status`` exists in migration 0027 only, like ``ck_tasks_status`` in 0003.
+    """
+
+    __tablename__ = "lane_titles"
+
+    status: Mapped[str] = mapped_column(String(20), primary_key=True)
+    title: Mapped[str] = mapped_column(String(40))
+
+
 class TaskNumberSeq(Base):
     """The counter behind ``Task.number`` (one row, ``id = 1``): numbers are never reused."""
 
