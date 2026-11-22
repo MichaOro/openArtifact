@@ -22,7 +22,7 @@
 
 ## 2.3 Contractual Constraints
 
-- MIT License
+- Apache License 2.0
 - Open-source distribution
 - Self-hosted deployment (no cloud dependency)
 
