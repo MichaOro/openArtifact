@@ -599,13 +599,14 @@ def test_two_quick_link_changes_end_with_server_and_screen_in_agreement(
         )
         # the screen is checked first: waiting on it also lets the delayed answer through
         expect(node.locator(".ge-node__kind")).to_have_text("Empty action")
-        eventually(lambda: _linked_name(api, pipeline), None)
+        eventually(lambda: _linked_name(api, pipeline), None, page=page)
         select.select_option(label="With fail")
         expect(node.locator(".ge-node__name")).to_have_text("With fail")
-        eventually(lambda: _linked_name(api, pipeline), "With fail")
+        eventually(lambda: _linked_name(api, pipeline), "With fail", page=page)
         select.select_option(label="Not defined")
         expect(node.locator(".ge-node__kind")).to_have_text("Empty action")
-        eventually(lambda: _linked_name(api, pipeline), None)
+        eventually(lambda: _linked_name(api, pipeline), None, page=page)
+    page.unroute_all(behavior="ignoreErrors")  # no handler may still run when the page closes
 
 
 def test_a_timer_goes_between_trigger_and_output_and_waits_for_its_seconds(

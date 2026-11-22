@@ -22,17 +22,29 @@ from tests.helpers import (
 )
 
 
-def eventually(read: Callable[[], Any], expected: Any, timeout: float = 5.0) -> None:
-    """`read()` becomes `expected` (server-side effects are asynchronous: polls without a browser sleep)."""
+def eventually(
+    read: Callable[[], Any], expected: Any, timeout: float = 5.0, page: Page | None = None
+) -> None:
+    """`read()` becomes `expected` (server-side effects are asynchronous).
+
+    Without `page` it polls with a plain sleep. Give the `page` when the test holds requests in a route
+    handler: only a Playwright call lets the handler run, so the poll pauses through the page.
+    """
     deadline = time.monotonic() + timeout
     while read() != expected:
         if time.monotonic() > deadline:
             raise AssertionError(f"expected {expected!r}, got {read()!r}")
-        time.sleep(0.02)
+        if page is None:
+            time.sleep(0.02)
+        else:
+            page.wait_for_timeout(20)
 
 
 def centre(locator: Locator) -> tuple[float, float]:
     """The middle of an element in page coordinates."""
+    locator.wait_for(
+        state="visible"
+    )  # a slow machine draws it later than the click that precedes this
     box = locator.bounding_box()
     assert box is not None
     return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
