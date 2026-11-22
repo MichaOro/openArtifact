@@ -120,6 +120,6 @@ What to do about it:
   (for instance keep the last 10, or the last 48 hours).
 - Do not set `OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP=0` unless every artifact has a policy of its own: with
   it nothing is ever removed.
-- Deleting rows frees pages inside the file for reuse but does not shrink it. To return the space to the
-  file system run SQLite's `VACUUM` on a stopped application or a copy, after a [backup](operations.md#backup).
+- Deleting rows gives the space back: the database runs with `auto_vacuum = FULL`, so the file shrinks (a database
+  from an earlier version is converted once at the next start, see [Operate](operations.md#database-size-and-history-retention)).
 - The backup contains the history, so it grows with it.

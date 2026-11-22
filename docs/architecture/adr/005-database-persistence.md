@@ -112,3 +112,15 @@ The history above is kept. Two statements in it no longer hold and are corrected
 - "Built-in backup (file copy)" is only safe with SQLite's backup API in WAL mode; see the
   [operations guide](../../guides/operations.md#backup).
 - The ORM is SQLAlchemy with Alembic (not SQLModel).
+
+## Update (2026-11-22): the file gives freed space back (`auto_vacuum = FULL`)
+
+SQLite reuses the pages of deleted rows but does not shrink the file unless `auto_vacuum` is on. With a history that
+grows and is pruned (ADR-025) and a deployment on small disks, the file would stay at its high-water mark. The database
+is therefore created with `auto_vacuum = FULL`, and an existing database is converted once by a `VACUUM` before the
+migrations run (`database.ensure_auto_vacuum`, called from `alembic/env.py`, so the container entrypoint does it at the
+start). Consequences: the file shrinks when rows are deleted (after the WAL checkpoint); deleting costs a little CPU for
+the truncation; the one-time conversion rewrites the file and needs free space about its size. `FULL` was chosen over
+`INCREMENTAL` because nothing has to call `incremental_vacuum` at the right places. Implemented in:
+`openartifact/database.py`, `alembic/env.py`, `tests/test_auto_vacuum.py`.
+

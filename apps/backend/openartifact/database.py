@@ -11,7 +11,10 @@ needs to roll back by hand.
 from __future__ import annotations
 
 import logging
+import sqlite3
 from collections.abc import AsyncGenerator, Callable
+from contextlib import closing
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import event
@@ -64,6 +67,34 @@ def create_engine_for(settings: Settings, *, pragmas: bool = True) -> AsyncEngin
     if pragmas:
         event.listen(engine.sync_engine, "connect", _set_sqlite_pragma)
     return engine
+
+
+AUTO_VACUUM_FULL = 1
+
+
+def ensure_auto_vacuum(db_path: Path) -> str:
+    """Make the database file give freed pages back to the file system (``auto_vacuum = FULL``).
+
+    SQLite reuses the pages of deleted rows but never shrinks the file by itself unless
+    ``auto_vacuum`` is on, and that mode can only be chosen when the file is created or by one
+    ``VACUUM``. This runs before the migrations (while nothing else uses the file): a new file is
+    created in that mode, an existing one in another mode is converted once. Returns what it did:
+    ``"created"``, ``"converted"`` or ``"unchanged"``.
+    """
+    new = not db_path.exists() or db_path.stat().st_size == 0
+    with closing(sqlite3.connect(db_path, isolation_level=None)) as conn:
+        if new:
+            conn.execute("PRAGMA auto_vacuum = FULL")
+            # the mode is written into the file header with its first page
+            conn.execute("CREATE TABLE _init (x)")
+            conn.execute("DROP TABLE _init")
+            return "created"
+        if conn.execute("PRAGMA auto_vacuum").fetchone()[0] == AUTO_VACUUM_FULL:
+            return "unchanged"
+        logger.info("Converting the database to auto_vacuum (one-time VACUUM of %s)", db_path.name)
+        conn.execute("PRAGMA auto_vacuum = FULL")
+        conn.execute("VACUUM")
+        return "converted"
 
 
 def build_engine(settings: Settings) -> AsyncEngine:

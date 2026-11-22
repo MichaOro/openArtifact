@@ -204,17 +204,16 @@ Every start of an artifact is an execution that stores a frozen snapshot of the 
 every step with its output (up to 1 MiB each). By default the 50 newest executions per artifact are kept
 (`OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP`; `0` keeps everything and lets the file grow with every run);
 an artifact can have its own policy (`PUT /api/v1/artifacts/{ref}/history-policy`, [Execution history](execution-history.md)).
-Deleting rows does **not** shrink the file: SQLite reuses the freed pages and the file stays as large as it
-has been. To give the space back, stop the application and run `VACUUM` on a copy, or on the volume with the
-container stopped:
+The database runs with `auto_vacuum = FULL`: deleting rows (an execution, its artifact, retention) returns the freed
+pages to the file system when the change is committed, so the file shrinks again (after the next WAL checkpoint,
+which the application does regularly and on shutdown). A new database is created in this mode. A database from an
+earlier version is converted **once** at the next start: the start-up migration step runs a single `VACUUM`, which
+rewrites the file, needs free space about the size of the database during the run and holds the file for that time
+(seconds for a small one). Take a [backup](#backup) before the first start of a new version if the database is large.
 
-```bash
-oa down
-oa run --rm --no-deps --entrypoint python openartifact -c 'import sqlite3; c = sqlite3.connect("/data/openartifact.db"); c.execute("VACUUM"); c.close()'
-oa up -d
-```
-
-`VACUUM` needs free space about the size of the database during the run, and the one-off container's temporary files go to its memory-backed `/tmp`: for a large database run it on a copy outside the container instead. Take a backup first.
+The setting is a property of the file: a restore of an old backup that was not converted is converted again at the
+next start. Deleting rows costs a little more CPU than before because the file is truncated; with a history of
+normal size this is not noticeable.
 
 ## One process, one volume
 

@@ -9,7 +9,7 @@ from typing import Any
 from alembic import context
 from openartifact import models  # noqa: F401  (registers every table on Base.metadata)
 from openartifact.config import Settings
-from openartifact.database import Base, create_engine_for
+from openartifact.database import Base, create_engine_for, ensure_auto_vacuum
 
 config = context.config
 
@@ -56,6 +56,9 @@ async def run_async_migrations() -> None:
     """Connect with an engine of the configured database and run all pending migrations."""
     settings = Settings()
     settings.data_dir.mkdir(parents=True, exist_ok=True)
+    ensure_auto_vacuum(
+        settings.data_dir / settings.database_filename
+    )  # before anything else uses the file
     engine = create_engine_for(settings, pragmas=False)
 
     async with engine.connect() as connection:
