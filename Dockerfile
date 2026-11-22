@@ -1,6 +1,6 @@
 # ── Stage 1: Build ────────────────────────────────────────────────
 # Resolve the runtime dependencies and install them with the package into /install.
-FROM python:3.12-slim AS builder
+FROM python:3.15-slim AS builder
 
 WORKDIR /build
 
@@ -17,7 +17,7 @@ COPY apps/backend/openartifact/ openartifact/
 RUN pip install --no-cache-dir --prefix=/install --no-deps .
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 RUN groupadd --gid 1000 openartifact \
     && useradd --uid 1000 --gid openartifact --create-home --shell /bin/bash openartifact
