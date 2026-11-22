@@ -1,5 +1,5 @@
-# Known vulnerabilities in the installed runtime dependencies (pip-audit), weekly and when the
-# dependency list changes. The versions are the ones a fresh install resolves today, as in the image.
+# Known vulnerabilities in the declared runtime dependencies (pip-audit), weekly and when the
+# dependency list changes. The ranges from pyproject.toml are resolved fresh, as in the image.
 name: Audit
 
 on:
@@ -24,11 +24,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install the application into its own environment
+      - name: Declared runtime dependencies
         run: |
-          python -m venv "$RUNNER_TEMP/app"
-          "$RUNNER_TEMP/app/bin/pip" install --no-cache-dir apps/backend
-      - name: Audit it
+          # The list from pyproject.toml, the same one the Dockerfile installs.
+          python -c "import tomllib; print('\n'.join(tomllib.load(open('apps/backend/pyproject.toml', 'rb'))['project']['dependencies']))" > "$RUNNER_TEMP/requirements.txt"
+          cat "$RUNNER_TEMP/requirements.txt"
+      - name: Audit them
         run: |
           pip install --no-cache-dir pip-audit
-          pip-audit --path "$RUNNER_TEMP"/app/lib/python3.12/site-packages
+          # -r resolves the declared ranges in a throw-away environment and audits what comes out.
+          pip-audit -r "$RUNNER_TEMP/requirements.txt" --progress-spinner off

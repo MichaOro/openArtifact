@@ -15,7 +15,7 @@ on:
       - "apps/backend/**"
       - "deploy/**"
       - "scripts/**"
-      - "README.md"
+      - "tools/smoke_container.sh"
       - ".github/workflows/**"
 
 permissions:

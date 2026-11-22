@@ -18,6 +18,11 @@
 # 127.0.0.1, use 0.0.0.0 to reach it from other machines) and OPENARTIFACT_PUBLISHED_PORT (default
 # 2909). OPENARTIFACT_PORT (also read from deploy/.env) is the port the application listens on inside
 # the container; the mapping and the health check follow it.
+#
+# Memory: the container limit (mem_limit, 1g) must stay clearly above what one Code node may use
+# (OPENARTIFACT_CODE_MEMORY_LIMIT_MB, default 512, an address-space limit per process): the application
+# needs about 150-250 MB itself, so a Code node at its limit plus the application fits, whereas equal
+# values would let the kernel OOM-kill the whole container instead of just the node. Raise both together.
 
 services:
   openartifact:
@@ -39,7 +44,7 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 256
-    mem_limit: 512m
+    mem_limit: 1g
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${OPENARTIFACT_PORT:-2909}/health')"]
       interval: 30s

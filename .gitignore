@@ -23,6 +23,10 @@ venv/
 .coverage
 .coverage.*
 coverage.xml
+.hypothesis/
+playwright-report/
+.tox/
+.nox/
 htmlcov/
 test-results/
 
@@ -34,6 +38,7 @@ test-results/
 *.sqlite
 *.sqlite3
 *.log
+.data/
 
 # Docker
 docker-compose.override.yml
@@ -45,8 +50,7 @@ docker-compose.override.yml
 *~
 .DS_Store
 Thumbs.db
-.claude/commands/
-.claude/sessions/
+.claude/
 .cursor/
 .copilot-chat/
 .open-code-sessions/
