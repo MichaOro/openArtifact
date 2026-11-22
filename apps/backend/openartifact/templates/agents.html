@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/form_modal.html" import form_modal %}
+{% from "components/icons.html" import icon %}
+{% block title %}Agents · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
+<link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
+{% block content %}
+{{ alert("Agents could not be loaded.") }}
+<div class="ge-toolbar">
+    <button type="button" class="button button--primary" data-new-agent>{{ icon("plus") }} New agent</button>
+</div>
+<p class="ag-intro">An agent is a reusable prompt for a language model. An <strong>Agent</strong> node of an action runs it: the node maps the agent's inputs to values of the run and may override single settings. Only a published version is run.</p>
+<ul class="ge-list" data-agent-list aria-label="Agents"></ul>
+<p class="ge-empty glass" data-agent-empty hidden>No agents yet. Create the first one, write its prompt and publish it.</p>
+
+<template id="agent-item-template">
+    <li class="ge-item glass ag-item">
+        <a class="ge-item__link" href="#">
+            <h3 class="ge-item__name"></h3>
+            <p class="ge-item__meta"></p>
+            <p class="ag-item__hint" hidden></p>
+        </a>
+        <span class="ag-chips" data-chips></span>
+        <button type="button" class="icon-button icon-button--sm" data-delete aria-label="Delete agent" title="Delete">{{ icon("trash") }}</button>
+    </li>
+</template>
+
+{{ form_modal("name-modal", "New agent", [
+    {"name": "name", "label": "Name", "kind": "text", "required": True, "maxlength": 100},
+    {"name": "description", "label": "Description", "kind": "textarea", "rows": 3, "maxlength": 2000, "hint": "optional"},
+]) }}
+{{ confirm_modal("confirm-modal", "Delete agent") }}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/agents/list-page.js"></script>{% endblock %}

@@ -7,6 +7,8 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.agents.providers import ProviderService
+from openartifact.agents.service import AgentService
 from openartifact.artifact_types.service import ArtifactTypeService
 from openartifact.database import get_db_session
 from openartifact.engine.runner import RunEngine
@@ -28,6 +30,18 @@ def get_artifact_types(request: Request) -> ArtifactTypeService:
     return service
 
 
+def get_agents(request: Request) -> AgentService:
+    """The application's agent service."""
+    service: AgentService = request.app.state.agents
+    return service
+
+
+def get_providers(request: Request) -> ProviderService:
+    """The application's LLM provider service."""
+    service: ProviderService = request.app.state.providers
+    return service
+
+
 def get_engine(request: Request) -> RunEngine:
     """The application's execution engine."""
     engine: RunEngine = request.app.state.engine
@@ -42,5 +56,7 @@ def get_event_bus(request: Request) -> EventBus:
 
 ServiceDep = Annotated[ArtifactService, Depends(get_artifacts)]
 TypesDep = Annotated[ArtifactTypeService, Depends(get_artifact_types)]
+AgentsDep = Annotated[AgentService, Depends(get_agents)]
+ProvidersDep = Annotated[ProviderService, Depends(get_providers)]
 EngineDep = Annotated[RunEngine, Depends(get_engine)]
 EventBusDep = Annotated[EventBus, Depends(get_event_bus)]

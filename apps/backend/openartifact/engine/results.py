@@ -23,6 +23,9 @@ class NodeResult:
     variables: dict[str, Any] | None = None
     #: The output the node leaves by, for kinds that choose it themselves (If, Switch); ``None``: by outcome.
     port: str | None = None
+    #: What only the step shows (an agent's prompts and attempts): stored with the step, never copied
+    #: into the run context.
+    detail: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.reason is not None:

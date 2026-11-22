@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -15,6 +15,9 @@ from sqlalchemy.exc import OperationalError
 from starlette.routing import Route
 
 from openartifact import database
+from openartifact.agents.providers import ProviderService
+from openartifact.agents.service import AgentService
+from openartifact.api.agents import routers as agent_routers
 from openartifact.api.artifact_types import router as artifact_types_router
 from openartifact.api.events import router as events_router
 from openartifact.api.executions import router as executions_router
@@ -40,7 +43,7 @@ from openartifact.exceptions import (
 from openartifact.logging_config import configure_logging
 from openartifact.mcp_server import build_mcp
 from openartifact.secret_store import SecretStore
-from openartifact.security import AccessGate, TokenProtected
+from openartifact.security import AccessGate, TokenProtected, require_api_token
 from openartifact.tasks.service import ArtifactService
 from openartifact.version import __version__
 from openartifact.web.routes import router as web_router
@@ -131,6 +134,10 @@ def _create_app(settings: Settings) -> FastAPI:
         database.new_session, app.state.event_bus, app.state.engine
     )
     app.state.artifact_types = ArtifactTypeService(database.new_session, app.state.event_bus)
+    app.state.agents = AgentService(database.new_session, app.state.event_bus)
+    app.state.providers = ProviderService(
+        database.new_session, app.state.event_bus, settings, app.state.secret_store
+    )
     app.state.settings = settings
     # Added innermost first: a request meets the headers, the host check, the body limit and the
     # cross-site guard before the access gate.
@@ -143,7 +150,11 @@ def _create_app(settings: Settings) -> FastAPI:
     # host="0.0.0.0" switches the SDK's own DNS-rebinding check off: the bearer token (TokenProtected)
     # and the HostCheck middleware above are the protection, and HostCheck also covers /mcp.
     app.state.mcp_app = build_mcp(
-        app.state.artifacts, app.state.secret_store, app.state.artifact_types
+        app.state.artifacts,
+        app.state.secret_store,
+        app.state.artifact_types,
+        app.state.agents,
+        app.state.providers,
     ).streamable_http_app(stateless_http=True, json_response=True, host="0.0.0.0")
     app.router.routes.append(Route("/mcp", endpoint=TokenProtected(app.state.mcp_app, settings)))
 
@@ -194,6 +205,8 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(runs_router)
     app.include_router(secrets_router)
     app.include_router(v1_router)
+    for router in agent_routers([Depends(require_api_token)]):
+        app.include_router(router)
     app.include_router(events_router)
     app.include_router(web_router)
 

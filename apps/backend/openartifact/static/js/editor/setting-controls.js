@@ -1,5 +1,5 @@
 /* The controls of the inspector for the settings of a node, one class per setting type the server
- * describes (GET /api/node-types: integer, switch, text, lines, code, select). A control shows the
+ * describes (GET /api/node-types: integer, number, switch, text, lines, code, select). A control shows the
  * value, saves it through `save(value)` (which resolves to null, or to the message of a refusal) and
  * keeps what the user typed when the save is refused. Add a type by subclassing SettingControl and
  * listing it in CONTROLS. */
@@ -161,6 +161,21 @@ class IntegerControl extends SettingControl {
   }
 }
 
+/** A whole or decimal number (the bounds are the setting's). */
+class NumberControl extends IntegerControl {
+  createInput(value) {
+    const input = super.createInput(value);
+    input.step = "any";
+    return input;
+  }
+
+  parse(raw) {
+    const number = Number(raw);
+    if (raw.trim() === "" || Number.isNaN(number)) throw new Error("Enter a number.");
+    return number;
+  }
+}
+
 class SwitchControl extends SettingControl {
   static row = true;
 
@@ -306,6 +321,7 @@ class SelectControl extends SettingControl {
 
 const CONTROLS = {
   integer: IntegerControl,
+  number: NumberControl,
   switch: SwitchControl,
   text: TextControl,
   lines: LinesControl,

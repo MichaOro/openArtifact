@@ -96,6 +96,16 @@ SIDEBAR = (
     )
     .add(NavLink("executions", "Executions", "list", href="/executions"))
     .add(NavLink("artifact-types", "Artifact types", "tag", href="/artifact-types"))
+    .add(NavLink("agents", "Agents", "agent", href="/agents"))
+    .add(
+        NavLink(
+            "settings",
+            "Settings",
+            "settings",
+            href="/settings/providers",
+            children=(NavLink("providers", "LLM providers", "plug", href="/settings/providers"),),
+        )
+    )
 )
 
 ARTIFACT_RAIL = (

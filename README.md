@@ -70,6 +70,9 @@ More with examples: [Concepts](docs/guides/concepts.md). Terms of the architectu
   ([execution nodes](docs/guides/execution-nodes.md)); the run engine executes stages and actions in-process.
 - Code nodes run shell or Python as a child process with CPU, memory, process, file and output limits; HTTP nodes refuse
   loopback, private and metadata addresses unless you allow them.
+- Agents: reusable prompts with declared inputs, a draft and published versions (rollback included), run by an Agent
+  node that sends one request to a model of OpenRouter or an OpenAI-compatible endpoint; the prompts as sent, the tokens
+  and every attempt are in the history ([agents](docs/guides/agents.md)).
 - Credential store: secrets are encrypted in the database and referenced by name from nodes, never returned by the API
   ([Credentials](docs/guides/credentials.md); API only, there is no UI for it yet).
 - Execution history per artifact with steps and outputs, retention policy (default keep 50), delete and clear

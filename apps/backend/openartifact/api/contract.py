@@ -49,6 +49,7 @@ _RESPONSES: dict[int, dict[str, Any]] = {
     415: {**_JSON, "description": "The body is not sent as ``application/json``."},
     422: {**_JSON, "description": "A value is invalid; ``detail`` says which."},
     429: {**_JSON, "description": "As many runs are active as allowed; try again later."},
+    502: {**_JSON, "description": "A provider could not be reached or did not answer usably."},
     503: {
         **_JSON,
         "description": "The server cannot take this request now (e.g. too many open event streams).",

@@ -52,6 +52,9 @@ A node never holds a value, only a name.
   environment variable of that name (`$API_TOKEN` in shell, `os.environ["API_TOKEN"]` in Python). Up to 32
   per node. The names `PATH`, `HOME`, `LANG` and `OPENARTIFACT_*` are reserved. `${secret:NAME}` is not
   substituted inside the code text: the code is stored and shown in plain text.
+- **LLM provider:** a provider names the secret that holds its API key (*Settings › LLM providers*, or
+  `secret_name` in the API). An Agent node gets the key from there when it runs; it cannot be mapped into a prompt
+  or an input. The provider dialog can store the key for you. See [Agents and LLM providers](agents.md).
 - A missing secret fails the node with "Secret NAME does not exist", before anything runs.
 
 Values are looked up and decrypted by the executor at the moment the node runs. A frozen snapshot of a

@@ -19,6 +19,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from openartifact.agents import schemas as agent_rules
+from openartifact.agents.render import MappingError, parse_mapping, prompt_problems
 from openartifact.engine.context import VAR_NAME, ContextError, check_url_placement
 from openartifact.models import GraphKind, NodeKind
 from openartifact.secret_refs import (
@@ -138,6 +140,21 @@ def _check_condition_text(value: str) -> None:
     _check_text_references(value)
 
 
+def _check_agent_inputs(value: str) -> None:
+    """The input mapping of an agent node: ``name = value`` per line, no secret as a source."""
+    try:
+        parse_mapping(value)
+    except MappingError as error:
+        raise SettingError(str(error)) from error
+    _check_text_references(value)
+
+
+def _check_agent_prompt(value: str) -> None:
+    """A prompt a node sets for itself follows the agent's rule: only ``${input.NAME}``."""
+    for problem in prompt_problems(value, None, "Prompt"):
+        raise SettingError(problem)
+
+
 class Ports:
     """The names of the connectors that the rules and the engine refer to."""
 
@@ -170,8 +187,8 @@ class Setting:
     """A value the user sets on a node in the inspector.
 
     ``type``: ``integer`` and ``switch`` as before; ``text`` (one line), ``lines`` (several lines),
-    ``code`` (several lines, source code) and ``select`` (one of ``options``) are new. Integers
-    are bound by ``minimum``/``maximum``, texts by ``max_length``. ``stored_in`` says where the
+    ``code`` (several lines, source code), ``select`` (one of ``options``) and ``number`` (a whole or
+    decimal number) are new. Numbers are bound by ``minimum``/``maximum``, texts by ``max_length``. ``stored_in`` says where the
     value lives: the node's column of the same name (``"column"``, the older settings) or its
     ``config`` object (``"config"``). ``check`` is an extra rule for a text (not sent to the editor).
     """
@@ -224,6 +241,14 @@ class Setting:
         if self.type == "integer":
             if isinstance(value, bool) or not isinstance(value, int):
                 raise SettingError(f"'{self.key}' must be a whole number")
+            if (self.minimum is not None and value < self.minimum) or (
+                self.maximum is not None and value > self.maximum
+            ):
+                raise SettingError(f"'{self.key}' must be {self.minimum} to {self.maximum}")
+            return value
+        if self.type == "number":
+            if isinstance(value, bool) or not isinstance(value, int | float):
+                raise SettingError(f"'{self.key}' must be a number")
             if (self.minimum is not None and value < self.minimum) or (
                 self.maximum is not None and value > self.maximum
             ):
@@ -762,6 +787,106 @@ class SwitchType(_ExecutionType):
         return super().connect_error(source, source_port, target, target_port)
 
 
+def _override(key: str, label: str, type_: str, **more: Any) -> Setting:
+    """A setting of an agent node that overrides the agent's: not set (``None``) means inherited."""
+    return Setting(key, label, type_, default=None, stored_in="config", **more)
+
+
+class AgentType(_ExecutionType):
+    """Runs a centrally defined agent: one request to a model, the answer is the node's output.
+
+    The node holds a reference to the agent (``agent_id``), the mapping of the agent's inputs to the
+    run context (``inputs``) and overrides. Every override setting has no default: a value that is not
+    set is inherited from the agent's published version when an execution starts
+    (``agents/resolve.py``), a value that is set replaces that one field, and saving ``null`` resets
+    it. The bounds are the agent's own (``agents/schemas.py``).
+    """
+
+    kind = NodeKind.AGENT
+    label = "Agent"
+    settings = (
+        Setting(
+            "agent_id",
+            "Agent",
+            "text",
+            default="",
+            max_length=36,
+            stored_in="config",
+            help="The agent this node runs (managed under Agents).",
+        ),
+        Setting(
+            "inputs",
+            "Inputs",
+            "lines",
+            default="",
+            max_length=20000,
+            placeholder="ticket = ${node.Fetch_ticket.output}",
+            stored_in="config",
+            references="context",
+            help=(
+                "One 'name = value' per line for the inputs the agent declares. The value is text "
+                "and may hold ${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or "
+                "${card.name}; secrets cannot be used."
+            ),
+            check=_references(_check_agent_inputs),
+        ),
+        _override("system_prompt_enabled", "Use a system prompt", "switch"),
+        _override(
+            "system_prompt",
+            "System prompt",
+            "lines",
+            max_length=agent_rules.PROMPT_MAX_CHARS,
+            check=_check_agent_prompt,
+        ),
+        _override(
+            "user_prompt",
+            "User prompt",
+            "lines",
+            max_length=agent_rules.PROMPT_MAX_CHARS,
+            check=_check_agent_prompt,
+        ),
+        _override("provider_id", "Provider", "text", max_length=36),
+        _override("model", "Model", "text", max_length=agent_rules.MODEL_ID_MAX),
+        _override(
+            "temperature",
+            "Temperature",
+            "number",
+            minimum=agent_rules.TEMPERATURE_MIN,
+            maximum=agent_rules.TEMPERATURE_MAX,
+        ),
+        _override(
+            "max_tokens",
+            "Max tokens",
+            "integer",
+            minimum=agent_rules.MAX_TOKENS_MIN,
+            maximum=agent_rules.MAX_TOKENS_MAX,
+        ),
+        _override(
+            "request_timeout_seconds",
+            "Request timeout (seconds)",
+            "integer",
+            minimum=agent_rules.REQUEST_TIMEOUT_MIN,
+            maximum=agent_rules.REQUEST_TIMEOUT_MAX,
+        ),
+        _override(
+            "total_timeout_seconds",
+            "Time limit of the node (seconds)",
+            "integer",
+            minimum=agent_rules.TOTAL_TIMEOUT_MIN,
+            maximum=agent_rules.TOTAL_TIMEOUT_MAX,
+        ),
+        _override(
+            "retries",
+            "Retries",
+            "integer",
+            minimum=agent_rules.RETRIES_MIN,
+            maximum=agent_rules.RETRIES_MAX,
+        ),
+        ON_FAILURE,
+    )
+    reference_keys = ("inputs",)
+
+
 NODE_TYPES: dict[NodeKind, NodeType] = {}
 
 
@@ -797,5 +922,6 @@ for _type in (
     HttpType(),
     IfType(),
     SwitchType(),
+    AgentType(),
 ):
     register(_type)

@@ -6,7 +6,7 @@ OpenArtifact is a self-hosted board of artifacts that run through pipelines:
 
 - **Users** — work in the web interface: they create artifacts, edit pipelines and action definitions, start and stop processing, read the execution history.
 - **Scripts and other systems** — create and follow artifacts and read executions through the integration API (`/api/v1`, bearer token); they also manage credentials there.
-- **LLM agents** — do the same through the MCP server (`/mcp`, bearer token, 14 tools).
+- **LLM agents** — do the same through the MCP server (`/mcp`, bearer token, 18 tools).
 - **Persistent storage** — one SQLite file for artifacts, pipelines, executions and the encrypted credentials.
 - **HTTP targets** — HTTP nodes call URLs that the pipeline designer chose. Requests go to checked public addresses only, unless private networks are allowed by a setting.
 - **Child processes** — Code nodes run a shell or Python script as a child process of the application.

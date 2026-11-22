@@ -10,6 +10,10 @@ export const listExecutions = (taskId, limit = 100) => request(`${base(taskId)}/
 /** One execution with its steps. */
 export const getExecution = (taskId, executionId) => request(`${base(taskId)}/executions/${encodeURIComponent(executionId)}`);
 
+/** One step alone, with its whole output and its detail (an agent step's prompts and attempts). */
+export const getStep = (taskId, executionId, stepId) =>
+  request(`${base(taskId)}/executions/${encodeURIComponent(executionId)}/steps/${encodeURIComponent(stepId)}`);
+
 /** 409 while the execution is running. */
 export const deleteExecution = (taskId, executionId) =>
   request(`${base(taskId)}/executions/${encodeURIComponent(executionId)}`, { method: "DELETE" });

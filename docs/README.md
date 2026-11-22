@@ -26,6 +26,7 @@ How to run, use, change and test the application.
 | [Sign in and use the API and MCP](guides/integration.md) | Token, browser sign-in, `curl` against `/api/v1`, MCP client setup |
 | [API reference](guides/api-reference.md) | The operations of the browser and integration APIs and the MCP tools, generated from the OpenAPI schema |
 | [Execution nodes](guides/execution-nodes.md) | Timer, Code, HTTP and Output nodes: settings, limits, what is and is not isolated |
+| [Agents and LLM providers](guides/agents.md) | Providers and models, agents with drafts and versions, the Agent node, what an execution keeps, limits |
 | [Credentials](guides/credentials.md) | The credential store: API, references from nodes, limits, backup |
 | [Execution history](guides/execution-history.md) | Recording, retention, the flow view, the global executions page, the API |
 | [Operate the Docker deployment](guides/operations.md) | Start, update, health, backup and restore of the SQLite volume |

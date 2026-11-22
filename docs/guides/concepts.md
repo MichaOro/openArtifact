@@ -77,6 +77,7 @@ many actions.
 | HTTP request | Calls an HTTP address | On Pass or On Fail |
 | If | Compares values of the run context | Yes, No or Else |
 | Switch | Compares one value with up to six cases | Case 1 ... 6 or Else |
+| Agent | Sends one request to a language model for an [agent](agents.md) | On Pass or On Fail |
 
 Details in the [execution nodes guide](execution-nodes.md). Further kinds are added through a registry
 ([Extending](extending.md)).

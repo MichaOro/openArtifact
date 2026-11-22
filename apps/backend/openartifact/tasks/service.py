@@ -303,13 +303,13 @@ class ArtifactService:
             task = await self._task(session, ref)
             row = await self._execution(session, task.id, execution_id, with_snapshot=True)
             step = await session.scalar(
-                select(RunNodeResult).where(
-                    RunNodeResult.id == step_id, RunNodeResult.execution_id == row.id
-                )
+                select(RunNodeResult)
+                .where(RunNodeResult.id == step_id, RunNodeResult.execution_id == row.id)
+                .options(undefer(RunNodeResult.detail))
             )
             if step is None:
                 raise ArtifactError(404, "Step not found")
-            return self._named([NodeResultRead.of(step)], row.snapshot)[0]
+            return self._named([NodeResultRead.of(step, detail=step.detail)], row.snapshot)[0]
 
     async def delete_execution(self, ref: str, execution_id: str) -> None:
         """Delete one execution with its steps (409 while it runs)."""

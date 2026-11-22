@@ -4,7 +4,8 @@
 {% from "components/form_modal.html" import form_modal, NAME_FIELDS %}
 {% from "components/icons.html" import icon %}
 {% block title %}{{ section.label }} · OpenArtifact{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
+<link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
 {% block content %}
 {# data-*-path: where a pipeline / an action definition is edited (the links between them). #}
 <div class="ge-editor" data-graph-id="{{ graph_id }}" data-kind="{{ section.kind }}"

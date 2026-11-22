@@ -4,6 +4,7 @@
 import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
 import { field } from "./field.js";
+import { agentBlock } from "./agent-inspector.js";
 import { EDGE_STYLES, displayName } from "./geometry.js";
 import { typeOf } from "./node-types.js";
 import { createControl, settingValue } from "./setting-controls.js";
@@ -134,6 +135,11 @@ export class InspectorBlocks {
       group.append(made.element);
     }
     return section(null, ...parts);
+  }
+
+  /** An agent node: its agent, the input mapping and the settings with their overrides (agent-inspector.js). */
+  agent(node) {
+    return agentBlock(node, typeOf(node), this.editor);
   }
 
   /** The choice of what the node links to (an action definition, a pipeline to call). */

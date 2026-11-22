@@ -11,7 +11,7 @@ by an action definition whose execution nodes (timer, Code, HTTP) do the work. T
 
 - Self-hosted distribution via Docker/Docker Compose; one container, one volume, one SQLite file
 - Web interface served on a configurable port (default 2909)
-- HTTP API for the frontend, an integration API (`/api/v1`) and an MCP server (`/mcp`, 14 tools) for scripts and agents
+- HTTP API for the frontend, an integration API (`/api/v1`) and an MCP server (`/mcp`, 18 tools) for scripts and agents
 - Concurrent pipeline execution with background processing (in-process `asyncio`)
 - Execution nodes that do real work: **Code** (a shell or Python script as a child process) and **HTTP** (one request with an SSRF guard), next to the timer
 - A credential store: named secrets, encrypted at rest, used by nodes by reference only (API only, no UI yet)

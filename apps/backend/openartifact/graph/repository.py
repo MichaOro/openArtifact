@@ -178,7 +178,14 @@ class GraphRepository:
             select(GraphNode.name).where(
                 GraphNode.graph_id != node.graph_id,
                 GraphNode.kind.in_(
-                    [NodeKind.CODE, NodeKind.HTTP, NodeKind.TIMER, NodeKind.IF, NodeKind.SWITCH]
+                    [
+                        NodeKind.CODE,
+                        NodeKind.HTTP,
+                        NodeKind.TIMER,
+                        NodeKind.IF,
+                        NodeKind.SWITCH,
+                        NodeKind.AGENT,
+                    ]
                 ),
             )
         )

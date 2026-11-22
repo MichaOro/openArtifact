@@ -92,6 +92,11 @@ class Settings(BaseSettings):
     #: Whether HTTP nodes may call loopback, private, link-local and metadata addresses. Off by
     #: default (protects the host network); self-hosters calling their own services switch it on.
     http_allow_private_networks: bool = False
+    #: Whether an LLM provider may be on a loopback, private or link-local address (a model server on
+    #: this host or in the internal network). It is the operator's half of the permission: a provider
+    #: must also have its own ``allow_private`` switched on. It does not open HTTP nodes
+    #: (``http_allow_private_networks`` does), and cloud metadata addresses stay refused.
+    llm_allow_private_networks: bool = False
 
     #: Address space (virtual memory) of a Code node's process in MiB (``RLIMIT_AS``). Python and the
     #: shell need little; runtimes that reserve much address space (Java, Node.js, Go) need more.

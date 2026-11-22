@@ -58,7 +58,7 @@ test("events: every type is forwarded parsed; a malformed frame is ignored; open
   const source = FakeEventSource.last;
   assert.equal(source.url, "/api/events");
   assert.deepEqual([...source.listeners.keys()].filter((k) => k.includes(".") || k.startsWith("board.")).sort(), [
-    "artifact_types.changed", "board.lanes", "board.resync", "execution.deleted", "execution.updated", "run.updated", "task.created", "task.deleted", "task.moved", "task.updated",
+    "agents.changed", "artifact_types.changed", "board.lanes", "board.resync", "execution.deleted", "execution.updated", "providers.changed", "run.updated", "task.created", "task.deleted", "task.moved", "task.updated",
   ]);
   source.listeners.get("task.created")({ data: '{"id":"1"}' });
   source.listeners.get("execution.updated")({ data: "not json" });

@@ -3,6 +3,7 @@
  * to); a view class adds how it looks and which inspector building blocks it shows. `NodeView` has the
  * common behaviour, a kind overrides only what differs. Kinds are registered with `registerView`, the
  * way an extension would add one (ADR-014). */
+import { overridesOf } from "../agents/model.js";
 import { icon } from "../components/icons.js";
 import { request } from "../http.js";
 
@@ -315,6 +316,24 @@ class SwitchView extends ExecutionView {
   }
 }
 
+class AgentView extends ExecutionView {
+  static kind = "agent";
+  static icon = "agent";
+
+  /** The agent's name and how many settings the node overrides. */
+  caption(node) {
+    const id = node.config?.agent_id;
+    if (!id) return "no agent yet";
+    const own = overridesOf(node.config).length;
+    // an execution's frozen node carries its agent; the editor knows the names of the list
+    return `${node.agent?.name ?? agentNames.get(id) ?? "agent"}${own ? ` · ${own} override${own === 1 ? "" : "s"}` : ""}`;
+  }
+
+  sections(node, blocks) {
+    return [blocks.agent(node), blocks.actions(node, { remove: true })];
+  }
+}
+
 class HttpView extends ExecutionView {
   static kind = "http";
   static icon = "http";
@@ -345,7 +364,7 @@ export function registerView(View) {
   VIEWS.set(View.kind, View);
 }
 
-[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView, IfView, SwitchView].forEach(registerView);
+[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView, IfView, SwitchView, AgentView].forEach(registerView);
 
 const TYPES = new Map();
 
@@ -355,6 +374,14 @@ export async function loadNodeTypes() {
     const View = VIEWS.get(description.kind) ?? NodeView;
     TYPES.set(description.kind, new View(description));
   }
+}
+
+/** The names of the agents by id, for the caption of an agent node (filled by `rememberAgents`). */
+export const agentNames = new Map();
+
+/** Remember the names of agents (the editor loads them once; the inspector whenever it lists them). */
+export function rememberAgents(agents) {
+  for (const agent of agents) agentNames.set(agent.id, agent.name);
 }
 
 /** The view of a node's kind. */

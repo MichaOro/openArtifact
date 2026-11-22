@@ -65,11 +65,12 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Execution history per artifact with retention policy | Built | ADR-025 |
 | Flow view of an execution (read-only, frozen snapshot) | Built | ADR-027 |
 | Global executions page and API | Built | ADR-028 |
-| Integration API (`/api/v1`) and MCP server (14 tools) | Built | ADR-016 |
+| Integration API (`/api/v1`) and MCP server (18 tools) | Built | ADR-016 |
 | Access protection and request hardening | Built | ADR-016, ADR-017 |
-| Settings area in the UI: loop protection, wall-clock deadlines, separate tokens | Not built (a run is cut off at 1000 steps; limits are environment variables) | |
+| Settings area in the UI: loop protection, wall-clock deadlines, separate tokens | Not built except *Settings › LLM providers* (a run is cut off at 1000 steps; limits are environment variables) | ADR-037 |
 | Human-in-the-loop (a `waiting` status), automatic starts by the system | Not built (`started_by` knows `system`, nothing sets it) | |
-| Agent nodes (AI model providers), Git, notifications, PostgreSQL as a data source, connector layer | Not built | ADR-020 |
+| Agents: definitions with draft, versions and rollback, LLM providers (OpenRouter, OpenAI-compatible) with models and connection test, the Agent node with overrides, one request per run with retries, prompts and attempts in the history | Built; one request only: no tools, loops, streaming, structured output, budgets | ADR-037 |
+| Git, notifications, PostgreSQL as a data source, connector layer | Not built | ADR-020 |
 | Node versions, reordering and colouring of lanes, priorities, tags, due dates, assignees | Not built | |
 | Third-party extensions (manifest, contract version, pages) | Not built | ADR-014 §3.5 |
 | Keyboard creation of graph connections, screen-reader use of the editor | Not built; known limitation | ADR-030, chapter 11 |

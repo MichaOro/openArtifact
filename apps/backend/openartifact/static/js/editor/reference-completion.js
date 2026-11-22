@@ -4,7 +4,7 @@
  * (the server does), and a name it does not know is simply not offered. */
 
 /** Kinds of nodes that leave a result in the run context (the others have nothing to reference). */
-export const RESULT_KINDS = ["code", "http", "timer", "if", "switch"];
+export const RESULT_KINDS = ["code", "http", "timer", "if", "switch", "agent"];
 const NODE_FIELDS = [
   ["output", "text the node wrote"],
   ["exit_code", "exit code"],

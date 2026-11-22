@@ -1,7 +1,9 @@
 """A frozen copy of a pipeline and the action definitions it uses.
 
 Every graph in it carries its ``id``, ``name`` and ``kind``; nodes carry their size and ``fail_enabled``,
-edges their ``id``, style and slots, so the execution flow can draw it like the editor does. Snapshots
+edges their ``id``, style and slots, so the execution flow can draw it like the editor does. An agent
+node also carries ``agent``: its agent as it was published when the snapshot was taken, with the
+provider, the model and the node's overrides resolved (``agents/freeze.py``). Snapshots
 frozen before those fields existed lack them; :mod:`openartifact.engine.flow` fills them in.
 """
 
@@ -11,6 +13,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.agents.freeze import freeze_agents
 from openartifact.graph.node_types import node_type
 from openartifact.graph.repository import GraphRepository
 from openartifact.models import Graph, GraphEdge, GraphNode, NodeKind
@@ -96,4 +99,5 @@ async def build_snapshot(session: AsyncSession, graph: Graph) -> dict[str, Any]:
     snapshot["definitions"] = {}
     snapshot["pipelines"] = {}
     await _collect(session, snapshot, snapshot, (graph.id,))
+    await freeze_agents(session, snapshot)  # agent nodes keep the version they start with
     return snapshot

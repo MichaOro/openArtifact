@@ -11,6 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response, status
 
+from openartifact.agents.service import node_hints as agent_node_hints
 from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import SessionDep
 from openartifact.api.schemas import ChainEntryRead, NodeTypeRead
@@ -31,7 +32,7 @@ from openartifact.graph.schemas import (
     NodeRead,
     NodeUpdate,
 )
-from openartifact.models import Graph, GraphKind, GraphNode
+from openartifact.models import Graph, GraphKind, GraphNode, NodeKind
 
 _LABELS: dict[GraphKind, str] = {GraphKind.PIPELINE: "Pipeline", GraphKind.ACTION: "Action"}
 
@@ -172,6 +173,8 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         await session.commit()
         read = (await _node_reads(repo, [node]))[0]
         read.warnings = await repo.reference_hints(node)
+        if node.kind == NodeKind.AGENT:
+            read.warnings += await agent_node_hints(session, node)
         return read
 
     @router.patch(
@@ -198,6 +201,8 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         await session.commit()
         read = (await _node_reads(repo, [node]))[0]
         read.warnings = await repo.reference_hints(node)
+        if node.kind == NodeKind.AGENT:
+            read.warnings += await agent_node_hints(session, node)
         return read
 
     @router.delete(

@@ -57,10 +57,23 @@ RUN_OUTPUT_LIMIT_CHARS = 1024 * 1024
 #: Longest output stored for one node.
 RESULT_OUTPUT_LIMIT_CHARS = 256 * 1024
 REMOVED_OUTPUT = "[output removed: the results of this execution are limited]"
+OUTPUT_CUT_MARK = "[output truncated]"
 #: Steps a run read carries (the newest); ``results`` of the run has them all.
 RUN_READ_RESULTS = 200
 MAX_STEPS = 1000  # a pipeline that loops for ever fails instead of running for ever
 _UNSET: Any = object()
+
+
+def _cut(result: NodeResult) -> NodeResult:
+    """``result`` with its output cut to the limit of a step, marked in the text, the data and the reason."""
+    note = f"Note: the output was cut at {RESULT_OUTPUT_LIMIT_CHARS // 1024} Ki characters"
+    return replace(
+        result,
+        output=result.output[: RESULT_OUTPUT_LIMIT_CHARS - len(OUTPUT_CUT_MARK) - 1]
+        + f"\n{OUTPUT_CUT_MARK}",
+        data={**(result.data or {}), "output_truncated": True},
+        reason=f"{result.reason}; {note[6:]}" if result.reason else note,
+    )
 
 
 class _RunFailedError(Exception):
@@ -672,7 +685,9 @@ class RunEngine:
             "Node %s (%s) of artifact %s: %s", node["id"], node["kind"], walk.task_id, outcome
         )
         walk.seq += 1
-        output = result.output[:RESULT_OUTPUT_LIMIT_CHARS] if result else ""
+        if result is not None and len(result.output) > RESULT_OUTPUT_LIMIT_CHARS:
+            result = _cut(result)  # never silently: the text, the data and the reason say so
+        output = result.output if result else ""
         changes: dict[str, Any] = {"step_count": Execution.step_count + 1}
         if result is not None:  # the context is the node's result, as it is stored (masked, capped)
             walk.context.record(node, result, port)
@@ -702,6 +717,7 @@ class RunEngine:
                     output=output,
                     reason=result.reason if result else None,
                     data=result.data if result else None,
+                    detail=result.detail if result else None,
                     started_at=started,
                     finished_at=datetime.now(UTC),
                 )

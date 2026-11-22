@@ -17,6 +17,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from openartifact.agents.runtime import run_node as run_agent_node
 from openartifact.config import Settings
 from openartifact.engine.branching import evaluate_if, evaluate_switch
 from openartifact.engine.code_runner import CodeLimits, run_code
@@ -56,6 +57,9 @@ class Limits:
     #: Open mode (no API token) without the explicit opt-in: Code nodes must not run, because anyone who
     #: reaches the port could write one. ``from_settings`` decides; the default keeps unit tests simple.
     code_blocked_in_open_mode: bool = False
+    #: The operator's half of the permission for an LLM provider on a private network (the other half
+    #: is the provider's own ``allow_private``). Independent of ``http_allow_private_networks``.
+    llm_allow_private_networks: bool = False
 
     @classmethod
     def from_settings(cls, settings: Settings, secrets: SecretResolver | None = None) -> Limits:
@@ -73,6 +77,7 @@ class Limits:
             secrets,
             code_blocked_in_open_mode=not settings.api_token
             and not settings.code_nodes_without_token,
+            llm_allow_private_networks=settings.llm_allow_private_networks,
         )
 
 
@@ -120,6 +125,8 @@ def _masked(result: NodeResult, values: dict[str, str]) -> NodeResult:
         result.data = mask_data(result.data, used)
     if result.variables is not None:
         result.variables = mask_data(result.variables, used)
+    if result.detail is not None:
+        result.detail = mask_data(result.detail, used)
     return result
 
 
@@ -215,8 +222,31 @@ async def _switch(node: dict[str, Any], limits: Limits, view: RunView | None = N
     return evaluate_switch(node["config"], view or RunView())
 
 
+async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
+    """One request to the model of the node's agent (see ``agents/runtime.py``). The key of the
+    provider is resolved here, like every secret, so the answer, the reason, the data and the detail
+    (the prompts) are masked for it and the snapshot only ever holds its name."""
+    frozen = node.get("agent")
+    usable = isinstance(frozen, dict) and not frozen.get(
+        "error"
+    )  # else it fails before any request
+    provider = frozen.get("provider") if usable and isinstance(frozen, dict) else None
+    name = provider.get("secret_name") if isinstance(provider, dict) else None
+
+    async def run(values: dict[str, str]) -> NodeResult:
+        return await run_agent_node(
+            node,
+            view or RunView(),
+            values.get(name) if name else None,
+            allow_private_networks=limits.llm_allow_private_networks,
+        )
+
+    return await _with_secrets([name] if name else [], limits, run)
+
+
 register_executor(NodeKind.CODE, _code)
 register_executor(NodeKind.HTTP, _http)
 register_executor(NodeKind.TIMER, _timer, by_outcome=False)
 register_executor(NodeKind.IF, _if, by_outcome=False)
 register_executor(NodeKind.SWITCH, _switch, by_outcome=False)
+register_executor(NodeKind.AGENT, _agent)

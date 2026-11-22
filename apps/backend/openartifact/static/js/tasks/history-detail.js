@@ -4,6 +4,7 @@
  * execution is a page of its own (static/js/execution/); this view links to it ("Open flow"). */
 import { executionSeconds, formatDuration, formatTime, originLabel, setChip } from "./history-format.js";
 import { contextBlock } from "./context-block.js";
+import { getStep } from "./history-api.js";
 import { fillStep } from "./history-step.js";
 
 export class HistoryDetail {
@@ -128,6 +129,7 @@ export class HistoryDetail {
 
   /** One step as a list item. `open` holds the keys of the blocks the user had opened. */
   renderStep(step, open = new Set()) {
-    return fillStep(this.stepTemplate, step, open);
+    const execution = this.execution;
+    return fillStep(this.stepTemplate, step, open, { loadDetail: (one) => getStep(execution.task_id, execution.id, one.id) });
   }
 }

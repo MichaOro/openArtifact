@@ -8,6 +8,14 @@ node runs arbitrary code with the application's rights.
 
 Settings of the application that affect the nodes are in the [configuration reference](configuration.md).
 
+The **Agent node** (one request to a language model for a centrally managed agent) has a guide of its own:
+[Agents and LLM providers](agents.md). It is an execution node like the ones here: *On Pass* / *On Fail*,
+*If the node fails*, a result in the run context (`${node.NAME.output}`, `${node.NAME.data.model}`,
+`${node.NAME.data.usage.total_tokens}`).
+
+An output longer than a step keeps (256 Ki characters) is cut visibly for every kind: the text ends with
+`[output truncated]`, the data has `output_truncated: true` and the reason says so.
+
 ## How an action definition runs
 
 When a run reaches an action that is linked to a definition, the engine walks the definition:

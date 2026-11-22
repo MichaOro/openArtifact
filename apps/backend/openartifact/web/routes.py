@@ -168,6 +168,32 @@ async def artifact_types(request: Request) -> HTMLResponse:
     )
 
 
+def _page(request: Request, name: str, title: str, nav: str, **more: str) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name=name,
+        context={"page_title": title, "active_nav": nav, "app_version": APP_VERSION, **more},
+    )
+
+
+@router.get("/agents", response_class=HTMLResponse, include_in_schema=False)
+async def agents(request: Request) -> HTMLResponse:
+    """The agents (the page loads and changes them through the API)."""
+    return _page(request, "agents.html", "Agents", "agents")
+
+
+@router.get("/agents/{ref}", response_class=HTMLResponse, include_in_schema=False)
+async def agent_editor(request: Request, ref: str) -> HTMLResponse:
+    """One agent: draft, publishing, versions, preview. An unknown id still renders; the page says so."""
+    return _page(request, "agent_editor.html", "Agent", "agents", agent_ref=ref)
+
+
+@router.get("/settings/providers", response_class=HTMLResponse, include_in_schema=False)
+async def providers(request: Request) -> HTMLResponse:
+    """The LLM providers and their models."""
+    return _page(request, "providers.html", "LLM providers", "providers")
+
+
 @router.get(
     "/artifacts/{ref}/executions/{execution_id}",
     response_class=HTMLResponse,

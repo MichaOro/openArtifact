@@ -50,11 +50,16 @@ class NodeResultRead(BaseModel):
     output_truncated: bool
     reason: str | None
     data: dict[str, Any] | None
+    #: What only one step shows (an agent's prompts as sent, its inputs and every attempt). Filled
+    #: when a single step is read, ``None`` in every list.
+    detail: dict[str, Any] | None = None
     started_at: UtcDateTime
     finished_at: UtcDateTime
 
     @classmethod
-    def of(cls, row: RunNodeResult, preview: bool = False) -> NodeResultRead:
+    def of(
+        cls, row: RunNodeResult, preview: bool = False, detail: dict[str, Any] | None = None
+    ) -> NodeResultRead:
         cut = preview and len(row.output) > OUTPUT_PREVIEW_CHARS
         return cls(
             id=row.id,
@@ -75,6 +80,7 @@ class NodeResultRead(BaseModel):
             output_truncated=cut,
             reason=row.reason,
             data=row.data,
+            detail=detail,
             started_at=row.started_at,
             finished_at=row.finished_at,
         )

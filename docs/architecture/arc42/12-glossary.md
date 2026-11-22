@@ -7,7 +7,9 @@
 | Artifact | Structured unit of work within OpenArtifact; a card on the board. **UI wording:** the interface always says "artifact" (never task, issue or work package). In code, API and database the same thing is still named `task` (`/api/tasks`, table `tasks`); that is an implementation name, not product language. Every artifact has a permanent number (`#12`) that is never reused and can be referenced as `#12` in other artifacts' bodies. |
 | Lane | A column of the board, a row of the table `lanes` (a `key` that artifacts carry in `status`, a title, a position, a style). The owner can add, rename and delete lanes (only empty ones) and choose in the lane's Settings whether its cards look finished (struck-through, dimmed titles). The lane at position N has colour N of the lane palette (cycling after 8). |
 | Orchestration | Carrying artifacts through pipelines: the run engine starts, executes, stops and records the runs. |
-| Agent | An LLM-driven client of the integration API or the MCP server. Agents that run *inside* a pipeline are planned, not built. |
+| Agent | (1) A reusable definition that an Agent node runs: prompts with `${input.NAME}`, declared inputs, provider, model and limits, with a draft and published versions (ADR-037). (2) An LLM-driven client of the integration API or the MCP server. |
+| Agent node | The node kind of an action definition that sends one request to a model for an agent; it maps the agent's inputs to the run and may override single settings. |
+| Provider (LLM) | Where agents send requests: OpenRouter or an OpenAI-compatible endpoint, with its models; it refers to its API key by the name of a secret. |
 | Pipeline | What an artifact runs through: a trigger, stages and a complete, connected by edges (ADR-012, ADR-013). Pages `/pipelines`. Formerly called "workflow" (ADR-015). |
 | Trigger | The start node of a pipeline or action definition (placeholder for manual, webhook or event starts). |
 | Stage | A container inside a pipeline that holds actions and connects to other stages. |

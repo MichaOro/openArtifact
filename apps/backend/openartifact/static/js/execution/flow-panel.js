@@ -16,7 +16,7 @@ const el = (tag, className, text) => {
   return node;
 };
 
-const WORKS = ["code", "http", "timer"]; // a trigger or an output takes no time worth showing
+const WORKS = ["code", "http", "timer", "agent"]; // a trigger or an output takes no time worth showing
 const visitSeconds = (visit) => (visit.started_at ? secondsBetween(visit.started_at, visit.finished_at) : null);
 
 export class FlowPanel {
@@ -240,7 +240,7 @@ export class FlowPanel {
 
   /** A step as in the History tab; its output is fetched when the block is opened, not before. */
   #step(step, open) {
-    const item = fillStep(this.stepTemplate, this.outputs.get(step.id) ?? step, open);
+    const item = fillStep(this.stepTemplate, this.outputs.get(step.id) ?? step, open, { loadDetail: (one) => this.loadStep(one) });
     const block = item.querySelector("[data-step-output]");
     const pre = block.querySelector("pre");
     const truncated = item.querySelector("[data-step-truncated]");

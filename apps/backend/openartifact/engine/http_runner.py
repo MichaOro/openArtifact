@@ -18,6 +18,7 @@ import re
 import socket
 import time
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -204,25 +205,43 @@ def _clean(error: ValueError) -> str:
     return text if text.startswith(own) else "The URL is not valid"
 
 
-async def _send(
-    config: dict[str, Any],
+class ConnectFailedError(Exception):
+    """None of the checked addresses of the host took the connection."""
+
+
+@dataclass(frozen=True)
+class Exchange:
+    """A response as far as it was read: status, headers and the body up to the limit."""
+
+    status: int
+    headers: httpx.Headers
+    text: str
+    truncated: bool
+
+
+async def _exchange(
+    method: str,
     url: str,
     scheme: str,
     host: str,
     port: int,
-    headers: dict[str, str],
-    accepted: str,
+    headers: Mapping[str, str],
+    body: bytes | None,
     addresses: list[IPAddress],
-    timeout: int,
+    timeout: float,
     limit: int,
-    started: float,
-) -> NodeResult:
+) -> Exchange:
+    """Send one request to the checked addresses of ``host``, one after the other until one connects.
+
+    The connection goes to the address itself (``Host`` and the TLS server name stay the host's), no
+    redirect is followed, no proxy of the environment is used, the body is read up to ``limit``.
+    Raises :class:`ConnectFailedError` when no address connects and ``httpx.HTTPError`` for anything
+    that goes wrong after that.
+    """
     target = httpx.URL(url.strip())
     default_port = 443 if scheme == "https" else 80
     send_headers = {"Accept-Encoding": "identity", **headers}
     send_headers["Host"] = host if port == default_port else f"{host}:{port}"
-    method = str(config.get("method") or "GET")
-    body = str(config.get("body") or "")
     last_error = "The connection failed"
     for address in addresses:
         ip_url = target.copy_with(host=str(address))
@@ -236,7 +255,7 @@ async def _send(
                     method,
                     ip_url,
                     headers=send_headers,
-                    content=body.encode("utf-8") if body else None,
+                    content=body or None,
                     extensions={"sni_hostname": host} if scheme == "https" else None,
                 )
                 response = await client.send(request, stream=True)
@@ -247,22 +266,71 @@ async def _send(
         except (httpx.ConnectError, httpx.ConnectTimeout) as error:
             last_error = f"The connection failed ({type(error).__name__})"
             continue
-        except httpx.HTTPError as error:
-            return failed(
-                f"The request failed ({type(error).__name__})",
-                duration=time.monotonic() - started,
-            )
-        status = response.status_code
-        ok = _status_ok(status, accepted)
-        return NodeResult(
-            "pass" if ok else "fail",
-            output=f"{text}\n{TRUNCATED_MARK}" if cut else text,
-            reason=None if ok else f"HTTP {status} is not an accepted status ({accepted})",
-            data={
-                "status": status,
-                "content_type": response.headers.get("content-type"),
-                "truncated": cut,
-            },
+        return Exchange(response.status_code, response.headers, text, cut)
+    raise ConnectFailedError(last_error)
+
+
+async def guarded_exchange(
+    method: str,
+    url: str,
+    headers: Mapping[str, str],
+    body: bytes | None,
+    *,
+    timeout: float,
+    limit: int,
+    allow_private: bool,
+) -> Exchange:
+    """One request with every check an HTTP node gets, for the parts of the application that call out
+    themselves (the LLM providers): only http(s) without credentials in the address, every address of
+    the host vetted (:func:`vetted_addresses`), the connection pinned to a vetted address, no redirect,
+    no proxy, a capped body.
+
+    Raises ``ValueError`` (the address is not usable), :class:`AddressRefusedError`,
+    :class:`ConnectFailedError` and ``httpx.HTTPError``; the caller bounds the time as a whole.
+    """
+    scheme, host, port = _url_parts(url)
+    addresses = await vetted_addresses(host, port, allow_private)
+    return await _exchange(
+        method, url, scheme, host, port, headers, body, addresses, timeout, limit
+    )
+
+
+async def _send(
+    config: dict[str, Any],
+    url: str,
+    scheme: str,
+    host: str,
+    port: int,
+    headers: dict[str, str],
+    accepted: str,
+    addresses: list[IPAddress],
+    timeout: int,
+    limit: int,
+    started: float,
+) -> NodeResult:
+    method = str(config.get("method") or "GET")
+    body = str(config.get("body") or "")
+    try:
+        got = await _exchange(
+            method, url, scheme, host, port, headers, body.encode("utf-8") if body else None,
+            addresses, timeout, limit,
+        )  # fmt: skip
+    except ConnectFailedError as error:
+        return failed(str(error), duration=time.monotonic() - started)
+    except httpx.HTTPError as error:
+        return failed(
+            f"The request failed ({type(error).__name__})",
             duration=time.monotonic() - started,
         )
-    return failed(last_error, duration=time.monotonic() - started)
+    ok = _status_ok(got.status, accepted)
+    return NodeResult(
+        "pass" if ok else "fail",
+        output=f"{got.text}\n{TRUNCATED_MARK}" if got.truncated else got.text,
+        reason=None if ok else f"HTTP {got.status} is not an accepted status ({accepted})",
+        data={
+            "status": got.status,
+            "content_type": got.headers.get("content-type"),
+            "truncated": got.truncated,
+        },
+        duration=time.monotonic() - started,
+    )

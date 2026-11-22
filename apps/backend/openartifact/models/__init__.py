@@ -201,6 +201,7 @@ class NodeKind(enum.StrEnum):
     HTTP = "http"
     IF = "if"
     SWITCH = "switch"
+    AGENT = "agent"
 
 
 class Graph(Base):
@@ -410,7 +411,8 @@ class RunNodeResult(Base):
     ``seq`` counts the steps of the execution from 1; ``port`` is the connector the run left the node by
     (``pass``, ``fail`` or ``out``; none for an output node, which ends the action, where
     ``outcome`` says which input was reached). Code and HTTP nodes also carry ``exit_code``,
-    ``output`` (text only, bounded), ``reason`` and ``data``; the other nodes leave these empty.
+    ``output`` (text only, bounded), ``reason`` and ``data``; the other nodes leave these empty. An agent
+    node also has ``detail`` (the prompts as they were sent and every attempt), which goes with the row.
     The position is given by ``pipeline_id`` (the pipeline whose action this is: the run's own or a
     called one), ``depth`` (0 for the run's own), ``top_stage_id`` (the entry of the run's own
     pipeline it is inside), ``stage_id``, ``action_id`` and ``definition_id`` (the action
@@ -448,6 +450,11 @@ class RunNodeResult(Base):
     output: Mapped[str] = mapped_column(Text, default="", server_default="")
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    #: What only the step itself shows (an agent's prompts and attempts, migration 0033): never part of
+    #: the run context, loaded only when one step is read; deferred.
+    detail: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True, default=None, deferred=True
+    )
     started_at: Mapped[datetime] = mapped_column()
     finished_at: Mapped[datetime] = mapped_column()
 
@@ -515,3 +522,119 @@ class ArtifactTypeField(Base):
     max_value: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
     integer_only: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     position: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# ── Agents and LLM providers (migration 0033) ────────────────────────
+
+
+class ProviderKind(enum.StrEnum):
+    """What an ``llm_providers`` row is: the built-in OpenRouter, or an OpenAI-compatible endpoint."""
+
+    OPENROUTER = "openrouter"
+    OPENAI_COMPATIBLE = "openai_compatible"
+
+
+class LlmProvider(Base):
+    """A place agents send their requests to.
+
+    Attributes:
+        kind: See :class:`ProviderKind`. There is at most one ``openrouter`` row.
+        base_url: The address of an OpenAI-compatible endpoint (``None`` for OpenRouter, whose address
+            is fixed in the code).
+        secret_name: The name of the secret that holds the API key (``None``: no key is sent). Never the
+            key itself.
+        allow_private: Whether this provider may be on a private or local network; it only counts when
+            the operator has set ``OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS`` too.
+        default_model: The model used when neither the agent nor the node names one.
+        is_default: The provider used when neither the agent nor the node names one (at most one row).
+        checked_at, check_ok, check_message: The last connection test.
+    """
+
+    __tablename__ = "llm_providers"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    name: Mapped[str] = mapped_column(String(60, collation="NOCASE"), unique=True)
+    base_url: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None)
+    secret_name: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+    allow_private: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    default_model: Mapped[str | None] = mapped_column(String(200), nullable=True, default=None)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    checked_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None)
+    check_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
+    check_message: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
+
+
+class LlmModel(Base):
+    """A model of a provider: fetched from its ``/models`` or defined by hand.
+
+    Only a model that is ``enabled`` and ``available`` can be chosen for an agent. A fetched model that
+    the provider no longer lists stays, with ``available`` false, because configurations may name it.
+    """
+
+    __tablename__ = "llm_models"
+    __table_args__ = (UniqueConstraint("provider_id", "model_id", name="ux_llm_models_provider"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    provider_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("llm_providers.id", ondelete="CASCADE"), index=True
+    )
+    model_id: Mapped[str] = mapped_column(String(200))
+    label: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    source: Mapped[str] = mapped_column(String(16))  # "fetched" or "manual"
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    available: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
+
+
+class Agent(Base):
+    """A reusable agent definition: what an agent node refers to.
+
+    ``draft`` is the editable configuration (JSON text, see ``agents/schemas.py``); it takes effect only
+    when it is published, which copies it into a new ``AgentVersion``. ``published_number`` is the
+    version executions use (``None``: never published); ``version_seq`` is the last number handed out.
+    An inactive agent is not run.
+    """
+
+    __tablename__ = "agents"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100, collation="NOCASE"), unique=True)
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    draft: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
+    published_number: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    version_seq: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
+
+
+class AgentVersion(Base):
+    """A published configuration of an agent. Rows are written once and never changed.
+
+    ``number`` counts per agent from 1 and is never reused. ``source_number`` is set when the version
+    was made by publishing an earlier one again (a rollback): its content equals that version's.
+    ``published_via`` is ``user`` (the browser) or ``api``.
+    """
+
+    __tablename__ = "agent_versions"
+    __table_args__ = (UniqueConstraint("agent_id", "number", name="ux_agent_versions_number"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agents.id", ondelete="CASCADE"), index=True
+    )
+    number: Mapped[int] = mapped_column(Integer)
+    config: Mapped[str] = mapped_column(Text)
+    source_number: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    published_via: Mapped[str] = mapped_column(String(16))
+    published_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

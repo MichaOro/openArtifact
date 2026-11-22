@@ -82,6 +82,16 @@ the unspecified, multicast and cloud-metadata addresses are refused always. Deta
 [execution nodes guide](execution-nodes.md#http-node). Limit: it protects what **HTTP nodes** can reach; a
 Code node is not behind it.
 
+**LLM providers** go through the same guard: the connection test, the model list and every request of an Agent
+node. A provider on a private or local address needs its own switch *and* `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS=true`;
+that setting does not open HTTP nodes, and OpenRouter's address is fixed. `http` is allowed with a warning.
+
+**What an Agent node sends.** Everything a node maps into an agent's input goes to the provider and is stored in
+the step ("Request"). The provider's key is masked in results and logs and is never in a snapshot; other sensitive
+text (a value in a variable, a card parameter, an earlier node's output) is **not** recognised. Secrets cannot be
+mapped into an input. An answer is text from outside, like every node output. There is no budget: a node sends up
+to five requests. See [Agents and LLM providers](agents.md).
+
 ### 4. Credential store
 
 Named secrets, AES-256-GCM, key derived from `OPENARTIFACT_SECRET_KEY`, referenced by name, resolved only
