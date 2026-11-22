@@ -15,12 +15,6 @@ from openartifact.config import Settings
 from openartifact.exceptions import ConfigurationError
 
 
-@pytest.fixture(autouse=True)
-async def clean_engine() -> None:
-    """Make sure no engine leaks between tests."""
-    await db_mod.dispose_engine()
-
-
 def test_lifespan_connects_database_and_disposes_on_shutdown(settings: Settings) -> None:
     """Startup opens the database; shutdown disposes the shared engine."""
     app = _create_app(settings)

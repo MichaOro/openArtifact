@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -10,27 +9,7 @@ import pytest
 from openartifact.config import Settings
 from openartifact.database import build_engine, get_db_session, new_session
 from openartifact.exceptions import ConfigurationError
-from tests.conftest import db_session_context
-
-
-def _reset_engine() -> None:
-    """Reset the global engine for test isolation."""
-    import openartifact.database as db_mod
-
-    if db_mod._engine is not None:
-        import asyncio
-
-        # Use asyncio.run() because get_event_loop() raises in Python 3.12+
-        # when no event loop exists in the current thread
-        asyncio.run(db_mod.dispose_engine())
-
-
-@pytest.fixture(autouse=True)
-def clean_engine() -> Generator[None, None, None]:
-    """Ensure engine is reset between tests."""
-    _reset_engine()
-    yield
-    _reset_engine()
+from tests.helpers import db_session_context
 
 
 @pytest.fixture

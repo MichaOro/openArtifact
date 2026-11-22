@@ -39,6 +39,25 @@ def test_a_page_without_the_token_leads_to_the_sign_in(secured: TestClient) -> N
     assert response.headers["location"] == "/login?next=%2Fpipelines%3Fx%3D1"
 
 
+def test_the_whole_way_in_redirect_sign_in_and_back_to_the_page(secured: TestClient) -> None:
+    landed = secured.get("/pipelines?x=1", headers=HTML, follow_redirects=True)
+    assert landed.url.path == "/login" and dict(landed.url.params) == {"next": "/pipelines?x=1"}
+    assert 'name="next"' in landed.text and "/pipelines?x=1" in landed.text
+
+    page = secured.post(
+        "/login", data={"token": TOKEN, "next": "/pipelines?x=1"}, follow_redirects=True
+    )
+    assert page.status_code == 200
+    assert (page.url.path, dict(page.url.params)) == ("/pipelines", {"x": "1"})
+    assert secured.get("/api/tasks").status_code == 200  # the cookie is what opens the API now
+
+
+def test_signing_in_without_a_token_configured_just_goes_to_the_board(client: TestClient) -> None:
+    response = client.post("/login", data={"token": "anything"}, follow_redirects=False)
+    assert (response.status_code, response.headers["location"]) == (303, "/")
+    assert "set-cookie" not in response.headers
+
+
 def test_api_swagger_and_the_openapi_document_are_closed_without_the_token(
     secured: TestClient,
 ) -> None:
@@ -88,9 +107,11 @@ def test_signing_in_sets_a_session_cookie_and_signing_out_removes_it(secured: Te
     assert secured.get("/api/tasks").status_code == 200
     assert "Sign out" in secured.get("/", headers=HTML).text
 
-    secured.post("/logout", follow_redirects=False)
-    secured.cookies.clear()
-    assert secured.get("/api/tasks").status_code == 401
+    out = secured.post("/logout", follow_redirects=False)
+    assert (out.status_code, out.headers["location"]) == (303, "/login")
+    expired = out.headers["set-cookie"].lower()
+    assert "oa_session=" in expired and ("max-age=0" in expired or "1970" in expired)
+    assert secured.get("/api/tasks").status_code == 401  # with the cookies the client now keeps
 
 
 @pytest.mark.parametrize("target", ["//evil.example", "https://evil.example", "/\\evil", ""])

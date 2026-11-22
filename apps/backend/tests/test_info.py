@@ -6,14 +6,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from openartifact.app import _create_app
-from openartifact.config import Settings
 from openartifact.version import __version__
+from tests.helpers import bare_settings
 
 
 @pytest.fixture
 def client() -> TestClient:
     """Test client on the application with its routes."""
-    return TestClient(_create_app(Settings()))
+    return TestClient(_create_app(bare_settings()))
 
 
 def test_info_returns_200(client: TestClient) -> None:

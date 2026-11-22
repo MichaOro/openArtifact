@@ -8,11 +8,12 @@ from typing import Any
 from openartifact.app import _create_app, create_app
 from openartifact.config import Settings
 from openartifact.version import __version__
+from tests.helpers import bare_settings
 
 
 def test_create_app() -> None:
     """Application factory creates a FastAPI instance."""
-    settings = Settings()
+    settings = bare_settings()
     app = _create_app(settings)
     assert app.title == "OpenArtifact"
     assert app.version == __version__
@@ -20,7 +21,7 @@ def test_create_app() -> None:
 
 def test_app_lifespan_hooks_exist() -> None:
     """App has lifespan configuration."""
-    settings = Settings()
+    settings = bare_settings()
     app = _create_app(settings)
     # In newer FastAPI versions, lifespan is on the router
     assert app.router.lifespan_context is not None

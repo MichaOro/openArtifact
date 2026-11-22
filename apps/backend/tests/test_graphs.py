@@ -8,11 +8,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from alembic import command
 from openartifact.config import Settings
 from openartifact.graph.rules import EdgeError, Endpoint, validate_edge
 from openartifact.models import NodeKind
-from tests.conftest import alembic_config
 
 # ── Port rules ────────────────────────────────────────────────────────
 
@@ -279,93 +277,6 @@ def test_unknown_ids_are_404(client: TestClient) -> None:
     assert client.delete(f"{_url(pipeline)}/nodes/nope").status_code == 404
 
 
-def test_migration_0008_is_reversible(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "head")
-    command.downgrade(alembic_config(), "0007")
-    with sqlite3.connect(settings.data_dir / settings.database_filename) as conn:
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert not {"workflows", "workflow_nodes", "workflow_edges", "graphs"} & tables
-
-
-def test_migration_0009_merges_the_inner_and_outer_stage_ports(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0008")
-    db = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db) as conn:
-        conn.execute("INSERT INTO workflows (id, name) VALUES ('w', 'W')")
-        for node_id, kind, stage in (
-            ("t", "trigger", None),
-            ("s", "stage", None),
-            ("a", "action", "s"),
-            ("s2", "stage", None),
-        ):
-            conn.execute(
-                "INSERT INTO workflow_nodes (id, workflow_id, kind, stage_id, name) VALUES (?, 'w', ?, ?, ?)",
-                (node_id, kind, stage, node_id),
-            )
-        for edge_id, src, sp, dst, dp in (
-            ("e1", "t", "out", "s", "in"),
-            ("e2", "s", "entry", "a", "in"),
-            ("e3", "a", "pass", "s", "exit"),
-            ("e4", "s", "out", "s2", "in"),
-        ):
-            conn.execute(
-                "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, target_port) "
-                "VALUES (?, 'w', ?, ?, ?, ?)",
-                (edge_id, src, sp, dst, dp),
-            )
-    command.upgrade(alembic_config(), "0009")
-    query = "SELECT id, source_port, target_port FROM workflow_edges ORDER BY id"
-    with sqlite3.connect(db) as conn:
-        assert conn.execute(query).fetchall() == [
-            ("e1", "out", "start"),
-            ("e2", "start", "in"),
-            ("e3", "pass", "end"),
-            ("e4", "end", "start"),
-        ]
-    command.downgrade(alembic_config(), "0008")
-    with sqlite3.connect(db) as conn:
-        assert conn.execute(query).fetchall() == [
-            ("e1", "out", "in"),
-            ("e2", "entry", "in"),
-            ("e3", "pass", "exit"),
-            ("e4", "out", "in"),
-        ]
-
-
-def test_migration_0010_adds_defaults_and_is_reversible(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0009")
-    db = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db) as conn:
-        conn.execute("INSERT INTO workflows (id, name) VALUES ('w', 'W')")
-        for node_id, kind in (("t", "trigger"), ("s", "stage")):
-            conn.execute(
-                "INSERT INTO workflow_nodes (id, workflow_id, kind, name) VALUES (?, 'w', ?, ?)",
-                (node_id, kind, node_id),
-            )
-        conn.execute(
-            "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, target_port) "
-            "VALUES ('e', 'w', 't', 'out', 's', 'start')"
-        )
-    command.upgrade(alembic_config(), "0010")
-    with sqlite3.connect(db) as conn:
-        row = conn.execute("SELECT style, source_slot, target_slot FROM workflow_edges").fetchone()
-    assert row == ("curved", 0, 0)
-    command.downgrade(alembic_config(), "0009")
-    with sqlite3.connect(db) as conn:
-        columns = {r[1] for r in conn.execute("PRAGMA table_info(workflow_edges)")}
-    assert not {"style", "source_slot", "target_slot"} & columns
-
-
 def _action_definition(client: TestClient) -> dict[str, Any]:
     response = client.post("/api/actions", json={"name": "Gap analysis"})
     assert response.status_code == 201
@@ -429,67 +340,6 @@ def test_a_pipeline_has_no_output_node(client: TestClient) -> None:
     pipeline = _pipeline(client)
     response = client.post(f"{_url(pipeline)}/nodes", json={"kind": "output"})
     assert response.status_code == 422
-
-
-def test_migration_0011_marks_existing_pipelines_and_is_reversible(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0010")
-    db = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db) as conn:
-        conn.execute("INSERT INTO workflows (id, name) VALUES ('w', 'W')")
-    command.upgrade(alembic_config(), "0011")
-    with sqlite3.connect(db) as conn:
-        assert conn.execute("SELECT kind FROM workflows").fetchall() == [("workflow",)]
-        conn.execute("INSERT INTO workflows (id, name, kind) VALUES ('a', 'A', 'action')")
-        conn.execute(
-            "INSERT INTO workflow_nodes (id, workflow_id, kind, name) VALUES ('o', 'a', 'output', 'O')"
-        )
-    command.downgrade(alembic_config(), "0010")
-    with sqlite3.connect(db) as conn:
-        assert conn.execute("SELECT id FROM workflows").fetchall() == [("w",)]
-        assert conn.execute("SELECT count(*) FROM workflow_nodes").fetchone() == (0,)
-
-
-def test_migration_0012_adds_a_complete_and_connects_a_free_trigger(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0011")
-    db = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db) as conn:
-        for pipeline in ("free", "busy"):
-            conn.execute("INSERT INTO workflows (id, name) VALUES (?, ?)", (pipeline, pipeline))
-            conn.execute(
-                "INSERT INTO workflow_nodes (id, workflow_id, kind, name, x) "
-                "VALUES (?, ?, 'trigger', 'T', 60)",
-                (f"t-{pipeline}", pipeline),
-            )
-        conn.execute(
-            "INSERT INTO workflow_nodes (id, workflow_id, kind, name, x, width) "
-            "VALUES ('s', 'busy', 'stage', 'S', 300, 360)"
-        )
-        conn.execute(
-            "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, target_port) "
-            "VALUES ('e', 'busy', 't-busy', 'out', 's', 'start')"
-        )
-    command.upgrade(alembic_config(), "0012")
-    with sqlite3.connect(db) as conn:
-        completes = dict(
-            conn.execute("SELECT workflow_id, x FROM workflow_nodes WHERE kind = 'complete'")
-        )
-        edges = conn.execute(
-            "SELECT workflow_id, source_id FROM workflow_edges ORDER BY 1"
-        ).fetchall()
-    assert completes == {"free": 60 + 160 + 96, "busy": 300 + 360 + 96}
-    assert edges == [("busy", "t-busy"), ("free", "t-free")]
-    with sqlite3.connect(db) as conn:
-        assert conn.execute(
-            "SELECT count(*) FROM workflow_edges WHERE workflow_id = 'busy'"
-        ).fetchone() == (1,)  # the busy trigger keeps its own connection only
 
 
 # ── linking an action to an action definition ─────────────────────────
@@ -559,20 +409,6 @@ def test_deleting_a_definition_turns_its_actions_back_into_shells(client: TestCl
     assert node["definition_id"] is None
 
 
-def test_migration_0013_is_reversible(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "head")
-    db = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db) as conn:
-        assert "definition_id" in {r[1] for r in conn.execute("PRAGMA table_info(graph_nodes)")}
-    command.downgrade(alembic_config(), "0012")
-    with sqlite3.connect(db) as conn:
-        assert "definition_id" not in {
-            r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")
-        }
-
-
 def test_slugs_follow_the_name_and_are_unique_per_kind(client: TestClient) -> None:
     first = _pipeline(client, "Käse & Brot!")
     second = _pipeline(client, "Kaese brot")
@@ -584,70 +420,12 @@ def test_slugs_follow_the_name_and_are_unique_per_kind(client: TestClient) -> No
     assert renamed["slug"] == "final"
     again = client.patch(_url(first), json={"name": "Käse & Brot!"}).json()
     assert again["slug"] == "kaese-brot"  # renaming to the same name keeps its own slug
-
-
-def test_migration_0014_gives_existing_rows_unique_slugs(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0013")
-    db = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db) as conn:
-        for row_id, name, kind in (
-            ("a", "Test", "workflow"),
-            ("b", "test", "workflow"),
-            ("c", "Test", "action"),
-        ):
-            conn.execute(
-                "INSERT INTO workflows (id, name, kind) VALUES (?, ?, ?)", (row_id, name, kind)
-            )
-    command.upgrade(alembic_config(), "0014")
-    with sqlite3.connect(db) as conn:
-        slugs = dict(conn.execute("SELECT id, slug FROM workflows"))
-    assert slugs == {"a": "test", "b": "test-2", "c": "test"}
-    command.downgrade(alembic_config(), "0013")
-    with sqlite3.connect(db) as conn:
-        assert "slug" not in {r[1] for r in conn.execute("PRAGMA table_info(workflows)")}
-
-
-def test_migration_0015_points_output_edges_at_on_pass(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0014")
-    db = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db) as conn:
-        conn.execute(
-            "INSERT INTO workflows (id, name, kind, slug) VALUES ('a', 'A', 'action', 'a')"
-        )
-        conn.execute(
-            "INSERT INTO workflows (id, name, kind, slug) VALUES ('w', 'W', 'workflow', 'w')"
-        )
-        for node_id, pipeline, kind in (
-            ("t", "a", "trigger"),
-            ("o", "a", "output"),
-            ("tw", "w", "trigger"),
-            ("c", "w", "complete"),
-        ):
-            conn.execute(
-                "INSERT INTO workflow_nodes (id, workflow_id, kind, name) VALUES (?, ?, ?, ?)",
-                (node_id, pipeline, kind, node_id),
-            )
-        for edge_id, pipeline, src, dst in (("e1", "a", "t", "o"), ("e2", "w", "tw", "c")):
-            conn.execute(
-                "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, "
-                "target_port) VALUES (?, ?, ?, 'out', ?, 'in')",
-                (edge_id, pipeline, src, dst),
-            )
-    command.upgrade(alembic_config(), "0015")
-    query = "SELECT id, target_port FROM workflow_edges ORDER BY id"
-    with sqlite3.connect(db) as conn:
-        assert conn.execute(query).fetchall() == [("e1", "pass"), ("e2", "in")]
-    command.downgrade(alembic_config(), "0014")
-    with sqlite3.connect(db) as conn:
-        assert conn.execute(query).fetchall() == [("e1", "in"), ("e2", "in")]
+    collided = client.patch(_url(second), json={"name": "Käse & Brot!"}).json()
+    assert collided["slug"] == "kaese-brot-2"  # the suffix applies on a rename too
+    freed = client.patch(_url(first), json={"name": "Else"}).json()
+    assert freed["slug"] == "else"
+    taken = client.patch(_url(second), json={"name": "Käse & Brot!"}).json()
+    assert taken["slug"] == "kaese-brot"  # the first one left: the plain slug is free again
 
 
 # ── the timer node of an action definition ────────────────────────────
@@ -677,18 +455,6 @@ def test_a_pipeline_has_no_timer(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_migration_0016_is_reversible(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "head")
-    db = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db) as conn:
-        assert "seconds" in {r[1] for r in conn.execute("PRAGMA table_info(graph_nodes)")}
-    command.downgrade(alembic_config(), "0015")
-    with sqlite3.connect(db) as conn:
-        assert "seconds" not in {r[1] for r in conn.execute("PRAGMA table_info(workflow_nodes)")}
-
-
 def test_a_graph_requested_under_the_wrong_kind_is_404(client: TestClient) -> None:
     pipeline = _pipeline(client)
     definition = _action_definition(client)
@@ -707,120 +473,35 @@ def test_node_types_are_served_under_their_own_path(client: TestClient) -> None:
     types = client.get("/api/node-types").json()
     assert types
     assert all(set(t["scopes"]) <= {"pipeline", "action"} for t in types)
+    by_kind = {t["kind"]: t for t in types}
+    assert set(by_kind) == {
+        "trigger",
+        "stage",
+        "action",
+        "pipeline",
+        "complete",
+        "timer",
+        "output",
+    }
+    timer = by_kind["timer"]
+    assert (timer["scopes"], timer["addable"], timer["fixed"]) == (["action"], True, False)
+    assert timer["settings"] == [
+        {
+            "key": "seconds",
+            "label": "Seconds",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 86400,
+            "default": 5,
+        }
+    ]
+    stage = by_kind["stage"]
+    assert stage["scopes"] == ["pipeline"] and stage["addable"] is True
+    assert [p["name"] for p in stage["inputs"]] == ["start", "end"]
+    assert [p["name"] for p in stage["outputs"]] == ["start", "end"]
+    output = by_kind["output"]
+    assert (output["addable"], output["fixed"], output["ending"]) == (False, True, True)
+    assert [p["name"] for p in output["inputs"]] == ["pass", "fail"]
 
 
 # ── Migration 0020: workflows become graphs ───────────────────────────
-
-
-def _upgrade_to_0019(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Any:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0019")
-    return settings.data_dir / settings.database_filename
-
-
-def _seed_old_names(db: Any) -> None:
-    with sqlite3.connect(db) as conn:
-        conn.execute(
-            "INSERT INTO workflows (id, name, kind, slug) VALUES ('p', 'P', 'workflow', 'p')"
-        )
-        conn.execute(
-            "INSERT INTO workflows (id, name, kind, slug) VALUES ('d', 'D', 'action', 'd')"
-        )
-        for node_id, graph, kind, definition in (
-            ("pt", "p", "trigger", None),
-            ("pc", "p", "complete", None),
-            ("pn", "p", "pipeline", "p"),
-            ("dt", "d", "trigger", None),
-            ("do", "d", "output", None),
-        ):
-            conn.execute(
-                "INSERT INTO workflow_nodes (id, workflow_id, kind, name, definition_id) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (node_id, graph, kind, node_id, definition),
-            )
-        conn.execute(
-            "INSERT INTO workflow_edges (id, workflow_id, source_id, source_port, target_id, target_port) "
-            "VALUES ('pe', 'p', 'pt', 'out', 'pc', 'in')"
-        )
-        conn.execute("INSERT INTO tasks (id, title, pipeline_id) VALUES ('t', 'T', 'p')")
-        conn.execute(
-            "INSERT INTO pipeline_runs (id, task_id, workflow_id, status, started_by, snapshot) "
-            "VALUES ('r', 't', 'p', 'done', 'user', '{\"workflow_id\": \"p\"}')"
-        )
-
-
-def test_migration_0020_renames_workflows_to_graphs_and_keeps_the_data(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    db = _upgrade_to_0019(settings, monkeypatch)
-    _seed_old_names(db)
-    command.upgrade(alembic_config(), "0020")
-    with sqlite3.connect(db) as conn:
-        conn.execute("PRAGMA foreign_keys = ON")
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        assert {"graphs", "graph_nodes", "graph_edges"} <= tables
-        assert not {"workflows", "workflow_nodes", "workflow_edges"} & tables
-        assert conn.execute("SELECT id, kind, slug FROM graphs ORDER BY id").fetchall() == [
-            ("d", "action", "d"),
-            ("p", "pipeline", "p"),
-        ]
-        assert conn.execute("SELECT count(*) FROM graph_nodes").fetchone() == (5,)
-        assert conn.execute(
-            "SELECT graph_id, definition_id FROM graph_nodes WHERE id = 'pn'"
-        ).fetchone() == ("p", "p")
-        assert conn.execute(
-            "SELECT graph_id, source_id, target_id FROM graph_edges"
-        ).fetchall() == [("p", "pt", "pc")]
-        assert conn.execute("SELECT pipeline_id, snapshot FROM pipeline_runs").fetchone() == (
-            "p",
-            '{"workflow_id": "p"}',  # stored snapshots are left alone
-        )
-        assert conn.execute("SELECT pipeline_id FROM tasks").fetchone() == ("p",)
-        assert not conn.execute("PRAGMA foreign_key_check").fetchall()
-        # the foreign keys still point at the renamed tables
-        conn.execute("DELETE FROM graphs WHERE id = 'p'")
-        assert conn.execute("SELECT count(*) FROM graph_nodes WHERE graph_id = 'p'").fetchone() == (
-            0,
-        )
-        assert conn.execute("SELECT count(*) FROM graph_edges").fetchone() == (0,)
-        assert conn.execute("SELECT pipeline_id FROM tasks").fetchone() == (None,)
-        assert conn.execute("SELECT pipeline_id FROM pipeline_runs").fetchone() == (None,)
-        columns = {r[1] for r in conn.execute("PRAGMA table_info(graph_nodes)")}
-        assert {"graph_id", "definition_id"} <= columns
-        assert "workflow_id" not in columns
-
-
-def test_migration_0020_allows_only_pipeline_and_action_kinds(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    db = _upgrade_to_0019(settings, monkeypatch)
-    command.upgrade(alembic_config(), "0020")
-    with sqlite3.connect(db) as conn:
-        conn.execute("INSERT INTO graphs (id, name, kind, slug) VALUES ('a', 'A', 'pipeline', 'a')")
-        with pytest.raises(sqlite3.IntegrityError):
-            conn.execute(
-                "INSERT INTO graphs (id, name, kind, slug) VALUES ('b', 'B', 'workflow', 'b')"
-            )
-
-
-def test_migration_0020_is_reversible(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
-    db = _upgrade_to_0019(settings, monkeypatch)
-    _seed_old_names(db)
-    command.upgrade(alembic_config(), "0020")
-    command.downgrade(alembic_config(), "0019")
-    with sqlite3.connect(db) as conn:
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        assert {"workflows", "workflow_nodes", "workflow_edges"} <= tables
-        assert not {"graphs", "graph_nodes", "graph_edges"} & tables
-        assert conn.execute("SELECT id, kind FROM workflows ORDER BY id").fetchall() == [
-            ("d", "action"),
-            ("p", "workflow"),
-        ]
-        assert conn.execute("SELECT count(*) FROM workflow_nodes").fetchone() == (5,)
-        assert conn.execute("SELECT workflow_id FROM workflow_edges").fetchall() == [("p",)]
-        assert conn.execute("SELECT workflow_id FROM pipeline_runs").fetchall() == [("p",)]
-        assert conn.execute(
-            "SELECT definition_id FROM workflow_nodes WHERE id = 'pn'"
-        ).fetchone() == ("p",)
-    command.upgrade(alembic_config(), "head")

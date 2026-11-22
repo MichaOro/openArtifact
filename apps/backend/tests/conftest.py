@@ -7,25 +7,24 @@ costs milliseconds instead of running all migrations again. Tests never see the 
 
 from __future__ import annotations
 
+import asyncio
+import gc
 import logging
 import os
 import shutil
 import sqlite3
-from collections.abc import AsyncGenerator, Callable, Generator
-from contextlib import asynccontextmanager
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any
 
 import pytest
-from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import openartifact.database as db_mod
 from alembic import command
 from openartifact.app import _create_app
 from openartifact.config import Settings
-from openartifact.database import create_engine_for
+from tests.helpers import alembic_config
 
 
 @pytest.fixture(autouse=True)
@@ -50,6 +49,20 @@ def _restore_logging() -> Generator[None, None, None]:
         logger.handlers[:] = handlers
         logger.setLevel(level)
         logger.propagate = propagate
+
+
+@pytest.fixture(autouse=True)
+def clean_engine() -> Generator[None, None, None]:
+    """No test starts or leaves a shared database engine behind."""
+
+    def reset() -> None:
+        if db_mod._engine is not None:
+            asyncio.run(db_mod.dispose_engine())
+
+    reset()
+    yield
+    reset()
+    gc.collect()  # a leaked connection warns here, not in a random later test
 
 
 @pytest.fixture
@@ -85,13 +98,6 @@ def app_routes() -> Callable[[Any], list[str]]:
     return _collect
 
 
-def alembic_config() -> Config:
-    backend_dir = Path(__file__).resolve().parent.parent
-    cfg = Config(str(backend_dir / "alembic.ini"))
-    cfg.set_main_option("script_location", str(backend_dir / "alembic"))
-    return cfg
-
-
 @pytest.fixture(scope="session")
 def _migrated_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """A database with every migration applied, built once and copied for each test."""
@@ -106,14 +112,21 @@ def _migrated_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture
-def migrated_settings(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch, _migrated_template: Path
-) -> Settings:
-    """Settings pointing at a temp database with all migrations applied (a copy of the template)."""
-    shutil.copy(_migrated_template, settings.data_dir / settings.database_filename)
+def unmigrated_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
+    """Settings for an empty temp database that alembic (which reads them from the environment)
+    migrates: for tests that go to a revision, seed old data and go on."""
     monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
     monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
     return settings
+
+
+@pytest.fixture
+def migrated_settings(unmigrated_settings: Settings, _migrated_template: Path) -> Settings:
+    """Settings pointing at a temp database with all migrations applied (a copy of the template)."""
+    shutil.copy(
+        _migrated_template, unmigrated_settings.data_dir / unmigrated_settings.database_filename
+    )
+    return unmigrated_settings
 
 
 @pytest.fixture
@@ -124,17 +137,16 @@ def client(migrated_settings: Settings) -> Generator[TestClient, None, None]:
     assert db_mod._engine is None
 
 
-@asynccontextmanager
-async def db_session_context(settings: Settings) -> AsyncGenerator[AsyncSession, None]:
-    """A session on its own engine (not the shared one), committed on success, for tests."""
-    engine = create_engine_for(settings)
-    try:
-        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
-            try:
-                yield session
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
-    finally:
-        await engine.dispose()
+@pytest.fixture
+def published(client: TestClient) -> list[tuple[str, dict[str, Any]]]:
+    """Record everything the app publishes on its event bus."""
+    events: list[tuple[str, dict[str, Any]]] = []
+    bus = client.app.state.event_bus  # type: ignore[attr-defined]
+    original = bus.publish
+
+    def spy(event_type: str, data: dict[str, Any]) -> Any:
+        events.append((event_type, data))
+        return original(event_type, data)
+
+    bus.publish = spy
+    return events

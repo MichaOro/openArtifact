@@ -8,18 +8,11 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
-
-def _url(graph: dict[str, Any]) -> str:
-    return f"/api/{'actions' if graph['kind'] == 'action' else 'pipelines'}/{graph['id']}"
+from tests.helpers import graph_url
 
 
 def _graph(api: httpx.Client, pipeline: dict[str, Any]) -> dict[str, Any]:
-    return api.get(_url(pipeline)).json()  # type: ignore[no-any-return]
-
-
-def _clear(api: httpx.Client) -> None:
-    for pipeline in api.get("/api/pipelines").json():
-        api.delete(_url(pipeline))
+    return api.get(graph_url(pipeline)).json()  # type: ignore[no-any-return]
 
 
 def _open(page: Page, base_url: str, pipeline: dict[str, Any]) -> None:
@@ -68,11 +61,10 @@ def _edges(api: httpx.Client, pipeline: dict[str, Any]) -> list[tuple[str, str]]
 def test_create_rename_and_delete_a_pipeline_from_the_list(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    _clear(api)
     page.goto(f"{base_url}/pipelines")
     expect(page.locator("[data-ge-empty]")).to_be_visible()
     page.click("[data-new-graph]")
-    page.fill("#name-modal-input", "Agentic Coding")
+    page.fill("#name-modal-field-name", "Agentic Coding")
     page.click("#name-modal [data-submit]")
     expect(page).to_have_url(f"{base_url}/pipelines/agentic-coding")  # the name, not an id
     expect(page.locator(".ge-node--trigger")).to_have_count(1)
@@ -81,7 +73,7 @@ def test_create_rename_and_delete_a_pipeline_from_the_list(
 
     page.goto(f"{base_url}/pipelines")
     page.locator("[data-rename]").click()
-    page.fill("#name-modal-input", "Renamed")
+    page.fill("#name-modal-field-name", "Renamed")
     page.click("#name-modal [data-submit]")
     expect(page.locator(".ge-item__name")).to_have_text("Renamed")
 
@@ -92,11 +84,10 @@ def test_create_rename_and_delete_a_pipeline_from_the_list(
 
 
 def test_pipeline_name_is_required(page: Page, base_url: str, api: httpx.Client) -> None:
-    _clear(api)
     page.goto(f"{base_url}/pipelines")
     page.click("[data-new-graph]")
     page.click("#name-modal [data-submit]")
-    expect(page.locator("#name-modal-error")).to_be_visible()
+    expect(page.locator("#name-modal-field-name-error")).to_be_visible()
     assert api.get("/api/pipelines").json() == []
 
 
@@ -106,7 +97,6 @@ def test_pipeline_name_is_required(page: Page, base_url: str, api: httpx.Client)
 def test_add_stage_and_actions_and_they_persist(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    _clear(api)
     pipeline = api.post("/api/pipelines", json={"name": "Flow"}).json()
     _open(page, base_url, pipeline)
     _add_stage(page)
@@ -123,10 +113,9 @@ def test_add_stage_and_actions_and_they_persist(
 
 def _flow(page: Page, base_url: str, api: httpx.Client) -> dict[str, Any]:
     """A pipeline with a trigger, one stage and two actions in it, opened in the editor."""
-    _clear(api)
     pipeline = api.post("/api/pipelines", json={"name": "Flow"}).json()
     for edge in _graph(api, pipeline)["edges"]:  # start without the default connection
-        api.delete(f"{_url(pipeline)}/edges/{edge['id']}")
+        api.delete(f"{graph_url(pipeline)}/edges/{edge['id']}")
     _open(page, base_url, pipeline)
     _add_stage(page)
     page.locator("[data-add-action]").click()
@@ -340,7 +329,6 @@ def test_deleting_a_stage_asks_and_takes_its_actions_along(
 
 
 def test_zoom_controls_and_fit(page: Page, base_url: str, api: httpx.Client) -> None:
-    _clear(api)
     pipeline = api.post("/api/pipelines", json={"name": "Flow"}).json()
     _open(page, base_url, pipeline)
     label = page.locator("[data-zoom-label]")
@@ -409,21 +397,15 @@ def test_choose_the_line_style_of_a_connection(
 # ── action definitions ────────────────────────────────────────────────
 
 
-def _clear_actions(api: httpx.Client) -> None:
-    for definition in api.get("/api/actions").json():
-        api.delete(_url(definition))
-
-
 def test_create_an_action_definition_from_the_navigation(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    _clear_actions(api)
     page.goto(f"{base_url}/pipelines")
     page.click(".nav-link[href='/actions']")
     expect(page).to_have_url(re.compile(r"/actions$"))
     expect(page.locator("[data-ge-empty]")).to_be_visible()
     page.click("[data-new-graph]")
-    page.fill("#name-modal-input", "Gap analysis")
+    page.fill("#name-modal-field-name", "Gap analysis")
     page.click("#name-modal [data-submit]")
     expect(page).to_have_url(f"{base_url}/actions/gap-analysis")
     expect(page.locator(".ge-node--trigger")).to_have_count(1)
@@ -435,7 +417,6 @@ def test_create_an_action_definition_from_the_navigation(
 def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    _clear_actions(api)
     definition = api.post("/api/actions", json={"name": "Check"}).json()
     page.goto(f"{base_url}/actions/{definition['slug']}")
     output = page.locator(".ge-node--output")
@@ -460,7 +441,6 @@ def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
 def test_the_trigger_is_routed_to_on_pass_or_on_fail(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    _clear_actions(api)
     definition = api.post("/api/actions", json={"name": "Check"}).json()
     page.goto(f"{base_url}/actions/{definition['slug']}")
     expect(page.locator(".ge-node--output")).to_be_visible()
@@ -482,7 +462,6 @@ def test_the_trigger_is_routed_to_on_pass_or_on_fail(
 def test_the_add_menu_offers_stages_and_trigger_and_complete_stay(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    _clear(api)
     pipeline = api.post("/api/pipelines", json={"name": "Flow"}).json()
     _open(page, base_url, pipeline)
     expect(page.locator(".ge-bar [data-add]")).to_have_count(0)  # no longer in the toolbar
@@ -503,7 +482,6 @@ def test_the_add_menu_offers_stages_and_trigger_and_complete_stay(
 def test_a_new_stage_makes_room_before_complete(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    _clear(api)
     pipeline = api.post("/api/pipelines", json={"name": "Flow"}).json()
     _open(page, base_url, pipeline)
     _add_stage(page)
@@ -523,14 +501,13 @@ def _definition(api: httpx.Client, name: str, fail: bool = False) -> dict[str, A
     definition = api.post("/api/actions", json={"name": name}).json()
     if fail:
         output = next(n for n in _graph(api, definition)["nodes"] if n["kind"] == "output")
-        api.patch(f"{_url(definition)}/nodes/{output['id']}", json={"fail_enabled": True})
+        api.patch(f"{graph_url(definition)}/nodes/{output['id']}", json={"fail_enabled": True})
     return definition  # type: ignore[no-any-return]
 
 
 def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    _clear_actions(api)
     pipeline = _flow(page, base_url, api)
     shell = page.locator(".ge-node--action").first
     shell.locator(".ge-node__name").click()
@@ -543,8 +520,8 @@ def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
     page.click(".ge-actionbar >> text=New")
     expect(page.locator("#new-modal")).to_be_visible()
     page.click("#new-modal [data-submit]")
-    expect(page.locator("#new-modal-error")).to_be_visible()  # a name is required
-    page.fill("#new-modal-input", "Gap analysis")
+    expect(page.locator("#new-modal-field-name-error")).to_be_visible()  # a name is required
+    page.fill("#new-modal-field-name", "Gap analysis")
     page.click("#new-modal [data-submit]")
     expect(page).to_have_url(re.compile(r"/actions/gap-analysis\?from=flow&"))
     expect(page.locator(".app-header__title")).to_have_text("Gap analysis")
@@ -577,7 +554,6 @@ def _pass_offset(node: Locator) -> float:
 def test_link_an_existing_action_switch_and_unlink(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    _clear_actions(api)
     _definition(api, "With fail", fail=True)
     _definition(api, "Without fail")
     _flow(page, base_url, api)
@@ -605,7 +581,6 @@ def test_link_an_existing_action_switch_and_unlink(
 def test_a_timer_goes_between_trigger_and_output_and_waits_for_its_seconds(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    _clear_actions(api)
     definition = api.post("/api/actions", json={"name": "Wait"}).json()
     page.goto(f"{base_url}/actions/{definition['slug']}")
     page.click("[data-add-menu]")
@@ -622,3 +597,40 @@ def test_a_timer_goes_between_trigger_and_output_and_waits_for_its_seconds(
     _expect_edges(page, api, definition, [("out", "in"), ("out", "pass")])
     saved = next(n for n in _graph(api, definition)["nodes"] if n["kind"] == "timer")
     assert saved["seconds"] == 12
+
+
+def test_the_new_action_dialog_validates_and_shows_server_errors(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """The shared form dialog: required field, form error from the server, busy state, success."""
+    _flow(page, base_url, api)
+    page.locator(".ge-node--action").first.locator(".ge-node__name").click()
+    page.click(".ge-actionbar >> text=New")
+    dialog = page.locator("#new-modal")
+    expect(dialog.locator("[data-submit]")).to_have_text("Create")
+    expect(dialog.locator("[data-cancel]")).to_have_text("Cancel")
+    dialog.locator("[data-submit]").click()
+    expect(page.locator("#new-modal-field-name-error")).to_have_text("Please enter a name.")
+    expect(page.locator("#new-modal-field-name")).to_have_attribute("aria-invalid", "true")
+
+    held: list[Any] = []  # the first create request is held until the test lets it fail
+
+    def answer(route: Any) -> None:
+        if route.request.method == "POST" and not held:
+            held.append(route)
+        else:
+            route.continue_()
+
+    page.route(re.compile(r"/api/actions$"), answer)
+    page.fill("#new-modal-field-name", "Gap analysis")
+    dialog.locator("[data-submit]").click()
+    expect(dialog.locator("[data-submit]")).to_have_attribute("aria-busy", "true")
+    dialog.locator("[data-submit]").click(force=True)  # no double submit
+    page.keyboard.press("Escape")  # closing is blocked while busy
+    expect(dialog).to_be_visible()
+    assert len(held) == 1
+    held[0].fulfill(status=409, json={"detail": "Name is taken"})
+    expect(dialog.locator("[data-form-error]")).to_have_text("Name is taken")
+    expect(dialog.locator("[data-submit]")).to_have_attribute("aria-busy", "false")
+    dialog.locator("[data-submit]").click()
+    expect(page).to_have_url(re.compile(r"/actions/gap-analysis"))

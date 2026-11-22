@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from playwright.sync_api import expect
 
-from tests.e2e.helpers import Board
+from tests.e2e.helpers import Board, Dialog
 
 
 def test_card_opens_the_read_only_view(board: Board) -> None:
@@ -93,7 +93,7 @@ def test_create_mode_chip_picks_the_target_lane(board: Board) -> None:
     dialog = board.page.locator("#create-task-modal")
     dialog.locator("[data-modal-subtitle]").click()
     dialog.locator('.lane-chips [data-status="done"]').click()
-    dialog.locator("#task-title").fill("Straight to done")
+    dialog.locator("#create-task-modal-field-title").fill("Straight to done")
     dialog.locator("[data-submit]").click()
     expect(board.lane("done").locator(".task-card")).to_have_count(1)
 
@@ -223,3 +223,102 @@ def test_rail_toggle_announces_its_state(board: Board) -> None:
     dialog.rail_toggle.click()
     expect(dialog.rail_toggle).to_have_attribute("aria-expanded", "true")
     expect(dialog.rail_toggle).to_have_attribute("aria-label", "Collapse artifact details")
+
+
+BASE_WIDTH = 556  # 34.75rem: form column plus the collapsed rail
+LONG_BODY = "word " * 1200  # 6000 characters
+
+
+def _size(dialog: Dialog) -> tuple[float, float]:
+    box = dialog.root.locator(".modal__panel").bounding_box()
+    assert box is not None
+    return box["width"], box["height"]
+
+
+def test_a_short_artifact_keeps_the_base_width(board: Board) -> None:
+    board.page.set_viewport_size({"width": 1312, "height": 1400})
+    board.create("Plan", body="Some text")
+    dialog = board.open().open_card("Plan")
+    dialog.settle()
+    width, height = _size(dialog)
+    assert abs(width - BASE_WIDTH) <= 1
+    assert height < 700  # as tall as its content, not as tall as the window
+
+
+def test_the_size_is_identical_in_view_and_edit_and_after_saving(board: Board) -> None:
+    board.page.set_viewport_size({"width": 1312, "height": 1400})
+    board.create("Plan", body="Some text\n" * 12)
+    dialog = board.open().open_card("Plan")
+    dialog.settle()
+    view = _size(dialog)
+    dialog.edit()
+    dialog.settle()
+    assert _size(dialog) == view
+    dialog.body_input.fill("Short")
+    dialog.save()
+    expect(dialog.view_title).to_have_text("Plan")
+    dialog.settle()
+    assert _size(dialog) == view  # fixed until the dialog is closed
+
+
+def test_a_long_artifact_is_height_limited_wider_and_scrolls(board: Board) -> None:
+    board.page.set_viewport_size({"width": 1312, "height": 1400})
+    board.create("Plan", body=LONG_BODY)
+    dialog = board.open().open_card("Plan")
+    dialog.settle()
+    width, height = _size(dialog)
+    assert abs(height - 1400 * 0.9) <= 1
+    assert BASE_WIDTH < width <= 800
+    assert width / height <= 0.62 + 0.01
+    scrolls = dialog.root.locator("[data-task-view] .modal__body").evaluate(
+        "el => el.scrollHeight > el.clientHeight"
+    )
+    assert scrolls
+    dialog.edit()
+    dialog.settle()
+    assert _size(dialog) == (width, height)
+    assert dialog.body_input.evaluate("el => el.scrollHeight > el.clientHeight")
+
+
+def test_the_width_is_capped_at_800_on_a_large_screen(board: Board) -> None:
+    board.page.set_viewport_size({"width": 1920, "height": 1080})
+    board.create("Plan", body=LONG_BODY)
+    dialog = board.open().open_card("Plan")
+    dialog.settle()
+    width, height = _size(dialog)
+    assert abs(height - 1080 * 0.9) <= 1
+    assert BASE_WIDTH <= width <= 800
+
+
+def test_the_dialog_is_full_width_on_a_phone(board: Board) -> None:
+    board.page.set_viewport_size({"width": 390, "height": 800})
+    board.create("Plan", body=LONG_BODY)
+    dialog = board.open().open_card("Plan")
+    dialog.settle()
+    width, height = _size(dialog)
+    assert abs(width - (390 - 24)) <= 1
+    assert height <= 800 * 0.9 + 1
+    dialog.edit()
+    dialog.settle()
+    assert _size(dialog) == (width, height)
+
+
+def test_creating_keeps_the_small_fixed_size(board: Board) -> None:
+    board.page.set_viewport_size({"width": 1312, "height": 1400})
+    board.create("Plan", body=LONG_BODY)
+    dialog = board.open().open_card("Plan")
+    dialog.root.locator("[data-modal-close]").first.click()
+    board.page.locator('[data-create-task][data-status="backlog"]').click()
+    dialog.settle()
+    width, height = _size(dialog)
+    assert width < BASE_WIDTH  # no rail
+    assert height < 700
+
+
+def test_the_create_button_says_create(board: Board) -> None:
+    board.open().page.locator('[data-create-task][data-status="backlog"]').click()
+    expect(board.page.locator("#create-task-modal [data-submit]")).to_have_text("Create")
+    board.page.keyboard.press("Escape")
+    board.create("Plan")
+    board.open().open_card("Plan").edit()
+    expect(board.page.locator("#create-task-modal [data-submit]")).to_have_text("Save")

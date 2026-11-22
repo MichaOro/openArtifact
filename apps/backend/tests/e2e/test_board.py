@@ -19,8 +19,8 @@ def test_create_artifact_in_a_lane(board: Board) -> None:
     board.open()
     board.page.locator('[data-create-task][data-status="in_progress"]').click()
     dialog = board.page.locator("#create-task-modal")
-    dialog.locator("#task-title").fill("Write release notes")
-    dialog.locator("#task-body").fill("Draft")
+    dialog.locator("#create-task-modal-field-title").fill("Write release notes")
+    dialog.locator("#create-task-modal-field-body").fill("Draft")
     dialog.locator("[data-submit]").click()
     expect(board.card("Write release notes")).to_be_visible()
     board.expect_field("Write release notes", "status", "in_progress")
@@ -31,7 +31,7 @@ def test_title_is_required(board: Board) -> None:
     board.open()
     board.page.locator('[data-create-task][data-status="backlog"]').click()
     board.page.locator("#create-task-modal [data-submit]").click()
-    expect(board.page.locator("#task-title-error")).to_be_visible()
+    expect(board.page.locator("#create-task-modal-field-title-error")).to_be_visible()
     assert board.stored() == {}
 
 

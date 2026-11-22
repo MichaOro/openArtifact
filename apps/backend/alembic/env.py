@@ -54,7 +54,9 @@ def do_run_migrations(connection: Any) -> None:
 
 async def run_async_migrations() -> None:
     """Connect with an engine of the configured database and run all pending migrations."""
-    engine = create_engine_for(Settings(), pragmas=False)
+    settings = Settings()
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    engine = create_engine_for(settings, pragmas=False)
 
     async with engine.connect() as connection:
         await connection.run_sync(do_run_migrations)

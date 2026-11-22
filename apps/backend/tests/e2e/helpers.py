@@ -116,8 +116,8 @@ class Dialog:
         self.page = page
         self.root = page.locator("#create-task-modal")
         self.heading = self.root.locator(".modal__title")
-        self.title_input = self.root.locator("#task-title")
-        self.body_input = self.root.locator("#task-body")
+        self.title_input = self.root.locator("#create-task-modal-field-title")
+        self.body_input = self.root.locator("#create-task-modal-field-body")
         self.view = self.root.locator("[data-task-view]")
         self.view_title = self.root.locator("[data-view-title]")
         self.view_body = self.root.locator("[data-view-body]")

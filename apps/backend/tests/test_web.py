@@ -11,12 +11,13 @@ from fastapi.testclient import TestClient
 from openartifact.app import _create_app
 from openartifact.config import Settings
 from openartifact.version import __version__
+from tests.helpers import bare_settings
 
 
 @pytest.fixture
 def client() -> TestClient:
     """Test client on the application with its routes and static files."""
-    return TestClient(_create_app(Settings()))
+    return TestClient(_create_app(bare_settings()))
 
 
 @pytest.fixture
@@ -188,6 +189,7 @@ def test_create_task_modal_markup(client: TestClient) -> None:
     assert 'aria-label="Close dialog"' in html
     assert "Cancel</button>" in html
     assert 'type="submit"' in html
+    assert "<span data-submit-label>Create</span>" in html
 
 
 def test_task_modules_are_served(client: TestClient) -> None:
@@ -197,8 +199,10 @@ def test_task_modules_are_served(client: TestClient) -> None:
         "/static/js/tasks/main.js",
         "/static/js/tasks/api.js",
         "/static/js/tasks/board.js",
-        "/static/js/tasks/create-task-form.js",
+        "/static/js/tasks/artifact-dialog.js",
         "/static/js/components/modal.js",
+        "/static/js/components/action-dialog.js",
+        "/static/js/components/form-dialog.js",
         "/static/css/forms.css",
         "/static/css/modal.css",
     ):
@@ -388,3 +392,13 @@ def test_stage_pages_use_the_name_of_the_stage(db_client: TestClient) -> None:
         db_client.get("/actions/gap-analyses").status_code == 200
     )  # unknown here: the editor says so
     assert db_client.get("/workflows").status_code == 404  # the earlier URL is gone
+
+
+def test_name_dialogs_are_the_shared_form_dialog(client: TestClient) -> None:
+    """Pipeline/action lists and the editor render the same form_modal with one Name field."""
+    for path in ("/pipelines", "/actions"):
+        html = client.get(path).text
+        assert 'id="name-modal-field-name"' in html
+        assert 'id="name-modal-field-name-error"' in html
+        assert "<span data-submit-label>Create</span>" in html
+        assert "data-cancel" in html

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import re
+
+import httpx
 from playwright.sync_api import expect
 
 from tests.e2e.helpers import Board
+from tests.helpers import slow_pipeline
 
 
 def _second_tab(board: Board) -> Board:
@@ -54,3 +58,23 @@ def test_deleting_a_parent_elsewhere_detaches_the_child_on_the_board(board: Boar
     expect(board.card("Child").locator(".task-card__meta")).to_contain_text("Parent: Parent")
     board.api.delete(f"/api/tasks/{parent['id']}")
     expect(board.card("Child").locator(".task-card__meta")).to_be_hidden()
+
+
+def test_a_run_started_elsewhere_moves_on_the_card_in_this_tab(
+    board: Board, api: httpx.Client
+) -> None:
+    """The progress comes over the event stream: nothing in this tab asked for it."""
+    pipeline = slow_pipeline(api, seconds=2, stage_name="Check")
+    task = board.create("Watched")
+    board.open()
+    run_line = board.card("Watched").locator(".task-card__run")
+    expect(run_line).to_be_hidden()
+
+    api.post(
+        f"/api/tasks/{task['id']}/run", json={"pipeline_id": pipeline["id"]}
+    ).raise_for_status()
+    expect(run_line).to_have_text("Check · running")
+    expect(run_line).to_have_attribute("data-status", "running")
+    expect(board.card("Watched")).to_have_class(re.compile("task-card--locked"))
+    expect(run_line).to_have_text("Check · done", timeout=15_000)
+    expect(board.card("Watched")).not_to_have_class(re.compile("task-card--locked"))

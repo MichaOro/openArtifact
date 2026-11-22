@@ -17,7 +17,7 @@ from openartifact.app import _create_app
 from openartifact.config import Settings
 from openartifact.exceptions import ArtifactError, ConfigurationError
 from openartifact.security import COOKIE_MAX_AGE, SECURE_COOKIE, session_valid, session_value
-from tests.test_engine import _post, _slow_pipeline, _task, _wait
+from tests.helpers import make_task, post, slow_pipeline, wait_for_run
 
 TOKEN = "s3cure-token-" + "x" * 30
 SECRET = "k" * 40
@@ -267,7 +267,7 @@ def test_an_unauthorised_websocket_is_closed_with_a_policy_violation(
 
 
 def test_a_cross_site_request_cannot_start_or_stop_a_run(client: TestClient) -> None:
-    task = _task(client)
+    task = make_task(client)
     url = f"/api/tasks/{task['id']}/run"
     forged = {"Content-Type": "text/plain", "Origin": "https://evil.example"}
     assert client.post("/api/tasks/1/run", headers=forged).status_code == 403
@@ -319,9 +319,17 @@ def test_coordinates_must_be_finite_and_bounded(client: TestClient) -> None:
 
 
 def test_two_simultaneous_starts_make_one_run(client: TestClient) -> None:
-    pipeline = _slow_pipeline(client)
-    task = _task(client)
+    pipeline = slow_pipeline(client)
+    task = make_task(client)
     engine = client.app.state.engine  # type: ignore[attr-defined]
+    reached_the_database: list[int] = []
+    real_start = engine._start
+
+    async def counting(*args: Any, **kwargs: Any) -> Any:
+        reached_the_database.append(1)
+        return await real_start(*args, **kwargs)
+
+    engine._start = counting
 
     async def both() -> tuple[Any, ...]:
         return await asyncio.gather(
@@ -333,21 +341,21 @@ def test_two_simultaneous_starts_make_one_run(client: TestClient) -> None:
     results = client.portal.call(both)  # type: ignore[union-attr]
     errors = [r for r in results if isinstance(r, ArtifactError)]
     assert [e.status for e in errors] == [409]
+    assert len(reached_the_database) == 1  # the loser is refused by the in-process guard
     assert len(engine._jobs) == 1
     stopped = client.post(f"/api/tasks/{task['id']}/run/stop")
     assert stopped.status_code == 200
     assert not engine._jobs
-    time.sleep(0.2)
-    assert _wait(client, task, "stopped")["note"] == "stopped"  # nothing orphaned writes on
+    assert wait_for_run(client, task, "stopped")["note"] == "stopped"  # nothing orphaned writes on
 
 
 def test_the_database_refuses_a_second_start_even_without_the_in_process_guard(
     client: TestClient,
 ) -> None:
-    pipeline = _slow_pipeline(client)
-    task = _task(client)
+    pipeline = slow_pipeline(client)
+    task = make_task(client)
     engine = client.app.state.engine  # type: ignore[attr-defined]
-    _post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
     engine._jobs.clear()  # as if another server process held the run
     assert (
         client.post(
@@ -358,14 +366,13 @@ def test_the_database_refuses_a_second_start_even_without_the_in_process_guard(
 
 
 def test_a_stopped_run_does_not_take_the_bookkeeping_of_its_successor(client: TestClient) -> None:
-    pipeline = _slow_pipeline(client)
-    task = _task(client)
+    pipeline = slow_pipeline(client)
+    task = make_task(client)
     url = f"/api/tasks/{task['id']}/run"
     engine = client.app.state.engine  # type: ignore[attr-defined]
-    _post(client, url, pipeline_id=pipeline["id"])
+    post(client, url, pipeline_id=pipeline["id"])
     assert client.post(f"{url}/stop").status_code == 200
-    _post(client, url, pipeline_id=pipeline["id"])
-    time.sleep(0.2)  # the cancelled first run has finished by now
+    post(client, url, pipeline_id=pipeline["id"])
     assert task["id"] in engine._jobs
     assert client.post(f"{url}/stop").status_code == 200  # and can be stopped, nothing is orphaned
 
@@ -374,10 +381,10 @@ def test_runs_above_the_limit_are_refused_with_429(
     make_client: Callable[..., TestClient],
 ) -> None:
     client = make_client(secured=False, max_concurrent_runs=2)
-    pipeline = _slow_pipeline(client)
-    tasks = [_task(client) for _ in range(3)]
+    pipeline = slow_pipeline(client)
+    tasks = [make_task(client) for _ in range(3)]
     for task in tasks[:2]:
-        _post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+        post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
     refused = client.post(f"/api/tasks/{tasks[2]['id']}/run", json={"pipeline_id": pipeline["id"]})
     assert refused.status_code == 429 and "2 runs" in refused.json()["detail"]
     client.post(f"/api/tasks/{tasks[0]['id']}/run/stop")
@@ -391,12 +398,12 @@ def test_a_run_counts_the_nodes_of_actions_against_the_step_limit(
     import openartifact.engine.runner as runner
 
     monkeypatch.setattr(runner, "MAX_STEPS", 1)
-    pipeline = _slow_pipeline(
+    pipeline = slow_pipeline(
         client
     )  # one action with a 30 s timer: the action and its first node are 2 steps > 1
-    task = _task(client)
-    _post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
-    assert _wait(client, task, "failed")["note"] == "The pipeline does not come to an end"
+    task = make_task(client)
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    assert wait_for_run(client, task, "failed")["note"] == "The pipeline does not come to an end"
 
 
 def test_event_streams_are_limited(make_client: Callable[..., TestClient]) -> None:

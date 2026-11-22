@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import time
+import json
 from collections.abc import Generator
 from typing import Any
 
@@ -11,7 +11,9 @@ from fastapi.testclient import TestClient
 
 from openartifact.app import _create_app
 from openartifact.config import Settings
-from tests.test_engine import _pipeline
+from openartifact.engine.runner import RunEngine
+from openartifact.models import StartedBy
+from tests.helpers import build_pipeline, slow_pipeline, wait_for_run, wait_until
 
 TOKEN = "integration-token-" + "x" * 20
 HEADERS = {"Authorization": f"Bearer {TOKEN}"}
@@ -56,7 +58,7 @@ def test_a_new_artifact_can_be_a_child(api: TestClient) -> None:
 
 
 def test_choosing_a_pipeline_selects_its_first_stage_and_action(api: TestClient) -> None:
-    pipeline = _pipeline(api, stages=2)
+    pipeline = build_pipeline(api, stages=2)
     first_stage, first_action = pipeline["stages"][0]
     created = _create(api, title="Item", pipeline_id=pipeline["id"])
     assert (created["pipeline_id"], created["stage_id"], created["action_id"]) == (
@@ -70,7 +72,7 @@ def test_choosing_a_pipeline_selects_its_first_stage_and_action(api: TestClient)
 
 
 def test_a_stage_or_action_that_does_not_fit_is_refused(api: TestClient) -> None:
-    pipeline, other = _pipeline(api), _pipeline(api)
+    pipeline, other = build_pipeline(api), build_pipeline(api)
 
     def post(**body: Any) -> int:
         return api.post("/api/v1/artifacts", json={"title": "x", **body}).status_code
@@ -86,7 +88,7 @@ def test_a_stage_or_action_that_does_not_fit_is_refused(api: TestClient) -> None
 
 
 def test_creating_and_starting_are_two_calls(api: TestClient) -> None:
-    pipeline = _pipeline(api, stages=1)
+    pipeline = build_pipeline(api, stages=1)
     created = _create(api, title="Item", pipeline_id=pipeline["id"])
     assert api.get(f"/api/v1/artifacts/{created['number']}/run").status_code == 404  # never started
     started = api.post(f"/api/v1/artifacts/{created['number']}/run")  # the artifact's own pipeline
@@ -95,11 +97,10 @@ def test_creating_and_starting_are_two_calls(api: TestClient) -> None:
         "system",
         pipeline["id"],
     )
-    for _ in range(100):
-        run = api.get(f"/api/v1/artifacts/{created['number']}/run").json()
-        if run["status"] == "done":
-            break
-        time.sleep(0.05)
+    run = wait_until(
+        lambda: api.get(f"/api/v1/artifacts/{created['number']}/run").json(),
+        lambda run: run["status"] != "running",
+    )
     assert run["status"] == "done"
 
 
@@ -109,7 +110,7 @@ def test_starting_without_a_pipeline_is_refused(api: TestClient) -> None:
 
 
 def test_the_pipelines_list_gives_the_ids_to_start_with(api: TestClient) -> None:
-    pipeline = _pipeline(api, stages=2)
+    pipeline = build_pipeline(api, stages=2)
     listed = api.get("/api/v1/pipelines").json()
     mine = next(p for p in listed if p["id"] == pipeline["id"])
     assert [s["name"] for s in mine["stages"]] == ["Stage 1", "Stage 2"]
@@ -117,7 +118,7 @@ def test_the_pipelines_list_gives_the_ids_to_start_with(api: TestClient) -> None
 
 
 def test_changing_the_target_of_an_artifact(api: TestClient) -> None:
-    pipeline = _pipeline(api, stages=2)
+    pipeline = build_pipeline(api, stages=2)
     created = _create(api, title="Item")
     url = f"/api/v1/artifacts/{created['number']}"
     second = pipeline["stages"][1][0]
@@ -171,7 +172,7 @@ def test_mcp_lists_its_tools(api: TestClient) -> None:
 
 
 def test_an_agent_creates_an_artifact_by_names_and_numbers(api: TestClient) -> None:
-    pipeline = _pipeline(api, stages=2)
+    pipeline = build_pipeline(api, stages=2)
     parent = _create(api, title="Epic")
     result = _tool(
         api,
@@ -191,22 +192,209 @@ def test_an_agent_creates_an_artifact_by_names_and_numbers(api: TestClient) -> N
 
 
 def test_an_agent_gets_a_helpful_error_for_an_unknown_name(api: TestClient) -> None:
-    _pipeline(api)
+    build_pipeline(api)
     result = _tool(api, "create_artifact", title="x", pipeline="Nope")
     assert result["isError"] is True
     assert "Available: Flow" in str(result["content"])
     assert api.get("/api/v1/artifacts").json() == []
 
 
+def _content(result: dict[str, Any]) -> Any:
+    """What a tool returned, as data."""
+    if "structuredContent" in result:
+        data = result["structuredContent"]
+        return data["result"] if list(data) == ["result"] else data  # a list comes wrapped
+    return json.loads(result["content"][0]["text"])
+
+
+def _text(result: dict[str, Any]) -> str:
+    return " ".join(part.get("text", "") for part in result["content"])
+
+
 def test_an_agent_follows_an_artifact(api: TestClient) -> None:
-    pipeline = _pipeline(api, stages=1)
+    pipeline = build_pipeline(api, stages=1)
     _tool(api, "create_artifact", title="Item", pipeline="Flow")
-    assert "never processed" in str(_tool(api, "get_processing_status", artifact="1")["content"])
+    assert _content(_tool(api, "get_processing_status", artifact="1")) == {
+        "status": "never processed"
+    }
     started = _tool(api, "start_processing", artifact="1")
     assert not started.get("isError"), started
-    for _ in range(100):
-        status = str(_tool(api, "get_processing_status", artifact="1")["content"])
-        if '"status": "done"' in status or "'status': 'done'" in status or "done" in status:
-            break
-        time.sleep(0.05)
-    assert pipeline["id"] in status
+    status = wait_until(
+        lambda: _content(_tool(api, "get_processing_status", artifact="1")),
+        lambda run: run["status"] != "running",
+    )
+    assert status["status"] == "done"
+    assert status["root_pipeline_id"] == pipeline["id"]
+    assert [s["status"] for s in status["stages"]] == ["passed"]
+    assert status["started_by"] == "system"
+
+
+def test_an_agent_lists_pipelines_and_artifacts_and_reads_one(api: TestClient) -> None:
+    pipeline = build_pipeline(api, stages=2)
+    first = _create(api, title="First", status="backlog")
+    _create(api, title="Second", status="in_progress")
+
+    pipelines = _content(_tool(api, "list_pipelines"))
+    mine = next(p for p in pipelines if p["id"] == pipeline["id"])
+    assert [s["name"] for s in mine["stages"]] == ["Stage 1", "Stage 2"]
+
+    assert len(_content(_tool(api, "list_artifacts"))) == 2
+    in_progress = _content(_tool(api, "list_artifacts", lane="in_progress"))
+    assert [a["title"] for a in in_progress] == ["Second"]
+    assert _content(_tool(api, "list_artifacts", lane="done")) == []
+
+    assert _content(_tool(api, "get_artifact", artifact="#1"))["id"] == first["id"]
+    assert _content(_tool(api, "get_artifact", artifact=first["id"]))["title"] == "First"
+    missing = _tool(api, "get_artifact", artifact="#99")
+    assert missing["isError"] and "not found" in _text(missing).lower()
+
+
+def test_an_agent_changes_an_artifact(api: TestClient) -> None:
+    _create(api, title="Old", body="text")
+    renamed = _tool(api, "update_artifact", artifact="1", title="New")
+    assert _content(renamed)["title"] == "New" and _content(renamed)["body"] == "text"
+    moved = _tool(api, "update_artifact", artifact="#1", lane="done", body="more")
+    assert (_content(moved)["status"], _content(moved)["body"]) == ("done", "more")
+    assert api.get("/api/v1/artifacts/1").json()["status"] == "done"
+
+    empty = _tool(api, "update_artifact", artifact="1")
+    assert empty["isError"] and "Give a title, a body or a lane" in _text(empty)
+    bad_lane = _tool(api, "update_artifact", artifact="1", lane="sideways")
+    assert bad_lane["isError"] and "lane must be backlog, in_progress or done" in _text(bad_lane)
+    assert _tool(api, "update_artifact", artifact="99", title="x")["isError"]
+
+
+def test_an_agent_cannot_move_an_artifact_that_is_being_processed_but_can_stop_it(
+    api: TestClient,
+) -> None:
+    slow_pipeline(api)
+    _tool(api, "create_artifact", title="Item", pipeline="Flow")
+    assert not _tool(api, "start_processing", artifact="1").get("isError")
+
+    refused = _tool(api, "update_artifact", artifact="1", lane="done")
+    assert refused["isError"] and "being processed" in _text(refused)
+    assert not _tool(api, "update_artifact", artifact="1", title="Renamed").get("isError")
+    again = _tool(api, "start_processing", artifact="1")
+    assert again["isError"] and "being processed" in _text(again)
+
+    stopped = _content(_tool(api, "stop_processing", artifact="1"))
+    assert (stopped["status"], stopped["note"]) == ("stopped", "stopped")
+    nothing = _tool(api, "stop_processing", artifact="1")
+    assert nothing["isError"] and "not being processed" in _text(nothing)
+    assert not _tool(api, "update_artifact", artifact="1", lane="done").get("isError")
+
+
+def test_an_agent_names_stage_and_action_and_gets_errors_for_what_does_not_fit(
+    api: TestClient,
+) -> None:
+    pipeline = build_pipeline(api, stages=2)
+    stage, action = pipeline["stages"][1]
+    made = _tool(
+        api, "create_artifact", title="Exact", pipeline="flow", stage="stage 2", action="Action"
+    )
+    assert not made.get("isError"), made
+    assert (_content(made)["stage_id"], _content(made)["action_id"]) == (stage["id"], action["id"])
+
+    for arguments, message in [
+        ({"stage": "Stage 1"}, "needs a pipeline"),
+        ({"pipeline": "Flow", "action": "Action"}, "needs its stage"),
+        (
+            {"pipeline": "Flow", "stage": "Nope"},
+            "Unknown stage 'Nope'. Available: Stage 1, Stage 2",
+        ),
+        ({"pipeline": "Flow", "stage": "Stage 1", "action": "Nope"}, "Unknown action"),
+        ({"lane": "sideways"}, "lane must be"),
+        ({"parent": "#99"}, "not found"),
+    ]:
+        result = _tool(api, "create_artifact", title="x", **arguments)
+        assert result["isError"] is True and message in _text(result), (arguments, result)
+    assert len(api.get("/api/v1/artifacts").json()) == 1  # none of the refused calls made one
+
+
+# ── the integration API v1 ────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("method", ["get", "patch", "delete"])
+def test_an_unknown_artifact_is_a_404_everywhere(api: TestClient, method: str) -> None:
+    body = {"json": {"title": "x"}} if method == "patch" else {}
+    for ref in ("99", "nope"):
+        response = getattr(api, method)(f"/api/v1/artifacts/{ref}", **body)
+        assert response.status_code == 404, (method, ref)
+    assert api.get("/api/v1/artifacts/99/run").status_code == 404
+    assert api.post("/api/v1/artifacts/99/run").status_code == 404
+    assert api.post("/api/v1/artifacts/99/run/stop").status_code == 404
+
+
+def test_a_running_artifact_over_v1_is_locked_stoppable_and_then_deletable(
+    api: TestClient,
+) -> None:
+    pipeline = slow_pipeline(api)
+    created = _create(api, title="Item", pipeline_id=pipeline["id"])
+    url = f"/api/v1/artifacts/{created['number']}"
+    assert api.post(f"{url}/run").status_code == 201
+
+    assert api.patch(url, json={"status": "done"}).status_code == 409
+    assert api.delete(url).status_code == 409
+    assert api.post(f"{url}/run").status_code == 409  # already being processed
+    assert api.patch(url, json={"title": "Renamed"}).json()["title"] == "Renamed"
+
+    stopped = api.post(f"{url}/run/stop")
+    assert stopped.status_code == 200 and stopped.json()["status"] == "stopped"
+    assert api.post(f"{url}/run/stop").status_code == 409
+    assert api.delete(url).status_code == 204
+    assert api.get(url).status_code == 404
+
+
+def test_a_pipeline_that_does_not_exist_is_a_422_on_update(api: TestClient) -> None:
+    created = _create(api, title="Item")
+    url = f"/api/v1/artifacts/{created['number']}"
+    assert api.patch(url, json={"pipeline_id": "nope"}).status_code == 422
+    assert api.patch(url, json={"stage_id": "nope"}).status_code == 422
+
+
+def test_the_v1_run_can_name_its_own_stage(api: TestClient) -> None:
+    pipeline = build_pipeline(api, stages=2)
+    created = _create(api, title="Item")
+    second = pipeline["stages"][1][0]
+    body = {"pipeline_id": pipeline["id"], "stage_id": second["id"]}
+    assert api.post(f"/api/v1/artifacts/{created['number']}/run", json=body).status_code == 201
+    run = wait_for_run(api, created, "done")
+    assert [s["status"] for s in run["stages"]] == ["skipped", "passed"]
+
+
+def test_the_integration_api_and_mcp_refuse_a_wrong_or_missing_token(api: TestClient) -> None:
+    bare = TestClient(api.app)  # the application of ``api``, without its default header
+    accept = {"Accept": MCP_HEADERS["Accept"]}
+    for headers in ({}, {"Authorization": "Bearer wrong"}, {"Authorization": f"Basic {TOKEN}"}):
+        assert bare.get("/api/v1/artifacts", headers=headers).status_code == 401
+        assert bare.post("/mcp", headers={**accept, **headers}, json={}).status_code == 401
+    assert bare.get("/api/v1/artifacts", headers=HEADERS).status_code == 200
+
+
+def test_every_interface_starts_a_run_through_the_one_engine_path(
+    api: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Browser API, integration API and MCP all end in ``RunEngine.start`` and differ only in who started."""
+    pipeline = build_pipeline(api, stages=1)
+    calls: list[tuple[str, str]] = []
+    original = RunEngine.start
+
+    async def spy(self: RunEngine, task_id: str, *args: Any, **kwargs: Any) -> Any:
+        started_by = kwargs.get("started_by") or (args[3] if len(args) > 3 else StartedBy.USER)
+        calls.append((task_id, str(started_by.value)))
+        return await original(self, task_id, *args, **kwargs)
+
+    monkeypatch.setattr(RunEngine, "start", spy)
+    tasks = [_create(api, title=f"Item {i}", pipeline_id=pipeline["id"]) for i in range(3)]
+
+    assert api.post(f"/api/tasks/{tasks[0]['id']}/run", json={}).status_code == 201
+    assert api.post(f"/api/v1/artifacts/{tasks[1]['number']}/run").status_code == 201
+    assert not _tool(api, "start_processing", artifact=str(tasks[2]["number"])).get("isError")
+
+    assert calls == [
+        (tasks[0]["id"], "user"),
+        (tasks[1]["id"], "system"),
+        (tasks[2]["id"], "system"),
+    ]
+    for task in tasks:
+        wait_for_run(api, task, "done")

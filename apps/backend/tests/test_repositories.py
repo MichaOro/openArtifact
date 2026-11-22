@@ -8,7 +8,7 @@ from alembic import command
 from openartifact.config import Settings
 from openartifact.models import WorkItemStatus
 from openartifact.repositories import ProjectRepository, WorkItemRepository
-from tests.conftest import alembic_config, db_session_context
+from tests.helpers import alembic_config, db_session_context
 
 
 @pytest.fixture

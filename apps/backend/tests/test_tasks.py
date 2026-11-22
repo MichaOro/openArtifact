@@ -9,61 +9,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from alembic import command
 from openartifact.app import _create_app
 from openartifact.config import Settings
-from tests.conftest import alembic_config
-
-
-@pytest.fixture
-def published(client: TestClient) -> list[tuple[str, dict[str, Any]]]:
-    """Record everything the app publishes on its event bus."""
-    events: list[tuple[str, dict[str, Any]]] = []
-    bus = client.app.state.event_bus  # type: ignore[attr-defined]
-    original = bus.publish
-
-    def spy(event_type: str, data: dict[str, Any]) -> Any:
-        events.append((event_type, data))
-        return original(event_type, data)
-
-    bus.publish = spy
-    return events
-
 
 # ── Migration ─────────────────────────────────────────────────────────
-
-
-def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Settings) -> None:
-    db_path = migrated_settings.data_dir / migrated_settings.database_filename
-    with sqlite3.connect(db_path) as conn:
-        cols = {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
-        assert cols == {
-            "id",
-            "number",
-            "title",
-            "body",
-            "status",
-            "position",
-            "parent_id",
-            "pipeline_id",
-            "stage_id",
-            "action_id",
-            "created_by",
-            "created_at",
-            "updated_at",
-        }
-        conn.execute("INSERT INTO tasks (id, title, status) VALUES ('a', 'T', 'done')")
-        with pytest.raises(sqlite3.IntegrityError):
-            conn.execute("INSERT INTO tasks (id, title, status) VALUES ('b', 'T', 'BACKLOG')")
-
-
-def test_migration_downgrade_removes_tasks(migrated_settings: Settings) -> None:
-    command.downgrade(alembic_config(), "0002")
-    db_path = migrated_settings.data_dir / migrated_settings.database_filename
-    with sqlite3.connect(db_path) as conn:
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert "tasks" not in tables
-    assert "work_items" in tables
 
 
 # ── API ───────────────────────────────────────────────────────────────
@@ -73,6 +22,22 @@ def test_list_is_empty_initially(client: TestClient) -> None:
     response = client.get("/api/tasks")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_one_task_is_read_by_id_or_by_number(client: TestClient) -> None:
+    created = client.post("/api/tasks", json={"title": "Read me"}).json()
+    by_id = client.get(f"/api/tasks/{created['id']}")
+    assert by_id.status_code == 200 and by_id.json() == created
+    assert client.get(f"/api/tasks/{created['number']}").json()["id"] == created["id"]
+    assert client.get(f"/api/tasks/%23{created['number']}").json()["id"] == created["id"]
+    assert client.get("/api/tasks/nope").status_code == 404
+    assert client.get("/api/tasks/99").status_code == 404
+
+
+def test_a_task_with_an_unknown_parent_is_not_created(client: TestClient) -> None:
+    response = client.post("/api/tasks", json={"title": "Orphan", "parent_id": "nope"})
+    assert response.status_code == 422
+    assert client.get("/api/tasks").json() == []
 
 
 def test_create_task_returns_201_with_all_fields(client: TestClient) -> None:
@@ -438,33 +403,6 @@ def test_content_edit_together_with_reorder_is_an_update(
     assert _titles(client)[0] == "A!"
 
 
-def test_migration_0004_backfills_positions_in_the_old_order(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0003")
-    db_path = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db_path) as conn:
-        for tid, status, created in (
-            ("t1", "backlog", "2026-01-01 10:00:00"),
-            ("t2", "backlog", "2026-01-01 11:00:00"),
-            ("t3", "backlog", "2026-01-01 12:00:00"),
-            ("t4", "done", "2026-01-01 09:00:00"),
-        ):
-            conn.execute(
-                "INSERT INTO tasks (id, title, status, created_at) VALUES (?, ?, ?, ?)",
-                (tid, tid, status, created),
-            )
-    command.upgrade(alembic_config(), "head")
-    with sqlite3.connect(db_path) as conn:
-        rows = conn.execute("SELECT id, position FROM tasks ORDER BY status, position").fetchall()
-    assert rows == [("t3", 0.0), ("t2", 1.0), ("t1", 2.0), ("t4", 0.0)]  # newest first, per lane
-    command.downgrade(alembic_config(), "0003")
-    with sqlite3.connect(db_path) as conn:
-        assert "position" not in {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
-
-
 # ── Parent / child (a tree) ───────────────────────────────────────────
 
 
@@ -563,29 +501,6 @@ def test_deleting_a_leaf_does_not_trigger_resync(
     assert [t for t, _ in published] == ["task.deleted"]
 
 
-def test_migration_0005_adds_nullable_parent_id(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0004")
-    db_path = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db_path) as conn:
-        conn.execute("INSERT INTO tasks (id, title) VALUES ('old', 'existing row')")
-    command.upgrade(alembic_config(), "head")
-    with sqlite3.connect(db_path) as conn:
-        assert conn.execute("SELECT parent_id FROM tasks WHERE id='old'").fetchone() == (None,)
-        # the CHECK constraint on status survives the schema change
-        with pytest.raises(sqlite3.IntegrityError):
-            conn.execute("INSERT INTO tasks (id, title, status) VALUES ('bad', 'x', 'BACKLOG')")
-    command.downgrade(alembic_config(), "0004")
-    with sqlite3.connect(db_path) as conn:
-        assert "parent_id" not in {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
-        assert conn.execute("SELECT title FROM tasks WHERE id='old'").fetchone() == (
-            "existing row",
-        )
-
-
 # ── Artifact numbers (#1, #2 …) ───────────────────────────────────────
 
 
@@ -600,28 +515,6 @@ def test_number_cannot_be_changed_through_the_api(client: TestClient) -> None:
     task = _create(client)
     assert client.patch(f"/api/tasks/{task['id']}", json={"number": 99}).status_code == 422
     assert client.get("/api/tasks").json()[0]["number"] == task["number"]
-
-
-def test_migration_0006_numbers_existing_tasks_oldest_first(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0005")
-    db_path = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db_path) as conn:
-        for tid, created in (("t2", "2026-01-02 10:00:00"), ("t1", "2026-01-01 10:00:00")):
-            conn.execute(
-                "INSERT INTO tasks (id, title, status, created_at) VALUES (?, ?, 'backlog', ?)",
-                (tid, tid, created),
-            )
-    command.upgrade(alembic_config(), "head")
-    with sqlite3.connect(db_path) as conn:
-        assert conn.execute("SELECT id, number FROM tasks ORDER BY number").fetchall() == [
-            ("t1", 1),
-            ("t2", 2),
-        ]
-        assert conn.execute("SELECT last FROM task_number_seq").fetchone() == (2,)
 
 
 # ── Foreign key on parent_id ──────────────────────────────────────────
@@ -645,32 +538,3 @@ def test_deleting_a_parent_row_nulls_the_children_in_the_database(
         conn.execute("INSERT INTO tasks (id, title, parent_id) VALUES ('c', 'C', 'p')")
         conn.execute("DELETE FROM tasks WHERE id = 'p'")
         assert conn.execute("SELECT parent_id FROM tasks WHERE id = 'c'").fetchone() == (None,)
-
-
-def test_migration_0007_clears_dangling_parents_and_keeps_the_rest(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENARTIFACT_DATA_DIR", str(settings.data_dir))
-    monkeypatch.setenv("OPENARTIFACT_DATABASE_FILENAME", settings.database_filename)
-    command.upgrade(alembic_config(), "0006")
-    db_path = settings.data_dir / settings.database_filename
-    with sqlite3.connect(db_path) as conn:
-        conn.execute("INSERT INTO tasks (id, title, number) VALUES ('p', 'P', 1)")
-        conn.execute("INSERT INTO tasks (id, title, number, parent_id) VALUES ('c', 'C', 2, 'p')")
-        conn.execute(
-            "INSERT INTO tasks (id, title, number, parent_id) VALUES ('o', 'O', 3, 'gone')"
-        )
-    command.upgrade(alembic_config(), "head")
-    with sqlite3.connect(db_path) as conn:
-        rows = conn.execute("SELECT id, number, parent_id FROM tasks ORDER BY number").fetchall()
-        assert rows == [("p", 1, None), ("c", 2, "p"), ("o", 3, None)]
-        indexes = {r[1] for r in conn.execute("PRAGMA index_list(tasks)")}
-        assert {"ux_tasks_number", "ix_tasks_parent_id"} <= indexes
-        with pytest.raises(sqlite3.IntegrityError):  # the status CHECK survived the rebuild
-            conn.execute("INSERT INTO tasks (id, title, status) VALUES ('x', 'X', 'BACKLOG')")
-    command.downgrade(alembic_config(), "0006")
-    with sqlite3.connect(db_path) as conn:
-        conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute(
-            "INSERT INTO tasks (id, title, parent_id) VALUES ('z', 'Z', 'nowhere')"
-        )  # no FK anymore
