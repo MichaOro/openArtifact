@@ -12,17 +12,19 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
+from openartifact.api.artifact_types import WRITE_DESCRIPTION as TYPE_WRITE_DESCRIPTION
 from openartifact.api.contract import (
     ARTIFACT_EXECUTIONS_DEFAULT_LIMIT,
     ARTIFACT_EXECUTIONS_MAX_LIMIT,
     GATED,
     errors,
 )
-from openartifact.api.deps import ServiceDep
+from openartifact.api.deps import ServiceDep, TypesDep
 from openartifact.api.executions import LIST_DESCRIPTION
 from openartifact.api.lanes import RENAME_DESCRIPTION
 from openartifact.api.schemas import PipelineChainRead
 from openartifact.api.secrets import StoreDep
+from openartifact.artifact_types.schemas import ArtifactTypeRead, ArtifactTypeWrite
 from openartifact.engine.flow_schemas import ExecutionFlow
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.engine.schemas import (
@@ -86,6 +88,60 @@ async def rename_lane(status: str, payload: LaneRename, service: ServiceDep) -> 
     return await service.rename_lane(status, payload.title)
 
 
+@router.get("/artifact-types", response_model=list[ArtifactTypeRead], summary="List artifact types")
+async def list_artifact_types(types: TypesDep) -> list[ArtifactTypeRead]:
+    """The artifact types with their parameters and ``artifact_count``."""
+    return await types.list_all()
+
+
+@router.post(
+    "/artifact-types",
+    response_model=ArtifactTypeRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create an artifact type",
+    description=TYPE_WRITE_DESCRIPTION,
+    responses=errors(409, 422, write=True, body=True),
+)
+async def create_artifact_type(payload: ArtifactTypeWrite, types: TypesDep) -> ArtifactTypeRead:
+    return await types.create(payload)
+
+
+@router.get(
+    "/artifact-types/{ref}",
+    response_model=ArtifactTypeRead,
+    summary="Get an artifact type",
+    responses=errors(404, 422),
+)
+async def get_artifact_type(ref: str, types: TypesDep) -> ArtifactTypeRead:
+    """One type by id or name."""
+    return await types.get(ref)
+
+
+@router.put(
+    "/artifact-types/{ref}",
+    response_model=ArtifactTypeRead,
+    summary="Replace an artifact type",
+    description="Replace the name and the whole parameter list. " + TYPE_WRITE_DESCRIPTION,
+    responses=errors(404, 409, 422, write=True, body=True),
+)
+async def replace_artifact_type(
+    ref: str, payload: ArtifactTypeWrite, types: TypesDep
+) -> ArtifactTypeRead:
+    return await types.replace(ref, payload)
+
+
+@router.delete(
+    "/artifact-types/{ref}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an artifact type",
+    responses=errors(404, 409, 422, write=True),
+)
+async def delete_artifact_type(ref: str, types: TypesDep) -> Response:
+    """Delete a type; 409 while artifacts use it."""
+    await types.delete(ref)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.get("/artifacts", response_model=list[TaskRead], summary="List artifacts")
 async def list_artifacts(service: ServiceDep) -> list[TaskRead]:
     """All artifacts in board order."""
@@ -101,7 +157,8 @@ async def list_artifacts(service: ServiceDep) -> list[TaskRead]:
 )
 async def create_artifact(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     """Create an artifact: title, body, lane, parent and the pipeline it starts with (its first stage and
-    action unless chosen). It is not started; call ``POST /artifacts/{ref}/run`` for that."""
+    action unless chosen), optionally a ``type_id`` with ``parameters`` (checked now, 422 names the
+    parameter). It is not started; call ``POST /artifacts/{ref}/run`` for that."""
     return await service.create(payload, created_by=CreatedBy.API)
 
 
@@ -123,7 +180,9 @@ async def get_artifact(ref: str, service: ServiceDep) -> TaskRead:
     responses=errors(404, 409, 422, write=True, body=True),
 )
 async def update_artifact(ref: str, payload: TaskUpdate, service: ServiceDep) -> TaskRead:
-    """Change an artifact (lane, order, parent and pipeline are locked with 409 while it is processed)."""
+    """Change an artifact (lane, order, parent, pipeline, type and parameters are locked with 409 while it
+    is processed). ``parameters`` are merged into the stored ones; a new ``type_id`` needs the stored
+    values to be valid for it, or ``reset_parameters: true``."""
     return await service.update(ref, payload)
 
 

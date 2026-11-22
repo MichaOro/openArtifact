@@ -43,11 +43,13 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [031](031-licence-apache-2-0.md) | Licence Apache-2.0 | Accepted | 2026-11-22 | — |
 | [032](032-removal-of-the-unused-workspace-model.md) | Removal of the unused workspace model (Project/WorkItem) and repositories | Accepted | 2026-11-22 | amends ADR-018, ADR-019 |
 | [033](033-run-context.md) | Run context | Accepted | 2026-11-22 | amends ADR-021, ADR-025 |
+| [035](035-artifact-types-and-card-parameters.md) | Artifact types and card parameters | Accepted | 2026-11-22 | amends ADR-022, ADR-033 |
 
 ## Notes
 
 - The file name of ADR-012 keeps the word "workflow"; the content uses the vocabulary of
   [ADR-015](015-vocabulary-and-storage-names.md). Links stay valid, so the file is not renamed.
+- ADR-034 is reserved (If/Switch nodes).
 - ADR-009 is deprecated: it was the bootstrap plan. ADR-004 is superseded by ADR-010.
 - ADR-001 to ADR-016 are written in the long form of the template (drivers and options), later ones partly in the
   short form. Old ADRs are not rewritten.

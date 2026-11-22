@@ -262,6 +262,12 @@ export class Board {
     return a.id < b.id ? -1 : 1;
   }
 
+  /** The names of the artifact types by id; typed cards show theirs in the meta line. */
+  setTypeNames(types) {
+    this.typeNames = new Map(types.map((type) => [type.id, type.name]));
+    this.#renderRelations();
+  }
+
   /** Show "Parent: …" and the number of children on the cards (they depend on other tasks). */
   #renderRelations() {
     const children = new Map();
@@ -273,6 +279,8 @@ export class Board {
       const parent = this.parentOf(task);
       const n = children.get(id) ?? 0;
       const parts = [];
+      const typeName = this.typeNames?.get(task.type_id);
+      if (typeName) parts.push(typeName);
       if (parent) parts.push(`Parent: ${parent.title}`);
       if (n) parts.push(`${n} sub-artifact${n === 1 ? "" : "s"}`);
       const meta = card.querySelector(".task-card__meta");

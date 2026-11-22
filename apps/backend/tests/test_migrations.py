@@ -206,6 +206,8 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
             "history_keep_last",
             "history_keep_hours",
             "execution_seq",
+            "type_id",
+            "parameters",
             "created_at",
             "updated_at",
         }

@@ -2,6 +2,7 @@
 {# `reset`: the label of an optional extra button [data-reset] at the start of the footer.
    The dialog with input fields (behaviour in static/js/components/form-dialog.js).
    fields: a list of {name, label, kind: "text"|"textarea", required, maxlength, rows, placeholder, hint}.
+   `{% call dialog_form(...) %}` content goes after the fields (the artifact dialog's type and parameters).
    Hooks: field control #<id>-field-<name>, its error #<id>-field-<name>-error; [data-submit] and [data-cancel]. #}
 {% macro dialog_form(id, fields, submit="Create", reset="") -%}
 <form class="task-form" id="{{ id }}-form" novalidate>
@@ -22,6 +23,7 @@
             <p class="field__error" id="{{ id }}-field-{{ field.name }}-error" role="alert" hidden data-field-error></p>
         </div>
         {% endfor %}
+        {% if caller is defined %}{{ caller() }}{% endif %}
         <p class="form-error" role="alert" hidden data-form-error></p>
     </div>
     <footer class="modal__footer">

@@ -74,6 +74,7 @@ The most used routes (all 22 are listed with errors in the [API reference](api-r
 | `GET /api/v1/pipelines` | Pipelines with stages in running order and the actions of each stage |
 | `GET /api/v1/lanes`, `PUT /api/v1/lanes/{status}` | The lanes with their titles; rename one (`{"title": "Review"}`, `null` restores the default). Artifacts always use the status code (`backlog`, `in_progress`, `done`), whatever the lane is called |
 | `GET /api/v1/artifacts`, `POST /api/v1/artifacts` | List, create (`title`, optional `body`, `status`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`) |
+| `GET`, `POST /api/v1/artifact-types`, `GET`, `PUT`, `DELETE /api/v1/artifact-types/{ref}` | Artifact types and their typed parameters; an artifact takes `type_id` and `parameters` (checked when saved, see below) |
 | `GET`, `PATCH`, `DELETE /api/v1/artifacts/{ref}` | Read, change (partial), delete; `ref` is the number (`12`) or the id |
 | `GET /api/v1/artifacts/{ref}/run` | State of the run: status, where it is, every stage |
 | `POST /api/v1/artifacts/{ref}/run` | Start (body optional) |
@@ -82,12 +83,28 @@ The most used routes (all 22 are listed with errors in the [API reference](api-r
 | `GET /api/v1/executions`, `.../artifacts/{ref}/executions[/{id}[/flow\|/context]]` | History, see [below](#executions-and-history); the execution carries its run `context` |
 | `GET`, `PUT`, `DELETE /api/v1/secrets[/{name}]` | Credentials, see [below](#credentials) |
 
+Artifact types and parameters, so a script can give a card the facts a pipeline branches on:
+
+```bash
+# define a type once (a choice and a required text)
+curl -s -X POST $OA/api/v1/artifact-types -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name": "Support triage", "fields": [
+        {"name": "urgency", "label": "Urgency", "kind": "choice", "options": ["low", "normal", "high"], "default": "normal"},
+        {"name": "summary", "label": "Summary", "kind": "text", "required": true}]}'
+
+# create an artifact of that type; a typo is refused with a 422 that names the parameter
+curl -s -X POST $OA/api/v1/artifacts -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"title": "Printer on fire", "type_id": "<type id>", "parameters": {"urgency": "high", "summary": "Smoke"}}'
+```
+
+A run reads the parameters as `${card.urgency}` ([execution nodes](execution-nodes.md#card-parameters-card)).
+
 Rules that scripts meet:
 
 - **Send `Content-Type: application/json`** with every body. `curl -d` alone sends a form type and gets `415`.
 - An artifact can only be started when it has a pipeline (`422 Choose a pipeline first` otherwise): give `pipeline_id` when creating it or in the start body, ids from `GET /api/v1/pipelines`.
 - Creating and starting are two calls. A run records who started it in `started_by`: `user` (a browser), `api` (a call to `/api/v1`), `mcp` (an MCP tool) or `system` (reserved; no code path sets it today, only rows from before the origin was recorded carry it). The artifact records `created_by` (`user`, `api`, `mcp`, or `action` for one created by a pipeline).
-- While a run is `running`, changing lane, order, parent or pipeline and deleting the artifact answer `409`. Starting twice also answers `409`; more active runs than `OPENARTIFACT_MAX_CONCURRENT_RUNS` answers `429`.
+- While a run is `running`, changing lane, order, parent, pipeline, type or parameters and deleting the artifact answer `409`. Starting twice also answers `409`; more active runs than `OPENARTIFACT_MAX_CONCURRENT_RUNS` answers `429`.
 - Errors are `{"detail": "..."}` with the HTTP status. A request body over `OPENARTIFACT_MAX_REQUEST_BYTES` (1 MiB) gets `413`; an unknown artifact `404`; an invalid field `422`.
 - **CSRF and Host rules.** Requests that carry `Origin` or `Sec-Fetch-Site` headers (browsers) must come from the same site (otherwise `403`); plain HTTP clients such as `curl` send neither and pass. If `OPENARTIFACT_ALLOWED_HOSTS` is set, a `Host` header outside the list gets `400`; a reverse proxy must pass the original `Host` ([Reverse proxy](reverse-proxy.md)).
 - **No body or a non-JSON body.** A state-changing `/api/...` request with a body must be `application/json` (or `+json`), otherwise `415 Send the body as application/json`. A `POST` without any body (start, stop) is fine.

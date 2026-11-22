@@ -15,6 +15,7 @@ from sqlalchemy.exc import OperationalError
 from starlette.routing import Route
 
 from openartifact import database
+from openartifact.api.artifact_types import router as artifact_types_router
 from openartifact.api.events import router as events_router
 from openartifact.api.executions import router as executions_router
 from openartifact.api.graphs import actions_router, node_types_router, pipelines_router
@@ -26,6 +27,7 @@ from openartifact.api.runs import router as runs_router
 from openartifact.api.secrets import router as secrets_router
 from openartifact.api.tasks import router as tasks_router
 from openartifact.api.v1 import router as v1_router
+from openartifact.artifact_types.service import ArtifactTypeService
 from openartifact.config import DEFAULT_SECRET_KEY, Settings, get_settings
 from openartifact.engine.executors import Limits
 from openartifact.engine.runner import RunEngine
@@ -128,6 +130,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.state.artifacts = ArtifactService(
         database.new_session, app.state.event_bus, app.state.engine
     )
+    app.state.artifact_types = ArtifactTypeService(database.new_session, app.state.event_bus)
     app.state.settings = settings
     # Added innermost first: a request meets the headers, the host check, the body limit and the
     # cross-site guard before the access gate.
@@ -139,9 +142,9 @@ def _create_app(settings: Settings) -> FastAPI:
     # The MCP server (Streamable HTTP, stateless) answers at /mcp; it is open only with the API token.
     # host="0.0.0.0" switches the SDK's own DNS-rebinding check off: the bearer token (TokenProtected)
     # and the HostCheck middleware above are the protection, and HostCheck also covers /mcp.
-    app.state.mcp_app = build_mcp(app.state.artifacts, app.state.secret_store).streamable_http_app(
-        stateless_http=True, json_response=True, host="0.0.0.0"
-    )
+    app.state.mcp_app = build_mcp(
+        app.state.artifacts, app.state.secret_store, app.state.artifact_types
+    ).streamable_http_app(stateless_http=True, json_response=True, host="0.0.0.0")
     app.router.routes.append(Route("/mcp", endpoint=TokenProtected(app.state.mcp_app, settings)))
 
     # ── Exception handlers ─────────────────────────────────────────
@@ -183,6 +186,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(api_router)
     app.include_router(tasks_router)
     app.include_router(lanes_router)
+    app.include_router(artifact_types_router)
     app.include_router(executions_router)
     app.include_router(node_types_router)
     app.include_router(pipelines_router)

@@ -16,11 +16,12 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
 from openartifact.api.contract import ARTIFACT_EXECUTIONS_MAX_LIMIT
+from openartifact.artifact_types.service import ArtifactTypeService
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, StartedBy, TaskStatus
 from openartifact.secret_store import SecretStore
-from openartifact.tasks.schemas import TaskCreate, TaskUpdate
+from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 from openartifact.tasks.service import ArtifactService
 
 INSTRUCTIONS = (
@@ -28,7 +29,9 @@ INSTRUCTIONS = (
     "Lanes (backlog, in_progress, done) can carry user-chosen titles; list_lanes shows them. "
     "Use list_pipelines to see the pipelines with their stages and actions, create_artifact to add a "
     "card (optionally with a parent and the pipeline it starts with), start_processing to run it "
-    "through its pipeline and get_processing_status to follow it. Artifacts are addressed by number."
+    "through its pipeline and get_processing_status to follow it. Artifacts are addressed by number. "
+    "An artifact can have a type with typed parameters (list_artifact_types); runs read them as "
+    "${card.NAME}."
 )
 
 
@@ -76,9 +79,18 @@ async def _target(
     )
 
 
-def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
+def build_mcp(
+    service: ArtifactService, secrets: SecretStore, types: ArtifactTypeService
+) -> MCPServer:
     """The server with its tools (see the module docstring)."""
     mcp = MCPServer("OpenArtifact", instructions=INSTRUCTIONS)
+
+    async def shown(*artifacts: TaskRead) -> list[dict[str, Any]]:
+        """The artifacts as JSON, with the name of the type next to ``type_id``."""
+        names = await types.names() if any(a.type_id for a in artifacts) else {}
+        return [
+            {**a.model_dump(mode="json"), "type": names.get(a.type_id or "")} for a in artifacts
+        ]
 
     async def guarded[T](call: Awaitable[T]) -> T:
         try:
@@ -99,15 +111,22 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
         return [lane.model_dump(mode="json") for lane in await service.lanes()]
 
     @mcp.tool()
+    async def list_artifact_types() -> list[dict[str, Any]]:
+        """The artifact types with their parameters: ``name``, ``label``, ``kind`` (text, number, boolean,
+        choice), ``required``, ``default``, ``options`` (the allowed values of a choice) and the limits.
+        Give ``type`` and ``parameters`` to ``create_artifact`` or ``update_artifact``. Read only."""
+        return [t.model_dump(mode="json") for t in await types.list_all()]
+
+    @mcp.tool()
     async def list_artifacts(lane: str | None = None) -> list[dict[str, Any]]:
         """All artifacts (cards) in board order, not paged; ``lane`` (backlog, in_progress or done) filters."""
         artifacts = await service.list_all()
-        return [a.model_dump(mode="json") for a in artifacts if lane is None or a.status == lane]
+        return await shown(*(a for a in artifacts if lane is None or a.status == lane))
 
     @mcp.tool()
     async def get_artifact(artifact: str) -> dict[str, Any]:
         """One artifact by number (``12`` or ``#12``) or id; an unknown one is an error."""
-        return (await guarded(service.get(artifact))).model_dump(mode="json")
+        return (await shown(await guarded(service.get(artifact))))[0]
 
     @mcp.tool()
     async def create_artifact(
@@ -118,10 +137,14 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
         pipeline: str | None = None,
         stage: str | None = None,
         action: str | None = None,
+        type: str | None = None,
+        parameters: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create an artifact (card). ``lane`` is backlog, in_progress or done; ``parent`` is the number of
         another artifact; ``pipeline`` (by name) is where it starts, with the first stage and its first
-        action unless ``stage`` and ``action`` (by name) say otherwise. It is not started."""
+        action unless ``stage`` and ``action`` (by name) say otherwise. ``type`` (name or id, see
+        ``list_artifact_types``) with ``parameters`` ({name: value}) gives it an artifact type; the values
+        are checked now and the error names the parameter. It is not started."""
         lane_value = _lane(lane)
         pipeline_id, stage_id, action_id = await _target(service, pipeline, stage, action)
         parent_id = (await guarded(service.get(parent))).id if parent else None
@@ -133,10 +156,10 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
             pipeline_id=pipeline_id,
             stage_id=stage_id,
             action_id=action_id,
+            type_id=await guarded(types.resolve_id(type)) if type else None,
+            parameters=parameters or {},
         )
-        return (await guarded(service.create(data, created_by=CreatedBy.MCP))).model_dump(
-            mode="json"
-        )
+        return (await shown(await guarded(service.create(data, created_by=CreatedBy.MCP))))[0]
 
     @mcp.tool()
     async def update_artifact(
@@ -144,8 +167,14 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
         title: str | None = None,
         body: str | None = None,
         lane: str | None = None,
+        type: str | None = None,
+        parameters: dict[str, Any] | None = None,
+        reset_parameters: bool = False,
     ) -> dict[str, Any]:
-        """Change the title, body or lane of an artifact (not while it is being processed)."""
+        """Change the title, body, lane, type or parameters of an artifact (not while it is being processed).
+        ``parameters`` are merged into the stored ones (``null`` clears one to its default). ``type`` is a
+        name or id, ``""`` removes the type; the stored values must be valid for the new type, or give
+        ``reset_parameters: true`` to drop them."""
         fields: dict[str, Any] = {}
         if title is not None:
             fields["title"] = title
@@ -153,11 +182,15 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
             fields["body"] = body
         if lane is not None:
             fields["status"] = _lane(lane)
+        if type is not None:
+            fields["type_id"] = await guarded(types.resolve_id(type)) if type else None
+        if parameters is not None:
+            fields["parameters"] = parameters
+        if reset_parameters:
+            fields["reset_parameters"] = True
         if not fields:
-            raise McpError("Give a title, a body or a lane to change")
-        return (await guarded(service.update(artifact, TaskUpdate(**fields)))).model_dump(
-            mode="json"
-        )
+            raise McpError("Give a title, a body, a lane, a type or parameters to change")
+        return (await shown(await guarded(service.update(artifact, TaskUpdate(**fields)))))[0]
 
     @mcp.tool()
     async def start_processing(

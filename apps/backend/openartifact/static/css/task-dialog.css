@@ -102,3 +102,70 @@
   .card-nav .nav-link__label { opacity: 0; max-width: 0; }
   .card-nav .nav-link { gap: 0; }
 }
+
+/* ── Type and parameters of an artifact (view and form) ──────────────────────────────────────────
+   One grid for both: a parameter's read-only value and its control are equally tall, so the size the dialog
+   is fitted to (view mode) holds the form as well. */
+.field[hidden] { display: none; }
+.params { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--space-3) var(--space-4); }
+.params[hidden] { display: none; }
+.param { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.param__value,
+.params .field__control:not(textarea) {
+  box-sizing: border-box;
+  min-height: 2.75rem;
+}
+.param__value {
+  display: flex;
+  align-items: center;
+  padding: 0 0.85rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-glass-card) 55%, transparent);
+  overflow-wrap: anywhere;
+}
+.param__value--empty { color: var(--color-text-muted); }
+.param-switch { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; }
+.param-switch input {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.5rem;
+  height: 1.4rem;
+  margin: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text-muted) 45%, transparent);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.param-switch input::after {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--color-glass-card);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--shadow-color) 40%, transparent);
+  transition: transform var(--transition-fast);
+}
+.param-switch input:checked { background: var(--color-accent); }
+.param-switch input:checked::after { transform: translateX(1.1rem); }
+.param-switch input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.param-switch input:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .param-switch input, .param-switch input::after { transition: none; } }
+.param-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+}
+.param-confirm[hidden] { display: none; }
+.param-confirm__text { flex: 1 1 14rem; }
+.param-locked { font-size: 0.75rem; color: var(--color-text-muted); }
+.param-locked[hidden] { display: none; }

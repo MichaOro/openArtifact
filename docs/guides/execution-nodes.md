@@ -62,6 +62,7 @@ server restart and is shown in the History tab ([Execution history](execution-hi
 
 ```json
 {"vars": {"user": "bob"},
+ "card": {"urgency": "high", "tier": "gold"},
  "nodes": {"Fetch_user": {"name": "Fetch user", "kind": "http", "outcome": "pass", "port": "pass",
                           "exit_code": null, "output": "{\"id\": 7}", "reason": null,
                           "data": {"status": 200, "content_type": "application/json", "truncated": false},
@@ -77,6 +78,7 @@ server restart and is shown in the History tab ([Execution history](execution-hi
 | `${node.NAME.data}` | the node's data as compact JSON |
 | `${node.NAME.data.key.sub.0}` | one value in the data; numbers index lists |
 | `${var.name}` | a variable |
+| `${card.name}` | a parameter of the artifact (see [below](#card-parameters-card)) |
 
 `NAME` is the node's name as the editor shows it, with every character outside letters, digits, `_` and `-`
 written as `_` (`Fetch user` is `Fetch_user`). Text is inserted as it is; numbers, lists and objects as compact
@@ -98,6 +100,18 @@ are ambiguous as soon as two nodes use them, so rename the ones you refer to. A 
 same action in two stages) keeps its **latest** result. When you save an HTTP node, the answer carries `warnings`:
 ambiguous names inside the action, names no action has, malformed references. The node is saved anyway; at run time
 these are errors.
+
+### Card parameters (`card`)
+
+If the artifact has a type ([concepts](concepts.md#terms)), the parameters its type defines are copied into the context
+when the execution starts, under `card`: every parameter of the type is a key with its value, else its default,
+else `null` (rendered as `null` like other empty values). An untyped artifact has an empty `card`.
+`${card.urgency}` is replaced like `${var.urgency}`: text as it is, numbers and yes/no as JSON (`3`, `true`), percent-encoded
+in a URL. The name is the parameter's name (`[a-z][a-z0-9_]{0,31}`), not its label. A parameter the artifact does not
+have fails the node: `${card.x}: the artifact has no parameter "x"`. Code nodes read `card` in `context.json`. The
+context holds a **copy**: changing the artifact's parameters later never changes an execution that exists, and the
+History shows what that run saw. Parameters are plain data: do not put secrets in them
+([Security](security.md)).
 
 **Setting variables.** A Code node ends with a result line (see the *Result protocol* below). Add `"vars"`:
 

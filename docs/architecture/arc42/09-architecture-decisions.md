@@ -41,6 +41,8 @@ header lines of each ADR and this table are kept in step. An accepted ADR keeps 
 | 30 | [Accessibility scope](../adr/030-accessibility-scope.md) | Accepted | Amends [ADR-012](../adr/012-workflow-definition-editor.md) (update of 2026-11-22), [ADR-014](../adr/014-building-blocks-and-extension-points.md) §4 |
 | 31 | [Licence Apache-2.0](../adr/031-licence-apache-2-0.md) | Accepted | — |
 | 32 | [Removal of the unused workspace model (Project/WorkItem) and repositories](../adr/032-removal-of-the-unused-workspace-model.md) | Accepted | Amends [ADR-018](../adr/018-typed-runs-one-error-one-persistence-rule.md) §3.1, [ADR-019](../adr/019-module-boundaries-and-single-sources.md) §4 |
+| 33 | [Run context](../adr/033-run-context.md) | Accepted | Amends [ADR-021](../adr/021-execution-nodes-as-executors.md), [ADR-025](../adr/025-execution-history-and-retention.md) |
+| 35 | [Artifact types and card parameters](../adr/035-artifact-types-and-card-parameters.md) | Accepted | Amends [ADR-022](../adr/022-node-settings-as-json-config.md), [ADR-033](../adr/033-run-context.md) |
 
 ## Reading Guide
 

@@ -64,6 +64,8 @@ class Task(Base):
             0023): keep at most this many executions and/or none older than this many hours; both
             ``None``: the application default applies. See ``engine/history.py``.
         execution_seq: The last execution number handed out for this artifact (never reused).
+        type_id, parameters: The artifact type (``None``: untyped) and the values of its parameters
+            (JSON object text, migration 0030); see ``openartifact/artifact_types``.
         position: Sort key inside the lane, ascending (see migration 0004). Fractional so a task
             can be dropped between two others without renumbering the lane.
         created_at: Creation timestamp (UTC).
@@ -76,6 +78,7 @@ class Task(Base):
         Index("ix_tasks_parent_id", "parent_id"),
         Index("ix_tasks_status_position", "status", "position"),
         Index("ix_tasks_status_created_at", "status", "created_at"),
+        Index("ix_tasks_type_id", "type_id"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -98,6 +101,13 @@ class Task(Base):
     history_keep_last: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     history_keep_hours: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     execution_seq: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    type_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("artifact_types.id", ondelete="RESTRICT"),
+        nullable=True,
+        default=None,
+    )
+    parameters: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),
@@ -455,3 +465,48 @@ class Secret(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+
+
+# ── Artifact types and their parameters (migration 0030) ─────────────
+
+
+class ArtifactType(Base):
+    """A kind of artifact the user defines, with its own parameters (``artifact_type_fields``).
+
+    The name is unique ignoring case. A type that artifacts use cannot be deleted (``RESTRICT``).
+    """
+
+    __tablename__ = "artifact_types"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(60, collation="NOCASE"), unique=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
+
+
+class ArtifactTypeField(Base):
+    """One parameter of an artifact type: ``kind`` is ``text``, ``number``, ``boolean`` or ``choice``.
+
+    ``default_json`` is the default value as JSON text, ``options_json`` the allowed values of a choice
+    (a JSON list of text). ``max_length`` applies to text, ``min_value``/``max_value``/``integer_only`` to
+    numbers. ``position`` is the order of the type's fields.
+    """
+
+    __tablename__ = "artifact_type_fields"
+
+    type_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("artifact_types.id", ondelete="CASCADE"), primary_key=True
+    )
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label: Mapped[str] = mapped_column(String(60))
+    kind: Mapped[str] = mapped_column(String(16))
+    required: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    default_json: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    options_json: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    max_length: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    min_value: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
+    max_value: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
+    integer_only: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    position: Mapped[int] = mapped_column(Integer, default=0)

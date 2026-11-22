@@ -5,7 +5,12 @@ node that ran, and a Code node may set variables with its result protocol (``"va
 read both through references in their settings::
 
     ${node.NAME.output}  ${node.NAME.exit_code}  ${node.NAME.outcome}  ${node.NAME.reason}
-    ${node.NAME.data}    ${node.NAME.data.key.sub.0}    ${var.name}
+    ${node.NAME.data}    ${node.NAME.data.key.sub.0}    ${var.name}    ${card.name}
+
+``${card.NAME}`` is a parameter of the artifact the run belongs to (see ``artifact_types``). The run gets a
+copy of the artifact's parameters when it starts, so changing the artifact later does not change a run
+that exists: every parameter of the artifact's type is a key (``null`` when it has no value), an artifact
+without a type has none.
 
 ``NAME`` is the node's name as the editor shows it, with every character outside ``A-Z a-z 0-9 _ -``
 replaced by ``_`` (so ``Fetch user`` is ``Fetch_user``). References are replaced literally by text: a value
@@ -21,6 +26,7 @@ several times keeps its latest result.
 Shape of the context::
 
     {"vars": {"name": value},
+     "card": {"name": value},
      "nodes": {"Key": {"name", "kind", "outcome", "port", "exit_code", "output", "reason", "data",
                        "at", "truncated"?}}}
 
@@ -62,14 +68,15 @@ _NODE_REFERENCE = re.compile(
     r"(?P<path>(?:\.[A-Za-z0-9_-]{1,64}){0,8})"
 )
 _VAR_REFERENCE = re.compile(r"var\.(?P<name>[a-z][a-z0-9_]{0,63})")
+_CARD_REFERENCE = re.compile(r"card\.(?P<name>[a-z][a-z0-9_]{0,31})")
 #: What looks like a context reference; :func:`parse` then decides strictly whether it is one.
-CANDIDATE = re.compile(r"\$\{((?:node|var)\.[^}\r\n]{0,400})\}")
+CANDIDATE = re.compile(r"\$\{((?:node|var|card)\.[^}\r\n]{0,400})\}")
 #: One pass over a text for both kinds of references (so that no replaced value is scanned again).
-_ANY = re.compile(r"\$\{(?:secret:([^}\r\n]{0,80})|((?:node|var)\.[^}\r\n]{0,400}))\}")
+_ANY = re.compile(r"\$\{(?:secret:([^}\r\n]{0,80})|((?:node|var|card)\.[^}\r\n]{0,400}))\}")
 _FIELDS = "output, exit_code, outcome, reason, data"
 SYNTAX_HINT = (
     "use ${node.NAME.output}, ${node.NAME.exit_code}, ${node.NAME.outcome}, ${node.NAME.reason}, "
-    "${node.NAME.data.key} or ${var.name}"
+    "${node.NAME.data.key}, ${var.name} or ${card.name}"
 )
 
 
@@ -163,13 +170,19 @@ class RunContext:
 
     def __init__(self, data: Mapping[str, Any] | None = None) -> None:
         data = data or {}
-        raw_vars, raw_nodes = data.get("vars"), data.get("nodes")
+        raw_vars, raw_nodes, raw_card = data.get("vars"), data.get("nodes"), data.get("card")
         self.vars: dict[str, Any] = dict(raw_vars) if isinstance(raw_vars, dict) else {}
+        self.card: dict[str, Any] = dict(raw_card) if isinstance(raw_card, dict) else {}
         self.nodes: dict[str, dict[str, Any]] = (
             {k: dict(v) for k, v in raw_nodes.items() if isinstance(v, dict)}
             if isinstance(raw_nodes, dict)
             else {}
         )
+
+    @classmethod
+    def initial(cls, card: Mapping[str, Any]) -> RunContext:
+        """The context a run starts with: the artifact's parameters as ``card``, nothing else."""
+        return cls({"card": dict(card)})
 
     @classmethod
     def loads(cls, text: str | None) -> RunContext:
@@ -181,7 +194,7 @@ class RunContext:
         return cls(data if isinstance(data, dict) else None)
 
     def to_data(self) -> dict[str, Any]:
-        return {"vars": self.vars, "nodes": self.nodes}
+        return {"vars": self.vars, "card": self.card, "nodes": self.nodes}
 
     def dumps(self) -> str:
         return _json(self.to_data())
@@ -292,7 +305,7 @@ class NodeIndex:
 
 @dataclass(frozen=True)
 class Reference:
-    """A parsed ``${node...}`` or ``${var...}``: ``kind`` is ``node`` or ``var``."""
+    """A parsed ``${node...}``, ``${var...}`` or ``${card...}``: ``kind`` is ``node``, ``var`` or ``card``."""
 
     kind: str
     name: str  # the node key or the variable name
@@ -304,6 +317,8 @@ def parse(body: str) -> Reference:
     """The reference that ``body`` (the text inside ``${...}``) spells; :class:`ContextError` if malformed."""
     if match := _VAR_REFERENCE.fullmatch(body):
         return Reference("var", match["name"])
+    if match := _CARD_REFERENCE.fullmatch(body):
+        return Reference("card", match["name"])
     match = _NODE_REFERENCE.fullmatch(body)
     if match is None or (match["path"] and match["field"] != "data"):
         raise ContextError(f"malformed reference ${{{body[:80]}}}: {SYNTAX_HINT}")
@@ -339,6 +354,10 @@ def resolve(ref: Reference, context: RunContext, index: NodeIndex) -> Any:
         if ref.name not in context.vars:
             raise ContextError(f"variable '{ref.name}' is not set")
         return context.vars[ref.name]
+    if ref.kind == "card":
+        if ref.name not in context.card:
+            raise ContextError(f'the artifact has no parameter "{ref.name}"')
+        return context.card[ref.name]
     index.lookup(ref.name)  # unknown or ambiguous names fail even if something ran under the key
     entry = context.nodes.get(ref.name)
     if entry is None:
@@ -396,7 +415,7 @@ def check_url_placement(url: str) -> None:
     """
     if CANDIDATE.search(url) and in_scheme_or_host(url, CANDIDATE):
         raise ContextError(
-            "a ${node...} or ${var...} reference is allowed in the path, the query, the headers "
+            "a ${node...}, ${var...} or ${card...} reference is allowed in the path, the query, the headers "
             "and the body, not in the scheme or the host of the address"
         )
 

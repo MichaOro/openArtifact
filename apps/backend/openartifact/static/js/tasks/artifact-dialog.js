@@ -5,6 +5,8 @@
  * goes is delegated via createTask/updateTask/onSaved, so this module never touches the board. */
 import { FormDialog } from "../components/form-dialog.js";
 import { Tabs } from "../components/tabs.js";
+import { ParameterForm } from "./parameter-form.js";
+import { parseProblems } from "./parameters.js";
 import { renderReferences } from "./references.js";
 
 /** Share of the viewport height a saved artifact's dialog may use at most. */
@@ -59,6 +61,7 @@ export class ArtifactDialog extends FormDialog {
     this.viewBody = root.querySelector("[data-view-body]");
     this.backButton = root.querySelector("[data-view-back]");
     this.history = history;
+    this.paramForm = new ParameterForm(root);
     /** The tab last used: kept while the page lives (not stored). Edit mode hides the tabs and keeps it. */
     this.tab = "details";
     this.tabs = new Tabs(root.querySelector("[data-tabs]"), (name) => this.#showTab(name));
@@ -81,6 +84,7 @@ export class ArtifactDialog extends FormDialog {
     this.status = status;
     this.mode = "create";
     this.#present("Create Artifact");
+    this.paramForm.setLocked(false);
     this.#unfit();
     this.#showNumber(null);
     this.setLane(status, laneTitle, hue);
@@ -119,8 +123,9 @@ export class ArtifactDialog extends FormDialog {
   startEdit() {
     const task = this.editing;
     if (!task || this.mode !== "view") return;
-    this.draft ??= this.snapshot();
+    this.draft ??= { ...this.snapshot(), params: this.paramForm.snapshot() };
     this.setValues({ title: task.title, body: task.body ?? "" });
+    this.paramForm.show(task.type_id ?? null, task.parameters ?? {});
     this.mode = "edit";
     this.#present("Edit Artifact", "Save");
     this.titleInput.focus();
@@ -154,12 +159,29 @@ export class ArtifactDialog extends FormDialog {
       this.onGone(task);
       return;
     }
+    const { byField, other } = parseProblems(error.detail);
+    if (error.status === 422 && byField.size > 0) {
+      const missing = this.paramForm.showErrors(byField);
+      this.setError([...other, ...missing.map((name) => `${name}: ${byField.get(name)}`)].join(" "));
+      return;
+    }
     super.showError(error);
+  }
+
+  /** Also empties the parameters of a new artifact once it is saved. */
+  reset() {
+    super.reset();
+    this.paramForm.reset();
+  }
+
+  clearErrors() {
+    super.clearErrors();
+    this.paramForm?.clearErrors();
   }
 
   #changed() {
     const { title, body } = this.#editValues(this.values());
-    return title !== this.editing.title || body !== (this.editing.body ?? null);
+    return title !== this.editing.title || body !== (this.editing.body ?? null) || this.paramForm.changed();
   }
 
   #editValues({ title, body }) {
@@ -167,11 +189,21 @@ export class ArtifactDialog extends FormDialog {
   }
 
   async #create({ title, body }) {
-    this.onSaved(await this.createTask({ title, body, status: this.status }));
+    const { type_id, parameters } = this.paramForm.collect();
+    const typed = type_id ? { type_id, parameters } : {};
+    this.onSaved(await this.createTask({ title, body, status: this.status, ...typed }));
+  }
+
+  /** Type and parameters to send: everything the form holds when something changed (a change of type drops the old values). */
+  #parameterFields() {
+    if (!this.paramForm.changed()) return {};
+    const { type_id, parameters } = this.paramForm.collect();
+    const typeChanged = this.paramForm.typeChanged(this.editing.type_id);
+    return { type_id, parameters, ...(typeChanged ? { reset_parameters: true } : {}) };
   }
 
   async #save(values) {
-    const saved = await this.updateTask(this.editing.id, this.#editValues(values));
+    const saved = await this.updateTask(this.editing.id, { ...this.#editValues(values), ...this.#parameterFields() });
     this.editing = saved;
     this.#showView();
     this.onSaved(saved);
@@ -227,6 +259,18 @@ export class ArtifactDialog extends FormDialog {
     this.#present("Artifact", "Save");
     this.viewTitle.textContent = task.title;
     this.viewBody.replaceChildren(renderReferences(task.body ?? "", this.findByNumber));
+    this.paramForm.renderView(task.type_id ?? null, task.parameters ?? {});
+  }
+
+  /** The artifact types that exist (they follow ``artifact_types.changed``). */
+  setTypes(types) {
+    this.paramForm.setTypes(types);
+    if (this.mode === "view" && this.editing) this.paramForm.renderView(this.editing.type_id ?? null, this.editing.parameters ?? {});
+  }
+
+  /** While the artifact is processed its type and parameters cannot change. */
+  lockParameters(locked) {
+    this.paramForm.setLocked(locked);
   }
 
   /** The artifact number in the header (only for saved artifacts). */
@@ -265,7 +309,9 @@ export class ArtifactDialog extends FormDialog {
     if (!this.editing) return;
     this.editing = null;
     if (this.draft) {
-      this.setValues(this.draft);
+      const { params, ...values } = this.draft;
+      this.setValues(values);
+      this.paramForm.restore(params);
       this.draft = null;
     }
   }
