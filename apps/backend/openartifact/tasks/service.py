@@ -16,6 +16,8 @@ from sqlalchemy.orm import undefer
 
 from openartifact.database import SessionOpener
 from openartifact.engine.chain import pipeline_chain
+from openartifact.engine.flow import build_flow
+from openartifact.engine.flow_schemas import ExecutionFlow
 from openartifact.engine.history import Changes, labels_of
 from openartifact.engine.runner import RunEngine
 from openartifact.engine.schemas import (
@@ -38,6 +40,7 @@ from openartifact.models import (
     Graph,
     GraphKind,
     PipelineRun,
+    RunNodeResult,
     RunStatus,
     StartedBy,
     Task,
@@ -167,27 +170,59 @@ class ArtifactService:
                 policy=self._engine.history.policy_of(task),
             )
 
+    @staticmethod
+    def _named(steps: list[NodeResultRead], snapshot_json: str) -> list[ExecutionStepRead]:
+        """The steps with the names of their stage and action, as far as the snapshot knows them."""
+        try:
+            labels = labels_of(json.loads(snapshot_json))
+        except (ValueError, KeyError):
+            labels = {}
+        return [
+            ExecutionStepRead(
+                **step.model_dump(),
+                stage_name=labels.get(step.stage_id or ""),
+                action_name=labels.get(step.action_id or ""),
+            )
+            for step in steps
+        ]
+
     async def execution(self, ref: str, execution_id: str) -> ExecutionDetail:
         """One execution with all its steps (names of stage and action filled in from its snapshot)."""
         async with self._session() as session:
             task = await self._task(session, ref)
             row = await self._execution(session, task.id, execution_id, with_snapshot=True)
             steps, _ = await self._engine.node_results(session, row.id)
-            try:
-                labels = labels_of(json.loads(row.snapshot))
-            except (ValueError, KeyError):
-                labels = {}
             return ExecutionDetail(
-                **ExecutionRead.of(row).model_dump(),
-                steps=[
-                    ExecutionStepRead(
-                        **step.model_dump(),
-                        stage_name=labels.get(step.stage_id or ""),
-                        action_name=labels.get(step.action_id or ""),
-                    )
-                    for step in steps
-                ],
+                **ExecutionRead.of(row).model_dump(), steps=self._named(steps, row.snapshot)
             )
+
+    async def execution_flow(self, ref: str, execution_id: str, outputs: bool) -> ExecutionFlow:
+        """The frozen graphs of an execution, its steps (outputs only if asked for) and the path it took."""
+        async with self._session() as session:
+            task = await self._task(session, ref)
+            row = await self._execution(session, task.id, execution_id, with_snapshot=True)
+            steps, _ = await self._engine.node_results(session, row.id)
+            return build_flow(
+                ExecutionRead.of(row),
+                row.snapshot,
+                self._named(steps, row.snapshot),
+                outputs,
+                (row.started_stage_id, row.started_action_id),
+            )
+
+    async def execution_step(self, ref: str, execution_id: str, step_id: str) -> ExecutionStepRead:
+        """One step of the execution with its complete output; 404 if it is not a step of this execution."""
+        async with self._session() as session:
+            task = await self._task(session, ref)
+            row = await self._execution(session, task.id, execution_id, with_snapshot=True)
+            step = await session.scalar(
+                select(RunNodeResult).where(
+                    RunNodeResult.id == step_id, RunNodeResult.execution_id == row.id
+                )
+            )
+            if step is None:
+                raise ArtifactError(404, "Step not found")
+            return self._named([NodeResultRead.of(step)], row.snapshot)[0]
 
     async def delete_execution(self, ref: str, execution_id: str) -> None:
         """Delete one execution with its steps (409 while it runs)."""

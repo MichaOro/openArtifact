@@ -1,4 +1,9 @@
-"""A frozen copy of a pipeline and the action definitions it uses."""
+"""A frozen copy of a pipeline and the action definitions it uses.
+
+Every graph in it carries its ``id``, ``name`` and ``kind``; nodes carry their size and ``fail_enabled``,
+edges their ``id``, style and slots, so the execution flow can draw it like the editor does. Snapshots
+frozen before those fields existed lack them; :mod:`openartifact.engine.flow` fills them in.
+"""
 
 from __future__ import annotations
 
@@ -23,11 +28,18 @@ def _node(node: GraphNode, label: str) -> dict[str, Any]:
         "config": node_type(node.kind).effective_config(node.config),
         "x": node.x,
         "y": node.y,
+        "width": node.width,
+        "height": node.height,
+        "fail_enabled": node.fail_enabled,
     }
 
 
 def _edge(edge: GraphEdge) -> dict[str, Any]:
     return {
+        "id": edge.id,
+        "style": edge.style,
+        "source_slot": edge.source_slot,
+        "target_slot": edge.target_slot,
         "source_id": edge.source_id,
         "source_port": edge.source_port,
         "target_id": edge.target_id,
@@ -36,11 +48,15 @@ def _edge(edge: GraphEdge) -> dict[str, Any]:
 
 
 async def graph_of(session: AsyncSession, graph_id: str) -> dict[str, Any]:
-    """Nodes (an action labelled with its definition's name) and edges of a graph as dicts."""
+    """Id, name, kind, nodes (an action labelled with its definition's name) and edges of a graph as dicts."""
     repo = GraphRepository(session)
     nodes, edges = await repo.graph(graph_id)
     described = await repo.describe(nodes)
+    graph = await session.get(Graph, graph_id)
     return {
+        "id": graph_id,
+        "name": graph.name if graph else "",
+        "kind": graph.kind if graph else "",
         "nodes": [_node(n, described[n.id].name if n.id in described else n.name) for n in nodes],
         "edges": [_edge(e) for e in edges],
     }
@@ -70,8 +86,6 @@ async def _collect(
                 raise NestingError("Pipelines are nested too deeply")
             if target not in root["pipelines"]:
                 called = await graph_of(session, target)
-                pipeline = await session.get(Graph, target)
-                called["name"] = pipeline.name if pipeline else ""
                 root["pipelines"][target] = called
                 await _collect(session, root, called, (*path, target))
 
@@ -79,7 +93,6 @@ async def _collect(
 async def build_snapshot(session: AsyncSession, graph: Graph) -> dict[str, Any]:
     """The pipeline's graph plus the called pipelines and action definitions it uses, frozen."""
     snapshot = await graph_of(session, graph.id)
-    snapshot["name"] = graph.name
     snapshot["definitions"] = {}
     snapshot["pipelines"] = {}
     await _collect(session, snapshot, snapshot, (graph.id,))

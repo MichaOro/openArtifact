@@ -12,9 +12,11 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Response, status
 
 from openartifact.api.deps import ServiceDep
+from openartifact.engine.flow_schemas import ExecutionFlow
 from openartifact.engine.schemas import (
     ExecutionDetail,
     ExecutionList,
+    ExecutionStepRead,
     HistoryPolicyResult,
     HistoryPolicyWrite,
 )
@@ -93,6 +95,27 @@ async def clear_executions(task_id: str, service: ServiceDep) -> dict[str, int]:
 async def get_execution(task_id: str, execution_id: str, service: ServiceDep) -> ExecutionDetail:
     """One execution with all its steps in order (outputs complete, up to the stored limit)."""
     return await service.execution(task_id, execution_id)
+
+
+@router.get("/{task_id}/executions/{execution_id}/flow", response_model=ExecutionFlow)
+async def get_execution_flow(
+    task_id: str, execution_id: str, service: ServiceDep, outputs: bool = False
+) -> ExecutionFlow:
+    """The flow of one execution: the graphs as frozen at its start (the root pipeline, called pipelines,
+    action definitions, in the editor's node and edge shape), its steps, and ``visits`` / ``reached``,
+    the path it walked through them. Step outputs are left out (``output_length`` says how long they
+    are) unless ``outputs=true``; ``.../steps/{step_id}`` has one step whole."""
+    return await service.execution_flow(task_id, execution_id, outputs)
+
+
+@router.get(
+    "/{task_id}/executions/{execution_id}/steps/{step_id}", response_model=ExecutionStepRead
+)
+async def get_execution_step(
+    task_id: str, execution_id: str, step_id: str, service: ServiceDep
+) -> ExecutionStepRead:
+    """One step of the execution with its complete output; 404 if it belongs to another execution."""
+    return await service.execution_step(task_id, execution_id, step_id)
 
 
 @router.delete("/{task_id}/executions/{execution_id}", status_code=status.HTTP_204_NO_CONTENT)
