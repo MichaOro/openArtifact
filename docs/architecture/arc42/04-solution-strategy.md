@@ -70,7 +70,7 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Settings area in the UI: loop protection, wall-clock deadlines, separate tokens | Not built (a run is cut off at 1000 steps; limits are environment variables) | |
 | Human-in-the-loop (a `waiting` status), automatic starts by the system | Not built (`started_by` knows `system`, nothing sets it) | |
 | Agent nodes (AI model providers), Git, notifications, PostgreSQL as a data source, connector layer | Not built | ADR-020 |
-| Node versions, user-defined lanes, priorities, tags, due dates, assignees | Not built | |
+| Node versions, reordering and colouring of lanes, priorities, tags, due dates, assignees | Not built | |
 | Third-party extensions (manifest, contract version, pages) | Not built | ADR-014 §3.5 |
 | Keyboard creation of graph connections, screen-reader use of the editor | Not built; known limitation | ADR-030, chapter 11 |
 | Rate limiting, per-session revocation, key rotation for secrets | Not built | chapter 11 |
@@ -82,7 +82,7 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | App shell (sidebar, header, theme toggle) | Jinja2 + CSS tokens + vanilla JS; narrow screens collapse the sidebar to an overlay |
 | Sign-in (`/login`), sign out | With an API token set the whole UI asks for it; signed, expiring session cookie (ADR-016, ADR-017) |
 | Themes | Light "Sand Dune" and dark "Midnight Purple"; persisted in `localStorage`, follows the system on first visit |
-| Kanban board | Three lanes (`BOARD_LANES`, not configurable), counters, cards loaded from `GET /api/tasks`, rendered client-side; responsive (horizontal snap board on phones) |
+| Kanban board | User-defined lanes (three at the start; add, rename, delete when empty; at most 12), counters, cards loaded from `GET /api/tasks`, rendered client-side; responsive (horizontal snap board on phones) |
 | Cards | Create, view, edit, delete; fractional `position` for the order in a lane; parent/child tree; numbers `#n` never reused; `#n` in the text is a link, unknown numbers are struck through; `/?artifact=N` opens a card |
 | Drag and drop | Mouse, touch and keyboard (Alt+arrows); Pointer Events, optimistic with rollback (ADR-011) |
 | Live updates | SSE (`GET /api/events`), all tabs stay in sync, resync on reconnect; no WebSocket |
@@ -90,5 +90,5 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Pipeline and action editor | List and canvas: trigger, stages with one start and end, actions, connections by dragging (curved, straight or elbow; three attachment points per stage side); changes saved at once; inspector with settings per node kind including Code and HTTP (ADR-012, ADR-014, ADR-022) |
 | Processing | Start and stop at a chosen pipeline, stage and action; the card is locked while it runs; state pushed by SSE (ADR-013) |
 | History tab, flow page, executions page | List, detail with steps, retention editor, delete and clear; read-only flow on the editor canvas with drill-in; global list with filters and summary |
-| Not implemented | Priorities, tags, due dates, assignees; user-defined lanes; UI for credentials; keyboard creation of graph connections |
+| Not implemented | Priorities, tags, due dates, assignees; reordering lanes; UI for credentials; keyboard creation of graph connections |
 | Never used | HTMX, Tailwind CSS, Alpine.js (ADR-010) |

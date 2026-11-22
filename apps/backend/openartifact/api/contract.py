@@ -36,11 +36,11 @@ _RESPONSES: dict[int, dict[str, Any]] = {
     },
     404: {
         **_JSON,
-        "description": "The artifact, graph, node, edge, execution, step or secret does not exist.",
+        "description": "The artifact, lane, graph, node, edge, execution, step or secret does not exist.",
     },
     409: {
         **_JSON,
-        "description": "The request conflicts with the current state (e.g. the artifact is being processed).",
+        "description": "The request conflicts with the current state (e.g. the artifact is being processed, or a lane to delete still holds artifacts).",
     },
     413: {
         "description": "The request body is larger than the limit (``OPENARTIFACT_MAX_REQUEST_BYTES``). Plain text.",

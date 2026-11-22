@@ -1,6 +1,6 @@
 {# Inline SVG icon macro (Lucide-style, stroke = currentColor). Add new icons here, and to `icon_names`:
    base.html renders every icon once into <template id="icons"> for static/js/components/icons.js. #}
-{% set icon_names = ["board", "pipeline", "action", "play", "stop", "layers", "logout", "pencil", "chevrons-left", "sun", "moon", "inbox", "parent", "columns", "chevrons-right", "plus", "trash", "x", "check", "logo", "code", "http", "clock", "list", "if", "switch"] %}
+{% set icon_names = ["board", "pipeline", "action", "play", "stop", "layers", "logout", "pencil", "chevrons-left", "sun", "moon", "inbox", "parent", "columns", "chevrons-right", "plus", "trash", "x", "check", "logo", "code", "http", "clock", "list", "more", "if", "switch"] %}
 {% macro icon(name, class="") -%}
 <svg class="icon {{ class }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
 {%- if name == "board" %}<rect x="3" y="3" width="5" height="18" rx="1.5"/><rect x="10" y="3" width="5" height="12" rx="1.5"/><rect x="17" y="3" width="4" height="8" rx="1.5"/>
@@ -28,6 +28,7 @@
 {%- elif name == "clock" %}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
 {%- elif name == "if" %}<path d="M12 3v6"/><path d="m12 9-6 6v3"/><path d="m12 9 6 6v3"/><circle cx="6" cy="20" r="2"/><circle cx="18" cy="20" r="2"/>
 {%- elif name == "switch" %}<path d="M3 12h5l4-6h9"/><path d="M8 12h4l4 6h5"/><path d="m18 3 3 3-3 3"/><path d="m18 15 3 3-3 3"/>
+{%- elif name == "more" %}<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
 {%- elif name == "list" %}<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>
 {%- endif %}</svg>
 {%- endmacro %}

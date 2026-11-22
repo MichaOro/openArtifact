@@ -114,6 +114,12 @@ class Board:
         self.page.evaluate("localStorage.clear()")
         return self
 
+    def open_with_lanes(self, count: int) -> Board:
+        """Load the board when lanes were added or deleted over REST, and wait for them."""
+        self.page.goto(self.base_url)
+        expect(self.page.locator(".lane")).to_have_count(count)
+        return self
+
     def lane(self, status: str) -> Locator:
         return self.page.locator(f'[data-lane][data-status="{status}"]')
 

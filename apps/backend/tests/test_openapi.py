@@ -25,6 +25,7 @@ CONTRACT = """\
 DELETE /api/actions/{graph_id} -> -
 DELETE /api/actions/{graph_id}/edges/{edge_id} -> -
 DELETE /api/actions/{graph_id}/nodes/{node_id} -> -
+DELETE /api/lanes/{status} -> LaneRead[]
 DELETE /api/pipelines/{graph_id} -> -
 DELETE /api/pipelines/{graph_id}/edges/{edge_id} -> -
 DELETE /api/pipelines/{graph_id}/nodes/{node_id} -> -
@@ -34,6 +35,7 @@ DELETE /api/tasks/{task_id}/executions -> DeletedCount
 DELETE /api/tasks/{task_id}/executions/{execution_id} -> -
 DELETE /api/v1/artifacts/{ref} -> -
 DELETE /api/v1/artifacts/{ref}/executions/{execution_id} -> -
+DELETE /api/v1/lanes/{status} -> LaneRead[]
 DELETE /api/v1/secrets/{name} -> -
 GET /api/actions -> GraphRead[]
 GET /api/actions/{graph_id} -> GraphDetail
@@ -81,6 +83,7 @@ PATCH /api/v1/artifacts/{ref} -> TaskRead
 POST /api/actions -> GraphRead
 POST /api/actions/{graph_id}/edges -> EdgeRead
 POST /api/actions/{graph_id}/nodes -> NodeRead
+POST /api/lanes -> LaneRead[]
 POST /api/pipelines -> GraphRead
 POST /api/pipelines/{graph_id}/edges -> EdgeRead
 POST /api/pipelines/{graph_id}/nodes -> NodeRead
@@ -90,6 +93,7 @@ POST /api/tasks/{task_id}/run/stop -> RunRead
 POST /api/v1/artifacts -> TaskRead
 POST /api/v1/artifacts/{ref}/run -> RunRead
 POST /api/v1/artifacts/{ref}/run/stop -> RunRead
+POST /api/v1/lanes -> LaneRead[]
 PUT /api/lanes/{status} -> LaneRead[]
 PUT /api/secrets/{name} -> SecretRead
 PUT /api/tasks/{task_id}/history-policy -> HistoryPolicyResult

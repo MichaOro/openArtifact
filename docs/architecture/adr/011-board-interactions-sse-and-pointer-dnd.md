@@ -108,11 +108,8 @@ expands or collapses.
   rail's *Lane* field opens the same menu. In edit mode the task moves immediately (optimistic,
   like drag & drop); in create mode the chip only changes the target lane.
 - The menu (`LanePicker`) only receives `{status, title}` pairs. The board reads the lanes from
-  the DOM, and the page renders them from `BOARD_LANES` (`openartifact/tasks/lanes.py`), the single
-  definition of lanes, their order and titles.
-- **Not implemented, architecture only:** user-defined lanes. They would replace `BOARD_LANES`
-  with a `lanes` table and replace the `CHECK` constraint on `tasks.status` (migration 0003) with a
-  foreign key. The frontend would need no change.
+  the DOM, and the page renders them from the `lanes` table (`openartifact/tasks/lanes.py`); lanes are
+  user-defined, see the update "lanes are rows" below.
 
 ### 2.8 Responsive layout
 
@@ -188,7 +185,7 @@ an execution, when it starts and when its status changes), `execution.deleted` (
 board's keyboard operation and the known limits of the editor are in [ADR-030](030-accessibility-scope.md).
 
 
-## Update (2026-11-22): lane titles are renamable
+## Update (2026-11-22): lane titles are renamable (superseded by "lanes are rows" below)
 
 The three lanes stay fixed (`backlog`, `in_progress`, `done`, the codes the API and MCP use); their **titles** can be changed by the
 user. The table `lane_titles` (migration 0027) holds only the overrides, `BOARD_LANES` supplies the defaults and a lane without a row
@@ -199,3 +196,26 @@ headers, labels and an open dialog without a reload. Like every event it is not 
 every (re)connect. The page renders the effective lanes on the server and the board JavaScript still reads the titles from the DOM. The
 pencil in the lane header opens a one-field `FormDialog` with "Reset to default". The sidebar entry that was called Projects is called
 **Board**.
+
+## Update (2026-11-22): lanes are rows
+
+The planned `lanes` table is implemented (migration 0030). A lane has a `key` (primary key, at most 32 characters, generated from the first
+title as `[a-z][a-z0-9_]{0,31}` with a numeric suffix when taken, never changed: the three existing lanes keep `backlog`, `in_progress`,
+`done`), a `title` (1 to 40 characters, unique ignoring case) and a `position`. `tasks.status` holds the key and references it (foreign key,
+`ON DELETE RESTRICT`) instead of the `CHECK` constraint of migration 0003, so the database itself refuses an artifact in a lane that does
+not exist and the deletion of a lane that still holds artifacts; the service turns that integrity error into `409` (a lane deleted while an
+artifact moves in). `lane_titles` and `BOARD_LANES` are gone, and so is "reset to default".
+
+Rules (`tasks/lanes.py`): at most 12 lanes, at least one; a new lane is appended; a lane can be deleted only when it holds no artifacts
+(`409`, "A lane can only be deleted when it contains no artifacts.") and not as the last lane; titles are trimmed, free of control
+characters and unique ignoring case (`422`). A new artifact without a lane goes to the first lane; an unknown key is `422` and lists the valid ones.
+`GET/POST /api/lanes`, `PUT/DELETE /api/lanes/{status}` (mirrored on `/api/v1/lanes`; MCP `list_lanes` stays read only) answer the lane list
+(`status`, `key`, `title`, `position`, `hue`, `artifact_count`, `deletable`); every change publishes `board.lanes`. A lane change never moves
+an artifact, so no `task.*` event or resync follows.
+
+The page renders the lanes from the table with the `lane()` macro and once more, empty, into `<template id="lane-template">`; `Board.setLanes`
+clones that template for a lane that appears and removes one that disappears, so lanes come and go without a reload (drag and drop, the lane
+picker and the dialog chips read the lanes from the board). Each lane header has the name (click to rename in place, `InlineName`, the same
+component as the graph editor), the count, the plus and a menu button (`ActionMenu`: Rename, Delete; Delete is greyed out and explains why
+while the lane holds artifacts). "Add lane" is in the page header and opens the shared `FormDialog`. With more than three lanes the board
+scrolls sideways (lane width at least 17rem). Hues cycle by position (8 hues).

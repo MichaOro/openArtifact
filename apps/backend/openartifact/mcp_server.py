@@ -18,14 +18,15 @@ from mcp.server.mcpserver.exceptions import ToolError
 from openartifact.api.contract import ARTIFACT_EXECUTIONS_MAX_LIMIT
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.exceptions import ArtifactError
-from openartifact.models import CreatedBy, StartedBy, TaskStatus
+from openartifact.models import CreatedBy, StartedBy
 from openartifact.secret_store import SecretStore
 from openartifact.tasks.schemas import TaskCreate, TaskUpdate
 from openartifact.tasks.service import ArtifactService
 
 INSTRUCTIONS = (
     "OpenArtifact is a Kanban board whose cards (artifacts) are processed by pipelines. "
-    "Lanes (backlog, in_progress, done) can carry user-chosen titles; list_lanes shows them. "
+    "The board has user-defined lanes (they can be added, renamed and deleted); list_lanes shows the "
+    "current ones: the key to give as ``lane`` and the title. "
     "Use list_pipelines to see the pipelines with their stages and actions, create_artifact to add a "
     "card (optionally with a parent and the pipeline it starts with), start_processing to run it "
     "through its pipeline and get_processing_status to follow it. Artifacts are addressed by number."
@@ -35,14 +36,6 @@ INSTRUCTIONS = (
 class McpError(ToolError):
     """A tool call that cannot be done; the message goes back to the agent (any other exception
     would reach it only as "Error executing tool")."""
-
-
-def _lane(value: str) -> TaskStatus:
-    try:
-        return TaskStatus(value)
-    except ValueError as error:
-        *first, last = (s.value for s in TaskStatus)
-        raise McpError(f"lane must be {', '.join(first)} or {last}") from error
 
 
 def _named(items: list[dict[str, Any]], wanted: str, what: str) -> dict[str, Any]:
@@ -94,13 +87,14 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
 
     @mcp.tool()
     async def list_lanes() -> list[dict[str, Any]]:
-        """The board lanes in order: ``status`` (backlog, in_progress or done, what the other tools take)
-        and ``title`` (the name the user gave it, e.g. "Review"). Read only."""
+        """The current board lanes in order: ``status`` (the key the other tools take as ``lane``), ``title``
+        (what the user sees), ``artifact_count`` and ``deletable``. Read only: lanes are managed in the browser
+        or through the REST API."""
         return [lane.model_dump(mode="json") for lane in await service.lanes()]
 
     @mcp.tool()
     async def list_artifacts(lane: str | None = None) -> list[dict[str, Any]]:
-        """All artifacts (cards) in board order, not paged; ``lane`` (backlog, in_progress or done) filters."""
+        """All artifacts (cards) in board order, not paged; ``lane`` (a key from list_lanes) filters."""
         artifacts = await service.list_all()
         return [a.model_dump(mode="json") for a in artifacts if lane is None or a.status == lane]
 
@@ -113,22 +107,21 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
     async def create_artifact(
         title: str,
         body: str | None = None,
-        lane: str = "backlog",
+        lane: str | None = None,
         parent: str | None = None,
         pipeline: str | None = None,
         stage: str | None = None,
         action: str | None = None,
     ) -> dict[str, Any]:
-        """Create an artifact (card). ``lane`` is backlog, in_progress or done; ``parent`` is the number of
+        """Create an artifact (card). ``lane`` is a key from list_lanes (default: the first lane); ``parent`` is the number of
         another artifact; ``pipeline`` (by name) is where it starts, with the first stage and its first
         action unless ``stage`` and ``action`` (by name) say otherwise. It is not started."""
-        lane_value = _lane(lane)
         pipeline_id, stage_id, action_id = await _target(service, pipeline, stage, action)
         parent_id = (await guarded(service.get(parent))).id if parent else None
         data = TaskCreate(
             title=title,
             body=body,
-            status=lane_value,
+            status=lane,
             parent_id=parent_id,
             pipeline_id=pipeline_id,
             stage_id=stage_id,
@@ -152,7 +145,7 @@ def build_mcp(service: ArtifactService, secrets: SecretStore) -> MCPServer:
         if body is not None:
             fields["body"] = body
         if lane is not None:
-            fields["status"] = _lane(lane)
+            fields["status"] = lane
         if not fields:
             raise McpError("Give a title, a body or a lane to change")
         return (await guarded(service.update(artifact, TaskUpdate(**fields)))).model_dump(

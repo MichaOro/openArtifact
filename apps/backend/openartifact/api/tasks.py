@@ -51,13 +51,14 @@ async def get_task(task_id: str, service: ServiceDep) -> TaskRead:
     response_model=TaskRead,
     status_code=status.HTTP_201_CREATED,
     summary="Create a task",
-    responses=errors(422, write=True, body=True),
+    responses=errors(409, 422, write=True, body=True),
 )
 async def create_task(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     """Create a task in the given lane.
 
-    ``title`` is required (1-255 chars after trimming), ``body`` is optional, ``status`` must be
-    ``backlog``, ``in_progress`` or ``done``; ``parent_id`` makes it a child; ``pipeline_id`` (with
+    ``title`` is required (1-255 chars after trimming), ``body`` is optional, ``status`` is a lane
+    key (``GET /api/lanes``; left out: the first lane, an unknown key is 422 and lists the valid ones,
+    409 if the lane was deleted meanwhile); ``parent_id`` makes it a child; ``pipeline_id`` (with
     ``stage_id`` and ``action_id``, default the first ones) says where it starts. Publishes
     ``task.created``.
     """

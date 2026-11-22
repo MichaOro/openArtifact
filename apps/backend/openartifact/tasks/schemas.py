@@ -13,7 +13,6 @@ from pydantic import (
     model_validator,
 )
 
-from openartifact.models import TaskStatus
 from openartifact.schemas_common import UtcDateTime
 
 TITLE_MAX_LENGTH = 255
@@ -40,7 +39,8 @@ class TaskCreate(BaseModel):
 
     title: Title
     body: Body = None
-    status: TaskStatus = TaskStatus.BACKLOG
+    #: Lane key (the service checks it against the lanes); ``null`` or left out: the first lane.
+    status: str | None = None
     #: Parent artifact (the new one becomes its child).
     parent_id: str | None = None
     #: Pipeline to start with; the stage and action default to the first ones of the pipeline.
@@ -60,7 +60,7 @@ class TaskUpdate(BaseModel):
 
     title: Title | None = None
     body: Body = None
-    status: TaskStatus | None = None
+    status: str | None = None
     #: Position inside the (target) lane: put the task before this task. ``null`` = at the end.
     before_id: str | None = None
     #: Parent artifact. ``null`` removes the parent.
@@ -103,7 +103,7 @@ class TaskRead(BaseModel):
     number: int
     title: str
     body: str | None
-    status: TaskStatus
+    status: str
     position: float
     parent_id: str | None
     pipeline_id: str | None
@@ -115,20 +115,24 @@ class TaskRead(BaseModel):
 
 
 class LaneRead(BaseModel):
-    """A board lane as shown: ``status`` is the code the artifact API uses, ``title`` what the user sees."""
+    """A board lane: ``status`` is the key artifacts carry, ``title`` what the user sees."""
 
-    status: TaskStatus
+    status: str
     #: DOM-friendly form of ``status`` (``in-progress``).
     key: str
     title: str
-    default_title: str
-    #: Palette index of the lane's colour (1 to 8).
+    #: Order on the board, ascending (gaps are possible after a deletion).
+    position: int
+    #: Palette index of the lane's colour (1 to 8), by place on the board.
     hue: int
+    artifact_count: int
+    #: Whether the lane could be deleted now: it holds no artifacts and is not the last lane.
+    deletable: bool
 
 
-class LaneRename(BaseModel):
-    """Payload for renaming a lane: ``title: null`` (or empty, or the default text) restores the default."""
+class LaneWrite(BaseModel):
+    """Payload for creating a lane or changing a lane's title."""
 
     model_config = ConfigDict(extra="forbid")
 
-    title: str | None
+    title: str

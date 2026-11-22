@@ -26,7 +26,8 @@ router = APIRouter(prefix="/api", tags=["events"], responses=GATED)
 )
 async def stream_events(bus: EventBusDep) -> StreamingResponse:
     """Stream board events: ``task.created``, ``task.updated``, ``task.moved``, ``task.deleted``,
-    ``board.resync``, ``board.lanes`` (``{"lanes": [...]}``: the lanes with their titles, after a rename),
+    ``board.resync``, ``board.lanes`` (``{"lanes": [...]}``: the lanes, after one was added, renamed or deleted; those
+    changes never move artifacts),
     ``run.updated`` (the state of a run, see ``GET /api/runs``),
     ``execution.updated`` (``{"task_id", "execution"}``: the summary of an execution, when it starts
     and whenever its status changes) and ``execution.deleted`` (``{"task_id", "id"}``: by hand,
