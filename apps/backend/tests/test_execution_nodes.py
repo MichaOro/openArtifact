@@ -361,6 +361,17 @@ def test_code_nodes_can_be_switched_off(make_client: Make) -> None:
     assert _work(run)[0]["reason"] == "Code nodes are disabled"
 
 
+def test_code_nodes_fail_in_open_mode_by_default(make_client: Make) -> None:
+    client = make_client(code_nodes_without_token=False)
+    pipeline, task = _pipeline(client, stages=1), _make_task(client)
+    _use(client, pipeline, _definition(client, "code", code="echo hi"))
+    _start(client, pipeline, task)
+    step = _work(_wait(client, task, "failed"))[0]
+    assert step["reason"] == (
+        "Code nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
+    )
+
+
 def test_the_output_limit_is_a_setting(make_client: Make) -> None:
     client = make_client(code_output_limit_bytes=50)
     pipeline, task = _pipeline(client, stages=1), _make_task(client)

@@ -8,13 +8,18 @@ browser, as a session cookie set by the sign-in page.
   MCP server (``/mcp``) refuse everything: they are meant to be reached from outside.
 
 The request hardening (Host check, body limit, cross-site guard, headers) is ``api/hardening.py``.
+
+:func:`protect_process_memory` keeps Code-node processes (same user as the application) from reading
+the application's environment. What it does and does not cover is documented there.
 """
 
 from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import secrets
+import sys
 import time
 from typing import Annotated
 from urllib.parse import quote
@@ -25,6 +30,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from openartifact.config import Settings
+
+logger = logging.getLogger(__name__)
 
 BEARER = "bearer "
 COOKIE = "oa_session"
@@ -201,3 +208,46 @@ class TokenProtected:
                 await unauthorized(message)(scope, receive, send)
                 return
         await self.app(scope, receive, send)
+
+
+_PR_SET_DUMPABLE = 4
+_process_protected: bool | None = None
+
+
+def protect_process_memory() -> bool:
+    """Make this process non-dumpable (``prctl(PR_SET_DUMPABLE, 0)``, Linux); True if it is.
+
+    Code nodes run as children with the application's own uid. The kernel lets a process of the same
+    uid read ``/proc/<pid>/environ`` (the initial environment: ``OPENARTIFACT_API_TOKEN`` and
+    ``OPENARTIFACT_SECRET_KEY`` when they are passed that way), ``/proc/<pid>/mem``, ``maps`` and
+    ``fd`` and ``ptrace`` it, but only while the target is dumpable. A non-dumpable process is closed
+    to all of that for non-root peers (measured: ``/proc/<ppid>/environ`` gives EACCES in the child);
+    the flag is reset by ``execve``, so the code process itself stays normal. Side effects: no core
+    dump of the application and no attaching of gdb or py-spy as the same user; the application's own
+    ``/proc/self/environ`` and ``fd`` become unreadable to itself (nothing in it needs them). It is
+    idempotent and is applied by the code runner before it starts the first child.
+
+    Limits, honestly: the environment copy is the *initial* one, so removing the variables later with
+    ``os.environ.pop`` would not help and is not done. A code process can still read the SQLite file
+    (same uid); the stored credentials in it are encrypted with a key derived from the secret key, which
+    it cannot reach any more, but it can read everything else in the database and write to it. A
+    root-owned database is impossible for an application that runs as that same unprivileged user.
+    A stronger deployment runs code processes under another uid (a wrapper with ``setuid``/``su``/
+    ``sudo``, or a container per run); that is not implemented. Without Linux ``prctl`` nothing happens.
+    """
+    global _process_protected
+    if _process_protected is None:
+        ok = False
+        if sys.platform.startswith("linux"):
+            try:
+                import ctypes
+
+                ok = ctypes.CDLL(None, use_errno=True).prctl(_PR_SET_DUMPABLE, 0, 0, 0, 0) == 0
+            except (OSError, AttributeError):
+                ok = False
+        if not ok:
+            logger.warning(
+                "Could not make the process non-dumpable: code nodes can read its environment"
+            )
+        _process_protected = ok
+    return _process_protected

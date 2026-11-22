@@ -10,6 +10,7 @@ Triggers and outputs have no executor: the engine handles them itself (start and
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
@@ -30,6 +31,10 @@ from openartifact.secret_refs import (
 )
 from openartifact.secret_store import SecretResolveError
 
+logger = logging.getLogger(__name__)
+
+OPEN_MODE_CODE_REASON = "Code nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
+
 #: Gives the values of secrets by name; raises :class:`SecretResolveError`.
 SecretResolver = Callable[[Sequence[str]], Awaitable[dict[str, str]]]
 
@@ -45,9 +50,21 @@ class Limits:
     code: CodeLimits = field(default_factory=CodeLimits)
     #: Where a node's secrets come from (the credential store); ``None``: no secret can be used.
     secrets: SecretResolver | None = None
+    #: Open mode (no API token) without the explicit opt-in: Code nodes must not run, because anyone who
+    #: reaches the port could write one. ``from_settings`` decides; the default keeps unit tests simple.
+    code_blocked_in_open_mode: bool = False
 
     @classmethod
     def from_settings(cls, settings: Settings, secrets: SecretResolver | None = None) -> Limits:
+        if (
+            not settings.api_token
+            and settings.code_nodes_enabled
+            and settings.code_nodes_without_token
+        ):
+            logger.warning(
+                "OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN is on and no API token is set: everyone who can "
+                "reach this port can run code as the application's user"
+            )
         return cls(
             settings.code_nodes_enabled,
             settings.code_output_limit_bytes,
@@ -60,6 +77,8 @@ class Limits:
                 settings.code_open_files_limit,
             ),
             secrets,
+            code_blocked_in_open_mode=not settings.api_token
+            and not settings.code_nodes_without_token,
         )
 
 
@@ -122,6 +141,8 @@ async def _with_secrets(
 async def _code(node: dict[str, Any], limits: Limits) -> NodeResult:
     if not limits.code_nodes_enabled:
         return failed("Code nodes are disabled")
+    if limits.code_blocked_in_open_mode:
+        return failed(OPEN_MODE_CODE_REASON)
     config = node["config"]
     try:
         names = parse_name_lines(str(config.get("secrets") or ""))

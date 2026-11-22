@@ -140,6 +140,7 @@ def test_the_api_stores_lists_and_never_returns_a_value(
     created = _put(secured, "API_KEY")
     assert created.status_code == 201
     assert set(created.json()) == {"name", "created_at", "updated_at"}
+    assert created.json()["created_at"].endswith("Z") and created.json()["updated_at"].endswith("Z")
     replaced = _put(secured, "API_KEY", "another-value-1")
     assert replaced.status_code == 200
     listed = secured.get("/api/secrets")

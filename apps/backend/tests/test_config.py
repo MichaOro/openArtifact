@@ -96,6 +96,9 @@ def test_the_allowed_hosts_are_trimmed_lower_case_patterns() -> None:
     [
         ("", "change-me-in-production", []),  # open mode needs neither
         ("x" * 32, "k" * 40, []),
+        ("x" * 32, "k" * 32, []),
+        ("x" * 32, "k" * 31, ["OPENARTIFACT_SECRET_KEY must have at least 32 characters"]),
+        ("", "short", []),  # open mode: the key is not used
         ("x" * 31, "k" * 40, ["at least 32 characters"]),
         ("x" * 32, "change-me-in-production", ["OPENARTIFACT_SECRET_KEY must be set"]),
         ("x" * 32, "", ["OPENARTIFACT_SECRET_KEY must be set"]),
@@ -107,3 +110,33 @@ def test_security_problems_name_what_is_wrong(token: str, secret: str, problems:
     assert len(found) == len(problems)
     for message, expected in zip(found, problems, strict=True):
         assert expected in message
+
+
+def test_code_nodes_without_a_token_are_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert bare_settings().code_nodes_without_token is False
+    monkeypatch.setenv("OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN", "true")
+    assert bare_settings().code_nodes_without_token is True
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"port": 0},
+        {"port": 65536},
+        {"log_level": "LOUD"},
+        {"max_concurrent_runs": 0},
+        {"max_sse_subscribers": 0},
+        {"max_request_bytes": 0},
+        {"code_output_limit_bytes": 0},
+        {"http_response_limit_bytes": -1},
+    ],
+)
+def test_settings_outside_their_bounds_are_refused(change: dict[str, object]) -> None:
+    with pytest.raises(ValueError):
+        bare_settings(**change)
+
+
+def test_the_log_level_is_case_insensitive_and_keeps_its_default() -> None:
+    assert bare_settings().log_level == "INFO"
+    assert bare_settings(log_level="debug").log_level == "DEBUG"
+    assert bare_settings(log_level=" Warning ").log_level == "WARNING"

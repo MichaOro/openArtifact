@@ -11,7 +11,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
 
+from openartifact.api.contract import (
+    ARTIFACT_EXECUTIONS_DEFAULT_LIMIT,
+    ARTIFACT_EXECUTIONS_MAX_LIMIT,
+    GATED,
+    errors,
+)
 from openartifact.api.deps import ServiceDep
+from openartifact.api.schemas import DeletedCount
 from openartifact.engine.flow_schemas import ExecutionFlow
 from openartifact.engine.schemas import (
     ExecutionDetail,
@@ -23,22 +30,28 @@ from openartifact.engine.schemas import (
 from openartifact.models import CreatedBy
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 
-router = APIRouter(prefix="/api/tasks", tags=["tasks"])
+router = APIRouter(prefix="/api/tasks", tags=["tasks"], responses=GATED)
 
 
-@router.get("", response_model=list[TaskRead])
+@router.get("", response_model=list[TaskRead], summary="List tasks")
 async def list_tasks(service: ServiceDep) -> list[TaskRead]:
     """List all tasks in board order (lane, then position)."""
     return await service.list_all()
 
 
-@router.get("/{task_id}", response_model=TaskRead)
+@router.get("/{task_id}", response_model=TaskRead, summary="Get a task", responses=errors(404, 422))
 async def get_task(task_id: str, service: ServiceDep) -> TaskRead:
     """One task by id."""
     return await service.get(task_id)
 
 
-@router.post("", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=TaskRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a task",
+    responses=errors(422, write=True, body=True),
+)
 async def create_task(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     """Create a task in the given lane.
 
@@ -50,7 +63,12 @@ async def create_task(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     return await service.create(payload, created_by=CreatedBy.USER)
 
 
-@router.patch("/{task_id}", response_model=TaskRead)
+@router.patch(
+    "/{task_id}",
+    response_model=TaskRead,
+    summary="Update a task",
+    responses=errors(404, 409, 422, write=True, body=True),
+)
 async def update_task(task_id: str, payload: TaskUpdate, service: ServiceDep) -> TaskRead:
     """Edit a task, move it to another lane, reorder it, give it a parent or a pipeline.
 
@@ -63,7 +81,12 @@ async def update_task(task_id: str, payload: TaskUpdate, service: ServiceDep) ->
     return await service.update(task_id, payload)
 
 
-@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{task_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a task",
+    responses=errors(404, 422, 409, write=True),
+)
 async def delete_task(task_id: str, service: ServiceDep) -> Response:
     """Delete a task (not while it is processed). Publishes ``task.deleted``; its children become
     parentless (resync)."""
@@ -71,33 +94,57 @@ async def delete_task(task_id: str, service: ServiceDep) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/{task_id}/executions", response_model=ExecutionList)
+@router.get(
+    "/{task_id}/executions",
+    response_model=ExecutionList,
+    summary="List the executions of a task",
+    responses=errors(404, 422),
+)
 async def list_executions(
-    task_id: str, service: ServiceDep, limit: Annotated[int, Query(ge=1, le=500)] = 100
+    task_id: str,
+    service: ServiceDep,
+    limit: Annotated[
+        int, Query(ge=1, le=ARTIFACT_EXECUTIONS_MAX_LIMIT)
+    ] = ARTIFACT_EXECUTIONS_DEFAULT_LIMIT,
 ) -> ExecutionList:
     """The artifact's executions (one per start, restarts included), newest first, without steps.
 
-    ``items`` has at most ``limit`` (default 100, at most 500) summaries, ``total`` counts all of
-    them, ``policy`` is the retention policy (``keep_last``, ``keep_hours``; ``effective_default_keep``
+    ``items`` has at most ``limit`` (1 to 500, default 100) summaries and there is no paging (the
+    global list ``GET /api/executions`` pages with a cursor, 1 to 200); ``total`` counts all of them, ``policy`` is the retention policy (``keep_last``, ``keep_hours``; ``effective_default_keep``
     is what applies when neither is set, ``0``: no limit). ``task_id`` is the id or the number.
     """
     return await service.executions(task_id, limit)
 
 
-@router.delete("/{task_id}/executions")
-async def clear_executions(task_id: str, service: ServiceDep) -> dict[str, int]:
+@router.delete(
+    "/{task_id}/executions",
+    response_model=DeletedCount,
+    summary="Delete the finished executions of a task",
+    responses=errors(404, 422, write=True),
+)
+async def clear_executions(task_id: str, service: ServiceDep) -> DeletedCount:
     """Delete every finished execution of the artifact; a running one stays. Returns ``{"deleted": n}``.
     Publishes ``execution.deleted`` for each."""
-    return {"deleted": await service.clear_executions(task_id)}
+    return DeletedCount(deleted=await service.clear_executions(task_id))
 
 
-@router.get("/{task_id}/executions/{execution_id}", response_model=ExecutionDetail)
+@router.get(
+    "/{task_id}/executions/{execution_id}",
+    response_model=ExecutionDetail,
+    summary="Get an execution of a task",
+    responses=errors(404, 422),
+)
 async def get_execution(task_id: str, execution_id: str, service: ServiceDep) -> ExecutionDetail:
     """One execution with all its steps in order (outputs complete, up to the stored limit)."""
     return await service.execution(task_id, execution_id)
 
 
-@router.get("/{task_id}/executions/{execution_id}/flow", response_model=ExecutionFlow)
+@router.get(
+    "/{task_id}/executions/{execution_id}/flow",
+    response_model=ExecutionFlow,
+    summary="Get the flow of an execution of a task",
+    responses=errors(404, 422),
+)
 async def get_execution_flow(
     task_id: str, execution_id: str, service: ServiceDep, outputs: bool = False
 ) -> ExecutionFlow:
@@ -109,7 +156,10 @@ async def get_execution_flow(
 
 
 @router.get(
-    "/{task_id}/executions/{execution_id}/steps/{step_id}", response_model=ExecutionStepRead
+    "/{task_id}/executions/{execution_id}/steps/{step_id}",
+    response_model=ExecutionStepRead,
+    summary="Get a step of an execution of a task",
+    responses=errors(404, 422),
 )
 async def get_execution_step(
     task_id: str, execution_id: str, step_id: str, service: ServiceDep
@@ -118,7 +168,12 @@ async def get_execution_step(
     return await service.execution_step(task_id, execution_id, step_id)
 
 
-@router.delete("/{task_id}/executions/{execution_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{task_id}/executions/{execution_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an execution of a task",
+    responses=errors(404, 422, 409, write=True),
+)
 async def delete_execution(task_id: str, execution_id: str, service: ServiceDep) -> Response:
     """Delete one execution with its steps; 409 while it is running, 404 if unknown.
     Publishes ``execution.deleted``."""
@@ -126,7 +181,12 @@ async def delete_execution(task_id: str, execution_id: str, service: ServiceDep)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.put("/{task_id}/history-policy", response_model=HistoryPolicyResult)
+@router.put(
+    "/{task_id}/history-policy",
+    response_model=HistoryPolicyResult,
+    summary="Set the history policy of a task",
+    responses=errors(404, 422, write=True, body=True),
+)
 async def set_history_policy(
     task_id: str, payload: HistoryPolicyWrite, service: ServiceDep
 ) -> HistoryPolicyResult:

@@ -4,8 +4,7 @@ Live: ``Task`` (an artifact, a card on the board; ``TaskStatus`` is its lane), `
 ``GraphNode`` and ``GraphEdge`` (a pipeline or an action definition and what it is made of) and
 ``PipelineRun`` with ``RunStage`` (the current processing of a task) and ``Execution`` (the history: one
 row per start, with the steps it recorded in ``RunNodeResult``). ``TaskNumberSeq`` is the counter that
-numbers tasks. ``Project`` and ``WorkItem`` are left from the first iteration and nothing uses them
-(see quarantine.json).
+numbers tasks.
 
 The indexes and constraints declared here are the ones the migrations create; ``alembic check``
 (tests/test_migrations.py) fails when the two drift apart.
@@ -33,97 +32,6 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from openartifact.database import Base
-
-
-class WorkItemStatus(enum.StrEnum):
-    """Board status of a work item.
-
-    Values are stored as their string identifier in the database so that the
-    enum can evolve (new labels, renamed labels) without a schema migration.
-    """
-
-    BACKLOG = "BACKLOG"
-    TODO = "TODO"
-    IN_PROGRESS = "IN_PROGRESS"
-    REVIEW = "REVIEW"
-
-
-# Ordered list of board lanes — used for UI rendering and default sorting.
-BOARD_STATUSES: tuple[WorkItemStatus, ...] = (
-    WorkItemStatus.BACKLOG,
-    WorkItemStatus.TODO,
-    WorkItemStatus.IN_PROGRESS,
-    WorkItemStatus.REVIEW,
-)
-
-
-class Project(Base):
-    """A project groups related work items.
-
-    Attributes:
-        id: Unique project identifier (UUID string).
-        name: Human-readable project name.
-        description: Optional project description.
-        created_at: Creation timestamp (UTC).
-        updated_at: Last modification timestamp (UTC).
-    """
-
-    __tablename__ = "projects"
-    __table_args__ = (Index("ix_projects_created_at", "created_at"),)
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-    )
-
-    def __repr__(self) -> str:  # pragma: no cover - debugging aid
-        return f"<Project(id={self.id!r}, name={self.name!r})>"
-
-
-class WorkItem(Base):
-    """An individual work item belonging to a project.
-
-    Attributes:
-        id: Unique work item identifier (UUID string).
-        project_id: Foreign key to the owning project.
-        title: Short title of the work item.
-        description: Optional longer description.
-        status: Current board status (see :class:`WorkItemStatus`).
-        position: Sort order within a lane. Lower values appear first.
-        created_at: Creation timestamp (UTC).
-        updated_at: Last modification timestamp (UTC).
-    """
-
-    __tablename__ = "work_items"
-    __table_args__ = (
-        Index("ix_work_items_project_id", "project_id"),
-        Index("ix_work_items_status", "status"),
-        Index("ix_work_items_project_status", "project_id", "status"),
-        Index("ix_work_items_project_status_position", "project_id", "status", "position"),
-    )
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    project_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("projects.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[WorkItemStatus] = mapped_column(String(32), default=WorkItemStatus.BACKLOG)
-    position: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-    )
-
-    def __repr__(self) -> str:  # pragma: no cover - debugging aid
-        return f"<WorkItem(id={self.id!r}, project_id={self.project_id!r}, status={self.status!r})>"
 
 
 class TaskStatus(enum.StrEnum):

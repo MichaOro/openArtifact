@@ -13,6 +13,7 @@ import pytest
 from openartifact.engine.code_runner import run_code
 from openartifact.engine.executors import Limits, _code
 from openartifact.engine.results import NodeResult
+from tests.helpers import bare_settings
 
 LIMIT = 65536
 
@@ -177,3 +178,90 @@ async def test_a_disabled_code_node_fails_without_running() -> None:
     result = await _code(node, Limits(code_nodes_enabled=False))
     assert (result.outcome, result.reason) == ("fail", "Code nodes are disabled")
     assert result.output == ""
+
+
+_OPEN = "Code nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
+_NODE = {"config": {"language": "sh", "code": "echo ran", "timeout_seconds": 5}}
+
+
+@pytest.mark.parametrize(
+    ("changes", "runs"),
+    [
+        ({}, False),  # open mode: no token, no opt-in
+        ({"code_nodes_without_token": True}, True),  # explicit opt-in
+        ({"api_token": "t" * 40}, True),  # token mode is unaffected
+        ({"api_token": "t" * 40, "code_nodes_without_token": True}, True),
+    ],
+)
+async def test_code_nodes_in_open_mode_need_the_opt_in(
+    changes: dict[str, object], runs: bool
+) -> None:
+    limits = Limits.from_settings(bare_settings(**changes))
+    result = await _code(_NODE, limits)
+    if runs:
+        assert (result.outcome, result.output.strip()) == ("pass", "ran")
+    else:
+        assert (result.outcome, result.reason, result.output) == ("fail", _OPEN, "")
+
+
+def test_the_opt_in_logs_one_warning_when_the_limits_are_built(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level("WARNING", logger="openartifact.engine.executors"):
+        Limits.from_settings(bare_settings())
+        Limits.from_settings(bare_settings(api_token="t" * 40, code_nodes_without_token=True))
+        assert not caplog.records
+        Limits.from_settings(bare_settings(code_nodes_without_token=True))
+    assert [r.getMessage().split(" ")[0] for r in caplog.records] == [
+        "OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN"
+    ]
+
+
+_READ_PARENT_ENVIRON = """
+import os
+for name in ("environ", "maps", "fd"):
+    try:
+        (os.listdir if name == "fd" else open)(f"/proc/{os.getppid()}/{name}")
+        print("READABLE", name)
+    except PermissionError:
+        print("DENIED", name)
+"""
+
+_PARENT = """
+import asyncio, os, sys
+from openartifact.engine.code_runner import run_code
+result = asyncio.run(run_code("python", sys.argv[1], 20, 65536))
+print(result.output.strip())
+"""
+
+
+@pytest.mark.skipif(not Path("/proc/self/environ").exists(), reason="needs Linux /proc")
+def test_a_code_process_cannot_read_the_environment_of_the_application() -> None:
+    """Real processes: a parent holds a secret in its initial environment and runs a Code node."""
+    import subprocess
+    import sys
+
+    env = {**os.environ, "OPENARTIFACT_API_TOKEN": "t" * 40}
+    # control: an ordinary child of an ordinary process of this user reads it (the finding is real)
+    control = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            f"import subprocess,sys;subprocess.run([sys.executable,'-I','-c',{_READ_PARENT_ENVIRON!r}])",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "READABLE environ" in control.stdout
+    guarded = subprocess.run(
+        [sys.executable, "-c", _PARENT, _READ_PARENT_ENVIRON],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert guarded.stdout.split() == ["DENIED", "environ", "DENIED", "maps", "DENIED", "fd"], (
+        guarded.stderr
+    )

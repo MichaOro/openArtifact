@@ -45,7 +45,7 @@ templates = Jinja2Templates(
 templates.env.globals["navigation"] = navigation
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def index(request: Request) -> HTMLResponse:
     """The board."""
     return templates.TemplateResponse(
@@ -113,31 +113,31 @@ async def _editor_page(
     )
 
 
-@router.get("/pipelines", response_class=HTMLResponse)
+@router.get("/pipelines", response_class=HTMLResponse, include_in_schema=False)
 async def pipelines(request: Request) -> HTMLResponse:
     """The list of pipelines (definitions)."""
     return _list_page(request, "pipeline")
 
 
-@router.get("/pipelines/{ref}", response_class=HTMLResponse)
+@router.get("/pipelines/{ref}", response_class=HTMLResponse, include_in_schema=False)
 async def pipeline_editor(request: Request, ref: str, session: SessionDep) -> HTMLResponse:
     """The editor for one pipeline (the graph itself is loaded through the API)."""
     return await _editor_page(request, session, "pipeline", ref)
 
 
-@router.get("/actions", response_class=HTMLResponse)
+@router.get("/actions", response_class=HTMLResponse, include_in_schema=False)
 async def actions(request: Request) -> HTMLResponse:
     """The list of action definitions."""
     return _list_page(request, "action")
 
 
-@router.get("/actions/{ref}", response_class=HTMLResponse)
+@router.get("/actions/{ref}", response_class=HTMLResponse, include_in_schema=False)
 async def action_editor(request: Request, ref: str, session: SessionDep) -> HTMLResponse:
     """The editor for one action definition (same canvas as a stage)."""
     return await _editor_page(request, session, "action", ref)
 
 
-@router.get("/executions", response_class=HTMLResponse)
+@router.get("/executions", response_class=HTMLResponse, include_in_schema=False)
 async def executions(request: Request, page_size: int = 50) -> HTMLResponse:
     """The executions of all artifacts, newest first, with filters (the page loads them through the API).
 
@@ -156,7 +156,11 @@ async def executions(request: Request, page_size: int = 50) -> HTMLResponse:
     )
 
 
-@router.get("/artifacts/{ref}/executions/{execution_id}", response_class=HTMLResponse)
+@router.get(
+    "/artifacts/{ref}/executions/{execution_id}",
+    response_class=HTMLResponse,
+    include_in_schema=False,
+)
 async def execution_flow(request: Request, ref: str, execution_id: str) -> HTMLResponse:
     """The read-only flow of one execution of an artifact (``ref``: its number or id).
 
@@ -188,7 +192,7 @@ def _signin_page(request: Request, target: str, error: str | None = None) -> HTM
     )
 
 
-@router.get("/login", response_class=HTMLResponse, response_model=None)
+@router.get("/login", response_class=HTMLResponse, response_model=None, include_in_schema=False)
 async def login_page(request: Request, next: str = "/") -> Response:
     """The sign-in page; without a configured token there is nothing to sign in to."""
     if not request.app.state.settings.api_token:
@@ -209,7 +213,7 @@ async def _read_capped(request: Request, limit: int) -> bytes | None:
     return body
 
 
-@router.post("/login", response_model=None)
+@router.post("/login", response_model=None, include_in_schema=False)
 async def login(request: Request) -> Response:
     """Check the token; on success set the session cookie and go on to where the user wanted to go."""
     settings = request.app.state.settings
@@ -237,7 +241,7 @@ async def login(request: Request) -> Response:
     return response
 
 
-@router.post("/logout", response_model=None)
+@router.post("/logout", response_model=None, include_in_schema=False)
 async def logout() -> Response:
     """Sign out: forget the session cookie."""
     response = RedirectResponse("/login", status_code=303)

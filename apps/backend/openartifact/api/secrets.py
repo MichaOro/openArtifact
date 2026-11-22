@@ -12,9 +12,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
 
+from openartifact.api.contract import GATED, errors
 from openartifact.secret_store import SecretRead, SecretStore, SecretUse, SecretWrite
 
-router = APIRouter(prefix="/api/secrets", tags=["secrets"])
+router = APIRouter(prefix="/api/secrets", tags=["secrets"], responses=GATED)
 
 
 def get_secret_store(request: Request) -> SecretStore:
@@ -25,13 +26,18 @@ def get_secret_store(request: Request) -> SecretStore:
 StoreDep = Annotated[SecretStore, Depends(get_secret_store)]
 
 
-@router.get("", response_model=list[SecretRead])
+@router.get("", response_model=list[SecretRead], summary="List secrets")
 async def list_secrets(store: StoreDep) -> list[SecretRead]:
     """The names of the stored secrets with their dates."""
     return await store.names()
 
 
-@router.put("/{name}", response_model=SecretRead)
+@router.put(
+    "/{name}",
+    response_model=SecretRead,
+    summary="Create or replace a secret",
+    responses=errors(409, 422, write=True, body=True),
+)
 async def put_secret(
     name: str, payload: SecretWrite, store: StoreDep, response: Response
 ) -> SecretRead:
@@ -42,13 +48,23 @@ async def put_secret(
     return read
 
 
-@router.delete("/{name}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{name}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a secret",
+    responses=errors(404, 422, write=True),
+)
 async def delete_secret(name: str, store: StoreDep) -> Response:
     await store.delete(name)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/{name}/uses", response_model=list[SecretUse])
+@router.get(
+    "/{name}/uses",
+    response_model=list[SecretUse],
+    summary="List the nodes that use a secret",
+    responses=errors(422),
+)
 async def secret_uses(name: str, store: StoreDep) -> list[SecretUse]:
     """The nodes that refer to the secret, and the pipelines that call them."""
     return await store.uses(name)

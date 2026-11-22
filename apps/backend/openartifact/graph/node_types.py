@@ -39,7 +39,6 @@ TIMER_MAX_SECONDS = 86400
 EXECUTION_NODES_ADDABLE = True
 CODE_MAX_CHARS = 20000
 HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
-SETTING_TYPES = ("integer", "switch", "text", "lines", "code", "select")
 _DEFAULT_MAX_LENGTH = {"text": 2000, "lines": 20000, "code": CODE_MAX_CHARS}
 
 

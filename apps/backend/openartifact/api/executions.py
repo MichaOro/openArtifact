@@ -10,11 +10,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
+from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import ServiceDep
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.engine.schemas import ExecutionsPage
 
-router = APIRouter(prefix="/api/executions", tags=["executions"])
+router = APIRouter(prefix="/api/executions", tags=["executions"], responses=GATED)
 
 LIST_DESCRIPTION = """The executions of all artifacts, newest first (by start time, then id), without steps.
 
@@ -30,7 +31,13 @@ match, ``summary`` is unfiltered (``failed_24h`` / ``done_24h``: started in the 
 Each item has its ``task`` (id, number, title) and ``pipeline_exists`` (the pipeline still exists)."""
 
 
-@router.get("", response_model=ExecutionsPage, description=LIST_DESCRIPTION)
+@router.get(
+    "",
+    response_model=ExecutionsPage,
+    description=LIST_DESCRIPTION,
+    summary="List the executions of all artifacts",
+    responses=errors(422),
+)
 async def list_all_executions(
     service: ServiceDep,
     status: str | None = None,

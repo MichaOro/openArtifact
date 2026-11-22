@@ -5,13 +5,25 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import EventBusDep
 from openartifact.events import event_stream
 
-router = APIRouter(prefix="/api", tags=["events"])
+router = APIRouter(prefix="/api", tags=["events"], responses=GATED)
 
 
-@router.get("/events")
+@router.get(
+    "/events",
+    summary="Stream board events",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": "A server-sent event stream (``event:`` name, ``data:`` JSON).",
+            "content": {"text/event-stream": {"schema": {"type": "string"}}},
+        },
+        **errors(503),
+    },
+)
 async def stream_events(bus: EventBusDep) -> StreamingResponse:
     """Stream board events: ``task.created``, ``task.updated``, ``task.moved``, ``task.deleted``,
     ``board.resync``, ``run.updated`` (the state of a run, see ``GET /api/runs``),

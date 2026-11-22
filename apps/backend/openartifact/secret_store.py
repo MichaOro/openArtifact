@@ -22,6 +22,7 @@ from openartifact.database import SessionOpener
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import node_type
 from openartifact.models import Graph, GraphNode, NodeKind, Secret
+from openartifact.schemas_common import UtcDateTime
 from openartifact.secret_crypto import SecretUnreadableError, decrypt, encrypt
 from openartifact.secret_refs import REFERENCE, is_name, parse_name_lines
 
@@ -39,8 +40,8 @@ class SecretRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     name: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: UtcDateTime
+    updated_at: UtcDateTime
 
 
 class SecretWrite(BaseModel):
@@ -65,10 +66,6 @@ def _valid_name(name: str) -> str:
             422, "A secret name has capitals, digits and underscores and starts with a letter"
         )
     return name
-
-
-def _utc(value: datetime) -> datetime:
-    return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
 class SecretStore:

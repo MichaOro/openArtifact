@@ -13,7 +13,6 @@ from openartifact.config import Settings
 from openartifact.exceptions import (
     ArtifactError,
     ConfigurationError,
-    DatabaseError,
     OpenArtifactError,
 )
 from tests.helpers import bare_settings
@@ -60,14 +59,6 @@ def test_configuration_error_returns_503() -> None:
     response = client.get("/_boom")
     assert response.status_code == 503
     assert response.json() == {"detail": "no db"}
-
-
-def test_database_error_returns_503_without_details() -> None:
-    """Database errors map to HTTP 503 and hide internals."""
-    client = TestClient(_app_raising(bare_settings(), DatabaseError("secret path /data/x.db")))
-    response = client.get("/_boom")
-    assert response.status_code == 503
-    assert response.json() == {"detail": "Service unavailable"}
 
 
 def test_unexpected_error_hides_details_in_production() -> None:

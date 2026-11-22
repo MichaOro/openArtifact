@@ -21,13 +21,5 @@ class ArtifactError(OpenArtifactError):
         self.message = message
 
 
-class PipelineError(OpenArtifactError):
-    """Errors related to pipeline execution."""
-
-
 class ConfigurationError(OpenArtifactError):
     """Errors related to application configuration."""
-
-
-class DatabaseError(OpenArtifactError):
-    """Errors related to database operations."""

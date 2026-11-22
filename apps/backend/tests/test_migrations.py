@@ -89,25 +89,61 @@ def test_upgrade_head_and_downgrade_on_sqlite(unmigrated_settings: Settings) -> 
 
     with sqlite3.connect(db_path) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        assert {"projects", "work_items"} <= tables
-
-        conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute("INSERT INTO projects (id, name) VALUES ('p1', 'Demo')")
-        conn.execute("INSERT INTO work_items (id, project_id, title) VALUES ('w1', 'p1', 'T')")
-        # Board status is enforced by the database.
-        with pytest.raises(sqlite3.IntegrityError):
-            conn.execute(
-                "INSERT INTO work_items (id, project_id, title, status) VALUES ('w2','p1','T','DONE')"
-            )
-        # Deleting a project cascades to its work items.
-        conn.execute("DELETE FROM projects WHERE id = 'p1'")
-        assert conn.execute("SELECT COUNT(*) FROM work_items").fetchone()[0] == 0
+        assert not {"projects", "work_items"} & tables
 
     command.downgrade(alembic_config(), "0001")
 
     with sqlite3.connect(db_path) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         assert not {"projects", "work_items"} & tables
+
+
+def test_migration_0026_drops_and_restores_the_unused_tables(
+    unmigrated_settings: Settings,
+) -> None:
+    """Down recreates projects and work_items as migration 0002 made them; up drops them again."""
+    db_path = unmigrated_settings.data_dir / unmigrated_settings.database_filename
+    command.upgrade(alembic_config(), "0025")
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("INSERT INTO projects (id, name) VALUES ('p1', 'Demo')")
+        conn.execute("INSERT INTO work_items (id, project_id, title) VALUES ('w1', 'p1', 'T')")
+
+    command.upgrade(alembic_config(), "0026")
+    with sqlite3.connect(db_path) as conn:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert not {"projects", "work_items"} & tables
+
+    command.downgrade(alembic_config(), "0025")
+    with sqlite3.connect(db_path) as conn:
+        indexes = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='work_items'"
+            )
+        }
+        assert {
+            "ix_work_items_project_id",
+            "ix_work_items_status",
+            "ix_work_items_project_status",
+            "ix_work_items_project_status_position",
+        } <= indexes
+        assert conn.execute("SELECT COUNT(*) FROM projects").fetchone()[0] == 0
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("INSERT INTO projects (id, name) VALUES ('p1', 'Demo')")
+        conn.execute("INSERT INTO work_items (id, project_id, title) VALUES ('w1', 'p1', 'T')")
+        with pytest.raises(sqlite3.IntegrityError):  # ck_work_items_status
+            conn.execute(
+                "INSERT INTO work_items (id, project_id, title, status) VALUES ('w2','p1','T','DONE')"
+            )
+        with pytest.raises(sqlite3.IntegrityError):  # fk_work_items_project_id
+            conn.execute("INSERT INTO work_items (id, project_id, title) VALUES ('w3','nope','T')")
+        conn.execute("DELETE FROM projects WHERE id = 'p1'")  # cascades
+        assert conn.execute("SELECT COUNT(*) FROM work_items").fetchone()[0] == 0
+
+    command.upgrade(alembic_config(), "head")
+    with sqlite3.connect(db_path) as conn:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert not {"projects", "work_items"} & tables
 
 
 def test_all_migrations_can_be_undone_and_applied_again(unmigrated_settings: Settings) -> None:

@@ -32,7 +32,6 @@ from openartifact.events import EventBus
 from openartifact.exceptions import (
     ArtifactError,
     ConfigurationError,
-    DatabaseError,
     OpenArtifactError,
 )
 from openartifact.logging_config import configure_logging
@@ -163,11 +162,6 @@ def _create_app(settings: Settings) -> FastAPI:
     async def _handle_config_error(request: Request, exc: ConfigurationError) -> JSONResponse:
         logger.error("Configuration error: %s", exc)
         return JSONResponse(status_code=503, content={"detail": str(exc)})
-
-    @app.exception_handler(DatabaseError)
-    async def _handle_db_error(request: Request, exc: DatabaseError) -> JSONResponse:
-        logger.error("Database error: %s", exc)
-        return JSONResponse(status_code=503, content={"detail": "Service unavailable"})
 
     @app.exception_handler(Exception)
     async def _handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:

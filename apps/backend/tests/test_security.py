@@ -414,3 +414,10 @@ def test_event_streams_are_limited(make_client: Callable[..., TestClient]) -> No
     assert response.status_code == 503
     bus.unsubscribe(held)
     assert not bus.full
+
+
+def test_protecting_the_process_memory_is_idempotent_and_reports_the_outcome() -> None:
+    from openartifact.security import protect_process_memory
+
+    first = protect_process_memory()
+    assert protect_process_memory() is first

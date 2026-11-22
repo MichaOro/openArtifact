@@ -67,8 +67,13 @@ def clean_engine() -> Generator[None, None, None]:
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    """Provide settings pointing to a temporary directory."""
-    return Settings(data_dir=tmp_path, database_filename="test.db", _env_file=None)  # type: ignore[call-arg]
+    """Provide settings pointing to a temporary directory (open mode, so Code nodes are opted in)."""
+    return Settings(  # type: ignore[call-arg]
+        data_dir=tmp_path,
+        database_filename="test.db",
+        code_nodes_without_token=True,  # open mode runs no Code nodes otherwise
+        _env_file=None,
+    )
 
 
 @pytest.fixture

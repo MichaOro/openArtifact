@@ -16,6 +16,12 @@ core files. If a limit cannot be applied the node fails instead of running unlim
 ``PR_SET_PDEATHSIG`` makes the kernel kill the direct child if the application is killed hard; what
 the code started in the background is cleaned up by the next start (``code_registry``).
 
+The application process is made non-dumpable before the first child starts (``security.
+protect_process_memory``), so the code cannot read the token and secret key from ``/proc/<ppid>/environ``.
+The database file stays readable to it (same user); stored credentials are encrypted with a key derived
+from the secret key. In open mode (no API token) Code nodes do not run unless
+``OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN`` is on (see ``executors``).
+
 NOT covered, whatever the limits: there is no network namespace (the code can reach every address the
 application can, including the metadata and internal services that HTTP nodes refuse), no filesystem
 isolation (it reads and writes what the application's user can) and it runs as the application's own
@@ -43,6 +49,7 @@ from typing import Any
 
 from openartifact.engine import code_registry
 from openartifact.engine.results import NodeResult, failed
+from openartifact.security import protect_process_memory
 
 try:
     import resource
@@ -144,10 +151,13 @@ def _environment(home: str, extra: Mapping[str, str], marker: str) -> dict[str, 
 def _user_tasks() -> int:
     """Processes and threads of this user (what ``RLIMIT_NPROC`` counts); 0 if ``/proc`` is missing."""
     uid = os.getuid()
+    own = str(os.getpid())
     total = 0
     with contextlib.suppress(OSError):
         for item in os.scandir("/proc"):
-            if item.name.isdigit():
+            if item.name == own:  # a non-dumpable process may not show our uid: count it by hand
+                total += len(os.listdir("/proc/self/task"))
+            elif item.name.isdigit():
                 with contextlib.suppress(OSError):
                     if item.stat().st_uid == uid:
                         total += len(os.listdir(f"{item.path}/task"))
@@ -237,6 +247,7 @@ async def run_code(
         return failed("The code is empty")
     started = time.monotonic()
     limits = limits or CodeLimits()
+    protect_process_memory()  # before the first child exists: it must not read our /proc/<pid>/environ
     directory = tempfile.mkdtemp(prefix=code_registry.DIRECTORY_PREFIX)  # mode 0700
     process: asyncio.subprocess.Process | None = None
     readers: list[asyncio.Task[None]] = []
