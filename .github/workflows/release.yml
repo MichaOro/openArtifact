@@ -1,12 +1,11 @@
 # Release Workflow — OpenArtifact
 #
-# Triggered by pushing a version tag (e.g., 0.1.0, 1.0.0).
+# Triggered by pushing a version tag with a "v" prefix (v0.1.0, v1.0.0); other tags do not match.
 #
 # Steps:
-#   1. Validate tag format (semver)
-#   2. Build and publish Docker image to GHCR
-#   3. Apply image tags: MAJOR.MINOR.PATCH, MAJOR.MINOR, latest, sha
-#   4. Create GitHub Release with release notes
+#   1. Build and publish the Docker image to GHCR (the repository name is lower-cased)
+#   2. Image tags: <version>, <version>.<run number>, sha-<commit> and latest
+#   3. Create a GitHub Release with generated release notes
 #
 # Prerequisites:
 #   - Repository setting: "Allow GitHub Actions to create and publish packages"
@@ -42,6 +41,8 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=${TAG#v}" >> $GITHUB_OUTPUT
           echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          # Image references must be lower case; the repository name may not be.
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
           echo "Extracted version: ${TAG#v}"
 
       - name: Set up Docker Buildx
@@ -61,10 +62,10 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}.${{ github.run_number }}
-            ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
-            ghcr.io/${{ github.repository }}:latest
+            ${{ steps.version.outputs.image }}:${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.image }}:${{ steps.version.outputs.version }}.${{ github.run_number }}
+            ${{ steps.version.outputs.image }}:sha-${{ github.sha }}
+            ${{ steps.version.outputs.image }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           labels: |
@@ -85,7 +86,7 @@ jobs:
             ### Image
             Pull with:
             ```
-            docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+            docker pull ${{ steps.version.outputs.image }}:${{ steps.version.outputs.version }}
             ```
           draft: false
           prerelease: false

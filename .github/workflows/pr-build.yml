@@ -14,11 +14,12 @@ on:
       - ".dockerignore"
       - "apps/backend/**"
       - "deploy/**"
+      - "scripts/**"
+      - "README.md"
       - ".github/workflows/**"
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
   docker-build:

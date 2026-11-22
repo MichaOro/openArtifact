@@ -9,6 +9,80 @@
       "usage": "this\\.#routeSelect\\(",
       "since": "2026-11-21",
       "reason": "Connections are made by dragging; the routing select (\"Next\") was removed from the inspector."
+    },
+    {
+      "name": "Project and WorkItem repositories",
+      "file": "apps/backend/openartifact/repositories/__init__.py",
+      "symbol": "ProjectRepository",
+      "usage": "from openartifact\\.repositories import|import openartifact\\.repositories\\b",
+      "reason": "Left over from the first iteration; no production code imports repositories/, only tests/test_repositories.py. Use ignore [\"apps/backend/tests/*\"] so that test does not keep it alive; removal takes that test with it. tasks/repository.py and graph/repository.py are the live persistence convention.",
+      "since": "2026-11-22",
+      "ignore": [
+        "apps/backend/tests/*"
+      ]
+    },
+    {
+      "name": "BOARD_STATUSES",
+      "file": "apps/backend/openartifact/models/__init__.py",
+      "symbol": "BOARD_STATUSES",
+      "usage": "(?<![\\w])BOARD_STATUSES\\b(?!:\\s*tuple\\[)",
+      "reason": "No reference at all; migration 0002 keeps its own copy.",
+      "since": "2026-11-22"
+    },
+    {
+      "name": "Project and WorkItem models (and WorkItemStatus)",
+      "file": "apps/backend/openartifact/models/__init__.py",
+      "symbol": "class WorkItem(",
+      "usage": "(?<![<\\w])(?:Project|WorkItem)\\((?!Base\\))|select\\((?:Project|WorkItem)\\b|\\.get\\((?:Project|WorkItem)\\b",
+      "reason": "Only repositories/ and tests use them (use ignore [\"apps/backend/openartifact/repositories/*\", \"apps/backend/tests/*\"]). Removing them needs migration 0021 that drops work_items and projects, removal of the tables' assertions in tests/test_migrations.py and tests/test_tasks.py, and the 05.03 wording. The models now declare the migrations' indexes so alembic check stays green while they exist.",
+      "since": "2026-11-22",
+      "ignore": [
+        "apps/backend/openartifact/repositories/*",
+        "apps/backend/tests/*"
+      ]
+    },
+    {
+      "name": "PipelineError",
+      "file": "apps/backend/openartifact/exceptions.py",
+      "symbol": "PipelineError",
+      "usage": "(?<!class )\\bPipelineError\\b",
+      "reason": "Defined in the exception hierarchy but never raised or caught anywhere.",
+      "since": "2026-11-22"
+    },
+    {
+      "name": "DatabaseError and its 503 handler",
+      "file": "apps/backend/openartifact/exceptions.py",
+      "symbol": "DatabaseError",
+      "usage": "\\braise DatabaseError\\b",
+      "reason": "Nothing in the product raises it, so the handler in app.py (_handle_db_error) cannot fire except in a synthetic test (use ignore [\"apps/backend/tests/*\"]). Either wrap sqlalchemy OperationalError in get_db_session and use it, or delete the class and handler.",
+      "since": "2026-11-22",
+      "ignore": [
+        "apps/backend/tests/*"
+      ]
+    },
+    {
+      "name": "ApiError re-export in tasks/api.js",
+      "file": "apps/backend/openartifact/static/js/tasks/api.js",
+      "symbol": "export { ApiError }",
+      "usage": "import\\s*\\{[^}]*\\bApiError\\b[^}]*\\}\\s*from\\s*[\"'](?:\\./|\\.\\./tasks/)api\\.js[\"']",
+      "reason": "No module imports ApiError from tasks/api.js.",
+      "since": "2026-11-22"
+    },
+    {
+      "name": "Re-export of HEADER, SLOTS, slotY in geometry.js",
+      "file": "apps/backend/openartifact/static/js/editor/geometry.js",
+      "symbol": "export { HEADER, SLOTS, slotY }",
+      "usage": "import\\s*\\{[^}]*\\b(?:HEADER|SLOTS|slotY)\\b[^}]*\\}\\s*from\\s*[\"']\\./geometry\\.js[\"']",
+      "reason": "No importer takes these names from geometry.js.",
+      "since": "2026-11-22"
+    },
+    {
+      "name": "DeleteTaskDialog",
+      "file": "apps/backend/openartifact/static/js/tasks/delete-task-dialog.js",
+      "symbol": "DeleteTaskDialog",
+      "usage": "new DeleteTaskDialog\\(|import\\s*\\{[^}]*\\bDeleteTaskDialog\\b",
+      "reason": "The board deletes through ConfirmDialog (subject, note, Cancel lock, 404 treated as success in the caller).",
+      "since": "2026-11-22"
     }
   ]
 }

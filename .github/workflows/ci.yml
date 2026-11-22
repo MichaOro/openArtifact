@@ -10,6 +10,8 @@
 #   3. Test execution + coverage
 #   4. Browser tests (Playwright, headless Chromium)
 #   5. Docker image build + smoke test (main branch only)
+#
+# Dependency audit runs in audit.yml.
 
 name: CI
 
@@ -21,7 +23,8 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - "deploy/**"
-      - "pyproject.toml"
+      - "scripts/**"
+      - "README.md"
       - ".github/workflows/**"
   pull_request:
     branches: [main]
@@ -30,7 +33,8 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - "deploy/**"
-      - "pyproject.toml"
+      - "scripts/**"
+      - "README.md"
       - ".github/workflows/**"
 
 permissions:
@@ -114,15 +118,10 @@ jobs:
           cd apps/backend
           pip install --no-cache-dir -e ".[dev]"
 
-      - name: Run test suite
+      - name: Run test suite with coverage
         run: |
           cd apps/backend
-          python -m pytest -v --tb=short
-
-      - name: Generate coverage report
-        run: |
-          cd apps/backend
-          coverage run -m pytest -q
+          coverage run -m pytest -v --tb=short
           coverage report
           coverage xml
 
@@ -175,8 +174,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: [test, e2e]
-    permissions:
-      packages: write
     steps:
       - uses: actions/checkout@v4
 

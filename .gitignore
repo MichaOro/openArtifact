@@ -1,198 +1,53 @@
-# .gitignore for OpenArtifact
-
-# ── AI Coding Agents ─────────────────────────────────────────────────────────
-# Local agent caches, sessions, and personal configs
-# DO NOT IGNORE shared agent instructions (e.g. CLAUDE.md, AGENTS.md)
-# These are version-controlled project guidance; only local state is ignored.
-
-# OpenCode
-.open-code-sessions/
-.open-code-cache/
-
-# Claude Code
-.claude/commands/
-.claude/sessions/
-
-# GitHub Copilot
-.copilot-chat/
-.copilot/index.db
-.copilot/index.sqlite
-.copilot/chat.markdown
-
-# Cursor
-.cursor/
-
-# Windsurf
-.windsurf/
-
-# Aider
-aider.inputs/
-aider.state/
-
-# Cline
-.cline/
-
-# Roo Code
-.roo/
-
-# Continue
-.continue/
-
-# Gemini CLI
-.gemini/
-
-# General agent artifacts
-.slash/
-
-# ── Operating System ─────────────────────────────────────────────────────────
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-._*
-.Trashes
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-*.lnk
-
-# Linux
-trash-notify
-
-# ── IDE / Editor State ───────────────────────────────────────────────────────
-
-# VS Code
-.vscode/
-*.vscode/settings.local.json
-
-# JetBrains
-.idea/
-*.iml
-*.ipr
-*.iws
-
-# Vim / Neovim
-swap/
-backup/
-*.swp
-*.swo
-*~
-.viewrc
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-*.tmCommand
-
-# Atom
-.atom
-
-# ── Secrets & Credentials ────────────────────────────────────────────────────
-
-# Environment files with secrets
+# Secrets: every .env variant except the committed example
 .env
-.env.local
-.env.*.local
-
-# Cloud / infra secrets
+.env.*
+!.env.example
 *.pem
 *.key
 *.p12
-*.pfx
-*.crt
-*.jks
 credentials.json
-service-account*.json
 
-# SSH / GPG
-.ssh/
-.gnupg/
-
-# ── Build & Compilation Artifacts ─────────────────────────────────────────────
-
-# General
-dist/
-build/
-*.o
-*.pyc
-*.pyo
+# Python
 __pycache__/
-node_modules/
-
-# Go
-*_test
-vendor/
-
-# Java
-target/
-*.class
-*.jar
-*.war
-
-# Rust
-target/
-
-# .NET
-*.bin
-*.dll
-*.pdb
-
-# Python virtual environments
+*.py[cod]
+*.egg-info/
+/build/
+/dist/
 .venv/
 venv/
-env/
-.env.dev/
 
-
-# ── Test & Coverage ──────────────────────────────────────────────────────────
-
-coverage/
+# Tests, coverage, linters
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 .coverage.*
 coverage.xml
 htmlcov/
-*.lcov
-.nyc_output/
-.pytest_cache/
-.tox/
-.cargo/
+test-results/
 
-# ── Logs ─────────────────────────────────────────────────────────────────────
-
-*.log
-logs/
-*.pid
-
-# ── Local Databases ─────────────────────────────────────────────────────────
-
+# Local data and logs
 *.db
+*.db-journal
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
-*.db-journal
+*.log
 
-# ── Docker ───────────────────────────────────────────────────────────────────
-
-# Docker volumes / bind mounts
+# Docker
 docker-compose.override.yml
 
-# Docker build context ignores
-.docker/
-
-# ── Temporary ─────────────────────────────────────────────────────────────────
-
-tmp/
-temp/
-*.tmp
-
-# ── Generated / Auto-generated ────────────────────────────────────────────────
-
-# Documentation builds
-_site/
-.jekyll-cache/
-
-# Playwright
-test-results/
+# Editors, OS, local agent state
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+.claude/commands/
+.claude/sessions/
+.cursor/
+.copilot-chat/
+.open-code-sessions/
+.open-code-cache/

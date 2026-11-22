@@ -9,6 +9,9 @@ indent_size = 2
 insert_final_newline = true
 trim_trailing_whitespace = true
 
+[*.{py,html,sh,bash}]
+indent_size = 4
+
 [*.md]
 trim_trailing_whitespace = false
 
@@ -18,8 +21,3 @@ indent_size = 2
 [*.{json,jsonc}]
 indent_size = 2
 
-[Makefile]
-indent_style = tab
-
-[*.{sh,bash}]
-indent_size = 4
