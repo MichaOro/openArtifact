@@ -10,6 +10,8 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
+from tests.helpers import build_definition, build_pipeline, connect, kind_of, link, node
+
 LANES = ("backlog", "in_progress", "done")
 
 
@@ -146,3 +148,72 @@ class Dialog:
 
     def save(self) -> None:
         self.root.locator("[data-submit]").click()
+
+    # ── tabs and the History tab ────────────────────────────────────────
+
+    def tab(self, name: str) -> Locator:
+        return self.root.locator(f'[role="tab"][data-tab="{name}"]')
+
+    @property
+    def tabs(self) -> Locator:
+        return self.root.locator('[role="tab"]')
+
+    @property
+    def history(self) -> Locator:
+        return self.root.locator("[data-history]")
+
+    @property
+    def rows(self) -> Locator:
+        return self.history.locator(".history-row")
+
+    def row(self, number: int) -> Locator:
+        return self.rows.filter(has=self.page.locator("[data-row-number]", has_text=f"#{number}"))
+
+    @property
+    def detail(self) -> Locator:
+        return self.history.locator("[data-history-detail]")
+
+    def open_history(self) -> Dialog:
+        self.tab("history").click()
+        expect(self.history).to_be_visible()
+        return self
+
+    def size(self) -> tuple[float, float]:
+        box = self.root.locator(".modal__panel").bounding_box()
+        assert box is not None
+        return box["width"], box["height"]
+
+
+def echo_pipeline(client: httpx.Client, text: str = "hello from echo") -> dict[str, Any]:
+    """A pipeline with one stage whose action runs a Python Code node printing ``text``."""
+    pipeline = build_pipeline(client, stages=1, name="Echo flow", stage_name="Echo stage")
+    definition = build_definition(client, "Echo", output=None, fail_enabled=True)
+    trigger, output = kind_of(client, definition, "trigger"), kind_of(client, definition, "output")
+    code = node(
+        client,
+        definition,
+        "code",
+        name="echo",
+        config={"language": "python", "code": f"print({text!r})"},
+    )
+    connect(client, definition, trigger, "out", code, "in")
+    connect(client, definition, code, "pass", output, "pass")
+    connect(client, definition, code, "fail", output, "fail")
+    link(client, pipeline, pipeline["stages"][0][1], definition)
+    return pipeline
+
+
+def start(client: httpx.Client, task: dict[str, Any], pipeline: dict[str, Any]) -> None:
+    """Start the artifact in the pipeline over the API."""
+    response = client.post(f"/api/tasks/{task['id']}/run", json={"pipeline_id": pipeline["id"]})
+    assert response.status_code in (200, 201), response.text
+
+
+def executions(client: httpx.Client, task: dict[str, Any]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = client.get(f"/api/tasks/{task['id']}/executions").json()["items"]
+    return items
+
+
+def wait_executions(client: httpx.Client, task: dict[str, Any], statuses: list[str]) -> None:
+    """The statuses of the artifact's executions (newest first) become `statuses` (polls)."""
+    Board._eventually(lambda: [e["status"] for e in executions(client, task)], statuses, 15)

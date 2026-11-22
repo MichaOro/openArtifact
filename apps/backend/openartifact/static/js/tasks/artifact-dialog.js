@@ -4,11 +4,14 @@
  * number, the lane chip, the rail's parent/lane fields and the draft. Where a saved artifact
  * goes is delegated via createTask/updateTask/onSaved, so this module never touches the board. */
 import { FormDialog } from "../components/form-dialog.js";
+import { Tabs } from "../components/tabs.js";
 import { renderReferences } from "./references.js";
 
 /** Share of the viewport height a saved artifact's dialog may use at most. */
 const AVAILABLE_HEIGHT = 0.9;
 const FIT_SLACK = 10;
+/** A saved artifact's dialog is never smaller than this (px): the History tab needs room for its list. */
+const MIN_FIT_HEIGHT = 560;
 
 export class ArtifactDialog extends FormDialog {
   /**
@@ -21,8 +24,9 @@ export class ArtifactDialog extends FormDialog {
    * @param {(number: number) => object|undefined} options.findByNumber resolves "#n" references
    * @param {(number: number) => void} options.onReference a reference link was followed
    * @param {() => void} options.onBack the Back button was pressed
+   * @param {import("./history-tab.js").HistoryTab} options.history the History tab; follows the artifact shown
    */
-  constructor({ modal, createTask, updateTask, onSaved, onGone, findByNumber, onReference, onBack }) {
+  constructor({ modal, createTask, updateTask, onSaved, onGone, findByNumber, onReference, onBack, history }) {
     super(modal);
     this.createTask = createTask;
     this.updateTask = updateTask;
@@ -54,6 +58,11 @@ export class ArtifactDialog extends FormDialog {
     this.viewTitle = root.querySelector("[data-view-title]");
     this.viewBody = root.querySelector("[data-view-body]");
     this.backButton = root.querySelector("[data-view-back]");
+    this.history = history;
+    /** The tab last used: kept while the page lives (not stored). Edit mode hides the tabs and keeps it. */
+    this.tab = "details";
+    this.tabs = new Tabs(root.querySelector("[data-tabs]"), (name) => this.#showTab(name));
+    root.addEventListener("close", () => this.history.hide());
 
     root.querySelector("[data-view-edit]").addEventListener("click", () => this.startEdit());
     this.backButton.addEventListener("click", () => onBack());
@@ -87,7 +96,16 @@ export class ArtifactDialog extends FormDialog {
     this.#showNumber(task.number);
     this.#showView();
     if (!this.modal.isOpen) this.modal.open();
+    this.tabs.select("details", { notify: false }); // the size is fitted to the Details content
     this.#fit();
+    this.tabs.select(this.tab, { notify: false });
+    this.view.dataset.tab = this.tab;
+    this.history.show(task);
+  }
+
+  #showTab(name) {
+    this.tab = name;
+    this.view.dataset.tab = name;
   }
 
   /** Update the read-only view when the artifact (or what it references) changed elsewhere. */
@@ -177,7 +195,7 @@ export class ArtifactDialog extends FormDialog {
         if (this.#contentHeightAt(middle) <= middle) high = middle;
         else low = middle;
       }
-      this.fittedHeight = Math.min(high + FIT_SLACK, limit); // rounding between measuring and the fixed layout
+      this.fittedHeight = Math.min(Math.max(high + FIT_SLACK, MIN_FIT_HEIGHT), limit); // slack: rounding between measuring and the fixed layout
     }
     this.#applyFit();
   }

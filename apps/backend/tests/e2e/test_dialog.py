@@ -254,7 +254,7 @@ def test_a_medium_artifact_leaves_no_empty_space_below_the_text(board: Board) ->
     )
     dialog = board.open().open_card("Plan")
     dialog.settle()
-    body = dialog.root.locator("[data-task-view] .modal__body")
+    body = dialog.root.locator("#artifact-panel-details")
     spare = body.evaluate("el => el.clientHeight - el.scrollHeight")
     assert 0 <= spare <= 48, f"{spare}px empty below the text, panel {_size(dialog)}"
     assert _size(dialog)[1] < 1400 * 0.9
@@ -285,7 +285,7 @@ def test_a_long_artifact_is_height_limited_wider_and_scrolls(board: Board) -> No
     assert abs(height - 1400 * 0.9) <= 1
     assert BASE_WIDTH < width <= 800
     assert width / height <= 0.62 + 0.01
-    scrolls = dialog.root.locator("[data-task-view] .modal__body").evaluate(
+    scrolls = dialog.root.locator("#artifact-panel-details").evaluate(
         "el => el.scrollHeight > el.clientHeight"
     )
     assert scrolls

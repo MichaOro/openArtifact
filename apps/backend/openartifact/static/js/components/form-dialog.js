@@ -13,7 +13,7 @@ export class FormDialog extends ActionDialog {
   /** @param {import("./modal.js").Modal} modal rendered by the form_modal macro */
   constructor(modal) {
     super(modal, "Could not save. Please try again.");
-    this.form = this.root.querySelector("form");
+    this.form = this.root.querySelector("form.task-form");
     this.submitLabelEl = this.submitButton.querySelector("[data-submit-label]");
     this.defaultSubmitLabel = this.submitLabelEl.textContent;
     this.onSubmit = null;

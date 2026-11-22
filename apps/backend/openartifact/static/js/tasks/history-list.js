@@ -1,0 +1,137 @@
+/* The rows of the history list: one per execution, newest first, kept in place as executions are
+ * created, change status or are deleted. Rows are built from <template id="history-row-template">
+ * with textContent only. What a click does is up to the caller (onOpen, onDelete). */
+import { icon } from "../components/icons.js";
+import { executionSeconds, formatDuration, formatTime, originLabel, plural, setChip } from "./history-format.js";
+
+const TICK_MS = 1000;
+
+export class HistoryList {
+  /**
+   * @param {object} options
+   * @param {HTMLElement} options.root the <ul>
+   * @param {(execution: object) => void} options.onOpen a row was activated
+   * @param {(execution: object) => void} options.onDelete the delete button of a row was pressed
+   */
+  constructor({ root, onOpen, onDelete }) {
+    this.root = root;
+    this.root.tabIndex = -1; // focus goes here when no row is left
+    this.template = document.getElementById("history-row-template");
+    this.onOpen = onOpen;
+    this.onDelete = onDelete;
+    /** @type {Map<string, {execution: object, row: HTMLElement}>} */
+    this.entries = new Map();
+    this.timer = null;
+    root.addEventListener("click", (event) => {
+      const row = event.target.closest(".history-row");
+      const entry = row && [...this.entries.values()].find((e) => e.row === row);
+      if (!entry) return;
+      if (event.target.closest("[data-row-delete]")) {
+        if (event.target.closest("[data-row-delete]").getAttribute("aria-disabled") !== "true") this.onDelete(entry.execution);
+      } else if (event.target.closest(".history-row__open")) this.onOpen(entry.execution);
+    });
+  }
+
+  get size() {
+    return this.entries.size;
+  }
+
+  get executions() {
+    return [...this.entries.values()].map((entry) => entry.execution);
+  }
+
+  get(id) {
+    return this.entries.get(id)?.execution;
+  }
+
+  /** Replace everything shown with `executions` (any order). */
+  render(executions) {
+    const keep = new Set(executions.map((execution) => execution.id));
+    for (const id of [...this.entries.keys()]) if (!keep.has(id)) this.remove(id);
+    for (const execution of executions) this.upsert(execution);
+  }
+
+  /** Add the execution, or update its row in place. */
+  upsert(execution) {
+    let entry = this.entries.get(execution.id);
+    if (!entry) {
+      entry = { execution, row: this.template.content.firstElementChild.cloneNode(true) };
+      this.entries.set(execution.id, entry);
+    }
+    entry.execution = execution;
+    this.#fill(entry);
+    this.#place(entry);
+    this.#tickWhileRunning();
+  }
+
+  remove(id) {
+    const entry = this.entries.get(id);
+    if (!entry) return;
+    entry.row.remove();
+    this.entries.delete(id);
+    this.#tickWhileRunning();
+  }
+
+  /** The id of the row after (else before) this one, so focus can move on when it is deleted. */
+  neighbour(id) {
+    const row = this.entries.get(id)?.row;
+    const near = row?.nextElementSibling ?? row?.previousElementSibling;
+    return near ? [...this.entries].find(([, entry]) => entry.row === near)?.[0] : null;
+  }
+
+  /** Focus a row's open button; the list itself when there is no such row. */
+  focus(id, part = ".history-row__open") {
+    (this.entries.get(id)?.row.querySelector(part) ?? this.root).focus();
+  }
+
+  /** Stop the clock of the running rows (the dialog closed). */
+  dispose() {
+    window.clearInterval(this.timer);
+    this.timer = null;
+  }
+
+  #fill({ execution: e, row }) {
+    const running = e.status === "running";
+    row.dataset.executionId = e.id;
+    row.dataset.status = e.status;
+    setChip(row.querySelector(".history-chip"), e.status);
+    row.querySelector("[data-row-number]").textContent = `#${e.number}`;
+    const time = row.querySelector("[data-row-time]");
+    time.textContent = formatTime(e.started_at);
+    time.title = e.started_at;
+    time.dateTime = e.started_at;
+    this.#duration(row, e);
+    row.querySelector("[data-row-pipeline]").textContent = e.pipeline_name ?? "";
+    const meta = row.querySelector("[data-row-meta]");
+    meta.dataset.origin = e.started_by;
+    meta.title = `Started by: ${originLabel(e.started_by)}`;
+    meta.textContent = `${originLabel(e.started_by)} · ${plural(e.step_count, "step")}`;
+    const note = row.querySelector("[data-row-note]");
+    note.textContent = e.note ?? "";
+    note.hidden = !e.note;
+    const remove = row.querySelector("[data-row-delete]");
+    remove.replaceChildren(icon("trash"));
+    remove.setAttribute("aria-label", `Delete execution #${e.number}`);
+    remove.setAttribute("aria-disabled", String(running));
+    remove.title = running ? "Stop it first" : `Delete execution #${e.number}`;
+  }
+
+  #duration(row, execution) {
+    row.querySelector("[data-row-duration]").textContent = formatDuration(executionSeconds(execution));
+  }
+
+  /** Newest (highest number) first. */
+  #place({ execution, row }) {
+    row.dataset.number = String(execution.number);
+    const next = [...this.root.children].find((other) => other !== row && Number(other.dataset.number) < execution.number);
+    if (next !== row.nextElementSibling || row.parentElement !== this.root) this.root.insertBefore(row, next ?? null);
+  }
+
+  #tickWhileRunning() {
+    const running = this.executions.some((execution) => execution.status === "running");
+    if (!running) return this.dispose();
+    this.timer ??= window.setInterval(() => {
+      for (const entry of this.entries.values()) if (entry.execution.status === "running") this.#duration(entry.row, entry.execution);
+    }, TICK_MS);
+  }
+}

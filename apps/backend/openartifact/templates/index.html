@@ -4,7 +4,8 @@
 {% from "components/alert.html" import alert %}
 {% from "components/confirm_modal.html" import confirm_modal %}
 {% block title %}Projects · OpenArtifact{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="/static/css/task-dialog.css">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/task-dialog.css">
+<link rel="stylesheet" href="/static/css/history.css">{% endblock %}
 {% block content %}
 {{ alert("Artifacts could not be loaded.") }}
 <div class="board" role="group" aria-label="Kanban board">
@@ -30,6 +31,7 @@
 
 {% include "components/create_task_modal.html" %}
 {{ confirm_modal("delete-task-modal", "Delete Artifact", note="data-children-note") }}
+{{ confirm_modal("delete-execution-modal", "Delete execution", note="data-history-note") }}
 {% endblock %}
 {% block scripts %}
 <script type="module" src="/static/js/tasks/main.js"></script>

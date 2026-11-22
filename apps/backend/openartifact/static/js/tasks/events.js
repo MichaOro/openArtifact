@@ -3,7 +3,7 @@
  * replayed, so every (re)connect calls onOpen so the caller can resync from the REST API. A refused
  * connection (the sign-in expired: 401) is not retried by the browser; onClosed tells the caller. */
 
-const EVENT_TYPES = ["task.created", "task.updated", "task.moved", "task.deleted", "board.resync", "run.updated"];
+const EVENT_TYPES = ["task.created", "task.updated", "task.moved", "task.deleted", "board.resync", "run.updated", "execution.updated", "execution.deleted"];
 
 /**
  * @param {object} options

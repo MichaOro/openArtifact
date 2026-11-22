@@ -59,6 +59,6 @@ export class ActionDialog {
     // aria-disabled (not `disabled`) so the focused button keeps focus inside the dialog.
     for (const button of [this.submitButton, this.cancelButton]) button?.setAttribute("aria-disabled", String(busy));
     this.submitButton?.setAttribute("aria-busy", String(busy));
-    this.root.querySelector("form")?.setAttribute("aria-busy", String(busy));
+    this.root.querySelector("form.task-form")?.setAttribute("aria-busy", String(busy));
   }
 }

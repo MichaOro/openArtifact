@@ -11,6 +11,7 @@ import { ArtifactDialog } from "./artifact-dialog.js";
 import { CardDragController } from "./dnd.js";
 import { ProcessingPanel } from "./processing.js";
 import { connectEvents } from "./events.js";
+import { HistoryTab } from "./history-tab.js";
 
 const board = new Board({ loadTasks: listTasks });
 
@@ -50,6 +51,12 @@ async function moveTaskTo(task, { status = task.status, beforeId, position } = {
   }
 }
 
+const history = new HistoryTab({
+  root: document.querySelector("[data-history]"),
+  badge: document.querySelector("[data-history-count]"),
+  confirm: new ConfirmDialog(new Modal(document.getElementById("delete-execution-modal"))),
+});
+
 const artifactDialog = new ArtifactDialog({
   modal: new Modal(document.getElementById("create-task-modal")),
   createTask,
@@ -59,6 +66,7 @@ const artifactDialog = new ArtifactDialog({
     board.remove(task.id);
     board.showError(`"${task.title}" no longer exists.`);
   },
+  history,
   findByNumber: (number) => board.byNumber(number),
   onReference: (number) => {
     const target = board.byNumber(number);
@@ -300,9 +308,11 @@ connectEvents({
   onOpen: () => {
     board.load(); // first connect and every reconnect: resync
     listRuns().then((runs) => processing.setRuns(runs)).catch(() => {});
+    history.load(); // missed events are not replayed
   },
   onEvent: (type, data) => {
     if (type === "run.updated") processing.upsert(data);
+    else if (type.startsWith("execution.")) history.handleEvent(type, data);
     else if (type === "task.deleted") {
       board.remove(data.id);
       processing.remove(data.id);
