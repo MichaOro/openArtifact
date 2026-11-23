@@ -18,7 +18,7 @@ __all__ = ["agents_url", "api", "llm", "signed_in"]  # the fixtures of the agent
 
 def _config(api: httpx.Client, action: dict[str, Any], kind: str) -> dict[str, Any]:
     nodes = api.get(graph_url(action)).json()["nodes"]
-    return next(n["config"] for n in nodes if n["kind"] == kind)  # type: ignore[no-any-return]
+    return next(n["config"] for n in nodes if n["kind"] == kind)
 
 
 def _open(page: Page, agents_url: str, api: httpx.Client, name: str) -> dict[str, Any]:
