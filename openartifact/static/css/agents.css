@@ -297,3 +297,4 @@
 .ag-version-view [role="tabpanel"][hidden] { display: none; }
 .ag-version-view__panel { display: grid; gap: var(--space-3); }
 .ag-version__buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ag-version-view .tab-bar { justify-self: start; }
