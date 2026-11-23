@@ -1,4 +1,4 @@
-/* Bubbles that flow along the edges a run walked, like data packets: green on the way of a pass, red on a failing
+/* While a run is going, bubbles flow along the edges it walked, like data packets: green on the way of a pass, red on a failing
  * branch (On Fail, Error, Else). They only show where the run went; the numbers and thick lines say the same without
  * motion. The phase follows the clock, so drawing an edge again (every update of a running flow) does not restart its
  * bubbles. Nothing moves for people who asked for less motion. */

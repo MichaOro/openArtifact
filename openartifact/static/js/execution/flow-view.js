@@ -33,6 +33,7 @@ export class FlowView {
     this.nodes = new Map();
     this.edges = new Map();
     this.walk = null;
+    this.live = false;
     this.canvas = new Canvas({
       viewport,
       nodes: this.nodes,
@@ -54,10 +55,12 @@ export class FlowView {
    * Draw a graph with the walk of one visit.
    * @param {object} graph a graph of the flow response
    * @param {{states: Map, edgeOrder: Map}} walk what FlowModel.describe() says
-   * @param {{fit?: boolean}} options fit: show all of it (a different graph)
+   * @param {{fit?: boolean, live?: boolean}} options fit: show all of it (a different graph); live: the run is still
+   *   going, so bubbles flow along what was walked (a finished run only shows where it went, without motion)
    */
-  show(graph, walk, { fit = false } = {}) {
+  show(graph, walk, { fit = false, live = false } = {}) {
     this.walk = walk;
+    this.live = live;
     this.nodes.clear();
     this.edges.clear();
     // left to right: this is the order the nodes are reached with the keyboard
@@ -118,6 +121,6 @@ export class FlowView {
     text.textContent = String(order);
     mark.append(disc, text);
     group.append(mark);
-    addBubbles(group, line, FAILING_PORTS.includes(edge.source_port));
+    if (this.live) addBubbles(group, line, FAILING_PORTS.includes(edge.source_port));
   }
 }

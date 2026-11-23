@@ -157,7 +157,7 @@ class FlowPage {
     this.visit = visit;
     if (changed && !this.model.graph(visit).nodes.some((n) => n.id === this.selected)) this.selected = null;
     this.walk = this.model.describe(visit);
-    this.view.show(this.model.graph(visit), this.walk, { fit: fit || changed });
+    this.view.show(this.model.graph(visit), this.walk, { fit: fit || changed, live: this.model.execution.status === "running" });
     this.view.select(this.selected);
     this.#renderPanel();
     this.#renderBar();
