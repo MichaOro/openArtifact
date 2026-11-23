@@ -87,7 +87,7 @@ server restart and is shown in the History tab ([Execution history](execution-hi
 | `${(Node name).data}` | the node's data as compact JSON |
 | `${(Node name).data.key.sub.0}` | one value in the data; numbers index lists |
 | `${var.name}` | a variable |
-| `${card.name}` | a parameter of the artifact (see [below](#card-parameters-card)) |
+| `${card.name}` | a parameter of the artifact (see [below](#card-parameters-card-the-artifact-fields)) |
 
 A node is written by its name **as the editor shows it**, in parentheses: `${(Code: hello).output}`. The name may hold
 blanks and punctuation, only `(`, `)` and `}` are not possible in it. The older spelling `${node.NAME.output}` stays valid:

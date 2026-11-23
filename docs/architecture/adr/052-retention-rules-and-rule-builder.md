@@ -4,7 +4,7 @@
 **Date:** 2026-11-23  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** [ADR-039](039-run-limits.md) (settings storage is reused), the history retention of the execution history guide  
+**Amends:** [ADR-039](039-edit-fields-switch-rules-and-run-limits.md) (settings storage is reused), the history retention of the execution history guide  
 **Implemented in:** `engine/retention.py`, `engine/history.py` (`apply_rules`), `engine/runner.py` (the two call sites), `api/settings.py` (`/settings/retention`, `/settings/retention/preview`, also under `/api/v1`), `api/executions.py` (`POST /api/executions/delete`); `static/js/components/rule-model.js`, `rule-builder.js`, `selection.js`, `bulk-bar.js`, `static/js/executions/retention-dialog.js`, `css/rule-builder.css`  
 **Affected chapters:** guide [execution history](../../guides/execution-history.md), [API reference](../../guides/api-reference.md)
 

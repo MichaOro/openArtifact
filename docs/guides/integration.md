@@ -97,7 +97,7 @@ curl -s -X POST $OA/api/v1/artifacts -H "Authorization: Bearer $TOKEN" -H "Conte
   -d '{"title": "Printer on fire", "fields": {"urgency": "high", "summary": "Smoke"}}'
 ```
 
-A run reads the fields as `${card.urgency}` ([execution nodes](execution-nodes.md#card-parameters-card)).
+A run reads the fields as `${card.urgency}` ([execution nodes](execution-nodes.md#card-parameters-card-the-artifact-fields)).
 
 Rules that scripts meet:
 
