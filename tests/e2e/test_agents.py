@@ -396,3 +396,25 @@ def test_the_request_of_an_agent_step_is_shown_with_its_attempts(
     expect(inputs.nth(0)).to_contain_text("Login is broken")
     expect(inputs.nth(1)).to_contain_text("default")
     expect(page.locator("body")).not_to_contain_text(API_KEY)
+
+
+def test_the_sidebar_stays_in_place_while_a_long_page_scrolls(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    """The agent page is longer than the window: the page scrolls, the navigation and the header do not."""
+    agent = _agent(api)
+    page = signed_in
+    page.set_viewport_size({"width": 1270, "height": 592})
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    expect(page.locator("[data-agent-editor]")).to_be_visible()
+    sidebar, header = page.locator(".sidebar"), page.locator(".app-header")
+    expect(sidebar).to_be_visible()
+    page.mouse.move(700, 300)
+    page.mouse.wheel(0, 900)
+    page.wait_for_function(  # the page really moved
+        "() => window.scrollY > 0 || document.querySelector('.main').scrollTop > 0"
+    )
+    box, head = sidebar.bounding_box(), header.bounding_box()
+    assert box and head
+    assert box["y"] == 0 and box["height"] == 592  # the navigation still fills the window
+    assert head["y"] == 0  # and so does the header

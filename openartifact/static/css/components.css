@@ -182,7 +182,9 @@
 :root[data-theme="dark"] .theme-toggle .icon--moon { display: none; }
 
 /* ── Main + header ───────────────────────────────────────────────── */
-.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+/* The shell is as high as the window, so the main area scrolls (its header stays on top) and the
+   sidebar next to it never moves: with the document scrolling, a long page took the sidebar along. */
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; }
 
 .app-header__tools { display: flex; align-items: center; gap: var(--space-2); }
 .app-header {
