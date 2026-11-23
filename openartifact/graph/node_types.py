@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from openartifact.agents import schemas as agent_rules
+from openartifact.agents import tool_config
 from openartifact.agents.render import MappingError, parse_mapping, prompt_problems
 from openartifact.credentials.refs import (
     SecretReferenceError,
@@ -1002,25 +1003,231 @@ class _ToolType(NodeType):
         return None
 
 
+def _tool_rule(check: Callable[[str], object]) -> Callable[[str], None]:
+    """A rule of ``agents/tool_config.py`` as a setting check."""
+
+    def rule(value: str) -> None:
+        try:
+            check(value)
+        except tool_config.ToolConfigError as error:
+            raise SettingError(str(error)) from error
+
+    return rule
+
+
+def _check_secret_name(value: str) -> None:
+    if value.strip():
+        parse_name_lines(value.strip())
+
+
+def _tool_identity(about: str) -> tuple[Setting, Setting]:
+    return (
+        Setting(
+            "tool_name",
+            "Tool name",
+            "text",
+            default="",
+            max_length=64,
+            placeholder="get_weather",
+            stored_in="config",
+            help="The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+            check=_tool_rule(tool_config.check_tool_name),
+        ),
+        Setting(
+            "description",
+            "Description",
+            "lines",
+            default="",
+            max_length=1000,
+            stored_in="config",
+            help=f"Tells the model what the tool does and when to use it. {about}",
+        ),
+    )
+
+
+_PARAMETERS = Setting(
+    "parameters",
+    "Parameters",
+    "lines",
+    default="",
+    max_length=5000,
+    placeholder="city: The city to look up",
+    stored_in="config",
+    help="One 'name: description' per line; the model fills them. Names: lowercase letters, digits and _.",
+    check=_tool_rule(tool_config.parse_parameters),
+)
+
+
+def _timeout(default: int, maximum: int) -> Setting:
+    return Setting(
+        "timeout_seconds",
+        "Timeout (seconds)",
+        "integer",
+        minimum=1,
+        maximum=maximum,
+        default=default,
+        stored_in="config",
+    )
+
+
 class McpToolType(_ToolType):
     """Offers the tools of a remote MCP server (Streamable HTTP), for example GitHub's."""
 
     kind = NodeKind.MCP_TOOL
     label = "MCP Client Tool"
+    settings = (
+        *_tool_identity("The server's tools keep their own names and descriptions."),
+        Setting(
+            "url",
+            "Endpoint",
+            "text",
+            default="",
+            max_length=500,
+            placeholder="https://api.githubcopilot.com/mcp/",
+            stored_in="config",
+            help="The Streamable HTTP address of the MCP server. GitHub: https://api.githubcopilot.com/mcp/",
+            check=_tool_rule(tool_config.check_endpoint),
+        ),
+        Setting(
+            "secret",
+            "Secret with the token",
+            "text",
+            default="",
+            max_length=64,
+            placeholder="GITHUB_TOKEN",
+            stored_in="config",
+            help="The name of a stored secret, sent as 'Authorization: Bearer'. Empty: no token.",
+            check=_references(_check_secret_name),
+        ),
+        Setting(
+            "allow_private",
+            "Private network",
+            "switch",
+            default=False,
+            stored_in="config",
+            help="The server is on a private or local network. Counts only when the operator allows it too "
+            "(OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).",
+        ),
+        Setting(
+            "tools_mode",
+            "Tools to include",
+            "select",
+            default="all",
+            options=("all", "selected", "all_except"),
+            stored_in="config",
+            help="all: every tool of the server. selected: only the tools listed below. all_except: all but those.",
+        ),
+        Setting(
+            "tool_names",
+            "Tools",
+            "lines",
+            default="",
+            max_length=10000,
+            placeholder="get_issue",
+            stored_in="config",
+            help="One tool name of the server per line, for 'selected' and 'all_except'.",
+            check=_tool_rule(tool_config.parse_tool_names),
+        ),
+        _timeout(60, 300),
+    )
 
 
 class HttpToolType(_ToolType):
-    """One HTTP request whose parameters the model fills."""
+    """One HTTP request whose parameters the model fills (``{name}`` in the URL, headers and body)."""
 
     kind = NodeKind.HTTP_TOOL
     label = "HTTP Request Tool"
+    settings = (
+        *_tool_identity("Name the parameters it needs below."),
+        Setting(
+            "method", "Method", "select", default="GET", options=HTTP_METHODS, stored_in="config"
+        ),
+        Setting(
+            "url",
+            "URL",
+            "text",
+            default="",
+            placeholder="https://wttr.in/{city}?format=3",
+            stored_in="config",
+            references="all",
+            help="{name} is a parameter the model fills (percent-encoded here). ${secret:NAME} and "
+            "${var.name} work as in the HTTP node, not in the scheme or host.",
+            check=_references(_check_url),
+        ),
+        Setting(
+            "headers",
+            "Headers",
+            "lines",
+            default="",
+            placeholder="Authorization: Bearer ${secret:API_TOKEN}",
+            stored_in="config",
+            references="all",
+            check=_references(_check_text_references),
+        ),
+        Setting(
+            "body",
+            "Body",
+            "lines",
+            default="",
+            stored_in="config",
+            references="all",
+            help="Sent as it is; {name} is replaced by the model's value, ${...} as in the HTTP node.",
+            check=_references(_check_text_references),
+        ),
+        _PARAMETERS,
+        _timeout(30, 120),
+        Setting(
+            "success_status",
+            "Success status",
+            "text",
+            default="200-299",
+            max_length=100,
+            stored_in="config",
+            help="Another status is reported to the model as an error.",
+            check=_check_status,
+        ),
+    )
 
 
 class CodeToolType(_ToolType):
-    """Shell or Python code the model calls with arguments."""
+    """Shell or Python code the model calls with arguments (``input`` in ``context.json``)."""
 
     kind = NodeKind.CODE_TOOL
     label = "Code Tool"
+    settings = (
+        *_tool_identity("Name the parameters it takes below."),
+        Setting(
+            "language",
+            "Language",
+            "select",
+            default="python",
+            options=("sh", "python"),
+            stored_in="config",
+        ),
+        Setting(
+            "code",
+            "Code",
+            "code",
+            default="",
+            max_length=CODE_MAX_CHARS,
+            stored_in="config",
+            help="The model's arguments are the object 'input' in context.json in the working directory; "
+            "what the code prints is the answer to the model. Runs with the rules of the Code node.",
+        ),
+        Setting(
+            "secrets",
+            "Secrets",
+            "lines",
+            default="",
+            max_length=2000,
+            placeholder="API_KEY",
+            stored_in="config",
+            help="One secret name per line, available as environment variables.",
+            check=_references(_check_secret_names),
+        ),
+        _PARAMETERS,
+        _timeout(30, 600),
+    )
 
 
 #: The kinds of tool nodes.

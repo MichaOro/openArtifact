@@ -116,3 +116,100 @@ def test_migration_0035_allows_the_tool_kinds_and_the_downgrade_removes_them(
     with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT id FROM graph_nodes").fetchall() == [("x",)]
     command.upgrade(alembic_config(), "head")
+
+
+# ── settings ─────────────────────────────────────────────────────────
+
+
+def _keys(client: TestClient, kind: str) -> dict[str, dict[str, Any]]:
+    described = {t["kind"]: t for t in client.get("/api/node-types").json()}[kind]
+    return {s["key"]: s for s in described["settings"]}
+
+
+def test_every_tool_has_a_name_and_a_description_for_the_model(client: TestClient) -> None:
+    for kind in TOOL_KINDS:
+        settings = _keys(client, kind)
+        assert list(settings)[:2] == ["tool_name", "description"], kind
+    mcp = _keys(client, "mcp_tool")
+    assert {"url", "secret", "allow_private", "tools_mode", "tool_names", "timeout_seconds"} <= set(
+        mcp
+    )
+    assert (
+        mcp["tools_mode"]["options"] == ["all", "selected", "all_except"]
+        and mcp["tools_mode"]["default"] == "all"
+    )
+    assert (
+        mcp["timeout_seconds"]["minimum"],
+        mcp["timeout_seconds"]["maximum"],
+        mcp["timeout_seconds"]["default"],
+    ) == (1, 300, 60)
+    http = _keys(client, "http_tool")
+    assert {
+        "method",
+        "url",
+        "headers",
+        "body",
+        "parameters",
+        "timeout_seconds",
+        "success_status",
+    } <= set(http)
+    code = _keys(client, "code_tool")
+    assert {"language", "code", "secrets", "parameters", "timeout_seconds"} <= set(code)
+
+
+@pytest.mark.parametrize(
+    ("kind", "change", "message"),
+    [
+        ("mcp_tool", {"tool_name": "has space"}, "letters, digits, _ and -"),
+        ("mcp_tool", {"tool_name": "x" * 65}, "too long"),
+        ("mcp_tool", {"url": "ftp://x"}, "http or https"),
+        ("mcp_tool", {"url": "https://user:pw@x.example/mcp"}, "user name or password"),
+        ("mcp_tool", {"secret": "lower"}, "capitals, digits and underscores"),
+        ("mcp_tool", {"tool_names": "ok\nbad name"}, "Line 2"),
+        ("mcp_tool", {"tools_mode": "some"}, "must be one of"),
+        ("http_tool", {"parameters": "city"}, "Line 1 is not 'name: description'"),
+        ("http_tool", {"parameters": "City: x"}, "Line 1"),
+        ("http_tool", {"parameters": "a: one\na: two"}, "Parameter 'a' is declared twice"),
+        (
+            "code_tool",
+            {"parameters": "q: query\n" + "\n".join(f"p{n}: x" for n in range(30))},
+            "At most 30 parameters",
+        ),
+    ],
+)
+def test_wrong_tool_settings_are_refused(
+    client: TestClient, kind: str, change: dict[str, Any], message: str
+) -> None:
+    action = post(client, "/api/actions", name=f"T {kind}")
+    made = node(client, action, kind)
+    refused = client.patch(f"{graph_url(action)}/nodes/{made['id']}", json={"config": change})
+    assert refused.status_code == 422, refused.text
+    assert message in refused.json()["detail"]
+
+
+def test_good_tool_settings_are_saved(client: TestClient) -> None:
+    action = post(client, "/api/actions", name="Good")
+    made = node(
+        client,
+        action,
+        "mcp_tool",
+        config={
+            "tool_name": "github",
+            "description": "Read issues",
+            "url": "https://api.githubcopilot.com/mcp/",
+            "secret": "GITHUB_TOKEN",
+            "tools_mode": "selected",
+            "tool_names": "get_issue\nlist_issues",
+        },
+    )
+    assert made["config"]["tool_names"] == "get_issue\nlist_issues"
+    http = node(
+        client,
+        action,
+        "http_tool",
+        config={
+            "parameters": "city: The city to look up\nunits: metric or imperial",
+            "url": "https://wttr.in/{city}",
+        },
+    )
+    assert http["config"]["parameters"].startswith("city:")
