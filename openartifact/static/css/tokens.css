@@ -92,6 +92,11 @@
   /* Purple Accent */
   --color-accent: #8050e8;
   --color-on-accent: #ffffff;
+  /* The filled primary button is the complement of its theme: purple with white text on the light
+     surfaces, a light lavender with dark text on the dark ones. */
+  --button-primary-bg: var(--color-accent);
+  --button-primary-hover-bg: color-mix(in srgb, var(--color-accent) 86%, var(--color-highlight));
+  --button-primary-text: var(--color-on-accent);
   --color-danger: #b3261e; /* error text/borders only */
   --color-highlight: var(--color-glass-card); /* light reflections = pearl white */
   --scrollbar-thumb: #c1c1c1;
@@ -145,6 +150,9 @@
   /* Purple Accent */
   --color-accent: #9665ff;
   --color-on-accent: #080519;
+  --button-primary-bg: #d9ccff;
+  --button-primary-hover-bg: #eee7ff;
+  --button-primary-text: #110d29;
   --color-danger: #ff8fa3;
   --color-highlight: var(--color-text-primary); /* light reflections = white */
   --scrollbar-thumb: #6b6b6b;
