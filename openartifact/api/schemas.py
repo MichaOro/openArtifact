@@ -50,6 +50,8 @@ class SettingRead(BaseModel):
     default: Any
     stored_in: str
     options: list[str] | None = None
+    #: The shown text of options whose text is translated (the stored value is the option itself).
+    option_labels: dict[str, str] | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None

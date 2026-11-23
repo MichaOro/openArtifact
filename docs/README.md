@@ -31,6 +31,7 @@ How to run, use, change and test the application.
 | [Execution history](guides/execution-history.md) | Recording, retention, the flow view, the global executions page, the API |
 | [Operate the Docker deployment](guides/operations.md) | Start, update, health, backup and restore of the SQLite volume |
 | [Run behind a reverse proxy](guides/reverse-proxy.md) | nginx and Caddy, TLS, `Host`, forwarded headers, cookie, limits |
+| [Languages (i18n)](guides/i18n.md) | Switching the language, adding one, what is not translated |
 | [Extending the application](guides/extending.md) | A new node kind, a new navigation entry |
 | [Testing](guides/testing.md) | Unit and browser tests, coverage, quality checks |
 | [CI/CD and releases](guides/CI-CD.md) | Pipelines, image name and tags, release procedure |

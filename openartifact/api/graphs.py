@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from openartifact.agents.service import node_hints as agent_node_hints
 from openartifact.api.contract import GATED, errors
@@ -17,6 +17,7 @@ from openartifact.api.deps import SessionDep
 from openartifact.api.schemas import ChainEntryRead, NodeTypeRead
 from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.snapshot import graph_of
+from openartifact.graph.localize import localize
 from openartifact.graph.node_types import NODE_TYPES, node_type
 from openartifact.graph.repository import GraphRepository, NodeError
 from openartifact.graph.rules import EdgeError
@@ -32,6 +33,7 @@ from openartifact.graph.schemas import (
     NodeRead,
     NodeUpdate,
 )
+from openartifact.i18n.web import language_for
 from openartifact.models import Graph, GraphKind, GraphNode, NodeKind
 
 _LABELS: dict[GraphKind, str] = {GraphKind.PIPELINE: "Pipeline", GraphKind.ACTION: "Action"}
@@ -302,6 +304,8 @@ node_types_router = APIRouter(prefix="/api", tags=["node-types"], responses=GATE
     response_model_exclude_unset=True,
     summary="List node types",
 )
-async def list_node_types() -> list[dict[str, Any]]:
-    """The kinds of nodes: scope, ports, settings, what they link to (the editor draws from this)."""
-    return [t.describe() for t in NODE_TYPES.values()]
+async def list_node_types(request: Request) -> list[dict[str, Any]]:
+    """The kinds of nodes: scope, ports, settings, what they link to (the editor draws from this). The texts are in the
+    language of the request (cookie ``oa_lang``, else ``Accept-Language``) where a translation exists, else English; the
+    stored values (kinds, setting keys, options) never change."""
+    return localize([t.describe() for t in NODE_TYPES.values()], language_for(request))

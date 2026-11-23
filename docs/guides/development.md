@@ -61,7 +61,7 @@ frontend build ([ADR-010](../architecture/adr/010-frontend-without-htmx.md), lay
 ├── tests/                          # unit and API tests; tests/e2e/ browser tests; tests/js/ tests of the pure JS modules
 ├── docs/                           # guides, arc42, ADRs
 ├── deploy/, Dockerfile, scripts/   # Docker Compose deployment, image, container entrypoint
-└── tools/                          # repository checks (Markdown links, quarantine, container smoke test)
+└── tools/                          # repository checks (Markdown links, quarantine, translations, container smoke test)
 ```
 
 The building blocks are described in [arc42 chapter 5](../architecture/arc42/05-building-block-view/README.md).

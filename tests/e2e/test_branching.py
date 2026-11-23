@@ -61,7 +61,7 @@ def test_the_menu_offers_if_and_switch_after_http(
         "Agent tools": ["MCP Client Tool", "HTTP Request Tool", "Code Tool", "Postgres Tool"],
         "Apps and data": ["GitHub", "Postgres"],
         "Core": ["Code", "HTTP request"],
-        "Data": ["Edit Fields"],
+        "Data": ["Edit Fields", "Artifact"],
         "Flow": ["If", "Switch", "Timer"],
     }
 

@@ -257,7 +257,7 @@ is saved at once.
 | PATCH | `/api/{kind}/{graph_id}/edges/{edge_id}` | Change how a connection is drawn | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}/edges/{edge_id}` | Remove; `204` | 404 |
 | GET | `/api/pipelines/{graph_id}/stages` | The stages in running order with their actions | 404 |
-| GET | `/api/node-types` | The kinds of nodes: ports, settings (with `group` and `references` hints for the inspector), links (the editor draws from this) | |
+| GET | `/api/node-types` | The kinds of nodes: ports, settings (with `group` and `references` hints for the inspector), links (the editor draws from this); texts in the language of the request (cookie `oa_lang`, else `Accept-Language`) where a translation exists, stored values unchanged | |
 
 `{kind}` is `pipelines` or `actions`.
 

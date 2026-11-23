@@ -147,6 +147,10 @@ def test_no_template_carries_an_inline_script() -> None:
     templates = Path(__file__).resolve().parent.parent / "openartifact" / "templates"
     for path in templates.rglob("*.html"):
         for tag in re.findall(r"<script\b[^>]*>", path.read_text()):
+            if (
+                'type="application/json"' in tag
+            ):  # a data block (the dictionary, ADR-056) is never executed
+                continue
             assert "src=" in tag, f"inline script in {path.name}: {tag}"
 
 

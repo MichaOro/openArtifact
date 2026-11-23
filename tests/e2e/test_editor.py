@@ -472,7 +472,7 @@ def test_create_an_action_definition_from_the_navigation(
         "Agent tools": ["MCP Client Tool", "HTTP Request Tool", "Code Tool", "Postgres Tool"],
         "Apps and data": ["GitHub", "Postgres"],
         "Core": ["Code", "HTTP request"],
-        "Data": ["Edit Fields"],
+        "Data": ["Edit Fields", "Artifact"],
         "Flow": ["If", "Switch", "Timer"],
     }
 

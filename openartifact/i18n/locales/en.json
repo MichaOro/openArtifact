@@ -676,6 +676,8 @@
  "graph.pipeline.tools": "Pipeline tools",
  "graph_editor.add_to_the_canvas": "Add to the canvas",
  "graph_list.rename": "Rename",
+ "header.language": "Language",
+ "header.language_menu": "Choose the language",
  "header.sign_out": "Sign out",
  "header.switch_theme": "Switch theme",
  "history.clear_finished": "Clear finished",

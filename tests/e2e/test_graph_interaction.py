@@ -153,7 +153,7 @@ def test_the_add_menu_has_closed_clusters_to_find_your_way_and_a_search_over_the
     expect(page.locator(".ge-add__search")).to_be_focused()  # type straight away
     groups = menu.locator(".ge-add__group")
     expect(groups).to_have_text(
-        ["AI1", "Agent tools4", "Apps and data2", "Core2", "Data1", "Flow3"]
+        ["AI1", "Agent tools4", "Apps and data2", "Core2", "Data2", "Flow3"]
     )
     expect(menu.locator("[data-add]")).to_have_count(0)  # closed: the list stays short
 

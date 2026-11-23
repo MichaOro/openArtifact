@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Generator
 from pathlib import Path
 
@@ -128,7 +129,10 @@ def test_board_has_three_empty_lanes(client: TestClient) -> None:
         assert f">{title}</span></h2>" in html
     assert html.count('class="lane__count"') == 4  # three lanes and the template for new ones
     assert html.count(">0</span>") == 4
-    assert html.count("No artifacts yet") == 4
+    page = re.sub(
+        r'<script type="application/json" id="i18n">.*?</script>', "", html, flags=re.S
+    )  # the dictionary has the text too
+    assert page.count("No artifacts yet") == 4
     assert "data-task-id" not in html  # cards are rendered client-side; none are baked in
 
 

@@ -215,6 +215,13 @@ state from the REST API.
 4. **Test it.** Server: the `published` fixture of `tests/conftest.py` records every published event;
    assert on it. Browser: wait for the effect, not for a time (see the [testing guide](testing.md#waiting)).
 
+## Add a language or a text
+
+Every text the interface shows is a key of `openartifact/i18n/locales/en.json` (`t(...)` in a template, `t(...)` from
+`static/js/i18n.js` in a script); a new language is one more file. A new setting or kind of node needs no key: the manifest
+is the English text and a locale file may override it. See [Languages](i18n.md) and
+[ADR-056](../architecture/adr/056-internationalisation.md); `python3 tools/check_i18n.py` must stay clean.
+
 ## Add a dialog
 
 Every dialog with input fields is a `FormDialog` over a `form_modal` ([ADR-010](../architecture/adr/010-frontend-without-htmx.md) describes the dialog system; there is no separate ADR for it yet).

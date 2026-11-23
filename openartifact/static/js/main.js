@@ -1,7 +1,8 @@
 /* UI wiring of the shell: binds the toggles to the theme and sidebar state (theme.js) and keeps
  * their ARIA in sync. */
+import { ActionMenu } from "./components/action-menu.js";
+import { chooseLanguage, language, languages, t } from "./i18n.js";
 import { KEYS, readJson } from "./storage.js";
-import { t } from "./i18n.js";
 
 const { Theme, Sidebar } = window.OpenArtifact;
 const themeButton = document.querySelector("[data-theme-toggle]");
@@ -21,6 +22,15 @@ function syncSidebar() {
   sidebarButton.setAttribute("aria-label", expanded ? t("sidebar.collapse_sidebar") : t("main.expand_sidebar"));
 }
 
+const languageButton = document.querySelector("[data-language-toggle]");
+const languageMenu = new ActionMenu();
+languageButton?.addEventListener("click", () =>
+  languageMenu.toggle(
+    languageButton,
+    languages().map(({ code, name }) => ({ label: name, icon: code === language() ? "check" : "globe", onSelect: () => code !== language() && chooseLanguage(code) })),
+    t("header.language_menu"),
+  ),
+);
 themeButton?.addEventListener("click", Theme.toggle);
 sidebarButton?.addEventListener("click", Sidebar.toggle);
 // Narrow: the expanded sidebar is an overlay, so tapping outside it (or Escape) closes it.
