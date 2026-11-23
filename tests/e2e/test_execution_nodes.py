@@ -129,6 +129,8 @@ def test_the_code_field_indents_with_tab_and_escape_then_tab_leaves_it(
         inspector.get_by_label("Secrets")
     ).to_be_focused()  # the field after Code (migration 0022)
     page.keyboard.press("Tab")
+    expect(inspector.get_by_label("Sets variables")).to_be_focused()  # declared variables (ADR-034)
+    page.keyboard.press("Tab")
     expect(inspector.get_by_label("Timeout (seconds)")).to_be_focused()
 
 

@@ -52,8 +52,8 @@ def test_the_board_with_artifacts_and_its_dialog_run_without_a_violation(
     api.post("/api/tasks", json={"title": "Seen"}).raise_for_status()
     problems = _watch(page)
     page.goto(base_url)
-    expect(page.locator(".task-card")).to_have_count(1)
-    page.locator(".task-card__title").click()
+    expect(page.locator(".board .task-card")).to_have_count(1)
+    page.locator(".board .task-card__title").click()
     expect(page.locator("#create-task-modal")).to_be_visible()
     page.wait_for_load_state("networkidle")
     assert problems == []

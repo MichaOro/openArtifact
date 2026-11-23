@@ -592,5 +592,5 @@ def test_the_board_opens_the_artifact_of_the_url(
     expect(page.locator("#create-task-modal")).to_be_visible()
     expect(page.locator("#create-task-modal")).to_contain_text("Linked")
     page.goto(f"{secured_url}/?artifact=9999")
-    expect(page.locator(".task-card")).to_have_count(2)
+    expect(page.locator(".board .task-card")).to_have_count(2)
     expect(page.locator("#create-task-modal")).to_be_hidden()

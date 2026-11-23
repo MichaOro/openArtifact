@@ -124,7 +124,8 @@ class Board:
         return self.page.locator(f'[data-lane][data-status="{status}"]')
 
     def card(self, title: str) -> Locator:
-        return self.page.locator(".task-card").filter(
+        """A card on the board (the lane settings dialog has sample cards of its own)."""
+        return self.page.locator(".board .task-card").filter(
             has=self.page.locator(".task-card__title", has_text=title)
         )
 

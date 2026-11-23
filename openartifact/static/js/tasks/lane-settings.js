@@ -53,7 +53,8 @@ export class LaneSettingsDialog extends ActionDialog {
       line.textContent = meta;
       line.hidden = !meta;
       card.querySelector("[data-delete-task]").remove();
-      card.removeAttribute("tabindex");
+      // a picture of a card, not a card: nothing to open, move or delete
+      for (const name of ["tabindex", "aria-haspopup", "aria-keyshortcuts"]) card.removeAttribute(name);
       list.append(card);
     }
   }
