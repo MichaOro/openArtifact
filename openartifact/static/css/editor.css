@@ -45,8 +45,7 @@
 .ge-main {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 18rem;
-  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -93,6 +92,19 @@
   background-size: 24px 24px;
 }
 .ge-viewport:active { cursor: grabbing; }
+/* the editor: the left button selects, only the right one drags the view */
+.ge-viewport.is-editor,
+.ge-viewport.is-editor:active { cursor: default; }
+.ge-viewport.is-editor.is-panning,
+.ge-viewport.is-editor.is-panning * { cursor: grabbing; }
+.ge-marquee {
+  position: absolute;
+  z-index: 5;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  pointer-events: none;
+}
 .ge-viewport:focus { outline: none; }
 .ge-viewport.is-connecting,
 .ge-viewport.is-connecting * { cursor: crosshair; }
@@ -269,13 +281,12 @@
 .ge-arrow--error { fill: var(--color-danger); }
 
 /* inspector (the size of its heading is in components.css) */
+/* the content of the settings dialog: roomy, the dialog scrolls when it is long */
+#node-modal .modal__panel { --dialog-base-w: 44rem; width: min(52rem, calc(100vw - 2 * var(--space-4))); translate: none; }
 .ge-inspector {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  overflow-y: auto;
 }
 .ge-inspector__heading p,
 .ge-inspector__note { font-size: 0.8125rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
@@ -288,9 +299,6 @@
   color: var(--color-text-secondary);
 }
 
-@media (max-width: 900px) {
-  .ge-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(24rem, 1fr) auto; }
-}
 @media (prefers-reduced-motion: no-preference) {
   .ge-node,
   .ge-port {
@@ -303,22 +311,6 @@
 .ge-actionbar .button { width: 100%; justify-content: center; gap: var(--space-1); padding: 0 var(--space-2); }
 .ge-actionbar .icon { width: 1rem; height: 1rem; }
 .ge-actionbar a.button[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
-.ge-styles { display: flex; gap: var(--space-1); }
-.ge-style {
-  flex: 1;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font: inherit;
-}
-.ge-style[aria-pressed="true"] {
-  border-color: var(--color-accent);
-  background: var(--accent-soft);
-  color: var(--color-text);
-}
 
 /* an on/off switch with its state written in it */
 .ge-switch {

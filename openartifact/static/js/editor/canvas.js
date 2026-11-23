@@ -5,7 +5,9 @@
  *
  *  - drag a node to move it (an action stays inside its stage, which grows as needed);
  *  - drag from an output port to an input port to connect;
- *  - drag the background to pan, wheel or the zoom buttons to zoom;
+ *  - editor: the right button drags the view; the left button selects (a click, or a frame drawn on the background that
+ *    takes every node it touches; Shift adds) and moves the selected nodes together; wheel or the zoom buttons zoom;
+ *  - read-only: dragging the background with the left button pans;
  *  - click a node or an edge to select it. */
 import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./geometry.js";
 import { icon } from "../components/icons.js";
@@ -29,7 +31,7 @@ export class Canvas {
    * @param {HTMLElement} options.viewport
    * @param {Map<string, object>} options.nodes
    * @param {Map<string, object>} options.edges
-   * @param {object} options.handlers onSelect(selection|null, {focusInspector}), onMoved(node),
+   * @param {object} options.handlers onSelect(selection|null, {focusInspector, keepMulti}), onMoved(node),
    *   onConnect(source, port, target, port, {source_slot, target_slot}), onDelete(selection), onZoom(zoom),
    *   onEdgeDelete(edgeId) and onEdgeStyle(edge, style) for the bar a connection shows on hover (the editor only);
    *   read-only: onOpen(node) (Enter on a node), onNodeDrawn(node, el) and onEdgeDrawn(edge, group)
@@ -46,6 +48,8 @@ export class Canvas {
     this.minZoom = minZoom;
     this.view = { x: 40, y: 40, zoom: 1 };
     this.selection = null;
+    /** @type {Set<string>} the ids of the selected nodes (more than one after a frame was drawn) */
+    this.multi = new Set();
     this.elements = new Map();
     this.gesture = null;
 
@@ -58,6 +62,10 @@ export class Canvas {
     this.edgeBar = this.readOnly ? null : this.#createEdgeBar();
     viewport.style.setProperty("--ge-stage-header", `${HEADER}px`); // read by editor.css
 
+    if (!readOnly) {
+      viewport.classList.add("is-editor");
+      viewport.addEventListener("contextmenu", (event) => event.preventDefault()); // the right button pans
+    }
     viewport.addEventListener("pointerdown", (event) => this.#onPointerDown(event));
     viewport.addEventListener("pointermove", (event) => this.#onPointerMove(event));
     viewport.addEventListener("pointerup", (event) => this.#onPointerUp(event));
@@ -151,7 +159,7 @@ export class Canvas {
       port.hidden = !type.isVisible(node, port.dataset.port);
       this.#name(port, node, type, { name: port.dataset.port });
     });
-    el.classList.toggle("is-selected", this.selection?.type === "node" && this.selection.id === node.id);
+    el.classList.toggle("is-selected", this.multi.has(node.id));
     this.handlers.onNodeDrawn?.(node, el);
   }
 
@@ -189,10 +197,16 @@ export class Canvas {
     return defs;
   }
 
-  select(selection) {
+  /** Select one node or connection (or nothing); `multi` keeps a frame's selection of several nodes. */
+  select(selection, { multi = null } = {}) {
     this.selection = selection;
-    for (const [id, el] of this.elements) el.classList.toggle("is-selected", selection?.type === "node" && selection.id === id);
+    this.multi = multi ?? new Set(selection?.type === "node" ? [selection.id] : []);
+    this.#paintSelection();
     this.drawEdges();
+  }
+
+  #paintSelection() {
+    for (const [id, el] of this.elements) el.classList.toggle("is-selected", this.multi.has(id));
   }
 
   // ── the bar of a connection: a bin and a pencil, shown on hover and while it is selected ──
@@ -368,7 +382,12 @@ export class Canvas {
   // ── pointer gestures ───────────────────────────────────────────────
 
   #onPointerDown(event) {
-    if (event.button !== 0 || this.gesture) return;
+    if (this.gesture) return;
+    if (!this.readOnly && event.button === 2) {
+      event.preventDefault();
+      return this.#startPan(event, null, { grab: true }); // the right button drags the view, wherever it is
+    }
+    if (event.button !== 0) return;
     if (this.readOnly) {
       if (event.target.closest("button, input, select, a")) return;
       return this.#startPan(event, event.target.closest(".ge-node")); // a click on a node activates it (see #onPointerUp)
@@ -384,18 +403,61 @@ export class Canvas {
     }
     const el = event.target.closest(".ge-node");
     if (el) return this.#startMove(event, this.nodes.get(el.dataset.nodeId));
-    this.#startPan(event);
+    this.#startMarquee(event);
   }
 
-  #startPan(event, nodeEl = null) {
-    this.gesture = { type: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { ...this.view }, moved: false, nodeEl };
+  #startPan(event, nodeEl = null, { grab = false } = {}) {
+    this.gesture = { type: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { ...this.view }, moved: false, nodeEl, grab };
     this.viewport.setPointerCapture(event.pointerId);
   }
 
+  /** A press on a node: it moves (with the other selected nodes, if it is one of them) once the pointer has
+   * travelled; a click selects it alone, or with Shift adds it to / takes it out of the selection. */
   #startMove(event, node) {
-    this.gesture = { type: "move", pointerId: event.pointerId, node, startX: event.clientX, startY: event.clientY, origin: { x: node.x, y: node.y }, moved: false };
+    if (event.shiftKey) {
+      const multi = new Set(this.multi);
+      if (!multi.delete(node.id)) multi.add(node.id);
+      this.handlers.onSelect(multi.size ? { type: "node", id: multi.has(node.id) ? node.id : [...multi][0] } : null, { keepMulti: multi });
+      return;
+    }
+    const group = this.multi.has(node.id) && this.multi.size > 1;
+    if (!group) this.handlers.onSelect({ type: "node", id: node.id });
+    // an action travels with its stage when both are selected: only the stage is moved
+    const ids = group ? [...this.multi].filter((id) => !this.multi.has(this.nodes.get(id)?.stage_id)) : [node.id];
+    const items = ids.map((id) => ({ node: this.nodes.get(id), origin: { x: this.nodes.get(id).x, y: this.nodes.get(id).y } }));
+    this.gesture = { type: "move", pointerId: event.pointerId, node, items, group, startX: event.clientX, startY: event.clientY, moved: false };
     this.viewport.setPointerCapture(event.pointerId);
-    this.handlers.onSelect({ type: "node", id: node.id });
+  }
+
+  /** A press on the background: a frame follows the pointer; on release it selects the nodes it touches. */
+  #startMarquee(event) {
+    const frame = document.createElement("div");
+    frame.className = "ge-marquee";
+    frame.hidden = true;
+    this.viewport.append(frame);
+    this.gesture = { type: "marquee", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, frame, additive: event.shiftKey, moved: false };
+    this.viewport.setPointerCapture(event.pointerId);
+  }
+
+  #drawMarquee(g, event) {
+    const rect = this.viewport.getBoundingClientRect();
+    const left = Math.min(g.startX, event.clientX);
+    const top = Math.min(g.startY, event.clientY);
+    g.box = { left, top, right: Math.max(g.startX, event.clientX), bottom: Math.max(g.startY, event.clientY) };
+    Object.assign(g.frame.style, { left: `${left - rect.left}px`, top: `${top - rect.top}px`, width: `${g.box.right - left}px`, height: `${g.box.bottom - top}px` });
+    g.frame.hidden = false;
+  }
+
+  /** The nodes under a frame: those it touches; a stage (a large container) only when it holds it whole. */
+  #nodesInFrame(box) {
+    const found = new Set();
+    for (const [id, el] of this.elements) {
+      const r = el.getBoundingClientRect();
+      const touches = r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top;
+      const whole = r.left >= box.left && r.right <= box.right && r.top >= box.top && r.bottom <= box.bottom;
+      if (el.classList.contains("ge-node--stage") ? whole : touches) found.add(id);
+    }
+    return found;
   }
 
   #startConnect(event, port) {
@@ -431,10 +493,13 @@ export class Canvas {
     if (!g.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
     g.moved = true;
     if (g.type === "pan") {
+      if (g.grab) this.viewport.classList.add("is-panning");
       this.view = { ...g.origin, x: g.origin.x + dx, y: g.origin.y + dy };
       this.#applyView();
+    } else if (g.type === "marquee") {
+      this.#drawMarquee(g, event);
     } else {
-      this.#moveNode(g.node, g.origin.x + dx / this.view.zoom, g.origin.y + dy / this.view.zoom);
+      for (const { node, origin } of g.items) this.#moveNode(node, origin.x + dx / this.view.zoom, origin.y + dy / this.view.zoom);
     }
   }
 
@@ -451,17 +516,35 @@ export class Canvas {
     }
     this.gesture = null;
     this.viewport.releasePointerCapture?.(event.pointerId);
+    this.viewport.classList.remove("is-panning");
+    if (g.type === "marquee") return this.#endMarquee(g);
     if (g.type === "pan" && !g.moved && g.nodeEl) {
       this.focusNode(g.nodeEl.dataset.nodeId);
       this.handlers.onOpen?.(this.nodes.get(g.nodeEl.dataset.nodeId));
-    } else if (g.type === "pan" && !g.moved) this.handlers.onSelect(null);
-    if (g.type === "move" && g.moved) this.handlers.onMoved(g.node);
+    } else if (g.type === "pan" && !g.moved && !g.grab) this.handlers.onSelect(null);
+    if (g.type === "move" && g.moved) for (const { node } of g.items) this.handlers.onMoved(node);
+    // a click on one node of a selection of several selects that node alone
+    if (g.type === "move" && !g.moved && g.group) this.handlers.onSelect({ type: "node", id: g.node.id });
+  }
+
+  #endMarquee(g) {
+    g.frame.remove();
+    if (!g.moved) {
+      if (!g.additive) this.handlers.onSelect(null); // a click on the background selects nothing
+      return;
+    }
+    const found = this.#nodesInFrame(g.box);
+    const multi = g.additive ? new Set([...this.multi, ...found]) : found;
+    const first = [...multi][0];
+    this.handlers.onSelect(first ? { type: "node", id: first } : null, { keepMulti: multi });
   }
 
   #cancelGesture() {
     const g = this.gesture;
     if (!g) return;
     this.gesture = null;
+    this.viewport.classList.remove("is-panning");
+    if (g.type === "marquee") g.frame.remove();
     if (g.type === "connect") {
       g.line.remove();
       this.viewport.classList.remove("is-connecting");

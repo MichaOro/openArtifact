@@ -3,6 +3,7 @@
 {% from "components/confirm_modal.html" import confirm_modal %}
 {% from "components/form_modal.html" import form_modal, NAME_FIELDS %}
 {% from "components/icons.html" import icon %}
+{% from "components/modal.html" import modal %}
 {% block title %}{{ section.label }} · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
 <link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
@@ -33,9 +34,12 @@
                 <div class="ge-add__menu glass" id="ge-add-list" aria-label="Add" hidden data-add-list></div>
             </div>
         </div>
-        <aside class="ge-inspector glass" data-inspector aria-label="Details"></aside>
     </div>
 </div>
+{# the settings of a node, opened by a double click (or Enter on a node) #}
+{% call modal("node-modal", "Settings") %}
+<div class="modal__body ge-inspector" data-inspector></div>
+{% endcall %}
 {{ form_modal("new-modal", "New", NAME_FIELDS) }}
 {{ confirm_modal("confirm-modal", "Delete") }}
 {% endblock %}

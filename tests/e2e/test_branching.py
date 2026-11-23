@@ -33,11 +33,16 @@ def _add(page: Page, kind: str) -> Locator:
     page.click(f"[data-add={kind}]")
     added = page.locator(f".ge-node--{kind}")
     expect(added).to_have_count(1)
+    added.dblclick(position={"x": 30, "y": 5})  # the settings open in an overlay
     return added
 
 
 def _select(page: Page, kind: str) -> Locator:
-    page.locator(f".ge-node--{kind}").click(position={"x": 30, "y": 5})
+    """Open the settings of the (only) node of this kind: a double click, after closing any other dialog."""
+    if page.locator("#node-modal").is_visible():
+        page.keyboard.press("Escape")
+        expect(page.locator("#node-modal")).not_to_be_visible()
+    page.locator(f".ge-node--{kind}").dblclick(position={"x": 30, "y": 5})
     return page.locator(".ge-inspector")
 
 
@@ -96,9 +101,11 @@ def test_an_if_node_is_configured_and_its_outputs_connect(
     expect(inspector.get_by_role("alert")).to_contain_text("secret")
     refused.fill("high")
     refused.press("Enter")
+    page.keyboard.press("Escape")
 
-    page.locator(".ge-node--output .ge-node__name").click()
+    page.locator(".ge-node--output .ge-node__name").dblclick()
     page.locator(".ge-switch").click()  # On Fail of the output
+    page.keyboard.press("Escape")
     page.click("[data-zoom-fit]")
     output = page.locator(".ge-node--output")
     for port, label in (("yes", "Yes"), ("no", "No"), ("else", "Else")):
@@ -143,9 +150,11 @@ def test_a_switch_shows_its_cases_as_port_labels_and_hides_the_unused(
     expect(switch.locator(".ge-port--case_2")).to_have_attribute("data-label", "gold")
     expect(switch.locator(".ge-port--case_3")).to_be_hidden()
     expect(switch.locator(".ge-port--else")).to_have_attribute("data-label", "Else")
+    page.keyboard.press("Escape")
     page.click("[data-zoom-fit]")
     _drag(page, switch.locator(".ge-port--case_2"), page.locator(".ge-node--output .ge-port--pass"))
     eventually(lambda: _edges(api, definition), [("case_2", "pass"), ("out", "pass")])
+    inspector = _select(page, "switch")
     field = _case(inspector, 2)
     field.fill("")
     field.press("Enter")  # an emptied case loses its output and its connection
@@ -180,7 +189,7 @@ def test_the_flow_page_shows_the_branch_that_was_taken(
     task: dict[str, Any] = api.post("/api/tasks", json={"title": "Item"}).json()
     run_started(api, task, pipeline)
     page.goto(flow_url(base_url, task, execution_of(api, task)))
-    page.locator(".ge-node[aria-label^='Action: Triage']").click()
+    page.locator(".ge-node[aria-label^='Action: Triage']").dblclick()
     decide_node = page.locator(".ge-node[aria-label^='If: Decide']")
     expect(decide_node).to_have_class(_PASSED)
     expect(page.locator(".ge-node[aria-label^='Code: Escalate']")).to_have_class(_PASSED)
@@ -232,52 +241,63 @@ def test_typing_a_reference_suggests_and_the_keyboard_accepts(
     page: Page, secured_url: str, secured: httpx.Client
 ) -> None:
     _editor(page, secured_url, secured)
-    page.locator(".ge-node[aria-label^='HTTP request:']").click(position={"x": 30, "y": 5})
+    page.locator(".ge-node[aria-label^='HTTP request:']").dblclick(position={"x": 30, "y": 5})
     url = page.locator(".ge-inspector").get_by_label("URL")
     url.click()
     url.press_sequentially("https://example.org/${")
     listbox = page.get_by_role("listbox", name="References")
     expect(listbox).to_be_visible()
     expect(url).to_have_attribute("aria-expanded", "true")
-    expect(_options(page).first).to_have_text(
-        "node.Fetch_user.outputFetch user: text the node wrote"
-    )
-    expect(listbox.get_by_role("option", name="var.priority")).to_have_count(1)
-    expect(listbox.get_by_role("option", name="secret:E2E_TOKEN")).to_have_count(
-        1
-    )  # allowed in a URL
-    expect(listbox.get_by_role("option", name="Decide")).to_have_count(
-        4 + 1
-    )  # the If node's own result: 5 fields
+    # the first step: the groups and the nodes by name, not everything at once
+    expect(_options(page).first).to_contain_text(
+        "var."
+    )  # (and card. where the artifact has fields)
+    expect(listbox.get_by_role("option", name="var.")).to_have_count(1)
+    page.wait_for_timeout(500)  # the secret names arrive a moment after the field got focus
+    url.press("Backspace")
+    url.press_sequentially("{")  # asks again
+    expect(listbox.get_by_role("option", name="secret:")).to_have_count(1)  # allowed in a URL
+    expect(listbox.get_by_role("option", name="(Fetch user).")).to_have_count(1)
+    expect(listbox.get_by_role("option", name="(Decide).")).to_have_count(1)
+    expect(listbox.get_by_role("option", name="exit_code")).to_have_count(0)
+    # choosing a node shows what is behind it
+    url.press_sequentially("(Decide).")
+    expect(_options(page)).to_have_count(4 + 1)  # the If node's own result: 5 fields
+    url.fill("https://example.org/${(Fetch")
+    expect(_options(page)).to_have_count(1)
+    url.press("Enter")
+    expect(url).to_have_value("https://example.org/${(Fetch user).")
+    expect(_options(page).first).to_contain_text("(Fetch user).output")
     url.press("ArrowDown")
     expect(url).to_have_attribute("aria-activedescendant", re.compile(r"^ge-suggest-\d+-1$"))
     url.press("Enter")
-    expect(url).to_have_value("https://example.org/${node.Fetch_user.exit_code}")
+    expect(url).to_have_value("https://example.org/${(Fetch user).exit_code}")
     expect(listbox).to_be_hidden()
     # typing filters, Escape closes and keeps what was typed
     url.press_sequentially("?q=${var.pr")
     expect(_options(page)).to_have_count(1)
     url.press("Escape")
     expect(listbox).to_be_hidden()
-    expect(url).to_have_value("https://example.org/${node.Fetch_user.exit_code}?q=${var.pr")
+    expect(url).to_have_value("https://example.org/${(Fetch user).exit_code}?q=${var.pr")
     url.press("Control+ ")  # Ctrl+Space inside an open ${ asks again
     expect(_options(page)).to_have_count(1)
     _options(page).first.click()
-    expect(url).to_have_value("https://example.org/${node.Fetch_user.exit_code}?q=${var.priority}")
+    expect(url).to_have_value("https://example.org/${(Fetch user).exit_code}?q=${var.priority}")
 
 
 def test_conditions_never_suggest_secrets_and_the_code_text_never_suggests(
     page: Page, secured_url: str, secured: httpx.Client
 ) -> None:
     _editor(page, secured_url, secured)
-    page.locator(".ge-node[aria-label^='If:']").click(position={"x": 30, "y": 5})
+    page.locator(".ge-node[aria-label^='If:']").dblclick(position={"x": 30, "y": 5})
     left = page.locator(".ge-inspector").get_by_label("Value").first
     left.click()
     left.press_sequentially("${")
     expect(_options(page).first).to_be_visible()
     expect(page.get_by_role("option", name="secret:")).to_have_count(0)
-    left.press("Escape")
-    page.locator(".ge-node[aria-label^='Code:']").click(position={"x": 30, "y": 5})
+    left.press("Escape")  # closes the list
+    page.keyboard.press("Escape")  # closes the dialog
+    page.locator(".ge-node[aria-label^='Code:']").dblclick(position={"x": 30, "y": 5})
     code = page.locator(".ge-inspector").get_by_label("Code", exact=True)
     code.click()
     code.press_sequentially("echo ${")
@@ -287,15 +307,17 @@ def test_conditions_never_suggest_secrets_and_the_code_text_never_suggests(
 def test_the_suggestions_fit_a_phone(page: Page, secured_url: str, secured: httpx.Client) -> None:
     page.set_viewport_size({"width": 390, "height": 800})
     _editor(page, secured_url, secured)
-    page.locator(".ge-node[aria-label^='HTTP request:']").click(position={"x": 30, "y": 5})
+    page.locator(".ge-node[aria-label^='HTTP request:']").dblclick(position={"x": 30, "y": 5})
     body = page.locator(".ge-inspector").get_by_label("Body")
     body.scroll_into_view_if_needed()
     body.click()
-    body.press_sequentially('{"a": "${node.')
+    body.press_sequentially('{"a": "${')
     listbox = page.get_by_role("listbox", name="References")
     expect(listbox).to_be_visible()
     box = listbox.bounding_box()
     assert box is not None
     assert box["x"] >= 0 and box["x"] + box["width"] <= 390 and box["y"] + box["height"] <= 800
     assert page.evaluate("document.documentElement.scrollWidth") <= 390  # no horizontal scroll
-    expect(listbox.get_by_role("option")).to_have_count(10)
+    assert (
+        3 <= listbox.get_by_role("option").count() <= 5
+    )  # var., two nodes, perhaps secret: and card.

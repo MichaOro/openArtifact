@@ -17,6 +17,7 @@ def test_an_edit_fields_node_is_added_and_its_fields_are_saved(
     definition = _open_action(page, base_url, api)
     card = _add(page, "set")
     expect(card.locator(".ge-node__kind")).to_have_text("no field yet")
+    card.dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
     fields = inspector.get_by_label("Fields", exact=True)
     fields.fill("priority = high\nscore = ${var.points}")

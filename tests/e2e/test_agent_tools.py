@@ -59,10 +59,12 @@ def test_a_tool_is_added_below_its_agent_and_another_is_attached_by_dragging(
         agent_box and tool_box and tool_box["y"] > agent_box["y"] + agent_box["height"]
     )  # below it
 
+    tool_card.dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
     inspector.get_by_label("Endpoint").fill("https://api.githubcopilot.com/mcp/")
     inspector.get_by_label("Endpoint").press("Enter")
     expect(tool_card.locator(".ge-node__kind")).to_have_text("api.githubcopilot.com/mcp/")
+    page.keyboard.press("Escape")
 
     # a tool added with nothing selected, then detached and attached again by dragging its port
     page.locator(".ge-viewport").click(position={"x": 5, "y": 5})

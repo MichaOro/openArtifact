@@ -287,6 +287,12 @@ class CodeControl extends LinesControl {
     let leaving = false;
     area.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
+        // the first Escape only lets the next Tab leave the field; the settings dialog around it stays open.
+        // A second one (nothing typed in between) closes the dialog as everywhere else.
+        if (!leaving) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
         leaving = true;
       } else if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
         if (!leaving) {

@@ -38,7 +38,8 @@ export class GraphEditor {
     this.confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
     this.nameDialog = new FormDialog(new Modal(document.getElementById("new-modal")));
     this.blocks = new InspectorBlocks(this.#blockActions(), this.model);
-    this.inspector = new InspectorPanel(root.querySelector("[data-inspector]"), this.blocks, this.model);
+    this.settingsModal = new Modal(document.getElementById("node-modal"));
+    this.inspector = new InspectorPanel(document.querySelector("#node-modal [data-inspector]"), this.blocks, this.model);
     this.canvas = new Canvas({
       viewport: root.querySelector("[data-viewport]"),
       nodes: this.nodes,
@@ -62,7 +63,7 @@ export class GraphEditor {
       const add = event.target.closest("[data-add-action]");
       if (add) this.#addAction(this.nodes.get(add.closest(".ge-node").dataset.nodeId));
     });
-    this.canvas.viewport.addEventListener("dblclick", (event) => this.#openLinked(event));
+    this.canvas.viewport.addEventListener("dblclick", (event) => this.#openSettingsAt(event));
     this.canvas.viewport.addEventListener("keydown", (event) => {
       // a focused node handles Delete itself (canvas.js); this is for a selected connection
       const deletes = event.key === "Delete" || event.key === "Backspace";
@@ -131,18 +132,32 @@ export class GraphEditor {
 
   // ── selection ──────────────────────────────────────────────────────
 
-  select(selection, { focusInspector = false } = {}) {
+  /** Select a node or a connection (or nothing). `keepMulti`: the selection holds several nodes (a frame was drawn);
+   * `focusInspector` (Enter on a node) opens the node's settings. */
+  select(selection, { focusInspector = false, keepMulti = null } = {}) {
     this.selection = selection;
     const picked = selection?.type === "node" ? this.nodes.get(selection.id) : null;
     this.#remember(picked?.kind === "action" ? picked.id : null);
-    this.canvas.select(selection);
+    this.canvas.select(selection, { multi: keepMulti });
     if (selection?.type === "edge") this.canvas.viewport.focus({ preventScroll: true }); // so Delete reaches it
-    this.#renderInspector();
-    if (focusInspector) this.inspector.focusFirst();
+    if (!picked) this.settingsModal.close();
+    else if (focusInspector) this.#openSettings(picked);
+    else this.#renderInspector();
+  }
+
+  /** The settings of a node in an overlay: the node's title (renamed in place) and what its kind offers. */
+  #openSettings(node) {
+    if (this.selection?.id !== node.id) this.select({ type: "node", id: node.id });
+    this.settingsModal.dialog.querySelector(".modal__title").textContent = typeOf(node).label;
+    this.inspector.render(this.selection);
+    this.settingsModal.open();
+    this.inspector.focusFirst();
   }
 
   #renderInspector() {
-    this.inspector.render(this.selection);
+    if (!this.settingsModal.isOpen) return;
+    if (this.selection?.type !== "node" || !this.nodes.has(this.selection.id)) return this.settingsModal.close();
+    return this.inspector.render(this.selection);
   }
 
   // ── adding ─────────────────────────────────────────────────────────
@@ -338,9 +353,6 @@ export class GraphEditor {
       listTargets: (kind) => this.#listTargets(kind),
       showError: (message) => this.#showError(message),
       renameNode: (node, name) => this.#rename(node, name),
-      renameGraph: (name) => this.#renameGraph(name),
-      removeEdge: (id) => this.#removeEdge(id),
-      restyle: (edge, style) => this.#restyle(edge, style),
     };
   }
 
@@ -353,14 +365,14 @@ export class GraphEditor {
     return this.targets[kind];
   }
 
-  /** A double click on an action (or a pipeline node) opens what it links to: the same as Edit in the inspector. */
-  #openLinked(event) {
+  /** A double click on a node opens its settings (an action or pipeline node offers "Edit" there to open what it links to). */
+  #openSettingsAt(event) {
     // the canvas captures the pointer while a gesture runs, which makes the viewport the target of the click: look under the pointer
     const under = document.elementFromPoint(event.clientX, event.clientY);
     const el = under?.closest(".ge-node");
     if (!el || under.closest("button, input, select, a, .ge-port")) return;
     const node = this.nodes.get(el.dataset.nodeId);
-    if (node && typeOf(node).links_to && node.definition_id) window.location.assign(this.#linkUrl(node, node.definition_slug));
+    if (node) this.#openSettings(node);
   }
 
   /** Where the thing a node links to is edited, with the way back to this node. */

@@ -19,11 +19,13 @@ def _open_action(page: Page, base_url: str, api: httpx.Client) -> dict[str, Any]
     return definition
 
 
-def _add(page: Page, kind: str) -> Locator:
+def _add(page: Page, kind: str, settings: bool = True) -> Locator:
     page.click("[data-add-menu]")
     page.click(f"[data-add={kind}]")
     node = page.locator(f".ge-node--{kind}")
     expect(node).to_have_count(1)
+    if settings:
+        node.dblclick(position={"x": 30, "y": 5})  # the settings open in an overlay
     return node
 
 
@@ -52,8 +54,12 @@ def _expect_edges(api: httpx.Client, definition: dict[str, Any], expected: list[
 
 
 def _select(page: Page, kind: str) -> Locator:
+    """Open the settings of the (only) node of this kind: a double click, after closing any other dialog."""
+    if page.locator("#node-modal").is_visible():
+        page.keyboard.press("Escape")
+        expect(page.locator("#node-modal")).not_to_be_visible()
     # the top edge of the card: the line from trigger to output runs across its middle and takes the clicks
-    page.locator(f".ge-node--{kind}").click(position={"x": 30, "y": 5})
+    page.locator(f".ge-node--{kind}").dblclick(position={"x": 30, "y": 5})
     return page.locator(".ge-inspector")
 
 
@@ -215,10 +221,11 @@ def test_pass_and_fail_connect_to_the_output_and_the_next_node(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     definition = _open_action(page, base_url, api)
-    code = _add(page, "code")
-    _add(page, "http")
-    page.locator(".ge-node--output .ge-node__name").click()
+    code = _add(page, "code", settings=False)
+    _add(page, "http", settings=False)
+    page.locator(".ge-node--output .ge-node__name").dblclick()
     page.locator(".ge-switch").click()
+    page.keyboard.press("Escape")
     expect(page.locator(".ge-node--output .ge-port--fail")).to_be_visible()
     page.click("[data-zoom-fit]")
     output = page.locator(".ge-node--output")
@@ -241,7 +248,7 @@ def test_a_code_node_is_deleted_with_its_connections(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     definition = _open_action(page, base_url, api)
-    code = _add(page, "code")
+    code = _add(page, "code", settings=False)
     page.click("[data-zoom-fit]")
     _drag(
         page,

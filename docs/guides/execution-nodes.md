@@ -1,7 +1,7 @@
 # Execution nodes: Code, HTTP, GitHub, Postgres, If, Switch and Edit Fields
 
 The nodes that do work inside an action definition (see [Concepts](concepts.md)). You add them in the
-action editor with the "+" menu and set them in the inspector; every setting is saved as you type or leave
+action editor with the "+" menu and set them in the node's settings (a double click on the node opens them in an overlay); every setting is saved as you type or leave
 the field. This guide is the reference for what each node does, what it returns, what limits it has and how a
 failure is routed. Read [Security](security.md) before you let anyone other than yourself edit actions: a Code
 node runs arbitrary code with the application's rights.

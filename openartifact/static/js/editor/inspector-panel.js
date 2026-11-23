@@ -1,4 +1,4 @@
-/* The inspector next to the canvas: shows the summary, the selected node or the selected connection.
+/* The settings of a node, in the overlay a double click opens (editor.js): its title and what its kind offers.
  * Every change made in it draws the panel again; the control that had focus is found again by its
  * [data-focus-key], so keyboard users keep their place. */
 import { typeOf } from "./node-types.js";
@@ -11,7 +11,7 @@ export class InspectorPanel {
     this.model = model;
   }
 
-  /** @param {{type: "node"|"edge", id: string}|null} selection */
+  /** @param {{type: "node"|"edge", id: string}|null} selection a node (anything else shows nothing) */
   render(selection) {
     const active = document.activeElement;
     const key = this.element.contains(active) ? active.dataset.focusKey : null;
@@ -32,12 +32,9 @@ export class InspectorPanel {
   }
 
   #content(selection) {
-    const { nodes, edges } = this.model;
-    if (selection?.type === "node" && nodes.has(selection.id)) {
-      const node = nodes.get(selection.id);
-      return [this.blocks.title(node), ...typeOf(node).sections(node, this.blocks).filter(Boolean)];
-    }
-    if (selection?.type === "edge" && edges.has(selection.id)) return this.blocks.connection(edges.get(selection.id));
-    return this.blocks.summary();
+    const { nodes } = this.model;
+    if (selection?.type !== "node" || !nodes.has(selection.id)) return [];
+    const node = nodes.get(selection.id);
+    return [this.blocks.title(node), ...typeOf(node).sections(node, this.blocks).filter(Boolean)];
   }
 }

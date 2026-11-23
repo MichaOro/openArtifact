@@ -37,6 +37,7 @@ def test_a_github_node_is_set_in_the_inspector_and_says_when_its_comment_is_off(
     page.click("[data-add=github]")
     card = page.locator(".ge-node--github")
     expect(card.locator(".ge-node__kind")).to_have_text("Get repository · no repository yet")
+    card.dblclick(position={"x": 30, "y": 5})
 
     inspector = page.locator(".ge-inspector")
     inspector.get_by_label("Operation").select_option("Create comment")
@@ -63,6 +64,7 @@ def test_a_postgres_node_shows_its_query_and_when_it_may_change_data(
     page.click("[data-add=postgres]")
     card = page.locator(".ge-node--postgres")
     expect(card.locator(".ge-node__kind")).to_have_text("no query yet")
+    card.dblclick(position={"x": 30, "y": 5})
 
     inspector = page.locator(".ge-inspector")
     inspector.get_by_label("Query").fill("SELECT id, title FROM tickets WHERE status = $1")
@@ -96,6 +98,7 @@ def test_a_postgres_tool_is_attached_below_the_selected_agent(
     expect(card.locator(".ge-node__kind")).to_have_text("Postgres Tool · no query yet")
     eventually(lambda: ("postgres_tool", "tool", "agent", "tools") in _edges(api, action), True)
     expect(page.locator(".ge-edge--attachment")).to_have_count(1)
+    card.dblclick(position={"x": 30, "y": 5})
     page.locator(".ge-inspector").get_by_role("textbox", name="Tool name").fill("find_tickets")
     page.locator(".ge-inspector").get_by_role("textbox", name="Tool name").press("Enter")
     expect(card.locator(".ge-node__kind")).to_have_text("find_tickets · no query yet")

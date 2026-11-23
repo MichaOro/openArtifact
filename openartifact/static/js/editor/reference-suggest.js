@@ -126,7 +126,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
       status = document.createElement("div");
       status.className = "visually-hidden";
       status.setAttribute("aria-live", "polite");
-      document.body.append(el, status);
+      (input.closest("dialog[open]") ?? document.body).append(el, status); // inside a dialog it would hide behind it
       input.setAttribute("aria-controls", id);
       input.setAttribute("aria-expanded", "true");
     }

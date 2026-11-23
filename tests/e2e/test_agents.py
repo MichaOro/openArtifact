@@ -293,6 +293,7 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
     page.click("[data-add=agent]")
     card = page.locator(".ge-node--agent")
     expect(card.locator(".ge-node__kind")).to_have_text("no agent yet")
+    card.dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
     inspector.get_by_label("Agent", exact=True).select_option(agent["id"])
     expect(inspector.locator(".ag-node__status")).to_contain_text("Runs version 1")
@@ -335,6 +336,7 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
     tokens.get_by_label("Max tokens", exact=True).press("Enter")
     eventually(lambda: stored()["max_tokens"], 64)
     expect(card.locator(".ge-node__kind")).to_have_text("Triage · 2 overrides")
+    page.keyboard.press("Escape")
 
     # a change of the agent reaches the fields the node does not override, and only those
     api.put(
@@ -343,7 +345,7 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
     )
     api.post(f"/api/agents/{agent['id']}/publish").raise_for_status()
     page.reload()
-    page.locator(".ge-node--agent").click(position={"x": 30, "y": 5})
+    page.locator(".ge-node--agent").dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
     expect(
         inspector.locator('.ag-override[data-setting="retries"] .ag-override__inherited')

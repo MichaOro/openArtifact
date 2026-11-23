@@ -225,7 +225,7 @@ def test_select_and_delete_an_edge(page: Page, base_url: str, api: httpx.Client)
         page.locator(".ge-node--stage > .ge-port--start[data-slot='0']"),
     )
     _select_edge(page)
-    expect(page.locator(".ge-inspector h2")).to_have_text("Connection")
+    expect(page.locator(".ge-edge.is-selected")).to_have_count(1)
     page.keyboard.press("Delete")
     expect(page.locator(".ge-edge")).to_have_count(0)
     _expect_edges(page, api, pipeline, [])
@@ -240,29 +240,13 @@ def _connect_trigger_to_stage(page: Page) -> None:
     expect(page.locator(".ge-edge")).to_have_count(1)
 
 
-def test_the_inspector_keeps_keyboard_focus_when_it_is_redrawn(
-    page: Page, base_url: str, api: httpx.Client
-) -> None:
-    pipeline = _flow(page, base_url, api)
-    _connect_trigger_to_stage(page)
-    _select_edge(page)
-    elbow = page.locator(".ge-style[data-style=elbow]")
-    elbow.focus()
-    page.keyboard.press("Enter")
-    expect(elbow).to_have_attribute("aria-pressed", "true")
-    expect(elbow).to_be_focused()
-    eventually(
-        lambda: [e["style"] for e in _graph(api, pipeline)["edges"]], ["elbow"]
-    )  # saved after the click
-
-
 def test_delete_on_a_focused_node_does_not_also_delete_the_selected_edge(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     pipeline = _flow(page, base_url, api)
     _connect_trigger_to_stage(page)
     _select_edge(page)
-    expect(page.locator(".ge-inspector h2")).to_have_text("Connection")
+    expect(page.locator(".ge-edge.is-selected")).to_have_count(1)
     page.locator(".ge-node--stage").focus()  # Tab to a node: the selection stays on the edge
     page.keyboard.press("Delete")
     expect(page.locator("#confirm-modal")).to_be_visible()
@@ -294,7 +278,8 @@ def test_move_rename_and_delete_a_node(page: Page, base_url: str, api: httpx.Cli
     page.mouse.down()
     page.mouse.move(x + 60, y + 30, steps=6)
     page.mouse.up()
-    expect(page.locator(".ge-inspector h2")).to_have_text("Action")
+    expect(action).to_have_class(re.compile(r"is-selected"))
+    expect(page.locator("#node-modal")).not_to_be_visible()  # a drag opens nothing
 
     def moved() -> bool:  # saved asynchronously
         node = next(n for n in _graph(api, pipeline)["nodes"] if n["id"] == before["id"])
@@ -302,17 +287,20 @@ def test_move_rename_and_delete_a_node(page: Page, base_url: str, api: httpx.Cli
 
     eventually(moved, True)
 
+    action.locator(".ge-node__name").dblclick()
     expect(page.locator(".ge-inspector input")).to_have_count(
         0
     )  # a shell is named by its definition
+    page.keyboard.press("Escape")
     trigger = page.locator(".ge-node--trigger")
-    trigger.locator(".ge-node__name").click()
+    trigger.locator(".ge-node__name").dblclick()
     page.locator(".ge-inspector h2").click()  # the name is edited in place
     name = page.locator(".ge-inspector input").first
     name.fill("Manual start")
     name.press("Enter")
     expect(trigger.locator(".ge-node__name")).to_have_text("Manual start")
-    action.locator(".ge-node__name").click()
+    page.keyboard.press("Escape")
+    action.locator(".ge-node__name").dblclick()
 
     page.locator(".ge-inspector .ge-delete").click()
     page.click("#confirm-modal [data-confirm]")
@@ -323,7 +311,7 @@ def test_deleting_a_stage_asks_and_takes_its_actions_along(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     pipeline = _flow(page, base_url, api)
-    page.locator(".ge-stage__header").click(position={"x": 80, "y": 20})
+    page.locator(".ge-stage__header").dblclick(position={"x": 80, "y": 20})
     page.locator(".ge-inspector .ge-delete").click()
     expect(page.locator("#confirm-modal [data-confirm-message]")).to_contain_text("2 actions")
     page.click("#confirm-modal [data-confirm]")
@@ -365,29 +353,6 @@ def test_a_stage_offers_three_points_per_side_and_shows_the_used_one(
     eventually(lambda: bool(_graph(api, pipeline)["edges"]), True)
     edge = _graph(api, pipeline)["edges"][0]
     assert (edge["target_slot"], edge["source_slot"]) == (1, 0)
-
-
-def test_choose_the_line_style_of_a_connection(
-    page: Page, base_url: str, api: httpx.Client
-) -> None:
-    pipeline = _flow(page, base_url, api)
-    drag(
-        page,
-        page.locator(".ge-node--trigger .ge-port--out"),
-        page.locator(".ge-node--stage > .ge-port--start[data-slot='0']"),
-    )
-    _select_edge(page)
-    line = page.locator(".ge-edge__line").first
-    curved = line.get_attribute("d")
-    assert curved is not None and " C " in curved
-    page.click(".ge-style[data-style=straight]")
-    straight = line.get_attribute("d")
-    assert straight is not None and " C " not in straight and " Q " not in straight
-    page.click(".ge-style[data-style=elbow]")
-    expect(page.locator(".ge-style[data-style=elbow]")).to_have_attribute("aria-pressed", "true")
-    eventually(lambda: _graph(api, pipeline)["edges"][0]["style"], "elbow")
-    page.reload()
-    expect(page.locator(".ge-edge")).to_have_count(1)
 
 
 # ── the toolbar of a connection (hover: a bin and a pencil) ──────────
@@ -478,7 +443,7 @@ def test_a_selected_connection_keeps_its_bar_so_keyboard_and_touch_can_reach_it(
 ) -> None:
     _flow(page, base_url, api)
     _connect_trigger_to_stage(page)
-    _select_edge(page)  # selects: the inspector shows "Connection"
+    _select_edge(page)  # selects the connection
     page.mouse.move(5, 5)
     expect(page.locator(".ge-edge-bar")).to_be_visible()
     page.keyboard.press("Delete")  # the bar leaves with the connection
@@ -529,8 +494,9 @@ def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
     output = page.locator(".ge-node--output")
     expect(output.locator(".ge-port--pass")).to_be_visible()  # a connector of its own
     expect(output.locator(".ge-port--fail")).to_be_hidden()
-    output.locator(".ge-node__name").click()
+    output.locator(".ge-node__name").dblclick()
     page.locator(".ge-switch").click()
+    page.keyboard.press("Escape")
     expect(output.locator(".ge-port--fail")).to_be_visible()
     eventually(
         lambda: next(n for n in _graph(api, definition)["nodes"] if n["kind"] == "output")[
@@ -540,7 +506,7 @@ def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
     )
     page.reload()
     expect(page.locator(".ge-node--output .ge-port--fail")).to_be_visible()
-    page.locator(".ge-node--output .ge-node__name").click()
+    page.locator(".ge-node--output .ge-node__name").dblclick()
     page.locator(".ge-switch").click()
     expect(page.locator(".ge-node--output .ge-port--fail")).to_be_hidden()
     expect(page.locator(".ge-inspector .ge-delete")).to_have_count(0)  # output stays
@@ -554,14 +520,16 @@ def test_the_trigger_is_routed_to_on_pass_or_on_fail(
     expect(page.locator(".ge-node--output")).to_be_visible()
     expect(page.locator(".ge-edge")).to_have_count(1)  # connected to On Pass by default
     _expect_edges(page, api, definition, [("out", "pass")])
-    page.locator(".ge-node--output .ge-node__name").click()
+    page.locator(".ge-node--output .ge-node__name").dblclick()
     page.locator(".ge-switch").click()
+    page.keyboard.press("Escape")
     drag(
         page,
         page.locator(".ge-node--trigger .ge-port--out"),
         page.locator(".ge-node--output .ge-port--fail"),
     )
     _expect_edges(page, api, definition, [("out", "fail")])
+    page.locator(".ge-node--output .ge-node__name").dblclick()
     page.locator(".ge-switch").click()  # switching On Fail off takes its connection along
     expect(page.locator(".ge-edge")).to_have_count(0)
     _expect_edges(page, api, definition, [])
@@ -580,8 +548,9 @@ def test_the_add_menu_offers_stages_and_trigger_and_complete_stay(
     page.keyboard.press("Escape")
     expect(menu).to_be_hidden()
     for kind in ("trigger", "complete"):
-        page.locator(f".ge-node--{kind} .ge-node__name").click()
+        page.locator(f".ge-node--{kind} .ge-node__name").dblclick()
         expect(page.locator(".ge-inspector .ge-delete")).to_have_count(0)
+        page.keyboard.press("Escape")
         page.keyboard.press("Delete")
         expect(page.locator(f".ge-node--{kind}")).to_have_count(1)
         expect(page.locator("#confirm-modal[open]")).to_have_count(0)
@@ -613,13 +582,18 @@ def _definition(api: httpx.Client, name: str, fail: bool = False) -> dict[str, A
     return definition  # type: ignore[no-any-return]
 
 
-def test_a_double_click_on_an_action_opens_its_definition_and_an_empty_one_stays(
+def test_a_double_click_on_an_action_opens_its_settings_and_edit_there_opens_its_definition(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     pipeline = _flow(page, base_url, api)
     shell = page.locator(".ge-node--action").first
     shell.locator(".ge-node__name").dblclick()
-    expect(page).to_have_url(f"{base_url}/pipelines/flow")  # no definition yet: nothing to open
+    expect(page.locator("#node-modal")).to_be_visible()
+    expect(page).to_have_url(f"{base_url}/pipelines/flow")  # the double click stays on this page
+    expect(page.locator(".ge-actionbar a")).to_have_attribute(
+        "aria-disabled", "true"
+    )  # nothing to open yet
+    page.keyboard.press("Escape")
     definition = _definition(api, "Gap analysis")
     for node in _graph(api, pipeline)["nodes"]:
         if node["kind"] == "action":  # both shells use it, so the first one in the page does too
@@ -629,6 +603,7 @@ def test_a_double_click_on_an_action_opens_its_definition_and_an_empty_one_stays
             )
     page.reload()
     page.locator(".ge-node--action").first.locator(".ge-node__name").dblclick()
+    page.locator(".ge-actionbar a", has_text="Edit").click()
     expect(page).to_have_url(re.compile(r"/actions/gap-analysis\?from=flow&"))
     expect(page.locator("[data-back]")).to_have_text("Back to Flow")
 
@@ -653,7 +628,7 @@ def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
 ) -> None:
     pipeline = _flow(page, base_url, api)
     shell = page.locator(".ge-node--action").first
-    shell.locator(".ge-node__name").click()
+    shell.locator(".ge-node__name").dblclick()
     expect(page.locator(".ge-inspector h2")).to_have_text("Action")
     expect(page.locator(".ge-inspector h3", has_text="Routing")).to_have_count(0)
     expect(page.locator(".ge-actionbar .button")).to_have_text(["New", "Edit", "Delete"])
@@ -707,7 +682,7 @@ def test_link_an_existing_action_switch_and_unlink(
     _definition(api, "Without fail")
     pipeline = _flow(page, base_url, api)
     node = page.locator(".ge-node--action").first
-    node.locator(".ge-node__name").click()
+    node.locator(".ge-node__name").dblclick()
     select = page.locator(".ge-inspector select")
     expect(select.locator("option")).to_have_count(3)  # not defined + two definitions
 
@@ -738,7 +713,7 @@ def test_two_quick_link_changes_end_with_server_and_screen_in_agreement(
     _definition(api, "With fail", fail=True)
     pipeline = _flow(page, base_url, api)
     node = page.locator(".ge-node--action").first
-    node.locator(".ge-node__name").click()
+    node.locator(".ge-node__name").dblclick()
     select = page.locator(".ge-inspector select")
     expect(select.locator("option")).to_have_count(2)
     armed = [False]
@@ -788,9 +763,11 @@ def test_a_timer_goes_between_trigger_and_output_and_waits_for_its_seconds(
     timer = page.locator(".ge-node--timer")
     expect(timer).to_have_count(1)
     expect(timer.locator(".ge-node__kind")).to_have_text("5 s")
+    timer.dblclick(position={"x": 30, "y": 5})
     page.fill(".ge-inspector input[type=number]", "12")
     page.keyboard.press("Enter")
     expect(timer.locator(".ge-node__kind")).to_have_text("12 s")
+    page.keyboard.press("Escape")
     page.click("[data-zoom-fit]")
     drag(page, page.locator(".ge-node--trigger .ge-port--out"), timer.locator(".ge-port--in"))
     drag(page, timer.locator(".ge-port--out"), page.locator(".ge-node--output .ge-port--pass"))
@@ -804,7 +781,7 @@ def test_the_new_action_dialog_validates_and_shows_server_errors(
 ) -> None:
     """The shared form dialog: required field, form error from the server, busy state, success."""
     _flow(page, base_url, api)
-    page.locator(".ge-node--action").first.locator(".ge-node__name").click()
+    page.locator(".ge-node--action").first.locator(".ge-node__name").dblclick()
     page.click(".ge-actionbar >> text=New")
     dialog = page.locator("#new-modal")
     expect(dialog.locator("[data-submit]")).to_have_text("Create")

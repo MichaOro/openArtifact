@@ -5,7 +5,7 @@ import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
 import { field } from "./field.js";
 import { agentBlock } from "./agent-inspector.js";
-import { EDGE_STYLES, displayName } from "./geometry.js";
+import { displayName } from "./geometry.js";
 import { typeOf } from "./node-types.js";
 import { createControl, settingValue } from "./setting-controls.js";
 
@@ -48,8 +48,7 @@ function section(title, ...children) {
 /**
  * The blocks for one editor. `editor` provides what the blocks do:
  *   saveSetting(node, setting, value) (resolves to null, or to why it was refused), link(node, targetId), askNew(node), linkUrl(node), remove(node),
- *   addAction(stage), listTargets(kind), showError(message), renameNode(node, name),
- *   renameGraph(name), removeEdge(id), restyle(edge, style)
+ *   addAction(stage), listTargets(kind), showError(message), renameNode(node, name)
  * `model` is the GraphModel the blocks describe.
  */
 export class InspectorBlocks {
@@ -58,53 +57,11 @@ export class InspectorBlocks {
     this.model = model;
   }
 
-  /** What the inspector shows when nothing is selected. */
-  summary() {
-    const { graph, isAction } = this.model;
-    return [
-      heading(graph?.name ?? "Pipeline", "Draft", { label: isAction ? "Action name" : "Pipeline name", onCommit: (name) => this.editor.renameGraph(name) }),
-      note(
-        isAction
-          ? "The trigger starts this action automatically; the output always offers On Pass and optionally On Fail."
-          : `${this.model.count("stage")} stages, ${this.model.count("action")} actions. Select a node to edit it, drag from a port to connect.`,
-      ),
-    ];
-  }
-
   /** The title of a node (renamable in place if its kind allows it). */
   title(node) {
     const type = typeOf(node);
     const rename = type.renamable(node) ? { label: `${type.label} name`, onCommit: (name) => this.editor.renameNode(node, name) } : null;
     return heading(displayName(node), type.subtitle(node), rename);
-  }
-
-  /** A connection: where it goes, its line style, and removing it. */
-  connection(edge) {
-    const source = this.model.nodes.get(edge.source_id);
-    const target = this.model.nodes.get(edge.target_id);
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "button button--ghost is-danger ge-delete";
-    remove.dataset.focusKey = "remove";
-    remove.textContent = "Delete connection";
-    remove.addEventListener("click", () => this.editor.removeEdge(edge.id));
-    const styles = document.createElement("div");
-    styles.className = "ge-styles";
-    styles.setAttribute("role", "group");
-    styles.setAttribute("aria-label", "Line style");
-    for (const [value, label] of Object.entries(EDGE_STYLES)) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "ge-style";
-      button.dataset.style = value;
-      button.dataset.focusKey = `style-${value}`;
-      button.textContent = label;
-      button.setAttribute("aria-pressed", String(edge.style === value));
-      button.addEventListener("click", () => this.editor.restyle(edge, value));
-      styles.append(button);
-    }
-    const route = `${source ? displayName(source) : "?"} (${source ? typeOf(source).portLabel(edge.source_port, source) : "?"}) → ${target ? displayName(target) : "?"}`;
-    return [heading("Connection", route), field("Line", styles), remove];
   }
 
   /** The kind's settings, one control per setting (see setting-controls.js), or nothing. Settings of one
