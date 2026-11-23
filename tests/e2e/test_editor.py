@@ -469,19 +469,19 @@ def test_create_an_action_definition_from_the_navigation(
     page.click("[data-add-menu]")
     expect(page.locator("[data-add-list] [data-add]")).to_have_text(
         [
-            "Timer",
-            "Code",
-            "HTTP request",
-            "If",
-            "Switch",
             "Agent",
-            "Edit Fields",
-            "GitHub",
-            "Postgres",
             "MCP Client Tool",
             "HTTP Request Tool",
             "Code Tool",
             "Postgres Tool",
+            "GitHub",
+            "Postgres",
+            "Code",
+            "HTTP request",
+            "Edit Fields",
+            "If",
+            "Switch",
+            "Timer",
         ]
     )
 

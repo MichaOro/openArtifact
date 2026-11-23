@@ -64,11 +64,22 @@
 .ge-add__menu {
   display: flex;
   flex-direction: column;
-  min-width: 9rem;
-  padding: var(--space-1);
+  gap: var(--space-1);
+  width: min(17rem, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-2);
   border-radius: var(--radius-md);
 }
 .ge-add__menu[hidden] { display: none; }
+.ge-add__items { display: flex; flex-direction: column; max-height: min(26rem, 60vh); overflow-y: auto; }
+.ge-add__group {
+  margin: var(--space-2) var(--space-3) 0;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.ge-add__items > .ge-add__group:first-child { margin-top: var(--space-1); }
+.ge-add__empty { margin: var(--space-2) var(--space-3); font-size: 0.8125rem; color: var(--color-text-muted); }
 .ge-add__item {
   padding: var(--space-2) var(--space-3);
   border: 0;

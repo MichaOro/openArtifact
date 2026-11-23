@@ -58,19 +58,19 @@ def test_the_menu_offers_if_and_switch_after_http(
     page.click("[data-add-menu]")
     expect(page.locator("[data-add-list] button")).to_have_text(
         [
-            "Timer",
-            "Code",
-            "HTTP request",
-            "If",
-            "Switch",
             "Agent",
-            "Edit Fields",
-            "GitHub",
-            "Postgres",
             "MCP Client Tool",
             "HTTP Request Tool",
             "Code Tool",
             "Postgres Tool",
+            "GitHub",
+            "Postgres",
+            "Code",
+            "HTTP request",
+            "Edit Fields",
+            "If",
+            "Switch",
+            "Timer",
         ]
     )
 

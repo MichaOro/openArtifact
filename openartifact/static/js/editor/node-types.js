@@ -515,3 +515,34 @@ export function typeOf(nodeOrKind) {
 export function addableIn(scope) {
   return [...TYPES.values()].filter((t) => t.addable && t.scopes.includes(scope));
 }
+
+/** The clusters of the add menu, in order, with the kinds in each (a kind nobody listed lands in "More"). */
+const ADD_GROUPS = [
+  ["Structure", ["stage", "pipeline"]],
+  ["AI", ["agent"]],
+  ["Agent tools", ["mcp_tool", "http_tool", "code_tool", "postgres_tool"]],
+  ["Apps and data", ["github", "postgres"]],
+  ["Core", ["code", "http"]],
+  ["Data", ["set"]],
+  ["Flow", ["if", "switch", "timer"]],
+];
+
+/**
+ * The kinds of the add menu in their clusters; `query` narrows them to those whose name, kind or cluster contains it
+ * (ignoring case); clusters left empty are dropped.
+ * @param {{kind: string, label: string}[]} types
+ * @returns {{group: string, types: {kind: string, label: string}[]}[]}
+ */
+export function groupAddable(types, query = "") {
+  const wanted = query.trim().toLowerCase();
+  const listed = new Set(ADD_GROUPS.flatMap(([, kinds]) => kinds));
+  const clusters = [...ADD_GROUPS, ["More", types.filter((t) => !listed.has(t.kind)).map((t) => t.kind)]];
+  return clusters
+    .map(([group, kinds]) => ({
+      group,
+      types: kinds
+        .map((kind) => types.find((t) => t.kind === kind))
+        .filter((t) => t && (!wanted || [t.label, t.kind, group].some((text) => text.toLowerCase().includes(wanted)))),
+    }))
+    .filter((cluster) => cluster.types.length);
+}

@@ -3,7 +3,7 @@ import { before, test } from "node:test";
 import { FakeNode, installDocument, loadTypes, textOf } from "./support.mjs";
 
 const JS = "../../openartifact/static/js/editor/";
-const { HEADER, SLOTS, slotY, NodeView, registerView, loadNodeTypes, typeOf, addableIn } = await import(`${JS}node-types.js`);
+const { HEADER, SLOTS, slotY, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable } = await import(`${JS}node-types.js`);
 
 before(async () => {
   installDocument(["code", "http"]);
@@ -218,4 +218,35 @@ test("render: a stage has a header with caption, name and the add button, and an
   assert.equal(add.textContent, "+ Action");
   assert.equal(textOf(add), "+ Action");
   assert.equal(add.dataset.addAction, "");
+});
+
+const KINDS = [
+  { kind: "timer", label: "Timer" },
+  { kind: "code", label: "Code" },
+  { kind: "http", label: "HTTP request" },
+  { kind: "if", label: "If" },
+  { kind: "agent", label: "Agent" },
+  { kind: "set", label: "Edit Fields" },
+  { kind: "github", label: "GitHub" },
+  { kind: "postgres", label: "Postgres" },
+  { kind: "mcp_tool", label: "MCP Client Tool" },
+  { kind: "stage", label: "Stage" },
+  { kind: "future_kind", label: "Something new" },
+];
+
+test("the kinds of the add menu are grouped in a fixed order, and a kind nobody grouped is still offered", () => {
+  const groups = groupAddable(KINDS, "");
+  assert.deepEqual(groups.map((g) => g.group), ["Structure", "AI", "Agent tools", "Apps and data", "Core", "Data", "Flow", "More"]);
+  assert.deepEqual(groups.find((g) => g.group === "Flow").types.map((t) => t.kind), ["if", "timer"]);
+  assert.deepEqual(groups.find((g) => g.group === "More").types.map((t) => t.kind), ["future_kind"]);
+  assert.equal(groups.flatMap((g) => g.types).length, KINDS.length, "nothing is lost");
+});
+
+test("searching matches the name, the kind and the group, ignoring case, and drops empty groups", () => {
+  assert.deepEqual(groupAddable(KINDS, "git").flatMap((g) => g.types.map((t) => t.kind)), ["github"]);
+  assert.deepEqual(groupAddable(KINDS, "HTTP").flatMap((g) => g.types.map((t) => t.kind)), ["http"]);
+  assert.deepEqual(groupAddable(KINDS, "tool").map((g) => g.group), ["Agent tools"]); // the group name matches
+  assert.deepEqual(groupAddable(KINDS, "mcp").flatMap((g) => g.types.map((t) => t.kind)), ["mcp_tool"]); // so does the kind
+  assert.deepEqual(groupAddable(KINDS, "  FLOW "), groupAddable(KINDS, "flow"));
+  assert.deepEqual(groupAddable(KINDS, "zzz"), []);
 });

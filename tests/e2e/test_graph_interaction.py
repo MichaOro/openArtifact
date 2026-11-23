@@ -140,3 +140,35 @@ def test_a_double_click_opens_the_settings_in_an_overlay_and_there_is_no_side_pa
     expect(dialog).to_be_visible()
     page.keyboard.press("Escape")  # the next one closes the dialog
     expect(dialog).not_to_be_visible()
+
+
+def test_the_add_menu_is_clustered_and_a_search_narrows_it(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition: dict[str, Any] = api.post("/api/actions", json={"name": "Menu"}).json()
+    page.goto(f"{base_url}/actions/{definition['slug']}")
+    page.click("[data-add-menu]")
+    menu = page.locator("[data-add-list]")
+    expect(page.locator(".ge-add__search")).to_be_focused()  # type straight away
+    expect(menu.locator(".ge-add__group")).to_have_text(
+        ["AI", "Agent tools", "Apps and data", "Core", "Data", "Flow"]
+    )
+    page.keyboard.type("git")
+    expect(menu.locator("[data-add]")).to_have_text(["GitHub"])
+    expect(menu.locator(".ge-add__group")).to_have_text(
+        ["Apps and data"]
+    )  # empty clusters are gone
+    page.keyboard.press("Control+A")
+    page.keyboard.type("tool")  # the cluster's name matches too
+    expect(menu.locator("[data-add]")).to_have_count(4)
+    page.keyboard.press("Control+A")
+    page.keyboard.type("nothing like this")
+    expect(menu.locator(".ge-add__empty")).to_be_visible()
+    page.keyboard.press("Control+A")
+    page.keyboard.type("timer")
+    page.keyboard.press("Enter")  # adds the first match
+    expect(page.locator(".ge-node--timer")).to_have_count(1)
+    expect(menu).to_be_hidden()
+    page.click("[data-add-menu]")  # opened again: a clean list
+    expect(page.locator(".ge-add__search")).to_have_value("")
+    expect(menu.locator("[data-add]")).to_have_count(13)
