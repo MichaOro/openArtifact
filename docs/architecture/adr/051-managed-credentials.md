@@ -4,7 +4,7 @@
 **Date:** 2026-11-23  
 **Supersedes:** —  
 **Superseded by:** —  
-**Extends:** [ADR-024](024-credential-store.md), [ADR-043](043-sso-oidc.md)  
+**Extends:** [ADR-024](024-credential-store.md), [ADR-043](043-single-sign-on-oidc.md)  
 **Implemented in:** migration 0040; `models/credentials.py`, `credentials/types.py`, `tokens.py`, `service.py`, `schemas.py`, `testing.py`, `credentials/store.py` (switched-off and stale-test handling), `api/credentials.py`, `security.py` (`managed_token_ok`), `templates/credentials.html`, `static/js/credentials/`, `css/credentials.css`  
 **Affected chapters:** guide [credentials](../../guides/credentials.md), arc42 [08.06](../arc42/08-cross-cutting-concepts/08.06-credential-store.md)
 
