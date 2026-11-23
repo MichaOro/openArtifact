@@ -17,6 +17,8 @@ export class InspectorPanel {
     const key = this.element.contains(active) ? active.dataset.focusKey : null;
     const caret = key && typeof active.selectionStart === "number" ? [active.selectionStart, active.selectionEnd, active.scrollTop] : null;
     this.element.replaceChildren(...this.#content(selection));
+    // a node with settings for both columns gets the wide dialog
+    this.element.closest("dialog")?.classList.toggle("is-wide", Boolean(this.element.querySelector('.ge-settings[data-columns="2"]')));
     const control = key ? this.element.querySelector(`[data-focus-key="${key}"]`) : null;
     if (!control) return;
     control.focus();

@@ -2,22 +2,22 @@
  * node and the facts of an agent step. The rules themselves live on the server (agents/resolve.py,
  * agents/render.py); these functions only display what it sent and build what is sent to it. */
 
-/** The settings an agent node may override, in the order they are shown. `kind` picks the control. */
-export const OVERRIDES = [
-  { key: "user_prompt", label: "User prompt", kind: "lines" },
-  { key: "system_prompt_enabled", label: "Use a system prompt", kind: "switch" },
-  { key: "system_prompt", label: "System prompt", kind: "lines" },
-  { key: "provider_id", label: "Provider", kind: "provider" },
-  { key: "model", label: "Model", kind: "model" },
-  { key: "temperature", label: "Temperature", kind: "number", min: 0, max: 2, step: 0.1 },
-  { key: "max_tokens", label: "Max tokens", kind: "integer", min: 1, max: 8192 },
-  { key: "request_timeout_seconds", label: "Request timeout (seconds)", kind: "integer", min: 1, max: 300 },
-  { key: "total_timeout_seconds", label: "Time limit of the node (seconds)", kind: "integer", min: 1, max: 1800 },
-  { key: "retries", label: "Retries", kind: "integer", min: 0, max: 4 },
-  { key: "max_iterations", label: "Max iterations", kind: "integer", min: 1, max: 50 },
-];
-
-const LABELS = Object.fromEntries([...OVERRIDES.map((o) => [o.key, o.label]), ["inputs", "Inputs"]]);
+/** The names of the agent's fields as the agent pages and the step details show them. (The node's dialog gets its
+ * labels, bounds and kinds from the server's description of the node, GET /api/node-types; only the names live here.) */
+const LABELS = {
+  user_prompt: "User prompt",
+  system_prompt_enabled: "Use a system prompt",
+  system_prompt: "System prompt",
+  provider_id: "Provider",
+  model: "Model",
+  temperature: "Temperature",
+  max_tokens: "Max tokens",
+  request_timeout_seconds: "Request timeout (seconds)",
+  total_timeout_seconds: "Time limit of the node (seconds)",
+  retries: "Retries",
+  max_iterations: "Max iterations",
+  inputs: "Inputs",
+};
 
 /** The name a field has in the interface ("max_tokens" -> "Max tokens"). */
 export const fieldLabel = (key) => LABELS[key] ?? key;
@@ -36,9 +36,10 @@ export function useText(count) {
   return `Used by ${count} node${count === 1 ? "" : "s"}`;
 }
 
-/** The overrides of a node: the keys of OVERRIDES whose value is set (false and 0 are values). */
-export function overridesOf(config) {
-  return OVERRIDES.map((o) => o.key).filter((key) => config?.[key] !== null && config?.[key] !== undefined);
+/** The overrides of a node: the settings that inherit from the agent (`inherits`, as the server describes them) whose
+ * value the node stores (false and 0 are values). */
+export function overridesOf(config, settings) {
+  return settings.filter((s) => s.inherits && config?.[s.key] !== null && config?.[s.key] !== undefined).map((s) => s.key);
 }
 
 /** How a value is shown where it is not edited (an inherited value, a version's setting). */

@@ -23,6 +23,9 @@ export function settingValue(node, setting) {
   return stored ?? setting.default ?? null;
 }
 
+/** What `saved` holds while a control has nothing stored: no value is equal to it. */
+const NOT_SAVED = Symbol("not saved");
+
 class SettingControl {
   /**
    * @param {object} setting the server's description of the setting
@@ -30,10 +33,13 @@ class SettingControl {
    * @param {(value: *) => Promise<string|null>} save resolves to null, or to why the value was refused
    * @param {{nodes: () => object[], exceptId?: string}|null} suggest the graph's nodes, for the suggestions
    *   of a text that takes references (null: none)
+   * @param {{unsaved?: boolean}} [options] `unsaved`: nothing is stored yet (an override being made, an optional
+   *   setting just added): `value` is only what the field starts with, and committing it saves it even when it is
+   *   the same (Enter on a field is a decision)
    */
-  constructor(setting, value, save, suggest = null) {
+  constructor(setting, value, save, suggest = null, { unsaved = false } = {}) {
     this.setting = setting;
-    this.saved = value;
+    this.saved = unsaved ? NOT_SAVED : value;
     this.save = save;
     this.busy = false;
     this.again = false;
@@ -200,13 +206,14 @@ class SwitchControl extends SettingControl {
 
   async #flip() {
     if (this.busy) return;
-    const wanted = !this.saved;
+    const before = this.read();
+    const wanted = !before;
     this.show(wanted);
     this.busy = true;
     const message = await this.save(wanted);
     this.busy = false;
     if (message) {
-      this.show(this.saved);
+      this.show(before);
       this.fail(message);
       return;
     }
@@ -317,11 +324,21 @@ class CodeControl extends LinesControl {
 }
 
 class SelectControl extends SettingControl {
+  /** The choices as `[value, text]`: the setting's `options`, or `choices` a page adds to it (a provider is stored by
+   * id and shown by name); `emptyLabel` adds a first entry that stands for no choice. */
   createInput(value) {
     const select = element("select", "field__control");
-    for (const option of this.setting.options ?? []) select.append(new Option(option, option));
+    const choices = this.setting.choices ?? (this.setting.options ?? []).map((o) => [o, o]);
+    if (this.setting.emptyLabel) select.append(new Option(this.setting.emptyLabel, ""));
+    for (const [id, text] of choices) select.append(new Option(text, id));
+    if (value && !choices.some(([id]) => id === value)) select.append(new Option(`${value} (not available)`, value));
     select.value = value ?? "";
     return select;
+  }
+
+  parse(raw) {
+    if (raw === "" && this.setting.emptyLabel) throw new Error("Choose one.");
+    return raw;
   }
 }
 
@@ -336,6 +353,6 @@ const CONTROLS = {
 };
 
 /** The control for a setting; a type this editor does not know is shown as plain text. */
-export function createControl(setting, value, save, suggest = null) {
-  return new (CONTROLS[setting.type] ?? TextControl)(setting, value, save, suggest);
+export function createControl(setting, value, save, suggest = null, options = {}) {
+  return new (CONTROLS[setting.type] ?? TextControl)(setting, value, save, suggest, options);
 }

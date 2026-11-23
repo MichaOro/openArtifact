@@ -1,7 +1,7 @@
 # Research and Design Proposal: One Configuration Experience for Every Node
 
 **Date:** 2026-11-23  
-**Status:** Research and design only. No application code was changed.  
+**Status:** Approved and implemented as [ADR-053](architecture/adr/053-canonical-node-configuration.md) (see there for the deviations from this proposal). This document is the research baseline.  
 **Scope:** The settings dialog of a node (Agent, If, Switch, HTTP request, Code, Edit Fields, GitHub, Postgres, the tools), the schema behind it, and what the Agent mockup (two columns, progressive disclosure, inheritance) can become for all of them.  
 **Vocabulary:** The task text says *Action*. In this repository an **action** is an action *definition* (a graph of nodes); the things with settings are **nodes** (`graph/node_types.py`: `NodeType`, `Setting`). This document uses *node* where the code does and *action* only for the definition.
 

@@ -62,6 +62,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [050](050-artifact-field-editor-and-multi-select.md) | The artifact field editor in two panes; multi select; renamed options keep their values | Accepted | 2026-11-23 | amends ADR-044 |
 | [051](051-managed-credentials.md) | Managed credentials: internal tokens and external secrets under one service | Accepted | 2026-11-23 | extends ADR-024, ADR-043 |
 | [052](052-retention-rules-and-rule-builder.md) | Retention rules for executions and a reusable rule builder | Accepted | 2026-11-23 | amends ADR-039 |
+| [053](053-canonical-node-configuration.md) | One configuration experience for every node: sections, levels, inheritance | Accepted | 2026-11-23 | amends ADR-022, ADR-046 |
 
 ## Notes
 

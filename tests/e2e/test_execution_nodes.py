@@ -7,8 +7,8 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
+from tests.e2e.helpers import add_setting, eventually, pick_node
 from tests.e2e.helpers import drag as _drag
-from tests.e2e.helpers import eventually, pick_node
 from tests.helpers import graph_url
 
 
@@ -75,8 +75,9 @@ def test_a_code_node_is_added_configured_and_persists(
     expect(inspector.get_by_text("Saved")).to_be_visible()
     expect(node.locator(".ge-node__kind")).to_have_text("sh · echo hello")
     inspector.get_by_label("Language").select_option("python")
-    inspector.get_by_label("Timeout (seconds)").fill("45")
-    inspector.get_by_label("Timeout (seconds)").press("Enter")
+    add_setting(page, "Timeout (seconds)")
+    inspector.get_by_label("Timeout (seconds)", exact=True).fill("45")
+    inspector.get_by_label("Timeout (seconds)", exact=True).press("Enter")
     expect(node.locator(".ge-node__kind")).to_have_text("python · echo hello")
     _config(api, definition, "code", language="python", timeout_seconds=45)
 
@@ -84,7 +85,7 @@ def test_a_code_node_is_added_configured_and_persists(
     inspector = _select(page, "code")
     expect(inspector.get_by_label("Code", exact=True)).to_have_value("echo hello\necho second")
     expect(inspector.get_by_label("Language")).to_have_value("python")
-    expect(inspector.get_by_label("Timeout (seconds)")).to_have_value("45")
+    expect(inspector.get_by_label("Timeout (seconds)", exact=True)).to_have_value("45")
     expect(inspector.get_by_text("2 lines · 22 / 20000")).to_be_visible()
 
 
@@ -94,7 +95,8 @@ def test_a_refused_value_shows_the_server_message_and_keeps_the_text(
     definition = _open_action(page, base_url, api)
     _add(page, "code")
     inspector = page.locator(".ge-inspector")
-    timeout = inspector.get_by_label("Timeout (seconds)")
+    add_setting(page, "Timeout (seconds)")
+    timeout = inspector.get_by_label("Timeout (seconds)", exact=True)
     timeout.fill("0")
     timeout.press("Enter")
     expect(inspector.get_by_role("alert")).to_have_text("'timeout_seconds' must be 1 to 600")
@@ -131,13 +133,14 @@ def test_the_code_field_indents_with_tab_and_escape_then_tab_leaves_it(
     page.keyboard.press("Escape")
     page.keyboard.press("Tab")
     expect(code).not_to_be_focused()
-    expect(
-        inspector.get_by_label("Secrets")
-    ).to_be_focused()  # the field after Code (migration 0022)
+    # what follows Code in the Definition column is the folded Advanced disclosure (secrets, declared variables)
+    summary = page.locator("#node-modal .ge-advanced[data-section=definition] summary")
+    expect(summary).to_be_focused()
+    page.keyboard.press("Enter")  # opens it
+    page.keyboard.press("Tab")
+    expect(inspector.get_by_label("Secrets")).to_be_focused()  # (migration 0022)
     page.keyboard.press("Tab")
     expect(inspector.get_by_label("Sets variables")).to_be_focused()  # declared variables (ADR-034)
-    page.keyboard.press("Tab")
-    expect(inspector.get_by_label("Timeout (seconds)")).to_be_focused()
 
 
 def test_the_focus_stays_in_the_field_while_typing_and_saving(
@@ -171,8 +174,12 @@ def test_an_http_node_is_configured_and_persists(
     url.press("Enter")
     inspector.get_by_label("Headers").fill("X-Run: 1\nAccept: text/plain")
     inspector.get_by_label("Body").fill('{"a": 1}')
-    inspector.get_by_label("Timeout (seconds)").fill("10")
-    inspector.get_by_label("Timeout (seconds)").press("Enter")
+    add_setting(page, "Timeout (seconds)")
+    inspector.get_by_label("Timeout (seconds)", exact=True).fill("10")
+    inspector.get_by_label("Timeout (seconds)", exact=True).press("Enter")
+    page.locator(
+        "#node-modal .ge-advanced summary"
+    ).click()  # the accepted status codes are advanced
     status = inspector.get_by_label("Success status")
     status.fill("200, 404")
     status.press("Enter")
@@ -194,7 +201,7 @@ def test_an_http_node_is_configured_and_persists(
     expect(inspector.get_by_label("Headers")).to_have_value("X-Run: 1\nAccept: text/plain")
     expect(inspector.get_by_label("Body")).to_have_value('{"a": 1}')
     expect(inspector.get_by_label("Success status")).to_have_value("200, 404")
-    expect(inspector.get_by_label("Timeout (seconds)")).to_have_value("10")
+    expect(inspector.get_by_label("Timeout (seconds)", exact=True)).to_have_value("10")
 
 
 def test_the_http_summary_never_shows_the_query_string(
@@ -210,6 +217,7 @@ def test_the_http_summary_never_shows_the_query_string(
     expect(node.locator(".ge-node__kind")).to_have_text("GET example.org/hook")
     expect(node).not_to_contain_text("secret")
     expect(node).not_to_contain_text("pw")
+    page.locator("#node-modal .ge-advanced summary").click()
     status = inspector.get_by_label("Success status")
     status.fill("abc")
     status.press("Enter")

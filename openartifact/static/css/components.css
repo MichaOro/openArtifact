@@ -859,3 +859,13 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .menu__item > span:first-of-type { flex: 1; }
 .menu__key { margin-left: var(--space-4); padding: 0 var(--space-1); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); font: inherit; font-size: 0.6875rem; color: var(--color-text-muted); white-space: nowrap; }
+
+/* A setting that has a parent supplying its value (components/override-row.js) */
+.ov { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-surface) 70%, transparent); }
+.ov[data-state="overridden"],
+.ov[data-state="editing"] { border-color: var(--accent-ring, var(--color-accent)); }
+.ov__head { display: flex; align-items: center; gap: var(--space-2); }
+.ov__label { flex: 1; font-size: 0.8125rem; font-weight: 600; }
+.ov__value { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 6rem; overflow: auto; }
+.ov .field__error { margin: 0; }
+.ov .field__status { font-size: 0.75rem; color: var(--color-text-muted); }

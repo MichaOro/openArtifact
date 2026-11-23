@@ -314,7 +314,8 @@
 #node-modal .modal__header { position: absolute; top: var(--space-4); right: var(--space-4); z-index: 2; padding: 0; }
 #node-modal .modal__body { padding-top: var(--space-5); }
 #node-modal .ge-inspector__heading { padding-right: 2.5rem; }
-#node-modal .modal__panel { --dialog-base-w: 44rem; width: min(52rem, calc(100vw - 2 * var(--space-4))); translate: none; }
+#node-modal .modal__panel { --dialog-base-w: 44rem; width: min(44rem, calc(100vw - 2 * var(--space-4))); translate: none; }
+#node-modal.is-wide .modal__panel { width: min(64rem, calc(100vw - 2 * var(--space-4))); }
 .ge-inspector {
   display: flex;
   flex-direction: column;
@@ -409,3 +410,29 @@
 .ge-node--stage:not(.is-selected) > .ge-node-bar { display: none; } /* a stage is large: its bar only while it is selected */
 .has-multi .ge-node.is-selected:not(:hover) > .ge-node-bar { display: none; }
 .is-panning .ge-node-bar, .is-connecting .ge-node-bar { display: none !important; }
+
+/* the settings of a node: Definition and Behaviour (editor/settings-layout.js) */
+.ge-settings-wrap { container-type: inline-size; }
+.ge-settings { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+@container (min-width: 44rem) {
+  .ge-settings[data-columns="2"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); }
+}
+.ge-settings__column { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.ge-settings__title { margin: 0; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary); }
+.ge-settings__group { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+.ge-settings__group-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+.ge-settings__add { align-self: flex-start; }
+.ge-settings__add .icon { width: 1rem; height: 1rem; }
+.ge-settings__reset { grid-column: 1 / -1; justify-self: start; }
+.ge-advanced { border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
+.ge-advanced > summary { cursor: pointer; font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); }
+.ge-advanced[open] > summary { margin-bottom: var(--space-3); }
+.ge-advanced > .ge-setting + .ge-setting,
+.ge-advanced > .ge-optional + .ge-optional { margin-top: var(--space-3); }
+.ge-optional { position: relative; }
+.ge-optional__remove { position: absolute; top: 0; right: 0; }
+
+.ge-inspector__identity { display: flex; align-items: flex-start; gap: var(--space-3); }
+.ge-inspector__identity .ge-inspector__heading { flex: 1; min-width: 0; }
+.ge-inspector__icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: var(--radius-md); background: color-mix(in srgb, var(--node-color, var(--color-accent)) 18%, transparent); color: var(--node-color, var(--color-accent)); }
+.ge-inspector__icon .icon { width: 1.25rem; height: 1.25rem; }

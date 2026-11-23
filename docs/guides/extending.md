@@ -118,6 +118,22 @@ model for anything new.
 - A new node that needs the API token or a secret key must state so in its `help` text and refuse to run
   without it.
 
+## Where a setting goes in the node's dialog
+
+Every setting says where it is shown (ADR-053); the dialog is drawn from that, so a new kind needs no layout code:
+
+| Metadata | Values | Meaning |
+|----------|--------|---------|
+| `section` | `definition` (default), `behaviour` | The column: what the node *is* (left) or how it *runs* (right: timeouts, limits, failure handling). Two columns appear only when both have something, they stack when the dialog is narrow. |
+| `level` | `core` (default), `optional`, `advanced` | How prominent: core is always shown; optional is shown once the node has a value and otherwise offered in *Add setting*; advanced is folded under *Advanced* and open while one of them has a value. A stored default is no configuration, so it does not keep an optional setting open. |
+| `inherits` | `None` (default), `"agent"` | Only when a real parent supplies the value (today the agent): the row then shows *Inherited* / *Overridden* / *Not set*, an override is stored only when the user commits a value, and removing it restores inheritance. |
+| `group` | any title | Settings of one group stay together: in *Definition* a group folds while unused (If conditions, Switch cases); in *Behaviour* it is a titled block (*Model & Generation*, *Execution limits*). |
+
+Use `ON_FAILURE` for "If the node fails" (it is already `behaviour`), `GROUP_LIMITS` for timeouts and limits, and
+`level="optional"` for anything most nodes of the kind never touch. A kind with something the shared layout cannot draw
+(the Agent's choice of an agent and its input mapping) passes it as `extras` to `buildSettings`
+(`static/js/editor/settings-layout.js`) and `skip`s those keys; it does not write a layout of its own.
+
 ## Add a setting type
 
 A setting is one `Setting(key, label, type, ...)` in a node type. The types are `integer`, `number` (whole or

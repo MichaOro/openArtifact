@@ -169,3 +169,17 @@ def test_the_editor_receives_the_metadata(client: TestClient) -> None:
         for k in kinds.values()
         for s in k["settings"]
     )
+
+
+def test_what_the_agent_node_inherits_is_exactly_what_a_node_may_override() -> None:
+    """The single source: the settings with a parent are the agent's OVERRIDABLE fields (the browser has no list of its own)."""
+    from openartifact.agents.schemas import OVERRIDABLE
+
+    inheriting = {s.key for s in node_type(NodeKind.AGENT).settings if s.inherits}
+    assert inheriting == set(OVERRIDABLE)
+
+
+def test_the_bounds_of_an_override_are_the_agents_own_and_come_from_the_server() -> None:
+    settings = _by_key(NodeKind.AGENT)
+    assert (settings["max_iterations"].minimum, settings["max_iterations"].maximum) == (1, 50)
+    assert (settings["max_tokens"].minimum, settings["max_tokens"].maximum) == (1, 8192)

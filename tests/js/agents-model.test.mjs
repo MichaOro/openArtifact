@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  OVERRIDES,
   optionsOf,
   sampleHint,
   toolCallRows,
@@ -43,16 +42,17 @@ test("how many nodes use an agent is said in words", () => {
   assert.equal(useText(4), "Used by 4 nodes");
 });
 
-test("an override is a setting with a value, and false and 0 are values", () => {
+const SETTINGS = ["system_prompt_enabled", "system_prompt", "user_prompt", "provider_id", "model", "temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations"].map((key) => ({ key, inherits: "agent" }));
+
+test("an override is a setting that inherits and has a value, and false and 0 are values", () => {
+  const settings = [{ key: "agent_id", inherits: null }, { key: "inputs", inherits: null }, ...SETTINGS];
   const config = { agent_id: "a", inputs: "x = 1", system_prompt_enabled: false, retries: 0, temperature: null, model: undefined, max_tokens: 5 };
-  assert.deepEqual(overridesOf(config), ["system_prompt_enabled", "max_tokens", "retries"]);
-  assert.deepEqual(overridesOf(null), []);
-  assert.deepEqual(overridesOf({}), []);
+  assert.deepEqual(overridesOf(config, settings), ["system_prompt_enabled", "max_tokens", "retries"]);
+  assert.deepEqual(overridesOf(null, settings), []);
+  assert.deepEqual(overridesOf({}, settings), []);
 });
 
-test("every overridable setting has a label and the server's keys are covered", () => {
-  // agents/schemas.py OVERRIDABLE
-  assert.deepEqual(new Set(OVERRIDES.map((o) => o.key)), new Set(["system_prompt_enabled", "system_prompt", "user_prompt", "provider_id", "model", "temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations"]));
+test("the names of the agent's fields are known (the server's list of what inherits is checked in tests/test_setting_metadata.py)", () => {
   assert.equal(fieldLabel("max_tokens"), "Max tokens");
   assert.equal(fieldLabel("inputs"), "Inputs");
   assert.equal(fieldLabel("unknown_key"), "unknown_key");
@@ -158,10 +158,6 @@ test("the tool calls of a step: turn, tool, arguments, result (an error marked) 
     ["2", "nothere", "{}", { text: "Error: there is no tool named nothere", state: "error" }, "0.0 s"],
   ]);
   assert.deepEqual(toolCallRows(undefined), []); // a step from before tools
-});
-
-test("max iterations is a setting a node may override", () => {
-  assert.deepEqual(OVERRIDES.find((o) => o.key === "max_iterations"), { key: "max_iterations", label: "Max iterations", kind: "integer", min: 1, max: 50 });
 });
 
 test("only an http address needs the confirmation of an unencrypted connection", () => {

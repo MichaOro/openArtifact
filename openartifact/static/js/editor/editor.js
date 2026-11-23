@@ -17,6 +17,7 @@ import { InspectorBlocks } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
 import { rememberPipeline, setupBack, setupBackToAgent } from "./navigation.js";
 import { addableIn, typeOf } from "./node-types.js";
+import { forgetOpened } from "./settings-layout.js";
 
 export class GraphEditor {
   #pasteQueue = Promise.resolve(); // pastes run one after the other, so each sees the names the one before made
@@ -157,6 +158,7 @@ export class GraphEditor {
   #openSettings(node) {
     if (this.selection?.id !== node.id) this.select({ type: "node", id: node.id });
     this.settingsModal.dialog.querySelector(".modal__title").textContent = typeOf(node).label;
+    forgetOpened(node.id); // what was added but never given a value is not kept
     this.inspector.render(this.selection);
     this.settingsModal.open();
     this.inspector.focusFirst();
@@ -542,6 +544,7 @@ export class GraphEditor {
       addAction: (stage) => this.#addAction(stage),
       listTargets: (kind) => this.#listTargets(kind),
       showError: (message) => this.#showError(message),
+      refresh: () => this.#renderInspector(),
       renameNode: (node, name) => this.#rename(node, name),
     };
   }

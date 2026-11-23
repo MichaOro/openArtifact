@@ -362,7 +362,7 @@ class AgentView extends ExecutionView {
   caption(node) {
     const id = node.config?.agent_id;
     if (!id) return "no agent yet";
-    const own = overridesOf(node.config).length;
+    const own = overridesOf(node.config, this.settings).length;
     // an execution's frozen node carries its agent; the editor knows the names of the list
     return `${node.agent?.name ?? agentNames.get(id) ?? "agent"}${own ? ` · ${own} override${own === 1 ? "" : "s"}` : ""}`;
   }

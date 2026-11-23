@@ -7,7 +7,7 @@ import { field } from "./field.js";
 import { agentBlock } from "./agent-inspector.js";
 import { displayName } from "./geometry.js";
 import { typeOf } from "./node-types.js";
-import { createControl, settingValue } from "./setting-controls.js";
+import { buildSettings } from "./settings-layout.js";
 
 /** Title and caption; `rename` ({label, onCommit}) makes the title editable in place. */
 export function heading(text, caption, rename = null) {
@@ -61,39 +61,28 @@ export class InspectorBlocks {
   title(node) {
     const type = typeOf(node);
     const rename = type.renamable(node) ? { label: `${type.label} name`, onCommit: (name) => this.editor.renameNode(node, name) } : null;
-    return heading(displayName(node), type.subtitle(node), rename);
+    const head = heading(displayName(node), type.subtitle(node), rename);
+    const glyph = type.constructor.icon;
+    if (!glyph) return head;
+    // the icon of the node's kind in its colour, as on the canvas
+    const wrap = document.createElement("div");
+    wrap.className = "ge-inspector__identity";
+    const card = document.querySelector(`.ge-node[data-node-id="${node.id}"]`);
+    const colour = card ? getComputedStyle(card).getPropertyValue("--node-color").trim() : "";
+    if (colour) wrap.style.setProperty("--node-color", colour);
+    const mark = document.createElement("span");
+    mark.className = "ge-inspector__icon";
+    mark.append(icon(glyph));
+    wrap.append(mark, head);
+    return wrap;
   }
 
   /** The kind's settings, one control per setting (see setting-controls.js), or nothing. Settings of one
    * `group` (the rows of an If node's conditions) are shown together; a group whose first value is empty
    * is folded away, so five rows do not fill the panel. */
   settings(node) {
-    const settings = typeOf(node).settings;
-    if (!settings.length) return null;
-    const suggest = this.editor.suggestions?.(node) ?? null;
-    const control = (setting) => createControl(setting, settingValue(node, setting), (value) => this.editor.saveSetting(node, setting, value), suggest);
-    const parts = [];
-    for (const setting of settings) {
-      const made = control(setting);
-      if (!setting.group) {
-        parts.push(made.element);
-        continue;
-      }
-      let group = parts.at(-1);
-      if (group?.dataset.group !== setting.group) {
-        group = document.createElement("details");
-        group.className = "ge-group";
-        group.dataset.group = setting.group;
-        // the kind may know better (a Switch case with "is empty" is used without a value); else the first
-        // setting of a group is its main value
-        const used = typeOf(node).groupUsed?.(node, setting.group) ?? String(settingValue(node, setting) ?? "").trim() !== "";
-        group.append(Object.assign(document.createElement("summary"), { textContent: used ? setting.group : `${setting.group} (empty)` }));
-        group.open = used || setting.key.endsWith("_1");
-        parts.push(group);
-      }
-      group.append(made.element);
-    }
-    return section(null, ...parts);
+    if (!typeOf(node).settings.length) return null;
+    return section(null, buildSettings({ node, editor: this.editor, suggest: this.editor.suggestions?.(node) ?? null }));
   }
 
   /** An agent node: its agent, the input mapping and the settings with their overrides (agent-inspector.js). */

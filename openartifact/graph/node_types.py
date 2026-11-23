@@ -1244,6 +1244,7 @@ class HttpToolType(_ToolType):
             stored_in="config",
             help="Another status is reported to the model as an error.",
             check=_check_status,
+            level="advanced",
         ),
     )
 

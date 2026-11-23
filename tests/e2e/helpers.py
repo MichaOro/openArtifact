@@ -432,3 +432,11 @@ def menu_kinds(page: Page) -> dict[str, list[str]]:
             for t in page.locator("[data-add-list] [data-add] span:first-child").all_inner_texts()
         ]
     return kinds
+
+
+def add_setting(page: Page, label: str) -> None:
+    """Add an optional setting to the open settings of a node through its "Add setting" menu."""
+    page.locator("#node-modal").get_by_role(
+        "button", name=re.compile("^Add (setting|override)$")
+    ).first.click()
+    page.get_by_role("menuitem", name=re.compile(f"^{re.escape(label)}")).click()

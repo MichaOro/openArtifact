@@ -14,7 +14,7 @@ from playwright.sync_api import Locator, Page, expect
 
 from tests.agent_support import API_KEY, HEADERS, TOKEN, FakeLlm, completion, fake_llm
 from tests.e2e.conftest import _serve
-from tests.e2e.helpers import eventually, pick_node
+from tests.e2e.helpers import add_setting, eventually, pick_node
 from tests.helpers import build_pipeline, connect, graph_url, kind_of, node, wait_until
 
 
@@ -312,23 +312,47 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
 
     eventually(lambda: stored()["inputs"], "ticket = ${var.ticket}")
 
-    temperature = inspector.locator('.ag-override[data-setting="temperature"]')
-    expect(temperature).to_have_attribute("data-overridden", "false")
-    expect(temperature.locator(".ag-chip")).to_have_text("From agent")
-    expect(temperature.locator(".ag-override__inherited")).to_have_text("0.2")
-    temperature.get_by_label("Override Temperature in this node").click()
-    expect(temperature).to_have_attribute("data-overridden", "true")
-    expect(temperature.locator(".ag-chip")).to_have_text("Overridden")
-    eventually(lambda: stored()["temperature"], 0.2)  # it starts as a copy of the agent's value
-    temperature.get_by_label("Temperature", exact=True).fill("1.5")
-    temperature.get_by_label("Temperature", exact=True).press("Enter")
-    eventually(lambda: stored()["temperature"], 1.5)
-    expect(temperature.locator(".ag-override__inherited")).to_have_text("Agent: 0.2")
+    # the prompts are always shown: inherited until the node sets its own; nothing is stored for them
+    prompt = inspector.locator('.ov[data-setting="user_prompt"]')
+    expect(prompt).to_have_attribute("data-state", "inherited")
+    expect(prompt.locator(".ag-chip")).to_have_text("Inherited")
+    expect(prompt.locator(".ov__value")).to_contain_text("Agent: ")
 
-    # a value the agent does not set can be switched on by the node
-    tokens = inspector.locator('.ag-override[data-setting="max_tokens"]')
-    expect(tokens.locator(".ag-override__inherited")).to_have_text("not set")
-    tokens.get_by_label("Override Max tokens in this node").click()
+    # the model and the limits are only shown once the node overrides them; the rest waits in "Add override"
+    expect(inspector.locator('.ov[data-setting="temperature"]')).to_have_count(0)
+    add_setting(page, "Temperature · Agent: 0.2")  # the menu names the value the agent supplies
+    temperature = inspector.locator('.ov[data-setting="temperature"]')
+    expect(temperature).to_have_attribute("data-state", "editing")
+    expect(temperature.locator(".ag-chip")).to_have_text("New override")
+    expect(temperature.get_by_label("Temperature", exact=True)).to_have_value(
+        "0.2"
+    )  # a suggestion to start from
+    page.wait_for_timeout(600)
+    assert (
+        "temperature" not in stored() or stored()["temperature"] is None
+    )  # nothing is stored for it yet
+
+    temperature.get_by_label(
+        "Cancel overriding Temperature"
+    ).click()  # abandoning it leaves nothing behind
+    expect(inspector.locator('.ov[data-setting="temperature"]')).to_have_count(0)
+    assert stored().get("temperature") is None
+
+    add_setting(page, "Temperature")
+    temperature = inspector.locator('.ov[data-setting="temperature"]')
+    temperature.get_by_label("Temperature", exact=True).fill("1.5")
+    temperature.get_by_label("Temperature", exact=True).press(
+        "Enter"
+    )  # committing a value makes the override
+    eventually(lambda: stored()["temperature"], 1.5)
+    expect(temperature).to_have_attribute("data-state", "overridden")
+    expect(temperature.locator(".ag-chip")).to_have_text("Overridden")
+    expect(temperature.locator(".ov__value")).to_have_text("Agent: 0.2")
+
+    # a value the agent does not set can be overridden too; the server's bounds apply
+    add_setting(page, "Max tokens")
+    tokens = inspector.locator('.ov[data-setting="max_tokens"]')
+    expect(tokens).to_have_attribute("data-state", "editing")
     tokens.get_by_label("Max tokens", exact=True).fill("9000")
     tokens.get_by_label("Max tokens", exact=True).press("Enter")
     expect(tokens.locator(".field__error")).to_contain_text("must be 1 to 8192")
@@ -347,18 +371,23 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
     page.reload()
     page.locator(".ge-node--agent").dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
-    expect(
-        inspector.locator('.ag-override[data-setting="retries"] .ag-override__inherited')
-    ).to_have_text("1")
-    temperature = inspector.locator('.ag-override[data-setting="temperature"]')
+    temperature = inspector.locator(
+        '.ov[data-setting="temperature"]'
+    )  # configured: shown without asking
     expect(temperature.get_by_label("Temperature", exact=True)).to_have_value("1.5")
-    expect(temperature.locator(".ag-override__inherited")).to_have_text("Agent: 0.9")
+    expect(temperature.locator(".ov__value")).to_have_text("Agent: 0.9")
+    expect(inspector.locator('.ov[data-setting="retries"]')).to_have_count(0)
+    inspector.get_by_role("button", name="Add override").click()
+    expect(
+        page.get_by_role("menuitem", name="Retries · Agent: 1")
+    ).to_be_visible()  # the new value reaches it
+    page.keyboard.press("Escape")
 
-    temperature.get_by_label("Reset Temperature to the agent's value").click()
+    temperature.get_by_label("Use the agent's value for Temperature").click()
     eventually(lambda: stored()["temperature"], None)
-    expect(inspector.locator('.ag-override[data-setting="temperature"]')).to_have_attribute(
-        "data-overridden", "false"
-    )
+    expect(inspector.locator('.ov[data-setting="temperature"]')).to_have_count(
+        0
+    )  # inherited again, so not shown
     inspector.get_by_text("Reset all 1 overrides").click()
     eventually(lambda: stored()["max_tokens"], None)
     expect(page.locator(".ge-node--agent .ge-node__kind")).to_have_text("Triage")
