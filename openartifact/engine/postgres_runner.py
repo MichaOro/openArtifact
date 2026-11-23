@@ -25,9 +25,11 @@ import ipaddress
 import json
 import math
 import re
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
+from datetime import time as dt_time
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -37,11 +39,12 @@ from psycopg import conninfo
 from psycopg import errors as pg_errors
 
 from openartifact.credentials.refs import mask_text
+from openartifact.engine.context import ContextError, RunView
 from openartifact.engine.http_runner import AddressRefusedError, vetted_addresses
+from openartifact.engine.results import NodeResult, failed
 
-#: What the node keeps of a result (the run context holds 64 KiB in all); the tool's answer is cut lower.
+#: What the node keeps of a result (the run context holds 64 KiB in all).
 RESULT_LIMIT_BYTES = 48 * 1024
-TOOL_RESULT_LIMIT_BYTES = 15 * 1024
 _ALLOWED = ("host", "port", "dbname", "user", "password", "sslmode", "sslrootcert")
 #: Accepted and ignored: the connection's own time limit and name are set here.
 _IGNORED = ("connect_timeout", "application_name")
@@ -234,7 +237,7 @@ def jsonable(value: Any) -> Any:
         return value if math.isfinite(value) else str(value)
     if isinstance(value, Decimal):
         return str(value)
-    if isinstance(value, datetime | date | time):
+    if isinstance(value, datetime | date | dt_time):
         return value.isoformat()
     if isinstance(value, timedelta | UUID | ipaddress.IPv4Address | ipaddress.IPv6Address):
         return str(value)
@@ -502,3 +505,39 @@ def parse_password(url: str) -> str:
         return str(conninfo.conninfo_to_dict(url.strip()).get("password") or "")
     except (psycopg.ProgrammingError, ValueError):
         return ""
+
+
+# ── the node ─────────────────────────────────────────────────────────
+
+
+async def run_postgres(
+    config: dict[str, Any], url: str, *, view: RunView | None = None, operator_allows_private: bool
+) -> NodeResult:
+    """The Postgres node: its query with the values of its lines (references resolved here, then bound as
+    parameters) on the database of ``url``; the rows are the node's data (``rows``) and, as JSON, its output."""
+    started = time.monotonic()
+    try:
+        values = [
+            (view or RunView()).render(line)
+            for line in str(config.get("values") or "").splitlines()
+        ]
+    except ContextError as error:
+        return failed(str(error))
+    try:
+        result = await run_query(
+            url,
+            str(config.get("query") or ""),
+            values,
+            allow_write=bool(config.get("allow_write")),
+            allow_private=bool(config.get("allow_private")) and operator_allows_private,
+            timeout=float(config.get("timeout_seconds") or 30),
+            max_rows=int(config.get("max_rows") or 100),
+        )
+    except PostgresError as error:
+        return failed(str(error), duration=time.monotonic() - started)
+    return NodeResult(
+        "pass",
+        output=json.dumps(result.rows, ensure_ascii=False),
+        data=result.to_data(),
+        duration=time.monotonic() - started,
+    )

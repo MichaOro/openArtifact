@@ -17,7 +17,8 @@ NEW_KINDS = ("github", "postgres", "postgres_tool")
 
 
 def _described(client: TestClient, kind: str) -> dict[str, Any]:
-    return {t["kind"]: t for t in client.get("/api/node-types").json()}[kind]
+    described: dict[str, Any] = {t["kind"]: t for t in client.get("/api/node-types").json()}[kind]
+    return described
 
 
 def _keys(client: TestClient, kind: str) -> dict[str, dict[str, Any]]:

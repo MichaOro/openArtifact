@@ -151,6 +151,21 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.12"]
+    # A real Postgres server for the tests of the Postgres node and tool (tests/postgres_support.py): without
+    # one those tests are skipped, which would hide the checks that the database itself enforces read-only.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: oa
+          POSTGRES_PASSWORD: pw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U oa"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v4
 
@@ -165,6 +180,8 @@ jobs:
           pip install --no-cache-dir -e ".[dev]"
 
       - name: Run test suite with coverage
+        env:
+          OA_TEST_POSTGRES_URL: postgresql://oa:pw@127.0.0.1:5432/postgres
         run: |
           coverage run -m pytest -v --tb=short
           coverage report
