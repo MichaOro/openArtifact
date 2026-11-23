@@ -226,6 +226,24 @@ class Dialog:
         expect(self.history).to_be_visible()
         return self
 
+    @property
+    def comments(self) -> Locator:
+        return self.root.locator("[data-comments]")
+
+    @property
+    def comment_items(self) -> Locator:
+        return self.comments.locator(".comment")
+
+    def open_comments(self) -> Dialog:
+        self.tab("comments").click()
+        expect(self.comments).to_be_visible()
+        return self
+
+    def write_comment(self, text: str) -> None:
+        """Type into the box at the bottom and send with the button."""
+        self.comments.locator("[data-comments-input]").fill(text)
+        self.comments.locator("[data-comments-send]").click()
+
     def size(self) -> tuple[float, float]:
         box = self.root.locator(".modal__panel").bounding_box()
         assert box is not None

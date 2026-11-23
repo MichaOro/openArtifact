@@ -25,8 +25,9 @@ export class ArtifactDialog extends FormDialog {
    * @param {(number: number) => void} options.onReference a reference link was followed
    * @param {() => void} options.onBack the Back button was pressed
    * @param {import("./history-tab.js").HistoryTab} options.history the History tab; follows the artifact shown
+   * @param {import("./comments-tab.js").CommentsTab} options.comments the Comments tab; follows the artifact shown
    */
-  constructor({ modal, createTask, updateTask, onSaved, onGone, findByNumber, onReference, onBack, history }) {
+  constructor({ modal, createTask, updateTask, onSaved, onGone, findByNumber, onReference, onBack, history, comments }) {
     super(modal);
     this.createTask = createTask;
     this.updateTask = updateTask;
@@ -59,10 +60,14 @@ export class ArtifactDialog extends FormDialog {
     this.viewBody = root.querySelector("[data-view-body]");
     this.backButton = root.querySelector("[data-view-back]");
     this.history = history;
+    this.comments = comments;
     /** The tab last used: kept while the page lives (not stored). Edit mode hides the tabs and keeps it. */
     this.tab = "details";
     this.tabs = new Tabs(root.querySelector("[data-tabs]"), (name) => this.#showTab(name));
-    root.addEventListener("close", () => this.history.hide());
+    root.addEventListener("close", () => {
+      this.history.hide();
+      this.comments.hide();
+    });
 
     root.querySelector("[data-view-edit]").addEventListener("click", () => this.startEdit());
     this.backButton.addEventListener("click", () => onBack());
@@ -101,11 +106,13 @@ export class ArtifactDialog extends FormDialog {
     this.tabs.select(this.tab, { notify: false });
     this.view.dataset.tab = this.tab;
     this.history.show(task);
+    this.comments.show(task);
   }
 
   #showTab(name) {
     this.tab = name;
     this.view.dataset.tab = name;
+    if (name === "comments") this.comments.scrollToEnd();
   }
 
   /** Update the read-only view when the artifact (or what it references) changed elsewhere. */

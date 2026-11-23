@@ -127,6 +127,9 @@ them again.
   nodes and providers ("Secret NAME is switched off"). *Used by* counts the nodes and LLM providers that refer to it
   (not other places such as an MCP server's own configuration); deleting asks first and names them.
 
+The name of an internal credential is also **who the token is**: a comment written through the API or MCP with it carries that name as
+author (see [ADR-055](../architecture/adr/055-comments-on-artifacts.md)), so give every agent or script its own token.
+
 Every change (created, rotated, revoked, enabled, disabled, tested, deleted) leaves an entry without any value or hash in
 `GET /api/credentials/{id}/events`.
 

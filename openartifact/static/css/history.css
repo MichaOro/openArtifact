@@ -17,7 +17,9 @@
 }
 /* the History tab has the Close button only */
 .task-view[data-tab="history"] [data-view-edit],
-.task-view[data-tab="history"] .card-run { display: none; }
+.task-view[data-tab="history"] .card-run,
+.task-view[data-tab="comments"] [data-view-edit],
+.task-view[data-tab="comments"] .card-run { display: none; }
 /* .modal__body is a flex column; hidden panels must really go */
 .modal__body[hidden] { display: none; }
 

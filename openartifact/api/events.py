@@ -31,7 +31,8 @@ async def stream_events(bus: EventBusDep) -> StreamingResponse:
     ``run.updated`` (the state of a run, see ``GET /api/runs``),
     ``execution.updated`` (``{"task_id", "execution"}``: the summary of an execution, when it starts
     and whenever its status changes) and ``execution.deleted`` (``{"task_id", "id"}``: by hand,
-    by retention or because the artifact's policy changed).
+    by retention or because the artifact's policy changed) and ``comment.created`` / ``comment.updated`` (the comment)
+    and ``comment.deleted`` (``{"id", "task_id"}``).
 
     Clients that (re)connect should reload ``GET /api/tasks`` to resync, because
     events that happened while disconnected are not replayed.

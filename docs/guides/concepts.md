@@ -34,6 +34,12 @@ at most one run at a time. While that run is running the artifact is locked: its
 changed and it cannot be deleted (title and body stay editable); stopping the run releases it. In the
 code and the API an artifact is a `task`.
 
+**Comments.** Every artifact has comments (the *Comments* tab of its dialog, with a count): plain text, oldest first, newest last,
+with a box at the bottom (Ctrl+Enter sends). A comment shows who wrote it and by what way: *User* (the browser, "You"), *API* or *MCP*
+(the name of the token that was used), *Run* (an Artifact node of a pipeline, linked to its execution). Any comment can be edited (it
+then says "edited") or deleted; deleting the artifact deletes them. Pipelines read and write them with the
+[Artifact node](execution-nodes.md#artifact-node). There is no user management yet, so "You" is every person in the browser.
+
 **Artifact fields.** Custom fields every artifact has (ADR-044), defined once in *Artifact fields* (the menu next to
 *Add lane* on the board): label, name, kind (text, number, yes/no, choice) with its limits and a default that pre-fills new
 artifacts (a choice is a single or a multi select; the editor lists the fields on the left, reordered by their grip,

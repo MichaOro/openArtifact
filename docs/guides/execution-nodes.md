@@ -1,4 +1,4 @@
-# Execution nodes: Code, HTTP, GitHub, Postgres, If, Switch and Edit Fields
+# Execution nodes: Code, HTTP, GitHub, Postgres, Artifact, If, Switch and Edit Fields
 
 The nodes that do work inside an action definition (see [Concepts](concepts.md)). You add them in the
 action editor with the "+" menu and set them in the node's settings (a double click on the node opens them in an overlay); every setting is saved as you type or leave
@@ -22,7 +22,7 @@ An output longer than a step keeps (256 Ki characters) is cut visibly for every 
 When a run reaches an action that is linked to a definition, the engine walks the definition:
 
 1. It starts at the **trigger** and records a step for it.
-2. It follows the connection leaving the current node. A node with an executor (timer, Code, HTTP, GitHub, Postgres, If, Switch) runs; the
+2. It follows the connection leaving the current node. A node with an executor (timer, Code, HTTP, GitHub, Postgres, Artifact, If, Switch) runs; the
    engine records its result as a step and leaves by the port that matches the outcome: **On Pass** or **On Fail**
    for Code and HTTP, **Next** for the timer (which always passes), the branch the node chose for If and Switch.
 3. Reaching the **Output** by its **On Pass** connector makes the action pass; reaching it by **On Fail**
@@ -347,6 +347,27 @@ curl -X POST   $BASE/api/actions/$ID/edges -H 'Content-Type: application/json' \
 Then link an action of a pipeline to it (`PATCH /api/pipelines/$P/nodes/$ACTION` with
 `{"definition_id": "$ID"}`) and start an artifact in the pipeline (`POST /api/tasks/$TASK/run`). The
 [API reference](api-reference.md) lists every route.
+
+## Artifact node
+
+Reads or writes the comments of **the artifact this run belongs to** (never another one; there is no setting for a target). The
+label "Artifact" is the manifest's; it sits in the *Data* group of the "+" menu.
+
+| Setting | Meaning | Default |
+|---------|---------|---------|
+| Operation | `Get comments` or `Add comment` | Get comments |
+| Newest comments | Get: how many of the newest comments (1 to 100) | 20 |
+| Characters per comment | Get: a longer one is cut with `…[cut]` (20 to 4000) | 800 |
+| Characters in total | Get: the transcript is at most this long (100 to 4000); older comments are left out first | 3500 |
+| Comment | Add: the text; may hold `${node...}`, `${var...}`, `${card...}`; no secrets (refused when saved) | empty |
+| If the node fails | `fail` or `continue` | fail |
+
+*Get comments* passes with the transcript as output (`[time] author (kind):` and the text, the oldest of the kept ones first; a first
+line says how many older comments were left out) and `data.comments`, a list of `{author, kind, body, at}`, plus `data.count` and
+`data.left_out`; an artifact without comments gives `No comments yet`. The output stays within the 4 KiB a node keeps. *Add comment*
+writes one under the **node's name** with the kind *Run* and the execution it came from (the Comments tab links to it) and returns
+`data.id`; an empty text fails with a reason. Comments are text from outside: an agent that reads them must not treat them as
+instructions.
 
 ## GitHub node
 

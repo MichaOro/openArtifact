@@ -14,12 +14,15 @@
                 aria-controls="artifact-panel-details" aria-selected="true">Details</button>
         <button type="button" class="task-tab" role="tab" id="artifact-tab-history" data-tab="history"
                 aria-controls="artifact-panel-history" aria-selected="false" tabindex="-1">History<span class="task-tab__badge" data-history-count hidden></span></button>
+        <button type="button" class="task-tab" role="tab" id="artifact-tab-comments" data-tab="comments"
+                aria-controls="artifact-panel-comments" aria-selected="false" tabindex="-1">Comments<span class="task-tab__badge" data-comments-count hidden></span></button>
     </div>
     <div class="modal__body" role="tabpanel" id="artifact-panel-details" aria-labelledby="artifact-tab-details" tabindex="0">
         <h3 class="task-view__title" data-view-title></h3>
         <p class="task-view__body" data-view-body></p>
     </div>
     {% include "components/history_panel.html" %}
+    {% include "components/comments_panel.html" %}
     <footer class="modal__footer">
         <div class="modal__footer-start">
             <button type="button" class="button button--ghost" data-view-back hidden>Back</button>

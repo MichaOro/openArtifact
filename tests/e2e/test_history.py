@@ -33,7 +33,7 @@ def test_a_saved_artifact_has_aria_tabs_and_create_mode_has_none(board: Board) -
     board.create("Item")
     dialog = board.open().open_card("Item")
     expect(dialog.root.locator("[role=tablist]")).to_be_visible()
-    expect(dialog.tabs).to_have_text(["Details", "History"])
+    expect(dialog.tabs).to_have_text(["Details", "History", "Comments"])
     expect(dialog.tab("details")).to_have_attribute("aria-selected", "true")
     expect(dialog.tab("history")).to_have_attribute("tabindex", "-1")
     expect(dialog.root.locator("#artifact-panel-details")).to_be_visible()
@@ -53,10 +53,12 @@ def test_arrow_keys_switch_the_tabs(board: Board) -> None:
     board.page.keyboard.press("ArrowRight")
     expect(dialog.tab("history")).to_have_attribute("aria-selected", "true")
     expect(dialog.tab("history")).to_be_focused()
+    board.page.keyboard.press("ArrowRight")
+    expect(dialog.tab("comments")).to_be_focused()
     board.page.keyboard.press("ArrowRight")  # wraps
     expect(dialog.tab("details")).to_be_focused()
     board.page.keyboard.press("End")
-    expect(dialog.tab("history")).to_be_focused()
+    expect(dialog.tab("comments")).to_be_focused()
     board.page.keyboard.press("Home")
     expect(dialog.tab("details")).to_have_attribute("aria-selected", "true")
 

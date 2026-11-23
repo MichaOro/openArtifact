@@ -9,6 +9,7 @@
 {% block title %}Board · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/task-dialog.css">
 <link rel="stylesheet" href="/static/css/history.css">
+<link rel="stylesheet" href="/static/css/comments.css">
 <link rel="stylesheet" href="/static/css/agents.css">
 <link rel="stylesheet" href="/static/css/artifact-fields.css">{% endblock %}
 {% block content %}
@@ -46,6 +47,7 @@
 {{ confirm_modal("delete-lane-modal", "Delete lane") }}
 {{ confirm_modal("delete-task-modal", "Delete Artifact", note="data-children-note") }}
 {{ confirm_modal("delete-execution-modal", "Delete execution", note="data-history-note") }}
+{{ confirm_modal("delete-comment-modal", "Delete comment") }}
 
 {% call modal("fields-modal", "Artifact fields") %}
 <form class="task-form at-editor" id="fields-modal-form" novalidate>

@@ -1,0 +1,323 @@
+/* The Comments tab of the artifact dialog (templates/components/comments_panel.html): the comments of the shown artifact,
+ * oldest first, with a box to write at the bottom. Plain text only (shown with its line breaks, never as markup).
+ *
+ * The tab follows the artifact the dialog shows (show / hide) and is kept current by the page's event stream:
+ * comment.created / updated / deleted reach it through handleEvent(). Editing happens in place; delete asks first. */
+import { ActionMenu } from "../components/action-menu.js";
+import { AlertBar } from "../components/alert-bar.js";
+import { icon } from "../components/icons.js";
+import { addComment, deleteComment, listComments, updateComment } from "./comments-api.js";
+import { canSend, countText, inOrder, isEdited, kindOf, runLink, withComment } from "./comment-format.js";
+import { formatTime } from "./history-format.js";
+
+export class CommentsTab {
+  /**
+   * @param {object} options
+   * @param {HTMLElement} options.root the panel (templates/components/comments_panel.html)
+   * @param {HTMLElement} options.badge the count on the tab
+   * @param {import("../components/confirm-dialog.js").ConfirmDialog} options.confirm
+   */
+  constructor({ root, badge, confirm }) {
+    this.root = root;
+    this.badge = badge;
+    this.confirm = confirm;
+    this.menu = new ActionMenu();
+    this.taskId = null;
+    this.number = null;
+    this.comments = [];
+    this.editingId = null;
+    this.token = 0;
+    this.sending = false;
+
+    this.alert = new AlertBar(root.querySelector("[data-comments-alert]"));
+    this.alert.onRetry(() => this.load());
+    this.live = root.querySelector("[data-comments-live]");
+    this.summary = root.querySelector("[data-comments-summary]");
+    this.list = root.querySelector("[data-comments-list]");
+    this.empty = root.querySelector("[data-comments-empty]");
+    this.form = root.querySelector("[data-comments-form]");
+    this.input = root.querySelector("[data-comments-input]");
+    this.send = root.querySelector("[data-comments-send]");
+    this.error = root.querySelector("[data-comments-error]");
+    this.scroller = root.querySelector("[data-comments-scroll]");
+    this.template = document.getElementById("comment-template");
+
+    this.form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      this.#submit();
+    });
+    this.input.addEventListener("input", () => this.#syncSend());
+    this.input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        this.#submit();
+      }
+    });
+    this.list.addEventListener("click", (event) => {
+      const more = event.target.closest("[data-comment-more]");
+      if (more) this.#openMenu(more, this.comments.find((c) => c.id === more.closest(".comment").dataset.id));
+    });
+  }
+
+  /** Whether a text is typed and not sent (the dialog warns before it is closed over it). */
+  get dirty() {
+    return this.taskId !== null && (this.input.value.trim() !== "" || this.editingId !== null);
+  }
+
+  /** The dialog shows this artifact: start from its comments (a reopened one keeps what it had until the fresh data arrives). */
+  show(task) {
+    const same = task.id === this.taskId;
+    this.taskId = task.id;
+    this.number = task.number;
+    if (!same) {
+      this.comments = [];
+      this.editingId = null;
+      this.input.value = "";
+      this.#setError("");
+      this.alert.hide();
+      this.#render();
+    }
+    this.#syncSend();
+    this.load({ scroll: true });
+  }
+
+  /** The tab was opened: the newest comment is the one in view (a hidden panel has no height to scroll). */
+  scrollToEnd() {
+    window.requestAnimationFrame(() => (this.scroller.scrollTop = this.scroller.scrollHeight));
+  }
+
+  /** The dialog closed: stop listening. */
+  hide() {
+    this.taskId = null;
+    this.token++;
+    this.menu.close({ restoreFocus: false });
+  }
+
+  async load({ scroll = false } = {}) {
+    const taskId = this.taskId;
+    if (!taskId) return;
+    const token = ++this.token;
+    try {
+      const comments = await listComments(taskId);
+      if (token !== this.token) return;
+      this.comments = inOrder(comments);
+      this.alert.hide();
+      this.#render({ scroll });
+    } catch (error) {
+      if (token === this.token) this.alert.show(error.message || "The comments could not be loaded.", { retry: true });
+    }
+  }
+
+  /** comment.created / updated / deleted of the event stream. */
+  handleEvent(type, data) {
+    if (!this.taskId || data.task_id !== this.taskId) return;
+    if (type === "comment.deleted") {
+      this.comments = this.comments.filter((c) => c.id !== data.id);
+      if (this.editingId === data.id) this.editingId = null;
+      this.#render();
+      this.announce("A comment was deleted");
+      return;
+    }
+    const atEnd = this.#atEnd();
+    const changed = this.comments.some((c) => c.id === data.id);
+    this.comments = withComment(this.comments, data);
+    if (this.editingId === data.id) return this.#render({ keep: true }); // what is typed stays
+    this.#render({ scroll: atEnd && !changed });
+    if (!changed) this.announce(`New comment from ${data.author}`);
+  }
+
+  announce(message) {
+    this.live.textContent = "";
+    window.requestAnimationFrame(() => (this.live.textContent = message));
+  }
+
+  // ── showing ─────────────────────────────────────────────────────────
+
+  #atEnd() {
+    const box = this.scroller;
+    return box.scrollHeight - box.scrollTop - box.clientHeight < 48;
+  }
+
+  #render({ scroll = false, keep = false } = {}) {
+    this.badge.hidden = this.taskId === null || this.comments.length === 0;
+    this.badge.textContent = this.badge.hidden ? "" : String(this.comments.length);
+    this.badge.title = countText(this.comments.length);
+    this.summary.textContent = countText(this.comments.length);
+    this.empty.hidden = this.comments.length > 0;
+    const open = this.root.querySelector("[data-comment-edit-input]");
+    const typed = open?.value;
+    const rows = this.comments.map((comment) => this.#row(comment));
+    this.list.replaceChildren(...rows);
+    if (keep && typed !== undefined) {
+      const again = this.root.querySelector("[data-comment-edit-input]");
+      if (again) again.value = typed;
+    }
+    if (scroll) window.requestAnimationFrame(() => (this.scroller.scrollTop = this.scroller.scrollHeight));
+  }
+
+  #row(comment) {
+    const row = this.template.content.firstElementChild.cloneNode(true);
+    row.dataset.id = comment.id;
+    row.dataset.kind = comment.author_kind;
+    const kind = kindOf(comment);
+    const chip = row.querySelector("[data-comment-kind]");
+    chip.querySelector("[data-chip-icon]").replaceChildren(icon(kind.icon));
+    chip.querySelector("[data-chip-text]").textContent = kind.label;
+    row.querySelector("[data-comment-author]").textContent = comment.author;
+    const time = row.querySelector("[data-comment-time]");
+    time.textContent = formatTime(comment.created_at);
+    time.dateTime = comment.created_at;
+    time.title = comment.created_at;
+    row.querySelector("[data-comment-edited]").hidden = !isEdited(comment);
+    const href = runLink(comment, this.number);
+    const link = row.querySelector("[data-comment-run]");
+    link.hidden = href === null;
+    if (href) link.href = href;
+    const more = row.querySelector("[data-comment-more]");
+    more.replaceChildren(icon("more"));
+    more.setAttribute("aria-label", `Actions for the comment of ${comment.author}`);
+    const body = row.querySelector("[data-comment-body]");
+    if (this.editingId === comment.id) {
+      body.replaceChildren(this.#editor(comment));
+    } else {
+      body.textContent = comment.body; // plain text: line breaks by CSS (white-space: pre-wrap), never markup
+    }
+    return row;
+  }
+
+  #editor(comment) {
+    const form = document.createElement("form");
+    form.className = "comment__edit";
+    const area = document.createElement("textarea");
+    area.className = "field__control";
+    area.rows = 4;
+    area.value = comment.body;
+    area.dataset.commentEditInput = "";
+    area.setAttribute("aria-label", "Edit the comment");
+    const error = document.createElement("p");
+    error.className = "form-error";
+    error.setAttribute("role", "alert");
+    error.hidden = true;
+    const actions = document.createElement("div");
+    actions.className = "comment__edit-actions";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "button button--ghost button--sm";
+    cancel.textContent = "Cancel";
+    const save = document.createElement("button");
+    save.type = "submit";
+    save.className = "button button--primary button--sm";
+    save.textContent = "Save";
+    actions.append(cancel, save);
+    form.append(area, error, actions);
+    const stop = () => {
+      this.editingId = null;
+      this.#render();
+    };
+    cancel.addEventListener("click", stop);
+    area.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation(); // the dialog must not close over it
+        stop();
+      } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!canSend(area.value)) {
+        error.textContent = "A comment cannot be empty.";
+        error.hidden = false;
+        return;
+      }
+      save.disabled = true;
+      try {
+        const changed = await updateComment(this.taskId, comment.id, area.value);
+        this.comments = withComment(this.comments, changed);
+        this.editingId = null;
+        this.#render();
+      } catch (failure) {
+        if (failure.status === 404) {
+          this.comments = this.comments.filter((c) => c.id !== comment.id);
+          this.editingId = null;
+          this.#render();
+          return;
+        }
+        error.textContent = failure.fieldErrors?.body ?? failure.message;
+        error.hidden = false;
+        save.disabled = false;
+      }
+    });
+    window.requestAnimationFrame(() => area.focus());
+    return form;
+  }
+
+  // ── actions ─────────────────────────────────────────────────────────
+
+  #openMenu(trigger, comment) {
+    if (!comment) return;
+    this.menu.toggle(
+      trigger,
+      [
+        {
+          label: "Edit",
+          icon: "pencil",
+          onSelect: () => {
+            this.editingId = comment.id;
+            this.#render();
+          },
+        },
+        { label: "Delete", icon: "trash", danger: true, onSelect: () => this.#confirmDelete(comment) },
+      ],
+      "Comment actions",
+    );
+  }
+
+  #confirmDelete(comment) {
+    this.confirm.open({
+      message: "Delete {subject}? This cannot be undone.",
+      subject: `the comment of ${comment.author}`,
+      onConfirm: async () => {
+        try {
+          await deleteComment(this.taskId, comment.id);
+        } catch (error) {
+          if (error.status !== 404) throw error; // gone already is what was wanted
+        }
+        this.comments = this.comments.filter((c) => c.id !== comment.id);
+        this.#render();
+        this.announce("Comment deleted");
+      },
+      onClose: () => this.input.focus(),
+    });
+  }
+
+  #syncSend() {
+    this.send.setAttribute("aria-disabled", String(!canSend(this.input.value) || this.sending));
+  }
+
+  #setError(message) {
+    this.error.textContent = message;
+    this.error.hidden = !message;
+  }
+
+  async #submit() {
+    if (this.sending || !canSend(this.input.value)) return;
+    this.sending = true;
+    this.#syncSend();
+    this.#setError("");
+    try {
+      const made = await addComment(this.taskId, this.input.value);
+      this.comments = withComment(this.comments, made); // the event may be here already: same id, same row
+      this.input.value = "";
+      this.#render({ scroll: true });
+      this.input.focus();
+    } catch (error) {
+      this.#setError(error.fieldErrors?.body ?? error.message);
+    } finally {
+      this.sending = false;
+      this.#syncSend();
+    }
+  }
+}

@@ -11,6 +11,7 @@ import { ArtifactDialog } from "./artifact-dialog.js";
 import { CardDragController } from "./dnd.js";
 import { ProcessingPanel } from "./processing.js";
 import { connectEvents } from "./events.js";
+import { CommentsTab } from "./comments-tab.js";
 import { HistoryTab } from "./history-tab.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { LaneControls, listLanes } from "./lanes.js";
@@ -81,6 +82,12 @@ const history = new HistoryTab({
   confirm: new ConfirmDialog(new Modal(document.getElementById("delete-execution-modal"))),
 });
 
+const comments = new CommentsTab({
+  root: document.querySelector("[data-comments]"),
+  badge: document.querySelector("[data-comments-count]"),
+  confirm: new ConfirmDialog(new Modal(document.getElementById("delete-comment-modal"))),
+});
+
 const artifactDialog = new ArtifactDialog({
   modal: new Modal(document.getElementById("create-task-modal")),
   createTask,
@@ -91,6 +98,7 @@ const artifactDialog = new ArtifactDialog({
     board.showError(`"${task.title}" no longer exists.`);
   },
   history,
+  comments,
   findByNumber: (number) => board.byNumber(number),
   onReference: (number) => {
     const target = board.byNumber(number);
@@ -362,10 +370,12 @@ connectEvents({
     listFields().then(showFields).catch(() => {});
     listRuns().then((runs) => processing.setRuns(runs)).catch(() => {});
     history.load(); // missed events are not replayed
+    comments.load();
   },
   onEvent: (type, data) => {
     if (type === "run.updated") processing.upsert(data);
     else if (type.startsWith("execution.")) history.handleEvent(type, data);
+    else if (type.startsWith("comment.")) comments.handleEvent(type, data);
     else if (type === "task.deleted") {
       board.remove(data.id);
       processing.remove(data.id);

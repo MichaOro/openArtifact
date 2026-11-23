@@ -449,7 +449,7 @@ def test_the_executions_page_and_its_modules_are_served(client: TestClient) -> N
     assert 'data-page-size="50"' in page.text and 'id="ex-row-template"' in page.text
     assert page.text.count('aria-current="page"') == 1
     assert 'href="/executions" title="Executions"' in page.text
-    assert '<caption class="visually-hidden">' in page.text and page.text.count('scope="col"') == 10
+    assert '<caption class="visually-hidden">' in page.text and page.text.count('scope="col"') == 11
     assert 'data-page-size="2"' in client.get("/executions?page_size=2").text
     assert 'data-page-size="200"' in client.get("/executions?page_size=9999").text
     assert 'data-page-size="1"' in client.get("/executions?page_size=0").text

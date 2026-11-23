@@ -65,6 +65,10 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/flow` | The graphs as frozen at the start, the path walked through them, the steps (`?outputs=true` adds step outputs) | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id}` | One step with its complete output | 404 |
 | PUT | `/api/v1/artifacts/{ref}/history-policy` | Set the retention policy (`keep_last` 1 to 1000, `keep_hours` 1 to 8760, both must hold; a missing field is `null`); applied at once | 404, 422 |
+| GET | `/api/v1/artifacts/{ref}/comments` | The artifact's comments, oldest first (plain text; `author`, `author_kind`, `execution_id`) | 404 |
+| POST | `/api/v1/artifacts/{ref}/comments` | Add a comment `{"body", "author"?}` (1 to 65536 characters); `201`. The author is the managed token's name; only the environment token may pass `author`. Publishes `comment.created` | 404, 422 |
+| PATCH | `/api/v1/artifacts/{ref}/comments/{comment_id}` | Change the text `{"body"}`; publishes `comment.updated` | 404, 422 |
+| DELETE | `/api/v1/artifacts/{ref}/comments/{comment_id}` | Delete a comment; `204`; publishes `comment.deleted` | 404 |
 | GET | `/api/v1/executions` | The executions of all artifacts: filters and keyset paging, see [integration](integration.md#executions-and-history) | 422 |
 | GET | `/api/v1/secrets` | Names and dates of the stored credentials, never values | |
 | PUT | `/api/v1/secrets/{name}` | Create (`201`) or replace (`200`) a credential; body `{"value": "..."}` (1 byte to 8 KiB) | 409 (no token or no own secret key), 422 |
@@ -210,6 +214,20 @@ values together are at most 4 KiB. The refusal for a typo:
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/steps/{step_id}` | One step with complete output | 404 |
 | PUT | `/api/tasks/{task_id}/history-policy` | Set the retention policy and apply it | 404, 422 |
 
+### Comments
+
+The same four operations as the integration API, for the browser; a comment from the browser has the author kind `user` and the name "You".
+
+| Method | Path | Does | Errors |
+|--------|------|------|--------|
+| GET | `/api/tasks/{ref}/comments` | The artifact's comments, oldest first | 404 |
+| POST | `/api/tasks/{ref}/comments` | Add `{"body"}`; `201` | 404, 422 |
+| PATCH | `/api/tasks/{ref}/comments/{comment_id}` | Change the text | 404, 422 |
+| DELETE | `/api/tasks/{ref}/comments/{comment_id}` | Delete; `204` | 404 |
+
+A comment is `{id, task_id, body, author_kind (user, api, mcp, run, system), author, execution_id, created_at, updated_at}`. Who
+writes is decided by the token that made the request, never by the body (see [ADR-055](../architecture/adr/055-comments-on-artifacts.md)).
+
 ### Credentials
 
 | Method | Path | Purpose | Errors |
@@ -277,6 +295,8 @@ Pipeline, stage and action are given by name.
 | `stop_processing` | `artifact` | Stop |
 | `get_processing_status` | `artifact` | Run state, or `never processed` |
 | `get_processing_results` | `artifact` | Steps inside action definitions with output, exit code, reason, data (text from outside) |
+| `list_comments` | `artifact`, `limit?` (1 to 500: the newest that many) | The artifact's comments, oldest first; text from outside |
+| `add_comment` | `artifact`, `text`, `author?` | Add a comment under the MCP token's name (`author` counts only for the environment token, else the author is `mcp`) |
 | `list_executions` | `artifact`, `limit=20` (1 to 500) | The artifact's executions without steps, the number kept, the policy |
 | `list_all_executions` | `status?`, `started_by?`, `pipeline?`, `query?`, `since?`, `until?`, `limit` (1 to 200), `cursor?` | All artifacts' executions with filters; `next_cursor` goes into `cursor`; includes the `summary` |
 | `get_execution` | `artifact`, `execution` | One execution with all steps |
@@ -307,5 +327,8 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `settings.changed` | `{"run_limits": {...}}` (as `GET /api/settings/run-limits`) | the run limits were changed |
 | `board.resync` | `{}` | other tasks got new positions or lost their parent: reload the board |
 | `run.updated` | the run state (as `GET /api/runs`) | a run starts, advances or ends |
+| `comment.created` | the comment | a comment was added |
+| `comment.updated` | the comment | its text was changed |
+| `comment.deleted` | `{"id", "task_id"}` | a comment was deleted |
 | `execution.updated` | `{"task_id", "execution"}` (the summary) | an execution starts and at every status change |
 | `execution.deleted` | `{"task_id", "id"}` | deleted by hand, by retention or because the artifact's policy changed |
