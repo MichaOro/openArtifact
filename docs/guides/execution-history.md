@@ -59,10 +59,10 @@ limit of that kind).
 
 *Executions → Retention* opens a rule builder: groups that say *all* (AND) or *any* (OR) of their conditions hold, with
 inner groups, and conditions on **Status** (done, failed, stopped), **Pipeline** (is, is not, contains), **Started by**
-and **Age** (older than N minutes, hours or days). A finished execution that the rule matches is deleted for good with
+**Age** (older than N minutes, hours or days) and **Position among the artifact's executions** (beyond the newest N: the same as *keep the last N*, counted per artifact). A finished execution that the rule matches is deleted for good with
 its steps; a running one never is, and a rule without conditions deletes nothing. The rules are applied whenever an
 execution starts or finishes and when you save them; the dialog says first how many executions saving deletes
-(*Save and delete N*). They come on top of the artifact's own *keep the last N / keep for N hours* policy. API:
+(*Save and delete N*). *Keep the last N* and *keep for N hours* can be said as rules too (Position beyond N; Age older than N hours); the artifact's own policy still exists next to them. API:
 `GET` / `PUT /api/settings/retention` (also under `/api/v1`), `POST .../retention/preview`.
 
 ## Live updates

@@ -223,3 +223,37 @@ def test_an_empty_inner_group_is_ignored_it_neither_blocks_nor_matches_everythin
     assert _put(client, rules).json()["deleted"] == 1  # only the failed one, as the rule reads
     only_empty = _group(_group(), _group())
     assert _put(client, only_empty).json()["deleted"] == 0
+
+
+def test_keeping_only_the_newest_n_of_each_artifact_is_a_rule_too(
+    client: TestClient, seed: Seed
+) -> None:
+    """The same as the per-artifact "keep the last N": the position among an artifact's executions, newest first."""
+    a, b = make_task(client, "Alpha"), make_task(client, "Beta")
+    now = datetime.now(UTC)
+    a_ids = [
+        seed.add(a, at=now - timedelta(hours=10 - i), status="done") for i in range(5)
+    ]  # a1 oldest ... a5 newest
+    b_ids = [seed.add(b, at=now - timedelta(hours=5 - i), status="done") for i in range(2)]
+    running = seed.add(a, at=now - timedelta(minutes=1), status="running")
+    # beyond the newest 2: counted per artifact, the running one is in the count but never deleted
+    result = _put(client, _group(_cond("position", "beyond", 2))).json()
+    assert (
+        result["deleted"] == 4
+    )  # a1..a4: the running one and a5 are the two newest of Alpha, Beta has only two
+    assert set(_ids(_list(client))) == {a_ids[4], running, *b_ids}
+    assert _put(client, _group(_cond("position", "beyond", 0))).status_code == 422
+    assert _put(client, _group(_cond("position", "is", 3))).status_code == 422
+
+
+def test_position_and_other_conditions_combine(client: TestClient, seed: Seed) -> None:
+    task = make_task(client, "Alpha")
+    now = datetime.now(UTC)
+    ids = [
+        seed.add(task, at=now - timedelta(hours=9 - i), status="failed" if i % 2 else "done")
+        for i in range(6)
+    ]
+    # beyond the newest 3 AND failed: of ids[0..2] the failed one (index 1)
+    rules = _group(_cond("position", "beyond", 3), _cond("status", "is", ["failed"]))
+    assert _put(client, rules).json()["deleted"] == 1
+    assert ids[1] not in set(_ids(_list(client))) and len(_ids(_list(client))) == 5

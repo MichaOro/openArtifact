@@ -164,6 +164,12 @@ export class RuleBuilder {
       wrap.append(number, units);
       return wrap;
     }
+    if (field.kind === "count") {
+      const number = Object.assign(make("input", "field__control rb-number"), { type: "number", min: 1, step: 1, value: String(condition.value) });
+      number.setAttribute("aria-label", field.label);
+      number.addEventListener("input", () => set(Math.round(Number(number.value)) || 0));
+      return number;
+    }
     const input = Object.assign(make("input", "field__control rb-text"), { type: "text", value: condition.value, maxLength: 120, autocomplete: "off", spellcheck: false });
     input.setAttribute("aria-label", field.label);
     input.placeholder = field.placeholder ?? "";

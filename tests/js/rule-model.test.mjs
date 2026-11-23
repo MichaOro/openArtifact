@@ -8,6 +8,7 @@ const SCHEMA = {
     { key: "status", label: "Status", kind: "choice", options: [{ value: "done", label: "Done" }, { value: "failed", label: "Failed" }], operators: [{ key: "is", label: "is" }, { key: "is_not", label: "is not" }] },
     { key: "pipeline", label: "Pipeline", kind: "text", operators: [{ key: "is", label: "is" }, { key: "contains", label: "contains" }] },
     { key: "age", label: "Age", kind: "duration", operators: [{ key: "older_than", label: "is older than" }] },
+    { key: "position", label: "Position", kind: "count", default: 50, operators: [{ key: "beyond", label: "is beyond the newest" }] },
   ],
 };
 
@@ -83,4 +84,13 @@ test("a rule is told in words", () => {
     'Status is Done or Failed, and Age is older than 7 days, and (Pipeline contains "Build" or Status is not Failed)',
   );
   assert.equal(M.describe(M.emptyGroup(), SCHEMA), "");
+});
+
+test("a count field starts at its default, is complete when positive and is told with the number", () => {
+  assert.deepEqual(M.newCondition(SCHEMA, "position"), { type: "condition", field: "position", op: "beyond", value: 50 });
+  const rule = { type: "group", mode: "all", items: [{ type: "condition", field: "position", op: "beyond", value: 20 }] };
+  assert.equal(M.isComplete(rule), true);
+  assert.equal(M.describe(rule, SCHEMA), "Position is beyond the newest 20");
+  rule.items[0].value = 0;
+  assert.equal(M.isComplete(rule), false);
 });

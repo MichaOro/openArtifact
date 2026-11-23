@@ -2,8 +2,8 @@
 
 A rule is a tree: a group says *all* or *any* of its items must hold; an item is a condition or an inner group.
 A condition tests one field of an execution: ``status`` and ``started_by`` (is / is not one of some values),
-``pipeline`` (is / is not / contains a name, ignoring case) or ``age`` (older than some seconds, counted from the
-start). An execution that the tree matches is deleted for good, with its steps; a running one never is, and an
+``pipeline`` (is / is not / contains a name, ignoring case), ``age`` (older than some seconds, counted from the
+start) or ``position`` (beyond the newest N executions of the same artifact: *keep the last N*). An execution that the tree matches is deleted for good, with its steps; a running one never is, and an
 empty group matches nothing, so an empty rule deletes nothing.
 
 The rules are applied when something happens to the history (an execution is added or finishes) and when the rules
@@ -19,6 +19,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from sqlalchemy import ColumnElement, and_, false, func, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from openartifact.models import AppSetting, Execution
 from openartifact.models.enums import RunStatus, StartedBy
@@ -34,7 +35,9 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "started_by": ("is", "is_not"),
     "pipeline": ("is", "is_not", "contains"),
     "age": ("older_than",),
+    "position": ("beyond",),
 }
+MAX_POSITION = 100_000
 
 
 class Condition(BaseModel):
@@ -70,6 +73,15 @@ class Condition(BaseModel):
         elif self.field == "pipeline":
             if not isinstance(self.value, str) or not 1 <= len(self.value.strip()) <= 120:
                 raise ValueError("pipeline: give a name of 1 to 120 characters")
+        elif self.field == "position":
+            if (
+                isinstance(self.value, bool)
+                or not isinstance(self.value, int)
+                or not 1 <= self.value <= MAX_POSITION
+            ):
+                raise ValueError(
+                    f"position: give how many of the newest to keep, 1 to {MAX_POSITION}"
+                )
         else:
             if (
                 isinstance(self.value, bool)
@@ -121,6 +133,17 @@ def _condition(c: Condition, now: Any) -> ColumnElement[bool]:
         cutoff = (now - timedelta(seconds=int(c.value))).replace(tzinfo=None)  # type: ignore[arg-type]
         older: ColumnElement[bool] = Execution.started_at < cutoff
         return older
+    if c.field == "position":
+        # beyond the newest N of its artifact: at least N executions of the same artifact are newer
+        newer = aliased(Execution)
+        count = (
+            select(func.count())
+            .where(newer.task_id == Execution.task_id, newer.number > Execution.number)
+            .correlate(Execution)
+            .scalar_subquery()
+        )
+        beyond: ColumnElement[bool] = count >= int(c.value)  # type: ignore[arg-type]
+        return beyond
     if c.field in ("status", "started_by"):
         column = Execution.status if c.field == "status" else Execution.started_by
         listed = column.in_([str(v) for v in c.value])  # type: ignore[union-attr]

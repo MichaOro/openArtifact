@@ -33,6 +33,13 @@ const SCHEMA = {
       operators: [{ key: "is", label: "is" }, { key: "is_not", label: "is not" }],
     },
     { key: "age", label: "Age", kind: "duration", operators: [{ key: "older_than", label: "is older than" }] },
+    {
+      key: "position",
+      label: "Position among the artifact's executions",
+      kind: "count",
+      default: 50,
+      operators: [{ key: "beyond", label: "is beyond the newest" }],
+    },
   ],
 };
 

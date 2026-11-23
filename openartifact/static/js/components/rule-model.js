@@ -1,6 +1,6 @@
 /* The data of a rule builder, without a DOM: a rule is a tree of groups (`all` / `any`) holding conditions and inner
  * groups, exactly the shape the server takes (engine/retention.py). A schema says which fields exist, what each is
- * called, how its value is entered (`choice`: several of some options; `text`; `duration`: seconds) and which
+ * called, how its value is entered (`choice`: several of some options; `text`; `duration`: seconds; `count`: a whole number) and which
  * operators fit. Every edit returns a new tree, so the builder can compare and the original is never changed. */
 
 const UNITS = [
@@ -12,7 +12,7 @@ const DEFAULT_DURATION = 86400;
 
 export const emptyGroup = (mode = "all") => ({ type: "group", mode, items: [] });
 
-const emptyValue = (field) => (field.kind === "choice" ? [] : field.kind === "duration" ? DEFAULT_DURATION : "");
+const emptyValue = (field) => (field.kind === "choice" ? [] : field.kind === "duration" ? DEFAULT_DURATION : field.kind === "count" ? (field.default ?? 1) : "");
 
 /** A fresh condition for `key` (the first field of the schema when none is given). */
 export function newCondition(schema, key = schema.fields[0].key) {
@@ -88,6 +88,8 @@ function words(condition, schema) {
   let value;
   if (field?.kind === "choice") {
     value = condition.value.map((v) => field.options.find((o) => o.value === v)?.label ?? v).join(" or ");
+  } else if (field?.kind === "count") {
+    value = String(condition.value);
   } else if (field?.kind === "duration") {
     const { amount, unit } = splitDuration(condition.value);
     value = `${amount} ${amount === 1 ? unit.slice(0, -1) : unit}`;

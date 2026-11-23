@@ -18,15 +18,16 @@ to select several rows and delete them at once.
 
 - **Rules are a tree** of groups (*all* / *any*) holding conditions and inner groups. A condition tests `status` (done,
   failed, stopped), `started_by`, `pipeline` (is / is not / contains, ignoring case) or `age` (older than N seconds, from
-  the start). The tree is compiled to one SQL condition (`engine/retention.py`); text is bound, `%` and `_` in a pipeline
+  the start) or `position` (beyond the newest N executions of the same artifact, which is *keep the last N*). The tree is compiled to one SQL condition (`engine/retention.py`); text is bound, `%` and `_` in a pipeline
   name are text. At most 4 levels and 50 conditions. One row of `app_settings` (`history.rules`, JSON): no migration.
 - **A match is deleted for good** with its steps. A running execution is never deleted (and cannot be named by a rule).
   An empty rule deletes nothing; an empty inner group is ignored.
 - **Push driven, no timer:** the rules are applied when an execution is added, when one finishes, and when the rules are
   saved. Saving says first (a live preview, `POST .../preview`) how many executions it deletes now.
-- **They add to the per-artifact policy** (*keep the last N* cannot be said as a condition on one execution), they do
-  not replace it. This deviates from the owner's wish that the rules replace it; removing the per-artifact policy would
-  break its API, tests and dialog and can follow if it is no longer used.
+- **The rules can say what the per-artifact policy says:** *keep the last N* is `position` beyond N (counted per
+  artifact), *keep for N hours* is `age`. The per-artifact policy (its fields, its dialog, `execution_history_default_keep`)
+  still exists next to the rules; replacing it needs an *artifact* field for rules (to say it for one artifact) and a
+  migration of the stored policies, and is left for a later step.
 - **Reusable UI:** `RuleBuilder` + `rule-model.js` take a *schema* (fields, operators, how a value is entered) and know
   nothing about executions, so lane rules (hide after N days, colour by time in the lane) can use them with another
   schema. `Selection` and `BulkBar` are the same for any list with a bulk action; `input.check` is the one checkbox look.
