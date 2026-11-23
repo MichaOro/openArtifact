@@ -68,6 +68,12 @@ OPERATORS = (
 #: Operators that look at the left side only (the right side is ignored).
 UNARY_OPERATORS = frozenset({"is empty", "is not empty", "is true", "is false"})
 _DEFAULT_MAX_LENGTH = {"text": 2000, "lines": 20000, "code": CODE_MAX_CHARS}
+#: The parts of a node's dialog and the ways a setting may be disclosed (``Setting.section`` / ``Setting.level``).
+SECTIONS = ("definition", "behaviour")
+LEVELS = ("core", "optional", "advanced")
+#: The group titles the settings of how a node runs share (``Setting.group``).
+GROUP_MODEL = "Model & Generation"
+GROUP_LIMITS = "Execution limits"
 
 
 class SettingError(ValueError):
@@ -224,6 +230,23 @@ class Setting:
     #: What the editor may suggest while the user types ``${``: ``"context"`` (node results and
     #: variables) or ``"all"`` (and secret names). ``None``: the text takes no references.
     references: str | None = None
+    #: Where the setting goes in the node's dialog (ADR-053): ``"definition"`` (what the node is, the left
+    #: column) or ``"behaviour"`` (how it runs: timeouts, limits, failure handling; the right column).
+    section: str = "definition"
+    #: How prominent it is: ``"core"`` (always shown), ``"optional"`` (shown once it is set or added) or
+    #: ``"advanced"`` (folded under *Advanced*, open while one of them is set). Not a third column.
+    level: str = "core"
+    #: The parent a value that is not set comes from (``"agent"``), when there really is one; ``None``: not
+    #: set means the setting's own default.
+    inherits: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.section not in SECTIONS:
+            raise ValueError(f"section of '{self.key}' must be one of: {', '.join(SECTIONS)}")
+        if self.level not in LEVELS:
+            raise ValueError(f"level of '{self.key}' must be one of: {', '.join(LEVELS)}")
+        if self.inherits is not None and not self.inherits:
+            raise ValueError(f"inherits of '{self.key}' names the parent, or is None")
 
     def describe(self) -> dict[str, Any]:
         """The editor's description; the old keys keep their meaning, new ones are only added."""
@@ -248,6 +271,9 @@ class Setting:
             data["group"] = self.group
         if self.references is not None:
             data["references"] = self.references
+        data["section"] = self.section
+        data["level"] = self.level
+        data["inherits"] = self.inherits
         return data
 
     def validate(self, value: Any) -> Any:
@@ -501,6 +527,7 @@ ON_FAILURE = Setting(
     default="fail",
     options=("fail", "continue"),
     stored_in="config",
+    section="behaviour",
     help=(
         "fail (the default): leave by On Fail, the action fails if nothing is connected there. "
         "continue: leave by On Pass although the node failed (fail open); the step still shows "
@@ -564,6 +591,7 @@ class CodeType(_ExecutionType):
                 "the node."
             ),
             check=_references(_check_secret_names),
+            level="advanced",
         ),
         Setting(
             "sets_variables",
@@ -579,6 +607,7 @@ class CodeType(_ExecutionType):
                 "what the code really sets is noted in the step, it does not fail the node."
             ),
             check=_check_variable_names,
+            level="advanced",
         ),
         Setting(
             "timeout_seconds",
@@ -588,6 +617,9 @@ class CodeType(_ExecutionType):
             maximum=600,
             default=30,
             stored_in="config",
+            section="behaviour",
+            level="optional",
+            group=GROUP_LIMITS,
         ),
         ON_FAILURE,
     )
@@ -656,6 +688,9 @@ class HttpType(_ExecutionType):
             maximum=120,
             default=30,
             stored_in="config",
+            section="behaviour",
+            level="optional",
+            group=GROUP_LIMITS,
         ),
         Setting(
             "success_status",
@@ -666,6 +701,8 @@ class HttpType(_ExecutionType):
             stored_in="config",
             help="Comma-separated codes or ranges, for example 200-299, 404.",
             check=_check_status,
+            section="behaviour",
+            level="advanced",
         ),
         ON_FAILURE,
     )
@@ -886,8 +923,12 @@ class SetType(_ExecutionType):
 
 
 def _override(key: str, label: str, type_: str, **more: Any) -> Setting:
-    """A setting of an agent node that overrides the agent's: not set (``None``) means inherited."""
-    return Setting(key, label, type_, default=None, stored_in="config", **more)
+    """A setting of an agent node that overrides the agent's: not set (``None``) means inherited. The model and
+    the limits are how the node runs (``behaviour``) and only shown once overridden (``optional``); the prompts
+    are what the node is (``definition``) and always shown, as inherited or overridden."""
+    more.setdefault("section", "definition" if "prompt" in key else "behaviour")
+    more.setdefault("level", "core" if "prompt" in key else "optional")
+    return Setting(key, label, type_, default=None, stored_in="config", inherits="agent", **more)
 
 
 class AgentType(_ExecutionType):
@@ -944,14 +985,15 @@ class AgentType(_ExecutionType):
             max_length=agent_rules.PROMPT_MAX_CHARS,
             check=_check_agent_prompt,
         ),
-        _override("provider_id", "Provider", "text", max_length=36),
-        _override("model", "Model", "text", max_length=agent_rules.MODEL_ID_MAX),
+        _override("provider_id", "Provider", "text", max_length=36, group=GROUP_MODEL),
+        _override("model", "Model", "text", max_length=agent_rules.MODEL_ID_MAX, group=GROUP_MODEL),
         _override(
             "temperature",
             "Temperature",
             "number",
             minimum=agent_rules.TEMPERATURE_MIN,
             maximum=agent_rules.TEMPERATURE_MAX,
+            group=GROUP_MODEL,
         ),
         _override(
             "max_tokens",
@@ -959,6 +1001,7 @@ class AgentType(_ExecutionType):
             "integer",
             minimum=agent_rules.MAX_TOKENS_MIN,
             maximum=agent_rules.MAX_TOKENS_MAX,
+            group=GROUP_MODEL,
         ),
         _override(
             "request_timeout_seconds",
@@ -966,6 +1009,7 @@ class AgentType(_ExecutionType):
             "integer",
             minimum=agent_rules.REQUEST_TIMEOUT_MIN,
             maximum=agent_rules.REQUEST_TIMEOUT_MAX,
+            group=GROUP_LIMITS,
         ),
         _override(
             "total_timeout_seconds",
@@ -973,6 +1017,7 @@ class AgentType(_ExecutionType):
             "integer",
             minimum=agent_rules.TOTAL_TIMEOUT_MIN,
             maximum=agent_rules.TOTAL_TIMEOUT_MAX,
+            group=GROUP_LIMITS,
         ),
         _override(
             "retries",
@@ -980,6 +1025,7 @@ class AgentType(_ExecutionType):
             "integer",
             minimum=agent_rules.RETRIES_MIN,
             maximum=agent_rules.RETRIES_MAX,
+            group=GROUP_LIMITS,
         ),
         _override(
             "max_iterations",
@@ -987,6 +1033,7 @@ class AgentType(_ExecutionType):
             "integer",
             minimum=agent_rules.ITERATIONS_MIN,
             maximum=agent_rules.ITERATIONS_MAX,
+            group=GROUP_LIMITS,
         ),
         ON_FAILURE,
     )
@@ -1483,6 +1530,7 @@ class GithubType(_ExecutionType):
             help="GitHub Enterprise: https://HOST/api/v3. A private address needs "
             "OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS.",
             check=_tool_rule(tool_config.check_endpoint),
+            level="advanced",
         ),
         _timeout(30, 120),
         ON_FAILURE,
@@ -1526,6 +1574,7 @@ class PostgresType(_ExecutionType):
             stored_in="config",
             help="The database is on a private or local network. Counts only when the operator "
             "allows it too (OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS).",
+            level="advanced",
         ),
         _MAX_ROWS,
         _timeout(30, 120),

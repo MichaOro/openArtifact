@@ -51,6 +51,10 @@ class SettingRead(BaseModel):
     help: str | None = None
     group: str | None = None
     references: str | None = None
+    #: Where it goes in the node's dialog, how prominent it is and what it inherits from (ADR-053).
+    section: str = "definition"
+    level: str = "core"
+    inherits: str | None = None
 
 
 class NodeTypeRead(BaseModel):
