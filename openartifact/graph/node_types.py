@@ -981,6 +981,13 @@ class AgentType(_ExecutionType):
             minimum=agent_rules.RETRIES_MIN,
             maximum=agent_rules.RETRIES_MAX,
         ),
+        _override(
+            "max_iterations",
+            "Max iterations",
+            "integer",
+            minimum=agent_rules.ITERATIONS_MIN,
+            maximum=agent_rules.ITERATIONS_MAX,
+        ),
         ON_FAILURE,
     )
     reference_keys = ("inputs",)

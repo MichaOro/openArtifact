@@ -22,6 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.agents import client
 from openartifact.agents.resolve import ProviderInfo, freeze
+from openartifact.agents.tool_config import default_tool_name
+from openartifact.graph.node_types import Ports
 from openartifact.models import Agent, AgentVersion, LlmModel, LlmProvider, NodeKind, ProviderKind
 
 
@@ -83,13 +85,42 @@ async def published(session: AsyncSession, agent_ids: set[str]) -> dict[str, dic
     return found
 
 
-def _agent_nodes(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _agent_nodes(snapshot: Mapping[str, Any]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Every agent node of the snapshot's action definitions, with its definition."""
     return [
-        node
+        (node, definition)
         for definition in snapshot.get("definitions", {}).values()
         for node in definition["nodes"]
         if node["kind"] == NodeKind.AGENT
     ]
+
+
+def _tools(agent: Mapping[str, Any], definition: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The tool nodes attached to ``agent`` (edges to its Tools port), left to right as they are drawn, then by
+    name (ADR-040): the order the model sees them in does not depend on how the edges were stored."""
+    nodes = {n["id"]: n for n in definition["nodes"]}
+    found = []
+    for edge in definition["edges"]:
+        if edge["target_id"] != agent["id"] or edge["target_port"] != Ports.TOOLS:
+            continue
+        tool = nodes.get(edge["source_id"])
+        if tool is None:
+            continue
+        config = tool.get("config") or {}
+        found.append(
+            {
+                "node_id": tool["id"],
+                "name": tool["name"],
+                "kind": str(tool["kind"]),
+                "tool_name": str(config.get("tool_name") or "") or default_tool_name(tool["name"]),
+                "config": config,
+                "_at": (tool.get("x") or 0.0, tool["name"]),
+            }
+        )
+    found.sort(key=lambda t: t["_at"])
+    for tool in found:
+        del tool["_at"]
+    return found
 
 
 async def freeze_agents(session: AsyncSession, snapshot: dict[str, Any]) -> None:
@@ -97,9 +128,10 @@ async def freeze_agents(session: AsyncSession, snapshot: dict[str, Any]) -> None
     nodes = _agent_nodes(snapshot)
     if not nodes:
         return
-    wanted = {str(n["config"].get("agent_id")) for n in nodes if n["config"].get("agent_id")}
+    wanted = {str(n["config"].get("agent_id")) for n, _ in nodes if n["config"].get("agent_id")}
     agents = await published(session, wanted)
     providers = await load_providers(session)
-    for node in nodes:
+    for node, definition in nodes:
         agent = agents.get(str(node["config"].get("agent_id") or ""))
         node["agent"] = freeze(agent, node["config"], providers)
+        node["agent"]["tools"] = _tools(node, definition)

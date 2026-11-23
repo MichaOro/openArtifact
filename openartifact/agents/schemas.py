@@ -30,6 +30,7 @@ MAX_TOKENS_MIN, MAX_TOKENS_MAX = 1, 8192
 REQUEST_TIMEOUT_MIN, REQUEST_TIMEOUT_MAX, REQUEST_TIMEOUT_DEFAULT = 1, 300, 60
 TOTAL_TIMEOUT_MIN, TOTAL_TIMEOUT_MAX, TOTAL_TIMEOUT_DEFAULT = 1, 1800, 600
 RETRIES_MIN, RETRIES_MAX, RETRIES_DEFAULT = 0, 4, 3
+ITERATIONS_MIN, ITERATIONS_MAX, ITERATIONS_DEFAULT = 1, 50, 10
 
 #: The fields of an agent's configuration a node may set for itself (an override).
 OVERRIDABLE = (
@@ -43,6 +44,7 @@ OVERRIDABLE = (
     "request_timeout_seconds",
     "total_timeout_seconds",
     "retries",
+    "max_iterations",
 )
 
 
@@ -115,6 +117,8 @@ class AgentConfig(_Strict):
         default=TOTAL_TIMEOUT_DEFAULT, ge=TOTAL_TIMEOUT_MIN, le=TOTAL_TIMEOUT_MAX
     )
     retries: int = Field(default=RETRIES_DEFAULT, ge=RETRIES_MIN, le=RETRIES_MAX)
+    #: How many requests one run of the node may make while the model calls tools (ADR-040).
+    max_iterations: int = Field(default=ITERATIONS_DEFAULT, ge=ITERATIONS_MIN, le=ITERATIONS_MAX)
 
     @field_validator("system_prompt", "user_prompt")
     @classmethod
