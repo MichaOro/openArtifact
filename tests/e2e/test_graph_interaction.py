@@ -327,3 +327,39 @@ def test_the_fixed_nodes_offer_edit_but_no_delete_copy_or_cut(
     for name in ("Copy", "Cut", "Duplicate", "Delete"):
         expect(menu.get_by_role("menuitem", name=name)).to_have_attribute("aria-disabled", "true")
     expect(menu.get_by_role("menuitem", name="Edit")).not_to_have_attribute("aria-disabled", "true")
+
+
+def test_rename_asks_for_the_name_in_a_small_dialog_and_the_settings_have_one_title(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _action_with_two_code_nodes(page, base_url, api)
+    node = page.locator(".ge-node--code").first
+    node.hover(position={"x": 30, "y": 5})
+    node.get_by_role("button", name="More actions").click()
+    page.get_by_role("menuitem", name="Rename").click()
+    dialog = page.locator("#new-modal")  # the small name dialog, not the node's settings
+    expect(dialog).to_be_visible()
+    expect(page.locator("#node-modal")).not_to_be_visible()
+    expect(dialog.get_by_label("Name")).to_have_value("Code")
+    dialog.get_by_label("Name").fill("Fetch user")
+    dialog.get_by_role("button", name="Rename").click()
+    expect(dialog).not_to_be_visible()
+    expect(page.locator(".ge-node__name", has_text="Fetch user")).to_have_count(1)
+    eventually(lambda: any(n["name"] == "Fetch user" for n in _code_nodes(api, definition)), True)
+
+    # F2 does the same for the selected node
+    page.locator(".ge-node", has_text="Fetch user").click(position={"x": 30, "y": 5})
+    page.keyboard.press("F2")
+    expect(dialog.get_by_label("Name")).to_have_value("Fetch user")
+    page.keyboard.press("Escape")
+
+    # the settings show the name once, as the title that can be clicked to rename it in place
+    page.locator(".ge-node", has_text="Fetch user").dblclick(position={"x": 30, "y": 5})
+    settings = page.locator("#node-modal")
+    expect(settings.locator("h2:visible")).to_have_count(1)
+    expect(settings.locator("h2:visible")).to_have_text("Fetch user")
+    settings.locator("h2:visible").click()
+    field = settings.locator(".ge-inspector input").first
+    field.fill("Fetch the user")
+    field.press("Enter")
+    expect(page.locator(".ge-node__name", has_text="Fetch the user")).to_have_count(1)

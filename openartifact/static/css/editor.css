@@ -293,6 +293,12 @@
 
 /* inspector (the size of its heading is in components.css) */
 /* the content of the settings dialog: roomy, the dialog scrolls when it is long */
+/* the heading of the settings is the node's name (renamed in place): the dialog has no title of its own, only its close button, on the heading's line */
+#node-modal .modal__title { display: none; } /* still names the dialog for assistive technology (aria-labelledby) */
+#node-modal .modal__panel { position: relative; }
+#node-modal .modal__header { position: absolute; top: var(--space-4); right: var(--space-4); z-index: 2; padding: 0; }
+#node-modal .modal__body { padding-top: var(--space-5); }
+#node-modal .ge-inspector__heading { padding-right: 2.5rem; }
 #node-modal .modal__panel { --dialog-base-w: 44rem; width: min(52rem, calc(100vw - 2 * var(--space-4))); translate: none; }
 .ge-inspector {
   display: flex;
@@ -318,7 +324,7 @@
 }
 
 /* three equal buttons across the full width: New flush left with the select above, Delete flush right */
-.ge-actionbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.ge-actionbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-2); }
 .ge-actionbar .button { width: 100%; justify-content: center; gap: var(--space-1); padding: 0 var(--space-2); }
 .ge-actionbar .icon { width: 1rem; height: 1rem; }
 .ge-actionbar a.button[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }

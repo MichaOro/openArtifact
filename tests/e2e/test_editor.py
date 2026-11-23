@@ -590,8 +590,14 @@ def test_a_double_click_on_an_action_opens_its_settings_and_edit_there_opens_its
     shell.locator(".ge-node__name").dblclick()
     expect(page.locator("#node-modal")).to_be_visible()
     expect(page).to_have_url(f"{base_url}/pipelines/flow")  # the double click stays on this page
-    expect(page.locator(".ge-actionbar a")).to_have_attribute(
-        "aria-disabled", "true"
+    expect(page.locator(".ge-actionbar .button")).to_have_text(
+        ["New", "Delete"]
+    )  # no Edit here: Edit is the dialog itself
+    page.keyboard.press("Escape")
+    shell.hover(position={"x": 30, "y": 5})
+    shell.get_by_role("button", name="More actions").click()
+    expect(page.get_by_role("menu").get_by_role("menuitem", name="Open action")).to_have_count(
+        0
     )  # nothing to open yet
     page.keyboard.press("Escape")
     definition = _definition(api, "Gap analysis")
@@ -602,8 +608,12 @@ def test_a_double_click_on_an_action_opens_its_settings_and_edit_there_opens_its
                 json={"definition_id": definition["id"]},
             )
     page.reload()
-    page.locator(".ge-node--action").first.locator(".ge-node__name").dblclick()
-    page.locator(".ge-actionbar a", has_text="Edit").click()
+    first = page.locator(".ge-node--action").first
+    first.hover(position={"x": 30, "y": 5})
+    first.get_by_role("button", name="More actions").click()
+    page.get_by_role(
+        "menuitem", name="Open action"
+    ).click()  # the way to the definition is in the menu
     expect(page).to_have_url(re.compile(r"/actions/gap-analysis\?from=flow&"))
     expect(page.locator("[data-back]")).to_have_text("Back to Flow")
 
@@ -631,10 +641,7 @@ def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
     shell.locator(".ge-node__name").dblclick()
     expect(page.locator(".ge-inspector h2")).to_have_text("Action")
     expect(page.locator(".ge-inspector h3", has_text="Routing")).to_have_count(0)
-    expect(page.locator(".ge-actionbar .button")).to_have_text(["New", "Edit", "Delete"])
-    expect(page.locator(".ge-actionbar a")).to_have_attribute(
-        "aria-disabled", "true"
-    )  # nothing yet
+    expect(page.locator(".ge-actionbar .button")).to_have_text(["New", "Delete"])
     page.click(".ge-actionbar >> text=New")
     expect(page.locator("#new-modal")).to_be_visible()
     page.click("#new-modal [data-submit]")

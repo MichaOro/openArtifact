@@ -59,7 +59,7 @@ all together. A **double click** (or Enter on a focused node) opens the node's s
 the canvas. While an execution is shown (read-only), the left button still drags the view.
 
 Under a node a small bar appears on hover and while it is selected: a pencil (**Edit**, the same as a double click), a bin
-(**Delete**, after asking) and a menu (**⋯**, also opened by a right click on the node): Edit, Rename (F2), Copy (Ctrl+C), Cut
+(**Delete**, after asking) and a menu (**⋯**, also opened by a right click on the node): Edit, Rename (F2, a small dialog for the name; Edit opens the settings, where the title can also be clicked to rename it), Open action / Open pipeline (for a node that links to one), Copy (Ctrl+C), Cut
 (Ctrl+X), Duplicate (Ctrl+D) and Delete (Del). Ctrl+V pastes what was copied, also into another action or pipeline editor
 (pasted nodes keep their settings and the connections between them, get names like "Fetch copy", and a stage takes its
 actions along). The trigger, the output and the end are part of a graph: they are not copied and not deleted. There is no

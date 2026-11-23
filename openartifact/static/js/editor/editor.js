@@ -154,13 +154,12 @@ export class GraphEditor {
   }
 
   /** The settings of a node in an overlay: the node's title (renamed in place) and what its kind offers. */
-  #openSettings(node, { rename = false } = {}) {
+  #openSettings(node) {
     if (this.selection?.id !== node.id) this.select({ type: "node", id: node.id });
     this.settingsModal.dialog.querySelector(".modal__title").textContent = typeOf(node).label;
     this.inspector.render(this.selection);
     this.settingsModal.open();
     this.inspector.focusFirst();
-    if (rename) this.settingsModal.dialog.querySelector(".ge-inspector__heading h2")?.click(); // the title is edited in place
   }
 
   #renderInspector() {
@@ -375,7 +374,10 @@ export class GraphEditor {
     const renameReason = several ? "Select one node to rename it" : typeOf(node).renamable(node) ? undefined : "This node is named by what it links to";
     const items = [
       { label: "Edit", icon: "pencil", shortcut: "Enter", disabledReason: several ? "Select one node to edit it" : undefined, onSelect: () => this.#openSettings(node) },
-      { label: "Rename", icon: "tag", shortcut: "F2", disabledReason: renameReason, onSelect: () => this.#openSettings(node, { rename: true }) },
+      { label: "Rename", icon: "tag", shortcut: "F2", disabledReason: renameReason, onSelect: () => this.#askRename(node) },
+      ...(typeOf(node).links_to && node.definition_id && !several
+        ? [{ label: `Open ${typeOf(node).links_to}`, icon: typeOf(node).links_to === "action" ? "action" : "pipeline", onSelect: () => window.location.assign(this.#linkUrl(node, node.definition_slug)) }]
+        : []),
       { label: "Copy", icon: "copy", shortcut: "Ctrl+C", disabledReason: copyable ? undefined : reasonFixed, onSelect: () => this.#copy(targets) },
       { label: "Cut", icon: "copy", shortcut: "Ctrl+X", disabledReason: copyable && !fixed ? undefined : reasonFixed, onSelect: () => this.#cut(targets) },
       { label: "Duplicate", icon: "layers", shortcut: "Ctrl+D", disabledReason: copyable ? undefined : reasonFixed, onSelect: () => this.#duplicate(targets) },
@@ -401,8 +403,18 @@ export class GraphEditor {
       else this.#duplicate(chosen);
     } else if (event.key === "F2" && chosen.length === 1 && typeOf(chosen[0]).renamable(chosen[0])) {
       event.preventDefault();
-      this.#openSettings(chosen[0], { rename: true });
+      this.#askRename(chosen[0]);
     }
+  }
+
+  /** Rename a node in a small dialog of its own (the settings are Edit, not Rename). */
+  #askRename(node) {
+    this.nameDialog.open({
+      title: `Rename ${typeOf(node).label.toLowerCase()}`,
+      values: { name: node.name },
+      submitLabel: "Rename",
+      onSubmit: ({ name }) => this.#rename(node, name),
+    });
   }
 
   #deleteTargets(targets) {
