@@ -103,10 +103,22 @@ agent takes any number of tools; a tool belongs to one agent.
 | **MCP Client Tool** | the tools of a remote MCP server, with their own names, descriptions and parameters | endpoint (Streamable HTTP), secret with the token (sent as `Authorization: Bearer`), *Tools to include*: `all`, `selected` or `all_except` with one tool name per line, timeout per call (1 to 300 s, 60) |
 | **HTTP Request Tool** | one function with the parameters you declare | tool name and description, method, URL, headers, body, parameters (`name: description` per line), timeout (1 to 120 s, 30), success status |
 | **Code Tool** | one function with the parameters you declare | tool name and description, language (`sh`, `python`), code, secrets, parameters, timeout (1 to 600 s, 30) |
+| **Postgres Tool** | one function: your SQL statement, with the parameters you declare | tool name and description, secret with the connection URL, query, parameters, *Allow changes*, *Private network*, max rows (1 to 1000, 100), timeout (1 to 120 s, 30) |
 
 - **GitHub.** An MCP Client Tool with the endpoint `https://api.githubcopilot.com/mcp/` and a secret holding a personal
   access token. For an agent that only reads, choose *selected* and list the read tools (`get_issue`, `list_issues`,
-  ...); the tools the agent is not offered cannot be called.
+  ...); the tools the agent is not offered cannot be called. For a fixed step of a flow, without a model, there is the
+  [GitHub node](execution-nodes.md).
+- **The Postgres Tool** lets the model look something up in a database with a query *you* wrote: the statement uses
+  `$1`, `$2`, ... and the declared parameters, in the order you list them, are what the model fills in (`id: The number
+  of the ticket` is `$1`). The model's values are bound parameters, never part of the SQL text, so it cannot change the
+  query, only what it asks for. The statement runs read-only by the database's own enforcement unless you switch on
+  *Allow changes*; use a database role with only the privileges the tool needs. The answer to the model is
+  `{"rows": [...], "row_count": n, "truncated": bool}`, cut so that it stays under 15 KiB; an SQL error or a missing
+  parameter goes back as an `Error:` text. The rules for the connection URL (a secret), the network and the limits are
+  those of the [Postgres node](execution-nodes.md); the private-network permission is the providers' one
+  (`OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS` *and* the tool's switch). A tool whose placeholders and parameters do not
+  agree, or whose secret is missing, fails the node before its first request.
 - **Names.** The model calls a tool by its *Tool name* (empty: the node's name, made a valid name). When two tools
   have the same name (two MCP servers with a `search`), both get their tool node's name in front (`github_search`,
   `jira_search`).

@@ -79,7 +79,9 @@ many actions.
 | Switch | Compares one value with up to six cases, each with its own operator | Case 1 ... 6 or Else |
 | Edit Fields | Sets variables of the run from text and references, without code | On Pass or On Fail |
 | Agent | Asks a language model for an [agent](agents.md); the tools attached below it can be called by the model | On Pass or On Fail |
-| MCP Client Tool, HTTP Request Tool, Code Tool | A tool of an Agent node, attached to its *Tools* port; runs only when the model calls it | none (attached, not part of the flow) |
+| GitHub | Reads GitHub (repository, issues, pull requests, files, comments) and, if allowed, comments, without a model | On Pass or On Fail |
+| Postgres | Runs one SQL statement on a Postgres database, read-only unless changes are allowed; returns the rows as a list | On Pass or On Fail |
+| MCP Client Tool, HTTP Request Tool, Code Tool, Postgres Tool | A tool of an Agent node, attached to its *Tools* port; runs only when the model calls it | none (attached, not part of the flow) |
 
 Details in the [execution nodes guide](execution-nodes.md). Further kinds are added through a registry
 ([Extending](extending.md)).

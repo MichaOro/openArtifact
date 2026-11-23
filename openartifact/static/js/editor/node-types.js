@@ -428,6 +428,43 @@ class CodeToolView extends ToolView {
   }
 }
 
+/** The first line of a query that says something, cut for a card (a query may hold names; it never holds a secret). */
+function queryLine(config) {
+  const first = (config?.query ?? "").split("\n").find((line) => line.trim() !== "");
+  return first ? short(first.trim()) : "no query yet";
+}
+
+class GithubView extends ExecutionView {
+  static kind = "github";
+  static icon = "github";
+
+  /** The operation and the repository; Create comment says when it is switched off (it would fail). */
+  caption(node) {
+    const { operation = "Get repository", repository = "", allow_comments = false } = node.config ?? {};
+    const off = operation === "Create comment" && !allow_comments ? " (off)" : "";
+    return `${operation}${off} · ${repository.trim() ? short(repository.trim()) : "no repository yet"}`;
+  }
+}
+
+class PostgresView extends ExecutionView {
+  static kind = "postgres";
+  static icon = "database";
+
+  /** The query; "changes" in front when the node may change data. */
+  caption(node) {
+    return `${node.config?.allow_write ? "changes · " : ""}${queryLine(node.config)}`;
+  }
+}
+
+class PostgresToolView extends ToolView {
+  static kind = "postgres_tool";
+  static icon = "database";
+
+  caption(node) {
+    return `${this.toolName(node)} · ${node.config?.allow_write ? "changes · " : ""}${queryLine(node.config)}`;
+  }
+}
+
 /** `https://user:pw@example.org/hook?token=x#y` as `example.org/hook`. */
 function hostAndPath(url) {
   const plain = () => url.split(/[?#]/)[0].replace(/^[^/]*@/, "");
@@ -448,7 +485,7 @@ export function registerView(View) {
   VIEWS.set(View.kind, View);
 }
 
-[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView, IfView, SwitchView, AgentView, SetView, McpToolView, HttpToolView, CodeToolView].forEach(registerView);
+[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView, IfView, SwitchView, AgentView, SetView, GithubView, PostgresView, McpToolView, HttpToolView, CodeToolView, PostgresToolView].forEach(registerView);
 
 const TYPES = new Map();
 

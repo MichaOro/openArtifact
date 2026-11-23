@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-005](005-database-persistence.md), [ADR-007](007-docker-distribution.md), [ADR-009](009-technology-summary.md)  
-**Amended by:** —
+**Amended by:** [ADR-041](041-github-and-postgres-nodes.md) (the first connector: the Postgres node and tool)
 
 ## 1. Title
 

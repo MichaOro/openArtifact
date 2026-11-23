@@ -527,6 +527,35 @@ def test_uses_lists_only_nodes_that_name_the_secret_and_skips_a_broken_code_sett
     assert plain["node"]["id"] not in found.text
 
 
+def test_uses_lists_the_github_and_postgres_nodes_and_the_tools_of_agents_too(
+    secured: TestClient,
+) -> None:
+    """Deleting a secret a node still names breaks that node: every kind that names one must be listed."""
+    for name in ("GH_TOKEN", "DB_URL", "HTTP_KEY", "SCRIPT_KEY", "UNUSED"):
+        _put(secured, name)
+    github = _definition(secured, "github", secret="GH_TOKEN", repository="acme/tool")
+    postgres = _definition(secured, "postgres", secret="DB_URL", query="SELECT 1")
+    tools = _post(secured, "/api/actions", name="Tools")
+    made = {
+        kind: _node(secured, tools, kind, config=config)
+        for kind, config in (
+            ("postgres_tool", {"secret": "DB_URL", "query": "SELECT 1"}),
+            ("mcp_tool", {"secret": "GH_TOKEN", "url": "https://api.githubcopilot.com/mcp/"}),
+            ("http_tool", {"url": "https://example.org/", "headers": "X: ${secret:HTTP_KEY}"}),
+            ("code_tool", {"language": "sh", "code": "true", "secrets": "SCRIPT_KEY"}),
+        )
+    }
+
+    def users(name: str) -> list[str]:
+        return sorted(u["node_id"] for u in secured.get(f"/api/secrets/{name}/uses").json())
+
+    assert users("GH_TOKEN") == sorted([github["node"]["id"], made["mcp_tool"]["id"]])
+    assert users("DB_URL") == sorted([postgres["node"]["id"], made["postgres_tool"]["id"]])
+    assert users("HTTP_KEY") == [made["http_tool"]["id"]]
+    assert users("SCRIPT_KEY") == [made["code_tool"]["id"]]
+    assert users("UNUSED") == []
+
+
 def test_the_timestamps_of_a_replaced_secret_keep_created_and_move_updated(
     secured: TestClient,
 ) -> None:

@@ -187,6 +187,8 @@ class GraphRepository:
                         NodeKind.SWITCH,
                         NodeKind.AGENT,
                         NodeKind.SET,
+                        NodeKind.GITHUB,
+                        NodeKind.POSTGRES,
                     ]
                 ),
             )

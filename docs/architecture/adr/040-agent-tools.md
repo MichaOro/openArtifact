@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-037](037-agent-harness.md), [ADR-012](012-workflow-definition-editor.md)  
-**Amended by:** —  
+**Amended by:** [ADR-041](041-github-and-postgres-nodes.md) (the Postgres Tool)  
 **Implemented in:** migration `0035_tool_nodes`; `graph/node_types.py` (tool kinds, ports with a side), `agents/tool_config.py`, `agents/freeze.py`, `agents/mcp_client.py`, `agents/tools.py`, `agents/local_tools.py`, `agents/runtime.py` (the loop), `agents/client.py` (`tools`, `tool_calls`); the editor (`static/js/editor/`)
 
 ## 1. Title

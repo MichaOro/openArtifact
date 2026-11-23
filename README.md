@@ -73,6 +73,9 @@ More with examples: [Concepts](docs/guides/concepts.md). Terms of the architectu
   node that asks a model of OpenRouter or an OpenAI-compatible endpoint; tools attached below the node (an MCP server
   such as GitHub's, an HTTP request, code) let the model act in a bounded loop, as in n8n; the prompts as sent, the
   tool calls, the tokens and every attempt are in the history ([agents](docs/guides/agents.md)).
+- GitHub node (read a repository, issues, pull requests, files and comments; comment, behind its own switch) and Postgres
+  node (one SQL statement with bound parameters, read-only by default, the rows as a list), also as a Postgres Tool for
+  agents ([execution nodes](docs/guides/execution-nodes.md)).
 - Credential store: secrets are encrypted in the database and referenced by name from nodes, never returned by the API
   ([Credentials](docs/guides/credentials.md); API only, there is no UI for it yet).
 - Execution history per artifact with steps and outputs, retention policy (default keep 50), delete and clear
@@ -106,8 +109,8 @@ Frontend: Jinja2 templates, CSS design tokens and vanilla JavaScript, no build s
 
 ## Status and limitations
 
-- Pre-release, version `0.1.x`. The application's own data stays in SQLite; PostgreSQL may later come only as a data source
-  through a connector layer, not as the application database.
+- Pre-release, version `0.1.x`. The application's own data stays in SQLite; PostgreSQL comes only as a data source
+  (the Postgres node and tool), not as the application database.
 - **No sandbox for Code nodes.** Code runs as the application's user, with resource limits, without network or file system
   isolation. The application is hardened against Code reading its parent's environment (API token and secret key), but anyone who
   may edit a pipeline can run code in the container. Give edit access only to people you trust.

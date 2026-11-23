@@ -69,6 +69,9 @@ class NodeKind(enum.StrEnum):
     MCP_TOOL = "mcp_tool"
     HTTP_TOOL = "http_tool"
     CODE_TOOL = "code_tool"
+    GITHUB = "github"
+    POSTGRES = "postgres"
+    POSTGRES_TOOL = "postgres_tool"
 
 
 class ProviderKind(enum.StrEnum):

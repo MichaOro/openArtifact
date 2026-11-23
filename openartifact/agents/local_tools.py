@@ -32,9 +32,12 @@ from openartifact.engine.http_runner import (
     guarded_exchange,
     parse_headers,
 )
+from openartifact.engine.postgres_runner import PostgresError, bind_values, run_query
 from openartifact.graph.node_types import parse_status_spec
 from openartifact.models import NodeKind
 
+#: The rows of a Postgres Tool answer, so that the answer (the rows as JSON) stays under the tool result limit.
+TOOL_ANSWER_LIMIT_BYTES = 15 * 1024
 _PLACEHOLDER = re.compile(r"\{([a-z][a-z0-9_]{0,31})\}")
 
 
@@ -44,6 +47,8 @@ def secret_names(kind: str, config: Mapping[str, Any]) -> list[str]:
         return list(names_in(*(str(config.get(k) or "") for k in ("url", "headers", "body"))))
     if kind == NodeKind.CODE_TOOL:
         return list(parse_name_lines(str(config.get("secrets") or "")))
+    if kind == NodeKind.POSTGRES_TOOL:
+        return list(parse_name_lines(str(config.get("secret") or "")))
     return []
 
 
@@ -214,5 +219,60 @@ def build_code_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
     )
 
 
+def build_postgres_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
+    """The Postgres Tool of a frozen tool node (ADR-041): the author's statement, the model's values as its
+    parameters (``$1`` is the first declared parameter); :class:`ValueError` when it cannot be used."""
+    config = frozen.get("config") or {}
+    declared = parse_parameters(str(config.get("parameters") or ""))
+    secret = str(config.get("secret") or "").strip()
+    query = str(config.get("query") or "")
+    if not secret:
+        raise ValueError("No secret with the connection URL is set")
+    if not query.strip():
+        raise ValueError("The query is empty")
+    try:
+        bind_values(query, ["x"] * len(declared))  # the placeholders and the parameters must agree
+    except PostgresError as error:
+        raise ValueError(str(error)) from None
+    url = context.secrets.get(secret)
+    if not url:
+        raise ValueError(f"The secret {secret} is not available")
+    allow_write = bool(config.get("allow_write"))
+    allow_private = bool(config.get("allow_private")) and context.allow_private_networks
+    timeout = float(config.get("timeout_seconds") or 30)
+    max_rows = int(config.get("max_rows") or 100)
+    names = list(declared)
+
+    async def run(arguments: dict[str, Any]) -> str:
+        for name in names:
+            if arguments.get(name) is None:
+                return f"Error: the parameter {name} is missing"
+        try:
+            result = await run_query(
+                url,
+                query,
+                [_text(arguments[name]) for name in names],
+                allow_write=allow_write,
+                allow_private=allow_private,
+                timeout=timeout,
+                max_rows=max_rows,
+                max_bytes=TOOL_ANSWER_LIMIT_BYTES,
+            )
+        except PostgresError as error:
+            return f"Error: {error}"
+        return json.dumps(
+            {"rows": result.rows, "row_count": result.row_count, "truncated": result.truncated},
+            ensure_ascii=False,
+        )
+
+    return Tool(
+        str(frozen.get("tool_name") or "tool"),
+        str(config.get("description") or ""),
+        _schema(declared),
+        run,
+    )
+
+
 LOCAL_TOOLS[NodeKind.HTTP_TOOL] = build_http_tool
 LOCAL_TOOLS[NodeKind.CODE_TOOL] = build_code_tool
+LOCAL_TOOLS[NodeKind.POSTGRES_TOOL] = build_postgres_tool

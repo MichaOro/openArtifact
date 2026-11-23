@@ -1242,8 +1242,320 @@ class CodeToolType(_ToolType):
     )
 
 
+# ── GitHub and Postgres (ADR-041) ────────────────────────────────────
+
+GITHUB_OPERATIONS = (
+    "Get repository",
+    "List issues",
+    "Get issue",
+    "List pull requests",
+    "Get pull request",
+    "Get pull request diff",
+    "List pull request files",
+    "Get file",
+    "List comments",
+    "Create comment",
+)
+GITHUB_REPOSITORY = re.compile(r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}")
+MAX_QUERY_VALUES = 100
+
+
+def _check_not_secret(value: str) -> None:
+    """A value of the run is put into a request, a comment or a query: never a secret."""
+    if "${secret" in value:
+        raise SettingError(
+            "${secret:NAME} cannot be used in this setting: a secret is not a value of the run"
+        )
+    _check_text_references(value)
+
+
+def _check_repository(value: str) -> None:
+    _check_not_secret(value)
+    text = value.strip()
+    if text and "${" not in text and not GITHUB_REPOSITORY.fullmatch(text):
+        raise SettingError("A repository is written owner/name")
+
+
+def _check_number(value: str) -> None:
+    _check_not_secret(value)
+    text = value.strip()
+    if text and "${" not in text and not re.fullmatch(r"[0-9]{1,9}", text):
+        raise SettingError("A number is a whole number such as 42")
+
+
+def _check_file_path(value: str) -> None:
+    _check_not_secret(value)
+    if ".." in value.replace("\\", "/").split("/"):
+        raise SettingError("A path must not contain '..'")
+
+
+def _check_query(value: str) -> None:
+    """The SQL is a fixed text: values come in as parameters, never as text of the statement."""
+    if "${" in value:
+        raise SettingError(
+            "Put values in with $1, $2 and the Values list; a ${...} reference is never "
+            "made part of the query text"
+        )
+
+
+def _check_query_values(value: str) -> None:
+    _check_not_secret(value)
+    if len(value.splitlines()) > MAX_QUERY_VALUES:
+        raise SettingError(f"At most {MAX_QUERY_VALUES} values")
+
+
+def _connection_secret(help_text: str) -> Setting:
+    return Setting(
+        "secret",
+        "Secret with the connection URL",
+        "text",
+        default="",
+        max_length=64,
+        placeholder="TICKETS_DB",
+        stored_in="config",
+        help=help_text,
+        check=_references(_check_secret_name),
+    )
+
+
+_QUERY = Setting(
+    "query",
+    "Query",
+    "code",
+    default="",
+    max_length=CODE_MAX_CHARS,
+    placeholder="SELECT id, title FROM tickets WHERE status = $1 LIMIT 20",
+    stored_in="config",
+    help=(
+        "One SQL statement. Values go in as parameters: $1, $2, ... (never ${...} in the text). "
+        "Stored in plain text, so no passwords in here."
+    ),
+    check=_check_query,
+)
+
+_ALLOW_WRITE = Setting(
+    "allow_write",
+    "Allow changes",
+    "switch",
+    default=False,
+    stored_in="config",
+    help=(
+        "Off (the default): the statement runs in a read-only transaction that is rolled back, so "
+        "the database refuses any change. On: it may change data and is committed when it succeeds. "
+        "Use a database role that has only the privileges the statement needs."
+    ),
+)
+
+_MAX_ROWS = Setting(
+    "max_rows",
+    "Max rows",
+    "integer",
+    minimum=1,
+    maximum=1000,
+    default=100,
+    stored_in="config",
+    help="More rows are left out and the result says it is truncated.",
+)
+
+
+class GithubType(_ExecutionType):
+    """Reads GitHub (repository, issues, pull requests, files, comments) and comments, without a model."""
+
+    kind = NodeKind.GITHUB
+    label = "GitHub"
+    reference_keys = ("repository", "number", "path", "ref", "comment")
+    settings = (
+        Setting(
+            "operation",
+            "Operation",
+            "select",
+            default="Get repository",
+            options=GITHUB_OPERATIONS,
+            stored_in="config",
+            help="What the node does. Settings the operation does not use are ignored.",
+        ),
+        Setting(
+            "repository",
+            "Repository",
+            "text",
+            default="",
+            max_length=200,
+            placeholder="owner/name",
+            stored_in="config",
+            references="context",
+            help="owner/name, for every operation. May hold ${node...} or ${var...}.",
+            check=_check_repository,
+        ),
+        Setting(
+            "number",
+            "Number",
+            "text",
+            default="",
+            max_length=40,
+            stored_in="config",
+            references="context",
+            help="The number of the issue or pull request (get, comments, files, diff).",
+            check=_check_number,
+        ),
+        Setting(
+            "path",
+            "File path",
+            "text",
+            default="",
+            max_length=500,
+            placeholder="docs/README.md",
+            stored_in="config",
+            references="context",
+            help="Get file: the path in the repository (a folder lists its files).",
+            check=_check_file_path,
+        ),
+        Setting(
+            "ref",
+            "Branch, tag or commit",
+            "text",
+            default="",
+            max_length=200,
+            stored_in="config",
+            references="context",
+            help="Get file: empty is the default branch.",
+            check=_check_not_secret,
+        ),
+        Setting(
+            "state",
+            "State",
+            "select",
+            default="open",
+            options=("open", "closed", "all"),
+            stored_in="config",
+            help="List issues and List pull requests.",
+        ),
+        Setting(
+            "limit",
+            "Limit",
+            "integer",
+            minimum=1,
+            maximum=100,
+            default=30,
+            stored_in="config",
+            help="The most items a list returns (one page, the newest first).",
+        ),
+        Setting(
+            "comment",
+            "Comment",
+            "lines",
+            default="",
+            max_length=20000,
+            stored_in="config",
+            references="context",
+            help="Create comment: the text, may hold ${node...} or ${var...}; no secrets.",
+            check=_check_not_secret,
+        ),
+        Setting(
+            "allow_comments",
+            "Allow comments",
+            "switch",
+            default=False,
+            stored_in="config",
+            help=(
+                "Create comment writes to GitHub: it only runs when this is on. Every other "
+                "operation reads."
+            ),
+        ),
+        Setting(
+            "secret",
+            "Secret with the token",
+            "text",
+            default="",
+            max_length=64,
+            placeholder="GITHUB_TOKEN",
+            stored_in="config",
+            help="The name of a stored secret with a personal access token. Empty: no token "
+            "(public data, a low rate limit).",
+            check=_references(_check_secret_name),
+        ),
+        Setting(
+            "api_url",
+            "API address",
+            "text",
+            default="https://api.github.com",
+            max_length=500,
+            stored_in="config",
+            help="GitHub Enterprise: https://HOST/api/v3. A private address needs "
+            "OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS.",
+            check=_tool_rule(tool_config.check_endpoint),
+        ),
+        _timeout(30, 120),
+        ON_FAILURE,
+    )
+
+
+class PostgresType(_ExecutionType):
+    """Runs one SQL statement on a Postgres database: read-only unless changes are allowed."""
+
+    kind = NodeKind.POSTGRES
+    label = "Postgres"
+    reference_keys = ("values",)
+    settings = (
+        _connection_secret(
+            "The name of a stored secret that holds postgresql://user:password@host:5432/db "
+            "(add ?sslmode=require for TLS). The URL is never kept in the node."
+        ),
+        _QUERY,
+        Setting(
+            "values",
+            "Values",
+            "lines",
+            default="",
+            max_length=20000,
+            placeholder="open",
+            stored_in="config",
+            references="context",
+            help=(
+                "One value per line: the first is $1, the second $2, ... Text; the database "
+                "converts it to the type the query expects. ${node...} and ${var...} insert earlier "
+                "results; no secrets. Use NULLIF($1, '') for a NULL."
+            ),
+            check=_check_query_values,
+        ),
+        _ALLOW_WRITE,
+        Setting(
+            "allow_private",
+            "Private network",
+            "switch",
+            default=False,
+            stored_in="config",
+            help="The database is on a private or local network. Counts only when the operator "
+            "allows it too (OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS).",
+        ),
+        _MAX_ROWS,
+        _timeout(30, 120),
+        ON_FAILURE,
+    )
+
+
+class PostgresToolType(_ToolType):
+    """One SQL statement the model calls with parameters ($1 is the first declared parameter)."""
+
+    kind = NodeKind.POSTGRES_TOOL
+    label = "Postgres Tool"
+    settings = (
+        *_tool_identity("Name the parameters the query takes below: the first is $1."),
+        _connection_secret(
+            "The name of a stored secret that holds postgresql://user:password@host:5432/db."
+        ),
+        _QUERY,
+        _PARAMETERS,
+        _ALLOW_WRITE,
+        _ALLOW_PRIVATE,
+        _MAX_ROWS,
+        _timeout(30, 120),
+    )
+
+
 #: The kinds of tool nodes.
-TOOL_KINDS = frozenset({NodeKind.MCP_TOOL, NodeKind.HTTP_TOOL, NodeKind.CODE_TOOL})
+TOOL_KINDS = frozenset(
+    {NodeKind.MCP_TOOL, NodeKind.HTTP_TOOL, NodeKind.CODE_TOOL, NodeKind.POSTGRES_TOOL}
+)
 
 
 NODE_TYPES: dict[NodeKind, NodeType] = {}
@@ -1283,8 +1595,11 @@ for _type in (
     SwitchType(),
     AgentType(),
     SetType(),
+    GithubType(),
+    PostgresType(),
     McpToolType(),
     HttpToolType(),
     CodeToolType(),
+    PostgresToolType(),
 ):
     register(_type)
