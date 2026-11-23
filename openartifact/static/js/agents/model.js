@@ -156,3 +156,10 @@ export function optionsOf(config) {
   const limits = config.limits_enabled ?? Object.entries(LIMIT_DEFAULTS).some(([key, value]) => (config[key] ?? null) !== value);
   return { system_prompt: Boolean(config.system_prompt_enabled), inputs, limits };
 }
+
+/** The grey example in a Quick test field: the input's default, else its description, else a value of its type. */
+export function sampleHint(input) {
+  if (input.default !== null && input.default !== undefined && input.default !== "") return `e.g. ${input.default}`;
+  if (input.description) return `e.g. ${input.description}`;
+  return { number: "e.g. 3", boolean: "e.g. true" }[input.type] ?? "e.g. Login fails after the update";
+}

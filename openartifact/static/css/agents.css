@@ -49,22 +49,24 @@
 .ag-head__icon .icon { width: 1.6rem; height: 1.6rem; }
 .ag-head__main { display: grid; gap: var(--space-1); flex: 1; min-width: 0; }
 .ag-save { display: grid; gap: var(--space-2); justify-items: end; }
-.ag-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: var(--space-4); align-items: start; }
-.ag-main { display: grid; gap: var(--space-3); min-width: 0; }
-.ag-side { display: grid; gap: var(--space-4); align-content: start; }
-/* the tabs as a bar of their own, with icons */
-.ag-tabs {
-  justify-self: start;
-  max-width: 100%;
-  overflow-x: auto;
-  padding: var(--space-1) var(--space-2) 0;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  background: var(--glass-bg);
+/* the tabs sit above the active area only, so Status & info starts level with it */
+.ag-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  grid-template-areas: "tabs ." "main side";
+  gap: var(--space-3) var(--space-4);
+  align-items: start;
 }
-.ag-tabs .task-tab { padding: var(--space-2) var(--space-3); white-space: nowrap; }
-.ag-tabs .task-tab .icon { width: 1rem; height: 1rem; }
-.ag-tabs .task-tab[aria-selected="true"] { background: var(--accent-soft); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.ag-tabs { grid-area: tabs; justify-self: start; }
+.ag-card--panels { grid-area: main; min-width: 0; }
+.ag-side { grid-area: side; display: grid; gap: var(--space-4); align-content: start; }
+.ag-quick { display: grid; gap: var(--space-3); }
+.ag-quick[hidden] { display: none; }
+.ag-quick__values { display: grid; gap: var(--space-2); }
+.ag-quick__values:empty { display: none; }
+.ag-quick__run { justify-self: stretch; color: var(--color-accent); border-color: var(--accent-ring); }
+.ag-quick__run .icon { width: 1rem; height: 1rem; }
+.ag-quick .ag-pre { max-height: 14rem; }
 .ag-card--panels { padding: 0; }
 .ag-panel { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
 .ag-panel[hidden] { display: none; }
@@ -110,7 +112,7 @@
 @media (max-width: 1000px) {
   .ag-head__row { flex-wrap: wrap; }
   .ag-save { justify-items: start; }
-  .ag-workspace { grid-template-columns: 1fr; }
+  .ag-workspace { grid-template-columns: 1fr; grid-template-areas: "tabs" "main" "side"; }
   .ag-input { grid-template-columns: 1fr 1fr; }
 }
 

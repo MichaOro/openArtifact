@@ -18,8 +18,9 @@ optional areas when switched on.
 
 - **Layout (full width, after the owner's mock):** a header (back, the agent's icon, name, rename, chips, description,
   Save / Discard / Publish), a bar of tabs with icons above the active area, and on the right a *Status & info* card
-  (Active, version, draft, used by, created, updated) and the *Options* accordion. *Prompts* and *Versions & use* are always tabs; *Inputs*,
-  *Model & Limits* and *Quick test* are tabs only while their option is on; the system prompt shows inside *Prompts*.
+  (Active, version, draft, used by, created, updated), the *Options* accordion and, while switched on, the *Quick test*
+  card (example values for the inputs with a grey example of what goes in, *Run preview*). *Prompts* and *Versions & use* are always tabs; *Inputs*
+  and *Model & Limits* are tabs only while their option is on; the system prompt shows inside *Prompts*.
   Switching an option on does not jump to its tab; switching off the tab that is shown goes back to *Prompts*.
 - **Off means kept but not in effect** (the owner's choice, as the system prompt already worked): the backend has
   defaults, and switching an area on lets the agent override them. `AgentConfig` gains `inputs_enabled` and

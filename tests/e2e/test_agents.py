@@ -223,7 +223,11 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
     # the preview fills the prompt with an example and sends nothing
     llm.hits.clear()
     _option(editor, "test")
-    _tab(editor, "Quick test")
+    quick = editor.locator("[data-quick-test]")
+    expect(quick).to_be_visible()  # a card on the right, not a tab
+    expect(quick.get_by_label("Example for ticket")).to_have_attribute(
+        "placeholder", "e.g. Login fails after the update"
+    )  # a grey example of what goes in
     editor.get_by_label("Example for ticket").fill("T-42")
     editor.locator("[data-preview]").click()
     result = editor.locator("[data-preview-result]")
@@ -434,6 +438,10 @@ def test_the_sidebar_stays_in_place_while_a_long_page_scrolls(
         "() => window.scrollY > 0 || document.querySelector('.main').scrollTop > 0"
     )
     box, head = sidebar.bounding_box(), header.bounding_box()
+    # Status & info starts level with the active area (no staircase under the tab bar)
+    main_card = page.locator(".ag-card--panels").bounding_box()
+    status = page.locator(".ag-status").bounding_box()
+    assert main_card and status and abs(main_card["y"] - status["y"]) < 1
     assert box and head
     assert box["y"] == 0 and box["height"] == 420  # the navigation still fills the window
     assert head["y"] == 0  # and so does the header
@@ -465,7 +473,8 @@ def test_a_new_agent_shows_only_the_prompts_and_the_options_switch_areas_on_and_
     _option(editor, "inputs")
     _option(editor, "limits")
     _option(editor, "test")
-    assert _tabs(editor) == ["Prompts", "Inputs", "Model & Limits", "Quick test", "Versions & use"]
+    assert _tabs(editor) == ["Prompts", "Inputs", "Model & Limits", "Versions & use"]
+    expect(editor.locator("[data-quick-test]")).to_be_visible()
     expect(editor.get_by_role("tab", name="Prompts")).to_have_attribute(
         "aria-selected", "true"
     )  # no jump
@@ -485,7 +494,7 @@ def test_a_new_agent_shows_only_the_prompts_and_the_options_switch_areas_on_and_
     expect(editor.locator(".ag-input").get_by_label("Name", exact=True)).to_have_value("ticket")
     panel.locator("[data-options-toggle]").click()  # closing the panel changes nothing
     expect(panel).to_have_attribute("data-state", "closed")
-    assert len(_tabs(editor)) == 5
+    assert len(_tabs(editor)) == 4
 
 
 def test_the_switches_are_kept_with_the_draft_and_quick_test_and_the_panel_are_not(

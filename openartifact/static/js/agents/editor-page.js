@@ -14,7 +14,7 @@ import { Tabs } from "../components/tabs.js";
 import { connectEvents } from "../tasks/events.js";
 import { formatTime } from "../tasks/history-format.js";
 import { agentUses, discardDraft, getAgent, listProviders, previewAgent, publishAgent, republishVersion, saveDraft, updateAgent } from "./api.js";
-import { agentChips, fieldLabel, numberOf, optionsOf, providerInEffect, usableModels } from "./model.js";
+import { agentChips, fieldLabel, numberOf, optionsOf, providerInEffect, sampleHint, usableModels } from "./model.js";
 import { chip, configFacts, el, previewView, problemList } from "./view.js";
 
 const root = document.querySelector("[data-agent-editor]");
@@ -38,24 +38,26 @@ let fieldCount = 0;
 // ── tabs and options ───────────────────────────────────────────────────
 
 const tabs = new Tabs($("[data-ag-tabs]"));
-const TAB_OF = { inputs: "inputs", limits: "limits", test: "test" };
+const TAB_OF = { inputs: "inputs", limits: "limits" };
 const options = new OptionsPanel(
   $("[data-options]"),
   [
     { key: "system_prompt", label: "System prompt", help: "Adds a system prompt below the user prompt. Switched off it is kept but not sent." },
     { key: "inputs", label: "Inputs", help: "Values the agent needs from a run, used as ${input.NAME}. Switched off they are kept but the agent has none." },
     { key: "limits", label: "Model & Limits", help: "Choose the provider, the model and the limits. Switched off they are kept and the defaults apply." },
-    { key: "test", label: "Quick test", help: "Preview the prompts with example values. Not saved: it is off whenever this page opens." },
+    { key: "test", label: "Quick test", help: "Fill the prompts with example values for the inputs. Not saved: it is off whenever this page opens." },
   ],
   (key, on) => {
     showOption(key, on);
+    if (key === "inputs") renderSamples();
     if (key !== "test") changed(); // the other switches are part of the draft
   },
 );
 
-/** Show what an option switches: the system prompt field, or a tab (activating does not jump to it). */
+/** Show what an option switches: the system prompt field, the Quick test card, or a tab (activating does not jump to it). */
 function showOption(key, on) {
   if (key === "system_prompt") $("[data-system-field]").hidden = !on;
+  else if (key === "test") $("[data-quick-test]").hidden = !on;
   else tabs.setVisible(TAB_OF[key], on);
 }
 
@@ -167,23 +169,23 @@ function fillForm(config) {
   renderSamples();
 }
 
-/** Example values for the preview: one field per input, what was typed is kept. */
+/** Example values for the Quick test: one field per input with a grey example of what goes in; what was typed is kept. */
 function renderSamples() {
   const host = $("[data-preview-values]");
   const typed = Object.fromEntries([...host.querySelectorAll("[data-sample]")].map((input) => [input.dataset.sample, input.value]));
+  const inputs = options.get("inputs") ? readInputs().filter((input) => input.name) : [];
+  $("[data-quick-empty]").hidden = inputs.length > 0;
   host.replaceChildren(
-    ...readInputs()
-      .filter((input) => input.name)
-      .map((input) => {
-        const wrap = el("div", "field");
-        const field = Object.assign(el("input", "field__control"), { type: "text", value: typed[input.name] ?? "", autocomplete: "off" });
-        field.id = `ag-sample-${input.name}`;
-        field.dataset.sample = input.name;
-        const label = el("label", "field__label", `Example for ${input.name}${input.required ? " *" : ""}`);
-        label.htmlFor = field.id;
-        wrap.append(label, field);
-        return wrap;
-      }),
+    ...inputs.map((input) => {
+      const wrap = el("div", "field");
+      const field = Object.assign(el("input", "field__control"), { type: "text", value: typed[input.name] ?? "", autocomplete: "off", placeholder: sampleHint(input) });
+      field.id = `ag-sample-${input.name}`;
+      field.dataset.sample = input.name;
+      const label = el("label", "field__label", `Example for ${input.name}${input.required ? " *" : ""}`);
+      label.htmlFor = field.id;
+      wrap.append(label, field);
+      return wrap;
+    }),
   );
 }
 

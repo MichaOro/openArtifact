@@ -37,13 +37,11 @@
     <div class="ag-notice glass" role="status" data-notice hidden></div>
 
     <div class="ag-workspace">
-        <div class="ag-main">
             {# Tabs (components/tabs.js): Prompts and Versions always; the others only while their option is on. #}
-            <div class="task-tabs ag-tabs" role="tablist" aria-label="Agent" data-ag-tabs>
+            <div class="tab-bar ag-tabs" role="tablist" aria-label="Agent" data-ag-tabs>
                 <button type="button" class="task-tab" role="tab" id="ag-tab-prompts" data-tab="prompts" aria-controls="ag-panel-prompts" aria-selected="true">{{ icon("message") }}<span>Prompts</span></button>
                 <button type="button" class="task-tab" role="tab" id="ag-tab-inputs" data-tab="inputs" aria-controls="ag-panel-inputs" aria-selected="false" hidden>{{ icon("layers") }}<span>Inputs</span></button>
                 <button type="button" class="task-tab" role="tab" id="ag-tab-limits" data-tab="limits" aria-controls="ag-panel-limits" aria-selected="false" hidden>{{ icon("settings") }}<span>Model &amp; Limits</span></button>
-                <button type="button" class="task-tab" role="tab" id="ag-tab-test" data-tab="test" aria-controls="ag-panel-test" aria-selected="false" hidden>{{ icon("play") }}<span>Quick test</span></button>
                 <button type="button" class="task-tab" role="tab" id="ag-tab-versions" data-tab="versions" aria-controls="ag-panel-versions" aria-selected="false">{{ icon("list") }}<span>Versions &amp; use</span></button>
             </div>
 
@@ -105,15 +103,6 @@
                 <p class="field__help">A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds. The time limit of the node covers all attempts and waits. With tools attached, Max iterations is how many requests a node may make while the model calls tools.</p>
             </section>
 
-            <section class="ag-panel" role="tabpanel" id="ag-panel-test" aria-labelledby="ag-tab-test" hidden>
-                <p class="field__help">Shows the prompts as they would be sent, with example values for the inputs. No request is sent to a model. The example values stay while this page is open; they are not saved.</p>
-                <div class="ag-grid" data-preview-values></div>
-                <div class="ag-save__buttons ag-save__buttons--start">
-                    <button type="button" class="button button--ghost button--sm" data-preview>Preview draft</button>
-                </div>
-                <div class="ag-preview" data-preview-result hidden></div>
-            </section>
-
             <section class="ag-panel" role="tabpanel" id="ag-panel-versions" aria-labelledby="ag-tab-versions" hidden>
                 <h3 class="ag-panel__title">Versions</h3>
                 <p class="field__help">A published version is never changed. Publishing an earlier version again makes a new version with its content.</p>
@@ -124,7 +113,6 @@
                 <p class="ge-inspector__note" data-uses-empty hidden>No agent node uses this agent yet.</p>
             </section>
             </div>
-        </div>
 
         <div class="ag-side">
             <section class="ag-card glass ag-status" aria-labelledby="ag-status-title">
@@ -152,6 +140,15 @@
                     {{ icon("chevron-down", "options-panel__chevron") }}
                 </button>
                 <div class="options-panel__body" data-options-body hidden></div>
+            </section>
+            {# Quick test: only while its option is on; nothing of it is saved. #}
+            <section class="ag-card glass ag-quick" aria-labelledby="ag-quick-title" data-quick-test hidden>
+                <h3 class="ag-panel__heading" id="ag-quick-title">Quick test</h3>
+                <p class="field__help">Example values for the agent's inputs, as an agent node would map them from a run (a text, a number, true or false; not an artifact id). The prompts are filled with them; no request is sent to a model.</p>
+                <p class="field__help" data-quick-empty hidden>This agent has no inputs: the preview shows the prompts as they are.</p>
+                <div class="ag-quick__values" data-preview-values></div>
+                <button type="button" class="button button--ghost ag-quick__run" data-preview>{{ icon("play") }} Run preview</button>
+                <div class="ag-preview" data-preview-result hidden></div>
             </section>
         </div>
     </div>

@@ -6,6 +6,7 @@ import { test } from "node:test";
 import {
   OVERRIDES,
   optionsOf,
+  sampleHint,
   toolCallRows,
   agentChips,
   agentFacts,
@@ -177,4 +178,12 @@ test("the optional areas are switched on as the backend reads them: a stored swi
   assert.deepEqual(optionsOf({ system_prompt_enabled: true, inputs: [{ name: "a" }], temperature: 0.2 }), { system_prompt: true, inputs: true, limits: true });
   assert.equal(optionsOf({ inputs: [], retries: 1, request_timeout_seconds: 60, total_timeout_seconds: 600, max_iterations: 10 }).limits, true); // a limit that differs counts
   assert.deepEqual(optionsOf({ inputs: [{ name: "a" }], temperature: 0.2, inputs_enabled: false, limits_enabled: false }), { system_prompt: false, inputs: false, limits: false }); // switched off, data kept
+});
+
+test("the grey example of a Quick test field says what goes in", () => {
+  assert.equal(sampleHint({ type: "string", default: "none" }), "e.g. none");
+  assert.equal(sampleHint({ type: "string", default: null, description: "the ticket text" }), "e.g. the ticket text");
+  assert.equal(sampleHint({ type: "number", default: null }), "e.g. 3");
+  assert.equal(sampleHint({ type: "boolean" }), "e.g. true");
+  assert.equal(sampleHint({ type: "string" }), "e.g. Login fails after the update");
 });

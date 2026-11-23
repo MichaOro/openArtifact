@@ -51,7 +51,7 @@ the host), structured output, streaming, fallback chains, budgets.
 The page shows what the agent needs (ADR-045). The header holds the name, the state of the draft and *Save draft*,
 *Discard draft* and *Publish*. *Prompts* and *Versions & use* are always there; **Options** on the right (closed when the
 page opens) switches the rest on: *System prompt* (a field below the user prompt), *Inputs* and *Model & Limits* (a tab
-each) and *Quick test* (a tab for the preview). A switched-off area is **kept but not in effect**: the defaults of the
+each) and *Quick test* (a card on the right: example values for the inputs, the prompts filled with them). A switched-off area is **kept but not in effect**: the defaults of the
 backend apply (default provider and model, the default limits), and inputs switched off are none. The switches are part
 of the draft; *Quick test* is not saved and is off whenever the page opens.
 
