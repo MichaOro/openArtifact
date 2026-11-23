@@ -163,6 +163,7 @@ const fieldRail = new FieldRail({
   nav: cardNav,
   save: (id, values) => updateTask(id, { fields: values }),
   onSaved: (task) => board.upsert(task),
+  onLayout: () => artifactDialog.refit(), // the dialog grows with its navigation, as it does with its text
 });
 
 // The board's menu next to "Add lane": the artifact fields every artifact has.

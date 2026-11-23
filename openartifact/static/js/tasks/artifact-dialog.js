@@ -177,6 +177,12 @@ export class ArtifactDialog extends FormDialog {
     this.onSaved(saved);
   }
 
+  /** Size the dialog again from its content: the rail got taller or shorter (the fields opened or closed). A
+   * dialog of a saved artifact grows with what it holds, up to the window; beyond that the body or the rail scrolls. */
+  refit() {
+    if (this.modal.isOpen && this.panel.classList.contains("modal__panel--fit")) this.#fit();
+  }
+
   /** Size the dialog from the content of the artifact just opened; view and edit keep that size. */
   /** Size the dialog once from its content (see .modal__panel--fit): the smallest height whose
    * resulting width (0.62 x height, within the limits) lets the content fit, at most 90 % of the window. */

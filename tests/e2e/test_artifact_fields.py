@@ -116,6 +116,56 @@ def test_a_wrong_value_is_shown_under_its_field(board: Board) -> None:
     assert _fields_of(board, task) == {}
 
 
+def _many(count: int) -> list[dict[str, Any]]:
+    return [{"name": f"f{i}", "label": f"Field {i}", "kind": "text"} for i in range(count)]
+
+
+def test_the_dialog_grows_with_its_navigation_and_shrinks_again(board: Board) -> None:
+    """The fields below "Fields" make the rail taller: the dialog takes the height instead of scrolling the rail."""
+    _define(board, _many(4))
+    board.create("Card")
+    board.open()
+    page = board.page
+    page.set_viewport_size({"width": 1400, "height": 1100})
+    dialog = board.open_card("Card")
+    rail = dialog.root.locator("[data-card-nav]")
+    panel = dialog.root.locator(".modal__panel")
+    page.evaluate("() => localStorage.clear()")
+    if rail.get_attribute("data-state") != "expanded":
+        rail.locator("[data-card-nav-toggle]").click()
+    closed = panel.bounding_box()
+    assert closed
+    rail.locator("[data-nav-group-toggle]").click()
+    expect(rail.locator(".card-field")).to_have_count(4)
+    page.wait_for_timeout(300)
+    opened = panel.bounding_box()
+    assert opened and opened["height"] > closed["height"] + 20  # it grew
+    assert rail.evaluate(
+        "e => e.scrollHeight <= e.clientHeight + 1"
+    )  # and the rail has no scroll bar
+    rail.locator("[data-nav-group-toggle]").click()  # closed again: it shrinks back
+    page.wait_for_timeout(300)
+    shrunk = panel.bounding_box()
+    assert shrunk and abs(shrunk["height"] - closed["height"]) < 2
+
+
+def test_beyond_the_window_the_dialog_stops_growing_and_the_rail_scrolls(board: Board) -> None:
+    _define(board, _many(14))
+    board.create("Card")
+    board.open()
+    page = board.page
+    page.set_viewport_size({"width": 1400, "height": 800})
+    dialog = board.open_card("Card")
+    rail = dialog.root.locator("[data-card-nav]")
+    if rail.get_attribute("data-state") != "expanded":
+        rail.locator("[data-card-nav-toggle]").click()
+    rail.locator("[data-nav-group-toggle]").click()
+    page.wait_for_timeout(300)
+    box = dialog.root.locator(".modal__panel").bounding_box()
+    assert box and box["height"] <= 800 * 0.9 + 2  # never more than the window allows
+    assert rail.evaluate("e => e.scrollHeight > e.clientHeight")  # the rest scrolls
+
+
 def test_with_the_rail_collapsed_the_fields_open_beside_the_icon_like_the_other_entries(
     board: Board,
 ) -> None:

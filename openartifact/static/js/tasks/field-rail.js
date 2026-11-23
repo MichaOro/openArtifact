@@ -21,11 +21,12 @@ export class FieldRail {
    * @param {import("../components/collapsible-nav.js").CollapsibleNav} options.nav the rail's open and closed state
    * @param {(id: string, values: object) => Promise<object>} options.save sends {name: value} of one artifact
    * @param {(task: object) => void} options.onSaved the artifact as the server answered
+   * @param {() => void} [options.onLayout] the rail got taller or shorter: the dialog sizes itself again
    */
-  constructor({ rail, nav, save, onSaved }) {
+  constructor({ rail, nav, save, onSaved, onLayout = () => {} }) {
     Object.assign(this, { nav, save, onSaved });
     this.root = rail.querySelector("[data-field-rail]");
-    this.group = new NavGroup(this.root.querySelector("[data-nav-group=fields]"), nav);
+    this.group = new NavGroup(this.root.querySelector("[data-nav-group=fields]"), nav, { onLayout });
     this.list = this.group.list;
     this.fields = [];
     this.task = null;

@@ -9,10 +9,13 @@ export class NavGroup {
   /**
    * @param {HTMLElement} root the `[data-nav-group]` element
    * @param {import("./collapsible-nav.js").CollapsibleNav} nav the rail it sits in
+   * @param {{onLayout?: () => void}} [hooks] onLayout: the rail's height changed (the sub-entries came or went), so a
+   *   dialog that is sized from its content can grow or shrink with it
    */
-  constructor(root, nav) {
+  constructor(root, nav, { onLayout = () => {} } = {}) {
     this.root = root;
     this.nav = nav;
+    this.onLayout = onLayout;
     this.toggle = root.querySelector("[data-nav-group-toggle]");
     this.list = root.querySelector("[data-nav-group-list]");
     this.mode = null; // "inline" | "popover" | null (closed)
@@ -43,6 +46,7 @@ export class NavGroup {
   /** The sub-entries (the page's own elements). */
   fill(...entries) {
     this.list.replaceChildren(...entries);
+    if (this.mode === "inline") this.onLayout();
   }
 
   #click() {
@@ -56,6 +60,7 @@ export class NavGroup {
     this.root.classList.add("is-open");
     this.list.hidden = false;
     if (this.mode === "popover") this.#popover();
+    else this.onLayout();
   }
 
   /** The list leaves the rail (it is clipped there) and floats beside the icon, inside the open dialog. */
@@ -70,6 +75,7 @@ export class NavGroup {
 
   close({ restoreFocus = true } = {}) {
     if (!this.mode) return;
+    const was = this.mode;
     this.mode = null;
     this.list.hidden = true;
     this.list.classList.remove("nav-popover");
@@ -78,5 +84,6 @@ export class NavGroup {
     this.toggle.setAttribute("aria-expanded", "false");
     this.root.classList.remove("is-open");
     if (restoreFocus) this.toggle.focus();
+    if (was === "inline") this.onLayout();
   }
 }

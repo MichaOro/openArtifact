@@ -36,7 +36,9 @@ order was changed with arrow buttons; a choice held one value. The owner asked f
   `components/nav.html`, `components/nav-group.js`): the same section and list classes as a link with sub-entries in the
   main navigation, filled by the page, hidden until fields exist. With the rail open the fields hang below it, indented;
   with the rail collapsed a click opens them as a popover beside the icon, like the Lane entry opens its list. Each field
-  shows its reference (`${card.NAME}`). The rail scrolls when the fields are more than the dialog is high.
+  shows its reference (`${card.NAME}`). The dialog of a saved artifact is sized from its content (text and rail): opening or closing the fields, or a change
+  of the field list while they are open, sizes it again (`ArtifactDialog.refit`), so it grows with its navigation as it
+  does with its text, up to 90 % of the window; only beyond that the rail scrolls.
 - **References while editing:** the `${` suggestions of the node editors offer the fields as `card.NAME`; the node keeps
   the reference as typed, and a run's context (History) shows what it resolved to.
 
