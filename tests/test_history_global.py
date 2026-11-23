@@ -512,3 +512,32 @@ def test_migration_0025_adds_the_indexes_and_goes_down_and_up(
         assert conn.execute("SELECT count(*) FROM executions").fetchone() == (1,)  # data untouched
     command.upgrade(cfg, "head")
     assert _indexes(path) >= INDEXES
+
+
+# ── deleting several at once ─────────────────────────────────────────
+
+
+def test_several_executions_of_different_artifacts_are_deleted_at_once_and_a_running_one_stays(
+    client: TestClient, seed: Seed
+) -> None:
+    a, b = make_task(client, "Alpha"), make_task(client, "Beta")
+    done_a = seed.add(a, at=BASE, status="done")
+    failed_b = seed.add(b, at=BASE + timedelta(hours=1), status="failed")
+    running = seed.add(b, at=BASE + timedelta(hours=2), status="running")
+    kept = seed.add(a, at=BASE + timedelta(hours=3), status="done")
+
+    response = client.post(
+        "/api/executions/delete",
+        json={"ids": [done_a, failed_b, running, "no-such-id", done_a]},
+    )
+    assert response.status_code == 200, response.text
+    # the duplicate counts once, the unknown id is simply gone already, the running one is refused and named
+    assert response.json() == {"deleted": 2, "skipped_running": 1}
+    assert set(_ids(_list(client))) == {running, kept}
+
+
+def test_deleting_several_needs_ids_and_not_too_many(client: TestClient) -> None:
+    assert client.post("/api/executions/delete", json={"ids": []}).status_code == 422
+    assert client.post("/api/executions/delete", json={}).status_code == 422
+    too_many = client.post("/api/executions/delete", json={"ids": [str(i) for i in range(501)]})
+    assert too_many.status_code == 422

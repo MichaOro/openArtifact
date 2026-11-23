@@ -3,18 +3,21 @@
  * updated in place; an execution that is not shown only raises the "new executions" hint). Deleting goes
  * through the artifact's own endpoint after a confirmation. The one place that writes is that delete. */
 import { AlertBar } from "../components/alert-bar.js";
+import { BulkBar } from "../components/bulk-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { Modal } from "../components/modal.js";
+import { Selection } from "../components/selection.js";
 import { connectEvents } from "../tasks/events.js";
 import { deleteExecution } from "../tasks/history-api.js";
 import { plural } from "../tasks/history-format.js";
-import { listAllExecutions } from "./api.js";
+import { deleteExecutions, listAllExecutions } from "./api.js";
 import { FilterBar } from "./filter-bar.js";
 import { Filters } from "./filters.js";
 import { SummaryStrip } from "./summary.js";
 import { ExecutionTable } from "./table.js";
 
 const COUNTS_MS = 300;
+const BATCH = 500; // the most executions one delete request takes
 const root = document.querySelector("[data-executions]");
 const $ = (selector) => root.querySelector(selector);
 
@@ -43,7 +46,27 @@ class ExecutionsPage {
     this.emptyMatch = $("[data-empty-match]");
     this.confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
 
-    this.table = new ExecutionTable({ body: $("[data-rows]"), onDelete: (execution) => this.#confirmDelete(execution) });
+    this.everything = false; // every execution the filters match is selected, not only the ones shown
+    this.busy = false;
+    this.selection = new Selection(() => this.#renderBulk());
+    this.selectAll = $("[data-select-all]");
+    this.bulk = new BulkBar($("[data-bulk]"), "execution", {
+      onClear: () => this.#clearSelection(),
+      onAll: () => this.#selectEverything(),
+      onDelete: () => this.#confirmBulkDelete(),
+    });
+    this.selectAll.addEventListener("change", () => {
+      this.everything = false;
+      this.selection.set(this.selectAll.checked ? this.table.selectableIds : []);
+    });
+    this.table = new ExecutionTable({
+      body: $("[data-rows]"),
+      onDelete: (execution) => this.#confirmDelete(execution),
+      onSelect: (id, on) => {
+        this.everything = false;
+        this.selection.toggle(id, on);
+      },
+    });
     this.summary = new SummaryStrip($(".ex-summary"), (filters) => this.#select(filters));
     this.bar = new FilterBar($("[data-filters]"), (filters) => this.#select(filters, { fromBar: true }));
 
@@ -88,6 +111,7 @@ class ExecutionsPage {
       const page = await listAllExecutions(this.filters.toQuery({ limit: this.pageSize }));
       if (token !== this.token) return;
       this.table.replace(page.items);
+      this.#clearSelection();
       this.cursor = page.next_cursor;
       this.total = page.total;
       this.knownTotal = page.summary.total;
@@ -115,6 +139,8 @@ class ExecutionsPage {
       const page = await listAllExecutions(this.filters.toQuery({ limit: this.pageSize, cursor: this.cursor }));
       if (token !== this.token) return;
       const rows = this.table.append(page.items.filter((item) => !this.deleted.has(item.id)));
+      if (this.everything) this.selection.set(this.table.selectableIds);
+      this.table.markSelected(this.selection);
       this.cursor = page.next_cursor;
       this.total = page.total;
       this.summary.render(page.summary);
@@ -225,11 +251,80 @@ class ExecutionsPage {
     });
   }
 
+  // ── several at once ─────────────────────────────────────────────────
+
+  #clearSelection() {
+    this.everything = false;
+    this.selection.clear();
+    this.#renderBulk();
+  }
+
+  /** "Select all N": every execution the filters match, also the ones on pages not loaded yet. */
+  #selectEverything() {
+    this.everything = true;
+    this.selection.set(this.table.selectableIds);
+    this.#renderBulk();
+  }
+
+  #renderBulk() {
+    const shown = this.table.selectableIds;
+    const state = this.selection.stateOf(shown);
+    this.selectAll.checked = state.checked;
+    this.selectAll.indeterminate = state.indeterminate;
+    this.table.markSelected(this.selection);
+    const offerAll = state.checked && this.total > this.table.size;
+    this.bulk.render(this.selection.size, { total: this.total, offerAll, everything: this.everything, busy: this.busy });
+  }
+
+  /** The ids of everything the filters match (finished ones), page after page. */
+  async #matchingIds() {
+    const ids = [];
+    let cursor = null;
+    do {
+      const page = await listAllExecutions(this.filters.toQuery({ limit: 200, cursor }));
+      ids.push(...page.items.filter((item) => item.status !== "running").map((item) => item.id));
+      cursor = page.next_cursor;
+    } while (cursor);
+    return ids;
+  }
+
+  #confirmBulkDelete() {
+    const everything = this.everything;
+    const count = everything ? this.total : this.selection.size;
+    this.confirm.open({
+      title: "Delete executions",
+      message: everything ? "Delete all {subject} that match the filters? This cannot be undone." : "Delete the {subject}? This cannot be undone.",
+      subject: everything ? plural(count, "execution") : plural(count, "selected execution"),
+      note: "Their steps are deleted with them. A running execution is not deleted.",
+      onConfirm: async () => {
+        this.busy = true;
+        this.#renderBulk();
+        try {
+          const ids = everything ? await this.#matchingIds() : [...this.selection.ids];
+          let deleted = 0;
+          let skipped = 0;
+          for (let at = 0; at < ids.length; at += BATCH) {
+            const done = await deleteExecutions(ids.slice(at, at + BATCH));
+            deleted += done.deleted;
+            skipped += done.skipped_running;
+          }
+          this.#announce(`${plural(deleted, "execution")} deleted${skipped ? `, ${skipped} running skipped` : ""}`);
+          await this.load();
+        } finally {
+          this.busy = false;
+          this.#renderBulk();
+        }
+      },
+      onClose: () => this.table.focus(this.table.size ? [...this.table.entries.keys()][0] : null),
+    });
+  }
+
   /** Drop the row everywhere; returns the id of the row to focus next. */
   #removeRow(execution) {
     this.deleted.add(execution.id);
     const next = this.table.neighbour(execution.id);
     this.table.remove(execution.id);
+    this.selection.toggle(execution.id, false);
     this.total = Math.max(0, this.total - 1);
     this.knownTotal = Math.max(0, (this.knownTotal ?? 1) - 1);
     this.#render();

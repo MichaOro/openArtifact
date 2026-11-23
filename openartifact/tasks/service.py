@@ -319,6 +319,30 @@ class ArtifactService:
             await session.commit()
         self._engine.history.publish(changes)
 
+    async def delete_executions(self, ids: list[str]) -> tuple[int, int]:
+        """Delete the finished ones among these executions, whatever artifact they belong to; returns
+        ``(deleted, skipped_running)``. An unknown id is already gone; a running execution is never touched."""
+        wanted = list(dict.fromkeys(ids))
+        async with self._session() as session:
+            rows = (
+                await session.execute(
+                    select(Execution.id, Execution.task_id, Execution.status).where(
+                        Execution.id.in_(wanted)
+                    )
+                )
+            ).all()
+            skipped = sum(1 for row in rows if row.status == RunStatus.RUNNING)
+            by_task: dict[str, list[str]] = {}
+            for row in rows:
+                if row.status != RunStatus.RUNNING:
+                    by_task.setdefault(row.task_id, []).append(row.id)
+            changes = Changes()
+            for task_id, execution_ids in by_task.items():
+                await self._engine.history.remove(session, task_id, execution_ids, changes)
+            await session.commit()
+        self._engine.history.publish(changes)
+        return sum(len(v) for v in by_task.values()), skipped
+
     async def clear_executions(self, ref: str) -> int:
         """Delete every finished execution of the artifact (the running one stays); returns how many."""
         async with self._session() as session:

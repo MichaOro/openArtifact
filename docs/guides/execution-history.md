@@ -89,6 +89,12 @@ with filters (status, origin, pipeline name or id, a text over artifact title, p
 artifact number, a time range), counters (running, failed and done in the last 24 hours, total), paging by
 cursor and live updates. Each row has links to the artifact, the pipeline (while it exists) and the flow view; `?page_size=N` (1 to 200) sets how many rows a request fetches. The page loads through `GET /api/executions`.
 
+**Deleting several at once.** Every finished row has a checkbox (a running one is disabled); the header checkbox
+selects everything shown. A bar appears with the count, *Clear selection* and *Delete selected*; when more executions
+match the filters than are shown, *Select all N* reaches the ones on pages not loaded yet. The delete asks first and
+removes the executions with their steps through `POST /api/executions/delete` (`{"ids": [...]}`, 1 to 500 per request,
+any artifacts); a running execution is never deleted and is reported as `skipped_running`.
+
 ## API and agents
 
 | Purpose | Browser API | Integration API (`/api/v1`) | MCP tool |

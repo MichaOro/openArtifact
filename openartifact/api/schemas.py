@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class HealthRead(BaseModel):
@@ -94,6 +94,21 @@ class PipelineChainRead(BaseModel):
     name: str
     slug: str
     stages: list[ChainEntryRead]
+
+
+class ExecutionsDelete(BaseModel):
+    """``POST /api/executions/delete``: the executions to delete, by id (several artifacts at once)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ids: list[str] = Field(min_length=1, max_length=500)
+
+
+class ExecutionsDeleted(BaseModel):
+    """What a delete of several executions did: those deleted, and those refused because they are still running."""
+
+    deleted: int
+    skipped_running: int
 
 
 class DeletedCount(BaseModel):

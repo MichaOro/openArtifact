@@ -114,7 +114,9 @@ def test_every_execution_of_every_artifact_newest_first(
     expect(page.locator("table.ex-table caption")).to_have_text(
         "Executions of all artifacts, newest first"
     )
-    expect(page.locator("table.ex-table th[scope=col]")).to_have_count(10)
+    expect(page.locator("table.ex-table th[scope=col]")).to_have_count(
+        11
+    )  # a select column and ten more
     expect(rows.nth(2).locator("[data-note]")).to_contain_text("failed")
     time = rows.first.locator("time")
     assert (time.get_attribute("datetime") or "").endswith("Z")
@@ -594,3 +596,74 @@ def test_the_board_opens_the_artifact_of_the_url(
     page.goto(f"{secured_url}/?artifact=9999")
     expect(page.locator(".board .task-card")).to_have_count(2)
     expect(page.locator("#create-task-modal")).to_be_hidden()
+
+
+# ── several at once ───────────────────────────────────────────────────
+
+
+def test_rows_are_selected_one_by_one_or_all_and_deleted_together(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    made = _seed(api)
+    start(api, made["a"], made["slow"])
+    wait_executions(api, made["a"], ["running", "failed", "done"])
+    rows = _open(page, secured_url)
+    bar = page.locator("[data-bulk]")
+    expect(bar).to_be_hidden()  # nothing selected, no bar
+    expect(
+        rows.first.locator("[data-select]")
+    ).to_be_disabled()  # the running one cannot be deleted
+
+    rows.nth(1).locator("[data-select]").check()
+    rows.nth(2).locator("[data-select]").check()
+    expect(bar).to_be_visible()
+    expect(page.locator("[data-bulk-count]")).to_have_text("2 selected")
+    expect(rows.nth(1)).to_have_class(re.compile(r"is-selected"))
+    expect(page.locator("[data-select-all]")).to_have_js_property("indeterminate", True)
+    expect(page.locator("[data-bulk-all]")).to_be_hidden()  # not everything shown is selected yet
+    # a click on a checkbox does not open the row
+    assert "/executions" in page.url and "/artifacts/" not in page.url
+
+    page.locator("[data-select-all]").check()  # everything shown that can go
+    expect(page.locator("[data-bulk-count]")).to_have_text(
+        "4 selected"
+    )  # the running row is not in it
+    expect(rows.first.locator("[data-select]")).not_to_be_checked()
+    page.locator("[data-bulk-clear]").click()
+    expect(bar).to_be_hidden()
+
+    rows.nth(1).locator("[data-select]").check()
+    rows.nth(2).locator("[data-select]").check()
+    page.locator("[data-bulk-delete]").click()
+    dialog = page.locator("#confirm-modal")
+    expect(dialog).to_contain_text("Delete the 2 selected executions?")
+    dialog.get_by_role("button", name="Cancel").click()
+    expect(rows).to_have_count(5)
+
+    page.locator("[data-bulk-delete]").click()
+    dialog.get_by_role("button", name="Delete").click()
+    expect(rows).to_have_count(3)
+    expect(page.locator("[data-live]")).to_have_text("2 executions deleted")
+    expect(bar).to_be_hidden()
+    expect(page.locator("[data-count]")).to_have_text("3 executions")
+    remaining = sum(len(executions(api, task)) for task in (made["a"], made["b"]))
+    assert remaining == 3
+
+
+def test_select_all_deletes_every_finished_execution_and_a_running_one_survives(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    made = _seed(api)
+    start(api, made["a"], made["slow"])
+    wait_executions(api, made["a"], ["running", "failed", "done"])
+    rows = _open(page, secured_url, "?q=Alpha")  # only artifact A's executions
+    expect(rows).to_have_count(3)
+    page.locator("[data-select-all]").check()
+    expect(page.locator("[data-bulk-count]")).to_have_text("2 selected")
+    expect(
+        page.locator("[data-bulk-all]")
+    ).to_be_hidden()  # all matches are shown: nothing more to reach
+    page.locator("[data-bulk-delete]").click()
+    page.locator("#confirm-modal").get_by_role("button", name="Delete").click()
+    expect(rows).to_have_count(1)  # the running execution stays
+    expect(rows.first.locator(".history-chip")).to_have_text("Running")

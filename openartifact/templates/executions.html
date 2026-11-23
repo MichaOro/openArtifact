@@ -70,6 +70,14 @@
         <p class="ex-bar__count" role="status" aria-live="polite" data-count>Loading executions...</p>
         <button type="button" class="button button--primary button--sm" data-new hidden></button>
     </div>
+    {# The bulk bar (static/js/components/bulk-bar.js): shown while rows are selected. #}
+    <div class="bulk-bar glass" data-bulk role="region" aria-label="Selected executions" hidden>
+        <span class="bulk-bar__count" data-bulk-count role="status" aria-live="polite"></span>
+        <button type="button" class="button button--ghost button--sm" data-bulk-all hidden></button>
+        <span class="bulk-bar__spacer"></span>
+        <button type="button" class="button button--ghost button--sm" data-bulk-clear>Clear selection</button>
+        <button type="button" class="button button--danger button--sm" data-bulk-delete>{{ icon("trash") }}<span>Delete selected</span></button>
+    </div>
 
     <div class="ex-list" data-list aria-busy="true">
         <div class="ex-scroll">
@@ -77,6 +85,7 @@
             <caption class="visually-hidden">Executions of all artifacts, newest first</caption>
             <thead>
                 <tr>
+                    <th scope="col" class="ex-select"><input type="checkbox" data-select-all aria-label="Select all shown executions"></th>
                     <th scope="col">Status</th>
                     <th scope="col">Artifact</th>
                     <th scope="col">Execution</th>
@@ -111,6 +120,7 @@
 
 <template id="ex-row-template">
     <tr class="ex-row">
+        <td class="ex-row__select"><input type="checkbox" data-select></td>
         <td class="ex-row__status" data-label="Status"><span class="history-chip"><span data-chip-icon></span><span data-chip-text></span></span></td>
         <td class="ex-row__artifact" data-label="Artifact"><a class="ex-link" data-artifact></a></td>
         <td class="ex-row__number" data-label="Execution"><a class="ex-link ex-link--open" data-open></a></td>

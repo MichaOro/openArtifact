@@ -17,8 +17,9 @@ export class ExecutionTable {
    * @param {HTMLElement} options.body the <tbody>
    * @param {(execution: object) => void} options.onDelete the delete button of a row was pressed
    * @param {(url: string) => void} options.onNavigate a click on the row itself (not on a link or button)
+   * @param {(id: string, on: boolean) => void} [options.onSelect] a row's checkbox was changed
    */
-  constructor({ body, onDelete, onNavigate = (url) => window.location.assign(url) }) {
+  constructor({ body, onDelete, onNavigate = (url) => window.location.assign(url), onSelect = () => {} }) {
     this.body = body;
     this.template = document.getElementById("ex-row-template");
     /** @type {Map<string, {execution: object, row: HTMLElement}>} */
@@ -26,7 +27,13 @@ export class ExecutionTable {
     this.clock = new RunningClock(() => {
       for (const { execution, row } of this.entries.values()) if (execution.status === "running") fillDuration(row.querySelector("[data-duration]"), execution);
     });
+    body.addEventListener("change", (event) => {
+      const box = event.target.closest("[data-select]");
+      const row = box?.closest(".ex-row");
+      if (row) onSelect(row.dataset.executionId, box.checked);
+    });
     body.addEventListener("click", (event) => {
+      if (event.target.closest(".ex-row__select")) return; // a checkbox is no way to open the row
       const row = event.target.closest(".ex-row");
       const entry = row && this.entries.get(row.dataset.executionId);
       if (!entry) return;
@@ -49,6 +56,20 @@ export class ExecutionTable {
 
   get(id) {
     return this.entries.get(id)?.execution;
+  }
+
+  /** The ids of the rows shown that can be selected (a running execution cannot be deleted). */
+  get selectableIds() {
+    return [...this.entries.values()].filter(({ execution }) => execution.status !== "running").map(({ execution }) => execution.id);
+  }
+
+  /** Show which rows are selected (checkboxes and row look). */
+  markSelected(selection) {
+    for (const [id, { row }] of this.entries) {
+      const on = selection.has(id);
+      row.classList.toggle("is-selected", on);
+      row.querySelector("[data-select]").checked = on;
+    }
   }
 
   /** Replace everything shown. */
@@ -122,6 +143,10 @@ export class ExecutionTable {
   #fill({ execution: e, row }) {
     row.dataset.executionId = e.id;
     row.dataset.status = e.status;
+    const box = row.querySelector("[data-select]");
+    box.disabled = e.status === "running";
+    box.title = box.disabled ? "A running execution cannot be deleted" : "";
+    box.setAttribute("aria-label", `Select execution #${e.number} of #${e.task.number}`);
     setChip(row.querySelector(".history-chip"), e.status);
     const artifact = row.querySelector("[data-artifact]");
     artifact.textContent = `#${e.task.number} ${e.task.title}`;

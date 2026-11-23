@@ -200,6 +200,7 @@ values together are at most 4 KiB. The refusal for a typo:
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
 | GET | `/api/executions` | All artifacts' executions, filters and keyset paging (as `/api/v1/executions`) | 422 |
+| POST | `/api/executions/delete` | Delete the finished executions among `ids` (1 to 500, any artifacts); a running one is skipped: `{deleted, skipped_running}` | 422 |
 | GET | `/api/tasks/{task_id}/executions` | One artifact's executions with policy | 404 |
 | DELETE | `/api/tasks/{task_id}/executions` | Delete every finished execution (a running one stays); answers `{"deleted": n}` | 404 |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}` | One execution with all steps and its run `context` (variables and the latest result of each node) | 404 |

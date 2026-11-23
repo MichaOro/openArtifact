@@ -1,6 +1,7 @@
 """The global execution list (``GET /api/executions``), the browser's view over all artifacts.
 
-Deleting stays with the artifact (``DELETE /api/tasks/{id}/executions/{execution_id}``). The same list
+Deleting one stays with the artifact (``DELETE /api/tasks/{id}/executions/{execution_id}``); ``POST /api/executions/delete``
+deletes several, of any artifacts, at once (the list page's bulk action). The same list
 is offered to scripts as ``GET /api/v1/executions`` and to agents as the MCP tool ``list_all_executions``.
 """
 
@@ -12,6 +13,7 @@ from fastapi import APIRouter, Query
 
 from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import ServiceDep
+from openartifact.api.schemas import ExecutionsDelete, ExecutionsDeleted
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.engine.schemas import ExecutionsPage
 
@@ -59,3 +61,16 @@ async def list_all_executions(
         limit=limit,
         cursor=cursor,
     )
+
+
+@router.post(
+    "/delete",
+    response_model=ExecutionsDeleted,
+    summary="Delete several executions",
+    responses=errors(422, write=True, body=True),
+)
+async def delete_executions(payload: ExecutionsDelete, service: ServiceDep) -> ExecutionsDeleted:
+    """Delete the finished executions among ``ids`` (1 to 500, of any artifacts) with their steps. A running
+    execution is not deleted and counted in ``skipped_running``; an id that does not exist is already gone."""
+    deleted, skipped = await service.delete_executions(payload.ids)
+    return ExecutionsDeleted(deleted=deleted, skipped_running=skipped)
