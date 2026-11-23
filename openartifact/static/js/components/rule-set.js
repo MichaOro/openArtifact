@@ -59,7 +59,7 @@ export class RuleSet {
 
   #card(rule, index) {
     const card = make("section", "rs-rule");
-    card.setAttribute("aria-label", `Rule ${index + 1}`);
+    card.setAttribute("aria-label", t("components.rule_set.rule", { number: index + 1 }));
     const head = make("div", "rs-rule__head");
     const bin = make("button", "icon-button icon-button--sm is-danger");
     bin.type = "button";
@@ -67,7 +67,7 @@ export class RuleSet {
     bin.setAttribute("aria-label", t("components.rule_set.remove_rule", { number: index + 1 }));
     bin.append(icon("trash"));
     bin.addEventListener("click", () => this.#change(this.rules.filter((_, i) => i !== index)));
-    head.append(make("h3", "rs-rule__title", `Rule ${index + 1}`), bin);
+    head.append(make("h3", "rs-rule__title", t("components.rule_set.rule", { number: index + 1 })), bin);
 
     const when = make("div", "rs-rule__when");
     const builder = new RuleBuilder(when, this.schema, {

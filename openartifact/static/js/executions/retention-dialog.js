@@ -104,7 +104,7 @@ export class RetentionDialog extends ActionDialog {
         if (turn !== this.turn) return;
         const effect = model.effectOf(SCHEMA, rules, perRule);
         this.preview.hidden = matching === 0;
-        this.preview.textContent = tn("executions.retention_dialog.preview", matching, { effect: effect || t("executions.retention_dialog.applies_rules") });
+        this.preview.textContent = effect === "deletes" ? tn("executions.retention_dialog.preview_deletes", matching) : tn("executions.retention_dialog.preview_applies", matching);
         const doomed = rules.some((r, i) => perRule[i] > 0 && r.action === "delete");
         this.label.textContent = matching ? (doomed && effect === "deletes" ? t("executions.retention_dialog.save_delete_matching", { matching }) : t("executions.retention_dialog.save_apply")) : t("common.save");
       } catch {

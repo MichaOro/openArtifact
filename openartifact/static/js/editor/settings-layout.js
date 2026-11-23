@@ -137,7 +137,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     details.dataset.group = group;
     const first = settings[0];
     const used = type.groupUsed?.(node, group) ?? String(settingValue(node, first) ?? "").trim() !== "";
-    details.append(Object.assign(make("summary"), { textContent: used ? group : `${group} (empty)` }), ...rows);
+    details.append(Object.assign(make("summary"), { textContent: used ? group : t("editor.settings_layout.group_empty", { group }) }), ...rows);
     details.open = used || first.key.endsWith("_1");
     return [details];
   };

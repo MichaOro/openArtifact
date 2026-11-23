@@ -64,7 +64,7 @@ export class FilterBar {
       this.custom.querySelector("[data-custom-text]").textContent = t("executions.filter_bar.custom_range", { range: parts.filter(Boolean).join(" ") });
     }
     const count = filters.activeCount;
-    this.activeBadge.textContent = count ? `${count} active` : "";
+    this.activeBadge.textContent = count ? t("executions.filter_bar.active_count", { count }) : "";
     for (const button of this.resets) if (!button.closest("[data-empty-match]")) button.hidden = !filters.active;
   }
 

@@ -154,7 +154,7 @@ function confirmDelete(task) {
         if (error.status !== 404) throw error;
       }
       board.remove(task.id);
-      board.announce(`${task.title} deleted`);
+      board.announce(t("tasks.main.artifact_deleted", { title: task.title }));
     },
   });
 }

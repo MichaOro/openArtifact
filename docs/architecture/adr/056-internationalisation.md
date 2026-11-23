@@ -18,7 +18,7 @@ later) to be maintainable in one place, without a build step and without breakin
 - **English is the source and the default.** One flat JSON dictionary per language (`locales/<code>.json`, dot-namespaced
   keys, `{name}` placeholders, `key.one` / `key.other` for plurals). The languages that exist are the files that exist.
 - **Fallback chain** requested language, then English, then the key itself: a missing translation is never an error and a
-  page is never empty. A language starts as a skeleton and grows.
+  page is never empty. A language may start as a skeleton and grow; German ships complete (a test fails when an English key has no German text), the other languages are held to nothing.
 - **The language of a request:** the cookie `oa_lang` (set by the switcher in the header), else `Accept-Language` (the first
   visit), else English. No user accounts: the choice is per browser. `<html lang>` follows it.
 - **Server:** `t` / `plural` as Jinja globals (they read a context variable set just before a template renders, so macros

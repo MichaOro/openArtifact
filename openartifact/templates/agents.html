@@ -7,7 +7,7 @@
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
 <link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
 {% block content %}
-{{ alert("Agents could not be loaded.") }}
+{{ alert(t('agents.list_page.agents_could_not_be_loaded')) }}
 <div class="action-row">
     <button type="button" class="button button--primary" data-new-agent>{{ icon("plus") }} {{ t('agents.new_agent') }}</button>
 </div>
@@ -27,7 +27,7 @@
     </li>
 </template>
 
-{{ form_modal("name-modal", "New agent", [
+{{ form_modal("name-modal", t('agents.new_agent'), [
     {"name": "name", "label": t('common.name'), "kind": "text", "required": True, "maxlength": 100},
     {"name": "description", "label": t('common.description'), "kind": "textarea", "rows": 3, "maxlength": 2000, "hint": t('common.optional')},
 ]) }}

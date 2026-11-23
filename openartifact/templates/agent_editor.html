@@ -9,7 +9,7 @@
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
 <link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
 {% block content %}
-{{ alert("The agent could not be loaded.") }}
+{{ alert(t('agents.editor_page.agent_could_not_be_loaded')) }}
 <div class="ag-editor" data-agent-editor data-agent-ref="{{ agent_ref }}" hidden>
     <header class="ag-head">
         <a class="ag-back" href="/agents">{{ icon("chevrons-left") }} {{ t('agent_editor.agents') }}</a>
@@ -53,7 +53,7 @@
 
             <div class="ag-card ag-card--panels glass">
             <section class="ag-panel" role="tabpanel" id="ag-panel-prompts" aria-labelledby="ag-tab-prompts">
-                <h3 class="ag-panel__heading"><span class="ag-hint" tabindex="0" title="A prompt reads only the agent's inputs, as ${input.NAME}: the agent node maps a run's values to them, so the agent can be used in any pipeline.">{{ t('common.prompts') }}</span></h3>
+                <h3 class="ag-panel__heading"><span class="ag-hint" tabindex="0" title="{{ t('agent_editor.prompts_hint') }}">{{ t('common.prompts') }}</span></h3>
                 <p class="field__help">{{ t('agent_editor.define_what_the_model_is_asked') }} <code>${input.NAME}</code> {{ t('agent_editor.for_an_input') }}</p>
                 <div class="field">
                     <label class="field__label" for="ag-user">{{ t('agent_editor.user_prompt') }} <span class="field__required" aria-hidden="true">*</span></label>
@@ -66,7 +66,7 @@
             </section>
 
             <section class="ag-panel" role="tabpanel" id="ag-panel-inputs" aria-labelledby="ag-tab-inputs" hidden>
-                <h3 class="ag-panel__heading"><span class="ag-hint" tabindex="0" title="What the agent needs from a run, used in the prompts as ${input.NAME}. A required input must be mapped by every agent node; an optional one is its default, or empty text when it has none.">{{ t('common.inputs') }}</span></h3>
+                <h3 class="ag-panel__heading"><span class="ag-hint" tabindex="0" title="{{ t('agent_editor.inputs_hint') }}">{{ t('common.inputs') }}</span></h3>
                 <p class="field__help">{{ t('agent_editor.define_the_inputs_this_agent_needs') }}</p>
                 {# A table of inputs; the Description column is there only while an input has a description. #}
                 <div class="ag-inputs-table" data-inputs-table>
@@ -87,7 +87,7 @@
                             <h3 class="settings-card__title">{{ t('agent_editor.model_configuration') }}</h3>
                             <p class="settings-card__lead">{{ t('agent_editor.the_default_provider_and_its_default') }}</p>
                         </div>
-                        <button type="button" class="button button--ghost button--sm" data-settings-add aria-haspopup="menu">{{ icon("plus") }} Add setting {{ icon("chevron-down") }}</button>
+                        <button type="button" class="button button--ghost button--sm" data-settings-add aria-haspopup="menu">{{ icon("plus") }} {{ t('editor.settings_layout.add_setting') }} {{ icon("chevron-down") }}</button>
                     </div>
                     <div class="settings-card__fields" data-settings-fields></div>
                 </div>
@@ -98,7 +98,7 @@
                             <h3 class="settings-card__title">{{ t('agent_editor.execution_limits') }}</h3>
                             <p class="settings-card__lead">{{ t('agent_editor.defaults_apply_node_time_limit_600') }}</p>
                         </div>
-                        <button type="button" class="button button--ghost button--sm" data-settings-add aria-haspopup="menu">{{ icon("plus") }} Add setting {{ icon("chevron-down") }}</button>
+                        <button type="button" class="button button--ghost button--sm" data-settings-add aria-haspopup="menu">{{ icon("plus") }} {{ t('editor.settings_layout.add_setting') }} {{ icon("chevron-down") }}</button>
                     </div>
                     <div class="settings-card__fields" data-settings-fields></div>
                 </div>
@@ -167,12 +167,12 @@
 </div>
 <p class="ge-empty glass" data-agent-missing hidden>{{ t('agent_editor.this_agent_does_not_exist') }} <a href="/agents">{{ t('agent_editor.back_to_the_agents') }}</a></p>
 
-{{ form_modal("name-modal", "Agent", [
+{{ form_modal("name-modal", t('common.agent'), [
     {"name": "name", "label": t('common.name'), "kind": "text", "required": True, "maxlength": 100},
     {"name": "description", "label": t('common.description'), "kind": "textarea", "rows": 3, "maxlength": 2000, "hint": t('common.optional')},
-], submit="Save") }}
+], submit=t('common.save')) }}
 {{ confirm_modal("confirm-modal", t('common.agent')) }}
-{{ confirm_modal("reference-modal", "Remove agent reference?", note="data-reference-note") }}
+{{ confirm_modal("reference-modal", t('agents.editor_page.remove_agent_reference'), note="data-reference-note") }}
 {{ leave_modal("leave-modal") }}
 {# A published version, read-only (ADR-049): its areas as tabs, nothing to change. #}
 {% call modal("version-modal", t('common.version')) %}

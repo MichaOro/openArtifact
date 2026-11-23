@@ -13,7 +13,7 @@
 {# The executions of all artifacts (behaviour in static/js/executions/page.js). The list is a real table:
    every row has the same cells under column headers. Narrow screens show each row as a card. #}
 <div class="ex" data-executions data-page-size="{{ page_size }}">
-    {{ alert("Executions could not be loaded.") }}
+    {{ alert(t('executions.page.executions_could_not_be_loaded')) }}
     <h2 class="visually-hidden">{{ t('common.executions') }}</h2>
 
     <section class="ex-summary" aria-label="{{ t('executions.summary') }}">

@@ -6,7 +6,7 @@
  * Content is always set via textContent (never innerHTML). */
 import { AlertBar } from "../components/alert-bar.js";
 import { InlineName } from "../components/inline-name.js";
-import { t } from "../i18n.js";
+import { t, tn } from "../i18n.js";
 
 const LANE_NAME_MAX_LENGTH = 40;
 
@@ -109,7 +109,7 @@ export class Board {
     add.dataset.laneTitle = title;
     add.setAttribute("aria-label", t("tasks.board.add_artifact_title", { title }));
     section.querySelector("[data-lane-menu]").setAttribute("aria-label", t("tasks.board.options_lane_title", { title }));
-    lane.list.setAttribute("aria-label", `${title} artifacts`);
+    lane.list.setAttribute("aria-label", t("tasks.board.lane_artifacts", { title }));
   }
 
   /** How a lane draws its cards: "normal" or "finished". */
@@ -335,7 +335,7 @@ export class Board {
     this.lanes.forEach(({ list, count }) => {
       const n = list.children.length;
       count.textContent = String(n);
-      count.setAttribute("aria-label", `${n} ${n === 1 ? "artifact" : "artifacts"}`);
+      count.setAttribute("aria-label", tn("count.artifact", n));
     });
   }
 }

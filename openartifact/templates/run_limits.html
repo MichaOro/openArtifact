@@ -3,7 +3,7 @@
 {% block title %}{{ t('page.run_limits') }} · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/settings.css">{% endblock %}
 {% block content %}
-{{ alert("The run limits could not be loaded.") }}
+{{ alert(t('settings.run_limits_page.run_limits_could_not_be')) }}
 <p class="st-intro">{{ t('run_limits.limits_of_one_execution_an_execution') }}</p>
 <form class="st-card glass" data-run-limits novalidate>
     <div class="field">

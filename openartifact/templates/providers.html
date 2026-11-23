@@ -7,7 +7,7 @@
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
 <link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
 {% block content %}
-{{ alert("Providers could not be loaded.") }}
+{{ alert(t('agents.providers_page.providers_could_not_be_loaded')) }}
 <div class="action-row">
     <button type="button" class="button button--primary" data-new-provider>{{ icon("plus") }} {{ t('providers.new_provider') }}</button>
 </div>

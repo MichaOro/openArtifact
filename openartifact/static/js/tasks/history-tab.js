@@ -237,7 +237,7 @@ export class HistoryTab {
       confirmLabel: t("tasks.history_tab.delete_all"),
       onConfirm: async () => {
         const { deleted } = await clearExecutions(this.taskId);
-        this.announce(`${plural(deleted, "execution")} deleted`);
+        this.announce(t("executions.page.deleted_count", { what: plural(deleted, "execution") }));
         await this.load();
       },
       onClose: () => this.clearButton.focus(),

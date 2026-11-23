@@ -117,7 +117,7 @@ export class FlowPanel {
     this.passes.hidden = all.length < 2;
     if (all.length < 2) return;
     const at = all.indexOf(visit);
-    this.passText.textContent = `Pass ${at + 1} of ${all.length}`;
+    this.passText.textContent = t("execution.flow_panel.pass_of", { number: at + 1, total: all.length });
     this.passes.querySelector("[data-pass-prev]").disabled = at === 0;
     this.passes.querySelector("[data-pass-next]").disabled = at === all.length - 1;
   }
@@ -163,7 +163,7 @@ export class FlowPanel {
     entry.children.forEach((child, i) => {
       const open = el("button", "button button--ghost button--sm ef-path__open", entry.children.length > 1 ? t("execution.flow_panel.open_pass", { number: i + 1 }) : t("agents.editor_page.open"));
       open.type = "button";
-      open.setAttribute("aria-label", `Open ${nameOf(node)}${entry.children.length > 1 ? `, pass ${i + 1}` : ""}`);
+      open.setAttribute("aria-label", entry.children.length > 1 ? t("execution.flow_panel.open_node_pass", { name: nameOf(node), number: i + 1 }) : t("execution.flow_panel.open_node", { name: nameOf(node) }));
       open.addEventListener("click", () => this.handlers.onOpen(child));
       li.append(open);
     });

@@ -6,7 +6,7 @@
 import { placePopover } from "../components/popover.js";
 import { request } from "../http.js";
 import { applyCompletion, candidatesFor, openReference, suggestionsFor } from "./reference-completion.js";
-import { t } from "../i18n.js";
+import { t, tn } from "../i18n.js";
 
 const SECRETS_MAX_AGE_MS = 5000;
 let secretNames = [];
@@ -149,7 +149,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
         return option;
       }),
     );
-    status.textContent = `${matches.length} ${matches.length === 1 ? "suggestion" : "suggestions"}`;
+    status.textContent = tn("editor.reference_suggest.suggestions", matches.length);
     highlight();
     place();
   };

@@ -30,7 +30,7 @@ def test_choosing_german_translates_the_page_and_the_choice_survives_a_reload(bo
     expect(page.get_by_role("button", name="Spalte hinzufügen")).to_be_visible()
 
 
-def test_german_reaches_the_dialogs_and_the_comments_tab_and_untranslated_text_stays_english(
+def test_german_reaches_the_dialogs_the_comments_tab_and_the_settings_pages(
     board: Board,
 ) -> None:
     board.create("Item")
@@ -45,10 +45,12 @@ def test_german_reaches_the_dialogs_and_the_comments_tab_and_untranslated_text_s
     dialog.write_comment("Hallo")
     expect(dialog.comment_items).to_have_count(1)
     expect(dialog.comment_items.first.locator("[data-comment-kind]")).to_contain_text("Benutzer")
-    # German has no text for this one yet: the English one shows (the page is never empty or broken)
+    # German is complete: a settings page is German to the last button (the English fallback for a missing text is
+    # tested with a German that has gaps made on purpose, in tests/test_i18n.py)
     page.goto(board.base_url + "/settings/credentials")
     expect(page.locator("html")).to_have_attribute("lang", "de")
-    expect(page.get_by_role("button", name="New token")).to_be_visible()
+    expect(page.get_by_role("button", name="Neues Token")).to_be_visible()
+    expect(page.get_by_role("button", name="New token")).to_have_count(0)
     expect(page.get_by_role("heading", name="Zugangsdaten")).to_be_visible()
 
 

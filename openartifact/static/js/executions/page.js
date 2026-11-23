@@ -155,7 +155,7 @@ class ExecutionsPage {
       this.summary.render(page.summary);
       this.alert.hide();
       this.#render();
-      this.#announce(`${plural(rows.length, "more execution")} loaded`);
+      this.#announce(t("executions.page.more_loaded", { what: plural(rows.length, "more execution") }));
       rows[0]?.querySelector("[data-open]").focus();
     } catch (error) {
       this.alert.show(error.message || t("executions.page.more_executions_could_not_be"), { retry: false });
@@ -317,7 +317,7 @@ class ExecutionsPage {
             deleted += done.deleted;
             skipped += done.skipped_running;
           }
-          this.#announce(`${plural(deleted, "execution")} deleted${skipped ? t("executions.page.skipped_running_skipped", { skipped }) : ""}`);
+          this.#announce(`${t("executions.page.deleted_count", { what: plural(deleted, "execution") })}${skipped ? t("executions.page.skipped_running_skipped", { skipped }) : ""}`);
           await this.load();
         } finally {
           this.busy = false;

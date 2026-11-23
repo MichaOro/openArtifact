@@ -51,6 +51,26 @@ def locales(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[Path, 
     i18n.reload()
 
 
+@pytest.fixture
+def german_with_a_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Generator[None, None, None]:
+    """The shipped English and German, with two German texts taken out: German is complete (a test below says so), so
+    the fallback to English on a page needs a gap made on purpose."""
+    real = ROOT / "openartifact/i18n/locales"
+    (tmp_path / "en.json").write_text(
+        (real / "en.json").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    german = json.loads((real / "de.json").read_text(encoding="utf-8"))
+    for key in ("credentials.copy", "credentials.new_token"):
+        assert german.pop(key)
+    (tmp_path / "de.json").write_text(json.dumps(german, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(i18n, "LOCALES_DIR", tmp_path)
+    i18n.reload()
+    yield
+    i18n.reload()
+
+
 def test_the_languages_are_the_files_that_exist_english_first(locales: Path) -> None:
     assert i18n.languages() == ["en", "de"]
     assert i18n.language_name("de") == "Deutsch" and i18n.language_name("en") == "en"
@@ -98,7 +118,9 @@ def test_the_language_of_a_request_is_the_choice_else_the_browsers_else_english(
 # ── in the application ──────────────────────────────────────────────────
 
 
-def test_a_page_is_in_the_language_of_the_cookie_and_says_so(client: TestClient) -> None:
+def test_a_page_is_in_the_language_of_the_cookie_and_says_so(
+    client: TestClient, german_with_a_gap: None
+) -> None:
     english = client.get("/")
     assert '<html lang="en"' in english.text and "Add lane" in english.text
     german = client.get("/", cookies={"oa_lang": "de"})
@@ -126,7 +148,7 @@ def _dictionary(html: str) -> dict[str, Any]:
 
 
 def test_the_page_carries_the_dictionary_as_data_and_it_cannot_break_out_of_its_tag(
-    client: TestClient,
+    client: TestClient, german_with_a_gap: None
 ) -> None:
     html = client.get("/", cookies={"oa_lang": "de"}).text
     data = _dictionary(html)
@@ -139,8 +161,8 @@ def test_the_page_carries_the_dictionary_as_data_and_it_cannot_break_out_of_its_
         block and "<" not in block[1] and "</script" not in block[1]
     )  # "<token>" in a text is escaped
     assert any(
-        "<token>" in text for text in data["messages"].values()
-    )  # such a text exists, and is escaped above
+        "<" in text for text in data["messages"].values()
+    )  # a text with an angle bracket exists ("Bearer <token>"), and is escaped above
 
 
 def test_the_dictionary_block_is_not_a_script_for_the_csp(client: TestClient) -> None:
@@ -273,3 +295,10 @@ def test_the_overrides_of_node_texts_name_things_that_exist() -> None:
             assert setting is not None, f"{code}: {key}: no such setting"
             if m[3]:
                 assert m[3] in (setting.get("options") or []), f"{code}: {key}: no such option"
+
+
+def test_german_has_a_text_for_every_english_key() -> None:
+    """German is shipped complete, so a new English key without its German text fails here. Other languages stay free to
+    be partial (they fall back to English); only German is held to this."""
+    report = _tool().scan()
+    assert report.lacking.get("de", []) == [], "German lacks texts: add them to locales/de.json"

@@ -5,7 +5,7 @@
  * listing it in CONTROLS. */
 import { field } from "./field.js";
 import { suggestReferences } from "./reference-suggest.js";
-import { t } from "../i18n.js";
+import { t, tn } from "../i18n.js";
 
 const AUTOSAVE_MS = 800; // multi-line fields save this long after the last keystroke
 const INDENT = "  ";
@@ -275,7 +275,7 @@ class LinesControl extends SettingControl {
     const lines = text === "" ? 0 : text.split("\n").length;
     const max = this.setting.max_length;
     const over = max != null && text.length > max;
-    this.count.textContent = `${lines} ${lines === 1 ? "line" : "lines"}${max != null ? ` · ${text.length} / ${max}${over ? t("editor.setting_controls.too_long") : ""}` : ""}`;
+    this.count.textContent = `${tn("count.line", lines)}${max != null ? ` · ${text.length} / ${max}${over ? t("editor.setting_controls.too_long") : ""}` : ""}`;
     this.count.classList.toggle("is-over", over);
   }
 }

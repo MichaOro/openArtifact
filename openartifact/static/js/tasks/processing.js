@@ -7,6 +7,9 @@ import { listGraphs } from "../editor/api.js";
 import { listStages, startRun, stopRun } from "./api.js";
 import { t } from "../i18n.js";
 
+/** The name of each level a run is started from, as the aria label of its field says it. */
+const LEVEL_LABEL = { pipeline: () => t("common.pipeline"), stage: () => t("nav.stage.label"), action: () => t("nav.action.label") };
+
 const STATUS_TEXT = { running: "running", stopped: "stopped", done: "done", failed: "failed" };
 
 export class ProcessingPanel {
@@ -143,7 +146,7 @@ export class ProcessingPanel {
         };
     for (const key of Object.keys(text)) {
       this.values[key].textContent = text[key];
-      this.fields[key].setAttribute("aria-label", `${key[0].toUpperCase()}${key.slice(1)}: ${text[key]}`);
+      this.fields[key].setAttribute("aria-label", `${LEVEL_LABEL[key]()}: ${text[key]}`);
     }
     this.lockedFields.forEach((el) => {
       el.dataset.locked = String(locked);
