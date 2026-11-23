@@ -4,24 +4,24 @@
 <div class="modal__body comments" role="tabpanel" id="artifact-panel-comments" aria-labelledby="artifact-tab-comments" tabindex="0" hidden data-comments>
     <div class="alert-bar glass" role="alert" hidden data-comments-alert>
         <span data-alert-text></span>
-        <button type="button" class="button button--ghost button--sm" data-alert-retry>Retry</button>
+        <button type="button" class="button button--ghost button--sm" data-alert-retry>{{ t('common.retry') }}</button>
     </div>
     <div class="visually-hidden" role="status" aria-live="polite" data-comments-live></div>
-    <p class="history__summary" data-comments-summary>Loading comments...</p>
+    <p class="history__summary" data-comments-summary>{{ t('comments.loading_comments') }}</p>
     <div class="comments__scroll" data-comments-scroll>
-        <ul class="comments__list" aria-label="Comments" data-comments-list></ul>
-        <p class="history__empty" data-comments-empty hidden>No comments yet. Write the first one below.</p>
+        <ul class="comments__list" aria-label="{{ t('common.comments') }}" data-comments-list></ul>
+        <p class="history__empty" data-comments-empty hidden>{{ t('comments.no_comments_yet_write_the_first') }}</p>
     </div>
     <form class="comments__form" novalidate data-comments-form>
-        <label class="field__label" for="comment-input">Add a comment</label>
+        <label class="field__label" for="comment-input">{{ t('comments.add_a_comment') }}</label>
         <textarea class="field__control" id="comment-input" rows="3" maxlength="65536" data-comments-input
-                  aria-describedby="comment-hint comment-error" placeholder="Write a comment..."></textarea>
-        <p class="field__help" id="comment-hint">Plain text. Ctrl+Enter sends.</p>
+                  aria-describedby="comment-hint comment-error" placeholder="{{ t('comments.write_a_comment') }}"></textarea>
+        <p class="field__help" id="comment-hint">{{ t('comments.plain_text_ctrl_enter_sends') }}</p>
         <p class="form-error" id="comment-error" role="alert" hidden data-comments-error></p>
         <div class="comments__send">
             <button type="submit" class="button button--primary button--sm" aria-disabled="true" data-comments-send>
                 {{ icon("message") }}
-                <span>Comment</span>
+                <span>{{ t('comments.comment') }}</span>
             </button>
         </div>
     </form>
@@ -32,8 +32,8 @@
             <span class="history-chip comment__kind" data-comment-kind><span data-chip-icon></span><span data-chip-text></span></span>
             <span class="comment__author" data-comment-author></span>
             <time class="comment__time" data-comment-time></time>
-            <span class="comment__edited" data-comment-edited hidden>edited</span>
-            <a class="comment__run" data-comment-run hidden>Open the execution</a>
+            <span class="comment__edited" data-comment-edited hidden>{{ t('comments.edited') }}</span>
+            <a class="comment__run" data-comment-run hidden>{{ t('comments.open_the_execution') }}</a>
             <button type="button" class="icon-button icon-button--sm comment__more" aria-haspopup="menu" aria-expanded="false" data-comment-more></button>
         </div>
         <div class="comment__body" data-comment-body></div>

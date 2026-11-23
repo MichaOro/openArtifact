@@ -3,7 +3,7 @@
    fields: a list of {name, label, kind: "text"|"textarea", required, maxlength, rows, placeholder, hint}.
    `{% call dialog_form(...) %}` content goes after the fields (the artifact dialog's type and parameters).
    Hooks: field control #<id>-field-<name>, its error #<id>-field-<name>-error; [data-submit] and [data-cancel]. #}
-{% macro dialog_form(id, fields, submit="Create") -%}
+{% macro dialog_form(id, fields, submit=none) -%}
 <form class="task-form" id="{{ id }}-form" novalidate>
     <div class="modal__body">
         {% for field in fields %}
@@ -26,18 +26,18 @@
         <p class="form-error" role="alert" hidden data-form-error></p>
     </div>
     <footer class="modal__footer">
-        <button type="button" class="button button--ghost" data-cancel>Cancel</button>
+        <button type="button" class="button button--ghost" data-cancel>{{ t('common.cancel') }}</button>
         <button type="submit" class="button button--primary" data-submit>
             <span class="spinner" aria-hidden="true"></span>
-            <span data-submit-label>{{ submit }}</span>
+            <span data-submit-label>{{ submit or t('common.create') }}</span>
         </button>
     </footer>
 </form>
 {%- endmacro %}
 
-{% macro form_modal(id, title, fields, submit="Create") -%}
+{% macro form_modal(id, title, fields, submit=none) -%}
 {% call modal(id, title) %}{{ dialog_form(id, fields, submit) }}{% endcall %}
 {%- endmacro %}
 
 {# One required single-line field: the dialogs that ask for a name (new / rename pipeline, action, stage). #}
-{% set NAME_FIELDS = [{"name": "name", "label": "Name", "kind": "text", "required": True, "maxlength": 255}] %}
+{% set NAME_FIELDS = [{"name": "name", "label": t('common.name'), "kind": "text", "required": True, "maxlength": 255}] %}

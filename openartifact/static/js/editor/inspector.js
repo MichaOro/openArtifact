@@ -8,6 +8,7 @@ import { agentBlock } from "./agent-inspector.js";
 import { displayName } from "./geometry.js";
 import { typeOf } from "./node-types.js";
 import { buildSettings } from "./settings-layout.js";
+import { t } from "../i18n.js";
 
 /** Title and caption; `rename` ({label, onCommit}) makes the title editable in place. */
 export function heading(text, caption, rename = null) {
@@ -106,7 +107,7 @@ export class InspectorBlocks {
           select.append(option);
         }
       })
-      .catch(() => this.editor.showError("The list could not be loaded."));
+      .catch(() => this.editor.showError(t("editor.inspector.list_could_not_be_loaded")));
     return section(title, field(label, select));
   }
 
@@ -141,18 +142,18 @@ export class InspectorBlocks {
       return el;
     };
     if (create) {
-      const newButton = make("button", "plus", "New");
+      const newButton = make("button", "plus", t("common.new"));
       newButton.addEventListener("click", create);
       bar.append(newButton);
     }
     if (edit !== undefined) {
-      const editLink = make("a", "pencil", "Edit");
+      const editLink = make("a", "pencil", t("common.edit"));
       if (edit) editLink.href = edit;
       else editLink.setAttribute("aria-disabled", "true");
       bar.append(editLink);
     }
     if (remove) {
-      const removeButton = make("button", "trash", "Delete", "is-danger ge-delete");
+      const removeButton = make("button", "trash", t("common.delete"), "is-danger ge-delete");
       removeButton.addEventListener("click", () => this.editor.remove(node));
       bar.append(removeButton);
     }

@@ -8,6 +8,7 @@ import { formatDuration, formatTime, secondsBetween, setChip } from "../tasks/hi
 import { fillStep, stepDuration } from "../tasks/history-step.js";
 import { STATES } from "./flow-view.js";
 import { nameOf } from "./visit-model.js";
+import { t } from "../i18n.js";
 
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -66,7 +67,7 @@ export class FlowPanel {
     const { model, visit, walk } = view;
     const refocus = this.path.contains(document.activeElement) ? document.activeElement.closest("[data-position]")?.dataset.position : null;
     const title = model.titleOf(visit);
-    this.kind.textContent = title.graph.kind === "action" ? "Action" : "Pipeline";
+    this.kind.textContent = title.graph.kind === "action" ? t("editor.node_types.action_2") : t("common.pipeline");
     this.title.textContent = title.stage ? `${title.stage} › ${title.name}` : title.name;
 
     const chip = el("span", "history-chip");
@@ -89,7 +90,7 @@ export class FlowPanel {
       this.context.show(await this.loadContext());
     } catch {
       this.context.show({ vars: {}, nodes: {} });
-      this.context.querySelector("pre").textContent = "The run context could not be loaded. Close and open the block to try again.";
+      this.context.querySelector("pre").textContent = t("execution.flow_panel.run_context_could_not_be");
     }
   }
 
@@ -104,8 +105,8 @@ export class FlowPanel {
 
   #facts(visit) {
     const rows = [
-      ["Started", visit.started_at ? formatTime(visit.started_at) : ""],
-      ["Duration", visit.started_at && visit.finished_at ? formatDuration(visitSeconds(visit)) : ""],
+      [t("executions.started"), visit.started_at ? formatTime(visit.started_at) : ""],
+      [t("executions.duration"), visit.started_at && visit.finished_at ? formatDuration(visitSeconds(visit)) : ""],
       ["Left by", visit.left_port ? (visit.left_port === "error" ? "On Error" : "On Pass") : ""],
     ].filter(([, value]) => value !== "");
     this.facts.replaceChildren(...rows.flatMap(([term, value]) => [el("dt", "", term), el("dd", "", value)]));
@@ -147,9 +148,9 @@ export class FlowPanel {
     const main = el("button", "ef-path__main");
     main.type = "button";
     const kind = typeOf(node);
-    const exit = entry.step?.exit_code != null ? `exit code ${entry.step.exit_code}` : null;
+    const exit = entry.step?.exit_code != null ? t("execution.flow_panel.exit_code_exit_code", { exit_code: entry.step.exit_code }) : null;
     const took = entry.step && WORKS.includes(entry.step.kind) ? stepDuration(entry.step) : null;
-    main.setAttribute("aria-label", [`${entry.position + 1} ${kind.label}: ${nameOf(node)}`, STATES[entry.state][1], exit, took, entry.children.length ? "Enter opens it" : null].filter(Boolean).join(", "));
+    main.setAttribute("aria-label", [`${entry.position + 1} ${kind.label}: ${nameOf(node)}`, STATES[entry.state][1], exit, took, entry.children.length ? t("execution.flow_panel.enter_opens") : null].filter(Boolean).join(", "));
     main.setAttribute("aria-current", String(entry.id === selected));
     const seq = el("span", "ef-path__seq", String(entry.position + 1));
     const name = el("span", "ef-path__name");
@@ -160,7 +161,7 @@ export class FlowPanel {
     li.append(main);
 
     entry.children.forEach((child, i) => {
-      const open = el("button", "button button--ghost button--sm ef-path__open", entry.children.length > 1 ? `Open pass ${i + 1}` : "Open");
+      const open = el("button", "button button--ghost button--sm ef-path__open", entry.children.length > 1 ? t("execution.flow_panel.open_pass", { number: i + 1 }) : t("agents.editor_page.open"));
       open.type = "button";
       open.setAttribute("aria-label", `Open ${nameOf(node)}${entry.children.length > 1 ? `, pass ${i + 1}` : ""}`);
       open.addEventListener("click", () => this.handlers.onOpen(child));
@@ -214,7 +215,7 @@ export class FlowPanel {
     const { model, visit, walk, selected } = view;
     const node = selected ? model.graph(visit).nodes.find((n) => n.id === selected) : null;
     if (!node) {
-      this.detail.replaceChildren(el("p", "ef-panel__note", "Select a node of the path or of the canvas to see what happened there."));
+      this.detail.replaceChildren(el("p", "ef-panel__note", t("execution.flow_panel.select_node_path_canvas_see")));
       return;
     }
     const info = walk.states.get(node.id);
@@ -226,13 +227,13 @@ export class FlowPanel {
     for (const entry of entries) {
       if (entry.step) body.push(this.#step(entry.step, open));
       for (const [i, child] of entry.children.entries()) {
-        const button = el("button", "button button--ghost button--sm", entry.children.length > 1 ? `Open pass ${i + 1}` : `Open ${typeOf(node).label.toLowerCase()}`);
+        const button = el("button", "button button--ghost button--sm", entry.children.length > 1 ? t("execution.flow_panel.open_pass", { number: i + 1 }) : t("execution.flow_panel.open_kind", { kind: typeOf(node).label.toLowerCase() }));
         button.type = "button";
         button.addEventListener("click", () => this.handlers.onOpen(child));
         body.push(button);
       }
       if (!entry.step && !entry.children.length && (node.kind === "action" || node.kind === "pipeline")) {
-        body.push(el("p", "ef-panel__note", node.definition_id ? "It ran no steps." : "This action has no definition, so nothing ran."));
+        body.push(el("p", "ef-panel__note", node.definition_id ? t("execution.flow_panel.ran_no_steps") : t("execution.flow_panel.action_has_no_definition_so")));
       }
     }
     this.detail.replaceChildren(...body);
@@ -247,14 +248,14 @@ export class FlowPanel {
     const load = async () => {
       if (this.outputs.has(step.id) || block.dataset.loading) return;
       block.dataset.loading = "1";
-      pre.textContent = "Loading...";
+      pre.textContent = t("execution.flow_panel.loading");
       try {
         const full = await this.loadStep(step);
         this.outputs.set(step.id, full);
         pre.textContent = full.output;
         truncated.hidden = !full.output_truncated;
       } catch {
-        pre.textContent = "The output could not be loaded. Close and open it to try again.";
+        pre.textContent = t("execution.flow_panel.output_could_not_be_loaded");
       } finally {
         delete block.dataset.loading;
       }

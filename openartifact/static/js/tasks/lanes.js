@@ -5,6 +5,7 @@
 import { ActionMenu } from "../components/action-menu.js";
 import { request } from "../http.js";
 import { deleteBlockedReason } from "./lane-rules.js";
+import { t } from "../i18n.js";
 
 const lanePath = (status) => `/api/lanes/${encodeURIComponent(status)}`;
 const send = (url, method, body) => request(url, { method, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -45,7 +46,7 @@ export class LaneControls {
   /** Save a title typed into a lane's name (rejects with the server's message). */
   async rename(status, title) {
     this.onLanes(await renameLane(status, title));
-    this.board.announce(`Lane renamed to ${title}`);
+    this.board.announce(t("tasks.lanes.lane_renamed_title", { title }));
   }
 
   #openMenu(button) {
@@ -55,11 +56,11 @@ export class LaneControls {
     this.menu.toggle(
       button,
       [
-        { label: "Rename", icon: "pencil", onSelect: () => this.board.editLaneName(status) },
-        { label: "Settings", icon: "settings", onSelect: () => this.#openSettings(status) },
-        { label: "Delete", icon: "trash", danger: true, disabledReason, onSelect: () => this.#confirmDelete(status, title) },
+        { label: t("graph_list.rename"), icon: "pencil", onSelect: () => this.board.editLaneName(status) },
+        { label: t("common.settings"), icon: "settings", onSelect: () => this.#openSettings(status) },
+        { label: t("common.delete"), icon: "trash", danger: true, disabledReason, onSelect: () => this.#confirmDelete(status, title) },
       ],
-      `Lane ${title}`,
+      t("tasks.lanes.lane_title", { title }),
     );
   }
 
@@ -70,19 +71,19 @@ export class LaneControls {
       style: this.board.laneStyle(status),
       onSave: async (style) => {
         this.onLanes(await updateLane(status, { style }));
-        this.board.announce(`Settings of lane ${this.board.laneTitle(status)} saved`);
+        this.board.announce(t("tasks.lanes.settings_lane_lanetitle_saved", { laneTitle: this.board.laneTitle(status) }));
       },
     });
   }
 
   #openAdd() {
     this.addDialog.open({
-      title: "Add lane",
-      submitLabel: "Add lane",
+      title: t("index.add_lane"),
+      submitLabel: t("index.add_lane"),
       onSubmit: async ({ title }) => {
         const lanes = await addLane(title);
         this.onLanes(lanes);
-        this.board.announce(`Lane ${title} added`);
+        this.board.announce(t("tasks.lanes.lane_title_added", { title }));
         const added = lanes.at(-1).status;
         // the dialog gives focus back to the button when it has closed; the new lane takes it afterwards
         this.addDialog.modal.dialog.addEventListener("close", () => this.board.lanes.get(added)?.name.element.focus(), { once: true });
@@ -92,7 +93,7 @@ export class LaneControls {
 
   #confirmDelete(status, title) {
     this.confirm.open({
-      message: "Delete lane {subject}?",
+      message: t("tasks.lanes.delete_lane_subject"),
       subject: title,
       onConfirm: async () => {
         let lanes;
@@ -103,7 +104,7 @@ export class LaneControls {
           lanes = await listLanes(); // already gone elsewhere: the outcome the user wanted
         }
         this.onLanes(lanes);
-        this.board.announce(`Lane ${title} deleted`);
+        this.board.announce(t("tasks.lanes.lane_title_deleted", { title }));
       },
     });
   }

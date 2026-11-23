@@ -5,10 +5,11 @@
  * listing it in CONTROLS. */
 import { field } from "./field.js";
 import { suggestReferences } from "./reference-suggest.js";
+import { t } from "../i18n.js";
 
 const AUTOSAVE_MS = 800; // multi-line fields save this long after the last keystroke
 const INDENT = "  ";
-const LEAVE_HINT = "Tab indents. Press Escape, then Tab to leave the field.";
+const LEAVE_HINT = t("editor.setting_controls.tab_indents_press_escape_then");
 
 function element(tag, className, text = null) {
   const el = document.createElement(tag);
@@ -122,7 +123,7 @@ class SettingControl {
       this.fail(null);
       return;
     }
-    this.status.textContent = "Saving…";
+    this.status.textContent = t("editor.setting_controls.saving");
     const message = await this.save(value);
     if (message) {
       this.fail(message);
@@ -130,7 +131,7 @@ class SettingControl {
     }
     this.saved = value;
     this.fail(null);
-    this.status.textContent = "Saved";
+    this.status.textContent = t("agents.editor_page.saved");
   }
 
   /** Show why a value was not saved (null: clear it). The typed text stays as it is. */
@@ -159,7 +160,7 @@ class IntegerControl extends SettingControl {
 
   parse(raw) {
     const number = Number(raw);
-    if (raw.trim() === "" || !Number.isInteger(number)) throw new Error("Enter a whole number.");
+    if (raw.trim() === "" || !Number.isInteger(number)) throw new Error(t("editor.setting_controls.enter_whole_number"));
     return number;
   }
 }
@@ -174,7 +175,7 @@ class NumberControl extends IntegerControl {
 
   parse(raw) {
     const number = Number(raw);
-    if (raw.trim() === "" || Number.isNaN(number)) throw new Error("Enter a number.");
+    if (raw.trim() === "" || Number.isNaN(number)) throw new Error(t("editor.setting_controls.enter_number"));
     return number;
   }
 }
@@ -190,7 +191,7 @@ class SwitchControl extends SettingControl {
     toggle.append(state, element("span", "ge-switch__thumb"));
     this.show = (on) => {
       toggle.setAttribute("aria-checked", String(on));
-      state.textContent = on ? "On" : "Off";
+      state.textContent = on ? "On" : t("components.switch.off");
     };
     this.show(Boolean(value));
     toggle.addEventListener("click", () => this.#flip());
@@ -274,7 +275,7 @@ class LinesControl extends SettingControl {
     const lines = text === "" ? 0 : text.split("\n").length;
     const max = this.setting.max_length;
     const over = max != null && text.length > max;
-    this.count.textContent = `${lines} ${lines === 1 ? "line" : "lines"}${max != null ? ` · ${text.length} / ${max}${over ? " (too long)" : ""}` : ""}`;
+    this.count.textContent = `${lines} ${lines === 1 ? "line" : "lines"}${max != null ? ` · ${text.length} / ${max}${over ? t("editor.setting_controls.too_long") : ""}` : ""}`;
     this.count.classList.toggle("is-over", over);
   }
 }
@@ -328,13 +329,13 @@ class SelectControl extends SettingControl {
     const choices = this.setting.choices ?? (this.setting.options ?? []).map((o) => [o, o]);
     if (this.setting.emptyLabel) select.append(new Option(this.setting.emptyLabel, ""));
     for (const [id, text] of choices) select.append(new Option(text, id));
-    if (value && !choices.some(([id]) => id === value)) select.append(new Option(`${value} (not available)`, value));
+    if (value && !choices.some(([id]) => id === value)) select.append(new Option(t("editor.setting_controls.value_not_available", { value }), value));
     select.value = value ?? "";
     return select;
   }
 
   parse(raw) {
-    if (raw === "" && this.setting.emptyLabel) throw new Error("Choose one.");
+    if (raw === "" && this.setting.emptyLabel) throw new Error(t("editor.setting_controls.choose_one"));
     return raw;
   }
 }

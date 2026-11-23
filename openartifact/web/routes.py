@@ -15,6 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.api.deps import ServiceDep, SessionDep
 from openartifact.graph.repository import GraphRepository
+from openartifact.i18n import t
+from openartifact.i18n.web import context_processor as language_context
+from openartifact.i18n.web import install as install_i18n
+from openartifact.i18n.web import language_for
 from openartifact.models import GraphKind
 from openartifact.oidc import CALLBACK_PATH, STATE_COOKIE, STATE_MAX_AGE, Oidc, SsoError
 from openartifact.security import (
@@ -44,9 +48,11 @@ def _auth_context(request: Request) -> dict[str, bool]:
 
 
 templates = Jinja2Templates(
-    directory=str(Path(__file__).parent.parent / "templates"), context_processors=[_auth_context]
+    directory=str(Path(__file__).parent.parent / "templates"),
+    context_processors=[_auth_context, language_context],
 )
 templates.env.globals["navigation"] = navigation
+install_i18n(templates)
 
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
@@ -56,7 +62,7 @@ async def index(request: Request, service: ServiceDep) -> HTMLResponse:
         request=request,
         name="index.html",
         context={
-            "page_title": "Board",
+            "page_title": "page.board",
             "active_nav": "board",
             "app_version": APP_VERSION,
             "lanes": await service.lanes(),
@@ -70,12 +76,14 @@ _SECTIONS = {
         "nav": "pipeline",
         "path": "/pipelines",
         "label": "Pipeline",
+        "key": "pipeline",
     },
     "action": {
         "kind": GraphKind.ACTION.value,
         "nav": "actions",
         "path": "/actions",
         "label": "Action",
+        "key": "action",
     },
 }
 
@@ -86,7 +94,7 @@ def _list_page(request: Request, section: str) -> HTMLResponse:
         request=request,
         name="graph_list.html",
         context={
-            "page_title": f"{info['label']}s",
+            "page_title": f"page.{info['key']}s",
             "active_nav": info["nav"],
             "app_version": APP_VERSION,
             "section": info,
@@ -107,7 +115,7 @@ async def _editor_page(
         request=request,
         name="graph_editor.html",
         context={
-            "page_title": info["label"],
+            "page_title": f"page.{info['key']}",
             "active_nav": info["nav"],
             "app_version": APP_VERSION,
             "graph_id": graph.id if graph else slug,
@@ -151,7 +159,7 @@ async def executions(request: Request, page_size: int = 50) -> HTMLResponse:
         request=request,
         name="executions.html",
         context={
-            "page_title": "Executions",
+            "page_title": "page.executions",
             "active_nav": "executions",
             "app_version": APP_VERSION,
             "page_size": max(1, min(page_size, 200)),
@@ -170,31 +178,31 @@ def _page(request: Request, name: str, title: str, nav: str, **more: str) -> HTM
 @router.get("/agents", response_class=HTMLResponse, include_in_schema=False)
 async def agents(request: Request) -> HTMLResponse:
     """The agents (the page loads and changes them through the API)."""
-    return _page(request, "agents.html", "Agents", "agents")
+    return _page(request, "agents.html", "page.agents", "agents")
 
 
 @router.get("/agents/{ref}", response_class=HTMLResponse, include_in_schema=False)
 async def agent_editor(request: Request, ref: str) -> HTMLResponse:
     """One agent: draft, publishing, versions, preview. An unknown id still renders; the page says so."""
-    return _page(request, "agent_editor.html", "Agent", "agents", agent_ref=ref)
+    return _page(request, "agent_editor.html", "page.agent", "agents", agent_ref=ref)
 
 
 @router.get("/settings/providers", response_class=HTMLResponse, include_in_schema=False)
 async def providers(request: Request) -> HTMLResponse:
     """The LLM providers and their models."""
-    return _page(request, "providers.html", "LLM providers", "providers")
+    return _page(request, "providers.html", "page.providers", "providers")
 
 
 @router.get("/settings/credentials", response_class=HTMLResponse, include_in_schema=False)
 async def credentials(request: Request) -> HTMLResponse:
     """The managed credentials: access tokens OpenArtifact makes and values for other systems."""
-    return _page(request, "credentials.html", "Credentials", "credentials")
+    return _page(request, "credentials.html", "page.credentials", "credentials")
 
 
 @router.get("/settings/run-limits", response_class=HTMLResponse, include_in_schema=False)
 async def run_limits(request: Request) -> HTMLResponse:
     """How many steps and how much time an execution may take."""
-    return _page(request, "run_limits.html", "Run limits", "run-limits")
+    return _page(request, "run_limits.html", "page.run_limits", "run-limits")
 
 
 @router.get(
@@ -212,7 +220,7 @@ async def execution_flow(request: Request, ref: str, execution_id: str) -> HTMLR
         request=request,
         name="execution_flow.html",
         context={
-            "page_title": "Execution flow",
+            "page_title": "page.execution_flow",
             "active_nav": "executions",
             "app_version": APP_VERSION,
             "task_ref": ref,
@@ -274,7 +282,7 @@ async def login(request: Request) -> Response:
     target = safe_next((form.get("next") or ["/"])[0])
     if not token_matches(settings.api_token, (form.get("token") or [""])[0].strip().encode()):
         await asyncio.sleep(0.5)  # a wrong token costs time
-        return _signin_page(request, target, "That token is not right.")
+        return _signin_page(request, target, t("login.wrong_token", language_for(request)))
     response = RedirectResponse(target, status_code=303)
     secure = cookie_secure(settings, request.url.scheme)
     response.set_cookie(
@@ -355,7 +363,7 @@ async def sso_callback(request: Request) -> Response:
 
     if failed:  # the provider's own words are never shown: only its error code, when it is plain
         code = failed if re.fullmatch(r"[a-z_]{1,40}", failed) else "error"
-        return refuse(401, f"The provider refused the sign-in ({code}).")
+        return refuse(401, t("login.provider_refused", language_for(request), code=code))
     try:
         who, target = await oidc.finish(cookie, query.get("state"), query.get("code"))
     except SsoError as error:

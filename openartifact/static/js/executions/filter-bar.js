@@ -2,6 +2,7 @@
  * It reads and writes a Filters value; the page decides what a change means. Text fields are applied
  * after a short pause, the toggles at once. On a phone the form is a disclosure that starts closed. */
 import { Filters } from "./filters.js";
+import { t } from "../i18n.js";
 
 const TYPING_MS = 300;
 const WIDE = "(min-width: 48rem)";
@@ -60,7 +61,7 @@ export class FilterBar {
     this.custom.hidden = !filters.custom;
     if (filters.custom) {
       const parts = [filters.since && `since ${new Date(filters.since).toLocaleString()}`, filters.until && `until ${new Date(filters.until).toLocaleString()}`];
-      this.custom.querySelector("[data-custom-text]").textContent = `Custom range: ${parts.filter(Boolean).join(" ")}`;
+      this.custom.querySelector("[data-custom-text]").textContent = t("executions.filter_bar.custom_range", { range: parts.filter(Boolean).join(" ") });
     }
     const count = filters.activeCount;
     this.activeBadge.textContent = count ? `${count} active` : "";

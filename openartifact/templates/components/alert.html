@@ -2,6 +2,6 @@
 {% macro alert(text="") -%}
 <div class="alert-bar glass" role="alert" hidden data-alert>
     <span data-alert-text>{{ text }}</span>
-    <button type="button" class="button button--ghost button--sm" data-alert-retry>Retry</button>
+    <button type="button" class="button button--ghost button--sm" data-alert-retry>{{ t('common.retry') }}</button>
 </div>
 {%- endmacro %}

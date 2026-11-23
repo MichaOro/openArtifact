@@ -1,6 +1,7 @@
 /* Generic confirmation dialog (templates/components/confirm_modal.html): shows a message, runs an
  * async action on confirm, keeps the dialog open and shows the error if the action fails. */
 import { ActionDialog } from "./action-dialog.js";
+import { t } from "../i18n.js";
 
 export class ConfirmDialog extends ActionDialog {
   /** @param {import("./modal.js").Modal} modal */
@@ -27,7 +28,7 @@ export class ConfirmDialog extends ActionDialog {
    * @param {"danger"|"primary"} [options.tone] the confirming button: red for what removes something (the
    *   default), the accent for a question that only makes something new
    */
-  open({ message, subject = null, note = "", onConfirm, confirmLabel = "Delete", onClose = null, title = null, tone = "danger" }) {
+  open({ message, subject = null, note = "", onConfirm, confirmLabel = t("common.delete"), onClose = null, title = null, tone = "danger" }) {
     this.action = onConfirm;
     this.submitButton.classList.toggle("button--danger", tone === "danger");
     this.submitButton.classList.toggle("button--primary", tone === "primary");

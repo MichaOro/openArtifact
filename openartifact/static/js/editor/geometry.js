@@ -1,13 +1,14 @@
 /* Geometry of the graph canvas. Pure functions over plain node/edge objects as the API returns
  * them; what a kind of node looks like and may connect to comes from its view (node-types.js). */
 import { HEADER, typeOf } from "./node-types.js";
+import { t } from "../i18n.js";
 
 export const PAD = 24; // space between a stage border and its actions
 export const ACTION_GAP = 64; // space between neighbouring actions
 export const TOP_LEVEL_GAP = 96; // space between a new node of the main line and its neighbour
 export const TOOL_GAP = 120; // space between an agent and the tools hanging below it
 export const STAGE_MIN = { width: 320, height: 220 };
-export const EDGE_STYLES = { curved: "Curved", straight: "Straight", elbow: "Elbow" };
+export const EDGE_STYLES = { curved: t("editor.geometry.curved"), straight: t("editor.geometry.straight"), elbow: t("editor.geometry.elbow") };
 
 /** What a node is called on the canvas (a linked node carries the name of what it links to). */
 export function displayName(node) {

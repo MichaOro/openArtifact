@@ -4,6 +4,7 @@
  * match, Escape closes. */
 import { icon } from "../components/icons.js";
 import { addableIn, groupAddable, searchAddable } from "./node-types.js";
+import { t } from "../i18n.js";
 
 export class AddMenu {
   /**
@@ -16,11 +17,11 @@ export class AddMenu {
     this.list = root.querySelector("[data-add-list]");
     this.types = addableIn(scope);
     this.open = null; // the cluster that is open
-    this.search = Object.assign(document.createElement("input"), { type: "search", className: "field__control ge-add__search", placeholder: "Search nodes…", autocomplete: "off", spellcheck: false });
-    this.search.setAttribute("aria-label", "Search nodes");
+    this.search = Object.assign(document.createElement("input"), { type: "search", className: "field__control ge-add__search", placeholder: t("editor.add_menu.search_nodes"), autocomplete: "off", spellcheck: false });
+    this.search.setAttribute("aria-label", t("editor.add_menu.search_nodes_2"));
     this.items = document.createElement("div");
     this.items.className = "ge-add__items";
-    this.empty = Object.assign(document.createElement("p"), { className: "ge-add__empty", textContent: "No node matches.", hidden: true });
+    this.empty = Object.assign(document.createElement("p"), { className: "ge-add__empty", textContent: t("editor.add_menu.no_node_matches"), hidden: true });
     this.list.append(this.search, this.items, this.empty);
     this.#fill();
 

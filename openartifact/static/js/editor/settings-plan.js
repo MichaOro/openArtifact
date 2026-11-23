@@ -6,6 +6,7 @@
  *  - advanced: folded, and open while one of them has a value, so a configured value is never hidden.
  *  - a section without anything is not part of the plan; two columns only when both sections have something. */
 
+import { t } from "../i18n.js";
 const SECTIONS = ["definition", "behaviour"];
 
 /**
@@ -60,7 +61,7 @@ export function groupsOf(settings) {
 export function optionLabel(setting, inheritedText = null) {
   if (setting.inherits) return inheritedText != null ? `${setting.label} · ${capital(setting.inherits)}: ${inheritedText}` : setting.label;
   const hasDefault = setting.default !== null && setting.default !== undefined && setting.default !== "";
-  return hasDefault ? `${setting.label} · default ${setting.default}` : setting.label;
+  return hasDefault ? t("editor.settings_plan.label_default_default", { label: setting.label, default: setting.default }) : setting.label;
 }
 
 const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);

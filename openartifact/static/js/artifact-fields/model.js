@@ -1,12 +1,13 @@
 /* Pure logic of the artifact fields (no DOM): names, blank fields, what is sent, server messages, what a card shows. */
 
+import { t } from "../i18n.js";
 /** The field types the editor offers: a choice is a single or a multi select (ADR-050). */
 export const KINDS = [
-  { value: "text", label: "Text" },
-  { value: "number", label: "Number" },
-  { value: "boolean", label: "Yes / no" },
-  { value: "single", label: "Single select" },
-  { value: "multi", label: "Multi select" },
+  { value: "text", label: t("artifact_fields.model.text") },
+  { value: "number", label: t("artifact_fields.model.number") },
+  { value: "boolean", label: t("artifact_fields.model.yes_no") },
+  { value: "single", label: t("artifact_fields.model.single_select") },
+  { value: "multi", label: t("artifact_fields.model.multi_select") },
 ];
 
 const typeOf = (field) => (field.kind === "choice" ? (field.multiple ? "multi" : "single") : field.kind);
@@ -97,9 +98,9 @@ export function toWrite(state) {
 /** Why an option's text cannot be used: empty, or the same as another option of the field (null: fine). */
 export function optionProblem(state, text, self = null) {
   const value = text.trim();
-  if (!value) return "An option needs a text.";
-  if (value.length > 40) return "An option is at most 40 characters.";
-  if (state.options.some((o) => o !== self && o.text.trim().toLowerCase() === value.toLowerCase())) return `"${value}" is already an option.`;
+  if (!value) return t("artifact_fields.model.option_needs_text");
+  if (value.length > 40) return t("artifact_fields.model.option_at_most_40_characters");
+  if (state.options.some((o) => o !== self && o.text.trim().toLowerCase() === value.toLowerCase())) return t("artifact_fields.model.value_already_option", { value });
   return null;
 }
 

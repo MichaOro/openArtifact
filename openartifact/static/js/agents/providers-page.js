@@ -11,12 +11,13 @@ import { formatTime } from "../tasks/history-format.js";
 import { isPlainHttp } from "./model.js";
 import { addModel, checkProvider, createProvider, deleteModel, deleteProvider, listProviders, listSecrets, putSecret, refreshModels, testProvider, updateModel, updateProvider } from "./api.js";
 import { chip, el } from "./view.js";
+import { t } from "../i18n.js";
 
 const listEl = document.querySelector("[data-provider-list]");
 const emptyEl = document.querySelector("[data-provider-empty]");
 const banner = new AlertBar();
 const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
-const KINDS = { openrouter: "OpenRouter", openai_compatible: "OpenAI-compatible" };
+const KINDS = { openrouter: t("agents.providers_page.openrouter"), openai_compatible: t("agents.providers_page.openai_compatible") };
 
 let providers = [];
 /** Which providers have their model list open, and what is typed into its filter. */
@@ -27,7 +28,7 @@ const filters = new Map();
 
 class ProviderDialog extends ActionDialog {
   constructor(modal) {
-    super(modal, "Could not save. Please try again.");
+    super(modal, t("agents.providers_page.could_not_save_please_try"));
     this.form = this.root.querySelector("form");
     this.result = this.root.querySelector("[data-check-result]");
     this.provider = null;
@@ -51,7 +52,7 @@ class ProviderDialog extends ActionDialog {
     this.form.reset();
     this.setError("");
     this.result.hidden = true;
-    this.titleEl.textContent = provider ? `Provider ${provider.name}` : "New provider";
+    this.titleEl.textContent = provider ? t("agents.providers_page.provider_name", { name: provider.name }) : t("providers.new_provider");
     this.field("kind").value = provider?.kind ?? (providers.some((p) => p.kind === "openrouter") ? "openai_compatible" : "openrouter");
     this.field("kind").querySelector('[value="openrouter"]').disabled = !provider && providers.some((p) => p.kind === "openrouter");
     this.field("name").value = provider?.name ?? "";
@@ -106,7 +107,7 @@ class ProviderDialog extends ActionDialog {
   async #storeKey(values) {
     const key = this.field("api_key").value;
     if (!key) return;
-    if (!values.secret_name) throw new Error("Name the secret the API key is stored in.");
+    if (!values.secret_name) throw new Error(t("agents.providers_page.name_secret_api_key_stored"));
     await putSecret(values.secret_name, key);
     this.field("api_key").value = "";
   }
@@ -131,7 +132,7 @@ class ProviderDialog extends ActionDialog {
 
   async #save() {
     const values = this.#values();
-    if (!values.name) throw new Error("Please enter a name.");
+    if (!values.name) throw new Error(t("agents.providers_page.please_enter_name"));
     await this.#storeKey(values);
     if (this.provider) {
       const { kind, models, default_model, ...changes } = values;
@@ -177,20 +178,20 @@ function modelRow(provider, model) {
   row.dataset.modelId = model.model_id;
   const label = el("label");
   const box = Object.assign(el("input"), { type: "checkbox", checked: model.enabled });
-  box.setAttribute("aria-label", `Use model ${model.model_id}`);
+  box.setAttribute("aria-label", t("agents.providers_page.use_model_model_id", { model_id: model.model_id }));
   box.addEventListener("change", () => act(() => updateModel(provider.id, model.id, { enabled: box.checked })));
   label.append(box, el("span", "ag-model__id", model.model_id));
   if (model.label && model.label !== model.model_id) label.append(el("span", "ag-model__label", model.label));
   row.append(label);
-  if (provider.default_model === model.model_id) row.append(chip("Default", "accent"));
-  else if (model.enabled && model.available) row.append(tool("Make default", null, () => act(() => updateProvider(provider.id, { default_model: model.model_id })), `Make ${model.model_id} the default model`));
-  if (!model.available) row.append(chip("No longer listed", "warn"));
+  if (provider.default_model === model.model_id) row.append(chip(t("common.default"), "accent"));
+  else if (model.enabled && model.available) row.append(tool(t("agents.providers_page.make_default"), null, () => act(() => updateProvider(provider.id, { default_model: model.model_id })), t("agents.providers_page.make_model_id_default_model", { model_id: model.model_id })));
+  if (!model.available) row.append(chip(t("agents.providers_page.no_longer_listed"), "warn"));
   if (model.source === "manual") {
-    row.append(chip("By hand"));
+    row.append(chip(t("agents.providers_page.by_hand")));
     const remove = el("button", "icon-button icon-button--sm is-danger");
     remove.type = "button";
-    remove.title = "Delete model";
-    remove.setAttribute("aria-label", `Delete model ${model.model_id}`);
+    remove.title = t("agents.providers_page.delete_model");
+    remove.setAttribute("aria-label", t("agents.providers_page.delete_model_model_id", { model_id: model.model_id }));
     remove.append(icon("trash"));
     remove.addEventListener("click", () => act(() => deleteModel(provider.id, model.id)));
     row.append(remove);
@@ -203,12 +204,12 @@ function modelsBlock(provider) {
   block.open = openModels.has(provider.id);
   block.addEventListener("toggle", () => (block.open ? openModels.add(provider.id) : openModels.delete(provider.id)));
   const enabled = provider.models.filter((m) => m.enabled).length;
-  block.append(el("summary", "", `Models: ${enabled} of ${provider.models.length} switched on`));
+  block.append(el("summary", "", t("agents.providers_page.models_enabled_length_switched", { enabled, length: provider.models.length })));
   const tools = el("div", "ag-models__tools");
   const list = el("ul", "ag-model-list");
-  list.setAttribute("aria-label", `Models of ${provider.name}`);
-  const filter = Object.assign(el("input", "field__control"), { type: "search", placeholder: "Filter models", value: filters.get(provider.id) ?? "" });
-  filter.setAttribute("aria-label", `Filter the models of ${provider.name}`);
+  list.setAttribute("aria-label", t("agents.providers_page.models_name", { name: provider.name }));
+  const filter = Object.assign(el("input", "field__control"), { type: "search", placeholder: t("agents.providers_page.filter_models"), value: filters.get(provider.id) ?? "" });
+  filter.setAttribute("aria-label", t("agents.providers_page.filter_models_name", { name: provider.name }));
   const apply = () => {
     const wanted = filter.value.trim().toLowerCase();
     filters.set(provider.id, filter.value);
@@ -220,12 +221,12 @@ function modelsBlock(provider) {
   tools.append(filterField);
   if (provider.kind !== "openrouter") {
     const name = Object.assign(el("input", "field__control"), { type: "text", placeholder: "model-id", maxLength: 200, autocomplete: "off", spellcheck: false });
-    name.setAttribute("aria-label", `A model of ${provider.name} to define by hand`);
+    name.setAttribute("aria-label", t("agents.providers_page.model_name_define_by_hand", { name: provider.name }));
     const add = () => name.value.trim() && act(() => addModel(provider.id, { model_id: name.value.trim() }));
     name.addEventListener("keydown", (event) => event.key === "Enter" && add());
     const nameField = el("div", "field");
     nameField.append(name);
-    tools.append(nameField, tool("Add model", "plus", add, `Add a model to ${provider.name} by hand`));
+    tools.append(nameField, tool(t("agents.providers_page.add_model"), "plus", add, t("agents.providers_page.add_model_name_by_hand", { name: provider.name })));
   }
   list.append(...provider.models.map((model) => modelRow(provider, model)));
   block.append(tools, list);
@@ -239,35 +240,35 @@ function card(provider) {
   const head = el("div", "ag-provider__head");
   const chips = el("span", "ag-chips");
   chips.append(chip(KINDS[provider.kind] ?? provider.kind));
-  if (provider.is_default) chips.append(chip("Default provider", "accent"));
-  if (provider.check_ok === true) chips.append(chip("Connection tested", "ok"));
-  if (provider.check_ok === false) chips.append(chip("Last test failed", "bad"));
+  if (provider.is_default) chips.append(chip(t("agents.providers_page.default_provider"), "accent"));
+  if (provider.check_ok === true) chips.append(chip(t("agents.providers_page.connection_tested"), "ok"));
+  if (provider.check_ok === false) chips.append(chip(t("agents.providers_page.last_test_failed"), "bad"));
   const tools = el("div", "ag-provider__tools");
   tools.append(
-    tool("Test", "play", () => act(async () => {
+    tool(t("agents.providers_page.test"), "play", () => act(async () => {
       const result = await checkProvider(provider.id);
-      if (!result.ok) throw new Error(`The connection test failed: ${result.steps.find((s) => !s.ok)?.message ?? ""}`);
-    }, `The connection to ${provider.name} works.`), `Test the connection to ${provider.name}`),
-    tool("Refresh models", "refresh", () => act(() => refreshModels(provider.id), "The model list is up to date."), `Fetch the model list of ${provider.name} again`),
-    tool("Edit", "pencil", () => dialog.open(provider), `Edit provider ${provider.name}`),
-    tool("Delete", "trash", () =>
+      if (!result.ok) throw new Error(t("agents.providers_page.test_failed", { message: result.steps.find((s) => !s.ok)?.message ?? "" }));
+    }, t("agents.providers_page.connection_name_works", { name: provider.name })), t("agents.providers_page.test_connection_name", { name: provider.name })),
+    tool(t("agents.providers_page.refresh_models"), "refresh", () => act(() => refreshModels(provider.id), t("agents.providers_page.model_list_up_date")), t("agents.providers_page.fetch_model_list_name_again", { name: provider.name })),
+    tool(t("common.edit"), "pencil", () => dialog.open(provider), t("agents.providers_page.edit_provider_name", { name: provider.name })),
+    tool(t("common.delete"), "trash", () =>
       confirm.open({
-        message: "Delete the provider {subject} with its models?",
+        message: t("agents.providers_page.delete_provider_subject_with_its"),
         subject: provider.name,
         onConfirm: async () => {
           await deleteProvider(provider.id);
           await load();
         },
-      }), `Delete provider ${provider.name}`, true),
+      }), t("agents.providers_page.delete_provider_name", { name: provider.name }), true),
   );
   head.append(el("h3", "ag-provider__name", provider.name), chips, tools);
   const facts = el("dl", "ag-provider__facts");
   const fact = (term, value) => facts.append(el("dt", "", term), el("dd", "", value));
-  fact("Address", provider.base_url);
-  fact("API key", provider.secret_name ? `secret ${provider.secret_name}${provider.secret_exists ? "" : " (does not exist: requests will fail)"}` : "none");
-  fact("Default model", provider.default_model ?? "none");
+  fact(t("agents.providers_page.address"), provider.base_url);
+  fact("API key", provider.secret_name ? `secret ${provider.secret_name}${provider.secret_exists ? "" : t("agents.providers_page.does_not_exist_requests_will")}` : "none");
+  fact(t("agents.providers_page.default_model"), provider.default_model ?? "none");
   if (provider.kind !== "openrouter" && isPlainHttp(provider.base_url)) fact("Unencrypted connection", provider.allow_http ? "confirmed (HTTP)" : "not confirmed"); // https shows nothing
-  if (provider.checked_at) fact("Last test", `${formatTime(provider.checked_at)}: ${provider.check_message ?? ""}`);
+  if (provider.checked_at) fact(t("credentials.last_test"), `${formatTime(provider.checked_at)}: ${provider.check_message ?? ""}`);
   item.append(head, facts, ...provider.warnings.map((warning) => el("p", "ag-warning", warning)), modelsBlock(provider));
   return item;
 }
@@ -282,7 +283,7 @@ async function load() {
     providers = await listProviders();
     render();
   } catch {
-    banner.show("Providers could not be loaded.", { retry: true });
+    banner.show(t("agents.providers_page.providers_could_not_be_loaded"), { retry: true });
   }
 }
 

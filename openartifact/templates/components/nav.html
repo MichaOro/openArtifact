@@ -2,10 +2,10 @@
 {# One building block for every navigation (web/navigation.py): the sidebar and the rail of the
    artifact dialog render their entries with `nav_items`; an entry's `kind` picks the markup. #}
 {% macro nav_link(item, active_nav, section=false) -%}
-<a class="nav-link{% if section %} nav-link--section{% endif %}" href="{{ item.href }}" title="{{ item.tooltip }}"
+<a class="nav-link{% if section %} nav-link--section{% endif %}" href="{{ item.href }}" title="{{ t('nav.' ~ item.key ~ '.tooltip') }}"
    {% if item.key == active_nav %}aria-current="page"{% endif %}>
     {{ icon(item.icon) }}
-    <span class="nav-link__label">{{ item.label }}</span>
+    <span class="nav-link__label">{{ t('nav.' ~ item.key ~ '.label') }}</span>
 </a>
 {%- endmacro %}
 
@@ -15,7 +15,7 @@
     <li{% if inside %} class="nav-section"{% endif %}>
         {{ nav_link(item, active_nav, inside and active_nav != item.key) }}
         {% if inside %}
-        <ul class="nav-list" aria-label="{{ item.label }}" style="--n: {{ item.children | length }}">
+        <ul class="nav-list" aria-label="{{ t('nav.' ~ item.key ~ '.label') }}" style="--n: {{ item.children | length }}">
             {% for child in item.children %}<li style="--i: {{ loop.index0 }}">{{ nav_link(child, active_nav) }}</li>{% endfor %}
         </ul>
         {% endif %}
@@ -24,28 +24,28 @@
     {# The page fills the sub-entries (static/js/components/nav-group.js); the section looks like a link with children. #}
     <li class="nav-section nav-group" data-nav-group="{{ item.key }}">
         <button type="button" class="nav-link" data-nav-group-toggle aria-expanded="false"
-                aria-controls="nav-group-{{ item.key }}" title="{{ item.tooltip }}">
+                aria-controls="nav-group-{{ item.key }}" title="{{ t('nav.' ~ item.key ~ '.tooltip') }}">
             {{ icon(item.icon) }}
-            <span class="nav-link__label">{{ item.label }}</span>
+            <span class="nav-link__label">{{ t('nav.' ~ item.key ~ '.label') }}</span>
         </button>
-        <ul class="nav-list nav-group__list" id="nav-group-{{ item.key }}" data-nav-group-list aria-label="{{ item.tooltip }}" hidden></ul>
+        <ul class="nav-list nav-group__list" id="nav-group-{{ item.key }}" data-nav-group-list aria-label="{{ t('nav.' ~ item.key ~ '.tooltip') }}" hidden></ul>
     </li>
 {% elif item.kind == "field" %}
     <li>
         <button type="button" class="nav-link card-nav__field" data-card-field="{{ item.key }}"
-                aria-haspopup="listbox" aria-expanded="false" title="{{ item.tooltip }}">
+                aria-haspopup="listbox" aria-expanded="false" title="{{ t('nav.' ~ item.key ~ '.tooltip') }}">
             {{ icon(item.icon) }}
             <span class="nav-link__label">
-                <span class="card-nav__key">{{ item.label }}</span>
-                <span class="card-nav__value{% if not item.dot %} card-nav__value--plain{% endif %}"><span data-{{ item.key }}-value>{{ item.value }}</span></span>
+                <span class="card-nav__key">{{ t('nav.' ~ item.key ~ '.label') }}</span>
+                <span class="card-nav__value{% if not item.dot %} card-nav__value--plain{% endif %}"><span data-{{ item.key }}-value>{{ t('nav.' ~ item.key ~ '.value') if item.value == 'None' else item.value }}</span></span>
             </span>
         </button>
     </li>
 {% elif item.kind == "action" %}
     <li>
-        <button type="button" class="nav-link{% if item.danger %} is-danger{% endif %}" data-card-action="{{ item.key }}" title="{{ item.tooltip }}">
+        <button type="button" class="nav-link{% if item.danger %} is-danger{% endif %}" data-card-action="{{ item.key }}" title="{{ t('nav.' ~ item.key ~ '.tooltip') }}">
             {{ icon(item.icon) }}
-            <span class="nav-link__label">{{ item.label }}</span>
+            <span class="nav-link__label">{{ t('nav.' ~ item.key ~ '.label') }}</span>
         </button>
     </li>
 {% elif item.kind == "divider" %}

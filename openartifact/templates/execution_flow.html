@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "components/alert.html" import alert %}
 {% from "components/icons.html" import icon %}
-{% block title %}Execution flow · OpenArtifact{% endblock %}
+{% block title %}{{ t('page.execution_flow') }} · OpenArtifact{% endblock %}
 {% block page_styles %}
 <link rel="stylesheet" href="/static/css/editor.css">
 <link rel="stylesheet" href="/static/css/history.css">
@@ -16,59 +16,59 @@
     <div class="visually-hidden" role="status" aria-live="polite" data-live></div>
     <header class="ef-head glass" data-head>
         <div class="ef-head__main">
-            <h2 class="ef-head__title" data-head-title>Execution</h2>
+            <h2 class="ef-head__title" data-head-title>{{ t('execution_flow.execution') }}</h2>
             <span class="history-chip" data-head-chip hidden><span data-chip-icon></span><span data-chip-text></span></span>
-            <a class="button button--ghost button--sm ef-head__back" href="/">Back to the board</a>
+            <a class="button button--ghost button--sm ef-head__back" href="/">{{ t('execution_flow.back_to_the_board') }}</a>
         </div>
         <dl class="history-facts ef-head__facts" data-head-facts></dl>
     </header>
     <section class="ef-gone glass" data-gone hidden>
-        <h2 class="ef-gone__title" data-gone-title tabindex="-1">This execution does not exist</h2>
-        <p data-gone-text>It was deleted, or the link is not right.</p>
-        <a class="button button--primary button--sm" href="/">Back to the board</a>
+        <h2 class="ef-gone__title" data-gone-title tabindex="-1">{{ t('execution_flow.this_execution_does_not_exist') }}</h2>
+        <p data-gone-text>{{ t('execution_flow.it_was_deleted_or_the_link') }}</p>
+        <a class="button button--primary button--sm" href="/">{{ t('execution_flow.back_to_the_board') }}</a>
     </section>
     <div class="ef-body" data-body hidden>
-        <div class="ef-bar glass" role="toolbar" aria-label="Flow tools">
-            <button type="button" class="button button--ghost button--sm" data-up hidden>{{ icon("chevrons-left") }}<span>Back</span></button>
-            <nav class="ef-crumbs" aria-label="Where you are in the flow" data-crumbs><ol></ol></nav>
+        <div class="ef-bar glass" role="toolbar" aria-label="{{ t('execution_flow.flow_tools') }}">
+            <button type="button" class="button button--ghost button--sm" data-up hidden>{{ icon("chevrons-left") }}<span>{{ t('common.back') }}</span></button>
+            <nav class="ef-crumbs" aria-label="{{ t('execution_flow.where_you_are_in_the_flow') }}" data-crumbs><ol></ol></nav>
             <span class="ge-bar__spacer"></span>
-            <button type="button" class="button button--ghost button--sm" data-zoom-out aria-label="Zoom out">−</button>
+            <button type="button" class="button button--ghost button--sm" data-zoom-out aria-label="{{ t('execution_flow.zoom_out') }}">−</button>
             <span class="ge-bar__zoom" data-zoom-label>100%</span>
-            <button type="button" class="button button--ghost button--sm" data-zoom-in aria-label="Zoom in">+</button>
-            <button type="button" class="button button--ghost button--sm" data-zoom-fit>Fit</button>
+            <button type="button" class="button button--ghost button--sm" data-zoom-in aria-label="{{ t('execution_flow.zoom_in') }}">+</button>
+            <button type="button" class="button button--ghost button--sm" data-zoom-fit>{{ t('execution_flow.fit') }}</button>
         </div>
         <div class="ef-main">
             <div class="ge-canvas">
-                <div class="ge-viewport ef-viewport glass" data-viewport tabindex="-1" role="group" aria-label="Flow canvas. The list of steps next to it has the same information.">
+                <div class="ge-viewport ef-viewport glass" data-viewport tabindex="-1" role="group" aria-label="{{ t('execution_flow.flow_canvas_the_list_of_steps') }}">
                     <div class="ge-world" data-world>
                         <div data-nodes></div>
                         <svg class="ge-edges" data-edges aria-hidden="true"></svg>
                     </div>
                 </div>
             </div>
-            <aside class="ef-panel glass" aria-label="Flow details" data-panel>
+            <aside class="ef-panel glass" aria-label="{{ t('execution_flow.flow_details') }}" data-panel>
                 <header class="ef-panel__head">
                     <p class="ef-panel__kind" data-panel-kind></p>
                     <h2 class="ef-panel__title" tabindex="-1" data-panel-title></h2>
                     <div class="ef-panel__chips" data-panel-chips></div>
                     <dl class="history-facts" data-panel-facts></dl>
-                    <div class="ef-passes" role="group" aria-label="Passes" data-panel-passes hidden>
-                        <button type="button" class="icon-button icon-button--sm" data-pass-prev aria-label="Previous pass">{{ icon("chevrons-left") }}</button>
+                    <div class="ef-passes" role="group" aria-label="{{ t('execution_flow.passes') }}" data-panel-passes hidden>
+                        <button type="button" class="icon-button icon-button--sm" data-pass-prev aria-label="{{ t('execution_flow.previous_pass') }}">{{ icon("chevrons-left") }}</button>
                         <span class="ef-passes__text" data-pass-text></span>
-                        <button type="button" class="icon-button icon-button--sm" data-pass-next aria-label="Next pass">{{ icon("chevrons-right") }}</button>
+                        <button type="button" class="icon-button icon-button--sm" data-pass-next aria-label="{{ t('execution_flow.next_pass') }}">{{ icon("chevrons-right") }}</button>
                     </div>
                 </header>
                 <section class="ef-panel__section" aria-labelledby="ef-path-heading">
-                    <h3 class="ef-panel__heading" id="ef-path-heading">Path</h3>
+                    <h3 class="ef-panel__heading" id="ef-path-heading">{{ t('execution_flow.path') }}</h3>
                     <ol class="ef-path" data-panel-path></ol>
-                    <p class="ef-panel__note" data-panel-path-empty hidden>Nothing ran in this pass.</p>
+                    <p class="ef-panel__note" data-panel-path-empty hidden>{{ t('execution_flow.nothing_ran_in_this_pass') }}</p>
                 </section>
                 <section class="ef-panel__section" aria-labelledby="ef-context-heading">
-                    <h3 class="ef-panel__heading" id="ef-context-heading">Run context</h3>
+                    <h3 class="ef-panel__heading" id="ef-context-heading">{{ t('execution_flow.run_context') }}</h3>
                     <div data-panel-context></div>
                 </section>
                 <section class="ef-panel__section" aria-labelledby="ef-detail-heading">
-                    <h3 class="ef-panel__heading" id="ef-detail-heading">Details</h3>
+                    <h3 class="ef-panel__heading" id="ef-detail-heading">{{ t('common.details') }}</h3>
                     <div data-panel-detail></div>
                 </section>
             </aside>

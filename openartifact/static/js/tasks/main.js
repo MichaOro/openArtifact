@@ -20,6 +20,7 @@ import { listFields, replaceFields } from "../artifact-fields/api.js";
 import { FieldsEditor } from "../artifact-fields/fields-editor.js";
 import { ActionMenu } from "../components/action-menu.js";
 import { FieldRail } from "./field-rail.js";
+import { t, tn } from "../i18n.js";
 
 const board = new Board({ loadTasks: listTasks, renameLane: (status, title) => laneControls.rename(status, title) });
 
@@ -42,8 +43,8 @@ async function moveTaskTo(task, { status = task.status, beforeId, position } = {
   board.upsert({ ...task, status, position: position ?? board.topPosition(status) });
   board.announce(
     laneChanged
-      ? `${task.title} moved to ${board.laneTitle(status)}`
-      : `${task.title} moved to position ${[...board.cards.get(task.id).parentElement.children].indexOf(board.cards.get(task.id)) + 1}`,
+      ? t("tasks.main.title_moved_lanetitle", { title: task.title, laneTitle: board.laneTitle(status) })
+      : t("tasks.main.moved_to_position", { title: task.title, position: [...board.cards.get(task.id).parentElement.children].indexOf(board.cards.get(task.id)) + 1 }),
   );
   try {
     board.upsert(await placeTask(task.id, { status: laneChanged ? status : undefined, beforeId }));
@@ -53,7 +54,7 @@ async function moveTaskTo(task, { status = task.status, beforeId, position } = {
       board.remove(task.id); // deleted elsewhere in the meantime
     } else {
       board.upsert(previous);
-      board.showError(`Could not move "${task.title}". Please try again.`);
+      board.showError(t("tasks.main.could_not_move_title_please", { title: task.title }));
     }
     return false;
   }
@@ -95,7 +96,7 @@ const artifactDialog = new ArtifactDialog({
   onSaved: (task) => board.upsert(task),
   onGone: (task) => {
     board.remove(task.id);
-    board.showError(`"${task.title}" no longer exists.`);
+    board.showError(t("tasks.main.title_no_longer_exists", { title: task.title }));
   },
   history,
   comments,
@@ -143,9 +144,9 @@ const deleteDialog = new ConfirmDialog(new Modal(document.getElementById("delete
 function confirmDelete(task) {
   const children = board.childCount(task.id);
   deleteDialog.open({
-    message: "Delete {subject}? This cannot be undone.",
+    message: t("executions.page.delete_subject_cannot_be_undone"),
     subject: task.title,
-    note: children === 0 ? "" : `Its ${children} sub-artifact${children === 1 ? "" : "s"} will lose their parent but are not deleted.`,
+    note: children === 0 ? "" : tn("tasks.main.sub_artifacts", children),
     onConfirm: async () => {
       try {
         await deleteTask(task.id);
@@ -163,8 +164,8 @@ new CardDragController({ board, onDrop: (task, placement) => moveTaskTo(task, pl
 // Right-hand navigation of the task dialog (Lane, Parent, Delete): collapsed by default.
 const cardNavRoot = document.querySelector("[data-card-nav]");
 const cardNav = new CollapsibleNav(cardNavRoot, cardNavRoot.querySelector("[data-card-nav-toggle]"), KEYS.cardNav, {
-  expand: "Expand artifact details",
-  collapse: "Collapse artifact details",
+  expand: t("create_task.expand_artifact_details"),
+  collapse: t("tasks.main.collapse_artifact_details"),
 });
 const fieldRail = new FieldRail({
   rail: cardNavRoot,
@@ -178,7 +179,7 @@ const fieldRail = new FieldRail({
 const fieldsEditor = new FieldsEditor(new Modal(document.getElementById("fields-modal")), replaceFields, (saved) => showFields(saved));
 const boardMenu = new ActionMenu();
 document.querySelector("[data-board-menu]")?.addEventListener("click", (event) => {
-  boardMenu.toggle(event.currentTarget, [{ label: "Artifact fields", icon: "tag", onSelect: () => fieldsEditor.open(artifactFields) }], "Board");
+  boardMenu.toggle(event.currentTarget, [{ label: t("index.artifact_fields"), icon: "tag", onSelect: () => fieldsEditor.open(artifactFields) }], t("tasks.main.board"));
 });
 
 // Lane switch inside the task dialog. Two entry points: the lane chip under the title (a
@@ -209,7 +210,7 @@ function pickLane(trigger, placement, variant = "list") {
     trigger,
     placement,
     variant,
-    label: "Move to lane",
+    label: t("modal.move_to_lane"),
     current: artifactDialog.currentStatus(),
     lanes: board.statuses.map((status) => ({
       status,
@@ -255,7 +256,7 @@ async function setParent(id, parentId) {
     } else {
       board.upsert(previous);
       artifactDialog.setParent(board.parentOf(previous)?.title ?? null);
-      board.showError(`Could not change the parent of "${task.title}": ${error.status === 422 ? "that would create a loop." : "please try again."}`);
+      board.showError(t("tasks.main.parent_change_failed", { title: task.title, why: error.status === 422 ? t("tasks.main.would_create_loop") : t("tasks.main.please_try_again") }));
     }
   }
 }
@@ -265,7 +266,7 @@ cardNavRoot.querySelector('[data-card-field="parent"]').addEventListener("click"
   if (!task || board.locked.has(task.id)) return;
   const blocked = board.descendantIds(task.id);
   const items = [
-    { value: "", label: "No parent", selected: !task.parent_id },
+    { value: "", label: t("tasks.main.no_parent"), selected: !task.parent_id },
     ...board
       .inBoardOrder()
       .filter((t) => t.id !== task.id && !blocked.has(t.id))
@@ -274,7 +275,7 @@ cardNavRoot.querySelector('[data-card-field="parent"]').addEventListener("click"
   lanePicker.toggle({
     trigger: event.currentTarget,
     items,
-    caption: "Parent",
+    caption: t("tasks.main.parent"),
     placement: "left",
     onSelect: (value) => setParent(task.id, value || null),
   });
@@ -362,7 +363,7 @@ connectEvents({
   onClosed: () => {
     // The stream is refused for good, e.g. the sign-in expired: any request then goes to the sign-in page.
     listTasks().catch(() => {});
-    board.showError("Live updates stopped. Reload the page or sign in again.", { sticky: true });
+    board.showError(t("execution.flow_page.live_updates_stopped_reload_page"), { sticky: true });
   },
   onOpen: () => {
     board.load(); // first connect and every reconnect: resync

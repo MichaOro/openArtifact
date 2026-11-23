@@ -5,6 +5,7 @@ import { FormDialog } from "../components/form-dialog.js";
 import { Modal } from "../components/modal.js";
 import { KEYS, readJson, removeStorage } from "../storage.js";
 import { createGraph, deleteGraph, listGraphs, renameGraph } from "./api.js";
+import { t } from "../i18n.js";
 
 const listEl = document.querySelector("[data-ge-list]");
 const emptyEl = document.querySelector("[data-ge-empty]");
@@ -31,12 +32,12 @@ function render() {
       const item = template.content.firstElementChild.cloneNode(true);
       item.querySelector("a").href = `${path}/${encodeURIComponent(graph.slug)}`;
       item.querySelector(".ge-item__name").textContent = graph.name;
-      item.querySelector(".ge-item__meta").textContent = `Changed ${when(graph.updated_at)}`;
+      item.querySelector(".ge-item__meta").textContent = t("editor.list.changed_when", { when: when(graph.updated_at) });
       item.querySelector("[data-rename]").addEventListener("click", () =>
         nameDialog.open({
-          title: `Rename ${noun}`,
+          title: t("editor.list.rename_noun", { noun }),
           values: { name: graph.name },
-          submitLabel: "Save",
+          submitLabel: t("common.save"),
           onSubmit: async ({ name }) => {
             await renameGraph(kind, graph.id, name);
             await load();
@@ -45,7 +46,7 @@ function render() {
       );
       item.querySelector("[data-delete]").addEventListener("click", () =>
         confirm.open({
-          message: kind === "action" ? `Delete "${graph.name}"? This cannot be undone.` : `Delete "${graph.name}" with all its stages and actions? This cannot be undone.`,
+          message: kind === "action" ? t("editor.list.delete_name_cannot_be_undone", { name: graph.name }) : t("editor.list.delete_name_with_all_its", { name: graph.name }),
           onConfirm: async () => {
             await deleteGraph(kind, graph.id);
             forget(graph.slug);
@@ -65,13 +66,13 @@ async function load() {
     banner.hide();
     render();
   } catch {
-    banner.show(`${noun[0].toUpperCase()}${noun.slice(1)}s could not be loaded.`, { retry: true });
+    banner.show(t(`graph.${noun}.load_error`), { retry: true });
   }
 }
 
 document.querySelector("[data-new-graph]").addEventListener("click", () =>
   nameDialog.open({
-    title: `New ${noun}`,
+    title: t("editor.list.new_noun", { noun }),
     onSubmit: async ({ name }) => {
       const created = await createGraph(kind, name);
       window.location.assign(`${path}/${encodeURIComponent(created.slug)}`);

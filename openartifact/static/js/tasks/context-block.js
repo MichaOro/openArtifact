@@ -2,6 +2,7 @@
  * button). Used by the History tab (the context comes with the execution) and the flow page (it is
  * loaded when the block is opened). Everything is text (textContent). */
 import { contextSummary, formatContext } from "./context-format.js";
+import { t } from "../i18n.js";
 
 /**
  * @param {object} options
@@ -16,26 +17,26 @@ export function contextBlock({ key, open = false, onOpen }) {
   details.dataset.key = key;
   details.open = open;
   const summary = document.createElement("summary");
-  summary.textContent = "Run context";
+  summary.textContent = t("execution_flow.run_context");
   const pre = document.createElement("pre");
   pre.className = "history-step__pre";
   pre.tabIndex = 0;
   const copy = document.createElement("button");
   copy.type = "button";
   copy.className = "button button--ghost button--sm";
-  copy.textContent = "Copy";
+  copy.textContent = t("credentials.copy");
   copy.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(pre.textContent);
-      copy.textContent = "Copied";
+      copy.textContent = t("credentials.credentials_page.copied");
     } catch {
-      copy.textContent = "Copy failed";
+      copy.textContent = t("tasks.context_block.copy_failed");
     }
-    window.setTimeout(() => (copy.textContent = "Copy"), 1500);
+    window.setTimeout(() => (copy.textContent = t("credentials.copy")), 1500);
   });
   details.append(summary, pre, copy);
   details.show = (context) => {
-    summary.textContent = `Run context (${contextSummary(context)})`;
+    summary.textContent = t("tasks.context_block.run_context_contextsummary", { contextSummary: contextSummary(context) });
     pre.textContent = formatContext(context);
   };
   if (onOpen) details.addEventListener("toggle", () => details.open && onOpen());

@@ -16,6 +16,7 @@ import { RetentionDialog } from "./retention-dialog.js";
 import { Filters } from "./filters.js";
 import { SummaryStrip } from "./summary.js";
 import { ExecutionTable } from "./table.js";
+import { t } from "../i18n.js";
 
 const COUNTS_MS = 300;
 const BATCH = 500; // the most executions one delete request takes
@@ -73,7 +74,7 @@ class ExecutionsPage {
 
     this.retention = new RetentionDialog(new Modal(document.getElementById("retention-modal")), {
       onSaved: (deleted) => {
-        this.#announce(deleted ? `${plural(deleted, "execution")} deleted by the rules` : "Rules saved");
+        this.#announce(deleted ? t("executions.page.deleted_by_rules", { what: plural(deleted, "execution") }) : t("executions.page.rules_saved"));
         this.load();
       },
     });
@@ -132,8 +133,8 @@ class ExecutionsPage {
       if (focusFirst && page.items.length) this.table.focus(page.items[0].id);
     } catch (error) {
       if (token !== this.token) return;
-      this.alert.show(error.message || "Executions could not be loaded.", { retry: true });
-      if (this.knownTotal === null) this.countText.textContent = "Executions could not be loaded.";
+      this.alert.show(error.message || t("executions.page.executions_could_not_be_loaded"), { retry: true });
+      if (this.knownTotal === null) this.countText.textContent = t("executions.page.executions_could_not_be_loaded");
     } finally {
       if (token === this.token) this.list.setAttribute("aria-busy", "false");
     }
@@ -157,7 +158,7 @@ class ExecutionsPage {
       this.#announce(`${plural(rows.length, "more execution")} loaded`);
       rows[0]?.querySelector("[data-open]").focus();
     } catch (error) {
-      this.alert.show(error.message || "More executions could not be loaded.", { retry: false });
+      this.alert.show(error.message || t("executions.page.more_executions_could_not_be"), { retry: false });
     } finally {
       this.moreButton.removeAttribute("aria-disabled");
     }
@@ -191,8 +192,8 @@ class ExecutionsPage {
     this.emptyNone.hidden = !nothingAtAll;
     this.emptyMatch.hidden = rows > 0 || nothingAtAll;
     this.moreButton.hidden = !this.cursor;
-    this.moreButton.textContent = `Load more (${rows} of ${this.total} shown)`;
-    const hint = this.stale ? "The list may have changed. Reload it" : this.pending.size ? plural(this.pending.size, "new execution") : "";
+    this.moreButton.textContent = t("executions.page.load_more_rows_total_shown", { rows, total: this.total });
+    const hint = this.stale ? t("executions.page.list_may_have_changed_reload") : this.pending.size ? plural(this.pending.size, "new execution") : "";
     this.newButton.hidden = !hint;
     this.newButton.textContent = hint;
   }
@@ -241,12 +242,12 @@ class ExecutionsPage {
   // ── deleting ────────────────────────────────────────────────────────
 
   #confirmDelete(execution) {
-    const subject = `execution #${execution.number} of #${execution.task.number}`;
+    const subject = t("executions.page.execution_number_number2", { number: execution.number, number2: execution.task.number });
     let next = null;
     this.confirm.open({
-      message: "Delete {subject}? This cannot be undone.",
+      message: t("executions.page.delete_subject_cannot_be_undone"),
       subject,
-      note: "Its steps are deleted with it.",
+      note: t("executions.page.its_steps_deleted_with"),
       onConfirm: async () => {
         try {
           await deleteExecution(execution.task.id, execution.id);
@@ -300,10 +301,10 @@ class ExecutionsPage {
     const everything = this.everything;
     const count = everything ? this.total : this.selection.size;
     this.confirm.open({
-      title: "Delete executions",
-      message: everything ? "Delete all {subject} that match the filters? This cannot be undone." : "Delete the {subject}? This cannot be undone.",
+      title: t("executions.page.delete_executions"),
+      message: everything ? t("executions.page.delete_all_subject_match_filters") : t("executions.page.delete_subject_cannot_be_undone_2"),
       subject: everything ? plural(count, "execution") : plural(count, "selected execution"),
-      note: "Their steps are deleted with them. A running execution is not deleted.",
+      note: t("executions.page.their_steps_deleted_with_them"),
       onConfirm: async () => {
         this.busy = true;
         this.#renderBulk();
@@ -316,7 +317,7 @@ class ExecutionsPage {
             deleted += done.deleted;
             skipped += done.skipped_running;
           }
-          this.#announce(`${plural(deleted, "execution")} deleted${skipped ? `, ${skipped} running skipped` : ""}`);
+          this.#announce(`${plural(deleted, "execution")} deleted${skipped ? t("executions.page.skipped_running_skipped", { skipped }) : ""}`);
           await this.load();
         } finally {
           this.busy = false;
@@ -336,7 +337,7 @@ class ExecutionsPage {
     this.total = Math.max(0, this.total - 1);
     this.knownTotal = Math.max(0, (this.knownTotal ?? 1) - 1);
     this.#render();
-    this.#announce(`Execution #${execution.number} of #${execution.task.number} deleted`);
+    this.#announce(t("executions.page.execution_number_number2_deleted", { number: execution.number, number2: execution.task.number }));
     this.#refreshCounts();
     return next;
   }
@@ -351,6 +352,6 @@ page.start().then(() => {
       if (connected) page.resync();
       connected = true;
     },
-    onClosed: () => page.alert.show("Live updates stopped. Reload the page or sign in again."),
+    onClosed: () => page.alert.show(t("execution.flow_page.live_updates_stopped_reload_page")),
   });
 });

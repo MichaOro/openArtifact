@@ -11,6 +11,7 @@ import { loadContext, loadFlow, loadStep, loadTask } from "./flow-client.js";
 import { FlowPanel } from "./flow-panel.js";
 import { FlowView } from "./flow-view.js";
 import { FlowModel } from "./visit-model.js";
+import { t } from "../i18n.js";
 
 const REFETCH_MS = 300;
 const root = document.querySelector("[data-flow]");
@@ -76,7 +77,7 @@ class FlowPage {
       this.panel.refreshContext();
     } catch (error) {
       if (error.status === 404) this.#vanished(this.model ? "This execution was deleted." : "This execution does not exist. It was deleted, or the link is not right.");
-      else this.alert.show(error.message || "The flow could not be loaded.", { retry: true });
+      else this.alert.show(error.message || t("execution.flow_page.flow_could_not_be_loaded"), { retry: true });
     }
   }
 
@@ -98,7 +99,7 @@ class FlowPage {
     if (!this.model || this.gone) return;
     const taskId = this.model.execution.task_id;
     if (type === "execution.deleted") {
-      if (data.task_id === taskId && data.id === this.executionId) this.#vanished("This execution was deleted.");
+      if (data.task_id === taskId && data.id === this.executionId) this.#vanished(t("execution.flow_page.execution_was_deleted"));
     } else if (type === "execution.updated") {
       if (data.task_id === taskId && data.execution.id === this.model.execution.id) this.#refetch();
     } else if (type === "run.updated") {
@@ -205,11 +206,11 @@ class FlowPage {
     setChip(chip, execution.status);
     const startedAt = [execution.started_stage_name, execution.started_action_name].filter(Boolean).join(" › ");
     const rows = [
-      ["Pipeline", execution.pipeline_name],
-      ["Started", formatTime(execution.started_at)],
-      ["Duration", formatDuration(executionSeconds(execution))],
-      ["Started by", originLabel(execution.started_by)],
-      ["Started at", startedAt],
+      [t("common.pipeline"), execution.pipeline_name],
+      [t("executions.started"), formatTime(execution.started_at)],
+      [t("executions.duration"), formatDuration(executionSeconds(execution))],
+      [t("executions.started_by"), originLabel(execution.started_by)],
+      [t("execution.flow_page.started_at"), startedAt],
     ].filter(([, value]) => value);
     root.querySelector("[data-head-facts]").replaceChildren(
       ...rows.map(([term, value]) => {
@@ -237,7 +238,7 @@ loadNodeTypes()
         if ((connected || page.model?.execution.status === "running") && page.model) page.load(); // a reconnect (or a run that went on meanwhile): what was missed is not replayed
         connected = true;
       },
-      onClosed: () => page.alert.show("Live updates stopped. Reload the page or sign in again."),
+      onClosed: () => page.alert.show(t("execution.flow_page.live_updates_stopped_reload_page")),
     });
   })
-  .catch(() => page.alert.show("The page could not be loaded.", { retry: true }));
+  .catch(() => page.alert.show(t("execution.flow_page.page_could_not_be_loaded"), { retry: true }));

@@ -7,15 +7,16 @@ import { Canvas } from "../editor/canvas.js";
 import { typeOf } from "../editor/node-types.js";
 import { addBubbles, FAILING_PORTS } from "./flow-bubbles.js";
 import { nameOf } from "./visit-model.js";
+import { t } from "../i18n.js";
 
 /** state -> [word for people, word of the aria label, icon] */
 export const STATES = {
-  pass: ["Passed", "passed", "check"],
-  fail: ["Failed", "failed", "x"],
-  running: ["Running", "running", "clock"],
-  stopped: ["Stopped here", "stopped here", "stop"],
-  skipped: ["Skipped", "skipped", "chevrons-right"],
-  "not-run": ["Not run", "not run", null],
+  pass: [t("credentials.credentials_page.passed"), "passed", "check"],
+  fail: [t("common.failed"), "failed", "x"],
+  running: [t("common.running"), "running", "clock"],
+  stopped: [t("execution.flow_view.stopped_here"), t("execution.flow_view.stopped_here_2"), "stop"],
+  skipped: [t("execution.flow_view.skipped"), "skipped", "chevrons-right"],
+  "not-run": [t("execution.flow_view.not_run"), t("execution.flow_view.not_run_2"), null],
 };
 const READABLE = 0.4; // fitting a wide flow does not shrink it below this: it is panned instead
 const STATE_CLASSES = Object.keys(STATES).map((state) => `ef-state-${state}`);
@@ -100,9 +101,9 @@ export class FlowView {
     badge.dataset.state = info.state;
     badge.title = word;
 
-    const facts = [word, info.step?.exit_code != null ? `exit code ${info.step.exit_code}` : null, info.passes > 1 ? `${info.passes} passes` : null, info.passes ? "Enter opens it" : null];
+    const facts = [word, info.step?.exit_code != null ? t("execution.flow_panel.exit_code_exit_code", { exit_code: info.step.exit_code }) : null, info.passes > 1 ? `${info.passes} passes` : null, info.passes ? t("execution.flow_panel.enter_opens") : null];
     el.setAttribute("aria-label", `${typeOf(node).label}: ${nameOf(node)}, ${facts.filter(Boolean).join(", ")}`);
-    el.title = info.state === "not-run" ? "Not run" : "";
+    el.title = info.state === "not-run" ? t("execution.flow_view.not_run") : "";
   }
 
   #decorateEdge(edge, group) {

@@ -10,15 +10,15 @@
         <span class="lane__count" aria-label="{{ count }} artifacts">{{ count }}</span>
         <button type="button" class="icon-button icon-button--sm lane__add" data-create-task
                 data-status="{{ status }}" data-lane-title="{{ title }}"
-                aria-haspopup="dialog" aria-label="Add artifact to {{ title }}" title="Add artifact">
+                aria-haspopup="dialog" aria-label="Add artifact to {{ title }}" title="{{ t('lane.add_artifact') }}">
             {{ icon("plus") }}
         </button>
         <button type="button" class="icon-button icon-button--sm lane__menu" data-lane-menu
-                aria-haspopup="menu" aria-expanded="false" aria-label="Options for lane {{ title }}" title="Lane options">
+                aria-haspopup="menu" aria-expanded="false" aria-label="Options for lane {{ title }}" title="{{ t('lane.lane_options') }}">
             {{ icon("more") }}
         </button>
     </header>
     <ul class="lane__cards" aria-label="{{ title }} artifacts"></ul>
-    <p class="empty-state">{{ icon("inbox") }}<span>No artifacts yet</span></p>
+    <p class="empty-state">{{ icon("inbox") }}<span>{{ t('lane.no_artifacts_yet') }}</span></p>
 </section>
 {%- endmacro %}

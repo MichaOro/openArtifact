@@ -9,10 +9,10 @@
     <p class="form-error" role="alert" hidden data-form-error></p>
 </div>
 <footer class="modal__footer">
-    <button type="button" class="button button--ghost" data-modal-close data-cancel>Cancel</button>
+    <button type="button" class="button button--ghost" data-modal-close data-cancel>{{ t('common.cancel') }}</button>
     <button type="button" class="button button--danger" data-confirm>
         <span class="spinner" aria-hidden="true"></span>
-        <span data-confirm-label>Delete</span>
+        <span data-confirm-label>{{ t('common.delete') }}</span>
     </button>
 </footer>
 {% endcall %}

@@ -2,21 +2,22 @@
  * node and the facts of an agent step. The rules themselves live on the server (agents/resolve.py,
  * agents/render.py); these functions only display what it sent and build what is sent to it. */
 
+import { t, tn } from "../i18n.js";
 /** The names of the agent's fields as the agent pages and the step details show them. (The node's dialog gets its
  * labels, bounds and kinds from the server's description of the node, GET /api/node-types; only the names live here.) */
 const LABELS = {
-  user_prompt: "User prompt",
-  system_prompt_enabled: "Use a system prompt",
-  system_prompt: "System prompt",
-  provider_id: "Provider",
-  model: "Model",
-  temperature: "Temperature",
-  max_tokens: "Max tokens",
-  request_timeout_seconds: "Request timeout (seconds)",
-  total_timeout_seconds: "Time limit of the node (seconds)",
-  retries: "Retries",
-  max_iterations: "Max iterations",
-  inputs: "Inputs",
+  user_prompt: t("agent_editor.user_prompt"),
+  system_prompt_enabled: t("agents.model.use_system_prompt"),
+  system_prompt: t("agent_editor.system_prompt"),
+  provider_id: t("common.provider"),
+  model: t("agents.editor_page.model"),
+  temperature: t("agents.editor_page.temperature"),
+  max_tokens: t("agents.editor_page.max_tokens"),
+  request_timeout_seconds: t("agents.model.request_timeout_seconds"),
+  total_timeout_seconds: t("agents.model.time_limit_node_seconds"),
+  retries: t("agents.editor_page.retries"),
+  max_iterations: t("agents.editor_page.max_iterations"),
+  inputs: t("common.inputs"),
 };
 
 /** The name a field has in the interface ("max_tokens" -> "Max tokens"). */
@@ -24,16 +25,16 @@ export const fieldLabel = (key) => LABELS[key] ?? key;
 
 /** The chips of an agent: `[text, tone]` with tone "ok", "warn", "bad" or "". */
 export function agentChips(agent) {
-  const chips = [agent.active ? ["Active", "ok"] : ["Inactive", "bad"]];
-  chips.push(agent.published_number == null ? ["Not published", "warn"] : [`v${agent.published_number} published`, ""]);
-  if (agent.published_number != null && agent.draft_changed) chips.push(["Draft has changes", "accent"]);
+  const chips = [agent.active ? [t("common.active"), "ok"] : [t("agents.model.inactive"), "bad"]];
+  chips.push(agent.published_number == null ? [t("agents.editor_page.not_published"), "warn"] : [t("agents.editor_page.v_published_number_published", { published_number: agent.published_number }), ""]);
+  if (agent.published_number != null && agent.draft_changed) chips.push([t("agents.model.draft_has_changes"), "accent"]);
   return chips;
 }
 
 /** "Used by 2 nodes" / "Not used by a node". */
 export function useText(count) {
-  if (!count) return "Not used by a node";
-  return `Used by ${count} node${count === 1 ? "" : "s"}`;
+  if (!count) return t("agents.model.not_used_by_node");
+  return tn("agents.model.used_by", count);
 }
 
 /** The overrides of a node: the settings that inherit from the agent (`inherits`, as the server describes them) whose
@@ -45,7 +46,7 @@ export function overridesOf(config, settings) {
 /** How a value is shown where it is not edited (an inherited value, a version's setting). */
 export function showValue(value, kind = "") {
   if (value === null || value === undefined || value === "") return "not set";
-  if (kind === "switch" || typeof value === "boolean") return value ? "On" : "Off";
+  if (kind === "switch" || typeof value === "boolean") return value ? t("common.on") : t("common.off");
   return String(value);
 }
 
@@ -107,13 +108,13 @@ export function agentFacts(data) {
   if (!data) return [];
   const facts = [];
   if (data.provider && data.model) facts.push(`${data.provider}: ${data.model}`);
-  if (data.agent_version != null) facts.push(`Agent version ${data.agent_version}`);
+  if (data.agent_version != null) facts.push(t("agents.model.agent_version_agent_version", { agent_version: data.agent_version }));
   const usage = data.usage;
   if (usage) {
     const total = usage.total_tokens ?? (usage.prompt_tokens != null && usage.completion_tokens != null ? usage.prompt_tokens + usage.completion_tokens : null);
     const parts = [usage.prompt_tokens != null ? `${usage.prompt_tokens} in` : null, usage.completion_tokens != null ? `${usage.completion_tokens} out` : null].filter(Boolean);
     if (total != null) facts.push(`${total} tokens${parts.length ? ` (${parts.join(", ")})` : ""}`);
-    else facts.push("Tokens: not reported by the provider");
+    else facts.push(t("agents.model.tokens_not_reported_by_provider"));
   }
   if (data.attempts > 1) facts.push(`${data.attempts} attempts`);
   if (data.finish_reason && data.finish_reason !== "stop") facts.push(`Finish reason: ${data.finish_reason}`);
@@ -121,11 +122,11 @@ export function agentFacts(data) {
 }
 
 const STATES = {
-  mapped: "from the run",
-  sample: "example value",
+  mapped: t("agents.model.from_run"),
+  sample: t("agents.model.example_value"),
   default: "default",
-  unset: "not set (empty)",
-  pending: "known when the node runs",
+  unset: t("agents.model.not_set_empty"),
+  pending: t("agents.model.known_when_node_runs"),
   error: "error",
 };
 
@@ -162,5 +163,5 @@ export function optionsOf(config) {
 export function sampleHint(input) {
   if (input.default !== null && input.default !== undefined && input.default !== "") return `e.g. ${input.default}`;
   if (input.description) return `e.g. ${input.description}`;
-  return { number: "e.g. 3", boolean: "e.g. true" }[input.type] ?? "e.g. Login fails after the update";
+  return { number: "e.g. 3", boolean: "e.g. true" }[input.type] ?? t("agents.model.e_g_login_fails_after");
 }

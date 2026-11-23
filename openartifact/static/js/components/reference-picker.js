@@ -4,6 +4,7 @@
  * Generic: it only gets a function that returns {number, title, hue} items. */
 
 import { placePopover } from "./popover.js";
+import { t } from "../i18n.js";
 
 const TRIGGER = /(^|\s)#([^\s#]*)$/;
 
@@ -25,7 +26,7 @@ export class ReferencePicker {
     this.el.className = "popover popover--reference";
     this.el.id = `${textarea.id}-references`;
     this.el.setAttribute("role", "listbox");
-    this.el.setAttribute("aria-label", "Reference an artifact");
+    this.el.setAttribute("aria-label", t("components.reference_picker.reference_artifact"));
     this.el.hidden = true;
     container.append(this.el);
     textarea.setAttribute("aria-autocomplete", "list");

@@ -6,6 +6,7 @@
  * Content is always set via textContent (never innerHTML). */
 import { AlertBar } from "../components/alert-bar.js";
 import { InlineName } from "../components/inline-name.js";
+import { t } from "../i18n.js";
 
 const LANE_NAME_MAX_LENGTH = 40;
 
@@ -86,7 +87,7 @@ export class Board {
       style: section.classList.contains("lane--finished") ? "finished" : "normal",
     };
     lane.name = new InlineName(nameEl, {
-      label: "Lane name",
+      label: t("dialog.lane_name"),
       maxLength: LANE_NAME_MAX_LENGTH,
       keepOpenOnError: true,
       onCommit: (title) => this.renameLane(section.dataset.status, title),
@@ -106,8 +107,8 @@ export class Board {
     const add = section.querySelector("[data-create-task]");
     add.dataset.status = status;
     add.dataset.laneTitle = title;
-    add.setAttribute("aria-label", `Add artifact to ${title}`);
-    section.querySelector("[data-lane-menu]").setAttribute("aria-label", `Options for lane ${title}`);
+    add.setAttribute("aria-label", t("tasks.board.add_artifact_title", { title }));
+    section.querySelector("[data-lane-menu]").setAttribute("aria-label", t("tasks.board.options_lane_title", { title }));
     lane.list.setAttribute("aria-label", `${title} artifacts`);
   }
 
@@ -131,7 +132,7 @@ export class Board {
       this.loaded = true;
       this.#clearError();
     } catch (error) {
-      this.showError(error.message || "Artifacts could not be loaded.", { retry: true });
+      this.showError(error.message || t("tasks.board.artifacts_could_not_be_loaded"), { retry: true });
     }
   }
 
@@ -291,7 +292,7 @@ export class Board {
     const body = card.querySelector(".task-card__body");
     body.textContent = task.body ?? "";
     body.hidden = !task.body;
-    card.querySelector("[data-delete-task]").setAttribute("aria-label", `Delete artifact ${task.title}`);
+    card.querySelector("[data-delete-task]").setAttribute("aria-label", t("tasks.board.delete_artifact_title", { title: task.title }));
   }
 
   /** Insert into the lane keeping the server's order: position, then newest first, then id. */
@@ -322,7 +323,7 @@ export class Board {
       const parent = this.parentOf(task);
       const n = children.get(id) ?? 0;
       const parts = [];
-      if (parent) parts.push(`Parent: ${parent.title}`);
+      if (parent) parts.push(t("tasks.board.parent_title", { title: parent.title }));
       if (n) parts.push(`${n} sub-artifact${n === 1 ? "" : "s"}`);
       const meta = card.querySelector(".task-card__meta");
       meta.textContent = parts.join(" · ");

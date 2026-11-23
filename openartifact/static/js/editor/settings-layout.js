@@ -13,6 +13,7 @@ import { overrideRow } from "../components/override-row.js";
 import { createControl, settingValue } from "./setting-controls.js";
 import { groupsOf, optionLabel, planSettings } from "./settings-plan.js";
 import { typeOf } from "./node-types.js";
+import { t } from "../i18n.js";
 
 const menu = new ActionMenu();
 /** Optional settings added (and overrides being made) that store nothing yet, by node: they live until the dialog closes. */
@@ -29,7 +30,7 @@ function make(tag, className = "", text = null) {
   return el;
 }
 
-const TITLES = { definition: "Definition", behaviour: "Behaviour" };
+const TITLES = { definition: t("editor.node_types.definition"), behaviour: t("editor.settings_layout.behaviour") };
 
 /**
  * @param {object} options
@@ -57,7 +58,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
   const addedRow = (setting) => {
     const control = createControl(setting, null, save(setting), suggest, { unsaved: true });
     if (setting.default !== null && setting.default !== undefined && setting.default !== "") control.input.placeholder = String(setting.default);
-    return withBin(control.element, setting, "Remove", () => {
+    return withBin(control.element, setting, t("editor.settings_layout.remove"), () => {
       open().delete(setting.key);
       redraw();
     });
@@ -65,7 +66,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
 
   /** An optional setting that has a value: its control and a bin that makes it not set again. */
   const shownRow = (setting) =>
-    withBin(createControl(setting, settingValue(node, setting), save(setting), suggest).element, setting, "Use the default again", async () => {
+    withBin(createControl(setting, settingValue(node, setting), save(setting), suggest).element, setting, t("editor.settings_layout.use_default_again"), async () => {
       const message = await editor.saveSetting(node, setting, null);
       if (!message) {
         open().delete(setting.key);
@@ -146,7 +147,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     button.type = "button";
     button.dataset.focusKey = `add-${section}`;
     button.setAttribute("aria-haspopup", "menu");
-    button.append(icon("plus"), document.createTextNode(available.every((s) => s.inherits) ? "Add override" : "Add setting"));
+    button.append(icon("plus"), document.createTextNode(available.every((s) => s.inherits) ? t("editor.settings_layout.add_override") : t("editor.settings_layout.add_setting")));
     button.addEventListener("click", () => {
       const items = available.map((setting) => {
         const state = inheritance?.state(setting.key);
@@ -177,7 +178,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     if (section.advanced.settings.length) {
       const details = make("details", "ge-advanced");
       details.dataset.section = section.id;
-      details.append(make("summary", "", "Advanced"), ...section.advanced.settings.map((s) => rowOf(s, "shown")));
+      details.append(make("summary", "", t("editor.settings_layout.advanced")), ...section.advanced.settings.map((s) => rowOf(s, "shown")));
       details.open = section.advanced.open;
       el.append(details);
     }
@@ -217,10 +218,10 @@ function withBin(controlElement, setting, title, onClick) {
 }
 
 function resetAll(keys, node, editor, redraw, source) {
-  const button = make("button", "button button--ghost button--sm ge-settings__reset", `Reset all ${keys.length} overrides`);
+  const button = make("button", "button button--ghost button--sm ge-settings__reset", t("editor.settings_layout.reset_all_length_overrides", { length: keys.length }));
   button.type = "button";
   button.dataset.focusKey = "reset-all";
-  button.title = `Use the ${source.toLowerCase()}'s values again`;
+  button.title = t("editor.settings_layout.use_source_values", { source: source.toLowerCase() });
   button.addEventListener("click", async () => {
     const type = typeOf(node);
     for (const key of keys) await editor.saveSetting(node, type.settings.find((s) => s.key === key), null);

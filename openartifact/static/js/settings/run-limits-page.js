@@ -2,6 +2,7 @@
 import { AlertBar } from "../components/alert-bar.js";
 import { request } from "../http.js";
 import { connectEvents } from "../tasks/events.js";
+import { t } from "../i18n.js";
 
 const form = document.querySelector("[data-run-limits]");
 const submit = form.querySelector("[data-submit]");
@@ -38,7 +39,7 @@ async function load() {
     show(await request("/api/settings/run-limits"));
     banner.hide();
   } catch {
-    banner.show("The run limits could not be loaded.", { retry: true });
+    banner.show(t("settings.run_limits_page.run_limits_could_not_be"), { retry: true });
   }
 }
 
@@ -52,14 +53,14 @@ form.addEventListener("submit", async (event) => {
   if (submit.disabled) return;
   const body = values();
   if (FIELDS.some((name) => !Number.isInteger(body[name]))) {
-    fail("Enter whole numbers.");
+    fail(t("settings.run_limits_page.enter_whole_numbers"));
     return;
   }
   submit.disabled = true;
-  status.textContent = "Saving…";
+  status.textContent = t("editor.setting_controls.saving");
   try {
     show(await request("/api/settings/run-limits", { method: "PUT", body: JSON.stringify(body) }));
-    status.textContent = "Saved. Executions that start from now on use these limits.";
+    status.textContent = t("settings.run_limits_page.saved_executions_start_from_now");
   } catch (problem) {
     status.textContent = "";
     fail(Object.values(problem.fieldErrors ?? {})[0] ?? problem.detail ?? problem.message);

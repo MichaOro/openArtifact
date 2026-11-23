@@ -9,6 +9,7 @@
  * the error message is shown under the field. */
 
 import { icon } from "./icons.js";
+import { t } from "../i18n.js";
 
 let nextErrorId = 0;
 
@@ -55,7 +56,7 @@ export class InlineName {
     this.element.classList.remove("inline-name--editing");
     this.element.tabIndex = 0;
     this.element.setAttribute("role", "button");
-    this.element.setAttribute("aria-label", `${this.label}: ${this.text || "none"}. Click to edit`);
+    this.element.setAttribute("aria-label", t("components.inline_name.click_to_edit", { label: this.label, value: this.text || t("common.none") }));
   }
 
   /** Start editing (also what a click on the name does). */
@@ -106,7 +107,7 @@ export class InlineName {
         this.#show();
         this.element.focus();
       } catch (failure) {
-        error.textContent = failure.detail ?? (failure.message || "That did not work. Please try again.");
+        error.textContent = failure.detail ?? (failure.message || t("components.action_dialog.did_not_work_please_try"));
         error.hidden = false;
         input.setAttribute("aria-invalid", "true");
         input.setAttribute("aria-describedby", error.id);
@@ -134,7 +135,7 @@ export class InlineName {
     this.element.removeAttribute("role");
     this.element.removeAttribute("tabindex");
     this.element.removeAttribute("aria-label");
-    this.element.replaceChildren(input, button("check", "Save", commit), button("x", "Discard", () => {
+    this.element.replaceChildren(input, button("check", t("common.save"), commit), button("x", t("index.discard"), () => {
         this.#show();
         this.element.focus();
       }), error);

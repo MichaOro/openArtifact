@@ -6,6 +6,7 @@ import { executionSeconds, formatDuration, formatTime, originLabel, setChip } fr
 import { contextBlock } from "./context-block.js";
 import { getStep } from "./history-api.js";
 import { fillStep } from "./history-step.js";
+import { t } from "../i18n.js";
 
 export class HistoryDetail {
   /**
@@ -78,10 +79,10 @@ export class HistoryDetail {
   }
 
   renderSummary(execution) {
-    this.heading.textContent = `Execution #${execution.number}`;
+    this.heading.textContent = t("tasks.history_detail.execution_number", { number: execution.number });
     const running = execution.status === "running";
     this.deleteButton.setAttribute("aria-disabled", String(running));
-    this.deleteButton.title = running ? "Stop it first" : "";
+    this.deleteButton.title = running ? t("tasks.history_detail.stop_first") : "";
     this.flowLink.href = this.flowHref(execution);
     this.note.textContent = execution.note ?? "";
     this.note.hidden = !execution.note;
@@ -100,13 +101,13 @@ export class HistoryDetail {
     setChip(chip, execution.status);
     const startedAt = [execution.started_stage_name, execution.started_action_name].filter(Boolean).join(" › ");
     const rows = [
-      ["Status", chip],
-      ["Started", this.#time(execution.started_at)],
-      ["Duration", formatDuration(executionSeconds(execution))],
-      ["Pipeline", execution.pipeline_name ?? ""],
-      ["Started at", startedAt],
-      ["Started by", originLabel(execution.started_by)],
-      ["Steps", String(execution.step_count ?? this.steps.children.length)],
+      [t("common.status"), chip],
+      [t("executions.started"), this.#time(execution.started_at)],
+      [t("executions.duration"), formatDuration(executionSeconds(execution))],
+      [t("common.pipeline"), execution.pipeline_name ?? ""],
+      [t("execution.flow_page.started_at"), startedAt],
+      [t("executions.started_by"), originLabel(execution.started_by)],
+      [t("common.steps"), String(execution.step_count ?? this.steps.children.length)],
     ];
     this.facts.replaceChildren(
       ...rows.filter(([, value]) => value !== "").flatMap(([term, value]) => {

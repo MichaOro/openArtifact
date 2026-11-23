@@ -6,6 +6,7 @@
 import { placePopover } from "../components/popover.js";
 import { request } from "../http.js";
 import { applyCompletion, candidatesFor, openReference, suggestionsFor } from "./reference-completion.js";
+import { t } from "../i18n.js";
 
 const SECRETS_MAX_AGE_MS = 5000;
 let secretNames = [];
@@ -117,7 +118,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
       el.className = "popover popover--reference popover--suggest";
       el.id = id;
       el.setAttribute("role", "listbox");
-      el.setAttribute("aria-label", "References");
+      el.setAttribute("aria-label", t("editor.reference_suggest.references"));
       el.addEventListener("mousedown", (event) => {
         event.preventDefault(); // the field keeps its focus
         const option = event.target.closest("[data-index]");

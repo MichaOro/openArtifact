@@ -5,6 +5,7 @@
 import { icon } from "../components/icons.js";
 import { listGraphs } from "../editor/api.js";
 import { listStages, startRun, stopRun } from "./api.js";
+import { t } from "../i18n.js";
 
 const STATUS_TEXT = { running: "running", stopped: "stopped", done: "done", failed: "failed" };
 
@@ -90,7 +91,7 @@ export class ProcessingPanel {
     try {
       this.pipelines = await listGraphs("pipeline");
     } catch {
-      this.onError("The pipelines could not be loaded.");
+      this.onError(t("tasks.processing.pipelines_could_not_be_loaded"));
     }
   }
 
@@ -151,8 +152,8 @@ export class ProcessingPanel {
     const canStart = Boolean(draft.pipeline && draft.stage);
     this.button.dataset.state = locked ? "running" : "idle";
     this.button.disabled = !locked && !canStart;
-    this.buttonLabel.textContent = locked ? "Stop processing" : "Start processing";
-    this.button.title = locked ? "Stop processing" : canStart ? "Start processing" : "Choose a pipeline first";
+    this.buttonLabel.textContent = locked ? t("tasks.processing.stop_processing") : t("create_task.start_processing");
+    this.button.title = locked ? t("tasks.processing.stop_processing") : canStart ? t("create_task.start_processing") : t("tasks.processing.choose_pipeline_first");
     this.buttonIcon.replaceWith(icon(locked ? "stop" : "play"));
     this.buttonIcon = this.button.querySelector(".icon");
   }
@@ -198,7 +199,7 @@ export class ProcessingPanel {
         this.upsert(await startRun(taskId, { pipeline_id: draft.pipeline, stage_id: draft.stage, action_id: draft.action }));
       }
     } catch (error) {
-      this.onError(error.status === 409 ? "The artifact is already being processed." : error.message || "That did not work.");
+      this.onError(error.status === 409 ? t("tasks.processing.artifact_already_being_processed") : error.message || t("tasks.processing.did_not_work"));
     }
   }
 

@@ -8,6 +8,7 @@
  * Both live inside the open <dialog>: only elements inside it are above it (top layer). */
 
 import { placePopover } from "./popover.js";
+import { t } from "../i18n.js";
 
 export class LanePicker {
   /**
@@ -72,7 +73,7 @@ export class LanePicker {
    * @param {"below"|"left"} [options.placement] for the "list" variant
    * @param {"list"|"chips"} [options.variant]
    */
-  toggle({ trigger, lanes = [], current, items = null, caption = "Move to", label = caption, onSelect, placement = "below", variant = "list" }) {
+  toggle({ trigger, lanes = [], current, items = null, caption = t("components.lane_picker.move"), label = caption, onSelect, placement = "below", variant = "list" }) {
     if (this.isOpen && this.trigger === trigger) {
       this.close();
       return;

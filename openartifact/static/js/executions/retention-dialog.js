@@ -5,41 +5,42 @@ import { RuleSet } from "../components/rule-set.js";
 import * as model from "../components/rule-model.js";
 import { request } from "../http.js";
 import { plural } from "../tasks/history-format.js";
+import { t, tn } from "../i18n.js";
 
 const URL = "/api/settings/retention";
 const PREVIEW_MS = 350;
 
 const SCHEMA = {
-  actions: [{ key: "delete", label: "Delete the execution", phrase: "Delete finished executions where", effect: "deletes" }],
+  actions: [{ key: "delete", label: t("executions.retention_dialog.delete_execution"), phrase: t("executions.retention_dialog.delete_finished_executions_where"), effect: "deletes" }],
   fields: [
     {
       key: "status",
-      label: "Status",
+      label: t("common.status"),
       kind: "choice",
-      options: [{ value: "done", label: "Done" }, { value: "failed", label: "Failed" }, { value: "stopped", label: "Stopped" }],
-      operators: [{ key: "is", label: "is" }, { key: "is_not", label: "is not" }],
+      options: [{ value: "done", label: t("common.done") }, { value: "failed", label: t("common.failed") }, { value: "stopped", label: t("common.stopped") }],
+      operators: [{ key: "is", label: "is" }, { key: "is_not", label: t("executions.retention_dialog.not") }],
     },
     {
       key: "pipeline",
-      label: "Pipeline",
+      label: t("common.pipeline"),
       kind: "text",
-      placeholder: "Name or part of it",
-      operators: [{ key: "is", label: "is" }, { key: "is_not", label: "is not" }, { key: "contains", label: "contains" }],
+      placeholder: t("executions.name_or_part_of_it"),
+      operators: [{ key: "is", label: "is" }, { key: "is_not", label: t("executions.retention_dialog.not") }, { key: "contains", label: "contains" }],
     },
     {
       key: "started_by",
-      label: "Started by",
+      label: t("executions.started_by"),
       kind: "choice",
-      options: [{ value: "user", label: "User" }, { value: "api", label: "API" }, { value: "mcp", label: "MCP" }, { value: "system", label: "System" }],
-      operators: [{ key: "is", label: "is" }, { key: "is_not", label: "is not" }],
+      options: [{ value: "user", label: t("common.user") }, { value: "api", label: "API" }, { value: "mcp", label: "MCP" }, { value: "system", label: t("common.system") }],
+      operators: [{ key: "is", label: "is" }, { key: "is_not", label: t("executions.retention_dialog.not") }],
     },
-    { key: "age", label: "Age", kind: "duration", operators: [{ key: "older_than", label: "is older than" }] },
+    { key: "age", label: t("executions.retention_dialog.age"), kind: "duration", operators: [{ key: "older_than", label: t("executions.retention_dialog.older_than") }] },
     {
       key: "position",
-      label: "Position among the artifact's executions",
+      label: t("executions.retention_dialog.position_among_artifact_s_executions"),
       kind: "count",
       default: 50,
-      operators: [{ key: "beyond", label: "is beyond the newest" }],
+      operators: [{ key: "beyond", label: t("executions.retention_dialog.beyond_newest") }],
     },
   ],
 };
@@ -47,7 +48,7 @@ const SCHEMA = {
 export class RetentionDialog extends ActionDialog {
   /** @param {import("../components/modal.js").Modal} modal @param {{onSaved: (deleted: number) => void}} hooks */
   constructor(modal, { onSaved }) {
-    super(modal, "The rules could not be saved. Please try again.");
+    super(modal, t("executions.retention_dialog.rules_could_not_be_saved"));
     this.onSaved = onSaved;
     this.form = this.root.querySelector("form");
     this.text = this.root.querySelector("[data-rule-text]");
@@ -73,13 +74,13 @@ export class RetentionDialog extends ActionDialog {
       this.rules.load(stored.rules);
       this.#changed();
     } catch {
-      this.setError("The rules could not be loaded.");
+      this.setError(t("executions.retention_dialog.rules_could_not_be_loaded"));
     }
   }
 
   #describe() {
     const sentences = this.rules.read().map((rule, i) => ({ i, text: model.describeRule(rule, SCHEMA) })).filter((s) => s.text);
-    this.text.replaceChildren(...(sentences.length ? sentences.map((s) => Object.assign(document.createElement("span"), { textContent: `Rule ${s.i + 1}: ${s.text} ` })) : [document.createTextNode("No rules: nothing happens to executions automatically.")]));
+    this.text.replaceChildren(...(sentences.length ? sentences.map((s) => Object.assign(document.createElement("span"), { textContent: `Rule ${s.i + 1}: ${s.text} ` })) : [document.createTextNode(t("executions.retention_dialog.no_rules_nothing_happens_executions"))]));
   }
 
   /** A rule changed: say it in words, and ask the server how many executions the rules match now. */
@@ -90,9 +91,9 @@ export class RetentionDialog extends ActionDialog {
     const complete = rules.every((r) => model.isComplete(r.when));
     this.submitButton.disabled = !complete;
     this.preview.hidden = true;
-    this.label.textContent = "Save";
+    this.label.textContent = t("common.save");
     if (!complete) {
-      this.setError("Complete every condition (a value is missing).");
+      this.setError(t("executions.retention_dialog.complete_every_condition_value_missing"));
       return;
     }
     this.setError("");
@@ -103,9 +104,9 @@ export class RetentionDialog extends ActionDialog {
         if (turn !== this.turn) return;
         const effect = model.effectOf(SCHEMA, rules, perRule);
         this.preview.hidden = matching === 0;
-        this.preview.textContent = `${plural(matching, "execution")} match${matching === 1 ? "es" : ""} now: saving ${effect || "applies the rules to"} ${matching === 1 ? "it" : "them"}.`;
+        this.preview.textContent = tn("executions.retention_dialog.preview", matching, { effect: effect || t("executions.retention_dialog.applies_rules") });
         const doomed = rules.some((r, i) => perRule[i] > 0 && r.action === "delete");
-        this.label.textContent = matching ? (doomed && effect === "deletes" ? `Save and delete ${matching}` : "Save and apply") : "Save";
+        this.label.textContent = matching ? (doomed && effect === "deletes" ? t("executions.retention_dialog.save_delete_matching", { matching }) : t("executions.retention_dialog.save_apply")) : t("common.save");
       } catch {
         /* the preview is a convenience: saving still tells the truth */
       }

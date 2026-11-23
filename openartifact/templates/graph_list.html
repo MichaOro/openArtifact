@@ -3,15 +3,15 @@
 {% from "components/confirm_modal.html" import confirm_modal %}
 {% from "components/form_modal.html" import form_modal, NAME_FIELDS %}
 {% from "components/icons.html" import icon %}
-{% block title %}{{ section.label }}s · OpenArtifact{% endblock %}
+{% block title %}{{ t('page.' ~ section.key ~ 's') }} · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">{% endblock %}
 {% block content %}
-{{ alert(section.label ~ "s could not be loaded.") }}
+{{ alert(t('graph.' ~ section.key ~ '.load_error')) }}
 <div class="action-row">
-    <button type="button" class="button button--primary" data-new-graph>{{ icon("plus") }} New {{ section.label | lower }}</button>
+    <button type="button" class="button button--primary" data-new-graph>{{ icon("plus") }} {{ t('graph.' ~ section.key ~ '.new') }}</button>
 </div>
-<ul class="ge-list" data-ge-list data-kind="{{ section.kind }}" data-path="{{ section.path }}" aria-label="{{ section.label }}s"></ul>
-<p class="ge-empty glass" data-ge-empty hidden>{% if section.kind == "action" %}No actions yet. Create the first one to define what it does.{% else %}No pipelines yet. Create the first one to start designing it.{% endif %}</p>
+<ul class="ge-list" data-ge-list data-kind="{{ section.kind }}" data-path="{{ section.path }}" aria-label="{{ t('page.' ~ section.key ~ 's') }}"></ul>
+<p class="ge-empty glass" data-ge-empty hidden>{{ t('graph.' ~ section.key ~ '.empty') }}</p>
 
 <template id="ge-item-template">
     <li class="ge-item glass">
@@ -19,13 +19,13 @@
             <h3 class="ge-item__name"></h3>
             <p class="ge-item__meta"></p>
         </a>
-        <span class="ge-chip">Draft</span>
-        <button type="button" class="icon-button icon-button--sm" data-rename aria-label="Rename {{ section.label | lower }}" title="Rename">{{ icon("pencil") }}</button>
-        <button type="button" class="icon-button icon-button--sm is-danger" data-delete aria-label="Delete {{ section.label | lower }}" title="Delete">{{ icon("trash") }}</button>
+        <span class="ge-chip">{{ t('common.draft') }}</span>
+        <button type="button" class="icon-button icon-button--sm" data-rename aria-label="{{ t('graph.' ~ section.key ~ '.rename') }}" title="{{ t('graph_list.rename') }}">{{ icon("pencil") }}</button>
+        <button type="button" class="icon-button icon-button--sm is-danger" data-delete aria-label="{{ t('graph.' ~ section.key ~ '.delete') }}" title="{{ t('common.delete') }}">{{ icon("trash") }}</button>
     </li>
 </template>
 
-{{ form_modal("name-modal", section.label, NAME_FIELDS) }}
-{{ confirm_modal("confirm-modal", "Delete " ~ (section.label | lower)) }}
+{{ form_modal("name-modal", t('page.' ~ section.key), NAME_FIELDS) }}
+{{ confirm_modal("confirm-modal", t('graph.' ~ section.key ~ '.delete')) }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/editor/list.js"></script>{% endblock %}

@@ -2,6 +2,7 @@
  * the bulk action. Behaviour only; the markup is the page's ([data-bulk] with [data-bulk-count], [data-bulk-all],
  * [data-bulk-clear], [data-bulk-delete]). Pairs with components/selection.js. */
 import { plural } from "../tasks/history-format.js";
+import { t } from "../i18n.js";
 
 export class BulkBar {
   /**
@@ -27,10 +28,10 @@ export class BulkBar {
    */
   render(selected, { total, offerAll, everything, busy = false }) {
     this.root.hidden = selected === 0;
-    this.count.textContent = everything ? `All ${plural(total, this.noun)} selected` : `${selected} selected`;
+    this.count.textContent = everything ? t("components.bulk_bar.all_selected", { what: plural(total, this.noun) }) : `${selected} selected`;
     const offer = offerAll && !everything;
     this.all.hidden = !offer;
-    if (offer) this.all.textContent = `Select all ${plural(total, this.noun)}`;
+    if (offer) this.all.textContent = t("components.bulk_bar.select_all", { what: plural(total, this.noun) });
     for (const button of this.root.querySelectorAll("button")) button.disabled = busy;
   }
 }

@@ -1,6 +1,7 @@
 /* "#12" references in artifact text. An artifact is referenced by its number; whether the
  * number exists is only known at display time, so unknown numbers stay plain text. */
 
+import { t } from "../i18n.js";
 const REFERENCE = /(^|[^\w#&])#(\d{1,9})\b/g;
 
 /**
@@ -25,7 +26,7 @@ export function renderReferences(text, find) {
       node.dataset.number = String(number);
       node.title = target.title;
     } else {
-      node.title = `No artifact #${number}`;
+      node.title = t("tasks.references.no_artifact_number", { number });
     }
     fragment.append(node);
     last = start + match[0].length - match[1].length;

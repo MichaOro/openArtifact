@@ -2,6 +2,7 @@
  * default, expands to icon + label. The chosen state is remembered across sessions. */
 
 import { readStorage, writeStorage } from "../storage.js";
+import { t } from "../i18n.js";
 
 export class CollapsibleNav {
   /**
@@ -10,7 +11,7 @@ export class CollapsibleNav {
    * @param {string} storageKey key (see storage.js) for persisting the state
    * @param {{expand: string, collapse: string}} labels aria-labels of the toggle
    */
-  constructor(root, toggle, storageKey, labels = { expand: "Expand", collapse: "Collapse" }) {
+  constructor(root, toggle, storageKey, labels = { expand: t("components.collapsible_nav.expand"), collapse: t("components.collapsible_nav.collapse") }) {
     this.root = root;
     this.toggle = toggle;
     this.key = storageKey;

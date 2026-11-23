@@ -2,11 +2,12 @@
  * cards, with a preview made of copies of the real card. Save is possible once something changed;
  * Cancel, Escape and the backdrop discard. */
 import { ActionDialog } from "../components/action-dialog.js";
+import { t } from "../i18n.js";
 
 export class LaneSettingsDialog extends ActionDialog {
   /** @param {import("../components/modal.js").Modal} modal */
   constructor(modal) {
-    super(modal, "Could not save. Please try again.");
+    super(modal, t("agents.providers_page.could_not_save_please_try"));
     this.chip = this.root.querySelector("[data-modal-chip]");
     this.finished = this.root.querySelector("[data-setting-finished]");
     this.preview = this.root.querySelector("[data-lane-preview]");
@@ -42,8 +43,8 @@ export class LaneSettingsDialog extends ActionDialog {
   /** Two sample cards copied from the board's own card template, so the preview is the real thing. */
   #fillPreview(list) {
     const samples = [
-      ["Draft the release notes", "Collect the changes of the week.", ""],
-      ["Publish the changelog", "Announce it to the team.", "Parent: Release 2.4"],
+      [t("tasks.lane_settings.draft_release_notes"), t("tasks.lane_settings.collect_changes_week"), ""],
+      [t("tasks.lane_settings.publish_changelog"), t("tasks.lane_settings.announce_team"), t("tasks.lane_settings.parent_release_2_4")],
     ];
     for (const [title, body, meta] of samples) {
       const card = document.getElementById("task-card-template").content.firstElementChild.cloneNode(true);

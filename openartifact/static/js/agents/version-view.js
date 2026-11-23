@@ -3,16 +3,17 @@
  * not use has no tab. */
 import { LIMIT_DEFAULTS, optionsOf } from "./model.js";
 import { el } from "./view.js";
+import { t } from "../i18n.js";
 
 const LIMITS = [
-  ["provider_id", "Provider", "the default provider"],
-  ["model", "Model", "the provider's default model"],
-  ["temperature", "Temperature", "the model's own"],
-  ["max_tokens", "Max tokens", "the model's own"],
-  ["total_timeout_seconds", "Node time limit", "600 s"],
-  ["max_iterations", "Max iterations", "10"],
-  ["retries", "Retries", "3"],
-  ["request_timeout_seconds", "Request timeout", "60 s"],
+  ["provider_id", t("common.provider"), t("agents.editor_page.default_provider")],
+  ["model", t("agents.editor_page.model"), t("agents.editor_page.provider_s_default_model")],
+  ["temperature", t("agents.editor_page.temperature"), t("agents.editor_page.model_s_own")],
+  ["max_tokens", t("agents.editor_page.max_tokens"), t("agents.editor_page.model_s_own")],
+  ["total_timeout_seconds", t("agents.editor_page.node_time_limit"), "600 s"],
+  ["max_iterations", t("agents.editor_page.max_iterations"), "10"],
+  ["retries", t("agents.editor_page.retries"), "3"],
+  ["request_timeout_seconds", t("agents.editor_page.request_timeout"), "60 s"],
 ];
 
 function block(title, text) {
@@ -24,9 +25,9 @@ function block(title, text) {
 /** The prompts: the user prompt, and the system prompt when the version sent one. */
 export function promptsView(config) {
   const host = el("div", "ag-version-view__panel");
-  host.append(block("User prompt", config.user_prompt));
-  if (config.system_prompt_enabled) host.append(block("System prompt", config.system_prompt));
-  else host.append(el("p", "field__help", "No system prompt."));
+  host.append(block(t("agent_editor.user_prompt"), config.user_prompt));
+  if (config.system_prompt_enabled) host.append(block(t("agent_editor.system_prompt"), config.system_prompt));
+  else host.append(el("p", "field__help", t("agents.version_view.no_system_prompt")));
   return host;
 }
 
@@ -35,11 +36,11 @@ export function inputsView(config) {
   if (!optionsOf(config).inputs || !config.inputs?.length) return null;
   const table = el("table", "ag-table");
   const head = el("tr");
-  for (const title of ["Name", "Type", "Required", "Default", "Description"]) head.append(el("th", "", title));
+  for (const title of [t("common.name"), t("common.type"), t("common.required"), t("common.default"), t("common.description")]) head.append(el("th", "", title));
   table.append(head);
   for (const input of config.inputs) {
     const row = el("tr");
-    for (const value of [input.name, input.type, input.required ? "Required" : "Optional", input.required ? "—" : (input.default ?? "—"), input.description || "—"]) row.append(el("td", "", String(value)));
+    for (const value of [input.name, input.type, input.required ? t("common.required") : t("agents.editor_page.optional"), input.required ? "—" : (input.default ?? "—"), input.description || "—"]) row.append(el("td", "", String(value)));
     table.append(row);
   }
   return table;

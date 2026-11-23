@@ -1,13 +1,13 @@
 {% from "components/icons.html" import icon %}
 {% from "components/nav.html" import nav_items %}
 {# The entries come from web/navigation.py (SIDEBAR). #}
-<aside class="sidebar" id="sidebar" aria-label="Sidebar">
+<aside class="sidebar" id="sidebar" aria-label="{{ t('sidebar.sidebar') }}">
     <div class="sidebar__brand">
         <span class="sidebar__logo">{{ icon("logo") }}</span>
         <span class="sidebar__name">OpenArtifact</span>
     </div>
 
-    <nav class="sidebar__nav" aria-label="Main navigation">
+    <nav class="sidebar__nav" aria-label="{{ t('sidebar.main_navigation') }}">
         <ul class="nav-list">
             {{ nav_items(navigation.SIDEBAR.groups.main, active_nav) }}
         </ul>
@@ -18,7 +18,7 @@
 
     <div class="sidebar__footer">
         <button type="button" class="icon-button sidebar-toggle" data-sidebar-toggle
-                aria-controls="sidebar" aria-expanded="true" aria-label="Collapse sidebar">
+                aria-controls="sidebar" aria-expanded="true" aria-label="{{ t('sidebar.collapse_sidebar') }}">
             {{ icon("chevrons-left") }}
         </button>
         <span class="sidebar__footer-text">v{{ app_version }}</span>

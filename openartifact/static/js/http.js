@@ -1,5 +1,6 @@
 /* Shared JSON client for the REST API. */
 
+import { t } from "./i18n.js";
 export class ApiError extends Error {
   /**
    * @param {string} message user-presentable message
@@ -23,7 +24,7 @@ function signIn() {
     signingIn = true;
     window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }
-  return new ApiError("Your sign-in has expired. Please sign in again.", 401);
+  return new ApiError(t("http.your_sign_has_expired_please"), 401);
 }
 
 export async function request(url, options = {}) {
@@ -34,7 +35,7 @@ export async function request(url, options = {}) {
       headers: { Accept: "application/json", "Content-Type": "application/json", ...options.headers },
     });
   } catch {
-    throw new ApiError("Could not reach the server. Please check your connection and try again.", 0);
+    throw new ApiError(t("http.could_not_reach_server_please"), 0);
   }
 
   if (response.status === 204) return null;
@@ -54,9 +55,9 @@ export async function request(url, options = {}) {
       const field = Array.isArray(item.loc) ? item.loc[item.loc.length - 1] : null;
       if (typeof field === "string" && !(field in fieldErrors)) fieldErrors[field] = item.msg;
     }
-    throw new ApiError("Please check your input.", 422, fieldErrors);
+    throw new ApiError(t("http.please_check_your_input"), 422, fieldErrors);
   }
   const text = typeof detail === "string" && detail ? detail : null;
-  if (response.status >= 500) throw new ApiError("Something went wrong on the server. Please try again.", response.status, {}, text);
-  throw new ApiError(text ?? "The request was not accepted.", response.status, {}, text);
+  if (response.status >= 500) throw new ApiError(t("http.something_went_wrong_server_please"), response.status, {}, text);
+  throw new ApiError(text ?? t("http.request_was_not_accepted"), response.status, {}, text);
 }

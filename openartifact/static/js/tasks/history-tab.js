@@ -9,6 +9,7 @@ import { clearExecutions, deleteExecution, getExecution, listExecutions } from "
 import { HistoryDetail } from "./history-detail.js";
 import { plural } from "./history-format.js";
 import { HistoryList } from "./history-list.js";
+import { t } from "../i18n.js";
 
 const REFETCH_MS = 300;
 
@@ -92,7 +93,7 @@ export class HistoryTab {
       this.#render();
       if (this.#detailShown()) this.#refetchDetail();
     } catch (error) {
-      if (token === this.token) this.alert.show(error.message || "The history could not be loaded.", { retry: true });
+      if (token === this.token) this.alert.show(error.message || t("tasks.history_tab.history_could_not_be_loaded"), { retry: true });
     }
   }
 
@@ -128,7 +129,7 @@ export class HistoryTab {
     this.summary.textContent = [this.notice, plural(this.total, "execution")].filter(Boolean).join(" ");
     this.empty.hidden = count > 0;
     this.more.hidden = this.total <= count;
-    this.more.textContent = `Showing the newest ${count} of ${this.total} executions.`;
+    this.more.textContent = t("tasks.history_tab.showing_newest_count_total_executions", { count, total: this.total });
     this.clearButton.setAttribute("aria-disabled", String(!finished));
   }
 
@@ -174,7 +175,7 @@ export class HistoryTab {
       } catch (error) {
         if (taskId !== this.taskId || id !== this.detail.executionId) return;
         if (error.status === 404) this.#vanished(this.detail.execution);
-        else this.alert.show(error.message || "The execution could not be loaded.", { retry: true });
+        else this.alert.show(error.message || t("tasks.history_tab.execution_could_not_be_loaded"), { retry: true });
       }
     }, delay);
   }
@@ -189,7 +190,7 @@ export class HistoryTab {
     const wasOpen = this.#detailShown() && this.detail.executionId === execution.id;
     this.#removed(execution);
     if (!wasOpen) return;
-    this.notice = `Execution #${execution.number} was deleted.`;
+    this.notice = t("tasks.history_tab.execution_number_was_deleted", { number: execution.number });
     this.#render();
     this.announce(this.notice);
     this.list.focus(null);
@@ -200,9 +201,9 @@ export class HistoryTab {
   #confirmDelete(execution) {
     let next = null;
     this.confirm.open({
-      message: "Delete {subject}? This cannot be undone.",
-      subject: `execution #${execution.number}`,
-      note: "Its steps are deleted with it.",
+      message: t("executions.page.delete_subject_cannot_be_undone"),
+      subject: t("tasks.history_tab.execution_number", { number: execution.number }),
+      note: t("executions.page.its_steps_deleted_with"),
       onConfirm: async () => {
         try {
           await deleteExecution(this.taskId, execution.id);
@@ -224,16 +225,16 @@ export class HistoryTab {
     this.notice = "";
     if (this.#detailShown() && this.detail.executionId === execution.id) this.#showList();
     this.#render();
-    this.announce(`Execution #${execution.number} deleted`);
+    this.announce(t("tasks.history_tab.execution_number_deleted", { number: execution.number }));
     return next;
   }
 
   #confirmClear() {
     if (this.clearButton.getAttribute("aria-disabled") === "true") return;
     this.confirm.open({
-      message: "Delete all finished executions of this artifact?",
-      note: "A running execution is not deleted.",
-      confirmLabel: "Delete all",
+      message: t("tasks.history_tab.delete_all_finished_executions_artifact"),
+      note: t("tasks.history_tab.running_execution_not_deleted"),
+      confirmLabel: t("tasks.history_tab.delete_all"),
       onConfirm: async () => {
         const { deleted } = await clearExecutions(this.taskId);
         this.announce(`${plural(deleted, "execution")} deleted`);

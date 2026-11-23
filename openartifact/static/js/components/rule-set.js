@@ -7,6 +7,7 @@
 import { icon } from "./icons.js";
 import { RuleBuilder } from "./rule-builder.js";
 import * as model from "./rule-model.js";
+import { t } from "../i18n.js";
 
 function make(tag, className = "", text = null) {
   const el = document.createElement(tag);
@@ -49,10 +50,10 @@ export class RuleSet {
     const cards = this.rules.map((rule, i) => this.#card(rule, i));
     const add = make("button", "button button--ghost button--sm rs-add");
     add.type = "button";
-    add.append(icon("plus"), document.createTextNode("Add rule"));
+    add.append(icon("plus"), document.createTextNode(t("components.rule_set.add_rule")));
     add.disabled = this.rules.length >= this.maxRules;
     add.addEventListener("click", () => this.#change([...this.rules, model.emptyRule(this.schema)]));
-    const empty = this.rules.length ? [] : [make("p", "rb-empty", "No rules yet.")];
+    const empty = this.rules.length ? [] : [make("p", "rb-empty", t("components.rule_set.no_rules_yet"))];
     this.root.replaceChildren(...cards, ...empty, add);
   }
 
@@ -62,8 +63,8 @@ export class RuleSet {
     const head = make("div", "rs-rule__head");
     const bin = make("button", "icon-button icon-button--sm is-danger");
     bin.type = "button";
-    bin.title = `Remove rule ${index + 1}`;
-    bin.setAttribute("aria-label", `Remove rule ${index + 1}`);
+    bin.title = t("components.rule_set.remove_rule", { number: index + 1 });
+    bin.setAttribute("aria-label", t("components.rule_set.remove_rule", { number: index + 1 }));
     bin.append(icon("trash"));
     bin.addEventListener("click", () => this.#change(this.rules.filter((_, i) => i !== index)));
     head.append(make("h3", "rs-rule__title", `Rule ${index + 1}`), bin);
@@ -78,7 +79,7 @@ export class RuleSet {
     builder.load(rule.when);
 
     const then = make("div", "rs-rule__then");
-    const label = make("label", "rs-rule__label", "Then");
+    const label = make("label", "rs-rule__label", t("components.rule_set.then"));
     const choice = make("select", "field__control rb-select");
     choice.id = `rs-action-${index}-${Math.random().toString(36).slice(2, 7)}`;
     label.htmlFor = choice.id;

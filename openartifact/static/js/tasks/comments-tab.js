@@ -9,6 +9,7 @@ import { icon } from "../components/icons.js";
 import { addComment, deleteComment, listComments, updateComment } from "./comments-api.js";
 import { canSend, countText, inOrder, isEdited, kindOf, runLink, withComment } from "./comment-format.js";
 import { formatTime } from "./history-format.js";
+import { t } from "../i18n.js";
 
 export class CommentsTab {
   /**
@@ -104,7 +105,7 @@ export class CommentsTab {
       this.alert.hide();
       this.#render({ scroll });
     } catch (error) {
-      if (token === this.token) this.alert.show(error.message || "The comments could not be loaded.", { retry: true });
+      if (token === this.token) this.alert.show(error.message || t("tasks.comments_tab.comments_could_not_be_loaded"), { retry: true });
     }
   }
 
@@ -115,7 +116,7 @@ export class CommentsTab {
       this.comments = this.comments.filter((c) => c.id !== data.id);
       if (this.editingId === data.id) this.editingId = null;
       this.#render();
-      this.announce("A comment was deleted");
+      this.announce(t("tasks.comments_tab.comment_was_deleted"));
       return;
     }
     const atEnd = this.#atEnd();
@@ -123,7 +124,7 @@ export class CommentsTab {
     this.comments = withComment(this.comments, data);
     if (this.editingId === data.id) return this.#render({ keep: true }); // what is typed stays
     this.#render({ scroll: atEnd && !changed });
-    if (!changed) this.announce(`New comment from ${data.author}`);
+    if (!changed) this.announce(t("tasks.comments_tab.new_comment_from_author", { author: data.author }));
   }
 
   announce(message) {
@@ -175,7 +176,7 @@ export class CommentsTab {
     if (href) link.href = href;
     const more = row.querySelector("[data-comment-more]");
     more.replaceChildren(icon("more"));
-    more.setAttribute("aria-label", `Actions for the comment of ${comment.author}`);
+    more.setAttribute("aria-label", t("tasks.comments_tab.actions_comment_author", { author: comment.author }));
     const body = row.querySelector("[data-comment-body]");
     if (this.editingId === comment.id) {
       body.replaceChildren(this.#editor(comment));
@@ -193,7 +194,7 @@ export class CommentsTab {
     area.rows = 4;
     area.value = comment.body;
     area.dataset.commentEditInput = "";
-    area.setAttribute("aria-label", "Edit the comment");
+    area.setAttribute("aria-label", t("tasks.comments_tab.edit_comment"));
     const error = document.createElement("p");
     error.className = "form-error";
     error.setAttribute("role", "alert");
@@ -203,11 +204,11 @@ export class CommentsTab {
     const cancel = document.createElement("button");
     cancel.type = "button";
     cancel.className = "button button--ghost button--sm";
-    cancel.textContent = "Cancel";
+    cancel.textContent = t("common.cancel");
     const save = document.createElement("button");
     save.type = "submit";
     save.className = "button button--primary button--sm";
-    save.textContent = "Save";
+    save.textContent = t("common.save");
     actions.append(cancel, save);
     form.append(area, error, actions);
     const stop = () => {
@@ -228,7 +229,7 @@ export class CommentsTab {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!canSend(area.value)) {
-        error.textContent = "A comment cannot be empty.";
+        error.textContent = t("tasks.comments_tab.comment_cannot_be_empty");
         error.hidden = false;
         return;
       }
@@ -262,23 +263,23 @@ export class CommentsTab {
       trigger,
       [
         {
-          label: "Edit",
+          label: t("common.edit"),
           icon: "pencil",
           onSelect: () => {
             this.editingId = comment.id;
             this.#render();
           },
         },
-        { label: "Delete", icon: "trash", danger: true, onSelect: () => this.#confirmDelete(comment) },
+        { label: t("common.delete"), icon: "trash", danger: true, onSelect: () => this.#confirmDelete(comment) },
       ],
-      "Comment actions",
+      t("tasks.comments_tab.comment_actions"),
     );
   }
 
   #confirmDelete(comment) {
     this.confirm.open({
-      message: "Delete {subject}? This cannot be undone.",
-      subject: `the comment of ${comment.author}`,
+      message: t("executions.page.delete_subject_cannot_be_undone"),
+      subject: t("tasks.comments_tab.comment_author", { author: comment.author }),
       onConfirm: async () => {
         try {
           await deleteComment(this.taskId, comment.id);
@@ -287,7 +288,7 @@ export class CommentsTab {
         }
         this.comments = this.comments.filter((c) => c.id !== comment.id);
         this.#render();
-        this.announce("Comment deleted");
+        this.announce(t("tasks.comments_tab.comment_deleted"));
       },
       onClose: () => this.input.focus(),
     });

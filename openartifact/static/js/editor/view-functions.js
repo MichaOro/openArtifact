@@ -3,6 +3,7 @@
  * `ui.group_used_fn`); the names a manifest may use are `CLIENT_FUNCTIONS` in graph/manifest.py, and a test keeps both lists equal. */
 import { overridesOf } from "../agents/model.js";
 import { short } from "./caption.js";
+import { t } from "../i18n.js";
 
 /** The names of the agents by id, for the caption of an agent node (filled by `rememberAgents`). */
 export const agentNames = new Map();
@@ -25,7 +26,7 @@ export const FUNCTIONS = {
     if_summary(node) {
       const config = node.config ?? {};
       const used = [1, 2, 3, 4, 5].filter((n) => (config[`left_${n}`] ?? "").trim() !== "");
-      if (!used.length) return "no condition yet";
+      if (!used.length) return t("editor.view_functions.no_condition_yet");
       const n = used[0];
       const operator = config[`operator_${n}`] ?? "equals";
       const unary = UNARY.includes(operator);
@@ -36,12 +37,12 @@ export const FUNCTIONS = {
     switch_summary(node) {
       const value = (node.config?.value ?? "").trim();
       const cases = usedCases(node).length;
-      return `${value ? short(value) : "no value yet"} · ${cases} ${cases === 1 ? "case" : "cases"}`;
+      return `${value ? short(value) : t("editor.view_functions.no_value_yet")} · ${cases} ${cases === 1 ? "case" : "cases"}`;
     },
     /** The agent's name and how many settings the node overrides. */
     agent_summary(node, view) {
       const id = node.config?.agent_id;
-      if (!id) return "no agent yet";
+      if (!id) return t("editor.view_functions.no_agent_yet");
       const own = overridesOf(node.config, view.settings).length;
       // an execution's frozen node carries its agent; the editor knows the names of the list
       return `${node.agent?.name ?? agentNames.get(id) ?? "agent"}${own ? ` · ${own} override${own === 1 ? "" : "s"}` : ""}`;

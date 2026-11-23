@@ -1,6 +1,7 @@
 /* UI wiring of the shell: binds the toggles to the theme and sidebar state (theme.js) and keeps
  * their ARIA in sync. */
 import { KEYS, readJson } from "./storage.js";
+import { t } from "./i18n.js";
 
 const { Theme, Sidebar } = window.OpenArtifact;
 const themeButton = document.querySelector("[data-theme-toggle]");
@@ -10,14 +11,14 @@ function syncTheme() {
   if (!themeButton) return;
   const dark = Theme.current() === "dark";
   themeButton.setAttribute("aria-pressed", String(dark));
-  themeButton.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+  themeButton.setAttribute("aria-label", dark ? t("main.switch_light_mode") : t("main.switch_dark_mode"));
 }
 
 function syncSidebar() {
   if (!sidebarButton) return;
   const expanded = Sidebar.current() !== "collapsed";
   sidebarButton.setAttribute("aria-expanded", String(expanded));
-  sidebarButton.setAttribute("aria-label", expanded ? "Collapse sidebar" : "Expand sidebar");
+  sidebarButton.setAttribute("aria-label", expanded ? t("sidebar.collapse_sidebar") : t("main.expand_sidebar"));
 }
 
 themeButton?.addEventListener("click", Theme.toggle);

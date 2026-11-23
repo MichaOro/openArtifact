@@ -7,6 +7,7 @@
  */
 import { icon } from "./icons.js";
 import * as model from "./rule-model.js";
+import { t } from "../i18n.js";
 
 let count = 0;
 
@@ -78,8 +79,8 @@ export class RuleBuilder {
     if (path.length) {
       const bin = make("button", "icon-button icon-button--sm is-danger");
       bin.type = "button";
-      bin.title = "Remove this group";
-      bin.setAttribute("aria-label", "Remove this group");
+      bin.title = t("components.rule_builder.remove_group");
+      bin.setAttribute("aria-label", t("components.rule_builder.remove_group"));
       bin.append(icon("trash"));
       bin.addEventListener("click", () => this.#change(model.removeItem(this.tree, path)));
       head.append(bin);
@@ -87,15 +88,15 @@ export class RuleBuilder {
     const items = make("div", "rb-items");
     group.items.forEach((item, i) => items.append(item.type === "group" ? this.#group(item, [...path, i]) : this.#row(item, [...path, i])));
     const foot = make("div", "rb-group__foot");
-    const addCondition = this.#button("Add condition", "plus", () => {
+    const addCondition = this.#button(t("components.rule_builder.add_condition"), "plus", () => {
       const next = model.addItem(this.tree, path, model.newCondition(this.schema));
       this.#change(next, `field-${[...path, group.items.length].join("-")}`);
     });
     addCondition.disabled = model.countConditions(this.tree) >= this.maxConditions;
     foot.append(addCondition);
-    if (model.canNest(this.tree, path, this.maxDepth)) foot.append(this.#button("Add group", "layers", () => this.#change(model.addItem(this.tree, path, model.emptyGroup("any")))));
+    if (model.canNest(this.tree, path, this.maxDepth)) foot.append(this.#button(t("components.rule_builder.add_group"), "layers", () => this.#change(model.addItem(this.tree, path, model.emptyGroup("any")))));
     card.append(head, items, foot);
-    if (!group.items.length && !path.length) items.append(make("p", "rb-empty", "No conditions yet."));
+    if (!group.items.length && !path.length) items.append(make("p", "rb-empty", t("components.rule_builder.no_conditions_yet")));
     return card;
   }
 
@@ -111,15 +112,15 @@ export class RuleBuilder {
     const where = path.join("-");
     const field = this.schema.fields.find((f) => f.key === condition.field) ?? this.schema.fields[0];
     const row = make("div", "rb-row");
-    const fieldSelect = select("Field", this.schema.fields.map((f) => [f.key, f.label]), condition.field, (key) => this.#change(model.replaceItem(this.tree, path, model.withField(this.schema, condition, key)), `field-${where}`));
+    const fieldSelect = select(t("components.rule_builder.field"), this.schema.fields.map((f) => [f.key, f.label]), condition.field, (key) => this.#change(model.replaceItem(this.tree, path, model.withField(this.schema, condition, key)), `field-${where}`));
     fieldSelect.dataset.rbKey = `field-${where}`;
-    const operator = select("Operator", field.operators.map((o) => [o.key, o.label]), condition.op, (op) => this.#change(model.replaceItem(this.tree, path, model.withOperator(condition, op)), `op-${where}`));
+    const operator = select(t("components.rule_builder.operator"), field.operators.map((o) => [o.key, o.label]), condition.op, (op) => this.#change(model.replaceItem(this.tree, path, model.withOperator(condition, op)), `op-${where}`));
     operator.dataset.rbKey = `op-${where}`;
     operator.disabled = field.operators.length === 1;
     const bin = make("button", "icon-button icon-button--sm is-danger");
     bin.type = "button";
-    bin.title = "Remove this condition";
-    bin.setAttribute("aria-label", "Remove this condition");
+    bin.title = t("components.rule_builder.remove_condition");
+    bin.setAttribute("aria-label", t("components.rule_builder.remove_condition"));
     bin.append(icon("trash"));
     bin.addEventListener("click", () => this.#change(model.removeItem(this.tree, path)));
     row.append(fieldSelect, operator, this.#value(field, condition, path), bin);
@@ -157,8 +158,8 @@ export class RuleBuilder {
       const wrap = make("div", "rb-duration");
       const { amount, unit } = model.splitDuration(condition.value);
       const number = Object.assign(make("input", "field__control rb-number"), { type: "number", min: 1, step: 1, value: String(amount) });
-      number.setAttribute("aria-label", "Amount");
-      const units = select("Unit", model.durationUnits().map((u) => [u, u]), unit, () => update());
+      number.setAttribute("aria-label", t("components.rule_builder.amount"));
+      const units = select(t("components.rule_builder.unit"), model.durationUnits().map((u) => [u, u]), unit, () => update());
       const update = () => set(model.joinDuration(Number(number.value) || 0, units.value));
       number.addEventListener("input", update);
       wrap.append(number, units);

@@ -1,18 +1,18 @@
 {% from "components/modal.html" import modal %}
 {# Leaving a page with unsaved changes through one of its own links (behaviour: static/js/components/leave-guard.js).
    Closing the tab or typing an address still gets the browser's own question; that one cannot be replaced. #}
-{% macro leave_modal(id, what="The draft") -%}
-{% call modal(id, "Unsaved changes") %}
+{% macro leave_modal(id, what=none) -%}
+{% call modal(id, t('dialog.unsaved_changes')) %}
 <div class="modal__body">
-    <p class="confirm-text">{{ what }} has changes that are not saved yet. Save them before you go, or leave without them?</p>
+    <p class="confirm-text">{{ what or t('leave.the_draft') }} {{ t('leave.has_changes_that_are_not_saved') }}</p>
     <p class="form-error" role="alert" hidden data-form-error></p>
 </div>
 <footer class="modal__footer">
-    <button type="button" class="button button--ghost" data-modal-close data-cancel>Stay</button>
-    <button type="button" class="button button--ghost is-danger" data-leave-discard>Leave without saving</button>
+    <button type="button" class="button button--ghost" data-modal-close data-cancel>{{ t('leave.stay') }}</button>
+    <button type="button" class="button button--ghost is-danger" data-leave-discard>{{ t('leave.leave_without_saving') }}</button>
     <button type="button" class="button button--primary" data-submit>
         <span class="spinner" aria-hidden="true"></span>
-        <span>Save and leave</span>
+        <span>{{ t('leave.save_and_leave') }}</span>
     </button>
 </footer>
 {% endcall %}

@@ -6,6 +6,7 @@
  * processed the fields are locked. */
 import { effectiveValue, parseProblems, valueOf } from "../artifact-fields/model.js";
 import { NavGroup } from "../components/nav-group.js";
+import { t } from "../i18n.js";
 
 function element(tag, className, text) {
   const el = document.createElement(tag);
@@ -77,7 +78,7 @@ export class FieldRail {
     const label = element("label", "card-field__label", field.label);
     label.htmlFor = id;
     const reference = element("code", "card-field__reference", `\${card.${field.name}}`);
-    reference.title = `Pipelines read this field as \${card.${field.name}}`;
+    reference.title = t("tasks.field_rail.pipelines_read_field_as_card", { name: field.name });
     const error = element("p", "card-field__error");
     error.id = `${id}-error`;
     error.setAttribute("role", "alert");
@@ -97,11 +98,11 @@ export class FieldRail {
       button.setAttribute("role", "switch");
       const on = value === true;
       button.setAttribute("aria-checked", String(on));
-      button.append(element("span", "card-field__switch-track"), element("span", "card-field__switch-text", on ? "Yes" : "No"));
+      button.append(element("span", "card-field__switch-track"), element("span", "card-field__switch-text", on ? t("tasks.field_rail.yes") : "No"));
       button.addEventListener("click", () => {
         const next = button.getAttribute("aria-checked") !== "true";
         button.setAttribute("aria-checked", String(next)); // shown at once; a refusal draws the stored value again
-        button.querySelector(".card-field__switch-text").textContent = next ? "Yes" : "No";
+        button.querySelector(".card-field__switch-text").textContent = next ? t("tasks.field_rail.yes") : "No";
         onChange(next);
       });
       return button;
@@ -135,7 +136,7 @@ export class FieldRail {
     if (field.kind === "number") input.step = field.integer_only ? "1" : "any";
     if (field.kind === "text") input.maxLength = field.max_length ?? 200;
     input.value = value ?? "";
-    input.placeholder = field.kind === "number" ? "Enter number..." : "Enter text...";
+    input.placeholder = field.kind === "number" ? t("tasks.field_rail.enter_number") : t("tasks.field_rail.enter_text");
     input.addEventListener("change", () => onChange(input.value));
     input.addEventListener("keydown", (event) => {
       if (event.key === "Enter") input.blur();
@@ -154,7 +155,7 @@ export class FieldRail {
       this.onSaved(saved);
     } catch (problem) {
       const { byField, other } = parseProblems(problem.detail);
-      const message = byField.get(field.name) || other.join(" ") || "Could not save the field.";
+      const message = byField.get(field.name) || other.join(" ") || t("tasks.field_rail.could_not_save_field");
       if (field.kind === "boolean" || field.multiple) {
         this.#render(); // back to what is stored
         error = this.list.querySelector(`#card-field-${field.name}-error`) ?? error;

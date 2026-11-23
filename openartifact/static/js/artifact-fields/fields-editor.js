@@ -10,6 +10,7 @@ import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
 import { Sortable } from "../components/sortable.js";
 import { KINDS, blankField, editable, isSelect, nameFromLabel, newOption, optionProblem, parseProblems, removedWithValues, toWrite, typeText } from "./model.js";
+import { t, tn } from "../i18n.js";
 
 function element(tag, className, text) {
   const el = document.createElement(tag);
@@ -22,7 +23,7 @@ function grip(label) {
   const button = element("button", "icon-button icon-button--sm af-grip");
   button.type = "button";
   button.setAttribute("aria-label", label);
-  button.title = `${label} (drag, or ArrowUp / ArrowDown)`;
+  button.title = t("artifact_fields.fields_editor.label_drag_arrowup_arrowdown", { label });
   button.append(icon("grip"));
   return button;
 }
@@ -34,7 +35,7 @@ export class FieldsEditor extends ActionDialog {
    * @param {(saved: object) => void} onSaved called with the server's answer
    */
   constructor(modal, save, onSaved) {
-    super(modal, "Could not save the fields. Please try again.");
+    super(modal, t("artifact_fields.fields_editor.could_not_save_fields_please"));
     this.save = save;
     this.onSaved = onSaved;
     this.before = [];
@@ -105,7 +106,7 @@ export class FieldsEditor extends ActionDialog {
   #changed() {
     this.unsaved.hidden = !this.#dirty();
     const lost = removedWithValues(this.before, this.fields.map((f) => f.name.trim()));
-    this.removalNote.textContent = lost.length ? `Saving removes the values of ${lost.map((l) => `"${l.label}" (${l.count} artifact${l.count === 1 ? "" : "s"})`).join(", ")}.` : "";
+    this.removalNote.textContent = lost.length ? t("fields.saving_removes", { list: lost.map((l) => tn("fields.removes_values", l.count, { label: l.label })).join(", ") }) : "";
     this.removalNote.hidden = lost.length === 0;
   }
 
@@ -181,19 +182,19 @@ export class FieldsEditor extends ActionDialog {
   #renderDetail() {
     const field = this.selected;
     if (!field) {
-      this.detail.replaceChildren(element("p", "af-detail__empty", "No fields yet. Add the first one: every artifact gets it."));
+      this.detail.replaceChildren(element("p", "af-detail__empty", t("index.no_fields_yet_add_the_first")));
       return;
     }
     const grid = element("div", "af-detail__grid");
     grid.append(
-      this.#input(field, "label", "Name", { maxLength: 60 }),
+      this.#input(field, "label", t("common.name"), { maxLength: 60 }),
       this.#nameField(field),
       this.#typeField(field),
     );
     if (field.type === "text") grid.append(this.#input(field, "max_length", "Maximum length (default 200)", { type: "number" }));
     if (field.type === "number") {
-      grid.append(this.#input(field, "min_value", "Minimum", { type: "number" }), this.#input(field, "max_value", "Maximum", { type: "number" }));
-      grid.append(this.#check(field, "integer_only", "Whole numbers only"));
+      grid.append(this.#input(field, "min_value", t("artifact_fields.fields_editor.minimum"), { type: "number" }), this.#input(field, "max_value", t("artifact_fields.fields_editor.maximum"), { type: "number" }));
+      grid.append(this.#check(field, "integer_only", t("artifact_fields.fields_editor.whole_numbers_only")));
     }
     const parts = [grid];
     if (isSelect(field.type)) parts.push(this.#optionsBlock(field));
@@ -205,7 +206,7 @@ export class FieldsEditor extends ActionDialog {
     error.dataset.fieldError = "";
     const remove = element("button", "button button--ghost button--sm is-danger af-remove");
     remove.type = "button";
-    remove.append(icon("trash"), document.createTextNode("Remove field"));
+    remove.append(icon("trash"), document.createTextNode(t("artifact_fields.fields_editor.remove_field")));
     remove.addEventListener("click", () => this.#removeField(field));
     parts.push(error, remove);
     this.detail.replaceChildren(...parts);
@@ -249,8 +250,8 @@ export class FieldsEditor extends ActionDialog {
       const shown = element("input", "field__control");
       shown.value = field.name;
       shown.readOnly = true;
-      shown.title = "Pipelines read it as ${card." + field.name + "}; it stays as it is once saved.";
-      return this.#labelled("name", "Reference", shown);
+      shown.title = t("fields.reference_title", { name: field.name });
+      return this.#labelled("name", t("artifact_fields.fields_editor.reference"), shown);
     }
     const input = element("input", "field__control");
     input.maxLength = 32;
@@ -262,7 +263,7 @@ export class FieldsEditor extends ActionDialog {
       field.nameEdited = true;
       this.#changed();
     });
-    return this.#labelled("name", "Reference", input);
+    return this.#labelled("name", t("artifact_fields.fields_editor.reference"), input);
   }
 
   #typeField(field) {
@@ -278,7 +279,7 @@ export class FieldsEditor extends ActionDialog {
       this.#renderDetail();
       this.#changed();
     });
-    return this.#labelled("type", "Field type", select);
+    return this.#labelled("type", t("artifact_fields.fields_editor.field_type"), select);
   }
 
   #check(field, key, label) {
@@ -300,9 +301,9 @@ export class FieldsEditor extends ActionDialog {
   #optionsBlock(field) {
     const block = element("div", "af-options");
     const head = element("div", "af-options__head");
-    head.append(element("span", "field__label", "Options"));
+    head.append(element("span", "field__label", t("common.options")));
     const list = element("ol", "af-options__list");
-    list.setAttribute("aria-label", "Options");
+    list.setAttribute("aria-label", t("common.options"));
     field.options.forEach((option) => list.append(this.#optionRow(field, option)));
     new Sortable(list, {
       handle: ".af-grip",
@@ -317,7 +318,7 @@ export class FieldsEditor extends ActionDialog {
     const add = element("button", "button button--ghost button--sm");
     add.type = "button";
     add.dataset.addOption = "";
-    add.append(icon("plus"), document.createTextNode("Add option"));
+    add.append(icon("plus"), document.createTextNode(t("artifact_fields.fields_editor.add_option")));
     add.addEventListener("click", () => {
       const option = newOption("");
       field.options.push(option);
@@ -325,7 +326,7 @@ export class FieldsEditor extends ActionDialog {
       list.append(row);
       row.inline.edit(); // a new option starts as a text to type; an empty one is dropped
     });
-    if (field.options.length === 0) block.append(head, element("p", "settings-card__empty", "No options yet."), list, add);
+    if (field.options.length === 0) block.append(head, element("p", "settings-card__empty", t("artifact_fields.fields_editor.no_options_yet")), list, add);
     else block.append(head, list, add);
     return block;
   }
@@ -334,7 +335,7 @@ export class FieldsEditor extends ActionDialog {
     const row = element("li", "af-option");
     const text = element("span", "af-option__text", option.text);
     row.inline = new InlineName(text, {
-      label: "Option",
+      label: t("artifact_fields.fields_editor.option"),
       maxLength: 40,
       keepOpenOnError: true,
       onCommit: async (value) => {
@@ -360,18 +361,18 @@ export class FieldsEditor extends ActionDialog {
     });
     const more = element("button", "icon-button icon-button--sm");
     more.type = "button";
-    more.setAttribute("aria-label", `Option actions${option.text ? `: ${option.text}` : ""}`);
+    more.setAttribute("aria-label", t("artifact_fields.fields_editor.option_actions") + (option.text ? `: ${option.text}` : ""));
     more.setAttribute("aria-haspopup", "menu");
-    more.title = "Option actions";
+    more.title = t("artifact_fields.fields_editor.option_actions");
     more.append(icon("more"));
     more.addEventListener("click", () =>
       this.menu.toggle(
         more,
         [
-          { label: "Rename", icon: "pencil", onSelect: () => row.inline.edit() },
-          { label: "Delete", icon: "trash", danger: true, onSelect: () => this.#removeOption(field, option) },
+          { label: t("graph_list.rename"), icon: "pencil", onSelect: () => row.inline.edit() },
+          { label: t("common.delete"), icon: "trash", danger: true, onSelect: () => this.#removeOption(field, option) },
         ],
-        `Option ${option.text}`,
+        t("artifact_fields.fields_editor.option_text", { text: option.text }),
       ),
     );
     row.append(grip(`Move ${option.text || "option"}`), text, more);
@@ -399,7 +400,7 @@ export class FieldsEditor extends ActionDialog {
     if (field.type === "multi") {
       control = element("div", "af-default-multi");
       control.setAttribute("role", "group");
-      control.setAttribute("aria-label", "Default");
+      control.setAttribute("aria-label", t("common.default"));
       for (const option of field.options.filter((o) => o.text)) {
         const wrap = element("label", "at-check");
         const box = element("input");
@@ -412,10 +413,10 @@ export class FieldsEditor extends ActionDialog {
         wrap.append(box, document.createTextNode(` ${option.text}`));
         control.append(wrap);
       }
-      if (!control.children.length) control.append(element("span", "settings-card__empty", "Add options first."));
+      if (!control.children.length) control.append(element("span", "settings-card__empty", t("artifact_fields.fields_editor.add_options_first")));
       const wrap = element("div", "field");
       wrap.dataset.default = "";
-      wrap.append(element("span", "field__label", "Default"), control);
+      wrap.append(element("span", "field__label", t("common.default")), control);
       return wrap;
     }
     if (field.type === "single" || field.type === "boolean") {
@@ -436,7 +437,7 @@ export class FieldsEditor extends ActionDialog {
         this.#changed();
       });
     }
-    const wrap = this.#labelled("default", "Default", control);
+    const wrap = this.#labelled("default", t("common.default"), control);
     wrap.dataset.default = "";
     return wrap;
   }

@@ -2,6 +2,7 @@
  * step. Everything is text (textContent, never innerHTML): prompts, values and provider messages come
  * from users and from outside. */
 import { fieldLabel, inputStateText, seconds, showValue, toolCallRows } from "./model.js";
+import { t } from "../i18n.js";
 
 export function el(tag, className = "", text = null) {
   const node = document.createElement(tag);
@@ -59,8 +60,8 @@ function table(caption, heads, rows) {
 export function inputsTable(inputs) {
   if (!inputs?.length) return null;
   return table(
-    "Inputs",
-    ["Input", "Source", "Value"],
+    t("common.inputs"),
+    [t("agents.view.input"), t("agents.view.source"), t("agents.view.value")],
     inputs.map((input) => [
       `${input.name}${input.required ? " *" : ""}`,
       { text: input.source ? `${inputStateText(input.state)}: ${input.source}` : inputStateText(input.state), state: input.state },
@@ -73,13 +74,13 @@ export function inputsTable(inputs) {
 export function attemptsTable(attempts) {
   if (!attempts?.length) return null;
   return table(
-    "Attempts",
-    ["#", "Took", "HTTP", "Result", "Then waited"],
+    t("agents.view.attempts"),
+    ["#", t("agents.view.took"), "HTTP", t("agents.view.result"), t("agents.view.then_waited")],
     attempts.map((a) => [
       String(a.number),
       seconds(a.duration_ms),
       a.http_status == null ? "–" : String(a.http_status),
-      a.error ? { text: a.error, state: "error" } : "Answered",
+      a.error ? { text: a.error, state: "error" } : t("agents.view.answered"),
       a.wait_seconds == null ? "" : `${a.wait_seconds} s${a.retry_after != null ? " (Retry-After)" : ""}`,
     ]),
   );
@@ -89,7 +90,7 @@ export function attemptsTable(attempts) {
 export function toolCallsTable(turns) {
   const rows = toolCallRows(turns);
   if (!rows.length) return null;
-  return table("Tool calls", ["Turn", "Tool", "Arguments", "Result", "Took"], rows);
+  return table(t("agents.view.tool_calls"), [t("agents.view.turn"), t("agents.view.tool"), t("agents.view.arguments"), t("agents.view.result"), t("agents.view.took")], rows);
 }
 
 /** A list of problems as warnings (nothing if there are none). */
@@ -103,9 +104,9 @@ export function problemList(problems) {
 export function previewView(preview) {
   const parts = [];
   if (preview.problems.length) parts.push(problemList(preview.problems));
-  parts.push(el("p", "ag-facts", `Provider: ${preview.provider ?? "none"} · Model: ${preview.model ?? "none"}`));
-  if (preview.system_prompt != null) parts.push(block("System prompt", preview.system_prompt));
-  parts.push(block("User prompt", preview.user_prompt));
+  parts.push(el("p", "ag-facts", t("agents.view.preview_facts", { provider: preview.provider ?? t("common.none"), model: preview.model ?? t("common.none") })));
+  if (preview.system_prompt != null) parts.push(block(t("agent_editor.system_prompt"), preview.system_prompt));
+  parts.push(block(t("agent_editor.user_prompt"), preview.user_prompt));
   const inputs = inputsTable(preview.inputs);
   if (inputs) parts.push(inputs);
   return parts;
@@ -115,30 +116,30 @@ export function previewView(preview) {
 export function detailView(detail) {
   const wrap = el("div", "ag-detail");
   if (!detail) {
-    wrap.append(el("p", "ag-facts", "This step kept no detail."));
+    wrap.append(el("p", "ag-facts", t("agents.view.step_kept_no_detail")));
     return wrap;
   }
   const facts = [
-    detail.agent ? `Agent: ${detail.agent.name} (version ${detail.agent.version})` : null,
-    detail.provider ? `Provider: ${detail.provider.name}` : null,
-    detail.model ? `Model: ${detail.model}` : null,
-    detail.duration_ms != null ? `Took ${seconds(detail.duration_ms)}` : null,
+    detail.agent ? t("agents.view.agent_name_version_version", { name: detail.agent.name, version: detail.agent.version }) : null,
+    detail.provider ? t("agents.view.provider_name", { name: detail.provider.name }) : null,
+    detail.model ? t("agents.view.model_model", { model: detail.model }) : null,
+    detail.duration_ms != null ? t("agents.view.took_seconds", { seconds: seconds(detail.duration_ms) }) : null,
   ].filter(Boolean);
   wrap.append(el("p", "ag-facts", facts.join(" · ")));
   const settings = detail.settings ?? {};
   const limits = [
-    settings.temperature != null ? `Temperature ${settings.temperature}` : null,
-    settings.max_tokens != null ? `Max tokens ${settings.max_tokens}` : null,
-    `Request timeout ${settings.request_timeout_seconds} s`,
-    `Time limit ${settings.total_timeout_seconds} s`,
-    `Retries ${settings.retries}`,
-    settings.max_iterations != null ? `Max iterations ${settings.max_iterations}` : null,
+    settings.temperature != null ? t("agents.view.temperature_temperature", { temperature: settings.temperature }) : null,
+    settings.max_tokens != null ? t("agents.view.max_tokens_max_tokens", { max_tokens: settings.max_tokens }) : null,
+    t("agents.view.request_timeout_request_timeout_seconds", { request_timeout_seconds: settings.request_timeout_seconds }),
+    t("agents.view.time_limit_total_timeout_seconds", { total_timeout_seconds: settings.total_timeout_seconds }),
+    t("agents.view.retries_retries", { retries: settings.retries }),
+    settings.max_iterations != null ? t("agents.view.max_iterations_max_iterations", { max_iterations: settings.max_iterations }) : null,
   ].filter(Boolean);
   wrap.append(el("p", "ag-facts", limits.join(" · ")));
   const overrides = Object.keys(detail.overrides ?? {});
-  wrap.append(el("p", "ag-facts", overrides.length ? `Set by the node itself: ${overrides.map(fieldLabel).join(", ")}` : "The node used the agent's settings as they are."));
-  if (detail.system_prompt != null) wrap.append(block("System prompt as sent", detail.system_prompt));
-  if (detail.user_prompt != null) wrap.append(block("User prompt as sent", detail.user_prompt));
+  wrap.append(el("p", "ag-facts", overrides.length ? t("agents.view.set_by_node", { fields: overrides.map(fieldLabel).join(", ") }) : "The node used the agent's settings as they are."));
+  if (detail.system_prompt != null) wrap.append(block(t("agents.view.system_prompt_as_sent"), detail.system_prompt));
+  if (detail.user_prompt != null) wrap.append(block(t("agents.view.user_prompt_as_sent"), detail.user_prompt));
   for (const part of [inputsTable(detail.inputs), toolCallsTable(detail.turns), attemptsTable(detail.attempts)]) if (part) wrap.append(part);
   return wrap;
 }
@@ -146,13 +147,13 @@ export function detailView(detail) {
 /** A version's configuration in a few lines (the versions list of the agent page). */
 export function configFacts(config) {
   const facts = [
-    `Inputs: ${config.inputs.length ? config.inputs.map((i) => i.name).join(", ") : "none"}`,
-    `System prompt: ${showValue(config.system_prompt_enabled, "switch")}`,
-    config.model ? `Model: ${config.model}` : null,
-    config.temperature != null ? `Temperature: ${config.temperature}` : null,
-    config.max_tokens != null ? `Max tokens: ${config.max_tokens}` : null,
-    `Retries: ${config.retries}`,
-    config.max_iterations != null ? `Max iterations: ${config.max_iterations}` : null,
+    t("agents.view.inputs_value", { value: config.inputs.length ? config.inputs.map((i) => i.name).join(", ") : t("common.none") }),
+    t("agents.view.system_prompt_value", { value: showValue(config.system_prompt_enabled, "switch") }),
+    config.model ? t("agents.view.model_model", { model: config.model }) : null,
+    config.temperature != null ? t("agents.view.temperature_temperature_2", { temperature: config.temperature }) : null,
+    config.max_tokens != null ? t("agents.view.max_tokens_max_tokens_2", { max_tokens: config.max_tokens }) : null,
+    t("agents.view.retries_retries_2", { retries: config.retries }),
+    config.max_iterations != null ? t("agents.view.max_iterations_max_iterations_2", { max_iterations: config.max_iterations }) : null,
   ];
   return facts.filter(Boolean).join(" · ");
 }

@@ -18,6 +18,7 @@ import { InspectorPanel } from "./inspector-panel.js";
 import { rememberPipeline, setupBack, setupBackToAgent } from "./navigation.js";
 import { addableIn, typeOf } from "./node-types.js";
 import { forgetOpened } from "./settings-layout.js";
+import { t, tn } from "../i18n.js";
 
 export class GraphEditor {
   #pasteQueue = Promise.resolve(); // pastes run one after the other, so each sees the names the one before made
@@ -90,7 +91,7 @@ export class GraphEditor {
       await this.model.load();
       this.alert.hide();
       this.#showTitle();
-      document.title = `${this.model.graph.name} · OpenArtifact`;
+      document.title = t("editor.editor.name_openartifact", { name: this.model.graph.name });
       this.canvas.sync();
       if (fit) this.canvas.fit();
       this.#renderInspector();
@@ -98,7 +99,7 @@ export class GraphEditor {
       this.opened = true;
     } catch (error) {
       if (error.status === 404 && !this.model.isAction) removeStorage(KEYS.lastPipeline);
-      this.#showError(error.status === 404 ? "This pipeline or action does not exist." : "It could not be loaded.", true);
+      this.#showError(error.status === 404 ? t("editor.editor.pipeline_action_does_not_exist") : t("editor.editor.could_not_be_loaded"), true);
     }
   }
 
@@ -134,7 +135,7 @@ export class GraphEditor {
       return true;
     } catch (error) {
       await this.load();
-      this.#showError(error.detail ?? (error.status === 422 ? "That change is not allowed." : "The change could not be saved."));
+      this.#showError(error.detail ?? (error.status === 422 ? t("editor.editor.change_not_allowed") : t("editor.editor.change_could_not_be_saved")));
       return false;
     }
   }
@@ -253,7 +254,7 @@ export class GraphEditor {
     }
     const title = document.querySelector(".app-header__title");
     title.textContent = graph.name;
-    this.titleName = new InlineName(title, { label: isAction ? "Action name" : "Pipeline name", onCommit: (name) => this.#renameGraph(name) });
+    this.titleName = new InlineName(title, { label: isAction ? t("editor.editor.action_name") : t("editor.editor.pipeline_name"), onCommit: (name) => this.#renameGraph(name) });
   }
 
   async #rename(node, name) {
@@ -334,13 +335,13 @@ export class GraphEditor {
     const node = this.nodes.get(selection.id);
     if (!node) return undefined;
     if (this.model.isFixed(node)) {
-      this.#showError(`The ${typeOf(node).label.toLowerCase()} cannot be deleted.`);
+      this.#showError(t("editor.editor.cannot_delete_kind", { kind: typeOf(node).label.toLowerCase() }));
       return undefined;
     }
     const inside = actionsOf(node, this.nodes).length;
-    const extra = inside ? ` and its ${inside} action${inside === 1 ? "" : "s"}` : "";
+    const extra = inside ? tn("editor.editor.and_its_actions", inside) : "";
     this.confirm.open({
-      message: `Delete ${typeOf(node).label.toLowerCase()} "${displayName(node)}"${extra}? Its connections are removed too.`,
+      message: t("editor.editor.delete_kind_confirm", { kind: typeOf(node).label.toLowerCase(), name: displayName(node), extra }),
       onConfirm: async () => {
         await this.model.deleteNode(node.id);
         await this.load();
@@ -371,15 +372,15 @@ export class GraphEditor {
     const several = targets.length > 1;
     const fixed = targets.some((n) => typeOf(n).fixed);
     const copyable = targets.some((n) => !typeOf(n).fixed);
-    const reasonFixed = "The trigger, the output and the end are part of the graph";
-    const renameReason = several ? "Select one node to rename it" : typeOf(node).renamable(node) ? undefined : "This node is named by what it links to";
+    const reasonFixed = t("editor.editor.trigger_output_end_part_graph");
+    const renameReason = several ? t("editor.editor.select_one_node_rename") : typeOf(node).renamable(node) ? undefined : t("editor.editor.node_named_by_what_links");
     const items = [
-      { label: "Edit", icon: "pencil", shortcut: "Enter", disabledReason: several ? "Select one node to edit it" : undefined, onSelect: () => this.#openSettings(node) },
-      { label: "Rename", icon: "tag", shortcut: "F2", disabledReason: renameReason, onSelect: () => this.#askRename(node) },
-      { label: "Copy", icon: "copy", shortcut: "Ctrl+C", disabledReason: copyable ? undefined : reasonFixed, onSelect: () => this.#copy(targets) },
-      { label: "Cut", icon: "copy", shortcut: "Ctrl+X", disabledReason: copyable && !fixed ? undefined : reasonFixed, onSelect: () => this.#cut(targets) },
-      { label: "Duplicate", icon: "layers", shortcut: "Ctrl+D", disabledReason: copyable ? undefined : reasonFixed, onSelect: () => this.#duplicate(targets) },
-      { label: "Delete", icon: "trash", shortcut: "Del", danger: true, disabledReason: fixed ? reasonFixed : undefined, onSelect: () => this.#deleteTargets(targets) },
+      { label: t("common.edit"), icon: "pencil", shortcut: "Enter", disabledReason: several ? t("editor.editor.select_one_node_edit") : undefined, onSelect: () => this.#openSettings(node) },
+      { label: t("graph_list.rename"), icon: "tag", shortcut: "F2", disabledReason: renameReason, onSelect: () => this.#askRename(node) },
+      { label: t("credentials.copy"), icon: "copy", shortcut: "Ctrl+C", disabledReason: copyable ? undefined : reasonFixed, onSelect: () => this.#copy(targets) },
+      { label: t("editor.editor.cut"), icon: "copy", shortcut: "Ctrl+X", disabledReason: copyable && !fixed ? undefined : reasonFixed, onSelect: () => this.#cut(targets) },
+      { label: t("editor.editor.duplicate"), icon: "layers", shortcut: "Ctrl+D", disabledReason: copyable ? undefined : reasonFixed, onSelect: () => this.#duplicate(targets) },
+      { label: t("common.delete"), icon: "trash", shortcut: "Del", danger: true, disabledReason: fixed ? reasonFixed : undefined, onSelect: () => this.#deleteTargets(targets) },
     ];
     const anchor = trigger ?? this.canvas.elements.get(node.id);
     this.menu.toggle(anchor, items, `Actions of ${displayName(node)}`, point ? { at: point } : {});
@@ -410,7 +411,7 @@ export class GraphEditor {
     this.nameDialog.open({
       title: `Rename ${typeOf(node).label.toLowerCase()}`,
       values: { name: node.name },
-      submitLabel: "Rename",
+      submitLabel: t("graph_list.rename"),
       onSubmit: ({ name }) => this.#rename(node, name),
     });
   }
@@ -419,14 +420,14 @@ export class GraphEditor {
     const deletable = targets.filter((n) => !typeOf(n).fixed);
     if (deletable.length > 1) return this.#deleteMany(deletable.map((n) => n.id));
     if (deletable.length === 1) return this.requestDelete({ type: "node", id: deletable[0].id });
-    this.#showError("The trigger, the output and the end cannot be deleted.");
+    this.#showError(t("editor.editor.trigger_output_end_cannot_be"));
     return undefined;
   }
 
   #deleteMany(ids) {
     const nodes = ids.map((id) => this.nodes.get(id)).filter(Boolean);
     this.confirm.open({
-      message: `Delete ${nodes.length} nodes? Their connections are removed too.`,
+      message: t("editor.editor.delete_length_nodes_their_connections", { length: nodes.length }),
       onConfirm: async () => {
         for (const node of nodes) if (this.nodes.has(node.id)) await this.model.deleteNode(node.id);
         await this.load();
@@ -441,12 +442,12 @@ export class GraphEditor {
   #copy(targets) {
     const copy = copyOf([...this.nodes.values()], [...this.edges.values()], targets.map((n) => n.id), this.model.kind);
     if (!copy) {
-      this.#showError("The trigger, the output and the end cannot be copied.");
+      this.#showError(t("editor.editor.trigger_output_end_cannot_be_2"));
       return false;
     }
     writeJson(KEYS.nodeClipboard, copy);
     this.pastes = 0;
-    this.alert.show(`${copy.nodes.length} ${copy.nodes.length === 1 ? "node" : "nodes"} copied. Paste with Ctrl+V.`, { autoHide: 2500 });
+    this.alert.show(tn("editor.editor.copied", copy.nodes.length), { autoHide: 2500 });
     return true;
   }
 
@@ -469,7 +470,7 @@ export class GraphEditor {
   async #paste() {
     const copy = readJson(KEYS.nodeClipboard);
     if (!copy?.nodes?.length) {
-      this.#showError("Nothing copied yet: select a node and press Ctrl+C.");
+      this.#showError(t("editor.editor.nothing_copied_yet_select_node"));
       return;
     }
     this.pastes += 1;
@@ -492,7 +493,7 @@ export class GraphEditor {
       allowed: new Set([...addableIn(this.model.kind).map((t) => t.kind), ...(this.model.kind === "pipeline" ? ["action"] : [])]), // an action is made inside its stage, not by the menu
     });
     if (plan.error) return this.#showError(plan.error);
-    if (!plan.items.length) return this.#showError(`${plan.skipped.map((k) => typeOf(k)?.label ?? k).join(", ")} cannot be added here.`);
+    if (!plan.items.length) return this.#showError(t("editor.editor.cannot_add_here", { kinds: plan.skipped.map((k) => typeOf(k)?.label ?? k).join(", ") }));
     const made = new Map();
     const saved = await this.#save(async () => {
       for (const item of plan.items) {
@@ -527,7 +528,7 @@ export class GraphEditor {
     const first = [...ids][0];
     this.select({ type: "node", id: first }, { keepMulti: ids });
     this.canvas.focusNode(first); // so the bar of the node it was copied from goes away
-    if (plan.skipped.length) this.#showError(`${plan.skipped.map((k) => typeOf(k)?.label ?? k).join(", ")} cannot be added here and was left out.`);
+    if (plan.skipped.length) this.#showError(t("editor.editor.cannot_add_left_out", { kinds: plan.skipped.map((k) => typeOf(k)?.label ?? k).join(", ") }));
     return undefined;
   }
 
@@ -605,7 +606,7 @@ export class GraphEditor {
   /** Ask for the name of something new to link to (like creating an artifact on the board). */
   #askNew(node) {
     const what = typeOf(node).links_to === "action" ? "action" : "pipeline";
-    this.nameDialog.open({ title: `New ${what}`, onSubmit: ({ name }) => this.#createAndOpen(node, name) });
+    this.nameDialog.open({ title: t("editor.editor.new_what", { what }), onSubmit: ({ name }) => this.#createAndOpen(node, name) });
   }
 
   /** Create what the node links to under the entered name, link the node to it and go and edit it. */

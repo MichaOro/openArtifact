@@ -5,9 +5,10 @@ import { agentFacts } from "../agents/model.js";
 import { detailView } from "../agents/view.js";
 import { icon } from "../components/icons.js";
 import { formatDuration, secondsBetween, setChip } from "./history-format.js";
+import { t } from "../i18n.js";
 
 const KIND_ICONS = { code: "code", http: "http", timer: "clock", trigger: "play", output: "check", if: "if", switch: "switch", agent: "agent", set: "pencil" };
-const PORTS = { pass: "On Pass", fail: "On Fail", out: "Next", yes: "Yes", no: "No", else: "Else" };
+const PORTS = { pass: t("tasks.history_step.pass"), fail: t("tasks.history_step.fail"), out: t("tasks.history_step.next"), yes: t("tasks.field_rail.yes"), no: "No", else: t("tasks.history_step.else") };
 
 /** How long a step took ("0.4 s"), null while it has not finished. */
 export function stepDuration(step) {
@@ -19,7 +20,7 @@ export function stepDuration(step) {
 function stepFacts(step) {
   const facts = [step.port ? `Port: ${PORTS[step.port] ?? step.port.replace(/^case_(\d)$/, "Case $1")}` : null, step.exit_code != null ? `Exit code: ${step.exit_code}` : null, stepDuration(step)];
   if (step.kind === "agent") facts.push(...agentFacts(step.data)); // model, tokens and attempts at a glance
-  if (step.data?.output_truncated) facts.push("Output cut at the limit of a step");
+  if (step.data?.output_truncated) facts.push(t("tasks.history_step.output_cut_at_limit_step"));
   return facts.filter(Boolean);
 }
 
@@ -54,7 +55,7 @@ export function fillStep(template, step, open = new Set(), { loadDetail = null }
   factsEl.hidden = facts.length === 0;
 
   const reason = item.querySelector("[data-step-reason]");
-  reason.textContent = step.reason ? `Reason: ${step.reason}` : "";
+  reason.textContent = step.reason ? t("tasks.history_step.reason_reason", { reason: step.reason }) : "";
   reason.hidden = !step.reason;
 
   // the flow page leaves the output out and loads it when the block is opened (output_length says there is one)
@@ -78,12 +79,12 @@ function fillAgent(details, step, open, loadDetail) {
   const load = async () => {
     if (loaded) return;
     loaded = true;
-    body.textContent = "Loading...";
+    body.textContent = t("execution.flow_panel.loading");
     try {
       body.replaceChildren(detailView((await loadDetail(step)).detail));
     } catch {
       loaded = false;
-      body.textContent = "The request could not be loaded. Close and open it to try again.";
+      body.textContent = t("tasks.history_step.request_could_not_be_loaded");
     }
   };
   details.addEventListener("toggle", () => details.open && load());

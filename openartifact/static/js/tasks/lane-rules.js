@@ -1,7 +1,8 @@
 /* What the board knows about when a lane can be deleted (the server enforces the same rules). */
 
-export const NOT_EMPTY = "A lane can only be deleted when it contains no artifacts.";
-export const LAST_LANE = "The last lane cannot be deleted.";
+import { t } from "../i18n.js";
+export const NOT_EMPTY = t("tasks.lane_rules.lane_can_only_be_deleted");
+export const LAST_LANE = t("tasks.lane_rules.last_lane_cannot_be_deleted");
 
 /** Why a lane cannot be deleted, or null when it can. */
 export function deleteBlockedReason(artifactCount, laneCount) {

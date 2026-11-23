@@ -12,6 +12,7 @@
 import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./geometry.js";
 import { icon } from "../components/icons.js";
 import { FAILING_PORTS, HEADER, typeOf } from "./node-types.js";
+import { t } from "../i18n.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
@@ -115,10 +116,10 @@ export class Canvas {
     const bar = document.createElement("div");
     bar.className = "ge-node-bar";
     bar.setAttribute("role", "toolbar");
-    bar.setAttribute("aria-label", "Node actions");
+    bar.setAttribute("aria-label", t("editor.canvas.node_actions"));
     const inner = document.createElement("div");
     inner.className = "ge-node-bar__inner";
-    for (const [action, glyph, label] of [["delete", "trash", "Delete"], ["more", "more", "More actions"]]) {
+    for (const [action, glyph, label] of [["delete", "trash", t("common.delete")], ["more", "more", t("editor.canvas.more_actions")]]) {
       if (action === "delete" && type.fixed) continue; // the trigger, the output and the end are part of the graph
       const button = document.createElement("button");
       button.type = "button";
@@ -269,8 +270,8 @@ export class Canvas {
       choice.dataset.style = value;
       choices.append(choice);
     }
-    const pencil = button("icon-button icon-button--sm ge-edge-bar__pencil", "Change line style", icon("pencil"));
-    const bin = button("icon-button icon-button--sm is-danger ge-edge-bar__bin", "Delete connection", icon("trash"));
+    const pencil = button("icon-button icon-button--sm ge-edge-bar__pencil", t("editor.canvas.change_line_style"), icon("pencil"));
+    const bin = button("icon-button icon-button--sm is-danger ge-edge-bar__bin", t("editor.canvas.delete_connection"), icon("trash"));
     bar.append(pencil, bin, styles);
     bar.addEventListener("click", (event) => {
       const id = bar.dataset.edgeId;

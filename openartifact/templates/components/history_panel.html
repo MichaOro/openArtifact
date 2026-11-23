@@ -3,30 +3,30 @@
 <div class="modal__body history" role="tabpanel" id="artifact-panel-history" aria-labelledby="artifact-tab-history" tabindex="0" hidden data-history>
     <div class="alert-bar glass" role="alert" hidden data-history-alert>
         <span data-alert-text></span>
-        <button type="button" class="button button--ghost button--sm" data-alert-retry>Retry</button>
+        <button type="button" class="button button--ghost button--sm" data-alert-retry>{{ t('common.retry') }}</button>
     </div>
     <div class="visually-hidden" role="status" aria-live="polite" data-history-live></div>
     <div class="history__list-view" data-history-list-view>
         <div class="history__toolbar">
-            <p class="history__summary" data-history-summary>Loading executions...</p>
-            <button type="button" class="button button--ghost button--sm is-danger" data-history-clear>Clear finished</button>
+            <p class="history__summary" data-history-summary>{{ t('history.loading_executions') }}</p>
+            <button type="button" class="button button--ghost button--sm is-danger" data-history-clear>{{ t('history.clear_finished') }}</button>
         </div>
-        <ul class="history-list" aria-label="Executions" data-history-rows></ul>
-        <p class="history__empty" data-history-empty hidden>No executions yet. Start processing this artifact and its executions appear here.</p>
+        <ul class="history-list" aria-label="{{ t('common.executions') }}" data-history-rows></ul>
+        <p class="history__empty" data-history-empty hidden>{{ t('history.no_executions_yet_start_processing_this') }}</p>
         <p class="field__help" data-history-more hidden></p>
     </div>
     <section class="history-detail" aria-labelledby="history-detail-heading" data-history-detail hidden>
         <div class="history-detail__bar">
-            <button type="button" class="button button--ghost button--sm" data-detail-back>Back</button>
-            <a class="button button--ghost button--sm" href="#" data-detail-flow>Open flow</a>
-            <button type="button" class="button button--ghost button--sm is-danger history-detail__delete" data-detail-delete>Delete execution</button>
+            <button type="button" class="button button--ghost button--sm" data-detail-back>{{ t('common.back') }}</button>
+            <a class="button button--ghost button--sm" href="#" data-detail-flow>{{ t('common.open_flow') }}</a>
+            <button type="button" class="button button--ghost button--sm is-danger history-detail__delete" data-detail-delete>{{ t('history.delete_execution') }}</button>
         </div>
         <h3 class="history-detail__heading" id="history-detail-heading" tabindex="-1" data-detail-heading></h3>
         <dl class="history-facts" data-detail-facts></dl>
         <p class="field__help" data-detail-note hidden></p>
         <div data-detail-context></div>
-        <ol class="history-steps" aria-label="Steps" data-detail-steps></ol>
-        <p class="history__empty" data-detail-empty hidden>This execution has no steps.</p>
+        <ol class="history-steps" aria-label="{{ t('common.steps') }}" data-detail-steps></ol>
+        <p class="history__empty" data-detail-empty hidden>{{ t('history.this_execution_has_no_steps') }}</p>
     </section>
 </div>
 <template id="history-row-template">

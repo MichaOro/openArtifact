@@ -3,14 +3,15 @@
  * completion put in. reference-suggest.js draws the popup. Hints only: nothing here validates a text
  * (the server does), and a name it does not know is simply not offered. */
 
+import { t, tn } from "../i18n.js";
 /** Kinds of nodes that leave a result in the run context (the others have nothing to reference). */
 export const RESULT_KINDS = ["code", "http", "timer", "if", "switch", "agent", "set"];
 const NODE_FIELDS = [
-  ["output", "text the node wrote"],
-  ["exit_code", "exit code"],
-  ["outcome", "pass or fail"],
-  ["reason", "why it failed"],
-  ["data.", "its data, then .key"],
+  ["output", t("editor.reference_completion.text_node_wrote")],
+  ["exit_code", t("editor.reference_completion.exit_code")],
+  ["outcome", t("editor.reference_completion.pass_fail")],
+  ["reason", t("editor.reference_completion.why_failed")],
+  ["data.", t("editor.reference_completion.its_data_then_key")],
 ];
 const MAX_SUGGESTIONS = 40;
 
@@ -57,7 +58,7 @@ export function openReference(text, caret) {
  */
 export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecrets = false, cardFields = [] } = {}) {
   const out = [];
-  for (const field of cardFields) out.push({ insert: `card.${field.name}`, detail: `${field.label}: field of the artifact`, complete: true, head: "card." });
+  for (const field of cardFields) out.push({ insert: `card.${field.name}`, detail: t("editor.reference_completion.label_field_artifact", { label: field.label }), complete: true, head: "card." });
   const seen = new Set();
   for (const node of nodes) {
     if (node.id === exceptId || !RESULT_KINDS.includes(node.kind)) continue;
@@ -77,11 +78,11 @@ export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecre
       const name = line.trim();
       if (name && !variables.has(name)) {
         variables.add(name);
-        out.push({ insert: `var.${name}`, detail: `set by ${node.name}`, complete: true, head: "var." });
+        out.push({ insert: `var.${name}`, detail: t("editor.reference_completion.set_by_name", { name: node.name }), complete: true, head: "var." });
       }
     }
   }
-  if (allowSecrets) for (const name of secrets) out.push({ insert: `secret:${name}`, detail: "stored secret", complete: true, head: "secret:" });
+  if (allowSecrets) for (const name of secrets) out.push({ insert: `secret:${name}`, detail: t("editor.reference_completion.stored_secret"), complete: true, head: "secret:" });
   return out;
 }
 
@@ -100,7 +101,7 @@ export function suggestionsFor(all, query) {
     group.count += 1;
     heads.set(c.head, group);
   }
-  const labels = { "card.": (n) => `${n} artifact field${n === 1 ? "" : "s"}`, "var.": (n) => `${n} variable${n === 1 ? "" : "s"}`, "secret:": (n) => `${n} stored secret${n === 1 ? "" : "s"}` };
+  const labels = { "card.": (n) => tn("editor.reference.artifact_fields", n), "var.": (n) => tn("editor.reference.variables", n), "secret:": (n) => tn("editor.reference.secrets", n) };
   const groups = [...heads.values()].map((g) => ({ insert: g.head, detail: labels[g.head]?.(g.count) ?? `${g.kind} node`, complete: false, head: "" }));
   const order = (g) => ["card.", "var.", "secret:"].indexOf(g.insert);
   const fixed = groups.filter((g) => order(g) >= 0).sort((a, b) => order(a) - order(b));

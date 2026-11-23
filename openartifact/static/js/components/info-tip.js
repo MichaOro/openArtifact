@@ -4,6 +4,7 @@
  * One component for every field with a help text. */
 import { icon } from "./icons.js";
 import { placePopover } from "./popover.js";
+import { t } from "../i18n.js";
 
 let count = 0;
 /** Every tooltip made, so one whose label has been drawn away (a panel drawn again) is removed from the document. */
@@ -15,7 +16,7 @@ const made = [];
  * @returns {{button: HTMLButtonElement, tip: HTMLElement, id: string}} put `button` after the label; give the field
  *   `aria-describedby=id`
  */
-export function infoTip(text, { label = "this field" } = {}) {
+export function infoTip(text, { label = t("components.info_tip.field") } = {}) {
   for (let i = made.length - 1; i >= 0; i -= 1) {
     if (!made[i].button.isConnected) {
       made[i].tip.remove();
@@ -28,7 +29,7 @@ export function infoTip(text, { label = "this field" } = {}) {
   button.className = "info-tip";
   // named by its content, not by the field's label: a label lookup must find the field, not this button
   button.setAttribute("aria-describedby", id);
-  button.append(icon("info"), Object.assign(document.createElement("span"), { className: "visually-hidden", textContent: "Help" }));
+  button.append(icon("info"), Object.assign(document.createElement("span"), { className: "visually-hidden", textContent: t("components.info_tip.help") }));
   button.dataset.about = label;
   const tip = document.createElement("div");
   tip.className = "info-tip__text";

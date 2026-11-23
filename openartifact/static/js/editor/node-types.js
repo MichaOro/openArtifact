@@ -7,6 +7,7 @@ import { icon } from "../components/icons.js";
 import { request } from "../http.js";
 import { renderCaption } from "./caption.js";
 import { FUNCTIONS, agentNames, switchCaseUsed } from "./view-functions.js";
+import { t } from "../i18n.js";
 
 export { agentNames, switchCaseUsed };
 export const HEADER = 44; // stage header height
@@ -167,7 +168,7 @@ class StageView extends NodeView {
     add.type = "button";
     add.className = "ge-stage__add";
     add.dataset.addAction = "";
-    add.textContent = "+ Action";
+    add.textContent = t("editor.node_types.action");
     header.append(parts.caption, parts.name, add);
     const body = document.createElement("div");
     body.className = "ge-stage__body";
@@ -178,8 +179,8 @@ class StageView extends NodeView {
   ports() {
     const ports = [];
     for (let slot = 0; slot < SLOTS; slot += 1) {
-      ports.push({ name: "start", label: "Start", direction: "both", side: "left", slot });
-      ports.push({ name: "end", label: "End", direction: "both", side: "right", slot });
+      ports.push({ name: "start", label: t("editor.node_types.start"), direction: "both", side: "left", slot });
+      ports.push({ name: "end", label: t("editor.node_types.end"), direction: "both", side: "right", slot });
     }
     return ports;
   }
@@ -201,7 +202,7 @@ class StageView extends NodeView {
 /** A shell in a stage that is linked to an action definition. */
 class ActionView extends NodeView {
   defaultCaption(node) {
-    return node.definition_id ? this.label : "Empty action";
+    return node.definition_id ? this.label : t("editor.node_types.empty_action");
   }
 
   isVisible(node, port) {
@@ -218,14 +219,14 @@ class ActionView extends NodeView {
   }
 
   sections(node, blocks) {
-    return [blocks.link(node, "Definition", "Action", "Not defined"), blocks.actions(node, blocks.linkActions(node))];
+    return [blocks.link(node, t("editor.node_types.definition"), t("editor.node_types.action_2"), t("editor.node_types.not_defined")), blocks.actions(node, blocks.linkActions(node))];
   }
 }
 
 /** A node of the main line that calls another pipeline. */
 class PipelineNodeView extends NodeView {
   defaultCaption(node) {
-    return node.definition_id ? this.label : "No pipeline chosen";
+    return node.definition_id ? this.label : t("editor.node_types.no_pipeline_chosen");
   }
 
   renamable() {
@@ -233,7 +234,7 @@ class PipelineNodeView extends NodeView {
   }
 
   sections(node, blocks) {
-    return [blocks.link(node, "Calls", "Pipeline", "Not chosen"), blocks.actions(node, blocks.linkActions(node))];
+    return [blocks.link(node, t("editor.node_types.calls"), t("common.pipeline"), t("editor.node_types.not_chosen")), blocks.actions(node, blocks.linkActions(node))];
   }
 }
 
@@ -313,7 +314,7 @@ export function addableIn(scope) {
 export function groupAddable(types) {
   const clusters = new Map();
   for (const type of types) {
-    const group = type.menu?.group ?? "More";
+    const group = type.menu?.group ?? t("editor.node_types.more");
     const rank = type.menu ? type.menu.group_index : Number.MAX_SAFE_INTEGER;
     if (!clusters.has(group)) clusters.set(group, { group, rank, types: [] });
     clusters.get(group).types.push(type);

@@ -11,6 +11,7 @@ import { request } from "../http.js";
 import { connectEvents } from "../tasks/events.js";
 import { formatTime } from "../tasks/history-format.js";
 import { chip, el } from "../agents/view.js";
+import { t, tn } from "../i18n.js";
 
 const base = "/api/credentials";
 const one = (ref) => `${base}/${encodeURIComponent(ref)}`;
@@ -40,9 +41,9 @@ class TokenDialog {
     this.copy.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(this.tokenEl.textContent);
-        this.copy.querySelector("span").textContent = "Copied";
+        this.copy.querySelector("span").textContent = t("credentials.credentials_page.copied");
       } catch {
-        this.copy.querySelector("span").textContent = "Select and copy by hand";
+        this.copy.querySelector("span").textContent = t("credentials.credentials_page.select_copy_by_hand");
         getSelection().selectAllChildren(this.tokenEl);
       }
     });
@@ -50,7 +51,7 @@ class TokenDialog {
 
   show(token, note) {
     this.tokenEl.textContent = token;
-    this.copy.querySelector("span").textContent = "Copy";
+    this.copy.querySelector("span").textContent = t("credentials.copy");
     modalNote(this.modal.dialog, note);
     this.modal.open();
     this.tokenEl.focus();
@@ -65,7 +66,7 @@ const tokenDialog = new TokenDialog(new Modal(document.getElementById("token-mod
 
 class CredentialDialog extends ActionDialog {
   constructor(modal) {
-    super(modal, "Could not save. Please try again.");
+    super(modal, t("agents.providers_page.could_not_save_please_try"));
     this.form = this.root.querySelector("form");
     this.dynamic = this.root.querySelector("[data-dynamic]");
     this.result = this.root.querySelector("[data-test-result]");
@@ -96,8 +97,8 @@ class CredentialDialog extends ActionDialog {
     this.field("name").value = credential?.name ?? "";
     this.field("name").readOnly = Boolean(credential);
     this.field("description").value = credential?.description ?? "";
-    this.titleEl.textContent = credential ? `Credential ${credential.name}` : category === "internal" ? "New access token" : "New credential";
-    this.root.querySelector("[data-submit-label]").textContent = credential ? "Save" : category === "internal" ? "Generate token" : "Store";
+    this.titleEl.textContent = credential ? t("credentials.credentials_page.credential_name", { name: credential.name }) : category === "internal" ? t("credentials.credentials_page.new_access_token") : t("credentials.new_credential");
+    this.root.querySelector("[data-submit-label]").textContent = credential ? t("common.save") : category === "internal" ? t("credentials.credentials_page.generate_token") : t("credentials.credentials_page.store");
     for (const part of this.root.querySelectorAll("[data-only-new]")) part.hidden = Boolean(credential);
     this.root.querySelector("[data-expiry]").hidden = category !== "internal" || Boolean(credential);
     this.root.querySelector("[data-name-help]").textContent =
@@ -124,7 +125,7 @@ class CredentialDialog extends ActionDialog {
       label.htmlFor = id;
       const input = el("input", "field__control");
       Object.assign(input, { id, name: `f_${f.name}`, type: f.secret ? "password" : "text", autocomplete: f.secret ? "new-password" : "off", spellcheck: false, maxLength: 8192 });
-      input.placeholder = this.credential && f.secret ? "Leave empty to keep the stored value" : f.placeholder;
+      input.placeholder = this.credential && f.secret ? t("credentials.credentials_page.leave_empty_keep_stored_value") : f.placeholder;
       if (!f.secret) input.value = settings[f.name] ?? "";
       wrap.append(label, input);
       if (f.help) wrap.append(el("p", "field__help", f.help));
@@ -138,14 +139,14 @@ class CredentialDialog extends ActionDialog {
 
   async #save() {
     const name = this.field("name").value.trim();
-    if (!name) throw new Error("Please enter a name.");
+    if (!name) throw new Error(t("agents.providers_page.please_enter_name"));
     const description = this.field("description").value.trim();
     if (this.credential) {
       await send("PATCH", one(this.credential.id), { description, fields: this.#fields() });
     } else if (this.category === "internal") {
       const expires = this.field("expires").value;
       const made = await send("POST", `${base}/internal`, { type: this.field("type").value, name, description, expires_in_seconds: expires ? Number(expires) : null });
-      tokenDialog.show(made.token, "Use it as: Authorization: Bearer <token>");
+      tokenDialog.show(made.token, t("credentials.credentials_page.use_as_authorization_bearer_token"));
     } else {
       await send("POST", `${base}/external`, { type: this.field("type").value, name, description, fields: this.#fields() });
     }
@@ -157,7 +158,7 @@ const dialog = new CredentialDialog(new Modal(document.getElementById("credentia
 
 // ── the lists ──────────────────────────────────────────────────────────
 
-const STATUS = { active: ["Active", "ok"], disabled: ["Disabled", "warn"], expired: ["Expired", "bad"], revoked: ["Revoked", "bad"] };
+const STATUS = { active: [t("common.active"), "ok"], disabled: [t("credentials.credentials_page.disabled"), "warn"], expired: [t("credentials.credentials_page.expired"), "bad"], revoked: [t("credentials.credentials_page.revoked"), "bad"] };
 
 function statusChip(c) {
   const [text, tone] = STATUS[c.status] ?? [c.status, ""];
@@ -166,9 +167,9 @@ function statusChip(c) {
 
 function testChip(c) {
   const meta = c.external;
-  if (meta.last_test_ok === true) return chip("Passed", "ok");
-  if (meta.last_test_ok === false) return chip("Failed", "bad");
-  return chip(types.find((t) => t.id === c.type)?.testable ? "Not tested" : "No test for this type");
+  if (meta.last_test_ok === true) return chip(t("credentials.credentials_page.passed"), "ok");
+  if (meta.last_test_ok === false) return chip(t("common.failed"), "bad");
+  return chip(types.find((t) => t.id === c.type)?.testable ? t("credentials.credentials_page.not_tested") : t("credentials.credentials_page.no_test_type"));
 }
 
 async function act(run, message = "") {
@@ -186,7 +187,7 @@ async function act(run, message = "") {
 async function impact(credential) {
   try {
     const found = await request(`${one(credential.id)}/uses`);
-    return found.length ? `Still referred to by: ${found.map((u) => `${u.name} (${u.where})`).join(", ")}. They will fail until the credential exists again.` : "No node or provider refers to it.";
+    return found.length ? t("credentials.page.still_referred", { list: found.map((u) => `${u.name} (${u.where})`).join(", ") }) : t("credentials.page.nobody_refers");
   } catch {
     return "";
   }
@@ -195,8 +196,8 @@ async function impact(credential) {
 function askToDelete(credential) {
   impact(credential).then((note) =>
     confirm.open({
-      title: "Delete credential",
-      message: credential.category === "internal" ? "Delete {subject}? Its tokens stop working at once." : "Delete {subject} with its stored value?",
+      title: t("credentials.credentials_page.delete_credential"),
+      message: credential.category === "internal" ? t("credentials.credentials_page.delete_subject_its_tokens_stop") : t("credentials.credentials_page.delete_subject_with_its_stored"),
       subject: credential.name,
       note,
       onConfirm: async () => {
@@ -211,44 +212,44 @@ function openMenu(button, credential) {
   const items = [];
   const internal = credential.category === "internal";
   if (internal) {
-    if (credential.status !== "revoked") items.push({ label: "Rotate…", icon: "refresh", onSelect: () => rotate(credential) });
+    if (credential.status !== "revoked") items.push({ label: t("credentials.credentials_page.rotate"), icon: "refresh", onSelect: () => rotate(credential) });
     if (credential.status !== "revoked")
-      items.push({ label: credential.enabled ? "Disable" : "Enable", icon: credential.enabled ? "stop" : "play", onSelect: () => act(() => send("PUT", `${one(credential.id)}/enabled`, { enabled: !credential.enabled })) });
-    if (credential.status !== "revoked") items.push({ label: "Revoke…", icon: "x", danger: true, onSelect: () => revoke(credential) });
+      items.push({ label: credential.enabled ? t("credentials.credentials_page.disable") : t("credentials.credentials_page.enable"), icon: credential.enabled ? "stop" : "play", onSelect: () => act(() => send("PUT", `${one(credential.id)}/enabled`, { enabled: !credential.enabled })) });
+    if (credential.status !== "revoked") items.push({ label: t("credentials.credentials_page.revoke"), icon: "x", danger: true, onSelect: () => revoke(credential) });
   } else {
     const testable = types.find((t) => t.id === credential.type)?.testable;
-    items.push({ label: "Test connection", icon: "play", disabledReason: testable ? (credential.enabled ? undefined : "Enable it first") : "There is no connection test for this type", onSelect: () => act(async () => {
+    items.push({ label: t("providers.test_connection"), icon: "play", disabledReason: testable ? (credential.enabled ? undefined : t("credentials.credentials_page.enable_first")) : t("credentials.credentials_page.there_no_connection_test_type"), onSelect: () => act(async () => {
       const done = await send("POST", `${one(credential.id)}/test`);
-      if (!done.external.last_test_ok) throw new Error(`The test failed: ${done.external.last_test_message}`);
-    }, "The test passed.") });
-    items.push({ label: "Edit", icon: "pencil", onSelect: () => dialog.open("external", credential) });
-    items.push({ label: credential.enabled ? "Disable" : "Enable", icon: credential.enabled ? "stop" : "play", onSelect: () => act(() => send("PUT", `${one(credential.id)}/enabled`, { enabled: !credential.enabled })) });
+      if (!done.external.last_test_ok) throw new Error(t("credentials.credentials_page.test_failed_last_test_message", { last_test_message: done.external.last_test_message }));
+    }, t("credentials.credentials_page.test_passed")) });
+    items.push({ label: t("common.edit"), icon: "pencil", onSelect: () => dialog.open("external", credential) });
+    items.push({ label: credential.enabled ? t("credentials.credentials_page.disable") : t("credentials.credentials_page.enable"), icon: credential.enabled ? "stop" : "play", onSelect: () => act(() => send("PUT", `${one(credential.id)}/enabled`, { enabled: !credential.enabled })) });
   }
-  items.push({ label: "Delete…", icon: "trash", danger: true, onSelect: () => askToDelete(credential) });
+  items.push({ label: t("credentials.credentials_page.delete"), icon: "trash", danger: true, onSelect: () => askToDelete(credential) });
   menu.toggle(button, items, `Actions of ${credential.name}`);
 }
 
 function rotate(credential) {
   confirm.open({
-    title: "Rotate token",
-    message: "Make a new token for {subject}? The old one keeps working for the grace period (1 hour by default), then stops.",
+    title: t("credentials.credentials_page.rotate_token"),
+    message: t("credentials.credentials_page.make_new_token_subject_old"),
     subject: credential.name,
-    confirmLabel: "Rotate",
+    confirmLabel: t("credentials.credentials_page.rotate_2"),
     tone: "primary",
     onConfirm: async () => {
       const made = await send("POST", `${one(credential.id)}/rotate`, {});
       await load();
-      tokenDialog.show(made.token, "The old token works for a while longer, then stops.");
+      tokenDialog.show(made.token, t("credentials.credentials_page.old_token_works_while_longer"));
     },
   });
 }
 
 function revoke(credential) {
   confirm.open({
-    title: "Revoke credential",
-    message: "Revoke {subject}? Every token of it stops working at the next request, and this cannot be undone.",
+    title: t("credentials.credentials_page.revoke_credential"),
+    message: t("credentials.credentials_page.revoke_subject_every_token_stops"),
     subject: credential.name,
-    confirmLabel: "Revoke",
+    confirmLabel: t("credentials.credentials_page.revoke_2"),
     onConfirm: async () => {
       await send("POST", `${one(credential.id)}/revoke`);
       await load();
@@ -260,8 +261,8 @@ function actionsCell(credential) {
   const cell = el("td");
   const button = el("button", "icon-button icon-button--sm");
   button.type = "button";
-  button.title = `Actions of ${credential.name}`;
-  button.setAttribute("aria-label", `Actions of ${credential.name}`);
+  button.title = t("credentials.credentials_page.actions_name", { name: credential.name });
+  button.setAttribute("aria-label", t("credentials.credentials_page.actions_name", { name: credential.name }));
   button.append(icon("more"));
   button.addEventListener("click", () => openMenu(button, credential));
   cell.append(button);
@@ -281,8 +282,8 @@ function internalRow(c) {
   const grace = c.internal.tokens.filter((t) => t.state === "grace").length;
   const status = el("td");
   status.append(statusChip(c));
-  if (grace) status.append(chip("Old token still valid", "warn"));
-  row.append(nameCell(c), el("td", "", c.type_label), status, el("td", "", c.internal.expires_at ? formatTime(c.internal.expires_at) : "Never"), el("td", "", formatTime(c.created_at)), actionsCell(c));
+  if (grace) status.append(chip(t("credentials.credentials_page.old_token_still_valid"), "warn"));
+  row.append(nameCell(c), el("td", "", c.type_label), status, el("td", "", c.internal.expires_at ? formatTime(c.internal.expires_at) : t("credentials.never")), el("td", "", formatTime(c.created_at)), actionsCell(c));
   return row;
 }
 
@@ -294,7 +295,7 @@ function externalRow(c) {
   const test = el("td");
   test.append(testChip(c));
   if (c.external.last_test_at) test.append(el("span", "cred-sub", `${formatTime(c.external.last_test_at)}${c.external.last_test_message ? `: ${c.external.last_test_message}` : ""}`));
-  const used = el("td", "", uses.has(c.name) ? (uses.get(c.name) === 0 ? "Nothing" : `${uses.get(c.name)} node${uses.get(c.name) === 1 ? "" : "s"} or provider${uses.get(c.name) === 1 ? "" : "s"}`) : "…");
+  const used = el("td", "", uses.has(c.name) ? (uses.get(c.name) === 0 ? t("credentials.page.nothing") : tn("credentials.page.used_by", uses.get(c.name))) : "…");
   row.append(nameCell(c), el("td", "", c.type_label), status, test, used, actionsCell(c));
   return row;
 }
@@ -329,7 +330,7 @@ async function load() {
     render();
     loadUses();
   } catch {
-    banner.show("Credentials could not be loaded.", { retry: true });
+    banner.show(t("credentials.credentials_page.credentials_could_not_be_loaded"), { retry: true });
   }
 }
 

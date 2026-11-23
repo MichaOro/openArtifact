@@ -21,6 +21,7 @@ import { agentUses, discardDraft, getVersion, removeAgentReference, getAgent, li
 import { agentChips, fieldLabel, optionsOf, providerInEffect, sampleHint, usableModels } from "./model.js";
 import { inputsView, limitsView, promptsView } from "./version-view.js";
 import { chip, configFacts, el, previewView, problemList } from "./view.js";
+import { t, tn } from "../i18n.js";
 
 const root = document.querySelector("[data-agent-editor]");
 const missing = document.querySelector("[data-agent-missing]");
@@ -32,7 +33,7 @@ const $ = (selector) => root.querySelector(selector);
 const control = (key) => root.querySelector(`[data-field="${key}"]`);
 
 const NUMBERS = ["temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations"];
-const ORIGINS = { user: "in the browser", api: "through the API" };
+const ORIGINS = { user: t("agents.editor_page.browser"), api: t("agents.editor_page.through_api") };
 
 let agent = null;
 let providers = [];
@@ -46,10 +47,10 @@ const TAB_OF = { inputs: "inputs", limits: "limits" };
 const options = new OptionsPanel(
   $("[data-options]"),
   [
-    { key: "system_prompt", label: "System prompt", help: "Add a system prompt below the user prompt. Switched off, it is kept but not sent." },
-    { key: "inputs", label: "Inputs", help: "Declare the values the agent needs from a run, used as ${input.NAME}. Switched off, they are kept but the agent has none." },
-    { key: "limits", label: "Model & Limits", help: "Override the default provider, model and limits. Switched off, your values are kept and the defaults apply." },
-    { key: "test", label: "Quick test", help: "Fill the prompts with example values for the inputs. Not saved: it is off whenever this page opens." },
+    { key: "system_prompt", label: t("agent_editor.system_prompt"), help: t("agents.editor_page.add_system_prompt_below_user") },
+    { key: "inputs", label: t("common.inputs"), help: t("agents.editor_page.declare_values_agent_needs_from") },
+    { key: "limits", label: t("common.model_and_limits"), help: t("agents.editor_page.override_default_provider_model_limits") },
+    { key: "test", label: t("agent_editor.quick_test"), help: t("agents.editor_page.fill_prompts_with_example_values") },
   ],
   (key, on) => {
     showOption(key, on);
@@ -69,18 +70,18 @@ const active = new Switch($("[data-active]"));
 
 // The identity: name and description are edited in place; the pencil opens the full dialog (name-modal).
 const nameText = new InlineName($("[data-agent-name]"), {
-  label: "Agent name",
+  label: t("agents.editor_page.agent_name"),
   maxLength: 100,
   keepOpenOnError: true,
   onCommit: async (name) => show(await updateAgent(agent.id, { name }), { form: false }),
 });
 const descriptionText = new InlineName($("[data-agent-description]"), {
-  label: "Description",
+  label: t("common.description"),
   maxLength: 2000,
   keepOpenOnError: true,
   multiline: true,
   allowEmpty: true,
-  emptyText: "Add a description",
+  emptyText: t("agents.editor_page.add_description"),
   onCommit: async (description) => show(await updateAgent(agent.id, { description }), { form: false }),
 });
 
@@ -98,10 +99,10 @@ const selectSetting = (key, label, hint, fallback) => ({
 const modelGroup = new SettingsGroup(
   $('[data-settings="model"]'),
   [
-    selectSetting("provider_id", "Provider", "Where the requests go.", "the default provider"),
-    selectSetting("model", "Model", "The model of the provider.", "the provider's default model"),
-    numberSetting("temperature", "Temperature", { min: 0, max: 2, step: 0.1, hint: "0 to 2.", fallback: "the model's own" }),
-    numberSetting("max_tokens", "Max tokens", { min: 1, max: 8192, hint: "1 to 8192.", fallback: "the model's own" }),
+    selectSetting("provider_id", t("common.provider"), t("agents.editor_page.where_requests_go"), t("agents.editor_page.default_provider")),
+    selectSetting("model", t("agents.editor_page.model"), t("agents.editor_page.model_provider"), t("agents.editor_page.provider_s_default_model")),
+    numberSetting("temperature", t("agents.editor_page.temperature"), { min: 0, max: 2, step: 0.1, hint: "0 to 2.", fallback: t("agents.editor_page.model_s_own") }),
+    numberSetting("max_tokens", t("agents.editor_page.max_tokens"), { min: 1, max: 8192, hint: "1 to 8192.", fallback: t("agents.editor_page.model_s_own") }),
   ],
   {
     onChange: () => {
@@ -117,10 +118,10 @@ const limitsGroup = new SettingsGroup(
   $('[data-settings="limits"]'),
   [
     // by importance: the time limit guards every run, the iterations only matter with tools
-    numberSetting("total_timeout_seconds", "Node time limit", { min: 1, max: 1800, hint: "Seconds, 1 to 1800; covers all attempts and waits.", fallback: 600, unit: " s" }),
-    numberSetting("max_iterations", "Max iterations", { min: 1, max: 50, hint: "1 to 50; how many requests a node may make while the model calls tools. Only with tools.", fallback: 10, unit: ", only with tools" }),
-    numberSetting("retries", "Retries", { min: 0, max: 4, hint: "0 to 4. A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds.", fallback: 3 }),
-    numberSetting("request_timeout_seconds", "Request timeout", { min: 1, max: 300, hint: "Seconds, 1 to 300; one attempt.", fallback: 60, unit: " s" }),
+    numberSetting("total_timeout_seconds", t("agents.editor_page.node_time_limit"), { min: 1, max: 1800, hint: t("agents.editor_page.seconds_1_1800_covers_all"), fallback: 600, unit: " s" }),
+    numberSetting("max_iterations", t("agents.editor_page.max_iterations"), { min: 1, max: 50, hint: t("agents.editor_page.1_50_how_many_requests"), fallback: 10, unit: t("agents.editor_page.only_with_tools") }),
+    numberSetting("retries", t("agents.editor_page.retries"), { min: 0, max: 4, hint: t("agents.editor_page.0_4_request_tried_again"), fallback: 3 }),
+    numberSetting("request_timeout_seconds", t("agents.editor_page.request_timeout"), { min: 1, max: 300, hint: t("agents.editor_page.seconds_1_300_one_attempt"), fallback: 60, unit: " s" }),
   ],
   { onChange: () => changed() },
 );
@@ -152,16 +153,16 @@ function textInput(value, label, key, extra = {}) {
 /** One row of the inputs table: name, type, required or optional, default, the description if it has one, and its menu. */
 function inputRow(input = { name: "", type: "string", required: false, default: null, description: "" }) {
   const row = el("li", "ag-input");
-  const name = textInput(input.name, "Name", "name", { maxLength: 32, placeholder: "ticket", spellcheck: false });
-  const type = choiceSelect([["string", "string"], ["number", "number"], ["boolean", "boolean"]], input.type, "Type", "type");
-  const required = choiceSelect([["required", "Required"], ["optional", "Optional"]], input.required ? "required" : "optional", "Required", "required");
+  const name = textInput(input.name, t("common.name"), "name", { maxLength: 32, placeholder: "ticket", spellcheck: false });
+  const type = choiceSelect([["string", "string"], ["number", "number"], ["boolean", "boolean"]], input.type, t("common.type"), "type");
+  const required = choiceSelect([["required", t("common.required")], ["optional", t("agents.editor_page.optional")]], input.required ? "required" : "optional", t("common.required"), "required");
   required.classList.add("ag-input__required");
-  const fallback = textInput(input.default == null ? "" : String(input.default), "Default", "default");
+  const fallback = textInput(input.default == null ? "" : String(input.default), t("common.default"), "default");
   const description = el("div", "ag-input__description");
   const more = el("button", "icon-button icon-button--sm ag-input__more");
   more.type = "button";
-  more.setAttribute("aria-label", "Input actions");
-  more.title = "Input actions";
+  more.setAttribute("aria-label", t("agents.editor_page.input_actions"));
+  more.title = t("agents.editor_page.input_actions");
   more.setAttribute("aria-haspopup", "menu");
   more.append(icon("more"));
   const sync = () => {
@@ -178,9 +179,9 @@ function inputRow(input = { name: "", type: "string", required: false, default: 
       more,
       [
         has
-          ? { label: "Remove description", icon: "x", onSelect: () => setDescription(row, null) }
-          : { label: "Add description", icon: "plus", onSelect: () => setDescription(row, "") },
-        { label: "Remove input", icon: "trash", danger: true, onSelect: () => removeInput(row) },
+          ? { label: t("agents.editor_page.remove_description"), icon: "x", onSelect: () => setDescription(row, null) }
+          : { label: t("agents.editor_page.add_description_2"), icon: "plus", onSelect: () => setDescription(row, "") },
+        { label: t("agents.editor_page.remove_input"), icon: "trash", danger: true, onSelect: () => removeInput(row) },
       ],
       `Input ${name.value || ""}`.trim(),
     );
@@ -196,7 +197,7 @@ function setDescription(row, text, { quiet = false } = {}) {
   const cell = row.querySelector(".ag-input__description");
   if (text === null) cell.replaceChildren();
   else {
-    const field = textInput(text, "Description", "description", { maxLength: 200 });
+    const field = textInput(text, t("common.description"), "description", { maxLength: 200 });
     cell.replaceChildren(field);
     if (!quiet) field.focus();
   }
@@ -256,16 +257,16 @@ function fillModelSelects(providerId, model) {
 function fillModels(select, providerId, selected) {
   const provider = providerInEffect(providers, providerId);
   const models = usableModels(provider);
-  const fallback = provider?.default_model ? `Default of the provider (${provider.default_model})` : "Default of the provider (none set)";
-  select.replaceChildren(new Option(provider ? fallback : "No provider", ""), ...models.map((id) => new Option(id, id)));
+  const fallback = provider?.default_model ? t("agents.editor_page.default_provider_default_model", { default_model: provider.default_model }) : t("agents.editor_page.default_provider_none_set");
+  select.replaceChildren(new Option(provider ? fallback : t("agents.editor_page.no_provider"), ""), ...models.map((id) => new Option(id, id)));
   if (selected && !models.includes(selected)) select.append(new Option(`${selected} (not enabled)`, selected));
   select.value = selected ?? "";
 }
 
 function fillProviders(select, selected) {
   const fallback = providers.find((p) => p.is_default);
-  select.replaceChildren(new Option(fallback ? `Default provider (${fallback.name})` : "Default provider (none set)", ""), ...providers.map((p) => new Option(p.name, p.id)));
-  if (selected && !providers.some((p) => p.id === selected)) select.append(new Option("(deleted provider)", selected));
+  select.replaceChildren(new Option(fallback ? t("agents.editor_page.default_provider_name", { name: fallback.name }) : t("agents.editor_page.default_provider_none_set_2"), ""), ...providers.map((p) => new Option(p.name, p.id)));
+  if (selected && !providers.some((p) => p.id === selected)) select.append(new Option(t("agents.editor_page.deleted_provider"), selected));
   select.value = selected ?? "";
 }
 
@@ -297,7 +298,7 @@ function renderSamples() {
       const field = Object.assign(el("input", "field__control"), { type: "text", value: typed[input.name] ?? "", autocomplete: "off", placeholder: sampleHint(input) });
       field.id = `ag-sample-${input.name}`;
       field.dataset.sample = input.name;
-      const label = el("label", "field__label", `Example for ${input.name}${input.required ? " *" : ""}`);
+      const label = el("label", "field__label", t("agents.editor_page.example_for", { name: input.name }) + (input.required ? " *" : ""));
       label.htmlFor = field.id;
       wrap.append(label, field);
       return wrap;
@@ -309,10 +310,10 @@ function renderSamples() {
 
 function renderState() {
   const state = $("[data-draft-state]");
-  if (dirty) state.textContent = "The draft has changes that are not saved yet.";
-  else if (agent.published_number == null) state.textContent = "The draft is saved. Nothing is published yet: publish it to make the agent usable.";
-  else if (agent.draft_changed) state.textContent = `The draft is saved and differs from the published version ${agent.published_number}. Executions keep using version ${agent.published_number} until you publish.`;
-  else state.textContent = `The draft equals the published version ${agent.published_number}.`;
+  if (dirty) state.textContent = t("agents.editor_page.draft_has_changes_not_saved");
+  else if (agent.published_number == null) state.textContent = t("agents.editor_page.draft_saved_nothing_published_yet");
+  else if (agent.draft_changed) state.textContent = t("agents.editor_page.draft_saved_differs_from_published", { published_number: agent.published_number, published_number2: agent.published_number });
+  else state.textContent = t("agents.editor_page.draft_equals_published_version_published", { published_number: agent.published_number });
   $("[data-problems]").replaceChildren(...(dirty ? [] : problemList(agent.problems).children));
   $("[data-save]").disabled = !dirty;
   $("[data-discard]").disabled = agent.published_number == null || (!dirty && !agent.draft_changed);
@@ -321,12 +322,12 @@ function renderState() {
 
 function renderHead() {
   nameText.setText(agent.name);
-  document.title = `${agent.name} · Agents · OpenArtifact`;
+  document.title = t("agents.editor_page.name_agents_openartifact", { name: agent.name });
   descriptionText.setText(agent.description ?? "");
   $("[data-chips]").replaceChildren(...agentChips(agent).map(([text, tone]) => chip(text, tone)));
   active.on = agent.active;
-  $("[data-fact-version]").replaceChildren(chip(agent.published_number == null ? "Not published" : `v${agent.published_number} published`, agent.published_number == null ? "warn" : "accent"));
-  $("[data-fact-draft]").replaceChildren(chip(dirty ? "Not saved" : agent.draft_changed ? "Has changes" : "Saved", dirty || agent.draft_changed ? "warn" : ""));
+  $("[data-fact-version]").replaceChildren(chip(agent.published_number == null ? t("agents.editor_page.not_published") : t("agents.editor_page.v_published_number_published", { published_number: agent.published_number }), agent.published_number == null ? "warn" : "accent"));
+  $("[data-fact-draft]").replaceChildren(chip(dirty ? t("agents.editor_page.not_saved") : agent.draft_changed ? t("agents.editor_page.has_changes") : t("agents.editor_page.saved"), dirty || agent.draft_changed ? "warn" : ""));
   $("[data-fact-created]").textContent = formatTime(agent.created_at);
   $("[data-fact-updated]").textContent = formatTime(agent.updated_at);
 }
@@ -338,21 +339,21 @@ function renderVersions() {
     ...agent.versions.map((version) => {
       const row = el("li", "ag-version");
       const head = el("div", "ag-version__head");
-      head.append(el("strong", "", `Version ${version.number}`));
-      if (version.current) head.append(chip("In use", "ok"));
-      const origin = version.source_number != null ? `rollback to version ${version.source_number}` : "published";
+      head.append(el("strong", "", t("agents.editor_page.version_number", { number: version.number })));
+      if (version.current) head.append(chip(t("agents.editor_page.use"), "ok"));
+      const origin = version.source_number != null ? t("agents.editor_page.rollback_version_source_number", { source_number: version.source_number }) : t("agents.editor_page.published_word");
       row.append(head, el("span", "ag-row__meta", `${formatTime(version.published_at)} · ${origin} ${ORIGINS[version.published_via] ?? version.published_via}`));
       const buttons = el("div", "ag-version__buttons");
       if (!version.current) {
         // the version in use is what the editor's tabs show already: only an earlier one needs "Show"
-        const showButton = el("button", "button button--ghost button--sm", "Show");
+        const showButton = el("button", "button button--ghost button--sm", t("agents.editor_page.show"));
         showButton.type = "button";
-        showButton.setAttribute("aria-label", `Show version ${version.number}`);
+        showButton.setAttribute("aria-label", t("agents.editor_page.show_version_number", { number: version.number }));
         showButton.addEventListener("click", () => openVersion(version));
         buttons.append(showButton);
-        const again = el("button", "button button--ghost button--sm ag-version__again", "Publish again");
+        const again = el("button", "button button--ghost button--sm ag-version__again", t("agent_editor.publish_again"));
         again.type = "button";
-        again.setAttribute("aria-label", `Publish version ${version.number} again`);
+        again.setAttribute("aria-label", t("agents.editor_page.publish_version_number_again", { number: version.number }));
         again.addEventListener("click", () => confirmRepublish(version));
         buttons.append(again);
         row.append(buttons);
@@ -366,10 +367,10 @@ function renderVersions() {
 /** Publishing an earlier version again: it makes something new, so the question has the accent, not red. */
 function confirmRepublish(version) {
   confirm.open({
-    message: `Publish version ${version.number} again? This makes a new version with its content; the history stays as it is.`,
-    confirmLabel: "Publish again",
+    message: t("agents.editor_page.publish_version_number_again_makes", { number: version.number }),
+    confirmLabel: t("agent_editor.publish_again"),
     tone: "primary",
-    onConfirm: async () => showPublished(await republishVersion(agent.id, version.number), `Version ${version.number} is published again as version`),
+    onConfirm: async () => showPublished(await republishVersion(agent.id, version.number), t("agents.editor_page.version_number_published_again_as", { number: version.number })),
   });
 }
 
@@ -383,9 +384,9 @@ let shownVersion = null;
 async function openVersion(version) {
   const full = await getVersion(agent.id, version.number);
   shownVersion = version;
-  versionRoot.querySelector(".modal__title").textContent = `Version ${version.number}`;
-  const origin = version.source_number != null ? `a rollback to version ${version.source_number}` : "published";
-  versionRoot.querySelector("[data-version-facts]").textContent = `${version.current ? "In use · " : ""}${origin} ${ORIGINS[version.published_via] ?? version.published_via}, ${formatTime(version.published_at)}. Read only: this is what the version defined.`;
+  versionRoot.querySelector(".modal__title").textContent = t("agents.editor_page.version_number", { number: version.number });
+  const origin = version.source_number != null ? t("agents.editor_page.rollback_version_source_number_2", { source_number: version.source_number }) : t("agents.editor_page.published_word");
+  versionRoot.querySelector("[data-version-facts]").textContent = (version.current ? t("agents.editor_page.use_2") : "") + t("agents.editor_page.version_facts", { origin, via: ORIGINS[version.published_via] ?? version.published_via, time: formatTime(version.published_at) });
   const panels = { prompts: promptsView(full.config), inputs: inputsView(full.config), limits: limitsView(full.config, providers) };
   for (const [name, view] of Object.entries(panels)) {
     versionRoot.querySelector(`[data-version-panel="${name}"]`).replaceChildren(...(view ? [view] : []));
@@ -406,11 +407,11 @@ const referenceDialog = new ConfirmDialog(new Modal(document.getElementById("ref
 /** Take the agent out of one node: its agent_id is emptied through the graph API, nothing else changes. */
 function confirmRemoveReference(use) {
   referenceDialog.open({
-    title: "Remove agent reference?",
-    message: "This will remove the connection to this agent from the action: {subject}",
+    title: t("agents.editor_page.remove_agent_reference"),
+    message: t("agents.editor_page.will_remove_connection_agent_from"),
     subject: use.graph_name,
-    note: "The action will no longer use this agent. Its configuration may become incomplete, and future executions may fail until the node is reconfigured.",
-    confirmLabel: "Remove reference",
+    note: t("agents.editor_page.action_will_no_longer_use"),
+    confirmLabel: t("agents.editor_page.remove_reference"),
     onConfirm: async () => {
       await removeAgentReference(use.graph_id, use.node_id);
       await renderUses(); // the server's list: an error leaves the dialog open with its message
@@ -432,17 +433,17 @@ async function renderUses() {
       const main = el("div", "ag-use__main");
       main.append(
         el("strong", "", use.node_name),
-        el("span", "ag-row__meta", `Agent node · Action: ${use.graph_name}`),
-        el("span", "ag-row__meta", use.overrides.length ? `Sets itself: ${use.overrides.map(fieldLabel).join(", ")}` : "Uses the agent's settings as they are"),
+        el("span", "ag-row__meta", t("agents.editor_page.agent_node_action_graph_name", { graph_name: use.graph_name })),
+        el("span", "ag-row__meta", use.overrides.length ? t("agents.editor_page.sets_itself", { fields: use.overrides.map(fieldLabel).join(", ") }) : t("agents.editor_page.uses_agent_settings")),
       );
       const open = el("a", "button button--ghost button--sm");
       open.href = `/actions/${encodeURIComponent(use.graph_slug)}?select=${encodeURIComponent(use.node_id)}&agent=${encodeURIComponent(agent.id)}`;
-      open.append(icon("action"), document.createTextNode("Open"));
-      open.setAttribute("aria-label", `Open ${use.node_name} in ${use.graph_name}`);
+      open.append(icon("action"), document.createTextNode(t("agents.editor_page.open")));
+      open.setAttribute("aria-label", t("agents.editor_page.open_node_name_graph_name", { node_name: use.node_name, graph_name: use.graph_name }));
       const remove = el("button", "icon-button icon-button--sm is-danger");
       remove.type = "button";
-      remove.title = "Remove reference";
-      remove.setAttribute("aria-label", `Remove the reference of ${use.node_name} in ${use.graph_name}`);
+      remove.title = t("agents.editor_page.remove_reference");
+      remove.setAttribute("aria-label", t("agents.editor_page.remove_reference_node_name_graph", { node_name: use.node_name, graph_name: use.graph_name }));
       remove.append(icon("trash"));
       remove.addEventListener("click", () => confirmRemoveReference(use));
       const actions = el("div", "ag-use__actions");
@@ -452,7 +453,7 @@ async function renderUses() {
     }),
   );
   $("[data-uses-empty]").hidden = uses.length > 0;
-  $("[data-fact-uses]").textContent = uses.length ? `${uses.length} node${uses.length === 1 ? "" : "s"}` : "none";
+  $("[data-fact-uses]").textContent = uses.length ? tn("count.node", uses.length) : t("common.none");
 }
 
 function show(detail, { form = true } = {}) {
@@ -473,14 +474,14 @@ function notice(...children) {
 /** After publishing: what changed, and which nodes keep a value of their own for a changed field. */
 function showPublished(result, lead) {
   show(result.agent);
-  const parts = [el("p", "", `${lead} ${result.version.number}. Executions that start from now on use it; running ones keep the version they started with.`)];
+  const parts = [el("p", "", t("agents.editor_page.lead_number_executions_start_from", { lead, number: result.version.number }))];
   if (result.changed.length) parts.push(el("p", "", `Changed: ${result.changed.map(fieldLabel).join(", ")}.`));
   if (result.overriding.length) {
-    parts.push(el("p", "", "These nodes set a changed field themselves and keep their own value. Reset the override in the node to follow the agent:"));
+    parts.push(el("p", "", t("agents.editor_page.these_nodes_set_changed_field")));
     const list = el("ul");
     for (const use of result.overriding) {
       const item = el("li");
-      const link = el("a", "", `${use.node_name} in "${use.graph_name}"`);
+      const link = el("a", "", t("agents.editor_page.node_name_graph_name", { node_name: use.node_name, graph_name: use.graph_name }));
       link.href = `/actions/${encodeURIComponent(use.graph_slug)}`;
       const kept = use.overrides.filter((key) => result.changed.includes(key)).map(fieldLabel);
       item.append(link, document.createTextNode(`: ${kept.join(", ")}`));
@@ -515,7 +516,7 @@ async function run(action) {
 
 /** Save what the form holds as the draft (the server checks the bounds and says what is missing). */
 async function save() {
-  for (const key of NUMBERS) if (Number.isNaN(readValue(key))) throw new Error(`${fieldLabel(key)} must be a number.`);
+  for (const key of NUMBERS) if (Number.isNaN(readValue(key))) throw new Error(t("agents.editor_page.fieldlabel_must_be_number", { fieldLabel: fieldLabel(key) }));
   show(await saveDraft(agent.id, readConfig()), { form: false });
   dirty = false;
   renderState();
@@ -540,13 +541,13 @@ $("[data-fact-uses]").addEventListener("click", () => tabs.select("versions", { 
 $("[data-publish]").addEventListener("click", () =>
   run(async () => {
     if (dirty) await save();
-    showPublished(await publishAgent(agent.id), "Published as version");
+    showPublished(await publishAgent(agent.id), t("agents.editor_page.published_as_version"));
   }),
 );
 $("[data-discard]").addEventListener("click", () =>
   confirm.open({
-    message: `Discard the draft and go back to the published version ${agent.published_number}?`,
-    confirmLabel: "Discard",
+    message: t("agents.editor_page.discard_draft_go_back_published", { published_number: agent.published_number }),
+    confirmLabel: t("index.discard"),
     onConfirm: async () => {
       show(await discardDraft(agent.id));
       notice();
@@ -564,7 +565,7 @@ $("[data-active]").addEventListener("click", () =>
 );
 $("[data-rename]").addEventListener("click", () =>
   nameDialog.open({
-    title: "Agent",
+    title: t("common.agent"),
     values: { name: agent.name, description: agent.description },
     onSubmit: async (values) => show(await updateAgent(agent.id, values), { form: false }),
   }),
@@ -592,7 +593,7 @@ async function load() {
     if (error.status === 404) {
       missing.hidden = false;
       root.hidden = true;
-    } else banner.show("The agent could not be loaded.", { retry: true });
+    } else banner.show(t("agents.editor_page.agent_could_not_be_loaded"), { retry: true });
   }
 }
 

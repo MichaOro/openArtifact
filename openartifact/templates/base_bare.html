@@ -1,11 +1,13 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light" data-sidebar="expanded">
+<html lang="{{ lang() }}" data-theme="light" data-sidebar="expanded">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <title>{% block title %}OpenArtifact{% endblock %}</title>
+    {# The dictionary of the page's language (ADR-056): a data block, not a script, so the strict CSP leaves it alone. #}
+    <script type="application/json" id="i18n">{{ i18n_json() }}</script>
     <link rel="stylesheet" href="/static/css/tokens.css">
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="/static/css/components.css">

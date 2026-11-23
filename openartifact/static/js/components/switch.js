@@ -1,6 +1,7 @@
 /* An on/off switch with its state written in it (`.ge-switch`, role=switch). One implementation for every
  * page: the agent editor, the options panel, the inspector can use it the same way. */
 
+import { t } from "../i18n.js";
 /** The markup of a switch; `labelledBy` is the id of its visible label. */
 export function createSwitch(labelledBy) {
   const button = document.createElement("button");
@@ -38,6 +39,6 @@ export class Switch {
   set on(value) {
     this.button.setAttribute("aria-checked", String(Boolean(value)));
     const state = this.button.querySelector(".ge-switch__state");
-    if (state) state.textContent = value ? "On" : "Off";
+    if (state) state.textContent = value ? "On" : t("components.switch.off");
   }
 }

@@ -1,13 +1,14 @@
 /* The pure parts of the Comments tab (ADR-055): how a comment is labelled, whether it was edited, where a run comment
  * links to, and the texts of the tab. No document access: tests/js/comment-format.test.mjs. */
 
+import { t } from "../i18n.js";
 /** What a comment's author kind is called and drawn with (an icon from icons.html). */
 export const KINDS = {
-  user: { label: "User", icon: "user" },
+  user: { label: t("common.user"), icon: "user" },
   api: { label: "API", icon: "plug" },
   mcp: { label: "MCP", icon: "agent" },
-  run: { label: "Run", icon: "play" },
-  system: { label: "System", icon: "settings" },
+  run: { label: t("tasks.comment_format.run"), icon: "play" },
+  system: { label: t("common.system"), icon: "settings" },
 };
 
 /** The kind of a comment; an unknown one is shown by its own name with the neutral icon. */

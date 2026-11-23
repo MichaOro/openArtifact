@@ -6,6 +6,7 @@
  * (trigger, output, complete) belong to the graph and are never copied. A paste gives every node a new name that
  * stays unique ("Fetch copy", "Fetch copy 2"), because a reference finds a node by its name. */
 
+import { t } from "../i18n.js";
 const FIXED = new Set(["trigger", "output", "complete"]);
 const COPY_SUFFIX = / copy( \d+)?$/;
 
@@ -74,7 +75,7 @@ export function pastePlan(copy, { offset, names, stageFor, allowed = null }) {
       // inside a stage that is pasted too: the place inside it stays
     } else if (node.originalStage) {
       const stage = stageFor(node.originalStage);
-      if (!stage) return { items: [], edges: [], skipped, error: "Select a stage to paste the actions into." };
+      if (!stage) return { items: [], edges: [], skipped, error: t("editor.clipboard.select_stage_paste_actions_into") };
       item.existingStage = stage;
       item.x = node.x + offset;
       item.y = node.y + offset;

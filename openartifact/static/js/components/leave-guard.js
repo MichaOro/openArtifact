@@ -3,6 +3,7 @@
  * question. Closing the tab, reloading or typing an address still gets the browser's own question; a page
  * cannot replace that one. */
 import { ActionDialog } from "./action-dialog.js";
+import { t } from "../i18n.js";
 
 export class LeaveGuard extends ActionDialog {
   /**
@@ -10,7 +11,7 @@ export class LeaveGuard extends ActionDialog {
    * @param {{isDirty: () => boolean, save: () => Promise<unknown>}} hooks
    */
   constructor(modal, { isDirty, save }) {
-    super(modal, "Could not save. Please try again, or leave without saving.");
+    super(modal, t("components.leave_guard.could_not_save_please_try"));
     this.isDirty = isDirty;
     this.save = save;
     this.target = null;

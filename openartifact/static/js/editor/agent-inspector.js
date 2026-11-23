@@ -10,6 +10,7 @@ import { field } from "./field.js";
 import { rememberAgents } from "./node-types.js";
 import { suggestReferences } from "./reference-suggest.js";
 import { buildSettings } from "./settings-layout.js";
+import { t } from "../i18n.js";
 
 let agentsPromise = null;
 let providersPromise = null;
@@ -76,7 +77,7 @@ class AgentBlock {
       [agents, providers] = await lists();
     } catch {
       forget();
-      this.element.replaceChildren(el("p", "ge-inspector__note", "The agents could not be loaded. Select the node again to retry."));
+      this.element.replaceChildren(el("p", "ge-inspector__note", t("editor.agent_inspector.agents_could_not_be_loaded")));
       return;
     }
     const agentId = this.config.agent_id || "";
@@ -97,7 +98,7 @@ class AgentBlock {
         extras.push(this.#inputs(detail.published.inputs));
       }
     } else if (agentId) {
-      extras.push(problemList(["The chosen agent does not exist any more. Choose another one."]));
+      extras.push(problemList([t("editor.agent_inspector.chosen_agent_does_not_exist")]));
     }
     const inherits = this.type.settings.filter((s) => s.inherits).map((s) => s.key);
     this.element.replaceChildren(
@@ -118,7 +119,7 @@ class AgentBlock {
     const states = new Map(preview.settings.map((s) => [s.key, s]));
     const provider = providers.find((p) => p.name === preview.provider) ?? null;
     return {
-      source: "Agent",
+      source: t("common.agent"),
       state: (key) => states.get(key) ?? null,
       show: (setting, value) => showValue(this.#shown(setting.key, value, providers), setting.type === "lines" ? "lines" : ""),
       // a provider and a model are stored by id and chosen from lists the page knows
@@ -134,27 +135,27 @@ class AgentBlock {
   #agentSelect(agents, agentId) {
     const select = el("select", "field__control");
     select.dataset.focusKey = "agent-agent_id";
-    select.append(new Option("Choose an agent", ""));
+    select.append(new Option(t("editor.agent_inspector.choose_agent"), ""));
     for (const agent of agents) {
-      const flags = [agent.active ? null : "inactive", agent.published_number == null ? "not published" : null].filter(Boolean);
+      const flags = [agent.active ? null : "inactive", agent.published_number == null ? t("editor.agent_inspector.not_published") : null].filter(Boolean);
       select.append(new Option(flags.length ? `${agent.name} (${flags.join(", ")})` : agent.name, agent.id));
     }
-    if (agentId && !agents.some((a) => a.id === agentId)) select.append(new Option("(deleted agent)", agentId));
+    if (agentId && !agents.some((a) => a.id === agentId)) select.append(new Option(t("editor.agent_inspector.deleted_agent"), agentId));
     select.value = agentId;
     select.addEventListener("change", async () => {
       const message = await this.save("agent_id", select.value || null);
       if (message) this.editor.showError(message);
     });
-    return field("Agent", select);
+    return field(t("common.agent"), select);
   }
 
   #status(agent) {
     const line = el("p", "ag-node__status");
-    const link = el("a", "", "Open agent");
+    const link = el("a", "", t("editor.agent_inspector.open_agent"));
     link.href = `/agents/${encodeURIComponent(agent.id)}`;
     const state = [
-      agent.published_number == null ? "Nothing is published yet: the node will fail." : `Runs version ${agent.published_number} (the version published when an execution starts).`,
-      agent.active ? null : "The agent is inactive: the node will fail.",
+      agent.published_number == null ? t("editor.agent_inspector.nothing_published_yet_node_will") : t("editor.agent_inspector.runs_version_published_number_version", { published_number: agent.published_number }),
+      agent.active ? null : t("editor.agent_inspector.agent_inactive_node_will_fail"),
     ].filter(Boolean);
     line.append(document.createTextNode(`${state.join(" ")} `), link);
     return line;
@@ -163,9 +164,9 @@ class AgentBlock {
   /** One field per input the agent declares; the value may hold ${node...}, ${var...} or ${card...}. */
   #inputs(declared) {
     const wrap = el("div", "ge-inspector__section");
-    wrap.append(el("h3", "", "Inputs"));
+    wrap.append(el("h3", "", t("common.inputs")));
     const rows = mappingRows(declared, this.config.inputs ?? "");
-    if (!rows.length) wrap.append(el("p", "ge-inspector__note", "This agent declares no inputs."));
+    if (!rows.length) wrap.append(el("p", "ge-inspector__note", t("editor.agent_inspector.agent_declares_no_inputs")));
     const fields = new Map();
     const error = el("p", "field__error");
     error.setAttribute("role", "alert");
@@ -180,13 +181,13 @@ class AgentBlock {
     for (const row of rows) {
       const input = Object.assign(el("input", "field__control"), { type: "text", value: row.value, autocomplete: "off", spellcheck: false });
       input.dataset.focusKey = `agent-input-${row.name}`;
-      input.placeholder = row.required ? "${(Node name).output}" : row.default != null ? `default: ${row.default}` : "empty";
+      input.placeholder = row.required ? "${(Node name).output}" : row.default != null ? t("editor.agent_inspector.default_value", { value: row.default }) : t("common.empty");
       input.addEventListener("change", commit);
       input.addEventListener("keydown", (event) => event.key === "Enter" && commit());
       const suggest = this.editor.suggestions?.(this.node);
       if (suggest) suggestReferences(input, suggest, { allowSecrets: false });
       fields.set(row.name, input);
-      const label = row.declared ? `${row.name}${row.required ? " *" : ""} (${row.type})` : `${row.name} (not declared by the agent: clear it)`;
+      const label = row.declared ? `${row.name}${row.required ? " *" : ""} (${row.type})` : t("editor.agent_inspector.name_not_declared_by_agent", { name: row.name });
       wrap.append(field(label, input));
     }
     wrap.append(error);

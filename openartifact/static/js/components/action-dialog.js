@@ -2,12 +2,13 @@
  * the dialog, block closing and double submits while it runs, close on success.
  * ConfirmDialog and FormDialog extend it; they only add what they show and collect. */
 
+import { t } from "../i18n.js";
 export class ActionDialog {
   /**
    * @param {import("./modal.js").Modal} modal
    * @param {string} [fallbackError] shown when an error carries no message
    */
-  constructor(modal, fallbackError = "That did not work. Please try again.") {
+  constructor(modal, fallbackError = t("components.action_dialog.did_not_work_please_try")) {
     this.modal = modal;
     this.fallbackError = fallbackError;
     this.busy = false;

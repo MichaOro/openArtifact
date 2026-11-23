@@ -3,6 +3,7 @@
  * Everything is textContent; what a click does is up to the caller. */
 import { icon } from "../components/icons.js";
 import { executionSeconds, formatDuration, formatTime, originLabel } from "./history-format.js";
+import { t } from "../i18n.js";
 
 const TICK_MS = 1000;
 
@@ -18,7 +19,7 @@ export const fillDuration = (element, execution) => (element.textContent = forma
 /** The origin label; `data-origin` carries the raw value for styling and tests. */
 export function fillOrigin(element, startedBy, text = originLabel(startedBy)) {
   element.dataset.origin = startedBy;
-  element.title = `Started by: ${originLabel(startedBy)}`;
+  element.title = t("tasks.history_row.started_by_originlabel", { originLabel: originLabel(startedBy) });
   element.textContent = text;
 }
 
@@ -27,9 +28,9 @@ export function fillOrigin(element, startedBy, text = originLabel(startedBy)) {
 export function fillDeleteButton(button, execution, subject) {
   const running = execution.status === "running";
   button.replaceChildren(icon("trash"));
-  button.setAttribute("aria-label", `Delete ${subject}`);
+  button.setAttribute("aria-label", t("tasks.history_row.delete_subject", { subject }));
   button.setAttribute("aria-disabled", String(running));
-  button.title = running ? "Stop it first" : `Delete ${subject}`;
+  button.title = running ? t("tasks.history_detail.stop_first") : t("tasks.history_row.delete_subject", { subject });
 }
 
 /** Calls `tick` every second while `update(true)` says something is running; `update(false)` and dispose() stop it. */

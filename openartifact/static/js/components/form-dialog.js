@@ -8,11 +8,12 @@
  * form error (error.detail / error.message), blocks double submits and closes on success.
  * Specialisations (ArtifactDialog) extend this class; plain uses just instantiate it. */
 import { ActionDialog } from "./action-dialog.js";
+import { t } from "../i18n.js";
 
 export class FormDialog extends ActionDialog {
   /** @param {import("./modal.js").Modal} modal rendered by the form_modal macro */
   constructor(modal) {
-    super(modal, "Could not save. Please try again.");
+    super(modal, t("agents.providers_page.could_not_save_please_try"));
     this.form = this.root.querySelector("form.task-form");
     this.submitLabelEl = this.submitButton.querySelector("[data-submit-label]");
     this.defaultSubmitLabel = this.submitLabelEl.textContent;
@@ -108,7 +109,7 @@ export class FormDialog extends ActionDialog {
     const values = this.values();
     for (const [name, { control, label }] of this.fields) {
       if (control.required && !values[name]) {
-        this.setFieldError(name, `Please enter a ${label.toLowerCase()}.`);
+        this.setFieldError(name, t("components.form_dialog.please_enter", { label: label.toLowerCase() }));
         control.focus();
         return false;
       }

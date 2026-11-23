@@ -11,16 +11,16 @@
         <p class="history-step__facts" data-step-facts></p>
         <p class="history-step__reason" data-step-reason hidden></p>
         <details class="history-step__block" data-step-output hidden>
-            <summary>Output</summary>
+            <summary>{{ t('common.output') }}</summary>
             <pre class="history-step__pre" tabindex="0"></pre>
-            <p class="field__help" data-step-truncated hidden>The output was cut off: only the beginning is kept.</p>
+            <p class="field__help" data-step-truncated hidden>{{ t('history_step.the_output_was_cut_off_only') }}</p>
         </details>
         <details class="history-step__block" data-step-agent hidden>
-            <summary>Request (prompts, inputs, attempts)</summary>
+            <summary>{{ t('history_step.request_prompts_inputs_attempts') }}</summary>
             <div class="history-step__agent" data-step-agent-body></div>
         </details>
         <details class="history-step__block" data-step-data hidden>
-            <summary>Data</summary>
+            <summary>{{ t('common.data') }}</summary>
             <pre class="history-step__pre" tabindex="0"></pre>
         </details>
     </li>

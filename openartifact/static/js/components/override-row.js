@@ -8,6 +8,7 @@
  * Chips and the bin are the application's own (`ag-chip`, `icon-button`). */
 import { chip, el } from "../agents/view.js";
 import { icon } from "./icons.js";
+import { t } from "../i18n.js";
 
 /**
  * @param {object} options
@@ -30,7 +31,7 @@ export function overrideRow({ key, label, source, inheritedText, overridden, edi
   row.dataset.state = state;
   if (wide) row.classList.add("ov--wide");
   const head = el("div", "ov__head");
-  const chipText = { overridden: "Overridden", editing: "New override", "not-set": "Not set", inherited: "Inherited" }[state];
+  const chipText = { overridden: t("components.override_row.overridden"), editing: t("components.override_row.new_override"), "not-set": t("components.override_row.not_set"), inherited: t("components.override_row.inherited") }[state];
   const tone = state === "overridden" ? "accent" : state === "editing" ? "warn" : "";
   head.append(el("span", "ov__label", label), chip(chipText, tone));
 
@@ -50,7 +51,7 @@ export function overrideRow({ key, label, source, inheritedText, overridden, edi
     const button = action(null, state === "not-set" ? "Set a value" : "Override", state === "not-set" ? `Set ${label}` : `Override ${label} in this node`, "button button--ghost button--sm");
     button.addEventListener("click", begin);
     head.append(button);
-    row.append(head, note(inheritedText === null ? "Not set" : `${source}: ${inheritedText}`));
+    row.append(head, note(inheritedText === null ? t("components.override_row.not_set") : `${source}: ${inheritedText}`));
     return row;
   }
 
@@ -58,12 +59,12 @@ export function overrideRow({ key, label, source, inheritedText, overridden, edi
   control.input.setAttribute("aria-label", label);
   control.input.dataset.focusKey = `override-input-${key}`;
   if (state === "editing") {
-    const stop = action("x", null, `Cancel overriding ${label}`, "icon-button icon-button--sm");
+    const stop = action("x", null, t("components.override_row.cancel_overriding_label", { label }), "icon-button icon-button--sm");
     stop.addEventListener("click", cancel);
     head.append(stop);
     window.requestAnimationFrame(() => control.input.focus());
   } else {
-    const bin = action("trash", null, `Use the ${source.toLowerCase()}'s value for ${label}`, "icon-button icon-button--sm is-danger");
+    const bin = action("trash", null, t("components.override_row.use_source_value", { source: source.toLowerCase(), label }), "icon-button icon-button--sm is-danger");
     bin.addEventListener("click", async () => {
       const message = await remove();
       if (message) {

@@ -6,6 +6,7 @@
 import { FormDialog } from "../components/form-dialog.js";
 import { Tabs } from "../components/tabs.js";
 import { renderReferences } from "./references.js";
+import { t } from "../i18n.js";
 
 /** Share of the viewport height a saved artifact's dialog may use at most. */
 const AVAILABLE_HEIGHT = 0.9;
@@ -85,7 +86,7 @@ export class ArtifactDialog extends FormDialog {
     this.#leaveEditMode();
     this.status = status;
     this.mode = "create";
-    this.#present("Create Artifact");
+    this.#present(t("dialog.create_artifact"));
     this.#unfit();
     this.#showNumber(null);
     this.setLane(status, laneTitle, hue);
@@ -129,7 +130,7 @@ export class ArtifactDialog extends FormDialog {
     this.draft ??= this.snapshot();
     this.setValues({ title: task.title, body: task.body ?? "" });
     this.mode = "edit";
-    this.#present("Edit Artifact", "Save");
+    this.#present(t("tasks.artifact_dialog.edit_artifact"), t("common.save"));
     this.titleInput.focus();
   }
 
@@ -237,7 +238,7 @@ export class ArtifactDialog extends FormDialog {
   #showView() {
     const task = this.editing;
     this.mode = "view";
-    this.#present("Artifact", "Save");
+    this.#present(t("executions.artifact"), t("common.save"));
     this.viewTitle.textContent = task.title;
     this.viewBody.replaceChildren(renderReferences(task.body ?? "", this.findByNumber));
   }
@@ -247,13 +248,13 @@ export class ArtifactDialog extends FormDialog {
     if (!this.numberLabel) return;
     this.numberLabel.hidden = number == null;
     this.numberLabel.textContent = number == null ? "" : `#${number}`;
-    this.numberLabel.title = `Artifact number: reference it as #${number}`;
+    this.numberLabel.title = t("tasks.artifact_dialog.artifact_number_reference_as_number", { number });
   }
 
   /** Show the parent of the task being edited (null = none). */
   setParent(parentTitle) {
-    if (this.parentValue) this.parentValue.textContent = parentTitle ?? "None";
-    this.parentField?.setAttribute("aria-label", `Parent: ${parentTitle ?? "none"}. Change parent`);
+    if (this.parentValue) this.parentValue.textContent = parentTitle ?? t("tasks.artifact_dialog.none");
+    this.parentField?.setAttribute("aria-label", t("tasks.artifact_dialog.parent_change", { parent: parentTitle ?? t("common.none") }));
   }
 
   /** Lane of the task being edited, or the target lane of a new task. */
@@ -266,12 +267,12 @@ export class ArtifactDialog extends FormDialog {
     if (this.editing) this.editing = { ...this.editing, status };
     else this.status = status;
     this.laneTitle = laneTitle;
-    this.subtitle.textContent = this.editing ? `In ${laneTitle}` : `Adding to ${laneTitle}`;
-    this.subtitle.setAttribute("aria-label", `Lane: ${laneTitle}. Change lane`);
+    this.subtitle.textContent = this.editing ? t("tasks.artifact_dialog.lanetitle", { laneTitle }) : t("tasks.artifact_dialog.adding_lanetitle", { laneTitle });
+    this.subtitle.setAttribute("aria-label", t("tasks.artifact_dialog.lane_lanetitle_change_lane", { laneTitle }));
     this.subtitle.dataset.laneHue = String(hue);
     if (this.laneField) this.laneField.dataset.laneHue = String(hue);
     if (this.laneValue) this.laneValue.textContent = laneTitle;
-    this.laneField?.setAttribute("aria-label", `Lane: ${laneTitle}. Change lane`);
+    this.laneField?.setAttribute("aria-label", t("tasks.artifact_dialog.lane_lanetitle_change_lane", { laneTitle }));
   }
 
   #leaveEditMode() {

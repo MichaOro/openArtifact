@@ -6,6 +6,7 @@
  * does the same for the mouse; the artifact and pipeline links and the delete button keep their own meaning. */
 import { setChip, plural } from "../tasks/history-format.js";
 import { fillDeleteButton, fillDuration, fillOrigin, fillTime, RunningClock } from "../tasks/history-row.js";
+import { t } from "../i18n.js";
 
 export const flowUrl = (e) => `/artifacts/${e.task.number}/executions/${encodeURIComponent(e.id)}`;
 export const artifactUrl = (e) => `/?artifact=${e.task.number}`;
@@ -145,17 +146,17 @@ export class ExecutionTable {
     row.dataset.status = e.status;
     const box = row.querySelector("[data-select]");
     box.disabled = e.status === "running";
-    box.title = box.disabled ? "A running execution cannot be deleted" : "";
-    box.setAttribute("aria-label", `Select execution #${e.number} of #${e.task.number}`);
+    box.title = box.disabled ? t("executions.table.running_execution_cannot_be_deleted") : "";
+    box.setAttribute("aria-label", t("executions.table.select_execution_number_number2", { number: e.number, number2: e.task.number }));
     setChip(row.querySelector(".history-chip"), e.status);
     const artifact = row.querySelector("[data-artifact]");
     artifact.textContent = `#${e.task.number} ${e.task.title}`;
     artifact.href = artifactUrl(e);
-    artifact.title = "Open the artifact on the board";
+    artifact.title = t("executions.table.open_artifact_board");
     const open = row.querySelector("[data-open]");
     open.textContent = `#${e.number}`;
     open.href = flowUrl(e);
-    open.setAttribute("aria-label", `Open the flow of execution #${e.number} of #${e.task.number}`);
+    open.setAttribute("aria-label", t("executions.table.open_flow_execution_number_number2", { number: e.number, number2: e.task.number }));
     const link = row.querySelector("[data-pipeline-link]");
     const text = row.querySelector("[data-pipeline-text]");
     link.hidden = !e.pipeline_exists;
@@ -163,7 +164,7 @@ export class ExecutionTable {
     (e.pipeline_exists ? link : text).textContent = e.pipeline_name;
     if (e.pipeline_exists) {
       link.href = pipelineUrl(e);
-      link.title = "Open the pipeline in the editor";
+      link.title = t("executions.table.open_pipeline_editor");
     }
     row.querySelector("[data-pipeline-gone]").hidden = e.pipeline_exists;
     fillTime(row.querySelector("[data-time]"), e.started_at);

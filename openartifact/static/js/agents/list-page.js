@@ -7,6 +7,7 @@ import { connectEvents } from "../tasks/events.js";
 import { createAgent, deleteAgent, listAgents } from "./api.js";
 import { agentChips, useText } from "./model.js";
 import { chip } from "./view.js";
+import { t, tn } from "../i18n.js";
 
 const listEl = document.querySelector("[data-agent-list]");
 const emptyEl = document.querySelector("[data-agent-empty]");
@@ -30,17 +31,17 @@ function render() {
       const used = agent.node_count;
       if (used) {
         const hint = item.querySelector(".ag-item__hint");
-        hint.textContent = `${used} agent node${used === 1 ? " refers" : "s refer"} to this agent: remove ${used === 1 ? "it" : "them"} to delete the agent.`;
+        hint.textContent = tn("agents.list_page.refers", used);
         hint.hidden = false;
         hint.id = `agent-hint-${agent.id}`;
         remove.setAttribute("aria-disabled", "true");
         remove.setAttribute("aria-describedby", hint.id);
-        remove.title = "In use: cannot be deleted";
+        remove.title = t("agents.list_page.use_cannot_be_deleted");
       }
       remove.addEventListener("click", () => {
         if (used) return;
         confirm.open({
-          message: "Delete the agent {subject} with all its versions? This cannot be undone.",
+          message: t("agents.list_page.delete_agent_subject_with_all"),
           subject: agent.name,
           onConfirm: async () => {
             await deleteAgent(agent.id);
@@ -60,13 +61,13 @@ async function load() {
     banner.hide();
     render();
   } catch {
-    banner.show("Agents could not be loaded.", { retry: true });
+    banner.show(t("agents.list_page.agents_could_not_be_loaded"), { retry: true });
   }
 }
 
 document.querySelector("[data-new-agent]").addEventListener("click", () =>
   nameDialog.open({
-    title: "New agent",
+    title: t("agents.new_agent"),
     onSubmit: async ({ name, description }) => {
       const created = await createAgent({ name, description });
       window.location.assign(`/agents/${encodeURIComponent(created.id)}`);

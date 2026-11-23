@@ -7,6 +7,7 @@
  * optional [data-settings-empty] (shown while nothing is added). */
 import { ActionMenu } from "./action-menu.js";
 import { icon } from "./icons.js";
+import { t } from "../i18n.js";
 
 let groupCount = 0;
 
@@ -101,7 +102,7 @@ export class SettingsGroup {
   #openMenu() {
     const items = this.settings
       .filter((s) => !this.shown.has(s.key))
-      .map((s) => ({ label: s.fallback ? `${s.label} · default ${s.fallback}` : s.label, icon: "plus", onSelect: () => this.add(s.key) }));
+      .map((s) => ({ label: s.fallback ? t("components.settings_group.label_default_fallback", { label: s.label, fallback: s.fallback }) : s.label, icon: "plus", onSelect: () => this.add(s.key) }));
     if (items.length) this.menu.toggle(this.addButton, items, "Add setting");
   }
 
@@ -123,8 +124,8 @@ export class SettingsGroup {
     const bin = document.createElement("button");
     bin.type = "button";
     bin.className = "icon-button icon-button--sm is-danger setting__remove";
-    bin.setAttribute("aria-label", `Remove ${setting.label}`);
-    bin.title = setting.fallback ? `Use the default again (${setting.fallback})` : `Remove ${setting.label}`;
+    bin.setAttribute("aria-label", t("components.settings_group.remove_label", { label: setting.label }));
+    bin.title = setting.fallback ? t("components.settings_group.use_default_again_fallback", { fallback: setting.fallback }) : t("components.settings_group.remove_label", { label: setting.label });
     bin.append(icon("trash"));
     bin.addEventListener("click", () => this.remove(setting.key));
     row.append(label, control, bin);
@@ -144,7 +145,7 @@ export class SettingsGroup {
   #update() {
     const left = this.settings.length - this.shown.size;
     this.addButton.disabled = left === 0;
-    this.addButton.title = left === 0 ? "All settings are added" : "Add a setting";
+    this.addButton.title = left === 0 ? t("components.settings_group.all_settings_added") : t("components.settings_group.add_setting");
     if (this.empty) this.empty.hidden = this.shown.size > 0;
   }
 }

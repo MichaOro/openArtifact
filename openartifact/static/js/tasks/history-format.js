@@ -1,14 +1,15 @@
 import { icon } from "../components/icons.js";
+import { t, tn } from "../i18n.js";
 
 /* How the history shows times, durations and statuses: one place for the list and the detail. */
 
 const CHIPS = {
-  running: ["Running", "clock"],
-  done: ["Done", "check"],
-  failed: ["Failed", "x"],
-  stopped: ["Stopped", "stop"],
-  pass: ["Pass", "check"],
-  fail: ["Fail", "x"],
+  running: [t("common.running"), "clock"],
+  done: [t("common.done"), "check"],
+  failed: [t("common.failed"), "x"],
+  stopped: [t("common.stopped"), "stop"],
+  pass: [t("tasks.history_format.pass"), "check"],
+  fail: [t("tasks.history_format.fail"), "x"],
 };
 
 /** Local, readable time of a UTC timestamp; "" when there is none. */
@@ -37,12 +38,13 @@ export function secondsBetween(startIso, endIso) {
 /** Duration of an execution summary: the server's, or the elapsed time while it runs. */
 export const executionSeconds = (execution) => execution.duration_seconds ?? secondsBetween(execution.started_at, execution.finished_at);
 
-const ORIGINS = { user: "User", api: "API", mcp: "MCP", system: "System" };
+const ORIGINS = { user: t("common.user"), api: "API", mcp: "MCP", system: t("common.system") };
 
 /** Who started an execution, as a label; an unknown origin is shown as it is. */
 export const originLabel = (startedBy) => ORIGINS[startedBy] ?? String(startedBy ?? "");
 
-export const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+/** "3 executions": the noun is a key of `count.*` (one/other forms). */
+export const plural = (n, noun) => tn(`count.${noun.replace(/ /g, "_")}`, n);
 
 /** Fill a chip (markup: .history-chip > [data-chip-icon] + [data-chip-text]) for a status or an outcome. */
 export function setChip(chip, status) {
