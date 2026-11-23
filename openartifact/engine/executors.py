@@ -19,6 +19,7 @@ from typing import Any, Protocol
 
 from openartifact.agents import tools as agent_tools
 from openartifact.agents.runtime import run_node as run_agent_node
+from openartifact.comments.schemas import Author
 from openartifact.config import Settings
 from openartifact.credentials.refs import (
     SecretReferenceError,
@@ -28,6 +29,7 @@ from openartifact.credentials.refs import (
     parse_name_lines,
 )
 from openartifact.credentials.store import SecretResolveError
+from openartifact.engine.artifact_runner import CommentsGateway, run_artifact
 from openartifact.engine.branching import evaluate_if, evaluate_switch
 from openartifact.engine.code_runner import CodeLimits, run_code
 from openartifact.engine.context import RunView
@@ -64,9 +66,16 @@ class Limits:
     #: The operator's half of the permission for an LLM provider on a private network (the other half
     #: is the provider's own ``allow_private``). Independent of ``http_allow_private_networks``.
     llm_allow_private_networks: bool = False
+    #: The comments of artifacts, for the Artifact node (ADR-055); ``None``: the node fails.
+    comments: CommentsGateway | None = None
 
     @classmethod
-    def from_settings(cls, settings: Settings, secrets: SecretResolver | None = None) -> Limits:
+    def from_settings(
+        cls,
+        settings: Settings,
+        secrets: SecretResolver | None = None,
+        comments: CommentsGateway | None = None,
+    ) -> Limits:
         return cls(
             settings.code_nodes_enabled,
             settings.code_output_limit_bytes,
@@ -82,6 +91,7 @@ class Limits:
             code_blocked_in_open_mode=not settings.api_token
             and not settings.code_nodes_without_token,
             llm_allow_private_networks=settings.llm_allow_private_networks,
+            comments=comments,
         )
 
 
@@ -260,6 +270,19 @@ async def _github(node: dict[str, Any], limits: Limits, view: RunView | None = N
     return await _with_secrets(names, limits, run)
 
 
+async def _artifact(
+    node: dict[str, Any], limits: Limits, view: RunView | None = None
+) -> NodeResult:
+    """Read or write the comments of the run's own artifact (``engine/artifact_runner.py``, ADR-055); no secret."""
+    return await run_artifact(
+        node["config"],
+        node_name=str(node["name"]),
+        view=view or RunView(),
+        gateway=limits.comments,
+        author_factory=Author,
+    )
+
+
 async def _timer(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     started = time.monotonic()
     await asyncio.sleep(node["seconds"] or 0)
@@ -320,3 +343,4 @@ register_executor(NodeKind.AGENT, _agent)
 register_executor(NodeKind.SET, _set)
 register_executor(NodeKind.POSTGRES, _postgres)
 register_executor(NodeKind.GITHUB, _github)
+register_executor(NodeKind.ARTIFACT, _artifact)

@@ -674,7 +674,11 @@ class RunEngine:
                     walk, node["definition_id"], current, "pass", port, None, started
                 )
                 continue
-            result = await executor.run(current, self._limits, RunView(walk.context, walk.index))
+            result = await executor.run(
+                current,
+                self._limits,
+                RunView(walk.context, walk.index, walk.task_id, walk.execution_id),
+            )
             if result.outcome == "pass" and result.variables:
                 try:
                     walk.context.set_vars(result.variables)

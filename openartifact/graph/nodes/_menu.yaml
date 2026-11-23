@@ -27,3 +27,4 @@ kinds:
 - http_tool
 - code_tool
 - postgres_tool
+- artifact

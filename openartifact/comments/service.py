@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.comments.schemas import AUTHOR_MAX_LENGTH, CommentRead
+from openartifact.comments.schemas import AUTHOR_MAX_LENGTH, Author, CommentRead
 from openartifact.database import SessionOpener
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
@@ -18,15 +17,6 @@ from openartifact.security import ADMIN, principal
 from openartifact.tasks.service import ArtifactService
 
 NOT_FOUND = "Comment not found"
-
-
-@dataclass(frozen=True)
-class Author:
-    """Who writes: a kind (``user``, ``api``, ``mcp``, ``run``, ``system``), a name and, for a run, its execution."""
-
-    kind: str
-    name: str
-    execution_id: str | None = None
 
 
 def author_of(channel: str, requested: str | None = None) -> Author:

@@ -72,6 +72,7 @@ class NodeKind(enum.StrEnum):
     GITHUB = "github"
     POSTGRES = "postgres"
     POSTGRES_TOOL = "postgres_tool"
+    ARTIFACT = "artifact"
 
 
 class ProviderKind(enum.StrEnum):

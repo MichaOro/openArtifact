@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
@@ -13,9 +14,18 @@ BODY_MAX_LENGTH = 64 * 1024
 AUTHOR_MAX_LENGTH = 64
 AUTHOR_KINDS = ("user", "api", "mcp", "run", "system")
 
-Author = Annotated[
+AuthorName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=AUTHOR_MAX_LENGTH)
 ]
+
+
+@dataclass(frozen=True)
+class Author:
+    """Who writes: a kind (``user``, ``api``, ``mcp``, ``run``, ``system``), a name and, for a run, its execution."""
+
+    kind: str
+    name: str
+    execution_id: str | None = None
 
 
 def _body(value: str) -> str:
@@ -35,7 +45,7 @@ class CommentWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     body: str = Field(max_length=BODY_MAX_LENGTH)
-    author: Author | None = None
+    author: AuthorName | None = None
 
     _check_body = field_validator("body")(_body)
 

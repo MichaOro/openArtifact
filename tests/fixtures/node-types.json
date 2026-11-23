@@ -2686,5 +2686,136 @@
     "template": "{tool_name|default:@name} · {?allow_write:changes · }{query|first_line|short|default:no query yet}"
    }
   }
+ },
+ {
+  "kind": "artifact",
+  "label": "Artifact",
+  "scopes": [
+   "action"
+  ],
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail"
+   }
+  ],
+  "settings": [
+   {
+    "key": "operation",
+    "label": "Operation",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "Get comments",
+    "stored_in": "config",
+    "options": [
+     "Get comments",
+     "Add comment"
+    ],
+    "help": "Get comments reads the newest comments of the artifact this run belongs to (the output is a readable transcript, data.comments the list). Add comment writes one under the name of this node. Only the run's own artifact is ever touched.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "limit",
+    "label": "Newest comments",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 100,
+    "default": 20,
+    "stored_in": "config",
+    "help": "Get comments: how many of the newest comments are read (oldest of them first).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "max_chars",
+    "label": "Characters per comment",
+    "type": "integer",
+    "minimum": 20,
+    "maximum": 4000,
+    "default": 800,
+    "stored_in": "config",
+    "help": "Get comments: a longer comment is cut to this length (with a mark), so one long comment does not fill the run context.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "max_total",
+    "label": "Characters in total",
+    "type": "integer",
+    "minimum": 100,
+    "maximum": 4000,
+    "default": 3500,
+    "stored_in": "config",
+    "help": "Get comments: the transcript is at most this long; older comments are left out first, and the output says how many. A node's output is limited to 4 KiB.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "text",
+    "label": "Comment",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "help": "Add comment: the text (plain text, line breaks are kept). May hold ${node...}, ${var...} or ${card...}; no secrets.",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue"
+    ],
+    "help": "fail (the default): leave by On Fail, the action fails if nothing is connected there. continue: leave by On Pass although the node failed (fail open); the step still shows the failure and its reason.",
+    "section": "behaviour",
+    "level": "core",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "behaviour": "flow",
+  "menu": {
+   "group": "Data",
+   "group_index": 5,
+   "order": 2
+  },
+  "ui": {
+   "icon": "message",
+   "caption": {
+    "template": "{operation|default:Get comments}"
+   }
+  }
  }
 ]

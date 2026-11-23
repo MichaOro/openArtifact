@@ -189,6 +189,7 @@ class GraphRepository:
                         NodeKind.SET,
                         NodeKind.GITHUB,
                         NodeKind.POSTGRES,
+                        NodeKind.ARTIFACT,
                     ]
                 ),
             )

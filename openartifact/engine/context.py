@@ -399,6 +399,9 @@ class RunView:
 
     context: RunContext = field(default_factory=RunContext)
     index: NodeIndex = field(default_factory=NodeIndex)
+    #: The artifact and the execution the run belongs to (for the nodes that act on their own card).
+    task_id: str | None = None
+    execution_id: str | None = None
 
     def render(
         self,

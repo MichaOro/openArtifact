@@ -131,17 +131,17 @@ def _create_app(settings: Settings) -> FastAPI:
     app.state.credentials = CredentialService(
         database.new_session, app.state.secret_store, settings, app.state.event_bus
     )
+    app.state.comments = CommentService(database.new_session, app.state.event_bus)
     app.state.engine = RunEngine(
         app.state.event_bus,
         database.new_session,
         max_runs=settings.max_concurrent_runs,
-        limits=Limits.from_settings(settings, app.state.secret_store.resolve),
+        limits=Limits.from_settings(settings, app.state.secret_store.resolve, app.state.comments),
         history_default_keep=settings.execution_history_default_keep,
     )
     app.state.artifacts = ArtifactService(
         database.new_session, app.state.event_bus, app.state.engine
     )
-    app.state.comments = CommentService(database.new_session, app.state.event_bus)
     app.state.artifact_fields = ArtifactFieldService(database.new_session, app.state.event_bus)
     app.state.agents = AgentService(database.new_session, app.state.event_bus)
     app.state.providers = ProviderService(

@@ -1,0 +1,70 @@
+schema: 1
+kind: artifact
+label: Artifact
+behaviour: flow
+scopes:
+- action
+addable: true
+chain: true
+reference_keys:
+- text
+menu:
+  group: Data
+  order: 2
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+ui:
+  icon: message
+  caption:
+    template: '{operation|default:Get comments}'
+settings:
+- key: operation
+  label: Operation
+  type: select
+  default: Get comments
+  options:
+  - Get comments
+  - Add comment
+  help: 'Get comments reads the newest comments of the artifact this run belongs to (the output is a readable transcript, data.comments the list). Add comment writes one under the name of this node. Only the run''s own artifact is ever touched.'
+  stored_in: config
+- key: limit
+  label: Newest comments
+  type: integer
+  minimum: 1
+  maximum: 100
+  default: 20
+  help: 'Get comments: how many of the newest comments are read (oldest of them first).'
+  stored_in: config
+- key: max_chars
+  label: Characters per comment
+  type: integer
+  minimum: 20
+  maximum: 4000
+  default: 800
+  help: 'Get comments: a longer comment is cut to this length (with a mark), so one long comment does not fill the run context.'
+  stored_in: config
+- key: max_total
+  label: Characters in total
+  type: integer
+  minimum: 100
+  maximum: 4000
+  default: 3500
+  help: 'Get comments: the transcript is at most this long; older comments are left out first, and the output says how many. A node''s output is limited to 4 KiB.'
+  stored_in: config
+- key: text
+  label: Comment
+  type: lines
+  default: ''
+  max_length: 20000
+  help: 'Add comment: the text (plain text, line breaks are kept). May hold ${node...}, ${var...} or ${card...}; no secrets.'
+  stored_in: config
+  check: not_secret
+  references: context
+- use: on_failure
