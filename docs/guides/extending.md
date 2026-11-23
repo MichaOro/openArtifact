@@ -5,7 +5,7 @@ would ([ADR-014](../architecture/adr/014-building-blocks-and-extension-points.md
 
 | Extension point | Registry | Section |
 |-----------------|----------|---------|
-| A kind of node | `NODE_TYPES` (`graph/node_types.py`), `EXECUTORS` (`engine/executors.py`), `VIEWS` (`static/js/editor/node-types.js`) | [Add a kind of node](#add-a-kind-of-node) |
+| A kind of node | a manifest (`graph/nodes/*.yaml`, loaded into `NODE_TYPES` by `graph/node_types.py`), `EXECUTORS` (`engine/executors.py`) | [Add a kind of node](#add-a-kind-of-node) |
 | A type of node setting | `Setting.validate` (server), `CONTROLS` (`static/js/editor/setting-controls.js`) | [Add a setting type](#add-a-setting-type) |
 | A navigation entry | `SIDEBAR`, `ARTIFACT_RAIL` (`web/navigation.py`) | [Add a navigation entry](#add-a-navigation-entry) |
 | A server-sent event | `EventBus.publish`, `EVENT_TYPES` (`static/js/tasks/events.js`) | [Add an event type](#add-an-event-type) |
@@ -21,27 +21,17 @@ All paths are below `openartifact/` unless stated.
 
 ## Add a kind of node
 
-Worked examples in the code: the **timer** (`TimerType`, `TimerView`, migration `0016_timer_node.py`; its
-setting is a column) and the **Code** and **HTTP** nodes (`CodeType`, `HttpType`, `executors.py`,
+Worked examples in the code: the **timer** (`graph/nodes/timer.yaml`, migration `0016_timer_node.py`; its
+setting is a column) and the **Code** and **HTTP** nodes (`graph/nodes/code.yaml`, `http.yaml`, `executors.py`,
 `code_runner.py`, `http_runner.py`; their settings live in the `config` JSON). Use the second kind as the
 model for anything new.
 
 1. **Name the kind.** Add a member to `NodeKind` in `models/__init__.py`.
-2. **Describe it on the server.** In `graph/node_types.py` add a subclass of `NodeType` and add an instance
-   to the registration list at the end of the file (`register(...)`):
-   - `kind`, `label`;
-   - `scopes`: `PIPELINE`, `ACTION_DEFINITION` or both;
-   - `fixed` (comes with every new graph and cannot be deleted) or `addable` (offered in the "+" menu);
-   - `chain` (a step of the main line; new nodes are placed after these), `ending` (the end of the main line);
-   - `inputs` / `outputs`: tuples of `Port(name, label)`; use the names of `Ports` (`in`, `out`, `pass`,
-     `fail`, ...) so the engine and the rules agree;
-   - `settings`: tuples of `Setting(...)`, see [Add a setting type](#add-a-setting-type); put new ones in
-     `config` (`stored_in="config"`);
-   - `links_to` if the node points at another graph (`definition_id`);
-   - override `connect_error` only where the connection rule differs from the common one in the base class.
-
-   `GET /api/node-types` now publishes the kind, and the repository, the connection rules, the settings
-   validation and the "+" menu follow the registry.
+2. **Declare it as a manifest** (ADR-054): one file, `graph/nodes/<kind>.yaml`, and a line in `graph/nodes/_menu.yaml`
+   (`kinds`, the order every list uses). The server loads it into a `NodeType` at start-up; a manifest that is not valid
+   stops the start with its file name and what is wrong. See [A new kind is a manifest](#a-new-kind-is-a-manifest) below.
+   `GET /api/node-types` then publishes the kind, and the repository, the connection rules, the settings validation, the "+"
+   menu and the editor's card follow it. The editor needs no code for a kind of an existing behaviour.
 3. **Migrate only if the schema changes.** Settings stored in `config` (`graph_nodes.config`, a JSON object
    merged and validated per key by `NodeType.merge_config`) need **no** migration. What does need one is the
    check constraint `ck_graph_nodes_kind` on `graph_nodes`, which lists the kinds: copy the pattern of
@@ -73,7 +63,7 @@ model for anything new.
    nodes do, and declare those outputs in the node type; a settings group and `references` on a `Setting` shape the inspector) and carries on; a kind without an executor passes at once through `out` and
    leaves a step without output. Limits the executor needs go through `Limits` (built from `Settings` in
    `Limits.from_settings`): add the setting in `config.py` (with bounds) and a field there, never read
-   `os.environ`. Keep new bounds once, in `node_types.py`.
+   `os.environ`. Keep new bounds once, in the manifest.
 5. **Handle secrets and foreign input safely** if the node runs foreign code, calls the network or uses
    credentials (checklist below). Wrap the work in `_with_secrets(names, limits, run)`; it resolves the
    secrets, registers them for log masking, turns an exception into a plain failure and masks every form of
@@ -134,6 +124,41 @@ Use `ON_FAILURE` for "If the node fails" (it is already `behaviour`), `GROUP_LIM
 (the Agent's choice of an agent and its input mapping) passes it as `extras` to `buildSettings`
 (`static/js/editor/settings-layout.js`) and `skip`s those keys; it does not write a layout of its own.
 
+## A new kind is a manifest
+
+A manifest (`graph/nodes/<kind>.yaml`, `schema: 1`) *declares* a kind; it holds no code. `graph/manifest.py` is the schema
+(pydantic) and the loader; `python -c "import json; from openartifact.graph.manifest import schema; print(json.dumps(schema(), indent=1))"`
+prints its JSON Schema, which an editor can validate a file against.
+
+| Field | Meaning |
+|-------|---------|
+| `kind`, `label`, `schema` | the `NodeKind` value, the name shown, the manifest version (1) |
+| `behaviour` | how the kind connects and is drawn: `plain`, `flow` (a step of an action definition: On Pass / On Fail or branches), `tool`, and the structural `stage`, `action`, `pipeline`, `output`, `switch` |
+| `scopes`, `fixed`, `addable`, `chain`, `ending`, `tool`, `links_to`, `default_size`, `reference_keys` | what the base `NodeType` knows (see the table of fields in ADR-054) |
+| `menu` | `{group, order}`: the cluster of the "+" menu and the place in it (clusters and their order: `_menu.yaml`) |
+| `ports` | `inputs` / `outputs` with `name`, `label`, `side`, `visible_when` (`{fn: ...}` or `{node: field}`), `label_from`, `repeat` |
+| `ui` | `icon`, `size`, `port_labels`, `caption` (a template or a function), `block`, `size_fn`, `group_used_fn` |
+| `settings` | the kind's settings: the fields of `Setting` (key, label, type, bounds, default, options, help, `stored_in`, `section`, `level`, `group`, `inherits`, `references`) and `check` |
+
+What is *named*, not written:
+
+- **Rules** (`check: <name>`): `graph/validators.py` (`VALIDATORS`): `url`, `status_spec`, `text_references`, `secret_names`,
+  `not_secret`, `sql_query`, `repository`, ... A new rule is Python in `validators.py`, reviewed with the application.
+- **Caption templates** (`ui.caption.template`): `{key}` (a setting), `{@field}` (a field of the node), `{key|filter}`,
+  `{?flag:text}`; filters `default`, `trim`, `first_line`, `short`, `host_path`, `field_names` (`static/js/editor/caption.js`).
+  `Postgres`: `"{?allow_write:changes · }{query|first_line|short|default:no query yet}"`.
+- **Functions of the editor** (`static/js/editor/view-functions.js`, `CLIENT_FUNCTIONS` in `manifest.py`): captions, port
+  visibility and labels, a size, which dialog groups are open. They exist for the If, Switch and Agent cards.
+
+Two conveniences keep files short. `use: name` takes a setting from `graph/nodes/_shared.yaml` (the fields written beside it
+win): `on_failure`, `operator`, `query`, ... A block `{repeat: N, settings: [...]}` (or a port with `repeat`) is written N
+times with `{n}` for the number; `first:` holds what only the first copy has (a help text said once).
+
+What a manifest cannot do: run code; add a kind that is not a `NodeKind` member and has no executor (kinds are rows of the
+`graph_nodes.kind` constraint, ADR-054 §4); change how a structural behaviour connects. **Loading manifests from a directory
+of the operator (for third-party kinds) is not enabled yet**: `node_types.load(directory)` already reads any directory, but
+only the built-in one is loaded.
+
 ## Add a setting type
 
 A setting is one `Setting(key, label, type, ...)` in a node type. The types are `integer`, `number` (whole or
@@ -144,7 +169,7 @@ place that decides whether a value fits. Using an existing type needs only the `
 
 A new type:
 
-1. Add its branch to `Setting.validate` in `graph/node_types.py` (and to `describe`, if it publishes more), and its
+1. Add its branch to `Setting.validate` in `graph/node_types.py` (and the type to `SettingSpec.type` in `graph/manifest.py`) (and to `describe`, if it publishes more), and its
    default length to `_DEFAULT_MAX_LENGTH` if it is a text. There is no list of type names besides that: a type is
    what `validate` accepts.
 2. Add a control class to `static/js/editor/setting-controls.js`: subclass `SettingControl` (or
