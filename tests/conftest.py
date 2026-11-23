@@ -31,6 +31,12 @@ from alembic import command
 from openartifact.app import _create_app
 from openartifact.config import Settings
 from tests.helpers import alembic_config
+from tests.postgres_support import pg, postgres_admin_url
+
+__all__ = [
+    "pg",
+    "postgres_admin_url",
+]  # fixtures of a real Postgres server (tests/postgres_support.py)
 
 
 @pytest.fixture(autouse=True)
