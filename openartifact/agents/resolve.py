@@ -29,7 +29,7 @@ class ProviderInfo:
     name: str
     base_url: str
     secret_name: str | None
-    allow_private: bool
+    allow_http: bool
     default_model: str | None
     is_default: bool
     models: frozenset[str]
@@ -42,7 +42,7 @@ class ProviderInfo:
             "name": self.name,
             "base_url": self.base_url,
             "secret_name": self.secret_name,
-            "allow_private": self.allow_private,
+            "allow_http": self.allow_http,
         }
 
 

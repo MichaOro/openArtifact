@@ -317,7 +317,7 @@ class ProviderWrite(_Strict):
     name: str = Field(min_length=1, max_length=60)
     base_url: str | None = Field(default=None, max_length=500)
     secret_name: str | None = Field(default=None, max_length=64)
-    allow_private: bool = False
+    allow_http: bool = False
     default_model: str | None = Field(default=None, max_length=MODEL_ID_MAX)
     is_default: bool = False
     models: list[ModelCreate] = Field(default_factory=list, max_length=50)
@@ -329,13 +329,13 @@ class ProviderWrite(_Strict):
 
 
 class ProviderUpdate(_Strict):
-    """Changes of a provider; a change of ``base_url``, ``secret_name`` or ``allow_private`` is tested
+    """Changes of a provider; a change of ``base_url``, ``secret_name`` or ``allow_http`` is tested
     like a new provider before it is saved."""
 
     name: str | None = Field(default=None, min_length=1, max_length=60)
     base_url: str | None = Field(default=None, max_length=500)
     secret_name: str | None = Field(default=None, max_length=64)
-    allow_private: bool | None = None
+    allow_http: bool | None = None
     default_model: str | None = Field(default=None, max_length=MODEL_ID_MAX)
     is_default: bool | None = None
 
@@ -371,9 +371,7 @@ class ProviderRead(BaseModel):
     base_url: str
     secret_name: str | None
     secret_exists: bool
-    allow_private: bool
-    #: Whether private addresses are really reachable: the provider's switch and the operator's.
-    private_effective: bool
+    allow_http: bool
     default_model: str | None
     is_default: bool
     checked_at: UtcDateTime | None

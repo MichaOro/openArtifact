@@ -27,8 +27,8 @@ class LlmProvider(Base):
             is fixed in the code).
         secret_name: The name of the secret that holds the API key (``None``: no key is sent). Never the
             key itself.
-        allow_private: Whether this provider may be on a private or local network; it only counts when
-            the operator has set ``OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS`` too.
+        allow_http: The owner's confirmation that an ``http://`` address is fine (the key and the prompts
+            travel unencrypted): a local model server, or TLS in front of it. Any address may be local.
         default_model: The model used when neither the agent nor the node names one.
         is_default: The provider used when neither the agent nor the node names one (at most one row).
         checked_at, check_ok, check_message: The last connection test.
@@ -41,7 +41,7 @@ class LlmProvider(Base):
     name: Mapped[str] = mapped_column(String(60, collation="NOCASE"), unique=True)
     base_url: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None)
     secret_name: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
-    allow_private: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    allow_http: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     default_model: Mapped[str | None] = mapped_column(String(200), nullable=True, default=None)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     checked_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None)

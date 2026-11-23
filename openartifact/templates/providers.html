@@ -46,11 +46,10 @@
             <input class="field__control" id="pv-key" name="api_key" type="password" autocomplete="new-password" aria-describedby="pv-key-help">
             <p class="field__help" id="pv-key-help">Leave empty to use the secret as it is stored. A key typed here is saved to the secret store, never to the provider.</p>
         </div>
-        <label class="ag-check" data-custom>
-            <input type="checkbox" name="allow_private">
-            <span>This endpoint is on a private or local network</span>
+        <label class="ag-check" data-http-confirm hidden>
+            <input type="checkbox" name="allow_http">
+            <span>Allow unencrypted connection (HTTP): I know there is no TLS here, or that it is provided in front of this endpoint</span>
         </label>
-        <p class="field__help" data-custom>Counts only when the operator has set <code>OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS</code>. Cloud metadata addresses stay refused.</p>
         <div class="field" data-custom data-only-new>
             <label class="field__label" for="pv-models">Models defined by hand <span class="field__hint">(one per line; needed when the endpoint has no /models)</span></label>
             <textarea class="field__control field__control--lines" id="pv-models" name="models" rows="3" spellcheck="false"></textarea>

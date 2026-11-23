@@ -11,6 +11,7 @@ import pytest
 
 from openartifact.agents import client, runtime
 from openartifact.agents.client import (
+    UNENCRYPTED_REFUSED,
     Completion,
     Endpoint,
     IncompatibleError,
@@ -654,13 +655,20 @@ async def test_an_empty_answer_fails_and_a_cut_or_long_answer_is_noted() -> None
     }
 
 
-def test_openrouter_has_a_fixed_public_address_and_private_needs_both_permissions() -> None:
-    openrouter = {"kind": "openrouter", "base_url": "http://evil.example", "allow_private": True}
-    assert endpoint_of(openrouter, "k", True) == Endpoint(
-        "https://openrouter.ai/api/v1", "k", False
-    )
-    custom = {"kind": "openai_compatible", "base_url": "http://10.0.0.5/v1", "allow_private": True}
-    assert endpoint_of(custom, None, True).allow_private is True
-    assert endpoint_of(custom, None, False).allow_private is False
-    assert endpoint_of({**custom, "allow_private": False}, None, True).allow_private is False
-    assert endpoint_of(custom, None, True).url("/models") == "http://10.0.0.5/v1/models"
+def test_openrouter_has_a_fixed_public_address_and_another_provider_may_be_local() -> None:
+    openrouter = {"kind": "openrouter", "base_url": "http://evil.example", "allow_http": True}
+    assert endpoint_of(openrouter, "k") == Endpoint("https://openrouter.ai/api/v1", "k", False)
+    custom = {"kind": "openai_compatible", "base_url": "http://10.0.0.5/v1", "allow_http": True}
+    assert endpoint_of(custom, None).allow_private is True  # an address is an address
+    assert endpoint_of(custom, None).url("/models") == "http://10.0.0.5/v1/models"
+
+
+async def test_an_http_provider_without_the_tick_is_refused_before_any_request() -> None:
+    """A snapshot of a provider whose http address was never confirmed sends nothing (the key and
+    the prompts would travel unencrypted)."""
+    node = _frozen()
+    node["agent"]["provider"].update(base_url="http://10.0.0.5/v1", allow_http=False)
+    script = Scripted(OK)
+    result = await run_node(node, VIEW, "key", complete=script.complete, sleep=script.sleep)
+    assert result.outcome == "fail" and result.reason == UNENCRYPTED_REFUSED
+    assert script.calls == []

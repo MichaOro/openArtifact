@@ -15,6 +15,7 @@ from openartifact.agents import providers as providers_module
 from openartifact.app import _create_app
 from openartifact.config import Settings
 from openartifact.engine import http_runner
+from openartifact.exceptions import ArtifactError
 from tests.agent_support import (
     API_KEY,
     HEADERS,
@@ -66,7 +67,7 @@ def _body(llm: FakeLlm, mount: str = "", **changes: Any) -> dict[str, Any]:
         "name": "Local",
         "base_url": llm.url(mount),
         "secret_name": "LLM_KEY",
-        "allow_private": True,
+        "allow_http": True,
         **changes,
     }
 
@@ -91,7 +92,7 @@ def test_a_provider_with_a_model_list_is_tested_and_saved_with_its_models(
         llm.url(),
     )
     assert (provider["secret_name"], provider["secret_exists"]) == ("LLM_KEY", True)
-    assert provider["allow_private"] is True and provider["private_effective"] is True
+    assert provider["allow_http"] is True and "private_effective" not in provider
     assert provider["check_ok"] is True and provider["checked_at"]
     assert provider["check_message"] == "/models lists 2 models in the OpenAI format"
     models = {m["model_id"]: m for m in provider["models"]}
@@ -291,27 +292,35 @@ def test_names_are_unique_and_the_default_model_must_be_a_model(
     assert api.post("/api/providers", json={**_body(llm), "extra": 1}).status_code == 422
 
 
-# ── private networks: two permissions ────────────────────────────────
+# ── the address: any address, http only when it is ticked ─────────────
 
 
-def test_a_private_address_needs_the_provider_and_the_operator(
-    make_api: Make, llm: FakeLlm
-) -> None:
+def test_a_local_address_needs_no_permission_of_the_operator(make_api: Make, llm: FakeLlm) -> None:
+    """The address of a provider is just an address: a local one works without the operator's switch."""
     closed = make_api(llm_allow_private_networks=False)
     put_secret(closed)
-    result = closed.post("/api/providers/test", json=_body(llm)).json()
-    assert result["ok"] is False
-    assert result["steps"][-1]["message"] == "The address is not allowed (private network address)"
-    assert providers_module.PRIVATE_WARNING in result["warnings"]
-    assert closed.post("/api/providers", json=_body(llm)).status_code == 422
-    assert llm.hits == []
+    response = closed.post("/api/providers", json=_body(llm))
+    assert response.status_code == 201, response.text
+    assert response.json()["check_ok"] is True and llm.hits
 
 
-def test_the_operators_permission_alone_is_not_enough(api: TestClient, llm: FakeLlm) -> None:
+def test_an_http_address_needs_the_tick_for_unencrypted_connections(
+    api: TestClient, llm: FakeLlm
+) -> None:
     put_secret(api)
-    result = api.post("/api/providers/test", json=_body(llm, allow_private=False)).json()
-    assert result["ok"] is False and "private network address" in result["steps"][-1]["message"]
+    refused = api.post("/api/providers", json=_body(llm, allow_http=False))
+    assert refused.status_code == 422
+    assert refused.json()["detail"] == providers_module.UNENCRYPTED_REFUSED
+    tested = api.post("/api/providers/test", json=_body(llm, allow_http=False))
+    assert tested.status_code == 422  # the test refuses it before any request, too
     assert llm.hits == []
+
+
+def test_https_needs_no_tick() -> None:
+    providers_module.check_encryption("https://llm.example/v1", False)
+    providers_module.check_encryption("http://10.0.0.5/v1", True)
+    with pytest.raises(ArtifactError, match="unencrypted"):
+        providers_module.check_encryption("http://10.0.0.5/v1", False)
 
 
 def test_the_permission_for_providers_does_not_open_http_nodes(api: TestClient) -> None:
@@ -324,7 +333,7 @@ def test_a_metadata_address_is_refused_with_both_permissions(api: TestClient) ->
         "kind": "openai_compatible",
         "name": "Meta",
         "base_url": "http://169.254.169.254/v1",
-        "allow_private": True,
+        "allow_http": True,
     }
     result = api.post("/api/providers/test", json=body).json()
     assert result["ok"] is False
@@ -377,7 +386,7 @@ def test_openrouter_has_a_fixed_address_fetches_its_models_and_checks_the_key(
         "kind": "openrouter",
         "name": "OpenRouter",
         "secret_name": "OPENROUTER_KEY",
-        "allow_private": True,
+        "allow_http": True,
     }
     response = api.post("/api/providers", json=body)
     assert response.status_code == 201, response.text
@@ -386,9 +395,7 @@ def test_openrouter_has_a_fixed_address_fetches_its_models_and_checks_the_key(
         provider["base_url"] == openrouter.url()
         and provider["check_message"] == "The API key is accepted"
     )
-    assert (
-        provider["allow_private"] is False and provider["private_effective"] is False
-    )  # never for OpenRouter
+    assert provider["allow_http"] is False  # its address is fixed and https: never for OpenRouter
     assert [h["path"] for h in openrouter.hits] == ["/v1/models", "/v1/key"]
     assert {m["model_id"] for m in provider["models"]} == {"small", "large"}
     assert all(m["enabled"] is False for m in provider["models"])
@@ -494,8 +501,7 @@ def test_a_new_address_or_secret_is_tested_before_it_is_saved(
         == 422
     )
     assert (
-        api.patch(f"/api/providers/{provider['id']}", json={"allow_private": False}).status_code
-        == 422
+        api.patch(f"/api/providers/{provider['id']}", json={"allow_http": False}).status_code == 422
     )
     assert (
         api.patch(f"/api/providers/{provider['id']}", json={"base_url": "nope"}).status_code == 422

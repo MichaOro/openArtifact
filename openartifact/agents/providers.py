@@ -9,9 +9,11 @@ is checked by the same guarded HTTP path every later request takes (``agents/cli
 answer must have the shape of an OpenAI-compatible API, not just a success status. For an endpoint
 without ``/models`` that means one minimal chat completion with a model defined by hand.
 
-A private or local address needs two permissions: the operator's ``OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS``
-and the provider's own ``allow_private``. A refusal is an ``ArtifactError``; every change publishes
-``providers.changed``.
+The address is just an address: a public one, one on this host or one in the internal network all work
+without any setting (cloud metadata addresses stay refused, redirects are not followed). Only an ``http://``
+address needs the provider's ``allow_http``, the owner's confirmation that the unencrypted connection is
+fine (a local model server, or TLS in front of it). A refusal is an ``ArtifactError``; every change
+publishes ``providers.changed``.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.agents import client
 from openartifact.agents.client import (
+    UNENCRYPTED_REFUSED,
     Endpoint,
     IncompatibleError,
     NoModelListError,
@@ -70,10 +73,6 @@ HTTP_WARNING = (
     "The address uses http: the API key and every prompt travel unencrypted. Use it only for an "
     "endpoint on this host or in a network you trust."
 )
-PRIVATE_WARNING = (
-    "Private addresses are switched on for this provider but not by the operator "
-    "(OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS): they stay refused."
-)
 SOURCE_FETCHED, SOURCE_MANUAL = "fetched", "manual"
 
 
@@ -95,6 +94,12 @@ def check_base_url(url: str | None) -> str:
     return text
 
 
+def check_encryption(base_url: str, allow_http: bool) -> None:
+    """422 when the address is ``http://`` and the owner has not confirmed the unencrypted connection."""
+    if base_url.startswith("http://") and not allow_http:
+        raise ArtifactError(422, UNENCRYPTED_REFUSED)
+
+
 class ProviderService:
     """Everything the APIs do with providers and models."""
 
@@ -112,8 +117,6 @@ class ProviderService:
         warnings = []
         if base_url_of(provider).startswith("http://"):
             warnings.append(HTTP_WARNING)
-        if provider.allow_private and not self._settings.llm_allow_private_networks:
-            warnings.append(PRIVATE_WARNING)
         return warnings
 
     async def _read(self, session: AsyncSession, provider: LlmProvider) -> ProviderRead:
@@ -130,10 +133,7 @@ class ProviderService:
             base_url=base_url_of(provider),
             secret_name=provider.secret_name,
             secret_exists=bool(provider.secret_name) and provider.secret_name in names,
-            allow_private=provider.allow_private,
-            private_effective=provider.allow_private
-            and self._settings.llm_allow_private_networks
-            and provider.kind != ProviderKind.OPENROUTER,
+            allow_http=provider.allow_http,
             default_model=provider.default_model,
             is_default=provider.is_default,
             checked_at=provider.checked_at,
@@ -176,7 +176,6 @@ class ProviderService:
         kind: str,
         base_url: str,
         secret_name: str | None,
-        allow_private: bool,
         probe_model: str | None,
     ) -> tuple[CheckResult, list[tuple[str, str]]]:
         result = CheckResult(ok=False, steps=[])
@@ -190,9 +189,6 @@ class ProviderService:
         if base_url.startswith("http://"):
             warnings.append(HTTP_WARNING)
         custom = kind != ProviderKind.OPENROUTER
-        private = custom and allow_private and self._settings.llm_allow_private_networks
-        if custom and allow_private and not private:
-            warnings.append(PRIVATE_WARNING)
         try:
             key = await self._key(secret_name)
         except SecretResolveError as error:
@@ -200,7 +196,9 @@ class ProviderService:
             return result, models
         if secret_name:
             step("secret", True, f"Secret {secret_name} is stored")
-        endpoint = Endpoint(base_url, key, private)
+        endpoint = Endpoint(
+            base_url, key, custom
+        )  # a custom address may be local, OpenRouter's is not
         try:
             models = await client.list_models(endpoint, timeout=REQUEST_TIMEOUT_SECONDS)
         except (NoModelListError, IncompatibleError) as error:
@@ -254,13 +252,12 @@ class ProviderService:
         kind: str,
         base_url: str,
         secret_name: str | None,
-        allow_private: bool,
         probe_model: str | None,
     ) -> tuple[CheckResult, list[tuple[str, str]]]:
         """The test and the ``(id, label)`` models it found (bounded in time as a whole)."""
         try:
             async with asyncio.timeout(CHECK_TIMEOUT_SECONDS):
-                return await self._probe(kind, base_url, secret_name, allow_private, probe_model)
+                return await self._probe(kind, base_url, secret_name, probe_model)
         except TimeoutError:
             result = CheckResult(
                 ok=False,
@@ -293,8 +290,10 @@ class ProviderService:
     async def test(self, data: ProviderWrite) -> CheckResult:
         """Test a provider that is not saved (nothing is stored)."""
         base_url, secret_name = self._checked_input(data.kind, data.base_url, data.secret_name)
+        if data.kind != ProviderKind.OPENROUTER.value:
+            check_encryption(base_url, data.allow_http)
         probe = data.models[0].model_id if data.models else None
-        return (await self._check(data.kind, base_url, secret_name, data.allow_private, probe))[0]
+        return (await self._check(data.kind, base_url, secret_name, probe))[0]
 
     async def check(self, ref: str) -> CheckResult:
         """Test a saved provider again and remember the outcome (it is shown with the provider)."""
@@ -305,7 +304,6 @@ class ProviderService:
                 provider.kind,
                 base_url_of(provider),
                 provider.secret_name,
-                provider.allow_private,
                 probe,
             )
             self._remember(provider, result)
@@ -413,10 +411,10 @@ class ProviderService:
             ):
                 raise ArtifactError(409, "OpenRouter is set up already")
             name = await self._free_name(session, data.name)
+        if custom:
+            check_encryption(base_url, data.allow_http)
         probe = data.models[0].model_id if data.models else None
-        result, fetched = await self._check(
-            data.kind, base_url, secret_name, data.allow_private, probe
-        )
+        result, fetched = await self._check(data.kind, base_url, secret_name, probe)
         if not result.ok:
             raise self._refuse(result)
         known = {model_id for model_id, _ in fetched} | {m.model_id for m in data.models}
@@ -431,7 +429,7 @@ class ProviderService:
                 name=name,
                 base_url=base_url if custom else None,
                 secret_name=secret_name,
-                allow_private=data.allow_private and custom,
+                allow_http=data.allow_http and custom,
                 default_model=data.default_model,
                 is_default=data.is_default,
             )
@@ -489,7 +487,7 @@ class ProviderService:
         return row
 
     async def update(self, ref: str, data: ProviderUpdate) -> ProviderRead:
-        """Change a provider. A new address, secret or private-network switch is tested first and
+        """Change a provider. A new address, secret or http confirmation is tested first and
         saved only if the test passes (422 otherwise); the other fields are saved as they are."""
         sent = data.model_fields_set
         async with self._session() as session:
@@ -505,23 +503,23 @@ class ProviderService:
             _, secret_name = self._checked_input(
                 provider.kind, base_url if custom else None, secret_name
             )
-            allow_private = (
-                bool(data.allow_private) and custom
-                if "allow_private" in sent and data.allow_private is not None
-                else provider.allow_private
+            allow_http = (
+                bool(data.allow_http) and custom
+                if "allow_http" in sent and data.allow_http is not None
+                else provider.allow_http
             )
+            if custom:
+                check_encryption(base_url, allow_http)
             connection_changed = (
                 base_url != base_url_of(provider)
                 or secret_name != provider.secret_name
-                or allow_private != provider.allow_private
+                or allow_http != provider.allow_http
             )
             fetched: list[tuple[str, str]] = []
             result = None
             if connection_changed:
                 probe = await self._probe_model(session, provider)
-                result, fetched = await self._check(
-                    provider.kind, base_url, secret_name, allow_private, probe
-                )
+                result, fetched = await self._check(provider.kind, base_url, secret_name, probe)
                 if not result.ok:
                     raise self._refuse(result)
             if data.name is not None:
@@ -529,7 +527,7 @@ class ProviderService:
             if connection_changed and result is not None:
                 provider.base_url = base_url if custom else None
                 provider.secret_name = secret_name
-                provider.allow_private = allow_private
+                provider.allow_http = allow_http
                 self._remember(provider, result)
                 if result.lists_models:
                     await self._merge_models(session, provider, fetched)
@@ -561,7 +559,7 @@ class ProviderService:
                 endpoint = Endpoint(
                     base_url_of(provider),
                     key,
-                    custom and provider.allow_private and self._settings.llm_allow_private_networks,
+                    custom,
                 )
                 async with asyncio.timeout(CHECK_TIMEOUT_SECONDS):
                     fetched = await client.list_models(endpoint, timeout=REQUEST_TIMEOUT_SECONDS)

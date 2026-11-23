@@ -305,7 +305,6 @@ async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = No
             node,
             run_view,
             values.get(name) if name else None,
-            allow_private_networks=limits.llm_allow_private_networks,
             open_tools=lambda: agent_tools.open_toolbox(tools, context),
         )
 

@@ -8,6 +8,7 @@ import { icon } from "../components/icons.js";
 import { Modal } from "../components/modal.js";
 import { connectEvents } from "../tasks/events.js";
 import { formatTime } from "../tasks/history-format.js";
+import { isPlainHttp } from "./model.js";
 import { addModel, checkProvider, createProvider, deleteModel, deleteProvider, listProviders, listSecrets, putSecret, refreshModels, testProvider, updateModel, updateProvider } from "./api.js";
 import { chip, el } from "./view.js";
 
@@ -56,7 +57,7 @@ class ProviderDialog extends ActionDialog {
     this.field("name").value = provider?.name ?? "";
     this.field("base_url").value = provider && provider.kind !== "openrouter" ? provider.base_url : "";
     this.field("secret_name").value = provider?.secret_name ?? "";
-    this.field("allow_private").checked = provider?.allow_private ?? false;
+    this.field("allow_http").checked = provider?.allow_http ?? false;
     this.field("is_default").checked = provider?.is_default ?? providers.length === 0;
     this.#layout();
     this.modal.open();
@@ -73,7 +74,9 @@ class ProviderDialog extends ActionDialog {
     const custom = this.field("kind").value !== "openrouter";
     for (const part of this.root.querySelectorAll("[data-custom]")) part.hidden = !custom;
     for (const part of this.root.querySelectorAll("[data-only-new]")) part.hidden = Boolean(this.provider) || (part.hasAttribute("data-custom") && !custom);
-    this.root.querySelector("[data-http-warning]").hidden = !(custom && /^\s*http:\/\//i.test(this.field("base_url").value));
+    const plain = custom && isPlainHttp(this.field("base_url").value);
+    this.root.querySelector("[data-http-warning]").hidden = !plain;
+    this.root.querySelector("[data-http-confirm]").hidden = !plain; // https needs no confirmation
     // a new OpenRouter provider is named for the user; the suggestion goes when the kind changes
     const name = this.field("name");
     if (!this.provider && !custom && !name.value) name.value = "OpenRouter";
@@ -92,7 +95,7 @@ class ProviderDialog extends ActionDialog {
       name: this.field("name").value.trim(),
       base_url: custom ? this.field("base_url").value.trim() : null,
       secret_name: this.field("secret_name").value.trim() || null,
-      allow_private: custom && this.field("allow_private").checked,
+      allow_http: custom && isPlainHttp(this.field("base_url").value) && this.field("allow_http").checked,
       is_default: this.field("is_default").checked,
       models: custom && !this.provider ? models.map((model_id) => ({ model_id })) : [],
       default_model: custom && !this.provider && models.length ? models[0] : null,
@@ -133,7 +136,7 @@ class ProviderDialog extends ActionDialog {
     if (this.provider) {
       const { kind, models, default_model, ...changes } = values;
       if (kind === "openrouter") delete changes.base_url;
-      if (kind === "openrouter") delete changes.allow_private;
+      if (kind === "openrouter") delete changes.allow_http;
       await updateProvider(this.provider.id, changes);
     } else {
       await createProvider(values);
@@ -263,7 +266,7 @@ function card(provider) {
   fact("Address", provider.base_url);
   fact("API key", provider.secret_name ? `secret ${provider.secret_name}${provider.secret_exists ? "" : " (does not exist: requests will fail)"}` : "none");
   fact("Default model", provider.default_model ?? "none");
-  if (provider.kind !== "openrouter") fact("Private network", provider.private_effective ? "allowed" : provider.allow_private ? "switched on here, not by the operator" : "not allowed");
+  if (provider.kind !== "openrouter" && isPlainHttp(provider.base_url)) fact("Unencrypted connection", provider.allow_http ? "confirmed (HTTP)" : "not confirmed"); // https shows nothing
   if (provider.checked_at) fact("Last test", `${formatTime(provider.checked_at)}: ${provider.check_message ?? ""}`);
   item.append(head, facts, ...provider.warnings.map((warning) => el("p", "ag-warning", warning)), modelsBlock(provider));
   return item;

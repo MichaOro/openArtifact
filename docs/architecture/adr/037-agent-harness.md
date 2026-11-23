@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-021](021-execution-nodes-as-executors.md), [ADR-022](022-node-settings-as-json-config.md), [ADR-024](024-credential-store.md), [ADR-025](025-execution-history-and-retention.md), [ADR-027](027-execution-flow-by-replay-over-the-frozen-snapshot.md), [ADR-033](033-run-context.md)  
-**Amended by:** [ADR-040](040-agent-tools.md) (tools and the loop)  
+**Amended by:** [ADR-040](040-agent-tools.md) (tools and the loop), [ADR-042](042-provider-addresses.md) (addresses of providers)  
 **Implemented in:** migration 0033 (`agents`, `agent_versions`, `llm_providers`, `llm_models`, `run_node_results.detail`, kind `agent`); `agents/` (`schemas.py`, `resolve.py`, `render.py`, `freeze.py`, `client.py`, `runtime.py`, `service.py`, `providers.py`), `api/agents.py`, `engine/executors.py` (`_agent`), `engine/snapshot.py`, `engine/runner.py` (`_cut`, `detail`), `engine/http_runner.py` (`guarded_exchange`), `graph/node_types.py` (`AgentType`, setting type `number`), `mcp_server.py`; `static/js/agents/`, `static/js/editor/agent-inspector.js`  
 **Affected chapters:** [04](../arc42/04-solution-strategy.md), [11](../arc42/11-risks-and-technical-debt.md), [12](../arc42/12-glossary.md); guides [agents](../../guides/agents.md), [API reference](../../guides/api-reference.md), [configuration](../../guides/configuration.md), [credentials](../../guides/credentials.md), [security](../../guides/security.md), [execution nodes](../../guides/execution-nodes.md)
 
@@ -59,7 +59,7 @@ control, and that leaves a complete trace of what was sent.
   of the secret is frozen: its value is read when the node runs (as for every node, ADR-024). Snapshots of before this
   decision have no `agent`; such a node fails with "This execution has no agent for the node".
 - **Providers.** `llm_providers`: `openrouter` (address fixed in the code, at most one, needs a secret) or
-  `openai_compatible` (any http(s) address without credentials, query or fragment), the name of the secret, `allow_private`,
+  `openai_compatible` (any http(s) address without credentials, query or fragment), the name of the secret, `allow_http` (ADR-042; first `allow_private`),
   `default_model`, `is_default`, and the outcome of the last test. `llm_models`: fetched from `/models` or defined by hand,
   `enabled` (new fetched ones start switched off), `available` (a fetched model the provider no longer lists stays and is
   marked). A provider is saved only after its **connection test** passed: the address is vetted, `/models` must be an
@@ -69,9 +69,8 @@ control, and that leaves a complete trace of what was sent.
 - **One guarded HTTP path.** `guarded_exchange` (extracted from the HTTP node, whose behaviour is unchanged) is used by
   the test, the model list and the runtime: resolve, vet every address, pin the connection to a vetted address (no DNS
   rebinding), never follow a redirect, no proxy of the environment, capped body. Cloud metadata addresses are always
-  refused. A private or local address needs **two** permissions: the operator's `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS`
-  and the provider's `allow_private`; OpenRouter never gets it. This switch is independent of
-  `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS`, so a local model server does not open HTTP nodes.
+  refused. *Amended by ADR-042:* a provider may be on any address; only `http://` needs the provider's `allow_http`;
+  OpenRouter's address stays fixed and public.
 - **Runtime: one request.** `agents/runtime.py` resolves the inputs, fills the prompts (one pass, a replaced value is not
   scanned again; a missing or failed input is an error, never an empty text; an optional input without mapping and
   default is the empty text and says so), sends one chat completion (no streaming, no tools) and retries what can pass:

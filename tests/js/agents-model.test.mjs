@@ -11,6 +11,7 @@ import {
   fieldLabel,
   formatMapping,
   inputStateText,
+  isPlainHttp,
   mappingRows,
   numberOf,
   overridesOf,
@@ -159,4 +160,13 @@ test("the tool calls of a step: turn, tool, arguments, result (an error marked) 
 
 test("max iterations is a setting a node may override", () => {
   assert.deepEqual(OVERRIDES.find((o) => o.key === "max_iterations"), { key: "max_iterations", label: "Max iterations", kind: "integer", min: 1, max: 50 });
+});
+
+test("only an http address needs the confirmation of an unencrypted connection", () => {
+  assert.equal(isPlainHttp("http://litellm:4000/v1"), true);
+  assert.equal(isPlainHttp("  HTTP://127.0.0.1:4000/v1"), true);
+  assert.equal(isPlainHttp("https://api.example.org/v1"), false);
+  assert.equal(isPlainHttp("httpx://example.org"), false);
+  assert.equal(isPlainHttp(""), false);
+  assert.equal(isPlainHttp(null), false);
 });

@@ -28,6 +28,10 @@ from openartifact.engine.http_runner import (
     guarded_exchange,
 )
 
+UNENCRYPTED_REFUSED = (
+    "The address uses http, so the API key and every prompt travel unencrypted: tick "
+    '"Allow unencrypted connection (HTTP)" to confirm that this is fine for this endpoint'
+)
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 #: A model list can be long (OpenRouter lists hundreds of models with their descriptions).
 MODELS_LIMIT_BYTES = 16 * 1024 * 1024

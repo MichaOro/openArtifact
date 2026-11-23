@@ -292,7 +292,7 @@ def _provider(
         name=pid.upper(),
         base_url=f"https://{pid}.example/v1",
         secret_name="KEY_" + pid.upper(),
-        allow_private=False,
+        allow_http=False,
         default_model=default_model,
         is_default=default,
         models=frozenset(models),
@@ -401,7 +401,7 @@ def test_freezing_keeps_everything_a_run_needs_and_never_a_key() -> None:
         "name": "P1",
         "base_url": "https://p1.example/v1",
         "secret_name": "KEY_P1",
-        "allow_private": False,
+        "allow_http": False,
     }
 
 

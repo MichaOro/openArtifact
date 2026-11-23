@@ -98,9 +98,9 @@ Guide: [Agents and LLM providers](agents.md).
 | POST | `/api/v1/agents/{ref}/preview` | `{"source": "draft"\|"published", "version?", "values?", "node_id?"}`: prompts, inputs, settings in effect; sends nothing to a model | 404, 409, 422 |
 | GET | `/api/v1/providers` | The providers with their models; `secret_name` and `secret_exists`, never a key | |
 | POST | `/api/v1/providers/test` | Test a provider without saving: `ok`, `steps`, `warnings`, `models`, `lists_models` | 422 |
-| POST | `/api/v1/providers` | Create: `{"kind": "openrouter"\|"openai_compatible", "name", "base_url?", "secret_name?", "allow_private?", "default_model?", "is_default?", "models?"}`; tested first; `201` | 409, 422 (also: the test failed) |
+| POST | `/api/v1/providers` | Create: `{"kind": "openrouter"\|"openai_compatible", "name", "base_url?", "secret_name?", "allow_http?", "default_model?", "is_default?", "models?"}`; tested first; `201` | 409, 422 (also: the test failed) |
 | GET | `/api/v1/providers/{ref}` | One provider by id or name | 404 |
-| PATCH | `/api/v1/providers/{ref}` | Change; a new `base_url`, `secret_name` or `allow_private` is tested first | 404, 409, 422 |
+| PATCH | `/api/v1/providers/{ref}` | Change; a new `base_url`, `secret_name` or `allow_http` is tested first | 404, 409, 422 |
 | DELETE | `/api/v1/providers/{ref}` | Delete with its models; `204` | 404, 409 (a draft, a version or a node names it) |
 | POST | `/api/v1/providers/{ref}/test` | Test a saved provider; the outcome is kept (`check_ok`, `check_message`) | 404 |
 | POST | `/api/v1/providers/{ref}/models/refresh` | Fetch the model list again | 404, 409 (no `/models`), 502 |

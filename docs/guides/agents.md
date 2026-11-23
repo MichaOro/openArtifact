@@ -31,10 +31,12 @@ the host), structured output, streaming, fallback chains, budgets.
 
   A success status alone is not enough: a web page or another API is refused.
 - **`http`** is allowed and shown with a warning: the key and every prompt travel unencrypted.
-- **Private and local addresses** need two permissions: the operator sets `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS=true`
-  ([configuration](configuration.md)) *and* the provider has *This endpoint is on a private or local network*. This does
-  not open HTTP nodes. Cloud metadata addresses are refused in every case, redirects are never followed, the connection
-  goes to the address that was checked.
+- **Any address works**: public, on this host (`http://127.0.0.1:4000/v1`) or in your network, without a setting of the
+  operator. Only an `http://` address needs the tick *Allow unencrypted connection (HTTP)*, your confirmation that there is
+  no TLS here or that it sits in front of the endpoint; it is shown only for such an address. From a container,
+  `127.0.0.1` is the container itself: use the name of the other container on a shared Docker network or
+  `host.docker.internal`. Cloud metadata addresses are refused in every case, redirects are never followed, the
+  connection goes to the address that was checked (ADR-042).
 - **Models.** Only a model that is switched on can be chosen. Fetched models start switched off. *Refresh models* reads
   the list again: new ones are added, a model the provider no longer lists stays and is marked "No longer listed".
   Models defined by hand are managed the same way and can be deleted while nothing names them.

@@ -51,6 +51,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [039](039-edit-fields-switch-rules-and-run-limits.md) | Edit Fields node, a rule per Switch case, run limits as settings | Accepted | 2026-11-23 | amends ADR-013, ADR-033, ADR-034 |
 | [040](040-agent-tools.md) | Tools for agents: tool nodes, MCP Client Tool, a bounded loop | Accepted | 2026-11-23 | amends ADR-012, ADR-037 |
 | [041](041-github-and-postgres-nodes.md) | The GitHub node and Postgres: an action node and a tool for agents | Accepted | 2026-11-23 | amends ADR-012, ADR-020, ADR-040 |
+| [042](042-provider-addresses.md) | The address of an LLM provider is just an address; http needs a confirmation | Accepted | 2026-11-23 | amends ADR-037 |
 
 ## Notes
 

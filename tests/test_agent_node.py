@@ -300,7 +300,7 @@ def test_the_snapshot_keeps_the_resolved_agent_and_never_the_key(
         "name": "Local",
         "base_url": llm.url(),
         "secret_name": "LLM_KEY",
-        "allow_private": True,
+        "allow_http": True,
     }
     assert frozen["model"] == "small"
     assert (

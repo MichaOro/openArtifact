@@ -24,7 +24,6 @@ def agents_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
         tmp_path_factory.mktemp("agents"),
         api_token=TOKEN,
         secret_key="k" * 40,
-        llm_allow_private_networks="true",
     )
 
 
@@ -67,7 +66,7 @@ def _provider(api: httpx.Client, llm: FakeLlm) -> dict[str, Any]:
         "name": "Local",
         "base_url": llm.url(),
         "secret_name": "LLM_KEY",
-        "allow_private": True,
+        "allow_http": True,
         "default_model": "small",
         "is_default": True,
     }
@@ -102,13 +101,19 @@ def test_a_provider_is_tested_and_saved_and_its_models_are_switched_on(
     dialog.get_by_label("Kind").select_option("openai_compatible")
     dialog.locator("#pv-name").fill("Local")
     expect(dialog.locator("[data-http-warning]")).to_be_hidden()
+    expect(dialog.locator("[data-http-confirm]")).to_be_hidden()
+    dialog.get_by_label("Base URL").fill("https://llm.example/v1")
+    expect(dialog.locator("[data-http-confirm]")).to_be_hidden()  # https needs no confirmation
     dialog.get_by_label("Base URL").fill(llm.url())
     expect(
         dialog.locator("[data-http-warning]")
     ).to_be_visible()  # http: a clear warning, not a refusal
     dialog.get_by_label("Secret with the API key").fill("LLM_KEY")
     dialog.get_by_label(re.compile("^API key")).fill(API_KEY)
-    dialog.get_by_text("This endpoint is on a private or local network").click()
+    expect(
+        dialog.locator("[data-http-confirm]")
+    ).to_be_visible()  # only an http address asks for it
+    dialog.get_by_text("Allow unencrypted connection (HTTP)").click()
     dialog.locator("[data-test]").click()
     steps = dialog.locator(".ag-check-step")
     expect(steps).to_have_text(
@@ -154,7 +159,7 @@ def test_a_provider_that_is_not_compatible_is_not_saved(
     dialog.get_by_label("Kind").select_option("openai_compatible")
     dialog.locator("#pv-name").fill("A web page")
     dialog.get_by_label("Base URL").fill(llm.url("/html"))
-    dialog.get_by_text("This endpoint is on a private or local network").click()
+    dialog.get_by_text("Allow unencrypted connection (HTTP)").click()
     dialog.get_by_label(re.compile("^Models defined by hand")).fill("some-model")
     dialog.locator("[data-submit]").click()
     expect(dialog.locator("[data-form-error]")).to_contain_text("The connection test failed")

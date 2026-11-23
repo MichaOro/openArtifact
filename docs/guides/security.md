@@ -83,8 +83,10 @@ the unspecified, multicast and cloud-metadata addresses are refused always. Deta
 Code node is not behind it.
 
 **LLM providers** go through the same guard: the connection test, the model list and every request of an Agent
-node. A provider on a private or local address needs its own switch *and* `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS=true`;
-that setting does not open HTTP nodes, and OpenRouter's address is fixed. `http` is allowed with a warning. The
+node. A provider may be on any address (a model server on this host or in the internal network included), so whoever may
+create providers can have the application ask such an address; a provider is saved only when that address answers in
+the OpenAI format. An `http://` address needs the provider's *Allow unencrypted connection (HTTP)*, and OpenRouter's
+address is fixed. `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS` now governs the tools of an agent only. The
 **tools of an agent** (MCP Client Tool, HTTP Request Tool, Postgres Tool) use the same guard and the same two switches (the tool's
 *Private network* and the operator's); a Code Tool runs under the Code node's rules.
 

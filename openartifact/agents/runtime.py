@@ -28,7 +28,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from openartifact.agents import client
-from openartifact.agents.client import Completion, Endpoint, ProviderError
+from openartifact.agents.client import UNENCRYPTED_REFUSED, Completion, Endpoint, ProviderError
 from openartifact.agents.render import (
     MappingError,
     RenderError,
@@ -179,18 +179,12 @@ async def run_completion(
     return outcome
 
 
-def endpoint_of(
-    provider: Mapping[str, Any], api_key: str | None, allow_private_networks: bool
-) -> Endpoint:
-    """The endpoint of a frozen provider. OpenRouter's address is fixed and never private; another
-    provider reaches a private address only when it and the operator both allow it."""
+def endpoint_of(provider: Mapping[str, Any], api_key: str | None) -> Endpoint:
+    """The endpoint of a frozen provider. OpenRouter's address is fixed and never private; the address of
+    another provider is just an address, a local one included."""
     if provider.get("kind") == ProviderKind.OPENROUTER:
         return Endpoint(client.OPENROUTER_URL, api_key, False)
-    return Endpoint(
-        str(provider.get("base_url") or ""),
-        api_key,
-        bool(provider.get("allow_private")) and allow_private_networks,
-    )
+    return Endpoint(str(provider.get("base_url") or ""), api_key, True)
 
 
 def _settings(frozen: Mapping[str, Any]) -> dict[str, Any]:
@@ -215,7 +209,6 @@ async def run_node(
     view: RunView,
     api_key: str | None,
     *,
-    allow_private_networks: bool = False,
     complete: Complete = client.complete,
     sleep: Sleep = asyncio.sleep,
     open_tools: OpenTools | None = None,
@@ -278,6 +271,12 @@ async def run_node(
     if not detail["user_prompt"].strip():
         return refuse("The user prompt is empty")
     messages.append({"role": "user", "content": detail["user_prompt"]})
+    if (
+        provider.get("kind") != ProviderKind.OPENROUTER
+        and str(provider.get("base_url") or "").startswith("http://")
+        and not provider.get("allow_http")
+    ):
+        return refuse(UNENCRYPTED_REFUSED)
     started = time.monotonic()  # the node's time limit covers opening the tools too
     async with AsyncExitStack() as stack:
         box = Toolbox([])
@@ -292,7 +291,7 @@ async def run_node(
                 return refuse(f"The tools could not be opened within the time limit of {limit:g} s")
         return await _loop(
             started,
-            endpoint_of(provider, api_key, allow_private_networks),
+            endpoint_of(provider, api_key),
             model,
             messages,
             settings,

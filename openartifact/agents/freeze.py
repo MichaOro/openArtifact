@@ -52,7 +52,7 @@ async def load_providers(session: AsyncSession) -> dict[str, ProviderInfo]:
             name=p.name,
             base_url=base_url_of(p),
             secret_name=p.secret_name,
-            allow_private=p.allow_private,
+            allow_http=p.allow_http,
             default_model=p.default_model,
             is_default=p.is_default,
             models=frozenset(usable.get(p.id, ())),

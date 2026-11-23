@@ -80,6 +80,11 @@ export function mappingRows(inputs, text) {
   ];
 }
 
+/** Whether an address is plain http: the only kind that needs the owner's confirmation. */
+export function isPlainHttp(url) {
+  return /^\s*http:\/\//i.test(url ?? "");
+}
+
 /** The models of a provider that can be chosen (enabled and still listed), by id. */
 export function usableModels(provider) {
   return (provider?.models ?? []).filter((m) => m.enabled && m.available).map((m) => m.model_id);

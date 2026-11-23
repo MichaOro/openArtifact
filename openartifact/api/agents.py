@@ -57,8 +57,8 @@ PROVIDER_DESCRIPTION = (
     "``openai_compatible`` (``base_url``: http or https, no user name or password). ``secret_name`` "
     "is the name of a stored secret, never the key. The provider is tested before it is saved and "
     "refused with 422 when the test fails: the address is checked like an HTTP node's (no cloud "
-    "metadata address, a private one only when ``allow_private`` and the operator's "
-    "``OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS`` are both on, no redirects), and the endpoint must "
+    "metadata address, no redirects; a public, local or private address is fine), an ``http`` address "
+    "needs ``allow_http`` (the confirmation that the unencrypted connection is fine), and the endpoint must "
     "answer in the OpenAI format: its ``/models``, or, when it has none, one minimal chat completion "
     "with the first of ``models`` (models defined by hand). ``warnings`` in the answer says when the "
     "address is ``http``."
@@ -284,7 +284,7 @@ def build_providers_router(
     async def update_provider(
         ref: str, payload: ProviderUpdate, providers: ProvidersDep
     ) -> ProviderRead:
-        """Change a provider. A new ``base_url``, ``secret_name`` or ``allow_private`` is tested like
+        """Change a provider. A new ``base_url``, ``secret_name`` or ``allow_http`` is tested like
         a new provider and saved only when the test passes (422 otherwise). ``is_default`` makes it
         the provider of agents that name none (at most one is)."""
         return await providers.update(ref, payload)
