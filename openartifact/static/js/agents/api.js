@@ -13,6 +13,7 @@ export const deleteAgent = (id) => send("DELETE", agent(id));
 export const saveDraft = (id, config) => send("PUT", `${agent(id)}/draft`, config);
 export const discardDraft = (id) => send("POST", `${agent(id)}/draft/discard`);
 export const publishAgent = (id) => send("POST", `${agent(id)}/publish`);
+export const getVersion = (id, number) => request(`${agent(id)}/versions/${number}`);
 export const republishVersion = (id, number) => send("POST", `${agent(id)}/versions/${number}/republish`);
 export const agentUses = (id) => request(`${agent(id)}/uses`);
 /** The prompts as they would be sent; no request goes to a model. */

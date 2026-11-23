@@ -24,9 +24,13 @@ export class ConfirmDialog extends ActionDialog {
    * @param {string} [options.confirmLabel]
    * @param {() => void} [options.onClose] called once the dialog has closed after a confirmed action
    * @param {string} [options.title] the dialog's heading for this question (else the one of the markup)
+   * @param {"danger"|"primary"} [options.tone] the confirming button: red for what removes something (the
+   *   default), the accent for a question that only makes something new
    */
-  open({ message, subject = null, note = "", onConfirm, confirmLabel = "Delete", onClose = null, title = null }) {
+  open({ message, subject = null, note = "", onConfirm, confirmLabel = "Delete", onClose = null, title = null, tone = "danger" }) {
     this.action = onConfirm;
+    this.submitButton.classList.toggle("button--danger", tone === "danger");
+    this.submitButton.classList.toggle("button--primary", tone === "primary");
     if (this.titleEl) this.titleEl.textContent = title ?? this.defaultTitle;
     this.onClose = onClose;
     this.#showMessage(message, subject);

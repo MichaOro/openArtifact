@@ -863,3 +863,73 @@ def test_the_header_edits_name_and_description_in_place_and_the_pencil_opens_the
     dialog.locator("[data-submit]").click()
     expect(editor.locator("[data-agent-description]")).to_have_text("From the dialog")
     expect(editor.locator("[data-chips]")).to_contain_text("Active")  # badges unaffected
+
+
+# ── a version, read-only, and leaving with unsaved changes (ADR-049) ─
+
+
+def test_a_published_version_is_shown_read_only_before_it_is_published_again(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    draft = {
+        "user_prompt": "First ${input.ticket}",
+        "inputs": [{"name": "ticket", "required": True}],
+    }
+    agent = api.post("/api/agents", json={"name": "Shown", "draft": draft}).json()
+    api.post(f"/api/agents/{agent['id']}/publish").raise_for_status()
+    api.put(f"/api/agents/{agent['id']}/draft", json={"user_prompt": "Second"}).raise_for_status()
+    api.post(f"/api/agents/{agent['id']}/publish").raise_for_status()
+    page = signed_in
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    _tab(editor, "Versions & use")
+    editor.get_by_role("button", name="Show version 1").click()
+    dialog = page.locator("#version-modal")
+    expect(dialog.locator(".modal__title")).to_have_text("Version 1")
+    expect(dialog.locator("[data-version-panel=prompts] .ag-pre").first).to_have_text(
+        "First ${input.ticket}"
+    )
+    expect(
+        dialog.locator("[data-version-panel=prompts] textarea, [data-version-panel=prompts] input")
+    ).to_have_count(0)  # read only
+    dialog.get_by_role("tab", name="Inputs").click()
+    expect(dialog.locator("[data-version-panel=inputs] td").first).to_have_text("ticket")
+    expect(dialog.get_by_role("tab", name="Model & Limits")).to_be_hidden()  # that version set none
+    expect(dialog.locator("[data-version-facts]")).to_contain_text("Read only")
+    # the version in use has no "Publish again"; an older one has, and it asks with the accent, not red
+    dialog.get_by_role("button", name="Publish again").click()
+    confirm = page.locator("#confirm-modal")
+    expect(confirm.locator("[data-confirm]")).to_have_class(re.compile(r"\bbutton--primary\b"))
+    confirm.locator("[data-confirm]").click()
+    expect(editor.locator("[data-versions] .ag-version")).to_have_count(3)
+    editor.get_by_role("button", name="Show version 3").click()
+    expect(dialog.locator("[data-version-again]")).to_be_hidden()  # in use
+
+
+def test_leaving_with_unsaved_changes_asks_in_the_page_and_can_save_or_leave(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    agent = api.post("/api/agents", json={"name": "Leaving", "draft": {"user_prompt": "Hi"}}).json()
+    page = signed_in
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    native: list[str] = []
+    page.on("dialog", lambda d: (native.append(d.type), d.dismiss()))
+    editor.get_by_label("User prompt").fill("Changed")
+    editor.locator(".ag-back").click()
+    leave = page.locator("#leave-modal")
+    expect(leave).to_be_visible()
+    leave.get_by_role("button", name="Stay").click()
+    expect(page).to_have_url(re.compile(rf"/agents/{agent['id']}$"))
+    editor.locator(".ag-back").click()
+    leave.get_by_role("button", name="Save and leave").click()
+    expect(page).to_have_url(re.compile(r"/agents$"))
+    assert api.get(f"/api/agents/{agent['id']}").json()["draft"]["user_prompt"] == "Changed"
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    editor.get_by_label("User prompt").fill("Thrown away")
+    editor.locator(".ag-back").click()
+    page.locator("#leave-modal").get_by_role("button", name="Leave without saving").click()
+    expect(page).to_have_url(re.compile(r"/agents$"))
+    assert api.get(f"/api/agents/{agent['id']}").json()["draft"]["user_prompt"] == "Changed"
+    assert native == []  # the browser's own question never came for the page's links

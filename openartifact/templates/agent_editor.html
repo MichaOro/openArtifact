@@ -3,6 +3,8 @@
 {% from "components/confirm_modal.html" import confirm_modal %}
 {% from "components/form_modal.html" import form_modal %}
 {% from "components/icons.html" import icon %}
+{% from "components/leave_modal.html" import leave_modal %}
+{% from "components/modal.html" import modal %}
 {% block title %}Agent · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
 <link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
@@ -171,5 +173,25 @@
 ], submit="Save") }}
 {{ confirm_modal("confirm-modal", "Agent") }}
 {{ confirm_modal("reference-modal", "Remove agent reference?", note="data-reference-note") }}
+{{ leave_modal("leave-modal") }}
+{# A published version, read-only (ADR-049): its areas as tabs, nothing to change. #}
+{% call modal("version-modal", "Version") %}
+<div class="modal__body ag-version-view">
+    <p class="field__help" data-version-facts></p>
+    <div class="tab-bar" role="tablist" aria-label="What the version defined" data-version-tabs>
+        <button type="button" class="task-tab" role="tab" id="ag-version-tab-prompts" data-tab="prompts" aria-controls="ag-version-prompts" aria-selected="true">{{ icon("message") }}<span>Prompts</span></button>
+        <button type="button" class="task-tab" role="tab" id="ag-version-tab-inputs" data-tab="inputs" aria-controls="ag-version-inputs" aria-selected="false">{{ icon("layers") }}<span>Inputs</span></button>
+        <button type="button" class="task-tab" role="tab" id="ag-version-tab-limits" data-tab="limits" aria-controls="ag-version-limits" aria-selected="false">{{ icon("settings") }}<span>Model &amp; Limits</span></button>
+    </div>
+    <section role="tabpanel" id="ag-version-prompts" aria-labelledby="ag-version-tab-prompts" data-version-panel="prompts"></section>
+    <section role="tabpanel" id="ag-version-inputs" aria-labelledby="ag-version-tab-inputs" data-version-panel="inputs" hidden></section>
+    <section role="tabpanel" id="ag-version-limits" aria-labelledby="ag-version-tab-limits" data-version-panel="limits" hidden></section>
+    <p class="form-error" role="alert" hidden data-form-error></p>
+</div>
+<footer class="modal__footer">
+    <button type="button" class="button button--ghost" data-modal-close>Close</button>
+    <button type="button" class="button button--primary" data-version-again>Publish again</button>
+</footer>
+{% endcall %}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/agents/editor-page.js"></script>{% endblock %}

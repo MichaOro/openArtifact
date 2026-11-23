@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
+import { LeaveGuard } from "../components/leave-guard.js";
 import { Modal } from "../components/modal.js";
 import { OptionsPanel } from "../components/options-panel.js";
 import { SettingsGroup, numberSetting } from "../components/settings-group.js";
@@ -16,8 +17,9 @@ import { Switch } from "../components/switch.js";
 import { Tabs } from "../components/tabs.js";
 import { connectEvents } from "../tasks/events.js";
 import { formatTime } from "../tasks/history-format.js";
-import { agentUses, discardDraft, removeAgentReference, getAgent, listProviders, previewAgent, publishAgent, republishVersion, saveDraft, updateAgent } from "./api.js";
+import { agentUses, discardDraft, getVersion, removeAgentReference, getAgent, listProviders, previewAgent, publishAgent, republishVersion, saveDraft, updateAgent } from "./api.js";
 import { agentChips, fieldLabel, optionsOf, providerInEffect, sampleHint, usableModels } from "./model.js";
+import { inputsView, limitsView, promptsView } from "./version-view.js";
 import { chip, configFacts, el, previewView, problemList } from "./view.js";
 
 const root = document.querySelector("[data-agent-editor]");
@@ -340,24 +342,63 @@ function renderVersions() {
       if (version.current) head.append(chip("In use", "ok"));
       const origin = version.source_number != null ? `rollback to version ${version.source_number}` : "published";
       row.append(head, el("span", "ag-row__meta", `${formatTime(version.published_at)} · ${origin} ${ORIGINS[version.published_via] ?? version.published_via}`));
+      const buttons = el("div", "ag-version__buttons");
+      const showButton = el("button", "button button--ghost button--sm", "Show");
+      showButton.type = "button";
+      showButton.setAttribute("aria-label", `Show version ${version.number}`);
+      showButton.addEventListener("click", () => openVersion(version));
+      buttons.append(showButton);
       if (!version.current) {
         const again = el("button", "button button--ghost button--sm ag-version__again", "Publish again");
         again.type = "button";
         again.setAttribute("aria-label", `Publish version ${version.number} again`);
-        again.addEventListener("click", () =>
-          confirm.open({
-            message: `Publish version ${version.number} again? This makes a new version with its content; the history stays as it is.`,
-            confirmLabel: "Publish again",
-            onConfirm: async () => showPublished(await republishVersion(agent.id, version.number), `Version ${version.number} is published again as version`),
-          }),
-        );
-        row.append(again);
+        again.addEventListener("click", () => confirmRepublish(version));
+        buttons.append(again);
       }
+      row.append(buttons);
       return row;
     }),
   );
   $("[data-versions-empty]").hidden = agent.versions.length > 0;
 }
+
+/** Publishing an earlier version again: it makes something new, so the question has the accent, not red. */
+function confirmRepublish(version) {
+  confirm.open({
+    message: `Publish version ${version.number} again? This makes a new version with its content; the history stays as it is.`,
+    confirmLabel: "Publish again",
+    tone: "primary",
+    onConfirm: async () => showPublished(await republishVersion(agent.id, version.number), `Version ${version.number} is published again as version`),
+  });
+}
+
+// ── a published version, read-only (ADR-049) ──
+
+const versionModal = new Modal(document.getElementById("version-modal"));
+const versionRoot = document.getElementById("version-modal");
+const versionTabs = new Tabs(versionRoot.querySelector("[data-version-tabs]"));
+let shownVersion = null;
+
+async function openVersion(version) {
+  const full = await getVersion(agent.id, version.number);
+  shownVersion = version;
+  versionRoot.querySelector(".modal__title").textContent = `Version ${version.number}`;
+  const origin = version.source_number != null ? `a rollback to version ${version.source_number}` : "published";
+  versionRoot.querySelector("[data-version-facts]").textContent = `${version.current ? "In use · " : ""}${origin} ${ORIGINS[version.published_via] ?? version.published_via}, ${formatTime(version.published_at)}. Read only: this is what the version defined.`;
+  const panels = { prompts: promptsView(full.config), inputs: inputsView(full.config), limits: limitsView(full.config, providers) };
+  for (const [name, view] of Object.entries(panels)) {
+    versionRoot.querySelector(`[data-version-panel="${name}"]`).replaceChildren(...(view ? [view] : []));
+    versionTabs.setVisible(name, Boolean(view));
+  }
+  versionTabs.select("prompts", { notify: false });
+  versionRoot.querySelector("[data-version-again]").hidden = version.current;
+  versionModal.open();
+}
+
+versionRoot.querySelector("[data-version-again]").addEventListener("click", () => {
+  versionModal.close();
+  confirmRepublish(shownVersion);
+});
 
 const referenceDialog = new ConfirmDialog(new Modal(document.getElementById("reference-modal")));
 
@@ -536,9 +577,8 @@ $("[data-preview]").addEventListener("click", () =>
     result.hidden = false;
   }),
 );
-window.addEventListener("beforeunload", (event) => {
-  if (dirty) event.preventDefault();
-});
+// unsaved changes: the page's own links ask in a dialog (Stay / Leave without saving / Save and leave)
+new LeaveGuard(new Modal(document.getElementById("leave-modal")), { isDirty: () => dirty, save: () => save() });
 
 async function load() {
   try {
