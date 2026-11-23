@@ -44,6 +44,7 @@ from openartifact.exceptions import (
     OpenArtifactError,
 )
 from openartifact.logging_config import configure_logging
+from openartifact.oidc import Oidc
 from openartifact.security import AccessGate, TokenProtected, require_api_token
 from openartifact.tasks.service import ArtifactService
 from openartifact.version import __version__
@@ -140,6 +141,7 @@ def _create_app(settings: Settings) -> FastAPI:
         database.new_session, app.state.event_bus, settings, app.state.secret_store
     )
     app.state.settings = settings
+    app.state.oidc = Oidc(settings) if settings.oidc_enabled else None
     # Added innermost first: a request meets the headers, the host check, the body limit and the
     # cross-site guard before the access gate.
     app.add_middleware(AccessGate, settings=settings)

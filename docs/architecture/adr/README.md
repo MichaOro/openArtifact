@@ -52,6 +52,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [040](040-agent-tools.md) | Tools for agents: tool nodes, MCP Client Tool, a bounded loop | Accepted | 2026-11-23 | amends ADR-012, ADR-037 |
 | [041](041-github-and-postgres-nodes.md) | The GitHub node and Postgres: an action node and a tool for agents | Accepted | 2026-11-23 | amends ADR-012, ADR-020, ADR-040 |
 | [042](042-provider-addresses.md) | The address of an LLM provider is just an address; http needs a confirmation | Accepted | 2026-11-23 | amends ADR-037 |
+| [043](043-single-sign-on-oidc.md) | Single sign-on through OpenID Connect next to the API token | Accepted | 2026-11-23 | amends ADR-017 |
 
 ## Notes
 

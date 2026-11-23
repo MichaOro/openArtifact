@@ -41,6 +41,13 @@ nodes. Several of these are listed in arc42 chapter 11.
 - A request carries the token as `Authorization: Bearer <token>` or, for a browser, a session cookie from the
   sign-in page. The comparison is constant-time on bytes; a wrong token on the sign-in page costs half a
   second. A browser asking for a page is sent to the sign-in page; everything else gets `401`.
+- **Single sign-on** (OpenID Connect, ADR-043) is a second way to the same cookie, for example with Authelia. It is
+  switched on by `OPENARTIFACT_OIDC_ISSUER`, `..._CLIENT_ID` and `..._CLIENT_SECRET` and **needs a list of who may
+  come in** (`OPENARTIFACT_OIDC_ALLOWED_EMAILS`, `..._USERS` or `..._GROUPS`), because everyone who is in may do
+  everything; without the token or without a list the start is refused. The flow uses PKCE, a state cookie used once
+  and a nonce; the ID token must be signed with an asymmetric algorithm by the provider's published key and match
+  issuer, audience and expiry. The provider's discovery document must keep its token, key and userinfo endpoints on
+  the issuer's origin, so the client secret cannot be sent elsewhere. The API token keeps working for scripts and MCP.
 - The cookie holds `<issued-at>.<HMAC-SHA256>` signed with the secret key over the time and the token, never
   the token itself; valid for 30 days; `HttpOnly`, `SameSite=Strict`, `Secure` (and named `__Host-oa_session`)
   over HTTPS. Changing the token or the secret key ends every session. Logging out clears the cookie in that

@@ -37,7 +37,7 @@ BEARER = "bearer "
 COOKIE = "oa_session"
 SECURE_COOKIE = "__Host-oa_session"  # only a Secure cookie may carry the prefix (and needs Path=/)
 COOKIE_MAX_AGE = 30 * 24 * 3600
-OPEN_PATHS = ("/health", "/login", "/logout")
+OPEN_PATHS = ("/health", "/login", "/logout", "/login/sso", "/login/sso/callback")
 OPEN_PREFIXES = ("/static/",)
 CHALLENGE = {"WWW-Authenticate": "Bearer"}
 #: Makes Swagger UI offer an "Authorize" button for the token.

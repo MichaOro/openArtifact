@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import re
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from openartifact.api.deps import ServiceDep, SessionDep
 from openartifact.graph.repository import GraphRepository
 from openartifact.models import GraphKind
+from openartifact.oidc import CALLBACK_PATH, STATE_COOKIE, STATE_MAX_AGE, Oidc, SsoError
 from openartifact.security import (
     COOKIE,
     COOKIE_MAX_AGE,
@@ -26,6 +29,8 @@ from openartifact.security import (
 )
 from openartifact.version import __version__ as APP_VERSION  # noqa: N812
 from openartifact.web import navigation
+
+logger = logging.getLogger(__name__)
 
 LOGIN_MAX_BYTES = 4096
 
@@ -227,12 +232,19 @@ async def execution_flow(request: Request, ref: str, execution_id: str) -> HTMLR
 # ── sign-in (only when an API token is configured, see security.py) ─────────
 
 
-def _signin_page(request: Request, target: str, error: str | None = None) -> HTMLResponse:
+def _signin_page(
+    request: Request, target: str, error: str | None = None, status_code: int = 401
+) -> HTMLResponse:
+    settings = request.app.state.settings
     return templates.TemplateResponse(
         request=request,
         name="login.html",
-        context={"next": target, "error": error},
-        status_code=401 if error else 200,
+        context={
+            "next": target,
+            "error": error,
+            "sso_label": settings.oidc_button_label if settings.oidc_enabled else None,
+        },
+        status_code=status_code if error else 200,
     )
 
 
@@ -282,6 +294,85 @@ async def login(request: Request) -> Response:
         secure=secure,
         path="/",
     )
+    return response
+
+
+# ── single sign-on (ADR-043; only when an OpenID Connect provider is configured) ─────────────
+
+
+def _session_response(request: Request, target: str) -> RedirectResponse:
+    """The redirect that ends a sign-in: the same session cookie the token's sign-in sets."""
+    settings = request.app.state.settings
+    response = RedirectResponse(target, status_code=303)
+    secure = cookie_secure(settings, request.url.scheme)
+    response.set_cookie(
+        cookie_name(secure),
+        session_value(settings),
+        max_age=COOKIE_MAX_AGE,
+        httponly=True,
+        samesite="strict",
+        secure=secure,
+        path="/",
+    )
+    return response
+
+
+def _oidc(request: Request) -> Oidc:
+    found: Oidc | None = getattr(request.app.state, "oidc", None)
+    if found is None:
+        raise HTTPException(404, "Single sign-on is not configured")
+    return found
+
+
+@router.get("/login/sso", response_model=None, include_in_schema=False)
+async def sso_start(request: Request, next: str = "/") -> Response:
+    """Send the browser to the provider; the signed state of this sign-in stays in a short-lived cookie."""
+    oidc = _oidc(request)
+    settings = request.app.state.settings
+    target = safe_next(next)
+    base = settings.public_url.rstrip("/") or f"{request.url.scheme}://{request.url.netloc}"
+    try:
+        begun = await oidc.begin(f"{base}{CALLBACK_PATH}", target)
+    except SsoError as error:
+        return _signin_page(request, target, error.message, error.status)
+    response = RedirectResponse(begun.url, status_code=303)
+    response.set_cookie(
+        STATE_COOKIE,
+        begun.state_cookie,
+        max_age=STATE_MAX_AGE,
+        httponly=True,
+        samesite="lax",  # the provider sends the browser back from another site
+        secure=cookie_secure(settings, request.url.scheme),
+        path="/",
+    )
+    return response
+
+
+@router.get(CALLBACK_PATH, response_model=None, include_in_schema=False)
+async def sso_callback(request: Request) -> Response:
+    """Where the provider sends the browser back: check everything, then sign in or refuse."""
+    oidc = _oidc(request)
+    query = request.query_params
+    failed = query.get("error")
+    cookie = request.cookies.get(STATE_COOKIE)
+
+    def refuse(status: int, message: str) -> Response:
+        response = _signin_page(request, "/", message, status)
+        response.delete_cookie(STATE_COOKIE, path="/")
+        return response
+
+    if failed:  # the provider's own words are never shown: only its error code, when it is plain
+        code = failed if re.fullmatch(r"[a-z_]{1,40}", failed) else "error"
+        return refuse(401, f"The provider refused the sign-in ({code}).")
+    try:
+        who, target = await oidc.finish(cookie, query.get("state"), query.get("code"))
+    except SsoError as error:
+        return refuse(error.status, error.message)
+    if not oidc.allowed(who):
+        logger.warning("SSO: %s is not on the list of who may sign in", who.subject)
+        return refuse(403, "This account is not allowed to sign in here.")
+    response = _session_response(request, safe_next(target))
+    response.delete_cookie(STATE_COOKIE, path="/")
     return response
 
 

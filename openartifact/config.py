@@ -59,6 +59,25 @@ class Settings(BaseSettings):
     #: Whether the session cookie is ``Secure`` (and named ``__Host-oa_session``): ``auto`` follows the
     #: request scheme, ``true`` is right behind a TLS-terminating proxy.
     cookie_secure: Literal["auto", "true", "false"] = "auto"
+    #: Single sign-in through OpenID Connect (ADR-043), next to the API token: the address of the
+    #: provider (Authelia, Keycloak, ...; its ``/.well-known/openid-configuration`` is read), the client
+    #: the provider knows this application as, and the client secret. All three or none.
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    #: Who may come in, comma separated, each matched against the ID token (or userinfo): e-mail
+    #: addresses (verified ones only), user names (``preferred_username`` or ``sub``) and groups. One
+    #: match is enough; with none set SSO is refused at start, because everyone who is in may do everything.
+    oidc_allowed_emails: str = ""
+    oidc_allowed_users: str = ""
+    oidc_allowed_groups: str = ""
+    #: What the sign-in asks the provider for (``groups`` is what Authelia calls its groups claim).
+    oidc_scopes: str = "openid profile email groups"
+    #: The text of the button on the sign-in page.
+    oidc_button_label: str = "Sign in with SSO"
+    #: The public address of this application (``https://oa.example.org``) when the redirect address
+    #: cannot be taken from the request; empty: the request's own.
+    public_url: str = ""
     #: Largest request body in bytes; a larger one gets ``413``.
     max_request_bytes: int = Field(default=1024 * 1024, ge=1024, le=1024**3)
     #: Opt-out only: adds ``'unsafe-inline'`` to the script policy. The pages have no inline scripts, so
@@ -124,6 +143,24 @@ class Settings(BaseSettings):
         """The ``allowed_hosts`` setting as a list of lower-case patterns."""
         return [h.strip().lower() for h in self.allowed_hosts.split(",") if h.strip()]
 
+    @property
+    def oidc_enabled(self) -> bool:
+        """Whether SSO is configured (issuer, client id and secret)."""
+        return bool(self.oidc_issuer and self.oidc_client_id and self.oidc_client_secret)
+
+    @staticmethod
+    def _names(value: str) -> list[str]:
+        return [v.strip() for v in value.split(",") if v.strip()]
+
+    @property
+    def oidc_allowed(self) -> tuple[list[str], list[str], list[str]]:
+        """The lists of who may come in: lower-case e-mail addresses, user names, groups."""
+        return (
+            [e.lower() for e in self._names(self.oidc_allowed_emails)],
+            self._names(self.oidc_allowed_users),
+            self._names(self.oidc_allowed_groups),
+        )
+
     def security_problems(self) -> list[str]:
         """What makes the security settings unusable (the application refuses to start with these)."""
         problems: list[str] = []
@@ -143,6 +180,28 @@ class Settings(BaseSettings):
                     f"OPENARTIFACT_SECRET_KEY must have at least {MIN_SECRET_KEY_LENGTH} characters "
                     "when an API token is used (it signs the session cookie and encrypts stored "
                     'credentials; for example: python -c "import secrets; print(secrets.token_hex(32))")'
+                )
+        configured = {
+            "OPENARTIFACT_OIDC_ISSUER": self.oidc_issuer,
+            "OPENARTIFACT_OIDC_CLIENT_ID": self.oidc_client_id,
+            "OPENARTIFACT_OIDC_CLIENT_SECRET": self.oidc_client_secret,
+        }
+        if any(configured.values()):
+            problems.extend(
+                f"{name} is missing: single sign-on needs the issuer, the client id and the client secret"
+                for name, value in configured.items()
+                if not value
+            )
+            if not self.api_token:
+                problems.append(
+                    "OIDC single sign-on needs OPENARTIFACT_API_TOKEN: the token is what closes the "
+                    "application, the sign-in opens it again"
+                )
+            if not any(self.oidc_allowed):
+                problems.append(
+                    "OPENARTIFACT_OIDC_ALLOWED_EMAILS, OPENARTIFACT_OIDC_ALLOWED_USERS or "
+                    "OPENARTIFACT_OIDC_ALLOWED_GROUPS must name who may sign in with SSO "
+                    "(everyone who gets in may do everything)"
                 )
         return problems
 

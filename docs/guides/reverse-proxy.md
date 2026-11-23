@@ -95,3 +95,38 @@ protects and why anyone who may run a Code node effectively operates the server;
 instead of a proxy is covered in [Operate the Docker deployment](operations.md#reaching-a-loopback-only-instance-from-another-machine).
 The interactive API page `/api/docs` loads its scripts from `cdn.jsdelivr.net`: it stays empty on a host
 without internet access, the schema at `/openapi.json` does not need it.
+
+## Single sign-on with Authelia
+
+Besides the API token the sign-in page can offer a button for an OpenID Connect provider (ADR-043). With Authelia
+(4.39 or later) add a client to its configuration; the redirect address is the public address of the application plus
+`/login/sso/callback`:
+
+```yaml
+identity_providers:
+  oidc:
+    clients:
+      - client_id: openartifact
+        client_name: OpenArtifact
+        client_secret: '$pbkdf2-sha512$...'     # the hash of the secret below
+        public: false
+        authorization_policy: two_factor
+        redirect_uris:
+          - https://oa.example.com/login/sso/callback
+        scopes: [openid, profile, email, groups]
+        token_endpoint_auth_method: client_secret_basic
+```
+
+and in `deploy/.env`:
+
+```ini
+OPENARTIFACT_OIDC_ISSUER=https://auth.example.com
+OPENARTIFACT_OIDC_CLIENT_ID=openartifact
+OPENARTIFACT_OIDC_CLIENT_SECRET=<the plain secret>
+OPENARTIFACT_OIDC_ALLOWED_GROUPS=admins          # or ..._EMAILS / ..._USERS
+OPENARTIFACT_PUBLIC_URL=https://oa.example.com   # when the redirect address cannot be read from the request
+```
+
+The container must reach the issuer's address itself (the application calls the token and key endpoints from the
+server side). Authelia keeps the groups and the e-mail address in userinfo; the application reads them there when
+the ID token lacks them.

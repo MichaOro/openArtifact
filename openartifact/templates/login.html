@@ -16,6 +16,9 @@
                 <p class="field__error" id="signin-error" role="alert" {% if not error %}hidden{% endif %}>{{ error }}</p>
             </div>
             <button type="submit" class="button button--primary">Sign in</button>
+            {% if sso_label %}
+            <a class="button button--ghost" href="/login/sso?next={{ next | urlencode }}">{{ sso_label }}</a>
+            {% endif %}
         </form>
     </main>
 {% endblock %}
