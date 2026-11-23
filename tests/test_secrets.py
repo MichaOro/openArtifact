@@ -469,7 +469,9 @@ def test_migration_0022_goes_up_down_and_up(
             "INSERT INTO secrets (id, name, value, created_at, updated_at) "
             "VALUES ('1', 'A', x'00', '2026-01-01', '2026-01-01')"
         )
-        with pytest.raises(sqlite3.IntegrityError):  # the name is unique
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"UNIQUE constraint failed: secrets\.name"
+        ):  # the name is unique
             conn.execute(
                 "INSERT INTO secrets (id, name, value, created_at, updated_at) "
                 "VALUES ('2', 'A', x'00', '2026-01-01', '2026-01-01')"

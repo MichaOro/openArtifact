@@ -279,9 +279,9 @@ def test_the_database_refuses_an_artifact_in_a_missing_lane_and_a_deletion_under
     path = migrated_settings.data_dir / migrated_settings.database_filename
     with sqlite3.connect(path) as conn:
         conn.execute("PRAGMA foreign_keys=ON")
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(sqlite3.IntegrityError, match=r"FOREIGN KEY constraint failed"):
             conn.execute("DELETE FROM lanes WHERE key = 'review'")
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(sqlite3.IntegrityError, match=r"FOREIGN KEY constraint failed"):
             conn.execute("UPDATE tasks SET status = 'nowhere' WHERE id = ?", (task["id"],))
 
 
@@ -450,14 +450,22 @@ def test_migration_0030_up_down_up_with_data(at_revision: Callable[[str], Path])
         assert "lane_titles" not in _tables(db)
         conn.execute("INSERT INTO lanes (key, title, position) VALUES ('review', 'Review', 3)")
         conn.execute("UPDATE tasks SET status = 'review' WHERE id = 't0'")
-        with pytest.raises(sqlite3.IntegrityError):  # unique ignoring case
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"UNIQUE constraint failed: lanes\.title"
+        ):  # unique ignoring case
             conn.execute("INSERT INTO lanes (key, title, position) VALUES ('r2', 'REVIEW', 4)")
-        with pytest.raises(sqlite3.IntegrityError):  # the lane is in use
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"FOREIGN KEY constraint failed"
+        ):  # the lane is in use
             conn.execute("DELETE FROM lanes WHERE key = 'review'")
-        with pytest.raises(sqlite3.IntegrityError):  # no such lane
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"FOREIGN KEY constraint failed"
+        ):  # no such lane
             conn.execute("UPDATE tasks SET status = 'nowhere' WHERE id = 't1'")
         # the default of the old column is gone: a lane is always given
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"NOT NULL constraint failed: tasks\.status"
+        ):
             conn.execute("INSERT INTO tasks (id, title, number) VALUES ('t9', 'T9', 9)")
 
     command.downgrade(alembic_config(), "0029")
@@ -468,7 +476,9 @@ def test_migration_0030_up_down_up_with_data(at_revision: Callable[[str], Path])
         ]
         statuses = dict(conn.execute("SELECT id, status FROM tasks"))
         assert statuses == {"t0": "backlog", "t1": "in_progress", "t2": "done"}  # t0 left 'review'
-        with pytest.raises(sqlite3.IntegrityError):  # ck_tasks_status is back
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"CHECK constraint failed: ck_tasks_status"
+        ):  # ck_tasks_status is back
             conn.execute("UPDATE tasks SET status = 'review' WHERE id = 't1'")
 
     command.upgrade(alembic_config(), "0030")
@@ -494,9 +504,13 @@ def test_migration_0032_up_down_up_with_data(at_revision: Callable[[str], Path])
             ("review", "normal"),
         ]
         conn.execute("UPDATE lanes SET style = 'finished' WHERE key = 'done'")
-        with pytest.raises(sqlite3.IntegrityError):  # the safety net behind the service's check
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"CHECK constraint failed: ck_lanes_style"
+        ):  # the safety net behind the service's check
             conn.execute("UPDATE lanes SET style = 'shiny' WHERE key = 'done'")
-        with pytest.raises(sqlite3.IntegrityError):  # the default is not "no value"
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"NOT NULL constraint failed: lanes\.style"
+        ):  # the default is not "no value"
             conn.execute(
                 "INSERT INTO lanes (key, title, position, style) VALUES ('x', 'X', 9, NULL)"
             )

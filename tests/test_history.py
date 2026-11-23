@@ -744,13 +744,19 @@ def test_migration_0023_backfills_goes_down_and_up(
             "started_at, finished_at) VALUES ('new1', 'r1', 'x2', 1, 'n', 'code', 'pass', "
             "'2026-03-01', '2026-03-01')"
         )
-        with pytest.raises(sqlite3.IntegrityError):  # unique per execution
+        with pytest.raises(
+            sqlite3.IntegrityError,
+            match=r"UNIQUE constraint failed: run_node_results\.execution_id, run_node_results\.seq",
+        ):  # unique per execution
             conn.execute(
                 "INSERT INTO run_node_results (id, run_id, execution_id, seq, node_id, kind, "
                 "outcome, started_at, finished_at) VALUES ('dup', 'r1', 'x2', 1, 'n', 'code', "
                 "'pass', '2026-03-01', '2026-03-01')"
             )
-        with pytest.raises(sqlite3.IntegrityError):  # the number is unique per artifact
+        with pytest.raises(
+            sqlite3.IntegrityError,
+            match=r"UNIQUE constraint failed: executions\.task_id, executions\.number",
+        ):  # the number is unique per artifact
             conn.execute(
                 "INSERT INTO executions (id, task_id, number, status, started_by, created_at, "
                 "started_at) VALUES ('x3', 't1', 2, 'done', 'user', '2026-03-01', '2026-03-01')"
@@ -774,7 +780,10 @@ def test_migration_0023_backfills_goes_down_and_up(
             ("r1", "done"),
             ("r2", "running"),
         ]
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(
+            sqlite3.IntegrityError,
+            match=r"UNIQUE constraint failed: run_node_results\.run_id, run_node_results\.seq",
+        ):
             conn.execute(
                 "INSERT INTO run_node_results (id, run_id, seq, node_id, kind, outcome, "
                 "started_at, finished_at) VALUES ('d', 'r1', 1, 'n', 'code', 'pass', '2026', '2026')"
@@ -811,14 +820,21 @@ def test_migration_0024_allows_api_and_mcp_and_downgrades_to_system(
     cfg = alembic_config()
     command.upgrade(cfg, "0023")
     _seed_old_runs(path)
-    with sqlite3.connect(path) as conn, pytest.raises(sqlite3.IntegrityError):
+    with (
+        sqlite3.connect(path) as conn,
+        pytest.raises(
+            sqlite3.IntegrityError, match=r"CHECK constraint failed: ck_pipeline_runs_started_by"
+        ),
+    ):
         conn.execute("UPDATE pipeline_runs SET started_by = 'api'")  # before: only user and system
     command.upgrade(cfg, "head")
     with sqlite3.connect(path) as conn:
         conn.execute("UPDATE pipeline_runs SET started_by = 'api' WHERE task_id = 't1'")
         conn.execute("UPDATE pipeline_runs SET started_by = 'mcp' WHERE task_id = 't2'")
         conn.execute("UPDATE executions SET started_by = 'api' WHERE task_id = 't1'")
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"CHECK constraint failed: ck_pipeline_runs_started_by"
+        ):
             conn.execute("UPDATE pipeline_runs SET started_by = 'robot'")
     command.downgrade(cfg, "0023")
     with sqlite3.connect(path) as conn:

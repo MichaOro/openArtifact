@@ -518,9 +518,13 @@ def test_migration_0031_adds_types_and_goes_down_and_up_with_data(
         conn.execute(
             "UPDATE tasks SET type_id = 'k', parameters = '{\"urgency\": \"x\"}' WHERE number = 1"
         )
-        with pytest.raises(sqlite3.IntegrityError):  # a used type cannot go
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"FOREIGN KEY constraint failed"
+        ):  # a used type cannot go
             conn.execute("DELETE FROM artifact_types WHERE id = 'k'")
-        with pytest.raises(sqlite3.IntegrityError):  # names are unique ignoring case
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"UNIQUE constraint failed: artifact_types\.name"
+        ):  # names are unique ignoring case
             conn.execute(
                 "INSERT INTO artifact_types VALUES ('k2', 'TICKET', '2026-01-01', '2026-01-01')"
             )

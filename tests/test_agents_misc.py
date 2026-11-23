@@ -136,7 +136,7 @@ def test_migration_0033_adds_agents_and_the_downgrade_removes_them(
     insert = "INSERT INTO graph_nodes (id, graph_id, kind, name) VALUES (?, 'g', ?, ?)"
     with sqlite3.connect(db) as conn:
         conn.execute("INSERT INTO graphs (id, name, slug, kind) VALUES ('g', 'G', 'g', 'action')")
-        with pytest.raises(sqlite3.IntegrityError, match="ck_graph_nodes_kind"):
+        with pytest.raises(sqlite3.IntegrityError, match=r"ck_graph_nodes_kind"):
             conn.execute(insert, ("a", "agent", "Ask"))
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         assert not tables & {"agents", "agent_versions", "llm_providers", "llm_models"}
@@ -150,7 +150,9 @@ def test_migration_0033_adds_agents_and_the_downgrade_removes_them(
             "INSERT INTO agents (id, name, created_at, updated_at) VALUES ('x', 'Triage', ?, ?)",
             (now, now),
         )
-        with pytest.raises(sqlite3.IntegrityError):  # names are unique ignoring case
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"UNIQUE constraint failed: agents\.name"
+        ):  # names are unique ignoring case
             conn.execute(
                 "INSERT INTO agents (id, name, created_at, updated_at) VALUES ('y', 'TRIAGE', ?, ?)",
                 (now, now),
@@ -159,7 +161,10 @@ def test_migration_0033_adds_agents_and_the_downgrade_removes_them(
             "INSERT INTO agent_versions (id, agent_id, number, config, published_via, published_at) VALUES ('v', 'x', 1, '{}', 'user', ?)",
             (now,),
         )
-        with pytest.raises(sqlite3.IntegrityError):  # a number is used once per agent
+        with pytest.raises(
+            sqlite3.IntegrityError,
+            match=r"UNIQUE constraint failed: agent_versions\.agent_id, agent_versions\.number",
+        ):  # a number is used once per agent
             conn.execute(
                 "INSERT INTO agent_versions (id, agent_id, number, config, published_via, published_at) VALUES ('w', 'x', 1, '{}', 'user', ?)",
                 (now,),

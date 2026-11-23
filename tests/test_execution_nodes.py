@@ -815,7 +815,9 @@ def test_migration_0021_goes_up_down_and_up_with_the_data_kept(
         assert conn.execute("SELECT id, seconds FROM graph_nodes").fetchall() == [("n1", 7)]
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         assert "run_node_results" not in tables
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"CHECK constraint failed: ck_graph_nodes_kind"
+        ):
             conn.execute(
                 "INSERT INTO graph_nodes (id, graph_id, kind, name, x, y, created_at, updated_at) "
                 "VALUES ('n3', 'g1', 'code', 'C', 0, 0, '2026-01-01', '2026-01-01')"

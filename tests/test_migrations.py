@@ -114,11 +114,15 @@ def test_migration_0026_drops_and_restores_the_unused_tables(
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("INSERT INTO projects (id, name) VALUES ('p1', 'Demo')")
         conn.execute("INSERT INTO work_items (id, project_id, title) VALUES ('w1', 'p1', 'T')")
-        with pytest.raises(sqlite3.IntegrityError):  # ck_work_items_status
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"CHECK constraint failed: ck_work_items_status"
+        ):  # ck_work_items_status
             conn.execute(
                 "INSERT INTO work_items (id, project_id, title, status) VALUES ('w2','p1','T','DONE')"
             )
-        with pytest.raises(sqlite3.IntegrityError):  # fk_work_items_project_id
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"FOREIGN KEY constraint failed"
+        ):  # fk_work_items_project_id
             conn.execute("INSERT INTO work_items (id, project_id, title) VALUES ('w3','nope','T')")
         conn.execute("DELETE FROM projects WHERE id = 'p1'")  # cascades
         assert conn.execute("SELECT COUNT(*) FROM work_items").fetchone()[0] == 0
@@ -214,7 +218,7 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("INSERT INTO tasks (id, title, status) VALUES ('a', 'T', 'done')")
         with pytest.raises(
-            sqlite3.IntegrityError
+            sqlite3.IntegrityError, match=r"FOREIGN KEY constraint failed"
         ):  # the status must be a lane (foreign key since 0030)
             conn.execute("INSERT INTO tasks (id, title, status) VALUES ('b', 'T', 'BACKLOG')")
 
@@ -260,7 +264,9 @@ def test_migration_0005_adds_nullable_parent_id(at_revision: Callable[[str], Pat
     with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT parent_id FROM tasks WHERE id='old'").fetchone() == (None,)
         # the CHECK constraint on status survives the schema change
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"CHECK constraint failed: ck_tasks_status"
+        ):
             conn.execute("INSERT INTO tasks (id, title, status) VALUES ('bad', 'x', 'BACKLOG')")
     command.downgrade(alembic_config(), "0004")
     with sqlite3.connect(db) as conn:
@@ -305,7 +311,9 @@ def test_migration_0007_clears_dangling_parents_and_keeps_the_rest(
         assert rows == [("p", 1, None), ("c", 2, "p"), ("o", 3, None)]
         indexes = {r[1] for r in conn.execute("PRAGMA index_list(tasks)")}
         assert {"ux_tasks_number", "ix_tasks_parent_id"} <= indexes
-        with pytest.raises(sqlite3.IntegrityError):  # the status CHECK survived the rebuild
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"CHECK constraint failed: ck_tasks_status"
+        ):  # the status CHECK survived the rebuild
             conn.execute("INSERT INTO tasks (id, title, status) VALUES ('x', 'X', 'BACKLOG')")
     command.downgrade(alembic_config(), "0006")
     with sqlite3.connect(db) as conn:
@@ -619,7 +627,9 @@ def test_migration_0020_allows_only_pipeline_and_action_kinds(
     command.upgrade(alembic_config(), "0020")
     with sqlite3.connect(db) as conn:
         conn.execute("INSERT INTO graphs (id, name, kind, slug) VALUES ('a', 'A', 'pipeline', 'a')")
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"CHECK constraint failed: ck_graphs_kind"
+        ):
             conn.execute(
                 "INSERT INTO graphs (id, name, kind, slug) VALUES ('b', 'B', 'workflow', 'b')"
             )
@@ -663,13 +673,15 @@ def test_migration_0017_adds_pipeline_runs_with_their_constraints(
             "INSERT INTO run_stages (run_id, stage_id, name, position, status) "
             "VALUES ('r', 's1', 'Build', 0, 'pending')"
         )
-        with pytest.raises(sqlite3.IntegrityError, match="ck_pipeline_runs_status"):
+        with pytest.raises(sqlite3.IntegrityError, match=r"ck_pipeline_runs_status"):
             conn.execute(run + "VALUES ('x', 't', 'w', 'paused', 'user', '{}')")
-        with pytest.raises(sqlite3.IntegrityError, match="ck_pipeline_runs_started_by"):
+        with pytest.raises(sqlite3.IntegrityError, match=r"ck_pipeline_runs_started_by"):
             conn.execute(run + "VALUES ('x', 't', 'w', 'running', 'robot', '{}')")
-        with pytest.raises(sqlite3.IntegrityError):  # one run per artifact
+        with pytest.raises(
+            sqlite3.IntegrityError, match=r"UNIQUE constraint failed: pipeline_runs\.task_id"
+        ):  # one run per artifact
             conn.execute(run + "VALUES ('x', 't', 'w', 'done', 'user', '{}')")
-        with pytest.raises(sqlite3.IntegrityError, match="ck_run_stages_status"):
+        with pytest.raises(sqlite3.IntegrityError, match=r"ck_run_stages_status"):
             conn.execute(
                 "INSERT INTO run_stages (run_id, stage_id, name, position, status) "
                 "VALUES ('r', 's2', 'Test', 1, 'maybe')"
@@ -693,7 +705,7 @@ def test_migration_0018_allows_pipeline_nodes_and_downgrade_removes_them_with_th
     node = "INSERT INTO workflow_nodes (id, workflow_id, kind, name) VALUES (?, 'w', ?, ?)"
     with sqlite3.connect(db) as conn:
         conn.execute("INSERT INTO workflows (id, name, slug) VALUES ('w', 'W', 'w')")
-        with pytest.raises(sqlite3.IntegrityError, match="ck_workflow_nodes_kind"):
+        with pytest.raises(sqlite3.IntegrityError, match=r"ck_workflow_nodes_kind"):
             conn.execute(node, ("p", "pipeline", "P"))
     command.upgrade(alembic_config(), "0018")
     with sqlite3.connect(db) as conn:
@@ -717,7 +729,7 @@ def test_migration_0018_allows_pipeline_nodes_and_downgrade_removes_them_with_th
             ("t",),
         ]
         assert conn.execute("SELECT id FROM workflow_edges").fetchall() == [("e3",)]
-        with pytest.raises(sqlite3.IntegrityError, match="ck_workflow_nodes_kind"):
+        with pytest.raises(sqlite3.IntegrityError, match=r"ck_workflow_nodes_kind"):
             conn.execute(node, ("p2", "pipeline", "P"))
 
 
@@ -738,7 +750,7 @@ def test_migration_0019_adds_the_target_and_origin_columns_and_keeps_the_artifac
             "INSERT INTO tasks (id, title, number, pipeline_id, stage_id, action_id, created_by) "
             "VALUES ('new', 'New', 2, 'w', 's', 'a', 'mcp')"
         )
-        with pytest.raises(sqlite3.IntegrityError, match="ck_tasks_created_by"):
+        with pytest.raises(sqlite3.IntegrityError, match=r"ck_tasks_created_by"):
             conn.execute(
                 "INSERT INTO tasks (id, title, number, created_by) VALUES ('x', 'X', 3, 'bot')"
             )
