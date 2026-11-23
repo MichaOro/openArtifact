@@ -3,7 +3,7 @@ import { before, test } from "node:test";
 import { FakeNode, installDocument, loadTypes, textOf } from "./support.mjs";
 
 const JS = "../../openartifact/static/js/editor/";
-const { HEADER, SLOTS, slotY, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable } = await import(`${JS}node-types.js`);
+const { HEADER, SLOTS, slotY, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable, searchAddable } = await import(`${JS}node-types.js`);
 
 before(async () => {
   installDocument(["code", "http"]);
@@ -235,18 +235,19 @@ const KINDS = [
 ];
 
 test("the kinds of the add menu are grouped in a fixed order, and a kind nobody grouped is still offered", () => {
-  const groups = groupAddable(KINDS, "");
+  const groups = groupAddable(KINDS);
   assert.deepEqual(groups.map((g) => g.group), ["Structure", "AI", "Agent tools", "Apps and data", "Core", "Data", "Flow", "More"]);
   assert.deepEqual(groups.find((g) => g.group === "Flow").types.map((t) => t.kind), ["if", "timer"]);
   assert.deepEqual(groups.find((g) => g.group === "More").types.map((t) => t.kind), ["future_kind"]);
   assert.equal(groups.flatMap((g) => g.types).length, KINDS.length, "nothing is lost");
 });
 
-test("searching matches the name, the kind and the group, ignoring case, and drops empty groups", () => {
-  assert.deepEqual(groupAddable(KINDS, "git").flatMap((g) => g.types.map((t) => t.kind)), ["github"]);
-  assert.deepEqual(groupAddable(KINDS, "HTTP").flatMap((g) => g.types.map((t) => t.kind)), ["http"]);
-  assert.deepEqual(groupAddable(KINDS, "tool").map((g) => g.group), ["Agent tools"]); // the group name matches
-  assert.deepEqual(groupAddable(KINDS, "mcp").flatMap((g) => g.types.map((t) => t.kind)), ["mcp_tool"]); // so does the kind
-  assert.deepEqual(groupAddable(KINDS, "  FLOW "), groupAddable(KINDS, "flow"));
-  assert.deepEqual(groupAddable(KINDS, "zzz"), []);
+test("searching looks at the elements only, by name or kind, ignoring case, and says which cluster each is in", () => {
+  assert.deepEqual(searchAddable(KINDS, "git"), [{ kind: "github", label: "GitHub", group: "Apps and data" }]);
+  assert.deepEqual(searchAddable(KINDS, "HTTP").map((t) => t.kind), ["http"]);
+  assert.deepEqual(searchAddable(KINDS, "mcp").map((t) => t.kind), ["mcp_tool"]); // the kind matches too
+  assert.deepEqual(searchAddable(KINDS, "  CODE "), searchAddable(KINDS, "code"));
+  assert.deepEqual(searchAddable(KINDS, "flow"), [], "a cluster's name is no search term: the clusters only help to find your way");
+  assert.deepEqual(searchAddable(KINDS, "zzz"), []);
+  assert.deepEqual(searchAddable(KINDS, "").length, KINDS.length, "no search: everything, in the order of the clusters");
 });

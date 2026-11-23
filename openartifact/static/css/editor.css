@@ -72,13 +72,26 @@
 .ge-add__menu[hidden] { display: none; }
 .ge-add__items { display: flex; flex-direction: column; max-height: min(26rem, 60vh); overflow-y: auto; }
 .ge-add__group {
-  margin: var(--space-2) var(--space-3) 0;
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
 }
-.ge-add__items > .ge-add__group:first-child { margin-top: var(--space-1); }
+.ge-add__group:hover,
+.ge-add__group:focus-visible { background: var(--accent-soft); outline: none; }
+.ge-add__group .icon { width: 0.9rem; height: 0.9rem; flex: none; transition: transform var(--transition-fast); }
+.ge-add__group[aria-expanded="false"] .icon { transform: rotate(-90deg); }
+.ge-add__count { margin-left: auto; font-weight: 400; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.ge-add__group[aria-expanded="true"] ~ .ge-add__item { padding-left: var(--space-5); }
 .ge-add__empty { margin: var(--space-2) var(--space-3); font-size: 0.8125rem; color: var(--color-text-muted); }
 .ge-add__item {
   padding: var(--space-2) var(--space-3);
@@ -90,6 +103,8 @@
   text-align: left;
   cursor: pointer;
 }
+.ge-add__item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.ge-add__tag { font-size: 0.6875rem; color: var(--color-text-muted); white-space: nowrap; }
 .ge-add__item:hover,
 .ge-add__item:focus-visible { background: var(--accent-soft); outline: none; }
 .ge-viewport {
@@ -324,7 +339,7 @@
 }
 
 /* three equal buttons across the full width: New flush left with the select above, Delete flush right */
-.ge-actionbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-2); }
+.ge-actionbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
 .ge-actionbar .button { width: 100%; justify-content: center; gap: var(--space-1); padding: 0 var(--space-2); }
 .ge-actionbar .icon { width: 1rem; height: 1rem; }
 .ge-actionbar a.button[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }

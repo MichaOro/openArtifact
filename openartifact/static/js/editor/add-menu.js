@@ -1,6 +1,9 @@
-/* The "+" menu on the canvas: a search field and every kind that can be added here, in clusters (AI, Agent tools,
- * Core, Flow, ...). Typing narrows the list; Arrow keys move, Enter adds the first match, Escape closes. */
-import { addableIn, groupAddable } from "./node-types.js";
+/* The "+" menu on the canvas: a search field and the kinds that can be added here. Without a search the kinds are in
+ * clusters (AI, Agent tools, Core, Flow, ...) that open one at a time, which only help to find your way; typing searches
+ * the kinds themselves (name or kind), as one list that says each one's cluster. Arrow keys move, Enter adds the first
+ * match, Escape closes. */
+import { icon } from "../components/icons.js";
+import { addableIn, groupAddable, searchAddable } from "./node-types.js";
 
 export class AddMenu {
   /**
@@ -12,20 +15,28 @@ export class AddMenu {
     this.toggle = root.querySelector("[data-add-menu]");
     this.list = root.querySelector("[data-add-list]");
     this.types = addableIn(scope);
+    this.open = null; // the cluster that is open
     this.search = Object.assign(document.createElement("input"), { type: "search", className: "field__control ge-add__search", placeholder: "Search nodes…", autocomplete: "off", spellcheck: false });
     this.search.setAttribute("aria-label", "Search nodes");
     this.items = document.createElement("div");
     this.items.className = "ge-add__items";
     this.empty = Object.assign(document.createElement("p"), { className: "ge-add__empty", textContent: "No node matches.", hidden: true });
     this.list.append(this.search, this.items, this.empty);
-    this.#fill("");
+    this.#fill();
 
-    this.search.addEventListener("input", () => this.#fill(this.search.value));
+    this.search.addEventListener("input", () => this.#fill());
     this.toggle.addEventListener("click", () => {
       this.#setOpen(this.list.hidden);
       if (!this.list.hidden) this.search.focus();
     });
     this.list.addEventListener("click", (event) => {
+      const group = event.target.closest("[data-group]");
+      if (group) {
+        this.open = this.open === group.dataset.group ? null : group.dataset.group;
+        this.#fill();
+        this.items.querySelector(`[data-group="${group.dataset.group}"]`)?.focus();
+        return;
+      }
       const item = event.target.closest("[data-add]");
       if (!item) return;
       this.#setOpen(false);
@@ -44,26 +55,41 @@ export class AddMenu {
   }
 
   #buttons() {
-    return [...this.items.querySelectorAll("[data-add]")];
+    return [...this.items.querySelectorAll("button")];
   }
 
-  /** Draw the clusters that match `query`. */
-  #fill(query) {
-    const groups = groupAddable(this.types, query);
+  #item(type, group = null) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ge-add__item";
+    item.dataset.add = type.kind;
+    item.append(Object.assign(document.createElement("span"), { textContent: type.label }));
+    if (group) item.append(Object.assign(document.createElement("span"), { className: "ge-add__tag", textContent: group }));
+    return item;
+  }
+
+  /** Draw what the search says: the clusters (one open), or the matching kinds as one list. */
+  #fill() {
+    const query = this.search.value.trim();
+    if (query) {
+      const found = searchAddable(this.types, query);
+      this.items.replaceChildren(...found.map((t) => this.#item(t, t.group)));
+      this.empty.hidden = found.length > 0;
+      return;
+    }
+    this.empty.hidden = true;
     this.items.replaceChildren(
-      ...groups.flatMap(({ group, types }) => [
-        Object.assign(document.createElement("p"), { className: "ge-add__group", textContent: group }),
-        ...types.map((type) => {
-          const item = document.createElement("button");
-          item.type = "button";
-          item.className = "ge-add__item";
-          item.dataset.add = type.kind;
-          item.textContent = type.label;
-          return item;
-        }),
-      ]),
+      ...groupAddable(this.types).flatMap(({ group, types }) => {
+        const open = this.open === group;
+        const head = document.createElement("button");
+        head.type = "button";
+        head.className = "ge-add__group";
+        head.dataset.group = group;
+        head.setAttribute("aria-expanded", String(open));
+        head.append(icon("chevron-down"), Object.assign(document.createElement("span"), { textContent: group }), Object.assign(document.createElement("span"), { className: "ge-add__count", textContent: String(types.length) }));
+        return [head, ...(open ? types.map((t) => this.#item(t)) : [])];
+      }),
     );
-    this.empty.hidden = groups.length > 0;
   }
 
   #key(event) {
@@ -77,7 +103,7 @@ export class AddMenu {
       else buttons[Math.min(next, buttons.length - 1)].focus();
     } else if (event.key === "Enter" && event.target === this.search) {
       event.preventDefault();
-      buttons[0]?.click();
+      this.items.querySelector("[data-add]")?.click();
     }
   }
 
@@ -86,7 +112,8 @@ export class AddMenu {
     this.toggle.setAttribute("aria-expanded", String(open));
     if (open) {
       this.search.value = "";
-      this.#fill("");
+      this.open = null;
+      this.#fill();
     }
   }
 }

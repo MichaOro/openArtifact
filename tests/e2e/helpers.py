@@ -413,3 +413,22 @@ def run_started(
     Board._eventually(
         lambda: all(e["status"] != "running" for e in executions(client, task)), True, 20
     )
+
+
+def pick_node(page: Page, kind: str) -> None:
+    """Add a node from the open add menu by searching for its kind (the clusters are closed until opened)."""
+    page.fill(".ge-add__search", kind)
+    page.click(f"[data-add={kind}]")
+
+
+def menu_kinds(page: Page) -> dict[str, list[str]]:
+    """The open add menu: each cluster with the names of its kinds (opens the clusters one after the other)."""
+    kinds: dict[str, list[str]] = {}
+    for group in page.locator("[data-add-list] [data-group]").all():
+        name = group.get_attribute("data-group") or ""
+        group.click()
+        kinds[name] = [
+            t.split("\n")[0]
+            for t in page.locator("[data-add-list] [data-add] span:first-child").all_inner_texts()
+        ]
+    return kinds

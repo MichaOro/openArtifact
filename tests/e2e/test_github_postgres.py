@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 from playwright.sync_api import Page, expect
 
-from tests.e2e.helpers import eventually
+from tests.e2e.helpers import eventually, pick_node
 from tests.e2e.test_agent_tools import _edges
 from tests.e2e.test_agents import agents_url, api, llm, signed_in
 from tests.helpers import graph_url
@@ -34,7 +34,7 @@ def test_a_github_node_is_set_in_the_inspector_and_says_when_its_comment_is_off(
     action = _open(signed_in, agents_url, api, "Comment on GitHub")
     page = signed_in
     page.click("[data-add-menu]")
-    page.click("[data-add=github]")
+    pick_node(page, "github")
     card = page.locator(".ge-node--github")
     expect(card.locator(".ge-node__kind")).to_have_text("Get repository · no repository yet")
     card.dblclick(position={"x": 30, "y": 5})
@@ -61,7 +61,7 @@ def test_a_postgres_node_shows_its_query_and_when_it_may_change_data(
     action = _open(signed_in, agents_url, api, "Read tickets")
     page = signed_in
     page.click("[data-add-menu]")
-    page.click("[data-add=postgres]")
+    pick_node(page, "postgres")
     card = page.locator(".ge-node--postgres")
     expect(card.locator(".ge-node__kind")).to_have_text("no query yet")
     card.dblclick(position={"x": 30, "y": 5})
@@ -90,10 +90,10 @@ def test_a_postgres_tool_is_attached_below_the_selected_agent(
     action = _open(signed_in, agents_url, api, "Ask the database")
     page = signed_in
     page.click("[data-add-menu]")
-    page.click("[data-add=agent]")
+    pick_node(page, "agent")
     expect(page.locator(".ge-node--agent")).to_be_visible()
     page.click("[data-add-menu]")
-    page.click("[data-add=postgres_tool]")
+    pick_node(page, "postgres_tool")
     card = page.locator(".ge-node--postgres_tool")
     expect(card.locator(".ge-node__kind")).to_have_text("Postgres Tool · no query yet")
     eventually(lambda: ("postgres_tool", "tool", "agent", "tools") in _edges(api, action), True)

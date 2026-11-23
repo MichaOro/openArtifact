@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, Route, expect
 
-from tests.e2e.helpers import centre, drag, eventually
+from tests.e2e.helpers import centre, drag, eventually, menu_kinds, pick_node
 from tests.helpers import graph_url
 
 
@@ -30,7 +30,7 @@ def _expect_edges(
 
 def _add_stage(page: Page) -> None:
     page.click("[data-add-menu]")
-    page.click("[data-add=stage]")
+    pick_node(page, "stage")
 
 
 def _edges(api: httpx.Client, pipeline: dict[str, Any]) -> list[tuple[str, str]]:
@@ -467,23 +467,14 @@ def test_create_an_action_definition_from_the_navigation(
     expect(page.locator(".ge-node--trigger")).to_have_count(1)
     expect(page.locator(".ge-node--output")).to_have_count(1)
     page.click("[data-add-menu]")
-    expect(page.locator("[data-add-list] [data-add]")).to_have_text(
-        [
-            "Agent",
-            "MCP Client Tool",
-            "HTTP Request Tool",
-            "Code Tool",
-            "Postgres Tool",
-            "GitHub",
-            "Postgres",
-            "Code",
-            "HTTP request",
-            "Edit Fields",
-            "If",
-            "Switch",
-            "Timer",
-        ]
-    )
+    assert menu_kinds(page) == {
+        "AI": ["Agent"],
+        "Agent tools": ["MCP Client Tool", "HTTP Request Tool", "Code Tool", "Postgres Tool"],
+        "Apps and data": ["GitHub", "Postgres"],
+        "Core": ["Code", "HTTP request"],
+        "Data": ["Edit Fields"],
+        "Flow": ["If", "Switch", "Timer"],
+    }
 
 
 def test_on_pass_is_always_there_and_on_fail_is_switched_on_and_off(
@@ -544,7 +535,7 @@ def test_the_add_menu_offers_stages_and_trigger_and_complete_stay(
     menu = page.locator("[data-add-list]")
     expect(menu).to_be_hidden()
     page.click("[data-add-menu]")
-    expect(menu.locator("[data-add]")).to_have_text(["Stage", "Pipeline"])
+    assert menu_kinds(page) == {"Structure": ["Stage", "Pipeline"]}
     page.keyboard.press("Escape")
     expect(menu).to_be_hidden()
     for kind in ("trigger", "complete"):
@@ -590,14 +581,8 @@ def test_a_double_click_on_an_action_opens_its_settings_and_edit_there_opens_its
     shell.locator(".ge-node__name").dblclick()
     expect(page.locator("#node-modal")).to_be_visible()
     expect(page).to_have_url(f"{base_url}/pipelines/flow")  # the double click stays on this page
-    expect(page.locator(".ge-actionbar .button")).to_have_text(
-        ["New", "Delete"]
-    )  # no Edit here: Edit is the dialog itself
-    page.keyboard.press("Escape")
-    shell.hover(position={"x": 30, "y": 5})
-    shell.get_by_role("button", name="More actions").click()
-    expect(page.get_by_role("menu").get_by_role("menuitem", name="Open action")).to_have_count(
-        0
+    expect(page.locator(".ge-actionbar a")).to_have_attribute(
+        "aria-disabled", "true"
     )  # nothing to open yet
     page.keyboard.press("Escape")
     definition = _definition(api, "Gap analysis")
@@ -608,12 +593,8 @@ def test_a_double_click_on_an_action_opens_its_settings_and_edit_there_opens_its
                 json={"definition_id": definition["id"]},
             )
     page.reload()
-    first = page.locator(".ge-node--action").first
-    first.hover(position={"x": 30, "y": 5})
-    first.get_by_role("button", name="More actions").click()
-    page.get_by_role(
-        "menuitem", name="Open action"
-    ).click()  # the way to the definition is in the menu
+    page.locator(".ge-node--action").first.locator(".ge-node__name").dblclick()
+    page.locator(".ge-actionbar a", has_text="Edit").click()
     expect(page).to_have_url(re.compile(r"/actions/gap-analysis\?from=flow&"))
     expect(page.locator("[data-back]")).to_have_text("Back to Flow")
 
@@ -641,7 +622,10 @@ def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
     shell.locator(".ge-node__name").dblclick()
     expect(page.locator(".ge-inspector h2")).to_have_text("Action")
     expect(page.locator(".ge-inspector h3", has_text="Routing")).to_have_count(0)
-    expect(page.locator(".ge-actionbar .button")).to_have_text(["New", "Delete"])
+    expect(page.locator(".ge-actionbar .button")).to_have_text(["New", "Edit", "Delete"])
+    expect(page.locator(".ge-actionbar a")).to_have_attribute(
+        "aria-disabled", "true"
+    )  # nothing yet
     page.click(".ge-actionbar >> text=New")
     expect(page.locator("#new-modal")).to_be_visible()
     page.click("#new-modal [data-submit]")
@@ -766,7 +750,7 @@ def test_a_timer_goes_between_trigger_and_output_and_waits_for_its_seconds(
     definition = api.post("/api/actions", json={"name": "Wait"}).json()
     page.goto(f"{base_url}/actions/{definition['slug']}")
     page.click("[data-add-menu]")
-    page.click("[data-add=timer]")
+    pick_node(page, "timer")
     timer = page.locator(".ge-node--timer")
     expect(timer).to_have_count(1)
     expect(timer.locator(".ge-node__kind")).to_have_text("5 s")

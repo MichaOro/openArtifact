@@ -528,21 +528,26 @@ const ADD_GROUPS = [
 ];
 
 /**
- * The kinds of the add menu in their clusters; `query` narrows them to those whose name, kind or cluster contains it
- * (ignoring case); clusters left empty are dropped.
+ * The kinds of the add menu in their clusters, in order; clusters without a kind are left out.
  * @param {{kind: string, label: string}[]} types
  * @returns {{group: string, types: {kind: string, label: string}[]}[]}
  */
-export function groupAddable(types, query = "") {
-  const wanted = query.trim().toLowerCase();
+export function groupAddable(types) {
   const listed = new Set(ADD_GROUPS.flatMap(([, kinds]) => kinds));
   const clusters = [...ADD_GROUPS, ["More", types.filter((t) => !listed.has(t.kind)).map((t) => t.kind)]];
   return clusters
-    .map(([group, kinds]) => ({
-      group,
-      types: kinds
-        .map((kind) => types.find((t) => t.kind === kind))
-        .filter((t) => t && (!wanted || [t.label, t.kind, group].some((text) => text.toLowerCase().includes(wanted)))),
-    }))
+    .map(([group, kinds]) => ({ group, types: kinds.map((kind) => types.find((t) => t.kind === kind)).filter(Boolean) }))
     .filter((cluster) => cluster.types.length);
+}
+
+/**
+ * The search of the add menu: the kinds whose name or kind contains the text (ignoring case), each with the cluster it
+ * is in, in the order of the clusters. A cluster's name is not a search term: the clusters only help to find your way.
+ * @returns {{kind: string, label: string, group: string}[]}
+ */
+export function searchAddable(types, query) {
+  const wanted = query.trim().toLowerCase();
+  return groupAddable(types)
+    .flatMap(({ group, types: inGroup }) => inGroup.map((t) => ({ kind: t.kind, label: t.label, group })))
+    .filter((t) => !wanted || t.label.toLowerCase().includes(wanted) || t.kind.toLowerCase().includes(wanted));
 }

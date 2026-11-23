@@ -12,7 +12,7 @@ from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.conftest import SECURED_TOKEN
 from tests.e2e.helpers import drag as _drag
-from tests.e2e.helpers import eventually, execution_of, flow_url, run_started
+from tests.e2e.helpers import eventually, execution_of, flow_url, menu_kinds, pick_node, run_started
 from tests.helpers import build_definition, build_pipeline, connect, graph_url, kind_of, link, node
 
 _PASSED = re.compile(r"\bef-state-pass\b")
@@ -30,7 +30,7 @@ def _open_action(
 
 def _add(page: Page, kind: str) -> Locator:
     page.click("[data-add-menu]")
-    page.click(f"[data-add={kind}]")
+    pick_node(page, kind)
     added = page.locator(f".ge-node--{kind}")
     expect(added).to_have_count(1)
     added.dblclick(position={"x": 30, "y": 5})  # the settings open in an overlay
@@ -56,23 +56,14 @@ def test_the_menu_offers_if_and_switch_after_http(
 ) -> None:
     _open_action(page, base_url, api)
     page.click("[data-add-menu]")
-    expect(page.locator("[data-add-list] button")).to_have_text(
-        [
-            "Agent",
-            "MCP Client Tool",
-            "HTTP Request Tool",
-            "Code Tool",
-            "Postgres Tool",
-            "GitHub",
-            "Postgres",
-            "Code",
-            "HTTP request",
-            "Edit Fields",
-            "If",
-            "Switch",
-            "Timer",
-        ]
-    )
+    assert menu_kinds(page) == {
+        "AI": ["Agent"],
+        "Agent tools": ["MCP Client Tool", "HTTP Request Tool", "Code Tool", "Postgres Tool"],
+        "Apps and data": ["GitHub", "Postgres"],
+        "Core": ["Code", "HTTP request"],
+        "Data": ["Edit Fields"],
+        "Flow": ["If", "Switch", "Timer"],
+    }
 
 
 def test_an_if_node_is_configured_and_its_outputs_connect(

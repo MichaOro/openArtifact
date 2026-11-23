@@ -8,7 +8,7 @@ import httpx
 from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.helpers import drag as _drag
-from tests.e2e.helpers import eventually
+from tests.e2e.helpers import eventually, pick_node
 from tests.helpers import graph_url
 
 
@@ -21,7 +21,7 @@ def _open_action(page: Page, base_url: str, api: httpx.Client) -> dict[str, Any]
 
 def _add(page: Page, kind: str, settings: bool = True) -> Locator:
     page.click("[data-add-menu]")
-    page.click(f"[data-add={kind}]")
+    pick_node(page, kind)
     node = page.locator(f".ge-node--{kind}")
     expect(node).to_have_count(1)
     if settings:

@@ -121,9 +121,13 @@ export class InspectorBlocks {
     return section(title, field(label, select));
   }
 
-  /** New / Delete for a node that links to something: create one, remove the node. (Opening what it links to is in the node's menu.) */
-  linkActions() {
-    return { create: (node) => this.editor.askNew(node), remove: true };
+  /** New / Edit / Delete for a node that links to something: create one, open it, remove the node. */
+  linkActions(node) {
+    return {
+      create: () => this.editor.askNew(node),
+      edit: node.definition_id ? this.editor.linkUrl(node) : null,
+      remove: true,
+    };
   }
 
   addAction(stage) {
@@ -131,31 +135,31 @@ export class InspectorBlocks {
   }
 
   /**
-   * The action row of the settings: New (what the node links to or holds) and Delete; only what applies to the node is there.
-   * @param {{create?: Function, remove?: boolean}} actions
+   * The action row, always New · Edit · Delete in this order; what does not apply is greyed out.
+   * @param {{create?: Function, edit?: string|null, remove?: boolean}} actions
    */
-  actions(node, { create = null, remove = false } = {}) {
-    if (!create && !remove) return null;
+  actions(node, { create = null, edit = null, remove = false } = {}) {
+    if (!create && !edit && !remove) return null;
     const bar = document.createElement("div");
     bar.className = "ge-actionbar";
-    const make = (glyph, text, className = "") => {
-      const el = document.createElement("button");
-      el.type = "button";
+    const make = (tag, glyph, text, className = "") => {
+      const el = document.createElement(tag);
       el.dataset.focusKey = text.toLowerCase();
       el.className = `button button--ghost button--sm ${className}`.trim();
+      if (tag === "button") el.type = "button";
       el.append(icon(glyph), document.createTextNode(text));
       return el;
     };
-    if (create) {
-      const newButton = make("plus", "New");
-      newButton.addEventListener("click", () => create(node));
-      bar.append(newButton);
-    }
-    if (remove) {
-      const removeButton = make("trash", "Delete", "is-danger ge-delete");
-      removeButton.addEventListener("click", () => this.editor.remove(node));
-      bar.append(removeButton);
-    }
+    const newButton = make("button", "plus", "New");
+    if (create) newButton.addEventListener("click", create);
+    else newButton.disabled = true;
+    const editLink = make("a", "pencil", "Edit");
+    if (edit) editLink.href = edit;
+    else editLink.setAttribute("aria-disabled", "true");
+    const removeButton = make("button", "trash", "Delete", "is-danger ge-delete");
+    if (remove) removeButton.addEventListener("click", () => this.editor.remove(node));
+    else removeButton.disabled = true;
+    bar.append(newButton, editLink, removeButton);
     return bar;
   }
 }

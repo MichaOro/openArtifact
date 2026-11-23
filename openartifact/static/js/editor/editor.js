@@ -358,8 +358,7 @@ export class GraphEditor {
   }
 
   #nodeAction(action, node, button) {
-    if (action === "edit") this.#openSettings(node);
-    else if (action === "delete") this.#deleteTargets(this.#targets(node));
+    if (action === "delete") this.#deleteTargets(this.#targets(node));
     else this.#openNodeMenu(node, null, button);
   }
 
@@ -375,9 +374,6 @@ export class GraphEditor {
     const items = [
       { label: "Edit", icon: "pencil", shortcut: "Enter", disabledReason: several ? "Select one node to edit it" : undefined, onSelect: () => this.#openSettings(node) },
       { label: "Rename", icon: "tag", shortcut: "F2", disabledReason: renameReason, onSelect: () => this.#askRename(node) },
-      ...(typeOf(node).links_to && node.definition_id && !several
-        ? [{ label: `Open ${typeOf(node).links_to}`, icon: typeOf(node).links_to === "action" ? "action" : "pipeline", onSelect: () => window.location.assign(this.#linkUrl(node, node.definition_slug)) }]
-        : []),
       { label: "Copy", icon: "copy", shortcut: "Ctrl+C", disabledReason: copyable ? undefined : reasonFixed, onSelect: () => this.#copy(targets) },
       { label: "Cut", icon: "copy", shortcut: "Ctrl+X", disabledReason: copyable && !fixed ? undefined : reasonFixed, onSelect: () => this.#cut(targets) },
       { label: "Duplicate", icon: "layers", shortcut: "Ctrl+D", disabledReason: copyable ? undefined : reasonFixed, onSelect: () => this.#duplicate(targets) },

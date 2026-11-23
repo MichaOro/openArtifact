@@ -12,7 +12,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from tests.agent_support import FakeLlm, completion
-from tests.e2e.helpers import drag, eventually
+from tests.e2e.helpers import drag, eventually, pick_node
 from tests.e2e.test_agents import _agent, _provider, agents_url, api, llm, signed_in
 from tests.helpers import build_pipeline, connect, graph_url, kind_of, node, wait_until
 from tests.mcp_support import TOKEN as MCP_TOKEN
@@ -44,12 +44,12 @@ def test_a_tool_is_added_below_its_agent_and_another_is_attached_by_dragging(
     page.goto(f"{agents_url}/actions/{action['slug']}")
     expect(page.locator(".ge-node--output")).to_be_visible()
     page.click("[data-add-menu]")
-    page.click("[data-add=agent]")
+    pick_node(page, "agent")
     agent_card = page.locator(".ge-node--agent")
     expect(agent_card).to_be_visible()
 
     page.click("[data-add-menu]")
-    page.click("[data-add=mcp_tool]")  # the agent is selected: the tool hangs below it, attached
+    pick_node(page, "mcp_tool")  # the agent is selected: the tool hangs below it, attached
     tool_card = page.locator(".ge-node--mcp_tool")
     expect(tool_card.locator(".ge-node__kind")).to_have_text("no endpoint yet")
     eventually(lambda: ("mcp_tool", "tool", "agent", "tools") in _edges(api, action), True)
@@ -69,7 +69,7 @@ def test_a_tool_is_added_below_its_agent_and_another_is_attached_by_dragging(
     # a tool added with nothing selected, then detached and attached again by dragging its port
     page.locator(".ge-viewport").click(position={"x": 5, "y": 5})
     page.click("[data-add-menu]")
-    page.click("[data-add=http_tool]")
+    pick_node(page, "http_tool")
     eventually(lambda: ("http_tool", "tool", "agent", "tools") in _edges(api, action), True)
     graph = api.get(graph_url(action)).json()
     http_id = next(n["id"] for n in graph["nodes"] if n["kind"] == "http_tool")

@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e.helpers import eventually
+from tests.e2e.helpers import eventually, pick_node
 from tests.helpers import graph_url
 
 
@@ -20,7 +20,7 @@ def _action_with_two_code_nodes(page: Page, base_url: str, api: httpx.Client) ->
     expect(page.locator(".ge-node--output")).to_be_visible()
     for _ in range(2):
         page.click("[data-add-menu]")
-        page.click("[data-add=code]")
+        pick_node(page, "code")
     expect(page.locator(".ge-node--code")).to_have_count(2)
     page.click("[data-zoom-fit]")
     return definition
@@ -143,7 +143,7 @@ def test_a_double_click_opens_the_settings_in_an_overlay_and_there_is_no_side_pa
     expect(dialog).not_to_be_visible()
 
 
-def test_the_add_menu_is_clustered_and_a_search_narrows_it(
+def test_the_add_menu_has_closed_clusters_to_find_your_way_and_a_search_over_the_nodes(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     definition: dict[str, Any] = api.post("/api/actions", json={"name": "Menu"}).json()
@@ -151,28 +151,40 @@ def test_the_add_menu_is_clustered_and_a_search_narrows_it(
     page.click("[data-add-menu]")
     menu = page.locator("[data-add-list]")
     expect(page.locator(".ge-add__search")).to_be_focused()  # type straight away
-    expect(menu.locator(".ge-add__group")).to_have_text(
-        ["AI", "Agent tools", "Apps and data", "Core", "Data", "Flow"]
+    groups = menu.locator(".ge-add__group")
+    expect(groups).to_have_text(
+        ["AI1", "Agent tools4", "Apps and data2", "Core2", "Data1", "Flow3"]
     )
-    page.keyboard.type("git")
-    expect(menu.locator("[data-add]")).to_have_text(["GitHub"])
-    expect(menu.locator(".ge-add__group")).to_have_text(
-        ["Apps and data"]
-    )  # empty clusters are gone
-    page.keyboard.press("Control+A")
-    page.keyboard.type("tool")  # the cluster's name matches too
+    expect(menu.locator("[data-add]")).to_have_count(0)  # closed: the list stays short
+
+    groups.nth(1).click()  # a cluster opens...
+    expect(groups.nth(1)).to_have_attribute("aria-expanded", "true")
     expect(menu.locator("[data-add]")).to_have_count(4)
-    page.keyboard.press("Control+A")
-    page.keyboard.type("nothing like this")
+    groups.nth(5).click()  # ...and the one before closes: one at a time
+    expect(groups.nth(1)).to_have_attribute("aria-expanded", "false")
+    expect(menu.locator("[data-add]")).to_have_text(["If", "Switch", "Timer"])
+    groups.nth(5).click()
+    expect(menu.locator("[data-add]")).to_have_count(0)
+
+    page.locator(".ge-add__search").fill(
+        "git"
+    )  # the search looks at the nodes, as one list with their cluster
+    expect(menu.locator("[data-add]")).to_have_text(["GitHubApps and data"])
+    expect(groups).to_have_count(0)
+    page.locator(".ge-add__search").fill("tool")
+    expect(menu.locator("[data-add]")).to_have_count(4)  # by their names
+    page.locator(".ge-add__search").fill("flow")  # a cluster's name is no search term
     expect(menu.locator(".ge-add__empty")).to_be_visible()
-    page.keyboard.press("Control+A")
-    page.keyboard.type("timer")
+    page.locator(".ge-add__search").fill("nothing like this")
+    expect(menu.locator(".ge-add__empty")).to_be_visible()
+    page.locator(".ge-add__search").fill("timer")
     page.keyboard.press("Enter")  # adds the first match
     expect(page.locator(".ge-node--timer")).to_have_count(1)
     expect(menu).to_be_hidden()
-    page.click("[data-add-menu]")  # opened again: a clean list
+    page.click("[data-add-menu]")  # opened again: a clean list, every cluster closed
     expect(page.locator(".ge-add__search")).to_have_value("")
-    expect(menu.locator("[data-add]")).to_have_count(13)
+    expect(groups).to_have_count(6)
+    expect(menu.locator("[data-add]")).to_have_count(0)
 
 
 # ── the bar under a node, its menu and the keys ───────────────────────
@@ -195,16 +207,16 @@ def test_the_bar_under_a_node_edits_deletes_and_opens_the_menu(
     box, bar_box = node.bounding_box(), bar.bounding_box()
     assert box and bar_box and bar_box["y"] >= box["y"] + box["height"] - 1  # below the node
 
-    node.get_by_role("button", name="Edit").click()  # the same as a double click
-    expect(page.locator("#node-modal")).to_be_visible()
-    page.keyboard.press("Escape")
-
-    node.hover(position={"x": 30, "y": 5})
+    expect(node.get_by_role("button", name="Edit")).to_have_count(
+        0
+    )  # Edit is a double click, or in the menu
     node.get_by_role("button", name="More actions").click()
     menu = page.get_by_role("menu")
     expect(menu.get_by_role("menuitem")).to_have_text(
         ["EditEnter", "RenameF2", "CopyCtrl+C", "CutCtrl+X", "DuplicateCtrl+D", "DeleteDel"]
     )
+    menu.get_by_role("menuitem", name="Edit").click()  # the same as a double click
+    expect(page.locator("#node-modal")).to_be_visible()
     page.keyboard.press("Escape")
 
     node.hover(position={"x": 30, "y": 5})

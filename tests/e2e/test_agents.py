@@ -14,7 +14,7 @@ from playwright.sync_api import Locator, Page, expect
 
 from tests.agent_support import API_KEY, HEADERS, TOKEN, FakeLlm, completion, fake_llm
 from tests.e2e.conftest import _serve
-from tests.e2e.helpers import eventually
+from tests.e2e.helpers import eventually, pick_node
 from tests.helpers import build_pipeline, connect, graph_url, kind_of, node, wait_until
 
 
@@ -290,7 +290,7 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
     page.goto(f"{agents_url}/actions/{action['slug']}")
     expect(page.locator(".ge-node--output")).to_be_visible()
     page.click("[data-add-menu]")
-    page.click("[data-add=agent]")
+    pick_node(page, "agent")
     card = page.locator(".ge-node--agent")
     expect(card.locator(".ge-node__kind")).to_have_text("no agent yet")
     card.dblclick(position={"x": 30, "y": 5})

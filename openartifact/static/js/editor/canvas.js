@@ -34,7 +34,7 @@ export class Canvas {
    * @param {object} options.handlers onSelect(selection|null, {focusInspector, keepMulti}), onMoved(node),
    *   onConnect(source, port, target, port, {source_slot, target_slot}), onDelete(selection), onZoom(zoom),
    *   onEdgeDelete(edgeId) and onEdgeStyle(edge, style) for the bar a connection shows on hover (the editor only);
-   *   onNodeAction(action, node, button) for the bar under a node ("edit", "delete", "more") and onNodeMenu(node, {x, y})
+   *   onNodeAction(action, node, button) for the bar under a node ("delete", "more") and onNodeMenu(node, {x, y})
    *   for a right click on it (the editor only);
    *   read-only: onOpen(node) (Enter on a node), onNodeDrawn(node, el) and onEdgeDrawn(edge, group)
    *   to decorate what was drawn
@@ -110,7 +110,7 @@ export class Canvas {
     this.drawEdges();
   }
 
-  /** The small bar under a node: a pencil (Edit), a bin (Delete) and a menu; shown on hover and while it is selected. */
+  /** The small bar under a node: a bin (Delete) and a menu (which has Edit); shown on hover and while it is selected. */
   #nodeBar(type) {
     const bar = document.createElement("div");
     bar.className = "ge-node-bar";
@@ -118,7 +118,7 @@ export class Canvas {
     bar.setAttribute("aria-label", "Node actions");
     const inner = document.createElement("div");
     inner.className = "ge-node-bar__inner";
-    for (const [action, glyph, label] of [["edit", "pencil", "Edit"], ["delete", "trash", "Delete"], ["more", "more", "More actions"]]) {
+    for (const [action, glyph, label] of [["delete", "trash", "Delete"], ["more", "more", "More actions"]]) {
       if (action === "delete" && type.fixed) continue; // the trigger, the output and the end are part of the graph
       const button = document.createElement("button");
       button.type = "button";
