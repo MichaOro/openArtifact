@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import sqlite3
 from collections.abc import Callable
 from pathlib import Path
@@ -13,6 +12,7 @@ from fastapi.testclient import TestClient
 
 import openartifact
 from alembic import command
+from openartifact.graph import manifest
 from tests.helpers import alembic_config, graph_url, kind_of, node, post
 
 NEW_KINDS = ("github", "postgres", "postgres_tool")
@@ -300,8 +300,9 @@ def test_migration_0036_allows_the_new_kinds_and_the_downgrade_removes_them_with
 def test_every_icon_a_node_card_asks_for_is_drawn_by_the_icon_template() -> None:
     """A card whose icon the template does not know is drawn without one: no error, just a hole."""
     root = Path(openartifact.__file__).parent
-    source = (root / "static/js/editor/node-types.js").read_text()
-    asked = set(re.findall(r'static icon = "([a-z-]+)"', source))
+    asked = {
+        m.ui.icon for m in manifest.read_all() if m.ui.icon
+    }  # a card asks for the icon its manifest names
     template = (root / "templates/components/icons.html").read_text()
     names_line = next(
         line for line in template.splitlines() if line.startswith("{% set icon_names")
