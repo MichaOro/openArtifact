@@ -80,38 +80,15 @@ export function chip() {
   return { root, iconSlot, textSlot };
 }
 
-const port = (name, label = name) => ({ name, label });
-const kind = (name, label, fields) => ({
-  kind: name, label, scopes: ["pipeline"], fixed: false, addable: false, chain: false, ending: false, inputs: [], outputs: [], settings: [], links_to: null, ...fields,
-});
+import { readFileSync } from "node:fs";
 
-/** What GET /api/node-types answers (the parts the editor uses). */
+/** What GET /api/node-types answers: the real description of the manifests (tests/fixtures/node-types.json, which
+ * tests/test_node_manifests.py keeps equal to the live answer), plus a kind without any manifest-given look. */
 export const NODE_TYPES = [
-  kind("trigger", "Trigger", { fixed: true, chain: true, scopes: ["pipeline", "action"], outputs: [port("out", "Next")] }),
-  kind("complete", "Complete", { fixed: true, ending: true, inputs: [port("in")] }),
-  kind("stage", "Stage", { addable: true, chain: true, inputs: [port("start")], outputs: [port("end")] }),
-  kind("action", "Action", { scopes: ["pipeline"], links_to: "action", inputs: [port("in")], outputs: [port("out"), port("pass", "On Pass"), port("error", "On Error")] }),
-  kind("pipeline", "Pipeline", { addable: true, chain: true, links_to: "pipeline", inputs: [port("in")], outputs: [port("out")] }),
-  kind("timer", "Timer", { addable: true, chain: true, inputs: [port("in")], outputs: [port("out")] }),
-  kind("output", "Output", { fixed: true, scopes: ["action"], ending: true, inputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
-  kind("code", "Code", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
-  kind("http", "HTTP request", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
-  kind("if", "If", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("yes", "Yes"), port("no", "No"), port("else", "Else")] }),
-  kind("switch", "Switch", {
-    addable: true, chain: true, scopes: ["action"], inputs: [port("in")],
-    outputs: [...[1, 2, 3, 4, 5, 6].map((n) => port(`case_${n}`, `Case ${n}`)), port("else", "Else")],
-  }),
-  kind("set", "Edit Fields", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
-  kind("note", "Note", { addable: true, scopes: ["action"] }), // a kind without a view of its own
-  kind("agent", "Agent", {
-    addable: true, chain: true, scopes: ["action"], inputs: [port("in", "Input"), { name: "tools", label: "Tools", side: "bottom" }],
-    outputs: [port("pass", "On Pass"), port("fail", "On Fail")],
-  }),
-  kind("github", "GitHub", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
-  kind("postgres", "Postgres", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
-  ...[["mcp_tool", "MCP Client Tool"], ["http_tool", "HTTP Request Tool"], ["code_tool", "Code Tool"], ["postgres_tool", "Postgres Tool"]].map(([name, label]) =>
-    kind(name, label, { addable: true, tool: true, scopes: ["action"], outputs: [{ name: "tool", label: "Tool", side: "top" }] }),
-  ),
+  ...JSON.parse(readFileSync(new URL("../fixtures/node-types.json", import.meta.url), "utf8")),
+  {
+    kind: "note", label: "Note", scopes: ["action"], fixed: false, addable: true, chain: false, ending: false, inputs: [], outputs: [], settings: [], links_to: null, tool: false, behaviour: "plain", menu: null, ui: {},
+  }, // a kind that no behaviour dresses up
 ];
 
 /** Load the kinds into node-types.js through a stubbed fetch. */

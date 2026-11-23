@@ -1,13 +1,14 @@
-/* The kinds of nodes in the editor, as classes. The server describes each kind (GET /api/node-types:
- * where it may be used, whether it is fixed or can be added, its ports, settings and what it links
- * to); a view class adds how it looks and which inspector building blocks it shows. `NodeView` has the
- * common behaviour, a kind overrides only what differs. Kinds are registered with `registerView`, the
- * way an extension would add one (ADR-014). */
-import { overridesOf } from "../agents/model.js";
+/* The kinds of nodes in the editor. The server describes each kind (GET /api/node-types, from its YAML manifest,
+ * ADR-054): where it may be used, its ports, settings, menu place and how its card looks (`ui`). A view adds the behaviour
+ * of the *kind of kind* (`behaviour`: plain, flow, stage, action, pipeline, output, tool): how it is drawn and connects. What
+ * differs between kinds of one behaviour is data in the description, drawn by these views; there is no class per kind. A kind
+ * may still get a view of its own with `registerView` (the way an extension would, ADR-014). */
 import { icon } from "../components/icons.js";
 import { request } from "../http.js";
-import { fieldNames } from "./reference-completion.js";
+import { renderCaption } from "./caption.js";
+import { FUNCTIONS, agentNames, switchCaseUsed } from "./view-functions.js";
 
+export { agentNames, switchCaseUsed };
 export const HEADER = 44; // stage header height
 export const FAILING_PORTS = ["error", "fail", "else"]; // their connections are drawn as failures
 export const SLOTS = 3; // attachment points per side of a stage, top to bottom
@@ -26,20 +27,33 @@ export class NodeView {
   /** @param {object} description what the server says about the kind */
   constructor(description) {
     Object.assign(this, description);
+    this.ui = description.ui ?? {};
+    const groupUsed = FUNCTIONS.group_used[this.ui.group_used_fn];
+    if (groupUsed) this.groupUsed = (node, group) => groupUsed(node, group); // a kind that knows when a group of its dialog is in use
   }
 
   // ── looks ────────────────────────────────────────────────────────
 
-  size() {
-    return this.constructor.size;
+  /** The card's size: a function the manifest names, its `ui.size`, or the behaviour's. */
+  size(node) {
+    const named = FUNCTIONS.size[this.ui.size_fn];
+    if (named) return named(node, this);
+    return this.ui.size ?? this.constructor.size;
   }
 
   displayName(node) {
     return node.definition_name ?? node.name;
   }
 
-  /** The small line under the name (null: none, e.g. when it would only repeat the name). */
+  /** The small line under the name: the manifest's template or function, else (null: none) the kind's label when the name differs. */
   caption(node) {
+    const spec = this.ui.caption;
+    if (spec?.template !== undefined) return renderCaption(spec.template, node);
+    if (spec?.fn !== undefined) return FUNCTIONS.caption[spec.fn](node, this);
+    return this.defaultCaption(node);
+  }
+
+  defaultCaption(node) {
     return this.displayName(node) === this.label ? null : this.label;
   }
 
@@ -68,19 +82,23 @@ export class NodeView {
     ];
   }
 
-  /** Whether a port is there for this node (an action without On Fail has no Error output). */
+  /** Whether a port is there for this node: its manifest says when (a function, or a field of the node that must be set). */
   isVisible(node, port) {
-    return true;
+    const when = [...this.inputs, ...this.outputs].find((p) => p.name === port)?.visible_when;
+    if (!when) return true;
+    return when.fn ? FUNCTIONS.visible[when.fn](node, port) : Boolean(node[when.node]);
   }
 
   /** Whether the name is written next to the port: the outcomes (On Pass, On Error ...), not the plain input / next. */
   labelled(port) {
-    return this.constructor.portLabels && !["in", "out"].includes(port.name);
+    return (this.ui.port_labels ?? this.constructor.portLabels) && !["in", "out"].includes(port.name);
   }
 
-  /** The name of a port; a kind may take it from the node (a Switch shows the value of the case). */
+  /** The name of a port; its manifest may take it from the node (a Switch shows the value of the case). */
   portLabel(port, node = null) {
-    return [...this.inputs, ...this.outputs].find((p) => p.name === port)?.label ?? port;
+    const own = [...this.inputs, ...this.outputs].find((p) => p.name === port);
+    const fromNode = own?.label_from && node ? FUNCTIONS.label[own.label_from](node, port) : null;
+    return fromNode ?? own?.label ?? port;
   }
 
   /** Where a port sits relative to the node's top-left corner: shown ports spread down each side. */
@@ -113,27 +131,32 @@ export class NodeView {
 
   /** What the inspector shows below the title, as building blocks (see inspector.js). */
   sections(node, blocks) {
+    if (this.ui.block === "agent") return [blocks.agent(node), blocks.actions(node, { remove: true })];
     return [blocks.settings(node), blocks.actions(node, { remove: !this.fixed })];
   }
 }
 
-class TriggerView extends NodeView {
-  static kind = "trigger";
-}
+/** A step that does work and ends in On Pass or On Fail, or branches: Code, HTTP, If, Switch, Agent, ... */
+class FlowView extends NodeView {
+  static size = { width: 250, height: 84 };
+  static portLabels = true;
 
-class CompleteView extends NodeView {
-  static kind = "complete";
-  static size = { width: 160, height: 56 };
+  subtitle() {
+    return this.label;
+  }
+
+  /** A port that is not there (an unused Switch case) cannot feed anything. */
+  canFeed(source, sourcePort, target, targetPort) {
+    return this.isVisible(source, sourcePort) && super.canFeed(source, sourcePort, target, targetPort);
+  }
 }
 
 class StageView extends NodeView {
-  static kind = "stage";
-
   size(node) {
     return { width: node.width, height: node.height };
   }
 
-  caption() {
+  defaultCaption() {
     return this.label;
   }
 
@@ -175,12 +198,9 @@ class StageView extends NodeView {
   }
 }
 
+/** A shell in a stage that is linked to an action definition. */
 class ActionView extends NodeView {
-  static kind = "action";
-  static size = { width: 190, height: 68 };
-  static portLabels = true;
-
-  caption(node) {
+  defaultCaption(node) {
     return node.definition_id ? this.label : "Empty action";
   }
 
@@ -202,11 +222,9 @@ class ActionView extends NodeView {
   }
 }
 
+/** A node of the main line that calls another pipeline. */
 class PipelineNodeView extends NodeView {
-  static kind = "pipeline";
-  static size = { width: 200, height: 64 };
-
-  caption(node) {
+  defaultCaption(node) {
     return node.definition_id ? this.label : "No pipeline chosen";
   }
 
@@ -219,167 +237,10 @@ class PipelineNodeView extends NodeView {
   }
 }
 
-class TimerView extends NodeView {
-  static kind = "timer";
-
-  caption(node) {
-    return `${node.seconds} s`; // what a timer waits for is always worth showing
-  }
-}
-
 class OutputView extends NodeView {
-  static kind = "output";
-  static size = { width: 250, height: 104 };
-  static portLabels = true;
-
-  isVisible(node, port) {
-    return port !== "fail" || node.fail_enabled;
-  }
-
   /** The connectors sit below the name, On Pass above On Fail. */
   portLocal(node, port) {
     return { x: 0, y: port === "fail" ? 84 : 60 };
-  }
-}
-
-/** A step that does work and ends in On Pass or On Fail (Code, HTTP); If and Switch have their own outputs. */
-class ExecutionView extends NodeView {
-  static size = { width: 250, height: 84 };
-  static portLabels = true;
-
-  subtitle() {
-    return this.label;
-  }
-}
-
-class CodeView extends ExecutionView {
-  static kind = "code";
-  static icon = "code";
-
-  /** Language and first line of the code. */
-  caption(node) {
-    const first = (node.config?.code ?? "").split("\n").find((line) => line.trim() !== "");
-    return `${node.config?.language ?? "sh"} · ${first?.trim() ?? "no code yet"}`;
-  }
-}
-
-/** Operators that look at the value only (mirror of UNARY_OPERATORS, graph/node_types.py). */
-const UNARY = ["is empty", "is not empty", "is true", "is false"];
-const OPERATOR_SIGNS = { "not equals": "≠", "greater than": ">", "less than": "<", "greater or equal": "≥", "less or equal": "≤" };
-
-/** Whether a Switch case is in use: a value, or an operator that needs none (mirror of switch_case_used). */
-export function switchCaseUsed(config, port) {
-  const operator = config?.[`case_operator_${port.slice(5)}`] ?? "equals";
-  return UNARY.includes(operator) || (config?.[port] ?? "").trim() !== "";
-}
-
-/** Longest text a card shows of a condition. */
-const SHORT = 40;
-const short = (text) => (text.length > SHORT ? `${text.slice(0, SHORT)}…` : text);
-
-class IfView extends ExecutionView {
-  static kind = "if";
-  static icon = "if";
-  static size = { width: 250, height: 104 };
-
-  /** The first condition and how many more there are. */
-  caption(node) {
-    const config = node.config ?? {};
-    const used = [1, 2, 3, 4, 5].filter((n) => (config[`left_${n}`] ?? "").trim() !== "");
-    if (!used.length) return "no condition yet";
-    const n = used[0];
-    const operator = config[`operator_${n}`] ?? "equals";
-    const unary = ["is empty", "is not empty", "is true", "is false"].includes(operator);
-    const first = short(`${config[`left_${n}`]} ${operator}${unary ? "" : ` ${config[`right_${n}`] ?? ""}`}`.trim());
-    return used.length > 1 ? `${first} +${used.length - 1} more` : first;
-  }
-}
-
-class SwitchView extends ExecutionView {
-  static kind = "switch";
-  static icon = "switch";
-
-  #usedCases(node) {
-    return [1, 2, 3, 4, 5, 6].filter((n) => switchCaseUsed(node.config, `case_${n}`));
-  }
-
-  /** The value and the number of cases. */
-  caption(node) {
-    const value = (node.config?.value ?? "").trim();
-    const cases = this.#usedCases(node).length;
-    return `${value ? short(value) : "no value yet"} · ${cases} ${cases === 1 ? "case" : "cases"}`;
-  }
-
-  /** The ports of unused cases are not there; Else always is. */
-  isVisible(node, port) {
-    return !port.startsWith("case_") || switchCaseUsed(node.config, port);
-  }
-
-  /** A case group of the inspector is open when the case is in use. */
-  groupUsed(node, group) {
-    const n = group.match(/^Case (\d)$/)?.[1];
-    return n ? switchCaseUsed(node.config, `case_${n}`) : null;
-  }
-
-  /** The card grows with its visible outputs. */
-  size(node) {
-    const visible = this.outputs.filter((p) => this.isVisible(node, p.name)).length;
-    return { width: 250, height: Math.max(84, 26 * visible + 20) };
-  }
-
-  /** A case is shown by its condition as the user wrote it: the value, or the operator before it when it is
-   * not "equals" ("> 10", "contains urgent", "is empty"). */
-  portLabel(port, node = null) {
-    if (!port.startsWith("case_") || !node) return super.portLabel(port, node);
-    const value = node.config?.[port]?.trim() ?? "";
-    const operator = node.config?.[`case_operator_${port.slice(5)}`] ?? "equals";
-    const text = operator === "equals" ? value : `${OPERATOR_SIGNS[operator] ?? operator} ${UNARY.includes(operator) ? "" : value}`.trim();
-    return text ? short(text) : super.portLabel(port, node);
-  }
-
-  canFeed(source, sourcePort, target, targetPort) {
-    return this.isVisible(source, sourcePort) && super.canFeed(source, sourcePort, target, targetPort);
-  }
-}
-
-class SetView extends ExecutionView {
-  static kind = "set";
-  static icon = "pencil";
-
-  /** The names of the fields it sets. */
-  caption(node) {
-    const names = fieldNames(node.config?.fields);
-    if (!names.length) return "no field yet";
-    return short(names.join(", "));
-  }
-}
-
-class AgentView extends ExecutionView {
-  static kind = "agent";
-  static icon = "agent";
-
-  /** The agent's name and how many settings the node overrides. */
-  caption(node) {
-    const id = node.config?.agent_id;
-    if (!id) return "no agent yet";
-    const own = overridesOf(node.config, this.settings).length;
-    // an execution's frozen node carries its agent; the editor knows the names of the list
-    return `${node.agent?.name ?? agentNames.get(id) ?? "agent"}${own ? ` · ${own} override${own === 1 ? "" : "s"}` : ""}`;
-  }
-
-  sections(node, blocks) {
-    return [blocks.agent(node), blocks.actions(node, { remove: true })];
-  }
-}
-
-class HttpView extends ExecutionView {
-  static kind = "http";
-  static icon = "http";
-
-  /** Method, host and path; the query string (it may carry a token) is never shown. */
-  caption(node) {
-    const { method = "GET", url = "" } = node.config ?? {};
-    return `${method} ${hostAndPath(url) || "no URL yet"}`;
   }
 }
 
@@ -401,105 +262,32 @@ class ToolView extends NodeView {
   }
 }
 
-class McpToolView extends ToolView {
-  static kind = "mcp_tool";
-  static icon = "plug";
-
-  caption(node) {
-    return hostAndPath(node.config?.url ?? "") || "no endpoint yet";
-  }
-}
-
-class HttpToolView extends ToolView {
-  static kind = "http_tool";
-  static icon = "http";
-
-  caption(node) {
-    const { method = "GET", url = "" } = node.config ?? {};
-    return `${method} ${hostAndPath(url) || "no URL yet"}`;
-  }
-}
-
-class CodeToolView extends ToolView {
-  static kind = "code_tool";
-  static icon = "code";
-
-  caption(node) {
-    return `${node.config?.language ?? "python"} · ${this.toolName(node)}`;
-  }
-}
-
-/** The first line of a query that says something, cut for a card (a query may hold names; it never holds a secret). */
-function queryLine(config) {
-  const first = (config?.query ?? "").split("\n").find((line) => line.trim() !== "");
-  return first ? short(first.trim()) : "no query yet";
-}
-
-class GithubView extends ExecutionView {
-  static kind = "github";
-  static icon = "github";
-
-  /** The operation and the repository; Create comment says when it is switched off (it would fail). */
-  caption(node) {
-    const { operation = "Get repository", repository = "", allow_comments = false } = node.config ?? {};
-    const off = operation === "Create comment" && !allow_comments ? " (off)" : "";
-    return `${operation}${off} · ${repository.trim() ? short(repository.trim()) : "no repository yet"}`;
-  }
-}
-
-class PostgresView extends ExecutionView {
-  static kind = "postgres";
-  static icon = "database";
-
-  /** The query; "changes" in front when the node may change data. */
-  caption(node) {
-    return `${node.config?.allow_write ? "changes · " : ""}${queryLine(node.config)}`;
-  }
-}
-
-class PostgresToolView extends ToolView {
-  static kind = "postgres_tool";
-  static icon = "database";
-
-  caption(node) {
-    return `${this.toolName(node)} · ${node.config?.allow_write ? "changes · " : ""}${queryLine(node.config)}`;
-  }
-}
-
-/** `https://user:pw@example.org/hook?token=x#y` as `example.org/hook`. */
-function hostAndPath(url) {
-  const plain = () => url.split(/[?#]/)[0].replace(/^[^/]*@/, "");
-  try {
-    const { host, pathname } = new URL(url);
-    // `user:pw@host/path` without a scheme parses as an opaque URL with no host: never show the userinfo
-    // the path as written: a tool's {parameter} stays readable
-    return host ? `${host}${pathname === "/" ? "" : decodeURI(pathname)}` : plain();
-  } catch {
-    return plain();
-  }
-}
+/** The view of each behaviour a manifest may name (the server's `switch` is drawn like any flow kind). */
+const BEHAVIOUR_VIEWS = { plain: NodeView, flow: FlowView, switch: FlowView, stage: StageView, action: ActionView, pipeline: PipelineNodeView, output: OutputView, tool: ToolView };
 
 const VIEWS = new Map();
 
-/** Make a view class known for its kind (built-in kinds use this as an extension would). */
+/** Make a view class known for its kind: it replaces the view its behaviour would give (the way an extension adds one, ADR-014). */
 export function registerView(View) {
   VIEWS.set(View.kind, View);
 }
 
-[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView, IfView, SwitchView, AgentView, SetView, GithubView, PostgresView, McpToolView, HttpToolView, CodeToolView, PostgresToolView].forEach(registerView);
-
 const TYPES = new Map();
 
-/** Load the kinds from the server and pair each with its view (the base view if it has none). */
+/** The view class of a kind: its own, else its behaviour's; a kind with an icon gets it as a static of its class (the card reads it there). */
+function viewClassFor(description) {
+  const Base = VIEWS.get(description.kind) ?? BEHAVIOUR_VIEWS[description.behaviour] ?? NodeView;
+  const glyph = description.ui?.icon;
+  return glyph ? class extends Base { static icon = glyph; } : Base;
+}
+
+/** Load the kinds from the server and pair each with its view. */
 export async function loadNodeTypes() {
   for (const description of await request("/api/node-types")) {
-    const View = VIEWS.get(description.kind) ?? NodeView;
+    const View = viewClassFor(description);
     TYPES.set(description.kind, new View(description));
   }
 }
-
-/** The names of the agents by id, for the caption of an agent node (filled by `rememberAgents`). */
-export const agentNames = new Map();
 
 /** Remember the names of agents (the editor loads them once; the inspector whenever it lists them). */
 export function rememberAgents(agents) {
@@ -516,28 +304,23 @@ export function addableIn(scope) {
   return [...TYPES.values()].filter((t) => t.addable && t.scopes.includes(scope));
 }
 
-/** The clusters of the add menu, in order, with the kinds in each (a kind nobody listed lands in "More"). */
-const ADD_GROUPS = [
-  ["Structure", ["stage", "pipeline"]],
-  ["AI", ["agent"]],
-  ["Agent tools", ["mcp_tool", "http_tool", "code_tool", "postgres_tool"]],
-  ["Apps and data", ["github", "postgres"]],
-  ["Core", ["code", "http"]],
-  ["Data", ["set"]],
-  ["Flow", ["if", "switch", "timer"]],
-];
-
 /**
- * The kinds of the add menu in their clusters, in order; clusters without a kind are left out.
- * @param {{kind: string, label: string}[]} types
+ * The kinds of the add menu in their clusters: the cluster and the place in it are the manifest's (`menu`); a kind that
+ * has none lands in "More", last. Clusters without a kind are left out.
+ * @param {{kind: string, label: string, menu?: {group: string, group_index: number, order: number}|null}[]} types
  * @returns {{group: string, types: {kind: string, label: string}[]}[]}
  */
 export function groupAddable(types) {
-  const listed = new Set(ADD_GROUPS.flatMap(([, kinds]) => kinds));
-  const clusters = [...ADD_GROUPS, ["More", types.filter((t) => !listed.has(t.kind)).map((t) => t.kind)]];
-  return clusters
-    .map(([group, kinds]) => ({ group, types: kinds.map((kind) => types.find((t) => t.kind === kind)).filter(Boolean) }))
-    .filter((cluster) => cluster.types.length);
+  const clusters = new Map();
+  for (const type of types) {
+    const group = type.menu?.group ?? "More";
+    const rank = type.menu ? type.menu.group_index : Number.MAX_SAFE_INTEGER;
+    if (!clusters.has(group)) clusters.set(group, { group, rank, types: [] });
+    clusters.get(group).types.push(type);
+  }
+  return [...clusters.values()]
+    .sort((a, b) => a.rank - b.rank)
+    .map(({ group, types: inGroup }) => ({ group, types: inGroup.sort((a, b) => (a.menu?.order ?? 0) - (b.menu?.order ?? 0)) }));
 }
 
 /**

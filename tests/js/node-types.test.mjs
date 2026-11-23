@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import { FakeNode, installDocument, loadTypes, textOf } from "./support.mjs";
+import { FakeNode, NODE_TYPES, installDocument, loadTypes, textOf } from "./support.mjs";
 
 const JS = "../../openartifact/static/js/editor/";
 const { HEADER, SLOTS, slotY, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable, searchAddable } = await import(`${JS}node-types.js`);
@@ -38,8 +38,8 @@ test("registerView replaces the view of a kind for kinds loaded afterwards", asy
 });
 
 test("addableIn lists the addable kinds of one scope, in server order", () => {
-  assert.deepEqual(addableIn("pipeline").map((t) => t.kind), ["stage", "pipeline", "timer"]);
-  assert.deepEqual(addableIn("action").map((t) => t.kind), ["code", "http", "if", "switch", "set", "note", "agent", "github", "postgres", "mcp_tool", "http_tool", "code_tool", "postgres_tool"]);
+  assert.deepEqual(addableIn("pipeline").map((t) => t.kind), ["stage", "pipeline"]);
+  assert.deepEqual(addableIn("action").map((t) => t.kind), ["timer", "code", "http", "if", "switch", "agent", "set", "github", "postgres", "mcp_tool", "http_tool", "code_tool", "postgres_tool", "note"]);
   assert.deepEqual(addableIn("elsewhere"), []);
 });
 
@@ -93,7 +93,7 @@ test("the http caption never shows the query string, the fragment or credentials
 
 test("ports: inputs on the left, outputs on the right, a stage has three points per side", () => {
   assert.deepEqual(typeOf("action").ports().map((p) => [p.name, p.direction, p.side, p.slot]), [
-    ["in", "input", "left", 0], ["out", "output", "right", 0], ["pass", "output", "right", 0], ["error", "output", "right", 0],
+    ["in", "input", "left", 0], ["pass", "output", "right", 0], ["error", "output", "right", 0],
   ]);
   const stage = typeOf("stage").ports();
   assert.equal(stage.length, 6);
@@ -127,11 +127,11 @@ test("portLocal spreads the shown ports down their side; the output kind pins it
   const action = typeOf("action");
   const withFail = node("action", { definition_fail_enabled: true });
   assert.deepEqual(action.portLocal(withFail, "in"), { x: 0, y: 34 });
-  assert.deepEqual(action.portLocal(withFail, "out"), { x: 190, y: 17 });
-  assert.deepEqual(action.portLocal(withFail, "error"), { x: 190, y: 51 });
+  assert.deepEqual(action.portLocal(withFail, "pass"), { x: 190, y: 68 / 3 });
+  assert.deepEqual(action.portLocal(withFail, "error"), { x: 190, y: (68 / 3) * 2 });
   const withoutFail = node("action", { definition_fail_enabled: false });
-  assert.deepEqual(action.portLocal(withoutFail, "pass"), { x: 190, y: 68 / 3 * 2 });
-  assert.deepEqual(action.portLocal(withoutFail, "nonsense"), { x: 190, y: 68 / 3 }, "an unknown port falls back to the first");
+  assert.deepEqual(action.portLocal(withoutFail, "pass"), { x: 190, y: 34 }, "the only shown output sits in the middle");
+  assert.deepEqual(action.portLocal(withoutFail, "nonsense"), { x: 190, y: 34 }, "an unknown port falls back to the first");
   const output = typeOf("output");
   assert.deepEqual(output.portLocal(node("output"), "pass"), { x: 0, y: 60 });
   assert.deepEqual(output.portLocal(node("output"), "fail"), { x: 0, y: 84 });
@@ -220,31 +220,23 @@ test("render: a stage has a header with caption, name and the add button, and an
   assert.equal(add.dataset.addAction, "");
 });
 
+// the add menu of the real manifests, plus a kind that has no place in it
 const KINDS = [
-  { kind: "timer", label: "Timer" },
-  { kind: "code", label: "Code" },
-  { kind: "http", label: "HTTP request" },
-  { kind: "if", label: "If" },
-  { kind: "agent", label: "Agent" },
-  { kind: "set", label: "Edit Fields" },
-  { kind: "github", label: "GitHub" },
-  { kind: "postgres", label: "Postgres" },
-  { kind: "mcp_tool", label: "MCP Client Tool" },
-  { kind: "stage", label: "Stage" },
-  { kind: "future_kind", label: "Something new" },
+  ...NODE_TYPES.filter((t) => t.addable && t.kind !== "note").map(({ kind, label, menu }) => ({ kind, label, menu })),
+  { kind: "future_kind", label: "Something new", menu: null },
 ];
 
 test("the kinds of the add menu are grouped in a fixed order, and a kind nobody grouped is still offered", () => {
   const groups = groupAddable(KINDS);
   assert.deepEqual(groups.map((g) => g.group), ["Structure", "AI", "Agent tools", "Apps and data", "Core", "Data", "Flow", "More"]);
-  assert.deepEqual(groups.find((g) => g.group === "Flow").types.map((t) => t.kind), ["if", "timer"]);
+  assert.deepEqual(groups.find((g) => g.group === "Flow").types.map((t) => t.kind), ["if", "switch", "timer"]);
   assert.deepEqual(groups.find((g) => g.group === "More").types.map((t) => t.kind), ["future_kind"]);
   assert.equal(groups.flatMap((g) => g.types).length, KINDS.length, "nothing is lost");
 });
 
 test("searching looks at the elements only, by name or kind, ignoring case, and says which cluster each is in", () => {
   assert.deepEqual(searchAddable(KINDS, "git"), [{ kind: "github", label: "GitHub", group: "Apps and data" }]);
-  assert.deepEqual(searchAddable(KINDS, "HTTP").map((t) => t.kind), ["http"]);
+  assert.deepEqual(searchAddable(KINDS, "HTTP").map((t) => t.kind), ["http_tool", "http"], "in the order of the clusters: the tool before the core kind");
   assert.deepEqual(searchAddable(KINDS, "mcp").map((t) => t.kind), ["mcp_tool"]); // the kind matches too
   assert.deepEqual(searchAddable(KINDS, "  CODE "), searchAddable(KINDS, "code"));
   assert.deepEqual(searchAddable(KINDS, "flow"), [], "a cluster's name is no search term: the clusters only help to find your way");

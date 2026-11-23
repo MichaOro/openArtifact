@@ -41,11 +41,11 @@ test("portPoint adds the local position to the origin; a stage port honours its 
 test("canConnect needs both ports to exist and be shown, then asks the kind", () => {
   const a = action("a", 24, { definition_fail_enabled: false });
   const b = action("b", 300);
-  assert.equal(g.canConnect(a, "out", b, "in"), true);
+  assert.equal(g.canConnect(a, "pass", b, "in"), true);
   assert.equal(g.canConnect(a, "nope", b, "in"), false, "no such output");
   assert.equal(g.canConnect(a, "out", b, "nope"), false, "no such input");
   assert.equal(g.canConnect(a, "error", b, "in"), false, "On Error is hidden without On Fail");
-  assert.equal(g.canConnect(b, "out", { ...a, stage_id: "x" }, "in"), false, "an action of another stage");
+  assert.equal(g.canConnect(b, "pass", { ...a, stage_id: "x" }, "in"), false, "an action of another stage");
   assert.equal(g.canConnect({ ...a, definition_fail_enabled: true }, "error", b, "in"), true);
   const output = { id: "o", kind: "output", fail_enabled: false };
   const code = { id: "c", kind: "code" };

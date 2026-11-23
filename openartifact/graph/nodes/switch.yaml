@@ -34,6 +34,8 @@ ui:
   icon: switch
   caption:
     fn: switch_summary
+  size_fn: switch_size
+  group_used_fn: switch_group_used
 settings:
 - key: value
   label: Value
