@@ -58,6 +58,13 @@ a frame drawn on the background picks every node it touches (Shift adds), and dr
 all together. A **double click** (or Enter on a focused node) opens the node's settings in an overlay; there is no panel beside
 the canvas. While an execution is shown (read-only), the left button still drags the view.
 
+Under a node a small bar appears on hover and while it is selected: a pencil (**Edit**, the same as a double click), a bin
+(**Delete**, after asking) and a menu (**⋯**, also opened by a right click on the node): Edit, Rename (F2), Copy (Ctrl+C), Cut
+(Ctrl+X), Duplicate (Ctrl+D) and Delete (Del). Ctrl+V pastes what was copied, also into another action or pipeline editor
+(pasted nodes keep their settings and the connections between them, get names like "Fetch copy", and a stage takes its
+actions along). The trigger, the output and the end are part of a graph: they are not copied and not deleted. There is no
+undo yet.
+
 **Stage.** A container in a pipeline. It holds actions and connects to the next stage. Its start feeds
 the first action; its end is fed by the last actions and leads on.
 

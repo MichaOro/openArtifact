@@ -856,3 +856,6 @@ input.check:checked::after {
 input.check:indeterminate::after { width: 0.6rem; height: 0; border-top: 2px solid #fff; opacity: 1; }
 input.check:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 input.check:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.menu__item > span:first-of-type { flex: 1; }
+.menu__key { margin-left: var(--space-4); padding: 0 var(--space-1); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); font: inherit; font-size: 0.6875rem; color: var(--color-text-muted); white-space: nowrap; }

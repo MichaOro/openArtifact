@@ -4,6 +4,7 @@ overlay instead of a panel beside the canvas."""
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import httpx
@@ -172,3 +173,157 @@ def test_the_add_menu_is_clustered_and_a_search_narrows_it(
     page.click("[data-add-menu]")  # opened again: a clean list
     expect(page.locator(".ge-add__search")).to_have_value("")
     expect(menu.locator("[data-add]")).to_have_count(13)
+
+
+# ── the bar under a node, its menu and the keys ───────────────────────
+
+
+def _code_nodes(api: httpx.Client, definition: dict[str, Any]) -> list[dict[str, Any]]:
+    nodes = api.get(graph_url(definition)).json()["nodes"]
+    return sorted((n for n in nodes if n["kind"] == "code"), key=lambda n: n["name"])
+
+
+def test_the_bar_under_a_node_edits_deletes_and_opens_the_menu(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _action_with_two_code_nodes(page, base_url, api)
+    node = page.locator(".ge-node--code").first
+    bar = node.locator(".ge-node-bar")
+    expect(bar).to_be_hidden()  # nothing hovered, nothing selected
+    node.hover(position={"x": 30, "y": 5})
+    expect(bar).to_be_visible()
+    box, bar_box = node.bounding_box(), bar.bounding_box()
+    assert box and bar_box and bar_box["y"] >= box["y"] + box["height"] - 1  # below the node
+
+    node.get_by_role("button", name="Edit").click()  # the same as a double click
+    expect(page.locator("#node-modal")).to_be_visible()
+    page.keyboard.press("Escape")
+
+    node.hover(position={"x": 30, "y": 5})
+    node.get_by_role("button", name="More actions").click()
+    menu = page.get_by_role("menu")
+    expect(menu.get_by_role("menuitem")).to_have_text(
+        ["EditEnter", "RenameF2", "CopyCtrl+C", "CutCtrl+X", "DuplicateCtrl+D", "DeleteDel"]
+    )
+    page.keyboard.press("Escape")
+
+    node.hover(position={"x": 30, "y": 5})
+    node.get_by_role("button", name="Delete").click()
+    page.locator("#confirm-modal").get_by_role("button", name="Delete").click()
+    expect(page.locator(".ge-node--code")).to_have_count(1)
+    assert len(_code_nodes(api, definition)) == 1
+
+
+def test_a_right_click_on_a_node_opens_its_menu_and_a_drag_with_it_still_pans(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _action_with_two_code_nodes(page, base_url, api)
+    node = page.locator(".ge-node--code").first
+    page.mouse.click(*_point_on(node), button="right")
+    expect(page.get_by_role("menu").get_by_role("menuitem", name="Duplicate")).to_be_visible()
+    expect(node).to_have_class(re.compile(r"is-selected"))
+    page.keyboard.press("Escape")
+    before = node.bounding_box()
+    sx, sy = _point_on(node)
+    page.mouse.move(sx, sy)
+    page.mouse.down(button="right")
+    page.mouse.move(sx + 50, sy + 30, steps=5)
+    page.mouse.up(button="right")
+    after = node.bounding_box()
+    assert before and after and round(after["x"] - before["x"]) == 50  # the view moved
+    expect(page.get_by_role("menu")).to_be_hidden()  # and no menu
+
+
+def _point_on(node: Locator) -> tuple[float, float]:
+    box = node.bounding_box()
+    assert box is not None
+    return box["x"] + 30, box["y"] + 5
+
+
+def test_duplicate_makes_a_copy_with_a_new_name_and_selects_it(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _action_with_two_code_nodes(page, base_url, api)
+    first = page.locator(".ge-node--code").first
+    first.click(position={"x": 30, "y": 5})
+    page.keyboard.press("Control+d")
+    expect(page.locator(".ge-node--code")).to_have_count(3)
+    eventually(lambda: len(_code_nodes(api, definition)), 3)
+    names = [n["name"] for n in _code_nodes(api, definition)]
+    assert names.count("Code copy") == 1, (
+        names
+    )  # the two nodes made by the add menu were both "Code"
+    expect(page.locator(".ge-node.is-selected")).to_have_count(1)
+
+
+def test_copy_cut_and_paste_keep_settings_and_make_names_unique(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _action_with_two_code_nodes(page, base_url, api)
+    first = page.locator(".ge-node--code").first
+    first.dblclick(position={"x": 30, "y": 5})
+    page.locator("#node-modal").get_by_label("Code", exact=True).fill("echo copied")
+    page.locator("#node-modal").get_by_label("Code", exact=True).blur()
+    eventually(
+        lambda: any(
+            (n["config"] or {}).get("code") == "echo copied" for n in _code_nodes(api, definition)
+        ),
+        True,
+    )
+    page.keyboard.press("Escape")
+    first.click(position={"x": 30, "y": 5})
+    page.keyboard.press("Control+c")
+    expect(page.locator("[data-alert]")).to_contain_text("1 node copied")
+    page.keyboard.press("Control+v")
+    page.keyboard.press("Control+v")
+    expect(page.locator(".ge-node--code")).to_have_count(4)
+    eventually(lambda: len(_code_nodes(api, definition)), 4)
+    codes = [n["config"].get("code") for n in _code_nodes(api, definition)]
+    assert codes.count("echo copied") == 3  # the original and two pastes
+    copies = [n["name"] for n in _code_nodes(api, definition) if "copy" in n["name"]]
+    assert sorted(copies) == ["Code copy", "Code copy 2"]  # the pastes get names of their own
+
+    page.mouse.move(5, 5)  # the bar of the node under the pointer would lie over the one below it
+    page.locator(".ge-node.is-selected").first.click(position={"x": 30, "y": 5})
+    page.keyboard.press("Control+x")  # cut: gone at once, still on the clipboard
+    expect(page.locator(".ge-node--code")).to_have_count(3)
+    page.keyboard.press("Control+v")
+    expect(page.locator(".ge-node--code")).to_have_count(4)
+
+
+def test_a_selection_of_several_is_deleted_together_after_one_question(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _action_with_two_code_nodes(page, base_url, api)
+    codes = page.locator(".ge-node--code")
+    a, b = codes.nth(0).bounding_box(), codes.nth(1).bounding_box()
+    assert a and b
+    page.mouse.move(
+        max(a["x"] + a["width"], b["x"] + b["width"]) + 12,
+        max(a["y"] + a["height"], b["y"] + b["height"]) + 12,
+    )
+    page.mouse.down()
+    page.mouse.move(min(a["x"], b["x"]) - 12, min(a["y"], b["y"]) - 12, steps=6)
+    page.mouse.up()
+    expect(page.locator(".ge-node.is-selected")).to_have_count(2)
+    codes.first.hover(position={"x": 30, "y": 5})
+    codes.first.get_by_role("button", name="Delete").click()
+    dialog = page.locator("#confirm-modal")
+    expect(dialog).to_contain_text("Delete 2 nodes?")
+    dialog.get_by_role("button", name="Delete").click()
+    expect(page.locator(".ge-node--code")).to_have_count(0)
+    assert _code_nodes(api, definition) == []
+
+
+def test_the_fixed_nodes_offer_edit_but_no_delete_copy_or_cut(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _action_with_two_code_nodes(page, base_url, api)
+    trigger = page.locator(".ge-node--trigger")
+    trigger.hover(position={"x": 30, "y": 5})
+    expect(trigger.get_by_role("button", name="Delete")).to_have_count(0)
+    trigger.get_by_role("button", name="More actions").click()
+    menu = page.get_by_role("menu")
+    for name in ("Copy", "Cut", "Duplicate", "Delete"):
+        expect(menu.get_by_role("menuitem", name=name)).to_have_attribute("aria-disabled", "true")
+    expect(menu.get_by_role("menuitem", name="Edit")).not_to_have_attribute("aria-disabled", "true")

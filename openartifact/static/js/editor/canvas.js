@@ -34,6 +34,8 @@ export class Canvas {
    * @param {object} options.handlers onSelect(selection|null, {focusInspector, keepMulti}), onMoved(node),
    *   onConnect(source, port, target, port, {source_slot, target_slot}), onDelete(selection), onZoom(zoom),
    *   onEdgeDelete(edgeId) and onEdgeStyle(edge, style) for the bar a connection shows on hover (the editor only);
+   *   onNodeAction(action, node, button) for the bar under a node ("edit", "delete", "more") and onNodeMenu(node, {x, y})
+   *   for a right click on it (the editor only);
    *   read-only: onOpen(node) (Enter on a node), onNodeDrawn(node, el) and onEdgeDrawn(edge, group)
    *   to decorate what was drawn
    * @param {boolean} [options.readOnly]
@@ -66,6 +68,11 @@ export class Canvas {
       viewport.classList.add("is-editor");
       viewport.addEventListener("contextmenu", (event) => event.preventDefault()); // the right button pans
     }
+    viewport.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-node-action]");
+      const el = button?.closest(".ge-node");
+      if (button && el && !this.readOnly) this.handlers.onNodeAction?.(button.dataset.nodeAction, this.nodes.get(el.dataset.nodeId), button);
+    });
     viewport.addEventListener("pointerdown", (event) => this.#onPointerDown(event));
     viewport.addEventListener("pointermove", (event) => this.#onPointerMove(event));
     viewport.addEventListener("pointerup", (event) => this.#onPointerUp(event));
@@ -103,6 +110,30 @@ export class Canvas {
     this.drawEdges();
   }
 
+  /** The small bar under a node: a pencil (Edit), a bin (Delete) and a menu; shown on hover and while it is selected. */
+  #nodeBar(type) {
+    const bar = document.createElement("div");
+    bar.className = "ge-node-bar";
+    bar.setAttribute("role", "toolbar");
+    bar.setAttribute("aria-label", "Node actions");
+    const inner = document.createElement("div");
+    inner.className = "ge-node-bar__inner";
+    for (const [action, glyph, label] of [["edit", "pencil", "Edit"], ["delete", "trash", "Delete"], ["more", "more", "More actions"]]) {
+      if (action === "delete" && type.fixed) continue; // the trigger, the output and the end are part of the graph
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `icon-button icon-button--sm${action === "delete" ? " is-danger" : ""}`;
+      button.dataset.nodeAction = action;
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      if (action === "more") button.setAttribute("aria-haspopup", "menu");
+      button.append(icon(glyph));
+      inner.append(button);
+    }
+    bar.append(inner);
+    return bar;
+  }
+
   #createNode(node) {
     const type = typeOf(node);
     const el = document.createElement(type.constructor.kind === "stage" ? "section" : "div");
@@ -115,6 +146,7 @@ export class Canvas {
     caption.className = "ge-node__kind";
     type.render(el, node, { name, caption });
     for (const port of type.ports()) el.append(this.#port(node, type, port));
+    if (!this.readOnly) el.append(this.#nodeBar(type));
     return el;
   }
 
@@ -206,6 +238,7 @@ export class Canvas {
   }
 
   #paintSelection() {
+    this.viewport.classList.toggle("has-multi", this.multi.size > 1); // several selected: no bar on each of them
     for (const [id, el] of this.elements) el.classList.toggle("is-selected", this.multi.has(id));
   }
 
@@ -313,6 +346,7 @@ export class Canvas {
   #applyView() {
     const { x, y, zoom } = this.view;
     this.world.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
+    this.world.style.setProperty("--ge-inverse-zoom", String(1 / zoom)); // bars under the nodes keep their size
     this.#placeBar();
     this.handlers.onZoom?.(zoom);
   }
@@ -385,7 +419,8 @@ export class Canvas {
     if (this.gesture) return;
     if (!this.readOnly && event.button === 2) {
       event.preventDefault();
-      return this.#startPan(event, null, { grab: true }); // the right button drags the view, wherever it is
+      // the right button drags the view, wherever it is; pressed and released on a node without moving it opens the node's menu
+      return this.#startPan(event, null, { grab: true, contextNode: event.target.closest(".ge-node") });
     }
     if (event.button !== 0) return;
     if (this.readOnly) {
@@ -406,8 +441,8 @@ export class Canvas {
     this.#startMarquee(event);
   }
 
-  #startPan(event, nodeEl = null, { grab = false } = {}) {
-    this.gesture = { type: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { ...this.view }, moved: false, nodeEl, grab };
+  #startPan(event, nodeEl = null, { grab = false, contextNode = null } = {}) {
+    this.gesture = { type: "pan", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { ...this.view }, moved: false, nodeEl, grab, contextNode };
     this.viewport.setPointerCapture(event.pointerId);
   }
 
@@ -521,6 +556,8 @@ export class Canvas {
     if (g.type === "pan" && !g.moved && g.nodeEl) {
       this.focusNode(g.nodeEl.dataset.nodeId);
       this.handlers.onOpen?.(this.nodes.get(g.nodeEl.dataset.nodeId));
+    } else if (g.type === "pan" && !g.moved && g.grab && g.contextNode) {
+      this.handlers.onNodeMenu?.(this.nodes.get(g.contextNode.dataset.nodeId), { x: event.clientX, y: event.clientY });
     } else if (g.type === "pan" && !g.moved && !g.grab) this.handlers.onSelect(null);
     if (g.type === "move" && g.moved) for (const { node } of g.items) this.handlers.onMoved(node);
     // a click on one node of a selection of several selects that node alone

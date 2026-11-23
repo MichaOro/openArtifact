@@ -811,3 +811,24 @@ def test_the_new_action_dialog_validates_and_shows_server_errors(
     expect(dialog.locator("[data-submit]")).to_have_attribute("aria-busy", "false")
     dialog.locator("[data-submit]").click()
     expect(page).to_have_url(re.compile(r"/actions/gap-analysis"))
+
+
+def test_a_stage_is_duplicated_with_its_actions_and_pasted_into_another_pipeline(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _flow(page, base_url, api)  # one stage, two actions
+    stage = page.locator(".ge-node--stage")
+    stage.locator(".ge-stage__header").click(position={"x": 80, "y": 20})
+    page.keyboard.press("Control+d")
+    expect(page.locator(".ge-node--stage")).to_have_count(2)
+    expect(page.locator(".ge-node--action")).to_have_count(4)  # the actions went along
+    eventually(lambda: sorted(n["kind"] for n in _graph(api, pipeline)["nodes"]).count("action"), 4)
+    names = [n["name"] for n in _graph(api, pipeline)["nodes"] if n["kind"] == "stage"]
+    assert len(set(names)) == 2 and any(name.endswith(" copy") for name in names), names
+
+    page.keyboard.press("Control+c")  # a duplicate does not use the clipboard; a copy does
+    other = api.post("/api/pipelines", json={"name": "Other"}).json()
+    _open(page, base_url, other)  # another pipeline: the clipboard is shared
+    page.keyboard.press("Control+v")
+    expect(page.locator(".ge-node--stage")).to_have_count(1)
+    expect(page.locator(".ge-node--action")).to_have_count(2)

@@ -368,3 +368,23 @@
 .ge-group { border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
 .ge-group[open] { display: flex; flex-direction: column; gap: var(--space-3); }
 .ge-group > summary { cursor: pointer; font-size: 0.8125rem; font-weight: 500; color: var(--color-text-secondary); }
+
+/* the bar under a node: Edit, Delete, a menu (canvas.js) */
+.ge-node-bar {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  z-index: 6;
+  display: none;
+  padding-top: 6px; /* bridges the gap, so the pointer can travel from the node to the bar */
+  transform: translateX(-50%) scale(var(--ge-inverse-zoom, 1));
+  transform-origin: top center;
+  cursor: default;
+}
+.ge-node-bar__inner { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--color-glass-card); box-shadow: var(--shadow-card-hover); }
+.ge-node:hover > .ge-node-bar,
+.ge-node:focus-within > .ge-node-bar,
+.ge-node.is-selected > .ge-node-bar { display: block; }
+.ge-node--stage:not(.is-selected) > .ge-node-bar { display: none; } /* a stage is large: its bar only while it is selected */
+.has-multi .ge-node.is-selected:not(:hover) > .ge-node-bar { display: none; }
+.is-panning .ge-node-bar, .is-connecting .ge-node-bar { display: none !important; }

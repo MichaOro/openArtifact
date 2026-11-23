@@ -48,8 +48,10 @@ export class ActionMenu {
    *   `disabledReason` set: the entry is disabled and shows that text as its hint; `danger`: it deletes
    *   something and is drawn in the destructive colour (is-danger)
    * @param {string} label what assistive technology calls the menu
+   * @param {{at?: {x: number, y: number}}} [options] `at`: open at this point of the window (a context menu) instead of
+   *   under the trigger; the focus still goes back to the trigger. An item may have a `shortcut` shown at its right.
    */
-  toggle(trigger, items, label) {
+  toggle(trigger, items, label, { at = null } = {}) {
     if (this.isOpen && this.trigger === trigger) {
       this.close();
       return;
@@ -65,11 +67,11 @@ export class ActionMenu {
     this.hint.hidden = true;
     this.el.hidden = false;
     const t = trigger.getBoundingClientRect();
-    placePopover(this.el, (size) => ({
-      left: t.right - size.width,
-      top: t.bottom + 6,
-      flipTop: t.top - size.height - 6,
-    }));
+    placePopover(this.el, (size) =>
+      at
+        ? { left: at.x, top: at.y, flipTop: at.y - size.height }
+        : { left: t.right - size.width, top: t.bottom + 6, flipTop: t.top - size.height - 6 },
+    );
     trigger.setAttribute("aria-expanded", "true");
     entries[0].focus({ preventScroll: true });
   }
@@ -81,12 +83,20 @@ export class ActionMenu {
     if (restoreFocus) this.trigger.focus();
   }
 
-  #entry({ label, icon: iconName, onSelect, disabledReason, danger = false }) {
+  #entry({ label, icon: iconName, onSelect, disabledReason, danger = false, shortcut = null }) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = danger ? "menu__item is-danger" : "menu__item";
     button.setAttribute("role", "menuitem");
-    button.append(icon(iconName), label);
+    const text = document.createElement("span");
+    text.textContent = label;
+    button.append(icon(iconName), text);
+    if (shortcut) {
+      const key = document.createElement("kbd");
+      key.className = "menu__key";
+      key.textContent = shortcut;
+      button.append(key);
+    }
     if (disabledReason) {
       button.setAttribute("aria-disabled", "true");
       button.setAttribute("aria-describedby", this.hint.id);

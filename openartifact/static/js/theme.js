@@ -10,6 +10,7 @@
     theme: "openartifact-theme",
     sidebar: "openartifact-sidebar",
     cardNav: "openartifact-card-nav",
+    nodeClipboard: "oa-node-clipboard", // what Ctrl+C copied in a graph editor (editor/clipboard.js)
     lastPipeline: "oa-last-pipeline", // the pipeline (and action) last worked on; read by main.js
     navSection: "oa-nav-section" // sessionStorage: whether the last page was inside the nav group
   };
