@@ -211,17 +211,21 @@ export class Canvas {
       el.append(content);
       return el;
     };
+    // a submenu of the pencil: centred below the bar, so the bar itself keeps its two buttons (more menus can follow the same way)
     const styles = document.createElement("span");
-    styles.className = "ge-edge-bar__styles";
+    styles.className = "ge-edge-bar__submenu";
     styles.hidden = true;
+    const choices = document.createElement("span");
+    choices.className = "ge-edge-bar__choices";
+    styles.append(choices);
     for (const [value, label] of Object.entries(EDGE_STYLES)) {
       const choice = button("icon-button icon-button--sm ge-edge-bar__style", label, icon(`line-${value}`)); // a pictogram, its name is the tooltip
       choice.dataset.style = value;
-      styles.append(choice);
+      choices.append(choice);
     }
     const pencil = button("icon-button icon-button--sm ge-edge-bar__pencil", "Change line style", icon("pencil"));
     const bin = button("icon-button icon-button--sm is-danger ge-edge-bar__bin", "Delete connection", icon("trash"));
-    bar.append(pencil, styles, bin);
+    bar.append(pencil, bin, styles);
     bar.addEventListener("click", (event) => {
       const id = bar.dataset.edgeId;
       const edge = this.edges.get(id);
@@ -276,10 +280,10 @@ export class Canvas {
     const line = edge && !this.gesture ? this.edgeLayer.querySelector(`.ge-edge[data-edge-id="${CSS.escape(id)}"] .ge-edge__line`) : null;
     if (!line) {
       bar.hidden = true;
-      bar.querySelector(".ge-edge-bar__styles").hidden = true;
+      bar.querySelector(".ge-edge-bar__submenu").hidden = true;
       return;
     }
-    if (bar.dataset.edgeId !== id) bar.querySelector(".ge-edge-bar__styles").hidden = true;
+    if (bar.dataset.edgeId !== id) bar.querySelector(".ge-edge-bar__submenu").hidden = true;
     bar.dataset.edgeId = id;
     const middle = line.getPointAtLength(line.getTotalLength() / 2);
     bar.style.left = `${middle.x}px`;

@@ -445,6 +445,33 @@ def test_the_pencil_of_the_bar_sets_the_line_style_in_one_click_more(
     assert " C " not in (page.locator(".ge-edge__line").first.get_attribute("d") or "")
 
 
+def test_the_styles_open_as_a_submenu_centred_below_the_bar_and_the_bar_keeps_its_size(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _flow(page, base_url, api)
+    _connect_trigger_to_stage(page)
+    _on_edge(page)
+    bar = page.locator(".ge-edge-bar")
+    expect(bar).to_be_visible()
+    closed = bar.bounding_box()
+    page.get_by_role("button", name="Change line style").click()
+    submenu = page.locator(".ge-edge-bar__submenu")
+    expect(submenu).to_be_visible()
+    opened, menu = bar.bounding_box(), page.locator(".ge-edge-bar__choices").bounding_box()
+    assert closed and opened and menu
+    assert (
+        opened["width"] == closed["width"] and opened["height"] == closed["height"]
+    )  # pencil and bin stay
+    assert menu["y"] >= opened["y"] + opened["height"]  # below the bar, not beside the buttons
+    assert (
+        abs((menu["x"] + menu["width"] / 2) - (opened["x"] + opened["width"] / 2)) <= 2
+    )  # centred
+    # the pointer may travel from the bar to the submenu without it closing
+    page.mouse.move(menu["x"] + menu["width"] / 2, menu["y"] + menu["height"] / 2, steps=5)
+    page.wait_for_timeout(400)
+    expect(submenu).to_be_visible()
+
+
 def test_a_selected_connection_keeps_its_bar_so_keyboard_and_touch_can_reach_it(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:

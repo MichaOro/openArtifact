@@ -250,7 +250,17 @@
   transform: translate(-50%, -50%) scale(var(--ge-inverse-zoom, 1));
 }
 .ge-edge-bar[hidden], .ge-edge-bar [hidden] { display: none; }
-.ge-edge-bar__styles { display: flex; gap: 2px; }
+/* the submenu hangs centred below the bar; its top padding is a bridge, so the pointer can cross to it */
+.ge-edge-bar__submenu { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); padding-top: var(--space-1); }
+.ge-edge-bar__choices {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--color-glass-card);
+  box-shadow: var(--shadow-card-hover);
+}
 .ge-edge-bar__style[aria-pressed="true"] { background: var(--accent-soft); color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
 .ge-edge__line--draft { stroke: var(--color-accent); stroke-dasharray: 4 4; }
 .ge-edge--attachment .ge-edge__line { stroke: var(--color-text-muted); stroke-dasharray: 5 5; }
