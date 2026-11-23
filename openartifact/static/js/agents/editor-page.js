@@ -3,6 +3,7 @@
  * there; Inputs and Model & Limits are tabs while their switch (part of the draft) is on; the system prompt
  * shows inside Prompts; Quick test is a tab that lives only while the page is open. The form edits the draft
  * only; nothing an execution uses changes before "Publish". */
+import { ActionMenu } from "../components/action-menu.js";
 import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { FormDialog } from "../components/form-dialog.js";
@@ -65,10 +66,11 @@ const active = new Switch($("[data-active]"));
 
 // ── Model & Limits: two cards of optional settings (ADR-046); a setting not added is "not set" ──
 
-const selectSetting = (key, label, hint) => ({
+const selectSetting = (key, label, hint, fallback) => ({
   key,
   label,
   hint,
+  fallback,
   create: () => el("select", "field__control"),
   read: (select) => select.value || null,
   write: () => {}, // filled by onAdd and fillModelSelects
@@ -76,10 +78,10 @@ const selectSetting = (key, label, hint) => ({
 const modelGroup = new SettingsGroup(
   $('[data-settings="model"]'),
   [
-    selectSetting("provider_id", "Provider", "Where the requests go; not set: the default provider."),
-    selectSetting("model", "Model", "Not set: the provider's default model."),
-    numberSetting("temperature", "Temperature", { min: 0, max: 2, step: 0.1, hint: "0 to 2. Not set: the model's own." }),
-    numberSetting("max_tokens", "Max tokens", { min: 1, max: 8192, hint: "1 to 8192. Not set: the model's own." }),
+    selectSetting("provider_id", "Provider", "Where the requests go.", "the default provider"),
+    selectSetting("model", "Model", "The model of the provider.", "the provider's default model"),
+    numberSetting("temperature", "Temperature", { min: 0, max: 2, step: 0.1, hint: "0 to 2.", fallback: "the model's own" }),
+    numberSetting("max_tokens", "Max tokens", { min: 1, max: 8192, hint: "1 to 8192.", fallback: "the model's own" }),
   ],
   {
     onChange: () => {
@@ -94,10 +96,11 @@ const modelGroup = new SettingsGroup(
 const limitsGroup = new SettingsGroup(
   $('[data-settings="limits"]'),
   [
-    numberSetting("request_timeout_seconds", "Request timeout", { min: 1, max: 300, hint: "Seconds, 1 to 300. Not set: 60." }),
-    numberSetting("total_timeout_seconds", "Node time limit", { min: 1, max: 1800, hint: "Seconds, 1 to 1800; covers all attempts and waits. Not set: 600." }),
-    numberSetting("retries", "Retries", { min: 0, max: 4, hint: "0 to 4. Not set: 3." }),
-    numberSetting("max_iterations", "Max iterations", { min: 1, max: 50, hint: "1 to 50; requests while the model calls tools. Not set: 10." }),
+    // by importance: the time limit guards every run, the iterations only matter with tools
+    numberSetting("total_timeout_seconds", "Node time limit", { min: 1, max: 1800, hint: "Seconds, 1 to 1800; covers all attempts and waits.", fallback: 600, unit: " s" }),
+    numberSetting("max_iterations", "Max iterations", { min: 1, max: 50, hint: "1 to 50; how many requests a node may make while the model calls tools. Only with tools.", fallback: 10, unit: ", only with tools" }),
+    numberSetting("retries", "Retries", { min: 0, max: 4, hint: "0 to 4.", fallback: 3 }),
+    numberSetting("request_timeout_seconds", "Request timeout", { min: 1, max: 300, hint: "Seconds, 1 to 300; one attempt.", fallback: 60, unit: " s" }),
   ],
   { onChange: () => changed() },
 );
@@ -107,46 +110,91 @@ function readValue(key) {
   return { ...modelGroup.read(), ...limitsGroup.read() }[key];
 }
 
+const inputMenu = new ActionMenu();
+
+/** A select of fixed choices ([value, text]); the Type and the Required column use it. */
+function choiceSelect(choices, value, label, key) {
+  const select = el("select", "field__control");
+  for (const [option, text] of choices) select.append(new Option(text, option));
+  select.value = value;
+  select.setAttribute("aria-label", label);
+  select.dataset.input = key;
+  return select;
+}
+
+function textInput(value, label, key, extra = {}) {
+  const input = Object.assign(el("input", "field__control"), { type: "text", value: value ?? "", autocomplete: "off", ...extra });
+  input.setAttribute("aria-label", label);
+  input.dataset.input = key;
+  return input;
+}
+
+/** One row of the inputs table: name, type, required or optional, default, the description if it has one, and its menu. */
 function inputRow(input = { name: "", type: "string", required: false, default: null, description: "" }) {
   const row = el("li", "ag-input");
-  const make = (label, node, key) => {
-    const wrap = el("div", "field");
-    node.id = `ag-input-${(fieldCount += 1)}`;
-    node.dataset.input = key;
-    const text = el("label", "field__label", label);
-    text.htmlFor = node.id;
-    wrap.append(text, node);
-    return wrap;
-  };
-  const name = Object.assign(el("input", "field__control"), { type: "text", value: input.name, maxLength: 32, placeholder: "ticket", autocomplete: "off", spellcheck: false });
-  const type = el("select", "field__control");
-  for (const option of ["string", "number", "boolean"]) type.append(new Option(option, option));
-  type.value = input.type;
-  const required = Object.assign(el("input"), { type: "checkbox", checked: input.required });
-  required.dataset.input = "required";
-  const requiredLabel = el("label", "ag-check");
-  requiredLabel.append(required, el("span", "", "Required"));
-  const fallback = Object.assign(el("input", "field__control"), { type: "text", value: input.default == null ? "" : String(input.default), autocomplete: "off" });
-  const description = Object.assign(el("input", "field__control"), { type: "text", value: input.description ?? "", maxLength: 200, autocomplete: "off" });
-  const remove = el("button", "icon-button icon-button--sm is-danger");
-  remove.type = "button";
-  remove.title = "Remove input";
-  remove.setAttribute("aria-label", "Remove input");
-  remove.append(icon("trash"));
-  remove.addEventListener("click", () => {
-    row.remove();
-    changed();
-    renderSamples();
-  });
+  const name = textInput(input.name, "Name", "name", { maxLength: 32, placeholder: "ticket", spellcheck: false });
+  const type = choiceSelect([["string", "string"], ["number", "number"], ["boolean", "boolean"]], input.type, "Type", "type");
+  const required = choiceSelect([["required", "Required"], ["optional", "Optional"]], input.required ? "required" : "optional", "Required", "required");
+  required.classList.add("ag-input__required");
+  const fallback = textInput(input.default == null ? "" : String(input.default), "Default", "default");
+  const description = el("div", "ag-input__description");
+  const more = el("button", "icon-button icon-button--sm ag-input__more");
+  more.type = "button";
+  more.setAttribute("aria-label", "Input actions");
+  more.title = "Input actions";
+  more.setAttribute("aria-haspopup", "menu");
+  more.append(icon("more"));
   const sync = () => {
-    fallback.disabled = required.checked; // a required input has no default: the node must map it
-    if (required.checked) fallback.value = "";
+    const isRequired = required.value === "required";
+    fallback.disabled = isRequired; // a required input has no default: the node must map it
+    fallback.placeholder = isRequired ? "—" : "";
+    if (isRequired) fallback.value = "";
   };
   required.addEventListener("change", sync);
   sync();
-  row.append(make("Name", name, "name"), make("Type", type, "type"), requiredLabel, make("Default", fallback, "default"), make("Description", description, "description"), remove);
+  more.addEventListener("click", () => {
+    const has = Boolean(description.firstChild);
+    inputMenu.toggle(
+      more,
+      [
+        has
+          ? { label: "Remove description", icon: "x", onSelect: () => setDescription(row, null) }
+          : { label: "Add description", icon: "plus", onSelect: () => setDescription(row, "") },
+        { label: "Remove input", icon: "trash", danger: true, onSelect: () => removeInput(row) },
+      ],
+      `Input ${name.value || ""}`.trim(),
+    );
+  });
+  row.append(name, type, required, fallback, description, more);
+  if (input.description) setDescription(row, input.description, { quiet: true });
   name.addEventListener("change", renderSamples);
   return row;
+}
+
+/** Give a row a description field (text) or take it away (null); the column follows the data. */
+function setDescription(row, text, { quiet = false } = {}) {
+  const cell = row.querySelector(".ag-input__description");
+  if (text === null) cell.replaceChildren();
+  else {
+    const field = textInput(text, "Description", "description", { maxLength: 200 });
+    cell.replaceChildren(field);
+    if (!quiet) field.focus();
+  }
+  showDescriptionColumn();
+  if (!quiet) changed();
+}
+
+function removeInput(row) {
+  row.remove();
+  showDescriptionColumn();
+  changed();
+  renderSamples();
+}
+
+/** The Description column is there while any input has a description (derived, never stored). */
+function showDescriptionColumn() {
+  const any = [...$("[data-inputs]").children].some((row) => row.querySelector('[data-input="description"]'));
+  $("[data-inputs-table]").classList.toggle("has-description", any);
 }
 
 /** The inputs as the form has them; a default is sent in the input's own type. */
@@ -158,7 +206,8 @@ function readInputs() {
     let fallback = raw === "" ? null : raw;
     if (fallback !== null && type === "number" && !Number.isNaN(Number(raw))) fallback = Number(raw);
     if (fallback !== null && type === "boolean" && ["true", "false"].includes(raw.toLowerCase())) fallback = raw.toLowerCase() === "true";
-    return { name: get("name").value.trim(), type, required: get("required").checked, default: get("required").checked ? null : fallback, description: get("description").value.trim() };
+    const required = get("required").value === "required";
+    return { name: get("name").value.trim(), type, required, default: required ? null : fallback, description: get("description")?.value.trim() ?? "" };
   });
 }
 
@@ -207,7 +256,8 @@ function fillForm(config) {
   }
   control("system_prompt").value = config.system_prompt;
   control("user_prompt").value = config.user_prompt;
-  $("[data-inputs]").replaceChildren(...config.inputs.map(inputRow));
+  $("[data-inputs]").replaceChildren(...config.inputs.map((input) => inputRow(input)));
+  showDescriptionColumn();
   modelGroup.load(config);
   limitsGroup.load(config);
   fillModelSelects(config.provider_id, config.model);

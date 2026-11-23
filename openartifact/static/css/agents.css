@@ -113,7 +113,6 @@
   .ag-head__row { flex-wrap: wrap; }
   .ag-save { justify-items: start; }
   .ag-workspace { grid-template-columns: 1fr; grid-template-areas: "tabs" "main" "side"; }
-  .ag-input { grid-template-columns: 1fr 1fr; }
 }
 
 .ag-back { display: inline-flex; align-items: center; gap: var(--space-1); font-size: 0.8125rem; color: var(--color-text-secondary); text-decoration: none; justify-self: start; }
@@ -138,16 +137,22 @@
 .ag-providers { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
 .ag-inputs:empty,
 .ag-problems:empty { display: none; }
-.ag-input {
+/* the inputs table: one grid for the head and the rows; the Description column only with .has-description */
+.ag-inputs-table {
+  --ag-input-cols: minmax(6rem, 1.3fr) 6.5rem 7.5rem minmax(5rem, 1fr) 2rem;
   display: grid;
-  grid-template-columns: minmax(8rem, 1.2fr) 7rem auto minmax(8rem, 1fr) minmax(8rem, 1.4fr) auto;
   gap: var(--space-2);
-  align-items: end;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
 }
-.ag-input .field__label { font-size: 0.75rem; }
+.ag-inputs-table.has-description { --ag-input-cols: minmax(6rem, 1.2fr) 6.5rem 7.5rem minmax(5rem, 1fr) minmax(6rem, 1.4fr) 2rem; }
+.ag-inputs-head,
+.ag-input { display: grid; grid-template-columns: var(--ag-input-cols); gap: var(--space-2); align-items: center; }
+.ag-inputs-head { padding: 0 var(--space-1); font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); }
+.ag-inputs-table:not(.has-description) .ag-inputs-head__description,
+.ag-inputs-table:not(.has-description) .ag-input__description { display: none; }
+.ag-inputs-table:not(:has(.ag-input)) .ag-inputs-head { display: none; }
+.ag-input { padding: var(--space-1); }
+.ag-input__required option[value="required"] { color: var(--color-accent); }
+.ag-input__required:has(option[value="required"]:checked) { color: var(--color-accent); border-color: var(--accent-ring); background: var(--accent-soft); }
 .ag-check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; font-size: 0.875rem; }
 .ag-check input { width: 1.1rem; height: 1.1rem; accent-color: var(--color-accent); }
 .ag-save__state { font-size: 0.875rem; color: var(--color-text-secondary); }
@@ -256,7 +261,6 @@
 .ag-override .field__error { margin: 0; }
 
 @media (max-width: 760px) {
-  .ag-input { grid-template-columns: 1fr 1fr; }
   .ag-card,
   .ag-provider { padding: var(--space-3); }
 }
@@ -264,3 +268,9 @@
 /* a name that explains itself on hover (Quick test) */
 .ag-hint { cursor: help; border-bottom: 1px dotted var(--color-text-muted); }
 .ag-hint:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+@media (max-width: 760px) {
+  .ag-inputs-head { display: none; }
+  .ag-inputs-table,
+  .ag-inputs-table.has-description { --ag-input-cols: 1fr 1fr; }
+  .ag-input { padding: var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+}

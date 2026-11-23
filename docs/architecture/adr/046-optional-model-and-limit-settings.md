@@ -25,9 +25,15 @@ uses it, or the runtime, decides the rest.
 - **Older drafts and versions** stored the four limits always. A stored configuration without the switch of ADR-045
   (`limits_enabled`) reads a limit equal to the old default as not set: the value is the runtime default, so no run
   changes, and the editor does not show settings nobody chose. No migration.
-- **UI:** two cards, *Model configuration* (provider, model, temperature, max tokens) and *Execution limits* (request
-  timeout, node time limit, retries, max iterations), each with *Add setting* (a menu of the settings not added yet;
-  disabled when all are) and a bin per field. Removing is **unset**, never "reset to default".
+- **UI:** two cards, *Model configuration* (provider, model, temperature, max tokens) and *Execution limits* (node
+  time limit, max iterations, retries, request timeout: by importance), one setting per row. The wording says what is
+  true: a default always applies, a setting only overrides it. *Add setting* lists the settings not added yet, each with
+  its default ("Node time limit · default 600 s"); an added empty field shows the default grey; the bin says "Use the
+  default again". Removing is **unset**, never "reset to default".
+- **Inputs table:** Name, Type, Required (a select: Required / Optional), Default, Description and a menu per row. A
+  description is added from the row's menu (*Add description* or *Remove description*, never both, and *Remove input*);
+  the Description column is there while any input has one, derived from the data. The data model is unchanged (an empty
+  description is none).
 - **Reusable:** `SettingsGroup` takes the settings declaratively (key, label, hint, how the control is made, read and
   written) and knows nothing about agents; `numberSetting` makes a bounded number field. The card styles are global.
 

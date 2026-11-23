@@ -58,8 +58,9 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
 - **Prompts.** The user prompt is required; the system prompt is switched on in *Options*. A prompt uses `${input.NAME}` and
   nothing else: `${node...}`, `${var...}`, `${card...}` and `${secret:...}` are refused. That keeps an agent independent
   of any pipeline.
-- **Inputs.** Declare what the agent needs: a name (`[a-z][a-z0-9_]{0,31}`), a type (`string`, `number`, `boolean`),
-  required or not, and a default for an optional one.
+- **Inputs.** Declare what the agent needs in the table: a name (`[a-z][a-z0-9_]{0,31}`), a type (`string`, `number`,
+  `boolean`), *Required* or *Optional*, and a default for an optional one. A description is added from the row's menu
+  (⋮); the Description column shows while any input has one.
 
   | Input | Node maps it | Result |
   |-------|--------------|--------|

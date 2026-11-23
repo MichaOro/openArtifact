@@ -758,11 +758,11 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 .settings-card__title { font-size: 1rem; font-weight: 600; }
 .settings-card__lead { font-size: 0.8125rem; color: var(--color-text-secondary); }
 .settings-card__head .button .icon { width: 1rem; height: 1rem; }
-.settings-card__fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); gap: var(--space-3) var(--space-5); }
+.settings-card__fields { display: grid; gap: var(--space-2); } /* one setting per row: a list */
 .settings-card__fields:empty { display: none; }
 .settings-card__empty { font-size: 0.8125rem; color: var(--color-text-muted); }
 .settings-card__empty[hidden] { display: none; }
-.setting { display: grid; grid-template-columns: 8rem minmax(0, 1fr) auto; align-items: center; gap: var(--space-2) var(--space-3); }
+.setting { display: grid; grid-template-columns: 10rem minmax(0, 24rem) auto; align-items: center; gap: var(--space-2) var(--space-3); }
 .setting__label { font-size: 0.875rem; font-weight: 500; }
 .setting__label[title] { cursor: help; }
 .setting__remove { color: var(--color-text-muted); }

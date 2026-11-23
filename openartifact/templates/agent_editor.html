@@ -60,8 +60,15 @@
             </section>
 
             <section class="ag-panel" role="tabpanel" id="ag-panel-inputs" aria-labelledby="ag-tab-inputs" hidden>
-                <p class="field__help">What the agent needs from a run. A required input must be mapped by every node; an optional one is its default, or empty text when it has none.</p>
-                <ol class="ag-inputs" data-inputs aria-label="Inputs"></ol>
+                <h3 class="ag-panel__heading"><span class="ag-hint" tabindex="0" title="What the agent needs from a run, used in the prompts as ${input.NAME}. A required input must be mapped by every agent node; an optional one is its default, or empty text when it has none.">Inputs</span></h3>
+                <p class="field__help">Define the inputs this agent needs.</p>
+                {# A table of inputs; the Description column is there only while an input has a description. #}
+                <div class="ag-inputs-table" data-inputs-table>
+                    <div class="ag-inputs-head" aria-hidden="true">
+                        <span>Name <span class="field__required">*</span></span><span>Type</span><span>Required</span><span>Default</span><span class="ag-inputs-head__description">Description</span><span></span>
+                    </div>
+                    <ol class="ag-inputs" data-inputs aria-label="Inputs"></ol>
+                </div>
                 <button type="button" class="button button--ghost button--sm ag-add" data-add-input>{{ icon("plus") }} Add input</button>
             </section>
 
@@ -72,24 +79,22 @@
                         <span class="settings-card__icon" aria-hidden="true">{{ icon("layers") }}</span>
                         <div class="settings-card__text">
                             <h3 class="settings-card__title">Model configuration</h3>
-                            <p class="settings-card__lead">Define the language model and its generation behavior. All settings are optional.</p>
+                            <p class="settings-card__lead">The default provider and its default model are used. Add a setting only to override it.</p>
                         </div>
                         <button type="button" class="button button--ghost button--sm" data-settings-add aria-haspopup="menu">{{ icon("plus") }} Add setting {{ icon("chevron-down") }}</button>
                     </div>
                     <div class="settings-card__fields" data-settings-fields></div>
-                    <p class="settings-card__empty" data-settings-empty>Nothing set: the default provider and its default model are used, unless the agent node chooses.</p>
                 </div>
                 <div class="settings-card" data-settings="limits">
                     <div class="settings-card__head">
                         <span class="settings-card__icon" aria-hidden="true">{{ icon("clock") }}</span>
                         <div class="settings-card__text">
                             <h3 class="settings-card__title">Execution limits</h3>
-                            <p class="settings-card__lead">Control execution time, retries and iteration limits. All settings are optional.</p>
+                            <p class="settings-card__lead">Defaults apply: node time limit 600 s, 10 iterations, 3 retries, request timeout 60 s. Add a setting only to override one.</p>
                         </div>
                         <button type="button" class="button button--ghost button--sm" data-settings-add aria-haspopup="menu">{{ icon("plus") }} Add setting {{ icon("chevron-down") }}</button>
                     </div>
                     <div class="settings-card__fields" data-settings-fields></div>
-                    <p class="settings-card__empty" data-settings-empty>Nothing set: request timeout 60 s, node time limit 600 s, 3 retries and 10 iterations apply, unless the agent node sets its own.</p>
                 </div>
                 <p class="field__help">A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds. The time limit of the node covers all attempts and waits. With tools attached, Max iterations is how many requests a node may make while the model calls tools.</p>
             </section>

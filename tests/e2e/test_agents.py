@@ -181,7 +181,7 @@ def _option(editor: Locator, key: str) -> None:
 
 def _add_setting(editor: Locator, group: str, label: str) -> None:
     editor.locator(f'[data-settings="{group}"] [data-settings-add]').click()
-    editor.page.get_by_role("menuitem", name=label).click()
+    editor.page.get_by_role("menuitem", name=re.compile(rf"^{re.escape(label)}( ·|$)")).click()
 
 
 def _tab(editor: Locator, name: str) -> None:
@@ -206,7 +206,7 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
     editor.locator("[data-add-input]").click()
     row = editor.locator(".ag-input")
     row.get_by_label("Name", exact=True).fill("ticket")
-    row.get_by_text("Required").click()
+    row.get_by_label("Required", exact=True).select_option("required")
     expect(row.get_by_label("Default")).to_be_disabled()  # a required input has no default
     _tab(editor, "Prompts")
     editor.get_by_label("User prompt").fill("Analyse: ${input.ticket} and ${input.missing}")
@@ -557,22 +557,30 @@ def test_model_and_limit_settings_are_added_removed_and_saved_as_not_set(
         editor.locator('[data-settings="limits"]'),
     )
     expect(model.locator(".setting")).to_have_count(0)  # nothing set
-    expect(limits.locator("[data-settings-empty]")).to_be_visible()
+    expect(limits.locator(".settings-card__lead")).to_contain_text("Defaults apply: node time limit 600 s")
     # the menu offers only what is not added yet
     model.locator("[data-settings-add]").click()
     expect(page.get_by_role("menuitem")).to_have_text(
-        ["Provider", "Model", "Temperature", "Max tokens"]
-    )
+        [
+            "Provider · default the default provider",
+            "Model · default the provider's default model",
+            "Temperature · default the model's own",
+            "Max tokens · default the model's own",
+        ]
+    )  # each with the default it overrides
     page.get_by_role("menuitem", name="Temperature").click()
     expect(model.get_by_label("Temperature", exact=True)).to_be_focused()
     model.locator("[data-settings-add]").click()
-    expect(page.get_by_role("menuitem")).to_have_text(["Provider", "Model", "Max tokens"])
+    expect(page.get_by_role("menuitem")).to_have_count(3)  # Temperature is added: not offered again
     page.keyboard.press("Escape")
     model.get_by_label("Temperature", exact=True).fill("0.4")
     _add_setting(editor, "model", "Model")
     expect(model.get_by_label("Model", exact=True)).to_contain_text("Default of the provider")
     model.get_by_label("Model", exact=True).select_option("small")
     _add_setting(editor, "limits", "Retries")
+    expect(limits.get_by_label("Retries", exact=True)).to_have_attribute(
+        "placeholder", "3"
+    )  # the default, grey
     limits.get_by_label("Retries", exact=True).fill("1")
     for label in ("Request timeout", "Node time limit", "Max iterations"):
         _add_setting(editor, "limits", label)
@@ -616,3 +624,71 @@ def test_the_quick_test_explains_itself_in_its_name(
     name = editor.locator("[data-quick-test] .ag-hint")
     expect(name).to_have_text("Quick test")
     expect(name).to_have_attribute("title", re.compile("not an artifact id"))
+
+
+# ── the inputs table ─────────────────────────────────────────────────
+
+
+def test_the_inputs_table_has_a_required_column_and_a_description_only_when_one_is_added(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    agent = api.post(
+        "/api/agents",
+        json={
+            "name": "Table",
+            "draft": {
+                "user_prompt": "${input.repo} ${input.branch}",
+                "inputs": [
+                    {"name": "repo", "required": True},
+                    {"name": "branch", "default": "main"},
+                ],
+            },
+        },
+    ).json()
+    page = signed_in
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    _tab(editor, "Inputs")
+    table = editor.locator("[data-inputs-table]")
+    rows = table.locator(".ag-input")
+    expect(rows).to_have_count(2)
+    expect(rows.nth(0).get_by_label("Required", exact=True)).to_have_value("required")
+    expect(rows.nth(0).get_by_label("Default", exact=True)).to_be_disabled()
+    expect(rows.nth(1).get_by_label("Required", exact=True)).to_have_value("optional")
+    expect(table.locator(".ag-inputs-head__description")).to_be_hidden()  # nobody has a description
+    # the menu offers exactly the fitting action
+    rows.nth(0).get_by_role("button", name="Input actions").click()
+    expect(page.get_by_role("menuitem")).to_have_text(["Add description", "Remove input"])
+    page.get_by_role("menuitem", name="Add description").click()
+    expect(table.locator(".ag-inputs-head__description")).to_be_visible()
+    rows.nth(0).get_by_label("Description", exact=True).fill("Repository name")
+    rows.nth(1).get_by_role("button", name="Input actions").click()
+    page.get_by_role("menuitem", name="Add description").click()
+    rows.nth(1).get_by_label("Description", exact=True).fill("Branch name")
+    rows.nth(0).get_by_role("button", name="Input actions").click()
+    expect(page.get_by_role("menuitem")).to_have_text(["Remove description", "Remove input"])
+    page.get_by_role("menuitem", name="Remove description").click()
+    expect(
+        table.locator(".ag-inputs-head__description")
+    ).to_be_visible()  # the other one still has one
+    expect(rows.nth(1).get_by_label("Description", exact=True)).to_have_value("Branch name")
+    rows.nth(1).get_by_label("Required", exact=True).select_option("required")
+    editor.locator("[data-save]").click()
+    expect(editor.locator("[data-draft-state]")).to_contain_text("The draft is saved")
+    inputs = api.get(f"/api/agents/{agent['id']}").json()["draft"]["inputs"]
+    assert [(i["name"], i["required"], i["description"]) for i in inputs] == [
+        ("repo", True, ""),
+        ("branch", True, "Branch name"),
+    ]
+    page.reload()
+    editor = page.locator("[data-agent-editor]")
+    _tab(editor, "Inputs")
+    table = editor.locator("[data-inputs-table]")
+    rows = table.locator(".ag-input")
+    expect(rows.nth(1).get_by_label("Description", exact=True)).to_have_value("Branch name")
+    rows.nth(1).get_by_role("button", name="Input actions").click()
+    page.get_by_role("menuitem", name="Remove description").click()
+    expect(table.locator(".ag-inputs-head__description")).to_be_hidden()  # the last one went
+    rows.nth(0).get_by_role("button", name="Input actions").click()
+    page.get_by_role("menuitem", name="Remove input").click()
+    expect(rows).to_have_count(1)

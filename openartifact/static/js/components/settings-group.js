@@ -1,6 +1,6 @@
-/* A card of optional settings (ADR-046): a setting is only a field once it is added ("Add setting", a menu of
- * the ones not added yet) and goes again with its bin. Removing is "not set", never "back to a default": the
- * group reads a missing setting as null. The settings are declared (key, label, how its control is made, read
+/* A card of settings that override defaults (ADR-046): a default always applies; a setting is a field only once
+ * it is added ("Add setting", a menu of the ones not added yet, each with its default) and goes again with its
+ * bin, which brings the default back. Removing is "not set": the group reads a missing setting as null. The settings are declared (key, label, how its control is made, read
  * and written); the group knows nothing about what they mean.
  *
  * Markup: the root holds [data-settings-add] (the button), [data-settings-fields] (where the fields go) and an
@@ -10,17 +10,19 @@ import { icon } from "./icons.js";
 
 let groupCount = 0;
 
-/** A number field with its bounds (read: a number, null when empty, NaN when it is none). */
-export function numberSetting(key, label, { min, max, step = 1, hint = "" } = {}) {
+/** A number field with its bounds; `fallback` is its default, shown grey while the field is empty (read: a
+ * number, null when empty, NaN when it is none). */
+export function numberSetting(key, label, { min, max, step = 1, hint = "", fallback = "", unit = "" } = {}) {
   return {
     key,
     label,
     hint,
+    fallback: fallback === "" ? "" : `${fallback}${unit}`,
     create() {
       const input = document.createElement("input");
       input.className = "field__control";
       input.type = "number";
-      Object.assign(input, { min, max, step });
+      Object.assign(input, { min, max, step, placeholder: String(fallback) });
       return input;
     },
     read: (input) => (input.value.trim() === "" ? null : Number(input.value)),
@@ -31,7 +33,8 @@ export function numberSetting(key, label, { min, max, step = 1, hint = "" } = {}
 export class SettingsGroup {
   /**
    * @param {HTMLElement} root
-   * @param {{key: string, label: string, hint?: string, create: () => HTMLElement, read: (el: HTMLElement) => any, write: (el: HTMLElement, value: any) => void}[]} settings
+   * @param {{key: string, label: string, hint?: string, fallback?: string, create: () => HTMLElement, read: (el: HTMLElement) => any, write: (el: HTMLElement, value: any) => void}[]} settings
+   *   `fallback` is the default in words ("600 s", "the default provider"): in the menu and on the bin
    * @param {{onChange?: () => void, onAdd?: (key: string, el: HTMLElement) => void}} [hooks] onChange: added or removed;
    *   onAdd: a control was just made (fill a select, wire it)
    */
@@ -96,7 +99,9 @@ export class SettingsGroup {
   }
 
   #openMenu() {
-    const items = this.settings.filter((s) => !this.shown.has(s.key)).map((s) => ({ label: s.label, icon: "plus", onSelect: () => this.add(s.key) }));
+    const items = this.settings
+      .filter((s) => !this.shown.has(s.key))
+      .map((s) => ({ label: s.fallback ? `${s.label} · default ${s.fallback}` : s.label, icon: "plus", onSelect: () => this.add(s.key) }));
     if (items.length) this.menu.toggle(this.addButton, items, "Add setting");
   }
 
@@ -119,7 +124,7 @@ export class SettingsGroup {
     bin.type = "button";
     bin.className = "icon-button icon-button--sm is-danger setting__remove";
     bin.setAttribute("aria-label", `Remove ${setting.label}`);
-    bin.title = `Remove ${setting.label} (not set: the default applies)`;
+    bin.title = setting.fallback ? `Use the default again (${setting.fallback})` : `Remove ${setting.label}`;
     bin.append(icon("trash"));
     bin.addEventListener("click", () => this.remove(setting.key));
     row.append(label, control, bin);
