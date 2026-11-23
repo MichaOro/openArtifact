@@ -391,9 +391,12 @@ def test_create_an_action_definition_from_the_navigation(
             "Switch",
             "Agent",
             "Edit Fields",
+            "GitHub",
+            "Postgres",
             "MCP Client Tool",
             "HTTP Request Tool",
             "Code Tool",
+            "Postgres Tool",
         ]
     )
 

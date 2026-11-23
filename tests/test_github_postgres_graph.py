@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from collections.abc import Callable
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+import openartifact
 from alembic import command
 from tests.helpers import alembic_config, graph_url, kind_of, node, post
 
@@ -258,3 +260,21 @@ def test_migration_0036_allows_the_new_kinds_and_the_downgrade_removes_them_with
         assert sorted(conn.execute("SELECT id FROM graph_nodes").fetchall()) == [("a",), ("o",)]
         assert conn.execute("SELECT id FROM graph_edges").fetchall() == [("e3",)]
     command.upgrade(alembic_config(), "head")
+
+
+# ── the editor ───────────────────────────────────────────────────────
+
+
+def test_every_icon_a_node_card_asks_for_is_drawn_by_the_icon_template() -> None:
+    """A card whose icon the template does not know is drawn without one: no error, just a hole."""
+    root = Path(openartifact.__file__).parent
+    source = (root / "static/js/editor/node-types.js").read_text()
+    asked = set(re.findall(r'static icon = "([a-z-]+)"', source))
+    template = (root / "templates/components/icons.html").read_text()
+    names_line = next(
+        line for line in template.splitlines() if line.startswith("{% set icon_names")
+    )
+    assert {"github", "database"} <= asked
+    for name in sorted(asked):
+        assert f'"{name}"' in names_line, name
+        assert f'name == "{name}"' in template or name == "board", name

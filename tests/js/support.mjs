@@ -107,7 +107,9 @@ export const NODE_TYPES = [
     addable: true, chain: true, scopes: ["action"], inputs: [port("in", "Input"), { name: "tools", label: "Tools", side: "bottom" }],
     outputs: [port("pass", "On Pass"), port("fail", "On Fail")],
   }),
-  ...[["mcp_tool", "MCP Client Tool"], ["http_tool", "HTTP Request Tool"], ["code_tool", "Code Tool"]].map(([name, label]) =>
+  kind("github", "GitHub", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
+  kind("postgres", "Postgres", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
+  ...[["mcp_tool", "MCP Client Tool"], ["http_tool", "HTTP Request Tool"], ["code_tool", "Code Tool"], ["postgres_tool", "Postgres Tool"]].map(([name, label]) =>
     kind(name, label, { addable: true, tool: true, scopes: ["action"], outputs: [{ name: "tool", label: "Tool", side: "top" }] }),
   ),
 ];
