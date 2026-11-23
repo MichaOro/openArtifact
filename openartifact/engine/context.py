@@ -71,6 +71,7 @@ _NO_RESULT = frozenset(
         "mcp_tool",
         "http_tool",
         "code_tool",
+        "postgres_tool",
     }
 )
 
