@@ -126,8 +126,8 @@ when a node runs and masked in results and logs. Needs a token and a key. The ma
 catch a deliberate leak; a node that can read a secret can always exfiltrate it. See
 [Credentials](credentials.md).
 
-**Artifact parameters** (`${card.NAME}`, defined per artifact type) are plain user data: stored as they are in
-`tasks.parameters`, copied into the context of every execution, never masked. Do not put credentials in them; a
+**Artifact fields** (`${card.NAME}`, ADR-044) are plain user data: stored as they are in
+`tasks.field_values`, copied into the context of every execution, never masked. Do not put credentials in them; a
 `${secret:NAME}` written into a parameter stays that text (a replaced value is never scanned again) and is not
 resolved. They are validated when saved (kinds, limits, 4 KiB in total) and, like any value from outside, pasted
 literally into requests (percent-encoded in a URL), never evaluated.

@@ -74,7 +74,7 @@ The most used routes (all 24 are listed with errors in the [API reference](api-r
 | `GET /api/v1/pipelines` | Pipelines with stages in running order and the actions of each stage |
 | `GET`, `POST /api/v1/lanes`, `PUT`, `DELETE /api/v1/lanes/{status}` | The lanes (at most 12); add one (`{"title": "Review"}`), change one (`PUT` with `{"title"?, "style"?}`, at least one; `style` is `normal` or `finished`: how its cards look), delete an empty one (`409` while it holds artifacts). Artifacts use the lane's key (`status`, e.g. `backlog`, `in_progress`, `done`, or `review` for a lane added later), whatever the lane is called; without a lane an artifact goes to the first lane, an unknown key is `422` and lists the valid ones |
 | `GET /api/v1/artifacts`, `POST /api/v1/artifacts` | List, create (`title`, optional `body`, `status`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`) |
-| `GET`, `POST /api/v1/artifact-types`, `GET`, `PUT`, `DELETE /api/v1/artifact-types/{ref}` | Artifact types and their typed parameters; an artifact takes `type_id` and `parameters` (checked when saved, see below) |
+| `GET`, `PUT /api/v1/artifact-fields` | The artifact fields every artifact has; an artifact takes `fields` (`{name: value}`, checked when saved) |
 | `GET`, `PATCH`, `DELETE /api/v1/artifacts/{ref}` | Read, change (partial), delete; `ref` is the number (`12`) or the id |
 | `GET /api/v1/artifacts/{ref}/run` | State of the run: status, where it is, every stage |
 | `POST /api/v1/artifacts/{ref}/run` | Start (body optional) |
@@ -83,21 +83,21 @@ The most used routes (all 24 are listed with errors in the [API reference](api-r
 | `GET /api/v1/executions`, `.../artifacts/{ref}/executions[/{id}[/flow\|/context]]` | History, see [below](#executions-and-history); the execution carries its run `context` |
 | `GET`, `PUT`, `DELETE /api/v1/secrets[/{name}]` | Credentials, see [below](#credentials) |
 
-Artifact types and parameters, so a script can give a card the facts a pipeline branches on:
+Artifact fields, so a script can give a card the facts a pipeline branches on:
 
 ```bash
-# define a type once (a choice and a required text)
-curl -s -X POST $OA/api/v1/artifact-types -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name": "Support triage", "fields": [
+# define the fields once (a choice and a text)
+curl -s -X PUT $OA/api/v1/artifact-fields -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"fields": [
         {"name": "urgency", "label": "Urgency", "kind": "choice", "options": ["low", "normal", "high"], "default": "normal"},
-        {"name": "summary", "label": "Summary", "kind": "text", "required": true}]}'
+        {"name": "summary", "label": "Summary", "kind": "text"}]}'
 
-# create an artifact of that type; a typo is refused with a 422 that names the parameter
+# create an artifact with values; a typo is refused with a 422 that names the field
 curl -s -X POST $OA/api/v1/artifacts -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"title": "Printer on fire", "type_id": "<type id>", "parameters": {"urgency": "high", "summary": "Smoke"}}'
+  -d '{"title": "Printer on fire", "fields": {"urgency": "high", "summary": "Smoke"}}'
 ```
 
-A run reads the parameters as `${card.urgency}` ([execution nodes](execution-nodes.md#card-parameters-card)).
+A run reads the fields as `${card.urgency}` ([execution nodes](execution-nodes.md#card-parameters-card)).
 
 Rules that scripts meet:
 

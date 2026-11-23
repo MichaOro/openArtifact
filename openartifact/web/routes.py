@@ -159,20 +159,6 @@ async def executions(request: Request, page_size: int = 50) -> HTMLResponse:
     )
 
 
-@router.get("/artifact-types", response_class=HTMLResponse, include_in_schema=False)
-async def artifact_types(request: Request) -> HTMLResponse:
-    """The artifact types and their parameters (the page loads and changes them through the API)."""
-    return templates.TemplateResponse(
-        request=request,
-        name="artifact_types.html",
-        context={
-            "page_title": "Artifact types",
-            "active_nav": "artifact-types",
-            "app_version": APP_VERSION,
-        },
-    )
-
-
 def _page(request: Request, name: str, title: str, nav: str, **more: str) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,

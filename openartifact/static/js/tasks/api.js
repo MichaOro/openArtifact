@@ -9,8 +9,8 @@ export const createTask = (task) =>
   request("/api/tasks", { method: "POST", body: JSON.stringify(task) });
 
 /**
- * Partial update of a task: any of title, body, status, parent_id (null = no parent), type_id (null = none),
- * parameters (merged; null clears one) and reset_parameters (drop the stored values when the type changes).
+ * Partial update of a task: any of title, body, status, parent_id (null = no parent) and fields (the values of
+ * the artifact fields, merged; null clears one).
  * @param {string} id
  * @param {{title?: string, body?: string|null, status?: string, parent_id?: string|null}} fields
  */

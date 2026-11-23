@@ -48,7 +48,7 @@ frontend build ([ADR-010](../architecture/adr/010-frontend-without-htmx.md), lay
 │   ├── database.py, events.py, exceptions.py, logging_config.py, schemas_common.py, security.py, version.py
 │   ├── models/                     # SQLAlchemy models, one module per area (board, graphs, runs, credentials, agents, enums)
 │   ├── tasks/                      # artifacts on the board: service, repository, schemas, lanes
-│   ├── artifact_types/             # artifact types and their typed parameters
+│   ├── artifact_fields/            # the artifact fields every artifact has (ADR-044)
 │   ├── graph/                      # pipelines and action definitions: node kinds, rules, repository
 │   ├── engine/                     # the run engine: walk, snapshot, executors, Code and HTTP runners, history, flow replay
 │   ├── agents/                     # agents, LLM providers, prompt rendering, the runtime of the Agent node

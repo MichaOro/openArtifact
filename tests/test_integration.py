@@ -261,7 +261,7 @@ def test_an_agent_changes_an_artifact(api: TestClient) -> None:
     assert api.get("/api/v1/artifacts/1").json()["status"] == "done"
 
     empty = _tool(api, "update_artifact", artifact="1")
-    assert empty["isError"] and "Give a title, a body, a lane, a type or parameters" in _text(empty)
+    assert empty["isError"] and "Give a title, a body, a lane or fields" in _text(empty)
     bad_lane = _tool(api, "update_artifact", artifact="1", lane="sideways")
     assert bad_lane["isError"] and "Valid lanes: backlog, in_progress, done" in _text(bad_lane)
     assert _tool(api, "update_artifact", artifact="99", title="x")["isError"]

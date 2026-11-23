@@ -63,7 +63,7 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | HTTP node with SSRF guard | Built | ADR-021, ADR-023 |
 | Run context: variables and node results of a run, `${node...}` / `${var...}` / `${card...}` references | Built | ADR-033 |
 | If and Switch nodes (a rule per Switch case), Edit Fields node, editor suggestions for references | Built | ADR-034, ADR-039 |
-| Artifact types with typed card parameters | Built | ADR-035 |
+| Artifact fields (global custom fields, set in the dialog's rail) | Built | ADR-044 (replaced ADR-035) |
 | User-defined lanes with a card look per lane; one UI language (primary, destructive, neutral) | Built | ADR-011, ADR-036 |
 | Credential store | Built as API; no page of its own (the provider dialog can store an API key) | ADR-024, ADR-037 |
 | Execution history per artifact with retention policy | Built | ADR-025 |

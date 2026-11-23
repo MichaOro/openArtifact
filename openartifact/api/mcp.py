@@ -18,7 +18,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.api.contract import ARTIFACT_EXECUTIONS_MAX_LIMIT
-from openartifact.artifact_types.service import ArtifactTypeService
+from openartifact.artifact_fields.service import ArtifactFieldService
 from openartifact.credentials.store import SecretStore
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.exceptions import ArtifactError
@@ -33,8 +33,8 @@ INSTRUCTIONS = (
     "Use list_pipelines to see the pipelines with their stages and actions, create_artifact to add a "
     "card (optionally with a parent and the pipeline it starts with), start_processing to run it "
     "through its pipeline and get_processing_status to follow it. Artifacts are addressed by number. "
-    "An artifact can have a type with typed parameters (list_artifact_types); runs read them as "
-    "${card.NAME}. Actions can contain agent nodes that send one request to a language model; "
+    "Every artifact has the same artifact fields (list_artifact_fields), custom fields with a value per "
+    "artifact; runs read them as ${card.NAME}. Actions can contain agent nodes that send one request to a language model; "
     "list_agents, get_agent and list_providers show (read-only) which agents and models exist."
 )
 
@@ -78,7 +78,7 @@ async def _target(
 def build_mcp(
     service: ArtifactService,
     secrets: SecretStore,
-    types: ArtifactTypeService,
+    artifact_fields: ArtifactFieldService,
     agents: AgentService,
     providers: ProviderService,
 ) -> MCPServer:
@@ -86,11 +86,8 @@ def build_mcp(
     mcp = MCPServer("OpenArtifact", instructions=INSTRUCTIONS)
 
     async def shown(*artifacts: TaskRead) -> list[dict[str, Any]]:
-        """The artifacts as JSON, with the name of the type next to ``type_id``."""
-        names = await types.names() if any(a.type_id for a in artifacts) else {}
-        return [
-            {**a.model_dump(mode="json"), "type": names.get(a.type_id or "")} for a in artifacts
-        ]
+        """The artifacts as JSON."""
+        return [a.model_dump(mode="json") for a in artifacts]
 
     async def guarded[T](call: Awaitable[T]) -> T:
         try:
@@ -112,11 +109,11 @@ def build_mcp(
         return [lane.model_dump(mode="json") for lane in await service.lanes()]
 
     @mcp.tool()
-    async def list_artifact_types() -> list[dict[str, Any]]:
-        """The artifact types with their parameters: ``name``, ``label``, ``kind`` (text, number, boolean,
-        choice), ``required``, ``default``, ``options`` (the allowed values of a choice) and the limits.
-        Give ``type`` and ``parameters`` to ``create_artifact`` or ``update_artifact``. Read only."""
-        return [t.model_dump(mode="json") for t in await types.list_all()]
+    async def list_artifact_fields() -> list[dict[str, Any]]:
+        """The fields every artifact has: ``name``, ``label``, ``kind`` (text, number, boolean, choice),
+        ``default``, ``options`` (the allowed values of a choice) and the limits. Give values as ``fields``
+        ({name: value}) to ``create_artifact`` or ``update_artifact``. Read only."""
+        return [f.model_dump(mode="json") for f in (await artifact_fields.list_fields()).fields]
 
     @mcp.tool()
     async def list_artifacts(lane: str | None = None) -> list[dict[str, Any]]:
@@ -138,14 +135,13 @@ def build_mcp(
         pipeline: str | None = None,
         stage: str | None = None,
         action: str | None = None,
-        type: str | None = None,
-        parameters: dict[str, Any] | None = None,
+        fields: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create an artifact (card). ``lane`` is a key from list_lanes (default: the first lane); ``parent`` is the number of
         another artifact; ``pipeline`` (by name) is where it starts, with the first stage and its first
-        action unless ``stage`` and ``action`` (by name) say otherwise. ``type`` (name or id, see
-        ``list_artifact_types``) with ``parameters`` ({name: value}) gives it an artifact type; the values
-        are checked now and the error names the parameter. It is not started."""
+        action unless ``stage`` and ``action`` (by name) say otherwise. ``fields`` ({name: value}, see
+        ``list_artifact_fields``) are checked now and the error names the field; defaults fill the rest.
+        It is not started."""
         pipeline_id, stage_id, action_id = await _target(service, pipeline, stage, action)
         parent_id = (await guarded(service.get(parent))).id if parent else None
         data = TaskCreate(
@@ -156,8 +152,7 @@ def build_mcp(
             pipeline_id=pipeline_id,
             stage_id=stage_id,
             action_id=action_id,
-            type_id=await guarded(types.resolve_id(type)) if type else None,
-            parameters=parameters or {},
+            fields=fields or {},
         )
         return (await shown(await guarded(service.create(data, created_by=CreatedBy.MCP))))[0]
 
@@ -167,30 +162,22 @@ def build_mcp(
         title: str | None = None,
         body: str | None = None,
         lane: str | None = None,
-        type: str | None = None,
-        parameters: dict[str, Any] | None = None,
-        reset_parameters: bool = False,
+        fields: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Change the title, body, lane, type or parameters of an artifact (not while it is being processed).
-        ``parameters`` are merged into the stored ones (``null`` clears one to its default). ``type`` is a
-        name or id, ``""`` removes the type; the stored values must be valid for the new type, or give
-        ``reset_parameters: true`` to drop them."""
-        fields: dict[str, Any] = {}
+        """Change the title, body, lane or field values of an artifact (not while it is being processed).
+        ``fields`` are merged into the stored ones (``null`` clears one: it then reads as the default)."""
+        changes: dict[str, Any] = {}
         if title is not None:
-            fields["title"] = title
+            changes["title"] = title
         if body is not None:
-            fields["body"] = body
+            changes["body"] = body
         if lane is not None:
-            fields["status"] = lane
-        if type is not None:
-            fields["type_id"] = await guarded(types.resolve_id(type)) if type else None
-        if parameters is not None:
-            fields["parameters"] = parameters
-        if reset_parameters:
-            fields["reset_parameters"] = True
-        if not fields:
-            raise McpError("Give a title, a body, a lane, a type or parameters to change")
-        return (await shown(await guarded(service.update(artifact, TaskUpdate(**fields)))))[0]
+            changes["status"] = lane
+        if fields is not None:
+            changes["fields"] = fields
+        if not changes:
+            raise McpError("Give a title, a body, a lane or fields to change")
+        return (await shown(await guarded(service.update(artifact, TaskUpdate(**changes)))))[0]
 
     @mcp.tool()
     async def start_processing(

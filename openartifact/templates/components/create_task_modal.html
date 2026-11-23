@@ -18,7 +18,6 @@
     <div class="modal__body" role="tabpanel" id="artifact-panel-details" aria-labelledby="artifact-tab-details" tabindex="0">
         <h3 class="task-view__title" data-view-title></h3>
         <p class="task-view__body" data-view-body></p>
-        <div class="params" data-view-params aria-label="Type and parameters" role="group" hidden></div>
     </div>
     {% include "components/history_panel.html" %}
     <footer class="modal__footer">
@@ -33,23 +32,21 @@
         <button type="button" class="button button--primary" data-view-edit>Edit</button>
     </footer>
 </section>
-{% call dialog_form("create-task-modal", ARTIFACT_FIELDS) %}
-<div class="field" data-field data-type-field hidden>
-    <label class="field__label" for="create-task-modal-field-type_id">Type <span class="field__hint">(optional)</span></label>
-    <select class="field__control" id="create-task-modal-field-type_id" name="type_id" aria-describedby="create-task-modal-field-type_id-error"></select>
-    <p class="field__error" id="create-task-modal-field-type_id-error" role="alert" hidden data-field-error></p>
-</div>
-<div class="param-confirm" role="alert" data-type-confirm hidden>
-    <span class="param-confirm__text" data-type-confirm-text></span>
-    <button type="button" class="button button--ghost button--sm" data-type-keep>Keep the type</button>
-    <button type="button" class="button button--danger button--sm" data-type-switch>Change the type</button>
-</div>
-<p class="param-locked" data-params-locked hidden>The type and the parameters cannot change while the artifact is being processed.</p>
-<div class="params" data-form-params hidden></div>
-{% endcall %}
+{% call dialog_form("create-task-modal", ARTIFACT_FIELDS) %}{% endcall %}
 <aside class="card-nav" id="card-nav" data-card-nav data-state="collapsed" aria-label="Artifact details" hidden>
     <ul class="nav-list card-nav__fields">
         {{ nav_items(navigation.ARTIFACT_RAIL.groups.fields) }}
+    </ul>
+    {# The artifact fields (ADR-044): the entry expands the rail and shows each field indented below it. #}
+    <ul class="nav-list card-nav__custom" data-field-rail hidden>
+        <li class="nav-section">
+            <button type="button" class="nav-link card-nav__fields-toggle" data-field-rail-toggle
+                    aria-expanded="false" aria-controls="card-nav-field-list" title="Artifact fields">
+                {{ icon("tag") }}
+                <span class="nav-link__label">Fields</span>
+            </button>
+            <ul class="card-nav__field-list" id="card-nav-field-list" data-field-rail-list aria-label="Artifact fields" hidden></ul>
+        </li>
     </ul>
     <ul class="nav-list card-nav__actions">
         {{ nav_items(navigation.ARTIFACT_RAIL.groups.actions) }}

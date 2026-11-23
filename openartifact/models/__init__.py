@@ -16,7 +16,7 @@ The indexes and constraints declared here are the ones the migrations create; ``
 """
 
 from openartifact.models.agents import Agent, AgentVersion, LlmModel, LlmProvider
-from openartifact.models.board import ArtifactType, ArtifactTypeField, Lane, Task, TaskNumberSeq
+from openartifact.models.board import ArtifactField, Lane, Task, TaskNumberSeq
 from openartifact.models.credentials import Secret
 from openartifact.models.enums import (
     CreatedBy,
@@ -35,8 +35,7 @@ __all__ = [
     "Agent",
     "AgentVersion",
     "AppSetting",
-    "ArtifactType",
-    "ArtifactTypeField",
+    "ArtifactField",
     "CreatedBy",
     "Execution",
     "Graph",

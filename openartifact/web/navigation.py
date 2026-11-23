@@ -98,7 +98,6 @@ SIDEBAR = (
         )
     )
     .add(NavLink("executions", "Executions", "list", href="/executions"))
-    .add(NavLink("artifact-types", "Artifact types", "tag", href="/artifact-types"))
     .add(
         NavLink(
             "settings",

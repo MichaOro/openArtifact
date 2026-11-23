@@ -47,15 +47,12 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | POST | `/api/v1/lanes` | Add a lane: body `{"title": "Review"}`; 1 to 40 characters, no control characters, different from the other lanes (ignoring case); at most 12 lanes; appended at the end; `201`, answers the lanes | 422 |
 | PUT | `/api/v1/lanes/{status}` | Change a lane (its key stays): body `{"title"?: "Review", "style"?: "finished"}`, at least one; same title rules; `style` is `normal` or `finished` (an unknown one is 422 and lists them); answers the lanes | 404, 422 |
 | DELETE | `/api/v1/lanes/{status}` | Delete a lane: `409` "A lane can only be deleted when it contains no artifacts." while it holds artifacts, and for the last lane; answers the remaining lanes | 404, 409 |
-| GET | `/api/v1/artifact-types` | The artifact types with their parameters and `artifact_count` | |
-| POST | `/api/v1/artifact-types` | Create a type: `{"name", "fields": [...]}` (see [Artifact types](#artifact-types-and-parameters)); `201` | 409 (name), 422 |
-| GET | `/api/v1/artifact-types/{ref}` | One type by id or name | 404 |
-| PUT | `/api/v1/artifact-types/{ref}` | Replace the name and the whole parameter list; while artifacts use the type, changes that could invalidate their values are `409` | 404, 409, 422 |
-| DELETE | `/api/v1/artifact-types/{ref}` | Delete (not while artifacts use it); `204` | 404, 409 |
+| GET | `/api/v1/artifact-fields` | The artifact fields every artifact has, each with `artifact_count` (see [Artifact fields](#artifact-fields)) | |
+| PUT | `/api/v1/artifact-fields` | Replace the whole list `{"fields": [...]}`; a removed field takes its values, a change stored values no longer fit is `409` | 409, 422 |
 | GET | `/api/v1/artifacts` | All artifacts in board order | |
-| POST | `/api/v1/artifacts` | Create an artifact (`title`, `body`, `status`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`, `type_id`, `parameters`); not started; `201` | 422 |
+| POST | `/api/v1/artifacts` | Create an artifact (`title`, `body`, `status`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`, `fields`); not started; `201` | 422 |
 | GET | `/api/v1/artifacts/{ref}` | One artifact | 404 |
-| PATCH | `/api/v1/artifacts/{ref}` | Change it (partial); `parameters` are merged into the stored ones (`null` clears one), a new `type_id` needs valid stored values or `reset_parameters: true`; lane, order, parent, pipeline, type and parameters are locked while it is processed | 404, 409, 422 |
+| PATCH | `/api/v1/artifacts/{ref}` | Change it (partial); `fields` are merged into the stored ones (`null` clears one); lane, order, parent, pipeline, type and parameters are locked while it is processed | 404, 409, 422 |
 | DELETE | `/api/v1/artifacts/{ref}` | Delete it (not while it is processed); `204` | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run` | State of the run: status, where it is, status of every stage | 404 (never processed) |
 | POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`); the run records `started_by: api`; `201` | 404, 409, 422, 429 |
@@ -156,44 +153,36 @@ Only the title changes; artifacts keep their `status` code.
 | GET | `/api/tasks` | All tasks in board order (lane, then position) | |
 | POST | `/api/tasks` | Create a task in a lane (`status` is a lane key; left out: the first lane; an unknown key is 422 and lists the valid ones); `201` | 409, 422 |
 | GET | `/api/tasks/{task_id}` | One task | 404 |
-| PATCH | `/api/tasks/{task_id}` | Edit, move to another lane, reorder (`before_id`), set parent, pipeline, `type_id` or `parameters` (merged; `reset_parameters`) | 404, 409, 422 |
+| PATCH | `/api/tasks/{task_id}` | Edit, move to another lane, reorder (`before_id`), set parent, pipeline or `fields` (merged; `null` clears one) | 404, 409, 422 |
 | DELETE | `/api/tasks/{task_id}` | Delete (not while processed); `204` | 404, 409 |
 
-### Artifact types and parameters
+### Artifact fields
 
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
-| GET | `/api/artifact-types` | The types by name with `fields` and `artifact_count` | |
-| POST | `/api/artifact-types` | Create; `201` | 409, 422 |
-| GET | `/api/artifact-types/{id}` | One type | 404 |
-| PUT | `/api/artifact-types/{id}` | Replace name and fields | 404, 409, 422 |
-| DELETE | `/api/artifact-types/{id}` | Delete; `204` | 404, 409 |
+| GET | `/api/artifact-fields` | `{"fields": [...]}` in order, each with `artifact_count` | |
+| PUT | `/api/artifact-fields` | Replace the whole list | 409, 422 |
 
 ```json
-{"id": "…", "name": "Support triage", "artifact_count": 2,
- "fields": [
-  {"name": "urgency", "label": "Urgency", "kind": "choice", "required": true, "default": "normal",
-   "options": ["low", "normal", "high"], "max_length": null, "min_value": null, "max_value": null, "integer_only": false},
-  {"name": "summary", "label": "Summary", "kind": "text", "required": true, "default": null, "options": [],
-   "max_length": 80, "min_value": null, "max_value": null, "integer_only": false},
-  {"name": "score", "label": "Score", "kind": "number", "required": false, "default": null, "options": [],
-   "max_length": null, "min_value": 0, "max_value": 10, "integer_only": true}]}
+{"fields": [
+  {"name": "urgency", "label": "Urgency", "kind": "choice", "default": "normal", "options": ["low", "normal", "high"],
+   "max_length": null, "min_value": null, "max_value": null, "integer_only": false, "artifact_count": 2},
+  {"name": "score", "label": "Score", "kind": "number", "default": null, "options": [],
+   "max_length": null, "min_value": 0, "max_value": 10, "integer_only": true, "artifact_count": 0}]}
 ```
 
-Field rules: `name` is `[a-z][a-z0-9_]{0,31}`; `kind` is `text`, `number`, `boolean` or `choice`; a choice has 2 to 20
-`options` of at most 40 characters; only text has `max_length` (1 to 1000, default 200); only a number has
-`min_value`, `max_value` and `integer_only`; at most 30 fields; the `default` must be a valid value. A type name is
-1 to 60 characters, unique ignoring case. An invalid definition is `422`, one sentence per problem starting with
-`Field NAME:`. While artifacts use the type, removing a parameter, changing its kind, removing an allowed value,
-shrinking a limit and a required parameter without default are `409` (the sentences say which and how many artifacts
-use the type); labels, order, defaults, more allowed values, wider limits and "optional" are always allowed. Deleting a
-used type is `409`.
+Field rules: `name` is `[a-z][a-z0-9_]{0,31}` (what pipelines read as `${card.NAME}`); `kind` is `text`, `number`,
+`boolean` or `choice`; a choice has 2 to 20 `options` of at most 40 characters; only text has `max_length` (1 to 1000,
+default 200); only a number has `min_value`, `max_value` and `integer_only`; at most 30 fields; the `default` must be a
+valid value. There is no "required". An invalid definition is `422`, one sentence per problem starting with `Field NAME:`.
+A field left out is removed with its values; a changed field whose stored values no longer fit is `409`
+(`Field NAME: 2 artifacts have a value that does not fit the new definition`).
 
-An artifact with `type_id` and `parameters`: `{"title": "Printer", "type_id": "…", "parameters": {"urgency": "high",
-"summary": "Smoke"}}`. The values are checked when saved (`422`, one line per problem, each starting with
-`Parameter NAME:`), defaults fill what is missing, `null` or an empty text means "not set"; the answer carries
-`parameters` (only the values that are set). All parameters together are at most 4 KiB. The refusal for a typo:
-`{"detail": "Parameter urgency: \"hgh\" is not one of low, normal, high. Did you mean \"high\"?"}`.
+An artifact carries `fields` (`{name: value}`, only the values that are set; a field without a value reads as its
+default): `{"title": "Printer", "fields": {"urgency": "high"}}`. Values are checked when saved (`422`, one line per
+problem, each starting with `Field NAME:`), defaults fill a new artifact, `null` or an empty text clears a value. All
+values together are at most 4 KiB. The refusal for a typo:
+`{"detail": "Field urgency: \"hgh\" is not one of low, normal, high. Did you mean \"high\"?"}`.
 
 ### Runs
 
@@ -278,7 +267,7 @@ Pipeline, stage and action are given by name.
 | `list_lanes` | | The current lanes (`status`, `title`, `style`, `artifact_count`, `deletable`); read only. The keys are what `lane` takes |
 | `list_artifacts` | `lane?` | Artifacts in board order; `lane`: a key from `list_lanes` |
 | `get_artifact` | `artifact` | One artifact |
-| `list_artifact_types` | | The artifact types with their parameters (kind, required, default, allowed values, limits); read only |
+| `list_artifact_fields` | | The artifact fields (kind, default, allowed values, limits); `create_artifact` and `update_artifact` take `fields`; read only |
 | `create_artifact` | `title`, `body?`, `lane?`, `parent?`, `pipeline?`, `stage?`, `action?`, `type?`, `parameters?` | Create; not started; records `created_by: mcp`; `type` is a name or id, `parameters` is `{name: value}` checked now |
 | `update_artifact` | `artifact`, `title?`, `body?`, `lane?`, `type?`, `parameters?`, `reset_parameters?` | Change; not while processed; `parameters` are merged, `type: ""` removes the type |
 | `start_processing` | `artifact`, `pipeline?`, `stage?`, `action?` | Start; records `started_by: mcp` |
@@ -309,7 +298,7 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `task.moved` | the task | lane or position changes |
 | `task.deleted` | `{"id"}` | an artifact is deleted |
 | `board.lanes` | `{"lanes": [...]}` (as `GET /api/lanes`) | a lane was added, renamed, restyled or deleted |
-| `artifact_types.changed` | `{"types": [...]}` (as `GET /api/artifact-types`) | an artifact type was created, changed or deleted |
+| `artifact_fields.changed` | `{"fields": [...]}` (as `GET /api/artifact-fields`) | the list of artifact fields was replaced |
 | `agents.changed` | `{}` | an agent was created, changed, published or deleted: reload `GET /api/agents` |
 | `providers.changed` | `{}` | a provider or one of its models changed: reload `GET /api/providers` |
 | `settings.changed` | `{"run_limits": {...}}` (as `GET /api/settings/run-limits`) | the run limits were changed |

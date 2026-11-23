@@ -60,10 +60,9 @@ def test_create_task_returns_201_with_all_fields(client: TestClient) -> None:
         "created_by",
         "created_at",
         "updated_at",
-        "type_id",
-        "parameters",
+        "fields",
     }
-    assert (data["type_id"], data["parameters"]) == (None, {})  # untyped unless a type is given
+    assert data["fields"] == {}  # no artifact fields are defined yet
     assert data["title"] == "Write docs"
     assert data["body"] == "Details"
     assert data["status"] == "in_progress"

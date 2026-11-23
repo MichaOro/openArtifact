@@ -1,0 +1,152 @@
+/* The artifact fields in the rail of the artifact dialog (ADR-044). The entry "Fields" expands the rail
+ * and shows every field indented below it, like the sub-entries of the main navigation: its name, and below
+ * it the control (text, number, a yes/no switch, a choice list). A change is saved at once; the server's
+ * refusal is shown under the field. While the artifact is processed the fields are locked. */
+import { effectiveValue, parseProblems, valueOf } from "../artifact-fields/model.js";
+
+function element(tag, className, text) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+export class FieldRail {
+  /**
+   * @param {object} options
+   * @param {HTMLElement} options.rail the rail ([data-card-nav])
+   * @param {import("../components/collapsible-nav.js").CollapsibleNav} options.nav expands the rail
+   * @param {(id: string, values: object) => Promise<object>} options.save sends {name: value} of one artifact
+   * @param {(task: object) => void} options.onSaved the artifact as the server answered
+   */
+  constructor({ rail, nav, save, onSaved }) {
+    Object.assign(this, { nav, save, onSaved });
+    this.root = rail.querySelector("[data-field-rail]");
+    this.toggle = rail.querySelector("[data-field-rail-toggle]");
+    this.list = rail.querySelector("[data-field-rail-list]");
+    this.fields = [];
+    this.task = null;
+    this.locked = false;
+    this.toggle.addEventListener("click", () => this.#onToggle());
+    // the rail collapsed by its own button: the list closes with it
+    nav.toggle.addEventListener("click", () => {
+      if (!nav.expanded) this.#setOpen(false);
+    });
+  }
+
+  get open() {
+    return !this.list.hidden;
+  }
+
+  /** The fields every artifact has (they follow ``artifact_fields.changed``). */
+  setFields(fields) {
+    this.fields = fields;
+    this.#render();
+  }
+
+  /** Show the fields of an artifact (null: the dialog shows none, e.g. while creating one). */
+  show(task) {
+    const same = task && this.task?.id === task.id && JSON.stringify(task.fields) === JSON.stringify(this.task.fields);
+    this.task = task;
+    if (!same) this.#render(); // an update of something else leaves a field being typed in alone
+  }
+
+  /** While the artifact is processed its fields cannot change. */
+  setLocked(locked) {
+    this.locked = locked;
+    for (const control of this.list.querySelectorAll("input, select, button")) control.disabled = locked;
+  }
+
+  #onToggle() {
+    if (!this.nav.expanded) {
+      this.nav.set("expanded"); // a click on the icon of the collapsed rail opens it, with the fields
+      this.#setOpen(true);
+    } else {
+      this.#setOpen(!this.open);
+    }
+  }
+
+  #setOpen(open) {
+    this.list.hidden = !open;
+    this.toggle.setAttribute("aria-expanded", String(open));
+    this.root.querySelector(".nav-section")?.classList.toggle("is-open", open);
+  }
+
+  #render() {
+    this.root.hidden = !this.task || this.fields.length === 0;
+    if (this.root.hidden) {
+      this.list.replaceChildren();
+      return;
+    }
+    this.list.replaceChildren(...this.fields.map((field) => this.#item(field)));
+    this.setLocked(this.locked);
+  }
+
+  #item(field) {
+    const item = element("li", "card-field");
+    item.dataset.field = field.name;
+    const id = `card-field-${field.name}`;
+    const label = element("label", "card-field__label", field.label);
+    label.htmlFor = id;
+    const error = element("p", "card-field__error");
+    error.id = `${id}-error`;
+    error.setAttribute("role", "alert");
+    error.hidden = true;
+    const value = effectiveValue(field, this.task.fields);
+    const control = this.#control(field, value, (raw) => this.#change(field, raw, error));
+    control.id = id;
+    control.setAttribute("aria-describedby", error.id);
+    item.append(label, control, error);
+    return item;
+  }
+
+  #control(field, value, onChange) {
+    if (field.kind === "boolean") {
+      const button = element("button", "card-field__switch");
+      button.type = "button";
+      button.setAttribute("role", "switch");
+      const on = value === true;
+      button.setAttribute("aria-checked", String(on));
+      button.append(element("span", "card-field__switch-track"), element("span", "card-field__switch-text", on ? "Yes" : "No"));
+      button.addEventListener("click", () => onChange(button.getAttribute("aria-checked") !== "true"));
+      return button;
+    }
+    if (field.kind === "choice") {
+      const select = element("select", "field__control card-field__control");
+      select.append(new Option("–", ""), ...field.options.map((option) => new Option(option, option)));
+      select.value = value ?? "";
+      select.addEventListener("change", () => onChange(select.value));
+      return select;
+    }
+    const input = element("input", "field__control card-field__control");
+    input.type = field.kind === "number" ? "number" : "text";
+    if (field.kind === "number") input.step = field.integer_only ? "1" : "any";
+    if (field.kind === "text") input.maxLength = field.max_length ?? 200;
+    input.value = value ?? "";
+    input.placeholder = field.kind === "number" ? "Enter number..." : "Enter text...";
+    input.addEventListener("change", () => onChange(input.value));
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") input.blur();
+    });
+    return input;
+  }
+
+  async #change(field, raw, error) {
+    if (!this.task || this.locked) return;
+    error.hidden = true;
+    const id = this.task.id;
+    try {
+      const saved = await this.save(id, { [field.name]: valueOf(field, raw) });
+      if (this.task?.id === id) {
+        this.task = saved;
+        this.#render();
+      }
+      this.onSaved(saved);
+    } catch (problem) {
+      const { byField, other } = parseProblems(problem.detail);
+      error.textContent = byField.get(field.name) ?? other.join(" ") ?? "Could not save the field.";
+      if (!error.textContent) error.textContent = "Could not save the field.";
+      error.hidden = false;
+    }
+  }
+}

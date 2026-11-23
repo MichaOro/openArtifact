@@ -1,8 +1,8 @@
-"""Parameter definitions and the validation of parameter values (pure functions, no database).
+"""Artifact fields and the validation of their values (pure functions, no database; ADR-044).
 
-A type has fields (``FieldSpec``): ``text``, ``number``, ``boolean`` or ``choice``. Every problem is a
-sentence that starts with ``Parameter NAME:`` (values) or ``Field NAME:`` (definitions), so that a client
-can show it at the field; all problems of one request are returned together, one per line.
+The fields (``FieldSpec``) are ``text``, ``number``, ``boolean`` or ``choice``. Every problem is a sentence
+that starts with ``Field NAME:``, so that a client can show it at the field; all problems of one request are
+returned together, one per line.
 """
 
 from __future__ import annotations
@@ -22,18 +22,17 @@ MAX_FIELDS = 30
 MIN_OPTIONS, MAX_OPTIONS, OPTION_MAX = 2, 20, 40
 DEFAULT_TEXT_LENGTH = 200
 MAX_TEXT_LENGTH = 1000
-#: All parameters of an artifact together, as JSON text.
-PARAMETERS_LIMIT_BYTES = 4096
+#: All field values of an artifact together, as JSON text.
+VALUES_LIMIT_BYTES = 4096
 
 
 @dataclass(frozen=True)
 class FieldSpec:
-    """One parameter of a type, as the validation needs it."""
+    """One artifact field, as the validation needs it."""
 
     name: str
     label: str
     kind: str
-    required: bool = False
     default: Any = None
     options: tuple[str, ...] = ()
     max_length: int | None = None
@@ -98,45 +97,49 @@ def is_blank(value: Any) -> bool:
     return value is None or (isinstance(value, str) and not value.strip())
 
 
-def validate_parameters(
-    fields: list[FieldSpec], values: Mapping[str, Any], *, type_name: str
+def validate_values(
+    fields: list[FieldSpec], values: Mapping[str, Any]
 ) -> tuple[dict[str, Any], list[str]]:
-    """The values to store and every problem found: unknown names, wrong kinds and limits, missing
-    required values. Defaults fill what is not set; a ``None`` or blank value means "not set"."""
+    """The values to store and every problem found: unknown names, wrong kinds and limits. A ``None`` or
+    blank value means "not set" and is left out (it then reads as the default)."""
     by_name = {f.name: f for f in fields}
     problems: list[str] = []
     for name, value in values.items():
-        if name not in by_name and value is not None:  # ``null`` may drop a value of an old type
+        if (
+            name not in by_name and value is not None
+        ):  # ``null`` may clear a value of a removed field
             valid = ", ".join(by_name) or "none"
-            problems.append(
-                f'Parameter {str(name)[:40]}: type "{type_name}" has no such parameter '
-                f"(valid names: {valid})"
-            )
+            problems.append(f"Field {str(name)[:40]}: there is no such field (fields: {valid})")
     stored: dict[str, Any] = {}
     for spec in fields:
         raw = values.get(spec.name)
         if is_blank(raw):
-            raw = spec.default
-        if is_blank(raw):
-            if spec.required:
-                problems.append(f"Parameter {spec.name}: a value is required")
             continue
         value, problem = check_value(spec, raw)
         if problem:
-            problems.append(f"Parameter {spec.name}: {problem}")
+            problems.append(f"Field {spec.name}: {problem}")
         else:
             stored[spec.name] = value
     size = len(json.dumps(stored, ensure_ascii=False, separators=(",", ":")).encode())
-    if size > PARAMETERS_LIMIT_BYTES:
+    if size > VALUES_LIMIT_BYTES:
         problems.append(
-            f"Parameters are limited to {PARAMETERS_LIMIT_BYTES // 1024} KiB (got {size} bytes)"
+            f"Field values are limited to {VALUES_LIMIT_BYTES // 1024} KiB (got {size} bytes)"
         )
     return stored, problems
 
 
+def with_defaults(fields: list[FieldSpec], values: Mapping[str, Any]) -> dict[str, Any]:
+    """The values of a new artifact: what was given, the defaults for the rest."""
+    filled = dict(values)
+    for spec in fields:
+        if is_blank(filled.get(spec.name)) and not is_blank(spec.default):
+            filled[spec.name] = spec.default
+    return filled
+
+
 def card_values(fields: list[FieldSpec], stored: Mapping[str, Any]) -> dict[str, Any]:
-    """What a run sees as ``card``: every field of the type with its stored value, else its default,
-    else ``None``; names that are not fields (anymore) are left out."""
+    """What a run sees as ``card`` (and the card shows): every field with its stored value, else its
+    default, else ``None``; names that are not fields (anymore) are left out."""
     card: dict[str, Any] = {}
     for spec in fields:
         value = stored.get(spec.name)
@@ -200,10 +203,10 @@ def check_definition(spec: FieldSpec) -> list[str]:
 
 
 def check_definitions(fields: list[FieldSpec]) -> list[str]:
-    """Problems with a type's field list: its size, duplicate names and every field's own problems."""
+    """Problems with the field list: its size, duplicate names and every field's own problems."""
     problems: list[str] = []
     if len(fields) > MAX_FIELDS:
-        problems.append(f"A type has at most {MAX_FIELDS} parameters")
+        problems.append(f"There are at most {MAX_FIELDS} artifact fields")
     seen: set[str] = set()
     for spec in fields:
         if spec.name in seen:
@@ -211,53 +214,3 @@ def check_definitions(fields: list[FieldSpec]) -> list[str]:
         seen.add(spec.name)
         problems.extend(check_definition(spec))
     return problems
-
-
-def breaking_changes(old: list[FieldSpec], new: list[FieldSpec]) -> list[str]:
-    """What the change would do to values that artifacts already store (only matters for a used type).
-
-    Allowed: labels, order, defaults, a value turning optional, more allowed values, a larger text
-    limit, wider number bounds. Everything else could leave a stored value invalid.
-    """
-    now = {f.name: f for f in new}
-    problems: list[str] = []
-    for before in old:
-        after = now.get(before.name)
-        if after is None:
-            problems.append(f"Field {before.name}: cannot be removed")
-            continue
-        if after.kind != before.kind:
-            problems.append(
-                f"Field {before.name}: the kind cannot change ({before.kind} to {after.kind})"
-            )
-            continue
-        if after.required and not before.required and after.default is None:
-            problems.append(f"Field {before.name}: cannot become required without a default")
-        lost = [o for o in before.options if o not in after.options]
-        if lost:
-            problems.append(
-                f"Field {before.name}: allowed values cannot be removed ({', '.join(lost)})"
-            )
-        if before.kind == "text" and (after.max_length or DEFAULT_TEXT_LENGTH) < (
-            before.max_length or DEFAULT_TEXT_LENGTH
-        ):
-            problems.append(f"Field {before.name}: the maximum length cannot shrink")
-        if before.kind == "number" and _narrower(before, after):
-            problems.append(f"Field {before.name}: the number bounds cannot get narrower")
-    old_names = {f.name for f in old}
-    for added in new:
-        if added.name not in old_names and added.required and added.default is None:
-            problems.append(f"Field {added.name}: a new required parameter needs a default")
-    return problems
-
-
-def _narrower(before: FieldSpec, after: FieldSpec) -> bool:
-    if after.integer_only and not before.integer_only:
-        return True
-    if after.min_value is not None and (
-        before.min_value is None or after.min_value > before.min_value
-    ):
-        return True
-    return after.max_value is not None and (
-        before.max_value is None or after.max_value < before.max_value
-    )

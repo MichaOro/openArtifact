@@ -110,17 +110,16 @@ same action in two stages) keeps its **latest** result. When you save an HTTP no
 ambiguous names inside the action, names no action has, malformed references. The node is saved anyway; at run time
 these are errors.
 
-### Card parameters (`card`)
+### Card parameters (`card`): the artifact fields
 
-If the artifact has a type ([concepts](concepts.md#terms)), the parameters its type defines are copied into the context
-when the execution starts, under `card`: every parameter of the type is a key with its value, else its default,
-else `null` (rendered as `null` like other empty values). An untyped artifact has an empty `card`.
+The artifact fields ([concepts](concepts.md#terms), ADR-044) are copied into the context when the execution starts,
+under `card`: every field is a key with the artifact's value, else the field's default, else `null` (rendered as `null`
+like other empty values). Without any fields `card` is empty.
 `${card.urgency}` is replaced like `${var.urgency}`: text as it is, numbers and yes/no as JSON (`3`, `true`), percent-encoded
-in a URL. The name is the parameter's name (`[a-z][a-z0-9_]{0,31}`), not its label. A parameter the artifact does not
-have fails the node: `${card.x}: the artifact has no parameter "x"`. Code nodes read `card` in `context.json`. The
-context holds a **copy**: changing the artifact's parameters later never changes an execution that exists, and the
-History shows what that run saw. Parameters are plain data: do not put secrets in them
-([Security](security.md)).
+in a URL. The name is the field's name (`[a-z][a-z0-9_]{0,31}`), not its label. A field that does not exist fails the
+node: `${card.x}: the artifact has no field "x"`. Code nodes read `card` in `context.json`. The context holds a **copy**:
+changing the artifact's fields later never changes an execution that exists, and the History shows what that run saw.
+Field values are plain data: do not put secrets in them ([Security](security.md)).
 
 **Setting variables.** A Code node ends with a result line (see the *Result protocol* below). Add `"vars"`:
 

@@ -7,7 +7,7 @@ read both through references in their settings::
     ${node.NAME.output}  ${node.NAME.exit_code}  ${node.NAME.outcome}  ${node.NAME.reason}
     ${node.NAME.data}    ${node.NAME.data.key.sub.0}    ${var.name}    ${card.name}
 
-``${card.NAME}`` is a parameter of the artifact the run belongs to (see ``artifact_types``). The run gets a
+``${card.NAME}`` is an artifact field of the artifact the run belongs to (see ``artifact_fields``). The run gets a
 copy of the artifact's parameters when it starts, so changing the artifact later does not change a run
 that exists: every parameter of the artifact's type is a key (``null`` when it has no value), an artifact
 without a type has none.
@@ -369,7 +369,7 @@ def resolve(ref: Reference, context: RunContext, index: NodeIndex) -> Any:
         return context.vars[ref.name]
     if ref.kind == "card":
         if ref.name not in context.card:
-            raise ContextError(f'the artifact has no parameter "{ref.name}"')
+            raise ContextError(f'the artifact has no field "{ref.name}"')
         return context.card[ref.name]
     index.lookup(ref.name)  # unknown or ambiguous names fail even if something ran under the key
     entry = context.nodes.get(ref.name)

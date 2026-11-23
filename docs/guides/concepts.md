@@ -34,13 +34,11 @@ at most one run at a time. While that run is running the artifact is locked: its
 changed and it cannot be deleted (title and body stay editable); stopping the run releases it. In the
 code and the API an artifact is a `task`.
 
-**Artifact type and parameters.** An artifact can have a type, which you define on the *Artifact types* page (sidebar):
-a name and a list of typed parameters (text, number, yes/no, choice) with a label, whether a value is required, a default
-and, for a choice, the allowed values. The artifact dialog then shows these as form fields; a wrong value (a typo in a
-choice, a number out of range, a missing required value) is refused when you save, not when a run fails. Which
-parameters exist is data of the type, so a second kind of artifact with its own parameters needs no code. The type
-and the parameters are locked while the artifact is processed. A type that artifacts use cannot be deleted, and its
-parameters cannot be removed or changed in a way that could invalidate stored values
+**Artifact fields.** Custom fields every artifact has (ADR-044), defined once in *Artifact fields* (the menu next to
+*Add lane* on the board): label, name, kind (text, number, yes/no, choice) with its limits and a default that pre-fills new
+artifacts. In the artifact dialog the rail entry *Fields* opens them below it; a change is saved at once and a wrong value
+(a typo in a choice, a number out of range) is refused right there, not when a run fails. The fields are locked while the
+artifact is processed. Removing a field removes its values; a change that stored values no longer fit is refused
 ([details](execution-nodes.md#card-parameters-card)).
 
 **Run context.** The values an execution keeps while it runs: the artifact's parameters as they were when it started

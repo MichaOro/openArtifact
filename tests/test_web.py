@@ -73,11 +73,17 @@ def test_root_links_assets(client: TestClient) -> None:
 def test_navigation_shows_the_pipeline_entries_only_inside_the_pipeline(client: TestClient) -> None:
     """Board, Pipeline and Executions are always there; Actions and Agents only once Pipeline is entered."""
     html = client.get("/").text
-    # Board, Pipeline, Executions, Artifact types and Settings
-    assert html.count('class="nav-link"') == 5
+    # Board, Pipeline, Executions and Settings (artifact fields live in the board's menu, ADR-044)
+    assert html.count('class="nav-link"') == 4
+    assert 'href="/artifact-types"' not in html
     assert 'href="/pipelines"' in html  # the Pipeline entry itself
     assert 'href="/actions"' not in html and 'href="/agents"' not in html
-    for path, marked_as_section in (("/pipelines", 0), ("/actions", 1), ("/agents", 1), ("/agents/x", 1)):
+    for path, marked_as_section in (
+        ("/pipelines", 0),
+        ("/actions", 1),
+        ("/agents", 1),
+        ("/agents/x", 1),
+    ):
         inside = client.get(path).text
         assert 'href="/actions"' in inside and 'href="/agents"' in inside  # the sub-entries
         assert inside.count("nav-link--section") == marked_as_section

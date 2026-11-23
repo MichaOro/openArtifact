@@ -26,7 +26,6 @@ DELETE /api/actions/{graph_id} -> -
 DELETE /api/actions/{graph_id}/edges/{edge_id} -> -
 DELETE /api/actions/{graph_id}/nodes/{node_id} -> -
 DELETE /api/agents/{ref} -> -
-DELETE /api/artifact-types/{type_id} -> -
 DELETE /api/lanes/{status} -> LaneRead[]
 DELETE /api/pipelines/{graph_id} -> -
 DELETE /api/pipelines/{graph_id}/edges/{edge_id} -> -
@@ -38,7 +37,6 @@ DELETE /api/tasks/{task_id} -> -
 DELETE /api/tasks/{task_id}/executions -> DeletedCount
 DELETE /api/tasks/{task_id}/executions/{execution_id} -> -
 DELETE /api/v1/agents/{ref} -> -
-DELETE /api/v1/artifact-types/{ref} -> -
 DELETE /api/v1/artifacts/{ref} -> -
 DELETE /api/v1/artifacts/{ref}/executions/{execution_id} -> -
 DELETE /api/v1/lanes/{status} -> LaneRead[]
@@ -52,8 +50,7 @@ GET /api/agents/{ref} -> AgentDetail
 GET /api/agents/{ref}/uses -> AgentUse[]
 GET /api/agents/{ref}/versions -> VersionRead[]
 GET /api/agents/{ref}/versions/{number} -> VersionRead
-GET /api/artifact-types -> ArtifactTypeRead[]
-GET /api/artifact-types/{type_id} -> ArtifactTypeRead
+GET /api/artifact-fields -> ArtifactFieldsRead
 GET /api/events -> -
 GET /api/executions -> ExecutionsPage
 GET /api/info -> InfoRead
@@ -81,8 +78,7 @@ GET /api/v1/agents/{ref} -> AgentDetail
 GET /api/v1/agents/{ref}/uses -> AgentUse[]
 GET /api/v1/agents/{ref}/versions -> VersionRead[]
 GET /api/v1/agents/{ref}/versions/{number} -> VersionRead
-GET /api/v1/artifact-types -> ArtifactTypeRead[]
-GET /api/v1/artifact-types/{ref} -> ArtifactTypeRead
+GET /api/v1/artifact-fields -> ArtifactFieldsRead
 GET /api/v1/artifacts -> TaskRead[]
 GET /api/v1/artifacts/{ref} -> TaskRead
 GET /api/v1/artifacts/{ref}/executions -> ExecutionList
@@ -122,7 +118,6 @@ POST /api/agents/{ref}/draft/discard -> AgentDetail
 POST /api/agents/{ref}/preview -> PreviewRead
 POST /api/agents/{ref}/publish -> PublishResult
 POST /api/agents/{ref}/versions/{number}/republish -> PublishResult
-POST /api/artifact-types -> ArtifactTypeRead
 POST /api/lanes -> LaneRead[]
 POST /api/pipelines -> GraphRead
 POST /api/pipelines/{graph_id}/edges -> EdgeRead
@@ -140,7 +135,6 @@ POST /api/v1/agents/{ref}/draft/discard -> AgentDetail
 POST /api/v1/agents/{ref}/preview -> PreviewRead
 POST /api/v1/agents/{ref}/publish -> PublishResult
 POST /api/v1/agents/{ref}/versions/{number}/republish -> PublishResult
-POST /api/v1/artifact-types -> ArtifactTypeRead
 POST /api/v1/artifacts -> TaskRead
 POST /api/v1/artifacts/{ref}/run -> RunRead
 POST /api/v1/artifacts/{ref}/run/stop -> RunRead
@@ -151,13 +145,13 @@ POST /api/v1/providers/{ref}/models -> ProviderRead
 POST /api/v1/providers/{ref}/models/refresh -> ProviderRead
 POST /api/v1/providers/{ref}/test -> CheckResult
 PUT /api/agents/{ref}/draft -> AgentDetail
-PUT /api/artifact-types/{type_id} -> ArtifactTypeRead
+PUT /api/artifact-fields -> ArtifactFieldsRead
 PUT /api/lanes/{status} -> LaneRead[]
 PUT /api/secrets/{name} -> SecretRead
 PUT /api/settings/run-limits -> RunLimitsRead
 PUT /api/tasks/{task_id}/history-policy -> HistoryPolicyResult
 PUT /api/v1/agents/{ref}/draft -> AgentDetail
-PUT /api/v1/artifact-types/{ref} -> ArtifactTypeRead
+PUT /api/v1/artifact-fields -> ArtifactFieldsRead
 PUT /api/v1/artifacts/{ref}/history-policy -> HistoryPolicyResult
 PUT /api/v1/lanes/{status} -> LaneRead[]
 PUT /api/v1/secrets/{name} -> SecretRead

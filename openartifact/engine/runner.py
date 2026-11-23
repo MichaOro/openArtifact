@@ -24,7 +24,7 @@ from sqlalchemy import CursorResult, delete, func, select, update
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from openartifact.artifact_types.service import card_of
+from openartifact.artifact_fields.service import card_of
 from openartifact.database import SessionOpener
 from openartifact.engine import code_registry
 from openartifact.engine.chain import edge_from, locate, pipeline_chain

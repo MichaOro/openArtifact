@@ -1,10 +1,10 @@
-/* The editor of one artifact type's parameters: a dialog with a row per parameter (label, name, kind,
- * required, default and what the kind needs), add / remove / reorder, saved as a whole with PUT. The server's
+/* The editor of the artifact fields (ADR-044): a dialog with a row per field (label, name, kind, default and
+ * what the kind needs), add / remove / reorder, saved as a whole with PUT. The server's
  * refusals (`Field NAME: ...`) are shown at their rows. The rows are rebuilt from their state when the
  * structure changes (kind, order); typing only updates the state. */
 import { ActionDialog } from "../components/action-dialog.js";
 import { icon } from "../components/icons.js";
-import { KINDS, blankField, editable, nameFromLabel, parseProblems, toWrite } from "./model.js";
+import { KINDS, blankField, editable, nameFromLabel, parseProblems, removedWithValues, toWrite } from "./model.js";
 
 let rowCounter = 0;
 
@@ -18,14 +18,16 @@ function element(tag, className, text) {
 export class FieldsEditor extends ActionDialog {
   /**
    * @param {import("../components/modal.js").Modal} modal
-   * @param {(id: string, body: {name: string, fields: object[]}) => Promise<object>} save
-   * @param {() => void} onSaved called after a successful save
+   * @param {(fields: object[]) => Promise<object>} save sends the whole list
+   * @param {(saved: object) => void} onSaved called with the server's answer
    */
   constructor(modal, save, onSaved) {
-    super(modal, "Could not save the parameters. Please try again.");
+    super(modal, "Could not save the fields. Please try again.");
     this.save = save;
     this.onSaved = onSaved;
-    this.type = null;
+    /** The fields as they were when the editor opened (with artifact_count). */
+    this.before = [];
+    this.removalNote = this.root.querySelector("[data-removal-note]");
     /** @type {{state: object, id: number, el: HTMLElement}[]} */
     this.rows = [];
     this.list = this.root.querySelector("[data-fields]");
@@ -42,18 +44,16 @@ export class FieldsEditor extends ActionDialog {
     });
   }
 
-  /** @param {{id: string, name: string, fields: object[], artifact_count: number}} type */
-  open(type) {
-    this.type = type;
+  /** @param {{name: string, label: string, artifact_count: number}[]} fields */
+  open(fields) {
+    this.before = fields;
     this.rows = [];
     this.list.replaceChildren();
-    for (const field of type.fields) this.#add(editable(field));
-    this.titleEl.textContent = `Parameters of ${type.name}`;
-    const used = type.artifact_count;
-    this.lead.textContent = used
-      ? `${used} artifact${used === 1 ? " uses" : "s use"} this type. You can add parameters, change labels, make a parameter optional and add choices; removing a parameter or changing its kind is not possible while artifacts use it.`
-      : "Each parameter becomes a field of the artifact and a reference ${card.NAME} in pipelines.";
+    for (const field of fields) this.#add(editable(field));
+    this.titleEl.textContent = "Artifact fields";
+    this.lead.textContent = "Every artifact has these fields; set their values in the artifact's Fields. Pipelines read them as ${card.NAME}. A default pre-fills new artifacts.";
     this.setError("");
+    this.#noteRemovals();
     this.modal.open();
     this.root.querySelector("[data-key=label]")?.focus();
   }
@@ -70,7 +70,7 @@ export class FieldsEditor extends ActionDialog {
   #numbering() {
     this.rows.forEach((row, i) => {
       const title = row.el.querySelector(".at-field__title");
-      title.textContent = row.state.label.trim() || `Parameter ${i + 1}`;
+      title.textContent = row.state.label.trim() || `Field ${i + 1}`;
       row.el.querySelector("[data-move=up]").disabled = i === 0;
       row.el.querySelector("[data-move=down]").disabled = i === this.rows.length - 1;
     });
@@ -157,9 +157,9 @@ export class FieldsEditor extends ActionDialog {
       return button;
     };
     tools.append(
-      tool("up", "Move parameter up", "arrow-up", () => this.#move(row, -1)),
-      tool("down", "Move parameter down", "arrow-down", () => this.#move(row, 1)),
-      tool("remove", "Remove parameter", "trash", () => this.#remove(row), "is-danger"),
+      tool("up", "Move field up", "arrow-up", () => this.#move(row, -1)),
+      tool("down", "Move field down", "arrow-down", () => this.#move(row, 1)),
+      tool("remove", "Remove field", "trash", () => this.#remove(row), "is-danger"),
     );
     head.append(tools);
 
@@ -169,17 +169,6 @@ export class FieldsEditor extends ActionDialog {
       this.#input(row, "name", "Name", { maxLength: 32 }),
       this.#select(row, "kind", "Kind", KINDS.map((k) => [k.value, k.label]), state.kind, { onChange: () => this.#render(row) }),
     );
-    const required = element("label", "at-check");
-    const check = element("input");
-    check.type = "checkbox";
-    check.checked = state.required;
-    check.dataset.key = "required";
-    check.addEventListener("change", () => {
-      state.required = check.checked;
-      this.#clear(row);
-    });
-    required.append(check, document.createTextNode(" Required"));
-    grid.append(required);
     if (state.kind === "choice") {
       const lines = element("textarea", "field__control field__control--lines");
       lines.rows = 3;
@@ -231,6 +220,7 @@ export class FieldsEditor extends ActionDialog {
     this.rows.splice(i, 1);
     row.el.remove();
     this.#numbering();
+    this.#noteRemovals();
     (this.rows[i] ?? this.rows[i - 1])?.el.querySelector("[data-key=label]").focus() ?? this.root.querySelector("[data-add-field]").focus();
   }
 
@@ -244,8 +234,17 @@ export class FieldsEditor extends ActionDialog {
   async #submit() {
     if (this.busy) return;
     for (const row of this.rows) this.#clear(row);
-    const body = { name: this.type.name, fields: this.rows.map((row) => toWrite(row.state)) };
-    if (await this.run(() => this.save(this.type.id, body), { close: true })) this.onSaved();
+    let saved = null;
+    const fields = this.rows.map((row) => toWrite(row.state));
+    if (await this.run(async () => (saved = await this.save(fields)), { close: true })) this.onSaved(saved);
+  }
+
+  /** Removing a field drops its values: say so, with how many artifacts have one. */
+  #noteRemovals() {
+    if (!this.removalNote) return;
+    const lost = removedWithValues(this.before, this.rows.map((row) => row.state.name.trim()));
+    this.removalNote.textContent = lost.length ? `Saving removes the values of ${lost.map((l) => `"${l.label}" (${l.count} artifact${l.count === 1 ? "" : "s"})`).join(", ")}.` : "";
+    this.removalNote.hidden = lost.length === 0;
   }
 
   showError(error) {

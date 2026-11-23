@@ -1,9 +1,9 @@
 # ADR-035: Artifact types and card parameters
 
-**Status:** Accepted  
+**Status:** Superseded by [ADR-044](044-artifact-fields.md)  
 **Date:** 2026-11-22  
 **Supersedes:** —  
-**Superseded by:** —  
+**Superseded by:** [ADR-044](044-artifact-fields.md)  
 **Amends:** [ADR-033](033-run-context.md), [ADR-022](022-node-settings-as-json-config.md)  
 **Amended by:** —  
 **Implemented in:** migration 0031 (`artifact_types`, `artifact_type_fields`, `tasks.type_id`, `tasks.parameters`); `artifact_types/` (`fields.py`, `schemas.py`, `service.py`), `tasks/schemas.py`, `tasks/service.py`, `api/artifact_types.py`, `api/v1.py`, `mcp_server.py`, `engine/context.py` (`card`), `engine/history.py`, `engine/runner.py`; `static/js/artifact-types/`, `static/js/tasks/parameter-form.js`, `parameters.js`, `artifact-dialog.js`; `templates/artifact_types.html`  

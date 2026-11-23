@@ -73,7 +73,6 @@ def test_add_lane_and_the_new_buttons_are_one_purple_primary_action(
     for path, selector in (
         ("/actions", "[data-new-graph]"),
         ("/pipelines", "[data-new-graph]"),
-        ("/artifact-types", "[data-new-type]"),
     ):
         board.page.goto(f"{base_url}{path}")
         button = board.page.locator(selector)
@@ -202,7 +201,6 @@ def test_every_delete_control_uses_the_one_destructive_style(board: Board, base_
     board.create("Card", status="done")
     board.api.post("/api/pipelines", json={"name": "Pipe"}).raise_for_status()
     board.api.post("/api/actions", json={"name": "Act"}).raise_for_status()
-    board.api.post("/api/artifact-types", json={"name": "Kind", "fields": []}).raise_for_status()
     page = board.page
     board.open()
     danger = _colour(page, "var(--color-danger)")
@@ -230,7 +228,6 @@ def test_every_delete_control_uses_the_one_destructive_style(board: Board, base_
     for path, selector in (
         ("/actions", "[data-ge-list] [data-delete]"),
         ("/pipelines", "[data-ge-list] [data-delete]"),
-        ("/artifact-types", "[data-type-list] [data-delete]"),
     ):
         page.goto(f"{base_url}{path}")
         control = page.locator(selector).first

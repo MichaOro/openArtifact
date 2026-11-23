@@ -5,14 +5,17 @@
 {% from "components/form_modal.html" import form_modal %}
 {% set LANE_FIELDS = [{"name": "title", "label": "Lane name", "kind": "text", "required": True, "maxlength": 40}] %}
 {% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/modal.html" import modal %}
 {% block title %}Board · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/task-dialog.css">
 <link rel="stylesheet" href="/static/css/history.css">
-<link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
+<link rel="stylesheet" href="/static/css/agents.css">
+<link rel="stylesheet" href="/static/css/artifact-fields.css">{% endblock %}
 {% block content %}
 {{ alert("Artifacts could not be loaded.") }}
 <div class="action-row action-row--slim">
     <button type="button" class="button button--primary button--sm" data-add-lane aria-haspopup="dialog">{{ icon("plus") }}<span>Add lane</span></button>
+    <button type="button" class="icon-button icon-button--sm board-menu" data-board-menu aria-haspopup="menu" aria-expanded="false" aria-label="Board options" title="Board options">{{ icon("more") }}</button>
 </div>
 <div class="board" role="group" aria-label="Kanban board">
     {% for board_lane in lanes %}
@@ -43,6 +46,25 @@
 {{ confirm_modal("delete-lane-modal", "Delete lane") }}
 {{ confirm_modal("delete-task-modal", "Delete Artifact", note="data-children-note") }}
 {{ confirm_modal("delete-execution-modal", "Delete execution", note="data-history-note") }}
+
+{% call modal("fields-modal", "Artifact fields") %}
+<form class="task-form at-editor" id="fields-modal-form" novalidate>
+    <div class="modal__body">
+        <p class="at-editor__lead" data-lead></p>
+        <ol class="at-fields" data-fields aria-label="Artifact fields"></ol>
+        <button type="button" class="button button--ghost button--sm at-add" data-add-field>{{ icon("plus") }} Add field</button>
+        <p class="at-editor__removal" role="status" data-removal-note hidden></p>
+        <p class="form-error" role="alert" hidden data-form-error></p>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-cancel>Cancel</button>
+        <button type="submit" class="button button--primary" data-submit>
+            <span class="spinner" aria-hidden="true"></span>
+            <span data-submit-label>Save</span>
+        </button>
+    </footer>
+</form>
+{% endcall %}
 {% endblock %}
 {% block scripts %}
 <script type="module" src="/static/js/tasks/main.js"></script>

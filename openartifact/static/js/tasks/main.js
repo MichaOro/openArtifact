@@ -15,7 +15,10 @@ import { HistoryTab } from "./history-tab.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { LaneControls, listLanes } from "./lanes.js";
 import { LaneSettingsDialog } from "./lane-settings.js";
-import { listTypes } from "../artifact-types/api.js";
+import { listFields, replaceFields } from "../artifact-fields/api.js";
+import { FieldsEditor } from "../artifact-fields/fields-editor.js";
+import { ActionMenu } from "../components/action-menu.js";
+import { FieldRail } from "./field-rail.js";
 
 const board = new Board({ loadTasks: listTasks, renameLane: (status, title) => laneControls.rename(status, title) });
 
@@ -115,13 +118,15 @@ function showTask(task, { follow = false } = {}) {
     trail.length > 0,
   );
   artifactDialog.subtitle.disabled = board.locked.has(task.id);
-  artifactDialog.lockParameters(board.locked.has(task.id));
+  fieldRail.show(task);
+  fieldRail.setLocked(board.locked.has(task.id));
 }
 
-/** The artifact types: the dialog's Type select and the type names on the cards. */
-function showTypes(types) {
-  artifactDialog.setTypes(types);
-  board.setTypeNames(types);
+/** The artifact fields (ADR-044): the rail of the dialog and the editor behind the board's menu. */
+let artifactFields = [];
+function showFields(read) {
+  artifactFields = read.fields;
+  fieldRail.setFields(read.fields);
 }
 
 const deleteDialog = new ConfirmDialog(new Modal(document.getElementById("delete-task-modal")));
@@ -149,9 +154,22 @@ new CardDragController({ board, onDrop: (task, placement) => moveTaskTo(task, pl
 
 // Right-hand navigation of the task dialog (Lane, Parent, Delete): collapsed by default.
 const cardNavRoot = document.querySelector("[data-card-nav]");
-new CollapsibleNav(cardNavRoot, cardNavRoot.querySelector("[data-card-nav-toggle]"), KEYS.cardNav, {
+const cardNav = new CollapsibleNav(cardNavRoot, cardNavRoot.querySelector("[data-card-nav-toggle]"), KEYS.cardNav, {
   expand: "Expand artifact details",
   collapse: "Collapse artifact details",
+});
+const fieldRail = new FieldRail({
+  rail: cardNavRoot,
+  nav: cardNav,
+  save: (id, values) => updateTask(id, { fields: values }),
+  onSaved: (task) => board.upsert(task),
+});
+
+// The board's menu next to "Add lane": the artifact fields every artifact has.
+const fieldsEditor = new FieldsEditor(new Modal(document.getElementById("fields-modal")), replaceFields, (saved) => showFields(saved));
+const boardMenu = new ActionMenu();
+document.querySelector("[data-board-menu]")?.addEventListener("click", (event) => {
+  boardMenu.toggle(event.currentTarget, [{ label: "Artifact fields", icon: "tag", onSelect: () => fieldsEditor.open(artifactFields) }], "Board");
 });
 
 // Lane switch inside the task dialog. Two entry points: the lane chip under the title (a
@@ -170,7 +188,7 @@ const processing = new ProcessingPanel({
     board.setLocked(taskId, locked);
     if (artifactDialog.editing?.id === taskId) {
       artifactDialog.subtitle.disabled = locked;
-      artifactDialog.lockParameters(locked);
+      fieldRail.setLocked(locked);
     }
   },
   onError: (message) => board.showError(message),
@@ -340,7 +358,7 @@ connectEvents({
   onOpen: () => {
     board.load(); // first connect and every reconnect: resync
     listLanes().then(showLanes).catch(() => {});
-    listTypes().then(showTypes).catch(() => {});
+    listFields().then(showFields).catch(() => {});
     listRuns().then((runs) => processing.setRuns(runs)).catch(() => {});
     history.load(); // missed events are not replayed
   },
@@ -352,11 +370,12 @@ connectEvents({
       processing.remove(data.id);
     }
     else if (type === "board.lanes") showLanes(data.lanes);
-    else if (type === "artifact_types.changed") showTypes(data.types);
+    else if (type === "artifact_fields.changed") showFields(data);
     else if (type === "board.resync") board.load(); // lane was renumbered: positions changed
     else {
       board.upsert(data); // task.created / task.updated / task.moved
       artifactDialog.refreshView(data);
+      if (artifactDialog.mode === "view" && artifactDialog.editing?.id === data.id) fieldRail.show(data);
     }
   },
 });
