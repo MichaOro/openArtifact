@@ -69,6 +69,11 @@ class Target:
     sslrootcert: str | None = None
 
 
+def _text(value: str | int | None) -> str | None:
+    """A value of the parsed URL as text (newer drivers type it ``str | int | None``); empty is none."""
+    return None if value is None or value == "" else str(value)
+
+
 def parse_connection(url: str) -> Target:
     """The connection URL as a :class:`Target`; :class:`PostgresError` for anything that is not a plain one."""
     text = url.strip()
@@ -98,18 +103,18 @@ def parse_connection(url: str) -> Target:
         raise PostgresError("The host must be a name or an address, not a socket path")
     if not port.isdigit() or not 0 < int(port) < 65536:
         raise PostgresError("The port of the connection URL is not valid")
-    sslmode = found.get("sslmode")
+    sslmode = _text(found.get("sslmode"))
     if sslmode is not None and sslmode not in _SSL_MODES:
         raise PostgresError(f"sslmode must be one of: {', '.join(_SSL_MODES)}")
-    sslrootcert = found.get("sslrootcert")
+    sslrootcert = _text(found.get("sslrootcert"))
     if sslrootcert is not None and sslrootcert != "system":
         raise PostgresError("sslrootcert can only be 'system' (no file can be named)")
     return Target(
         host,
         int(port),
-        found.get("dbname") or None,
-        found.get("user") or None,
-        found.get("password") or None,
+        _text(found.get("dbname")),
+        _text(found.get("user")),
+        _text(found.get("password")),
         sslmode,
         sslrootcert,
     )

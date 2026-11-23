@@ -190,7 +190,7 @@ def _repository(config: Mapping[str, Any], view: RunView) -> str:
     text = _setting(config, "repository", view)
     if not text:
         raise GithubError("The repository is not set")
-    if not _REPOSITORY.fullmatch(text) or text.split("/")[0] in (".", "..") or text.endswith("/.."):
+    if not _REPOSITORY.fullmatch(text) or any(part in (".", "..") for part in text.split("/")):
         raise GithubError("A repository is written owner/name")
     return text
 

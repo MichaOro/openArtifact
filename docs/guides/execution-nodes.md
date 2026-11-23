@@ -403,7 +403,9 @@ the rate limit with its reset time, a redirect (a renamed repository: use the ne
 `OPENARTIFACT_HTTP_RESPONSE_LIMIT_BYTES`. The token never appears in a reason, the data or the log.
 
 **Network.** The API address follows the HTTP node's rules, including the private-network switch
-`OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS` (only needed for an Enterprise server on your network).
+`OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS` (only needed for an Enterprise server on your network). The token goes to
+the *API address* of the node: whoever may edit the node can point it elsewhere, just as they could put
+`${secret:...}` into the header of an HTTP node.
 
 ## Postgres node
 

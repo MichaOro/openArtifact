@@ -285,6 +285,8 @@ async def test_repository_and_number_may_come_from_earlier_results(github: FakeG
     [
         ("Get repository", {"repository": "acme"}, "owner/name"),
         ("Get repository", {"repository": "acme/tool/extra"}, "owner/name"),
+        ("Get repository", {"repository": "acme/."}, "owner/name"),
+        ("Get repository", {"repository": "./tool"}, "owner/name"),
         ("Get repository", {"repository": "../other/repo"}, "owner/name"),
         ("Get repository", {"repository": "acme/to ol"}, "owner/name"),
         ("Get repository", {"repository": ""}, "The repository is not set"),

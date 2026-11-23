@@ -224,6 +224,38 @@ def test_good_settings_are_saved_and_references_pass_the_checks(client: TestClie
     assert tool["config"]["parameters"] == "id: The ticket's number"
 
 
+def test_a_reference_in_a_setting_is_checked_for_a_node_of_that_name(client: TestClient) -> None:
+    action = post(client, "/api/actions", name="Hints")
+    github = node(client, action, "github")
+    postgres = node(client, action, "postgres")
+    for made, key, value in (
+        (github, "repository", "${node.Nobody.data.repo}"),
+        (github, "comment", "Seen: ${node.Nobody.output}"),
+        (postgres, "values", "${node.Nobody.output}"),
+    ):
+        answer = client.patch(
+            f"{graph_url(action)}/nodes/{made['id']}", json={"config": {key: value}}
+        ).json()
+        assert any('no node is named "Nobody"' in w for w in answer["warnings"]), key
+
+
+def test_a_github_or_postgres_node_of_another_action_can_be_referenced_without_a_hint(
+    client: TestClient,
+) -> None:
+    """The pipeline that runs an action decides which actions came before: a name that exists elsewhere is no hint."""
+    source = post(client, "/api/actions", name="Source")
+    node(client, source, "postgres", name="Tickets")
+    node(client, source, "github", name="Issues")
+    reader = post(client, "/api/actions", name="Reader")
+    made = node(
+        client,
+        reader,
+        "set",
+        config={"fields": "a = ${node.Tickets.data.rows}\nb = ${node.Issues.data.items}"},
+    )
+    assert made["warnings"] == []
+
+
 # ── migration ────────────────────────────────────────────────────────
 
 

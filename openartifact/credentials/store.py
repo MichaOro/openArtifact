@@ -146,14 +146,15 @@ class SecretStore:
         return values
 
     async def uses(self, name: str) -> list[SecretUse]:
-        """The Code and HTTP nodes that refer to ``name``, with the pipelines that call their action."""
+        """The nodes that refer to ``name`` (Code, HTTP, GitHub, Postgres and the tools of agents), with the
+        pipelines that call their action."""
         _valid_name(name)
         async with self._session() as session:
             rows = (
                 await session.execute(
                     select(GraphNode, Graph)
                     .join(Graph, Graph.id == GraphNode.graph_id)
-                    .where(GraphNode.kind.in_([NodeKind.CODE.value, NodeKind.HTTP.value]))
+                    .where(GraphNode.kind.in_([kind.value for kind in _SECRET_KINDS]))
                     .order_by(Graph.name, GraphNode.name)
                 )
             ).all()
@@ -185,12 +186,34 @@ class SecretStore:
             return found
 
 
+#: The kinds of nodes that can name a secret.
+_SECRET_KINDS = (
+    NodeKind.CODE,
+    NodeKind.HTTP,
+    NodeKind.GITHUB,
+    NodeKind.POSTGRES,
+    NodeKind.MCP_TOOL,
+    NodeKind.HTTP_TOOL,
+    NodeKind.CODE_TOOL,
+    NodeKind.POSTGRES_TOOL,
+)
+#: Kinds with a list of secret names, and kinds with the name of one secret in ``secret``.
+_NAME_LIST = frozenset({NodeKind.CODE, NodeKind.CODE_TOOL})
+_ONE_NAME = frozenset(
+    {NodeKind.GITHUB, NodeKind.POSTGRES, NodeKind.MCP_TOOL, NodeKind.POSTGRES_TOOL}
+)
+
+
 def _referenced(node: GraphNode) -> set[str]:
     """The secret names a node refers to (what is stored; malformed references are skipped)."""
     config: dict[str, Any] = node_type(node.kind).effective_config(node.config)
-    if node.kind == NodeKind.CODE:
+    if node.kind in _NAME_LIST or node.kind in _ONE_NAME:
         try:
-            return set(parse_name_lines(str(config.get("secrets") or "")))
+            return set(
+                parse_name_lines(
+                    str(config.get("secrets" if node.kind in _NAME_LIST else "secret") or "")
+                )
+            )
         except ValueError:
             return set()
     text = "\n".join(str(config.get(k) or "") for k in ("url", "headers", "body"))

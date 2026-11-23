@@ -327,9 +327,14 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
 
+class _Server(ThreadingHTTPServer):
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        """A client that gave up (the time-limit test) is not worth a traceback on the console."""
+
+
 @pytest.fixture
 def github() -> Iterator[FakeGithub]:
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    httpd = _Server(("127.0.0.1", 0), _Handler)
     httpd.block_on_close = False
     state = FakeGithub(httpd.server_address[1])
     httpd.state = state  # type: ignore[attr-defined]
