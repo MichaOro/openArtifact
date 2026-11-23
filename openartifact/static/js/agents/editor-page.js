@@ -207,6 +207,10 @@ function renderHead() {
   $("[data-agent-description]").textContent = agent.description;
   $("[data-chips]").replaceChildren(...agentChips(agent).map(([text, tone]) => chip(text, tone)));
   active.on = agent.active;
+  $("[data-fact-version]").replaceChildren(chip(agent.published_number == null ? "Not published" : `v${agent.published_number} published`, agent.published_number == null ? "warn" : "accent"));
+  $("[data-fact-draft]").replaceChildren(chip(dirty ? "Not saved" : agent.draft_changed ? "Has changes" : "Saved", dirty || agent.draft_changed ? "warn" : ""));
+  $("[data-fact-created]").textContent = formatTime(agent.created_at);
+  $("[data-fact-updated]").textContent = formatTime(agent.updated_at);
 }
 
 function renderVersions() {
@@ -257,6 +261,7 @@ async function renderUses() {
     }),
   );
   $("[data-uses-empty]").hidden = uses.length > 0;
+  $("[data-fact-uses]").textContent = uses.length ? `${uses.length} node${uses.length === 1 ? "" : "s"}` : "none";
 }
 
 function show(detail, { form = true } = {}) {
@@ -305,6 +310,7 @@ function fail(error) {
 function changed() {
   dirty = true;
   renderState();
+  renderHead();
 }
 
 async function run(action) {
@@ -340,6 +346,7 @@ $("[data-add-input]").addEventListener("click", () => {
   changed();
 });
 $("[data-save]").addEventListener("click", () => run(save));
+$("[data-fact-uses]").addEventListener("click", () => tabs.select("versions", { focus: true }));
 $("[data-publish]").addEventListener("click", () =>
   run(async () => {
     if (dirty) await save();

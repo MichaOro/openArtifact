@@ -9,31 +9,26 @@
 {% block content %}
 {{ alert("The agent could not be loaded.") }}
 <div class="ag-editor" data-agent-editor data-agent-ref="{{ agent_ref }}" hidden>
-    <header class="ag-head glass">
-        <div class="ag-head__main">
-            <a class="ag-back" href="/agents">{{ icon("chevrons-left") }} Agents</a>
-            <div class="ag-head__title">
-                <h2 class="ag-head__name" data-agent-name tabindex="-1"></h2>
-                <button type="button" class="icon-button icon-button--sm" data-rename aria-label="Rename or describe the agent" title="Rename">{{ icon("pencil") }}</button>
-                <span class="ag-chips" data-chips></span>
+    <header class="ag-head">
+        <a class="ag-back" href="/agents">{{ icon("chevrons-left") }} Agents</a>
+        <div class="ag-head__row">
+            <span class="ag-head__icon" aria-hidden="true">{{ icon("agent") }}</span>
+            <div class="ag-head__main">
+                <div class="ag-head__title">
+                    <h2 class="ag-head__name" data-agent-name tabindex="-1"></h2>
+                    <button type="button" class="icon-button icon-button--sm" data-rename aria-label="Rename or describe the agent" title="Rename">{{ icon("pencil") }}</button>
+                    <span class="ag-chips" data-chips></span>
+                </div>
+                <p class="ag-head__description" data-agent-description></p>
             </div>
-            <p class="ag-head__description" data-agent-description></p>
-            <div class="ag-active">
-                <span class="field__label" id="ag-active-label" title="An inactive agent is not run: its nodes fail in every execution that starts while it is inactive. Executions that are running are not affected.">Active</span>
-                <button type="button" class="ge-switch" role="switch" aria-labelledby="ag-active-label" aria-describedby="ag-active-help" data-active>
-                    <span class="ge-switch__state"></span><span class="ge-switch__thumb"></span>
-                </button>
-                <span class="visually-hidden" id="ag-active-help">An inactive agent is not run: its nodes fail in every execution that starts while it is inactive. Executions that are running are not affected.</span>
+            <div class="ag-save" aria-labelledby="ag-save-title">
+                <h3 class="visually-hidden" id="ag-save-title">Draft</h3>
+                <div class="ag-save__buttons">
+                    <button type="button" class="button button--ghost" data-save>Save draft</button>
+                    <button type="button" class="button button--ghost is-danger" data-discard>{{ icon("undo") }} Discard draft</button>
+                    <button type="button" class="button button--primary" data-publish>Publish</button>
+                </div>
             </div>
-        </div>
-        <div class="ag-save" aria-labelledby="ag-save-title">
-            <h3 class="visually-hidden" id="ag-save-title">Draft</h3>
-            <div class="ag-save__buttons">
-                <button type="button" class="button button--ghost is-danger button--sm" data-discard>{{ icon("undo") }} Discard draft</button>
-                <button type="button" class="button button--ghost button--sm" data-save>Save draft</button>
-                <button type="button" class="button button--primary button--sm" data-publish>Publish</button>
-            </div>
-            <p class="ag-save__state" data-draft-state aria-live="polite"></p>
         </div>
         <ul class="ag-problems" data-problems aria-label="What publishing would refuse"></ul>
         <p class="form-error" role="alert" hidden data-save-error></p>
@@ -42,17 +37,19 @@
     <div class="ag-notice glass" role="status" data-notice hidden></div>
 
     <div class="ag-workspace">
-        <div class="ag-main glass">
+        <div class="ag-main">
             {# Tabs (components/tabs.js): Prompts and Versions always; the others only while their option is on. #}
             <div class="task-tabs ag-tabs" role="tablist" aria-label="Agent" data-ag-tabs>
-                <button type="button" class="task-tab" role="tab" id="ag-tab-prompts" data-tab="prompts" aria-controls="ag-panel-prompts" aria-selected="true">Prompts</button>
-                <button type="button" class="task-tab" role="tab" id="ag-tab-inputs" data-tab="inputs" aria-controls="ag-panel-inputs" aria-selected="false" hidden>Inputs</button>
-                <button type="button" class="task-tab" role="tab" id="ag-tab-limits" data-tab="limits" aria-controls="ag-panel-limits" aria-selected="false" hidden>Model &amp; Limits</button>
-                <button type="button" class="task-tab" role="tab" id="ag-tab-test" data-tab="test" aria-controls="ag-panel-test" aria-selected="false" hidden>Quick test</button>
-                <button type="button" class="task-tab" role="tab" id="ag-tab-versions" data-tab="versions" aria-controls="ag-panel-versions" aria-selected="false">Versions &amp; use</button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-prompts" data-tab="prompts" aria-controls="ag-panel-prompts" aria-selected="true">{{ icon("message") }}<span>Prompts</span></button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-inputs" data-tab="inputs" aria-controls="ag-panel-inputs" aria-selected="false" hidden>{{ icon("layers") }}<span>Inputs</span></button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-limits" data-tab="limits" aria-controls="ag-panel-limits" aria-selected="false" hidden>{{ icon("settings") }}<span>Model &amp; Limits</span></button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-test" data-tab="test" aria-controls="ag-panel-test" aria-selected="false" hidden>{{ icon("play") }}<span>Quick test</span></button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-versions" data-tab="versions" aria-controls="ag-panel-versions" aria-selected="false">{{ icon("list") }}<span>Versions &amp; use</span></button>
             </div>
 
+            <div class="ag-card ag-card--panels glass">
             <section class="ag-panel" role="tabpanel" id="ag-panel-prompts" aria-labelledby="ag-tab-prompts">
+                <h3 class="ag-panel__heading">Prompts</h3>
                 <div class="field">
                     <label class="field__label" for="ag-user">User prompt <span class="field__required" aria-hidden="true">*</span></label>
                     <p class="field__help">What the model is asked. Use <code>${input.NAME}</code> for an input (switch on Inputs). A prompt cannot read a pipeline's nodes or variables itself: the agent node maps them to the inputs, so the agent can be used anywhere.</p>
@@ -126,16 +123,37 @@
                 <ul class="ag-uses" data-uses aria-label="Agent nodes that use this agent"></ul>
                 <p class="ge-inspector__note" data-uses-empty hidden>No agent node uses this agent yet.</p>
             </section>
+            </div>
         </div>
 
-        {# Options (components/options-panel.js): closed whenever the page opens; a switch is part of the draft,
-           except Quick test, which only lives while the page is open. #}
-        <aside class="options-panel glass" data-options aria-label="Options">
-            <button type="button" class="options-panel__toggle" data-options-toggle aria-expanded="false" title="Options: switch on what this agent needs">
-                {{ icon("settings") }}<span class="options-panel__toggle-label">Options</span>
-            </button>
-            <div class="options-panel__body" data-options-body hidden></div>
-        </aside>
+        <div class="ag-side">
+            <section class="ag-card glass ag-status" aria-labelledby="ag-status-title">
+                <h3 class="ag-panel__heading" id="ag-status-title">Status &amp; info</h3>
+                <dl class="ag-facts">
+                    <div><dt id="ag-active-label" title="An inactive agent is not run: its nodes fail in every execution that starts while it is inactive. Executions that are running are not affected.">Active</dt>
+                        <dd><button type="button" class="ge-switch" role="switch" aria-labelledby="ag-active-label" aria-describedby="ag-active-help" data-active>
+                            <span class="ge-switch__state"></span><span class="ge-switch__thumb"></span>
+                        </button>
+                        <span class="visually-hidden" id="ag-active-help">An inactive agent is not run: its nodes fail in every execution that starts while it is inactive. Executions that are running are not affected.</span></dd></div>
+                    <div><dt>Version</dt><dd data-fact-version></dd></div>
+                    <div><dt>Draft</dt><dd data-fact-draft></dd></div>
+                    <div><dt>Used by</dt><dd><button type="button" class="ag-link" data-fact-uses></button></dd></div>
+                    <div><dt>Created</dt><dd data-fact-created></dd></div>
+                    <div><dt>Updated</dt><dd data-fact-updated></dd></div>
+                </dl>
+                <p class="ag-save__state" data-draft-state aria-live="polite"></p>
+            </section>
+            {# Options (components/options-panel.js): an accordion, closed whenever the page opens; a switch is part
+               of the draft, except Quick test, which only lives while the page is open. #}
+            <section class="ag-card glass options-panel" data-options aria-label="Options">
+                <button type="button" class="options-panel__toggle" data-options-toggle aria-expanded="false">
+                    <span class="ag-panel__heading">Options</span>
+                    <span class="options-panel__hint">Switch on what this agent needs</span>
+                    {{ icon("chevron-down", "options-panel__chevron") }}
+                </button>
+                <div class="options-panel__body" data-options-body hidden></div>
+            </section>
+        </div>
     </div>
 </div>
 <p class="ge-empty glass" data-agent-missing hidden>This agent does not exist. <a href="/agents">Back to the agents</a></p>

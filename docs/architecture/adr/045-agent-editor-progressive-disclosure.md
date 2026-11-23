@@ -16,8 +16,9 @@ optional areas when switched on.
 
 ## 2. Decision
 
-- **Layout:** a header (back, name, rename, chips, description, Active, the draft's state and Save / Discard / Publish),
-  tabs in the main area and an options panel on the right. *Prompts* and *Versions & use* are always tabs; *Inputs*,
+- **Layout (full width, after the owner's mock):** a header (back, the agent's icon, name, rename, chips, description,
+  Save / Discard / Publish), a bar of tabs with icons above the active area, and on the right a *Status & info* card
+  (Active, version, draft, used by, created, updated) and the *Options* accordion. *Prompts* and *Versions & use* are always tabs; *Inputs*,
   *Model & Limits* and *Quick test* are tabs only while their option is on; the system prompt shows inside *Prompts*.
   Switching an option on does not jump to its tab; switching off the tab that is shown goes back to *Prompts*.
 - **Off means kept but not in effect** (the owner's choice, as the system prompt already worked): the backend has
