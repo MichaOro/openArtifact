@@ -14,10 +14,7 @@
   "outputs": [
    {
     "name": "out",
-    "label": "Next",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Next"
    }
   ],
   "settings": [],
@@ -40,33 +37,21 @@
   "inputs": [
    {
     "name": "start",
-    "label": "Start",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Start"
    },
    {
     "name": "end",
-    "label": "End",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "End"
    }
   ],
   "outputs": [
    {
     "name": "start",
-    "label": "First action",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "First action"
    },
    {
     "name": "end",
-    "label": "Next",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Next"
    }
   ],
   "settings": [],
@@ -93,26 +78,17 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [
    {
     "name": "pass",
-    "label": "On Pass",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Pass"
    },
    {
     "name": "error",
-    "label": "On Error",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Error"
    }
   ],
   "settings": [],
@@ -141,19 +117,13 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [
    {
     "name": "out",
-    "label": "Next",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Next"
    }
   ],
   "settings": [],
@@ -185,10 +155,7 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [],
@@ -217,19 +184,13 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [
    {
     "name": "out",
-    "label": "Next",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Next"
    }
   ],
   "settings": [
@@ -241,12 +202,6 @@
     "maximum": 86400,
     "default": 5,
     "stored_in": "column",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -279,19 +234,14 @@
   "inputs": [
    {
     "name": "pass",
-    "label": "On Pass",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Pass"
    },
    {
     "name": "fail",
     "label": "On Fail",
-    "side": null,
     "visible_when": {
      "node": "fail_enabled"
-    },
-    "label_from": null
+    }
    }
   ],
   "outputs": [],
@@ -304,12 +254,6 @@
     "maximum": null,
     "default": false,
     "stored_in": "column",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -340,26 +284,17 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [
    {
     "name": "pass",
-    "label": "On Pass",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Pass"
    },
    {
     "name": "fail",
-    "label": "On Fail",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Fail"
    }
   ],
   "settings": [
@@ -375,11 +310,6 @@
      "sh",
      "python"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -392,12 +322,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
-    "placeholder": null,
     "help": "Stored and shown in plain text, so no secrets in here: ${secret:NAME} is not replaced in code, and neither are ${node...} or ${var...}. List the secrets the code needs in 'Secrets' below; they come as environment variables. The run context (variables and earlier results) is the file context.json in the working directory. To set variables, print a last line like {\"ok\": true, \"vars\": {\"name\": \"value\"}}.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -410,12 +336,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 2000,
     "placeholder": "API_KEY",
     "help": "One secret name per line (capitals, digits, underscores). Each is available to the code as an environment variable of that name, for example $API_KEY or os.environ['API_KEY']. Manage the values under Secrets; a missing secret fails the node.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "advanced",
     "inherits": null
@@ -428,12 +351,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 2000,
     "placeholder": "ticket_priority",
     "help": "Optional: the variable names this code sets (one per line, as in \"vars\"). Documents the node and feeds the suggestions; a difference between this list and what the code really sets is noted in the step, it does not fail the node.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "advanced",
     "inherits": null
@@ -446,12 +366,7 @@
     "maximum": 600,
     "default": 30,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Execution limits",
-    "references": null,
     "section": "behaviour",
     "level": "optional",
     "inherits": null
@@ -468,11 +383,7 @@
      "fail",
      "continue"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "fail (the default): leave by On Fail, the action fails if nothing is connected there. continue: leave by On Pass although the node failed (fail open); the step still shows the failure and its reason.",
-    "group": null,
-    "references": null,
     "section": "behaviour",
     "level": "core",
     "inherits": null
@@ -506,26 +417,17 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [
    {
     "name": "pass",
-    "label": "On Pass",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Pass"
    },
    {
     "name": "fail",
-    "label": "On Fail",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Fail"
    }
   ],
   "settings": [
@@ -544,11 +446,6 @@
      "PATCH",
      "DELETE"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -561,11 +458,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 2000,
     "placeholder": "https://example.org/hook",
     "help": "Use ${secret:NAME} for a stored secret and ${node.NAME.output} or ${var.NAME} for the result of an earlier node or a variable in the path or the query (replaced text is percent-encoded there); not in the scheme or host.",
-    "group": null,
     "references": "all",
     "section": "definition",
     "level": "core",
@@ -579,11 +474,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
     "placeholder": "Name: value",
     "help": "One 'Name: value' per line, stored in plain text: put a secret in as ${secret:NAME}, for example 'Authorization: Bearer ${secret:API_TOKEN}'. ${node.NAME.output} and ${var.NAME} insert an earlier result or variable.",
-    "group": null,
     "references": "all",
     "section": "definition",
     "level": "core",
@@ -597,11 +490,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
-    "placeholder": null,
     "help": "Sent as it is, stored in plain text: put a secret in as ${secret:NAME}, which is replaced by its value when the node runs. ${node.NAME.output}, ${node.NAME.data.key} and ${var.NAME} insert an earlier node's result or a variable (NAME: the node's name with spaces as _).",
-    "group": null,
     "references": "all",
     "section": "definition",
     "level": "core",
@@ -615,12 +505,7 @@
     "maximum": 120,
     "default": 30,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Execution limits",
-    "references": null,
     "section": "behaviour",
     "level": "optional",
     "inherits": null
@@ -633,12 +518,8 @@
     "maximum": null,
     "default": "200-299",
     "stored_in": "config",
-    "options": null,
     "max_length": 100,
-    "placeholder": null,
     "help": "Comma-separated codes or ranges, for example 200-299, 404.",
-    "group": null,
-    "references": null,
     "section": "behaviour",
     "level": "advanced",
     "inherits": null
@@ -655,11 +536,7 @@
      "fail",
      "continue"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "fail (the default): leave by On Fail, the action fails if nothing is connected there. continue: leave by On Pass although the node failed (fail open); the step still shows the failure and its reason.",
-    "group": null,
-    "references": null,
     "section": "behaviour",
     "level": "core",
     "inherits": null
@@ -693,33 +570,21 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [
    {
     "name": "yes",
-    "label": "Yes",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Yes"
    },
    {
     "name": "no",
-    "label": "No",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "No"
    },
    {
     "name": "else",
-    "label": "Else",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Else"
    }
   ],
   "settings": [
@@ -735,11 +600,7 @@
      "all",
      "any"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "all: every used condition must hold (and). any: one is enough (or).",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -752,12 +613,7 @@
     "maximum": null,
     "default": true,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "Off: texts are compared without regard to upper and lower case.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -770,7 +626,6 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
     "placeholder": "${var.priority}",
     "help": "Text, may hold ${node.NAME.output} or ${var.name}. Empty: the row is unused.",
@@ -804,11 +659,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 1",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -821,9 +672,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
     "help": "Ignored by is empty, is not empty, is true and is false.",
     "group": "Condition 1",
     "references": "context",
@@ -839,10 +688,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 2",
     "references": "context",
     "section": "definition",
@@ -873,11 +719,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 2",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -890,10 +732,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 2",
     "references": "context",
     "section": "definition",
@@ -908,10 +747,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 3",
     "references": "context",
     "section": "definition",
@@ -942,11 +778,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 3",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -959,10 +791,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 3",
     "references": "context",
     "section": "definition",
@@ -977,10 +806,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 4",
     "references": "context",
     "section": "definition",
@@ -1011,11 +837,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 4",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1028,10 +850,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 4",
     "references": "context",
     "section": "definition",
@@ -1046,10 +865,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 5",
     "references": "context",
     "section": "definition",
@@ -1080,11 +896,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 5",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1097,10 +909,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Condition 5",
     "references": "context",
     "section": "definition",
@@ -1140,17 +949,13 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [
    {
     "name": "case_1",
     "label": "Case 1",
-    "side": null,
     "visible_when": {
      "fn": "switch_case_used"
     },
@@ -1159,7 +964,6 @@
    {
     "name": "case_2",
     "label": "Case 2",
-    "side": null,
     "visible_when": {
      "fn": "switch_case_used"
     },
@@ -1168,7 +972,6 @@
    {
     "name": "case_3",
     "label": "Case 3",
-    "side": null,
     "visible_when": {
      "fn": "switch_case_used"
     },
@@ -1177,7 +980,6 @@
    {
     "name": "case_4",
     "label": "Case 4",
-    "side": null,
     "visible_when": {
      "fn": "switch_case_used"
     },
@@ -1186,7 +988,6 @@
    {
     "name": "case_5",
     "label": "Case 5",
-    "side": null,
     "visible_when": {
      "fn": "switch_case_used"
     },
@@ -1195,7 +996,6 @@
    {
     "name": "case_6",
     "label": "Case 6",
-    "side": null,
     "visible_when": {
      "fn": "switch_case_used"
     },
@@ -1203,10 +1003,7 @@
    },
    {
     "name": "else",
-    "label": "Else",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Else"
    }
   ],
   "settings": [
@@ -1218,11 +1015,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
     "placeholder": "${var.priority}",
     "help": "Text, may hold ${node.NAME.output} or ${var.name}.",
-    "group": null,
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -1252,11 +1047,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Case 1",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1269,9 +1060,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
     "help": "Text, may hold ${node.NAME.output} or ${var.name}. Empty (and an operator that needs a value): the case is unused and its output is hidden.",
     "group": "Case 1",
     "references": "context",
@@ -1303,11 +1092,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Case 2",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1320,10 +1105,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Case 2",
     "references": "context",
     "section": "definition",
@@ -1354,11 +1136,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Case 3",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1371,10 +1149,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Case 3",
     "references": "context",
     "section": "definition",
@@ -1405,11 +1180,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Case 4",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1422,10 +1193,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Case 4",
     "references": "context",
     "section": "definition",
@@ -1456,11 +1224,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Case 5",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1473,10 +1237,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Case 5",
     "references": "context",
     "section": "definition",
@@ -1507,11 +1268,7 @@
      "is true",
      "is false"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Case 6",
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1524,10 +1281,7 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
-    "help": null,
     "group": "Case 6",
     "references": "context",
     "section": "definition",
@@ -1542,12 +1296,7 @@
     "maximum": null,
     "default": true,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "Off: texts are compared without regard to upper and lower case.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1581,33 +1330,22 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    },
    {
     "name": "tools",
     "label": "Tools",
-    "side": "bottom",
-    "visible_when": null,
-    "label_from": null
+    "side": "bottom"
    }
   ],
   "outputs": [
    {
     "name": "pass",
-    "label": "On Pass",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Pass"
    },
    {
     "name": "fail",
-    "label": "On Fail",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Fail"
    }
   ],
   "settings": [
@@ -1619,12 +1357,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 36,
-    "placeholder": null,
     "help": "The agent this node runs (managed under Agents).",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1637,11 +1371,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
     "placeholder": "ticket = ${node.Fetch_ticket.output}",
     "help": "One 'name = value' per line for the inputs the agent declares. The value is text and may hold ${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or ${card.name}; secrets cannot be used.",
-    "group": null,
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -1655,12 +1387,6 @@
     "maximum": null,
     "default": null,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": "agent"
@@ -1673,12 +1399,7 @@
     "maximum": null,
     "default": null,
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": "agent"
@@ -1691,12 +1412,7 @@
     "maximum": null,
     "default": null,
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": "agent"
@@ -1709,12 +1425,8 @@
     "maximum": null,
     "default": null,
     "stored_in": "config",
-    "options": null,
     "max_length": 36,
-    "placeholder": null,
-    "help": null,
     "group": "Model & Generation",
-    "references": null,
     "section": "behaviour",
     "level": "optional",
     "inherits": "agent"
@@ -1727,12 +1439,8 @@
     "maximum": null,
     "default": null,
     "stored_in": "config",
-    "options": null,
     "max_length": 200,
-    "placeholder": null,
-    "help": null,
     "group": "Model & Generation",
-    "references": null,
     "section": "behaviour",
     "level": "optional",
     "inherits": "agent"
@@ -1745,12 +1453,7 @@
     "maximum": 2,
     "default": null,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Model & Generation",
-    "references": null,
     "section": "behaviour",
     "level": "optional",
     "inherits": "agent"
@@ -1763,12 +1466,7 @@
     "maximum": 8192,
     "default": null,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Model & Generation",
-    "references": null,
     "section": "behaviour",
     "level": "optional",
     "inherits": "agent"
@@ -1781,12 +1479,7 @@
     "maximum": 300,
     "default": null,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Execution limits",
-    "references": null,
     "section": "behaviour",
     "level": "optional",
     "inherits": "agent"
@@ -1799,12 +1492,7 @@
     "maximum": 1800,
     "default": null,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Execution limits",
-    "references": null,
     "section": "behaviour",
     "level": "optional",
     "inherits": "agent"
@@ -1817,12 +1505,7 @@
     "maximum": 4,
     "default": null,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Execution limits",
-    "references": null,
     "section": "behaviour",
     "level": "optional",
     "inherits": "agent"
@@ -1835,12 +1518,7 @@
     "maximum": 50,
     "default": null,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
     "group": "Execution limits",
-    "references": null,
     "section": "behaviour",
     "level": "optional",
     "inherits": "agent"
@@ -1857,11 +1535,7 @@
      "fail",
      "continue"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "fail (the default): leave by On Fail, the action fails if nothing is connected there. continue: leave by On Pass although the node failed (fail open); the step still shows the failure and its reason.",
-    "group": null,
-    "references": null,
     "section": "behaviour",
     "level": "core",
     "inherits": null
@@ -1896,26 +1570,17 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [
    {
     "name": "pass",
-    "label": "On Pass",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Pass"
    },
    {
     "name": "fail",
-    "label": "On Fail",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Fail"
    }
   ],
   "settings": [
@@ -1927,11 +1592,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
     "placeholder": "priority = ${node.Classify.output}",
     "help": "One 'name = value' per line. Each sets the variable ${var.name} for the nodes after this one (names: lowercase letters, digits and underscores). A value may hold ${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or ${card.name}; secrets cannot be used, a variable is plain data.",
-    "group": null,
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -1949,11 +1612,7 @@
      "text",
      "detect"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "text: every value is stored as text. detect: a value that is a number, true, false, null, a JSON object or a JSON list is stored as that.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1970,11 +1629,7 @@
      "fail",
      "continue"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "fail (the default): leave by On Fail, the action fails if nothing is connected there. continue: leave by On Pass although the node failed (fail open); the step still shows the failure and its reason.",
-    "group": null,
-    "references": null,
     "section": "behaviour",
     "level": "core",
     "inherits": null
@@ -2008,26 +1663,17 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [
    {
     "name": "pass",
-    "label": "On Pass",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Pass"
    },
    {
     "name": "fail",
-    "label": "On Fail",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Fail"
    }
   ],
   "settings": [
@@ -2051,11 +1697,7 @@
      "List comments",
      "Create comment"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "What the node does. Settings the operation does not use are ignored.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2068,11 +1710,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 200,
     "placeholder": "owner/name",
     "help": "owner/name, for every operation. May hold ${node...} or ${var...}.",
-    "group": null,
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -2086,11 +1726,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 40,
-    "placeholder": null,
     "help": "The number of the issue or pull request (get, comments, files, diff).",
-    "group": null,
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -2104,11 +1741,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
     "placeholder": "docs/README.md",
     "help": "Get file: the path in the repository (a folder lists its files).",
-    "group": null,
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -2122,11 +1757,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 200,
-    "placeholder": null,
     "help": "Get file: empty is the default branch.",
-    "group": null,
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -2145,11 +1777,7 @@
      "closed",
      "all"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "List issues and List pull requests.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2162,12 +1790,7 @@
     "maximum": 100,
     "default": 30,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "The most items a list returns (one page, the newest first).",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2180,11 +1803,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
-    "placeholder": null,
     "help": "Create comment: the text, may hold ${node...} or ${var...}; no secrets.",
-    "group": null,
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -2198,12 +1818,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "Create comment writes to GitHub: it only runs when this is on. Every other operation reads.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2216,12 +1831,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 64,
     "placeholder": "GITHUB_TOKEN",
     "help": "The name of a stored secret with a personal access token. Empty: no token (public data, a low rate limit).",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2234,12 +1846,8 @@
     "maximum": null,
     "default": "https://api.github.com",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
-    "placeholder": null,
     "help": "GitHub Enterprise: https://HOST/api/v3. A private address needs OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "advanced",
     "inherits": null
@@ -2252,12 +1860,6 @@
     "maximum": 120,
     "default": 30,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2274,11 +1876,7 @@
      "fail",
      "continue"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "fail (the default): leave by On Fail, the action fails if nothing is connected there. continue: leave by On Pass although the node failed (fail open); the step still shows the failure and its reason.",
-    "group": null,
-    "references": null,
     "section": "behaviour",
     "level": "core",
     "inherits": null
@@ -2312,26 +1910,17 @@
   "inputs": [
    {
     "name": "in",
-    "label": "Input",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "Input"
    }
   ],
   "outputs": [
    {
     "name": "pass",
-    "label": "On Pass",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Pass"
    },
    {
     "name": "fail",
-    "label": "On Fail",
-    "side": null,
-    "visible_when": null,
-    "label_from": null
+    "label": "On Fail"
    }
   ],
   "settings": [
@@ -2343,12 +1932,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 64,
     "placeholder": "TICKETS_DB",
     "help": "The name of a stored secret that holds postgresql://user:password@host:5432/db (add ?sslmode=require for TLS). The URL is never kept in the node.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2361,12 +1947,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
     "placeholder": "SELECT id, title FROM tickets WHERE status = $1 LIMIT 20",
     "help": "One SQL statement. Values go in as parameters: $1, $2, ... (never ${...} in the text). Stored in plain text, so no passwords in here.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2379,11 +1962,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
     "placeholder": "open",
     "help": "One value per line: the first is $1, the second $2, ... Text; the database converts it to the type the query expects. ${node...} and ${var...} insert earlier results; no secrets. Use NULLIF($1, '') for a NULL.",
-    "group": null,
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -2397,12 +1978,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "Off (the default): the statement runs in a read-only transaction that is rolled back, so the database refuses any change. On: it may change data and is committed when it succeeds. Use a database role that has only the privileges the statement needs.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2415,12 +1991,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "The database is on a private or local network. Counts only when the operator allows it too (OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS).",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "advanced",
     "inherits": null
@@ -2433,12 +2004,7 @@
     "maximum": 1000,
     "default": 100,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "More rows are left out and the result says it is truncated.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2451,12 +2017,6 @@
     "maximum": 120,
     "default": 30,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2473,11 +2033,7 @@
      "fail",
      "continue"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "fail (the default): leave by On Fail, the action fails if nothing is connected there. continue: leave by On Pass although the node failed (fail open); the step still shows the failure and its reason.",
-    "group": null,
-    "references": null,
     "section": "behaviour",
     "level": "core",
     "inherits": null
@@ -2513,9 +2069,7 @@
    {
     "name": "tool",
     "label": "Tool",
-    "side": "top",
-    "visible_when": null,
-    "label_from": null
+    "side": "top"
    }
   ],
   "settings": [
@@ -2527,12 +2081,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 64,
     "placeholder": "get_weather",
     "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2545,12 +2096,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 1000,
-    "placeholder": null,
     "help": "Tells the model what the tool does and when to use it. The server's tools keep their own names and descriptions.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2563,12 +2110,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 500,
     "placeholder": "https://api.githubcopilot.com/mcp/",
     "help": "The Streamable HTTP address of the MCP server. GitHub: https://api.githubcopilot.com/mcp/",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2581,12 +2125,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 64,
     "placeholder": "GITHUB_TOKEN",
     "help": "The name of a stored secret, sent as 'Authorization: Bearer'. Empty: no token.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2599,12 +2140,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "The address is on a private or local network. Counts only when the operator allows it too (OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2622,11 +2158,7 @@
      "selected",
      "all_except"
     ],
-    "max_length": null,
-    "placeholder": null,
     "help": "all: every tool of the server. selected: only the tools listed below. all_except: all but those.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2639,12 +2171,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 10000,
     "placeholder": "get_issue",
     "help": "One tool name of the server per line, for 'selected' and 'all_except'.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2657,12 +2186,6 @@
     "maximum": 300,
     "default": 60,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2698,9 +2221,7 @@
    {
     "name": "tool",
     "label": "Tool",
-    "side": "top",
-    "visible_when": null,
-    "label_from": null
+    "side": "top"
    }
   ],
   "settings": [
@@ -2712,12 +2233,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 64,
     "placeholder": "get_weather",
     "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2730,12 +2248,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 1000,
-    "placeholder": null,
     "help": "Tells the model what the tool does and when to use it. Name the parameters it needs below.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2755,11 +2269,6 @@
      "PATCH",
      "DELETE"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2772,11 +2281,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 2000,
     "placeholder": "https://wttr.in/{city}?format=3",
     "help": "{name} is a parameter the model fills (percent-encoded here). ${secret:NAME} and ${var.name} work as in the HTTP node, not in the scheme or host.",
-    "group": null,
     "references": "all",
     "section": "definition",
     "level": "core",
@@ -2790,11 +2297,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
     "placeholder": "Authorization: Bearer ${secret:API_TOKEN}",
-    "help": null,
-    "group": null,
     "references": "all",
     "section": "definition",
     "level": "core",
@@ -2808,11 +2312,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
-    "placeholder": null,
     "help": "{name} is replaced by the model's value (escaped for a JSON string when the body is JSON), ${...} as in the HTTP node.",
-    "group": null,
     "references": "all",
     "section": "definition",
     "level": "core",
@@ -2826,12 +2327,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 5000,
     "placeholder": "city: The city to look up",
     "help": "One 'name: description' per line; the model fills them. Names: lowercase letters, digits and _.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2844,12 +2342,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "The address is on a private or local network. Counts only when the operator allows it too (OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2862,12 +2355,6 @@
     "maximum": 120,
     "default": 30,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2880,12 +2367,8 @@
     "maximum": null,
     "default": "200-299",
     "stored_in": "config",
-    "options": null,
     "max_length": 100,
-    "placeholder": null,
     "help": "Another status is reported to the model as an error.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "advanced",
     "inherits": null
@@ -2921,9 +2404,7 @@
    {
     "name": "tool",
     "label": "Tool",
-    "side": "top",
-    "visible_when": null,
-    "label_from": null
+    "side": "top"
    }
   ],
   "settings": [
@@ -2935,12 +2416,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 64,
     "placeholder": "get_weather",
     "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2953,12 +2431,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 1000,
-    "placeholder": null,
     "help": "Tells the model what the tool does and when to use it. Name the parameters it takes below.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2975,11 +2449,6 @@
      "sh",
      "python"
     ],
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2992,12 +2461,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
-    "placeholder": null,
     "help": "The model's arguments are the object 'input' in context.json in the working directory; what the code prints is the answer to the model. Runs with the rules of the Code node.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3010,12 +2475,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 2000,
     "placeholder": "API_KEY",
     "help": "One secret name per line, available as environment variables.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3028,12 +2490,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 5000,
     "placeholder": "city: The city to look up",
     "help": "One 'name: description' per line; the model fills them. Names: lowercase letters, digits and _.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3046,12 +2505,6 @@
     "maximum": 600,
     "default": 30,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3087,9 +2540,7 @@
    {
     "name": "tool",
     "label": "Tool",
-    "side": "top",
-    "visible_when": null,
-    "label_from": null
+    "side": "top"
    }
   ],
   "settings": [
@@ -3101,12 +2552,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 64,
     "placeholder": "get_weather",
     "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3119,12 +2567,8 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 1000,
-    "placeholder": null,
     "help": "Tells the model what the tool does and when to use it. Name the parameters the query takes below: the first is $1.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3137,12 +2581,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 64,
     "placeholder": "TICKETS_DB",
     "help": "The name of a stored secret that holds postgresql://user:password@host:5432/db.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3155,12 +2596,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 20000,
     "placeholder": "SELECT id, title FROM tickets WHERE status = $1 LIMIT 20",
     "help": "One SQL statement. Values go in as parameters: $1, $2, ... (never ${...} in the text). Stored in plain text, so no passwords in here.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3173,12 +2611,9 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "options": null,
     "max_length": 5000,
     "placeholder": "city: The city to look up",
     "help": "One 'name: description' per line; the model fills them. Names: lowercase letters, digits and _.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3191,12 +2626,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "Off (the default): the statement runs in a read-only transaction that is rolled back, so the database refuses any change. On: it may change data and is committed when it succeeds. Use a database role that has only the privileges the statement needs.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3209,12 +2639,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "The address is on a private or local network. Counts only when the operator allows it too (OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3227,12 +2652,7 @@
     "maximum": 1000,
     "default": 100,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
     "help": "More rows are left out and the result says it is truncated.",
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3245,12 +2665,6 @@
     "maximum": 120,
     "default": 30,
     "stored_in": "config",
-    "options": null,
-    "max_length": null,
-    "placeholder": null,
-    "help": null,
-    "group": null,
-    "references": null,
     "section": "definition",
     "level": "core",
     "inherits": null
