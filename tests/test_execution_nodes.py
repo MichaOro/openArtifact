@@ -141,6 +141,9 @@ def test_the_old_settings_keep_their_shape(client: TestClient) -> None:
             "maximum": 86400,
             "default": 5,
             "stored_in": "column",
+            "section": "definition",  # the metadata of ADR-053, with its defaults
+            "level": "core",
+            "inherits": None,
         }
     ]
     assert described["output"]["settings"][0]["type"] == "switch"

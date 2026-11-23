@@ -506,6 +506,9 @@ def test_node_types_are_served_under_their_own_path(client: TestClient) -> None:
             "maximum": 86400,
             "default": 5,
             "stored_in": "column",
+            "section": "definition",  # the metadata of ADR-053, with its defaults
+            "level": "core",
+            "inherits": None,
         }
     ]
     stage = by_kind["stage"]
