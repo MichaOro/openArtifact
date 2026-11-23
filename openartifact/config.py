@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     #: The public address of this application (``https://oa.example.org``) when the redirect address
     #: cannot be taken from the request; empty: the request's own.
     public_url: str = ""
+    #: How long the old token of an internal credential still works after a rotation (seconds); a rotation may
+    #: name another time (0: it ends at once). ADR-051.
+    credentials_rotation_grace_seconds: int = Field(default=3600, ge=0, le=30 * 24 * 3600)
     #: Largest request body in bytes; a larger one gets ``413``.
     max_request_bytes: int = Field(default=1024 * 1024, ge=1024, le=1024**3)
     #: Opt-out only: adds ``'unsafe-inline'`` to the script policy. The pages have no inline scripts, so

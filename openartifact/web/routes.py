@@ -185,6 +185,12 @@ async def providers(request: Request) -> HTMLResponse:
     return _page(request, "providers.html", "LLM providers", "providers")
 
 
+@router.get("/settings/credentials", response_class=HTMLResponse, include_in_schema=False)
+async def credentials(request: Request) -> HTMLResponse:
+    """The managed credentials: access tokens OpenArtifact makes and values for other systems."""
+    return _page(request, "credentials.html", "Credentials", "credentials")
+
+
 @router.get("/settings/run-limits", response_class=HTMLResponse, include_in_schema=False)
 async def run_limits(request: Request) -> HTMLResponse:
     """How many steps and how much time an execution may take."""

@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from openartifact.config import DEFAULT_SECRET_KEY, Settings
 from openartifact.credentials.crypto import SecretUnreadableError, decrypt, encrypt
@@ -23,7 +23,15 @@ from openartifact.credentials.refs import REFERENCE, is_name, parse_name_lines
 from openartifact.database import SessionOpener
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import node_type
-from openartifact.models import Graph, GraphNode, NodeKind, Secret
+from openartifact.models import (
+    Credential,
+    CredentialEvent,
+    ExternalCredential,
+    Graph,
+    GraphNode,
+    NodeKind,
+    Secret,
+)
 from openartifact.schemas_common import UtcDateTime
 
 MAX_VALUE_BYTES = 8 * 1024
@@ -107,6 +115,16 @@ class SecretStore:
             else:
                 row.value = blob
                 row.updated_at = datetime.now(UTC)
+                # a replaced value was not tested: the managed credential's last test is stale (ADR-051)
+                meta = (
+                    await session.execute(
+                        select(ExternalCredential)
+                        .join(Credential, Credential.id == ExternalCredential.credential_id)
+                        .where(Credential.backend_ref == name, Credential.category == "external")
+                    )
+                ).scalar_one_or_none()
+                if meta is not None:
+                    meta.last_test_at = meta.last_test_ok = meta.last_test_message = None
             await session.commit()
             await session.refresh(row)
             return SecretRead.model_validate(row), created
@@ -120,6 +138,28 @@ class SecretStore:
             if row is None:
                 raise ArtifactError(404, "Secret not found")
             await session.delete(row)
+            # the managed credential of this secret goes with it (its audit trail stays, ADR-051)
+            managed = (
+                await session.execute(
+                    select(Credential).where(
+                        Credential.backend_ref == name, Credential.category == "external"
+                    )
+                )
+            ).scalar_one_or_none()
+            if managed is not None:
+                session.add(
+                    CredentialEvent(
+                        id=str(uuid.uuid4()),
+                        credential_id=managed.id,
+                        name=name,
+                        action="deleted",
+                        detail="through the secrets API",
+                    )
+                )
+                await session.execute(
+                    delete(ExternalCredential).where(ExternalCredential.credential_id == managed.id)
+                )
+                await session.delete(managed)
             await session.commit()
 
     async def resolve(self, names: Sequence[str]) -> dict[str, str]:
@@ -133,10 +173,25 @@ class SecretStore:
                     await session.execute(select(Secret).where(Secret.name.in_(list(names))))
                 ).scalars()
             }
+            # a managed credential that is switched off is not handed out (ADR-051); internal credentials are never
+            # here at all: they have no row in `secrets`
+            off = set(
+                (
+                    await session.execute(
+                        select(Credential.backend_ref).where(
+                            Credential.category == "external",
+                            Credential.enabled.is_(False),
+                            Credential.backend_ref.in_(list(names)),
+                        )
+                    )
+                ).scalars()
+            )
         values: dict[str, str] = {}
         for name in names:
             if name not in rows:
                 raise SecretResolveError(f"Secret {name} does not exist")
+            if name in off:
+                raise SecretResolveError(f"Secret {name} is switched off")
             try:
                 values[name] = decrypt(self._settings.secret_key, name, rows[name])
             except SecretUnreadableError as error:

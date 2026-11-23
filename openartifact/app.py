@@ -19,6 +19,7 @@ from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.api.agents import routers as agent_routers
 from openartifact.api.artifact_fields import router as artifact_fields_router
+from openartifact.api.credentials import router as credentials_router
 from openartifact.api.events import router as events_router
 from openartifact.api.executions import router as executions_router
 from openartifact.api.graphs import actions_router, node_types_router, pipelines_router
@@ -34,6 +35,7 @@ from openartifact.api.tasks import router as tasks_router
 from openartifact.api.v1 import router as v1_router
 from openartifact.artifact_fields.service import ArtifactFieldService
 from openartifact.config import DEFAULT_SECRET_KEY, Settings, get_settings
+from openartifact.credentials.service import CredentialService
 from openartifact.credentials.store import SecretStore
 from openartifact.engine.executors import Limits
 from openartifact.engine.runner import RunEngine
@@ -125,6 +127,9 @@ def _create_app(settings: Settings) -> FastAPI:
     )
     app.state.event_bus = EventBus(max_subscribers=settings.max_sse_subscribers)
     app.state.secret_store = SecretStore(database.new_session, settings)
+    app.state.credentials = CredentialService(
+        database.new_session, app.state.secret_store, settings, app.state.event_bus
+    )
     app.state.engine = RunEngine(
         app.state.event_bus,
         database.new_session,
@@ -207,6 +212,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(actions_router)
     app.include_router(runs_router)
     app.include_router(secrets_router)
+    app.include_router(credentials_router)
     app.include_router(v1_router)
     for router in agent_routers([Depends(require_api_token)]):
         app.include_router(router)

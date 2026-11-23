@@ -17,7 +17,14 @@ The indexes and constraints declared here are the ones the migrations create; ``
 
 from openartifact.models.agents import Agent, AgentVersion, LlmModel, LlmProvider
 from openartifact.models.board import ArtifactField, Lane, Task, TaskNumberSeq
-from openartifact.models.credentials import Secret
+from openartifact.models.credentials import (
+    Credential,
+    CredentialEvent,
+    ExternalCredential,
+    InternalCredential,
+    InternalToken,
+    Secret,
+)
 from openartifact.models.enums import (
     CreatedBy,
     GraphKind,
@@ -37,11 +44,16 @@ __all__ = [
     "AppSetting",
     "ArtifactField",
     "CreatedBy",
+    "Credential",
+    "CredentialEvent",
     "Execution",
+    "ExternalCredential",
     "Graph",
     "GraphEdge",
     "GraphKind",
     "GraphNode",
+    "InternalCredential",
+    "InternalToken",
     "Lane",
     "LlmModel",
     "LlmProvider",

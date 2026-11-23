@@ -104,10 +104,37 @@ signs browsers out but leaves the secrets intact. Restoring a database backup to
 key has the same effect as a rotation. Losing the key loses the secrets: there is no recovery, only entering
 them again.
 
+## Managed credentials (the Credentials page)
+
+*Settings → Credentials* (`/settings/credentials`, API `/api/credentials`, ADR-051) manages two kinds:
+
+- **Internal**: access tokens OpenArtifact makes, of the types *API access token* (opens the browser API, `/api/v1` and
+  `/mcp`) and *MCP access token* (opens `/mcp` only). A token looks like `oa_<id>_<secret>`, is **shown once**, when it
+  is made or rotated, and only its SHA-256 hash is kept (the 12-character id is the lookup key). A credential can expire,
+  be switched off and on, be **revoked** for good, or be **rotated**: the old token works for a grace period (default
+  1 hour, `OPENARTIFACT_CREDENTIALS_ROTATION_GRACE_SECONDS`, or per rotation) and then fails. Each request is checked
+  against the stored state, so a revoked, disabled or expired token fails on its next request. `OPENARTIFACT_API_TOKEN`
+  stays the administrator's token and the session cookie and SSO are unchanged; managed tokens are an addition for
+  people and programs that should be cut off independently. Internal credentials are never in the secret store and can
+  never be used as `${secret:NAME}`.
+- **External**: values for other systems, of the types *GitHub personal access token*, *OpenRouter API key*,
+  *OpenAI-compatible API key*, *PostgreSQL connection*, *Bearer token*, *MCP authentication* and *Generic API key*. The
+  value is stored by the credential store exactly as before (the credential's name is the secret's name), so every
+  `${secret:NAME}`, Code node setting and provider keeps working; secrets made with the older API appear as *Generic
+  API key* credentials. **Test connection** makes a real request (GitHub `/user`, OpenRouter `/key`, the endpoint's
+  model list, `SELECT 1`) and records the time and the outcome; types without a meaningful test (bearer, MCP, generic)
+  have none and are never shown as tested. A changed value clears the last test. A switched-off credential is refused to
+  nodes and providers ("Secret NAME is switched off"). *Used by* counts the nodes and LLM providers that refer to it
+  (not other places such as an MCP server's own configuration); deleting asks first and names them.
+
+Every change (created, rotated, revoked, enabled, disabled, tested, deleted) leaves an entry without any value or hash in
+`GET /api/credentials/{id}/events`.
+
 ## What is not built
 
-- A user interface for credentials (list, create, replace, delete, "used by"). The text of the Code node's
-  **Secrets** setting may point to "Secrets" in the UI; that page does not exist yet.
-- Per-secret permissions, an audit log of who read or changed a secret, expiry or versioning.
+- A picker in the node inspectors that offers only credentials of a compatible type: they still type
+  `${secret:NAME}` with the existing suggestions.
+- Per-secret permissions, a log of who *read* a secret, expiry or versioning of external values, usage counters of
+  internal tokens beyond *last used*.
 - A way to read a value back, deliberately.
 - Credentials as a first-class feature of other node kinds: only Code and HTTP nodes use them.

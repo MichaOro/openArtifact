@@ -60,6 +60,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [048](048-identity-header-and-inline-editing.md) | One identity header and one inline editing for resources | Accepted | 2026-11-23 | amends ADR-045 |
 | [049](049-version-view-and-leave-guard.md) | A version can be looked at; the page's own links ask before unsaved changes are lost | Accepted | 2026-11-23 | amends ADR-047 |
 | [050](050-artifact-field-editor-and-multi-select.md) | The artifact field editor in two panes; multi select; renamed options keep their values | Accepted | 2026-11-23 | amends ADR-044 |
+| [051](051-managed-credentials.md) | Managed credentials: internal tokens and external secrets under one service | Accepted | 2026-11-23 | extends ADR-024, ADR-043 |
 
 ## Notes
 

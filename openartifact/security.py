@@ -30,6 +30,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from openartifact.config import Settings
+from openartifact.credentials import tokens as managed_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,21 @@ def token_error(configured: str, header: str | None) -> str | None:
     if not token_matches(configured, header[len(BEARER) :].strip().encode("latin-1", "replace")):
         return "Invalid API token"
     return None
+
+
+async def managed_token_ok(app: object, header: str | None, scope: str) -> bool:
+    """Whether the bearer header carries a managed token (ADR-051) that opens ``scope`` (``api`` or ``mcp``).
+
+    Only a token of the form we make is looked up; the environment token (``OPENARTIFACT_API_TOKEN``) stays the
+    administrative credential and is checked first by every caller.
+    """
+    if not header or not header.lower().startswith(BEARER):
+        return False
+    token = header[len(BEARER) :].strip()
+    service = getattr(getattr(app, "state", None), "credentials", None)
+    if service is None or managed_tokens.public_id_of(token) is None:
+        return False
+    return bool(await service.verify(token, scope))
 
 
 def cookie_secure(settings: Settings, scheme: str) -> bool:
@@ -135,10 +151,14 @@ async def require_api_token(
 
     ``_scheme`` only makes Swagger UI offer its "Authorize" button; the header is read directly.
     """
-    message = token_error(
-        request.app.state.settings.api_token, request.headers.get("authorization")
-    )
-    if message is not None:
+    header = request.headers.get("authorization")
+    message = token_error(request.app.state.settings.api_token, header)
+    if message is not None and not (
+        request.app.state.settings.api_token
+        and await managed_token_ok(
+            request.app, header, "mcp" if request.url.path.startswith("/mcp") else "api"
+        )
+    ):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, message, headers=CHALLENGE)
 
 
@@ -168,7 +188,13 @@ class AccessGate:
             if "=" in part
         )
         name = cookie_name(cookie_secure(self.settings, scope.get("scheme", "http")))
-        if is_authorized(self.settings, headers.get("authorization"), cookies.get(name)):
+        if is_authorized(self.settings, headers.get("authorization"), cookies.get(name)) or (
+            await managed_token_ok(
+                scope.get("app"),
+                headers.get("authorization"),
+                "mcp" if path.startswith("/mcp") else "api",
+            )
+        ):
             await self.app(scope, receive, send)
             return
         if (
@@ -201,10 +227,11 @@ class TokenProtected:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http":
             header = dict(scope["headers"]).get(b"authorization")
-            message = token_error(
-                self.settings.api_token, header.decode("latin-1") if header else None
-            )
-            if message is not None:
+            text = header.decode("latin-1") if header else None
+            message = token_error(self.settings.api_token, text)
+            if message is not None and not (
+                self.settings.api_token and await managed_token_ok(scope.get("app"), text, "mcp")
+            ):
                 await unauthorized(message)(scope, receive, send)
                 return
         await self.app(scope, receive, send)
