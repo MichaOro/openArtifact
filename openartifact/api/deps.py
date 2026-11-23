@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.artifact_fields.service import ArtifactFieldService
+from openartifact.comments.service import CommentService
 from openartifact.database import get_db_session
 from openartifact.engine.runner import RunEngine
 from openartifact.events import EventBus
@@ -27,6 +28,12 @@ def get_artifacts(request: Request) -> ArtifactService:
 def get_artifact_fields(request: Request) -> ArtifactFieldService:
     """The application's artifact field service."""
     service: ArtifactFieldService = request.app.state.artifact_fields
+    return service
+
+
+def get_comments(request: Request) -> CommentService:
+    """The application's comment service."""
+    service: CommentService = request.app.state.comments
     return service
 
 
@@ -56,6 +63,7 @@ def get_event_bus(request: Request) -> EventBus:
 
 ServiceDep = Annotated[ArtifactService, Depends(get_artifacts)]
 FieldsDep = Annotated[ArtifactFieldService, Depends(get_artifact_fields)]
+CommentsDep = Annotated[CommentService, Depends(get_comments)]
 AgentsDep = Annotated[AgentService, Depends(get_agents)]
 ProvidersDep = Annotated[ProviderService, Depends(get_providers)]
 EngineDep = Annotated[RunEngine, Depends(get_engine)]

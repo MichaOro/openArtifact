@@ -44,7 +44,9 @@ async def credential_types(credentials: CredentialsDep) -> list[dict[str, object
     return credentials.types()
 
 
-@router.get("", response_model=list[CredentialRead], summary="List credentials")
+@router.get(
+    "", response_model=list[CredentialRead], summary="List credentials", responses=errors(422)
+)
 async def list_credentials(
     credentials: CredentialsDep, category: str | None = None
 ) -> list[CredentialRead]:
@@ -89,7 +91,7 @@ async def create_external(payload: ExternalCreate, credentials: CredentialsDep) 
 
 
 @router.get(
-    "/{ref}", response_model=CredentialRead, summary="One credential", responses=errors(404)
+    "/{ref}", response_model=CredentialRead, summary="One credential", responses=errors(404, 422)
 )
 async def get_credential(ref: str, credentials: CredentialsDep) -> CredentialRead:
     return await credentials.get(ref)
@@ -112,7 +114,7 @@ async def update_external(
     "/{ref}/enabled",
     response_model=CredentialRead,
     summary="Switch a credential on or off",
-    responses=errors(404, 409, write=True, body=True),
+    responses=errors(404, 409, 422, write=True, body=True),
 )
 async def set_enabled(ref: str, payload: Enabled, credentials: CredentialsDep) -> CredentialRead:
     """Off: a token fails at the next request, an external value is refused to nodes and providers."""
@@ -156,7 +158,7 @@ async def test_credential(ref: str, credentials: CredentialsDep) -> CredentialRe
     "/{ref}/uses",
     response_model=list[CredentialUse],
     summary="Where a credential is used",
-    responses=errors(404),
+    responses=errors(404, 422),
 )
 async def credential_uses(ref: str, credentials: CredentialsDep) -> list[CredentialUse]:
     """Nodes (with the pipelines that call their action) and providers that refer to an external credential."""
@@ -167,7 +169,7 @@ async def credential_uses(ref: str, credentials: CredentialsDep) -> list[Credent
     "/{ref}/events",
     response_model=list[CredentialEventRead],
     summary="The audit trail of a credential",
-    responses=errors(404),
+    responses=errors(404, 422),
 )
 async def credential_events(ref: str, credentials: CredentialsDep) -> list[CredentialEventRead]:
     return await credentials.events(ref)
@@ -177,7 +179,7 @@ async def credential_events(ref: str, credentials: CredentialsDep) -> list[Crede
     "/{ref}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a credential",
-    responses=errors(404, write=True),
+    responses=errors(404, 422, write=True),
 )
 async def delete_credential(ref: str, credentials: CredentialsDep) -> Response:
     """Delete it with its value or tokens; what still refers to an external one fails (see ``/uses``)."""

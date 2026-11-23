@@ -393,12 +393,13 @@ class CredentialService:
         self._changed(credential, "revoked")
         return read
 
-    async def verify(self, token: str, scope: str) -> bool:
-        """Whether this token opens ``scope`` (``api`` or ``mcp``) right now: it exists, its credential is on, not
-        revoked, not expired and the token itself not past its grace period. Nothing here says why it fails."""
+    async def verify(self, token: str, scope: str) -> str | None:
+        """The credential's name if this token opens ``scope`` (``api`` or ``mcp``) right now, else ``None``: it
+        exists, its credential is on, not revoked, not expired and the token itself not past its grace period.
+        Nothing here says why it fails. The name is who the caller is (comments are written under it)."""
         public_id = tokens.public_id_of(token)
         if public_id is None:
-            return False
+            return None
         async with self._session() as session:
             row = (
                 await session.execute(
@@ -410,10 +411,10 @@ class CredentialService:
             ).first()
             if row is None:
                 tokens.matches(token, "0" * 64)  # about the same work for an unknown id
-                return False
+                return None
             stored, credential, life = row
             if not tokens.matches(token, stored.token_hash):
-                return False
+                return None
             now = _now()
             if (
                 not credential.enabled
@@ -422,11 +423,11 @@ class CredentialService:
                 or (stored.valid_until is not None and stored.valid_until <= now)
                 or scope not in SCOPES.get(credential.type, set())
             ):
-                return False
+                return None
             if life.last_used_at is None or now - life.last_used_at > LAST_USED_EVERY:
                 life.last_used_at = now
                 await session.commit()
-            return True
+            return credential.name
 
     # ── external ─────────────────────────────────────────────────────
 

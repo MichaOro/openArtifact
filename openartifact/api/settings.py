@@ -136,7 +136,7 @@ def build_settings_router(
         name=f"{tag}preview_retention",
         summary="How many executions rules would delete",
         description="Counts the finished executions these rules match now; nothing is stored or deleted.",
-        responses=errors(422, body=True),
+        responses=errors(422, write=True, body=True),
     )
     async def preview_retention(payload: retention.Rules, session: SessionDep) -> RulesPreview:
         now = history_module.utcnow()

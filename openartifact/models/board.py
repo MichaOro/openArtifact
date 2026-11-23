@@ -143,3 +143,26 @@ class ArtifactField(Base):
     #: A choice that holds several of its values (ADR-050).
     multiple: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     position: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class TaskComment(Base):
+    """A comment on an artifact (ADR-055, migration 0041): plain text, written by a person, a script, an agent or a run.
+
+    Attributes:
+        body: The text (at most 64 KiB), shown with its line breaks, never as markup.
+        author_kind: ``user`` (the browser), ``api``, ``mcp``, ``run`` (a pipeline node) or ``system``.
+        author: Who, as a name (at most 64 characters): "You", the name of a managed token, a node's name.
+        execution_id: For ``run``: the execution that wrote it (no foreign key: the history may be pruned).
+    """
+
+    __tablename__ = "task_comments"
+    __table_args__ = (Index("ix_task_comments_task_created", "task_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("tasks.id", ondelete="CASCADE"))
+    body: Mapped[str] = mapped_column(Text)
+    author_kind: Mapped[str] = mapped_column(String(16))
+    author: Mapped[str] = mapped_column(String(64))
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

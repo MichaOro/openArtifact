@@ -11,6 +11,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
 
+from openartifact.api.comments import build_comments_router
 from openartifact.api.contract import (
     ARTIFACT_EXECUTIONS_DEFAULT_LIMIT,
     ARTIFACT_EXECUTIONS_MAX_LIMIT,
@@ -32,6 +33,7 @@ from openartifact.models import CreatedBy
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"], responses=GATED)
+router.include_router(build_comments_router("", "user", ["tasks"]))
 
 
 @router.get("", response_model=list[TaskRead], summary="List tasks")

@@ -34,6 +34,7 @@ from openartifact.api.settings import build_settings_router
 from openartifact.api.tasks import router as tasks_router
 from openartifact.api.v1 import router as v1_router
 from openartifact.artifact_fields.service import ArtifactFieldService
+from openartifact.comments.service import CommentService
 from openartifact.config import DEFAULT_SECRET_KEY, Settings, get_settings
 from openartifact.credentials.service import CredentialService
 from openartifact.credentials.store import SecretStore
@@ -140,6 +141,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.state.artifacts = ArtifactService(
         database.new_session, app.state.event_bus, app.state.engine
     )
+    app.state.comments = CommentService(database.new_session, app.state.event_bus)
     app.state.artifact_fields = ArtifactFieldService(database.new_session, app.state.event_bus)
     app.state.agents = AgentService(database.new_session, app.state.event_bus)
     app.state.providers = ProviderService(
@@ -163,6 +165,7 @@ def _create_app(settings: Settings) -> FastAPI:
         app.state.artifact_fields,
         app.state.agents,
         app.state.providers,
+        app.state.comments,
     ).streamable_http_app(stateless_http=True, json_response=True, host="0.0.0.0")
     app.router.routes.append(Route("/mcp", endpoint=TokenProtected(app.state.mcp_app, settings)))
 

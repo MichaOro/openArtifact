@@ -13,6 +13,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from openartifact.api.artifact_fields import WRITE_DESCRIPTION as FIELDS_WRITE_DESCRIPTION
+from openartifact.api.comments import build_comments_router
 from openartifact.api.contract import (
     ARTIFACT_EXECUTIONS_DEFAULT_LIMIT,
     ARTIFACT_EXECUTIONS_MAX_LIMIT,
@@ -63,6 +64,7 @@ router = APIRouter(
     dependencies=[Depends(require_api_token)],
     responses=GATED,
 )
+router.include_router(build_comments_router("/artifacts", "api", ["integration API"]))
 
 
 @router.get(

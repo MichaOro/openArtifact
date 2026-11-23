@@ -21,6 +21,7 @@ import logging
 import secrets
 import sys
 import time
+from contextvars import ContextVar
 from typing import Annotated
 from urllib.parse import quote
 
@@ -73,19 +74,35 @@ def token_error(configured: str, header: str | None) -> str | None:
     return None
 
 
-async def managed_token_ok(app: object, header: str | None, scope: str) -> bool:
-    """Whether the bearer header carries a managed token (ADR-051) that opens ``scope`` (``api`` or ``mcp``).
+#: Who makes the current request, when it is known: the name of the managed token (ADR-051) or ``ADMIN`` for the
+#: environment token. ``None``: a browser (or no authentication at all). Set by the gates below, read by whoever
+#: writes something under a name (comments, ADR-055); the caller cannot influence it.
+principal: ContextVar[str | None] = ContextVar("principal", default=None)
+#: The principal of the environment (administrative) token: the only one that may name an author itself.
+ADMIN = "\0admin"
+
+
+async def managed_token_name(app: object, header: str | None, scope: str) -> str | None:
+    """The name of the managed token (ADR-051) the bearer header carries if it opens ``scope`` (``api`` or ``mcp``).
 
     Only a token of the form we make is looked up; the environment token (``OPENARTIFACT_API_TOKEN``) stays the
     administrative credential and is checked first by every caller.
     """
     if not header or not header.lower().startswith(BEARER):
-        return False
+        return None
     token = header[len(BEARER) :].strip()
     service = getattr(getattr(app, "state", None), "credentials", None)
     if service is None or managed_tokens.public_id_of(token) is None:
-        return False
-    return bool(await service.verify(token, scope))
+        return None
+    name: str | None = await service.verify(token, scope)
+    return name
+
+
+def who(settings: Settings, header: str | None, managed: str | None) -> str | None:
+    """The principal of a request that passed: ``ADMIN`` for the environment token, the managed token's name, else None."""
+    if token_error(settings.api_token, header) is None:
+        return ADMIN
+    return managed
 
 
 def cookie_secure(settings: Settings, scheme: str) -> bool:
@@ -152,14 +169,16 @@ async def require_api_token(
     ``_scheme`` only makes Swagger UI offer its "Authorize" button; the header is read directly.
     """
     header = request.headers.get("authorization")
-    message = token_error(request.app.state.settings.api_token, header)
-    if message is not None and not (
-        request.app.state.settings.api_token
-        and await managed_token_ok(
+    settings = request.app.state.settings
+    message = token_error(settings.api_token, header)
+    managed = None
+    if message is not None and settings.api_token:
+        managed = await managed_token_name(
             request.app, header, "mcp" if request.url.path.startswith("/mcp") else "api"
         )
-    ):
+    if message is not None and managed is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, message, headers=CHALLENGE)
+    principal.set(who(settings, header, managed))
 
 
 class AccessGate:
@@ -188,13 +207,13 @@ class AccessGate:
             if "=" in part
         )
         name = cookie_name(cookie_secure(self.settings, scope.get("scheme", "http")))
-        if is_authorized(self.settings, headers.get("authorization"), cookies.get(name)) or (
-            await managed_token_ok(
-                scope.get("app"),
-                headers.get("authorization"),
-                "mcp" if path.startswith("/mcp") else "api",
-            )
-        ):
+        header = headers.get("authorization")
+        managed = await managed_token_name(
+            scope.get("app"), header, "mcp" if path.startswith("/mcp") else "api"
+        )
+        if is_authorized(self.settings, header, cookies.get(name)) or managed is not None:
+            # only a bearer header makes a principal: a session cookie is the browser
+            principal.set(who(self.settings, header, managed))
             await self.app(scope, receive, send)
             return
         if (
@@ -229,11 +248,13 @@ class TokenProtected:
             header = dict(scope["headers"]).get(b"authorization")
             text = header.decode("latin-1") if header else None
             message = token_error(self.settings.api_token, text)
-            if message is not None and not (
-                self.settings.api_token and await managed_token_ok(scope.get("app"), text, "mcp")
-            ):
+            managed = None
+            if message is not None and self.settings.api_token:
+                managed = await managed_token_name(scope.get("app"), text, "mcp")
+            if message is not None and managed is None:
                 await unauthorized(message)(scope, receive, send)
                 return
+            principal.set(who(self.settings, text, managed))
         await self.app(scope, receive, send)
 
 
