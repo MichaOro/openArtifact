@@ -1,18 +1,30 @@
-/* The editor of the artifact fields (ADR-044): a dialog with a row per field (label, name, kind, default and
- * what the kind needs), add / remove / reorder, saved as a whole with PUT. The server's
- * refusals (`Field NAME: ...`) are shown at their rows. The rows are rebuilt from their state when the
- * structure changes (kind, order); typing only updates the state. */
+/* The editor of the artifact fields (ADR-044, ADR-050), after the field settings of GitHub Projects: the fields
+ * as a list on the left (a grip to reorder them, a click to choose one, "Add field"), the chosen field's settings
+ * on the right (name, type, what the type needs, the options of a select with their own grip, inline rename and
+ * menu, the default). Nothing is saved before "Save": the whole list goes with one PUT, the options that were
+ * renamed with it, so the artifacts keep their values. Unsaved changes are named in the footer; closing or
+ * cancelling with them asks first. The server's refusals (`Field NAME: ...`) are shown at the field. */
 import { ActionDialog } from "../components/action-dialog.js";
+import { ActionMenu } from "../components/action-menu.js";
 import { icon } from "../components/icons.js";
-import { KINDS, blankField, editable, nameFromLabel, parseProblems, removedWithValues, toWrite } from "./model.js";
-
-let rowCounter = 0;
+import { InlineName } from "../components/inline-name.js";
+import { Sortable } from "../components/sortable.js";
+import { KINDS, blankField, editable, isSelect, nameFromLabel, newOption, optionProblem, parseProblems, removedWithValues, toWrite, typeText } from "./model.js";
 
 function element(tag, className, text) {
   const el = document.createElement(tag);
   if (className) el.className = className;
   if (text !== undefined) el.textContent = text;
   return el;
+}
+
+function grip(label) {
+  const button = element("button", "icon-button icon-button--sm af-grip");
+  button.type = "button";
+  button.setAttribute("aria-label", label);
+  button.title = `${label} (drag, or ArrowUp / ArrowDown)`;
+  button.append(icon("grip"));
+  return button;
 }
 
 export class FieldsEditor extends ActionDialog {
@@ -25,243 +37,424 @@ export class FieldsEditor extends ActionDialog {
     super(modal, "Could not save the fields. Please try again.");
     this.save = save;
     this.onSaved = onSaved;
-    /** The fields as they were when the editor opened (with artifact_count). */
     this.before = [];
-    this.removalNote = this.root.querySelector("[data-removal-note]");
-    /** @type {{state: object, id: number, el: HTMLElement}[]} */
-    this.rows = [];
-    this.list = this.root.querySelector("[data-fields]");
-    this.lead = this.root.querySelector("[data-lead]");
-    this.form = this.root.querySelector("form");
-    this.form.addEventListener("submit", (event) => {
+    this.fields = [];
+    this.selected = null;
+    this.snapshot = "";
+    this.problems = new Map();
+    this.menu = new ActionMenu();
+    const root = this.root;
+    this.list = root.querySelector("[data-field-list]");
+    this.detail = root.querySelector("[data-field-detail]");
+    this.lead = root.querySelector("[data-lead]");
+    this.removalNote = root.querySelector("[data-removal-note]");
+    this.unsaved = root.querySelector("[data-unsaved]");
+    this.discardBar = root.querySelector("[data-discard-confirm]");
+    root.querySelector("form").addEventListener("submit", (event) => {
       event.preventDefault();
       this.#submit();
     });
-    this.cancelButton.addEventListener("click", () => this.modal.close());
-    this.root.querySelector("[data-add-field]").addEventListener("click", () => {
-      const row = this.#add(blankField());
-      row.el.querySelector("[data-key=label]").focus();
+    this.cancelButton.addEventListener("click", () => this.#requestClose());
+    root.querySelector("[data-add-field]").addEventListener("click", () => this.#addField());
+    root.querySelector("[data-discard-keep]").addEventListener("click", () => this.#askDiscard(false));
+    root.querySelector("[data-discard-go]").addEventListener("click", () => {
+      this.snapshot = this.#body(); // nothing to keep
+      this.modal.close();
     });
+    new Sortable(this.list, { handle: ".af-grip", onMove: (from, to) => this.#moveField(from, to) });
+    // closing (X, Escape, the overlay) with unsaved changes asks first, like Cancel
+    modal.canClose = () => {
+      if (this.busy) return false;
+      if (!this.#dirty()) return true;
+      this.#askDiscard(true);
+      return false;
+    };
   }
 
-  /** @param {{name: string, label: string, artifact_count: number}[]} fields */
+  /** @param {{name: string, label: string, artifact_count: number}[]} fields as the server has them */
   open(fields) {
     this.before = fields;
-    this.rows = [];
-    this.list.replaceChildren();
-    for (const field of fields) this.#add(editable(field));
-    this.titleEl.textContent = "Artifact fields";
+    this.fields = fields.map(editable);
+    this.selected = this.fields[0] ?? null;
+    this.problems.clear();
+    this.snapshot = this.#body();
     this.lead.textContent = "Every artifact has these fields; set their values in the artifact's Fields. Pipelines read them as ${card.NAME}. A default pre-fills new artifacts.";
     this.setError("");
-    this.#noteRemovals();
+    this.#askDiscard(false);
+    this.#renderList();
+    this.#renderDetail();
+    this.#changed();
     this.modal.open();
-    this.root.querySelector("[data-key=label]")?.focus();
+    (this.list.querySelector(".af-item__main") ?? this.root.querySelector("[data-add-field]")).focus();
   }
 
-  #add(state) {
-    const row = { state, id: ++rowCounter, el: element("li", "at-field") };
-    this.rows.push(row);
-    this.list.append(row.el);
-    this.#render(row);
-    this.#numbering();
-    return row;
+  #body() {
+    return JSON.stringify(this.fields.map(toWrite));
   }
 
-  #numbering() {
-    this.rows.forEach((row, i) => {
-      const title = row.el.querySelector(".at-field__title");
-      title.textContent = row.state.label.trim() || `Field ${i + 1}`;
-      row.el.querySelector("[data-move=up]").disabled = i === 0;
-      row.el.querySelector("[data-move=down]").disabled = i === this.rows.length - 1;
-    });
+  #dirty() {
+    return this.#body() !== this.snapshot;
   }
 
-  /** A labelled control; `key` names it for the tests and for the error placement. */
-  #field(row, key, label, control, { wide = false } = {}) {
-    const wrapper = element("div", `field at-field__item${wide ? " at-field__item--wide" : ""}`);
-    const id = `at-${row.id}-${key}`;
-    control.id = id;
-    control.dataset.key = key;
-    control.setAttribute("aria-describedby", `at-${row.id}-error`);
-    const caption = element("label", "field__label", label);
-    caption.htmlFor = id;
-    wrapper.append(caption, control);
-    return wrapper;
-  }
-
-  #input(row, key, label, { type = "text", maxLength, wide, value = row.state[key] } = {}) {
-    const input = element("input", "field__control");
-    input.type = type;
-    if (maxLength) input.maxLength = maxLength;
-    if (type === "number") input.step = "any";
-    input.value = value;
-    input.autocomplete = "off";
-    input.addEventListener("input", () => {
-      row.state[key] = input.value;
-      this.#clear(row);
-      if (key === "label") {
-        if (!row.state.nameEdited) {
-          row.state.name = nameFromLabel(input.value);
-          const name = row.el.querySelector("[data-key=name]");
-          if (name) name.value = row.state.name;
-        }
-        this.#numbering();
-      }
-      if (key === "name") row.state.nameEdited = true;
-    });
-    return this.#field(row, key, label, input, { wide });
-  }
-
-  #select(row, key, label, options, current, { wide, onChange } = {}) {
-    const select = element("select", "field__control");
-    for (const [value, text] of options) {
-      const option = element("option", "", text);
-      option.value = value;
-      select.append(option);
-    }
-    select.value = current;
-    select.addEventListener("change", () => {
-      row.state[key] = select.value;
-      this.#clear(row);
-      onChange?.();
-    });
-    return this.#field(row, key, label, select, { wide });
-  }
-
-  #defaultControl(row) {
-    const { state } = row;
-    if (state.kind === "choice") {
-      const options = state.options.split("\n").map((o) => o.trim()).filter(Boolean);
-      const known = options.includes(state.default) ? state.default : "";
-      if (known !== state.default) state.default = known;
-      return this.#select(row, "default", "Default", [["", "No default"], ...options.map((o) => [o, o])], known);
-    }
-    if (state.kind === "boolean") return this.#select(row, "default", "Default", [["", "No default"], ["true", "Yes"], ["false", "No"]], state.default);
-    return this.#input(row, "default", "Default", { type: state.kind === "number" ? "number" : "text" });
-  }
-
-  #render(row) {
-    const { state } = row;
-    row.el.replaceChildren();
-    const head = element("div", "at-field__head");
-    head.append(element("span", "at-field__title"));
-    const tools = element("span", "at-field__tools");
-    const tool = (name, label, symbol, action, extraClass = "") => {
-      const button = element("button", `icon-button icon-button--sm ${extraClass}`.trim());
-      button.type = "button";
-      button.dataset.move = name;
-      button.setAttribute("aria-label", label);
-      button.title = label;
-      button.append(icon(symbol));
-      button.addEventListener("click", action);
-      return button;
-    };
-    tools.append(
-      tool("up", "Move field up", "arrow-up", () => this.#move(row, -1)),
-      tool("down", "Move field down", "arrow-down", () => this.#move(row, 1)),
-      tool("remove", "Remove field", "trash", () => this.#remove(row), "is-danger"),
-    );
-    head.append(tools);
-
-    const grid = element("div", "at-field__grid");
-    grid.append(
-      this.#input(row, "label", "Label", { maxLength: 60 }),
-      this.#input(row, "name", "Name", { maxLength: 32 }),
-      this.#select(row, "kind", "Kind", KINDS.map((k) => [k.value, k.label]), state.kind, { onChange: () => this.#render(row) }),
-    );
-    if (state.kind === "choice") {
-      const lines = element("textarea", "field__control field__control--lines");
-      lines.rows = 3;
-      lines.value = state.options;
-      lines.addEventListener("input", () => {
-        state.options = lines.value;
-        this.#clear(row);
-        const holder = row.el.querySelector("[data-key=default]")?.closest(".at-field__item");
-        if (holder) holder.replaceWith(this.#defaultControl(row)); // the default is one of the values
-      });
-      grid.append(this.#field(row, "options", "Allowed values (one per line, 2 to 20)", lines, { wide: true }));
-    }
-    if (state.kind === "text") grid.append(this.#input(row, "max_length", "Maximum length (default 200)", { type: "number" }));
-    if (state.kind === "number") {
-      grid.append(this.#input(row, "min_value", "Minimum", { type: "number" }), this.#input(row, "max_value", "Maximum", { type: "number" }));
-      const whole = element("label", "at-check");
-      const box = element("input");
-      box.type = "checkbox";
-      box.checked = state.integer_only;
-      box.dataset.key = "integer_only";
-      box.addEventListener("change", () => (state.integer_only = box.checked));
-      whole.append(box, document.createTextNode(" Whole numbers only"));
-      grid.append(whole);
-    }
-    grid.append(this.#defaultControl(row));
-
-    const error = element("p", "field__error");
-    error.id = `at-${row.id}-error`;
-    error.setAttribute("role", "alert");
-    error.hidden = true;
-    error.dataset.rowError = "";
-    row.el.append(head, grid, error);
-    this.#numbering();
-  }
-
-  #move(row, direction) {
-    const i = this.rows.indexOf(row);
-    const j = i + direction;
-    if (j < 0 || j >= this.rows.length) return;
-    [this.rows[i], this.rows[j]] = [this.rows[j], this.rows[i]];
-    this.list.replaceChildren(...this.rows.map((r) => r.el));
-    this.#numbering();
-    const button = row.el.querySelector(`[data-move=${direction < 0 ? "up" : "down"}]`);
-    (button.disabled ? row.el.querySelector(`[data-move=${direction < 0 ? "down" : "up"}]`) : button).focus();
-  }
-
-  #remove(row) {
-    const i = this.rows.indexOf(row);
-    this.rows.splice(i, 1);
-    row.el.remove();
-    this.#numbering();
-    this.#noteRemovals();
-    (this.rows[i] ?? this.rows[i - 1])?.el.querySelector("[data-key=label]").focus() ?? this.root.querySelector("[data-add-field]").focus();
-  }
-
-  #clear(row) {
-    const error = row.el.querySelector("[data-row-error]");
-    error.textContent = "";
-    error.hidden = true;
-    this.setError("");
-  }
-
-  async #submit() {
-    if (this.busy) return;
-    for (const row of this.rows) this.#clear(row);
-    let saved = null;
-    const fields = this.rows.map((row) => toWrite(row.state));
-    if (await this.run(async () => (saved = await this.save(fields)), { close: true })) this.onSaved(saved);
-  }
-
-  /** Removing a field drops its values: say so, with how many artifacts have one. */
-  #noteRemovals() {
-    if (!this.removalNote) return;
-    const lost = removedWithValues(this.before, this.rows.map((row) => row.state.name.trim()));
+  /** After every change: the unsaved note, what a save would remove. */
+  #changed() {
+    this.unsaved.hidden = !this.#dirty();
+    const lost = removedWithValues(this.before, this.fields.map((f) => f.name.trim()));
     this.removalNote.textContent = lost.length ? `Saving removes the values of ${lost.map((l) => `"${l.label}" (${l.count} artifact${l.count === 1 ? "" : "s"})`).join(", ")}.` : "";
     this.removalNote.hidden = lost.length === 0;
   }
 
+  #askDiscard(show) {
+    this.discardBar.hidden = !show;
+    if (show) this.discardBar.querySelector("[data-discard-keep]").focus();
+  }
+
+  #requestClose() {
+    if (this.#dirty()) this.#askDiscard(true);
+    else this.modal.close();
+  }
+
+  // ── the list ─────────────────────────────────────────────────────────
+
+  #renderList() {
+    this.list.replaceChildren(
+      ...this.fields.map((field, i) => {
+        const item = element("li", "af-item");
+        item.dataset.field = field.uid;
+        if (field === this.selected) item.classList.add("is-selected");
+        const main = element("button", "af-item__main");
+        main.type = "button";
+        main.setAttribute("aria-pressed", String(field === this.selected));
+        main.append(element("span", "af-item__label", field.label.trim() || `Field ${i + 1}`), element("span", "af-item__type", typeText(field)));
+        if (this.problems.has(field.name.trim())) main.append(element("span", "af-item__problem", "!"));
+        main.addEventListener("click", () => this.#select(field));
+        item.append(grip(`Move ${field.label.trim() || "field"}`), main);
+        return item;
+      }),
+    );
+    const empty = this.root.querySelector("[data-field-empty]");
+    if (empty) empty.hidden = this.fields.length > 0;
+  }
+
+  #select(field) {
+    this.selected = field;
+    this.#renderList();
+    this.#renderDetail();
+  }
+
+  #addField() {
+    const field = blankField();
+    this.fields.push(field);
+    this.#select(field);
+    this.#changed();
+    this.detail.querySelector("[data-key=label]")?.focus();
+  }
+
+  #moveField(from, to) {
+    const [field] = this.fields.splice(from, 1);
+    this.fields.splice(to, 0, field);
+    this.#renderList();
+    this.#changed();
+    this.list.children[to]?.querySelector(".af-grip")?.focus();
+  }
+
+  #removeField(field) {
+    const i = this.fields.indexOf(field);
+    this.fields.splice(i, 1);
+    this.selected = this.fields[i] ?? this.fields[i - 1] ?? null;
+    this.#renderList();
+    this.#renderDetail();
+    this.#changed();
+    (this.list.querySelector(".is-selected .af-item__main") ?? this.root.querySelector("[data-add-field]")).focus();
+  }
+
+  // ── the chosen field ─────────────────────────────────────────────────
+
+  #renderDetail() {
+    const field = this.selected;
+    if (!field) {
+      this.detail.replaceChildren(element("p", "af-detail__empty", "No fields yet. Add the first one: every artifact gets it."));
+      return;
+    }
+    const grid = element("div", "af-detail__grid");
+    grid.append(
+      this.#input(field, "label", "Name", { maxLength: 60 }),
+      this.#nameField(field),
+      this.#typeField(field),
+    );
+    if (field.type === "text") grid.append(this.#input(field, "max_length", "Maximum length (default 200)", { type: "number" }));
+    if (field.type === "number") {
+      grid.append(this.#input(field, "min_value", "Minimum", { type: "number" }), this.#input(field, "max_value", "Maximum", { type: "number" }));
+      grid.append(this.#check(field, "integer_only", "Whole numbers only"));
+    }
+    const parts = [grid];
+    if (isSelect(field.type)) parts.push(this.#optionsBlock(field));
+    parts.push(this.#defaultField(field));
+    const problem = this.problems.get(field.name.trim());
+    const error = element("p", "field__error", problem ?? "");
+    error.setAttribute("role", "alert");
+    error.hidden = !problem;
+    error.dataset.fieldError = "";
+    const remove = element("button", "button button--ghost button--sm is-danger af-remove");
+    remove.type = "button";
+    remove.append(icon("trash"), document.createTextNode("Remove field"));
+    remove.addEventListener("click", () => this.#removeField(field));
+    parts.push(error, remove);
+    this.detail.replaceChildren(...parts);
+  }
+
+  #labelled(key, label, control) {
+    const wrap = element("div", "field");
+    control.id = `af-${key}`;
+    control.dataset.key = key;
+    const caption = element("label", "field__label", label);
+    caption.htmlFor = control.id;
+    wrap.append(caption, control);
+    return wrap;
+  }
+
+  #input(field, key, label, { type = "text", maxLength } = {}) {
+    const input = element("input", "field__control");
+    input.type = type;
+    if (maxLength) input.maxLength = maxLength;
+    if (type === "number") input.step = "any";
+    input.value = field[key];
+    input.autocomplete = "off";
+    input.addEventListener("input", () => {
+      field[key] = input.value;
+      if (key === "label") {
+        if (!field.saved && !field.nameEdited) {
+          field.name = nameFromLabel(input.value);
+          const name = this.detail.querySelector("[data-key=name]");
+          if (name) name.value = field.name;
+        }
+        this.#renderList();
+      }
+      this.#changed();
+    });
+    return this.#labelled(key, label, input);
+  }
+
+  /** The name pipelines read (${card.NAME}): chosen while the field is new, fixed once it is saved. */
+  #nameField(field) {
+    if (field.saved) {
+      const shown = element("input", "field__control");
+      shown.value = field.name;
+      shown.readOnly = true;
+      shown.title = "Pipelines read it as ${card." + field.name + "}; it stays as it is once saved.";
+      return this.#labelled("name", "Reference", shown);
+    }
+    const input = element("input", "field__control");
+    input.maxLength = 32;
+    input.value = field.name;
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.addEventListener("input", () => {
+      field.name = input.value;
+      field.nameEdited = true;
+      this.#changed();
+    });
+    return this.#labelled("name", "Reference", input);
+  }
+
+  #typeField(field) {
+    const select = element("select", "field__control");
+    for (const kind of KINDS) select.append(new Option(kind.label, kind.value));
+    select.value = field.type;
+    select.addEventListener("change", () => {
+      const wasMulti = field.type === "multi";
+      field.type = select.value;
+      if (field.type === "multi" && !wasMulti) field.default = field.default ? [field.default] : [];
+      if (field.type !== "multi" && wasMulti) field.default = field.default[0] ?? "";
+      this.#renderList();
+      this.#renderDetail();
+      this.#changed();
+    });
+    return this.#labelled("type", "Field type", select);
+  }
+
+  #check(field, key, label) {
+    const wrap = element("label", "at-check");
+    const box = element("input");
+    box.type = "checkbox";
+    box.checked = field[key];
+    box.dataset.key = key;
+    box.addEventListener("change", () => {
+      field[key] = box.checked;
+      this.#changed();
+    });
+    wrap.append(box, document.createTextNode(` ${label}`));
+    return wrap;
+  }
+
+  // ── the options of a select ──
+
+  #optionsBlock(field) {
+    const block = element("div", "af-options");
+    const head = element("div", "af-options__head");
+    head.append(element("span", "field__label", "Options"));
+    const list = element("ol", "af-options__list");
+    list.setAttribute("aria-label", "Options");
+    field.options.forEach((option) => list.append(this.#optionRow(field, option)));
+    new Sortable(list, {
+      handle: ".af-grip",
+      onMove: (from, to) => {
+        const [moved] = field.options.splice(from, 1);
+        field.options.splice(to, 0, moved);
+        this.#renderDetail();
+        this.#changed();
+        this.detail.querySelectorAll(".af-options__list .af-grip")[to]?.focus();
+      },
+    });
+    const add = element("button", "button button--ghost button--sm");
+    add.type = "button";
+    add.dataset.addOption = "";
+    add.append(icon("plus"), document.createTextNode("Add option"));
+    add.addEventListener("click", () => {
+      const option = newOption("");
+      field.options.push(option);
+      const row = this.#optionRow(field, option);
+      list.append(row);
+      row.inline.edit(); // a new option starts as a text to type; an empty one is dropped
+    });
+    if (field.options.length === 0) block.append(head, element("p", "settings-card__empty", "No options yet."), list, add);
+    else block.append(head, list, add);
+    return block;
+  }
+
+  #optionRow(field, option) {
+    const row = element("li", "af-option");
+    const text = element("span", "af-option__text", option.text);
+    row.inline = new InlineName(text, {
+      label: "Option",
+      maxLength: 40,
+      keepOpenOnError: true,
+      onCommit: async (value) => {
+        const problem = optionProblem(field, value, option);
+        if (problem) throw new Error(problem);
+        if (field.type === "multi") field.default = field.default.map((d) => (d === option.text ? value.trim() : d));
+        else if (field.default === option.text) field.default = value.trim();
+        option.text = value.trim();
+        this.#renderList();
+        this.#changed();
+        queueMicrotask(() => this.#refreshDefault(field));
+      },
+    });
+    // an option that was added and left empty goes again, once its editing ends (Escape, or focus elsewhere)
+    const dropIfEmpty = () =>
+      setTimeout(() => {
+        const editing = row.querySelector(".inline-name__input") && row.contains(document.activeElement);
+        if (!option.text && !editing && field.options.includes(option)) this.#removeOption(field, option);
+      }, 0);
+    row.addEventListener("focusout", dropIfEmpty);
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") dropIfEmpty();
+    });
+    const more = element("button", "icon-button icon-button--sm");
+    more.type = "button";
+    more.setAttribute("aria-label", `Option actions${option.text ? `: ${option.text}` : ""}`);
+    more.setAttribute("aria-haspopup", "menu");
+    more.title = "Option actions";
+    more.append(icon("more"));
+    more.addEventListener("click", () =>
+      this.menu.toggle(
+        more,
+        [
+          { label: "Rename", icon: "pencil", onSelect: () => row.inline.edit() },
+          { label: "Delete", icon: "trash", danger: true, onSelect: () => this.#removeOption(field, option) },
+        ],
+        `Option ${option.text}`,
+      ),
+    );
+    row.append(grip(`Move ${option.text || "option"}`), text, more);
+    return row;
+  }
+
+  #removeOption(field, option) {
+    field.options = field.options.filter((o) => o !== option);
+    if (field.type === "multi") field.default = field.default.filter((d) => d !== option.text);
+    else if (field.default === option.text) field.default = "";
+    this.#renderList();
+    this.#renderDetail();
+    this.#changed();
+  }
+
+  // ── the default ──
+
+  #refreshDefault(field) {
+    const holder = this.detail.querySelector("[data-default]");
+    if (holder && this.selected === field) holder.replaceWith(this.#defaultField(field));
+  }
+
+  #defaultField(field) {
+    let control;
+    if (field.type === "multi") {
+      control = element("div", "af-default-multi");
+      control.setAttribute("role", "group");
+      control.setAttribute("aria-label", "Default");
+      for (const option of field.options.filter((o) => o.text)) {
+        const wrap = element("label", "at-check");
+        const box = element("input");
+        box.type = "checkbox";
+        box.checked = field.default.includes(option.text);
+        box.addEventListener("change", () => {
+          field.default = box.checked ? [...field.default, option.text] : field.default.filter((d) => d !== option.text);
+          this.#changed();
+        });
+        wrap.append(box, document.createTextNode(` ${option.text}`));
+        control.append(wrap);
+      }
+      if (!control.children.length) control.append(element("span", "settings-card__empty", "Add options first."));
+      const wrap = element("div", "field");
+      wrap.dataset.default = "";
+      wrap.append(element("span", "field__label", "Default"), control);
+      return wrap;
+    }
+    if (field.type === "single" || field.type === "boolean") {
+      control = element("select", "field__control");
+      const choices = field.type === "boolean" ? [["", "No default"], ["true", "Yes"], ["false", "No"]] : [["", "No default"], ...field.options.filter((o) => o.text).map((o) => [o.text, o.text])];
+      for (const [value, text] of choices) control.append(new Option(text, value));
+      control.value = field.default;
+      control.addEventListener("change", () => {
+        field.default = control.value;
+        this.#changed();
+      });
+    } else {
+      control = element("input", "field__control");
+      control.type = field.type === "number" ? "number" : "text";
+      control.value = field.default;
+      control.addEventListener("input", () => {
+        field.default = control.value;
+        this.#changed();
+      });
+    }
+    const wrap = this.#labelled("default", "Default", control);
+    wrap.dataset.default = "";
+    return wrap;
+  }
+
+  // ── saving ───────────────────────────────────────────────────────────
+
+  async #submit() {
+    if (this.busy) return;
+    this.problems.clear();
+    this.#askDiscard(false);
+    let saved = null;
+    if (await this.run(async () => (saved = await this.save(this.fields.map(toWrite))), { close: false })) {
+      this.snapshot = this.#body();
+      this.modal.close();
+      this.onSaved(saved);
+    }
+  }
+
   showError(error) {
     const { byField, other } = parseProblems(error.detail);
-    const unplaced = [];
-    for (const [name, message] of byField) {
-      const row = this.rows.find((r) => r.state.name.trim() === name);
-      if (!row) {
-        unplaced.push(`Field ${name}: ${message}`);
-        continue;
-      }
-      const target = row.el.querySelector("[data-row-error]");
-      target.textContent = message;
-      target.hidden = false;
-    }
-    const first = this.list.querySelector("[data-row-error]:not([hidden])");
-    first?.closest(".at-field").scrollIntoView({ block: "nearest" });
+    this.problems = byField;
+    const first = this.fields.find((f) => byField.has(f.name.trim()));
+    if (first) this.selected = first;
+    this.#renderList();
+    this.#renderDetail();
+    const unplaced = [...byField.keys()].filter((name) => !this.fields.some((f) => f.name.trim() === name)).map((name) => `Field ${name}: ${byField.get(name)}`);
     const general = [...other, ...unplaced];
     if (general.length) this.setError(general.join(" "));
     else if (byField.size === 0) super.showError(error);

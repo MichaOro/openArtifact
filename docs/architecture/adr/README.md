@@ -59,6 +59,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [047](047-agent-versions-and-use.md) | Versions & use of an agent: two columns, Open and Remove reference | Accepted | 2026-11-23 | amends ADR-045 |
 | [048](048-identity-header-and-inline-editing.md) | One identity header and one inline editing for resources | Accepted | 2026-11-23 | amends ADR-045 |
 | [049](049-version-view-and-leave-guard.md) | A version can be looked at; the page's own links ask before unsaved changes are lost | Accepted | 2026-11-23 | amends ADR-047 |
+| [050](050-artifact-field-editor-and-multi-select.md) | The artifact field editor in two panes; multi select; renamed options keep their values | Accepted | 2026-11-23 | amends ADR-044 |
 
 ## Notes
 

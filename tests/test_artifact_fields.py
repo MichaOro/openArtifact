@@ -78,6 +78,7 @@ def test_there_are_no_fields_at_first_and_the_list_is_replaced_as_a_whole(
         "min_value": None,
         "max_value": None,
         "integer_only": False,
+        "multiple": False,
         "artifact_count": 0,
     }
     assert [f["name"] for f in _define(client, SUMMARY, URGENCY)["fields"]] == [
@@ -99,7 +100,7 @@ def test_a_field_has_no_required_setting_any_more(client: TestClient) -> None:
         ([_field("Bad Name")], "Field Bad Name: the name is lowercase letters"),
         ([_field("a", label=" ")], "Field a: the label is 1-60 characters"),
         ([_field("a", "date")], "Field a: the kind must be text, number, boolean, choice"),
-        ([_field("a", "choice", options=["x"])], "a choice has 2 to 20 allowed values"),
+        ([_field("a", "choice", options=[])], "a choice has 1 to 20 allowed values"),
         ([_field("a", "choice", options=["x", "x"])], "different from each other"),
         ([_field("a", options=["x", "y"])], "only a choice has allowed values"),
         ([_field("a", "number", max_length=5)], "only text has a maximum length"),
@@ -510,3 +511,86 @@ def test_a_node_that_uses_a_field_that_does_not_exist_fails_with_the_reason(
     wait_for_run(secured, task, "failed")
     step = next(s for s in _detail(secured, task)["steps"] if s["kind"] == "http")
     assert '${card.urgency}: the artifact has no field "urgency"' in step["reason"]
+
+
+# ── single and multi select, renamed and removed options (ADR-050) ───
+
+TAGS = _field("tags", "choice", options=["bug", "ui", "api"], multiple=True)
+
+
+def test_a_multi_select_holds_several_allowed_values(client: TestClient) -> None:
+    _define(client, TAGS)
+    task = _artifact(client, tags=["ui", "bug"]).json()
+    assert task["fields"] == {"tags": ["ui", "bug"]}
+    for wrong, message in (
+        (["ui", "nope"], '"nope" is not one of bug, ui, api'),
+        (["ui", "ui"], '"ui" is chosen twice'),
+        ("ui", "is not a list of values"),
+    ):
+        response = _artifact(client, tags=wrong)
+        assert response.status_code == 422 and message in response.json()["detail"], wrong
+    assert (
+        client.patch(f"/api/tasks/{task['id']}", json={"fields": {"tags": []}}).json()["fields"]
+        == {}
+    )  # an empty choice is "not set"
+
+
+def test_a_single_select_with_one_option_is_allowed_and_multiple_is_only_for_a_choice(
+    client: TestClient,
+) -> None:
+    assert (
+        _define(client, _field("only", "choice", options=["yes"]))["fields"][0]["multiple"] is False
+    )
+    bad = client.put("/api/artifact-fields", json={"fields": [_field("t", multiple=True)]})
+    assert bad.status_code == 422 and "only a choice can allow several values" in bad.text
+    default = client.put(
+        "/api/artifact-fields", json={"fields": [{**TAGS, "default": ["ui", "x"]}]}
+    )
+    assert (
+        default.status_code == 422 and 'the default "x" is not one of' in default.json()["detail"]
+    )
+
+
+def test_a_renamed_option_keeps_the_values_and_a_removed_one_takes_its_values_with_it(
+    client: TestClient,
+) -> None:
+    single = _field("size", "choice", options=["S", "M", "L"])
+    _define(client, single, TAGS)
+    a = _artifact(client, size="M", tags=["bug", "api"]).json()
+    b = _artifact(client, size="L", tags=["api"]).json()
+    _define(
+        client,
+        {**single, "options": ["S", "Medium"], "renamed_options": {"M": "Medium"}},
+        {**TAGS, "options": ["bug", "ui", "backend"], "renamed_options": {"api": "backend"}},
+    )
+    assert client.get(f"/api/tasks/{a['id']}").json()["fields"] == {
+        "size": "Medium",
+        "tags": ["bug", "backend"],
+    }
+    assert client.get(f"/api/tasks/{b['id']}").json()["fields"] == {"tags": ["backend"]}  # L went
+    _define(client, {**single, "options": ["S", "Medium"]}, {**TAGS, "options": ["ui", "backend"]})
+    assert client.get(f"/api/tasks/{a['id']}").json()["fields"]["tags"] == ["backend"]  # bug went
+    stored = client.get("/api/artifact-fields").json()["fields"]
+    assert "renamed_options" not in stored[0]  # an instruction of the change, not part of the field
+
+
+def test_single_and_multi_select_switch_while_the_values_fit(client: TestClient) -> None:
+    _define(client, {**TAGS, "multiple": False})
+    task = _artifact(client, tags="ui").json()
+    _define(client, TAGS)  # single to multi: the value becomes a list of one
+    assert client.get(f"/api/tasks/{task['id']}").json()["fields"]["tags"] == ["ui"]
+    client.patch(f"/api/tasks/{task['id']}", json={"fields": {"tags": ["ui", "bug"]}})
+    refused = client.put("/api/artifact-fields", json={"fields": [{**TAGS, "multiple": False}]})
+    assert refused.status_code == 409 and "Field tags: 1 artifact has" in refused.text  # two values
+    client.patch(f"/api/tasks/{task['id']}", json={"fields": {"tags": ["bug"]}})
+    _define(client, {**TAGS, "multiple": False})  # one value: it fits
+    assert client.get(f"/api/tasks/{task['id']}").json()["fields"]["tags"] == "bug"
+
+
+def test_a_run_reads_a_multi_select_as_a_list() -> None:
+    specs = [FieldSpec("tags", "Tags", "choice", options=("a", "b"), multiple=True)]
+    assert card_values(specs, {"tags": ["b"]}) == {"tags": ["b"]}
+    assert (
+        RunView(RunContext.initial({"tags": ["a", "b"]}), NodeIndex()).render("${card.tags}")
+        == '["a","b"]'
+    )

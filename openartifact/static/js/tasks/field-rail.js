@@ -46,9 +46,12 @@ export class FieldRail {
 
   /** Show the fields of an artifact (null: the dialog shows none, e.g. while creating one). */
   show(task) {
-    const same = task && this.task?.id === task.id && JSON.stringify(task.fields) === JSON.stringify(this.task.fields);
+    const sameTask = task && this.task?.id === task.id;
+    const same = sameTask && JSON.stringify(task.fields) === JSON.stringify(this.task.fields);
+    const typing = sameTask && this.list.contains(document.activeElement);
     this.task = task;
-    if (!same) this.#render(); // an update of something else leaves a field being typed in alone
+    // an update (often of our own save, arriving later) must not take away a field that is being typed in
+    if (!same && !typing) this.#render();
   }
 
   /** While the artifact is processed its fields cannot change. */
@@ -108,8 +111,30 @@ export class FieldRail {
       const on = value === true;
       button.setAttribute("aria-checked", String(on));
       button.append(element("span", "card-field__switch-track"), element("span", "card-field__switch-text", on ? "Yes" : "No"));
-      button.addEventListener("click", () => onChange(button.getAttribute("aria-checked") !== "true"));
+      button.addEventListener("click", () => {
+        const next = button.getAttribute("aria-checked") !== "true";
+        button.setAttribute("aria-checked", String(next)); // shown at once; a refusal draws the stored value again
+        button.querySelector(".card-field__switch-text").textContent = next ? "Yes" : "No";
+        onChange(next);
+      });
       return button;
+    }
+    if (field.kind === "choice" && field.multiple) {
+      // a multi select: one box per allowed value (ADR-050)
+      const group = element("div", "card-field__multi");
+      group.setAttribute("role", "group");
+      const chosen = new Set(Array.isArray(value) ? value : []);
+      for (const option of field.options) {
+        const wrap = element("label", "card-field__choice");
+        const box = element("input");
+        box.type = "checkbox";
+        box.value = option;
+        box.checked = chosen.has(option);
+        box.addEventListener("change", () => onChange([...group.querySelectorAll("input:checked")].map((b) => b.value)));
+        wrap.append(box, document.createTextNode(` ${option}`));
+        group.append(wrap);
+      }
+      return group;
     }
     if (field.kind === "choice") {
       const select = element("select", "field__control card-field__control");
@@ -137,15 +162,17 @@ export class FieldRail {
     const id = this.task.id;
     try {
       const saved = await this.save(id, { [field.name]: valueOf(field, raw) });
-      if (this.task?.id === id) {
-        this.task = saved;
-        this.#render();
-      }
+      // the controls already show what was saved: no redraw, so a field being typed in keeps its text
+      if (this.task?.id === id) this.task = saved;
       this.onSaved(saved);
     } catch (problem) {
       const { byField, other } = parseProblems(problem.detail);
-      error.textContent = byField.get(field.name) ?? other.join(" ") ?? "Could not save the field.";
-      if (!error.textContent) error.textContent = "Could not save the field.";
+      const message = byField.get(field.name) || other.join(" ") || "Could not save the field.";
+      if (field.kind === "boolean" || field.multiple) {
+        this.#render(); // back to what is stored
+        error = this.list.querySelector(`#card-field-${field.name}-error`) ?? error;
+      }
+      error.textContent = message;
       error.hidden = false;
     }
   }

@@ -36,7 +36,8 @@ code and the API an artifact is a `task`.
 
 **Artifact fields.** Custom fields every artifact has (ADR-044), defined once in *Artifact fields* (the menu next to
 *Add lane* on the board): label, name, kind (text, number, yes/no, choice) with its limits and a default that pre-fills new
-artifacts. In the artifact dialog the rail entry *Fields* opens them below it; a change is saved at once and a wrong value
+artifacts (a choice is a single or a multi select; the editor lists the fields on the left, reordered by their grip,
+and shows the chosen one's settings on the right). In the artifact dialog the rail entry *Fields* opens them below it; a change is saved at once and a wrong value
 (a typo in a choice, a number out of range) is refused right there, not when a run fails. The fields are locked while the
 artifact is processed. Removing a field removes its values; a change that stored values no longer fit is refused
 ([details](execution-nodes.md#card-parameters-card)).

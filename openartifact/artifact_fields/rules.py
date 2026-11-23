@@ -19,7 +19,7 @@ FIELD_NAME = re.compile(r"[a-z][a-z0-9_]{0,31}")
 KINDS = ("text", "number", "boolean", "choice")
 LABEL_MAX = 60
 MAX_FIELDS = 30
-MIN_OPTIONS, MAX_OPTIONS, OPTION_MAX = 2, 20, 40
+MIN_OPTIONS, MAX_OPTIONS, OPTION_MAX = 1, 20, 40
 DEFAULT_TEXT_LENGTH = 200
 MAX_TEXT_LENGTH = 1000
 #: All field values of an artifact together, as JSON text.
@@ -39,6 +39,8 @@ class FieldSpec:
     min_value: float | None = None
     max_value: float | None = None
     integer_only: bool = False
+    #: A choice that holds several of its values (a list), ADR-050.
+    multiple: bool = False
 
 
 def _shown(value: Any) -> str:
@@ -78,6 +80,22 @@ def check_value(spec: FieldSpec, value: Any) -> tuple[Any, str]:
         if spec.max_value is not None and number > spec.max_value:
             return None, f"{_shown(value)} is above the maximum {_number(spec.max_value)}"
         return number, ""
+    if spec.multiple:
+        if not isinstance(value, list):
+            return None, f"{_shown(value)} is not a list of values"
+        chosen: list[str] = []
+        for item in value:
+            one, problem = _one_option(spec, item)
+            if problem:
+                return None, problem
+            if one in chosen:
+                return None, f"{_shown(one)} is chosen twice"
+            chosen.append(one)
+        return chosen, ""
+    return _one_option(spec, value)
+
+
+def _one_option(spec: FieldSpec, value: Any) -> tuple[Any, str]:
     if not isinstance(value, str) or value not in spec.options:
         close = difflib.get_close_matches(
             str(value).lower(), [o.lower() for o in spec.options], n=1, cutoff=0.6
@@ -94,7 +112,7 @@ def _number(value: float) -> str:
 
 
 def is_blank(value: Any) -> bool:
-    return value is None or (isinstance(value, str) and not value.strip())
+    return value is None or value == [] or (isinstance(value, str) and not value.strip())
 
 
 def validate_values(
@@ -177,6 +195,8 @@ def check_definition(spec: FieldSpec) -> list[str]:
             bad(f"each allowed value is 1-{OPTION_MAX} characters")
     elif spec.options:
         bad("only a choice has allowed values")
+    if spec.multiple and spec.kind != "choice":
+        bad("only a choice can allow several values")
     if (
         spec.kind == "text"
         and spec.max_length is not None

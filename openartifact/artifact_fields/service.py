@@ -41,6 +41,7 @@ def _spec_of(row: ArtifactField) -> FieldSpec:
         min_value=row.min_value,
         max_value=row.max_value,
         integer_only=row.integer_only,
+        multiple=row.multiple,
     )
 
 
@@ -55,6 +56,7 @@ def _spec_of_write(item: FieldWrite) -> FieldSpec:
         min_value=item.min_value,
         max_value=item.max_value,
         integer_only=item.integer_only,
+        multiple=item.multiple,
     )
 
 
@@ -69,6 +71,7 @@ def _row_of(position: int, spec: FieldSpec) -> ArtifactField:
         min_value=spec.min_value,
         max_value=spec.max_value,
         integer_only=spec.integer_only,
+        multiple=spec.multiple,
         position=position,
     )
 
@@ -84,6 +87,7 @@ def _read_field(spec: FieldSpec, count: int) -> FieldRead:
         min_value=spec.min_value,
         max_value=spec.max_value,
         integer_only=spec.integer_only,
+        multiple=spec.multiple,
         artifact_count=count,
     )
 
@@ -105,6 +109,25 @@ def stored_values(task: Task) -> dict[str, Any]:
 
 def _text(values: dict[str, Any]) -> str:
     return json.dumps(values, ensure_ascii=False, separators=(",", ":"))
+
+
+def _carried(
+    before: FieldSpec | None, after: FieldSpec, value: Any, renames: dict[str, str]
+) -> Any:
+    """A stored value of a choice after its field changed (ADR-050): renamed allowed values follow, removed ones
+    go, and a single value becomes a list of one (and back, when one is left). Other kinds are left as they are."""
+    if before is None or before.kind != "choice" or after.kind != "choice":
+        return value
+    items = value if isinstance(value, list) else [value]
+    kept = [renames.get(v, v) for v in items if isinstance(v, str)]
+    kept = [v for v in kept if v in after.options]
+    if after.multiple:
+        return kept or None
+    if not kept:
+        return None
+    return (
+        kept[0] if len(kept) == 1 else kept
+    )  # several values: left to the check (it does not fit)
 
 
 def _plural(count: int) -> str:
@@ -142,14 +165,21 @@ class ArtifactFieldService:
         specs = [_spec_of_write(item) for item in data.fields]
         if problems := rules.check_definitions(specs):
             raise ArtifactError(422, "\n".join(problems))
-        names = {s.name for s in specs}
+        renames = {item.name: item.renamed_options for item in data.fields}
         async with self._session() as session:
+            before = {s.name: s for s in await field_specs(session)}
             tasks = (await session.scalars(select(Task))).all()
             misfits: dict[str, int] = {}
             updated: list[tuple[Task, str]] = []
             for task in tasks:
                 old = stored_values(task)
-                kept = {k: v for k, v in old.items() if k in names}
+                kept = {
+                    spec.name: _carried(
+                        before.get(spec.name), spec, old[spec.name], renames[spec.name]
+                    )
+                    for spec in specs
+                    if spec.name in old
+                }
                 stored, problems = rules.validate_values(specs, kept)
                 for problem in problems:
                     field = problem.removeprefix("Field ").split(":", 1)[0]

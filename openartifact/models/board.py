@@ -140,4 +140,6 @@ class ArtifactField(Base):
     min_value: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
     max_value: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
     integer_only: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    #: A choice that holds several of its values (ADR-050).
+    multiple: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     position: Mapped[int] = mapped_column(Integer, default=0)

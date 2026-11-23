@@ -56,6 +56,9 @@ export class ActionMenu {
     }
     this.close({ restoreFocus: false });
     this.trigger = trigger;
+    // inside an open dialog the menu must live in it: the dialog is in the top layer, the body is under it
+    const host = trigger.closest("dialog[open]") ?? document.body;
+    if (this.el.parentElement !== host) host.append(this.el);
     this.el.setAttribute("aria-label", label);
     const entries = items.map((item) => this.#entry(item));
     this.el.replaceChildren(...entries, this.hint);

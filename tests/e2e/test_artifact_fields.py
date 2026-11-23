@@ -3,6 +3,7 @@ artifact shows every field below "Fields" and saves a change at once."""
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from playwright.sync_api import expect
@@ -119,3 +120,158 @@ def test_without_fields_the_rail_has_no_fields_entry(board: Board) -> None:
     board.open()
     dialog = board.open_card("Card")
     expect(dialog.root.locator("[data-field-rail]")).to_be_hidden()
+
+
+# ── the two panes, options, multi select, order (ADR-050) ────────────
+
+
+def _open_editor(board: Board) -> Any:
+    page = board.page
+    page.locator("[data-board-menu]").click()
+    page.get_by_role("menuitem", name="Artifact fields").click()
+    editor = page.locator("#fields-modal")
+    expect(editor).to_be_visible()
+    return editor
+
+
+def test_the_fields_are_a_list_and_the_chosen_one_is_shown_beside_it(board: Board) -> None:
+    _define(board, FIELDS[:2])
+    board.open()
+    editor = _open_editor(board)
+    items = editor.locator("[data-field-list] .af-item")
+    expect(items.locator(".af-item__label")).to_have_text(["Size", "Estimate"])
+    expect(items.nth(0)).to_have_class(re.compile(r"\bis-selected\b"))
+    expect(editor.locator("[data-key=label]")).to_have_value("Size")
+    expect(editor.locator("[data-key=name]")).to_have_js_property(
+        "readOnly", True
+    )  # pipelines read it
+    items.nth(1).locator(".af-item__main").click()
+    expect(editor.locator("[data-key=label]")).to_have_value("Estimate")
+    expect(editor.locator("[data-unsaved]")).to_be_hidden()
+    editor.locator("[data-key=label]").fill("Effort")
+    expect(items.nth(1).locator(".af-item__label")).to_have_text("Effort")
+    expect(editor.locator("[data-unsaved]")).to_be_visible()
+    # Cancel with unsaved changes asks first; Keep editing keeps them, Discard throws them away
+    editor.locator("[data-cancel]").click()
+    expect(editor.locator("[data-discard-confirm]")).to_be_visible()
+    editor.locator("[data-discard-keep]").click()
+    expect(editor).to_be_visible()
+    board.page.keyboard.press("Escape")  # closing asks, too
+    expect(editor.locator("[data-discard-confirm]")).to_be_visible()
+    editor.locator("[data-discard-go]").click()
+    expect(editor).to_be_hidden()
+    labels = [f["label"] for f in board.api.get("/api/artifact-fields").json()["fields"]]
+    assert labels == ["Size", "Estimate"]  # nothing was saved
+
+
+def test_a_select_gets_options_that_are_renamed_deleted_and_kept_apart(board: Board) -> None:
+    board.open()
+    editor = _open_editor(board)
+    editor.locator("[data-add-field]").click()
+    editor.locator("[data-key=label]").fill("Area")
+    editor.locator("[data-key=type]").select_option("single")
+    for text in ("Bug", "UI", "API"):
+        editor.locator("[data-add-option]").click()
+        field = editor.locator(".af-option .inline-name__input").last
+        field.fill(text)
+        field.press("Enter")
+    editor.locator("[data-add-option]").click()
+    duplicate = editor.locator(".af-option .inline-name__input").last
+    duplicate.fill("bug")
+    duplicate.press("Enter")
+    expect(editor.locator(".inline-name__error")).to_have_text('"bug" is already an option.')
+    duplicate.press("Escape")
+    expect(editor.locator(".af-option")).to_have_count(3)  # the empty one went again
+    # rename through the menu, delete through the menu
+    editor.get_by_role("button", name="Option actions: UI").click()
+    board.page.get_by_role("menuitem", name="Rename").click()
+    renamed = editor.locator(".af-option .inline-name__input")
+    renamed.fill("Frontend")
+    renamed.press("Enter")
+    editor.get_by_role("button", name="Option actions: API").click()
+    board.page.get_by_role("menuitem", name="Delete").click()
+    expect(editor.locator(".af-option__text")).to_have_text(["Bug", "Frontend"])
+    expect(editor.locator(".af-item__type")).to_have_text("Single select · 2 options")
+    editor.locator("[data-submit]").click()
+    expect(editor).to_be_hidden()
+    (area,) = board.api.get("/api/artifact-fields").json()["fields"]
+    assert (area["name"], area["kind"], area["multiple"], area["options"]) == (
+        "area",
+        "choice",
+        False,
+        ["Bug", "Frontend"],
+    )
+
+
+def test_a_renamed_option_keeps_the_values_of_the_artifacts(board: Board) -> None:
+    _define(board, FIELDS[:1])  # Size: S, M, L
+    task = board.create("Card", fields={"size": "M"})
+    board.open()
+    editor = _open_editor(board)
+    editor.get_by_role("button", name="Option actions: M").click()
+    board.page.get_by_role("menuitem", name="Rename").click()
+    field = editor.locator(".af-option .inline-name__input")
+    field.fill("Medium")
+    field.press("Enter")
+    editor.locator("[data-submit]").click()
+    expect(editor).to_be_hidden()
+    assert _fields_of(board, task) == {"size": "Medium"}
+
+
+def test_a_multi_select_holds_several_values_on_the_card(board: Board) -> None:
+    _define(
+        board,
+        [
+            {
+                "name": "tags",
+                "label": "Tags",
+                "kind": "choice",
+                "multiple": True,
+                "options": ["bug", "ui", "api"],
+            }
+        ],
+    )
+    task = board.create("Card")
+    board.open()
+    editor = _open_editor(board)
+    expect(editor.locator("[data-key=type]")).to_have_value("multi")
+    expect(editor.locator(".af-default-multi input")).to_have_count(3)
+    board.page.keyboard.press("Escape")
+    dialog = board.open_card("Card")
+    rail = dialog.root.locator("[data-card-nav]")
+    rail.locator("[data-field-rail-toggle]").click()
+    if not rail.locator(".card-field__multi").is_visible():
+        rail.locator("[data-field-rail-toggle]").click()
+    rail.get_by_label("bug").check()
+    eventually(lambda: _fields_of(board, task), {"tags": ["bug"]})
+    rail.get_by_label("api").check()
+    eventually(lambda: _fields_of(board, task), {"tags": ["bug", "api"]})
+
+
+def test_the_order_of_the_fields_is_changed_by_their_grip_and_kept(board: Board) -> None:
+    _define(board, FIELDS[:3])
+    board.open()
+    editor = _open_editor(board)
+    labels = editor.locator("[data-field-list] .af-item__label")
+    expect(labels).to_have_text(["Size", "Estimate", "Summary"])
+    # with the keyboard: the grip of Size, ArrowDown
+    editor.get_by_role("button", name="Move Size").focus()
+    board.page.keyboard.press("ArrowDown")
+    expect(labels).to_have_text(["Estimate", "Size", "Summary"])
+    # with the pointer: Summary to the top
+    grip = editor.get_by_role("button", name="Move Summary").bounding_box()
+    top = editor.locator("[data-field-list] .af-item").first.bounding_box()
+    assert grip and top
+    mouse = board.page.mouse
+    mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
+    mouse.down()
+    mouse.move(grip["x"] + grip["width"] / 2, top["y"] + 2, steps=12)
+    mouse.up()
+    expect(labels).to_have_text(["Summary", "Estimate", "Size"])
+    # a click on the entry itself still only chooses it
+    editor.locator("[data-field-list] .af-item__main").nth(2).click()
+    expect(editor.locator("[data-key=label]")).to_have_value("Size")
+    editor.locator("[data-submit]").click()
+    expect(editor).to_be_hidden()
+    names = [f["name"] for f in board.api.get("/api/artifact-fields").json()["fields"]]
+    assert names == ["summary", "estimate", "size"]

@@ -172,7 +172,9 @@ Only the title changes; artifacts keep their `status` code.
 ```
 
 Field rules: `name` is `[a-z][a-z0-9_]{0,31}` (what pipelines read as `${card.NAME}`); `kind` is `text`, `number`,
-`boolean` or `choice`; a choice has 2 to 20 `options` of at most 40 characters; only text has `max_length` (1 to 1000,
+`boolean` or `choice`; a choice has 1 to 20 `options` of at most 40 characters and is a multi select with `multiple: true`
+(its value and default are lists); `renamed_options` ({old: new}, only sent) keeps the artifacts' values of renamed
+options, a deleted option's values go (ADR-050); only text has `max_length` (1 to 1000,
 default 200); only a number has `min_value`, `max_value` and `integer_only`; at most 30 fields; the `default` must be a
 valid value. There is no "required". An invalid definition is `422`, one sentence per problem starting with `Field NAME:`.
 A field left out is removed with its values; a changed field whose stored values no longer fit is `409`
