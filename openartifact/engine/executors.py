@@ -30,6 +30,7 @@ from openartifact.credentials.store import SecretResolveError
 from openartifact.engine.branching import evaluate_if, evaluate_switch
 from openartifact.engine.code_runner import CodeLimits, run_code
 from openartifact.engine.context import RunView
+from openartifact.engine.fields import run_set
 from openartifact.engine.http_runner import run_http
 from openartifact.engine.results import NodeResult, failed
 from openartifact.logging_config import masked_in_logs
@@ -222,6 +223,11 @@ async def _switch(node: dict[str, Any], limits: Limits, view: RunView | None = N
     return evaluate_switch(node["config"], view or RunView())
 
 
+async def _set(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
+    """Edit Fields: variables from text and references (``engine/fields.py``); no secret is involved."""
+    return run_set(node["config"], view or RunView())
+
+
 async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     """One request to the model of the node's agent (see ``agents/runtime.py``). The key of the
     provider is resolved here, like every secret, so the answer, the reason, the data and the detail
@@ -250,3 +256,4 @@ register_executor(NodeKind.TIMER, _timer, by_outcome=False)
 register_executor(NodeKind.IF, _if, by_outcome=False)
 register_executor(NodeKind.SWITCH, _switch, by_outcome=False)
 register_executor(NodeKind.AGENT, _agent)
+register_executor(NodeKind.SET, _set)

@@ -68,6 +68,7 @@ GET /api/runs -> RunRead[]
 GET /api/runs/{task_id}/results -> NodeResultRead[]
 GET /api/secrets -> SecretRead[]
 GET /api/secrets/{name}/uses -> SecretUse[]
+GET /api/settings/run-limits -> RunLimitsRead
 GET /api/tasks -> TaskRead[]
 GET /api/tasks/{task_id} -> TaskRead
 GET /api/tasks/{task_id}/executions -> ExecutionList
@@ -97,6 +98,7 @@ GET /api/v1/pipelines -> PipelineChainRead[]
 GET /api/v1/providers -> ProviderRead[]
 GET /api/v1/providers/{ref} -> ProviderRead
 GET /api/v1/secrets -> SecretRead[]
+GET /api/v1/settings/run-limits -> RunLimitsRead
 GET /health -> HealthRead
 PATCH /api/actions/{graph_id} -> GraphRead
 PATCH /api/actions/{graph_id}/edges/{edge_id} -> EdgeRead
@@ -152,12 +154,14 @@ PUT /api/agents/{ref}/draft -> AgentDetail
 PUT /api/artifact-types/{type_id} -> ArtifactTypeRead
 PUT /api/lanes/{status} -> LaneRead[]
 PUT /api/secrets/{name} -> SecretRead
+PUT /api/settings/run-limits -> RunLimitsRead
 PUT /api/tasks/{task_id}/history-policy -> HistoryPolicyResult
 PUT /api/v1/agents/{ref}/draft -> AgentDetail
 PUT /api/v1/artifact-types/{ref} -> ArtifactTypeRead
 PUT /api/v1/artifacts/{ref}/history-policy -> HistoryPolicyResult
 PUT /api/v1/lanes/{status} -> LaneRead[]
 PUT /api/v1/secrets/{name} -> SecretRead
+PUT /api/v1/settings/run-limits -> RunLimitsRead
 """.splitlines()
 
 

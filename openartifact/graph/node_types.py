@@ -28,6 +28,7 @@ from openartifact.credentials.refs import (
     parse_name_lines,
 )
 from openartifact.engine.context import VAR_NAME, ContextError, check_url_placement
+from openartifact.engine.fields import FieldsError, parse_fields
 from openartifact.models import GraphKind, NodeKind
 
 if TYPE_CHECKING:
@@ -730,8 +731,51 @@ class IfType(_ExecutionType):
     )
 
 
+def switch_case_used(config: dict[str, Any] | None, port: str) -> bool:
+    """Whether a case of a Switch is in use: it has a value, or an operator that needs none (``is empty``
+    ...). An unused case has no output: the editor hides it and the rules refuse a connection from it."""
+    config = config or {}
+    number = port.removeprefix("case_")
+    operator = str(config.get(f"case_operator_{number}") or "equals")
+    value = config.get(port)
+    return operator in UNARY_OPERATORS or (isinstance(value, str) and bool(value.strip()))
+
+
+def _switch_case(n: int) -> tuple[Setting, Setting]:
+    group = f"Case {n}"
+    return (
+        Setting(
+            f"case_operator_{n}",
+            "Operator",
+            "select",
+            default="equals",
+            options=OPERATORS,
+            stored_in="config",
+            group=group,
+        ),
+        Setting(
+            Ports.case(n),
+            "Compare with",
+            "text",
+            default="",
+            max_length=CONDITION_TEXT_CHARS,
+            stored_in="config",
+            group=group,
+            references="context",
+            help=(
+                "Text, may hold ${node.NAME.output} or ${var.name}. Empty (and an operator that needs a "
+                "value): the case is unused and its output is hidden."
+            )
+            if n == 1
+            else None,
+            check=_check_condition_text,
+        ),
+    )
+
+
 class SwitchType(_ExecutionType):
-    """Compares one value with up to six cases and leaves by the first case that matches, or Else."""
+    """Compares one value with up to six cases, each with its own operator, and leaves by the first case that
+    holds, or Else. A case without an operator compares with ``equals`` (Switches of before ADR-039)."""
 
     kind = NodeKind.SWITCH
     label = "Switch"
@@ -752,18 +796,7 @@ class SwitchType(_ExecutionType):
             help="Text, may hold ${node.NAME.output} or ${var.name}.",
             check=_check_condition_text,
         ),
-        *(
-            Setting(
-                Ports.case(n),
-                f"Case {n}",
-                "text",
-                default="",
-                max_length=200,
-                stored_in="config",
-                help="Empty: this case is unused and its output is hidden." if n == 1 else None,
-            )
-            for n in range(1, SWITCH_CASES + 1)
-        ),
+        *(setting for n in range(1, SWITCH_CASES + 1) for setting in _switch_case(n)),
         Setting(
             "case_sensitive",
             "Case sensitive",
@@ -773,18 +806,67 @@ class SwitchType(_ExecutionType):
             help="Off: texts are compared without regard to upper and lower case.",
         ),
     )
-    reference_keys = ("value",)
+    reference_keys = ("value", *(Ports.case(n) for n in range(1, SWITCH_CASES + 1)))
 
     def connect_error(
         self, source: Endpoint, source_port: str, target: Endpoint, target_port: str
     ) -> str | None:
-        if source_port.startswith("case_"):
-            case = (source.config or {}).get(source_port)
-            if not isinstance(case, str) or not case.strip():
-                return (
-                    f"{source_port.replace('_', ' ').capitalize()} is unused: give it a value first"
-                )
+        if source_port.startswith("case_") and not switch_case_used(source.config, source_port):
+            return f"{source_port.replace('_', ' ').capitalize()} is unused: give it a value first"
         return super().connect_error(source, source_port, target, target_port)
+
+
+def _check_fields(value: str) -> None:
+    """The fields of an Edit Fields node: ``name = value`` per line, variable names, no secret."""
+    try:
+        parse_fields(value)
+    except FieldsError as error:
+        raise SettingError(str(error)) from error
+
+
+class SetType(_ExecutionType):
+    """Edit Fields: sets variables of the run (``${var.NAME}``) from text and references, without code.
+
+    One ``name = value`` per line; the value may hold ``${node...}``, ``${var...}`` and ``${card...}``. With
+    ``value_types`` ``detect`` a value that is a JSON number, ``true``, ``false``, ``null``, an object or a
+    list is stored as that, otherwise as text (see ``engine/fields.py``).
+    """
+
+    kind = NodeKind.SET
+    label = "Edit Fields"
+    settings = (
+        Setting(
+            "fields",
+            "Fields",
+            "lines",
+            default="",
+            max_length=20000,
+            placeholder="priority = ${node.Classify.output}",
+            stored_in="config",
+            references="context",
+            help=(
+                "One 'name = value' per line. Each sets the variable ${var.name} for the nodes after this "
+                "one (names: lowercase letters, digits and underscores). A value may hold "
+                "${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or ${card.name}; secrets cannot be "
+                "used, a variable is plain data."
+            ),
+            check=_check_fields,
+        ),
+        Setting(
+            "value_types",
+            "Value types",
+            "select",
+            default="text",
+            options=("text", "detect"),
+            stored_in="config",
+            help=(
+                "text: every value is stored as text. detect: a value that is a number, true, false, null, "
+                "a JSON object or a JSON list is stored as that."
+            ),
+        ),
+        ON_FAILURE,
+    )
+    reference_keys = ("fields",)
 
 
 def _override(key: str, label: str, type_: str, **more: Any) -> Setting:
@@ -923,5 +1005,6 @@ for _type in (
     IfType(),
     SwitchType(),
     AgentType(),
+    SetType(),
 ):
     register(_type)

@@ -29,6 +29,7 @@ from openartifact.api.routes import public_router as public_api_router
 from openartifact.api.routes import router as api_router
 from openartifact.api.runs import router as runs_router
 from openartifact.api.secrets import router as secrets_router
+from openartifact.api.settings import build_settings_router
 from openartifact.api.tasks import router as tasks_router
 from openartifact.api.v1 import router as v1_router
 from openartifact.artifact_types.service import ArtifactTypeService
@@ -207,6 +208,10 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(v1_router)
     for router in agent_routers([Depends(require_api_token)]):
         app.include_router(router)
+    app.include_router(build_settings_router("/api", ["settings"]))
+    app.include_router(
+        build_settings_router("/api/v1", ["integration API"], [Depends(require_api_token)])
+    )
     app.include_router(events_router)
     app.include_router(web_router)
 

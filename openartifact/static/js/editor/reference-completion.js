@@ -4,7 +4,7 @@
  * (the server does), and a name it does not know is simply not offered. */
 
 /** Kinds of nodes that leave a result in the run context (the others have nothing to reference). */
-export const RESULT_KINDS = ["code", "http", "timer", "if", "switch", "agent"];
+export const RESULT_KINDS = ["code", "http", "timer", "if", "switch", "agent", "set"];
 const NODE_FIELDS = [
   ["output", "text the node wrote"],
   ["exit_code", "exit code"],
@@ -13,6 +13,14 @@ const NODE_FIELDS = [
   ["data.", "its data, then .key"],
 ];
 const MAX_SUGGESTIONS = 40;
+
+/** The names an Edit Fields node sets (mirror of engine/fields.py: the part before "=" of each line). */
+export function fieldNames(text) {
+  return String(text ?? "")
+    .split("\n")
+    .map((line) => (line.includes("=") ? line.slice(0, line.indexOf("=")).trim().replace(/^var\./, "") : ""))
+    .filter((name) => /^[a-z][a-z0-9_]{0,63}$/.test(name));
+}
 
 /** The key of a node in the run context (engine/context.py `node_key`): its name with other characters as `_`. */
 export function nodeKey(name) {
@@ -52,8 +60,9 @@ export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecre
   }
   const variables = new Set();
   for (const node of nodes) {
-    if (node.kind !== "code") continue;
-    for (const line of String(node.config?.sets_variables ?? "").split("\n")) {
+    const declared =
+      node.kind === "code" ? String(node.config?.sets_variables ?? "").split("\n") : node.kind === "set" ? fieldNames(node.config?.fields) : [];
+    for (const line of declared) {
       const name = line.trim();
       if (name && !variables.has(name)) {
         variables.add(name);

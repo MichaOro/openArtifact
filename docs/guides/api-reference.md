@@ -108,6 +108,15 @@ Guide: [Agents and LLM providers](agents.md).
 | PATCH | `/api/v1/providers/{ref}/models/{id}` | `enabled`, `label` (`id` is the row's id) | 404, 422 |
 | DELETE | `/api/v1/providers/{ref}/models/{id}` | Delete a model defined by hand; `204` | 404, 409 |
 
+### Settings (`/api/v1/settings`)
+
+| Method | Path | Purpose | Errors |
+|--------|------|---------|--------|
+| GET | `/api/v1/settings/run-limits` | `max_steps`, `time_limit_minutes` (0: none), their bounds, `max_concurrent_runs` (read-only, the operator's) and `updated_at` | |
+| PUT | `/api/v1/settings/run-limits` | Change one or both limits (10 to 100000 steps, 0 to 10080 minutes); applies to executions that start afterwards; publishes `settings.changed` | 422 |
+
+The browser has the same routes under `/api/settings`.
+
 A step read alone (`GET /api/v1/artifacts/{ref}/executions/{id}/steps/{step_id}`) carries `detail` for an agent step:
 the prompts as sent, the inputs, the overrides and every attempt. Lists carry `detail: null`.
 
@@ -295,6 +304,7 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `artifact_types.changed` | `{"types": [...]}` (as `GET /api/artifact-types`) | an artifact type was created, changed or deleted |
 | `agents.changed` | `{}` | an agent was created, changed, published or deleted: reload `GET /api/agents` |
 | `providers.changed` | `{}` | a provider or one of its models changed: reload `GET /api/providers` |
+| `settings.changed` | `{"run_limits": {...}}` (as `GET /api/settings/run-limits`) | the run limits were changed |
 | `board.resync` | `{}` | other tasks got new positions or lost their parent: reload the board |
 | `run.updated` | the run state (as `GET /api/runs`) | a run starts, advances or ends |
 | `execution.updated` | `{"task_id", "execution"}` (the summary) | an execution starts and at every status change |

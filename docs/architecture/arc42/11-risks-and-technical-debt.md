@@ -43,16 +43,15 @@ No intentional technical debt has been introduced beyond the items below, which 
 | `#12` references are resolved at display time | Not validated on save (a body may contain `#5` as plain text); no back-references yet |
 | Parent picker without search | Becomes necessary with many artifacts |
 | Pipeline editor: stages only grow, no undo, no live sync between tabs, edges routed only for loops | See ADR-012 §2.4 |
-| Runs can loop until the step limit (1000), an On Error routed back to its own action included | Planned: a *Settings* area with a global loop protection and a wall-clock deadline (ADR-013 §4) |
 | Access is one shared token; no scopes, no per-client tokens, no audit log beyond `created_by` / `started_by` and the execution history | Planned with the settings area (ADR-016 §3.5) |
 | `style-src` allows `'unsafe-inline'` (inline `style` attributes) | Tighten when the UI no longer sets them |
 | Python dependencies are not locked and the base image is a floating tag | Open (CI/CD guide) |
-| Replay and engine duplicate the step bound (`MAX_ACTIONS` / `MAX_STEPS`) | Share one constant when `flow.py` is next changed |
 | No key rotation for credentials, no credential UI | See risks 12 and 18 |
 | The quarantine mechanism (`quarantine.json`, a weekly check, removal after 14 days without use; ADR-014 §3.6) | In use as a process; one entry since 2026-11-23 (`engine/context.py` `_FIELDS`, found by a review of unused names) |
 | Pushed `fix:` history from the bootstrap phase | Kept as is; no history rewrite on `main` |
 
-Closed since the previous version of this chapter: one run per artifact (the history now lives in `executions`, ADR-025; the run row stays the
+Closed since the previous version of this chapter: loop protection and a time limit per execution (*Settings > Run
+limits*, ADR-039) and the duplicated step bound of replay and engine (one constant now); one run per artifact (the history now lives in `executions`, ADR-025; the run row stays the
 current state), the unused project and work-item model with its repositories (removed, ADR-032), the release tag check (a tag must equal
 `openartifact/version.py`, checked in the release workflow).
 

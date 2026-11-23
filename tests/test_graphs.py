@@ -487,6 +487,7 @@ def test_node_types_are_served_under_their_own_path(client: TestClient) -> None:
         "if",
         "switch",
         "agent",
+        "set",
     }
     timer = by_kind["timer"]
     assert (timer["scopes"], timer["addable"], timer["fixed"]) == (["action"], True, False)

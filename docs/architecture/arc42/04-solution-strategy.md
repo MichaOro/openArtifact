@@ -62,7 +62,7 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Code node (`sh`, `python`), resource limits, leftover cleanup | Built; no sandbox, needs an API token (or an explicit development switch) | ADR-021, ADR-023 |
 | HTTP node with SSRF guard | Built | ADR-021, ADR-023 |
 | Run context: variables and node results of a run, `${node...}` / `${var...}` / `${card...}` references | Built | ADR-033 |
-| If and Switch nodes, editor suggestions for references | Built | ADR-034 |
+| If and Switch nodes (a rule per Switch case), Edit Fields node, editor suggestions for references | Built | ADR-034, ADR-039 |
 | Artifact types with typed card parameters | Built | ADR-035 |
 | User-defined lanes with a card look per lane; one UI language (primary, destructive, neutral) | Built | ADR-011, ADR-036 |
 | Credential store | Built as API; no page of its own (the provider dialog can store an API key) | ADR-024, ADR-037 |
@@ -71,7 +71,7 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Global executions page and API | Built | ADR-028 |
 | Integration API (`/api/v1`) and MCP server (19 tools) | Built | ADR-016 |
 | Access protection and request hardening | Built | ADR-016, ADR-017 |
-| Settings area in the UI: loop protection, wall-clock deadlines, separate tokens | Not built except *Settings › LLM providers* (a run is cut off at 1000 steps; limits are environment variables) | ADR-037 |
+| Settings area: LLM providers, run limits (steps and time per execution) | Built (ADR-037, ADR-039); separate tokens are not built, the number of parallel runs stays an environment variable | ADR-039 |
 | Human-in-the-loop (a `waiting` status), automatic starts by the system | Not built (`started_by` knows `system`, nothing sets it) | |
 | Agents: definitions with draft, versions and rollback, LLM providers (OpenRouter, OpenAI-compatible) with models and connection test, the Agent node with overrides, one request per run with retries, prompts and attempts in the history | Built; one request only: no tools, loops, streaming, structured output, budgets | ADR-037 |
 | Git, notifications, PostgreSQL as a data source, connector layer | Not built | ADR-020 |

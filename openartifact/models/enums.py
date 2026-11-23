@@ -65,6 +65,7 @@ class NodeKind(enum.StrEnum):
     IF = "if"
     SWITCH = "switch"
     AGENT = "agent"
+    SET = "set"
 
 
 class ProviderKind(enum.StrEnum):

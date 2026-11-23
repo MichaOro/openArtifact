@@ -3,10 +3,10 @@ import { before, test } from "node:test";
 import { installDocument, loadTypes } from "./support.mjs";
 
 const JS = "../../openartifact/static/js/editor/";
-const { loadNodeTypes, typeOf, addableIn } = await import(`${JS}node-types.js`);
+const { loadNodeTypes, typeOf, addableIn, switchCaseUsed } = await import(`${JS}node-types.js`);
 
 before(async () => {
-  installDocument(["code", "http", "if", "switch"]);
+  installDocument(["code", "http", "if", "switch", "pencil"]);
   await loadTypes(loadNodeTypes);
 });
 
@@ -14,7 +14,7 @@ const node = (kind, config = {}) => ({ id: `${kind}-1`, kind, name: kind, x: 0, 
 
 test("If and Switch come after HTTP in the menu of an action", () => {
   const kinds = addableIn("action").map((t) => t.kind);
-  assert.deepEqual(kinds.slice(kinds.indexOf("http")), ["http", "if", "switch", "note"]);
+  assert.deepEqual(kinds.slice(kinds.indexOf("http")), ["http", "if", "switch", "set", "note"]);
 });
 
 test("the If card shows its first condition and how many more there are", () => {
@@ -56,4 +56,39 @@ test("the Switch card grows with its visible outputs and no edge may start at a 
   assert.equal(view.canFeed(full, "case_6", target, "pass"), true);
   assert.equal(view.canFeed(node("switch"), "case_6", target, "pass"), false);
   assert.equal(view.canFeed(node("switch"), "else", target, "pass"), true);
+});
+
+test("a Switch case is used with a value or with an operator that needs none, like the server says", () => {
+  assert.equal(switchCaseUsed({ case_1: "x" }, "case_1"), true);
+  assert.equal(switchCaseUsed({ case_1: "  " }, "case_1"), false);
+  assert.equal(switchCaseUsed({}, "case_1"), false);
+  assert.equal(switchCaseUsed({ case_operator_2: "is empty" }, "case_2"), true);
+  assert.equal(switchCaseUsed({ case_operator_2: "contains" }, "case_2"), false);
+});
+
+test("a Switch case shows its operator before the value unless it is equals", () => {
+  const view = typeOf("switch");
+  const rules = node("switch", {
+    value: "${var.score}",
+    case_1: "90",
+    case_operator_1: "greater or equal",
+    case_2: "urgent",
+    case_operator_2: "contains",
+    case_operator_3: "is empty",
+    case_4: "gold",
+  });
+  assert.deepEqual([1, 2, 3, 4].map((n) => view.portLabel(`case_${n}`, rules)), ["≥ 90", "contains urgent", "is empty", "gold"]);
+  assert.deepEqual(view.outputs.filter((p) => view.isVisible(rules, p.name)).map((p) => p.name), ["case_1", "case_2", "case_3", "case_4", "else"]);
+  assert.equal(view.groupUsed(rules, "Case 3"), true);
+  assert.equal(view.groupUsed(rules, "Case 5"), false);
+  assert.equal(view.groupUsed(rules, "Something else"), null);
+  const target = { id: "out-1", kind: "output" };
+  assert.equal(view.canFeed(rules, "case_3", target, "pass"), true);
+});
+
+test("an Edit Fields card names the fields it sets", () => {
+  const view = typeOf("set");
+  assert.equal(view.caption(node("set")), "no field yet");
+  assert.equal(view.caption(node("set", { fields: "priority = high\nvar.score = ${var.x}\nBad = 1\nno equals" })), "priority, score");
+  assert.deepEqual(view.outputs.map((p) => p.name), ["pass", "fail"]);
 });

@@ -17,7 +17,18 @@ from openartifact.app import _create_app
 from openartifact.config import Settings
 from openartifact.exceptions import ArtifactError, ConfigurationError
 from openartifact.security import COOKIE_MAX_AGE, SECURE_COOKIE, session_valid, session_value
-from tests.helpers import make_task, post, slow_pipeline, wait_for_run
+from tests.helpers import (
+    build_pipeline,
+    connect,
+    graph_url,
+    kind_of,
+    link,
+    make_task,
+    node,
+    post,
+    slow_pipeline,
+    wait_for_run,
+)
 
 TOKEN = "s3cure-token-" + "x" * 30
 SECRET = "k" * 40
@@ -393,18 +404,29 @@ def test_runs_above_the_limit_are_refused_with_429(
     assert again.status_code == 201
 
 
-def test_a_run_counts_the_nodes_of_actions_against_the_step_limit(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import openartifact.engine.runner as runner
-
-    monkeypatch.setattr(runner, "MAX_STEPS", 1)
-    pipeline = slow_pipeline(
-        client
-    )  # one action with a 30 s timer: the action and its first node are 2 steps > 1
+def test_a_run_counts_the_nodes_of_actions_against_the_step_limit(client: TestClient) -> None:
+    """One action whose definition chains twelve nodes: the action and its nodes count against the same
+    limit, so ten steps are exhausted inside the action, not by the number of actions."""
+    assert client.put("/api/settings/run-limits", json={"max_steps": 10}).status_code == 200
+    definition = post(client, "/api/actions", name="Many steps")
+    previous, port = kind_of(client, definition, "trigger"), "out"
+    for edge in client.get(graph_url(definition)).json()["edges"]:
+        client.delete(f"{graph_url(definition)}/edges/{edge['id']}")
+    for n in range(12):
+        step = node(client, definition, "set", name=f"Set {n}", config={"fields": f"n = {n}"})
+        connect(client, definition, previous, port, step, "in")
+        previous, port = step, "pass"
+    connect(client, definition, previous, port, kind_of(client, definition, "output"), "pass")
+    pipeline = build_pipeline(client, stages=1)
+    link(client, pipeline, pipeline["stages"][0][1], definition)
     task = make_task(client)
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
-    assert wait_for_run(client, task, "failed")["note"] == "The pipeline does not come to an end"
+    run = wait_for_run(client, task, "failed")
+    assert (
+        run["note"]
+        == "The pipeline does not come to an end: more than 10 steps (Settings > Run limits)"
+    )
+    assert len(run["node_results"]) == 10  # the steps before the limit were recorded
 
 
 def test_event_streams_are_limited(make_client: Callable[..., TestClient]) -> None:

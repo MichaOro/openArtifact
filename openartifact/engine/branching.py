@@ -26,7 +26,13 @@ from typing import Any
 
 from openartifact.engine.context import ContextError, RunView
 from openartifact.engine.results import NodeResult
-from openartifact.graph.node_types import IF_ROWS, SWITCH_CASES, UNARY_OPERATORS, Ports
+from openartifact.graph.node_types import (
+    IF_ROWS,
+    SWITCH_CASES,
+    UNARY_OPERATORS,
+    Ports,
+    switch_case_used,
+)
 
 SHOWN_CHARS = 200
 _NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
@@ -138,34 +144,50 @@ def evaluate_if(config: dict[str, Any], view: RunView) -> NodeResult:
 
 
 def evaluate_switch(config: dict[str, Any], view: RunView) -> NodeResult:
-    """The result of a Switch node: the first matching case, *else* (pass) when none matches, *else*
-    (fail) when the value cannot be resolved."""
-    try:
-        value = view.render(str(config.get("value") or ""))
-    except ContextError as problem:
+    """The result of a Switch node: the first case whose condition holds, *else* (pass) when none does,
+    *else* (fail) when the value or a case cannot be resolved or compared.
+
+    Each case compares the node's value with its own operator (``case_operator_N``, ``equals`` when not set:
+    Switches of before ADR-039 behave as they did). An unused case (no value, an operator that needs one)
+    is skipped.
+    """
+    case_sensitive = config.get("case_sensitive", True) is not False
+    cases: list[dict[str, Any]] = []
+
+    def stop(reason: str, value: str | None) -> NodeResult:
         return NodeResult(
             "fail",
             output=Ports.ELSE,
-            reason=str(problem),
+            reason=reason,
             port=Ports.ELSE,
-            data={"value": None, "matched": None},
+            data={"value": value, "matched": None, "cases": cases},
         )
-    folded = (
-        value.strip()
-        if config.get("case_sensitive", True) is not False
-        else value.strip().casefold()
-    )
+
+    try:
+        value = view.render(str(config.get("value") or ""))
+    except ContextError as problem:
+        return stop(str(problem), None)
     matched: str | None = None
     for n in range(1, SWITCH_CASES + 1):
-        case = str(config.get(Ports.case(n)) or "").strip()
-        if (
-            case
-            and (case if config.get("case_sensitive", True) is not False else case.casefold())
-            == folded
-        ):
-            matched = Ports.case(n)
+        port = Ports.case(n)
+        if not switch_case_used(config, port):
+            continue
+        operator = str(config.get(f"case_operator_{n}") or "equals")
+        row: dict[str, Any] = {"case": port, "operator": operator, "right": "", "result": None}
+        cases.append(row)
+        try:
+            right = "" if operator in UNARY_OPERATORS else view.render(str(config.get(port) or ""))
+            row["right"] = _shown(right)
+            row["result"] = compare(value, operator, right, case_sensitive=case_sensitive)
+        except (ContextError, UnevaluableError) as problem:
+            return stop(f"Case {n}: {problem}", _shown(value))
+        if row["result"]:
+            matched = port
             break
     port = matched or Ports.ELSE
     return NodeResult(
-        "pass", output=port, port=port, data={"value": _shown(value), "matched": matched}
+        "pass",
+        output=port,
+        port=port,
+        data={"value": _shown(value), "matched": matched, "cases": cases},
     )

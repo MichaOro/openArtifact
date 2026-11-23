@@ -48,6 +48,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [036](036-ui-conventions-and-lane-settings.md) | UI conventions and lane settings | Accepted | 2026-11-22 | amends ADR-011, ADR-029 |
 | [037](037-agent-harness.md) | Agent harness: agents, LLM providers, the agent node | Accepted | 2026-11-22 | amends ADR-021, ADR-022, ADR-024, ADR-025, ADR-027, ADR-033 |
 | [038](038-repository-layout.md) | Repository layout: one Python project at the root | Accepted | 2026-11-23 | amends ADR-001, ADR-019 |
+| [039](039-edit-fields-switch-rules-and-run-limits.md) | Edit Fields node, a rule per Switch case, run limits as settings | Accepted | 2026-11-23 | amends ADR-013, ADR-033, ADR-034 |
 
 ## Notes
 

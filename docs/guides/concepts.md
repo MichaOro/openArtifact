@@ -76,7 +76,8 @@ many actions.
 | Code | Runs shell or Python text | On Pass or On Fail |
 | HTTP request | Calls an HTTP address | On Pass or On Fail |
 | If | Compares values of the run context | Yes, No or Else |
-| Switch | Compares one value with up to six cases | Case 1 ... 6 or Else |
+| Switch | Compares one value with up to six cases, each with its own operator | Case 1 ... 6 or Else |
+| Edit Fields | Sets variables of the run from text and references, without code | On Pass or On Fail |
 | Agent | Sends one request to a language model for an [agent](agents.md) | On Pass or On Fail |
 
 Details in the [execution nodes guide](execution-nodes.md). Further kinds are added through a registry

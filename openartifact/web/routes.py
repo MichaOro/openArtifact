@@ -194,6 +194,12 @@ async def providers(request: Request) -> HTMLResponse:
     return _page(request, "providers.html", "LLM providers", "providers")
 
 
+@router.get("/settings/run-limits", response_class=HTMLResponse, include_in_schema=False)
+async def run_limits(request: Request) -> HTMLResponse:
+    """How many steps and how much time an execution may take."""
+    return _page(request, "run_limits.html", "Run limits", "run-limits")
+
+
 @router.get(
     "/artifacts/{ref}/executions/{execution_id}",
     response_class=HTMLResponse,

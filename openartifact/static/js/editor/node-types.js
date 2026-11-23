@@ -6,6 +6,7 @@
 import { overridesOf } from "../agents/model.js";
 import { icon } from "../components/icons.js";
 import { request } from "../http.js";
+import { fieldNames } from "./reference-completion.js";
 
 export const HEADER = 44; // stage header height
 export const SLOTS = 3; // attachment points per side of a stage, top to bottom
@@ -257,6 +258,16 @@ class CodeView extends ExecutionView {
   }
 }
 
+/** Operators that look at the value only (mirror of UNARY_OPERATORS, graph/node_types.py). */
+const UNARY = ["is empty", "is not empty", "is true", "is false"];
+const OPERATOR_SIGNS = { "not equals": "≠", "greater than": ">", "less than": "<", "greater or equal": "≥", "less or equal": "≤" };
+
+/** Whether a Switch case is in use: a value, or an operator that needs none (mirror of switch_case_used). */
+export function switchCaseUsed(config, port) {
+  const operator = config?.[`case_operator_${port.slice(5)}`] ?? "equals";
+  return UNARY.includes(operator) || (config?.[port] ?? "").trim() !== "";
+}
+
 /** Longest text a card shows of a condition. */
 const SHORT = 40;
 const short = (text) => (text.length > SHORT ? `${text.slice(0, SHORT)}…` : text);
@@ -284,7 +295,7 @@ class SwitchView extends ExecutionView {
   static icon = "switch";
 
   #usedCases(node) {
-    return [1, 2, 3, 4, 5, 6].filter((n) => (node.config?.[`case_${n}`] ?? "").trim() !== "");
+    return [1, 2, 3, 4, 5, 6].filter((n) => switchCaseUsed(node.config, `case_${n}`));
   }
 
   /** The value and the number of cases. */
@@ -294,9 +305,15 @@ class SwitchView extends ExecutionView {
     return `${value ? short(value) : "no value yet"} · ${cases} ${cases === 1 ? "case" : "cases"}`;
   }
 
-  /** The ports of cases without a value are not there; Else always is. */
+  /** The ports of unused cases are not there; Else always is. */
   isVisible(node, port) {
-    return !port.startsWith("case_") || (node.config?.[port] ?? "").trim() !== "";
+    return !port.startsWith("case_") || switchCaseUsed(node.config, port);
+  }
+
+  /** A case group of the inspector is open when the case is in use. */
+  groupUsed(node, group) {
+    const n = group.match(/^Case (\d)$/)?.[1];
+    return n ? switchCaseUsed(node.config, `case_${n}`) : null;
   }
 
   /** The card grows with its visible outputs. */
@@ -305,14 +322,30 @@ class SwitchView extends ExecutionView {
     return { width: 250, height: Math.max(84, 26 * visible + 20) };
   }
 
-  /** A case is shown by its value, as the user wrote it. */
+  /** A case is shown by its condition as the user wrote it: the value, or the operator before it when it is
+   * not "equals" ("> 10", "contains urgent", "is empty"). */
   portLabel(port, node = null) {
-    const value = port.startsWith("case_") ? node?.config?.[port]?.trim() : "";
-    return value ? short(value) : super.portLabel(port, node);
+    if (!port.startsWith("case_") || !node) return super.portLabel(port, node);
+    const value = node.config?.[port]?.trim() ?? "";
+    const operator = node.config?.[`case_operator_${port.slice(5)}`] ?? "equals";
+    const text = operator === "equals" ? value : `${OPERATOR_SIGNS[operator] ?? operator} ${UNARY.includes(operator) ? "" : value}`.trim();
+    return text ? short(text) : super.portLabel(port, node);
   }
 
   canFeed(source, sourcePort, target, targetPort) {
     return this.isVisible(source, sourcePort) && super.canFeed(source, sourcePort, target, targetPort);
+  }
+}
+
+class SetView extends ExecutionView {
+  static kind = "set";
+  static icon = "pencil";
+
+  /** The names of the fields it sets. */
+  caption(node) {
+    const names = fieldNames(node.config?.fields);
+    if (!names.length) return "no field yet";
+    return short(names.join(", "));
   }
 }
 
@@ -364,7 +397,7 @@ export function registerView(View) {
   VIEWS.set(View.kind, View);
 }
 
-[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView, IfView, SwitchView, AgentView].forEach(registerView);
+[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView, IfView, SwitchView, AgentView, SetView].forEach(registerView);
 
 const TYPES = new Map();
 

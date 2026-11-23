@@ -127,7 +127,9 @@ export class InspectorBlocks {
         group = document.createElement("details");
         group.className = "ge-group";
         group.dataset.group = setting.group;
-        const used = String(settingValue(node, setting) ?? "").trim() !== ""; // the first setting of a group is its main value
+        // the kind may know better (a Switch case with "is empty" is used without a value); else the first
+        // setting of a group is its main value
+        const used = typeOf(node).groupUsed?.(node, setting.group) ?? String(settingValue(node, setting) ?? "").trim() !== "";
         group.append(Object.assign(document.createElement("summary"), { textContent: used ? setting.group : `${setting.group} (empty)` }));
         group.open = used || setting.key.endsWith("_1");
         parts.push(group);

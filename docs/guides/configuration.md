@@ -48,6 +48,10 @@ The database is SQLite in WAL mode and stays so ([ADR-020](../architecture/adr/0
 | `OPENARTIFACT_MAX_CONCURRENT_RUNS` | integer | `8` | at least 1 | Pipeline runs that may be active at the same time; a further start gets `429`. |
 | `OPENARTIFACT_MAX_SSE_SUBSCRIBERS` | integer | `50` | at least 1 | Open live-update streams (browser tabs); a further one gets `503`. |
 
+The limits of a single execution (how many steps, how much time) are not environment variables: they are set on
+*Settings > Run limits* in the web interface or with `PUT /api/v1/settings/run-limits`, take effect for the executions
+that start afterwards and are kept in the database ([ADR-039](../architecture/adr/039-edit-fields-switch-rules-and-run-limits.md)).
+
 ## Execution history
 
 | Variable | Type | Default | Bounds | Meaning |

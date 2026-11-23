@@ -1,7 +1,8 @@
 """Database models and the value sets stored in their string columns, one module per area.
 
 ``board`` (artifacts, lanes, artifact types), ``graphs`` (pipelines and action definitions), ``runs`` (the current
-run, executions and their steps), ``credentials`` (secrets), ``agents`` (agents, versions, LLM providers and models)
+run, executions and their steps), ``credentials`` (secrets), ``agents`` (agents, versions, LLM providers and models), ``settings`` (settings
+changed at run time)
 and ``enums`` (the value sets). Everything is imported from here: ``from openartifact.models import Task``.
 
 Live: ``Task`` (an artifact, a card on the board; ``status`` is the key of its ``Lane``), ``Lane``, ``Graph``,
@@ -28,10 +29,12 @@ from openartifact.models.enums import (
 )
 from openartifact.models.graphs import Graph, GraphEdge, GraphNode
 from openartifact.models.runs import Execution, PipelineRun, RunNodeResult, RunStage
+from openartifact.models.settings import AppSetting
 
 __all__ = [
     "Agent",
     "AgentVersion",
+    "AppSetting",
     "ArtifactType",
     "ArtifactTypeField",
     "CreatedBy",

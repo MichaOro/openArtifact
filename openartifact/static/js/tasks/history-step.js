@@ -6,7 +6,7 @@ import { detailView } from "../agents/view.js";
 import { icon } from "../components/icons.js";
 import { formatDuration, secondsBetween, setChip } from "./history-format.js";
 
-const KIND_ICONS = { code: "code", http: "http", timer: "clock", trigger: "play", output: "check", if: "if", switch: "switch", agent: "agent" };
+const KIND_ICONS = { code: "code", http: "http", timer: "clock", trigger: "play", output: "check", if: "if", switch: "switch", agent: "agent", set: "pencil" };
 const PORTS = { pass: "On Pass", fail: "On Fail", out: "Next", yes: "Yes", no: "No", else: "Else" };
 
 /** How long a step took ("0.4 s"), null while it has not finished. */

@@ -19,6 +19,7 @@ from openartifact.graph.node_types import (
     fixed_in,
     kinds_in,
     node_type,
+    switch_case_used,
 )
 from openartifact.graph.rules import Endpoint, validate_edge
 from openartifact.graph.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
@@ -185,6 +186,7 @@ class GraphRepository:
                         NodeKind.IF,
                         NodeKind.SWITCH,
                         NodeKind.AGENT,
+                        NodeKind.SET,
                     ]
                 ),
             )
@@ -262,7 +264,7 @@ class GraphRepository:
             unused = [
                 p
                 for p in node_type(node.kind).output_names()
-                if p.startswith("case_") and not str((node.config or {}).get(p) or "").strip()
+                if p.startswith("case_") and not switch_case_used(node.config, p)
             ]
             await (
                 self._session.execute(  # a case without a value has no output: its connection goes

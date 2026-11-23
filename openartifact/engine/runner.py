@@ -31,6 +31,7 @@ from openartifact.engine.chain import edge_from, locate, pipeline_chain
 from openartifact.engine.context import ContextError, NodeIndex, RunContext, RunView
 from openartifact.engine.executors import EXECUTORS, Limits
 from openartifact.engine.history import Changes, ExecutionHistory, utcnow
+from openartifact.engine.limits import RunLimits, load_limits
 from openartifact.engine.results import NodeResult
 from openartifact.engine.schemas import ExecutionRead, NodeResultRead, RunRead, RunStageRead
 from openartifact.engine.snapshot import NestingError, build_snapshot
@@ -60,7 +61,8 @@ REMOVED_OUTPUT = "[output removed: the results of this execution are limited]"
 OUTPUT_CUT_MARK = "[output truncated]"
 #: Steps a run read carries (the newest); ``results`` of the run has them all.
 RUN_READ_RESULTS = 200
-MAX_STEPS = 1000  # a pipeline that loops for ever fails instead of running for ever
+#: How a time limit in minutes becomes seconds (one place, so a test can make a minute short).
+SECONDS_PER_MINUTE = 60
 _UNSET: Any = object()
 
 
@@ -99,12 +101,18 @@ class _Walk:
     #: The context of the execution (kept in ``executions.context``, written with every step).
     context: RunContext = field(default_factory=RunContext)
     index: NodeIndex = field(default_factory=NodeIndex)
+    #: The limits the execution froze at its start (Settings > Run limits).
+    limits: RunLimits = field(default_factory=RunLimits)
 
     def step(self) -> None:
-        """Count a step; actions and the nodes of their definitions count against the same limit."""
+        """Count a step; actions and the nodes of their definitions count against the same limit, so a
+        pipeline that loops for ever fails instead of running for ever."""
         self.steps += 1
-        if self.steps > MAX_STEPS:
-            raise _RunFailedError("The pipeline does not come to an end")
+        if self.steps > self.limits.max_steps:
+            raise _RunFailedError(
+                f"The pipeline does not come to an end: more than {self.limits.max_steps} steps "
+                "(Settings > Run limits)"
+            )
 
 
 class RunEngine:
@@ -273,6 +281,9 @@ class RunEngine:
             try:
                 pipeline = await load_pipeline(session, pipeline_id)
                 snapshot = await build_snapshot(session, pipeline)
+                snapshot["limits"] = (await load_limits(session))[
+                    0
+                ].to_data()  # frozen for this run
                 chain = pipeline_chain(snapshot["nodes"], snapshot["edges"])
                 index, entry, first_action = pick_start(chain, stage_id, action_id)
             except (TargetError, NestingError) as error:
@@ -516,6 +527,7 @@ class RunEngine:
                 walk = _Walk(
                     task_id, execution_id, json.loads(run.snapshot), pipeline_id=run.pipeline_id
                 )
+                walk.limits = RunLimits.of_snapshot(walk.snapshot)
                 stage_id, action_id, run_pipeline = run.stage_id, run.action_id, run.pipeline_id
                 walk.context = RunContext.loads(
                     await session.scalar(
@@ -525,7 +537,20 @@ class RunEngine:
                 walk.index = NodeIndex.of_snapshot(walk.snapshot)
             chain = pipeline_chain(walk.snapshot["nodes"], walk.snapshot["edges"])
             start = next(i for i, s in enumerate(chain) if s["id"] == stage_id)
-            await self._walk(walk, walk.snapshot, chain, start, action_id, 0, run_pipeline)
+            minutes = walk.limits.time_limit_minutes
+            deadline = asyncio.timeout(minutes * SECONDS_PER_MINUTE if minutes else None)
+            try:
+                async with (
+                    deadline
+                ):  # when it expires, the running node is cancelled like a stopped run's
+                    await self._walk(walk, walk.snapshot, chain, start, action_id, 0, run_pipeline)
+            except TimeoutError:
+                if not deadline.expired():
+                    raise  # a timeout of something inside, not the run's: the handler below decides
+                raise _RunFailedError(
+                    f"The execution took longer than its time limit of {minutes} minutes "
+                    "(Settings > Run limits)"
+                ) from None
             # it rests where it ended, even inside a called pipeline
             await self._save(task_id, status=RunStatus.DONE)
         except asyncio.CancelledError:

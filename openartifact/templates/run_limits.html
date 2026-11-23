@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% block title %}Run limits · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/settings.css">{% endblock %}
+{% block content %}
+{{ alert("The run limits could not be loaded.") }}
+<p class="st-intro">Limits of one execution. An execution keeps the limits it started with: a change applies to the executions that start afterwards.</p>
+<form class="st-card glass" data-run-limits novalidate>
+    <div class="field">
+        <label class="field__label" for="rl-steps">Steps per execution <span class="field__hint">(10 to 100,000)</span></label>
+        <input class="field__control" id="rl-steps" name="max_steps" type="number" min="10" max="100000" step="1" required aria-describedby="rl-steps-help">
+        <p class="field__help" id="rl-steps-help">Every action and every node of its definition is a step. A pipeline that loops (an On Error back into its own action, for example) fails when it reaches this number.</p>
+    </div>
+    <div class="field">
+        <label class="field__label" for="rl-time">Time limit per execution <span class="field__hint">(minutes, 0 = none, at most 10,080)</span></label>
+        <input class="field__control" id="rl-time" name="time_limit_minutes" type="number" min="0" max="10080" step="1" required aria-describedby="rl-time-help">
+        <p class="field__help" id="rl-time-help">When the time is up, the node that is running is stopped and the execution fails with the reason. The nodes have time limits of their own (Code, HTTP, Agent) on top of this.</p>
+    </div>
+    <p class="st-fact">Runs at the same time: <strong data-concurrent></strong>. This is a setting of the operator (<code>OPENARTIFACT_MAX_CONCURRENT_RUNS</code>) and cannot be changed here.</p>
+    <p class="form-error" role="alert" hidden data-form-error></p>
+    <div class="st-actions">
+        <span class="st-status" aria-live="polite" data-status></span>
+        <button type="submit" class="button button--primary" data-submit disabled>Save</button>
+    </div>
+</form>
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/settings/run-limits-page.js"></script>{% endblock %}

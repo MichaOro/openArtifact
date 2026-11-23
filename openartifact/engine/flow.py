@@ -33,12 +33,14 @@ from openartifact.engine.flow_schemas import (
     FlowVisit,
     TraversedEdge,
 )
+from openartifact.engine.limits import MAX_STEPS_MAX
 from openartifact.engine.schemas import ExecutionRead, ExecutionStepRead
 from openartifact.graph.node_types import Ports, node_type
 from openartifact.models import NodeKind, RunStatus
 
-#: Same bound as the engine's: a pipeline that loops for ever fails there, the replay stops here.
-MAX_ACTIONS = 1000
+#: The highest step limit an execution can have (engine/limits.py): the engine fails a run before it, so the
+#: replay of what was recorded never needs more; it only guards against a malformed snapshot.
+MAX_ACTIONS = MAX_STEPS_MAX
 
 Outcome = Literal["pass", "fail", "running"] | None
 Raw = dict[str, Any]

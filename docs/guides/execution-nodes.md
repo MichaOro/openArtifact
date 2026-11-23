@@ -1,4 +1,4 @@
-# Execution nodes: Code, HTTP, If and Switch
+# Execution nodes: Code, HTTP, If, Switch and Edit Fields
 
 The nodes that do work inside an action definition (see [Concepts](concepts.md)). You add them in the
 action editor with the "+" menu and set them in the inspector; every setting is saved as you type or leave
@@ -392,12 +392,35 @@ outcome `pass` for Yes and No, outcome `fail` with port `else` (and `"condition"
 
 ### Switch
 
-Compares one *Value* with up to six *cases* (texts, compared exactly after trimming; *Case sensitive* is on by
-default) and leaves by the first case that matches: outputs **Case 1** ... **Case 6** and **Else**. In the editor a
-case shows its text as the label of its output, and a case without a value has no output at all (connections to it are
-refused, and emptying a case removes its connection). **Else** is taken when no case matches (outcome `pass`) or when
-the value cannot be resolved (outcome `fail`, with the reason). Step data: `{"value": "gold", "matched": "case_2"}`,
-`matched` is `null` for Else.
+Compares one *Value* with up to six *cases* and leaves by the first case that holds: outputs **Case 1** ... **Case 6**
+and **Else**. Each case is a rule of its own: an *Operator* (the same list as the If node; `equals` when nothing is
+chosen) and the value to *Compare with*, which may hold references (`${node...}`, `${var...}`, `${card...}`, not
+secrets). *Case sensitive* (on by default) applies to every case. A case is in use when it has a value, or an operator
+that needs none (`is empty`, `is not empty`, `is true`, `is false`); an unused case has no output at all (connections to
+it are refused, and making it unused removes its connection). In the editor an output is labelled with its rule: the
+value for `equals`, otherwise the operator before it (`> 10`, `contains urgent`, `is empty`).
+
+**Else** is taken when no case holds (outcome `pass`), or when the value or a case cannot be resolved or compared
+(outcome `fail`, with the reason, for example `Case 2: both sides must be numbers for greater than`). Step data:
+`{"value": "gold", "matched": "case_2", "cases": [{"case": "case_1", "operator": "equals", "right": "silver",
+"result": false}, ...]}` lists the cases that were checked, up to the one that held; `matched` is `null` for Else.
+Switches made before case operators existed compare with `equals`, as they did.
+
+## Edit Fields node
+
+Sets variables of the run without code. *Fields* is one `name = value` per line; each line sets `${var.name}` for the
+nodes after this one. The value is text and may hold `${node.NAME.output}`, `${node.NAME.data.key}`, `${var.name}`
+and `${card.name}`; a secret is refused, because a variable is plain data that later nodes and the history show.
+Names are lowercase letters, digits and underscores, starting with a letter, at most 100 fields.
+
+*Value types*: `text` (the default) stores every value as text. `detect` stores a value that is a JSON number, `true`,
+`false`, `null`, an object or a list as that value (so `score = 7` can be compared as a number and
+`data = ${node.Fetch.data}` keeps the object); anything else, a quoted string included, stays text as written.
+
+The node leaves by **On Pass** with the variables set, or by **On Fail** (nothing is set) when a reference cannot be
+resolved or a value does not fit the limits of the run context (names, nesting of at most 3 levels, 32 KiB of
+variables). Its output is the fields as compact JSON; `data` lists their names. The editor suggests the names it sets
+as `${var.name}` in the nodes after it.
 
 ### Example: support triage
 
@@ -410,9 +433,11 @@ cases `silver`, `gold`, `platinum` sends each tier to its own handling and every
 
 ### Suggestions while typing
 
-In every text field that takes references (HTTP URL, headers and body; the If and Switch values) typing `${` (or
+In every text field that takes references (HTTP URL, headers and body; the If and Switch values and cases; the
+fields of Edit Fields; the inputs of an Agent node) typing `${` (or
 pressing Ctrl+Space inside an open `${`) opens a list under the caret: `node.NAME.output`, `exit_code`, `outcome`,
-`reason` and `data.` for the nodes of the action being edited, `var.name` for the variables the Code nodes declare, and
+`reason` and `data.` for the nodes of the action being edited, `var.name` for the variables the Code nodes declare and
+the Edit Fields nodes set, and
 the names of your secrets (`secret:NAME`) in the fields that allow them (not in conditions). Arrow keys move, Enter or
 Tab insert (the closing `}` is added), Escape closes the list and keeps the text, typing narrows it. Suggestions are
 hints; nothing is checked in the browser and the Code text gets none (it is never interpolated).

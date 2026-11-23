@@ -52,7 +52,7 @@ def test_the_menu_offers_if_and_switch_after_http(
     _open_action(page, base_url, api)
     page.click("[data-add-menu]")
     expect(page.locator("[data-add-list] button")).to_have_text(
-        ["Timer", "Code", "HTTP request", "If", "Switch", "Agent"]
+        ["Timer", "Code", "HTTP request", "If", "Switch", "Agent", "Edit Fields"]
     )
 
 
@@ -101,6 +101,14 @@ def test_an_if_node_is_configured_and_its_outputs_connect(
     )
 
 
+def _case(inspector: Locator, number: int) -> Locator:
+    """The value field of a Switch case; its group is opened first (unused cases are folded away)."""
+    group = inspector.locator(f'details[data-group="Case {number}"]')
+    if group.get_attribute("open") is None:
+        group.locator("summary").click()
+    return group.get_by_label("Compare with")
+
+
 def test_a_switch_shows_its_cases_as_port_labels_and_hides_the_unused(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
@@ -112,7 +120,7 @@ def test_a_switch_shows_its_cases_as_port_labels_and_hides_the_unused(
     inspector.get_by_label("Value").fill("${var.tier}")
     inspector.get_by_label("Value").press("Enter")
     for number, text in ((1, "silver"), (2, "gold")):
-        field = inspector.get_by_label(f"Case {number}")
+        field = _case(inspector, number)
         field.fill(text)
         field.press("Enter")
     expect(switch.locator(".ge-node__kind")).to_have_text("${var.tier} · 2 cases")
@@ -124,7 +132,7 @@ def test_a_switch_shows_its_cases_as_port_labels_and_hides_the_unused(
     page.click("[data-zoom-fit]")
     _drag(page, switch.locator(".ge-port--case_2"), page.locator(".ge-node--output .ge-port--pass"))
     eventually(lambda: _edges(api, definition), [("case_2", "pass"), ("out", "pass")])
-    field = inspector.get_by_label("Case 2")
+    field = _case(inspector, 2)
     field.fill("")
     field.press("Enter")  # an emptied case loses its output and its connection
     eventually(lambda: _edges(api, definition), [("out", "pass")])

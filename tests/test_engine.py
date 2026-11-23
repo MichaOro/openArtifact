@@ -394,10 +394,8 @@ def test_a_timer_that_finishes_lets_the_run_go_on(
 def test_a_definition_without_a_way_out_is_a_loop_that_ends(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """On Error back into the same action: the run fails instead of running for ever."""
-    import openartifact.engine.runner as runner
-
-    monkeypatch.setattr(runner, "MAX_STEPS", 5)
+    """On Error back into the same action: the run fails at the step limit of Settings > Run limits."""
+    assert client.put("/api/settings/run-limits", json={"max_steps": 10}).status_code == 200
     pipeline = build_pipeline(client, stages=1)
     _, action = pipeline["stages"][0]
     link(
@@ -406,7 +404,9 @@ def test_a_definition_without_a_way_out_is_a_loop_that_ends(
     connect(client, pipeline, action, "error", action, "in")
     task = make_task(client)
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
-    assert wait_for_run(client, task, "failed")["note"] == "The pipeline does not come to an end"
+    assert wait_for_run(client, task, "failed")["note"] == (
+        "The pipeline does not come to an end: more than 10 steps (Settings > Run limits)"
+    )
 
 
 def test_an_unexpected_error_fails_the_run_without_leaking_details(

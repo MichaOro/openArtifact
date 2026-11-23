@@ -70,3 +70,16 @@ test("an existing closing brace is kept once, a data path stays open", () => {
   const path = applyCompletion("${no", 4, openReference("${no", 4), { insert: "node.A.data.", detail: "", complete: false });
   assert.deepEqual(path, { text: "${node.A.data.", caret: 14 });
 });
+
+test("an Edit Fields node offers its result and the variables it sets", async () => {
+  const { fieldNames } = await import("../../openartifact/static/js/editor/reference-completion.js");
+  assert.deepEqual(fieldNames("a = 1\n var.b=2\nBad = 3\nno equals\n\nc ="), ["a", "b", "c"]);
+  assert.deepEqual(fieldNames(null), []);
+  const nodes = [
+    { id: "s", kind: "set", name: "Prepare", config: { fields: "priority = high\nscore = 3" } },
+    { id: "c", kind: "code", name: "Code", config: { sets_variables: "score" } },
+  ];
+  const inserts = candidatesFor(nodes).map((c) => c.insert);
+  assert.ok(inserts.includes("node.Prepare.output"));
+  assert.deepEqual(inserts.filter((i) => i.startsWith("var.")), ["var.priority", "var.score"]); // once each
+});

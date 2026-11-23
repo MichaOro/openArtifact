@@ -233,17 +233,30 @@ def test_recorded_values_are_cut_and_secrets_are_never_replaced() -> None:
 def test_switch_takes_the_first_matching_case_or_else() -> None:
     config = {"value": "${var.tier}", "case_1": "silver", "case_2": "gold", "case_4": "gold"}
     gold = evaluate_switch(config, _view({"tier": "gold"}))
+    # a case without an operator compares with "equals", as Switches did before operators existed
     assert (gold.outcome, gold.port, gold.data) == (
         "pass",
         "case_2",
-        {"value": "gold", "matched": "case_2"},
+        {
+            "value": "gold",
+            "matched": "case_2",
+            "cases": [
+                {"case": "case_1", "operator": "equals", "right": "silver", "result": False},
+                {"case": "case_2", "operator": "equals", "right": "gold", "result": True},
+            ],
+        },
     )
     none = evaluate_switch(config, _view({"tier": "bronze"}))
-    assert (none.outcome, none.port, none.data) == (
-        "pass",
-        "else",
-        {"value": "bronze", "matched": None},
-    )
+    assert (none.outcome, none.port) == ("pass", "else")
+    assert none.data == {
+        "value": "bronze",
+        "matched": None,
+        "cases": [
+            {"case": "case_1", "operator": "equals", "right": "silver", "result": False},
+            {"case": "case_2", "operator": "equals", "right": "gold", "result": False},
+            {"case": "case_4", "operator": "equals", "right": "gold", "result": False},
+        ],
+    }
     assert evaluate_switch(config, _view({"tier": " silver\n"})).port == "case_1"
     assert evaluate_switch(config, _view({"tier": "GOLD"})).port == "else"
     assert (
@@ -258,9 +271,50 @@ def test_an_empty_case_never_matches_and_an_unresolvable_value_is_an_error() -> 
     assert (broken.outcome, broken.port, broken.data) == (
         "fail",
         "else",
-        {"value": None, "matched": None},
+        {"value": None, "matched": None, "cases": []},
     )
     assert "${var.x}" in str(broken.reason)
+
+
+def test_each_case_has_its_own_operator() -> None:
+    config = {
+        "value": "${var.score}",
+        "case_1": "90",
+        "case_operator_1": "greater or equal",
+        "case_2": "50",
+        "case_operator_2": "greater than",
+        "case_operator_3": "is not empty",
+    }
+    assert evaluate_switch(config, _view({"score": "95"})).port == "case_1"
+    assert evaluate_switch(config, _view({"score": "70"})).port == "case_2"
+    assert evaluate_switch(config, _view({"score": "10"})).port == "case_3"  # needs no value
+    assert evaluate_switch(config, _view({"score": ""})).port == "else"
+    contains = {"value": "${var.text}", "case_1": "urgent", "case_operator_1": "contains"}
+    assert evaluate_switch(contains, _view({"text": "this is URGENT"})).port == "else"
+    assert evaluate_switch(
+        {**contains, "case_sensitive": False}, _view({"text": "URGENT!"})
+    ).port == ("case_1")
+
+
+def test_a_case_may_read_the_run_and_a_case_that_cannot_be_compared_is_an_error() -> None:
+    config = {"value": "${var.score}", "case_1": "${var.threshold}", "case_operator_1": "less than"}
+    held = evaluate_switch(config, _view({"score": "3", "threshold": "5"}))
+    assert held.port == "case_1" and (held.data or {})["cases"][0]["right"] == "5"
+    not_a_number = evaluate_switch(config, _view({"score": "many", "threshold": "5"}))
+    assert (not_a_number.outcome, not_a_number.port) == ("fail", "else")
+    assert not_a_number.reason == "Case 1: both sides must be numbers for less than"
+    missing = evaluate_switch(config, _view({"score": "3"}))
+    assert missing.outcome == "fail" and "${var.threshold}" in str(missing.reason)
+
+
+def test_a_case_is_used_when_it_has_a_value_or_an_operator_that_needs_none() -> None:
+    from openartifact.graph.node_types import switch_case_used
+
+    assert switch_case_used({"case_1": "x"}, "case_1")
+    assert not switch_case_used({"case_1": "  "}, "case_1")
+    assert not switch_case_used({}, "case_1")
+    assert switch_case_used({"case_operator_2": "is empty"}, "case_2")
+    assert not switch_case_used({"case_operator_2": "contains"}, "case_2")
 
 
 # ── registry, settings and connection rules ──────────────────────────
@@ -573,7 +627,15 @@ def test_a_switch_with_three_cases_and_an_else(client: TestClient) -> None:
     )
     steps = _steps(client, task)
     decide = steps[2]
-    assert (decide["port"], decide["data"]) == ("case_2", {"value": "high", "matched": "case_2"})
+    assert (decide["port"], decide["data"]["value"], decide["data"]["matched"]) == (
+        "case_2",
+        "high",
+        "case_2",
+    )
+    assert [c["case"] for c in decide["data"]["cases"]] == [
+        "case_1",
+        "case_2",
+    ]  # stops at the match
     assert steps[3]["node_name"] == "Went case_2"
     nothing = {**config, "case_2": "medium"}
     _, task2, _ = _branching_run(
@@ -621,3 +683,33 @@ def test_migration_0029_allows_if_and_switch_and_the_downgrade_removes_them(
     command.downgrade(alembic_config(), "0028")
     with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT id FROM graph_nodes").fetchall() == [("c",)]
+
+
+def test_a_case_with_an_operator_that_needs_no_value_has_an_output(client: TestClient) -> None:
+    action = post(client, "/api/actions", name="Rules")
+    switch = node(client, action, "switch", config={"case_operator_3": "is empty"})
+    output = kind_of(client, action, "output")
+    url = f"{graph_url(action)}/nodes/{switch['id']}"
+    edge = {"source_id": switch["id"], "target_id": output["id"], "target_port": "pass"}
+    assert (
+        client.post(
+            f"{graph_url(action)}/edges", json={**edge, "source_port": "case_3"}
+        ).status_code
+        == 201
+    )
+    refused = client.post(f"{graph_url(action)}/edges", json={**edge, "source_port": "case_1"})
+    assert (
+        refused.status_code == 422
+        and refused.json()["detail"] == "Case 1 is unused: give it a value first"
+    )
+    # back to "equals" without a value: the case is unused again and its connection goes
+    client.patch(url, json={"config": {"case_operator_3": "equals"}})
+    edges = client.get(graph_url(action)).json()["edges"]
+    assert not any(e["source_id"] == switch["id"] and e["source_port"] == "case_3" for e in edges)
+    described = {t["kind"]: t for t in client.get("/api/node-types").json()}["switch"]
+    keys = [s["key"] for s in described["settings"]]
+    assert keys[:5] == ["value", "case_operator_1", "case_1", "case_operator_2", "case_2"]
+    operator = next(s for s in described["settings"] if s["key"] == "case_operator_1")
+    assert (operator["default"], operator["group"]) == ("equals", "Case 1")
+    assert client.patch(url, json={"config": {"case_operator_1": "matches"}}).status_code == 422
+    assert client.patch(url, json={"config": {"case_1": "${secret:K}"}}).status_code == 422

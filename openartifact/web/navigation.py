@@ -103,7 +103,10 @@ SIDEBAR = (
             "Settings",
             "settings",
             href="/settings/providers",
-            children=(NavLink("providers", "LLM providers", "plug", href="/settings/providers"),),
+            children=(
+                NavLink("providers", "LLM providers", "plug", href="/settings/providers"),
+                NavLink("run-limits", "Run limits", "clock", href="/settings/run-limits"),
+            ),
         )
     )
 )

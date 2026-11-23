@@ -101,6 +101,7 @@ export const NODE_TYPES = [
     addable: true, chain: true, scopes: ["action"], inputs: [port("in")],
     outputs: [...[1, 2, 3, 4, 5, 6].map((n) => port(`case_${n}`, `Case ${n}`)), port("else", "Else")],
   }),
+  kind("set", "Edit Fields", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
   kind("note", "Note", { addable: true, scopes: ["action"] }), // a kind without a view of its own
 ];
 
