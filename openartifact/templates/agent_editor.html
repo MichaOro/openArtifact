@@ -12,14 +12,18 @@
     <header class="ag-head">
         <a class="ag-back" href="/agents">{{ icon("chevrons-left") }} Agents</a>
         <div class="ag-head__row">
-            <span class="ag-head__icon" aria-hidden="true">{{ icon("agent") }}</span>
-            <div class="ag-head__main">
-                <div class="ag-head__title">
-                    <h2 class="ag-head__name" data-agent-name tabindex="-1"></h2>
-                    <button type="button" class="icon-button icon-button--sm" data-rename aria-label="Rename or describe the agent" title="Rename">{{ icon("pencil") }}</button>
-                    <span class="ag-chips" data-chips></span>
+            {# The identity of a resource (components.css .identity): icon, name with its badges, the description with the
+               edit button after its last line. Name and description are edited in place (InlineName); the button opens the
+               full dialog. #}
+            <div class="identity">
+                <span class="identity__icon" aria-hidden="true">{{ icon("agent") }}</span>
+                <div class="identity__text">
+                    <div class="identity__title">
+                        <h2 class="identity__name" data-agent-name></h2>
+                        <span class="ag-chips" data-chips></span>
+                    </div>
+                    <p class="identity__about"><span class="identity__description" data-agent-description></span><button type="button" class="icon-button icon-button--sm identity__edit" data-rename aria-label="Edit the name and the description" title="Edit name and description">{{ icon("pencil") }}</button></p>
                 </div>
-                <p class="ag-head__description" data-agent-description></p>
             </div>
             <div class="ag-save" aria-labelledby="ag-save-title">
                 <h3 class="visually-hidden" id="ag-save-title">Draft</h3>

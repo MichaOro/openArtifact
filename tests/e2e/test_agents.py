@@ -781,3 +781,85 @@ def test_publish_again_makes_a_new_version_in_use_and_the_empty_states_say_so(
     expect(versions.nth(0)).to_contain_text("rollback to version 1")
     published = api.get(f"/api/agents/{fresh['id']}").json()
     assert published["published"]["user_prompt"] == "Hi" and published["published_number"] == 3
+
+
+# ── the identity header (ADR-048) ────────────────────────────────────
+
+
+def test_the_header_edits_name_and_description_in_place_and_the_pencil_opens_the_dialog(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    long = "A longer description that wraps to the next line because it exceeds the width. " * 3
+    agent = api.post(
+        "/api/agents",
+        json={"name": "Header", "description": long.strip(), "draft": {"user_prompt": "Hi"}},
+    ).json()
+    page = signed_in
+    page.set_viewport_size({"width": 1600, "height": 900})
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    name, about = editor.locator("[data-agent-name]"), editor.locator(".identity__about")
+    pencil = editor.locator("[data-rename]")
+    # name and badges share a line; the description below has its own maximum width and wraps
+    title_box, chips_box = name.bounding_box(), editor.locator("[data-chips]").bounding_box()
+    assert (
+        title_box
+        and chips_box
+        and abs(
+            (title_box["y"] + title_box["height"] / 2) - (chips_box["y"] + chips_box["height"] / 2)
+        )
+        < 8
+    )
+    about_box = about.bounding_box()
+    width = page.evaluate(
+        "() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--identity-text-width')) * parseFloat(getComputedStyle(document.documentElement).fontSize)"
+    )
+    assert (
+        about_box and about_box["width"] <= width + 1 and about_box["height"] > 40
+    )  # wrapped, not wider
+    tabs_box = editor.locator("[data-ag-tabs]").bounding_box()
+    assert tabs_box and abs(about_box["width"] - tabs_box["width"]) > 1  # not tied to the tab bar
+    # the pencil sits after the last line, its bottom on the line's bottom
+    pencil_box = pencil.bounding_box()
+    assert (
+        pencil_box
+        and abs((pencil_box["y"] + pencil_box["height"]) - (about_box["y"] + about_box["height"]))
+        < 8
+    )
+    # a click on the name edits it in place; Escape discards, Enter saves
+    name.click()
+    field = name.locator("input")
+    expect(field).to_be_focused()
+    field.fill("Other")
+    field.press("Escape")
+    expect(name).to_have_text("Header")
+    name.click()
+    name.locator("input").fill("Renamed")
+    name.locator("input").press("Enter")
+    expect(name).to_have_text("Renamed")
+    assert api.get(f"/api/agents/{agent['id']}").json()["name"] == "Renamed"
+    # an empty name is not saved (the validation stays)
+    name.click()
+    name.locator("input").fill("")
+    name.locator("input").press("Enter")
+    expect(name).to_have_text("Renamed")
+    # the description, too, and it may be emptied
+    editor.locator("[data-agent-description]").click()
+    area = editor.locator("[data-agent-description] textarea")
+    area.fill("Short one")
+    area.press("Enter")
+    expect(editor.locator("[data-agent-description]")).to_have_text("Short one")
+    editor.locator("[data-agent-description]").click()
+    editor.locator("[data-agent-description] textarea").fill("")
+    editor.locator("[data-agent-description] textarea").press("Enter")
+    expect(editor.locator("[data-agent-description]")).to_have_text("Add a description")
+    assert api.get(f"/api/agents/{agent['id']}").json()["description"] == ""
+    # the pencil still opens the full dialog
+    pencil.click()
+    dialog = page.locator("#name-modal")
+    expect(dialog).to_be_visible()
+    expect(dialog.locator("#name-modal-field-name")).to_have_value("Renamed")
+    dialog.locator("#name-modal-field-description").fill("From the dialog")
+    dialog.locator("[data-submit]").click()
+    expect(editor.locator("[data-agent-description]")).to_have_text("From the dialog")
+    expect(editor.locator("[data-chips]")).to_contain_text("Active")  # badges unaffected

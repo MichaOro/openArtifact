@@ -8,6 +8,7 @@ import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { icon } from "../components/icons.js";
+import { InlineName } from "../components/inline-name.js";
 import { Modal } from "../components/modal.js";
 import { OptionsPanel } from "../components/options-panel.js";
 import { SettingsGroup, numberSetting } from "../components/settings-group.js";
@@ -63,6 +64,23 @@ function showOption(key, on) {
 }
 
 const active = new Switch($("[data-active]"));
+
+// The identity: name and description are edited in place; the pencil opens the full dialog (name-modal).
+const nameText = new InlineName($("[data-agent-name]"), {
+  label: "Agent name",
+  maxLength: 100,
+  keepOpenOnError: true,
+  onCommit: async (name) => show(await updateAgent(agent.id, { name }), { form: false }),
+});
+const descriptionText = new InlineName($("[data-agent-description]"), {
+  label: "Description",
+  maxLength: 2000,
+  keepOpenOnError: true,
+  multiline: true,
+  allowEmpty: true,
+  emptyText: "Add a description",
+  onCommit: async (description) => show(await updateAgent(agent.id, { description }), { form: false }),
+});
 
 // ── Model & Limits: two cards of optional settings (ADR-046); a setting not added is "not set" ──
 
@@ -300,9 +318,9 @@ function renderState() {
 }
 
 function renderHead() {
-  $("[data-agent-name]").textContent = agent.name;
+  nameText.setText(agent.name);
   document.title = `${agent.name} · Agents · OpenArtifact`;
-  $("[data-agent-description]").textContent = agent.description;
+  descriptionText.setText(agent.description ?? "");
   $("[data-chips]").replaceChildren(...agentChips(agent).map(([text, tone]) => chip(text, tone)));
   active.on = agent.active;
   $("[data-fact-version]").replaceChildren(chip(agent.published_number == null ? "Not published" : `v${agent.published_number} published`, agent.published_number == null ? "warn" : "accent"));

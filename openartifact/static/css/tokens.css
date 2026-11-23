@@ -4,6 +4,8 @@
    ────────────────────────────────────────────────────────────────── */
 
 :root {
+  /* the stable maximum width of a resource's description (.identity), independent of the tabs below it */
+  --identity-text-width: 48rem;
   /* Non-colour tokens (theme independent) */
   --radius-sm: 0.5rem;
   --radius-md: 0.875rem;

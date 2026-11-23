@@ -1,5 +1,8 @@
-/* A name that is edited in place: click it (or press Enter on it) to get a text field with a check
- * and a cross; Enter or the check saves, Escape or the cross discards.
+/* A text that is edited in place, the one inline editing of the application (lane names, graph names, the
+ * identity of an agent): click it (or press Enter on it) to get a field with a check and a cross; Enter or the
+ * check saves, Escape or the cross discards. A `multiline` text (a description) gets a text area: Enter saves,
+ * Shift+Enter starts a new line. With `allowEmpty` an empty text is a value (else it discards); `emptyText` is
+ * what an empty one shows.
  *
  * Normally the editor closes at once and onCommit runs on its own. With `keepOpenOnError`, onCommit
  * returns a promise: the editor stays open while it runs, and if it rejects the typed text stays and
@@ -12,20 +15,23 @@ let nextErrorId = 0;
 export class InlineName {
   /**
    * @param {HTMLElement} element shows the name; becomes the editor while editing
-   * @param {{label: string, onCommit: (name: string) => void|Promise<unknown>, maxLength?: number, keepOpenOnError?: boolean}} options
-   *   label: what the name is called, for assistive technology
+   * @param {{label: string, onCommit: (name: string) => void|Promise<unknown>, maxLength?: number, keepOpenOnError?: boolean, multiline?: boolean, allowEmpty?: boolean, emptyText?: string}} options
+   *   label: what the text is called, for assistive technology
    */
-  constructor(element, { label, onCommit, maxLength = 255, keepOpenOnError = false }) {
+  constructor(element, { label, onCommit, maxLength = 255, keepOpenOnError = false, multiline = false, allowEmpty = false, emptyText = "" }) {
     this.element = element;
     this.onCommit = onCommit;
     this.maxLength = maxLength;
     this.keepOpenOnError = keepOpenOnError;
+    this.multiline = multiline;
+    this.allowEmpty = allowEmpty;
+    this.emptyText = emptyText;
     this.text = element.textContent;
     element.classList.add("inline-name");
     element.tabIndex = 0;
     element.setAttribute("role", "button");
-    element.setAttribute("aria-label", `${label}: ${this.text}. Click to rename`);
     this.label = label;
+    this.#show();
     element.addEventListener("click", () => this.edit());
     element.addEventListener("keydown", (event) => {
       if (event.target === element && (event.key === "Enter" || event.key === " ")) {
@@ -43,20 +49,23 @@ export class InlineName {
 
   #show() {
     this.editing = false;
-    this.element.replaceChildren(document.createTextNode(this.text));
+    const empty = !this.text && this.emptyText;
+    this.element.replaceChildren(document.createTextNode(empty ? this.emptyText : this.text));
+    this.element.classList.toggle("inline-name--empty", Boolean(empty));
     this.element.classList.remove("inline-name--editing");
     this.element.tabIndex = 0;
     this.element.setAttribute("role", "button");
-    this.element.setAttribute("aria-label", `${this.label}: ${this.text}. Click to rename`);
+    this.element.setAttribute("aria-label", `${this.label}: ${this.text || "none"}. Click to edit`);
   }
 
   /** Start editing (also what a click on the name does). */
   edit() {
     if (this.editing) return;
     this.editing = true;
-    const input = document.createElement("input");
-    input.className = "inline-name__input";
-    input.type = "text";
+    const input = document.createElement(this.multiline ? "textarea" : "input");
+    input.className = `inline-name__input${this.multiline ? " inline-name__input--lines" : ""}`;
+    if (this.multiline) input.rows = 3;
+    else input.type = "text";
     input.maxLength = this.maxLength;
     input.value = this.text;
     input.autocomplete = "off";
@@ -82,10 +91,11 @@ export class InlineName {
     let saving = false;
     const commit = async () => {
       const name = input.value.trim();
-      if (!this.keepOpenOnError || !name || name === this.text) {
+      const discard = !name && !this.allowEmpty;
+      if (!this.keepOpenOnError || discard || name === this.text) {
         this.#show();
         this.element.focus(); // the field that had focus is gone
-        if (name && name !== this.text) this.onCommit(name);
+        if (!discard && name !== this.text) this.onCommit(name); // the caller shows the saved text (setText)
         return;
       }
       if (saving) return;
@@ -110,7 +120,7 @@ export class InlineName {
       input.removeAttribute("aria-invalid");
     });
     input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
+      if (event.key === "Enter" && !(this.multiline && event.shiftKey)) {
         event.preventDefault();
         commit();
       } else if (event.key === "Escape") {
@@ -124,7 +134,7 @@ export class InlineName {
     this.element.removeAttribute("role");
     this.element.removeAttribute("tabindex");
     this.element.removeAttribute("aria-label");
-    this.element.replaceChildren(input, button("check", "Save name", commit), button("x", "Discard", () => {
+    this.element.replaceChildren(input, button("check", "Save", commit), button("x", "Discard", () => {
         this.#show();
         this.element.focus();
       }), error);

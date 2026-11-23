@@ -57,6 +57,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [045](045-agent-editor-progressive-disclosure.md) | The agent editor: tabs, an options panel, switches that are kept but not in effect when off | Accepted | 2026-11-23 | amends ADR-037 |
 | [046](046-optional-model-and-limit-settings.md) | Model and limit settings of an agent are optional; not set is not the default | Accepted | 2026-11-23 | amends ADR-037, ADR-045 |
 | [047](047-agent-versions-and-use.md) | Versions & use of an agent: two columns, Open and Remove reference | Accepted | 2026-11-23 | amends ADR-045 |
+| [048](048-identity-header-and-inline-editing.md) | One identity header and one inline editing for resources | Accepted | 2026-11-23 | amends ADR-045 |
 
 ## Notes
 
