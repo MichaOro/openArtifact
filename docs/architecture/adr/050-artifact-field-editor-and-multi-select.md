@@ -30,6 +30,15 @@ order was changed with arrow buttons; a choice held one value. The owner asked f
 - **Saving:** nothing is saved before *Save* (one `PUT` of the whole list). The footer says *Unsaved changes*; *Cancel*,
   Escape or the close button with unsaved changes ask first (*Keep editing* / *Discard*).
 - `ActionMenu` opens inside an open dialog, so menus work in dialogs at all.
+- **Add field:** with fields defined it is the page's usual create button, top right and in the accent colour; with none,
+  the dialog is one invitation with that button. The lead text is two lines, broken after its first sentence.
+- **The rail of the artifact dialog:** *Fields* is a navigation entry of a new kind, `NavGroup` (`web/navigation.py`,
+  `components/nav.html`, `components/nav-group.js`): the same section and list classes as a link with sub-entries in the
+  main navigation, filled by the page, hidden until fields exist. With the rail open the fields hang below it, indented;
+  with the rail collapsed a click opens them as a popover beside the icon, like the Lane entry opens its list. Each field
+  shows its reference (`${card.NAME}`). The rail scrolls when the fields are more than the dialog is high.
+- **References while editing:** the `${` suggestions of the node editors offer the fields as `card.NAME`; the node keeps
+  the reference as typed, and a run's context (History) shows what it resolved to.
 
 ## 3. Consequences
 

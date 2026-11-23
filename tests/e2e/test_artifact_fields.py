@@ -38,7 +38,7 @@ def test_the_board_menu_opens_the_field_editor_and_a_new_field_is_saved(board: B
     editor = page.locator("#fields-modal")
     expect(editor).to_be_visible()
     expect(editor.locator(".modal__title")).to_have_text("Artifact fields")
-    editor.locator("[data-add-field]").click()
+    editor.locator("[data-add-first]").click()  # nothing defined yet: the one invitation
     editor.locator("[data-key=label]").fill("Target date")
     expect(editor.locator("[data-key=name]")).to_have_value("target_date")
     expect(editor.locator("[data-key=required]")).to_have_count(0)  # no required setting
@@ -72,11 +72,13 @@ def test_the_fields_hang_below_fields_in_the_rail_and_a_change_is_saved_at_once(
     page = board.page
     rail = dialog.root.locator("[data-card-nav]")
     page.evaluate("() => localStorage.clear()")
-    toggle = rail.locator("[data-field-rail-toggle]")
+    toggle = rail.locator("[data-nav-group-toggle]")
     expect(toggle).to_be_visible()
-    if rail.get_attribute("data-state") == "expanded":  # start from the collapsed rail
+    if (
+        rail.get_attribute("data-state") != "expanded"
+    ):  # the open rail: the fields hang below the entry
         rail.locator("[data-card-nav-toggle]").click()
-    toggle.click()  # the icon of the collapsed rail opens it, with the fields
+    toggle.click()
     expect(rail).to_have_attribute("data-state", "expanded")
     items = rail.locator(".card-field")
     expect(items).to_have_count(4)
@@ -106,13 +108,66 @@ def test_a_wrong_value_is_shown_under_its_field(board: Board) -> None:
     board.open()
     dialog = board.open_card("Card")
     rail = dialog.root.locator("[data-card-nav]")
-    rail.locator("[data-field-rail-toggle]").click()
-    if not rail.locator("#card-field-estimate").is_visible():
-        rail.locator("[data-field-rail-toggle]").click()
-    rail.locator("#card-field-estimate").fill("50")
-    rail.locator("#card-field-estimate").press("Enter")
-    expect(rail.locator("#card-field-estimate-error")).to_have_text("50 is above the maximum 10")
+    rail.locator("[data-nav-group-toggle]").click()
+    popover = dialog.root.locator(".nav-popover")
+    popover.locator("#card-field-estimate").fill("50")
+    popover.locator("#card-field-estimate").press("Enter")
+    expect(popover.locator("#card-field-estimate-error")).to_have_text("50 is above the maximum 10")
     assert _fields_of(board, task) == {}
+
+
+def test_with_the_rail_collapsed_the_fields_open_beside_the_icon_like_the_other_entries(
+    board: Board,
+) -> None:
+    _define(board, FIELDS[:2])
+    board.create("Card")
+    board.open()
+    dialog = board.open_card("Card")
+    rail = dialog.root.locator("[data-card-nav]")
+    page = board.page
+    page.evaluate("() => localStorage.clear()")
+    if rail.get_attribute("data-state") == "expanded":
+        rail.locator("[data-card-nav-toggle]").click()
+    toggle = rail.locator("[data-nav-group-toggle]")
+    toggle.click()
+    popover = dialog.root.locator(".nav-popover")
+    expect(popover).to_be_visible()
+    expect(rail).to_have_attribute("data-state", "collapsed")  # the rail does not move
+    box, entry = popover.bounding_box(), toggle.bounding_box()
+    assert (
+        box and entry and box["x"] + box["width"] <= entry["x"] + 1
+    )  # beside the icon, to its left
+    expect(popover.locator(".card-field__label")).to_have_text(["Size", "Estimate"])
+    expect(popover.locator(".card-field__reference")).to_have_text(
+        ["${card.size}", "${card.estimate}"]
+    )
+    page.keyboard.press("Escape")  # closes the list, not the dialog
+    expect(popover).to_be_hidden()
+    expect(dialog.root).to_be_visible()
+    toggle.click()
+    expect(popover).to_be_visible()
+    page.mouse.click(5, 5)  # a click elsewhere closes it, as for the other lists
+    expect(popover).to_be_hidden()
+
+
+def test_a_field_is_offered_as_a_reference_while_a_node_is_edited(board: Board) -> None:
+    _define(board, FIELDS[:2])
+    pipeline = board.api.post("/api/actions", json={"name": "Refs"}).json()
+    from tests.helpers import node as make_node
+
+    make_node(board.api, pipeline, "http", name="Call", config={"url": "http://127.0.0.1:1/"})
+    board.page.goto(f"{board.base_url}/actions/{pipeline['slug']}")
+    board.page.locator(".ge-node--http").click()
+    url = board.page.get_by_label("URL")
+    url.click()
+    board.page.wait_for_timeout(500)  # the fields are fetched when the field gets focus
+    url.fill("http://127.0.0.1:1/")
+    url.press_sequentially("${card.")
+    options = board.page.locator("[role=listbox] [role=option]")
+    expect(options.first).to_contain_text("card.size")
+    expect(options.first).to_contain_text("Size: field of the artifact")
+    url.press("Enter")
+    expect(url).to_have_value("http://127.0.0.1:1/${card.size}")
 
 
 def test_without_fields_the_rail_has_no_fields_entry(board: Board) -> None:
@@ -167,7 +222,7 @@ def test_the_fields_are_a_list_and_the_chosen_one_is_shown_beside_it(board: Boar
 def test_a_select_gets_options_that_are_renamed_deleted_and_kept_apart(board: Board) -> None:
     board.open()
     editor = _open_editor(board)
-    editor.locator("[data-add-field]").click()
+    editor.locator("[data-add-first]").click()
     editor.locator("[data-key=label]").fill("Area")
     editor.locator("[data-key=type]").select_option("single")
     for text in ("Bug", "UI", "API"):
@@ -239,12 +294,12 @@ def test_a_multi_select_holds_several_values_on_the_card(board: Board) -> None:
     board.page.keyboard.press("Escape")
     dialog = board.open_card("Card")
     rail = dialog.root.locator("[data-card-nav]")
-    rail.locator("[data-field-rail-toggle]").click()
-    if not rail.locator(".card-field__multi").is_visible():
-        rail.locator("[data-field-rail-toggle]").click()
-    rail.get_by_label("bug").check()
+    rail.locator("[data-nav-group-toggle]").click()  # collapsed rail: a popover beside the icon
+    popover = dialog.root.locator(".nav-popover")
+    expect(popover).to_be_visible()
+    popover.get_by_label("bug").check()
     eventually(lambda: _fields_of(board, task), {"tags": ["bug"]})
-    rail.get_by_label("api").check()
+    popover.get_by_label("api").check()
     eventually(lambda: _fields_of(board, task), {"tags": ["bug", "api"]})
 
 

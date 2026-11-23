@@ -41,6 +41,14 @@ class NavLink(NavItem):
 
 
 @dataclass(frozen=True)
+class NavGroup(NavItem):
+    """An entry with sub-entries that the page fills in at run time (the artifact fields of the dialog's rail):
+    the same outlined section as a :class:`NavLink` with children, but the children are controls, not links."""
+
+    kind = "group"
+
+
+@dataclass(frozen=True)
 class NavField(NavItem):
     """A value of the open artifact that is changed through a list (``data-card-field``)."""
 
@@ -123,5 +131,8 @@ ARTIFACT_RAIL = (
     .add(NavField("pipeline", "Pipeline", "pipeline", value=NOTHING), "fields")
     .add(NavField("stage", "Stage", "layers", value=NOTHING), "fields")
     .add(NavField("action", "Action", "action", value=NOTHING), "fields")
+    # shown by the page once artifact fields are defined (ADR-044): "Fields" with one sub-entry per field
+    .add(NavDivider(), "custom")
+    .add(NavGroup("fields", "Fields", "tag", title="Artifact fields"), "custom")
     .add(NavAction("delete", "Delete", "trash", title="Delete artifact", danger=True), "actions")
 )

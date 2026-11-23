@@ -37,16 +37,9 @@
     <ul class="nav-list card-nav__fields">
         {{ nav_items(navigation.ARTIFACT_RAIL.groups.fields) }}
     </ul>
-    {# The artifact fields (ADR-044): the entry expands the rail and shows each field indented below it. #}
+    {# The artifact fields (ADR-044): hidden until fields are defined; an entry with sub-entries like the main navigation. #}
     <ul class="nav-list card-nav__custom" data-field-rail hidden>
-        <li class="nav-section">
-            <button type="button" class="nav-link card-nav__fields-toggle" data-field-rail-toggle
-                    aria-expanded="false" aria-controls="card-nav-field-list" title="Artifact fields">
-                {{ icon("tag") }}
-                <span class="nav-link__label">Fields</span>
-            </button>
-            <ul class="card-nav__field-list" id="card-nav-field-list" data-field-rail-list aria-label="Artifact fields" hidden></ul>
-        </li>
+        {{ nav_items(navigation.ARTIFACT_RAIL.groups.custom) }}
     </ul>
     <ul class="nav-list card-nav__actions">
         {{ nav_items(navigation.ARTIFACT_RAIL.groups.actions) }}

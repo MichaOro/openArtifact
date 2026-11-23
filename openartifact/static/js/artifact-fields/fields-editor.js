@@ -56,6 +56,10 @@ export class FieldsEditor extends ActionDialog {
     });
     this.cancelButton.addEventListener("click", () => this.#requestClose());
     root.querySelector("[data-add-field]").addEventListener("click", () => this.#addField());
+    root.querySelector("[data-add-first]").addEventListener("click", () => this.#addField());
+    this.layout = root.querySelector(".af-layout");
+    this.addButton = root.querySelector("[data-add-field]");
+    this.emptyState = root.querySelector("[data-field-empty]");
     root.querySelector("[data-discard-keep]").addEventListener("click", () => this.#askDiscard(false));
     root.querySelector("[data-discard-go]").addEventListener("click", () => {
       this.snapshot = this.#body(); // nothing to keep
@@ -78,14 +82,15 @@ export class FieldsEditor extends ActionDialog {
     this.selected = this.fields[0] ?? null;
     this.problems.clear();
     this.snapshot = this.#body();
-    this.lead.textContent = "Every artifact has these fields; set their values in the artifact's Fields. Pipelines read them as ${card.NAME}. A default pre-fills new artifacts.";
+    // two lines, broken where the sentence does
+    this.lead.replaceChildren("Every artifact has these fields; set their values in the artifact's Fields.", document.createElement("br"), "Pipelines read them as ${card.NAME}. A default pre-fills new artifacts.");
     this.setError("");
     this.#askDiscard(false);
     this.#renderList();
     this.#renderDetail();
     this.#changed();
     this.modal.open();
-    (this.list.querySelector(".af-item__main") ?? this.root.querySelector("[data-add-field]")).focus();
+    (this.list.querySelector(".af-item__main") ?? this.root.querySelector("[data-add-first]")).focus();
   }
 
   #body() {
@@ -132,8 +137,11 @@ export class FieldsEditor extends ActionDialog {
         return item;
       }),
     );
-    const empty = this.root.querySelector("[data-field-empty]");
-    if (empty) empty.hidden = this.fields.length > 0;
+    // no fields: one invitation; with fields: the two panes and "Add field" at the top right
+    const any = this.fields.length > 0;
+    this.layout.hidden = !any;
+    this.addButton.hidden = !any;
+    this.emptyState.hidden = any;
   }
 
   #select(field) {
@@ -165,7 +173,7 @@ export class FieldsEditor extends ActionDialog {
     this.#renderList();
     this.#renderDetail();
     this.#changed();
-    (this.list.querySelector(".is-selected .af-item__main") ?? this.root.querySelector("[data-add-field]")).focus();
+    (this.list.querySelector(".is-selected .af-item__main") ?? this.root.querySelector("[data-add-first]")).focus();
   }
 
   // ── the chosen field ─────────────────────────────────────────────────

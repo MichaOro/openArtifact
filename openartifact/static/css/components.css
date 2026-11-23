@@ -795,3 +795,24 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 .identity__edit .icon { width: 0.95rem; height: 0.95rem; }
 .identity__about:has(.inline-name--editing) .identity__edit { display: none; }
 .inline-name__input--lines { min-height: 4.5rem; resize: vertical; line-height: 1.5; }
+
+/* A sub-entry list that floats beside the icon of a collapsed rail (components/nav-group.js): the look of a menu. */
+.nav-popover {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 15rem;
+  max-height: calc(100vh - 2 * var(--space-4));
+  margin: 0;
+  padding: var(--space-3);
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-glass-card) 96%, var(--color-background));
+  box-shadow: var(--shadow-card-hover);
+  animation: popover-in 140ms ease-out;
+}
+.nav-popover[hidden] { display: none; }

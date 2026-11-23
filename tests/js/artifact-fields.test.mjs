@@ -90,3 +90,12 @@ test("the server's refusal is split by field", () => {
   assert.equal(byField.get("size"), '"XL" is not one of S, M second');
   assert.deepEqual(other, ["Something else"]);
 });
+
+test("the artifact fields are offered as card.NAME references", async () => {
+  const { candidatesFor } = await import("../../openartifact/static/js/editor/reference-completion.js");
+  const found = candidatesFor([], { cardFields: [{ name: "size", label: "Size" }, { name: "estimate", label: "Estimate" }] });
+  assert.deepEqual(found.map((c) => c.insert), ["card.size", "card.estimate"]);
+  assert.equal(found[0].detail, "Size: field of the artifact");
+  assert.equal(found[0].complete, true);
+  assert.deepEqual(candidatesFor([], {}), []); // without fields nothing is offered
+});

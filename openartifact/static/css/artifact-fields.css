@@ -99,3 +99,10 @@
 .af-unsaved { margin-right: auto; font-size: 0.8125rem; color: var(--color-text-secondary); }
 .af-unsaved[hidden] { display: none; }
 @media (max-width: 720px) { .af-layout { grid-template-columns: 1fr; } }
+.af-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.af-head .at-editor__lead { flex: 1; }
+.af-empty { display: grid; justify-items: start; gap: var(--space-3); padding: var(--space-4); border: 1px dashed var(--glass-border); border-radius: var(--radius-md); color: var(--color-text-muted); font-size: 0.875rem; }
+.af-empty[hidden],
+.af-layout[hidden] { display: none; }
+.af-head .button .icon,
+.af-empty .button .icon { width: 1rem; height: 1rem; }

@@ -1,8 +1,11 @@
-/* The artifact fields in the rail of the artifact dialog (ADR-044). The entry "Fields" expands the rail
- * and shows every field indented below it, like the sub-entries of the main navigation: its name, and below
- * it the control (text, number, a yes/no switch, a choice list). A change is saved at once; the server's
- * refusal is shown under the field. While the artifact is processed the fields are locked. */
+/* The artifact fields in the rail of the artifact dialog (ADR-044). "Fields" is an entry with sub-entries like the
+ * main navigation's (components/nav-group.js): open, the fields hang below it, indented; with the rail collapsed a
+ * click opens them beside the icon, like the Lane entry opens its list. Each field shows its name, the reference
+ * pipelines read it by (${card.NAME}) and below them its control (text, number, a yes/no switch, a choice list, the
+ * boxes of a multi select). A change is saved at once; a refusal is shown under the field. While the artifact is
+ * processed the fields are locked. */
 import { effectiveValue, parseProblems, valueOf } from "../artifact-fields/model.js";
+import { NavGroup } from "../components/nav-group.js";
 
 function element(tag, className, text) {
   const el = document.createElement(tag);
@@ -15,27 +18,22 @@ export class FieldRail {
   /**
    * @param {object} options
    * @param {HTMLElement} options.rail the rail ([data-card-nav])
-   * @param {import("../components/collapsible-nav.js").CollapsibleNav} options.nav expands the rail
+   * @param {import("../components/collapsible-nav.js").CollapsibleNav} options.nav the rail's open and closed state
    * @param {(id: string, values: object) => Promise<object>} options.save sends {name: value} of one artifact
    * @param {(task: object) => void} options.onSaved the artifact as the server answered
    */
   constructor({ rail, nav, save, onSaved }) {
     Object.assign(this, { nav, save, onSaved });
     this.root = rail.querySelector("[data-field-rail]");
-    this.toggle = rail.querySelector("[data-field-rail-toggle]");
-    this.list = rail.querySelector("[data-field-rail-list]");
+    this.group = new NavGroup(this.root.querySelector("[data-nav-group=fields]"), nav);
+    this.list = this.group.list;
     this.fields = [];
     this.task = null;
     this.locked = false;
-    this.toggle.addEventListener("click", () => this.#onToggle());
-    // the rail collapsed by its own button: the list closes with it
-    nav.toggle.addEventListener("click", () => {
-      if (!nav.expanded) this.#setOpen(false);
-    });
   }
 
   get open() {
-    return !this.list.hidden;
+    return this.group.isOpen;
   }
 
   /** The fields every artifact has (they follow ``artifact_fields.changed``). */
@@ -60,28 +58,14 @@ export class FieldRail {
     for (const control of this.list.querySelectorAll("input, select, button")) control.disabled = locked;
   }
 
-  #onToggle() {
-    if (!this.nav.expanded) {
-      this.nav.set("expanded"); // a click on the icon of the collapsed rail opens it, with the fields
-      this.#setOpen(true);
-    } else {
-      this.#setOpen(!this.open);
-    }
-  }
-
-  #setOpen(open) {
-    this.list.hidden = !open;
-    this.toggle.setAttribute("aria-expanded", String(open));
-    this.root.querySelector(".nav-section")?.classList.toggle("is-open", open);
-  }
-
   #render() {
     this.root.hidden = !this.task || this.fields.length === 0;
     if (this.root.hidden) {
-      this.list.replaceChildren();
+      this.group.close({ restoreFocus: false });
+      this.group.fill();
       return;
     }
-    this.list.replaceChildren(...this.fields.map((field) => this.#item(field)));
+    this.group.fill(...this.fields.map((field) => this.#item(field)));
     this.setLocked(this.locked);
   }
 
@@ -91,6 +75,8 @@ export class FieldRail {
     const id = `card-field-${field.name}`;
     const label = element("label", "card-field__label", field.label);
     label.htmlFor = id;
+    const reference = element("code", "card-field__reference", `\${card.${field.name}}`);
+    reference.title = `Pipelines read this field as \${card.${field.name}}`;
     const error = element("p", "card-field__error");
     error.id = `${id}-error`;
     error.setAttribute("role", "alert");
@@ -99,7 +85,7 @@ export class FieldRail {
     const control = this.#control(field, value, (raw) => this.#change(field, raw, error));
     control.id = id;
     control.setAttribute("aria-describedby", error.id);
-    item.append(label, control, error);
+    item.append(label, reference, control, error);
     return item;
   }
 

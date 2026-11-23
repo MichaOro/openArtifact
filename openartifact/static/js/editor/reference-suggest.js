@@ -22,6 +22,20 @@ export async function refreshSecretNames() {
   }
 }
 
+let cardFields = [];
+let cardFieldsAt = 0;
+
+/** The artifact fields ({name, label}), offered as ${card.NAME}; fetched again when a field gets focus. */
+export async function refreshCardFields() {
+  if (Date.now() - cardFieldsAt < SECRETS_MAX_AGE_MS) return;
+  cardFieldsAt = Date.now();
+  try {
+    cardFields = (await request("/api/artifact-fields")).fields.map((f) => ({ name: f.name, label: f.label }));
+  } catch {
+    cardFieldsAt = 0;
+  }
+}
+
 let count = 0;
 
 /**
@@ -96,7 +110,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
   const update = () => {
     reference = input.selectionStart === input.selectionEnd ? openReference(input.value, input.selectionStart) : null;
     if (!reference) return close();
-    matches = filterCandidates(candidatesFor(source.nodes(), { exceptId: source.exceptId, secrets: secretNames, allowSecrets }), reference.query);
+    matches = filterCandidates(candidatesFor(source.nodes(), { exceptId: source.exceptId, secrets: secretNames, allowSecrets, cardFields }), reference.query);
     if (!matches.length) return close();
     if (!el) {
       el = document.createElement("div");
@@ -144,6 +158,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
   input.addEventListener("blur", close);
   input.addEventListener("focus", () => {
     if (allowSecrets) refreshSecretNames();
+    refreshCardFields(); // ${card.NAME} is offered wherever references are
   });
   // capture: before the field's own Enter / Tab / Escape handling, which must not see a key the list used
   input.addEventListener(

@@ -12,7 +12,7 @@
   width: var(--rail-w);
   min-width: 0;
   padding: var(--space-3) var(--space-2);
-  overflow: hidden;
+  overflow: hidden auto; /* the rail scrolls when the fields are more than the dialog is high */
   border-left: 1px solid var(--glass-border);
 }
 .card-nav__divider { height: 1px; margin: var(--space-1) var(--space-2); background: var(--glass-border); }
@@ -102,23 +102,17 @@
 /* ── Artifact fields in the rail (ADR-044): "Fields" expands the rail; the fields hang below it, indented
    like the sub-entries of the main navigation: the name, and under it the control. ─────────────────── */
 .field[hidden] { display: none; }
-.card-nav__custom[hidden],
-.card-nav__field-list[hidden] { display: none; }
-.card-nav__fields-toggle { width: 100%; }
-.card-nav__field-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: var(--space-2) 0 var(--space-1) 1.5rem;
-  padding: 0 0 0 var(--space-2);
-  border-left: 1px solid var(--nav-group-border);
-}
-.card-nav[data-state="collapsed"] .card-nav__field-list { display: none; }
-/* the rail is wider while the fields are open, so a control has room */
-.modal__panel:has([data-card-nav][data-state="expanded"] .card-nav__field-list:not([hidden])) { --rail-w: 16rem; }
+.card-nav__custom[hidden] { display: none; }
+.card-nav__custom .nav-section { margin-inline: 0; }
+/* the sub-entries of "Fields" (components.css .nav-group): indented like the main navigation's, the rail wider
+   while they are open inline */
+.card-nav .nav-group__list { gap: var(--space-3); margin-left: 1.5rem; padding: 0 0 0 var(--space-2); border-left: 1px solid var(--nav-group-border); }
+.card-nav[data-state="collapsed"] .nav-group:not(.is-open) .nav-group__list { display: none; }
+.modal__panel:has([data-card-nav][data-state="expanded"] .nav-group.is-open) { --rail-w: 16rem; }
+.card-nav[data-state="collapsed"] .nav-group .nav-link { width: auto; }
 .card-field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .card-field__label { font-size: 0.75rem; color: var(--color-text-muted); }
+.card-field__reference { justify-self: start; padding: 0; background: none; font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
 .card-field__control { min-height: 2rem; padding: 0.25rem 0.6rem; font-size: 0.8125rem; }
 .card-field__multi { display: grid; gap: 2px; }
 .card-field__choice { display: flex; align-items: center; gap: var(--space-2); font-size: 0.8125rem; }

@@ -43,13 +43,15 @@ export function openReference(text, caret) {
 /**
  * Every completion a graph offers.
  * @param {{id: string, kind: string, name: string, config?: object}[]} nodes the nodes of the graph being edited
- * @param {{exceptId?: string, secrets?: string[], allowSecrets?: boolean}} options
- *   `exceptId`: the node being edited (it cannot read its own result); `secrets`: names only
+ * @param {{exceptId?: string, secrets?: string[], allowSecrets?: boolean, cardFields?: {name: string, label: string}[]}} options
+ *   `exceptId`: the node being edited (it cannot read its own result); `secrets`: names only;
+ *   `cardFields`: the artifact fields, offered as `card.NAME` (ADR-044)
  * @returns {{insert: string, detail: string, complete: boolean}[]} `insert` is what goes between "${" and "}";
  *   `complete` is false when the user continues typing (a data path)
  */
-export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecrets = false } = {}) {
+export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecrets = false, cardFields = [] } = {}) {
   const out = [];
+  for (const field of cardFields) out.push({ insert: `card.${field.name}`, detail: `${field.label}: field of the artifact`, complete: true });
   const seen = new Set();
   for (const node of nodes) {
     if (node.id === exceptId || !RESULT_KINDS.includes(node.kind)) continue;

@@ -50,14 +50,21 @@
 {% call modal("fields-modal", "Artifact fields") %}
 <form class="task-form at-editor" id="fields-modal-form" novalidate>
     <div class="modal__body">
-        <p class="at-editor__lead" data-lead></p>
+        <div class="af-head">
+            <p class="at-editor__lead" data-lead></p>
+            {# once fields exist, "Add field" is the page's usual create button, top right, in the accent colour #}
+            <button type="button" class="button button--primary button--sm" data-add-field hidden>{{ icon("plus") }} Add field</button>
+        </div>
         {# the fields on the left (a grip to reorder, a click to choose), the chosen field's settings on the right (ADR-050) #}
         <div class="af-layout">
             <div class="af-fields">
                 <ol class="af-list" data-field-list aria-label="Artifact fields"></ol>
-                <button type="button" class="button button--ghost button--sm" data-add-field>{{ icon("plus") }} Add field</button>
             </div>
             <section class="af-detail" data-field-detail aria-label="The chosen field"></section>
+        </div>
+        <div class="af-empty" data-field-empty hidden>
+            <p>No fields yet. Add the first one: every artifact gets it.</p>
+            <button type="button" class="button button--primary button--sm" data-add-first>{{ icon("plus") }} Add field</button>
         </div>
         <p class="at-editor__removal" role="status" data-removal-note hidden></p>
         <div class="af-discard" role="alert" data-discard-confirm hidden>

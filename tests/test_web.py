@@ -70,11 +70,26 @@ def test_root_links_assets(client: TestClient) -> None:
     assert "/static/js/theme.js" in html
 
 
+def test_the_artifact_rail_has_the_fields_group_built_from_the_same_navigation_markup(
+    client: TestClient,
+) -> None:
+    """A group is a navigation entry kind like the others: the same section and list classes as the main
+    navigation's sub-entries, filled by the page and hidden until artifact fields exist."""
+    html = client.get("/").text
+    rail = html[html.index("data-card-nav") :]
+    assert 'class="nav-section nav-group" data-nav-group="fields"' in rail
+    assert "data-nav-group-toggle" in rail and 'class="nav-list nav-group__list"' in rail
+    assert "data-field-rail hidden" in rail  # nothing to show before fields are defined
+
+
 def test_navigation_shows_the_pipeline_entries_only_inside_the_pipeline(client: TestClient) -> None:
     """Board, Pipeline and Executions are always there; Actions and Agents only once Pipeline is entered."""
     html = client.get("/").text
     # Board, Pipeline, Executions and Settings (artifact fields live in the board's menu, ADR-044)
-    assert html.count('class="nav-link"') == 4
+    sidebar = html[
+        html.index('class="sidebar"') : html.index("</aside>")
+    ]  # the rail of the dialog has its own entries
+    assert sidebar.count('class="nav-link"') == 4
     assert 'href="/artifact-types"' not in html
     assert 'href="/pipelines"' in html  # the Pipeline entry itself
     assert 'href="/actions"' not in html and 'href="/agents"' not in html
