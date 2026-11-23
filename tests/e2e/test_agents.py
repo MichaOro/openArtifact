@@ -220,7 +220,7 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
     editor.locator("[data-publish]").click()
     expect(editor.locator("[data-notice]")).to_contain_text("Published as version 1")
     expect(editor.locator("[data-chips]")).to_contain_text("v1 published")
-    expect(editor.locator("[data-versions] .ag-row")).to_have_count(1)
+    expect(editor.locator("[data-versions] .ag-version")).to_have_count(1)
     expect(editor.locator("[data-draft-state]")).to_have_text(
         "The draft equals the published version 1."
     )
@@ -257,7 +257,7 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
     expect(editor.locator("[data-notice]")).to_contain_text(
         "Version 1 is published again as version 3"
     )
-    rows = editor.locator("[data-versions] .ag-row")
+    rows = editor.locator("[data-versions] .ag-version")
     expect(rows).to_have_count(3)
     expect(rows.nth(0)).to_contain_text("rollback to version 1")
     expect(rows.nth(0)).to_contain_text("In use")
@@ -557,7 +557,9 @@ def test_model_and_limit_settings_are_added_removed_and_saved_as_not_set(
         editor.locator('[data-settings="limits"]'),
     )
     expect(model.locator(".setting")).to_have_count(0)  # nothing set
-    expect(limits.locator(".settings-card__lead")).to_contain_text("Defaults apply: node time limit 600 s")
+    expect(limits.locator(".settings-card__lead")).to_contain_text(
+        "Defaults apply: node time limit 600 s"
+    )
     # the menu offers only what is not added yet
     model.locator("[data-settings-add]").click()
     expect(page.get_by_role("menuitem")).to_have_text(
@@ -692,3 +694,90 @@ def test_the_inputs_table_has_a_required_column_and_a_description_only_when_one_
     rows.nth(0).get_by_role("button", name="Input actions").click()
     page.get_by_role("menuitem", name="Remove input").click()
     expect(rows).to_have_count(1)
+
+
+# ── Versions & use (ADR-047) ─────────────────────────────────────────
+
+
+def test_versions_and_use_show_where_the_agent_runs_and_a_reference_is_removed_after_asking(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    agent = _agent(api)
+    actions = []
+    for name in ("Triage action", "Release action"):
+        action = api.post("/api/actions", json={"name": name}).json()
+        node(api, action, "agent", name=f"Ask {name.split()[0]}", config={"agent_id": agent["id"]})
+        actions.append(action)
+    page = signed_in
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    _tab(editor, "Versions & use")
+    uses = editor.locator("[data-uses] .ag-use")
+    expect(uses).to_have_count(2)
+    expect(uses.nth(0)).to_contain_text("Agent node · Action:")
+    # the two columns: Used by on the left, Versions on the right
+    left = editor.locator(".ag-uses-card").bounding_box()
+    right = editor.locator(".ag-versions-card").bounding_box()
+    assert left and right and left["x"] < right["x"] and abs(left["y"] - right["y"]) < 1
+    versions = editor.locator("[data-versions] .ag-version")
+    expect(versions).to_have_count(1)
+    expect(versions.first).to_contain_text("In use")
+    # Cancel changes nothing
+    triage = uses.filter(has_text="Triage action")
+    triage.get_by_role("button", name=re.compile("Remove the reference")).click()
+    dialog = page.locator("#reference-modal")
+    expect(dialog.locator(".modal__title")).to_have_text("Remove agent reference?")
+    expect(dialog).to_contain_text("This will remove the connection to this agent from the action:")
+    expect(dialog.locator(".confirm-text__subject")).to_have_text("Triage action")
+    expect(dialog).to_contain_text("future executions may fail until the node is reconfigured")
+    dialog.get_by_role("button", name="Cancel").click()
+    assert len(api.get(f"/api/agents/{agent['id']}/uses").json()) == 2
+    # confirmed: only that reference goes
+    triage.get_by_role("button", name=re.compile("Remove the reference")).click()
+    dialog.locator("[data-confirm]").click()
+    expect(uses).to_have_count(1)
+    expect(uses.first).to_contain_text("Release action")
+    assert [u["graph_name"] for u in api.get(f"/api/agents/{agent['id']}/uses").json()] == [
+        "Release action"
+    ]
+    assert api.get(f"/api/agents/{agent['id']}").status_code == 200
+    # Open goes to the action, selects the node and offers the way back
+    uses.first.get_by_role("link", name=re.compile("^Open")).click()
+    expect(page).to_have_url(re.compile(r"/actions/release-action"))
+    expect(page.locator(".ge-node--agent.is-selected")).to_have_count(1)
+    back = page.locator("[data-back]")
+    expect(back).to_have_text("Back to Triage")
+    back.click()
+    expect(page).to_have_url(re.compile(rf"/agents/{agent['id']}$"))
+
+
+def test_publish_again_makes_a_new_version_in_use_and_the_empty_states_say_so(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    fresh = api.post("/api/agents", json={"name": "Fresh", "draft": {"user_prompt": "Hi"}}).json()
+    page = signed_in
+    page.goto(f"{agents_url}/agents/{fresh['id']}")
+    editor = page.locator("[data-agent-editor]")
+    _tab(editor, "Versions & use")
+    expect(editor.locator("[data-uses-empty]")).to_have_text(
+        "This agent is not used by any actions yet."
+    )
+    expect(editor.locator("[data-versions-empty]")).to_have_text("No published versions yet.")
+    api.post(f"/api/agents/{fresh['id']}/publish").raise_for_status()
+    api.put(f"/api/agents/{fresh['id']}/draft", json={"user_prompt": "Hello"}).raise_for_status()
+    api.post(f"/api/agents/{fresh['id']}/publish").raise_for_status()
+    page.reload()
+    editor = page.locator("[data-agent-editor]")
+    _tab(editor, "Versions & use")
+    versions = editor.locator("[data-versions] .ag-version")
+    expect(versions).to_have_count(2)
+    expect(versions.nth(0)).to_contain_text("In use")
+    expect(versions.nth(1)).not_to_contain_text("In use")
+    versions.nth(1).get_by_role("button", name="Publish version 1 again").click()
+    page.locator("#confirm-modal [data-confirm]").click()
+    expect(versions).to_have_count(3)
+    expect(versions.nth(0)).to_contain_text("Version 3")
+    expect(versions.nth(0)).to_contain_text("In use")
+    expect(versions.nth(0)).to_contain_text("rollback to version 1")
+    published = api.get(f"/api/agents/{fresh['id']}").json()
+    assert published["published"]["user_prompt"] == "Hi" and published["published_number"] == 3

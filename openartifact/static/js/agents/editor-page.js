@@ -15,7 +15,7 @@ import { Switch } from "../components/switch.js";
 import { Tabs } from "../components/tabs.js";
 import { connectEvents } from "../tasks/events.js";
 import { formatTime } from "../tasks/history-format.js";
-import { agentUses, discardDraft, getAgent, listProviders, previewAgent, publishAgent, republishVersion, saveDraft, updateAgent } from "./api.js";
+import { agentUses, discardDraft, removeAgentReference, getAgent, listProviders, previewAgent, publishAgent, republishVersion, saveDraft, updateAgent } from "./api.js";
 import { agentChips, fieldLabel, optionsOf, providerInEffect, sampleHint, usableModels } from "./model.js";
 import { chip, configFacts, el, previewView, problemList } from "./view.js";
 
@@ -311,18 +311,19 @@ function renderHead() {
   $("[data-fact-updated]").textContent = formatTime(agent.updated_at);
 }
 
+/** Versions: a compact row each, like Status & info; the one executions use is "In use", an older one can be published again. */
 function renderVersions() {
   const list = $("[data-versions]");
   list.replaceChildren(
     ...agent.versions.map((version) => {
-      const row = el("li", "ag-row");
-      const main = el("div", "ag-row__main");
+      const row = el("li", "ag-version");
+      const head = el("div", "ag-version__head");
+      head.append(el("strong", "", `Version ${version.number}`));
+      if (version.current) head.append(chip("In use", "ok"));
       const origin = version.source_number != null ? `rollback to version ${version.source_number}` : "published";
-      main.append(el("strong", "", `Version ${version.number}`), el("span", "ag-row__meta", `${origin} ${ORIGINS[version.published_via] ?? version.published_via} · ${formatTime(version.published_at)}`));
-      row.append(main);
-      if (version.current) row.append(chip("In use", "ok"));
-      else {
-        const again = el("button", "button button--ghost button--sm", "Publish again");
+      row.append(head, el("span", "ag-row__meta", `${formatTime(version.published_at)} · ${origin} ${ORIGINS[version.published_via] ?? version.published_via}`));
+      if (!version.current) {
+        const again = el("button", "button button--ghost button--sm ag-version__again", "Publish again");
         again.type = "button";
         again.setAttribute("aria-label", `Publish version ${version.number} again`);
         again.addEventListener("click", () =>
@@ -340,6 +341,24 @@ function renderVersions() {
   $("[data-versions-empty]").hidden = agent.versions.length > 0;
 }
 
+const referenceDialog = new ConfirmDialog(new Modal(document.getElementById("reference-modal")));
+
+/** Take the agent out of one node: its agent_id is emptied through the graph API, nothing else changes. */
+function confirmRemoveReference(use) {
+  referenceDialog.open({
+    title: "Remove agent reference?",
+    message: "This will remove the connection to this agent from the action: {subject}",
+    subject: use.graph_name,
+    note: "The action will no longer use this agent. Its configuration may become incomplete, and future executions may fail until the node is reconfigured.",
+    confirmLabel: "Remove reference",
+    onConfirm: async () => {
+      await removeAgentReference(use.graph_id, use.node_id);
+      await renderUses(); // the server's list: an error leaves the dialog open with its message
+    },
+  });
+}
+
+/** Used by: a card per agent node with where it is, what it overrides, Open and Remove reference. */
 async function renderUses() {
   let uses = [];
   try {
@@ -349,12 +368,26 @@ async function renderUses() {
   }
   $("[data-uses]").replaceChildren(
     ...uses.map((use) => {
-      const row = el("li", "ag-row");
-      const main = el("div", "ag-row__main");
-      const link = el("a", "", use.node_name);
-      link.href = `/actions/${encodeURIComponent(use.graph_slug)}`;
-      main.append(link, el("span", "ag-row__meta", `in action "${use.graph_name}"${use.overrides.length ? ` · sets itself: ${use.overrides.map(fieldLabel).join(", ")}` : " · uses the agent's settings as they are"}`));
-      row.append(main);
+      const row = el("li", "ag-use");
+      const main = el("div", "ag-use__main");
+      main.append(
+        el("strong", "", use.node_name),
+        el("span", "ag-row__meta", `Agent node · Action: ${use.graph_name}`),
+        el("span", "ag-row__meta", use.overrides.length ? `Sets itself: ${use.overrides.map(fieldLabel).join(", ")}` : "Uses the agent's settings as they are"),
+      );
+      const open = el("a", "button button--ghost button--sm");
+      open.href = `/actions/${encodeURIComponent(use.graph_slug)}?select=${encodeURIComponent(use.node_id)}&agent=${encodeURIComponent(agent.id)}`;
+      open.append(icon("action"), document.createTextNode("Open"));
+      open.setAttribute("aria-label", `Open ${use.node_name} in ${use.graph_name}`);
+      const remove = el("button", "icon-button icon-button--sm is-danger");
+      remove.type = "button";
+      remove.title = "Remove reference";
+      remove.setAttribute("aria-label", `Remove the reference of ${use.node_name} in ${use.graph_name}`);
+      remove.append(icon("trash"));
+      remove.addEventListener("click", () => confirmRemoveReference(use));
+      const actions = el("div", "ag-use__actions");
+      actions.append(open, remove);
+      row.append(main, actions);
       return row;
     }),
   );

@@ -99,13 +99,25 @@
             </section>
 
             <section class="ag-panel" role="tabpanel" id="ag-panel-versions" aria-labelledby="ag-tab-versions" hidden>
-                <h3 class="ag-panel__heading"><span class="ag-hint" tabindex="0" title="A published version is never changed. Publishing an earlier version again makes a new version with its content.">Versions</span></h3>
-                <p class="field__help">What has been published, newest first.</p>
-                <ol class="ag-versions" data-versions aria-label="Versions, newest first"></ol>
-                <p class="ge-inspector__note" data-versions-empty hidden>Nothing is published yet, so no node can run this agent.</p>
-                <h3 class="ag-panel__heading ag-panel__heading--next"><span class="ag-hint" tabindex="0" title="The agent nodes that run this agent, and which settings each overrides.">Used by</span></h3>
-                <ul class="ag-uses" data-uses aria-label="Agent nodes that use this agent"></ul>
-                <p class="ge-inspector__note" data-uses-empty hidden>No agent node uses this agent yet.</p>
+                {# Two columns (ADR-047): where the agent is used, and its versions (compact, like Status & info). #}
+                <div class="ag-use-columns">
+                    <section class="settings-card ag-uses-card" aria-labelledby="ag-uses-title">
+                        <div>
+                            <h3 class="ag-panel__heading" id="ag-uses-title"><span class="ag-hint" tabindex="0" title="The agent nodes that run this agent, and which settings each overrides.">Used by</span></h3>
+                            <p class="settings-card__lead">Agent nodes using this definition.</p>
+                        </div>
+                        <ul class="ag-uses" data-uses aria-label="Agent nodes that use this agent"></ul>
+                        <p class="settings-card__empty" data-uses-empty hidden>This agent is not used by any actions yet.</p>
+                    </section>
+                    <section class="settings-card ag-versions-card" aria-labelledby="ag-versions-title">
+                        <div>
+                            <h3 class="ag-panel__heading" id="ag-versions-title"><span class="ag-hint" tabindex="0" title="A published version is never changed. Publishing an earlier version again makes a new version with its content.">Versions</span></h3>
+                            <p class="settings-card__lead">Published versions of this agent, newest first.</p>
+                        </div>
+                        <ol class="ag-versions" data-versions aria-label="Versions, newest first"></ol>
+                        <p class="settings-card__empty" data-versions-empty hidden>No published versions yet.</p>
+                    </section>
+                </div>
             </section>
             </div>
 
@@ -154,5 +166,6 @@
     {"name": "description", "label": "Description", "kind": "textarea", "rows": 3, "maxlength": 2000, "hint": "optional"},
 ], submit="Save") }}
 {{ confirm_modal("confirm-modal", "Agent") }}
+{{ confirm_modal("reference-modal", "Remove agent reference?", note="data-reference-note") }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/agents/editor-page.js"></script>{% endblock %}

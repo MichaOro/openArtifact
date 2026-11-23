@@ -275,3 +275,24 @@
   .ag-input { padding: var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
 }
 .ag-panel__heading--next { margin-top: var(--space-3); }
+
+/* ── Versions & use (ADR-047): Used by on the left, the versions on the right ── */
+.ag-use-columns { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 1fr); gap: var(--space-4); align-items: start; }
+.ag-use,
+.ag-version {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  font-size: 0.875rem;
+}
+.ag-use { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
+.ag-use__main { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.ag-use__actions { display: flex; align-items: center; gap: var(--space-2); }
+.ag-use__actions .button .icon { width: 1rem; height: 1rem; }
+.ag-version__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.ag-version__again { justify-self: start; }
+#reference-modal .confirm-text__subject { display: block; margin-top: var(--space-2); }
+@media (max-width: 900px) { .ag-use-columns { grid-template-columns: 1fr; } }

@@ -11,6 +11,7 @@ export class ConfirmDialog extends ActionDialog {
     this.message = this.root.querySelector("[data-confirm-message]");
     this.note = this.root.querySelector("[data-confirm-note]");
     this.label = this.root.querySelector("[data-confirm-label]");
+    this.defaultTitle = this.titleEl?.textContent ?? "";
     this.submitButton.addEventListener("click", () => this.#confirm());
   }
 
@@ -22,9 +23,11 @@ export class ConfirmDialog extends ActionDialog {
    * @param {() => Promise<unknown>} options.onConfirm
    * @param {string} [options.confirmLabel]
    * @param {() => void} [options.onClose] called once the dialog has closed after a confirmed action
+   * @param {string} [options.title] the dialog's heading for this question (else the one of the markup)
    */
-  open({ message, subject = null, note = "", onConfirm, confirmLabel = "Delete", onClose = null }) {
+  open({ message, subject = null, note = "", onConfirm, confirmLabel = "Delete", onClose = null, title = null }) {
     this.action = onConfirm;
+    if (this.titleEl) this.titleEl.textContent = title ?? this.defaultTitle;
     this.onClose = onClose;
     this.#showMessage(message, subject);
     if (this.note) {

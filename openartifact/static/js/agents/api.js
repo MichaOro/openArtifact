@@ -32,3 +32,7 @@ export const deleteModel = (id, modelId) => send("DELETE", `${provider(id)}/mode
 export const listSecrets = () => request("/api/secrets");
 /** Stores or replaces a secret; the value is never read back. */
 export const putSecret = (name, value) => send("PUT", `/api/secrets/${encodeURIComponent(name)}`, { value });
+
+/** Take an agent out of one agent node: the node's agent_id is emptied (the existing graph API; ADR-047). */
+export const removeAgentReference = (actionId, nodeId) =>
+  request(`/api/actions/${encodeURIComponent(actionId)}/nodes/${encodeURIComponent(nodeId)}`, { method: "PATCH", body: JSON.stringify({ config: { agent_id: "" } }) });

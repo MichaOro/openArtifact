@@ -84,7 +84,10 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
   nothing to a model.
 - **Active.** An inactive agent is not run: its nodes fail in every execution that starts while it is inactive. A
   running execution is not affected; stop the run to end it at once.
-- An agent cannot be deleted while agent nodes refer to it. *Used by* lists them with the settings each overrides.
+- An agent cannot be deleted while agent nodes refer to it. *Versions & use* lists them (*Used by*) with the settings
+  each overrides: *Open* shows the node in its action, *Remove reference* (after asking) takes the agent out of that one
+  node; its next execution then fails until it is given an agent again. The versions stand next to it; *Publish again*
+  is the rollback.
 
 ## 3. Use it in an action
 

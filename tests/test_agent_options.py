@@ -169,3 +169,36 @@ def test_without_any_provider_the_node_says_what_is_missing(api: TestClient) -> 
     run = _run(api, _flow(api, agent), "failed")
     reason = next(r for r in run["node_results"] if r["kind"] == "agent")["reason"]
     assert "provider" in reason.lower()
+
+
+# ── Versions & use: removing one reference (ADR-047) ─────────────────
+
+
+def test_removing_one_reference_leaves_the_agent_the_other_nodes_and_the_history(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    make_provider(api, llm)
+    agent = make_agent(api)
+    first, second = _flow(api, agent), _flow(api, agent)
+    run = _run(api, first)
+    uses = api.get(f"/api/agents/{agent['id']}/uses").json()
+    assert {u["node_id"] for u in uses} == {first["ask"]["id"], second["ask"]["id"]}
+    # what the page sends: the one node's agent_id emptied through the graph API
+    response = api.patch(
+        f"/api/actions/{first['action']['id']}/nodes/{first['ask']['id']}",
+        json={"config": {"agent_id": ""}},
+    )
+    assert response.status_code == 200, response.text
+    assert [u["node_id"] for u in api.get(f"/api/agents/{agent['id']}/uses").json()] == [
+        second["ask"]["id"]
+    ]
+    assert api.get(f"/api/agents/{agent['id']}").status_code == 200  # the agent stays
+    node = response.json()
+    assert (
+        node["config"]["inputs"] == "ticket = ${node.Fetch.output}"
+    )  # nothing else of the node changed
+    history = api.get(f"/api/tasks/{run['task']['id']}/executions/{run['execution_id']}").json()
+    assert history["status"] == "done"  # a finished execution is not touched
+    failed = _run(api, first, "failed")  # the next run of that action says what is missing
+    reason = next(r for r in failed["node_results"] if r["kind"] == "agent")["reason"]
+    assert "agent" in reason.lower(), reason

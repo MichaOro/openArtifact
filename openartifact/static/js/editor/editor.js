@@ -13,7 +13,7 @@ import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, ne
 import { GraphModel } from "./graph-model.js";
 import { InspectorBlocks } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
-import { rememberPipeline, setupBack } from "./navigation.js";
+import { rememberPipeline, setupBack, setupBackToAgent } from "./navigation.js";
 import { typeOf } from "./node-types.js";
 
 export class GraphEditor {
@@ -95,9 +95,10 @@ export class GraphEditor {
   /** Opened from a node of a pipeline: offer the way back; back in a pipeline: select that node again. */
   async #onFirstLoad() {
     const params = new URLSearchParams(window.location.search);
-    setupBack(this.root.querySelector("[data-back]"), this.paths.pipeline, params.get("from"), params.get("node")); // opened from a node of a pipeline
-    if (this.model.isAction) return;
-    this.#remember(null);
+    const back = this.root.querySelector("[data-back]");
+    if (params.get("agent")) setupBackToAgent(back, params.get("agent")); // opened from the agent's "Used by"
+    else setupBack(back, this.paths.pipeline, params.get("from"), params.get("node")); // opened from a node of a pipeline
+    if (!this.model.isAction) this.#remember(null);
     const wanted = params.get("select");
     if (wanted && this.nodes.has(wanted)) {
       this.select({ type: "node", id: wanted });
