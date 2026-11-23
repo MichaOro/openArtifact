@@ -1,0 +1,5241 @@
+{
+ "trigger": [
+  {
+   "node": {},
+   "size": {
+    "width": 160,
+    "height": 64
+   },
+   "caption": null,
+   "subtitle": "Trigger",
+   "displayName": "Trigger",
+   "renamable": true,
+   "icon": null,
+   "ports": [
+    {
+     "name": "out",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Next",
+     "labelled": false,
+     "local": {
+      "x": 160,
+      "y": 32
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "out>stage-1:start": true,
+    "out>stage-1:end": false,
+    "out>action-1:in": false,
+    "out>pipeline-1:in": true,
+    "out>complete-1:in": true,
+    "out>timer-1:in": true,
+    "out>output-1:pass": true,
+    "out>output-1:fail": true,
+    "out>code-1:in": true,
+    "out>http-1:in": true,
+    "out>if-1:in": true,
+    "out>switch-1:in": true,
+    "out>agent-1:in": true,
+    "out>agent-1:tools": false,
+    "out>set-1:in": true,
+    "out>github-1:in": true,
+    "out>postgres-1:in": true
+   }
+  }
+ ],
+ "complete": [
+  {
+   "node": {},
+   "size": {
+    "width": 160,
+    "height": 56
+   },
+   "caption": null,
+   "subtitle": "Complete",
+   "displayName": "Complete",
+   "renamable": true,
+   "icon": null,
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 28
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {}
+  }
+ ],
+ "stage": [
+  {
+   "node": {},
+   "size": {
+    "width": 300,
+    "height": 200
+   },
+   "caption": "Stage",
+   "subtitle": "Stage",
+   "displayName": "Stage",
+   "renamable": true,
+   "icon": null,
+   "ports": [
+    {
+     "name": "start",
+     "slot": 0,
+     "direction": "both",
+     "side": "left",
+     "visible": true,
+     "label": "Start",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 22
+     }
+    },
+    {
+     "name": "end",
+     "slot": 0,
+     "direction": "both",
+     "side": "right",
+     "visible": true,
+     "label": "End",
+     "labelled": false,
+     "local": {
+      "x": 300,
+      "y": 22
+     }
+    },
+    {
+     "name": "start",
+     "slot": 1,
+     "direction": "both",
+     "side": "left",
+     "visible": true,
+     "label": "Start",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 100
+     }
+    },
+    {
+     "name": "end",
+     "slot": 1,
+     "direction": "both",
+     "side": "right",
+     "visible": true,
+     "label": "End",
+     "labelled": false,
+     "local": {
+      "x": 300,
+      "y": 100
+     }
+    },
+    {
+     "name": "start",
+     "slot": 2,
+     "direction": "both",
+     "side": "left",
+     "visible": true,
+     "label": "Start",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 178
+     }
+    },
+    {
+     "name": "end",
+     "slot": 2,
+     "direction": "both",
+     "side": "right",
+     "visible": true,
+     "label": "End",
+     "labelled": false,
+     "local": {
+      "x": 300,
+      "y": 178
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "start>stage-1:start": false,
+    "start>stage-1:end": false,
+    "start>action-1:in": true,
+    "start>pipeline-1:in": false,
+    "start>complete-1:in": false,
+    "start>timer-1:in": false,
+    "start>output-1:pass": false,
+    "start>output-1:fail": false,
+    "start>code-1:in": false,
+    "start>http-1:in": false,
+    "start>if-1:in": false,
+    "start>switch-1:in": false,
+    "start>agent-1:in": false,
+    "start>agent-1:tools": false,
+    "start>set-1:in": false,
+    "start>github-1:in": false,
+    "start>postgres-1:in": false,
+    "end>stage-1:start": false,
+    "end>stage-1:end": false,
+    "end>action-1:in": false,
+    "end>pipeline-1:in": true,
+    "end>complete-1:in": true,
+    "end>timer-1:in": true,
+    "end>output-1:pass": true,
+    "end>output-1:fail": true,
+    "end>code-1:in": true,
+    "end>http-1:in": true,
+    "end>if-1:in": true,
+    "end>switch-1:in": true,
+    "end>agent-1:in": true,
+    "end>agent-1:tools": false,
+    "end>set-1:in": true,
+    "end>github-1:in": true,
+    "end>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "width": 420,
+    "height": 260
+   },
+   "size": {
+    "width": 420,
+    "height": 260
+   },
+   "caption": "Stage",
+   "subtitle": "Stage",
+   "displayName": "Stage",
+   "renamable": true,
+   "icon": null,
+   "ports": [
+    {
+     "name": "start",
+     "slot": 0,
+     "direction": "both",
+     "side": "left",
+     "visible": true,
+     "label": "Start",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 22
+     }
+    },
+    {
+     "name": "end",
+     "slot": 0,
+     "direction": "both",
+     "side": "right",
+     "visible": true,
+     "label": "End",
+     "labelled": false,
+     "local": {
+      "x": 420,
+      "y": 22
+     }
+    },
+    {
+     "name": "start",
+     "slot": 1,
+     "direction": "both",
+     "side": "left",
+     "visible": true,
+     "label": "Start",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 130
+     }
+    },
+    {
+     "name": "end",
+     "slot": 1,
+     "direction": "both",
+     "side": "right",
+     "visible": true,
+     "label": "End",
+     "labelled": false,
+     "local": {
+      "x": 420,
+      "y": 130
+     }
+    },
+    {
+     "name": "start",
+     "slot": 2,
+     "direction": "both",
+     "side": "left",
+     "visible": true,
+     "label": "Start",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 238
+     }
+    },
+    {
+     "name": "end",
+     "slot": 2,
+     "direction": "both",
+     "side": "right",
+     "visible": true,
+     "label": "End",
+     "labelled": false,
+     "local": {
+      "x": 420,
+      "y": 238
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "start>stage-1:start": false,
+    "start>stage-1:end": false,
+    "start>action-1:in": true,
+    "start>pipeline-1:in": false,
+    "start>complete-1:in": false,
+    "start>timer-1:in": false,
+    "start>output-1:pass": false,
+    "start>output-1:fail": false,
+    "start>code-1:in": false,
+    "start>http-1:in": false,
+    "start>if-1:in": false,
+    "start>switch-1:in": false,
+    "start>agent-1:in": false,
+    "start>agent-1:tools": false,
+    "start>set-1:in": false,
+    "start>github-1:in": false,
+    "start>postgres-1:in": false,
+    "end>stage-1:start": false,
+    "end>stage-1:end": false,
+    "end>action-1:in": false,
+    "end>pipeline-1:in": true,
+    "end>complete-1:in": true,
+    "end>timer-1:in": true,
+    "end>output-1:pass": true,
+    "end>output-1:fail": true,
+    "end>code-1:in": true,
+    "end>http-1:in": true,
+    "end>if-1:in": true,
+    "end>switch-1:in": true,
+    "end>agent-1:in": true,
+    "end>agent-1:tools": false,
+    "end>set-1:in": true,
+    "end>github-1:in": true,
+    "end>postgres-1:in": true
+   }
+  }
+ ],
+ "action": [
+  {
+   "node": {},
+   "size": {
+    "width": 190,
+    "height": 68
+   },
+   "caption": "Empty action",
+   "subtitle": "Empty action",
+   "displayName": "Action",
+   "renamable": false,
+   "icon": null,
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 34
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 190,
+      "y": 22.666666666666668
+     }
+    },
+    {
+     "name": "error",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Error",
+     "labelled": true,
+     "local": {
+      "x": 190,
+      "y": 45.333333333333336
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": false,
+    "pass>stage-1:end": true,
+    "pass>action-1:in": true,
+    "pass>pipeline-1:in": false,
+    "pass>complete-1:in": false,
+    "pass>timer-1:in": false,
+    "pass>output-1:pass": false,
+    "pass>output-1:fail": false,
+    "pass>code-1:in": false,
+    "pass>http-1:in": false,
+    "pass>if-1:in": false,
+    "pass>switch-1:in": false,
+    "pass>agent-1:in": false,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": false,
+    "pass>github-1:in": false,
+    "pass>postgres-1:in": false,
+    "error>stage-1:start": false,
+    "error>stage-1:end": true,
+    "error>action-1:in": true,
+    "error>pipeline-1:in": false,
+    "error>complete-1:in": false,
+    "error>timer-1:in": false,
+    "error>output-1:pass": false,
+    "error>output-1:fail": false,
+    "error>code-1:in": false,
+    "error>http-1:in": false,
+    "error>if-1:in": false,
+    "error>switch-1:in": false,
+    "error>agent-1:in": false,
+    "error>agent-1:tools": false,
+    "error>set-1:in": false,
+    "error>github-1:in": false,
+    "error>postgres-1:in": false
+   }
+  },
+  {
+   "node": {
+    "definition_id": "d",
+    "definition_name": "Check",
+    "definition_fail_enabled": false
+   },
+   "size": {
+    "width": 190,
+    "height": 68
+   },
+   "caption": "Action",
+   "subtitle": "Action",
+   "displayName": "Check",
+   "renamable": false,
+   "icon": null,
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 34
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 190,
+      "y": 34
+     }
+    },
+    {
+     "name": "error",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "On Error",
+     "labelled": true,
+     "local": {
+      "x": 190,
+      "y": 34
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": false,
+    "pass>stage-1:end": true,
+    "pass>action-1:in": true,
+    "pass>pipeline-1:in": false,
+    "pass>complete-1:in": false,
+    "pass>timer-1:in": false,
+    "pass>output-1:pass": false,
+    "pass>output-1:fail": false,
+    "pass>code-1:in": false,
+    "pass>http-1:in": false,
+    "pass>if-1:in": false,
+    "pass>switch-1:in": false,
+    "pass>agent-1:in": false,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": false,
+    "pass>github-1:in": false,
+    "pass>postgres-1:in": false,
+    "error>stage-1:start": false,
+    "error>stage-1:end": true,
+    "error>action-1:in": true,
+    "error>pipeline-1:in": false,
+    "error>complete-1:in": false,
+    "error>timer-1:in": false,
+    "error>output-1:pass": false,
+    "error>output-1:fail": false,
+    "error>code-1:in": false,
+    "error>http-1:in": false,
+    "error>if-1:in": false,
+    "error>switch-1:in": false,
+    "error>agent-1:in": false,
+    "error>agent-1:tools": false,
+    "error>set-1:in": false,
+    "error>github-1:in": false,
+    "error>postgres-1:in": false
+   }
+  },
+  {
+   "node": {
+    "definition_id": "d",
+    "definition_fail_enabled": true
+   },
+   "size": {
+    "width": 190,
+    "height": 68
+   },
+   "caption": "Action",
+   "subtitle": "Action",
+   "displayName": "Action",
+   "renamable": false,
+   "icon": null,
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 34
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 190,
+      "y": 22.666666666666668
+     }
+    },
+    {
+     "name": "error",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Error",
+     "labelled": true,
+     "local": {
+      "x": 190,
+      "y": 45.333333333333336
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": false,
+    "pass>stage-1:end": true,
+    "pass>action-1:in": true,
+    "pass>pipeline-1:in": false,
+    "pass>complete-1:in": false,
+    "pass>timer-1:in": false,
+    "pass>output-1:pass": false,
+    "pass>output-1:fail": false,
+    "pass>code-1:in": false,
+    "pass>http-1:in": false,
+    "pass>if-1:in": false,
+    "pass>switch-1:in": false,
+    "pass>agent-1:in": false,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": false,
+    "pass>github-1:in": false,
+    "pass>postgres-1:in": false,
+    "error>stage-1:start": false,
+    "error>stage-1:end": true,
+    "error>action-1:in": true,
+    "error>pipeline-1:in": false,
+    "error>complete-1:in": false,
+    "error>timer-1:in": false,
+    "error>output-1:pass": false,
+    "error>output-1:fail": false,
+    "error>code-1:in": false,
+    "error>http-1:in": false,
+    "error>if-1:in": false,
+    "error>switch-1:in": false,
+    "error>agent-1:in": false,
+    "error>agent-1:tools": false,
+    "error>set-1:in": false,
+    "error>github-1:in": false,
+    "error>postgres-1:in": false
+   }
+  }
+ ],
+ "pipeline": [
+  {
+   "node": {},
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "No pipeline chosen",
+   "subtitle": "No pipeline chosen",
+   "displayName": "Pipeline",
+   "renamable": false,
+   "icon": null,
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 32
+     }
+    },
+    {
+     "name": "out",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Next",
+     "labelled": false,
+     "local": {
+      "x": 200,
+      "y": 32
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "out>stage-1:start": true,
+    "out>stage-1:end": false,
+    "out>action-1:in": false,
+    "out>pipeline-1:in": false,
+    "out>complete-1:in": true,
+    "out>timer-1:in": true,
+    "out>output-1:pass": true,
+    "out>output-1:fail": true,
+    "out>code-1:in": true,
+    "out>http-1:in": true,
+    "out>if-1:in": true,
+    "out>switch-1:in": true,
+    "out>agent-1:in": true,
+    "out>agent-1:tools": false,
+    "out>set-1:in": true,
+    "out>github-1:in": true,
+    "out>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "definition_id": "p",
+    "definition_name": "Build"
+   },
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "Pipeline",
+   "subtitle": "Pipeline",
+   "displayName": "Build",
+   "renamable": false,
+   "icon": null,
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 32
+     }
+    },
+    {
+     "name": "out",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Next",
+     "labelled": false,
+     "local": {
+      "x": 200,
+      "y": 32
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "out>stage-1:start": true,
+    "out>stage-1:end": false,
+    "out>action-1:in": false,
+    "out>pipeline-1:in": false,
+    "out>complete-1:in": true,
+    "out>timer-1:in": true,
+    "out>output-1:pass": true,
+    "out>output-1:fail": true,
+    "out>code-1:in": true,
+    "out>http-1:in": true,
+    "out>if-1:in": true,
+    "out>switch-1:in": true,
+    "out>agent-1:in": true,
+    "out>agent-1:tools": false,
+    "out>set-1:in": true,
+    "out>github-1:in": true,
+    "out>postgres-1:in": true
+   }
+  }
+ ],
+ "timer": [
+  {
+   "node": {
+    "seconds": 5
+   },
+   "size": {
+    "width": 160,
+    "height": 64
+   },
+   "caption": "5 s",
+   "subtitle": "5 s",
+   "displayName": "Timer",
+   "renamable": true,
+   "icon": null,
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 32
+     }
+    },
+    {
+     "name": "out",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Next",
+     "labelled": false,
+     "local": {
+      "x": 160,
+      "y": 32
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "out>stage-1:start": true,
+    "out>stage-1:end": false,
+    "out>action-1:in": false,
+    "out>pipeline-1:in": true,
+    "out>complete-1:in": true,
+    "out>timer-1:in": false,
+    "out>output-1:pass": true,
+    "out>output-1:fail": true,
+    "out>code-1:in": true,
+    "out>http-1:in": true,
+    "out>if-1:in": true,
+    "out>switch-1:in": true,
+    "out>agent-1:in": true,
+    "out>agent-1:tools": false,
+    "out>set-1:in": true,
+    "out>github-1:in": true,
+    "out>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "seconds": 90
+   },
+   "size": {
+    "width": 160,
+    "height": 64
+   },
+   "caption": "90 s",
+   "subtitle": "90 s",
+   "displayName": "Timer",
+   "renamable": true,
+   "icon": null,
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 32
+     }
+    },
+    {
+     "name": "out",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Next",
+     "labelled": false,
+     "local": {
+      "x": 160,
+      "y": 32
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "out>stage-1:start": true,
+    "out>stage-1:end": false,
+    "out>action-1:in": false,
+    "out>pipeline-1:in": true,
+    "out>complete-1:in": true,
+    "out>timer-1:in": false,
+    "out>output-1:pass": true,
+    "out>output-1:fail": true,
+    "out>code-1:in": true,
+    "out>http-1:in": true,
+    "out>if-1:in": true,
+    "out>switch-1:in": true,
+    "out>agent-1:in": true,
+    "out>agent-1:tools": false,
+    "out>set-1:in": true,
+    "out>github-1:in": true,
+    "out>postgres-1:in": true
+   }
+  }
+ ],
+ "output": [
+  {
+   "node": {
+    "fail_enabled": false
+   },
+   "size": {
+    "width": 250,
+    "height": 104
+   },
+   "caption": null,
+   "subtitle": "Output",
+   "displayName": "Output",
+   "renamable": true,
+   "icon": null,
+   "ports": [
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 0,
+      "y": 60
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": false,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 0,
+      "y": 84
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {}
+  },
+  {
+   "node": {
+    "fail_enabled": true
+   },
+   "size": {
+    "width": 250,
+    "height": 104
+   },
+   "caption": null,
+   "subtitle": "Output",
+   "displayName": "Output",
+   "renamable": true,
+   "icon": null,
+   "ports": [
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 0,
+      "y": 60
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 0,
+      "y": 84
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {}
+  }
+ ],
+ "code": [
+  {
+   "node": {},
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "sh · no code yet",
+   "subtitle": "Code",
+   "displayName": "Code",
+   "renamable": true,
+   "icon": "code",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": false,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": false,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "language": "python",
+     "code": "\n  print('hi')\nmore"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "python · print('hi')",
+   "subtitle": "Code",
+   "displayName": "Code",
+   "renamable": true,
+   "icon": "code",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": false,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": false,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "code": "echo one"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "sh · echo one",
+   "subtitle": "Code",
+   "displayName": "Code",
+   "renamable": true,
+   "icon": "code",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": false,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": false,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  }
+ ],
+ "http": [
+  {
+   "node": {},
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "GET no URL yet",
+   "subtitle": "HTTP request",
+   "displayName": "HTTP request",
+   "renamable": true,
+   "icon": "http",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": false,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": false,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "method": "POST",
+     "url": "https://user:pw@example.org/hook?token=secret#frag"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "POST example.org/hook",
+   "subtitle": "HTTP request",
+   "displayName": "HTTP request",
+   "renamable": true,
+   "icon": "http",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": false,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": false,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "url": "user:pw@example.org/a?x=1"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "GET example.org/a",
+   "subtitle": "HTTP request",
+   "displayName": "HTTP request",
+   "renamable": true,
+   "icon": "http",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": false,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": false,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  }
+ ],
+ "if": [
+  {
+   "node": {},
+   "size": {
+    "width": 250,
+    "height": 104
+   },
+   "caption": "no condition yet",
+   "subtitle": "If",
+   "displayName": "If",
+   "renamable": true,
+   "icon": "if",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 52
+     }
+    },
+    {
+     "name": "yes",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Yes",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 26
+     }
+    },
+    {
+     "name": "no",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "No",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 52
+     }
+    },
+    {
+     "name": "else",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Else",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 78
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "yes>stage-1:start": true,
+    "yes>stage-1:end": false,
+    "yes>action-1:in": false,
+    "yes>pipeline-1:in": true,
+    "yes>complete-1:in": true,
+    "yes>timer-1:in": true,
+    "yes>output-1:pass": true,
+    "yes>output-1:fail": true,
+    "yes>code-1:in": true,
+    "yes>http-1:in": true,
+    "yes>if-1:in": false,
+    "yes>switch-1:in": true,
+    "yes>agent-1:in": true,
+    "yes>agent-1:tools": false,
+    "yes>set-1:in": true,
+    "yes>github-1:in": true,
+    "yes>postgres-1:in": true,
+    "no>stage-1:start": true,
+    "no>stage-1:end": false,
+    "no>action-1:in": false,
+    "no>pipeline-1:in": true,
+    "no>complete-1:in": true,
+    "no>timer-1:in": true,
+    "no>output-1:pass": true,
+    "no>output-1:fail": true,
+    "no>code-1:in": true,
+    "no>http-1:in": true,
+    "no>if-1:in": false,
+    "no>switch-1:in": true,
+    "no>agent-1:in": true,
+    "no>agent-1:tools": false,
+    "no>set-1:in": true,
+    "no>github-1:in": true,
+    "no>postgres-1:in": true,
+    "else>stage-1:start": true,
+    "else>stage-1:end": false,
+    "else>action-1:in": false,
+    "else>pipeline-1:in": true,
+    "else>complete-1:in": true,
+    "else>timer-1:in": true,
+    "else>output-1:pass": true,
+    "else>output-1:fail": true,
+    "else>code-1:in": true,
+    "else>http-1:in": true,
+    "else>if-1:in": false,
+    "else>switch-1:in": true,
+    "else>agent-1:in": true,
+    "else>agent-1:tools": false,
+    "else>set-1:in": true,
+    "else>github-1:in": true,
+    "else>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "left_1": "${var.p}",
+     "operator_1": "equals",
+     "right_1": "high"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 104
+   },
+   "caption": "${var.p} equals high",
+   "subtitle": "If",
+   "displayName": "If",
+   "renamable": true,
+   "icon": "if",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 52
+     }
+    },
+    {
+     "name": "yes",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Yes",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 26
+     }
+    },
+    {
+     "name": "no",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "No",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 52
+     }
+    },
+    {
+     "name": "else",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Else",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 78
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "yes>stage-1:start": true,
+    "yes>stage-1:end": false,
+    "yes>action-1:in": false,
+    "yes>pipeline-1:in": true,
+    "yes>complete-1:in": true,
+    "yes>timer-1:in": true,
+    "yes>output-1:pass": true,
+    "yes>output-1:fail": true,
+    "yes>code-1:in": true,
+    "yes>http-1:in": true,
+    "yes>if-1:in": false,
+    "yes>switch-1:in": true,
+    "yes>agent-1:in": true,
+    "yes>agent-1:tools": false,
+    "yes>set-1:in": true,
+    "yes>github-1:in": true,
+    "yes>postgres-1:in": true,
+    "no>stage-1:start": true,
+    "no>stage-1:end": false,
+    "no>action-1:in": false,
+    "no>pipeline-1:in": true,
+    "no>complete-1:in": true,
+    "no>timer-1:in": true,
+    "no>output-1:pass": true,
+    "no>output-1:fail": true,
+    "no>code-1:in": true,
+    "no>http-1:in": true,
+    "no>if-1:in": false,
+    "no>switch-1:in": true,
+    "no>agent-1:in": true,
+    "no>agent-1:tools": false,
+    "no>set-1:in": true,
+    "no>github-1:in": true,
+    "no>postgres-1:in": true,
+    "else>stage-1:start": true,
+    "else>stage-1:end": false,
+    "else>action-1:in": false,
+    "else>pipeline-1:in": true,
+    "else>complete-1:in": true,
+    "else>timer-1:in": true,
+    "else>output-1:pass": true,
+    "else>output-1:fail": true,
+    "else>code-1:in": true,
+    "else>http-1:in": true,
+    "else>if-1:in": false,
+    "else>switch-1:in": true,
+    "else>agent-1:in": true,
+    "else>agent-1:tools": false,
+    "else>set-1:in": true,
+    "else>github-1:in": true,
+    "else>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "left_2": "x",
+     "operator_2": "is empty",
+     "left_3": "y",
+     "right_3": "z",
+     "operator_3": "contains"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 104
+   },
+   "caption": "x is empty +1 more",
+   "subtitle": "If",
+   "displayName": "If",
+   "renamable": true,
+   "icon": "if",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 52
+     }
+    },
+    {
+     "name": "yes",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Yes",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 26
+     }
+    },
+    {
+     "name": "no",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "No",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 52
+     }
+    },
+    {
+     "name": "else",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Else",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 78
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "yes>stage-1:start": true,
+    "yes>stage-1:end": false,
+    "yes>action-1:in": false,
+    "yes>pipeline-1:in": true,
+    "yes>complete-1:in": true,
+    "yes>timer-1:in": true,
+    "yes>output-1:pass": true,
+    "yes>output-1:fail": true,
+    "yes>code-1:in": true,
+    "yes>http-1:in": true,
+    "yes>if-1:in": false,
+    "yes>switch-1:in": true,
+    "yes>agent-1:in": true,
+    "yes>agent-1:tools": false,
+    "yes>set-1:in": true,
+    "yes>github-1:in": true,
+    "yes>postgres-1:in": true,
+    "no>stage-1:start": true,
+    "no>stage-1:end": false,
+    "no>action-1:in": false,
+    "no>pipeline-1:in": true,
+    "no>complete-1:in": true,
+    "no>timer-1:in": true,
+    "no>output-1:pass": true,
+    "no>output-1:fail": true,
+    "no>code-1:in": true,
+    "no>http-1:in": true,
+    "no>if-1:in": false,
+    "no>switch-1:in": true,
+    "no>agent-1:in": true,
+    "no>agent-1:tools": false,
+    "no>set-1:in": true,
+    "no>github-1:in": true,
+    "no>postgres-1:in": true,
+    "else>stage-1:start": true,
+    "else>stage-1:end": false,
+    "else>action-1:in": false,
+    "else>pipeline-1:in": true,
+    "else>complete-1:in": true,
+    "else>timer-1:in": true,
+    "else>output-1:pass": true,
+    "else>output-1:fail": true,
+    "else>code-1:in": true,
+    "else>http-1:in": true,
+    "else>if-1:in": false,
+    "else>switch-1:in": true,
+    "else>agent-1:in": true,
+    "else>agent-1:tools": false,
+    "else>set-1:in": true,
+    "else>github-1:in": true,
+    "else>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "left_1": "a very long value that goes on and on and on forever",
+     "operator_1": "not equals",
+     "right_1": "b"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 104
+   },
+   "caption": "a very long value that goes on and on an…",
+   "subtitle": "If",
+   "displayName": "If",
+   "renamable": true,
+   "icon": "if",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 52
+     }
+    },
+    {
+     "name": "yes",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Yes",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 26
+     }
+    },
+    {
+     "name": "no",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "No",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 52
+     }
+    },
+    {
+     "name": "else",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Else",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 78
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "yes>stage-1:start": true,
+    "yes>stage-1:end": false,
+    "yes>action-1:in": false,
+    "yes>pipeline-1:in": true,
+    "yes>complete-1:in": true,
+    "yes>timer-1:in": true,
+    "yes>output-1:pass": true,
+    "yes>output-1:fail": true,
+    "yes>code-1:in": true,
+    "yes>http-1:in": true,
+    "yes>if-1:in": false,
+    "yes>switch-1:in": true,
+    "yes>agent-1:in": true,
+    "yes>agent-1:tools": false,
+    "yes>set-1:in": true,
+    "yes>github-1:in": true,
+    "yes>postgres-1:in": true,
+    "no>stage-1:start": true,
+    "no>stage-1:end": false,
+    "no>action-1:in": false,
+    "no>pipeline-1:in": true,
+    "no>complete-1:in": true,
+    "no>timer-1:in": true,
+    "no>output-1:pass": true,
+    "no>output-1:fail": true,
+    "no>code-1:in": true,
+    "no>http-1:in": true,
+    "no>if-1:in": false,
+    "no>switch-1:in": true,
+    "no>agent-1:in": true,
+    "no>agent-1:tools": false,
+    "no>set-1:in": true,
+    "no>github-1:in": true,
+    "no>postgres-1:in": true,
+    "else>stage-1:start": true,
+    "else>stage-1:end": false,
+    "else>action-1:in": false,
+    "else>pipeline-1:in": true,
+    "else>complete-1:in": true,
+    "else>timer-1:in": true,
+    "else>output-1:pass": true,
+    "else>output-1:fail": true,
+    "else>code-1:in": true,
+    "else>http-1:in": true,
+    "else>if-1:in": false,
+    "else>switch-1:in": true,
+    "else>agent-1:in": true,
+    "else>agent-1:tools": false,
+    "else>set-1:in": true,
+    "else>github-1:in": true,
+    "else>postgres-1:in": true
+   }
+  }
+ ],
+ "switch": [
+  {
+   "node": {},
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "no value yet · 0 cases",
+   "subtitle": "Switch",
+   "displayName": "Switch",
+   "renamable": true,
+   "icon": "switch",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "case_1",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 1",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    },
+    {
+     "name": "case_2",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 2",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    },
+    {
+     "name": "case_3",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 3",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    },
+    {
+     "name": "case_4",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 4",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    },
+    {
+     "name": "case_5",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 5",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    },
+    {
+     "name": "case_6",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 6",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    },
+    {
+     "name": "else",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Else",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": false,
+    "Case 2": false,
+    "Case 3": false,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "case_1>stage-1:start": false,
+    "case_1>stage-1:end": false,
+    "case_1>action-1:in": false,
+    "case_1>pipeline-1:in": false,
+    "case_1>complete-1:in": false,
+    "case_1>timer-1:in": false,
+    "case_1>output-1:pass": false,
+    "case_1>output-1:fail": false,
+    "case_1>code-1:in": false,
+    "case_1>http-1:in": false,
+    "case_1>if-1:in": false,
+    "case_1>switch-1:in": false,
+    "case_1>agent-1:in": false,
+    "case_1>agent-1:tools": false,
+    "case_1>set-1:in": false,
+    "case_1>github-1:in": false,
+    "case_1>postgres-1:in": false,
+    "case_2>stage-1:start": false,
+    "case_2>stage-1:end": false,
+    "case_2>action-1:in": false,
+    "case_2>pipeline-1:in": false,
+    "case_2>complete-1:in": false,
+    "case_2>timer-1:in": false,
+    "case_2>output-1:pass": false,
+    "case_2>output-1:fail": false,
+    "case_2>code-1:in": false,
+    "case_2>http-1:in": false,
+    "case_2>if-1:in": false,
+    "case_2>switch-1:in": false,
+    "case_2>agent-1:in": false,
+    "case_2>agent-1:tools": false,
+    "case_2>set-1:in": false,
+    "case_2>github-1:in": false,
+    "case_2>postgres-1:in": false,
+    "case_3>stage-1:start": false,
+    "case_3>stage-1:end": false,
+    "case_3>action-1:in": false,
+    "case_3>pipeline-1:in": false,
+    "case_3>complete-1:in": false,
+    "case_3>timer-1:in": false,
+    "case_3>output-1:pass": false,
+    "case_3>output-1:fail": false,
+    "case_3>code-1:in": false,
+    "case_3>http-1:in": false,
+    "case_3>if-1:in": false,
+    "case_3>switch-1:in": false,
+    "case_3>agent-1:in": false,
+    "case_3>agent-1:tools": false,
+    "case_3>set-1:in": false,
+    "case_3>github-1:in": false,
+    "case_3>postgres-1:in": false,
+    "case_4>stage-1:start": false,
+    "case_4>stage-1:end": false,
+    "case_4>action-1:in": false,
+    "case_4>pipeline-1:in": false,
+    "case_4>complete-1:in": false,
+    "case_4>timer-1:in": false,
+    "case_4>output-1:pass": false,
+    "case_4>output-1:fail": false,
+    "case_4>code-1:in": false,
+    "case_4>http-1:in": false,
+    "case_4>if-1:in": false,
+    "case_4>switch-1:in": false,
+    "case_4>agent-1:in": false,
+    "case_4>agent-1:tools": false,
+    "case_4>set-1:in": false,
+    "case_4>github-1:in": false,
+    "case_4>postgres-1:in": false,
+    "case_5>stage-1:start": false,
+    "case_5>stage-1:end": false,
+    "case_5>action-1:in": false,
+    "case_5>pipeline-1:in": false,
+    "case_5>complete-1:in": false,
+    "case_5>timer-1:in": false,
+    "case_5>output-1:pass": false,
+    "case_5>output-1:fail": false,
+    "case_5>code-1:in": false,
+    "case_5>http-1:in": false,
+    "case_5>if-1:in": false,
+    "case_5>switch-1:in": false,
+    "case_5>agent-1:in": false,
+    "case_5>agent-1:tools": false,
+    "case_5>set-1:in": false,
+    "case_5>github-1:in": false,
+    "case_5>postgres-1:in": false,
+    "case_6>stage-1:start": false,
+    "case_6>stage-1:end": false,
+    "case_6>action-1:in": false,
+    "case_6>pipeline-1:in": false,
+    "case_6>complete-1:in": false,
+    "case_6>timer-1:in": false,
+    "case_6>output-1:pass": false,
+    "case_6>output-1:fail": false,
+    "case_6>code-1:in": false,
+    "case_6>http-1:in": false,
+    "case_6>if-1:in": false,
+    "case_6>switch-1:in": false,
+    "case_6>agent-1:in": false,
+    "case_6>agent-1:tools": false,
+    "case_6>set-1:in": false,
+    "case_6>github-1:in": false,
+    "case_6>postgres-1:in": false,
+    "else>stage-1:start": true,
+    "else>stage-1:end": false,
+    "else>action-1:in": false,
+    "else>pipeline-1:in": true,
+    "else>complete-1:in": true,
+    "else>timer-1:in": true,
+    "else>output-1:pass": true,
+    "else>output-1:fail": true,
+    "else>code-1:in": true,
+    "else>http-1:in": true,
+    "else>if-1:in": true,
+    "else>switch-1:in": false,
+    "else>agent-1:in": true,
+    "else>agent-1:tools": false,
+    "else>set-1:in": true,
+    "else>github-1:in": true,
+    "else>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "value": "${var.tier}",
+     "case_1": "silver",
+     "case_2": "gold"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 98
+   },
+   "caption": "${var.tier} · 2 cases",
+   "subtitle": "Switch",
+   "displayName": "Switch",
+   "renamable": true,
+   "icon": "switch",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 49
+     }
+    },
+    {
+     "name": "case_1",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "silver",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 24.5
+     }
+    },
+    {
+     "name": "case_2",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "gold",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 49
+     }
+    },
+    {
+     "name": "case_3",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 3",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 24.5
+     }
+    },
+    {
+     "name": "case_4",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 4",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 24.5
+     }
+    },
+    {
+     "name": "case_5",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 5",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 24.5
+     }
+    },
+    {
+     "name": "case_6",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 6",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 24.5
+     }
+    },
+    {
+     "name": "else",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Else",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 73.5
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": true,
+    "Case 2": true,
+    "Case 3": false,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "case_1>stage-1:start": true,
+    "case_1>stage-1:end": false,
+    "case_1>action-1:in": false,
+    "case_1>pipeline-1:in": true,
+    "case_1>complete-1:in": true,
+    "case_1>timer-1:in": true,
+    "case_1>output-1:pass": true,
+    "case_1>output-1:fail": true,
+    "case_1>code-1:in": true,
+    "case_1>http-1:in": true,
+    "case_1>if-1:in": true,
+    "case_1>switch-1:in": false,
+    "case_1>agent-1:in": true,
+    "case_1>agent-1:tools": false,
+    "case_1>set-1:in": true,
+    "case_1>github-1:in": true,
+    "case_1>postgres-1:in": true,
+    "case_2>stage-1:start": true,
+    "case_2>stage-1:end": false,
+    "case_2>action-1:in": false,
+    "case_2>pipeline-1:in": true,
+    "case_2>complete-1:in": true,
+    "case_2>timer-1:in": true,
+    "case_2>output-1:pass": true,
+    "case_2>output-1:fail": true,
+    "case_2>code-1:in": true,
+    "case_2>http-1:in": true,
+    "case_2>if-1:in": true,
+    "case_2>switch-1:in": false,
+    "case_2>agent-1:in": true,
+    "case_2>agent-1:tools": false,
+    "case_2>set-1:in": true,
+    "case_2>github-1:in": true,
+    "case_2>postgres-1:in": true,
+    "case_3>stage-1:start": false,
+    "case_3>stage-1:end": false,
+    "case_3>action-1:in": false,
+    "case_3>pipeline-1:in": false,
+    "case_3>complete-1:in": false,
+    "case_3>timer-1:in": false,
+    "case_3>output-1:pass": false,
+    "case_3>output-1:fail": false,
+    "case_3>code-1:in": false,
+    "case_3>http-1:in": false,
+    "case_3>if-1:in": false,
+    "case_3>switch-1:in": false,
+    "case_3>agent-1:in": false,
+    "case_3>agent-1:tools": false,
+    "case_3>set-1:in": false,
+    "case_3>github-1:in": false,
+    "case_3>postgres-1:in": false,
+    "case_4>stage-1:start": false,
+    "case_4>stage-1:end": false,
+    "case_4>action-1:in": false,
+    "case_4>pipeline-1:in": false,
+    "case_4>complete-1:in": false,
+    "case_4>timer-1:in": false,
+    "case_4>output-1:pass": false,
+    "case_4>output-1:fail": false,
+    "case_4>code-1:in": false,
+    "case_4>http-1:in": false,
+    "case_4>if-1:in": false,
+    "case_4>switch-1:in": false,
+    "case_4>agent-1:in": false,
+    "case_4>agent-1:tools": false,
+    "case_4>set-1:in": false,
+    "case_4>github-1:in": false,
+    "case_4>postgres-1:in": false,
+    "case_5>stage-1:start": false,
+    "case_5>stage-1:end": false,
+    "case_5>action-1:in": false,
+    "case_5>pipeline-1:in": false,
+    "case_5>complete-1:in": false,
+    "case_5>timer-1:in": false,
+    "case_5>output-1:pass": false,
+    "case_5>output-1:fail": false,
+    "case_5>code-1:in": false,
+    "case_5>http-1:in": false,
+    "case_5>if-1:in": false,
+    "case_5>switch-1:in": false,
+    "case_5>agent-1:in": false,
+    "case_5>agent-1:tools": false,
+    "case_5>set-1:in": false,
+    "case_5>github-1:in": false,
+    "case_5>postgres-1:in": false,
+    "case_6>stage-1:start": false,
+    "case_6>stage-1:end": false,
+    "case_6>action-1:in": false,
+    "case_6>pipeline-1:in": false,
+    "case_6>complete-1:in": false,
+    "case_6>timer-1:in": false,
+    "case_6>output-1:pass": false,
+    "case_6>output-1:fail": false,
+    "case_6>code-1:in": false,
+    "case_6>http-1:in": false,
+    "case_6>if-1:in": false,
+    "case_6>switch-1:in": false,
+    "case_6>agent-1:in": false,
+    "case_6>agent-1:tools": false,
+    "case_6>set-1:in": false,
+    "case_6>github-1:in": false,
+    "case_6>postgres-1:in": false,
+    "else>stage-1:start": true,
+    "else>stage-1:end": false,
+    "else>action-1:in": false,
+    "else>pipeline-1:in": true,
+    "else>complete-1:in": true,
+    "else>timer-1:in": true,
+    "else>output-1:pass": true,
+    "else>output-1:fail": true,
+    "else>code-1:in": true,
+    "else>http-1:in": true,
+    "else>if-1:in": true,
+    "else>switch-1:in": false,
+    "else>agent-1:in": true,
+    "else>agent-1:tools": false,
+    "else>set-1:in": true,
+    "else>github-1:in": true,
+    "else>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "case_operator_1": "is empty",
+     "case_2": "10",
+     "case_operator_2": "greater than",
+     "case_3": "urgent",
+     "case_operator_3": "contains"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 124
+   },
+   "caption": "no value yet · 3 cases",
+   "subtitle": "Switch",
+   "displayName": "Switch",
+   "renamable": true,
+   "icon": "switch",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 62
+     }
+    },
+    {
+     "name": "case_1",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "is empty",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 24.8
+     }
+    },
+    {
+     "name": "case_2",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "> 10",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 49.6
+     }
+    },
+    {
+     "name": "case_3",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "contains urgent",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 74.4
+     }
+    },
+    {
+     "name": "case_4",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 4",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 24.8
+     }
+    },
+    {
+     "name": "case_5",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 5",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 24.8
+     }
+    },
+    {
+     "name": "case_6",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "Case 6",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 24.8
+     }
+    },
+    {
+     "name": "else",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Else",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 99.2
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": true,
+    "Case 2": true,
+    "Case 3": true,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "case_1>stage-1:start": true,
+    "case_1>stage-1:end": false,
+    "case_1>action-1:in": false,
+    "case_1>pipeline-1:in": true,
+    "case_1>complete-1:in": true,
+    "case_1>timer-1:in": true,
+    "case_1>output-1:pass": true,
+    "case_1>output-1:fail": true,
+    "case_1>code-1:in": true,
+    "case_1>http-1:in": true,
+    "case_1>if-1:in": true,
+    "case_1>switch-1:in": false,
+    "case_1>agent-1:in": true,
+    "case_1>agent-1:tools": false,
+    "case_1>set-1:in": true,
+    "case_1>github-1:in": true,
+    "case_1>postgres-1:in": true,
+    "case_2>stage-1:start": true,
+    "case_2>stage-1:end": false,
+    "case_2>action-1:in": false,
+    "case_2>pipeline-1:in": true,
+    "case_2>complete-1:in": true,
+    "case_2>timer-1:in": true,
+    "case_2>output-1:pass": true,
+    "case_2>output-1:fail": true,
+    "case_2>code-1:in": true,
+    "case_2>http-1:in": true,
+    "case_2>if-1:in": true,
+    "case_2>switch-1:in": false,
+    "case_2>agent-1:in": true,
+    "case_2>agent-1:tools": false,
+    "case_2>set-1:in": true,
+    "case_2>github-1:in": true,
+    "case_2>postgres-1:in": true,
+    "case_3>stage-1:start": true,
+    "case_3>stage-1:end": false,
+    "case_3>action-1:in": false,
+    "case_3>pipeline-1:in": true,
+    "case_3>complete-1:in": true,
+    "case_3>timer-1:in": true,
+    "case_3>output-1:pass": true,
+    "case_3>output-1:fail": true,
+    "case_3>code-1:in": true,
+    "case_3>http-1:in": true,
+    "case_3>if-1:in": true,
+    "case_3>switch-1:in": false,
+    "case_3>agent-1:in": true,
+    "case_3>agent-1:tools": false,
+    "case_3>set-1:in": true,
+    "case_3>github-1:in": true,
+    "case_3>postgres-1:in": true,
+    "case_4>stage-1:start": false,
+    "case_4>stage-1:end": false,
+    "case_4>action-1:in": false,
+    "case_4>pipeline-1:in": false,
+    "case_4>complete-1:in": false,
+    "case_4>timer-1:in": false,
+    "case_4>output-1:pass": false,
+    "case_4>output-1:fail": false,
+    "case_4>code-1:in": false,
+    "case_4>http-1:in": false,
+    "case_4>if-1:in": false,
+    "case_4>switch-1:in": false,
+    "case_4>agent-1:in": false,
+    "case_4>agent-1:tools": false,
+    "case_4>set-1:in": false,
+    "case_4>github-1:in": false,
+    "case_4>postgres-1:in": false,
+    "case_5>stage-1:start": false,
+    "case_5>stage-1:end": false,
+    "case_5>action-1:in": false,
+    "case_5>pipeline-1:in": false,
+    "case_5>complete-1:in": false,
+    "case_5>timer-1:in": false,
+    "case_5>output-1:pass": false,
+    "case_5>output-1:fail": false,
+    "case_5>code-1:in": false,
+    "case_5>http-1:in": false,
+    "case_5>if-1:in": false,
+    "case_5>switch-1:in": false,
+    "case_5>agent-1:in": false,
+    "case_5>agent-1:tools": false,
+    "case_5>set-1:in": false,
+    "case_5>github-1:in": false,
+    "case_5>postgres-1:in": false,
+    "case_6>stage-1:start": false,
+    "case_6>stage-1:end": false,
+    "case_6>action-1:in": false,
+    "case_6>pipeline-1:in": false,
+    "case_6>complete-1:in": false,
+    "case_6>timer-1:in": false,
+    "case_6>output-1:pass": false,
+    "case_6>output-1:fail": false,
+    "case_6>code-1:in": false,
+    "case_6>http-1:in": false,
+    "case_6>if-1:in": false,
+    "case_6>switch-1:in": false,
+    "case_6>agent-1:in": false,
+    "case_6>agent-1:tools": false,
+    "case_6>set-1:in": false,
+    "case_6>github-1:in": false,
+    "case_6>postgres-1:in": false,
+    "else>stage-1:start": true,
+    "else>stage-1:end": false,
+    "else>action-1:in": false,
+    "else>pipeline-1:in": true,
+    "else>complete-1:in": true,
+    "else>timer-1:in": true,
+    "else>output-1:pass": true,
+    "else>output-1:fail": true,
+    "else>code-1:in": true,
+    "else>http-1:in": true,
+    "else>if-1:in": true,
+    "else>switch-1:in": false,
+    "else>agent-1:in": true,
+    "else>agent-1:tools": false,
+    "else>set-1:in": true,
+    "else>github-1:in": true,
+    "else>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "value": "v",
+     "case_1": "a",
+     "case_2": "b",
+     "case_3": "c",
+     "case_4": "d",
+     "case_5": "e",
+     "case_6": "f"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 202
+   },
+   "caption": "v · 6 cases",
+   "subtitle": "Switch",
+   "displayName": "Switch",
+   "renamable": true,
+   "icon": "switch",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 101
+     }
+    },
+    {
+     "name": "case_1",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "a",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 25.25
+     }
+    },
+    {
+     "name": "case_2",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "b",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 50.5
+     }
+    },
+    {
+     "name": "case_3",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "c",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 75.75
+     }
+    },
+    {
+     "name": "case_4",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "d",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 101
+     }
+    },
+    {
+     "name": "case_5",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "e",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 126.25
+     }
+    },
+    {
+     "name": "case_6",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "f",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 151.5
+     }
+    },
+    {
+     "name": "else",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "Else",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 176.75
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": true,
+    "Case 2": true,
+    "Case 3": true,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "case_1>stage-1:start": true,
+    "case_1>stage-1:end": false,
+    "case_1>action-1:in": false,
+    "case_1>pipeline-1:in": true,
+    "case_1>complete-1:in": true,
+    "case_1>timer-1:in": true,
+    "case_1>output-1:pass": true,
+    "case_1>output-1:fail": true,
+    "case_1>code-1:in": true,
+    "case_1>http-1:in": true,
+    "case_1>if-1:in": true,
+    "case_1>switch-1:in": false,
+    "case_1>agent-1:in": true,
+    "case_1>agent-1:tools": false,
+    "case_1>set-1:in": true,
+    "case_1>github-1:in": true,
+    "case_1>postgres-1:in": true,
+    "case_2>stage-1:start": true,
+    "case_2>stage-1:end": false,
+    "case_2>action-1:in": false,
+    "case_2>pipeline-1:in": true,
+    "case_2>complete-1:in": true,
+    "case_2>timer-1:in": true,
+    "case_2>output-1:pass": true,
+    "case_2>output-1:fail": true,
+    "case_2>code-1:in": true,
+    "case_2>http-1:in": true,
+    "case_2>if-1:in": true,
+    "case_2>switch-1:in": false,
+    "case_2>agent-1:in": true,
+    "case_2>agent-1:tools": false,
+    "case_2>set-1:in": true,
+    "case_2>github-1:in": true,
+    "case_2>postgres-1:in": true,
+    "case_3>stage-1:start": true,
+    "case_3>stage-1:end": false,
+    "case_3>action-1:in": false,
+    "case_3>pipeline-1:in": true,
+    "case_3>complete-1:in": true,
+    "case_3>timer-1:in": true,
+    "case_3>output-1:pass": true,
+    "case_3>output-1:fail": true,
+    "case_3>code-1:in": true,
+    "case_3>http-1:in": true,
+    "case_3>if-1:in": true,
+    "case_3>switch-1:in": false,
+    "case_3>agent-1:in": true,
+    "case_3>agent-1:tools": false,
+    "case_3>set-1:in": true,
+    "case_3>github-1:in": true,
+    "case_3>postgres-1:in": true,
+    "case_4>stage-1:start": true,
+    "case_4>stage-1:end": false,
+    "case_4>action-1:in": false,
+    "case_4>pipeline-1:in": true,
+    "case_4>complete-1:in": true,
+    "case_4>timer-1:in": true,
+    "case_4>output-1:pass": true,
+    "case_4>output-1:fail": true,
+    "case_4>code-1:in": true,
+    "case_4>http-1:in": true,
+    "case_4>if-1:in": true,
+    "case_4>switch-1:in": false,
+    "case_4>agent-1:in": true,
+    "case_4>agent-1:tools": false,
+    "case_4>set-1:in": true,
+    "case_4>github-1:in": true,
+    "case_4>postgres-1:in": true,
+    "case_5>stage-1:start": true,
+    "case_5>stage-1:end": false,
+    "case_5>action-1:in": false,
+    "case_5>pipeline-1:in": true,
+    "case_5>complete-1:in": true,
+    "case_5>timer-1:in": true,
+    "case_5>output-1:pass": true,
+    "case_5>output-1:fail": true,
+    "case_5>code-1:in": true,
+    "case_5>http-1:in": true,
+    "case_5>if-1:in": true,
+    "case_5>switch-1:in": false,
+    "case_5>agent-1:in": true,
+    "case_5>agent-1:tools": false,
+    "case_5>set-1:in": true,
+    "case_5>github-1:in": true,
+    "case_5>postgres-1:in": true,
+    "case_6>stage-1:start": true,
+    "case_6>stage-1:end": false,
+    "case_6>action-1:in": false,
+    "case_6>pipeline-1:in": true,
+    "case_6>complete-1:in": true,
+    "case_6>timer-1:in": true,
+    "case_6>output-1:pass": true,
+    "case_6>output-1:fail": true,
+    "case_6>code-1:in": true,
+    "case_6>http-1:in": true,
+    "case_6>if-1:in": true,
+    "case_6>switch-1:in": false,
+    "case_6>agent-1:in": true,
+    "case_6>agent-1:tools": false,
+    "case_6>set-1:in": true,
+    "case_6>github-1:in": true,
+    "case_6>postgres-1:in": true,
+    "else>stage-1:start": true,
+    "else>stage-1:end": false,
+    "else>action-1:in": false,
+    "else>pipeline-1:in": true,
+    "else>complete-1:in": true,
+    "else>timer-1:in": true,
+    "else>output-1:pass": true,
+    "else>output-1:fail": true,
+    "else>code-1:in": true,
+    "else>http-1:in": true,
+    "else>if-1:in": true,
+    "else>switch-1:in": false,
+    "else>agent-1:in": true,
+    "else>agent-1:tools": false,
+    "else>set-1:in": true,
+    "else>github-1:in": true,
+    "else>postgres-1:in": true
+   }
+  }
+ ],
+ "set": [
+  {
+   "node": {},
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "no field yet",
+   "subtitle": "Edit Fields",
+   "displayName": "Edit Fields",
+   "renamable": true,
+   "icon": "pencil",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": false,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": false,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "fields": "priority = high\nvar.score = 3\nBad = 1"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "priority, score",
+   "subtitle": "Edit Fields",
+   "displayName": "Edit Fields",
+   "renamable": true,
+   "icon": "pencil",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": false,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": false,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "fields": "a = 1\nb = 2\nc = 3\nd = 4\ne = 5\nf = 6\ng = 7\nh = 8\ni = 9\nj = 10"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "a, b, c, d, e, f, g, h, i, j",
+   "subtitle": "Edit Fields",
+   "displayName": "Edit Fields",
+   "renamable": true,
+   "icon": "pencil",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": false,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": false,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  }
+ ],
+ "agent": [
+  {
+   "node": {},
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "no agent yet",
+   "subtitle": "Agent",
+   "displayName": "Agent",
+   "renamable": true,
+   "icon": "agent",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "tools",
+     "slot": 0,
+     "direction": "input",
+     "side": "bottom",
+     "visible": true,
+     "label": "Tools",
+     "labelled": true,
+     "local": {
+      "x": 125,
+      "y": 84
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": false,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": false,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "agent_id": "agent-1"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "Triage",
+   "subtitle": "Agent",
+   "displayName": "Agent",
+   "renamable": true,
+   "icon": "agent",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "tools",
+     "slot": 0,
+     "direction": "input",
+     "side": "bottom",
+     "visible": true,
+     "label": "Tools",
+     "labelled": true,
+     "local": {
+      "x": 125,
+      "y": 84
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": false,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": false,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "agent_id": "unknown",
+     "temperature": 0.5,
+     "retries": 0,
+     "model": "m"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "agent · 3 overrides",
+   "subtitle": "Agent",
+   "displayName": "Agent",
+   "renamable": true,
+   "icon": "agent",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "tools",
+     "slot": 0,
+     "direction": "input",
+     "side": "bottom",
+     "visible": true,
+     "label": "Tools",
+     "labelled": true,
+     "local": {
+      "x": 125,
+      "y": 84
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": false,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": false,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "agent_id": "x"
+    },
+    "agent": {
+     "name": "Frozen"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "Frozen",
+   "subtitle": "Agent",
+   "displayName": "Agent",
+   "renamable": true,
+   "icon": "agent",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "tools",
+     "slot": 0,
+     "direction": "input",
+     "side": "bottom",
+     "visible": true,
+     "label": "Tools",
+     "labelled": true,
+     "local": {
+      "x": 125,
+      "y": 84
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": false,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": false,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": true
+   }
+  }
+ ],
+ "github": [
+  {
+   "node": {},
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "Get repository · no repository yet",
+   "subtitle": "GitHub",
+   "displayName": "GitHub",
+   "renamable": true,
+   "icon": "github",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": false,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": false,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "operation": "Create comment",
+     "repository": "acme/tool"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "Create comment (off) · acme/tool",
+   "subtitle": "GitHub",
+   "displayName": "GitHub",
+   "renamable": true,
+   "icon": "github",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": false,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": false,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "operation": "Create comment",
+     "repository": "acme/tool",
+     "allow_comments": true
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "Create comment · acme/tool",
+   "subtitle": "GitHub",
+   "displayName": "GitHub",
+   "renamable": true,
+   "icon": "github",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": false,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": false,
+    "fail>postgres-1:in": true
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "operation": "List issues",
+     "repository": "a/b"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "List issues · a/b",
+   "subtitle": "GitHub",
+   "displayName": "GitHub",
+   "renamable": true,
+   "icon": "github",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": false,
+    "pass>postgres-1:in": true,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": false,
+    "fail>postgres-1:in": true
+   }
+  }
+ ],
+ "postgres": [
+  {
+   "node": {},
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "no query yet",
+   "subtitle": "Postgres",
+   "displayName": "Postgres",
+   "renamable": true,
+   "icon": "database",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": false,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": false
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "query": "\n  SELECT 1\nFROM t"
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "SELECT 1",
+   "subtitle": "Postgres",
+   "displayName": "Postgres",
+   "renamable": true,
+   "icon": "database",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": false,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": false
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "query": "UPDATE t SET a = 1",
+     "allow_write": true
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "changes · UPDATE t SET a = 1",
+   "subtitle": "Postgres",
+   "displayName": "Postgres",
+   "renamable": true,
+   "icon": "database",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 28
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 56
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": false,
+    "fail>stage-1:start": true,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": true,
+    "fail>complete-1:in": true,
+    "fail>timer-1:in": true,
+    "fail>output-1:pass": true,
+    "fail>output-1:fail": true,
+    "fail>code-1:in": true,
+    "fail>http-1:in": true,
+    "fail>if-1:in": true,
+    "fail>switch-1:in": true,
+    "fail>agent-1:in": true,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": true,
+    "fail>github-1:in": true,
+    "fail>postgres-1:in": false
+   }
+  }
+ ],
+ "mcp_tool": [
+  {
+   "node": {},
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "no endpoint yet",
+   "subtitle": "MCP Client Tool",
+   "displayName": "MCP Client Tool",
+   "renamable": true,
+   "icon": "plug",
+   "ports": [
+    {
+     "name": "tool",
+     "slot": 0,
+     "direction": "output",
+     "side": "top",
+     "visible": true,
+     "label": "Tool",
+     "labelled": false,
+     "local": {
+      "x": 100,
+      "y": 0
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "tool>stage-1:start": false,
+    "tool>stage-1:end": false,
+    "tool>action-1:in": false,
+    "tool>pipeline-1:in": false,
+    "tool>complete-1:in": false,
+    "tool>timer-1:in": false,
+    "tool>output-1:pass": false,
+    "tool>output-1:fail": false,
+    "tool>code-1:in": false,
+    "tool>http-1:in": false,
+    "tool>if-1:in": false,
+    "tool>switch-1:in": false,
+    "tool>agent-1:in": false,
+    "tool>agent-1:tools": true,
+    "tool>set-1:in": false,
+    "tool>github-1:in": false,
+    "tool>postgres-1:in": false
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "url": "https://api.example.org/mcp/?k=1"
+    }
+   },
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "api.example.org/mcp/",
+   "subtitle": "MCP Client Tool",
+   "displayName": "MCP Client Tool",
+   "renamable": true,
+   "icon": "plug",
+   "ports": [
+    {
+     "name": "tool",
+     "slot": 0,
+     "direction": "output",
+     "side": "top",
+     "visible": true,
+     "label": "Tool",
+     "labelled": false,
+     "local": {
+      "x": 100,
+      "y": 0
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "tool>stage-1:start": false,
+    "tool>stage-1:end": false,
+    "tool>action-1:in": false,
+    "tool>pipeline-1:in": false,
+    "tool>complete-1:in": false,
+    "tool>timer-1:in": false,
+    "tool>output-1:pass": false,
+    "tool>output-1:fail": false,
+    "tool>code-1:in": false,
+    "tool>http-1:in": false,
+    "tool>if-1:in": false,
+    "tool>switch-1:in": false,
+    "tool>agent-1:in": false,
+    "tool>agent-1:tools": true,
+    "tool>set-1:in": false,
+    "tool>github-1:in": false,
+    "tool>postgres-1:in": false
+   }
+  }
+ ],
+ "http_tool": [
+  {
+   "node": {},
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "GET no URL yet",
+   "subtitle": "HTTP Request Tool",
+   "displayName": "HTTP Request Tool",
+   "renamable": true,
+   "icon": "http",
+   "ports": [
+    {
+     "name": "tool",
+     "slot": 0,
+     "direction": "output",
+     "side": "top",
+     "visible": true,
+     "label": "Tool",
+     "labelled": false,
+     "local": {
+      "x": 100,
+      "y": 0
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "tool>stage-1:start": false,
+    "tool>stage-1:end": false,
+    "tool>action-1:in": false,
+    "tool>pipeline-1:in": false,
+    "tool>complete-1:in": false,
+    "tool>timer-1:in": false,
+    "tool>output-1:pass": false,
+    "tool>output-1:fail": false,
+    "tool>code-1:in": false,
+    "tool>http-1:in": false,
+    "tool>if-1:in": false,
+    "tool>switch-1:in": false,
+    "tool>agent-1:in": false,
+    "tool>agent-1:tools": true,
+    "tool>set-1:in": false,
+    "tool>github-1:in": false,
+    "tool>postgres-1:in": false
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "method": "POST",
+     "url": "https://api.example.org/items/{id}?x=1"
+    }
+   },
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "POST api.example.org/items/{id}",
+   "subtitle": "HTTP Request Tool",
+   "displayName": "HTTP Request Tool",
+   "renamable": true,
+   "icon": "http",
+   "ports": [
+    {
+     "name": "tool",
+     "slot": 0,
+     "direction": "output",
+     "side": "top",
+     "visible": true,
+     "label": "Tool",
+     "labelled": false,
+     "local": {
+      "x": 100,
+      "y": 0
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "tool>stage-1:start": false,
+    "tool>stage-1:end": false,
+    "tool>action-1:in": false,
+    "tool>pipeline-1:in": false,
+    "tool>complete-1:in": false,
+    "tool>timer-1:in": false,
+    "tool>output-1:pass": false,
+    "tool>output-1:fail": false,
+    "tool>code-1:in": false,
+    "tool>http-1:in": false,
+    "tool>if-1:in": false,
+    "tool>switch-1:in": false,
+    "tool>agent-1:in": false,
+    "tool>agent-1:tools": true,
+    "tool>set-1:in": false,
+    "tool>github-1:in": false,
+    "tool>postgres-1:in": false
+   }
+  }
+ ],
+ "code_tool": [
+  {
+   "node": {},
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "python · Code Tool",
+   "subtitle": "Code Tool",
+   "displayName": "Code Tool",
+   "renamable": true,
+   "icon": "code",
+   "ports": [
+    {
+     "name": "tool",
+     "slot": 0,
+     "direction": "output",
+     "side": "top",
+     "visible": true,
+     "label": "Tool",
+     "labelled": false,
+     "local": {
+      "x": 100,
+      "y": 0
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "tool>stage-1:start": false,
+    "tool>stage-1:end": false,
+    "tool>action-1:in": false,
+    "tool>pipeline-1:in": false,
+    "tool>complete-1:in": false,
+    "tool>timer-1:in": false,
+    "tool>output-1:pass": false,
+    "tool>output-1:fail": false,
+    "tool>code-1:in": false,
+    "tool>http-1:in": false,
+    "tool>if-1:in": false,
+    "tool>switch-1:in": false,
+    "tool>agent-1:in": false,
+    "tool>agent-1:tools": true,
+    "tool>set-1:in": false,
+    "tool>github-1:in": false,
+    "tool>postgres-1:in": false
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "language": "sh",
+     "tool_name": "run_it"
+    }
+   },
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "sh · run_it",
+   "subtitle": "Code Tool",
+   "displayName": "Code Tool",
+   "renamable": true,
+   "icon": "code",
+   "ports": [
+    {
+     "name": "tool",
+     "slot": 0,
+     "direction": "output",
+     "side": "top",
+     "visible": true,
+     "label": "Tool",
+     "labelled": false,
+     "local": {
+      "x": 100,
+      "y": 0
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "tool>stage-1:start": false,
+    "tool>stage-1:end": false,
+    "tool>action-1:in": false,
+    "tool>pipeline-1:in": false,
+    "tool>complete-1:in": false,
+    "tool>timer-1:in": false,
+    "tool>output-1:pass": false,
+    "tool>output-1:fail": false,
+    "tool>code-1:in": false,
+    "tool>http-1:in": false,
+    "tool>if-1:in": false,
+    "tool>switch-1:in": false,
+    "tool>agent-1:in": false,
+    "tool>agent-1:tools": true,
+    "tool>set-1:in": false,
+    "tool>github-1:in": false,
+    "tool>postgres-1:in": false
+   }
+  }
+ ],
+ "postgres_tool": [
+  {
+   "node": {},
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "Postgres Tool · no query yet",
+   "subtitle": "Postgres Tool",
+   "displayName": "Postgres Tool",
+   "renamable": true,
+   "icon": "database",
+   "ports": [
+    {
+     "name": "tool",
+     "slot": 0,
+     "direction": "output",
+     "side": "top",
+     "visible": true,
+     "label": "Tool",
+     "labelled": false,
+     "local": {
+      "x": 100,
+      "y": 0
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "tool>stage-1:start": false,
+    "tool>stage-1:end": false,
+    "tool>action-1:in": false,
+    "tool>pipeline-1:in": false,
+    "tool>complete-1:in": false,
+    "tool>timer-1:in": false,
+    "tool>output-1:pass": false,
+    "tool>output-1:fail": false,
+    "tool>code-1:in": false,
+    "tool>http-1:in": false,
+    "tool>if-1:in": false,
+    "tool>switch-1:in": false,
+    "tool>agent-1:in": false,
+    "tool>agent-1:tools": true,
+    "tool>set-1:in": false,
+    "tool>github-1:in": false,
+    "tool>postgres-1:in": false
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "query": "SELECT 1",
+     "tool_name": "find"
+    }
+   },
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "find · SELECT 1",
+   "subtitle": "Postgres Tool",
+   "displayName": "Postgres Tool",
+   "renamable": true,
+   "icon": "database",
+   "ports": [
+    {
+     "name": "tool",
+     "slot": 0,
+     "direction": "output",
+     "side": "top",
+     "visible": true,
+     "label": "Tool",
+     "labelled": false,
+     "local": {
+      "x": 100,
+      "y": 0
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "tool>stage-1:start": false,
+    "tool>stage-1:end": false,
+    "tool>action-1:in": false,
+    "tool>pipeline-1:in": false,
+    "tool>complete-1:in": false,
+    "tool>timer-1:in": false,
+    "tool>output-1:pass": false,
+    "tool>output-1:fail": false,
+    "tool>code-1:in": false,
+    "tool>http-1:in": false,
+    "tool>if-1:in": false,
+    "tool>switch-1:in": false,
+    "tool>agent-1:in": false,
+    "tool>agent-1:tools": true,
+    "tool>set-1:in": false,
+    "tool>github-1:in": false,
+    "tool>postgres-1:in": false
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "query": "DELETE FROM t",
+     "allow_write": true
+    }
+   },
+   "size": {
+    "width": 200,
+    "height": 64
+   },
+   "caption": "Postgres Tool · changes · DELETE FROM t",
+   "subtitle": "Postgres Tool",
+   "displayName": "Postgres Tool",
+   "renamable": true,
+   "icon": "database",
+   "ports": [
+    {
+     "name": "tool",
+     "slot": 0,
+     "direction": "output",
+     "side": "top",
+     "visible": true,
+     "label": "Tool",
+     "labelled": false,
+     "local": {
+      "x": 100,
+      "y": 0
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "tool>stage-1:start": false,
+    "tool>stage-1:end": false,
+    "tool>action-1:in": false,
+    "tool>pipeline-1:in": false,
+    "tool>complete-1:in": false,
+    "tool>timer-1:in": false,
+    "tool>output-1:pass": false,
+    "tool>output-1:fail": false,
+    "tool>code-1:in": false,
+    "tool>http-1:in": false,
+    "tool>if-1:in": false,
+    "tool>switch-1:in": false,
+    "tool>agent-1:in": false,
+    "tool>agent-1:tools": true,
+    "tool>set-1:in": false,
+    "tool>github-1:in": false,
+    "tool>postgres-1:in": false
+   }
+  }
+ ]
+}
