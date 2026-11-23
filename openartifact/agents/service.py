@@ -62,6 +62,7 @@ _AGENT_OF_NODE = func.json_extract(GraphNode.config, "$.agent_id")
 def publish_problems(config: AgentConfig, providers: Mapping[str, ProviderInfo]) -> list[str]:
     """Why a configuration cannot be published (empty: it can)."""
     problems: list[str] = []
+    config = config.effective()  # what is switched off is not in effect (ADR-045)
     declared = [i.name for i in config.inputs]
     if not config.user_prompt.strip():
         problems.append("The user prompt is empty")
@@ -434,6 +435,7 @@ class AgentService:
                 if node_config.get("agent_id") != agent.id:
                     raise ArtifactError(422, "The node refers to another agent")
             providers = await load_providers(session)
+        config = config.effective()
         data = config.model_dump()
         problems: list[str] = []
         try:
@@ -491,7 +493,7 @@ async def node_hints(session: AsyncSession, node: GraphNode) -> list[str]:
                 AgentVersion.number == agent.published_number,
             )
         )
-    )
+    ).effective()
     data = published.model_dump()
     try:
         mapping = parse_mapping(str(config.get("inputs") or ""))

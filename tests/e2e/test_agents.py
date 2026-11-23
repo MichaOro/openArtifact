@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.agent_support import API_KEY, HEADERS, TOKEN, FakeLlm, completion, fake_llm
 from tests.e2e.conftest import _serve
@@ -171,6 +171,18 @@ def test_a_provider_that_is_not_compatible_is_not_saved(
 # ── the page of an agent ─────────────────────────────────────────────
 
 
+def _option(editor: Locator, key: str) -> None:
+    """Flip an option of the agent editor's options panel (opened first when it is closed)."""
+    panel = editor.locator("[data-options]")
+    if panel.get_attribute("data-state") != "open":
+        panel.locator("[data-options-toggle]").click()
+    panel.locator(f'[data-option="{key}"] [role=switch]').click()
+
+
+def _tab(editor: Locator, name: str) -> None:
+    editor.get_by_role("tab", name=name, exact=True).click()
+
+
 def test_an_agent_is_written_published_previewed_and_rolled_back(
     signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
 ) -> None:
@@ -184,11 +196,14 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
     editor = page.locator("[data-agent-editor]")
     expect(editor.locator("[data-agent-name]")).to_have_text("Triage")
     expect(editor.locator("[data-chips]")).to_contain_text("Not published")
+    _option(editor, "inputs")
+    _tab(editor, "Inputs")
     editor.locator("[data-add-input]").click()
     row = editor.locator(".ag-input")
     row.get_by_label("Name", exact=True).fill("ticket")
     row.get_by_text("Required").click()
     expect(row.get_by_label("Default")).to_be_disabled()  # a required input has no default
+    _tab(editor, "Prompts")
     editor.get_by_label("User prompt").fill("Analyse: ${input.ticket} and ${input.missing}")
     editor.locator("[data-save]").click()
     expect(editor.locator("[data-problems] li")).to_have_text(
@@ -207,6 +222,8 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
 
     # the preview fills the prompt with an example and sends nothing
     llm.hits.clear()
+    _option(editor, "test")
+    _tab(editor, "Quick test")
     editor.get_by_label("Example for ticket").fill("T-42")
     editor.locator("[data-preview]").click()
     result = editor.locator("[data-preview-result]")
@@ -216,14 +233,16 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
     assert llm.hits == []
 
     # a second version, then back to the first: a third one with the first one's content
-    editor.locator('[data-field="system_prompt_enabled"]').click()
-    editor.get_by_label("System prompt", exact=True).fill("Be brief.")
+    _option(editor, "system_prompt")
+    _tab(editor, "Prompts")
+    editor.get_by_role("textbox", name="System prompt").fill("Be brief.")
     expect(editor.locator("[data-draft-state]")).to_contain_text("not saved yet")
     editor.locator("[data-publish]").click()
     expect(editor.locator("[data-notice]")).to_contain_text("Published as version 2")
     expect(editor.locator("[data-notice]")).to_contain_text(
         "Changed: Use a system prompt, System prompt."
     )
+    _tab(editor, "Versions & use")
     editor.get_by_label("Publish version 1 again").click()
     page.locator("#confirm-modal [data-confirm]").click()
     expect(editor.locator("[data-notice]")).to_contain_text(
@@ -401,10 +420,10 @@ def test_the_request_of_an_agent_step_is_shown_with_its_attempts(
 def test_the_sidebar_stays_in_place_while_a_long_page_scrolls(
     signed_in: Page, agents_url: str, api: httpx.Client
 ) -> None:
-    """The agent page is longer than the window: the page scrolls, the navigation and the header do not."""
+    """The agent page is longer than a low window: the page scrolls, the navigation and the header do not."""
     agent = _agent(api)
     page = signed_in
-    page.set_viewport_size({"width": 1270, "height": 592})
+    page.set_viewport_size({"width": 1270, "height": 420})
     page.goto(f"{agents_url}/agents/{agent['id']}")
     expect(page.locator("[data-agent-editor]")).to_be_visible()
     sidebar, header = page.locator(".sidebar"), page.locator(".app-header")
@@ -416,5 +435,87 @@ def test_the_sidebar_stays_in_place_while_a_long_page_scrolls(
     )
     box, head = sidebar.bounding_box(), header.bounding_box()
     assert box and head
-    assert box["y"] == 0 and box["height"] == 592  # the navigation still fills the window
+    assert box["y"] == 0 and box["height"] == 420  # the navigation still fills the window
     assert head["y"] == 0  # and so does the header
+
+
+# ── the editor's optional areas (ADR-045) ────────────────────────────
+
+
+def _tabs(editor: Locator) -> list[str]:
+    return [t for t in editor.locator("[data-ag-tabs] [role=tab]:visible").all_inner_texts()]
+
+
+def test_a_new_agent_shows_only_the_prompts_and_the_options_switch_areas_on_and_off(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    agent = api.post("/api/agents", json={"name": "Plain"}).json()
+    page = signed_in
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    expect(editor.get_by_label("User prompt")).to_be_visible()
+    assert _tabs(editor) == ["Prompts", "Versions & use"]
+    expect(editor.locator("[data-system-field]")).to_be_hidden()
+    panel = editor.locator("[data-options]")
+    expect(panel).to_have_attribute("data-state", "closed")  # closed when the page opens
+    _option(editor, "system_prompt")
+    expect(
+        editor.get_by_role("textbox", name="System prompt")
+    ).to_be_visible()  # in Prompts, no tab of its own
+    _option(editor, "inputs")
+    _option(editor, "limits")
+    _option(editor, "test")
+    assert _tabs(editor) == ["Prompts", "Inputs", "Model & Limits", "Quick test", "Versions & use"]
+    expect(editor.get_by_role("tab", name="Prompts")).to_have_attribute(
+        "aria-selected", "true"
+    )  # no jump
+    # typing survives a tab change and switching an area off and on again
+    _tab(editor, "Inputs")
+    editor.locator("[data-add-input]").click()
+    editor.locator(".ag-input").get_by_label("Name", exact=True).fill("ticket")
+    _tab(editor, "Model & Limits")
+    editor.get_by_label("Retries").fill("1")
+    _tab(editor, "Inputs")
+    expect(editor.locator(".ag-input").get_by_label("Name", exact=True)).to_have_value("ticket")
+    _option(editor, "inputs")  # the tab that is shown goes: back to Prompts
+    expect(editor.get_by_role("tab", name="Prompts")).to_have_attribute("aria-selected", "true")
+    assert "Inputs" not in _tabs(editor)
+    _option(editor, "inputs")
+    _tab(editor, "Inputs")
+    expect(editor.locator(".ag-input").get_by_label("Name", exact=True)).to_have_value("ticket")
+    panel.locator("[data-options-toggle]").click()  # closing the panel changes nothing
+    expect(panel).to_have_attribute("data-state", "closed")
+    assert len(_tabs(editor)) == 5
+
+
+def test_the_switches_are_kept_with_the_draft_and_quick_test_and_the_panel_are_not(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    agent = api.post("/api/agents", json={"name": "Kept"}).json()
+    page = signed_in
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    editor.get_by_label("User prompt").fill("Hello")
+    _option(editor, "limits")
+    _option(editor, "test")
+    editor.locator("[data-save]").click()
+    expect(editor.locator("[data-draft-state]")).to_contain_text("The draft is saved")
+    stored = api.get(f"/api/agents/{agent['id']}").json()["draft"]
+    assert (stored["limits_enabled"], stored["inputs_enabled"]) == (True, False)
+    assert "test" not in str(stored)  # Quick test is not part of the agent
+    page.reload()
+    editor = page.locator("[data-agent-editor]")
+    expect(editor.get_by_label("User prompt")).to_have_value("Hello")
+    expect(editor.locator("[data-options]")).to_have_attribute("data-state", "closed")
+    assert _tabs(editor) == [
+        "Prompts",
+        "Model & Limits",
+        "Versions & use",
+    ]  # Quick test is off again
+    # a switched-off area is kept, not deleted: Model & Limits off and on keeps its values
+    _tab(editor, "Model & Limits")
+    editor.get_by_label("Retries").fill("1")
+    _option(editor, "limits")
+    _option(editor, "limits")
+    _tab(editor, "Model & Limits")
+    expect(editor.get_by_label("Retries")).to_have_value("1")

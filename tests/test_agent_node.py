@@ -228,8 +228,8 @@ def test_overrides_of_the_node_win_and_are_recorded(api: TestClient, llm: FakeLl
     )
     run = _run(
         api, pipeline, "failed"
-    )  # the artifact has no such parameter: the mapping cannot be resolved
-    assert _ask(run)["reason"] == '${card.unknown}: the artifact has no parameter "unknown"'
+    )  # the artifact has no such field: the mapping cannot be resolved
+    assert _ask(run)["reason"] == '${card.unknown}: the artifact has no field "unknown"'
     assert llm.completions() == []
     api.patch(
         f"{_url(pipeline['action'])}/nodes/{pipeline['ask']['id']}",

@@ -54,6 +54,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [042](042-provider-addresses.md) | The address of an LLM provider is just an address; http needs a confirmation | Accepted | 2026-11-23 | amends ADR-037 |
 | [043](043-single-sign-on-oidc.md) | Single sign-on through OpenID Connect next to the API token | Accepted | 2026-11-23 | amends ADR-017 |
 | [044](044-artifact-fields.md) | Artifact fields: global custom fields instead of artifact types | Accepted | 2026-11-23 | supersedes ADR-035 |
+| [045](045-agent-editor-progressive-disclosure.md) | The agent editor: tabs, an options panel, switches that are kept but not in effect when off | Accepted | 2026-11-23 | amends ADR-037 |
 
 ## Notes
 

@@ -13,7 +13,6 @@ the start: it is frozen with an ``error`` and fails with that reason when the ru
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -22,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.agents import client
 from openartifact.agents.resolve import ProviderInfo, freeze
+from openartifact.agents.schemas import AgentConfig
 from openartifact.agents.tool_config import default_tool_name
 from openartifact.graph.node_types import Ports
 from openartifact.models import Agent, AgentVersion, LlmModel, LlmProvider, NodeKind, ProviderKind
@@ -81,7 +81,10 @@ async def published(session: AsyncSession, agent_ids: set[str]) -> dict[str, dic
                     AgentVersion.number == agent.published_number,
                 )
             )
-            found[agent.id]["config"] = json.loads(config) if config else None
+            # what is switched off is not in effect (ADR-045)
+            found[agent.id]["config"] = (
+                AgentConfig.loads(config).effective().model_dump(mode="json") if config else None
+            )
     return found
 
 

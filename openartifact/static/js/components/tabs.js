@@ -1,6 +1,7 @@
 /* A tab list following the ARIA tabs pattern: role=tablist / tab / tabpanel, aria-selected, roving
  * tabindex, Left/Right/Home/End, automatic activation. The markup carries the tabs
- * ([role=tab][data-tab=name][aria-controls=panel id]); this class only switches them. */
+ * ([role=tab][data-tab=name][aria-controls=panel id]); this class only switches them. A tab can be hidden
+ * (`setVisible`): it and its panel are gone, the keys skip it, and if it was selected the first visible tab is. */
 
 export class Tabs {
   /**
@@ -19,7 +20,7 @@ export class Tabs {
 
   /** Show the tab and its panel; `focus` moves the focus to the tab. */
   select(name, { notify = true, focus = false } = {}) {
-    const chosen = this.tabs.find((tab) => tab.dataset.tab === name);
+    const chosen = this.tabs.find((tab) => tab.dataset.tab === name && !tab.hidden);
     if (!chosen) return;
     for (const tab of this.tabs) {
       const on = tab === chosen;
@@ -33,13 +34,29 @@ export class Tabs {
     if (notify && changed) this.onChange(name);
   }
 
+  /** Show or hide a tab with its panel (an optional area switched on or off). */
+  setVisible(name, visible) {
+    const tab = this.tabs.find((t) => t.dataset.tab === name);
+    if (!tab) return;
+    tab.hidden = !visible;
+    if (!visible) {
+      document.getElementById(tab.getAttribute("aria-controls")).hidden = true;
+      if (this.selected === name) this.select(this.tabs.find((t) => !t.hidden).dataset.tab);
+    }
+  }
+
+  isVisible(name) {
+    return this.tabs.some((t) => t.dataset.tab === name && !t.hidden);
+  }
+
   #key(event) {
-    const index = this.tabs.findIndex((tab) => tab === document.activeElement);
+    const shown = this.tabs.filter((tab) => !tab.hidden);
+    const index = shown.findIndex((tab) => tab === document.activeElement);
     if (index < 0) return;
-    const last = this.tabs.length - 1;
+    const last = shown.length - 1;
     const next = { ArrowRight: index === last ? 0 : index + 1, ArrowLeft: index === 0 ? last : index - 1, Home: 0, End: last }[event.key];
     if (next === undefined) return;
     event.preventDefault();
-    this.select(this.tabs[next].dataset.tab, { focus: true });
+    this.select(shown[next].dataset.tab, { focus: true });
   }
 }

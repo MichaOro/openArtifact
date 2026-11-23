@@ -46,9 +46,16 @@ the host), structured output, streaming, fallback chains, budgets.
 
 ## 2. Write and publish an agent
 
-*Agents* (`/agents`), or `/api/v1/agents`.
+*Agents* (`/agents`, under *Pipeline*), or `/api/v1/agents`.
 
-- **Prompts.** The user prompt is required; the system prompt has its own switch. A prompt uses `${input.NAME}` and
+The page shows what the agent needs (ADR-045). The header holds the name, the state of the draft and *Save draft*,
+*Discard draft* and *Publish*. *Prompts* and *Versions & use* are always there; **Options** on the right (closed when the
+page opens) switches the rest on: *System prompt* (a field below the user prompt), *Inputs* and *Model & Limits* (a tab
+each) and *Quick test* (a tab for the preview). A switched-off area is **kept but not in effect**: the defaults of the
+backend apply (default provider and model, the default limits), and inputs switched off are none. The switches are part
+of the draft; *Quick test* is not saved and is off whenever the page opens.
+
+- **Prompts.** The user prompt is required; the system prompt is switched on in *Options*. A prompt uses `${input.NAME}` and
   nothing else: `${node...}`, `${var...}`, `${card...}` and `${secret:...}` are refused. That keeps an agent independent
   of any pipeline.
 - **Inputs.** Declare what the agent needs: a name (`[a-z][a-z0-9_]{0,31}`), a type (`string`, `number`, `boolean`),
@@ -69,7 +76,7 @@ the host), structured output, streaming, fallback chains, budgets.
   new version (numbers count up, a version is never changed) and executions that start from then on use it. *Discard
   draft* goes back to the published version. **Publish again** on an earlier version is the rollback: a new version with
   that content; the history stays.
-- **Preview.** Shows the prompts as they would be sent, with example values, and which inputs are missing. It sends
+- **Quick test (preview).** Shows the prompts as they would be sent, with example values, and which inputs are missing. It sends
   nothing to a model.
 - **Active.** An inactive agent is not run: its nodes fail in every execution that starts while it is inactive. A
   running execution is not affected; stop the run to end it at once.

@@ -1,15 +1,20 @@
-/* The page of one agent: its draft (prompts, inputs, model and limits), publishing, the versions with
- * rollback, the preview and the nodes that use it. The form edits the draft only; nothing an
- * execution uses changes before "Publish". */
+/* The page of one agent (ADR-045): a header with the draft's state and Save / Discard / Publish, tabs for
+ * the areas and an options panel that switches the optional ones on. Prompts and "Versions & use" are always
+ * there; Inputs and Model & Limits are tabs while their switch (part of the draft) is on; the system prompt
+ * shows inside Prompts; Quick test is a tab that lives only while the page is open. The form edits the draft
+ * only; nothing an execution uses changes before "Publish". */
 import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { icon } from "../components/icons.js";
 import { Modal } from "../components/modal.js";
+import { OptionsPanel } from "../components/options-panel.js";
+import { Switch } from "../components/switch.js";
+import { Tabs } from "../components/tabs.js";
 import { connectEvents } from "../tasks/events.js";
 import { formatTime } from "../tasks/history-format.js";
 import { agentUses, discardDraft, getAgent, listProviders, previewAgent, publishAgent, republishVersion, saveDraft, updateAgent } from "./api.js";
-import { agentChips, fieldLabel, numberOf, providerInEffect, usableModels } from "./model.js";
+import { agentChips, fieldLabel, numberOf, optionsOf, providerInEffect, usableModels } from "./model.js";
 import { chip, configFacts, el, previewView, problemList } from "./view.js";
 
 const root = document.querySelector("[data-agent-editor]");
@@ -30,14 +35,31 @@ let providers = [];
 let dirty = false;
 let fieldCount = 0;
 
-// ── the form ───────────────────────────────────────────────────────────
+// ── tabs and options ───────────────────────────────────────────────────
 
-function setSwitch(button, on) {
-  button.setAttribute("aria-checked", String(on));
-  button.querySelector(".ge-switch__state").textContent = on ? "On" : "Off";
+const tabs = new Tabs($("[data-ag-tabs]"));
+const TAB_OF = { inputs: "inputs", limits: "limits", test: "test" };
+const options = new OptionsPanel(
+  $("[data-options]"),
+  [
+    { key: "system_prompt", label: "System prompt", help: "Adds a system prompt below the user prompt. Switched off it is kept but not sent." },
+    { key: "inputs", label: "Inputs", help: "Values the agent needs from a run, used as ${input.NAME}. Switched off they are kept but the agent has none." },
+    { key: "limits", label: "Model & Limits", help: "Choose the provider, the model and the limits. Switched off they are kept and the defaults apply." },
+    { key: "test", label: "Quick test", help: "Preview the prompts with example values. Not saved: it is off whenever this page opens." },
+  ],
+  (key, on) => {
+    showOption(key, on);
+    if (key !== "test") changed(); // the other switches are part of the draft
+  },
+);
+
+/** Show what an option switches: the system prompt field, or a tab (activating does not jump to it). */
+function showOption(key, on) {
+  if (key === "system_prompt") $("[data-system-field]").hidden = !on;
+  else tabs.setVisible(TAB_OF[key], on);
 }
 
-const isOn = (button) => button.getAttribute("aria-checked") === "true";
+const active = new Switch($("[data-active]"));
 
 function inputRow(input = { name: "", type: "string", required: false, default: null, description: "" }) {
   const row = el("li", "ag-input");
@@ -96,7 +118,9 @@ function readInputs() {
 
 function readConfig() {
   const config = {
-    system_prompt_enabled: isOn(control("system_prompt_enabled")),
+    system_prompt_enabled: options.get("system_prompt"),
+    inputs_enabled: options.get("inputs"),
+    limits_enabled: options.get("limits"),
     system_prompt: control("system_prompt").value,
     user_prompt: control("user_prompt").value,
     inputs: readInputs(),
@@ -129,8 +153,10 @@ function fillProviders(selected) {
 }
 
 function fillForm(config) {
-  setSwitch(control("system_prompt_enabled"), config.system_prompt_enabled);
-  $("[data-system-field]").hidden = !config.system_prompt_enabled;
+  for (const [key, on] of Object.entries(optionsOf(config))) {
+    options.set(key, on);
+    showOption(key, on);
+  }
   control("system_prompt").value = config.system_prompt;
   control("user_prompt").value = config.user_prompt;
   $("[data-inputs]").replaceChildren(...config.inputs.map(inputRow));
@@ -180,7 +206,7 @@ function renderHead() {
   document.title = `${agent.name} · Agents · OpenArtifact`;
   $("[data-agent-description]").textContent = agent.description;
   $("[data-chips]").replaceChildren(...agentChips(agent).map(([text, tone]) => chip(text, tone)));
-  setSwitch($("[data-active]"), agent.active);
+  active.on = agent.active;
 }
 
 function renderVersions() {
@@ -306,12 +332,6 @@ root.addEventListener("input", (event) => {
 root.addEventListener("change", (event) => {
   if (event.target.closest("[data-field], [data-inputs]")) changed();
 });
-control("system_prompt_enabled").addEventListener("click", (event) => {
-  const button = event.currentTarget;
-  setSwitch(button, !isOn(button));
-  $("[data-system-field]").hidden = !isOn(button);
-  changed();
-});
 control("provider_id").addEventListener("change", () => fillModels(null));
 $("[data-add-input]").addEventListener("click", () => {
   const row = inputRow();
@@ -336,7 +356,15 @@ $("[data-discard]").addEventListener("click", () =>
     },
   }),
 );
-$("[data-active]").addEventListener("click", () => run(async () => show(await updateAgent(agent.id, { active: !agent.active }), { form: false })));
+$("[data-active]").addEventListener("click", () =>
+  run(async () => {
+    try {
+      show(await updateAgent(agent.id, { active: !agent.active }), { form: false });
+    } finally {
+      active.on = agent.active; // the server's word, also when it refused
+    }
+  }),
+);
 $("[data-rename]").addEventListener("click", () =>
   nameDialog.open({
     title: "Agent",

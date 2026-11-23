@@ -9,124 +9,134 @@
 {% block content %}
 {{ alert("The agent could not be loaded.") }}
 <div class="ag-editor" data-agent-editor data-agent-ref="{{ agent_ref }}" hidden>
-    <header class="ag-head">
-        <a class="ag-back" href="/agents">{{ icon("chevrons-left") }} Agents</a>
-        <div class="ag-head__title">
-            <h2 class="ag-head__name" data-agent-name tabindex="-1"></h2>
-            <button type="button" class="icon-button icon-button--sm" data-rename aria-label="Rename or describe the agent" title="Rename">{{ icon("pencil") }}</button>
-            <span class="ag-chips" data-chips></span>
+    <header class="ag-head glass">
+        <div class="ag-head__main">
+            <a class="ag-back" href="/agents">{{ icon("chevrons-left") }} Agents</a>
+            <div class="ag-head__title">
+                <h2 class="ag-head__name" data-agent-name tabindex="-1"></h2>
+                <button type="button" class="icon-button icon-button--sm" data-rename aria-label="Rename or describe the agent" title="Rename">{{ icon("pencil") }}</button>
+                <span class="ag-chips" data-chips></span>
+            </div>
+            <p class="ag-head__description" data-agent-description></p>
+            <div class="ag-active">
+                <span class="field__label" id="ag-active-label" title="An inactive agent is not run: its nodes fail in every execution that starts while it is inactive. Executions that are running are not affected.">Active</span>
+                <button type="button" class="ge-switch" role="switch" aria-labelledby="ag-active-label" aria-describedby="ag-active-help" data-active>
+                    <span class="ge-switch__state"></span><span class="ge-switch__thumb"></span>
+                </button>
+                <span class="visually-hidden" id="ag-active-help">An inactive agent is not run: its nodes fail in every execution that starts while it is inactive. Executions that are running are not affected.</span>
+            </div>
         </div>
-        <p class="ag-head__description" data-agent-description></p>
-        <div class="field field--row ag-active">
-            <span class="field__label" id="ag-active-label">Active</span>
-            <button type="button" class="ge-switch" role="switch" aria-labelledby="ag-active-label" aria-describedby="ag-active-help" data-active>
-                <span class="ge-switch__state"></span><span class="ge-switch__thumb"></span>
-            </button>
+        <div class="ag-save" aria-labelledby="ag-save-title">
+            <h3 class="visually-hidden" id="ag-save-title">Draft</h3>
+            <div class="ag-save__buttons">
+                <button type="button" class="button button--ghost is-danger button--sm" data-discard>{{ icon("undo") }} Discard draft</button>
+                <button type="button" class="button button--ghost button--sm" data-save>Save draft</button>
+                <button type="button" class="button button--primary button--sm" data-publish>Publish</button>
+            </div>
+            <p class="ag-save__state" data-draft-state aria-live="polite"></p>
         </div>
-        <p class="field__help" id="ag-active-help">An inactive agent is not run: its nodes fail in every execution that starts while it is inactive. Executions that are running are not affected.</p>
+        <ul class="ag-problems" data-problems aria-label="What publishing would refuse"></ul>
+        <p class="form-error" role="alert" hidden data-save-error></p>
     </header>
 
     <div class="ag-notice glass" role="status" data-notice hidden></div>
 
-    <section class="ag-card glass" aria-labelledby="ag-prompts-title">
-        <h3 id="ag-prompts-title">Prompts</h3>
-        <p class="field__help">Use <code>${input.NAME}</code> for an input declared below. A prompt cannot read a pipeline's nodes or variables itself: the agent node maps them to the inputs, so the agent can be used anywhere.</p>
-        <div class="field field--row">
-            <span class="field__label" id="ag-system-label">Use a system prompt</span>
-            <button type="button" class="ge-switch" role="switch" aria-labelledby="ag-system-label" data-field="system_prompt_enabled">
-                <span class="ge-switch__state"></span><span class="ge-switch__thumb"></span>
+    <div class="ag-workspace">
+        <div class="ag-main glass">
+            {# Tabs (components/tabs.js): Prompts and Versions always; the others only while their option is on. #}
+            <div class="task-tabs ag-tabs" role="tablist" aria-label="Agent" data-ag-tabs>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-prompts" data-tab="prompts" aria-controls="ag-panel-prompts" aria-selected="true">Prompts</button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-inputs" data-tab="inputs" aria-controls="ag-panel-inputs" aria-selected="false" hidden>Inputs</button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-limits" data-tab="limits" aria-controls="ag-panel-limits" aria-selected="false" hidden>Model &amp; Limits</button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-test" data-tab="test" aria-controls="ag-panel-test" aria-selected="false" hidden>Quick test</button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-versions" data-tab="versions" aria-controls="ag-panel-versions" aria-selected="false">Versions &amp; use</button>
+            </div>
+
+            <section class="ag-panel" role="tabpanel" id="ag-panel-prompts" aria-labelledby="ag-tab-prompts">
+                <div class="field">
+                    <label class="field__label" for="ag-user">User prompt <span class="field__required" aria-hidden="true">*</span></label>
+                    <p class="field__help">What the model is asked. Use <code>${input.NAME}</code> for an input (switch on Inputs). A prompt cannot read a pipeline's nodes or variables itself: the agent node maps them to the inputs, so the agent can be used anywhere.</p>
+                    <textarea class="field__control field__control--lines" id="ag-user" rows="8" maxlength="20000" spellcheck="false" aria-required="true" data-field="user_prompt"></textarea>
+                </div>
+                <div class="field" data-system-field hidden>
+                    <label class="field__label" for="ag-system">System prompt</label>
+                    <textarea class="field__control field__control--lines" id="ag-system" rows="5" maxlength="20000" spellcheck="false" data-field="system_prompt"></textarea>
+                </div>
+            </section>
+
+            <section class="ag-panel" role="tabpanel" id="ag-panel-inputs" aria-labelledby="ag-tab-inputs" hidden>
+                <p class="field__help">What the agent needs from a run. A required input must be mapped by every node; an optional one is its default, or empty text when it has none.</p>
+                <ol class="ag-inputs" data-inputs aria-label="Inputs"></ol>
+                <button type="button" class="button button--ghost button--sm ag-add" data-add-input>{{ icon("plus") }} Add input</button>
+            </section>
+
+            <section class="ag-panel" role="tabpanel" id="ag-panel-limits" aria-labelledby="ag-tab-limits" hidden>
+                <div class="ag-grid">
+                    <div class="field">
+                        <label class="field__label" for="ag-provider">Provider</label>
+                        <select class="field__control" id="ag-provider" data-field="provider_id"></select>
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="ag-model">Model</label>
+                        <select class="field__control" id="ag-model" data-field="model"></select>
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="ag-temperature">Temperature <span class="field__hint">(0 to 2, optional)</span></label>
+                        <input class="field__control" id="ag-temperature" type="number" min="0" max="2" step="0.1" data-field="temperature">
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="ag-max-tokens">Max tokens <span class="field__hint">(1 to 8192, optional)</span></label>
+                        <input class="field__control" id="ag-max-tokens" type="number" min="1" max="8192" step="1" data-field="max_tokens">
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="ag-request-timeout">Request timeout <span class="field__hint">(seconds, 1 to 300)</span></label>
+                        <input class="field__control" id="ag-request-timeout" type="number" min="1" max="300" step="1" data-field="request_timeout_seconds">
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="ag-total-timeout">Time limit of the node <span class="field__hint">(seconds, 1 to 1800)</span></label>
+                        <input class="field__control" id="ag-total-timeout" type="number" min="1" max="1800" step="1" data-field="total_timeout_seconds">
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="ag-retries">Retries <span class="field__hint">(0 to 4)</span></label>
+                        <input class="field__control" id="ag-retries" type="number" min="0" max="4" step="1" data-field="retries">
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="ag-max-iterations">Max iterations <span class="field__hint">(1 to 50)</span></label>
+                        <input class="field__control" id="ag-max-iterations" type="number" min="1" max="50" step="1" data-field="max_iterations">
+                    </div>
+                </div>
+                <p class="field__help">A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds. The time limit of the node covers all attempts and waits. With tools attached, Max iterations is how many requests a node may make while the model calls tools.</p>
+            </section>
+
+            <section class="ag-panel" role="tabpanel" id="ag-panel-test" aria-labelledby="ag-tab-test" hidden>
+                <p class="field__help">Shows the prompts as they would be sent, with example values for the inputs. No request is sent to a model. The example values stay while this page is open; they are not saved.</p>
+                <div class="ag-grid" data-preview-values></div>
+                <div class="ag-save__buttons ag-save__buttons--start">
+                    <button type="button" class="button button--ghost button--sm" data-preview>Preview draft</button>
+                </div>
+                <div class="ag-preview" data-preview-result hidden></div>
+            </section>
+
+            <section class="ag-panel" role="tabpanel" id="ag-panel-versions" aria-labelledby="ag-tab-versions" hidden>
+                <h3 class="ag-panel__title">Versions</h3>
+                <p class="field__help">A published version is never changed. Publishing an earlier version again makes a new version with its content.</p>
+                <ol class="ag-versions" data-versions aria-label="Versions, newest first"></ol>
+                <p class="ge-inspector__note" data-versions-empty hidden>Nothing is published yet, so no node can run this agent.</p>
+                <h3 class="ag-panel__title">Used by</h3>
+                <ul class="ag-uses" data-uses aria-label="Agent nodes that use this agent"></ul>
+                <p class="ge-inspector__note" data-uses-empty hidden>No agent node uses this agent yet.</p>
+            </section>
+        </div>
+
+        {# Options (components/options-panel.js): closed whenever the page opens; a switch is part of the draft,
+           except Quick test, which only lives while the page is open. #}
+        <aside class="options-panel glass" data-options aria-label="Options">
+            <button type="button" class="options-panel__toggle" data-options-toggle aria-expanded="false" title="Options: switch on what this agent needs">
+                {{ icon("settings") }}<span class="options-panel__toggle-label">Options</span>
             </button>
-        </div>
-        <div class="field" data-system-field>
-            <label class="field__label" for="ag-system">System prompt</label>
-            <textarea class="field__control field__control--lines" id="ag-system" rows="5" maxlength="20000" spellcheck="false" data-field="system_prompt"></textarea>
-        </div>
-        <div class="field">
-            <label class="field__label" for="ag-user">User prompt <span class="field__required" aria-hidden="true">*</span></label>
-            <textarea class="field__control field__control--lines" id="ag-user" rows="8" maxlength="20000" spellcheck="false" aria-required="true" data-field="user_prompt"></textarea>
-        </div>
-    </section>
-
-    <section class="ag-card glass" aria-labelledby="ag-inputs-title">
-        <h3 id="ag-inputs-title">Inputs</h3>
-        <p class="field__help">What the agent needs from a run. A required input must be mapped by every node; an optional one is its default, or empty text when it has none.</p>
-        <ol class="ag-inputs" data-inputs aria-label="Inputs"></ol>
-        <button type="button" class="button button--ghost button--sm ag-add" data-add-input>{{ icon("plus") }} Add input</button>
-    </section>
-
-    <section class="ag-card glass" aria-labelledby="ag-model-title">
-        <h3 id="ag-model-title">Model and limits</h3>
-        <div class="ag-grid">
-            <div class="field">
-                <label class="field__label" for="ag-provider">Provider</label>
-                <select class="field__control" id="ag-provider" data-field="provider_id"></select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="ag-model">Model</label>
-                <select class="field__control" id="ag-model" data-field="model"></select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="ag-temperature">Temperature <span class="field__hint">(0 to 2, optional)</span></label>
-                <input class="field__control" id="ag-temperature" type="number" min="0" max="2" step="0.1" data-field="temperature">
-            </div>
-            <div class="field">
-                <label class="field__label" for="ag-max-tokens">Max tokens <span class="field__hint">(1 to 8192, optional)</span></label>
-                <input class="field__control" id="ag-max-tokens" type="number" min="1" max="8192" step="1" data-field="max_tokens">
-            </div>
-            <div class="field">
-                <label class="field__label" for="ag-request-timeout">Request timeout <span class="field__hint">(seconds, 1 to 300)</span></label>
-                <input class="field__control" id="ag-request-timeout" type="number" min="1" max="300" step="1" data-field="request_timeout_seconds">
-            </div>
-            <div class="field">
-                <label class="field__label" for="ag-total-timeout">Time limit of the node <span class="field__hint">(seconds, 1 to 1800)</span></label>
-                <input class="field__control" id="ag-total-timeout" type="number" min="1" max="1800" step="1" data-field="total_timeout_seconds">
-            </div>
-            <div class="field">
-                <label class="field__label" for="ag-retries">Retries <span class="field__hint">(0 to 4)</span></label>
-                <input class="field__control" id="ag-retries" type="number" min="0" max="4" step="1" data-field="retries">
-            </div>
-            <div class="field">
-                <label class="field__label" for="ag-max-iterations">Max iterations <span class="field__hint">(1 to 50)</span></label>
-                <input class="field__control" id="ag-max-iterations" type="number" min="1" max="50" step="1" data-field="max_iterations">
-            </div>
-        </div>
-        <p class="field__help">A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds. The time limit of the node covers all attempts and waits. With tools attached, Max iterations is how many requests a node may make while the model calls tools.</p>
-    </section>
-
-    <section class="ag-card glass ag-save" aria-labelledby="ag-save-title">
-        <h3 id="ag-save-title">Draft</h3>
-        <p class="ag-save__state" data-draft-state aria-live="polite"></p>
-        <ul class="ag-problems" data-problems aria-label="What publishing would refuse"></ul>
-        <p class="form-error" role="alert" hidden data-save-error></p>
-        <div class="ag-save__buttons">
-            <button type="button" class="button button--ghost is-danger" data-discard>{{ icon("undo") }} Discard draft</button>
-            <button type="button" class="button button--ghost" data-save>Save draft</button>
-            <button type="button" class="button button--primary" data-publish>Publish</button>
-        </div>
-    </section>
-
-    <section class="ag-card glass" aria-labelledby="ag-preview-title">
-        <h3 id="ag-preview-title">Preview</h3>
-        <p class="field__help">Shows the prompts as they would be sent, with example values for the inputs. No request is sent to a model.</p>
-        <div class="ag-grid" data-preview-values></div>
-        <div class="ag-save__buttons">
-            <button type="button" class="button button--ghost" data-preview>Preview draft</button>
-        </div>
-        <div class="ag-preview" data-preview-result hidden></div>
-    </section>
-
-    <section class="ag-card glass" aria-labelledby="ag-versions-title">
-        <h3 id="ag-versions-title">Versions</h3>
-        <p class="field__help">A published version is never changed. Publishing an earlier version again makes a new version with its content.</p>
-        <ol class="ag-versions" data-versions aria-label="Versions, newest first"></ol>
-        <p class="ge-inspector__note" data-versions-empty hidden>Nothing is published yet, so no node can run this agent.</p>
-    </section>
-
-    <section class="ag-card glass" aria-labelledby="ag-uses-title">
-        <h3 id="ag-uses-title">Used by</h3>
-        <ul class="ag-uses" data-uses aria-label="Agent nodes that use this agent"></ul>
-        <p class="ge-inspector__note" data-uses-empty hidden>No agent node uses this agent yet.</p>
-    </section>
+            <div class="options-panel__body" data-options-body hidden></div>
+        </aside>
+    </div>
 </div>
 <p class="ge-empty glass" data-agent-missing hidden>This agent does not exist. <a href="/agents">Back to the agents</a></p>
 

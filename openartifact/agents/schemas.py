@@ -119,6 +119,32 @@ class AgentConfig(_Strict):
     retries: int = Field(default=RETRIES_DEFAULT, ge=RETRIES_MIN, le=RETRIES_MAX)
     #: How many requests one run of the node may make while the model calls tools (ADR-040).
     max_iterations: int = Field(default=ITERATIONS_DEFAULT, ge=ITERATIONS_MIN, le=ITERATIONS_MAX)
+    #: Whether the inputs are in effect (ADR-045); switched off they are kept but the agent has none.
+    #: ``None`` (agents from before the switch): in effect when any input is declared.
+    inputs_enabled: bool | None = None
+    #: Whether the agent's own provider, model and limits are in effect; switched off they are kept and the
+    #: defaults of the backend apply. ``None``: in effect when any of them differs from the default.
+    limits_enabled: bool | None = None
+
+    @property
+    def inputs_on(self) -> bool:
+        return self.inputs_enabled if self.inputs_enabled is not None else bool(self.inputs)
+
+    @property
+    def limits_on(self) -> bool:
+        if self.limits_enabled is not None:
+            return self.limits_enabled
+        return any(getattr(self, key) != getattr(_DEFAULT_CONFIG, key) for key in LIMIT_KEYS)
+
+    def effective(self) -> AgentConfig:
+        """The configuration a run, the preview and the publish check use: a switched-off area is empty
+        (inputs) or the defaults (model and limits); the draft itself keeps everything."""
+        changes: dict[str, Any] = {}
+        if not self.inputs_on:
+            changes["inputs"] = []
+        if not self.limits_on:
+            changes.update({key: getattr(_DEFAULT_CONFIG, key) for key in LIMIT_KEYS})
+        return self.model_copy(update=changes) if changes else self
 
     @field_validator("system_prompt", "user_prompt")
     @classmethod
@@ -151,6 +177,20 @@ class AgentConfig(_Strict):
 
     def dumps(self) -> str:
         return json.dumps(self.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
+
+
+#: The settings that "Model & Limits" switches (ADR-045).
+LIMIT_KEYS = (
+    "provider_id",
+    "model",
+    "temperature",
+    "max_tokens",
+    "request_timeout_seconds",
+    "total_timeout_seconds",
+    "retries",
+    "max_iterations",
+)
+_DEFAULT_CONFIG = AgentConfig()
 
 
 # ── agents ───────────────────────────────────────────────────────────

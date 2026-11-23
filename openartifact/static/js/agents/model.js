@@ -142,3 +142,17 @@ export function toolCallRows(turns) {
     (turn.tool_calls ?? []).map((call) => [String(index + 1), call.tool, call.arguments, { text: call.result, state: call.error ? "error" : "" }, seconds(call.duration_ms)]),
   );
 }
+
+/** The defaults of "Model & Limits" in the backend (agents/schemas.py LIMIT_KEYS). */
+export const LIMIT_DEFAULTS = { provider_id: null, model: null, temperature: null, max_tokens: null, request_timeout_seconds: 60, total_timeout_seconds: 600, retries: 3, max_iterations: 10 };
+
+/**
+ * Which optional areas of an agent are switched on (ADR-045), as the backend reads them: a stored switch wins;
+ * an agent from before the switches has Inputs when it declares any and Model & Limits when a value differs
+ * from the default.
+ */
+export function optionsOf(config) {
+  const inputs = config.inputs_enabled ?? (config.inputs?.length ?? 0) > 0;
+  const limits = config.limits_enabled ?? Object.entries(LIMIT_DEFAULTS).some(([key, value]) => (config[key] ?? null) !== value);
+  return { system_prompt: Boolean(config.system_prompt_enabled), inputs, limits };
+}
