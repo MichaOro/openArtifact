@@ -24,7 +24,7 @@ from openartifact.engine.context import ContextError, RunView
 
 PLACEHOLDER = re.compile(r"\$\{input\.([a-z][a-z0-9_]{0,31})\}")
 _INPUT_LIKE = re.compile(r"\$\{input\.[^}\r\n]{0,80}\}?")
-_FOREIGN = re.compile(r"\$\{(?:(?:node|var|card)\.|secret:)[^}\r\n]{0,80}\}?")
+_FOREIGN = re.compile(r"\$\{(?:(?:node|var|card)\.|\(|secret:)[^}\r\n]{0,80}\}?")
 _NUMBER = re.compile(r"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?")
 MAPPING_MAX_LINES = 30
 SECRET_IN_MAPPING = (

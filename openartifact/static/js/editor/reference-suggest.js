@@ -5,7 +5,7 @@
  * logic is in reference-completion.js; the popup looks like the "#" picker (components.css). */
 import { placePopover } from "../components/popover.js";
 import { request } from "../http.js";
-import { applyCompletion, candidatesFor, filterCandidates, openReference } from "./reference-completion.js";
+import { applyCompletion, candidatesFor, openReference, suggestionsFor } from "./reference-completion.js";
 
 const SECRETS_MAX_AGE_MS = 5000;
 let secretNames = [];
@@ -110,7 +110,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
   const update = () => {
     reference = input.selectionStart === input.selectionEnd ? openReference(input.value, input.selectionStart) : null;
     if (!reference) return close();
-    matches = filterCandidates(candidatesFor(source.nodes(), { exceptId: source.exceptId, secrets: secretNames, allowSecrets, cardFields }), reference.query);
+    matches = suggestionsFor(candidatesFor(source.nodes(), { exceptId: source.exceptId, secrets: secretNames, allowSecrets, cardFields }), reference.query);
     if (!matches.length) return close();
     if (!el) {
       el = document.createElement("div");

@@ -251,7 +251,9 @@ def test_the_inspector_keeps_keyboard_focus_when_it_is_redrawn(
     page.keyboard.press("Enter")
     expect(elbow).to_have_attribute("aria-pressed", "true")
     expect(elbow).to_be_focused()
-    eventually(lambda: [e["style"] for e in _graph(api, pipeline)["edges"]], ["elbow"])  # saved after the click
+    eventually(
+        lambda: [e["style"] for e in _graph(api, pipeline)["edges"]], ["elbow"]
+    )  # saved after the click
 
 
 def test_delete_on_a_focused_node_does_not_also_delete_the_selected_edge(

@@ -135,6 +135,9 @@ def test_a_prompt_takes_only_declared_input_placeholders() -> None:
     assert "${input.missing} is not a declared input" in text
     assert "${input.Bad} is not a valid placeholder" in text
     assert all(p.startswith("User prompt: ") for p in problems)
+    assert "${(Code: hello).output} is not allowed" in "\n".join(
+        prompt_problems("${(Code: hello).output}", ["ticket"], "User prompt")
+    )
     # without a list of declared inputs only the form is checked (a node's own prompt)
     assert prompt_problems("${input.anything}", None, "Prompt") == []
     assert prompt_problems("${var.x}", None, "Prompt") != []

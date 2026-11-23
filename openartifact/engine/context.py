@@ -80,15 +80,20 @@ _NODE_REFERENCE = re.compile(
     r"node\.(?P<key>[A-Za-z0-9_-]{1,255})\.(?P<field>output|exit_code|outcome|reason|data)"
     r"(?P<path>(?:\.[A-Za-z0-9_-]{1,64}){0,8})"
 )
+#: A node by its name as the editor shows it: ``(Code: hello).output``; the name is turned into the key like any other.
+_NAMED_NODE_REFERENCE = re.compile(
+    r"\((?P<name>[^()}\r\n]{1,255})\)\.(?P<field>output|exit_code|outcome|reason|data)"
+    r"(?P<path>(?:\.[A-Za-z0-9_-]{1,64}){0,8})"
+)
 _VAR_REFERENCE = re.compile(r"var\.(?P<name>[a-z][a-z0-9_]{0,63})")
 _CARD_REFERENCE = re.compile(r"card\.(?P<name>[a-z][a-z0-9_]{0,31})")
 #: What looks like a context reference; :func:`parse` then decides strictly whether it is one.
-CANDIDATE = re.compile(r"\$\{((?:node|var|card)\.[^}\r\n]{0,400})\}")
+CANDIDATE = re.compile(r"\$\{((?:(?:node|var|card)\.|\()[^}\r\n]{0,400})\}")
 #: One pass over a text for both kinds of references (so that no replaced value is scanned again).
-_ANY = re.compile(r"\$\{(?:secret:([^}\r\n]{0,80})|((?:node|var|card)\.[^}\r\n]{0,400}))\}")
+_ANY = re.compile(r"\$\{(?:secret:([^}\r\n]{0,80})|((?:(?:node|var|card)\.|\()[^}\r\n]{0,400}))\}")
 _FIELDS = "output, exit_code, outcome, reason, data"
 SYNTAX_HINT = (
-    "use ${node.NAME.output}, ${node.NAME.exit_code}, ${node.NAME.outcome}, ${node.NAME.reason}, "
+    "use ${(Node name).output}, ${node.NAME.output}, ${node.NAME.exit_code}, ${node.NAME.outcome}, ${node.NAME.reason}, "
     "${node.NAME.data.key}, ${var.name} or ${card.name}"
 )
 
@@ -333,6 +338,11 @@ def parse(body: str) -> Reference:
     if match := _CARD_REFERENCE.fullmatch(body):
         return Reference("card", match["name"])
     match = _NODE_REFERENCE.fullmatch(body)
+    if match is None and (named := _NAMED_NODE_REFERENCE.fullmatch(body)):
+        path = tuple(named["path"].split(".")[1:]) if named["path"] else ()
+        if path and named["field"] != "data":
+            raise ContextError(f"malformed reference ${{{body[:80]}}}: {SYNTAX_HINT}")
+        return Reference("node", node_key(named["name"]), named["field"], path)
     if match is None or (match["path"] and match["field"] != "data"):
         raise ContextError(f"malformed reference ${{{body[:80]}}}: {SYNTAX_HINT}")
     path = tuple(match["path"].split(".")[1:]) if match["path"] else ()

@@ -154,7 +154,7 @@ class AgentBlock {
     for (const row of rows) {
       const input = Object.assign(el("input", "field__control"), { type: "text", value: row.value, autocomplete: "off", spellcheck: false });
       input.dataset.focusKey = `agent-input-${row.name}`;
-      input.placeholder = row.required ? "${node.NAME.output}" : row.default != null ? `default: ${row.default}` : "empty";
+      input.placeholder = row.required ? "${(Node name).output}" : row.default != null ? `default: ${row.default}` : "empty";
       input.addEventListener("change", commit);
       input.addEventListener("keydown", (event) => event.key === "Enter" && commit());
       const suggest = this.editor.suggestions?.(this.node);

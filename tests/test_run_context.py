@@ -186,6 +186,25 @@ def test_every_field_of_a_node_can_be_referenced() -> None:
     )
 
 
+def test_a_node_can_be_referenced_by_its_name_in_parentheses() -> None:
+    context = _ran("Code: hello", output="hi", data={"step": 1, "a": {"b": [5, 6]}})
+    view = _view(context, ("code", "Code: hello", {}))
+    assert view.render("${(Code: hello).output}|${(Code: hello).data.step}") == "hi|1"
+    assert (
+        view.render("${( Code: hello ).data.a.b.1}") == "6"
+    )  # blanks around the name do not matter
+    assert view.render("${node.Code__hello.output}") == "hi"  # the older spelling stays valid
+    with pytest.raises(ContextError, match=r"no node is named"):
+        view.render("${(Nope).output}")
+    with pytest.raises(ContextError, match="malformed reference"):
+        view.render("${(Code: hello).bogus}")
+    with pytest.raises(ContextError, match="malformed reference"):
+        view.render("${(Code: hello}")
+    assert problems("${(Missing node).output}", view.index, lambda _k: False) == [
+        '${(Missing node).output}: no node is named "Missing_node"'
+    ]
+
+
 def test_null_fields_render_as_json_null_and_variables_as_text_or_json() -> None:
     context = _ran("A", output="")
     context.set_vars({"s": "text", "n": 3, "l": [1, "x"], "z": None})

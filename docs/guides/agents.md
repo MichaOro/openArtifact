@@ -93,8 +93,8 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
 
 Add an **Agent** node to an action definition and choose the agent.
 
-- **Inputs.** One field per declared input. The value is text and may hold `${node.NAME.output}`,
-  `${node.NAME.data.key}`, `${var.name}` and `${card.name}` ([execution nodes](execution-nodes.md)); secrets cannot be
+- **Inputs.** One field per declared input. The value is text and may hold `${(Node name).output}`,
+  `${(Node name).data.key}`, `${var.name}` and `${card.name}` ([execution nodes](execution-nodes.md)); secrets cannot be
   used. Stored as one `name = value` per line in the node's `inputs` setting.
 - **Settings.** Every setting shows the agent's value (*From agent*) until the node sets its own (*Overridden*):
   user prompt, system prompt and its switch, provider, model, temperature, max tokens, both time limits, retries, max
@@ -104,7 +104,7 @@ Add an **Agent** node to an action definition and choose the agent.
 - **When the agent changes**, the fields a node does not override follow with the next execution; overridden fields
   stay. Publishing lists the nodes that override a changed field.
 - The node leaves by *On Pass* with the answer, or by *On Fail* (or goes on, with *If the node fails: continue*).
-- Later nodes read `${node.NAME.output}` and `${node.NAME.data.model}`, `.data.usage.total_tokens`,
+- Later nodes read `${(Agent name).output}` and `${(Agent name).data.model}`, `.data.usage.total_tokens`,
   `.data.finish_reason`, `.data.iterations`.
 
 ## 4. Tools

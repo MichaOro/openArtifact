@@ -58,7 +58,9 @@ def test_add_lane_is_in_the_board_action_row_and_not_in_the_header(board: Board)
     assert box["y"] + box["height"] <= lane["y"]  # above the board
     menu = page.locator(".action-row [data-board-menu]").bounding_box()
     assert menu is not None
-    assert menu["x"] + menu["width"] >= lane["x"] + lane["width"] - 1  # the row ends at the board's right edge
+    assert (
+        menu["x"] + menu["width"] >= lane["x"] + lane["width"] - 1
+    )  # the row ends at the board's right edge
     assert box["x"] + box["width"] <= menu["x"]  # Add lane, then the board's menu (ADR-044)
     assert box["height"] <= 34  # slim
     button.click()

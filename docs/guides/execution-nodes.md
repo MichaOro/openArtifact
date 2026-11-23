@@ -82,13 +82,15 @@ server restart and is shown in the History tab ([Execution history](execution-hi
 
 | Reference | Value |
 |-----------|-------|
-| `${node.NAME.output}` | the node's output (a node keeps at most 4 KiB of it in the context; the step has all) |
-| `${node.NAME.exit_code}`, `.outcome`, `.reason` | exit code, `pass` or `fail`, the reason (`null` text when there is none) |
-| `${node.NAME.data}` | the node's data as compact JSON |
-| `${node.NAME.data.key.sub.0}` | one value in the data; numbers index lists |
+| `${(Node name).output}` | the node's output (a node keeps at most 4 KiB of it in the context; the step has all) |
+| `${(Node name).exit_code}`, `.outcome`, `.reason` | exit code, `pass` or `fail`, the reason (`null` text when there is none) |
+| `${(Node name).data}` | the node's data as compact JSON |
+| `${(Node name).data.key.sub.0}` | one value in the data; numbers index lists |
 | `${var.name}` | a variable |
 | `${card.name}` | a parameter of the artifact (see [below](#card-parameters-card)) |
 
+A node is written by its name **as the editor shows it**, in parentheses: `${(Code: hello).output}`. The name may hold
+blanks and punctuation, only `(`, `)` and `}` are not possible in it. The older spelling `${node.NAME.output}` stays valid:
 `NAME` is the node's name as the editor shows it, with every character outside letters, digits, `_` and `-`
 written as `_` (`Fetch user` is `Fetch_user`). Text is inserted as it is; numbers, lists and objects as compact
 JSON. In the URL the inserted text is percent-encoded; a reference is allowed in the path and the query, never in
@@ -556,10 +558,11 @@ cases `silver`, `gold`, `platinum` sends each tier to its own handling and every
 
 In every text field that takes references (HTTP URL, headers and body; the If and Switch values and cases; the
 fields of Edit Fields; the inputs of an Agent node) typing `${` (or
-pressing Ctrl+Space inside an open `${`) opens a list under the caret: `node.NAME.output`, `exit_code`, `outcome`,
-`reason` and `data.` for the nodes of the action being edited, `var.name` for the variables the Code nodes declare and
-the Edit Fields nodes set, and
-the names of your secrets (`secret:NAME`) in the fields that allow them (not in conditions). Arrow keys move, Enter or
+pressing Ctrl+Space inside an open `${`) opens a list under the caret that leads in steps, so that it stays short in a large action: first `card.` (the artifact
+fields), `var.` (variables the Code nodes declare and the Edit Fields nodes set), `secret:` (your secrets, in the fields
+that allow them, not in conditions) and the nodes of the action being edited by name, `(Code: hello).`; once one is
+chosen, what is behind it: the fields of the artifact, the variables, the secrets, or `output`, `exit_code`, `outcome`,
+`reason` and `data.` of the node. Typing a part of a name finds the node at once. Arrow keys move, Enter or
 Tab insert (the closing `}` is added), Escape closes the list and keeps the text, typing narrows it. Suggestions are
 hints; nothing is checked in the browser and the Code text gets none (it is never interpolated).
 
