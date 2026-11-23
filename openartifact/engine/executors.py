@@ -32,6 +32,7 @@ from openartifact.engine.branching import evaluate_if, evaluate_switch
 from openartifact.engine.code_runner import CodeLimits, run_code
 from openartifact.engine.context import RunView
 from openartifact.engine.fields import run_set
+from openartifact.engine.github_runner import run_github
 from openartifact.engine.http_runner import run_http
 from openartifact.engine.postgres_runner import run_postgres
 from openartifact.engine.results import NodeResult, failed
@@ -237,6 +238,28 @@ async def _postgres(
     return await _with_secrets(names, limits, run)
 
 
+async def _github(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
+    """One call of GitHub's API (``engine/github_runner.py``, ADR-041). The token is the value of the secret the
+    node names (none: public data); it is resolved here, like every secret."""
+    config = node["config"]
+    secret = str(config.get("secret") or "").strip()
+    try:
+        names = parse_name_lines(secret) if secret else []
+    except SecretReferenceError as error:
+        return failed(str(error))
+
+    async def run(values: dict[str, str]) -> NodeResult:
+        return await run_github(
+            config,
+            token=values.get(secret) if secret else None,
+            view=view,
+            operator_allows_private=limits.http_allow_private_networks,
+            response_limit_bytes=limits.http_response_limit_bytes,
+        )
+
+    return await _with_secrets(names, limits, run)
+
+
 async def _timer(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     started = time.monotonic()
     await asyncio.sleep(node["seconds"] or 0)
@@ -297,3 +320,4 @@ register_executor(NodeKind.SWITCH, _switch, by_outcome=False)
 register_executor(NodeKind.AGENT, _agent)
 register_executor(NodeKind.SET, _set)
 register_executor(NodeKind.POSTGRES, _postgres)
+register_executor(NodeKind.GITHUB, _github)
