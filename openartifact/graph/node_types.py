@@ -514,7 +514,7 @@ class _ExecutionType(NodeType):
     scopes = frozenset({ACTION_DEFINITION})
     addable = EXECUTION_NODES_ADDABLE
     chain = True
-    inputs = (Port(Ports.IN, "Input"),)
+    inputs: ClassVar[tuple[Port, ...]] = (Port(Ports.IN, "Input"),)
     outputs: ClassVar[tuple[Port, ...]] = (Port(Ports.PASS, "On Pass"), Port(Ports.FAIL, "On Fail"))
 
 
