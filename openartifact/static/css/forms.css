@@ -97,6 +97,17 @@
     background var(--transition-fast);
 }
 .field__control::placeholder { color: var(--color-text-muted); opacity: 1; }
+/* One select for every page: its own chevron with some room to the right edge (the browser's sits right on it). */
+select.field__control {
+  appearance: none;
+  padding-right: 2.6rem;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 1rem;
+  cursor: pointer;
+}
+select.field__control:disabled { cursor: not-allowed; }
 .field__control:hover { border-color: var(--glass-border-hover); }
 .field__control:focus-visible {
   outline: none;

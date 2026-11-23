@@ -47,10 +47,10 @@
 
             <div class="ag-card ag-card--panels glass">
             <section class="ag-panel" role="tabpanel" id="ag-panel-prompts" aria-labelledby="ag-tab-prompts">
-                <h3 class="ag-panel__heading">Prompts</h3>
+                <h3 class="ag-panel__heading"><span class="ag-hint" tabindex="0" title="A prompt reads only the agent's inputs, as ${input.NAME}: the agent node maps a run's values to them, so the agent can be used in any pipeline.">Prompts</span></h3>
+                <p class="field__help">Define what the model is asked. Use <code>${input.NAME}</code> for an input.</p>
                 <div class="field">
                     <label class="field__label" for="ag-user">User prompt <span class="field__required" aria-hidden="true">*</span></label>
-                    <p class="field__help">What the model is asked. Use <code>${input.NAME}</code> for an input (switch on Inputs). A prompt cannot read a pipeline's nodes or variables itself: the agent node maps them to the inputs, so the agent can be used anywhere.</p>
                     <textarea class="field__control field__control--lines" id="ag-user" rows="8" maxlength="20000" spellcheck="false" aria-required="true" data-field="user_prompt"></textarea>
                 </div>
                 <div class="field" data-system-field hidden>
@@ -96,15 +96,14 @@
                     </div>
                     <div class="settings-card__fields" data-settings-fields></div>
                 </div>
-                <p class="field__help">A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds. The time limit of the node covers all attempts and waits. With tools attached, Max iterations is how many requests a node may make while the model calls tools.</p>
             </section>
 
             <section class="ag-panel" role="tabpanel" id="ag-panel-versions" aria-labelledby="ag-tab-versions" hidden>
-                <h3 class="ag-panel__title">Versions</h3>
-                <p class="field__help">A published version is never changed. Publishing an earlier version again makes a new version with its content.</p>
+                <h3 class="ag-panel__heading"><span class="ag-hint" tabindex="0" title="A published version is never changed. Publishing an earlier version again makes a new version with its content.">Versions</span></h3>
+                <p class="field__help">What has been published, newest first.</p>
                 <ol class="ag-versions" data-versions aria-label="Versions, newest first"></ol>
                 <p class="ge-inspector__note" data-versions-empty hidden>Nothing is published yet, so no node can run this agent.</p>
-                <h3 class="ag-panel__title">Used by</h3>
+                <h3 class="ag-panel__heading ag-panel__heading--next"><span class="ag-hint" tabindex="0" title="The agent nodes that run this agent, and which settings each overrides.">Used by</span></h3>
                 <ul class="ag-uses" data-uses aria-label="Agent nodes that use this agent"></ul>
                 <p class="ge-inspector__note" data-uses-empty hidden>No agent node uses this agent yet.</p>
             </section>

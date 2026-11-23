@@ -43,9 +43,9 @@ const TAB_OF = { inputs: "inputs", limits: "limits" };
 const options = new OptionsPanel(
   $("[data-options]"),
   [
-    { key: "system_prompt", label: "System prompt", help: "Adds a system prompt below the user prompt. Switched off it is kept but not sent." },
-    { key: "inputs", label: "Inputs", help: "Values the agent needs from a run, used as ${input.NAME}. Switched off they are kept but the agent has none." },
-    { key: "limits", label: "Model & Limits", help: "Choose the provider, the model and the limits. Switched off they are kept and the defaults apply." },
+    { key: "system_prompt", label: "System prompt", help: "Add a system prompt below the user prompt. Switched off, it is kept but not sent." },
+    { key: "inputs", label: "Inputs", help: "Declare the values the agent needs from a run, used as ${input.NAME}. Switched off, they are kept but the agent has none." },
+    { key: "limits", label: "Model & Limits", help: "Override the default provider, model and limits. Switched off, your values are kept and the defaults apply." },
     { key: "test", label: "Quick test", help: "Fill the prompts with example values for the inputs. Not saved: it is off whenever this page opens." },
   ],
   (key, on) => {
@@ -99,7 +99,7 @@ const limitsGroup = new SettingsGroup(
     // by importance: the time limit guards every run, the iterations only matter with tools
     numberSetting("total_timeout_seconds", "Node time limit", { min: 1, max: 1800, hint: "Seconds, 1 to 1800; covers all attempts and waits.", fallback: 600, unit: " s" }),
     numberSetting("max_iterations", "Max iterations", { min: 1, max: 50, hint: "1 to 50; how many requests a node may make while the model calls tools. Only with tools.", fallback: 10, unit: ", only with tools" }),
-    numberSetting("retries", "Retries", { min: 0, max: 4, hint: "0 to 4.", fallback: 3 }),
+    numberSetting("retries", "Retries", { min: 0, max: 4, hint: "0 to 4. A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds.", fallback: 3 }),
     numberSetting("request_timeout_seconds", "Request timeout", { min: 1, max: 300, hint: "Seconds, 1 to 300; one attempt.", fallback: 60, unit: " s" }),
   ],
   { onChange: () => changed() },
