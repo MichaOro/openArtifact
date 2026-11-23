@@ -9,6 +9,7 @@ import { request } from "../http.js";
 import { fieldNames } from "./reference-completion.js";
 
 export const HEADER = 44; // stage header height
+export const FAILING_PORTS = ["error", "fail", "else"]; // their connections are drawn as failures
 export const SLOTS = 3; // attachment points per side of a stage, top to bottom
 
 /** Height of a stage's attachment point: the header, the middle and the bottom part. */

@@ -9,14 +9,13 @@
  *  - click a node or an edge to select it. */
 import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./geometry.js";
 import { icon } from "../components/icons.js";
-import { HEADER, typeOf } from "./node-types.js";
+import { FAILING_PORTS, HEADER, typeOf } from "./node-types.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
 const NUDGE = 8;
-const FAILING_PORTS = ["error", "fail", "else"]; // their connections are drawn as failures
 
 const svg = (name, attributes = {}) => {
   const el = document.createElementNS(SVG_NS, name);

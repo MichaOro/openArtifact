@@ -5,6 +5,7 @@
 import { icon } from "../components/icons.js";
 import { Canvas } from "../editor/canvas.js";
 import { typeOf } from "../editor/node-types.js";
+import { addBubbles, FAILING_PORTS } from "./flow-bubbles.js";
 import { nameOf } from "./visit-model.js";
 
 /** state -> [word for people, word of the aria label, icon] */
@@ -117,5 +118,6 @@ export class FlowView {
     text.textContent = String(order);
     mark.append(disc, text);
     group.append(mark);
+    addBubbles(group, line, FAILING_PORTS.includes(edge.source_port));
   }
 }

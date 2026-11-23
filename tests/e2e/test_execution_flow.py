@@ -81,6 +81,9 @@ def test_the_root_flow_shows_the_walked_stages_edges_and_passes(
     expect(page.locator(".ge-edge.is-idle")).to_have_count(0)
     expect(page.locator(".ef-badge[data-state=pass]")).to_have_count(6)
     expect(page.locator(".ef-edge__order")).to_have_count(7)
+    # every walked edge carries green bubbles, in the order of its path: the run's flow made visible
+    expect(page.locator(".ge-edge.is-walked .ef-bubbles--pass")).to_have_count(7)
+    expect(page.locator(".ef-bubbles--fail")).to_have_count(0)
     expect(page.locator(".ef-path__item")).to_have_count(6)
     expect(_node(page, "Stage: Build")).to_have_attribute("aria-label", "Stage: Build, passed")
     expect(_item(page, "Compile").locator("button", has_text="Open")).to_be_visible()
@@ -103,6 +106,9 @@ def test_a_run_started_at_a_later_stage_dims_what_did_not_run(
     expect(_item(page, "Build")).to_have_count(0)  # the path lists what was walked only
     expect(_item(page, "Ship")).to_have_count(1)
     assert page.locator(".ge-edge.is-idle").count() >= 3
+    expect(page.locator(".ge-edge.is-idle .ef-bubbles")).to_have_count(
+        0
+    )  # nothing flows where nothing ran
 
 
 def test_a_failing_action_shows_the_failure_and_the_error_edge(
@@ -114,6 +120,10 @@ def test_a_failing_action_shows_the_failure_and_the_error_edge(
     expect(verify).to_have_class(_state("fail"))
     expect(verify.locator(".ef-badge")).to_have_attribute("data-state", "fail")
     expect(page.locator(".ge-edge--error.is-walked")).to_have_count(1)
+    expect(page.locator(".ge-edge--error.is-walked .ef-bubbles--fail")).to_have_count(
+        1
+    )  # red on the failing branch
+    expect(page.locator(".ge-edge.is-walked .ef-bubbles--pass")).to_have_count(3)
     expect(page.locator(".ge-edge.is-walked")).to_have_count(
         4
     )  # trigger, stage, error edge, end of stage

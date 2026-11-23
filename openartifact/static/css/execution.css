@@ -51,7 +51,7 @@
 .ef-viewport .ge-node.ef-state-fail { border-color: var(--color-danger); border-width: 2px; }
 .ef-viewport .ge-node.ef-state-fail.is-selected,
 .ef-viewport .ge-node.ef-state-fail:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 35%, transparent), var(--shadow-card); }
-.ef-viewport .ge-node.ef-state-running { border-color: var(--color-accent); border-width: 2px; }
+.ef-viewport .ge-node.ef-state-running { border-color: var(--node-color); border-width: 2px; }
 .ef-viewport .ge-node:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 /* the corner badge: an icon and, if the node ran more than once, how often */
@@ -88,12 +88,15 @@
 /* edges: the walked ones are thick and numbered, the others faint */
 .ef-viewport .ge-edge.is-idle .ge-edge__line { opacity: 0.3; stroke-width: 1.5; }
 .ef-viewport .ge-edge.is-walked .ge-edge__line { stroke-width: 3.5; }
+.ef-bubbles circle { stroke: var(--color-surface); stroke-width: 1; pointer-events: none; }
+.ef-bubbles--pass circle { fill: var(--edge-pass); }
+.ef-bubbles--fail circle { fill: var(--color-danger); }
 .ef-edge__order circle { fill: var(--color-surface); stroke: var(--color-text-secondary); stroke-width: 1.5; }
 .ef-edge__order text { fill: var(--color-text-primary); font-size: 10px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
 
 @media (prefers-reduced-motion: no-preference) {
   .ef-viewport .ge-node.ef-state-running { animation: ef-pulse 1.4s ease-in-out infinite; }
-  @keyframes ef-pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-accent) 35%, transparent), var(--shadow-card); } }
+  @keyframes ef-pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--node-color) 40%, transparent), var(--shadow-card); } }
 }
 
 /* ── Panel ───────────────────────────────────────────────────────── */
