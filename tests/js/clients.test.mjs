@@ -66,14 +66,12 @@ test("history of one artifact", async () => {
   await history.getExecution("t1", "e/1");
   await history.deleteExecution("t1", "e1");
   await history.clearExecutions("t1");
-  await history.saveHistoryPolicy("t1", { keep_last: 10, keep_hours: null, ignored: true });
   assert.deepEqual(calls, [
     ["GET", "/api/tasks/t1/executions?limit=100", undefined],
     ["GET", "/api/tasks/t1/executions?limit=5", undefined],
     ["GET", "/api/tasks/t1/executions/e%2F1", undefined],
     ["DELETE", "/api/tasks/t1/executions/e1", undefined],
     ["DELETE", "/api/tasks/t1/executions", undefined],
-    ["PUT", "/api/tasks/t1/history-policy", { keep_last: 10, keep_hours: null }],
   ]);
 });
 

@@ -899,7 +899,7 @@ def test_no_table_but_the_execution_keeps_the_context(
     assert "context" not in columns
 
 
-@pytest.mark.parametrize("how", ["one", "clear", "policy", "artifact"])
+@pytest.mark.parametrize("how", ["one", "clear", "rule", "artifact"])
 def test_the_context_goes_with_its_execution(
     ctx_client: TestClient, migrated_settings: Settings, how: str
 ) -> None:
@@ -914,9 +914,13 @@ def test_the_context_goes_with_its_execution(
         ctx_client.delete(f"{base}/executions")
         left = {i for i, _ in _context_rows(path)}
         assert left <= set()  # finished executions are all deleted, so are their contexts
-    elif how == "policy":
-        ctx_client.put(f"{base}/history-policy", json={"keep_last": 1})
-        assert [i for i, _ in _context_rows(path)] == [ids[1]]  # retention removes the older one
+    elif how == "rule":
+        beyond = {"type": "condition", "field": "position", "op": "beyond", "value": 1}
+        rules = [{"when": {"type": "group", "mode": "all", "items": [beyond]}, "action": "delete"}]
+        ctx_client.put("/api/settings/retention", json={"rules": rules})
+        assert [i for i, _ in _context_rows(path)] == [
+            ids[1]
+        ]  # a retention rule removes the older one
     else:
         assert ctx_client.delete(base).status_code == 204
         assert _context_rows(path) == []

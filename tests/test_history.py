@@ -175,7 +175,7 @@ def test_numbers_are_never_reused_after_a_delete(client: TestClient) -> None:
 # ── the browser API ──────────────────────────────────────────────────
 
 
-def test_list_limit_total_policy_and_errors(client: TestClient) -> None:
+def test_list_limit_total_and_errors(client: TestClient) -> None:
     pipeline = build_pipeline(client, stages=1)
     task = make_task(client)
     for _ in range(3):
@@ -183,7 +183,7 @@ def test_list_limit_total_policy_and_errors(client: TestClient) -> None:
     listed = _executions(client, task, limit=2)
     assert [e["number"] for e in listed["items"]] == [3, 2]
     assert listed["total"] == 3
-    assert listed["policy"] == {"keep_last": None, "keep_hours": None, "effective_default_keep": 50}
+    assert set(listed) == {"items", "total"}  # no per-artifact policy any more (ADR-057)
     assert client.get(f"/api/tasks/{task['number']}/executions").json()["total"] == 3
     for bad in (0, 501, "x"):
         assert client.get(f"/api/tasks/{task['id']}/executions?limit={bad}").status_code == 422
@@ -302,50 +302,33 @@ def test_deleting_the_artifact_deletes_its_history(
         assert conn.execute("SELECT count(*) FROM run_node_results").fetchone() == (0,)
 
 
-# ── the policy ───────────────────────────────────────────────────────
+# ── no per-artifact policy (ADR-057) ─────────────────────────────────
 
 
-def test_policy_validation_saving_and_pruning(client: TestClient) -> None:
+def test_the_per_artifact_policy_is_gone_but_clearing_and_the_operator_default_stay(
+    client: TestClient, migrated_settings: Settings
+) -> None:
     pipeline = build_pipeline(client, stages=1)
     task = make_task(client)
-    for _ in range(4):
+    for _ in range(3):
         _run(client, pipeline, task, "done")
-    url = f"/api/tasks/{task['id']}/history-policy"
-    for body in (
-        {"keep_last": 0},
-        {"keep_last": 1001},
-        {"keep_hours": 0},
-        {"keep_hours": 8761},
-        {"keep_last": "5"},
-        {"keep_last": True},
-        {"keep_last": 1.5},
-        {"keep_days": 3},
-        {"keep_last": -1},
-    ):
-        assert client.put(url, json=body).status_code == 422, body
-    assert client.put("/api/tasks/nope/history-policy", json={}).status_code == 404
-    assert _executions(client, task)["total"] == 4  # nothing was changed or pruned
-
-    saved = client.put(url, json={"keep_last": 2})
-    assert saved.status_code == 200
-    assert saved.json() == {
-        "policy": {"keep_last": 2, "keep_hours": None, "effective_default_keep": 50},
-        "deleted": 2,
-    }
-    listed = _executions(client, task)
-    assert [e["number"] for e in listed["items"]] == [4, 3]
-    assert listed["policy"]["keep_last"] == 2
-    bounds = client.put(url, json={"keep_last": 1000, "keep_hours": 8760})
-    assert bounds.json()["policy"] == {
-        "keep_last": 1000,
-        "keep_hours": 8760,
-        "effective_default_keep": 50,
-    }
-    cleared = client.put(url, json={})  # a missing field is "no limit": the default applies again
-    assert cleared.json()["policy"]["keep_last"] is None
+    # the route is gone (nothing matches the path), the listing carries no policy, the columns do not exist
+    assert (
+        client.put(f"/api/tasks/{task['id']}/history-policy", json={"keep_last": 1}).status_code
+        == 404
+    )
+    assert "policy" not in _executions(client, task)
+    assert not [p for p in client.app.openapi()["paths"] if "history-policy" in p]  # type: ignore[attr-defined]
+    with sqlite3.connect(migrated_settings.data_dir / migrated_settings.database_filename) as conn:
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
+    assert not {"history_keep_last", "history_keep_hours"} & columns
+    assert _executions(client, task)["total"] == 3  # nothing was pruned by any of it
+    # "Clear finished" is a different function and stays
+    assert client.delete(f"/api/tasks/{task['id']}/executions").json() == {"deleted": 3}
+    assert _executions(client, task)["total"] == 0
 
 
-def test_the_application_default_applies_when_no_policy_is_set(
+def test_the_operators_default_keeps_only_the_newest_executions(
     migrated_settings: Settings,
 ) -> None:
     settings = migrated_settings.model_copy(update={"execution_history_default_keep": 2})
@@ -356,7 +339,7 @@ def test_the_application_default_applies_when_no_policy_is_set(
             _run(client, pipeline, task, "done")
         listed = _executions(client, task)
         assert [e["number"] for e in listed["items"]] == [4, 3]
-        assert listed["policy"]["effective_default_keep"] == 2
+        assert listed["total"] == 2
 
 
 def test_a_default_of_zero_keeps_everything(migrated_settings: Settings) -> None:
@@ -369,104 +352,44 @@ def test_a_default_of_zero_keeps_everything(migrated_settings: Settings) -> None
         assert _executions(client, task)["total"] == 3
 
 
-# ── retention as a truth table ───────────────────────────────────────
+# ── the operator's guard as a truth table ────────────────────────────
 
-# (name, keep_last, keep_hours, default, [(age in hours, status)] oldest first, kept numbers)
+# (name, default, [(age in hours, status)] oldest first, kept numbers): only the count matters, never the age
 DONE = "done"
 CASES = [
     (
-        "last only",
+        "the newest ones are kept",
         2,
-        None,
-        50,
         [(100, DONE), (50, DONE), (10, DONE), (2, DONE), (0.5, DONE)],
         [4, 5],
     ),
     (
-        "hours only",
-        None,
-        24,
+        "age alone never deletes",
         50,
-        [(100, DONE), (50, DONE), (10, DONE), (2, DONE), (0.5, DONE)],
-        [3, 4, 5],
+        [(5000, DONE), (4000, DONE), (3000, DONE)],
+        [1, 2, 3],
     ),
     (
-        "both, last is stricter",
-        2,
-        1000,
-        50,
-        [(100, DONE), (50, DONE), (10, DONE), (2, DONE), (0.5, DONE)],
-        [4, 5],
-    ),
-    (
-        "both, hours is stricter",
-        4,
-        24,
-        50,
-        [(100, DONE), (50, DONE), (10, DONE), (2, DONE), (0.5, DONE)],
-        [3, 4, 5],
-    ),
-    (
-        "both, both inside",
+        "inside the count everything stays",
         10,
-        1000,
-        50,
         [(100, DONE), (50, DONE), (10, DONE)],
         [1, 2, 3],
     ),
     (
-        "none, default acts as last",
-        None,
-        None,
-        3,
-        [(100, DONE), (50, DONE), (10, DONE), (2, DONE), (0.5, DONE)],
-        [3, 4, 5],
-    ),
-    (
-        "none, default 0 is unlimited",
-        None,
-        None,
+        "0 is unlimited",
         0,
         [(1000, DONE), (500, DONE), (10, DONE)],
         [1, 2, 3],
     ),
     (
-        "a set policy wins over the default",
-        4,
-        None,
-        1,
-        [(100, DONE), (50, DONE), (10, DONE), (2, DONE), (0.5, DONE)],
-        [2, 3, 4, 5],
-    ),
-    (
-        "exactly on the age limit is kept",
-        None,
-        10,
-        50,
-        [(100, DONE), (10, DONE), (2, DONE)],
-        [2, 3],
-    ),
-    (
-        "running is never removed but counts toward last",
+        "running is never removed but counts toward the number kept",
         2,
-        None,
-        50,
         [(100, "running"), (50, DONE), (10, DONE), (2, "running"), (0.5, DONE)],
         [1, 4, 5],
     ),
     (
-        "running is never removed by age",
-        None,
+        "the newest survives whatever the count",
         1,
-        50,
-        [(100, "running"), (50, DONE), (0.2, DONE)],
-        [1, 3],
-    ),
-    (
-        "the newest survives a policy that would drop it",
-        None,
-        1,
-        50,
         [(100, DONE), (50, DONE), (3, "failed")],
         [3],
     ),
@@ -474,7 +397,7 @@ CASES = [
 
 
 @pytest.mark.parametrize(
-    ("name", "keep_last", "keep_hours", "default", "executions", "kept"),
+    ("name", "default", "executions", "kept"),
     CASES,
     ids=[c[0] for c in CASES],
 )
@@ -482,8 +405,6 @@ async def test_retention_truth_table(
     migrated_settings: Settings,
     monkeypatch: pytest.MonkeyPatch,
     name: str,
-    keep_last: int | None,
-    keep_hours: int | None,
     default: int,
     executions: list[tuple[float, str]],
     kept: list[int],
@@ -492,14 +413,7 @@ async def test_retention_truth_table(
     monkeypatch.setattr(history_module, "utcnow", lambda: now)
     changes = Changes()
     async with db_session_context(migrated_settings) as session:
-        task = Task(
-            id=str(uuid.uuid4()),
-            title="T",
-            number=1,
-            status="backlog",
-            history_keep_last=keep_last,
-            history_keep_hours=keep_hours,
-        )
+        task = Task(id=str(uuid.uuid4()), title="T", number=1, status="backlog")
         session.add(task)
         await session.flush()
         for number, (age, status) in enumerate(executions, start=1):
@@ -595,11 +509,9 @@ def test_the_integration_api_mirrors_the_history(secured: TestClient) -> None:
     assert detail["id"] == first["id"] and "steps" in detail
     assert secured.delete(f"/api/v1/artifacts/{ref}/executions/{first['id']}").status_code == 204
     assert secured.delete(f"/api/v1/artifacts/{ref}/executions/{first['id']}").status_code == 404
-    saved = secured.put(f"/api/v1/artifacts/{ref}/history-policy", json={"keep_last": 1})
-    assert saved.json()["deleted"] == 1
     assert (
-        secured.put(f"/api/v1/artifacts/{ref}/history-policy", json={"keep_last": 0}).status_code
-        == 422
+        secured.put(f"/api/v1/artifacts/{ref}/history-policy", json={"keep_last": 1}).status_code
+        == 404
     )
     assert secured.get(f"/api/v1/artifacts/{ref}/executions?limit=501").status_code == 422
     # the token is required
@@ -731,9 +643,9 @@ def test_migration_0023_backfills_goes_down_and_up(
             ("t1", 1),
             ("t2", 1),
         ]
-        assert conn.execute(
-            "SELECT history_keep_last, history_keep_hours FROM tasks WHERE id = 't1'"
-        ).fetchone() == (None, None)
+        assert "history_keep_last" not in {  # dropped again by migration 0043 (ADR-057)
+            r[1] for r in conn.execute("PRAGMA table_info(tasks)")
+        }
         # a second execution of t1 has its own steps with seq starting at 1
         conn.execute(
             "INSERT INTO executions (id, task_id, number, status, started_by, created_at, "

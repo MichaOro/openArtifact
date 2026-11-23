@@ -1,4 +1,4 @@
-/* The tabs of the artifact dialog and its History tab: list, one execution, retention editor.
+/* The tabs of the artifact dialog and its History tab: list and one execution.
    Loaded by the board with the dialog. Colours via tokens only; a status is never colour alone
    (every chip has an icon and a word).
    Prefix: history- = this tab (also the execution rows on the flow page); the status chips defined
@@ -108,8 +108,6 @@
 .history-row__delete[aria-disabled="true"]:hover { color: var(--color-text-secondary); background: var(--glass-bg); border-color: var(--glass-border); }
 
 /* ── Retention editor ────────────────────────────────────────────── */
-.history-policy { border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--glass-bg); }
-.history-policy__summary {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -118,13 +116,6 @@
   cursor: pointer;
   font-size: 0.8125rem;
 }
-.history-policy__summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: var(--radius-md); }
-.history-policy__title { font-weight: 600; }
-.history-policy__state { color: var(--color-text-secondary); }
-.history-policy__form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); padding: 0 var(--space-3) var(--space-3); }
-.history-policy__form > :not(.field) { grid-column: 1 / -1; }
-.history-policy__actions { display: flex; align-items: center; gap: var(--space-3); }
-.history-policy__help { margin: 0; }
 
 /* ── One execution ───────────────────────────────────────────────── */
 .history-detail__bar { display: flex; gap: var(--space-2); }
@@ -177,13 +168,8 @@
 
 @media (max-width: 640px) {
   .task-tabs { padding: 0 var(--space-4); }
-  .history-policy__form { grid-template-columns: minmax(0, 1fr); }
   .history-row__open { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "chip number duration" "time time time" "pipeline pipeline meta" "note note note"; }
   .history-facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .history-facts dd { margin-bottom: var(--space-2); }
 }
 
-.history-policy__summary { list-style: none; }
-.history-policy__summary::-webkit-details-marker { display: none; }
-.history-policy__summary::before { content: "\25B8"; color: var(--color-text-muted); transition: transform var(--transition-fast); }
-.history-policy[open] > .history-policy__summary::before { transform: rotate(90deg); }

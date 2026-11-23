@@ -6,14 +6,12 @@ and publishes ``execution.updated`` / ``execution.deleted`` (the callers do that
 
 Retention (``prune``) is evaluated per artifact over its executions, newest number first, at ``now``:
 
-* the policy is the artifact's ``history_keep_last`` and ``history_keep_hours``; when neither is set,
-  the application default (``execution_history_default_keep``, ``0`` = unlimited) acts as ``keep_last``;
-* an execution is kept only if it satisfies every limit that is set (logical AND): its rank among the
-  artifact's executions is at most ``keep_last`` and its age (``now - started_at``) is at most
-  ``keep_hours`` (exactly on the limit is still kept);
-* a running execution is never deleted but counts toward ``keep_last``;
-* the newest execution (rank 1) is never deleted by retention, whatever the policy says, so an
-  artifact always shows what happened last. Deleting it by hand is possible.
+* the only per-artifact limit is the operator's guard against unbounded growth: the newest
+  ``execution_history_default_keep`` executions are kept (``0`` = unlimited). There is no per-artifact policy any
+  more (ADR-057): what to keep for how long is the business of the global retention rules (``apply_rules``);
+* a running execution is never deleted but counts toward the number kept;
+* the newest execution (rank 1) is never deleted by retention, so an artifact always shows what happened
+  last. Deleting it by hand is possible.
 """
 
 from __future__ import annotations
@@ -21,7 +19,7 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, func, select, update
@@ -29,10 +27,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.engine import retention
 from openartifact.engine.context import RunContext
-from openartifact.engine.schemas import ExecutionRead, HistoryPolicy
+from openartifact.engine.schemas import ExecutionRead
 from openartifact.events import EventBus
 from openartifact.models import Execution, PipelineRun, RunNodeResult, RunStatus, Task
-from openartifact.schemas_common import as_utc
 
 #: Rows per ``IN`` list when deleting (SQLite limits the number of variables of a statement).
 _CHUNK = 500
@@ -63,21 +60,6 @@ class ExecutionHistory:
     def __init__(self, bus: EventBus, default_keep: int = 50) -> None:
         self._bus = bus
         self.default_keep = default_keep
-
-    # ── policy ────────────────────────────────────────────────────────
-
-    def policy_of(self, task: Task) -> HistoryPolicy:
-        return HistoryPolicy(
-            keep_last=task.history_keep_last,
-            keep_hours=task.history_keep_hours,
-            effective_default_keep=self.default_keep,
-        )
-
-    def _limits(self, task: Task) -> tuple[int | None, int | None]:
-        keep_last, keep_hours = task.history_keep_last, task.history_keep_hours
-        if keep_last is None and keep_hours is None and self.default_keep > 0:
-            keep_last = self.default_keep
-        return keep_last, keep_hours
 
     # ── recording ─────────────────────────────────────────────────────
 
@@ -162,9 +144,9 @@ class ExecutionHistory:
     # ── retention and deleting ────────────────────────────────────────
 
     async def prune(self, session: AsyncSession, task: Task, changes: Changes) -> int:
-        """Delete the executions the artifact's policy no longer keeps; returns how many."""
-        keep_last, keep_hours = self._limits(task)
-        if keep_last is None and keep_hours is None:
+        """Delete the executions beyond the operator's guard (the newest ``default_keep`` stay); returns how many."""
+        keep_last = self.default_keep
+        if keep_last <= 0:
             return 0
         rows = (
             await session.execute(
@@ -173,16 +155,11 @@ class ExecutionHistory:
                 .order_by(Execution.number.desc())
             )
         ).all()
-        now = utcnow()
-        oldest = None if keep_hours is None else now - timedelta(hours=keep_hours)
-        doomed = []
-        for rank, row in enumerate(rows, start=1):
-            if rank == 1 or row.status == RunStatus.RUNNING:
-                continue
-            too_many = keep_last is not None and rank > keep_last
-            too_old = oldest is not None and as_utc(row.started_at) < oldest
-            if too_many or too_old:
-                doomed.append(row.id)
+        doomed = [
+            row.id
+            for rank, row in enumerate(rows, start=1)
+            if rank > keep_last and rank != 1 and row.status != RunStatus.RUNNING
+        ]
         await self.remove(session, task.id, doomed, changes)
         return len(doomed)
 

@@ -1,15 +1,14 @@
 /* The History tab of the artifact dialog: the executions of the shown artifact. Orchestrates the
- * list (HistoryList), one execution (HistoryDetail) and the retention editor (RetentionEditor); owns
+ * list (HistoryList) and one execution (HistoryDetail); owns
  * what they share: the loaded data, the live events and the confirmation of deletes.
  *
  * The tab follows the artifact the dialog shows (show / hide) and is kept current by the page's one
  * event stream: execution.updated and execution.deleted reach it through handleEvent(). */
 import { AlertBar } from "../components/alert-bar.js";
-import { clearExecutions, deleteExecution, getExecution, listExecutions, saveHistoryPolicy } from "./history-api.js";
+import { clearExecutions, deleteExecution, getExecution, listExecutions } from "./history-api.js";
 import { HistoryDetail } from "./history-detail.js";
 import { plural } from "./history-format.js";
 import { HistoryList } from "./history-list.js";
-import { RetentionEditor } from "./retention-editor.js";
 
 const REFETCH_MS = 300;
 
@@ -50,11 +49,6 @@ export class HistoryTab {
       onBack: () => this.#back(),
       onDelete: (execution) => this.#confirmDelete(execution),
     });
-    this.editor = new RetentionEditor({
-      root: root.querySelector("[data-policy]"),
-      save: (values) => saveHistoryPolicy(this.taskId, values),
-      onSaved: () => this.load(),
-    });
     this.clearButton.addEventListener("click", () => this.#confirmClear());
   }
 
@@ -66,7 +60,6 @@ export class HistoryTab {
     this.#showList();
     if (!same) {
       this.list.render([]);
-      this.editor.reset();
       this.total = 0;
       this.notice = "";
       this.deleted.clear();
@@ -95,7 +88,6 @@ export class HistoryTab {
       if (token !== this.token) return;
       this.list.render(data.items);
       this.total = data.total;
-      this.editor.setPolicy(data.policy);
       this.alert.hide();
       this.#render();
       if (this.#detailShown()) this.#refetchDetail();

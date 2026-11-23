@@ -207,8 +207,6 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
             "stage_id",
             "action_id",
             "created_by",
-            "history_keep_last",
-            "history_keep_hours",
             "execution_seq",
             "field_values",
             "created_at",
@@ -764,3 +762,35 @@ def test_migration_0019_adds_the_target_and_origin_columns_and_keeps_the_artifac
             ("old", "Old", 1),
             ("new", "New", 2),
         ]
+
+
+def test_migration_0043_drops_the_history_policy_and_downgrade_brings_the_columns_back_empty(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0042")
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, number, history_keep_last, history_keep_hours) "
+            "VALUES ('t1', 'Keep me', 'backlog', 1, 5, 24)"
+        )
+        before = {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
+        indexes = {r[1] for r in conn.execute("PRAGMA index_list(tasks)")}
+    assert {"history_keep_last", "history_keep_hours"} <= before
+    command.upgrade(alembic_config(), "0043")
+    with sqlite3.connect(db) as conn:
+        after = {r[1] for r in conn.execute("PRAGMA table_info(tasks)")}
+        assert after == before - {"history_keep_last", "history_keep_hours"}
+        assert conn.execute("SELECT title, number FROM tasks").fetchall() == [("Keep me", 1)]
+        assert {
+            r[1] for r in conn.execute("PRAGMA index_list(tasks)")
+        } == indexes  # the table was not rebuilt
+        lane_sql = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE name='credentials'"
+        ).fetchone()[0]
+        assert "NOCASE" in lane_sql  # the collations of other tables are untouched
+    command.downgrade(alembic_config(), "0042")
+    with sqlite3.connect(db) as conn:
+        assert {r[1] for r in conn.execute("PRAGMA table_info(tasks)")} == before
+        assert conn.execute(
+            "SELECT history_keep_last, history_keep_hours FROM tasks"
+        ).fetchall() == [(None, None)]

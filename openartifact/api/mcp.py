@@ -250,7 +250,7 @@ def build_mcp(
     @mcp.tool()
     async def list_executions(artifact: str, limit: int = 20) -> dict[str, Any]:
         """The executions (one per start of the artifact, restarts included), newest first, without steps,
-        with the number kept in total and the retention policy. ``limit`` is 1 to 500 (default 20); there is no
+        with the number kept in total. ``limit`` is 1 to 500 (default 20); there is no
         paging, ``total`` says how many exist. Use ``list_all_executions`` to page through all artifacts."""
         if not 1 <= limit <= ARTIFACT_EXECUTIONS_MAX_LIMIT:
             raise McpError(f"limit must be between 1 and {ARTIFACT_EXECUTIONS_MAX_LIMIT}")

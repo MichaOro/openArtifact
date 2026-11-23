@@ -31,8 +31,6 @@ from openartifact.engine.schemas import (
     ExecutionRead,
     ExecutionsPage,
     ExecutionStepRead,
-    HistoryPolicyResult,
-    HistoryPolicyWrite,
     NodeResultRead,
     RunContextRead,
     RunRead,
@@ -197,7 +195,7 @@ class ArtifactService:
     # ── execution history ─────────────────────────────────────────────
 
     async def executions(self, ref: str, limit: int = 100) -> ExecutionList:
-        """The newest ``limit`` executions of the artifact (newest first), their total and the policy."""
+        """The newest ``limit`` executions of the artifact (newest first), their total."""
         async with self._session() as session:
             task = await self._task(session, ref)
             rows = (
@@ -218,7 +216,6 @@ class ArtifactService:
             return ExecutionList(
                 items=[ExecutionRead.of(r) for r in rows],
                 total=total or 0,
-                policy=self._engine.history.policy_of(task),
             )
 
     async def all_executions(
@@ -361,21 +358,6 @@ class ArtifactService:
             await session.commit()
         self._engine.history.publish(changes)
         return len(ids)
-
-    async def set_history_policy(self, ref: str, policy: HistoryPolicyWrite) -> HistoryPolicyResult:
-        """Replace the artifact's retention policy and apply it at once."""
-        async with self._session() as session:
-            task = await self._task(session, ref)
-            task.history_keep_last = policy.keep_last
-            task.history_keep_hours = policy.keep_hours
-            changes = Changes()
-            deleted = await self._engine.history.prune(session, task, changes)
-            await session.commit()
-            result = HistoryPolicyResult(
-                policy=self._engine.history.policy_of(task), deleted=deleted
-            )
-        self._engine.history.publish(changes)
-        return result
 
     # ── changing ──────────────────────────────────────────────────────
 

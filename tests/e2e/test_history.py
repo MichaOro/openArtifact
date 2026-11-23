@@ -1,5 +1,5 @@
 """The History tab of the artifact dialog: the executions of an artifact, one execution, deleting,
-the retention editor, live updates."""
+the retention rules (no per-artifact editor), live updates."""
 
 from __future__ import annotations
 
@@ -269,41 +269,16 @@ def test_clear_finished_deletes_after_confirmation_and_keeps_a_running_one(
 # ── retention ─────────────────────────────────────────────────────────
 
 
-def test_the_retention_editor_prunes_validates_and_explains_the_default(
+def test_the_tab_has_no_per_artifact_retention_editor_any_more(
     board: Board, api: httpx.Client
 ) -> None:
-    task, _ = _ran(board, api, runs=3)
+    _ran(board, api, runs=3)
     dialog = _open(board)
-    policy = dialog.history.locator("[data-policy]")
-    expect(policy.locator("[data-policy-state]")).to_have_text("Default: newest 50")
-    policy.locator("summary").click()
-    expect(policy.locator("[data-policy-help]")).to_contain_text("newest 50")
-    expect(policy.locator("[data-policy-help]")).to_contain_text("younger than")
-
-    hours = policy.get_by_label("Keep for ... hours")
-    hours.fill("9000")
-    policy.locator("[data-policy-save]").click()
-    error = policy.locator("#history-keep-hours-error")
-    expect(error).to_be_visible()
-    expect(hours).to_have_value("9000")  # what was typed stays
     expect(dialog.rows).to_have_count(3)
-
-    policy.get_by_label("Keep the newest ... executions").fill("1")
-    hours.fill("24")
-    policy.locator("[data-policy-save]").click()
-    expect(policy.locator("[data-policy-result]")).to_have_text("2 executions removed")
-    expect(policy.locator("[data-policy-state]")).to_have_text(
-        "Keeping: newest 1 and not older than 24 hours"
-    )
-    expect(error).to_be_hidden()
-    expect(dialog.rows).to_have_count(1)
-    assert [e["number"] for e in executions(api, task)] == [3]
-
-    policy.get_by_label("Keep the newest ... executions").fill("")
-    hours.fill("")
-    policy.locator("[data-policy-save]").click()
-    expect(policy.locator("[data-policy-state]")).to_have_text("Default: newest 50")
-    expect(policy.locator("[data-policy-result]")).to_have_text("0 executions removed")
+    expect(dialog.history.locator("[data-policy]")).to_have_count(0)
+    expect(dialog.history).not_to_contain_text("Keep history")
+    # what is kept is the business of the retention rules; "Clear finished" is still here
+    expect(dialog.history.locator("[data-history-clear]")).to_be_visible()
 
 
 # ── live ──────────────────────────────────────────────────────────────
@@ -353,18 +328,21 @@ def test_a_failed_load_keeps_the_content_and_offers_retry(board: Board, api: htt
     dialog = _open(board)
     expect(dialog.rows).to_have_count(1)
     board.page.route(f"**/api/tasks/{task['id']}/executions?*", lambda r: r.abort())
-    policy = dialog.history.locator("[data-policy]")
-    policy.locator("summary").click()
-    policy.locator("[data-policy-save]").click()  # saving reloads the list, which now fails
+    dialog.history.locator(
+        "[data-history-clear]"
+    ).click()  # clearing reloads the list afterwards, which now fails
+    board.page.locator("#delete-execution-modal [data-confirm]").click()
     alert = dialog.history.locator("[data-history-alert]")
     expect(alert).to_be_visible()
-    expect(dialog.rows).to_have_count(1)
+    expect(dialog.rows).to_have_count(
+        0
+    )  # the live delete event already removed the row: a failed load changes nothing
     board.page.unroute(f"**/api/tasks/{task['id']}/executions?*")
     alert.locator("[data-alert-retry]").click()
     expect(alert).to_be_hidden()
 
 
-# ── layout and policy ─────────────────────────────────────────────────
+# ── layout ─────────────────────────────────────────────────
 
 
 def test_phone_width_fits_without_horizontal_scroll(board: Board, api: httpx.Client) -> None:

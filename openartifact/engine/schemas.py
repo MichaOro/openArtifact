@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel
 
 from openartifact.engine.context import RunContext
 from openartifact.models import Execution, RunNodeResult, RunStatus, StageStatus, StartedBy
@@ -263,37 +263,8 @@ class ExecutionsPage(BaseModel):
     summary: ExecutionsSummary
 
 
-class HistoryPolicy(BaseModel):
-    """The retention policy of an artifact. Both limits set: an execution must satisfy both to be kept.
-
-    ``keep_last`` and ``keep_hours`` ``None``: no limit of that kind; with neither set the application
-    default (``effective_default_keep`` executions, ``0``: all) applies.
-    """
-
-    keep_last: int | None
-    keep_hours: int | None
-    effective_default_keep: int
-
-
 class ExecutionList(BaseModel):
-    """The newest executions of an artifact (``total`` counts all of them) and its policy."""
+    """The newest executions of an artifact (``total`` counts all of them)."""
 
     items: list[ExecutionRead]
     total: int
-    policy: HistoryPolicy
-
-
-class HistoryPolicyWrite(BaseModel):
-    """The body of ``PUT .../history-policy``: replaces the whole policy (a missing field is ``null``)."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    keep_last: Annotated[int, Field(strict=True, ge=1, le=1000)] | None = None
-    keep_hours: Annotated[int, Field(strict=True, ge=1, le=8760)] | None = None
-
-
-class HistoryPolicyResult(BaseModel):
-    """The saved policy and how many executions the pruning that followed deleted."""
-
-    policy: HistoryPolicy
-    deleted: int

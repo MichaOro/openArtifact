@@ -39,8 +39,6 @@ from openartifact.engine.schemas import (
     ExecutionList,
     ExecutionsPage,
     ExecutionStepRead,
-    HistoryPolicyResult,
-    HistoryPolicyWrite,
     NodeResultRead,
     RunContextRead,
     RunRead,
@@ -294,7 +292,7 @@ async def list_executions(
     ] = ARTIFACT_EXECUTIONS_DEFAULT_LIMIT,
 ) -> ExecutionList:
     """The newest ``limit`` executions of the artifact (1 to 500, default 100; no paging, ``total`` counts all),
-    one per start, newest first, without steps, with the retention policy. The list across all artifacts
+    one per start, newest first, without steps. The list across all artifacts
     (``GET /api/v1/executions``) pages with a cursor, 1 to 200."""
     return await service.executions(ref, limit)
 
@@ -359,19 +357,6 @@ async def delete_execution(ref: str, execution_id: str, service: ServiceDep) -> 
     """Delete one execution (409 while it is running)."""
     await service.delete_execution(ref, execution_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.put(
-    "/artifacts/{ref}/history-policy",
-    response_model=HistoryPolicyResult,
-    summary="Set the history policy of an artifact",
-    responses=errors(404, 422, write=True, body=True),
-)
-async def set_history_policy(
-    ref: str, payload: HistoryPolicyWrite, service: ServiceDep
-) -> HistoryPolicyResult:
-    """Set how long executions are kept (``keep_last`` and/or ``keep_hours``, both must hold); applied at once."""
-    return await service.set_history_policy(ref, payload)
 
 
 @router.get("/secrets", response_model=list[SecretRead], summary="List secrets")

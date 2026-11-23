@@ -221,7 +221,6 @@ def test_task_modules_are_served(client: TestClient) -> None:
         "/static/js/tasks/history-api.js",
         "/static/js/tasks/history-format.js",
         "/static/js/tasks/history-step.js",
-        "/static/js/tasks/retention-editor.js",
         "/static/js/components/tabs.js",
         "/static/css/history.css",
         "/static/js/components/modal.js",

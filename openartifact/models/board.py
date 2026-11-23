@@ -38,9 +38,6 @@ class Task(Base):
         pipeline_id, stage_id, action_id: The pipeline, stage and action the artifact starts with
             (migration 0019); ``None`` until a pipeline is chosen.
         created_by: How it was created: ``user``, ``api``, ``mcp`` or ``action``.
-        history_keep_last, history_keep_hours: The retention policy of the execution history (migration
-            0023): keep at most this many executions and/or none older than this many hours; both
-            ``None``: the application default applies. See ``engine/history.py``.
         execution_seq: The last execution number handed out for this artifact (never reused).
         field_values: The values of the artifact fields by name (JSON object text, migration 0038; a
             field without a value reads as its default); see ``openartifact/artifact_fields``.
@@ -75,8 +72,6 @@ class Task(Base):
     stage_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
     action_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
     created_by: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
-    history_keep_last: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
-    history_keep_hours: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     execution_seq: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     field_values: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

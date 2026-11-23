@@ -28,7 +28,7 @@
 | Run | The *current state* of an artifact's processing: one row per artifact, reused by every start (status, current stage and action, snapshot) (ADR-013). The history of the starts is the executions. |
 | Execution | One start of an artifact in a pipeline, restarts included: a number per artifact, its origin, status, note, steps and a frozen copy of the pipeline. The run is the state, the execution is a history entry (ADR-025). |
 | History | The executions of an artifact (the History tab of its dialog) and the global list of all of them (`/executions`). |
-| Retention | The rule that bounds the history of an artifact: `keep_last` (1 to 1000) and/or `keep_hours` (1 to 8760), both must hold; without a policy the default (50) applies; the newest and running executions are never removed ([8.7](08-cross-cutting-concepts/08.07-history-and-retention.md)). |
+| Retention | What bounds the execution history: the global retention rules (ADR-052) and the operator's guard (`OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP`, 50 per artifact); there is no per-artifact policy (ADR-057); the newest and running executions are never removed ([8.7](08-cross-cutting-concepts/08.07-history-and-retention.md)). |
 | Step | One executed node of an action definition within an execution (a `run_node_results` row): outcome, port, exit code, masked output, reason, data. |
 | Snapshot (frozen) | The copy of the pipeline and the action definitions it uses, taken when an execution starts; later edits do not change it. |
 | Flow | The view of an execution as graphs with the path it took, computed by replaying the snapshot with the engine's rules (ADR-027, [6.9](06-runtime-view/06.09-history-retention-and-flow.md)). |

@@ -58,13 +58,12 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`); the run records `started_by: api`; `201` | 404, 409, 422, 429 |
 | POST | `/api/v1/artifacts/{ref}/run/stop` | Stop; the artifact keeps its stage and action | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run/results` | Every step of the run inside action definitions, in order, with complete outputs | 404 |
-| GET | `/api/v1/artifacts/{ref}/executions` | The artifact's executions, newest first, without steps, with the retention policy; `limit` 1 to 500 (default 100) | 404, 422 |
+| GET | `/api/v1/artifacts/{ref}/executions` | The artifact's executions, newest first, without steps; `limit` 1 to 500 (default 100) | 404, 422 |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}` | One execution with all its steps and its run `context` | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/context` | The run context alone (variables, latest result of each node; text from outside) | 404 |
 | DELETE | `/api/v1/artifacts/{ref}/executions/{execution_id}` | Delete one execution; `204` | 404, 409 (still running) |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/flow` | The graphs as frozen at the start, the path walked through them, the steps (`?outputs=true` adds step outputs) | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id}` | One step with its complete output | 404 |
-| PUT | `/api/v1/artifacts/{ref}/history-policy` | Set the retention policy (`keep_last` 1 to 1000, `keep_hours` 1 to 8760, both must hold; a missing field is `null`); applied at once | 404, 422 |
 | GET | `/api/v1/artifacts/{ref}/comments` | The artifact's comments, oldest first (plain text; `author`, `author_kind`, `execution_id`) | 404 |
 | POST | `/api/v1/artifacts/{ref}/comments` | Add a comment `{"body", "author"?}` (1 to 65536 characters); `201`. The author is the managed token's name; only the environment token may pass `author`. Publishes `comment.created` | 404, 422 |
 | PATCH | `/api/v1/artifacts/{ref}/comments/{comment_id}` | Change the text `{"body"}`; publishes `comment.updated` | 404, 422 |
@@ -205,14 +204,13 @@ values together are at most 4 KiB. The refusal for a typo:
 |--------|------|---------|--------|
 | GET | `/api/executions` | All artifacts' executions, filters and keyset paging (as `/api/v1/executions`) | 422 |
 | POST | `/api/executions/delete` | Delete the finished executions among `ids` (1 to 500, any artifacts); a running one is skipped: `{deleted, skipped_running}` | 422 |
-| GET | `/api/tasks/{task_id}/executions` | One artifact's executions with policy | 404 |
+| GET | `/api/tasks/{task_id}/executions` | One artifact's executions (newest first, `total`) | 404 |
 | DELETE | `/api/tasks/{task_id}/executions` | Delete every finished execution (a running one stays); answers `{"deleted": n}` | 404 |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}` | One execution with all steps and its run `context` (variables and the latest result of each node) | 404 |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/context` | The run context alone | 404 |
 | DELETE | `/api/tasks/{task_id}/executions/{execution_id}` | Delete one; `204` | 404, 409 (running) |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/flow` | Frozen graphs, walked path, steps | 404 |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/steps/{step_id}` | One step with complete output | 404 |
-| PUT | `/api/tasks/{task_id}/history-policy` | Set the retention policy and apply it | 404, 422 |
 
 ### Comments
 
@@ -297,7 +295,7 @@ Pipeline, stage and action are given by name.
 | `get_processing_results` | `artifact` | Steps inside action definitions with output, exit code, reason, data (text from outside) |
 | `list_comments` | `artifact`, `limit?` (1 to 500: the newest that many) | The artifact's comments, oldest first; text from outside |
 | `add_comment` | `artifact`, `text`, `author?` | Add a comment under the MCP token's name (`author` counts only for the environment token, else the author is `mcp`) |
-| `list_executions` | `artifact`, `limit=20` (1 to 500) | The artifact's executions without steps, the number kept, the policy |
+| `list_executions` | `artifact`, `limit=20` (1 to 500) | The artifact's executions without steps and the number kept |
 | `list_all_executions` | `status?`, `started_by?`, `pipeline?`, `query?`, `since?`, `until?`, `limit` (1 to 200), `cursor?` | All artifacts' executions with filters; `next_cursor` goes into `cursor`; includes the `summary` |
 | `get_execution` | `artifact`, `execution` | One execution with all steps |
 | `get_execution_flow` | `artifact`, `execution`, `outputs=false` | Frozen graphs, visits, reached nodes, steps |
@@ -306,8 +304,8 @@ Pipeline, stage and action are given by name.
 | `get_agent` | `agent` (name or id) | One agent: published configuration, draft, versions; read only |
 | `list_providers` | | The LLM providers with their models and the last connection test; never a key; read only |
 
-Not available through MCP, on purpose: creating, changing, publishing or deleting agents and providers, writing or deleting credentials, deleting executions, setting a
-retention policy and reading one step's complete output (`get_execution` returns all steps).
+Not available through MCP, on purpose: creating, changing, publishing or deleting agents and providers, writing or deleting credentials, deleting executions, changing
+retention rules and reading one step's complete output (`get_execution` returns all steps).
 
 ## Server-sent events (`GET /api/events`)
 
@@ -331,4 +329,4 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `comment.updated` | the comment | its text was changed |
 | `comment.deleted` | `{"id", "task_id"}` | a comment was deleted |
 | `execution.updated` | `{"task_id", "execution"}` (the summary) | an execution starts and at every status change |
-| `execution.deleted` | `{"task_id", "id"}` | deleted by hand, by retention or because the artifact's policy changed |
+| `execution.deleted` | `{"task_id", "id"}` | deleted by hand, by retention rules or by the operator's guard |

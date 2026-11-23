@@ -203,7 +203,7 @@ rights of the application: treat the token like shell access to the container.
 Every start of an artifact is an execution that stores a frozen snapshot of the graphs it ran (JSON) and
 every step with its output (up to 1 MiB each). By default the 50 newest executions per artifact are kept
 (`OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP`; `0` keeps everything and lets the file grow with every run);
-an artifact can have its own policy (`PUT /api/v1/artifacts/{ref}/history-policy`, [Execution history](execution-history.md)).
+the retention rules (*Executions → Retention*) decide the rest ([Execution history](execution-history.md)).
 The database runs with `auto_vacuum = FULL`: deleting rows (an execution, its artifact, retention) returns the freed
 pages to the file system when the change is committed, so the file shrinks again (after the next WAL checkpoint,
 which the application does regularly and on shutdown). A new database is created in this mode. A database from an

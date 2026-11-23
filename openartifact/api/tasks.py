@@ -25,8 +25,6 @@ from openartifact.engine.schemas import (
     ExecutionDetail,
     ExecutionList,
     ExecutionStepRead,
-    HistoryPolicyResult,
-    HistoryPolicyWrite,
     RunContextRead,
 )
 from openartifact.models import CreatedBy
@@ -116,8 +114,8 @@ async def list_executions(
     """The artifact's executions (one per start, restarts included), newest first, without steps.
 
     ``items`` has at most ``limit`` (1 to 500, default 100) summaries and there is no paging (the
-    global list ``GET /api/executions`` pages with a cursor, 1 to 200); ``total`` counts all of them, ``policy`` is the retention policy (``keep_last``, ``keep_hours``; ``effective_default_keep``
-    is what applies when neither is set, ``0``: no limit). ``task_id`` is the id or the number.
+    global list ``GET /api/executions`` pages with a cursor, 1 to 200); ``total`` counts all of them. What is
+    kept is decided by the retention rules (Executions > Retention). ``task_id`` is the id or the number.
     """
     return await service.executions(task_id, limit)
 
@@ -200,22 +198,3 @@ async def delete_execution(task_id: str, execution_id: str, service: ServiceDep)
     Publishes ``execution.deleted``."""
     await service.delete_execution(task_id, execution_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.put(
-    "/{task_id}/history-policy",
-    response_model=HistoryPolicyResult,
-    summary="Set the history policy of a task",
-    responses=errors(404, 422, write=True, body=True),
-)
-async def set_history_policy(
-    task_id: str, payload: HistoryPolicyWrite, service: ServiceDep
-) -> HistoryPolicyResult:
-    """Set the retention policy of the artifact's execution history and apply it at once.
-
-    ``keep_last`` (1-1000) and ``keep_hours`` (1-8760) are each ``null`` for no limit of that kind;
-    when both are set an execution must satisfy both to be kept; when neither is set the application
-    default applies. The newest and any running execution are never deleted by it. Returns the
-    policy and how many executions were deleted.
-    """
-    return await service.set_history_policy(task_id, payload)

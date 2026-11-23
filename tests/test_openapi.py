@@ -176,10 +176,8 @@ PUT /api/lanes/{status} -> LaneRead[]
 PUT /api/secrets/{name} -> SecretRead
 PUT /api/settings/retention -> RulesSaved
 PUT /api/settings/run-limits -> RunLimitsRead
-PUT /api/tasks/{task_id}/history-policy -> HistoryPolicyResult
 PUT /api/v1/agents/{ref}/draft -> AgentDetail
 PUT /api/v1/artifact-fields -> ArtifactFieldsRead
-PUT /api/v1/artifacts/{ref}/history-policy -> HistoryPolicyResult
 PUT /api/v1/lanes/{status} -> LaneRead[]
 PUT /api/v1/secrets/{name} -> SecretRead
 PUT /api/v1/settings/retention -> RulesSaved

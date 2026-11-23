@@ -65,6 +65,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [053](053-canonical-node-configuration.md) | One configuration experience for every node: sections, levels, inheritance | Accepted | 2026-11-23 | amends ADR-022, ADR-046 |
 | [054](054-node-kinds-as-yaml-manifests.md) | Node kinds are declared as YAML manifests | Accepted | 2026-11-23 | amends ADR-014, ADR-022, ADR-053 |
 | [055](055-comments-on-artifacts.md) | Comments on artifacts, who wrote them, and the Artifact node | Accepted | 2026-11-23 | amends ADR-051, ADR-054 |
+| [057](057-per-artifact-history-policy-removed.md) | The per-artifact history policy is removed; retention rules replace it | Accepted | 2026-11-23 | amends ADR-025, ADR-052 |
 
 ## Notes
 

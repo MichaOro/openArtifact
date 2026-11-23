@@ -36,24 +36,19 @@ artifact; for those the starting stage and action are unknown.
 
 ## Retention
 
-Retention keeps the history from growing without bound. It is evaluated **per artifact**, newest number first:
+Retention keeps the history from growing without bound. What to keep is decided by the **retention rules** below
+(*Executions → Retention*); an artifact has no policy of its own (ADR-057 removed the per-artifact "Keep history"
+panel and its API). Besides the rules there is one guard for the operator:
 
-- The policy has two optional limits: **keep the last N** executions (1 to 1000) and **keep for H hours**
-  (1 to 8760, measured from the start time). An execution is kept only if it satisfies **every** limit that is
-  set (logical AND); one exactly on the age limit is still kept.
-- When an artifact has no policy of its own (neither limit set), the application default applies as "keep the
-  last N": `OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP`, **50**. `0` means no limit at all.
-- **The newest execution is never removed by retention**, whatever the policy says, so an artifact always
-  shows what happened last. **A running execution is never removed**, but it counts toward "last N".
-  You can delete the newest one by hand.
-- Retention runs when it has something new to decide: when an execution **starts**, when one **ends**, and
-  when the policy is **saved** (then it applies at once and tells you how many it deleted). There is no timer:
-  an artifact that is not run any more keeps its old executions until its policy is changed.
+- **The operator's guard:** `OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP`, **50**: at most that many executions are
+  kept per artifact (`0` means no limit at all). It is not shown in the UI and cannot be changed per artifact; it
+  only keeps an unattended installation from growing without bound. Age never deletes anything by itself.
+- **The newest execution is never removed by retention** and **a running execution is never removed** (it counts toward the
+  number kept). You can delete the newest one by hand.
+- Retention runs when it has something new to decide: when an execution **starts**, when one **ends**, and when the
+  rules are **saved** (then they apply at once). There is no timer: an artifact that is not run any more keeps its
+  old executions until the rules are saved or it runs again.
 - Deleting an execution deletes its steps. Deleting an artifact deletes all its executions.
-
-The policy is edited in the History tab (below) or with `PUT /api/tasks/{id}/history-policy` and
-`PUT /api/v1/artifacts/{ref}/history-policy`; the body replaces the whole policy (a missing field means no
-limit of that kind).
 
 ### Retention rules (all artifacts)
 
@@ -62,7 +57,7 @@ inner groups, and conditions on **Status** (done, failed, stopped), **Pipeline**
 **Age** (older than N minutes, hours or days) and **Position among the artifact's executions** (beyond the newest N: the same as *keep the last N*, counted per artifact). A finished execution that the rule matches is deleted for good with
 its steps; a running one never is, and a rule without conditions deletes nothing. The rules are applied whenever an
 execution starts or finishes and when you save them; the dialog says first how many executions saving deletes
-(*Save and delete N*). *Keep the last N* and *keep for N hours* can be said as rules too (Position beyond N; Age older than N hours); the artifact's own policy still exists next to them. API:
+(*Save and delete N*). *Keep the last N* and *keep for N hours* are rules too (Position beyond N; Age older than N hours); they apply to every artifact alike, not to one. API:
 `GET` / `PUT /api/settings/retention` (also under `/api/v1`), `POST .../retention/preview`.
 
 ## Live updates
@@ -83,8 +78,7 @@ own `run.updated` events.
 **The History tab of the artifact dialog.** Open an artifact; the tab shows the number of executions. The list
 shows the executions newest first (up to 100) with their status, number, pipeline, origin and times. Click one for its
 detail: the facts above and the steps, each expandable to its output and data. From there you can delete the
-execution (not while it runs: `409`), clear all finished executions of the artifact and edit the retention
-policy. Everything updates live.
+execution (not while it runs: `409`) and clear all finished executions of the artifact (*Clear finished*). Everything updates live.
 
 **The flow view.** From an execution, "Open flow" shows it as a graph on the editor's canvas, read-only, at
 `/artifacts/<number or id>/executions/<execution id>`. It draws the **frozen** pipeline with the path that was
@@ -116,7 +110,6 @@ any artifacts); a running execution is never deleted and is reported as `skipped
 | The run context | `GET .../executions/{eid}/context` (also part of `GET .../executions/{eid}` as `context`) | the same | part of `get_execution` |
 | One step with full output | `GET .../executions/{eid}/steps/{step}` | the same | - |
 | Delete one / clear | `DELETE .../executions/{eid}`, `DELETE /api/tasks/{id}/executions` | delete one only | - |
-| Policy | `PUT /api/tasks/{id}/history-policy` | `PUT /api/v1/artifacts/{ref}/history-policy` | - |
 
 The execution detail carries the `context`; the lists do not (a run read has only `context_size`). The context is text
 from what ran, like step output.
@@ -134,17 +127,17 @@ settings of the nodes, typically some kilobytes), the `run_node_results` rows wi
 1 MiB per execution), the **context** (at most 64 KiB, in the execution row) and small indexes. The context counts
 toward the retention budget: per execution at most about 1 MiB of output plus 64 KiB of context.
 
-With the default policy the worst case is bounded: artifacts x 50 executions x (snapshot + at most 1 MiB of
+With the operator's guard the worst case is bounded: artifacts x 50 executions x (snapshot + at most 1 MiB of
 output). Typical executions are far smaller than that bound, because most nodes print little, but a
 Code or HTTP node that returns large output every time fills its share. For example, 100 artifacts that each
 keep 50 executions of 1 MiB would use about 5 GiB; 100 artifacts of a few kilobytes each, a few tens of MiB.
 
 What to do about it:
 
-- Lower the application default, or set a policy on artifacts that run often and produce large output
-  (for instance keep the last 10, or the last 48 hours).
-- Do not set `OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP=0` unless every artifact has a policy of its own: with
-  it nothing is ever removed.
+- Lower the operator's guard, or add retention rules (for instance delete what is beyond the newest 10, or older
+  than 48 hours).
+- Do not set `OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP=0` unless retention rules do the work: with it nothing is
+  removed by the guard.
 - Deleting rows gives the space back: the database runs with `auto_vacuum = FULL`, so the file shrinks (a database
   from an earlier version is converted once at the next start, see [Operate](operations.md#database-size-and-history-retention)).
 - The backup contains the history, so it grows with it.

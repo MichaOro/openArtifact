@@ -1,5 +1,5 @@
 {# The History tab of the artifact dialog (behaviour in static/js/tasks/history-tab.js): the executions of
-   the artifact as a list, one execution as a detail view, and the retention editor. #}
+   the artifact as a list and one execution as a detail view. What is kept is decided by the retention rules (Executions page). #}
 <div class="modal__body history" role="tabpanel" id="artifact-panel-history" aria-labelledby="artifact-tab-history" tabindex="0" hidden data-history>
     <div class="alert-bar glass" role="alert" hidden data-history-alert>
         <span data-alert-text></span>
@@ -11,32 +11,6 @@
             <p class="history__summary" data-history-summary>Loading executions...</p>
             <button type="button" class="button button--ghost button--sm is-danger" data-history-clear>Clear finished</button>
         </div>
-        <details class="history-policy" data-policy>
-            <summary class="history-policy__summary"><span class="history-policy__title">Keep history</span><span class="history-policy__state" data-policy-state></span></summary>
-            <form class="history-policy__form" novalidate>
-                <div class="field">
-                    <label class="field__label" for="history-keep-last">Keep the newest ... executions</label>
-                    <input class="field__control" id="history-keep-last" name="keep_last" type="number" min="1" max="1000" step="1" inputmode="numeric"
-                           aria-describedby="history-policy-help history-keep-last-error">
-                    <p class="field__error" id="history-keep-last-error" role="alert" hidden data-field-error></p>
-                </div>
-                <div class="field">
-                    <label class="field__label" for="history-keep-hours">Keep for ... hours</label>
-                    <input class="field__control" id="history-keep-hours" name="keep_hours" type="number" min="1" max="8760" step="1" inputmode="numeric"
-                           aria-describedby="history-policy-help history-keep-hours-error">
-                    <p class="field__error" id="history-keep-hours-error" role="alert" hidden data-field-error></p>
-                </div>
-                <p class="field__help history-policy__help" id="history-policy-help" data-policy-help></p>
-                <p class="form-error" role="alert" hidden data-form-error></p>
-                <div class="history-policy__actions">
-                    <button type="submit" class="button button--primary button--sm" data-policy-save>
-                        <span class="spinner" aria-hidden="true"></span>
-                        <span>Save</span>
-                    </button>
-                    <span class="field__status" role="status" data-policy-result></span>
-                </div>
-            </form>
-        </details>
         <ul class="history-list" aria-label="Executions" data-history-rows></ul>
         <p class="history__empty" data-history-empty hidden>No executions yet. Start processing this artifact and its executions appear here.</p>
         <p class="field__help" data-history-more hidden></p>
