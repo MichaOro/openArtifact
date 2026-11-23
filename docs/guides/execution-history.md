@@ -55,6 +55,16 @@ The policy is edited in the History tab (below) or with `PUT /api/tasks/{id}/his
 `PUT /api/v1/artifacts/{ref}/history-policy`; the body replaces the whole policy (a missing field means no
 limit of that kind).
 
+### Retention rules (all artifacts)
+
+*Executions → Retention* opens a rule builder: groups that say *all* (AND) or *any* (OR) of their conditions hold, with
+inner groups, and conditions on **Status** (done, failed, stopped), **Pipeline** (is, is not, contains), **Started by**
+and **Age** (older than N minutes, hours or days). A finished execution that the rule matches is deleted for good with
+its steps; a running one never is, and a rule without conditions deletes nothing. The rules are applied whenever an
+execution starts or finishes and when you save them; the dialog says first how many executions saving deletes
+(*Save and delete N*). They come on top of the artifact's own *keep the last N / keep for N hours* policy. API:
+`GET` / `PUT /api/settings/retention` (also under `/api/v1`), `POST .../retention/preview`.
+
 ## Live updates
 
 Changes arrive through the page's one event stream (`GET /api/events`) as

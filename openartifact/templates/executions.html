@@ -2,10 +2,12 @@
 {% from "components/alert.html" import alert %}
 {% from "components/confirm_modal.html" import confirm_modal %}
 {% from "components/icons.html" import icon %}
+{% from "components/modal.html" import modal %}
 {% block title %}Executions · OpenArtifact{% endblock %}
 {% block page_styles %}
 <link rel="stylesheet" href="/static/css/history.css">
 <link rel="stylesheet" href="/static/css/executions.css">
+<link rel="stylesheet" href="/static/css/rule-builder.css">
 {% endblock %}
 {% block content %}
 {# The executions of all artifacts (behaviour in static/js/executions/page.js). The list is a real table:
@@ -68,7 +70,10 @@
     <div class="visually-hidden" role="status" aria-live="polite" data-live></div>
     <div class="ex-bar">
         <p class="ex-bar__count" role="status" aria-live="polite" data-count>Loading executions...</p>
-        <button type="button" class="button button--primary button--sm" data-new hidden></button>
+        <div class="ex-bar__tools">
+            <button type="button" class="button button--primary button--sm" data-new hidden></button>
+            <button type="button" class="button button--ghost button--sm" data-retention aria-haspopup="dialog">{{ icon("settings") }} Retention</button>
+        </div>
     </div>
     {# The bulk bar (static/js/components/bulk-bar.js): shown while rows are selected. #}
     <div class="bulk-bar glass" data-bulk role="region" aria-label="Selected executions" hidden>
@@ -85,7 +90,7 @@
             <caption class="visually-hidden">Executions of all artifacts, newest first</caption>
             <thead>
                 <tr>
-                    <th scope="col" class="ex-select"><input type="checkbox" data-select-all aria-label="Select all shown executions"></th>
+                    <th scope="col" class="ex-select"><input type="checkbox" class="check" data-select-all aria-label="Select all shown executions"></th>
                     <th scope="col">Status</th>
                     <th scope="col">Artifact</th>
                     <th scope="col">Execution</th>
@@ -120,7 +125,7 @@
 
 <template id="ex-row-template">
     <tr class="ex-row">
-        <td class="ex-row__select"><input type="checkbox" data-select></td>
+        <td class="ex-row__select"><input type="checkbox" class="check" data-select></td>
         <td class="ex-row__status" data-label="Status"><span class="history-chip"><span data-chip-icon></span><span data-chip-text></span></span></td>
         <td class="ex-row__artifact" data-label="Artifact"><a class="ex-link" data-artifact></a></td>
         <td class="ex-row__number" data-label="Execution"><a class="ex-link ex-link--open" data-open></a></td>
@@ -134,6 +139,25 @@
     </tr>
 </template>
 
+{% call modal("retention-modal", "Retention") %}
+<form class="task-form" id="retention-form" novalidate>
+    <div class="modal__body">
+        <p class="field__help">Executions that match these rules are deleted for good, with their steps, whenever an execution starts or
+            finishes and when you save. A running execution is never deleted. Without conditions nothing is deleted automatically.</p>
+        <div data-rules></div>
+        <p class="field__help" data-rule-text></p>
+        <p class="ag-warning" data-preview role="status" hidden></p>
+        <p class="form-error" role="alert" hidden data-form-error></p>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-cancel>Cancel</button>
+        <button type="submit" class="button button--primary" data-submit>
+            <span class="spinner" aria-hidden="true"></span>
+            <span data-submit-label>Save</span>
+        </button>
+    </footer>
+</form>
+{% endcall %}
 {{ confirm_modal("confirm-modal", "Delete execution", note="data-delete-note") }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/executions/page.js"></script>{% endblock %}

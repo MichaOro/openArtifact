@@ -27,6 +27,7 @@ from typing import Any
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.engine import retention
 from openartifact.engine.context import RunContext
 from openartifact.engine.schemas import ExecutionRead, HistoryPolicy
 from openartifact.events import EventBus
@@ -184,6 +185,17 @@ class ExecutionHistory:
                 doomed.append(row.id)
         await self.remove(session, task.id, doomed, changes)
         return len(doomed)
+
+    async def apply_rules(self, session: AsyncSession, changes: Changes) -> int:
+        """Delete the finished executions the global retention rules match (see ``engine/retention.py``)."""
+        rules = await retention.load_rules(session)
+        found = await retention.matching_ids(session, rules, utcnow())
+        by_task: dict[str, list[str]] = {}
+        for task_id, execution_id in found:
+            by_task.setdefault(task_id, []).append(execution_id)
+        for task_id, ids in by_task.items():
+            await self.remove(session, task_id, ids, changes)
+        return len(found)
 
     @staticmethod
     async def remove(session: AsyncSession, task_id: str, ids: list[str], changes: Changes) -> None:

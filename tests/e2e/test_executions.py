@@ -667,3 +667,61 @@ def test_select_all_deletes_every_finished_execution_and_a_running_one_survives(
     page.locator("#confirm-modal").get_by_role("button", name="Delete").click()
     expect(rows).to_have_count(1)  # the running execution stays
     expect(rows.first.locator(".history-chip")).to_have_text("Running")
+
+
+# ── retention rules ───────────────────────────────────────────────────
+
+
+def test_the_retention_dialog_builds_a_rule_says_what_it_deletes_and_saving_deletes_it(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    made = _seed(api)  # A#1 done, A#2 failed, B#1 done, B#2 stopped
+    rows = _open(page, secured_url)
+    expect(rows).to_have_count(4)
+    page.get_by_role("button", name="Retention").click()
+    dialog = page.locator("#retention-modal")
+    expect(dialog).to_be_visible()
+    expect(dialog.locator("[data-rule-text]")).to_have_text(
+        "No conditions: nothing is deleted automatically."
+    )
+
+    dialog.get_by_role("button", name="Add condition").click()
+    expect(dialog.locator(".rb-row")).to_have_count(1)
+    expect(dialog.locator("[data-submit]")).to_be_disabled()  # the value is still missing
+    dialog.locator(".rb-chip", has_text="Failed").click()
+    expect(dialog.locator("[data-rule-text]")).to_have_text(
+        "Deletes finished executions where Status is Failed."
+    )
+    expect(dialog.locator("[data-preview]")).to_have_text(
+        "1 execution matches now: saving deletes it."
+    )
+    expect(dialog.locator("[data-submit-label]")).to_have_text("Save and delete 1")
+
+    dialog.get_by_role("button", name="Add condition").click()  # a second one: Age older than 1 day
+    second = dialog.locator(".rb-row").nth(1)
+    second.get_by_label("Field").select_option("age")
+    expect(second.get_by_label("Operator")).to_have_value("older_than")
+    expect(dialog.locator(".rb-group[data-mode=all]")).to_have_count(1)
+    expect(
+        dialog.locator("[data-preview]")
+    ).to_be_hidden()  # failed AND older than a day: nothing yet
+    dialog.get_by_label("All or any of the conditions").first.select_option(
+        "any"
+    )  # failed OR older: both
+    expect(dialog.locator("[data-preview]")).to_have_text(re.compile(r"^\d+ executions? match"))
+    expect(dialog.locator("[data-submit]")).to_be_enabled()
+    dialog.get_by_role("button", name="Add group").click()
+    expect(dialog.locator(".rb-group")).to_have_count(2)  # an inner group
+    dialog.locator(".rb-group .rb-group [aria-label='Remove this group']").click()
+    expect(dialog.locator(".rb-group")).to_have_count(1)
+    second.get_by_role("button", name="Remove this condition").click()  # back to: Status is Failed
+    expect(dialog.locator("[data-submit-label]")).to_have_text("Save and delete 1")
+
+    dialog.locator("[data-submit]").click()
+    expect(dialog).to_be_hidden()
+    expect(rows).to_have_count(3)  # the failed one is gone
+    expect(page.locator("[data-live]")).to_have_text("1 execution deleted by the rules")
+    assert sorted(e["status"] for e in executions(api, made["a"])) == ["done"]
+
+    page.get_by_role("button", name="Retention").click()  # the rule is stored
+    expect(dialog.locator(".rb-chip:has(input:checked)")).to_have_text(["Failed"])

@@ -332,6 +332,7 @@ class RunEngine:
                     )
                 )
             await self.history.prune(session, task, changes)
+            await self.history.apply_rules(session, changes)
             await session.commit()
             result = await self.read(session, run)
             execution_id = execution.id
@@ -448,6 +449,7 @@ class RunEngine:
         task = await session.get(Task, run.task_id)
         if task is not None:
             await self.history.prune(session, task, changes)
+        await self.history.apply_rules(session, changes)
         return changes
 
     @staticmethod

@@ -12,6 +12,7 @@ import { deleteExecution } from "../tasks/history-api.js";
 import { plural } from "../tasks/history-format.js";
 import { deleteExecutions, listAllExecutions } from "./api.js";
 import { FilterBar } from "./filter-bar.js";
+import { RetentionDialog } from "./retention-dialog.js";
 import { Filters } from "./filters.js";
 import { SummaryStrip } from "./summary.js";
 import { ExecutionTable } from "./table.js";
@@ -70,6 +71,13 @@ class ExecutionsPage {
     this.summary = new SummaryStrip($(".ex-summary"), (filters) => this.#select(filters));
     this.bar = new FilterBar($("[data-filters]"), (filters) => this.#select(filters, { fromBar: true }));
 
+    this.retention = new RetentionDialog(new Modal(document.getElementById("retention-modal")), {
+      onSaved: (deleted) => {
+        this.#announce(deleted ? `${plural(deleted, "execution")} deleted by the rules` : "Rules saved");
+        this.load();
+      },
+    });
+    $("[data-retention]").addEventListener("click", () => this.retention.open());
     this.newButton.addEventListener("click", () => this.load({ focusFirst: true }));
     this.moreButton.addEventListener("click", () => this.#more());
     window.addEventListener("popstate", () => this.#apply(Filters.fromSearch(window.location.search)));
