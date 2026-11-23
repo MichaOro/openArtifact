@@ -71,6 +71,22 @@ def _fill(template: str, values: Mapping[str, str], *, encode: bool = False) -> 
     return _PLACEHOLDER.sub(replace, template)
 
 
+def _is_json(body: str, headers: Mapping[str, str], declared: Mapping[str, str]) -> bool:
+    """Whether the body is JSON: its Content-Type says so, or it is valid JSON with sample values."""
+    if any(n.lower() == "content-type" and "json" in v.lower() for n, v in headers.items()):
+        return True
+    try:
+        json.loads(_fill(body, dict.fromkeys(declared, "x")))
+    except ValueError:
+        return False
+    return bool(body.strip())
+
+
+def _json_escaped(value: str) -> str:
+    """A value for the inside of a JSON string: quotes, backslashes and line breaks escaped."""
+    return json.dumps(value, ensure_ascii=False)[1:-1]
+
+
 def _check_placement(url: str) -> None:
     scheme, separator, rest = url.partition("://")
     authority = re.split(r"[/?#]", rest, maxsplit=1)[0] if separator else url
@@ -112,7 +128,12 @@ def build_http_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
                 name: _fill(view.render(value, secrets=secrets), values)
                 for name, value in header_templates.items()
             }
-            body = _fill(view.render(body_template, secrets=secrets), values)
+            body = view.render(body_template, secrets=secrets)
+            if _is_json(body, headers, declared):
+                # a value goes inside a JSON string: it cannot end the string and add fields
+                body = _fill(body, {n: _json_escaped(v) for n, v in values.items()})
+            else:
+                body = _fill(body, values)
         except (ContextError, SecretReferenceError) as error:
             return f"Error: {error}"
         for name, value in headers.items():

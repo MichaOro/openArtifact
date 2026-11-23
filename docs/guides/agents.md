@@ -113,7 +113,9 @@ agent takes any number of tools; a tool belongs to one agent.
 - **Parameters of the HTTP Request Tool** are `{name}` in the URL (percent-encoded there), the headers and the body.
   They are filled in *after* the references (`${secret:...}`, `${var...}`, `${node...}`) are resolved, in one pass: a
   model that writes `${secret:X}` sends exactly that text, and a value is never filled in again. A parameter in the
-  scheme or host of the URL is refused, so the model never chooses where a request goes. The answer to the model is
+  scheme or host of the URL is refused, so the model never chooses where a request goes. In a JSON body (its
+  Content-Type says JSON, or it is valid JSON) a value is escaped for the inside of a JSON string, so quotes and line
+  breaks in a comment cannot break the body or add fields; write the placeholder in quotes (`"{text}"`). The answer to the model is
   `HTTP <status>` and the body; another status than the accepted ones is an error.
 - **The Code Tool** runs under the rules of the Code node ([execution nodes](execution-nodes.md)): it needs the API
   token, can be switched off, has its limits and no sandbox. The model's arguments are the object `input` in

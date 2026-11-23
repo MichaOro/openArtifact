@@ -26,7 +26,49 @@ from mcp.shared.exceptions import MCPError
 from openartifact.agents.tool_config import ToolConfigError, check_endpoint, parse_tool_names
 from openartifact.engine.http_runner import AddressRefusedError, vetted_addresses
 
-RESULT_LIMIT_BYTES = 16 * 1024
+#: The most pages of ``tools/list`` read; a server whose list does not end gives what was read by then.
+MAX_TOOL_PAGES = 20
+#: The most bytes of one answer of the server (a JSON answer or one stream), read before it is refused.
+RESPONSE_LIMIT_BYTES = 4 * 1024 * 1024
+
+
+class ResponseTooLargeError(httpx2.HTTPError):
+    """An answer of the MCP server is larger than the limit (it is not read any further)."""
+
+
+async def list_all_tools(session: Any) -> list[Any]:
+    """The tools of every page, at most :data:`MAX_TOOL_PAGES` pages, ending at a cursor seen before."""
+    listed: list[Any] = []
+    seen: set[str] = set()
+    cursor: str | None = None
+    for _ in range(MAX_TOOL_PAGES):
+        page = await session.list_tools(params=None if cursor is None else {"cursor": cursor})
+        listed.extend(page.tools)
+        cursor = getattr(page, "next_cursor", None)
+        if not cursor or cursor in seen:
+            break
+        seen.add(cursor)
+    return listed
+
+
+class _CappedStream(httpx2.AsyncByteStream):
+    """The body of an answer, refused once it passes ``limit`` bytes."""
+
+    def __init__(self, inner: httpx2.AsyncByteStream, limit: int) -> None:
+        self._inner, self._limit = inner, limit
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        read = 0
+        async for chunk in self._inner:
+            read += len(chunk)
+            if read > self._limit:
+                raise ResponseTooLargeError(
+                    f"The answer of the MCP server is larger than {self._limit} bytes"
+                )
+            yield chunk
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
 
 
 class McpToolError(Exception):
@@ -40,8 +82,9 @@ class McpToolError(Exception):
 class GuardedTransport(httpx2.AsyncBaseTransport):
     """An httpx2 transport that vets the addresses of every request's host and connects to one of them."""
 
-    def __init__(self, allow_private: bool) -> None:
+    def __init__(self, allow_private: bool, limit: int = RESPONSE_LIMIT_BYTES) -> None:
         self._allow_private = allow_private
+        self._limit = limit
         self._inner = httpx2.AsyncHTTPTransport(trust_env=False)
         #: The status of the last answer: the SDK reports a refused request without it.
         self.last_status: int | None = None
@@ -52,20 +95,35 @@ class GuardedTransport(httpx2.AsyncBaseTransport):
         port = request.url.port or (443 if scheme == "https" else 80)
         addresses = await vetted_addresses(host, port, self._allow_private)
         default = 443 if scheme == "https" else 80
-        request.headers["Host"] = host if port == default else f"{host}:{port}"
+        named = f"[{host}]" if ":" in host else host  # an IPv6 literal is written in brackets
+        headers = request.headers.copy()
+        headers["Host"] = named if port == default else f"{named}:{port}"
+        extensions = dict(request.extensions)
         if scheme == "https":
-            request.extensions = {**request.extensions, "sni_hostname": host}
-        original = request.url
+            extensions["sni_hostname"] = host
         last: Exception | None = None
         for address in addresses:
-            request.url = original.copy_with(host=str(address))
+            # a copy goes to the address: the request itself keeps its URL, so a redirect the client
+            # builds from it still names the host (Host header and TLS name), and is vetted again
+            pinned = httpx2.Request(
+                request.method,
+                request.url.copy_with(host=str(address)),
+                headers=headers,
+                stream=request.stream,
+                extensions=extensions,
+            )
             try:
-                response = await self._inner.handle_async_request(request)
+                response = await self._inner.handle_async_request(pinned)
             except httpx2.ConnectError as error:
                 last = error
                 continue
             self.last_status = response.status_code
-            return response
+            return httpx2.Response(
+                response.status_code,
+                headers=response.headers,
+                stream=_CappedStream(response.stream, self._limit),  # type: ignore[arg-type]
+                extensions=response.extensions,
+            )
         raise last or httpx2.ConnectError("no address")
 
     async def aclose(self) -> None:
@@ -121,7 +179,7 @@ def _leaves(error: BaseException) -> list[BaseException]:
 def _reason(error: BaseException) -> str:
     """Why a connection or call failed, in words that never hold a header or the token."""
     for leaf in _leaves(error):
-        if isinstance(leaf, AddressRefusedError):
+        if isinstance(leaf, AddressRefusedError | ResponseTooLargeError):
             return str(leaf)
         if isinstance(leaf, httpx2.HTTPStatusError):
             status = leaf.response.status_code
@@ -142,7 +200,7 @@ def _failure(error: BaseException, status: int | None) -> McpToolError:
     reason = _reason(error)
     if status is not None and status >= 400 and not reason.startswith("The address"):
         return McpToolError(f"The MCP server could not be reached (HTTP {status})")
-    if reason.startswith("The address"):
+    if reason.startswith(("The address", "The answer")):
         return McpToolError(reason)
     if reason.startswith("refused the token"):
         return McpToolError(f"The MCP server {reason}")
@@ -218,16 +276,7 @@ async def _connected(
                 ClientSession(read, write, read_timeout_seconds=timeout)
             )
             await session.initialize()
-            listed = []
-            cursor = None
-            while True:
-                page = await session.list_tools(
-                    params=None if cursor is None else {"cursor": cursor}  # type: ignore[arg-type]
-                )
-                listed.extend(page.tools)
-                cursor = getattr(page, "next_cursor", None)
-                if not cursor:
-                    break
+            listed = await list_all_tools(session)
         except McpToolError:
             raise
         except Exception as error:  # an ExceptionGroup of the SDK included

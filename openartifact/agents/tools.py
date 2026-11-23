@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from openartifact.agents.mcp_client import McpToolError, open_mcp
+from openartifact.agents.tool_config import default_tool_name
 from openartifact.credentials.refs import mask_text
 from openartifact.models import NodeKind
 
@@ -95,7 +96,9 @@ def _parameters(schema: Mapping[str, Any]) -> dict[str, Any]:
 class Toolbox:
     """The tools of one agent node run, by the names the model calls them."""
 
-    def __init__(self, tools: Sequence[Tool]) -> None:
+    def __init__(self, tools: Sequence[Tool], mask: Callable[[str], str] | None = None) -> None:
+        #: Masks the run's secret values in every answer (returned or raised) before the model reads it.
+        self._mask = mask or (lambda text: text)
         own = [_valid(t.name) for t in tools]
         shared = {n for n in own if own.count(n) > 1}
         self._tools: dict[str, Tool] = {}
@@ -131,7 +134,9 @@ class Toolbox:
 
         def record(result: str, error: bool) -> ToolCallRecord:
             duration = round((time.monotonic() - began) * 1000)
-            return ToolCallRecord(call_id, name, arguments, cut(result), error, duration)
+            return ToolCallRecord(
+                call_id, name, arguments, cut(self._mask(result)), error, duration
+            )
 
         tool = self._tools.get(name)
         if tool is None:
@@ -221,23 +226,15 @@ async def open_toolbox(
             if builder is None:
                 raise ToolboxError(f"Tool {label}: a {kind} cannot be used by an agent")
             try:
-                built.append(builder(frozen, context))
+                tool = builder(frozen, context)
             except ValueError as error:
                 raise ToolboxError(f"Tool {label}: {error}") from None
+            tool.prefix = default_tool_name(
+                label
+            )  # its own name is the Tool name; on a clash the node's goes in front
+            built.append(tool)
         values = [v for v in context.secrets.values() if v]
-        if values:
-            for tool in built:
-                tool.run = _masking(tool.run, values)
-        yield Toolbox(built)
-
-
-def _masking(run: Run, values: list[str]) -> Run:
-    """A tool whose answer has the run's secret values masked: the model never reads a secret back."""
-
-    async def masked(arguments: dict[str, Any]) -> str:
-        return mask_text(await run(arguments), values)
-
-    return masked
+        yield Toolbox(built, mask=(lambda text: mask_text(text, values)) if values else None)
 
 
 def _mcp_call(call: Callable[[str, Mapping[str, Any]], Awaitable[str]], name: str) -> Run:

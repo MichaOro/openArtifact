@@ -111,18 +111,18 @@ async def run_completion(
     complete: Complete = client.complete,
     sleep: Sleep = asyncio.sleep,
     tools: list[dict[str, Any]] | None = None,
+    limit: float | None = None,
 ) -> Outcome:
     """Ask the model once and retry what can pass, within ``total_timeout`` (see the module docstring)."""
     retries = max(0, min(int(retries), RETRIES_MAX))
+    named = total_timeout if limit is None else limit  # the node's limit, when this is a later turn
     started = time.monotonic()
     deadline = started + total_timeout
     outcome = Outcome()
     for number in range(1, retries + 2):
         left = deadline - time.monotonic()
         if left <= 0:
-            outcome.error = (
-                f"{outcome.error or 'No answer'}; the time limit of {total_timeout:g} s is over"
-            )
+            outcome.error = f"{outcome.error or 'No answer'}; the time limit of {named:g} s is over"
             break
         attempt = Attempt(number, _now())
         outcome.attempts.append(attempt)
@@ -170,7 +170,7 @@ async def run_completion(
         if wait >= deadline - time.monotonic():
             outcome.error = (
                 f"{error.message}; not tried again: the wait of {wait:g} s does not fit the time "
-                f"limit of {total_timeout:g} s"
+                f"limit of {named:g} s"
             )
             break
         attempt.wait_seconds = wait
@@ -278,14 +278,20 @@ async def run_node(
     if not detail["user_prompt"].strip():
         return refuse("The user prompt is empty")
     messages.append({"role": "user", "content": detail["user_prompt"]})
+    started = time.monotonic()  # the node's time limit covers opening the tools too
     async with AsyncExitStack() as stack:
         box = Toolbox([])
         if frozen.get("tools") and open_tools is not None:
+            limit = float(settings["total_timeout_seconds"])
             try:
-                box = await stack.enter_async_context(open_tools())
+                async with asyncio.timeout(limit):
+                    box = await stack.enter_async_context(open_tools())
             except ToolboxError as error:
                 return refuse(str(error))
+            except TimeoutError:
+                return refuse(f"The tools could not be opened within the time limit of {limit:g} s")
         return await _loop(
+            started,
             endpoint_of(provider, api_key, allow_private_networks),
             model,
             messages,
@@ -313,6 +319,7 @@ def _summed(
 
 
 async def _loop(
+    started: float,
     endpoint: Endpoint,
     model: str,
     messages: list[dict[str, Any]],
@@ -325,7 +332,6 @@ async def _loop(
     sleep: Sleep,
 ) -> NodeResult:
     """The turns of the node: ask, run the tools the answer calls, send their results, ask again."""
-    started = time.monotonic()
     total = float(settings["total_timeout_seconds"])
     iterations = int(settings["max_iterations"]) if box else 1
     schemas = box.schemas() if box else None
@@ -352,7 +358,8 @@ async def _loop(
             temperature=settings["temperature"],
             max_tokens=settings["max_tokens"],
             request_timeout=settings["request_timeout_seconds"],
-            total_timeout=max(left, 0.0) if detail["turns"] else total,
+            total_timeout=max(left, 0.0),
+            limit=total,
             retries=settings["retries"],
             complete=complete,
             sleep=sleep,

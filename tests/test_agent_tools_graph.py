@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Callable
 from pathlib import Path
@@ -115,6 +116,49 @@ def test_migration_0035_allows_the_tool_kinds_and_the_downgrade_removes_them(
     command.downgrade(alembic_config(), "0034")
     with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT id FROM graph_nodes").fetchall() == [("x",)]
+    command.upgrade(alembic_config(), "head")
+
+
+def test_the_downgrade_of_0035_leaves_no_edge_and_no_setting_the_old_code_refuses(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0034")
+    command.upgrade(alembic_config(), "0035")
+    stamp = "2026-11-23 00:00:00"
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO graphs (id, name, slug, kind) VALUES ('g', 'G', 'g', 'action')")
+        nodes = (
+            "INSERT INTO graph_nodes (id, graph_id, kind, name, config) VALUES (?, 'g', ?, ?, ?)"
+        )
+        conn.execute(
+            nodes, ("a", "agent", "Ask", '{"agent_id": "x", "max_iterations": 3, "retries": 1}')
+        )
+        conn.execute(nodes, ("m", "mcp_tool", "GitHub", "{}"))
+        conn.execute(nodes, ("o", "output", "Output", "{}"))
+        edges = "INSERT INTO graph_edges (id, graph_id, source_id, source_port, target_id, target_port) VALUES (?, 'g', ?, ?, ?, ?)"
+        conn.execute(edges, ("e1", "m", "tool", "a", "tools"))
+        conn.execute(edges, ("e2", "a", "pass", "o", "pass"))
+        conn.execute(
+            "INSERT INTO agents (id, name, draft, created_at, updated_at) VALUES ('x', 'T', ?, ?, ?)",
+            ('{"user_prompt": "Hi", "max_iterations": 10}', stamp, stamp),
+        )
+        conn.execute(
+            "INSERT INTO agent_versions (id, agent_id, number, config, published_via, published_at) VALUES ('v', 'x', 1, ?, 'user', ?)",
+            ('{"user_prompt": "Hi", "max_iterations": 10}', stamp),
+        )
+    command.downgrade(alembic_config(), "0034")
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT id FROM graph_edges").fetchall() == [
+            ("e2",)
+        ]  # the tool's edge went with it
+        (config,) = conn.execute("SELECT config FROM graph_nodes WHERE id = 'a'").fetchone()
+        assert json.loads(config) == {"agent_id": "x", "retries": 1}
+        assert json.loads(conn.execute("SELECT draft FROM agents").fetchone()[0]) == {
+            "user_prompt": "Hi"
+        }
+        assert json.loads(conn.execute("SELECT config FROM agent_versions").fetchone()[0]) == {
+            "user_prompt": "Hi"
+        }
     command.upgrade(alembic_config(), "head")
 
 

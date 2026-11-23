@@ -1181,7 +1181,8 @@ class HttpToolType(_ToolType):
             default="",
             stored_in="config",
             references="all",
-            help="Sent as it is; {name} is replaced by the model's value, ${...} as in the HTTP node.",
+            help="{name} is replaced by the model's value (escaped for a JSON string when the body is JSON), "
+            "${...} as in the HTTP node.",
             check=_references(_check_text_references),
         ),
         _PARAMETERS,

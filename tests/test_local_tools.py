@@ -177,3 +177,35 @@ def test_a_tool_without_parameters_takes_an_empty_object() -> None:
     tool = build_code_tool(_code("print(1)", parameters=""), _context())
     assert tool.parameters == {"type": "object", "properties": {}, "required": []}
     assert json.dumps(tool.parameters)
+
+
+TEXT = "city: The city\nlang: A language\ntext: What to post"
+
+
+async def test_a_model_value_in_a_json_body_is_escaped_and_cannot_add_fields(server: int) -> None:
+    body = '{"comment": "{text}", "draft": false}'
+    tool = build_http_tool(
+        _http(
+            server, method="POST", url=f"http://127.0.0.1:{server}/echo", body=body, parameters=TEXT
+        ),
+        _context(),
+    )
+    text = 'He said "no"\nthen: ", "admin": true, "x": "'
+    await tool.run({"city": "x", "lang": "de", "text": text})
+    sent = json.loads(_Handler.hits[-1][3])
+    assert sent == {"comment": text, "draft": False}
+
+
+async def test_a_body_that_is_not_json_gets_the_value_as_it_is(server: int) -> None:
+    tool = build_http_tool(
+        _http(
+            server,
+            method="POST",
+            url=f"http://127.0.0.1:{server}/echo",
+            body="say={text}",
+            parameters=TEXT,
+        ),
+        _context(),
+    )
+    await tool.run({"city": "x", "lang": "de", "text": 'a "b"'})
+    assert _Handler.hits[-1][3] == b'say=a "b"'

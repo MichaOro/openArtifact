@@ -14,6 +14,8 @@ from mcp.server import MCPServer
 
 TOKEN = "ghp_test_token_0123456789"
 CALLS: list[tuple[str, dict[str, Any]]] = []
+#: Every HTTP request that reached the server (method and path), listings included.
+REQUESTS: list[tuple[str, str]] = []
 
 
 def _server() -> Any:
@@ -46,6 +48,7 @@ def _server() -> Any:
 
     async def guarded(scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] == "http":
+            REQUESTS.append((scope["method"], scope["path"]))
             headers = dict(scope.get("headers") or [])
             if headers.get(b"authorization") != f"Bearer {TOKEN}".encode():
                 await send(

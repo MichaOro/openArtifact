@@ -10,7 +10,14 @@ from typing import Any
 
 from openartifact.agents.client import Completion, ToolCall
 from openartifact.agents.runtime import run_node
-from openartifact.agents.tools import TOOL_RESULT_LIMIT_BYTES, Tool, Toolbox, ToolboxError
+from openartifact.agents.tools import (
+    TOOL_RESULT_LIMIT_BYTES,
+    Tool,
+    Toolbox,
+    ToolboxError,
+    ToolContext,
+    open_toolbox,
+)
 from tests.test_agent_runtime import OK, VIEW, Scripted, _frozen
 
 
@@ -242,3 +249,70 @@ def test_names_for_the_model_are_unique_and_valid() -> None:
         s["function"]["parameters"] == {"type": "object", "properties": {}} for s in box.schemas()
     )
     assert json.dumps(box.schemas())  # sendable as it is
+
+
+async def test_the_text_of_a_failing_tool_is_masked_before_the_model_reads_it() -> None:
+    async def leaks(arguments: dict[str, Any]) -> str:
+        raise RuntimeError("could not log in with token-SECRET-42")
+
+    box = Toolbox(
+        [Tool("login", "", {}, leaks)], mask=lambda text: text.replace("token-SECRET-42", "***")
+    )
+    record = await box.call("c1", "login", "{}")
+    assert record.result == "Error: the tool failed (RuntimeError: could not log in with ***)"
+
+
+async def test_two_local_tools_with_one_name_get_their_node_names_in_front() -> None:
+    frozen = [
+        {
+            "node_id": f"n{n}",
+            "name": node,
+            "kind": "code_tool",
+            "tool_name": "search",
+            "config": {"code": "print(1)"},
+        }
+        for n, node in enumerate(("Jira", "Wiki search"))
+    ]
+    async with open_toolbox(frozen, ToolContext({}, False)) as box:
+        assert [s["function"]["name"] for s in box.schemas()] == [
+            "Jira_search",
+            "Wiki_search_search",
+        ]
+
+
+async def test_opening_the_tools_counts_against_the_time_limit_of_the_node() -> None:
+    @asynccontextmanager
+    async def slow() -> AsyncIterator[Toolbox]:
+        await asyncio.sleep(3)
+        yield Toolbox([])  # pragma: no cover
+
+    script = Scripted(OK)
+    result = await run_node(
+        _with_tools(total_timeout_seconds=1),
+        VIEW,
+        "key",
+        complete=script.complete,
+        sleep=script.sleep,
+        open_tools=slow,
+    )
+    assert (result.outcome, result.reason) == (
+        "fail",
+        "The tools could not be opened within the time limit of 1 s",
+    )
+    assert script.calls == []
+
+
+async def test_a_later_turn_names_the_time_limit_of_the_node_not_what_was_left() -> None:
+    from tests.test_agent_runtime import _transient
+
+    script = Scripted(_asks(("c1", "weather", "{}")), _transient(503))
+    result = await run_node(
+        _with_tools(total_timeout_seconds=5, retries=1),
+        VIEW,
+        "key",
+        complete=script.complete,
+        sleep=script.sleep,
+        open_tools=_box(Tool("weather", "", WEATHER, Recorder(2.5))),
+    )
+    assert result.outcome == "fail"
+    assert "the time limit of 5 s" in (result.reason or ""), result.reason
