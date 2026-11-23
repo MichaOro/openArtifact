@@ -7,7 +7,8 @@
  *  - drag from an output port to an input port to connect;
  *  - drag the background to pan, wheel or the zoom buttons to zoom;
  *  - click a node or an edge to select it. */
-import { PAD, actionsOf, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./geometry.js";
+import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./geometry.js";
+import { icon } from "../components/icons.js";
 import { HEADER, typeOf } from "./node-types.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -30,7 +31,8 @@ export class Canvas {
    * @param {Map<string, object>} options.nodes
    * @param {Map<string, object>} options.edges
    * @param {object} options.handlers onSelect(selection|null, {focusInspector}), onMoved(node),
-   *   onConnect(source, port, target, port, {source_slot, target_slot}), onDelete(selection), onZoom(zoom);
+   *   onConnect(source, port, target, port, {source_slot, target_slot}), onDelete(selection), onZoom(zoom),
+   *   onEdgeDelete(edgeId) and onEdgeStyle(edge, style) for the bar a connection shows on hover (the editor only);
    *   read-only: onOpen(node) (Enter on a node), onNodeDrawn(node, el) and onEdgeDrawn(edge, group)
    *   to decorate what was drawn
    * @param {boolean} [options.readOnly]
@@ -52,12 +54,16 @@ export class Canvas {
     this.nodeLayer = viewport.querySelector("[data-nodes]");
     this.edgeLayer = viewport.querySelector("[data-edges]");
     this.edgeLayer.append(this.#markers());
+    this.hoverEdgeId = null;
+    this.hideTimer = null;
+    this.edgeBar = this.readOnly ? null : this.#createEdgeBar();
     viewport.style.setProperty("--ge-stage-header", `${HEADER}px`); // read by editor.css
 
     viewport.addEventListener("pointerdown", (event) => this.#onPointerDown(event));
     viewport.addEventListener("pointermove", (event) => this.#onPointerMove(event));
     viewport.addEventListener("pointerup", (event) => this.#onPointerUp(event));
     viewport.addEventListener("pointercancel", () => this.#cancelGesture());
+    viewport.addEventListener("pointerleave", () => this.#leaveEdge());
     viewport.addEventListener("wheel", (event) => this.#onWheel(event), { passive: false });
     viewport.addEventListener("keydown", (event) => this.#onKeydown(event));
     document.addEventListener("keydown", (event) => {
@@ -171,6 +177,7 @@ export class Canvas {
     for (const el of this.nodeLayer.querySelectorAll(".ge-node--stage > .ge-port")) {
       el.classList.toggle("is-used", used.has(`${el.dataset.nodeId}|${el.dataset.port}|${el.dataset.slot}`));
     }
+    this.#placeBar();
   }
 
   #markers() {
@@ -189,11 +196,110 @@ export class Canvas {
     this.drawEdges();
   }
 
+  // ── the bar of a connection: a bin and a pencil, shown on hover and while it is selected ──
+
+  #createEdgeBar() {
+    const bar = document.createElement("div");
+    bar.className = "ge-edge-bar";
+    bar.hidden = true;
+    const button = (className, label, content) => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = className;
+      el.setAttribute("aria-label", label);
+      el.title = label;
+      el.append(content);
+      return el;
+    };
+    const styles = document.createElement("span");
+    styles.className = "ge-edge-bar__styles";
+    styles.hidden = true;
+    for (const [value, label] of Object.entries(EDGE_STYLES)) {
+      const choice = document.createElement("button");
+      choice.type = "button";
+      choice.className = "ge-edge-bar__style";
+      choice.dataset.style = value;
+      choice.textContent = label;
+      styles.append(choice);
+    }
+    const pencil = button("icon-button icon-button--sm ge-edge-bar__pencil", "Change line style", icon("pencil"));
+    const bin = button("icon-button icon-button--sm is-danger ge-edge-bar__bin", "Delete connection", icon("trash"));
+    bar.append(pencil, styles, bin);
+    bar.addEventListener("click", (event) => {
+      const id = bar.dataset.edgeId;
+      const edge = this.edges.get(id);
+      if (!edge) return;
+      if (event.target.closest(".ge-edge-bar__bin")) {
+        this.hoverEdgeId = null;
+        this.handlers.onEdgeDelete?.(id);
+      } else if (event.target.closest(".ge-edge-bar__pencil")) {
+        styles.hidden = !styles.hidden;
+        this.#placeBar();
+      } else if (event.target.closest(".ge-edge-bar__style")) {
+        styles.hidden = true;
+        this.handlers.onEdgeStyle?.(edge, event.target.closest(".ge-edge-bar__style").dataset.style);
+      }
+    });
+    bar.addEventListener("pointerenter", () => clearTimeout(this.hideTimer));
+    this.world.append(bar);
+    return bar;
+  }
+
+  /** The pointer moved over the canvas: a connection under it (or its bar) is the one to show the bar for. */
+  #trackEdge(event) {
+    if (this.readOnly || this.gesture) return;
+    const edge = event.target.closest(".ge-edge");
+    if (edge) {
+      clearTimeout(this.hideTimer);
+      if (this.hoverEdgeId !== edge.dataset.edgeId) {
+        this.hoverEdgeId = edge.dataset.edgeId;
+        this.#placeBar();
+      }
+    } else if (!event.target.closest(".ge-edge-bar")) {
+      this.#leaveEdge();
+    }
+  }
+
+  /** The pointer left the connection: the bar stays a moment, so the pointer can reach it. */
+  #leaveEdge() {
+    if (!this.hoverEdgeId) return;
+    clearTimeout(this.hideTimer);
+    this.hideTimer = setTimeout(() => {
+      this.hoverEdgeId = null;
+      this.#placeBar();
+    }, 250);
+  }
+
+  /** Show the bar in the middle of its connection (the hovered one, else the selected one), or hide it. */
+  #placeBar() {
+    const bar = this.edgeBar;
+    if (!bar) return;
+    const id = this.hoverEdgeId ?? (this.selection?.type === "edge" ? this.selection.id : null);
+    const edge = id ? this.edges.get(id) : null;
+    const line = edge && !this.gesture ? this.edgeLayer.querySelector(`.ge-edge[data-edge-id="${CSS.escape(id)}"] .ge-edge__line`) : null;
+    if (!line) {
+      bar.hidden = true;
+      bar.querySelector(".ge-edge-bar__styles").hidden = true;
+      return;
+    }
+    if (bar.dataset.edgeId !== id) bar.querySelector(".ge-edge-bar__styles").hidden = true;
+    bar.dataset.edgeId = id;
+    const middle = line.getPointAtLength(line.getTotalLength() / 2);
+    bar.style.left = `${middle.x}px`;
+    bar.style.top = `${middle.y}px`;
+    bar.style.setProperty("--ge-inverse-zoom", String(1 / this.view.zoom)); // the bar keeps its size when the canvas zooms
+    const attachment = edge.target_port === "tools"; // a tool's line has no style to choose
+    bar.querySelector(".ge-edge-bar__pencil").hidden = attachment;
+    for (const choice of bar.querySelectorAll(".ge-edge-bar__style")) choice.setAttribute("aria-pressed", String((edge.style || "curved") === choice.dataset.style));
+    bar.hidden = false;
+  }
+
   // ── view (pan / zoom) ──────────────────────────────────────────────
 
   #applyView() {
     const { x, y, zoom } = this.view;
     this.world.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
+    this.#placeBar();
     this.handlers.onZoom?.(zoom);
   }
 
@@ -267,6 +373,7 @@ export class Canvas {
       if (event.target.closest("button, input, select, a")) return;
       return this.#startPan(event, event.target.closest(".ge-node")); // a click on a node activates it (see #onPointerUp)
     }
+    if (event.target.closest(".ge-edge-bar")) return; // its buttons act on click; the bar is no place to pan from
     const port = event.target.closest(".ge-port");
     if (port && port.dataset.direction !== "input") return this.#startConnect(event, port);
     if (event.target.closest("button, input, select, a")) return;
@@ -308,6 +415,7 @@ export class Canvas {
   }
 
   #onPointerMove(event) {
+    this.#trackEdge(event);
     const g = this.gesture;
     if (!g || event.pointerId !== g.pointerId) return;
     if (g.type === "connect") {

@@ -193,6 +193,30 @@ def test_error_may_loop_back_to_its_own_input(page: Page, base_url: str, api: ht
     _expect_edges(page, api, pipeline, [("error", "in")])
 
 
+def _edge_point(page: Page, fraction: float = 0.3) -> tuple[float, float]:
+    """A point on the line of the first connection, not in its middle where the bar sits."""
+    page.locator(".ge-edge .ge-edge__line").first.wait_for(state="attached")
+    x, y = page.evaluate(
+        """(fraction) => {
+          const path = document.querySelector(".ge-edge .ge-edge__line");
+          const at = path.getPointAtLength(path.getTotalLength() * fraction);
+          const m = path.getScreenCTM();
+          return [at.x * m.a + at.y * m.c + m.e, at.x * m.b + at.y * m.d + m.f];
+        }""",
+        fraction,
+    )
+    return x, y
+
+
+def _on_edge(page: Page, fraction: float = 0.3) -> None:
+    page.mouse.move(*_edge_point(page, fraction))
+
+
+def _select_edge(page: Page) -> None:
+    """Click the first connection (beside the middle, where the bar shows on hover)."""
+    page.mouse.click(*_edge_point(page))
+
+
 def test_select_and_delete_an_edge(page: Page, base_url: str, api: httpx.Client) -> None:
     pipeline = _flow(page, base_url, api)
     drag(
@@ -200,7 +224,7 @@ def test_select_and_delete_an_edge(page: Page, base_url: str, api: httpx.Client)
         page.locator(".ge-node--trigger .ge-port--out"),
         page.locator(".ge-node--stage > .ge-port--start[data-slot='0']"),
     )
-    page.locator(".ge-edge__hit").first.click(force=True)
+    _select_edge(page)
     expect(page.locator(".ge-inspector h2")).to_have_text("Connection")
     page.keyboard.press("Delete")
     expect(page.locator(".ge-edge")).to_have_count(0)
@@ -221,7 +245,7 @@ def test_the_inspector_keeps_keyboard_focus_when_it_is_redrawn(
 ) -> None:
     pipeline = _flow(page, base_url, api)
     _connect_trigger_to_stage(page)
-    page.locator(".ge-edge__hit").first.click(force=True)
+    _select_edge(page)
     elbow = page.locator(".ge-style[data-style=elbow]")
     elbow.focus()
     page.keyboard.press("Enter")
@@ -236,7 +260,7 @@ def test_delete_on_a_focused_node_does_not_also_delete_the_selected_edge(
 ) -> None:
     pipeline = _flow(page, base_url, api)
     _connect_trigger_to_stage(page)
-    page.locator(".ge-edge__hit").first.click(force=True)
+    _select_edge(page)
     expect(page.locator(".ge-inspector h2")).to_have_text("Connection")
     page.locator(".ge-node--stage").focus()  # Tab to a node: the selection stays on the edge
     page.keyboard.press("Delete")
@@ -351,7 +375,7 @@ def test_choose_the_line_style_of_a_connection(
         page.locator(".ge-node--trigger .ge-port--out"),
         page.locator(".ge-node--stage > .ge-port--start[data-slot='0']"),
     )
-    page.locator(".ge-edge__hit").first.click(force=True)
+    _select_edge(page)
     line = page.locator(".ge-edge__line").first
     curved = line.get_attribute("d")
     assert curved is not None and " C " in curved
@@ -363,6 +387,74 @@ def test_choose_the_line_style_of_a_connection(
     eventually(lambda: _graph(api, pipeline)["edges"][0]["style"], "elbow")
     page.reload()
     expect(page.locator(".ge-edge")).to_have_count(1)
+
+
+# ── the toolbar of a connection (hover: a bin and a pencil) ──────────
+
+
+def test_hovering_a_connection_shows_a_bin_and_a_pencil_and_leaving_hides_them(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _flow(page, base_url, api)
+    _connect_trigger_to_stage(page)
+    bar = page.locator(".ge-edge-bar")
+    expect(bar).to_be_hidden()  # nothing hovered, nothing selected
+    _on_edge(page)
+    expect(bar).to_be_visible()
+    expect(bar.get_by_role("button", name="Delete connection")).to_be_visible()
+    expect(bar.get_by_role("button", name="Change line style")).to_be_visible()
+    page.mouse.move(5, 5)
+    expect(bar).to_be_hidden()
+
+
+def test_the_bin_of_the_bar_deletes_the_connection(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _flow(page, base_url, api)
+    _connect_trigger_to_stage(page)
+    _on_edge(page)
+    page.get_by_role("button", name="Delete connection").click()
+    expect(page.locator(".ge-edge")).to_have_count(0)
+    expect(page.locator(".ge-edge-bar")).to_be_hidden()
+    _expect_edges(page, api, pipeline, [])
+
+
+def test_the_pencil_of_the_bar_sets_the_line_style_in_one_click_more(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _flow(page, base_url, api)
+    _connect_trigger_to_stage(page)
+    line = page.locator(".ge-edge__line").first
+    assert " C " in (line.get_attribute("d") or "")
+    _on_edge(page)
+    page.get_by_role("button", name="Change line style").click()
+    assert (
+        page.locator(".ge-edge-bar__style[data-style=curved]").get_attribute("aria-pressed")
+        == "true"
+    )
+    page.locator(".ge-edge-bar__style[data-style=straight]").click()
+    path = line.get_attribute("d") or ""
+    assert " C " not in path and " Q " not in path  # straight now
+    eventually(lambda: _graph(api, pipeline)["edges"][0]["style"], "straight")
+    _on_edge(page)
+    page.get_by_role("button", name="Change line style").click()
+    page.locator(".ge-edge-bar__style[data-style=elbow]").click()
+    eventually(lambda: _graph(api, pipeline)["edges"][0]["style"], "elbow")
+    page.reload()
+    expect(page.locator(".ge-edge")).to_have_count(1)
+    assert " C " not in (page.locator(".ge-edge__line").first.get_attribute("d") or "")
+
+
+def test_a_selected_connection_keeps_its_bar_so_keyboard_and_touch_can_reach_it(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _flow(page, base_url, api)
+    _connect_trigger_to_stage(page)
+    _select_edge(page)  # selects: the inspector shows "Connection"
+    page.mouse.move(5, 5)
+    expect(page.locator(".ge-edge-bar")).to_be_visible()
+    page.keyboard.press("Delete")  # the bar leaves with the connection
+    expect(page.locator(".ge-edge-bar")).to_be_hidden()
 
 
 # ── action definitions ────────────────────────────────────────────────

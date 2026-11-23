@@ -24,6 +24,7 @@ def agents_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
         tmp_path_factory.mktemp("agents"),
         api_token=TOKEN,
         secret_key="k" * 40,
+        llm_allow_private_networks="true",  # for the tools of agents (a provider needs no setting)
     )
 
 

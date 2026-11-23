@@ -48,6 +48,8 @@ export class GraphEditor {
         onMoved: (node) => this.#persistPosition(node),
         onConnect: (source, port, target, targetPort, slots) => this.#connect(source, port, target, targetPort, slots),
         onDelete: (selection) => this.requestDelete(selection),
+        onEdgeDelete: (id) => this.#removeEdge(id),
+        onEdgeStyle: (edge, style) => this.#restyle(edge, style),
         onZoom: (zoom) => (this.zoomLabel.textContent = `${Math.round(zoom * 100)}%`),
       },
     });
