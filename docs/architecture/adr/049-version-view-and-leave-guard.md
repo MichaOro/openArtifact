@@ -15,7 +15,7 @@ other link of the page) with unsaved changes got the browser's "leave the page?"
 
 ## 2. Decision
 
-- **Show:** every version has *Show*. A wide dialog grows in (scale and fade, none with reduced motion) and shows the
+- **Show:** every version except the one in use has *Show* (the one in use is what the editor's tabs show). A wide dialog grows in (scale and fade, none with reduced motion) and shows the
   version read-only in the editor's tabs: *Prompts*, *Inputs*, *Model & Limits*; an area the version did not use has no
   tab, and an unset setting shows the default it got. No status, options or description. The version comes from the
   existing `GET /api/agents/{id}/versions/{n}`. *Publish again* is in the dialog too, for a version that is not in use.

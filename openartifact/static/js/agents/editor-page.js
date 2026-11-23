@@ -343,19 +343,20 @@ function renderVersions() {
       const origin = version.source_number != null ? `rollback to version ${version.source_number}` : "published";
       row.append(head, el("span", "ag-row__meta", `${formatTime(version.published_at)} · ${origin} ${ORIGINS[version.published_via] ?? version.published_via}`));
       const buttons = el("div", "ag-version__buttons");
-      const showButton = el("button", "button button--ghost button--sm", "Show");
-      showButton.type = "button";
-      showButton.setAttribute("aria-label", `Show version ${version.number}`);
-      showButton.addEventListener("click", () => openVersion(version));
-      buttons.append(showButton);
       if (!version.current) {
+        // the version in use is what the editor's tabs show already: only an earlier one needs "Show"
+        const showButton = el("button", "button button--ghost button--sm", "Show");
+        showButton.type = "button";
+        showButton.setAttribute("aria-label", `Show version ${version.number}`);
+        showButton.addEventListener("click", () => openVersion(version));
+        buttons.append(showButton);
         const again = el("button", "button button--ghost button--sm ag-version__again", "Publish again");
         again.type = "button";
         again.setAttribute("aria-label", `Publish version ${version.number} again`);
         again.addEventListener("click", () => confirmRepublish(version));
         buttons.append(again);
+        row.append(buttons);
       }
-      row.append(buttons);
       return row;
     }),
   );

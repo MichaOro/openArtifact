@@ -902,8 +902,8 @@ def test_a_published_version_is_shown_read_only_before_it_is_published_again(
     expect(confirm.locator("[data-confirm]")).to_have_class(re.compile(r"\bbutton--primary\b"))
     confirm.locator("[data-confirm]").click()
     expect(editor.locator("[data-versions] .ag-version")).to_have_count(3)
-    editor.get_by_role("button", name="Show version 3").click()
-    expect(dialog.locator("[data-version-again]")).to_be_hidden()  # in use
+    expect(editor.get_by_role("button", name="Show version 3")).to_have_count(0)  # in use: the tabs show it
+    expect(editor.get_by_role("button", name="Show version 1")).to_be_visible()
 
 
 def test_leaving_with_unsaved_changes_asks_in_the_page_and_can_save_or_leave(
