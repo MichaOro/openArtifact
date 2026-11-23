@@ -1,0 +1,65 @@
+schema: 1
+kind: switch
+label: Switch
+behaviour: switch
+scopes:
+- action
+addable: true
+chain: true
+reference_keys:
+- value
+- case_1
+- case_2
+- case_3
+- case_4
+- case_5
+- case_6
+menu:
+  group: Flow
+  order: 2
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: case_{n}
+    label: Case {n}
+    visible_when:
+      fn: switch_case_used
+    label_from: switch_case_label
+    repeat: 6
+  - name: else
+    label: Else
+ui:
+  icon: switch
+  caption:
+    fn: switch_summary
+settings:
+- key: value
+  label: Value
+  type: text
+  default: ''
+  max_length: 500
+  placeholder: ${var.priority}
+  help: Text, may hold ${node.NAME.output} or ${var.name}.
+  stored_in: config
+  check: condition_text
+  references: context
+- repeat: 6
+  settings:
+  - use: operator
+    key: case_operator_{n}
+    group: Case {n}
+  - label: Compare with
+    type: text
+    default: ''
+    max_length: 500
+    stored_in: config
+    check: condition_text
+    references: context
+    key: case_{n}
+    group: Case {n}
+    first:
+      help: 'Text, may hold ${node.NAME.output} or ${var.name}. Empty (and an operator that needs a value): the
+        case is unused and its output is hidden.'
+- use: case_sensitive

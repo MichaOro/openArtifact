@@ -1,0 +1,28 @@
+schema: 1
+kind: timer
+label: Timer
+behaviour: plain
+scopes:
+- action
+addable: true
+chain: true
+menu:
+  group: Flow
+  order: 3
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: out
+    label: Next
+ui:
+  caption:
+    template: '{@seconds} s'
+settings:
+- key: seconds
+  label: Seconds
+  type: integer
+  minimum: 1
+  maximum: 86400
+  default: 5

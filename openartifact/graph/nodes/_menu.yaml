@@ -1,0 +1,29 @@
+# The clusters of the "+" menu, in order, and the order the kinds are listed in everywhere (the API, the editor).
+groups:
+- Structure
+- AI
+- Agent tools
+- Apps and data
+- Core
+- Data
+- Flow
+kinds:
+- trigger
+- stage
+- action
+- pipeline
+- complete
+- timer
+- output
+- code
+- http
+- if
+- switch
+- agent
+- set
+- github
+- postgres
+- mcp_tool
+- http_tool
+- code_tool
+- postgres_tool

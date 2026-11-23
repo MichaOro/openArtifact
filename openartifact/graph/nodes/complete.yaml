@@ -1,0 +1,16 @@
+schema: 1
+kind: complete
+label: Complete
+behaviour: plain
+scopes:
+- pipeline
+fixed: true
+ending: true
+ports:
+  inputs:
+  - name: in
+    label: Input
+ui:
+  size:
+    width: 160
+    height: 56

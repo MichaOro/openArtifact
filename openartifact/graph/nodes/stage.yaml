@@ -1,0 +1,25 @@
+schema: 1
+kind: stage
+label: Stage
+behaviour: stage
+scopes:
+- pipeline
+addable: true
+chain: true
+default_size:
+  width: 360.0
+  height: 240.0
+menu:
+  group: Structure
+  order: 1
+ports:
+  inputs:
+  - name: start
+    label: Start
+  - name: end
+    label: End
+  outputs:
+  - name: start
+    label: First action
+  - name: end
+    label: Next

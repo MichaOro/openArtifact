@@ -33,6 +33,10 @@ class PortRead(BaseModel):
     label: str
     #: ``top`` / ``bottom`` for the attachment ports of tools (ADR-040); ``None``: the usual side.
     side: str | None = None
+    #: When the port is there, for the editor: ``{"fn": name}`` or ``{"node": field}`` (``graph/manifest.py``).
+    visible_when: dict[str, str] | None = None
+    #: A function of the editor that labels the port from the node's settings.
+    label_from: str | None = None
 
 
 class SettingRead(BaseModel):
@@ -73,6 +77,12 @@ class NodeTypeRead(BaseModel):
     links_to: str | None
     #: A tool node (ADR-040): attached to an Agent node's Tools port, not part of the flow.
     tool: bool = False
+    #: How the kind connects and is drawn (``plain``, ``flow``, ``stage``, ``action``, ``pipeline``, ``output``, ``tool``, ``switch``).
+    behaviour: str = "plain"
+    #: Where the kind sits in the "+" menu: its cluster, the cluster's place and its own place in it.
+    menu: dict[str, Any] | None = None
+    #: How its card looks: icon, size, caption, ... (``graph/manifest.py`` ``UiSpec``).
+    ui: dict[str, Any] = {}
 
 
 class ChainActionRead(BaseModel):

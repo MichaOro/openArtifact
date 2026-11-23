@@ -1,0 +1,13 @@
+schema: 1
+kind: trigger
+label: Trigger
+behaviour: plain
+scopes:
+- action
+- pipeline
+fixed: true
+chain: true
+ports:
+  outputs:
+  - name: out
+    label: Next

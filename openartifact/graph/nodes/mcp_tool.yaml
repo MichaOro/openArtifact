@@ -1,0 +1,74 @@
+schema: 1
+kind: mcp_tool
+label: MCP Client Tool
+behaviour: tool
+scopes:
+- action
+addable: true
+tool: true
+menu:
+  group: Agent tools
+  order: 1
+ports:
+  outputs:
+  - name: tool
+    label: Tool
+    side: top
+ui:
+  icon: plug
+  caption:
+    template: '{url|host_path|default:no endpoint yet}'
+settings:
+- use: tool_name
+- key: description
+  label: Description
+  type: lines
+  default: ''
+  max_length: 1000
+  help: Tells the model what the tool does and when to use it. The server's tools keep their own names and descriptions.
+  stored_in: config
+- key: url
+  label: Endpoint
+  type: text
+  default: ''
+  max_length: 500
+  placeholder: https://api.githubcopilot.com/mcp/
+  help: 'The Streamable HTTP address of the MCP server. GitHub: https://api.githubcopilot.com/mcp/'
+  stored_in: config
+  check: tool_endpoint
+- key: secret
+  label: Secret with the token
+  type: text
+  default: ''
+  max_length: 64
+  placeholder: GITHUB_TOKEN
+  help: 'The name of a stored secret, sent as ''Authorization: Bearer''. Empty: no token.'
+  stored_in: config
+  check: secret_name
+- use: allow_private
+- key: tools_mode
+  label: Tools to include
+  type: select
+  default: all
+  options:
+  - all
+  - selected
+  - all_except
+  help: 'all: every tool of the server. selected: only the tools listed below. all_except: all but those.'
+  stored_in: config
+- key: tool_names
+  label: Tools
+  type: lines
+  default: ''
+  max_length: 10000
+  placeholder: get_issue
+  help: One tool name of the server per line, for 'selected' and 'all_except'.
+  stored_in: config
+  check: tool_names
+- key: timeout_seconds
+  label: Timeout (seconds)
+  type: integer
+  minimum: 1
+  maximum: 300
+  default: 60
+  stored_in: config

@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from openartifact.graph.node_types import NODE_TYPES, ON_FAILURE, Setting, node_type
+from openartifact.graph.node_types import NODE_TYPES, Setting, node_type
 from openartifact.models import NodeKind
 
 
@@ -71,11 +71,18 @@ def test_metadata_that_means_nothing_is_refused_when_the_setting_is_declared(
 
 
 def test_every_kind_declares_valid_metadata_and_the_shared_failure_setting_is_behaviour() -> None:
-    assert (ON_FAILURE.section, ON_FAILURE.level, ON_FAILURE.inherits) == (
-        "behaviour",
-        "core",
-        None,
-    )
+    for kind in (
+        NodeKind.CODE,
+        NodeKind.HTTP,
+        NodeKind.AGENT,
+        NodeKind.SET,
+        NodeKind.GITHUB,
+        NodeKind.POSTGRES,
+    ):
+        failure = _by_key(kind)["on_failure"]
+        assert (failure.section, failure.level, failure.inherits) == ("behaviour", "core", None), (
+            kind
+        )
     for node in NODE_TYPES.values():
         for setting in node.settings:
             assert setting.section in ("definition", "behaviour"), (node.kind, setting.key)

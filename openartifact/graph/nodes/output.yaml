@@ -1,0 +1,26 @@
+schema: 1
+kind: output
+label: Output
+behaviour: output
+scopes:
+- action
+fixed: true
+ending: true
+ports:
+  inputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+    visible_when:
+      node: fail_enabled
+ui:
+  size:
+    width: 250
+    height: 104
+  port_labels: true
+settings:
+- key: fail_enabled
+  label: On Fail
+  type: switch
+  default: false

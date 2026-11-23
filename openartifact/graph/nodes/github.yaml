@@ -1,0 +1,140 @@
+schema: 1
+kind: github
+label: GitHub
+behaviour: flow
+scopes:
+- action
+addable: true
+chain: true
+reference_keys:
+- repository
+- number
+- path
+- ref
+- comment
+menu:
+  group: Apps and data
+  order: 1
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+ui:
+  icon: github
+  caption:
+    template: '{operation|default:Get repository}{?operation=Create comment&!allow_comments: (off)} · {repository|trim|short|default:no
+      repository yet}'
+settings:
+- key: operation
+  label: Operation
+  type: select
+  default: Get repository
+  options:
+  - Get repository
+  - List issues
+  - Get issue
+  - List pull requests
+  - Get pull request
+  - Get pull request diff
+  - List pull request files
+  - Get file
+  - List comments
+  - Create comment
+  help: What the node does. Settings the operation does not use are ignored.
+  stored_in: config
+- key: repository
+  label: Repository
+  type: text
+  default: ''
+  max_length: 200
+  placeholder: owner/name
+  help: owner/name, for every operation. May hold ${node...} or ${var...}.
+  stored_in: config
+  check: repository
+  references: context
+- key: number
+  label: Number
+  type: text
+  default: ''
+  max_length: 40
+  help: The number of the issue or pull request (get, comments, files, diff).
+  stored_in: config
+  check: github_number
+  references: context
+- key: path
+  label: File path
+  type: text
+  default: ''
+  max_length: 500
+  placeholder: docs/README.md
+  help: 'Get file: the path in the repository (a folder lists its files).'
+  stored_in: config
+  check: file_path
+  references: context
+- key: ref
+  label: Branch, tag or commit
+  type: text
+  default: ''
+  max_length: 200
+  help: 'Get file: empty is the default branch.'
+  stored_in: config
+  check: not_secret
+  references: context
+- key: state
+  label: State
+  type: select
+  default: open
+  options:
+  - open
+  - closed
+  - all
+  help: List issues and List pull requests.
+  stored_in: config
+- key: limit
+  label: Limit
+  type: integer
+  minimum: 1
+  maximum: 100
+  default: 30
+  help: The most items a list returns (one page, the newest first).
+  stored_in: config
+- key: comment
+  label: Comment
+  type: lines
+  default: ''
+  max_length: 20000
+  help: 'Create comment: the text, may hold ${node...} or ${var...}; no secrets.'
+  stored_in: config
+  check: not_secret
+  references: context
+- key: allow_comments
+  label: Allow comments
+  type: switch
+  default: false
+  help: 'Create comment writes to GitHub: it only runs when this is on. Every other operation reads.'
+  stored_in: config
+- key: secret
+  label: Secret with the token
+  type: text
+  default: ''
+  max_length: 64
+  placeholder: GITHUB_TOKEN
+  help: 'The name of a stored secret with a personal access token. Empty: no token (public data, a low rate limit).'
+  stored_in: config
+  check: secret_name
+- key: api_url
+  label: API address
+  type: text
+  default: https://api.github.com
+  max_length: 500
+  help: 'GitHub Enterprise: https://HOST/api/v3. A private address needs OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS.'
+  stored_in: config
+  check: tool_endpoint
+  level: advanced
+- use: timeout_seconds
+- use: on_failure

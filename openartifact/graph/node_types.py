@@ -1,54 +1,71 @@
-"""The kinds of nodes, as classes: one place that says what a node is and what it may do.
+"""The kinds of nodes: one place that says what a node is and what it may do.
 
-Settings are values the user sets on a node in the inspector. The older ones (``seconds``,
-``fail_enabled``) are columns of the node; every newer one lives in the node's ``config`` JSON
-object (see :class:`Setting.stored_in`), so a new kind needs no new column.
+A kind is *declared* in a YAML manifest (``graph/nodes/<kind>.yaml``, ADR-054; format and rules in
+``graph/manifest.py``) and loaded here into a :class:`NodeType`. Settings are values the user sets on a node in
+its dialog; the older ones (``seconds``, ``fail_enabled``) are columns of the node, every newer one lives in the node's
+``config`` JSON object (see :class:`Setting.stored_in`), so a new kind needs no new column.
 
-A :class:`NodeType` describes a kind of node: where it may be used (a pipeline or an action
-definition), whether it comes with the graph and stays (``fixed``) or is added through the "+"
-menu (``addable``), its ports, its settings and what it links to. ``connect_error`` holds its
-connection rules. The base class has the common behaviour; a kind overrides only what differs.
-Every kind is registered through :func:`register`, the same way an extension would add one later
-(see ADR-014). The editor loads these descriptions (``GET /api/node-types``) and draws from them.
+A :class:`NodeType` describes a kind of node: where it may be used (a pipeline or an action definition), whether it comes
+with the graph and stays (``fixed``) or is added through the "+" menu (``addable``), its ports, its settings and what it
+links to. ``connect_error`` holds its connection rules; the few kinds whose rules differ are classes (``behaviour`` in the
+manifest picks one), everything else is the base class. The editor loads these descriptions (``GET /api/node-types``) and
+draws from them.
 """
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
-from openartifact.agents import schemas as agent_rules
-from openartifact.agents import tool_config
-from openartifact.agents.render import MappingError, parse_mapping, prompt_problems
-from openartifact.credentials.refs import (
-    SecretReferenceError,
-    check_url_references,
-    names_in,
-    parse_name_lines,
+from openartifact.graph.manifest import (
+    NODES_DIR,
+    PortSpec,
+    expand_ports,
+    expand_settings,
+    load_shared,
+    menu_groups,
+    read_all,
 )
-from openartifact.engine.context import VAR_NAME, ContextError, check_url_placement
-from openartifact.engine.fields import FieldsError, parse_fields
+from openartifact.graph.validators import (
+    VALIDATORS,
+    SettingError,
+    parse_status_spec,
+)
 from openartifact.models import GraphKind, NodeKind
 
 if TYPE_CHECKING:
     from openartifact.graph.rules import Endpoint
 
+__all__ = [
+    "IF_ROWS",
+    "NODE_TYPES",
+    "OPERATORS",
+    "SWITCH_CASES",
+    "TIMER_MAX_SECONDS",
+    "TIMER_MIN_SECONDS",
+    "UNARY_OPERATORS",
+    "NodeType",
+    "Port",
+    "Ports",
+    "Setting",
+    "SettingError",
+    "fixed_in",
+    "kinds_in",
+    "node_type",
+    "parse_status_spec",
+    "register",
+    "switch_case_used",
+]
+
 PIPELINE = GraphKind.PIPELINE
 ACTION_DEFINITION = GraphKind.ACTION
-#: A timer pauses for one second to one day.
+#: A timer pauses for one second to one day (its manifest says the same; a test keeps them equal).
 TIMER_MIN_SECONDS = 1
 TIMER_MAX_SECONDS = 86400
-#: Whether the "+" menu of the browser editor offers the Code and HTTP nodes.
-EXECUTION_NODES_ADDABLE = True
-CODE_MAX_CHARS = 20000
-MAX_DECLARED_VARIABLES = 100
-HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
-#: Conditions of an If node and cases of a Switch node (see ``engine/branching.py``).
+#: Rows of an If node and cases of a Switch node (``engine/branching.py``); the manifests repeat their blocks this often.
 IF_ROWS = 5
 SWITCH_CASES = 6
-CONDITION_TEXT_CHARS = 500
 OPERATORS = (
     "equals",
     "not equals",
@@ -67,100 +84,10 @@ OPERATORS = (
 )
 #: Operators that look at the left side only (the right side is ignored).
 UNARY_OPERATORS = frozenset({"is empty", "is not empty", "is true", "is false"})
-_DEFAULT_MAX_LENGTH = {"text": 2000, "lines": 20000, "code": CODE_MAX_CHARS}
+_DEFAULT_MAX_LENGTH = {"text": 2000, "lines": 20000, "code": 20000}
 #: The parts of a node's dialog and the ways a setting may be disclosed (``Setting.section`` / ``Setting.level``).
 SECTIONS = ("definition", "behaviour")
 LEVELS = ("core", "optional", "advanced")
-#: The group titles the settings of how a node runs share (``Setting.group``).
-GROUP_MODEL = "Model & Generation"
-GROUP_LIMITS = "Execution limits"
-
-
-class SettingError(ValueError):
-    """A value does not fit the setting it is meant for (the message never repeats the value)."""
-
-
-def parse_status_spec(spec: str) -> list[tuple[int, int]]:
-    """``"200-299, 404"`` as ranges ``[(200, 299), (404, 404)]``; raises :class:`SettingError`."""
-    ranges = []
-    for part in spec.split(","):
-        match = re.fullmatch(r"\s*(\d{3})\s*(?:-\s*(\d{3})\s*)?", part)
-        if not match:
-            raise SettingError("Use status codes or ranges such as '200-299, 404'")
-        low = int(match[1])
-        high = int(match[2] or low)
-        if not (100 <= low <= high <= 599):
-            raise SettingError("Status codes are 100 to 599, a range goes upwards")
-        ranges.append((low, high))
-    return ranges
-
-
-def _check_status(value: str) -> None:
-    parse_status_spec(value)
-
-
-def _references(check: Callable[[str], None]) -> Callable[[str], None]:
-    """``check`` as a setting rule: a malformed secret reference is a :class:`SettingError`."""
-
-    def rule(value: str) -> None:
-        try:
-            check(value)
-        except SecretReferenceError as error:
-            raise SettingError(str(error)) from error
-
-    return rule
-
-
-def _check_url(value: str) -> None:
-    check_url_references(value)
-    try:
-        check_url_placement(value)
-    except ContextError as error:
-        raise SettingError(str(error)) from error
-
-
-def _check_text_references(value: str) -> None:
-    names_in(value)
-
-
-def _check_secret_names(value: str) -> None:
-    parse_name_lines(value)
-
-
-def _check_variable_names(value: str) -> None:
-    names = [line.strip() for line in value.splitlines() if line.strip()]
-    if len(names) > MAX_DECLARED_VARIABLES:
-        raise SettingError(f"At most {MAX_DECLARED_VARIABLES} variables")
-    for name in names:
-        if not VAR_NAME.fullmatch(name):
-            raise SettingError(
-                "One variable name per line: lowercase letters, digits and underscores, "
-                "starting with a letter"
-            )
-
-
-def _check_condition_text(value: str) -> None:
-    """A condition reads the run context only: a secret in it could be leaked by branching on it."""
-    if "${secret" in value:
-        raise SettingError(
-            "${secret:NAME} cannot be used in a condition: a branch could reveal the secret"
-        )
-    _check_text_references(value)
-
-
-def _check_agent_inputs(value: str) -> None:
-    """The input mapping of an agent node: ``name = value`` per line, no secret as a source."""
-    try:
-        parse_mapping(value)
-    except MappingError as error:
-        raise SettingError(str(error)) from error
-    _check_text_references(value)
-
-
-def _check_agent_prompt(value: str) -> None:
-    """A prompt a node sets for itself follows the agent's rule: only ``${input.NAME}``."""
-    for problem in prompt_problems(value, None, "Prompt"):
-        raise SettingError(problem)
 
 
 class Ports:
@@ -194,11 +121,19 @@ class Port:
     name: str
     label: str
     side: str | None = None
+    #: When the port is there, for the editor: ``{"fn": ...}`` or ``{"node": field}`` (see ``graph/manifest.py``).
+    visible_when: dict[str, str] | None = None
+    #: A function of the editor that labels the port from the node's settings (a Switch case by its condition).
+    label_from: str | None = None
 
-    def describe(self) -> dict[str, str]:
-        data = {"name": self.name, "label": self.label}
+    def describe(self) -> dict[str, Any]:
+        data: dict[str, Any] = {"name": self.name, "label": self.label}
         if self.side is not None:
             data["side"] = self.side
+        if self.visible_when is not None:
+            data["visible_when"] = self.visible_when
+        if self.label_from is not None:
+            data["label_from"] = self.label_from
         return data
 
 
@@ -247,6 +182,16 @@ class Setting:
             raise ValueError(f"level of '{self.key}' must be one of: {', '.join(LEVELS)}")
         if self.inherits is not None and not self.inherits:
             raise ValueError(f"inherits of '{self.key}' names the parent, or is None")
+
+    @classmethod
+    def of(cls, data: dict[str, Any]) -> Setting:
+        """A setting from the plain dict of a manifest (its ``check`` is the name of a rule of ``validators.py``)."""
+        fields = dict(data)
+        if (name := fields.pop("check", None)) is not None:
+            fields["check"] = VALIDATORS[name]
+        if "options" in fields:
+            fields["options"] = tuple(fields["options"])
+        return cls(**fields)
 
     def describe(self) -> dict[str, Any]:
         """The editor's description; the old keys keep their meaning, new ones are only added."""
@@ -316,26 +261,48 @@ class Setting:
 
 
 class NodeType:
-    """What every kind of node has; kinds override the class attributes and hooks they need."""
+    """What every kind of node has. Built from a manifest; the subclasses below only differ in ``connect_error``."""
 
-    kind: ClassVar[NodeKind]
-    label: ClassVar[str]
-    scopes: ClassVar[frozenset[GraphKind]] = frozenset({PIPELINE})
-    fixed: ClassVar[bool] = False  # comes with the graph, cannot be added or deleted
-    addable: ClassVar[bool] = False  # offered in the "+" menu
-    chain: ClassVar[bool] = False  # a step of the main line (new ones are placed after these)
-    ending: ClassVar[bool] = False  # the end of the main line (moves on to make room)
-    inputs: ClassVar[tuple[Port, ...]] = ()
-    outputs: ClassVar[tuple[Port, ...]] = ()
-    settings: ClassVar[tuple[Setting, ...]] = ()
-    links_to: ClassVar[GraphKind | None] = (
-        None  # the kind of graphs row ``definition_id`` points at
-    )
-    size: ClassVar[tuple[float, float] | None] = None  # only stages store a size of their own
-    #: A tool node: no flow ports, attached to the Tools port of an Agent node, run only when the agent calls it.
-    tool: ClassVar[bool] = False
-    #: Config settings whose text may hold ``${node...}`` / ``${var...}`` (checked for hints on save).
-    reference_keys: ClassVar[tuple[str, ...]] = ()
+    def __init__(
+        self,
+        *,
+        kind: NodeKind,
+        label: str,
+        behaviour: str = "plain",
+        scopes: frozenset[GraphKind] = frozenset({PIPELINE}),
+        fixed: bool = False,
+        addable: bool = False,
+        chain: bool = False,
+        ending: bool = False,
+        inputs: tuple[Port, ...] = (),
+        outputs: tuple[Port, ...] = (),
+        settings: tuple[Setting, ...] = (),
+        links_to: GraphKind | None = None,
+        size: tuple[float, float] | None = None,
+        tool: bool = False,
+        reference_keys: tuple[str, ...] = (),
+        menu: dict[str, Any] | None = None,
+        ui: dict[str, Any] | None = None,
+    ) -> None:
+        self.kind = kind
+        self.label = label
+        self.behaviour = behaviour
+        self.scopes = scopes
+        self.fixed = fixed  # comes with the graph, cannot be added or deleted
+        self.addable = addable  # offered in the "+" menu
+        self.chain = chain  # a step of the main line (new ones are placed after these)
+        self.ending = ending  # the end of the main line (moves on to make room)
+        self.inputs = inputs
+        self.outputs = outputs
+        self.settings = settings
+        self.links_to = links_to  # the kind of graphs row ``definition_id`` points at
+        self.size = size  # only stages store a size of their own
+        #: A tool node: no flow ports, attached to the Tools port of an Agent node, run only when the agent calls it.
+        self.tool = tool
+        #: Config settings whose text may hold ``${node...}`` / ``${var...}`` (checked for hints on save).
+        self.reference_keys = reference_keys
+        self.menu = menu
+        self.ui = ui or {}
 
     @property
     def default_name(self) -> str:
@@ -406,29 +373,15 @@ class NodeType:
             "tool": self.tool,
             "settings": [s.describe() for s in self.settings],
             "links_to": self.links_to.value if self.links_to else None,
+            "behaviour": self.behaviour,
+            "menu": self.menu,
+            "ui": self.ui,
         }
-
-
-class TriggerType(NodeType):
-    kind = NodeKind.TRIGGER
-    label = "Trigger"
-    scopes = frozenset({PIPELINE, ACTION_DEFINITION})
-    fixed = True
-    chain = True
-    outputs = (Port(Ports.OUT, "Next"),)
 
 
 class StageType(NodeType):
     """A container of actions. ``start`` and ``end`` each serve both sides: ``start`` receives from
     before and feeds the first action, ``end`` receives from the actions and leads on."""
-
-    kind = NodeKind.STAGE
-    label = "Stage"
-    addable = True
-    chain = True
-    inputs = (Port(Ports.START, "Start"), Port(Ports.END, "End"))
-    outputs = (Port(Ports.START, "First action"), Port(Ports.END, "Next"))
-    size = (360.0, 240.0)
 
     def connect_error(
         self, source: Endpoint, source_port: str, target: Endpoint, target_port: str
@@ -444,12 +397,6 @@ class StageType(NodeType):
 
 class ActionType(NodeType):
     """A step inside a stage; an empty shell until it is linked to an action definition."""
-
-    kind = NodeKind.ACTION
-    label = "Action"
-    inputs = (Port(Ports.IN, "Input"),)
-    outputs = (Port(Ports.PASS, "On Pass"), Port(Ports.ERROR, "On Error"))
-    links_to = ACTION_DEFINITION
 
     def connect_error(
         self, source: Endpoint, source_port: str, target: Endpoint, target_port: str
@@ -467,323 +414,6 @@ class ActionType(NodeType):
         return "An action connects to actions of its stage or to the stage end"
 
 
-class PipelineNodeType(NodeType):
-    """A step of the main line that runs another pipeline up to its complete, then goes on."""
-
-    kind = NodeKind.PIPELINE
-    label = "Pipeline"
-    addable = True
-    chain = True
-    inputs = (Port(Ports.IN, "Input"),)
-    outputs = (Port(Ports.OUT, "Next"),)
-    links_to = PIPELINE
-
-
-class CompleteType(NodeType):
-    kind = NodeKind.COMPLETE
-    label = "Complete"
-    fixed = True
-    ending = True
-    inputs = (Port(Ports.IN, "Input"),)
-
-
-class TimerType(NodeType):
-    kind = NodeKind.TIMER
-    label = "Timer"
-    scopes = frozenset({ACTION_DEFINITION})
-    addable = True
-    chain = True
-    inputs = (Port(Ports.IN, "Input"),)
-    outputs = (Port(Ports.OUT, "Next"),)
-    settings = (
-        Setting(
-            "seconds",
-            "Seconds",
-            "integer",
-            minimum=TIMER_MIN_SECONDS,
-            maximum=TIMER_MAX_SECONDS,
-            default=5,
-        ),
-    )
-
-
-class OutputType(NodeType):
-    """The end of an action definition: a connector per outcome (On Fail only when switched on)."""
-
-    kind = NodeKind.OUTPUT
-    label = "Output"
-    scopes = frozenset({ACTION_DEFINITION})
-    fixed = True
-    ending = True
-    inputs = (Port(Ports.PASS, "On Pass"), Port(Ports.FAIL, "On Fail"))
-    settings = (Setting("fail_enabled", "On Fail", "switch", default=False),)
-
-
-#: Shared by the execution nodes: what a failure of the node does to the way on.
-ON_FAILURE = Setting(
-    "on_failure",
-    "If the node fails",
-    "select",
-    default="fail",
-    options=("fail", "continue"),
-    stored_in="config",
-    section="behaviour",
-    help=(
-        "fail (the default): leave by On Fail, the action fails if nothing is connected there. "
-        "continue: leave by On Pass although the node failed (fail open); the step still shows "
-        "the failure and its reason."
-    ),
-)
-
-
-class _ExecutionType(NodeType):
-    """A step of an action definition that does work and ends in On Pass or On Fail."""
-
-    scopes = frozenset({ACTION_DEFINITION})
-    addable = EXECUTION_NODES_ADDABLE
-    chain = True
-    inputs: ClassVar[tuple[Port, ...]] = (Port(Ports.IN, "Input"),)
-    outputs: ClassVar[tuple[Port, ...]] = (Port(Ports.PASS, "On Pass"), Port(Ports.FAIL, "On Fail"))
-
-
-class CodeType(_ExecutionType):
-    """Runs shell or Python text stored in the node. It runs with the rights of the application."""
-
-    kind = NodeKind.CODE
-    label = "Code"
-    settings = (
-        Setting(
-            "language",
-            "Language",
-            "select",
-            default="sh",
-            options=("sh", "python"),
-            stored_in="config",
-        ),
-        Setting(
-            "code",
-            "Code",
-            "code",
-            default="",
-            max_length=CODE_MAX_CHARS,
-            stored_in="config",
-            help=(
-                "Stored and shown in plain text, so no secrets in here: ${secret:NAME} is not "
-                "replaced in code, and neither are ${node...} or ${var...}. List the secrets the "
-                "code needs in 'Secrets' below; they come as environment variables. The run "
-                "context (variables and earlier results) is the file context.json in the working "
-                "directory. To set variables, print a last line like "
-                '{"ok": true, "vars": {"name": "value"}}.'
-            ),
-        ),
-        Setting(
-            "secrets",
-            "Secrets",
-            "lines",
-            default="",
-            max_length=2000,
-            placeholder="API_KEY",
-            stored_in="config",
-            help=(
-                "One secret name per line (capitals, digits, underscores). Each is available to "
-                "the code as an environment variable of that name, for example $API_KEY or "
-                "os.environ['API_KEY']. Manage the values under Secrets; a missing secret fails "
-                "the node."
-            ),
-            check=_references(_check_secret_names),
-            level="advanced",
-        ),
-        Setting(
-            "sets_variables",
-            "Sets variables",
-            "lines",
-            default="",
-            max_length=2000,
-            placeholder="ticket_priority",
-            stored_in="config",
-            help=(
-                'Optional: the variable names this code sets (one per line, as in "vars"). '
-                "Documents the node and feeds the suggestions; a difference between this list and "
-                "what the code really sets is noted in the step, it does not fail the node."
-            ),
-            check=_check_variable_names,
-            level="advanced",
-        ),
-        Setting(
-            "timeout_seconds",
-            "Timeout (seconds)",
-            "integer",
-            minimum=1,
-            maximum=600,
-            default=30,
-            stored_in="config",
-            section="behaviour",
-            level="optional",
-            group=GROUP_LIMITS,
-        ),
-        ON_FAILURE,
-    )
-
-
-class HttpType(_ExecutionType):
-    """Calls an HTTP address and passes when the status is one of the accepted ones."""
-
-    kind = NodeKind.HTTP
-    label = "HTTP request"
-    reference_keys = ("url", "headers", "body")
-    settings = (
-        Setting(
-            "method", "Method", "select", default="GET", options=HTTP_METHODS, stored_in="config"
-        ),
-        Setting(
-            "url",
-            "URL",
-            "text",
-            default="",
-            placeholder="https://example.org/hook",
-            stored_in="config",
-            references="all",
-            help=(
-                "Use ${secret:NAME} for a stored secret and ${node.NAME.output} or ${var.NAME} for "
-                "the result of an earlier node or a variable in the path or the query (replaced "
-                "text is percent-encoded there); not in the scheme or host."
-            ),
-            check=_references(_check_url),
-        ),
-        Setting(
-            "headers",
-            "Headers",
-            "lines",
-            default="",
-            placeholder="Name: value",
-            stored_in="config",
-            references="all",
-            help=(
-                "One 'Name: value' per line, stored in plain text: put a secret in as "
-                "${secret:NAME}, for example 'Authorization: Bearer ${secret:API_TOKEN}'. "
-                "${node.NAME.output} and ${var.NAME} insert an earlier result or variable."
-            ),
-            check=_references(_check_text_references),
-        ),
-        Setting(
-            "body",
-            "Body",
-            "lines",
-            default="",
-            stored_in="config",
-            references="all",
-            help=(
-                "Sent as it is, stored in plain text: put a secret in as ${secret:NAME}, which "
-                "is replaced by its value when the node runs. ${node.NAME.output}, "
-                "${node.NAME.data.key} and ${var.NAME} insert an earlier node's result or a "
-                "variable (NAME: the node's name with spaces as _)."
-            ),
-            check=_references(_check_text_references),
-        ),
-        Setting(
-            "timeout_seconds",
-            "Timeout (seconds)",
-            "integer",
-            minimum=1,
-            maximum=120,
-            default=30,
-            stored_in="config",
-            section="behaviour",
-            level="optional",
-            group=GROUP_LIMITS,
-        ),
-        Setting(
-            "success_status",
-            "Success status",
-            "text",
-            default="200-299",
-            max_length=100,
-            stored_in="config",
-            help="Comma-separated codes or ranges, for example 200-299, 404.",
-            check=_check_status,
-            section="behaviour",
-            level="advanced",
-        ),
-        ON_FAILURE,
-    )
-
-
-def _if_settings() -> tuple[Setting, ...]:
-    rows: list[Setting] = []
-    for n in range(1, IF_ROWS + 1):
-        group = f"Condition {n}"
-        rows += [
-            Setting(
-                f"left_{n}",
-                "Value",
-                "text",
-                default="",
-                max_length=CONDITION_TEXT_CHARS,
-                placeholder="${var.priority}" if n == 1 else None,
-                stored_in="config",
-                group=group,
-                references="context",
-                help="Text, may hold ${node.NAME.output} or ${var.name}. Empty: the row is unused."
-                if n == 1
-                else None,
-                check=_check_condition_text,
-            ),
-            Setting(
-                f"operator_{n}",
-                "Operator",
-                "select",
-                default="equals",
-                options=OPERATORS,
-                stored_in="config",
-                group=group,
-            ),
-            Setting(
-                f"right_{n}",
-                "Compare with",
-                "text",
-                default="",
-                max_length=CONDITION_TEXT_CHARS,
-                stored_in="config",
-                group=group,
-                references="context",
-                help="Ignored by is empty, is not empty, is true and is false." if n == 1 else None,
-                check=_check_condition_text,
-            ),
-        ]
-    return (
-        Setting(
-            "combine",
-            "Conditions",
-            "select",
-            default="all",
-            options=("all", "any"),
-            stored_in="config",
-            help="all: every used condition must hold (and). any: one is enough (or).",
-        ),
-        Setting(
-            "case_sensitive",
-            "Case sensitive",
-            "switch",
-            default=True,
-            stored_in="config",
-            help="Off: texts are compared without regard to upper and lower case.",
-        ),
-        *rows,
-    )
-
-
-class IfType(_ExecutionType):
-    """Compares values of the run context and leaves by Yes, No or Else (cannot be evaluated)."""
-
-    kind = NodeKind.IF
-    label = "If"
-    outputs = (Port(Ports.YES, "Yes"), Port(Ports.NO, "No"), Port(Ports.ELSE, "Else"))
-    settings = _if_settings()
-    reference_keys = tuple(
-        f"{side}_{n}" for n in range(1, IF_ROWS + 1) for side in ("left", "right")
-    )
-
-
 def switch_case_used(config: dict[str, Any] | None, port: str) -> bool:
     """Whether a case of a Switch is in use: it has a value, or an operator that needs none (``is empty``
     ...). An unused case has no output: the editor hides it and the rules refuse a connection from it."""
@@ -794,72 +424,8 @@ def switch_case_used(config: dict[str, Any] | None, port: str) -> bool:
     return operator in UNARY_OPERATORS or (isinstance(value, str) and bool(value.strip()))
 
 
-def _switch_case(n: int) -> tuple[Setting, Setting]:
-    group = f"Case {n}"
-    return (
-        Setting(
-            f"case_operator_{n}",
-            "Operator",
-            "select",
-            default="equals",
-            options=OPERATORS,
-            stored_in="config",
-            group=group,
-        ),
-        Setting(
-            Ports.case(n),
-            "Compare with",
-            "text",
-            default="",
-            max_length=CONDITION_TEXT_CHARS,
-            stored_in="config",
-            group=group,
-            references="context",
-            help=(
-                "Text, may hold ${node.NAME.output} or ${var.name}. Empty (and an operator that needs a "
-                "value): the case is unused and its output is hidden."
-            )
-            if n == 1
-            else None,
-            check=_check_condition_text,
-        ),
-    )
-
-
-class SwitchType(_ExecutionType):
-    """Compares one value with up to six cases, each with its own operator, and leaves by the first case that
-    holds, or Else. A case without an operator compares with ``equals`` (Switches of before ADR-039)."""
-
-    kind = NodeKind.SWITCH
-    label = "Switch"
-    outputs = (
-        *(Port(Ports.case(n), f"Case {n}") for n in range(1, SWITCH_CASES + 1)),
-        Port(Ports.ELSE, "Else"),
-    )
-    settings = (
-        Setting(
-            "value",
-            "Value",
-            "text",
-            default="",
-            max_length=CONDITION_TEXT_CHARS,
-            placeholder="${var.priority}",
-            stored_in="config",
-            references="context",
-            help="Text, may hold ${node.NAME.output} or ${var.name}.",
-            check=_check_condition_text,
-        ),
-        *(setting for n in range(1, SWITCH_CASES + 1) for setting in _switch_case(n)),
-        Setting(
-            "case_sensitive",
-            "Case sensitive",
-            "switch",
-            default=True,
-            stored_in="config",
-            help="Off: texts are compared without regard to upper and lower case.",
-        ),
-    )
-    reference_keys = ("value", *(Ports.case(n) for n in range(1, SWITCH_CASES + 1)))
+class SwitchType(NodeType):
+    """Compares one value with up to six cases and leaves by the first that holds, or Else; an unused case has no output."""
 
     def connect_error(
         self, source: Endpoint, source_port: str, target: Endpoint, target_port: str
@@ -869,185 +435,9 @@ class SwitchType(_ExecutionType):
         return super().connect_error(source, source_port, target, target_port)
 
 
-def _check_fields(value: str) -> None:
-    """The fields of an Edit Fields node: ``name = value`` per line, variable names, no secret."""
-    try:
-        parse_fields(value)
-    except FieldsError as error:
-        raise SettingError(str(error)) from error
-
-
-class SetType(_ExecutionType):
-    """Edit Fields: sets variables of the run (``${var.NAME}``) from text and references, without code.
-
-    One ``name = value`` per line; the value may hold ``${node...}``, ``${var...}`` and ``${card...}``. With
-    ``value_types`` ``detect`` a value that is a JSON number, ``true``, ``false``, ``null``, an object or a
-    list is stored as that, otherwise as text (see ``engine/fields.py``).
-    """
-
-    kind = NodeKind.SET
-    label = "Edit Fields"
-    settings = (
-        Setting(
-            "fields",
-            "Fields",
-            "lines",
-            default="",
-            max_length=20000,
-            placeholder="priority = ${node.Classify.output}",
-            stored_in="config",
-            references="context",
-            help=(
-                "One 'name = value' per line. Each sets the variable ${var.name} for the nodes after this "
-                "one (names: lowercase letters, digits and underscores). A value may hold "
-                "${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or ${card.name}; secrets cannot be "
-                "used, a variable is plain data."
-            ),
-            check=_check_fields,
-        ),
-        Setting(
-            "value_types",
-            "Value types",
-            "select",
-            default="text",
-            options=("text", "detect"),
-            stored_in="config",
-            help=(
-                "text: every value is stored as text. detect: a value that is a number, true, false, null, "
-                "a JSON object or a JSON list is stored as that."
-            ),
-        ),
-        ON_FAILURE,
-    )
-    reference_keys = ("fields",)
-
-
-def _override(key: str, label: str, type_: str, **more: Any) -> Setting:
-    """A setting of an agent node that overrides the agent's: not set (``None``) means inherited. The model and
-    the limits are how the node runs (``behaviour``) and only shown once overridden (``optional``); the prompts
-    are what the node is (``definition``) and always shown, as inherited or overridden."""
-    more.setdefault("section", "definition" if "prompt" in key else "behaviour")
-    more.setdefault("level", "core" if "prompt" in key else "optional")
-    return Setting(key, label, type_, default=None, stored_in="config", inherits="agent", **more)
-
-
-class AgentType(_ExecutionType):
-    """Runs a centrally defined agent: one request to a model, the answer is the node's output.
-
-    The node holds a reference to the agent (``agent_id``), the mapping of the agent's inputs to the
-    run context (``inputs``) and overrides. Every override setting has no default: a value that is not
-    set is inherited from the agent's published version when an execution starts
-    (``agents/resolve.py``), a value that is set replaces that one field, and saving ``null`` resets
-    it. The bounds are the agent's own (``agents/schemas.py``).
-    """
-
-    kind = NodeKind.AGENT
-    label = "Agent"
-    inputs = (Port(Ports.IN, "Input"), Port(Ports.TOOLS, "Tools", side="bottom"))
-    settings = (
-        Setting(
-            "agent_id",
-            "Agent",
-            "text",
-            default="",
-            max_length=36,
-            stored_in="config",
-            help="The agent this node runs (managed under Agents).",
-        ),
-        Setting(
-            "inputs",
-            "Inputs",
-            "lines",
-            default="",
-            max_length=20000,
-            placeholder="ticket = ${node.Fetch_ticket.output}",
-            stored_in="config",
-            references="context",
-            help=(
-                "One 'name = value' per line for the inputs the agent declares. The value is text "
-                "and may hold ${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or "
-                "${card.name}; secrets cannot be used."
-            ),
-            check=_references(_check_agent_inputs),
-        ),
-        _override("system_prompt_enabled", "Use a system prompt", "switch"),
-        _override(
-            "system_prompt",
-            "System prompt",
-            "lines",
-            max_length=agent_rules.PROMPT_MAX_CHARS,
-            check=_check_agent_prompt,
-        ),
-        _override(
-            "user_prompt",
-            "User prompt",
-            "lines",
-            max_length=agent_rules.PROMPT_MAX_CHARS,
-            check=_check_agent_prompt,
-        ),
-        _override("provider_id", "Provider", "text", max_length=36, group=GROUP_MODEL),
-        _override("model", "Model", "text", max_length=agent_rules.MODEL_ID_MAX, group=GROUP_MODEL),
-        _override(
-            "temperature",
-            "Temperature",
-            "number",
-            minimum=agent_rules.TEMPERATURE_MIN,
-            maximum=agent_rules.TEMPERATURE_MAX,
-            group=GROUP_MODEL,
-        ),
-        _override(
-            "max_tokens",
-            "Max tokens",
-            "integer",
-            minimum=agent_rules.MAX_TOKENS_MIN,
-            maximum=agent_rules.MAX_TOKENS_MAX,
-            group=GROUP_MODEL,
-        ),
-        _override(
-            "request_timeout_seconds",
-            "Request timeout (seconds)",
-            "integer",
-            minimum=agent_rules.REQUEST_TIMEOUT_MIN,
-            maximum=agent_rules.REQUEST_TIMEOUT_MAX,
-            group=GROUP_LIMITS,
-        ),
-        _override(
-            "total_timeout_seconds",
-            "Time limit of the node (seconds)",
-            "integer",
-            minimum=agent_rules.TOTAL_TIMEOUT_MIN,
-            maximum=agent_rules.TOTAL_TIMEOUT_MAX,
-            group=GROUP_LIMITS,
-        ),
-        _override(
-            "retries",
-            "Retries",
-            "integer",
-            minimum=agent_rules.RETRIES_MIN,
-            maximum=agent_rules.RETRIES_MAX,
-            group=GROUP_LIMITS,
-        ),
-        _override(
-            "max_iterations",
-            "Max iterations",
-            "integer",
-            minimum=agent_rules.ITERATIONS_MIN,
-            maximum=agent_rules.ITERATIONS_MAX,
-            group=GROUP_LIMITS,
-        ),
-        ON_FAILURE,
-    )
-    reference_keys = ("inputs",)
-
-
-class _ToolType(NodeType):
+class ToolType(NodeType):
     """A tool of an agent (ADR-040): attached from below to the Tools port of an Agent node and run only when
     the model calls it. It has no flow ports, so the engine never walks it."""
-
-    scopes = frozenset({ACTION_DEFINITION})
-    addable = True
-    tool = True
-    outputs = (Port(Ports.TOOL, "Tool", side="top"),)
 
     def connect_error(
         self, source: Endpoint, source_port: str, target: Endpoint, target_port: str
@@ -1057,562 +447,23 @@ class _ToolType(NodeType):
         return None
 
 
-def _tool_rule(check: Callable[[str], object]) -> Callable[[str], None]:
-    """A rule of ``agents/tool_config.py`` as a setting check."""
-
-    def rule(value: str) -> None:
-        try:
-            check(value)
-        except tool_config.ToolConfigError as error:
-            raise SettingError(str(error)) from error
-
-    return rule
-
-
-def _check_secret_name(value: str) -> None:
-    if value.strip():
-        parse_name_lines(value.strip())
-
-
-def _tool_identity(about: str) -> tuple[Setting, Setting]:
-    return (
-        Setting(
-            "tool_name",
-            "Tool name",
-            "text",
-            default="",
-            max_length=64,
-            placeholder="get_weather",
-            stored_in="config",
-            help="The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
-            check=_tool_rule(tool_config.check_tool_name),
-        ),
-        Setting(
-            "description",
-            "Description",
-            "lines",
-            default="",
-            max_length=1000,
-            stored_in="config",
-            help=f"Tells the model what the tool does and when to use it. {about}",
-        ),
-    )
-
-
-_PARAMETERS = Setting(
-    "parameters",
-    "Parameters",
-    "lines",
-    default="",
-    max_length=5000,
-    placeholder="city: The city to look up",
-    stored_in="config",
-    help="One 'name: description' per line; the model fills them. Names: lowercase letters, digits and _.",
-    check=_tool_rule(tool_config.parse_parameters),
-)
-
-
-def _timeout(default: int, maximum: int) -> Setting:
-    return Setting(
-        "timeout_seconds",
-        "Timeout (seconds)",
-        "integer",
-        minimum=1,
-        maximum=maximum,
-        default=default,
-        stored_in="config",
-    )
-
-
-_ALLOW_PRIVATE = Setting(
-    "allow_private",
-    "Private network",
-    "switch",
-    default=False,
-    stored_in="config",
-    help="The address is on a private or local network. Counts only when the operator allows it too "
-    "(OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).",
-)
-
-
-class McpToolType(_ToolType):
-    """Offers the tools of a remote MCP server (Streamable HTTP), for example GitHub's."""
-
-    kind = NodeKind.MCP_TOOL
-    label = "MCP Client Tool"
-    settings = (
-        *_tool_identity("The server's tools keep their own names and descriptions."),
-        Setting(
-            "url",
-            "Endpoint",
-            "text",
-            default="",
-            max_length=500,
-            placeholder="https://api.githubcopilot.com/mcp/",
-            stored_in="config",
-            help="The Streamable HTTP address of the MCP server. GitHub: https://api.githubcopilot.com/mcp/",
-            check=_tool_rule(tool_config.check_endpoint),
-        ),
-        Setting(
-            "secret",
-            "Secret with the token",
-            "text",
-            default="",
-            max_length=64,
-            placeholder="GITHUB_TOKEN",
-            stored_in="config",
-            help="The name of a stored secret, sent as 'Authorization: Bearer'. Empty: no token.",
-            check=_references(_check_secret_name),
-        ),
-        _ALLOW_PRIVATE,
-        Setting(
-            "tools_mode",
-            "Tools to include",
-            "select",
-            default="all",
-            options=("all", "selected", "all_except"),
-            stored_in="config",
-            help="all: every tool of the server. selected: only the tools listed below. all_except: all but those.",
-        ),
-        Setting(
-            "tool_names",
-            "Tools",
-            "lines",
-            default="",
-            max_length=10000,
-            placeholder="get_issue",
-            stored_in="config",
-            help="One tool name of the server per line, for 'selected' and 'all_except'.",
-            check=_tool_rule(tool_config.parse_tool_names),
-        ),
-        _timeout(60, 300),
-    )
-
-
-class HttpToolType(_ToolType):
-    """One HTTP request whose parameters the model fills (``{name}`` in the URL, headers and body)."""
-
-    kind = NodeKind.HTTP_TOOL
-    label = "HTTP Request Tool"
-    settings = (
-        *_tool_identity("Name the parameters it needs below."),
-        Setting(
-            "method", "Method", "select", default="GET", options=HTTP_METHODS, stored_in="config"
-        ),
-        Setting(
-            "url",
-            "URL",
-            "text",
-            default="",
-            placeholder="https://wttr.in/{city}?format=3",
-            stored_in="config",
-            references="all",
-            help="{name} is a parameter the model fills (percent-encoded here). ${secret:NAME} and "
-            "${var.name} work as in the HTTP node, not in the scheme or host.",
-            check=_references(_check_url),
-        ),
-        Setting(
-            "headers",
-            "Headers",
-            "lines",
-            default="",
-            placeholder="Authorization: Bearer ${secret:API_TOKEN}",
-            stored_in="config",
-            references="all",
-            check=_references(_check_text_references),
-        ),
-        Setting(
-            "body",
-            "Body",
-            "lines",
-            default="",
-            stored_in="config",
-            references="all",
-            help="{name} is replaced by the model's value (escaped for a JSON string when the body is JSON), "
-            "${...} as in the HTTP node.",
-            check=_references(_check_text_references),
-        ),
-        _PARAMETERS,
-        _ALLOW_PRIVATE,
-        _timeout(30, 120),
-        Setting(
-            "success_status",
-            "Success status",
-            "text",
-            default="200-299",
-            max_length=100,
-            stored_in="config",
-            help="Another status is reported to the model as an error.",
-            check=_check_status,
-            level="advanced",
-        ),
-    )
-
-
-class CodeToolType(_ToolType):
-    """Shell or Python code the model calls with arguments (``input`` in ``context.json``)."""
-
-    kind = NodeKind.CODE_TOOL
-    label = "Code Tool"
-    settings = (
-        *_tool_identity("Name the parameters it takes below."),
-        Setting(
-            "language",
-            "Language",
-            "select",
-            default="python",
-            options=("sh", "python"),
-            stored_in="config",
-        ),
-        Setting(
-            "code",
-            "Code",
-            "code",
-            default="",
-            max_length=CODE_MAX_CHARS,
-            stored_in="config",
-            help="The model's arguments are the object 'input' in context.json in the working directory; "
-            "what the code prints is the answer to the model. Runs with the rules of the Code node.",
-        ),
-        Setting(
-            "secrets",
-            "Secrets",
-            "lines",
-            default="",
-            max_length=2000,
-            placeholder="API_KEY",
-            stored_in="config",
-            help="One secret name per line, available as environment variables.",
-            check=_references(_check_secret_names),
-        ),
-        _PARAMETERS,
-        _timeout(30, 600),
-    )
-
-
-# ── GitHub and Postgres (ADR-041) ────────────────────────────────────
-
-GITHUB_OPERATIONS = (
-    "Get repository",
-    "List issues",
-    "Get issue",
-    "List pull requests",
-    "Get pull request",
-    "Get pull request diff",
-    "List pull request files",
-    "Get file",
-    "List comments",
-    "Create comment",
-)
-GITHUB_REPOSITORY = re.compile(r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}")
-MAX_QUERY_VALUES = 100
-
-
-def _check_not_secret(value: str) -> None:
-    """A value of the run is put into a request, a comment or a query: never a secret."""
-    if "${secret" in value:
-        raise SettingError(
-            "${secret:NAME} cannot be used in this setting: a secret is not a value of the run"
-        )
-    _check_text_references(value)
-
-
-def _check_repository(value: str) -> None:
-    _check_not_secret(value)
-    text = value.strip()
-    if text and "${" not in text and not GITHUB_REPOSITORY.fullmatch(text):
-        raise SettingError("A repository is written owner/name")
-
-
-def _check_number(value: str) -> None:
-    _check_not_secret(value)
-    text = value.strip()
-    if text and "${" not in text and not re.fullmatch(r"[0-9]{1,9}", text):
-        raise SettingError("A number is a whole number such as 42")
-
-
-def _check_file_path(value: str) -> None:
-    _check_not_secret(value)
-    if ".." in value.replace("\\", "/").split("/"):
-        raise SettingError("A path must not contain '..'")
-
-
-def _check_query(value: str) -> None:
-    """The SQL is a fixed text: values come in as parameters, never as text of the statement."""
-    if "${" in value:
-        raise SettingError(
-            "Put values in with $1, $2 and the Values list; a ${...} reference is never "
-            "made part of the query text"
-        )
-
-
-def _check_query_values(value: str) -> None:
-    _check_not_secret(value)
-    if len(value.splitlines()) > MAX_QUERY_VALUES:
-        raise SettingError(f"At most {MAX_QUERY_VALUES} values")
-
-
-def _connection_secret(help_text: str) -> Setting:
-    return Setting(
-        "secret",
-        "Secret with the connection URL",
-        "text",
-        default="",
-        max_length=64,
-        placeholder="TICKETS_DB",
-        stored_in="config",
-        help=help_text,
-        check=_references(_check_secret_name),
-    )
-
-
-_QUERY = Setting(
-    "query",
-    "Query",
-    "code",
-    default="",
-    max_length=CODE_MAX_CHARS,
-    placeholder="SELECT id, title FROM tickets WHERE status = $1 LIMIT 20",
-    stored_in="config",
-    help=(
-        "One SQL statement. Values go in as parameters: $1, $2, ... (never ${...} in the text). "
-        "Stored in plain text, so no passwords in here."
-    ),
-    check=_check_query,
-)
-
-_ALLOW_WRITE = Setting(
-    "allow_write",
-    "Allow changes",
-    "switch",
-    default=False,
-    stored_in="config",
-    help=(
-        "Off (the default): the statement runs in a read-only transaction that is rolled back, so "
-        "the database refuses any change. On: it may change data and is committed when it succeeds. "
-        "Use a database role that has only the privileges the statement needs."
-    ),
-)
-
-_MAX_ROWS = Setting(
-    "max_rows",
-    "Max rows",
-    "integer",
-    minimum=1,
-    maximum=1000,
-    default=100,
-    stored_in="config",
-    help="More rows are left out and the result says it is truncated.",
-)
-
-
-class GithubType(_ExecutionType):
-    """Reads GitHub (repository, issues, pull requests, files, comments) and comments, without a model."""
-
-    kind = NodeKind.GITHUB
-    label = "GitHub"
-    reference_keys = ("repository", "number", "path", "ref", "comment")
-    settings = (
-        Setting(
-            "operation",
-            "Operation",
-            "select",
-            default="Get repository",
-            options=GITHUB_OPERATIONS,
-            stored_in="config",
-            help="What the node does. Settings the operation does not use are ignored.",
-        ),
-        Setting(
-            "repository",
-            "Repository",
-            "text",
-            default="",
-            max_length=200,
-            placeholder="owner/name",
-            stored_in="config",
-            references="context",
-            help="owner/name, for every operation. May hold ${node...} or ${var...}.",
-            check=_check_repository,
-        ),
-        Setting(
-            "number",
-            "Number",
-            "text",
-            default="",
-            max_length=40,
-            stored_in="config",
-            references="context",
-            help="The number of the issue or pull request (get, comments, files, diff).",
-            check=_check_number,
-        ),
-        Setting(
-            "path",
-            "File path",
-            "text",
-            default="",
-            max_length=500,
-            placeholder="docs/README.md",
-            stored_in="config",
-            references="context",
-            help="Get file: the path in the repository (a folder lists its files).",
-            check=_check_file_path,
-        ),
-        Setting(
-            "ref",
-            "Branch, tag or commit",
-            "text",
-            default="",
-            max_length=200,
-            stored_in="config",
-            references="context",
-            help="Get file: empty is the default branch.",
-            check=_check_not_secret,
-        ),
-        Setting(
-            "state",
-            "State",
-            "select",
-            default="open",
-            options=("open", "closed", "all"),
-            stored_in="config",
-            help="List issues and List pull requests.",
-        ),
-        Setting(
-            "limit",
-            "Limit",
-            "integer",
-            minimum=1,
-            maximum=100,
-            default=30,
-            stored_in="config",
-            help="The most items a list returns (one page, the newest first).",
-        ),
-        Setting(
-            "comment",
-            "Comment",
-            "lines",
-            default="",
-            max_length=20000,
-            stored_in="config",
-            references="context",
-            help="Create comment: the text, may hold ${node...} or ${var...}; no secrets.",
-            check=_check_not_secret,
-        ),
-        Setting(
-            "allow_comments",
-            "Allow comments",
-            "switch",
-            default=False,
-            stored_in="config",
-            help=(
-                "Create comment writes to GitHub: it only runs when this is on. Every other "
-                "operation reads."
-            ),
-        ),
-        Setting(
-            "secret",
-            "Secret with the token",
-            "text",
-            default="",
-            max_length=64,
-            placeholder="GITHUB_TOKEN",
-            stored_in="config",
-            help="The name of a stored secret with a personal access token. Empty: no token "
-            "(public data, a low rate limit).",
-            check=_references(_check_secret_name),
-        ),
-        Setting(
-            "api_url",
-            "API address",
-            "text",
-            default="https://api.github.com",
-            max_length=500,
-            stored_in="config",
-            help="GitHub Enterprise: https://HOST/api/v3. A private address needs "
-            "OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS.",
-            check=_tool_rule(tool_config.check_endpoint),
-            level="advanced",
-        ),
-        _timeout(30, 120),
-        ON_FAILURE,
-    )
-
-
-class PostgresType(_ExecutionType):
-    """Runs one SQL statement on a Postgres database: read-only unless changes are allowed."""
-
-    kind = NodeKind.POSTGRES
-    label = "Postgres"
-    reference_keys = ("values",)
-    settings = (
-        _connection_secret(
-            "The name of a stored secret that holds postgresql://user:password@host:5432/db "
-            "(add ?sslmode=require for TLS). The URL is never kept in the node."
-        ),
-        _QUERY,
-        Setting(
-            "values",
-            "Values",
-            "lines",
-            default="",
-            max_length=20000,
-            placeholder="open",
-            stored_in="config",
-            references="context",
-            help=(
-                "One value per line: the first is $1, the second $2, ... Text; the database "
-                "converts it to the type the query expects. ${node...} and ${var...} insert earlier "
-                "results; no secrets. Use NULLIF($1, '') for a NULL."
-            ),
-            check=_check_query_values,
-        ),
-        _ALLOW_WRITE,
-        Setting(
-            "allow_private",
-            "Private network",
-            "switch",
-            default=False,
-            stored_in="config",
-            help="The database is on a private or local network. Counts only when the operator "
-            "allows it too (OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS).",
-            level="advanced",
-        ),
-        _MAX_ROWS,
-        _timeout(30, 120),
-        ON_FAILURE,
-    )
-
-
-class PostgresToolType(_ToolType):
-    """One SQL statement the model calls with parameters ($1 is the first declared parameter)."""
-
-    kind = NodeKind.POSTGRES_TOOL
-    label = "Postgres Tool"
-    settings = (
-        *_tool_identity("Name the parameters the query takes below: the first is $1."),
-        _connection_secret(
-            "The name of a stored secret that holds postgresql://user:password@host:5432/db."
-        ),
-        _QUERY,
-        _PARAMETERS,
-        _ALLOW_WRITE,
-        _ALLOW_PRIVATE,
-        _MAX_ROWS,
-        _timeout(30, 120),
-    )
-
-
-#: The kinds of tool nodes.
-TOOL_KINDS = frozenset(
-    {NodeKind.MCP_TOOL, NodeKind.HTTP_TOOL, NodeKind.CODE_TOOL, NodeKind.POSTGRES_TOOL}
-)
-
+#: What a manifest's ``behaviour`` means on the server: how the kind connects. The rest is the base class.
+BEHAVIOURS: dict[str, type[NodeType]] = {
+    "plain": NodeType,
+    "flow": NodeType,
+    "pipeline": NodeType,
+    "output": NodeType,
+    "stage": StageType,
+    "action": ActionType,
+    "switch": SwitchType,
+    "tool": ToolType,
+}
 
 NODE_TYPES: dict[NodeKind, NodeType] = {}
 
 
 def register(node_type: NodeType) -> NodeType:
-    """Make a kind of node known (built-in kinds use this as an extension would)."""
+    """Make a kind of node known (the built-in kinds are loaded from their manifests the same way)."""
     NODE_TYPES[node_type.kind] = node_type
     return node_type
 
@@ -1631,25 +482,53 @@ def fixed_in(scope: GraphKind) -> list[NodeType]:
     return [t for t in NODE_TYPES.values() if scope in t.scopes and t.fixed]
 
 
-for _type in (
-    TriggerType(),
-    StageType(),
-    ActionType(),
-    PipelineNodeType(),
-    CompleteType(),
-    TimerType(),
-    OutputType(),
-    CodeType(),
-    HttpType(),
-    IfType(),
-    SwitchType(),
-    AgentType(),
-    SetType(),
-    GithubType(),
-    PostgresType(),
-    McpToolType(),
-    HttpToolType(),
-    CodeToolType(),
-    PostgresToolType(),
-):
-    register(_type)
+def _port(spec: PortSpec) -> Port:
+    return Port(
+        spec.name,
+        spec.label,
+        spec.side,
+        spec.visible_when.model_dump(exclude_none=True) if spec.visible_when else None,
+        spec.label_from,
+    )
+
+
+def load(directory: Any = NODES_DIR) -> list[NodeType]:
+    """Read the manifests of a directory and register what they declare (the built-in kinds at import)."""
+    shared = load_shared(directory)
+    groups = menu_groups(directory)
+    loaded = []
+    for manifest in read_all(directory):
+        settings = tuple(Setting.of(data) for data in expand_settings(manifest.settings, shared))
+        menu = None
+        if manifest.menu is not None:
+            name = manifest.menu.group
+            if name not in groups:
+                groups.append(name)
+            menu = {"group": name, "group_index": groups.index(name), "order": manifest.menu.order}
+        ui = manifest.ui.model_dump(exclude_none=True)
+        node = BEHAVIOURS[manifest.behaviour](
+            kind=NodeKind(manifest.kind),
+            label=manifest.label,
+            behaviour=manifest.behaviour,
+            scopes=frozenset(GraphKind(s) for s in manifest.scopes),
+            fixed=manifest.fixed,
+            addable=manifest.addable,
+            chain=manifest.chain,
+            ending=manifest.ending,
+            inputs=tuple(_port(p) for p in expand_ports(manifest.ports.inputs)),
+            outputs=tuple(_port(p) for p in expand_ports(manifest.ports.outputs)),
+            settings=settings,
+            links_to=GraphKind(manifest.links_to) if manifest.links_to else None,
+            size=(float(manifest.default_size.width), float(manifest.default_size.height))
+            if manifest.default_size
+            else None,
+            tool=manifest.tool,
+            reference_keys=tuple(manifest.reference_keys),
+            menu=menu,
+            ui=ui,
+        )
+        loaded.append(register(node))
+    return loaded
+
+
+load()

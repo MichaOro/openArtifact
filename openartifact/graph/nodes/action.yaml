@@ -1,0 +1,21 @@
+schema: 1
+kind: action
+label: Action
+behaviour: action
+scopes:
+- pipeline
+links_to: action
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: error
+    label: On Error
+ui:
+  size:
+    width: 190
+    height: 68
+  port_labels: true

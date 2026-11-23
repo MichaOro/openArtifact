@@ -1,0 +1,50 @@
+schema: 1
+kind: set
+label: Edit Fields
+behaviour: flow
+scopes:
+- action
+addable: true
+chain: true
+reference_keys:
+- fields
+menu:
+  group: Data
+  order: 1
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+ui:
+  icon: pencil
+  caption:
+    template: '{fields|field_names|short|default:no field yet}'
+settings:
+- key: fields
+  label: Fields
+  type: lines
+  default: ''
+  max_length: 20000
+  placeholder: priority = ${node.Classify.output}
+  help: 'One ''name = value'' per line. Each sets the variable ${var.name} for the nodes after this one (names:
+    lowercase letters, digits and underscores). A value may hold ${node.NAME.output}, ${node.NAME.data.key}, ${var.name}
+    or ${card.name}; secrets cannot be used, a variable is plain data.'
+  stored_in: config
+  check: edit_fields
+  references: context
+- key: value_types
+  label: Value types
+  type: select
+  default: text
+  options:
+  - text
+  - detect
+  help: 'text: every value is stored as text. detect: a value that is a number, true, false, null, a JSON object
+    or a JSON list is stored as that.'
+  stored_in: config
+- use: on_failure
