@@ -118,12 +118,18 @@ Guide: [Agents and LLM providers](agents.md).
 The browser has the same routes under `/api/settings`.
 
 A step read alone (`GET /api/v1/artifacts/{ref}/executions/{id}/steps/{step_id}`) carries `detail` for an agent step:
-the prompts as sent, the inputs, the overrides and every attempt. Lists carry `detail: null`.
+the prompts as sent, the inputs, the overrides, every attempt and, per request (`turns`), the tool calls with their
+arguments and results (cut to 16 KiB). Lists carry `detail: null`.
 
 An agent node's settings are keys of its `config` (`PATCH /api/actions/{id}/nodes/{node_id}`): `agent_id`, `inputs`
 (`name = value` per line) and the overrides `system_prompt_enabled`, `system_prompt`, `user_prompt`, `provider_id`,
-`model`, `temperature`, `max_tokens`, `request_timeout_seconds`, `total_timeout_seconds`, `retries`; `null` resets one.
-`warnings` in the answer says what would make the node fail.
+`model`, `temperature`, `max_tokens`, `request_timeout_seconds`, `total_timeout_seconds`, `retries`, `max_iterations`;
+`null` resets one. `warnings` in the answer says what would make the node fail.
+
+Tools (ADR-040) are nodes of the kinds `mcp_tool`, `http_tool` and `code_tool` with their settings in `config`
+(`GET /api/node-types` lists them). Attach one with an edge from its port `tool` to the agent's port `tools`
+(`POST /api/actions/{id}/edges`); no other edge reaches either port. In `GET /api/node-types` such ports carry
+`side` (`top`, `bottom`) and a tool kind `tool: true`.
 
 ## Browser API (`/api`)
 

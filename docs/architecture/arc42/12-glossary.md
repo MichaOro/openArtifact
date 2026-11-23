@@ -8,9 +8,10 @@
 | Lane | A column of the board, a row of the table `lanes` (a `key` that artifacts carry in `status`, a title, a position, a style). The owner can add, rename and delete lanes (only empty ones) and choose in the lane's Settings whether its cards look finished (struck-through, dimmed titles). The lane at position N has colour N of the lane palette (cycling after 8). |
 | Orchestration | Carrying artifacts through pipelines: the run engine starts, executes, stops and records the runs. |
 | Agent | (1) A reusable definition that an Agent node runs: prompts with `${input.NAME}`, declared inputs, provider, model and limits, with a draft and published versions (ADR-037). (2) An LLM-driven client of the integration API or the MCP server. |
-| Agent node | The node kind of an action definition that sends one request to a model for an agent; it maps the agent's inputs to the run and may override single settings. |
+| Agent node | The node kind of an action definition that asks a model for an agent; it maps the agent's inputs to the run, may override single settings and offers the model the tools attached to its *Tools* port (ADR-040). |
 | Provider (LLM) | Where agents send requests: OpenRouter or an OpenAI-compatible endpoint, with its models; it refers to its API key by the name of a secret. |
 | Pipeline | What an artifact runs through: a trigger, stages and a complete, connected by edges (ADR-012, ADR-013). Pages `/pipelines`. Formerly called "workflow" (ADR-015). |
+| Tool (of an agent) | A node attached below an Agent node (*MCP Client Tool*, *HTTP Request Tool*, *Code Tool*) that the model may call; its edge is an attachment the engine never walks (ADR-040). |
 | Trigger | The start node of a pipeline or action definition (placeholder for manual, webhook or event starts). |
 | Stage | A container inside a pipeline that holds actions and connects to other stages. |
 | Action | A step inside a stage that stands for one business execution; has an input, *On Pass* and *On Error*. It is linked to an action definition. |
@@ -38,6 +39,7 @@
 | API token | The one secret (`OPENARTIFACT_API_TOKEN`) that protects the whole application; sent as a bearer header or entered once on the sign-in page (ADR-016). |
 | Sign-in, session | The browser's way in: the token is entered once and exchanged for a signed, expiring cookie (30 days); never the token itself (ADR-017). |
 | Integration API | `/api/v1`: the stable REST interface for scripts and other systems, addressed by artifact number or id (ADR-016). |
+| Max iterations | How many requests an Agent node may make while the model calls tools (agent setting, 1 to 50, default 10, overridable per node); reaching it fails the node (ADR-040). |
 | MCP server | `/mcp`: the same operations as tools for LLM agents (Model Context Protocol, Streamable HTTP, bearer token). |
 | Request hardening | The middlewares for Host check, body limit, cross-site guard and security headers (ADR-017). |
 | Credential (secret) | A named value stored encrypted in the credential store (AES-256-GCM); nodes use it by name. Managed through the API only; values are never returned (ADR-024, [8.6](08-cross-cutting-concepts/08.06-credential-store.md)). |

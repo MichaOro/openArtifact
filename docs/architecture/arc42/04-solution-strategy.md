@@ -73,7 +73,8 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Access protection and request hardening | Built | ADR-016, ADR-017 |
 | Settings area: LLM providers, run limits (steps and time per execution) | Built (ADR-037, ADR-039); separate tokens are not built, the number of parallel runs stays an environment variable | ADR-039 |
 | Human-in-the-loop (a `waiting` status), automatic starts by the system | Not built (`started_by` knows `system`, nothing sets it) | |
-| Agents: definitions with draft, versions and rollback, LLM providers (OpenRouter, OpenAI-compatible) with models and connection test, the Agent node with overrides, one request per run with retries, prompts and attempts in the history | Built; one request only: no tools, loops, streaming, structured output, budgets | ADR-037 |
+| Agents: definitions with draft, versions and rollback, LLM providers (OpenRouter, OpenAI-compatible) with models and connection test, the Agent node with overrides, one request per run with retries, prompts and attempts in the history | Built; no streaming, structured output, budgets | ADR-037 |
+| Tools for agents: MCP Client Tool (remote Streamable HTTP, e.g. GitHub), HTTP Request Tool and Code Tool as nodes attached below the Agent node, a loop bounded by max iterations, tool calls in the history | Built; no memory, multi-agent runs, approval before a tool call, local MCP servers | ADR-040 |
 | Git, notifications, PostgreSQL as a data source, connector layer | Not built | ADR-020 |
 | Node versions, reordering and colouring of lanes, priorities, tags, due dates, assignees | Not built | |
 | Third-party extensions (manifest, contract version, pages) | Not built | ADR-014 §3.5 |

@@ -70,14 +70,15 @@ More with examples: [Concepts](docs/guides/concepts.md). Terms of the architectu
 - Code nodes run shell or Python as a child process with CPU, memory, process, file and output limits; HTTP nodes refuse
   loopback, private and metadata addresses unless you allow them.
 - Agents: reusable prompts with declared inputs, a draft and published versions (rollback included), run by an Agent
-  node that sends one request to a model of OpenRouter or an OpenAI-compatible endpoint; the prompts as sent, the tokens
-  and every attempt are in the history ([agents](docs/guides/agents.md)).
+  node that asks a model of OpenRouter or an OpenAI-compatible endpoint; tools attached below the node (an MCP server
+  such as GitHub's, an HTTP request, code) let the model act in a bounded loop, as in n8n; the prompts as sent, the
+  tool calls, the tokens and every attempt are in the history ([agents](docs/guides/agents.md)).
 - Credential store: secrets are encrypted in the database and referenced by name from nodes, never returned by the API
   ([Credentials](docs/guides/credentials.md); API only, there is no UI for it yet).
 - Execution history per artifact with steps and outputs, retention policy (default keep 50), delete and clear
   ([Execution history](docs/guides/execution-history.md)).
 - Flow view of one execution and a global executions page (`/executions`) across all artifacts, with filters and summary.
-- Integration API (`/api/v1`) and an MCP server (`/mcp`, 14 tools) with token authentication
+- Integration API (`/api/v1`) and an MCP server (`/mcp`, 19 tools) with token authentication
   ([Sign in and use the API and MCP](docs/guides/integration.md), [API reference](docs/guides/api-reference.md)).
 
 Planned and not implemented: AI agent nodes, Git and webhook connectors, extension packaging. The authoritative list is

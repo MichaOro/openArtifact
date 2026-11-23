@@ -1,11 +1,13 @@
 # Agents and LLM providers
 
 An **agent** is a reusable prompt for a language model, managed in one place. An **Agent node** in an action runs it:
-one request to a model, the answer is the node's output. This guide covers providers, agents, the node, what an
-execution keeps and the limits. The decision behind it is [ADR-037](../architecture/adr/037-agent-harness.md).
+a request to a model, the answer is the node's output. With **tools** attached below the node (an MCP server such as
+GitHub's, an HTTP request, a piece of code) the model may call them first, in a bounded loop, as in n8n. This guide
+covers providers, agents, the node, tools, what an execution keeps and the limits. The decisions behind it are
+[ADR-037](../architecture/adr/037-agent-harness.md) and [ADR-040](../architecture/adr/040-agent-tools.md).
 
-Not part of it: tool calling, loops, several agents working together, memory, approval steps, structured output,
-streaming, fallback chains, budgets.
+Not part of it: several agents working together, memory, approval before a tool call, local MCP servers (a process on
+the host), structured output, streaming, fallback chains, budgets.
 
 ## 1. Set up a provider
 
@@ -59,7 +61,8 @@ streaming, fallback chains, budgets.
   | any | yes, and the value does not fit the type | the node fails |
 
 - **Model and limits.** Provider and model are optional (see defaults above). Temperature 0 to 2, max tokens 1 to
-  8192, request timeout 1 to 300 s (60), time limit of the node 1 to 1800 s (600), retries 0 to 4 (3).
+  8192, request timeout 1 to 300 s (60), time limit of the node 1 to 1800 s (600), retries 0 to 4 (3), max iterations
+  1 to 50 (10; counts only with tools, see section 4).
 - **Draft and versions.** You edit the *draft*. Nothing an execution uses changes until you **publish**: that makes a
   new version (numbers count up, a version is never changed) and executions that start from then on use it. *Discard
   draft* goes back to the published version. **Publish again** on an earlier version is the rollback: a new version with
@@ -78,37 +81,83 @@ Add an **Agent** node to an action definition and choose the agent.
   `${node.NAME.data.key}`, `${var.name}` and `${card.name}` ([execution nodes](execution-nodes.md)); secrets cannot be
   used. Stored as one `name = value` per line in the node's `inputs` setting.
 - **Settings.** Every setting shows the agent's value (*From agent*) until the node sets its own (*Overridden*):
-  user prompt, system prompt and its switch, provider, model, temperature, max tokens, both time limits, retries. A value
+  user prompt, system prompt and its switch, provider, model, temperature, max tokens, both time limits, retries, max
+  iterations. A value
   the agent does not set can be switched on in the node. *Reset* removes the node's value; *Reset all overrides* removes
   them all. In the API an override is a key of the node's `config`; `null` resets it.
 - **When the agent changes**, the fields a node does not override follow with the next execution; overridden fields
   stay. Publishing lists the nodes that override a changed field.
 - The node leaves by *On Pass* with the answer, or by *On Fail* (or goes on, with *If the node fails: continue*).
 - Later nodes read `${node.NAME.output}` and `${node.NAME.data.model}`, `.data.usage.total_tokens`,
-  `.data.finish_reason`.
+  `.data.finish_reason`, `.data.iterations`.
 
-## 4. What an execution keeps
+## 4. Tools
+
+A tool is a node of its own that hangs **below** an Agent node: drag from the tool's port (on its top) to the agent's
+*Tools* port (on its bottom), or add the tool from the menu while the agent is selected and it is attached at once.
+The edge is drawn dashed; it is an attachment, not a step of the flow: a tool runs only when the model calls it. An
+agent takes any number of tools; a tool belongs to one agent.
+
+| Tool | What the model gets | Settings |
+|------|---------------------|----------|
+| **MCP Client Tool** | the tools of a remote MCP server, with their own names, descriptions and parameters | endpoint (Streamable HTTP), secret with the token (sent as `Authorization: Bearer`), *Tools to include*: `all`, `selected` or `all_except` with one tool name per line, timeout per call (1 to 300 s, 60) |
+| **HTTP Request Tool** | one function with the parameters you declare | tool name and description, method, URL, headers, body, parameters (`name: description` per line), timeout (1 to 120 s, 30), success status |
+| **Code Tool** | one function with the parameters you declare | tool name and description, language (`sh`, `python`), code, secrets, parameters, timeout (1 to 600 s, 30) |
+
+- **GitHub.** An MCP Client Tool with the endpoint `https://api.githubcopilot.com/mcp/` and a secret holding a personal
+  access token. For an agent that only reads, choose *selected* and list the read tools (`get_issue`, `list_issues`,
+  ...); the tools the agent is not offered cannot be called.
+- **Names.** The model calls a tool by its *Tool name* (empty: the node's name, made a valid name). When two tools
+  have the same name (two MCP servers with a `search`), both get their tool node's name in front (`github_search`,
+  `jira_search`).
+- **Parameters of the HTTP Request Tool** are `{name}` in the URL (percent-encoded there), the headers and the body.
+  They are filled in *after* the references (`${secret:...}`, `${var...}`, `${node...}`) are resolved, in one pass: a
+  model that writes `${secret:X}` sends exactly that text, and a value is never filled in again. A parameter in the
+  scheme or host of the URL is refused, so the model never chooses where a request goes. The answer to the model is
+  `HTTP <status>` and the body; another status than the accepted ones is an error.
+- **The Code Tool** runs under the rules of the Code node ([execution nodes](execution-nodes.md)): it needs the API
+  token, can be switched off, has its limits and no sandbox. The model's arguments are the object `input` in
+  `context.json`; what the code prints (or the result protocol's output) is the answer.
+- **The loop.** The node asks the model with the tools offered, runs every tool call of the answer, sends the results
+  back and asks again, until an answer calls no tool. *Max iterations* is the number of requests; when the model still
+  calls tools in the last one, the node fails: `Stopped after N iterations without a final answer`. The time limit of
+  the node covers every request and every tool call; each request keeps its retries (section 6).
+- **A failing tool does not fail the node.** An unknown tool, arguments that are not a JSON object, an HTTP error or a
+  failing script go back to the model as a text starting with `Error:`, and the model may try something else. A tool
+  that cannot be used at all (the MCP server refuses the token or cannot be reached, a Code Tool while Code nodes are
+  off) fails the node before its first request, with the tool's name in the reason.
+- **Results** are cut to 16 KiB for the model and the history, and the values of the run's secrets are masked in them
+  before the model reads them.
+- **Private addresses** for MCP and HTTP tools need the same two permissions as a provider: the operator's
+  `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS=true` *and* the tool's *Private network* switch. Cloud metadata addresses are
+  always refused and the connection goes to the checked address. An HTTP Request Tool follows no redirect; the MCP
+  client follows one only within the endpoint's origin, and every request is checked again.
+
+## 5. What an execution keeps
 
 When an execution starts, every agent node is resolved once and frozen in the execution's snapshot: the published
-version, whether the agent is active, the prompts, the inputs, the node's overrides, the provider and the model.
+version, whether the agent is active, the prompts, the inputs, the node's overrides, the provider, the model and the
+tools attached to it with their settings.
 Publishing, deactivating or deleting an agent, or changing a provider, afterwards does not change that execution. The
 API key is not part of it; it is read from the credential store when the node runs.
 
 A node that could not be resolved at the start (no agent, nothing published, inactive, model not enabled, no provider)
 does not stop the start: it fails with that reason when the run reaches it.
 
-## 5. Retries and time limits
+## 6. Retries and time limits
 
 A request is tried again after a network error, a timeout, HTTP 408, 429 or 5xx; not after 400, 401, 403, 404 or
 another 4xx. The waits are 3, 10, 30 and 60 seconds; a `Retry-After` of a 429 replaces the wait. The time limit of the
 node covers all attempts and waits: an attempt gets at most what is left, and no wait is started that does not fit.
 Stopping the run ends a request or a wait at once.
 
-## 6. History
+## 7. History
 
 The step shows the answer, the model, the tokens and the number of attempts. *Request (prompts, inputs, attempts)*
-opens what was actually sent: both prompts, every input with its source and value, what the node set itself, and each
-attempt with its duration, HTTP status and error. In the API this is `detail` of one step
+opens what was actually sent: both prompts, every input with its source and value, what the node set itself, every
+tool call (turn, tool, arguments, result, duration) and each attempt with its duration, HTTP status and error. With
+tools, `detail.turns` holds the requests one by one with their attempts and tool calls; the tokens are summed over the
+turns. In the API this is `detail` of one step
 (`GET .../executions/{id}/steps/{step_id}`); lists do not carry it. It is deleted with its execution
 ([execution history](execution-history.md)).
 
@@ -117,15 +166,19 @@ attempt with its duration, HTTP status and error. In the API this is `detail` of
   beyond that: a marker in the text, `output_truncated` in the data, a note in the reason).
 - The prompts are never in the run context.
 
-## 7. What to keep in mind
+## 8. What to keep in mind
 
 - **Whatever you map into an input is sent to the provider** and stored in the step. The masking removes the provider's
   key from results; it does not recognise other sensitive text in a variable, a card parameter or an earlier output.
 - **An answer is text from outside.** It can contain instructions; do not let a later node treat it as trusted.
-- **There is no budget.** A node sends up to `retries + 1` requests, each bounded by max tokens.
+- **A tool's answer is text from outside too**, and so is what an MCP server says about its tools. A page or an issue
+  can tell the model to call another tool; offer an agent only the tools it needs (*selected*), and only read tools
+  where reading is enough.
+- **There is no budget.** A node sends up to `retries + 1` requests per iteration and up to *Max iterations*
+  iterations, each bounded by max tokens.
 - Changing or deleting the key takes effect at once, also for running executions.
 
-## 8. API and MCP
+## 9. API and MCP
 
 `/api/v1/agents` and `/api/v1/providers` offer everything above ([API reference](api-reference.md)). The MCP server
 is read-only here: `list_agents`, `get_agent`, `list_providers`.

@@ -84,7 +84,15 @@ Code node is not behind it.
 
 **LLM providers** go through the same guard: the connection test, the model list and every request of an Agent
 node. A provider on a private or local address needs its own switch *and* `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS=true`;
-that setting does not open HTTP nodes, and OpenRouter's address is fixed. `http` is allowed with a warning.
+that setting does not open HTTP nodes, and OpenRouter's address is fixed. `http` is allowed with a warning. The
+**tools of an agent** (MCP Client Tool, HTTP Request Tool) use the same guard and the same two switches (the tool's
+*Private network* and the operator's); a Code Tool runs under the Code node's rules.
+
+**What an agent's tools may do** is what the model decides within what you offer: a tool's answer and an MCP server's
+tool descriptions are text from outside and can steer the model. Offer only the tools an agent needs (for GitHub:
+*Tools to include: selected* with the read tools), keep tokens to the scopes the agent needs, and remember that there is
+no approval step before a tool call. Model values are filled in after the references, so a model cannot reach a secret
+by writing `${secret:...}`; the run's secret values are masked in tool answers before the model reads them.
 
 **What an Agent node sends.** Everything a node maps into an agent's input goes to the provider and is stored in
 the step ("Request"). The provider's key is masked in results and logs and is never in a snapshot; other sensitive

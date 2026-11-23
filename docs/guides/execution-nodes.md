@@ -8,7 +8,8 @@ node runs arbitrary code with the application's rights.
 
 Settings of the application that affect the nodes are in the [configuration reference](configuration.md).
 
-The **Agent node** (one request to a language model for a centrally managed agent) has a guide of its own:
+The **Agent node** (asks a language model for a centrally managed agent, with tools attached below it if you want) has
+a guide of its own:
 [Agents and LLM providers](agents.md). It is an execution node like the ones here: *On Pass* / *On Fail*,
 *If the node fails*, a result in the run context (`${node.NAME.output}`, `${node.NAME.data.model}`,
 `${node.NAME.data.usage.total_tokens}`).

@@ -54,5 +54,5 @@ area that now exists (*Settings*, ADR-037).
 - Preparing values for If, Switch, HTTP and Agent nodes needs no code; a variable can carry a number or an object.
 - A changed limit applies to the next executions only, like a published agent.
 - The time limit ends a long node from the outside; the nodes' own limits (Code, HTTP, Agent) stay in force.
-- Not built: tool calling and tool nodes for agents (ADR-037 follow-up, waiting for the owner's decision on what the
-  agent may do on GitHub), Switch "all matching outputs", per-pipeline limits.
+- Not built: Switch "all matching outputs", per-pipeline limits. Tool calling and tool nodes for agents followed in
+  ADR-040.

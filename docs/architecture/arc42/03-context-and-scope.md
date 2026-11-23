@@ -36,4 +36,6 @@ OpenArtifact is a self-hosted board of artifacts that run through pipelines:
 - **HTTP targets** — one request per HTTP node, no redirects, size and time limits, address checked before the connection (DNS-rebinding safe); see [8.1](08-cross-cutting-concepts/08.01-security.md) and ADR-023.
 - **Child processes** — started per Code node with resource limits, in their own process group; they are not isolated from the network or the file system (ADR-023).
 - **Swagger UI** — `/api/docs` loads its scripts from a public CDN; this is the only external asset (chapter 2).
-- **Planned** — Git, AI model providers and PostgreSQL as a data source (ADR-020) through a future connector layer.
+- **LLM providers** — OpenRouter or an OpenAI-compatible endpoint, called by Agent nodes through the same address guard as HTTP nodes (ADR-037).
+- **Remote MCP servers and tool targets** — the tools of an agent (MCP Client Tool over Streamable HTTP, e.g. GitHub's; HTTP Request Tool) reach them through the same guard, only when the model calls them (ADR-040).
+- **Planned** — Git and PostgreSQL as a data source (ADR-020) through a future connector layer.

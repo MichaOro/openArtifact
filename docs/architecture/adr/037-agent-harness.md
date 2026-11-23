@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-021](021-execution-nodes-as-executors.md), [ADR-022](022-node-settings-as-json-config.md), [ADR-024](024-credential-store.md), [ADR-025](025-execution-history-and-retention.md), [ADR-027](027-execution-flow-by-replay-over-the-frozen-snapshot.md), [ADR-033](033-run-context.md)  
-**Amended by:** —  
+**Amended by:** [ADR-040](040-agent-tools.md) (tools and the loop)  
 **Implemented in:** migration 0033 (`agents`, `agent_versions`, `llm_providers`, `llm_models`, `run_node_results.detail`, kind `agent`); `agents/` (`schemas.py`, `resolve.py`, `render.py`, `freeze.py`, `client.py`, `runtime.py`, `service.py`, `providers.py`), `api/agents.py`, `engine/executors.py` (`_agent`), `engine/snapshot.py`, `engine/runner.py` (`_cut`, `detail`), `engine/http_runner.py` (`guarded_exchange`), `graph/node_types.py` (`AgentType`, setting type `number`), `mcp_server.py`; `static/js/agents/`, `static/js/editor/agent-inspector.js`  
 **Affected chapters:** [04](../arc42/04-solution-strategy.md), [11](../arc42/11-risks-and-technical-debt.md), [12](../arc42/12-glossary.md); guides [agents](../../guides/agents.md), [API reference](../../guides/api-reference.md), [configuration](../../guides/configuration.md), [credentials](../../guides/credentials.md), [security](../../guides/security.md), [execution nodes](../../guides/execution-nodes.md)
 
@@ -112,8 +112,8 @@ control, and that leaves a complete trace of what was sent.
   own (ADR-024); a local endpoint without a key works without them.
 - There is no budget, no rate limit and no cost view: up to five requests per node run, each bounded by `max_tokens`.
   Usage is recorded per step for a later view.
-- Not built, and not prepared beyond a function boundary: tool calling and loops (they would live inside `run_node`
-  around `run_completion`), structured output, streaming, fallback chains, memory, multi-agent runs, approval steps,
+- Not built, and not prepared beyond a function boundary: tool calling and loops (built since by ADR-040, inside
+  `run_node` around `run_completion`), structured output, streaming, fallback chains, memory, multi-agent runs, approval steps,
   an external secret manager (the existing `SecretResolver` callable is the seam), a provider plugin system.
 - Deviation from the pre-implementation audit: the frozen agent sits on the node (`node["agent"]`) instead of in a
   `snapshot["agents"]` map, so the executor signature and the engine's walk stayed as they were; the default provider

@@ -1,11 +1,12 @@
 # ADR-040: Tools for agents: tool nodes attached to the Agent node, the MCP Client Tool, a loop with a bound
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-11-23  
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-037](037-agent-harness.md), [ADR-012](012-workflow-definition-editor.md)  
-**Amended by:** —
+**Amended by:** —  
+**Implemented in:** migration `0035_tool_nodes`; `graph/node_types.py` (tool kinds, ports with a side), `agents/tool_config.py`, `agents/freeze.py`, `agents/mcp_client.py`, `agents/tools.py`, `agents/local_tools.py`, `agents/runtime.py` (the loop), `agents/client.py` (`tools`, `tool_calls`); the editor (`static/js/editor/`)
 
 ## 1. Title
 
@@ -33,8 +34,9 @@ matter of choosing the read tools.
     personal access token.
   - `http_tool` *HTTP Request Tool*: a tool name and description for the model, method, URL, headers, body, and
     parameters the model fills (`name: description` per line), used as `{name}` in the URL, headers and body.
-  - `code_tool` *Code Tool*: a tool name and description, the Code node's language, code, secrets and limits; the model's
-    arguments are `input` in `context.json`, the last line of stdout is the answer.
+  - `code_tool` *Code Tool*: a tool name and description, the Code node's language, code, secrets and limits, and
+    parameters like the HTTP Request Tool's; the model's arguments are `input` in `context.json`, the answer is what the
+    Code node would give as output (what it prints, or the result protocol's output).
 - **The loop.** The agent node sends the request with the tools (OpenAI function calling), runs every tool call of the
   answer, sends the results back and repeats until the model answers without a tool call, at most *Max iterations*
   (agent setting, 1 to 50, default 10, overridable on the node like every setting). The node's time limit covers all
@@ -43,12 +45,17 @@ matter of choosing the read tools.
 - **Frozen at the start.** The tools attached to an agent node are frozen with the agent into the snapshot.
 - **Safety.** MCP and HTTP tools go through the guarded HTTP path (SSRF, metadata refused, pinned addresses, no
   redirects off the origin, capped bodies); the private-network permission is the LLM providers' (operator switch plus
-  the tool's own). Tokens only as secrets; the values are masked in results, detail and logs. Model-supplied values are
-  put into the request after the references are resolved and are never scanned again (a model cannot reach a secret by
-  writing `${secret:...}`). A Code Tool runs under the Code node's rules (needs the API token, limits, no sandbox).
+  the tool's own: both MCP and HTTP tools have a *Private network* switch). Tokens only as secrets; the values are masked
+  in results, detail and logs, and in a tool's answer before the model reads it. Model-supplied values are put into the
+  request after the references are resolved and are never scanned again (a model cannot reach a secret by writing
+  `${secret:...}`); a parameter in the scheme or host of an HTTP tool's URL is refused. A Code Tool runs under the Code node's rules (needs the API token, limits, no sandbox).
   Tool results are foreign text for the model and the history.
+- **Names for the model.** A tool is called by its *Tool name* (empty: the node's name); an MCP tool keeps its own name.
+  When two tools share a name, both get their tool node's name in front; characters a model does not accept become `_`.
+- **Failures.** A tool that cannot be used at all (an MCP server that refuses the token or cannot be reached, a Code Tool
+  while Code nodes are off) fails the node before its first request, naming the tool node.
 - **History.** The step's detail gets the turns: per turn the attempts and the tool calls (tool, arguments, result cut to
-  16 KiB, error, duration). Usage is summed over the turns.
+  16 KiB, error, duration). Usage is summed over the turns; `data.iterations` counts the requests.
 
 ## 4. Consequences
 
