@@ -174,9 +174,9 @@ test("only an http address needs the confirmation of an unencrypted connection",
 });
 
 test("the optional areas are switched on as the backend reads them: a stored switch wins, else the data decides", () => {
-  assert.deepEqual(optionsOf({ system_prompt_enabled: false, inputs: [], retries: 3, request_timeout_seconds: 60, total_timeout_seconds: 600, max_iterations: 10 }), { system_prompt: false, inputs: false, limits: false });
+  assert.deepEqual(optionsOf({ system_prompt_enabled: false, inputs: [], retries: null, request_timeout_seconds: null }), { system_prompt: false, inputs: false, limits: false });
   assert.deepEqual(optionsOf({ system_prompt_enabled: true, inputs: [{ name: "a" }], temperature: 0.2 }), { system_prompt: true, inputs: true, limits: true });
-  assert.equal(optionsOf({ inputs: [], retries: 1, request_timeout_seconds: 60, total_timeout_seconds: 600, max_iterations: 10 }).limits, true); // a limit that differs counts
+  assert.equal(optionsOf({ inputs: [], retries: 3 }).limits, true); // a limit that is set counts, even the default value (ADR-046)
   assert.deepEqual(optionsOf({ inputs: [{ name: "a" }], temperature: 0.2, inputs_enabled: false, limits_enabled: false }), { system_prompt: false, inputs: false, limits: false }); // switched off, data kept
 });
 

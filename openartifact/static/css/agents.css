@@ -260,3 +260,7 @@
   .ag-card,
   .ag-provider { padding: var(--space-3); }
 }
+
+/* a name that explains itself on hover (Quick test) */
+.ag-hint { cursor: help; border-bottom: 1px dotted var(--color-text-muted); }
+.ag-hint:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }

@@ -66,39 +66,30 @@
             </section>
 
             <section class="ag-panel" role="tabpanel" id="ag-panel-limits" aria-labelledby="ag-tab-limits" hidden>
-                <div class="ag-grid">
-                    <div class="field">
-                        <label class="field__label" for="ag-provider">Provider</label>
-                        <select class="field__control" id="ag-provider" data-field="provider_id"></select>
+                {# components/settings-group.js: a setting is a field only once it is added; removing it is "not set". #}
+                <div class="settings-card" data-settings="model">
+                    <div class="settings-card__head">
+                        <span class="settings-card__icon" aria-hidden="true">{{ icon("layers") }}</span>
+                        <div class="settings-card__text">
+                            <h3 class="settings-card__title">Model configuration</h3>
+                            <p class="settings-card__lead">Define the language model and its generation behavior. All settings are optional.</p>
+                        </div>
+                        <button type="button" class="button button--ghost button--sm" data-settings-add aria-haspopup="menu">{{ icon("plus") }} Add setting {{ icon("chevron-down") }}</button>
                     </div>
-                    <div class="field">
-                        <label class="field__label" for="ag-model">Model</label>
-                        <select class="field__control" id="ag-model" data-field="model"></select>
+                    <div class="settings-card__fields" data-settings-fields></div>
+                    <p class="settings-card__empty" data-settings-empty>Nothing set: the default provider and its default model are used, unless the agent node chooses.</p>
+                </div>
+                <div class="settings-card" data-settings="limits">
+                    <div class="settings-card__head">
+                        <span class="settings-card__icon" aria-hidden="true">{{ icon("clock") }}</span>
+                        <div class="settings-card__text">
+                            <h3 class="settings-card__title">Execution limits</h3>
+                            <p class="settings-card__lead">Control execution time, retries and iteration limits. All settings are optional.</p>
+                        </div>
+                        <button type="button" class="button button--ghost button--sm" data-settings-add aria-haspopup="menu">{{ icon("plus") }} Add setting {{ icon("chevron-down") }}</button>
                     </div>
-                    <div class="field">
-                        <label class="field__label" for="ag-temperature">Temperature <span class="field__hint">(0 to 2, optional)</span></label>
-                        <input class="field__control" id="ag-temperature" type="number" min="0" max="2" step="0.1" data-field="temperature">
-                    </div>
-                    <div class="field">
-                        <label class="field__label" for="ag-max-tokens">Max tokens <span class="field__hint">(1 to 8192, optional)</span></label>
-                        <input class="field__control" id="ag-max-tokens" type="number" min="1" max="8192" step="1" data-field="max_tokens">
-                    </div>
-                    <div class="field">
-                        <label class="field__label" for="ag-request-timeout">Request timeout <span class="field__hint">(seconds, 1 to 300)</span></label>
-                        <input class="field__control" id="ag-request-timeout" type="number" min="1" max="300" step="1" data-field="request_timeout_seconds">
-                    </div>
-                    <div class="field">
-                        <label class="field__label" for="ag-total-timeout">Time limit of the node <span class="field__hint">(seconds, 1 to 1800)</span></label>
-                        <input class="field__control" id="ag-total-timeout" type="number" min="1" max="1800" step="1" data-field="total_timeout_seconds">
-                    </div>
-                    <div class="field">
-                        <label class="field__label" for="ag-retries">Retries <span class="field__hint">(0 to 4)</span></label>
-                        <input class="field__control" id="ag-retries" type="number" min="0" max="4" step="1" data-field="retries">
-                    </div>
-                    <div class="field">
-                        <label class="field__label" for="ag-max-iterations">Max iterations <span class="field__hint">(1 to 50)</span></label>
-                        <input class="field__control" id="ag-max-iterations" type="number" min="1" max="50" step="1" data-field="max_iterations">
-                    </div>
+                    <div class="settings-card__fields" data-settings-fields></div>
+                    <p class="settings-card__empty" data-settings-empty>Nothing set: request timeout 60 s, node time limit 600 s, 3 retries and 10 iterations apply, unless the agent node sets its own.</p>
                 </div>
                 <p class="field__help">A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds. The time limit of the node covers all attempts and waits. With tools attached, Max iterations is how many requests a node may make while the model calls tools.</p>
             </section>
@@ -143,8 +134,7 @@
             </section>
             {# Quick test: only while its option is on; nothing of it is saved. #}
             <section class="ag-card glass ag-quick" aria-labelledby="ag-quick-title" data-quick-test hidden>
-                <h3 class="ag-panel__heading" id="ag-quick-title">Quick test</h3>
-                <p class="field__help">Example values for the agent's inputs, as an agent node would map them from a run (a text, a number, true or false; not an artifact id). The prompts are filled with them; no request is sent to a model.</p>
+                <h3 class="ag-panel__heading" id="ag-quick-title"><span class="ag-hint" tabindex="0" title="Example values for the agent's inputs, as an agent node would map them from a run (a text, a number, true or false; not an artifact id). The prompts are filled with them; no request is sent to a model.">Quick test</span></h3>
                 <p class="field__help" data-quick-empty hidden>This agent has no inputs: the preview shows the prompts as they are.</p>
                 <div class="ag-quick__values" data-preview-values></div>
                 <button type="button" class="button button--ghost ag-quick__run" data-preview>{{ icon("play") }} Run preview</button>

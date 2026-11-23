@@ -110,15 +110,16 @@ class AgentConfig(_Strict):
     model: str | None = Field(default=None, max_length=MODEL_ID_MAX)
     temperature: float | None = Field(default=None, ge=TEMPERATURE_MIN, le=TEMPERATURE_MAX)
     max_tokens: int | None = Field(default=None, ge=MAX_TOKENS_MIN, le=MAX_TOKENS_MAX)
-    request_timeout_seconds: int = Field(
-        default=REQUEST_TIMEOUT_DEFAULT, ge=REQUEST_TIMEOUT_MIN, le=REQUEST_TIMEOUT_MAX
+    #: The limits are optional too (ADR-046): ``None`` is "not set", and the runtime default applies.
+    request_timeout_seconds: int | None = Field(
+        default=None, ge=REQUEST_TIMEOUT_MIN, le=REQUEST_TIMEOUT_MAX
     )
-    total_timeout_seconds: int = Field(
-        default=TOTAL_TIMEOUT_DEFAULT, ge=TOTAL_TIMEOUT_MIN, le=TOTAL_TIMEOUT_MAX
+    total_timeout_seconds: int | None = Field(
+        default=None, ge=TOTAL_TIMEOUT_MIN, le=TOTAL_TIMEOUT_MAX
     )
-    retries: int = Field(default=RETRIES_DEFAULT, ge=RETRIES_MIN, le=RETRIES_MAX)
+    retries: int | None = Field(default=None, ge=RETRIES_MIN, le=RETRIES_MAX)
     #: How many requests one run of the node may make while the model calls tools (ADR-040).
-    max_iterations: int = Field(default=ITERATIONS_DEFAULT, ge=ITERATIONS_MIN, le=ITERATIONS_MAX)
+    max_iterations: int | None = Field(default=None, ge=ITERATIONS_MIN, le=ITERATIONS_MAX)
     #: Whether the inputs are in effect (ADR-045); switched off they are kept but the agent has none.
     #: ``None`` (agents from before the switch): in effect when any input is declared.
     inputs_enabled: bool | None = None
@@ -173,11 +174,24 @@ class AgentConfig(_Strict):
             data = json.loads(text or "{}")
         except ValueError:
             data = {}
-        return cls.model_validate(data if isinstance(data, dict) else {})
+        data = data if isinstance(data, dict) else {}
+        if "limits_enabled" not in data:
+            # stored before ADR-046: the four limits were always written, with the default when nobody chose
+            # one; that value is the runtime default, so reading it as "not set" changes no run
+            data = {k: v for k, v in data.items() if LEGACY_LIMIT_DEFAULTS.get(k, object()) != v}
+        return cls.model_validate(data)
 
     def dumps(self) -> str:
         return json.dumps(self.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
 
+
+#: What drafts stored for the limits before they could be left unset (ADR-046).
+LEGACY_LIMIT_DEFAULTS: dict[str, Any] = {
+    "request_timeout_seconds": REQUEST_TIMEOUT_DEFAULT,
+    "total_timeout_seconds": TOTAL_TIMEOUT_DEFAULT,
+    "retries": RETRIES_DEFAULT,
+    "max_iterations": ITERATIONS_DEFAULT,
+}
 
 #: The settings that "Model & Limits" switches (ADR-045).
 LIMIT_KEYS = (

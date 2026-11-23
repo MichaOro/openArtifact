@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from openartifact.agents.schemas import AgentConfig
+from openartifact.agents.schemas import ITERATIONS_DEFAULT, AgentConfig
 from openartifact.app import _create_app
 from openartifact.config import Settings
 from tests.agent_support import (
@@ -104,7 +104,9 @@ def snapshot_agent(client: TestClient, task: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_max_iterations_is_an_agent_setting_from_1_to_50() -> None:
-    assert AgentConfig().max_iterations == 10
+    assert (
+        AgentConfig().max_iterations is None and ITERATIONS_DEFAULT == 10
+    )  # not set: the runtime's 10
     assert AgentConfig(max_iterations=50).max_iterations == 50
     for wrong in (0, 51):
         with pytest.raises(ValueError):
@@ -160,7 +162,9 @@ def test_an_agent_without_tools_has_an_empty_list(api: TestClient, llm: FakeLlm)
     post(api, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
     wait_for_run(api, task, "done")
     frozen = snapshot_agent(api, task)
-    assert frozen["tools"] == [] and frozen["settings"]["max_iterations"] == 10
+    assert (
+        frozen["tools"] == [] and frozen["settings"]["max_iterations"] is None
+    )  # the runtime applies 10
 
 
 # ── a run with an MCP tool ───────────────────────────────────────────

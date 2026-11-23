@@ -25,7 +25,14 @@ from openartifact.agents.resolve import (
     pick_provider,
     setting_states,
 )
-from openartifact.agents.schemas import OVERRIDABLE, AgentConfig, InputSpec
+from openartifact.agents.schemas import (
+    OVERRIDABLE,
+    REQUEST_TIMEOUT_DEFAULT,
+    RETRIES_DEFAULT,
+    TOTAL_TIMEOUT_DEFAULT,
+    AgentConfig,
+    InputSpec,
+)
 from openartifact.agents.service import publish_problems
 from openartifact.engine.context import NodeIndex, RunContext, RunView
 from openartifact.graph.node_types import SettingError, node_type
@@ -33,13 +40,14 @@ from openartifact.graph.node_types import SettingError, node_type
 # ── the configuration ────────────────────────────────────────────────
 
 
-def test_a_configuration_has_the_agreed_defaults() -> None:
+def test_a_configuration_sets_nothing_and_the_runtime_has_the_agreed_defaults() -> None:
     config = AgentConfig()
     assert (config.request_timeout_seconds, config.total_timeout_seconds, config.retries) == (
-        60,
-        600,
-        3,
-    )
+        None,
+        None,
+        None,
+    )  # not set (ADR-046)
+    assert (REQUEST_TIMEOUT_DEFAULT, TOTAL_TIMEOUT_DEFAULT, RETRIES_DEFAULT) == (60, 600, 3)
     assert config.system_prompt_enabled is False
     assert config.temperature is None and config.max_tokens is None
     assert config.provider_id is None and config.model is None
@@ -322,7 +330,9 @@ def test_a_node_setting_that_is_not_set_is_inherited() -> None:
     assert set(values) == set(OVERRIDABLE)
     assert (values["temperature"], values["retries"], values["max_tokens"]) == (0.2, 0, 50)
     states = {s.key: s for s in setting_states(AGENT, node)}
-    assert states["retries"].overridden and states["retries"].inherited == 3
+    assert (
+        states["retries"].overridden and states["retries"].inherited is None
+    )  # the agent sets none
     assert not states["temperature"].overridden and states["temperature"].value == 0.2
     # a value the agent does not set can be switched on by the node: that is an override too
     assert states["max_tokens"].overridden and states["max_tokens"].inherited is None

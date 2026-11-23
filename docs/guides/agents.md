@@ -69,9 +69,12 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
   | any | yes, and the source cannot be resolved | the node fails and names the reference |
   | any | yes, and the value does not fit the type | the node fails |
 
-- **Model and limits.** Provider and model are optional (see defaults above). Temperature 0 to 2, max tokens 1 to
-  8192, request timeout 1 to 300 s (60), time limit of the node 1 to 1800 s (600), retries 0 to 4 (3), max iterations
-  1 to 50 (10; counts only with tools, see section 4).
+- **Model and limits** (ADR-046). Every setting is optional and is added with *Add setting* in its card: *Model
+  configuration* (provider, model, temperature 0 to 2, max tokens 1 to 8192) and *Execution limits* (request timeout 1 to
+  300 s, node time limit 1 to 1800 s, retries 0 to 4, max iterations 1 to 50, counting only with tools, see section 4).
+  The bin removes a setting: it is then **not set**, and at the node its override, else the default applies (default
+  provider and its default model; 60 s, 600 s, 3 retries, 10 iterations). An agent without provider and model can be
+  published; whether one can be resolved is checked at the node.
 - **Draft and versions.** You edit the *draft*. Nothing an execution uses changes until you **publish**: that makes a
   new version (numbers count up, a version is never changed) and executions that start from then on use it. *Discard
   draft* goes back to the published version. **Publish again** on an earlier version is the rollback: a new version with

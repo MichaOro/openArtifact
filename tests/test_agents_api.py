@@ -67,7 +67,9 @@ def test_a_new_agent_has_a_draft_and_nothing_published(api: TestClient) -> None:
     )
     assert agent["published_number"] is None and agent["published"] is None
     assert agent["draft_changed"] is True and agent["versions"] == [] and agent["node_count"] == 0
-    assert agent["draft"]["retries"] == 3 and agent["draft"]["request_timeout_seconds"] == 60
+    assert (
+        agent["draft"]["retries"] is None and agent["draft"]["request_timeout_seconds"] is None
+    )  # not set (ADR-046)
     assert agent["problems"] == ["The user prompt is empty"]
     assert api.get(f"/api/agents/{agent['id']}").json() == agent
     assert api.get("/api/agents/triage").json()["id"] == agent["id"]  # by name, ignoring case
@@ -463,7 +465,9 @@ def test_the_preview_of_a_node_applies_its_overrides_and_mapping(
         "inherited": 0.2,
         "overridden": True,
     }
-    assert settings["retries"]["overridden"] is False and settings["retries"]["value"] == 3
+    assert (
+        settings["retries"]["overridden"] is False and settings["retries"]["value"] is None
+    )  # not set: the runtime default
     assert preview["model"] == "large" and preview["problems"] == [
         'Model "large" is not enabled for provider "Local"'
     ]

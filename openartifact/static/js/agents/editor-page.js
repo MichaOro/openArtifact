@@ -9,12 +9,13 @@ import { FormDialog } from "../components/form-dialog.js";
 import { icon } from "../components/icons.js";
 import { Modal } from "../components/modal.js";
 import { OptionsPanel } from "../components/options-panel.js";
+import { SettingsGroup, numberSetting } from "../components/settings-group.js";
 import { Switch } from "../components/switch.js";
 import { Tabs } from "../components/tabs.js";
 import { connectEvents } from "../tasks/events.js";
 import { formatTime } from "../tasks/history-format.js";
 import { agentUses, discardDraft, getAgent, listProviders, previewAgent, publishAgent, republishVersion, saveDraft, updateAgent } from "./api.js";
-import { agentChips, fieldLabel, numberOf, optionsOf, providerInEffect, sampleHint, usableModels } from "./model.js";
+import { agentChips, fieldLabel, optionsOf, providerInEffect, sampleHint, usableModels } from "./model.js";
 import { chip, configFacts, el, previewView, problemList } from "./view.js";
 
 const root = document.querySelector("[data-agent-editor]");
@@ -27,7 +28,6 @@ const $ = (selector) => root.querySelector(selector);
 const control = (key) => root.querySelector(`[data-field="${key}"]`);
 
 const NUMBERS = ["temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations"];
-const DEFAULTS = { request_timeout_seconds: 60, total_timeout_seconds: 600, retries: 3, max_iterations: 10 };
 const ORIGINS = { user: "in the browser", api: "through the API" };
 
 let agent = null;
@@ -62,6 +62,50 @@ function showOption(key, on) {
 }
 
 const active = new Switch($("[data-active]"));
+
+// ── Model & Limits: two cards of optional settings (ADR-046); a setting not added is "not set" ──
+
+const selectSetting = (key, label, hint) => ({
+  key,
+  label,
+  hint,
+  create: () => el("select", "field__control"),
+  read: (select) => select.value || null,
+  write: () => {}, // filled by onAdd and fillModelSelects
+});
+const modelGroup = new SettingsGroup(
+  $('[data-settings="model"]'),
+  [
+    selectSetting("provider_id", "Provider", "Where the requests go; not set: the default provider."),
+    selectSetting("model", "Model", "Not set: the provider's default model."),
+    numberSetting("temperature", "Temperature", { min: 0, max: 2, step: 0.1, hint: "0 to 2. Not set: the model's own." }),
+    numberSetting("max_tokens", "Max tokens", { min: 1, max: 8192, hint: "1 to 8192. Not set: the model's own." }),
+  ],
+  {
+    onChange: () => {
+      fillModelSelects(readValue("provider_id"), readValue("model"));
+      changed();
+    },
+    onAdd: (key, select) => {
+      if (key === "provider_id") select.addEventListener("change", () => fillModelSelects(select.value || null, null));
+    },
+  },
+);
+const limitsGroup = new SettingsGroup(
+  $('[data-settings="limits"]'),
+  [
+    numberSetting("request_timeout_seconds", "Request timeout", { min: 1, max: 300, hint: "Seconds, 1 to 300. Not set: 60." }),
+    numberSetting("total_timeout_seconds", "Node time limit", { min: 1, max: 1800, hint: "Seconds, 1 to 1800; covers all attempts and waits. Not set: 600." }),
+    numberSetting("retries", "Retries", { min: 0, max: 4, hint: "0 to 4. Not set: 3." }),
+    numberSetting("max_iterations", "Max iterations", { min: 1, max: 50, hint: "1 to 50; requests while the model calls tools. Not set: 10." }),
+  ],
+  { onChange: () => changed() },
+);
+
+/** The value of a Model & Limits setting as the cards hold it (null: not added). */
+function readValue(key) {
+  return { ...modelGroup.read(), ...limitsGroup.read() }[key];
+}
 
 function inputRow(input = { name: "", type: "string", required: false, default: null, description: "" }) {
   const row = el("li", "ag-input");
@@ -126,19 +170,22 @@ function readConfig() {
     system_prompt: control("system_prompt").value,
     user_prompt: control("user_prompt").value,
     inputs: readInputs(),
-    provider_id: control("provider_id").value || null,
-    model: control("model").value || null,
+    ...modelGroup.read(), // a setting that is not added is null: not set, the default applies
+    ...limitsGroup.read(),
   };
-  for (const key of NUMBERS) {
-    const value = numberOf(control(key).value);
-    config[key] = value === null ? (DEFAULTS[key] ?? null) : value;
-  }
   return config;
 }
 
-function fillModels(selected) {
-  const select = control("model");
-  const provider = providerInEffect(providers, control("provider_id").value || null);
+/** Fill the provider and model selects that are added (the model list follows the provider in effect). */
+function fillModelSelects(providerId, model) {
+  const providerSelect = modelGroup.control("provider_id");
+  if (providerSelect) fillProviders(providerSelect, providerId);
+  const modelSelect = modelGroup.control("model");
+  if (modelSelect) fillModels(modelSelect, providerId, model);
+}
+
+function fillModels(select, providerId, selected) {
+  const provider = providerInEffect(providers, providerId);
   const models = usableModels(provider);
   const fallback = provider?.default_model ? `Default of the provider (${provider.default_model})` : "Default of the provider (none set)";
   select.replaceChildren(new Option(provider ? fallback : "No provider", ""), ...models.map((id) => new Option(id, id)));
@@ -146,8 +193,7 @@ function fillModels(selected) {
   select.value = selected ?? "";
 }
 
-function fillProviders(selected) {
-  const select = control("provider_id");
+function fillProviders(select, selected) {
   const fallback = providers.find((p) => p.is_default);
   select.replaceChildren(new Option(fallback ? `Default provider (${fallback.name})` : "Default provider (none set)", ""), ...providers.map((p) => new Option(p.name, p.id)));
   if (selected && !providers.some((p) => p.id === selected)) select.append(new Option("(deleted provider)", selected));
@@ -162,9 +208,9 @@ function fillForm(config) {
   control("system_prompt").value = config.system_prompt;
   control("user_prompt").value = config.user_prompt;
   $("[data-inputs]").replaceChildren(...config.inputs.map(inputRow));
-  fillProviders(config.provider_id);
-  fillModels(config.model);
-  for (const key of NUMBERS) control(key).value = config[key] ?? "";
+  modelGroup.load(config);
+  limitsGroup.load(config);
+  fillModelSelects(config.provider_id, config.model);
   dirty = false;
   renderSamples();
 }
@@ -326,7 +372,7 @@ async function run(action) {
 
 /** Save what the form holds as the draft (the server checks the bounds and says what is missing). */
 async function save() {
-  for (const key of NUMBERS) if (Number.isNaN(numberOf(control(key).value))) throw new Error(`${fieldLabel(key)} must be a number.`);
+  for (const key of NUMBERS) if (Number.isNaN(readValue(key))) throw new Error(`${fieldLabel(key)} must be a number.`);
   show(await saveDraft(agent.id, readConfig()), { form: false });
   dirty = false;
   renderState();
@@ -340,7 +386,6 @@ root.addEventListener("input", (event) => {
 root.addEventListener("change", (event) => {
   if (event.target.closest("[data-field], [data-inputs]")) changed();
 });
-control("provider_id").addEventListener("change", () => fillModels(null));
 $("[data-add-input]").addEventListener("click", () => {
   const row = inputRow();
   $("[data-inputs]").append(row);
@@ -424,8 +469,7 @@ connectEvents({
         if (type === "providers.changed") {
           providers = await listProviders();
           if (!dirty) {
-            fillProviders(control("provider_id").value || null);
-            fillModels(control("model").value || null);
+            fillModelSelects(readValue("provider_id"), readValue("model"));
           }
         }
         show(await getAgent(ref), { form: !dirty }); // never overwrite what is being typed

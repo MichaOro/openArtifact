@@ -97,3 +97,75 @@ def api(migrated_settings: Settings) -> Generator[TestClient, None, None]:
 def llm() -> Iterator[FakeLlm]:
     with fake_llm() as server:
         yield server
+
+
+# ── Model & Limits: every setting optional, unset is not the default (ADR-046) ──
+
+
+def test_every_model_and_limit_setting_may_be_unset() -> None:
+    config = AgentConfig(user_prompt="Hi")
+    assert (config.request_timeout_seconds, config.total_timeout_seconds) == (None, None)
+    assert (config.retries, config.max_iterations, config.provider_id, config.model) == (
+        None,
+        None,
+        None,
+        None,
+    )
+    assert config.limits_on is False  # nothing set: nothing to switch on
+    assert (
+        AgentConfig(retries=3).limits_on is True
+    )  # an explicit value counts, even the default one
+
+
+def test_a_stored_agent_from_before_reads_its_old_default_limits_as_unset() -> None:
+    """Older drafts stored the four limits always; the runtime default and the old stored default are the same
+    value, so treating them as unset changes no run and keeps the editor free of settings nobody chose."""
+    old = AgentConfig.loads(
+        '{"user_prompt": "Hi", "request_timeout_seconds": 60, "total_timeout_seconds": 600, '
+        '"retries": 3, "max_iterations": 10}'
+    )
+    assert (old.request_timeout_seconds, old.retries, old.limits_on) == (None, None, False)
+    chosen = AgentConfig.loads('{"user_prompt": "Hi", "retries": 1, "total_timeout_seconds": 600}')
+    assert (chosen.retries, chosen.total_timeout_seconds) == (1, None)
+    new = AgentConfig.loads('{"user_prompt": "Hi", "retries": 3, "limits_enabled": true}')
+    assert new.retries == 3  # with the switch stored, a value is what the user set
+
+
+def test_the_limits_out_of_range_are_still_refused() -> None:
+    for field, value in (("retries", 5), ("request_timeout_seconds", 0), ("max_iterations", 51)):
+        with pytest.raises(ValueError, match=field):
+            AgentConfig(**{field: value})
+
+
+def test_an_agent_without_provider_model_and_limits_is_published_and_a_run_uses_the_defaults(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    make_provider(api, llm)  # the default provider: it decides at the node
+    agent = make_agent(api)
+    assert agent["published"]["provider_id"] is None and agent["published"]["retries"] is None
+    llm.hits.clear()
+    run = _run(api, _flow(api, agent))
+    assert llm.completions()[0]["json"]["model"] == "small"  # the provider's default model
+    step = next(r for r in run["node_results"] if r["kind"] == "agent")
+    detail = api.get(
+        f"/api/tasks/{run['task']['id']}/executions/{run['execution_id']}/steps/{step['id']}"
+    ).json()["detail"]
+    assert detail["settings"]["retries"] == 3 and detail["settings"]["max_iterations"] == 10
+
+
+def test_a_node_override_wins_over_the_agent_and_the_agent_over_the_default(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    make_provider(api, llm)
+    agent = make_agent(api, max_tokens=50, temperature=0.4, limits_enabled=True)
+    llm.hits.clear()
+    _run(api, _flow(api, agent, max_tokens=7))
+    sent = llm.completions()[0]["json"]
+    assert (sent["max_tokens"], sent["temperature"]) == (7, 0.4)  # node, then agent
+
+
+def test_without_any_provider_the_node_says_what_is_missing(api: TestClient) -> None:
+    agent = make_agent(api)  # published although nothing chooses a provider
+    run = _run(api, _flow(api, agent), "failed")
+    reason = next(r for r in run["node_results"] if r["kind"] == "agent")["reason"]
+    assert "provider" in reason.lower()

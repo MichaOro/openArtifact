@@ -179,6 +179,11 @@ def _option(editor: Locator, key: str) -> None:
     panel.locator(f'[data-option="{key}"] [role=switch]').click()
 
 
+def _add_setting(editor: Locator, group: str, label: str) -> None:
+    editor.locator(f'[data-settings="{group}"] [data-settings-add]').click()
+    editor.page.get_by_role("menuitem", name=label).click()
+
+
 def _tab(editor: Locator, name: str) -> None:
     editor.get_by_role("tab", name=name, exact=True).click()
 
@@ -483,7 +488,8 @@ def test_a_new_agent_shows_only_the_prompts_and_the_options_switch_areas_on_and_
     editor.locator("[data-add-input]").click()
     editor.locator(".ag-input").get_by_label("Name", exact=True).fill("ticket")
     _tab(editor, "Model & Limits")
-    editor.get_by_label("Retries").fill("1")
+    _add_setting(editor, "limits", "Retries")
+    editor.get_by_label("Retries", exact=True).fill("1")
     _tab(editor, "Inputs")
     expect(editor.locator(".ag-input").get_by_label("Name", exact=True)).to_have_value("ticket")
     _option(editor, "inputs")  # the tab that is shown goes: back to Prompts
@@ -523,8 +529,90 @@ def test_the_switches_are_kept_with_the_draft_and_quick_test_and_the_panel_are_n
     ]  # Quick test is off again
     # a switched-off area is kept, not deleted: Model & Limits off and on keeps its values
     _tab(editor, "Model & Limits")
-    editor.get_by_label("Retries").fill("1")
+    _add_setting(editor, "limits", "Retries")
+    editor.get_by_label("Retries", exact=True).fill("1")
     _option(editor, "limits")
     _option(editor, "limits")
     _tab(editor, "Model & Limits")
-    expect(editor.get_by_label("Retries")).to_have_value("1")
+    expect(editor.get_by_label("Retries", exact=True)).to_have_value("1")
+
+
+# ── Model & Limits: optional settings (ADR-046) ──────────────────────
+
+
+def test_model_and_limit_settings_are_added_removed_and_saved_as_not_set(
+    signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
+) -> None:
+    _provider(api, llm)
+    agent = api.post(
+        "/api/agents", json={"name": "Settings", "draft": {"user_prompt": "Hi"}}
+    ).json()
+    page = signed_in
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    _option(editor, "limits")
+    _tab(editor, "Model & Limits")
+    model, limits = (
+        editor.locator('[data-settings="model"]'),
+        editor.locator('[data-settings="limits"]'),
+    )
+    expect(model.locator(".setting")).to_have_count(0)  # nothing set
+    expect(limits.locator("[data-settings-empty]")).to_be_visible()
+    # the menu offers only what is not added yet
+    model.locator("[data-settings-add]").click()
+    expect(page.get_by_role("menuitem")).to_have_text(
+        ["Provider", "Model", "Temperature", "Max tokens"]
+    )
+    page.get_by_role("menuitem", name="Temperature").click()
+    expect(model.get_by_label("Temperature", exact=True)).to_be_focused()
+    model.locator("[data-settings-add]").click()
+    expect(page.get_by_role("menuitem")).to_have_text(["Provider", "Model", "Max tokens"])
+    page.keyboard.press("Escape")
+    model.get_by_label("Temperature", exact=True).fill("0.4")
+    _add_setting(editor, "model", "Model")
+    expect(model.get_by_label("Model", exact=True)).to_contain_text("Default of the provider")
+    model.get_by_label("Model", exact=True).select_option("small")
+    _add_setting(editor, "limits", "Retries")
+    limits.get_by_label("Retries", exact=True).fill("1")
+    for label in ("Request timeout", "Node time limit", "Max iterations"):
+        _add_setting(editor, "limits", label)
+    expect(limits.locator("[data-settings-add]")).to_be_disabled()  # all four are added
+    limits.get_by_role("button", name="Remove Max iterations").click()
+    expect(limits.locator("[data-settings-add]")).to_be_enabled()
+    limits.get_by_role("button", name="Remove Request timeout").click()
+    limits.get_by_role("button", name="Remove Node time limit").click()
+    editor.locator("[data-save]").click()
+    expect(editor.locator("[data-draft-state]")).to_contain_text("The draft is saved")
+    draft = api.get(f"/api/agents/{agent['id']}").json()["draft"]
+    assert (draft["temperature"], draft["model"], draft["retries"]) == (0.4, "small", 1)
+    assert (draft["max_iterations"], draft["request_timeout_seconds"], draft["provider_id"]) == (
+        None,
+        None,
+        None,
+    )  # removed or never added: not set, not a default
+    page.reload()
+    editor = page.locator("[data-agent-editor]")
+    _tab(editor, "Model & Limits")
+    expect(editor.locator('[data-settings="model"] .setting')).to_have_count(2)
+    expect(editor.locator('[data-settings="limits"] .setting')).to_have_count(1)
+    # a removed setting can be added again, empty
+    editor.locator('[data-settings="limits"]').get_by_role("button", name="Remove Retries").click()
+    _add_setting(editor, "limits", "Retries")
+    expect(editor.get_by_label("Retries", exact=True)).to_have_value("")
+    # an agent without provider and model is published: the node decides
+    editor.locator('[data-settings="model"]').get_by_role("button", name="Remove Model").click()
+    editor.locator("[data-publish]").click()
+    expect(editor.locator("[data-notice]")).to_contain_text("Published as version 1")
+
+
+def test_the_quick_test_explains_itself_in_its_name(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    agent = api.post("/api/agents", json={"name": "Hint", "draft": {"user_prompt": "Hi"}}).json()
+    page = signed_in
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    _option(editor, "test")
+    name = editor.locator("[data-quick-test] .ag-hint")
+    expect(name).to_have_text("Quick test")
+    expect(name).to_have_attribute("title", re.compile("not an artifact id"))

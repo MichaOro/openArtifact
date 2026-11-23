@@ -143,8 +143,8 @@ export function toolCallRows(turns) {
   );
 }
 
-/** The defaults of "Model & Limits" in the backend (agents/schemas.py LIMIT_KEYS). */
-export const LIMIT_DEFAULTS = { provider_id: null, model: null, temperature: null, max_tokens: null, request_timeout_seconds: 60, total_timeout_seconds: 600, retries: 3, max_iterations: 10 };
+/** The settings of "Model & Limits" (agents/schemas.py LIMIT_KEYS); not set is null (ADR-046). */
+export const LIMIT_DEFAULTS = { provider_id: null, model: null, temperature: null, max_tokens: null, request_timeout_seconds: null, total_timeout_seconds: null, retries: null, max_iterations: null };
 
 /**
  * Which optional areas of an agent are switched on (ADR-045), as the backend reads them: a stored switch wins;
