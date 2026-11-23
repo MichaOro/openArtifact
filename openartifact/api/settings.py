@@ -26,10 +26,12 @@ DESCRIPTION = (
 )
 
 RETENTION = (
-    "Which finished executions are deleted, for all artifacts: a tree of groups (``mode`` ``all`` or ``any``) "
-    "holding conditions on ``status`` (done, failed, stopped), ``started_by``, ``pipeline`` (name, ignoring case) "
-    "and ``age`` (``older_than`` seconds). A match is deleted for good with its steps, a running execution never; "
-    "an empty rule deletes nothing. The rules are checked whenever an execution is added or finishes."
+    "What happens to finished executions, for all artifacts: a list of rules, each ``when`` a tree of groups "
+    "(``mode`` ``all`` or ``any``) holding conditions on ``status`` (done, failed, stopped), ``started_by``, "
+    "``pipeline`` (name, ignoring case), ``age`` (``older_than`` seconds) and ``position`` (``beyond`` the newest "
+    "N of the artifact), ``then`` an ``action`` (``delete``: for good, with the steps). A running execution is "
+    "never touched and a rule without conditions does nothing. The rules are checked whenever an execution is "
+    "added or finishes."
 )
 
 
@@ -93,6 +95,7 @@ def build_settings_router(
 
     class RulesPreview(BaseModel):
         matching: int
+        per_rule: list[int]
 
     @router.get(
         "/retention",
@@ -136,7 +139,10 @@ def build_settings_router(
         responses=errors(422, body=True),
     )
     async def preview_retention(payload: retention.Rules, session: SessionDep) -> RulesPreview:
-        found = await retention.matching_ids(session, payload, history_module.utcnow())
-        return RulesPreview(matching=len(found))
+        now = history_module.utcnow()
+        found = await retention.matching_ids(session, payload, now)
+        return RulesPreview(
+            matching=len(found), per_rule=await retention.count_per_rule(session, payload, now)
+        )
 
     return router

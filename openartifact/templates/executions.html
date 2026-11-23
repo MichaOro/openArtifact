@@ -142,8 +142,9 @@
 {% call modal("retention-modal", "Retention") %}
 <form class="task-form" id="retention-form" novalidate>
     <div class="modal__body">
-        <p class="field__help">Executions that match these rules are deleted for good, with their steps, whenever an execution starts or
-            finishes and when you save. A running execution is never deleted. Without conditions nothing is deleted automatically.</p>
+        <p class="field__help">Each rule says <em>if</em> conditions hold for a finished execution, <em>then</em> what happens to it. The
+            rules are checked whenever an execution starts or finishes and when you save. Deleting is for good, with the steps; a running
+            execution is never touched, and a rule without conditions does nothing.</p>
         <div data-rules></div>
         <p class="field__help" data-rule-text></p>
         <p class="ag-warning" data-preview role="status" hidden></p>

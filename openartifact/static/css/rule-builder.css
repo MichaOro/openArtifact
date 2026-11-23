@@ -33,3 +33,14 @@
 .rb-group__foot { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .rb-add .icon { width: 1rem; height: 1rem; }
 .rb-empty { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); }
+
+/* A set of rules (components/rule-set.js): each "if conditions, then action" in its own card */
+.rs { display: flex; flex-direction: column; gap: var(--space-3); }
+.rs-rule { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--glass-bg); }
+.rs-rule__head { display: flex; align-items: center; justify-content: space-between; }
+.rs-rule__title { margin: 0; font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); }
+.rs-rule__label { margin: 0; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
+.rs-rule__then { display: flex; align-items: center; gap: var(--space-3); }
+.rs-rule__then .rb-select { flex: 0 1 18rem; width: auto; }
+.rs-add { align-self: flex-start; }
+.rs-add .icon { width: 1rem; height: 1rem; }

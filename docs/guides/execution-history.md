@@ -57,7 +57,7 @@ limit of that kind).
 
 ### Retention rules (all artifacts)
 
-*Executions → Retention* opens a rule builder: groups that say *all* (AND) or *any* (OR) of their conditions hold, with
+*Executions → Retention* is a list of rules, each **if** conditions hold for a finished execution **then** an action (so far only *Delete the execution*; another action such as archiving or sending a mail would be one more entry). A rule is a rule builder: groups that say *all* (AND) or *any* (OR) of their conditions hold, with
 inner groups, and conditions on **Status** (done, failed, stopped), **Pipeline** (is, is not, contains), **Started by**
 **Age** (older than N minutes, hours or days) and **Position among the artifact's executions** (beyond the newest N: the same as *keep the last N*, counted per artifact). A finished execution that the rule matches is deleted for good with
 its steps; a running one never is, and a rule without conditions deletes nothing. The rules are applied whenever an

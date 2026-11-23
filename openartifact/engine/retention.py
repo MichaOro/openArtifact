@@ -1,6 +1,9 @@
-"""Retention rules (ADR-052): which finished executions are deleted, for all artifacts.
+"""Retention rules (ADR-052): what happens to finished executions, for all artifacts.
 
-A rule is a tree: a group says *all* or *any* of its items must hold; an item is a condition or an inner group.
+The rules are a list; each says *when* (a condition tree) *then* an action. The only action so far is ``delete``
+(for good, with the steps); ``ACTIONS`` is where another one (archive, notify) would be added.
+
+A condition tree is: a group says *all* or *any* of its items must hold; an item is a condition or an inner group.
 A condition tests one field of an execution: ``status`` and ``started_by`` (is / is not one of some values),
 ``pipeline`` (is / is not / contains a name, ignoring case), ``age`` (older than some seconds, counted from the
 start) or ``position`` (beyond the newest N executions of the same artifact: *keep the last N*). An execution that the tree matches is deleted for good, with its steps; a running one never is, and an
@@ -16,7 +19,7 @@ import json
 from datetime import timedelta
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from sqlalchemy import ColumnElement, and_, false, func, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -26,7 +29,10 @@ from openartifact.models.enums import RunStatus, StartedBy
 
 KEY = "history.rules"
 MAX_DEPTH = 4  # a group inside a group inside ...
-MAX_CONDITIONS = 50
+MAX_CONDITIONS = 50  # in one rule
+MAX_RULES = 20
+#: What a rule can do. Only deleting exists; another action is an entry here and a branch where the rules are applied.
+ACTIONS = ("delete",)
 MIN_AGE_SECONDS, MAX_AGE_SECONDS = 60, 10 * 365 * 24 * 3600
 #: What a status condition may name: a running execution is never deleted, so it cannot be a target.
 STATUSES = (RunStatus.DONE, RunStatus.FAILED, RunStatus.STOPPED)
@@ -105,23 +111,37 @@ class Group(BaseModel):
 Group.model_rebuild()
 
 
-class Rules(BaseModel):
-    """The whole rule: the root group, checked for depth and size."""
+class Rule(BaseModel):
+    """*When* a condition tree holds, *then* an action on the execution."""
 
     model_config = ConfigDict(extra="forbid")
 
-    rules: Group = Field(default_factory=Group)
+    when: Group = Field(default_factory=Group)
+    action: str = "delete"
+
+    @field_validator("action")
+    @classmethod
+    def _known(cls, action: str) -> str:
+        if action not in ACTIONS:
+            raise ValueError(f"unknown action {action[:40]!r}: use {', '.join(ACTIONS)}")
+        return action
 
     @model_validator(mode="after")
-    def _bounded(self) -> Rules:
+    def _bounded(self) -> Rule:
         def walk(group: Group, depth: int) -> int:
             if depth > MAX_DEPTH:
                 raise ValueError(f"groups are nested too deep (at most {MAX_DEPTH} levels)")
             return sum(walk(i, depth + 1) if isinstance(i, Group) else 1 for i in group.items)
 
-        if walk(self.rules, 1) > MAX_CONDITIONS:
-            raise ValueError(f"at most {MAX_CONDITIONS} conditions")
+        if walk(self.when, 1) > MAX_CONDITIONS:
+            raise ValueError(f"at most {MAX_CONDITIONS} conditions in a rule")
         return self
+
+
+class Rules(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rules: list[Rule] = Field(default_factory=list, max_length=MAX_RULES)
 
 
 def _like_escaped(text: str) -> str:
@@ -161,7 +181,7 @@ def where(group: Group, now: Any) -> ColumnElement[bool]:
     parts = [
         where(i, now) if isinstance(i, Group) else _condition(i, now)
         for i in group.items
-        if not (isinstance(i, Group) and is_empty(Rules(rules=i)))
+        if not (isinstance(i, Group) and group_is_empty(i))
     ]
     if not parts:
         return false()
@@ -169,9 +189,21 @@ def where(group: Group, now: Any) -> ColumnElement[bool]:
     return combined
 
 
-def matching(rules: Rules, now: Any) -> ColumnElement[bool]:
-    """Finished executions the rules match (a running one never)."""
-    return and_(Execution.status != RunStatus.RUNNING, where(rules.rules, now))
+def group_is_empty(group: Group) -> bool:
+    """No condition anywhere in the group (an inner group that is empty counts as nothing)."""
+    return all(group_is_empty(i) if isinstance(i, Group) else False for i in group.items)
+
+
+def matching(rule: Rule, now: Any) -> ColumnElement[bool]:
+    """Finished executions one rule matches (a running one never)."""
+    return and_(Execution.status != RunStatus.RUNNING, where(rule.when, now))
+
+
+def _legacy(data: Any) -> Any:
+    """Rules stored as one tree before actions existed become one rule that deletes."""
+    if isinstance(data, dict) and isinstance(data.get("rules"), dict):
+        return {"rules": [{"when": data["rules"], "action": "delete"}]}
+    return data
 
 
 async def load_rules(session: AsyncSession) -> Rules:
@@ -179,11 +211,11 @@ async def load_rules(session: AsyncSession) -> Rules:
     if row is None:
         return Rules()
     try:
-        return Rules.model_validate(json.loads(row.value))
+        return Rules.model_validate(_legacy(json.loads(row.value)))
     except (ValueError, ValidationError):
         return (
             Rules()
-        )  # a stored rule that no longer fits does nothing, rather than deleting by a guess
+        )  # a stored rule that no longer fits does nothing, rather than acting on a guess
 
 
 async def save_rules(session: AsyncSession, rules: Rules) -> None:
@@ -195,18 +227,33 @@ async def save_rules(session: AsyncSession, rules: Rules) -> None:
         row.value = value
 
 
-def is_empty(rules: Rules) -> bool:
-    def has_condition(group: Group) -> bool:
-        return any(has_condition(i) if isinstance(i, Group) else True for i in group.items)
-
-    return not has_condition(rules.rules)
+def _usable(rules: Rules, action: str) -> list[Rule]:
+    return [r for r in rules.rules if r.action == action and not group_is_empty(r.when)]
 
 
-async def matching_ids(session: AsyncSession, rules: Rules, now: Any) -> list[tuple[str, str]]:
-    """``(task id, execution id)`` of the finished executions the rules match."""
-    if is_empty(rules):
+async def matching_ids(
+    session: AsyncSession, rules: Rules, now: Any, action: str = "delete"
+) -> list[tuple[str, str]]:
+    """``(task id, execution id)`` of the finished executions any rule with this action matches, each once."""
+    usable = _usable(rules, action)
+    if not usable:
         return []
-    rows = await session.execute(
-        select(Execution.task_id, Execution.id).where(matching(rules, now))
-    )
+    clause = or_(*[matching(r, now) for r in usable])
+    rows = await session.execute(select(Execution.task_id, Execution.id).where(clause))
     return [(r.task_id, r.id) for r in rows]
+
+
+async def count_per_rule(session: AsyncSession, rules: Rules, now: Any) -> list[int]:
+    """How many executions each rule matches on its own (an empty rule: none)."""
+    counts = []
+    for rule in rules.rules:
+        if group_is_empty(rule.when):
+            counts.append(0)
+            continue
+        counts.append(
+            await session.scalar(
+                select(func.count()).select_from(Execution).where(matching(rule, now))
+            )
+            or 0
+        )
+    return counts

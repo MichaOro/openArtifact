@@ -4,6 +4,7 @@ import { test } from "node:test";
 const M = await import("../../openartifact/static/js/components/rule-model.js");
 
 const SCHEMA = {
+  actions: [{ key: "delete", label: "Delete the execution", phrase: "Delete finished executions where", effect: "deletes" }],
   fields: [
     { key: "status", label: "Status", kind: "choice", options: [{ value: "done", label: "Done" }, { value: "failed", label: "Failed" }], operators: [{ key: "is", label: "is" }, { key: "is_not", label: "is not" }] },
     { key: "pipeline", label: "Pipeline", kind: "text", operators: [{ key: "is", label: "is" }, { key: "contains", label: "contains" }] },
@@ -93,4 +94,19 @@ test("a count field starts at its default, is complete when positive and is told
   assert.equal(M.describe(rule, SCHEMA), "Position is beyond the newest 20");
   rule.items[0].value = 0;
   assert.equal(M.isComplete(rule), false);
+});
+
+test("a new rule has an empty condition tree and the first action; a rule is told with its action's phrase", () => {
+  assert.deepEqual(M.emptyRule(SCHEMA), { when: M.emptyGroup(), action: "delete" });
+  const rule = { when: { type: "group", mode: "all", items: [{ type: "condition", field: "status", op: "is", value: ["failed"] }] }, action: "delete" };
+  assert.equal(M.describeRule(rule, SCHEMA), "Delete finished executions where Status is Failed.");
+  assert.equal(M.describeRule(M.emptyRule(SCHEMA), SCHEMA), "", "no conditions, nothing to tell");
+});
+
+test("what saving does is named after the actions of the rules that match something", () => {
+  const two = { ...SCHEMA, actions: [...SCHEMA.actions, { key: "archive", label: "Archive", phrase: "Archive", effect: "archives" }] };
+  const rules = [{ action: "delete" }, { action: "archive" }];
+  assert.equal(M.effectOf(two, rules, [2, 0]), "deletes");
+  assert.equal(M.effectOf(two, rules, [2, 1]), "deletes or archives");
+  assert.equal(M.effectOf(two, rules, [0, 0]), "");
 });

@@ -29,8 +29,13 @@ def _cond(field: str, op: str, value: Any) -> dict[str, Any]:
     return {"type": "condition", "field": field, "op": op, "value": value}
 
 
-def _put(client: TestClient, rules: dict[str, Any], **query: Any) -> Any:
-    return client.put(RULES, json={"rules": rules}, params=query)
+def _rule(when: dict[str, Any], action: str = "delete") -> dict[str, Any]:
+    return {"when": when, "action": action}
+
+
+def _put(client: TestClient, when: dict[str, Any], **query: Any) -> Any:
+    """Save one rule: if `when` holds, delete (the rules are a list of when / then)."""
+    return client.put(RULES, json={"rules": [_rule(when)]}, params=query)
 
 
 @pytest.fixture
@@ -70,7 +75,7 @@ def old(client: TestClient, seed: Seed) -> dict[str, str]:
 def test_no_rules_are_stored_until_some_are_saved_and_an_empty_rule_deletes_nothing(
     client: TestClient, old: dict[str, str]
 ) -> None:
-    assert client.get(RULES).json()["rules"] == _group()
+    assert client.get(RULES).json()["rules"] == []
     assert _put(client, _group()).json()["deleted"] == 0
     assert _put(client, _group(_group())).json()["deleted"] == 0  # an empty group matches nothing
     assert len(_list(client)["items"]) == 6
@@ -96,7 +101,7 @@ def test_invalid_rules_are_refused_with_the_reason(client: TestClient) -> None:
         deep = _group(deep)
     assert _put(client, deep).status_code == 422  # nested too deep
     assert _put(client, _group(*[_cond("age", "older_than", 3600)] * 51)).status_code == 422
-    assert client.get(RULES).json()["rules"] == _group()  # nothing was stored
+    assert client.get(RULES).json()["rules"] == []  # nothing was stored
 
 
 # ── what a rule deletes ──────────────────────────────────────────────
@@ -160,10 +165,10 @@ def test_a_preview_counts_what_saving_would_delete_and_deletes_nothing(
     client: TestClient, old: dict[str, str]
 ) -> None:
     rules = _group(_cond("status", "is", ["done"]))
-    preview = client.post(f"{RULES}/preview", json={"rules": rules}).json()
-    assert preview == {"matching": 3}  # done_old, done_api, fresh
+    preview = client.post(f"{RULES}/preview", json={"rules": [_rule(rules)]}).json()
+    assert preview == {"matching": 3, "per_rule": [3]}  # done_old, done_api, fresh
     assert len(_list(client)["items"]) == 6
-    assert client.get(RULES).json()["rules"] == _group()
+    assert client.get(RULES).json()["rules"] == []
 
 
 # ── push driven: when something is added or finishes ─────────────────
@@ -213,7 +218,7 @@ def test_old_executions_go_when_a_new_one_starts_without_any_save(
 def test_the_rules_need_the_access_token_like_everything_else(secured: TestClient) -> None:
     open_client = TestClient(secured.app)
     assert open_client.get(RULES).status_code == 401
-    assert open_client.put(RULES, json={"rules": _group()}).status_code == 401
+    assert open_client.put(RULES, json={"rules": []}).status_code == 401
 
 
 def test_an_empty_inner_group_is_ignored_it_neither_blocks_nor_matches_everything(
@@ -257,3 +262,72 @@ def test_position_and_other_conditions_combine(client: TestClient, seed: Seed) -
     rules = _group(_cond("position", "beyond", 3), _cond("status", "is", ["failed"]))
     assert _put(client, rules).json()["deleted"] == 1
     assert ids[1] not in set(_ids(_list(client))) and len(_ids(_list(client))) == 5
+
+
+# ── several rules, each with an action ───────────────────────────────
+
+
+def test_rules_are_a_list_of_when_and_then_and_they_add_up(
+    client: TestClient, old: dict[str, str]
+) -> None:
+    rules = [
+        _rule(_group(_cond("status", "is", ["failed"]))),
+        _rule(_group(_cond("pipeline", "is", "deploy"), _cond("started_by", "is", ["api"]))),
+        _rule(
+            _group(_cond("status", "is", ["failed"]), _cond("pipeline", "is", "deploy"))
+        ),  # overlaps nothing
+    ]
+    saved = client.put(RULES, json={"rules": rules}).json()
+    assert saved["deleted"] == 2  # failed_old, done_api
+    assert [r["action"] for r in saved["rules"]] == ["delete"] * 3
+    assert set(_ids(_list(client))) == {
+        old["done_old"],
+        old["stopped_old"],
+        old["running"],
+        old["fresh"],
+    }
+    assert [r["when"] for r in client.get(RULES).json()["rules"]] == [r["when"] for r in rules]
+
+
+def test_the_preview_counts_each_rule_and_everything_once(
+    client: TestClient, old: dict[str, str]
+) -> None:
+    rules = [
+        _rule(_group(_cond("status", "is", ["done"]))),  # done_old, done_api, fresh
+        _rule(
+            _group(_cond("pipeline", "is", "build"))
+        ),  # done_old, failed_old, fresh (running never)
+    ]
+    preview = client.post(f"{RULES}/preview", json={"rules": rules}).json()
+    assert preview == {
+        "matching": 4,
+        "per_rule": [3, 3],
+    }  # done_old and fresh are in both: counted once in all
+
+
+def test_an_unknown_action_and_too_many_rules_are_refused(client: TestClient) -> None:
+    unknown = client.put(
+        RULES, json={"rules": [_rule(_group(_cond("age", "older_than", 3600)), "archive")]}
+    )
+    assert unknown.status_code == 422 and "archive" in unknown.text
+    many = [_rule(_group(_cond("age", "older_than", 3600)))] * 21
+    assert client.put(RULES, json={"rules": many}).status_code == 422
+    assert (
+        client.put(RULES, json={"rules": [{"when": _group()}]}).status_code == 200
+    )  # the action defaults to delete
+
+
+def test_rules_stored_as_one_tree_before_actions_existed_still_work(
+    client: TestClient, old: dict[str, str]
+) -> None:
+    import json
+    import sqlite3
+
+    path = client.app.state.settings.data_dir / client.app.state.settings.database_filename  # type: ignore[attr-defined]
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "INSERT INTO app_settings (key, value, updated_at) VALUES ('history.rules', ?, '2026-11-23 00:00:00')",
+            (json.dumps({"rules": _group(_cond("status", "is", ["stopped"]))}),),
+        )
+    read = client.get(RULES).json()["rules"]
+    assert read == [_rule(_group(_cond("status", "is", ["stopped"])))]

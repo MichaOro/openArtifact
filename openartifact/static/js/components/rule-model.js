@@ -106,3 +106,20 @@ export function describe(group, schema, nested = false) {
   const text = parts.join(nested ? ` ${glue} ` : `, ${glue} `);
   return nested && parts.length > 1 ? `(${text})` : text;
 }
+
+/** A new rule: no conditions yet, the first action of the schema. */
+export const emptyRule = (schema) => ({ when: emptyGroup(), action: schema.actions[0].key });
+
+/** A rule in a sentence: its action's phrase and its conditions ("Delete finished executions where Status is Failed."). */
+export function describeRule(rule, schema) {
+  const conditions = describe(rule.when, schema);
+  if (!conditions) return "";
+  const action = schema.actions.find((a) => a.key === rule.action) ?? schema.actions[0];
+  return `${action.phrase} ${conditions}.`;
+}
+
+/** What saving does to the executions the rules match now ("deletes", "deletes or archives"); "" when nothing matches. */
+export function effectOf(schema, rules, perRule) {
+  const used = new Set(rules.filter((_, i) => perRule[i] > 0).map((r) => r.action));
+  return schema.actions.filter((a) => used.has(a.key)).map((a) => a.effect).join(" or ");
+}

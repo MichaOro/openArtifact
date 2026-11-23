@@ -16,7 +16,11 @@ to select several rows and delete them at once.
 
 ## 2. Decision
 
-- **Rules are a tree** of groups (*all* / *any*) holding conditions and inner groups. A condition tests `status` (done,
+- **A rule is when / then:** the settings hold a list of rules, each with a condition tree (`when`) and an `action`. The
+  only action is `delete` (`ACTIONS` in `engine/retention.py` is where another, such as archive or notify, would be added
+  with a branch where the rules are applied). The UI is `RuleSet` (a list of rules with a choice of action) around `RuleBuilder`.
+  Rules stored as one tree before this are read as one rule that deletes.
+- **The condition tree** is a tree of groups (*all* / *any*) holding conditions and inner groups. A condition tests `status` (done,
   failed, stopped), `started_by`, `pipeline` (is / is not / contains, ignoring case) or `age` (older than N seconds, from
   the start) or `position` (beyond the newest N executions of the same artifact, which is *keep the last N*). The tree is compiled to one SQL condition (`engine/retention.py`); text is bound, `%` and `_` in a pipeline
   name are text. At most 4 levels and 50 conditions. One row of `app_settings` (`history.rules`, JSON): no migration.

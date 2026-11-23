@@ -682,15 +682,16 @@ def test_the_retention_dialog_builds_a_rule_says_what_it_deletes_and_saving_dele
     dialog = page.locator("#retention-modal")
     expect(dialog).to_be_visible()
     expect(dialog.locator("[data-rule-text]")).to_have_text(
-        "No conditions: nothing is deleted automatically."
+        "No rules: nothing happens to executions automatically."
     )
-
+    dialog.get_by_role("button", name="Add rule").click()
+    expect(dialog.get_by_label("Then")).to_have_value("delete")  # the one action there is so far
     dialog.get_by_role("button", name="Add condition").click()
     expect(dialog.locator(".rb-row")).to_have_count(1)
     expect(dialog.locator("[data-submit]")).to_be_disabled()  # the value is still missing
     dialog.locator(".rb-chip", has_text="Failed").click()
     expect(dialog.locator("[data-rule-text]")).to_have_text(
-        "Deletes finished executions where Status is Failed."
+        "Rule 1: Delete finished executions where Status is Failed."
     )
     expect(dialog.locator("[data-preview]")).to_have_text(
         "1 execution matches now: saving deletes it."
@@ -715,6 +716,17 @@ def test_the_retention_dialog_builds_a_rule_says_what_it_deletes_and_saving_dele
     dialog.locator(".rb-group .rb-group [aria-label='Remove this group']").click()
     expect(dialog.locator(".rb-group")).to_have_count(1)
     second.get_by_role("button", name="Remove this condition").click()  # back to: Status is Failed
+    expect(dialog.locator("[data-submit-label]")).to_have_text("Save and delete 1")
+
+    dialog.get_by_role(
+        "button", name="Add rule"
+    ).click()  # a second rule, empty: it does nothing and is dropped again
+    expect(dialog.locator(".rs-rule")).to_have_count(2)
+    expect(dialog.locator("[data-rule-text]")).to_have_text(
+        "Rule 1: Delete finished executions where Status is Failed."
+    )
+    dialog.get_by_role("button", name="Remove rule 2").click()
+    expect(dialog.locator(".rs-rule")).to_have_count(1)
     expect(dialog.locator("[data-submit-label]")).to_have_text("Save and delete 1")
 
     dialog.locator("[data-submit]").click()
