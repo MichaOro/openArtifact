@@ -11,8 +11,10 @@ call the model and hand the engine a ``NodeResult``. The runtime writes nothing 
 stores the result, and ``detail`` (the prompts as sent, every attempt) is kept with the step only,
 never in the run context.
 
-The first version is one request. A later loop with tools would live inside :func:`run_node` and call
-:func:`run_completion` once per turn; nothing here prepares more than that.
+With tools attached (ADR-040) :func:`run_node` is a loop: each turn is one :func:`run_completion` with the
+tools offered; the tools the answer calls are run (``agents/tools.py``) and their results sent back, until
+an answer calls none or *Max iterations* requests were made. The node's time limit covers every turn and
+every tool call. Without tools it is exactly one request, and no ``tools`` field is sent.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Awaitable, Callable, Mapping
+from contextlib import AbstractAsyncContextManager, AsyncExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -35,11 +38,13 @@ from openartifact.agents.render import (
     resolve_inputs,
 )
 from openartifact.agents.schemas import (
+    ITERATIONS_DEFAULT,
     REQUEST_TIMEOUT_DEFAULT,
     RETRIES_DEFAULT,
     RETRIES_MAX,
     TOTAL_TIMEOUT_DEFAULT,
 )
+from openartifact.agents.tools import Toolbox, ToolboxError
 from openartifact.engine.context import NODE_OUTPUT_LIMIT_BYTES, RunView
 from openartifact.engine.results import NodeResult, failed
 from openartifact.models import ProviderKind
@@ -50,6 +55,7 @@ assert len(BACKOFF_SECONDS) == RETRIES_MAX
 
 Complete = Callable[..., Awaitable[Completion]]
 Sleep = Callable[[float], Awaitable[None]]
+OpenTools = Callable[[], AbstractAsyncContextManager[Toolbox]]
 
 
 @dataclass
@@ -95,7 +101,7 @@ def _now() -> str:
 async def run_completion(
     endpoint: Endpoint,
     model: str,
-    messages: list[dict[str, str]],
+    messages: list[dict[str, Any]],
     *,
     temperature: float | None = None,
     max_tokens: int | None = None,
@@ -104,6 +110,7 @@ async def run_completion(
     retries: int = RETRIES_DEFAULT,
     complete: Complete = client.complete,
     sleep: Sleep = asyncio.sleep,
+    tools: list[dict[str, Any]] | None = None,
 ) -> Outcome:
     """Ask the model once and retry what can pass, within ``total_timeout`` (see the module docstring)."""
     retries = max(0, min(int(retries), RETRIES_MAX))
@@ -122,6 +129,7 @@ async def run_completion(
         allowed = min(request_timeout, left)
         began = time.monotonic()
         error: ProviderError
+        more: dict[str, Any] = {"tools": tools} if tools else {}
         try:
             async with asyncio.timeout(allowed):
                 completion = await complete(
@@ -131,6 +139,7 @@ async def run_completion(
                     temperature=temperature,
                     max_tokens=max_tokens,
                     timeout=allowed,
+                    **more,
                 )
         except TimeoutError:
             error = ProviderError(f"Timeout after {round(allowed, 1):g} s", transient=True)
@@ -194,6 +203,7 @@ def _settings(frozen: Mapping[str, Any]) -> dict[str, Any]:
         or REQUEST_TIMEOUT_DEFAULT,
         "total_timeout_seconds": settings.get("total_timeout_seconds") or TOTAL_TIMEOUT_DEFAULT,
         "retries": RETRIES_DEFAULT if settings.get("retries") is None else settings["retries"],
+        "max_iterations": settings.get("max_iterations") or ITERATIONS_DEFAULT,
     }
 
 
@@ -208,8 +218,10 @@ async def run_node(
     allow_private_networks: bool = False,
     complete: Complete = client.complete,
     sleep: Sleep = asyncio.sleep,
+    open_tools: OpenTools | None = None,
 ) -> NodeResult:
-    """Run an agent node of a frozen pipeline: ``node["agent"]`` is what the snapshot resolved."""
+    """Run an agent node of a frozen pipeline: ``node["agent"]`` is what the snapshot resolved.
+    ``open_tools`` opens the toolbox of the tools frozen with it (none: the agent has no tools)."""
     frozen = node.get("agent")
     if not isinstance(frozen, dict):
         return failed(NO_AGENT)
@@ -232,6 +244,7 @@ async def run_node(
         "system_prompt": None,
         "user_prompt": None,
         "attempts": [],
+        "turns": [],
     }
     data: dict[str, Any] = {
         **identity,
@@ -265,40 +278,135 @@ async def run_node(
     if not detail["user_prompt"].strip():
         return refuse("The user prompt is empty")
     messages.append({"role": "user", "content": detail["user_prompt"]})
-
-    outcome = await run_completion(
-        endpoint_of(provider, api_key, allow_private_networks),
-        model,
-        messages,
-        temperature=settings["temperature"],
-        max_tokens=settings["max_tokens"],
-        request_timeout=settings["request_timeout_seconds"],
-        total_timeout=settings["total_timeout_seconds"],
-        retries=settings["retries"],
-        complete=complete,
-        sleep=sleep,
-    )
-    detail["attempts"] = [a.to_data() for a in outcome.attempts]
-    detail["duration_ms"] = round(outcome.duration * 1000)
-    data["attempts"] = len(outcome.attempts)
-    if outcome.completion is None:
-        data["status"] = outcome.http_status
-        return failed(
-            outcome.error or "The request failed",
-            data=data,
-            detail=detail,
-            duration=outcome.duration,
+    async with AsyncExitStack() as stack:
+        box = Toolbox([])
+        if frozen.get("tools") and open_tools is not None:
+            try:
+                box = await stack.enter_async_context(open_tools())
+            except ToolboxError as error:
+                return refuse(str(error))
+        return await _loop(
+            endpoint_of(provider, api_key, allow_private_networks),
+            model,
+            messages,
+            settings,
+            box,
+            data,
+            detail,
+            complete=complete,
+            sleep=sleep,
         )
-    done = outcome.completion
-    data["usage"] = detail["usage"] = done.usage()
-    data["finish_reason"] = detail["finish_reason"] = done.finish_reason
+
+
+def _summed(
+    total: dict[str, int | None] | None, usage: dict[str, int | None]
+) -> dict[str, int | None]:
+    """Usage of all turns: a number the provider never sent stays ``None``."""
+    if total is None:
+        return dict(usage)
+    return {
+        key: None
+        if total.get(key) is None and value is None
+        else (total.get(key) or 0) + (value or 0)
+        for key, value in usage.items()
+    }
+
+
+async def _loop(
+    endpoint: Endpoint,
+    model: str,
+    messages: list[dict[str, Any]],
+    settings: dict[str, Any],
+    box: Toolbox,
+    data: dict[str, Any],
+    detail: dict[str, Any],
+    *,
+    complete: Complete,
+    sleep: Sleep,
+) -> NodeResult:
+    """The turns of the node: ask, run the tools the answer calls, send their results, ask again."""
+    started = time.monotonic()
+    total = float(settings["total_timeout_seconds"])
+    iterations = int(settings["max_iterations"]) if box else 1
+    schemas = box.schemas() if box else None
+    attempts: list[dict[str, Any]] = []
+
+    def finish(result: NodeResult) -> NodeResult:
+        detail["attempts"] = attempts
+        detail["duration_ms"] = round((time.monotonic() - started) * 1000)
+        data["attempts"] = len(attempts)
+        data["iterations"] = len(detail["turns"])
+        result.duration = time.monotonic() - started
+        return result
+
+    def fail(reason: str) -> NodeResult:
+        return finish(failed(reason, data=data, detail=detail))
+
+    done: Completion | None = None
+    for _number in range(1, iterations + 1):
+        left = total - (time.monotonic() - started)
+        outcome = await run_completion(
+            endpoint,
+            model,
+            messages,
+            temperature=settings["temperature"],
+            max_tokens=settings["max_tokens"],
+            request_timeout=settings["request_timeout_seconds"],
+            total_timeout=max(left, 0.0) if detail["turns"] else total,
+            retries=settings["retries"],
+            complete=complete,
+            sleep=sleep,
+            tools=schemas,
+        )
+        turn: dict[str, Any] = {
+            "attempts": [a.to_data() for a in outcome.attempts],
+            "text": None,
+            "finish_reason": None,
+            "tool_calls": [],
+        }
+        detail["turns"].append(turn)
+        attempts.extend(turn["attempts"])
+        if outcome.completion is None:
+            data["status"] = outcome.http_status
+            return fail(outcome.error or "The request failed")
+        done = outcome.completion
+        turn["text"], turn["finish_reason"] = done.text, done.finish_reason
+        data["usage"] = detail["usage"] = _summed(data["usage"], done.usage())
+        data["finish_reason"] = detail["finish_reason"] = done.finish_reason
+        if not done.tool_calls:
+            break
+        if len(detail["turns"]) >= iterations:
+            return fail(f"Stopped after {iterations} iterations without a final answer")
+        messages.append(
+            {
+                "role": "assistant",
+                "content": done.text or None,
+                "tool_calls": [
+                    {
+                        "id": c.id,
+                        "type": "function",
+                        "function": {"name": c.name, "arguments": c.arguments},
+                    }
+                    for c in done.tool_calls
+                ],
+            }
+        )
+        for call in done.tool_calls:
+            left = total - (time.monotonic() - started)
+            try:
+                async with asyncio.timeout(max(left, 0.0)):
+                    record = await box.call(call.id, call.name, call.arguments)
+            except TimeoutError:
+                return fail(
+                    f"The tool {call.name} did not finish within the time limit of {total:g} s"
+                )
+            turn["tool_calls"].append(record.to_data())
+            messages.append({"role": "tool", "tool_call_id": call.id, "content": record.result})
+    assert done is not None
     if not done.text.strip():
-        return failed(
+        return fail(
             "The model returned no text"
-            + (f" (finish reason: {done.finish_reason})" if done.finish_reason else ""),
-            data=data,
-            detail=detail,
-            duration=outcome.duration,
+            + (f" (finish reason: {done.finish_reason})" if done.finish_reason else "")
         )
     notes = []
     if done.finish_reason == "length":
@@ -308,11 +416,12 @@ async def run_node(
             f"the answer is longer than the {NODE_OUTPUT_LIMIT_BYTES // 1024} KiB the run context "
             "keeps: later nodes read its beginning, the step keeps all of it"
         )
-    return NodeResult(
-        "pass",
-        output=done.text,
-        reason=("Note: " + "; ".join(notes)) if notes else None,
-        data=data,
-        detail=detail,
-        duration=outcome.duration,
+    return finish(
+        NodeResult(
+            "pass",
+            output=done.text,
+            reason=("Note: " + "; ".join(notes)) if notes else None,
+            data=data,
+            detail=detail,
+        )
     )

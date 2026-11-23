@@ -13,7 +13,16 @@ from fastapi.testclient import TestClient
 from openartifact.agents.schemas import AgentConfig
 from openartifact.app import _create_app
 from openartifact.config import Settings
-from tests.agent_support import HEADERS, SECURE, FakeLlm, fake_llm, make_agent, make_provider
+from tests.agent_support import (
+    HEADERS,
+    SECURE,
+    FakeLlm,
+    completion,
+    fake_llm,
+    make_agent,
+    make_provider,
+    put_secret,
+)
 from tests.helpers import (
     build_pipeline,
     connect,
@@ -25,6 +34,9 @@ from tests.helpers import (
     post,
     wait_for_run,
 )
+from tests.mcp_support import CALLS as MCP_CALLS
+from tests.mcp_support import TOKEN as MCP_TOKEN
+from tests.mcp_support import mcp_server
 
 
 @pytest.fixture
@@ -146,3 +158,109 @@ def test_an_agent_without_tools_has_an_empty_list(api: TestClient, llm: FakeLlm)
     wait_for_run(api, task, "done")
     frozen = snapshot_agent(api, task)
     assert frozen["tools"] == [] and frozen["settings"]["max_iterations"] == 10
+
+
+# ── a run with an MCP tool ───────────────────────────────────────────
+
+
+def tool_answer(*calls: tuple[str, str, dict[str, Any]]) -> dict[str, Any]:
+    """A completion body that calls tools: ``(id, name, arguments)``."""
+    message = {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {"id": i, "type": "function", "function": {"name": n, "arguments": json.dumps(a)}}
+            for i, n, a in calls
+        ],
+    }
+    usage = {"prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25}
+    return {
+        "id": "t",
+        "choices": [{"index": 0, "message": message, "finish_reason": "tool_calls"}],
+        "usage": usage,
+    }
+
+
+def run_and_step(
+    client: TestClient, pipeline: dict[str, Any], status: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    task = make_task(client)
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    run = wait_for_run(client, task, status, timeout=30)
+    step = next(r for r in run["node_results"] if r["kind"] == "agent")
+    url = f"/api/tasks/{task['id']}/executions/{run['execution_id']}/steps/{step['id']}"
+    return step, client.get(url).json()
+
+
+@pytest.fixture
+def github() -> Iterator[str]:
+    with mcp_server() as url:
+        yield url
+
+
+def _github_tool(url: str, **more: Any) -> tuple[str, str, dict[str, Any]]:
+    config = {
+        "url": url,
+        "secret": "GITHUB_TOKEN",
+        "allow_private": True,
+        "tools_mode": "selected",
+        "tool_names": "get_issue",
+        **more,
+    }
+    return ("mcp_tool", "GitHub", config)
+
+
+def test_the_agent_calls_a_tool_of_the_mcp_server_and_answers_with_its_result(
+    api: TestClient, llm: FakeLlm, github: str
+) -> None:
+    make_provider(api, llm)
+    put_secret(api, "GITHUB_TOKEN", MCP_TOKEN)
+    agent = make_agent(api)
+    pipeline = tool_flow(api, agent, [_github_tool(github)])
+    llm.script = [
+        (200, tool_answer(("c1", "get_issue", {"number": 7}))),
+        (200, completion("Issue 7: the login is broken")),
+    ]
+    step, read = run_and_step(api, pipeline, "done")
+    assert step["output"] == "Issue 7: the login is broken"
+    first, second = llm.completions()
+    assert [t["function"]["name"] for t in first["json"]["tools"]] == [
+        "get_issue"
+    ]  # only the selected tool
+    assert second["json"]["messages"][-1] == {
+        "role": "tool",
+        "tool_call_id": "c1",
+        "content": "Issue #7: Login is broken",
+    }
+    assert ("get_issue", {"number": 7}) in MCP_CALLS
+    (call,) = read["detail"]["turns"][0]["tool_calls"]
+    assert (call["tool"], call["result"], call["error"]) == (
+        "get_issue",
+        "Issue #7: Login is broken",
+        False,
+    )
+    assert step["data"]["usage"]["total_tokens"] == 25 + 18 and step["data"]["iterations"] == 2
+    assert MCP_TOKEN not in json.dumps(read)
+
+
+def test_a_refused_token_fails_the_node_before_the_model_is_asked(
+    api: TestClient, llm: FakeLlm, github: str
+) -> None:
+    make_provider(api, llm)
+    put_secret(api, "GITHUB_TOKEN", "wrong-token-value")
+    agent = make_agent(api)
+    pipeline = tool_flow(api, agent, [_github_tool(github)])
+    step, _ = run_and_step(api, pipeline, "failed")
+    assert step["reason"] == "Tool GitHub: The MCP server refused the token (HTTP 401)"
+    assert llm.completions() == []
+
+
+def test_a_tool_on_a_private_address_needs_its_own_switch(
+    api: TestClient, llm: FakeLlm, github: str
+) -> None:
+    make_provider(api, llm)
+    put_secret(api, "GITHUB_TOKEN", MCP_TOKEN)
+    agent = make_agent(api)
+    pipeline = tool_flow(api, agent, [_github_tool(github, allow_private=False)])
+    step, _ = run_and_step(api, pipeline, "failed")
+    assert step["reason"] == "Tool GitHub: The address is not allowed (private network address)"

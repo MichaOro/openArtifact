@@ -17,6 +17,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from openartifact.agents import tools as agent_tools
 from openartifact.agents.runtime import run_node as run_agent_node
 from openartifact.config import Settings
 from openartifact.credentials.refs import (
@@ -229,25 +230,36 @@ async def _set(node: dict[str, Any], limits: Limits, view: RunView | None = None
 
 
 async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
-    """One request to the model of the node's agent (see ``agents/runtime.py``). The key of the
-    provider is resolved here, like every secret, so the answer, the reason, the data and the detail
-    (the prompts) are masked for it and the snapshot only ever holds its name."""
+    """The node's agent asks its model, with the attached tools (see ``agents/runtime.py``). The key of
+    the provider and the secrets of the tools are resolved here, like every secret, so the answer, the
+    reason, the data and the detail (prompts, tool calls) are masked for them and the snapshot only ever
+    holds their names."""
     frozen = node.get("agent")
     usable = isinstance(frozen, dict) and not frozen.get(
         "error"
     )  # else it fails before any request
     provider = frozen.get("provider") if usable and isinstance(frozen, dict) else None
     name = provider.get("secret_name") if isinstance(provider, dict) else None
+    tools = (frozen.get("tools") or []) if usable and isinstance(frozen, dict) else []
+    try:
+        names = ([name] if name else []) + agent_tools.secret_names(tools)
+    except SecretReferenceError as error:
+        return failed(str(error))
+    run_view = view or RunView()
 
     async def run(values: dict[str, str]) -> NodeResult:
+        context = agent_tools.ToolContext(
+            values, limits.llm_allow_private_networks, limits=limits, view=run_view
+        )
         return await run_agent_node(
             node,
-            view or RunView(),
+            run_view,
             values.get(name) if name else None,
             allow_private_networks=limits.llm_allow_private_networks,
+            open_tools=lambda: agent_tools.open_toolbox(tools, context),
         )
 
-    return await _with_secrets([name] if name else [], limits, run)
+    return await _with_secrets(list(dict.fromkeys(names)), limits, run)
 
 
 register_executor(NodeKind.CODE, _code)

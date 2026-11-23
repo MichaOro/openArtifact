@@ -146,6 +146,7 @@ def test_an_agent_node_asks_the_model_and_its_answer_is_the_output(
         "usage": {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18},
         "finish_reason": "stop",
         "attempts": 1,
+        "iterations": 1,
     }
     assert step["detail"] is None  # a list never carries the detail
     detail = _step(api, run)["detail"]

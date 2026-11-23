@@ -77,6 +77,15 @@ class Endpoint:
 
 
 @dataclass(frozen=True)
+class ToolCall:
+    """A call of a tool the model asks for: ``arguments`` is the JSON text it wrote (not checked here)."""
+
+    id: str
+    name: str
+    arguments: str
+
+
+@dataclass(frozen=True)
 class Completion:
     """One answer of a model. Usage numbers the provider did not send are ``None``, never 0."""
 
@@ -86,6 +95,8 @@ class Completion:
     completion_tokens: int | None
     total_tokens: int | None
     status: int
+    #: The tools the model wants called before it answers (only when tools were offered).
+    tool_calls: tuple[ToolCall, ...] = ()
 
     def usage(self) -> dict[str, int | None]:
         return {
@@ -259,6 +270,28 @@ def _content(message: Any) -> str:
     return ""
 
 
+def _tool_calls(message: Any) -> tuple[ToolCall, ...]:
+    """The ``tool_calls`` of an answer; entries without a name are left out, arguments sent as an
+    object (some providers do) become JSON text."""
+    calls = message.get("tool_calls") if isinstance(message, dict) else None
+    found = []
+    for number, call in enumerate(calls if isinstance(calls, list) else [], start=1):
+        function = call.get("function") if isinstance(call, dict) else None
+        name = function.get("name") if isinstance(function, dict) else None
+        if not isinstance(name, str) or not name:
+            continue
+        arguments = function.get("arguments") if isinstance(function, dict) else None
+        if not isinstance(arguments, str):
+            arguments = json.dumps(arguments if arguments is not None else {}, ensure_ascii=False)
+        ident = call.get("id")
+        found.append(
+            ToolCall(
+                ident if isinstance(ident, str) and ident else f"call_{number}", name, arguments
+            )
+        )
+    return tuple(found)
+
+
 def _count(usage: Any, key: str) -> int | None:
     value = usage.get(key) if isinstance(usage, dict) else None
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
@@ -267,15 +300,19 @@ def _count(usage: Any, key: str) -> int | None:
 async def complete(
     endpoint: Endpoint,
     model: str,
-    messages: list[dict[str, str]],
+    messages: list[dict[str, Any]],
     *,
     temperature: float | None = None,
     max_tokens: int | None = None,
     timeout: float,
     limit: int = COMPLETION_LIMIT_BYTES,
+    tools: list[dict[str, Any]] | None = None,
 ) -> Completion:
-    """One chat completion (no streaming, no tools). Raises :class:`ProviderError`."""
+    """One chat completion (no streaming). ``tools``: OpenAI function tools the model may call; not
+    sent when there are none. Raises :class:`ProviderError`."""
     payload: dict[str, Any] = {"model": model, "messages": messages, "stream": False}
+    if tools:
+        payload["tools"] = tools
     if temperature is not None:
         payload["temperature"] = temperature
     if max_tokens is not None:
@@ -305,4 +342,5 @@ async def complete(
         completion_tokens=_count(usage, "completion_tokens"),
         total_tokens=_count(usage, "total_tokens"),
         status=status,
+        tool_calls=_tool_calls(choice.get("message")) if tools else (),
     )

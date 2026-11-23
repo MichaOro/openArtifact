@@ -523,6 +523,7 @@ async def test_the_node_fills_the_prompts_calls_the_model_and_returns_the_answer
         "usage": {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7},
         "finish_reason": "stop",
         "attempts": 1,
+        "iterations": 1,
     }
     call = script.calls[0]
     assert call["messages"] == [
