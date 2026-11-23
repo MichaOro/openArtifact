@@ -207,7 +207,9 @@ def test_a_field_is_offered_as_a_reference_while_a_node_is_edited(board: Board) 
 
     make_node(board.api, pipeline, "http", name="Call", config={"url": "http://127.0.0.1:1/"})
     board.page.goto(f"{board.base_url}/actions/{pipeline['slug']}")
-    board.page.locator(".ge-node--http").click()
+    board.page.locator(".ge-node--http").dblclick(
+        position={"x": 30, "y": 5}
+    )  # a double click opens the settings, one click only selects
     url = board.page.get_by_label("URL")
     url.click()
     board.page.wait_for_timeout(500)  # the fields are fetched when the field gets focus
