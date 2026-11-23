@@ -62,6 +62,7 @@ export class GraphEditor {
       const add = event.target.closest("[data-add-action]");
       if (add) this.#addAction(this.nodes.get(add.closest(".ge-node").dataset.nodeId));
     });
+    this.canvas.viewport.addEventListener("dblclick", (event) => this.#openLinked(event));
     this.canvas.viewport.addEventListener("keydown", (event) => {
       // a focused node handles Delete itself (canvas.js); this is for a selected connection
       const deletes = event.key === "Delete" || event.key === "Backspace";
@@ -349,6 +350,16 @@ export class GraphEditor {
       throw error;
     });
     return this.targets[kind];
+  }
+
+  /** A double click on an action (or a pipeline node) opens what it links to: the same as Edit in the inspector. */
+  #openLinked(event) {
+    // the canvas captures the pointer while a gesture runs, which makes the viewport the target of the click: look under the pointer
+    const under = document.elementFromPoint(event.clientX, event.clientY);
+    const el = under?.closest(".ge-node");
+    if (!el || under.closest("button, input, select, a, .ge-port")) return;
+    const node = this.nodes.get(el.dataset.nodeId);
+    if (node && typeOf(node).links_to && node.definition_id) window.location.assign(this.#linkUrl(node, node.definition_slug));
   }
 
   /** Where the thing a node links to is edited, with the way back to this node. */

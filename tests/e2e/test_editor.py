@@ -585,6 +585,41 @@ def _definition(api: httpx.Client, name: str, fail: bool = False) -> dict[str, A
     return definition  # type: ignore[no-any-return]
 
 
+def test_a_double_click_on_an_action_opens_its_definition_and_an_empty_one_stays(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _flow(page, base_url, api)
+    shell = page.locator(".ge-node--action").first
+    shell.locator(".ge-node__name").dblclick()
+    expect(page).to_have_url(f"{base_url}/pipelines/flow")  # no definition yet: nothing to open
+    definition = _definition(api, "Gap analysis")
+    for node in _graph(api, pipeline)["nodes"]:
+        if node["kind"] == "action":  # both shells use it, so the first one in the page does too
+            api.patch(
+                f"{graph_url(pipeline)}/nodes/{node['id']}",
+                json={"definition_id": definition["id"]},
+            )
+    page.reload()
+    page.locator(".ge-node--action").first.locator(".ge-node__name").dblclick()
+    expect(page).to_have_url(re.compile(r"/actions/gap-analysis\?from=flow&"))
+    expect(page.locator("[data-back]")).to_have_text("Back to Flow")
+
+
+def test_the_style_choices_of_a_connection_are_pictograms_named_by_their_tooltip(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _flow(page, base_url, api)
+    _connect_trigger_to_stage(page)
+    _on_edge(page)
+    page.get_by_role("button", name="Change line style").click()
+    for value, name in (("curved", "Curved"), ("straight", "Straight"), ("elbow", "Elbow")):
+        choice = page.locator(f".ge-edge-bar__style[data-style={value}]")
+        expect(choice).to_have_attribute("title", name)  # the tooltip names it
+        expect(choice).to_have_attribute("aria-label", name)
+        expect(choice.locator("svg")).to_have_count(1)  # a pictogram
+        expect(choice).to_have_text("")  # no words on the button
+
+
 def test_a_new_action_is_defined_in_actions_and_selected_again_on_return(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:

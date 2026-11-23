@@ -50,7 +50,7 @@ every node that ran. Later nodes use them through references such as `${node.Fet
 ([execution nodes](execution-nodes.md#the-run-context-and-references)).
 
 **Pipeline.** What an artifact runs through: a trigger, a main line of stages (and pipeline nodes) and a
-complete node, joined by connections you draw in the editor (point at a connection to get a bin to delete it and a pencil to choose its line style: curved, straight or elbow). A pipeline can be started at any stage, and
+complete node, joined by connections you draw in the editor (point at a connection to get a bin to delete it and a pencil to choose its line style: curved, straight or elbow; a double click on an action opens its definition). A pipeline can be started at any stage, and
 at any action inside it; the stages before the starting point count as done (or skipped, if the artifact
 never passed them).
 

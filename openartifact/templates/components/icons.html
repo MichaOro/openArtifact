@@ -1,6 +1,6 @@
 {# Inline SVG icon macro (Lucide-style, stroke = currentColor). Add new icons here, and to `icon_names`:
    base.html renders every icon once into <template id="icons"> for static/js/components/icons.js. #}
-{% set icon_names = ["board", "pipeline", "action", "play", "stop", "layers", "logout", "pencil", "chevrons-left", "sun", "moon", "inbox", "parent", "columns", "chevrons-right", "plus", "trash", "x", "check", "logo", "code", "http", "clock", "list", "more", "if", "switch", "tag", "arrow-up", "arrow-down", "settings", "agent", "plug", "refresh", "undo", "github", "database"] %}
+{% set icon_names = ["board", "pipeline", "action", "play", "stop", "layers", "logout", "pencil", "chevrons-left", "sun", "moon", "inbox", "parent", "columns", "chevrons-right", "plus", "trash", "x", "check", "logo", "code", "http", "clock", "list", "more", "if", "switch", "tag", "arrow-up", "arrow-down", "settings", "agent", "plug", "refresh", "undo", "github", "database", "line-curved", "line-straight", "line-elbow"] %}
 {% macro icon(name, class="") -%}
 <svg class="icon {{ class }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
 {%- if name == "board" %}<rect x="3" y="3" width="5" height="18" rx="1.5"/><rect x="10" y="3" width="5" height="12" rx="1.5"/><rect x="17" y="3" width="4" height="8" rx="1.5"/>
@@ -40,5 +40,8 @@
 {%- elif name == "github" %}<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7"/><path d="M18 11.5a6 6 0 0 1-6 6H8.5"/>
 {%- elif name == "database" %}<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>
 {%- elif name == "list" %}<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>
+{%- elif name == "line-curved" %}<path d="M4 19C13 19 11 5 20 5"/><circle cx="4" cy="19" r="1.5"/><circle cx="20" cy="5" r="1.5"/>
+{%- elif name == "line-straight" %}<path d="M5 18 19 6"/><circle cx="4" cy="19" r="1.5"/><circle cx="20" cy="5" r="1.5"/>
+{%- elif name == "line-elbow" %}<path d="M4 19h8V5h8"/><circle cx="4" cy="19" r="1.5"/><circle cx="20" cy="5" r="1.5"/>
 {%- endif %}</svg>
 {%- endmacro %}

@@ -215,11 +215,8 @@ export class Canvas {
     styles.className = "ge-edge-bar__styles";
     styles.hidden = true;
     for (const [value, label] of Object.entries(EDGE_STYLES)) {
-      const choice = document.createElement("button");
-      choice.type = "button";
-      choice.className = "ge-edge-bar__style";
+      const choice = button("icon-button icon-button--sm ge-edge-bar__style", label, icon(`line-${value}`)); // a pictogram, its name is the tooltip
       choice.dataset.style = value;
-      choice.textContent = label;
       styles.append(choice);
     }
     const pencil = button("icon-button icon-button--sm ge-edge-bar__pencil", "Change line style", icon("pencil"));
