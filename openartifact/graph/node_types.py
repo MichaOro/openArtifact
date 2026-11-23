@@ -174,13 +174,25 @@ class Ports:
     def case(number: int) -> str:
         return f"case_{number}"
 
+    #: The attachment of tools (ADR-040): the Agent node's input and a tool node's output.
+    TOOLS = "tools"
+    TOOL = "tool"
+
 
 @dataclass(frozen=True)
 class Port:
-    """A connector of a node."""
+    """A connector of a node. ``side``: where the editor draws it when not on the usual side (inputs left,
+    outputs right): ``bottom`` for the Tools port of an Agent node, ``top`` for the port of a tool node."""
 
     name: str
     label: str
+    side: str | None = None
+
+    def describe(self) -> dict[str, str]:
+        data = {"name": self.name, "label": self.label}
+        if self.side is not None:
+            data["side"] = self.side
+        return data
 
 
 @dataclass(frozen=True)
@@ -293,6 +305,8 @@ class NodeType:
         None  # the kind of graphs row ``definition_id`` points at
     )
     size: ClassVar[tuple[float, float] | None] = None  # only stages store a size of their own
+    #: A tool node: no flow ports, attached to the Tools port of an Agent node, run only when the agent calls it.
+    tool: ClassVar[bool] = False
     #: Config settings whose text may hold ``${node...}`` / ``${var...}`` (checked for hints on save).
     reference_keys: ClassVar[tuple[str, ...]] = ()
 
@@ -360,8 +374,9 @@ class NodeType:
             "addable": self.addable,
             "chain": self.chain,
             "ending": self.ending,
-            "inputs": [{"name": p.name, "label": p.label} for p in self.inputs],
-            "outputs": [{"name": p.name, "label": p.label} for p in self.outputs],
+            "inputs": [p.describe() for p in self.inputs],
+            "outputs": [p.describe() for p in self.outputs],
+            "tool": self.tool,
             "settings": [s.describe() for s in self.settings],
             "links_to": self.links_to.value if self.links_to else None,
         }
@@ -886,6 +901,7 @@ class AgentType(_ExecutionType):
 
     kind = NodeKind.AGENT
     label = "Agent"
+    inputs = (Port(Ports.IN, "Input"), Port(Ports.TOOLS, "Tools", side="bottom"))
     settings = (
         Setting(
             "agent_id",
@@ -969,6 +985,48 @@ class AgentType(_ExecutionType):
     reference_keys = ("inputs",)
 
 
+class _ToolType(NodeType):
+    """A tool of an agent (ADR-040): attached from below to the Tools port of an Agent node and run only when
+    the model calls it. It has no flow ports, so the engine never walks it."""
+
+    scopes = frozenset({ACTION_DEFINITION})
+    addable = True
+    tool = True
+    outputs = (Port(Ports.TOOL, "Tool", side="top"),)
+
+    def connect_error(
+        self, source: Endpoint, source_port: str, target: Endpoint, target_port: str
+    ) -> str | None:
+        if target.kind is not NodeKind.AGENT or target_port != Ports.TOOLS:
+            return "A tool attaches to the Tools port of an Agent node"
+        return None
+
+
+class McpToolType(_ToolType):
+    """Offers the tools of a remote MCP server (Streamable HTTP), for example GitHub's."""
+
+    kind = NodeKind.MCP_TOOL
+    label = "MCP Client Tool"
+
+
+class HttpToolType(_ToolType):
+    """One HTTP request whose parameters the model fills."""
+
+    kind = NodeKind.HTTP_TOOL
+    label = "HTTP Request Tool"
+
+
+class CodeToolType(_ToolType):
+    """Shell or Python code the model calls with arguments."""
+
+    kind = NodeKind.CODE_TOOL
+    label = "Code Tool"
+
+
+#: The kinds of tool nodes.
+TOOL_KINDS = frozenset({NodeKind.MCP_TOOL, NodeKind.HTTP_TOOL, NodeKind.CODE_TOOL})
+
+
 NODE_TYPES: dict[NodeKind, NodeType] = {}
 
 
@@ -1006,5 +1064,8 @@ for _type in (
     SwitchType(),
     AgentType(),
     SetType(),
+    McpToolType(),
+    HttpToolType(),
+    CodeToolType(),
 ):
     register(_type)

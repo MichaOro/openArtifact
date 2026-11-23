@@ -31,6 +31,8 @@ class InfoRead(BaseModel):
 class PortRead(BaseModel):
     name: str
     label: str
+    #: ``top`` / ``bottom`` for the attachment ports of tools (ADR-040); ``None``: the usual side.
+    side: str | None = None
 
 
 class SettingRead(BaseModel):
@@ -65,6 +67,8 @@ class NodeTypeRead(BaseModel):
     outputs: list[PortRead]
     settings: list[SettingRead]
     links_to: str | None
+    #: A tool node (ADR-040): attached to an Agent node's Tools port, not part of the flow.
+    tool: bool = False
 
 
 class ChainActionRead(BaseModel):

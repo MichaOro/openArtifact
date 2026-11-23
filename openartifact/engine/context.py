@@ -60,7 +60,19 @@ MAX_DEPTH = 3
 TRUNCATED_MARK = "[output truncated]"
 REMOVED_OUTPUT = "[output removed: the context is limited]"
 #: Kinds of nodes that have no result of their own (no key in the context, no reference to them).
-_NO_RESULT = frozenset({"trigger", "output", "stage", "action", "complete", "pipeline"})
+_NO_RESULT = frozenset(
+    {
+        "trigger",
+        "output",
+        "stage",
+        "action",
+        "complete",
+        "pipeline",
+        "mcp_tool",
+        "http_tool",
+        "code_tool",
+    }
+)
 
 VAR_NAME = re.compile(r"[a-z][a-z0-9_]{0,63}")
 _NODE_REFERENCE = re.compile(

@@ -66,6 +66,9 @@ class NodeKind(enum.StrEnum):
     SWITCH = "switch"
     AGENT = "agent"
     SET = "set"
+    MCP_TOOL = "mcp_tool"
+    HTTP_TOOL = "http_tool"
+    CODE_TOOL = "code_tool"
 
 
 class ProviderKind(enum.StrEnum):

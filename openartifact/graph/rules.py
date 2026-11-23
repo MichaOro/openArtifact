@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from openartifact.graph.node_types import node_type
+from openartifact.graph.node_types import Ports, node_type
 from openartifact.models import NodeKind
 
 
@@ -35,6 +35,8 @@ def validate_edge(source: Endpoint, source_port: str, target: Endpoint, target_p
         raise EdgeError(f"A {source.kind.value} has no output '{source_port}'")
     if target_port not in target_type.input_names():
         raise EdgeError(f"A {target.kind.value} has no input '{target_port}'")
+    if target_port == Ports.TOOLS and not source_type.tool:
+        raise EdgeError("Only a tool node attaches to Tools")
     message = source_type.connect_error(source, source_port, target, target_port)
     if message:
         raise EdgeError(message)
