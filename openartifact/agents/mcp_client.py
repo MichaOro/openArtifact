@@ -1,0 +1,241 @@
+"""The MCP Client Tool: the tools of a remote MCP server (Streamable HTTP) for an agent (ADR-040).
+
+:func:`open_mcp` connects to the server for the time of one agent run, lists its tools (filtered by *Tools to
+include*) and calls them. Every HTTP request of the MCP SDK goes through :class:`GuardedTransport`: the host is
+resolved and every address vetted by the HTTP node's rules (cloud metadata refused always, private networks only
+when allowed), the connection is pinned to a vetted address (no DNS rebinding), proxies of the environment are
+ignored. The SDK itself follows a redirect only within the endpoint's origin.
+
+The token is sent as ``Authorization: Bearer`` and never appears in a message. A tool's answer is foreign text: it
+goes to the model and into the history, and is never interpreted here.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import AsyncIterator, Mapping, Sequence
+from contextlib import AsyncExitStack, asynccontextmanager
+from dataclasses import dataclass, field
+from typing import Any
+
+import httpx2
+from mcp.client.session import ClientSession
+from mcp.client.streamable_http import streamable_http_client
+from mcp.shared.exceptions import MCPError
+
+from openartifact.agents.tool_config import ToolConfigError, check_endpoint, parse_tool_names
+from openartifact.engine.http_runner import AddressRefusedError, vetted_addresses
+
+RESULT_LIMIT_BYTES = 16 * 1024
+
+
+class McpToolError(Exception):
+    """The MCP server cannot be used (the message is for people and never holds the token)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+class GuardedTransport(httpx2.AsyncBaseTransport):
+    """An httpx2 transport that vets the addresses of every request's host and connects to one of them."""
+
+    def __init__(self, allow_private: bool) -> None:
+        self._allow_private = allow_private
+        self._inner = httpx2.AsyncHTTPTransport(trust_env=False)
+        #: The status of the last answer: the SDK reports a refused request without it.
+        self.last_status: int | None = None
+
+    async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
+        host = request.url.host
+        scheme = request.url.scheme
+        port = request.url.port or (443 if scheme == "https" else 80)
+        addresses = await vetted_addresses(host, port, self._allow_private)
+        default = 443 if scheme == "https" else 80
+        request.headers["Host"] = host if port == default else f"{host}:{port}"
+        if scheme == "https":
+            request.extensions = {**request.extensions, "sni_hostname": host}
+        original = request.url
+        last: Exception | None = None
+        for address in addresses:
+            request.url = original.copy_with(host=str(address))
+            try:
+                response = await self._inner.handle_async_request(request)
+            except httpx2.ConnectError as error:
+                last = error
+                continue
+            self.last_status = response.status_code
+            return response
+        raise last or httpx2.ConnectError("no address")
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
+
+
+@dataclass(frozen=True)
+class McpTool:
+    """A tool of the server as the model is told about it."""
+
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+
+
+@dataclass
+class McpServer:
+    """An open connection to one MCP server for the time of one agent run."""
+
+    session: ClientSession
+    tools: list[McpTool]
+    timeout: float
+    offered: set[str] = field(default_factory=set)
+
+    async def call(self, name: str, arguments: Mapping[str, Any]) -> str:
+        """The text of the tool's answer, or ``Error: ...`` (the model reads it and may try otherwise)."""
+        if name not in self.offered:
+            return f"Error: the tool {name} is not offered to this agent"
+        try:
+            result = await self.session.call_tool(
+                name, dict(arguments), read_timeout_seconds=self.timeout
+            )
+        except Exception as error:  # the session reports a failed call in many shapes
+            return f"Error: the call failed ({_reason(error)})"
+        content = getattr(result, "content", None) or []
+        parts = []
+        for item in content:
+            text = getattr(item, "text", None)
+            parts.append(text if isinstance(text, str) else f"[{getattr(item, 'type', 'content')}]")
+        if not parts and getattr(result, "structured_content", None) is not None:
+            parts.append(json.dumps(result.structured_content, ensure_ascii=False))
+        text = "\n".join(parts)
+        return f"Error: {text}" if getattr(result, "is_error", False) else text
+
+
+def _leaves(error: BaseException) -> list[BaseException]:
+    """The exceptions inside (nested) exception groups, or the exception itself."""
+    if isinstance(error, BaseExceptionGroup):
+        return [leaf for inner in error.exceptions for leaf in _leaves(inner)]
+    return [error]
+
+
+def _reason(error: BaseException) -> str:
+    """Why a connection or call failed, in words that never hold a header or the token."""
+    for leaf in _leaves(error):
+        if isinstance(leaf, AddressRefusedError):
+            return str(leaf)
+        if isinstance(leaf, httpx2.HTTPStatusError):
+            status = leaf.response.status_code
+            if status in (401, 403):
+                return f"refused the token (HTTP {status})"
+            return f"HTTP {status}"
+        if isinstance(leaf, httpx2.TimeoutException):
+            return "timeout"
+        if isinstance(leaf, httpx2.ConnectError):
+            return "the connection failed"
+    leaf = _leaves(error)[0]
+    return type(leaf).__name__
+
+
+def _failure(error: BaseException, status: int | None) -> McpToolError:
+    if status in (401, 403):
+        return McpToolError(f"The MCP server refused the token (HTTP {status})")
+    reason = _reason(error)
+    if status is not None and status >= 400 and not reason.startswith("The address"):
+        return McpToolError(f"The MCP server could not be reached (HTTP {status})")
+    if reason.startswith("The address"):
+        return McpToolError(reason)
+    if reason.startswith("refused the token"):
+        return McpToolError(f"The MCP server {reason}")
+    return McpToolError(f"The MCP server could not be reached ({reason})")
+
+
+def _included(names: Sequence[str], config: Mapping[str, Any]) -> set[str]:
+    mode = str(config.get("tools_mode") or "all")
+    listed = set(parse_tool_names(str(config.get("tool_names") or "")))
+    if mode == "selected":
+        return {n for n in names if n in listed}
+    if mode == "all_except":
+        return {n for n in names if n not in listed}
+    return set(names)
+
+
+@asynccontextmanager
+async def open_mcp(
+    config: Mapping[str, Any], token: str | None, *, allow_private: bool
+) -> AsyncIterator[McpServer]:
+    """Connect to the server of an MCP Client Tool node and list its tools; :class:`McpToolError` if that fails."""
+    url = str(config.get("url") or "").strip()
+    try:
+        check_endpoint(url)
+    except ToolConfigError as error:
+        raise McpToolError(str(error)) from None
+    if not url:
+        raise McpToolError("The MCP Client Tool has no endpoint")
+    timeout = float(config.get("timeout_seconds") or 60)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    transport = GuardedTransport(allow_private)
+    try:
+        async with _connected(url, headers, timeout, transport, config) as server:
+            yield server
+    except BaseExceptionGroup as group:
+        # the SDK's task groups wrap what happens inside them; hand on the error itself
+        leaves = _leaves(group)
+        own = [e for e in leaves if isinstance(e, McpToolError)]
+        if own:
+            raise own[0] from None
+        body = [e for e in leaves if not _is_transport_error(e)]
+        if body:
+            raise body[0] from None
+        raise _failure(group, transport.last_status) from None
+
+
+def _is_transport_error(error: BaseException) -> bool:
+    return isinstance(error, AddressRefusedError | httpx2.HTTPError | MCPError)
+
+
+@asynccontextmanager
+async def _connected(
+    url: str,
+    headers: dict[str, str],
+    timeout: float,
+    transport: GuardedTransport,
+    config: Mapping[str, Any],
+) -> AsyncIterator[McpServer]:
+    async with AsyncExitStack() as stack:
+        try:
+            client = await stack.enter_async_context(
+                httpx2.AsyncClient(
+                    headers=headers,
+                    timeout=httpx2.Timeout(timeout),
+                    transport=transport,
+                    trust_env=False,
+                )
+            )
+            read, write = await stack.enter_async_context(
+                streamable_http_client(url, http_client=client, terminate_on_close=False)
+            )
+            session = await stack.enter_async_context(
+                ClientSession(read, write, read_timeout_seconds=timeout)
+            )
+            await session.initialize()
+            listed = []
+            cursor = None
+            while True:
+                page = await session.list_tools(
+                    params=None if cursor is None else {"cursor": cursor}  # type: ignore[arg-type]
+                )
+                listed.extend(page.tools)
+                cursor = getattr(page, "next_cursor", None)
+                if not cursor:
+                    break
+        except McpToolError:
+            raise
+        except Exception as error:  # an ExceptionGroup of the SDK included
+            raise _failure(error, transport.last_status) from None
+        offered = _included([t.name for t in listed], config)
+        tools = [
+            McpTool(t.name, t.description or "", dict(t.input_schema or {"type": "object"}))
+            for t in listed
+            if t.name in offered
+        ]
+        yield McpServer(session, tools, timeout, offered)
