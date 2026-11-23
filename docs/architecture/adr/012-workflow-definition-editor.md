@@ -7,7 +7,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** —  
-**Amended by:** [ADR-014](014-building-blocks-and-extension-points.md) (routing select), [ADR-015](015-vocabulary-and-storage-names.md) (vocabulary), [ADR-030](030-accessibility-scope.md) (accessibility), [ADR-040](040-agent-tools.md) (tool nodes attached below an Agent node)
+**Amended by:** [ADR-014](014-building-blocks-and-extension-points.md) (routing select), [ADR-015](015-vocabulary-and-storage-names.md) (vocabulary), [ADR-030](030-accessibility-scope.md) (accessibility), [ADR-040](040-agent-tools.md) (tool nodes attached below an Agent node), [ADR-041](041-github-and-postgres-nodes.md) (GitHub, Postgres and Postgres Tool nodes)
 
 ## 1. Context
 

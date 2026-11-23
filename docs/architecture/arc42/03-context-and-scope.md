@@ -38,4 +38,6 @@ OpenArtifact is a self-hosted board of artifacts that run through pipelines:
 - **Swagger UI** — `/api/docs` loads its scripts from a public CDN; this is the only external asset (chapter 2).
 - **LLM providers** — OpenRouter or an OpenAI-compatible endpoint, called by Agent nodes through the same address guard as HTTP nodes (ADR-037).
 - **Remote MCP servers and tool targets** — the tools of an agent (MCP Client Tool over Streamable HTTP, e.g. GitHub's; HTTP Request Tool) reach them through the same guard, only when the model calls them (ADR-040).
-- **Planned** — Git and PostgreSQL as a data source (ADR-020) through a future connector layer.
+- **GitHub's API** — the GitHub node reads repositories, issues, pull requests, files and comments and writes comments, through the same address guard (ADR-041).
+- **PostgreSQL databases of the user** — a data source read (and, if allowed, changed) by the Postgres node and the Postgres Tool with a statement the flow's author wrote; the connection URL is a secret and the address guard applies (ADR-020, ADR-041).
+- **Planned** — Git as a source through a future connector layer.

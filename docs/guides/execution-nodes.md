@@ -1,4 +1,4 @@
-# Execution nodes: Code, HTTP, If, Switch and Edit Fields
+# Execution nodes: Code, HTTP, GitHub, Postgres, If, Switch and Edit Fields
 
 The nodes that do work inside an action definition (see [Concepts](concepts.md)). You add them in the
 action editor with the "+" menu and set them in the inspector; every setting is saved as you type or leave
@@ -22,7 +22,7 @@ An output longer than a step keeps (256 Ki characters) is cut visibly for every 
 When a run reaches an action that is linked to a definition, the engine walks the definition:
 
 1. It starts at the **trigger** and records a step for it.
-2. It follows the connection leaving the current node. A node with an executor (timer, Code, HTTP, If, Switch) runs; the
+2. It follows the connection leaving the current node. A node with an executor (timer, Code, HTTP, GitHub, Postgres, If, Switch) runs; the
    engine records its result as a step and leaves by the port that matches the outcome: **On Pass** or **On Fail**
    for Code and HTTP, **Next** for the timer (which always passes), the branch the node chose for If and Switch.
 3. Reaching the **Output** by its **On Pass** connector makes the action pass; reaching it by **On Fail**
@@ -346,6 +346,125 @@ curl -X POST   $BASE/api/actions/$ID/edges -H 'Content-Type: application/json' \
 Then link an action of a pipeline to it (`PATCH /api/pipelines/$P/nodes/$ACTION` with
 `{"definition_id": "$ID"}`) and start an artifact in the pipeline (`POST /api/tasks/$TASK/run`). The
 [API reference](api-reference.md) lists every route.
+
+## GitHub node
+
+Reads GitHub and, if you allow it, comments, without a model. It calls GitHub's REST API through the same guarded
+path as the HTTP node (every address vetted and pinned, no redirect followed, a capped body) and needs nothing but a
+token for private repositories. To let a *model* work with GitHub, use the MCP Client Tool of an [agent](agents.md)
+instead; this node is for steps whose outcome you want to be the same every time.
+
+| Setting | Values | Default |
+|---------|--------|---------|
+| Operation | `Get repository`, `List issues`, `Get issue`, `List pull requests`, `Get pull request`, `Get pull request diff`, `List pull request files`, `Get file`, `List comments`, `Create comment` | `Get repository` |
+| Repository | `owner/name`; may hold `${node...}` and `${var...}` | empty (fails with "The repository is not set") |
+| Number | the number of the issue or pull request (get, files, diff, comments); may be a reference | empty |
+| File path | `Get file`: a path in the repository; a folder lists its entries | empty (the root) |
+| Branch, tag or commit | `Get file`: empty is the default branch | empty |
+| State | `open`, `closed`, `all` for the two lists | `open` |
+| Limit | 1 to 100: the most items a list returns (one page, the newest first) | 30 |
+| Comment | `Create comment`: the text; may hold references, no secrets | empty |
+| Allow comments | `Create comment` writes to GitHub: it only runs with this on | off |
+| Secret with the token | the *name* of a stored secret holding a personal access token; empty: no token | empty |
+| API address | GitHub Enterprise: `https://HOST/api/v3` | `https://api.github.com` |
+| Timeout (seconds) | 1 to 120 | 30 |
+
+Settings an operation does not use are ignored.
+
+**What comes back.** GitHub's objects are large and full of URLs, so the node keeps the useful facts of each (listed
+below) and puts them in `data`; the step's `output` is the same as JSON. One object is the object itself, so
+`${node.Issue.data.title}` works; a list is `{"items": [...], "count": n, "truncated": false}`, so a later step can
+take `${node.Issues.data.items}`. A body is cut at 8000 characters and a patch at 4000 (`…[cut]`); a list that does
+not fit the 48 KiB a result keeps drops its last items and says `truncated: true`. The list of issues does not contain
+pull requests (GitHub's API mixes them in).
+
+| Operation | `data` |
+|-----------|--------|
+| Get repository | `full_name`, `description`, `private`, `archived`, `default_branch`, `language`, `topics`, `stars`, `forks`, `open_issues`, `license`, `html_url`, `created_at`, `pushed_at` |
+| List issues, Get issue | `number`, `title`, `state`, `author`, `labels` (names), `assignees` (logins), `comments`, `created_at`, `updated_at`, `closed_at`, `html_url`, `body` |
+| List pull requests, Get pull request | the issue's fields and `draft`, `merged`, `mergeable`, `head` (branch), `head_sha`, `base`, `additions`, `deletions`, `changed_files`, `commits`, `merged_at` (some only come with *Get*) |
+| List pull request files | `filename`, `status`, `additions`, `deletions`, `changes`, `patch` |
+| Get pull request diff | `diff`, `truncated`; the output is the diff as text |
+| Get file | `name`, `path`, `type`, `size`, `sha`, `html_url`, `content`, `truncated`; the output is the file's text (a folder is a list of `name`, `path`, `type`, `size`, `html_url`) |
+| List comments | `id`, `author`, `body`, `created_at`, `updated_at`, `html_url` |
+| Create comment | the same for the new comment; the output is its address |
+
+**Writing.** Create comment is the only operation that writes, and only on an issue or pull request, only with
+*Allow comments* on; otherwise the node fails with "Create comment is off: turn on 'Allow comments' on the node" and
+sends nothing. The comment is sent as a JSON string, so quotes and line breaks in it cannot break the request. Use a
+token that may comment and nothing more.
+
+**Values in the address.** The repository, the number and the path are checked after the references are resolved
+(`owner/name`, a whole number, no `..`), and a path is percent-encoded segment by segment, so an earlier result cannot
+change which address is called.
+
+**Failures** are reported in words: a refused token ("GitHub refused the token (HTTP 401)"), no access or not found,
+the rate limit with its reset time, a redirect (a renamed repository: use the new name), an answer over
+`OPENARTIFACT_HTTP_RESPONSE_LIMIT_BYTES`. The token never appears in a reason, the data or the log.
+
+**Network.** The API address follows the HTTP node's rules, including the private-network switch
+`OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS` (only needed for an Enterprise server on your network).
+
+## Postgres node
+
+Runs one SQL statement on a Postgres database and returns the rows. The database is *your* data: OpenArtifact's own
+data stays in SQLite ([ADR-020](../architecture/adr/020-sqlite-stays-postgres-as-data-source.md)). The same statement
+can be offered to an [agent](agents.md) as a *Postgres Tool*.
+
+| Setting | Values | Default |
+|---------|--------|---------|
+| Secret with the connection URL | the *name* of a stored secret that holds `postgresql://user:password@host:5432/db` | empty (fails with "No secret with the connection URL is set") |
+| Query | one SQL statement, up to 20000 characters, stored in plain text | empty |
+| Values | one value per line: the first is `$1`, the second `$2`, ...; may hold `${node...}` and `${var...}`, no secrets | none |
+| Allow changes | off: the database refuses every change; on: the statement may change data | off |
+| Private network | the database is on a private network (also needs the operator's switch, below) | off |
+| Max rows | 1 to 1000 | 100 |
+| Timeout (seconds) | 1 to 120; covers connecting and the statement | 30 |
+
+**The connection URL is a secret.** Store it under Secrets and name it in the node; the node, the snapshot of a run
+and its history only ever hold the name. Add `?sslmode=require` (or `verify-full`, with `sslrootcert=system` for the
+system's certificates) to use TLS: without it the driver's default `prefer` applies. Only a plain connection is
+accepted: one host, no socket, and none of `options`, `service` or files named in the URL.
+
+**Values are parameters, not text.** Write `$1`, `$2` in the query and put the values in *Values*; they are sent to the
+database apart from the statement, so a value can never become SQL (`WHERE status = $1` with the value
+`x'; DROP TABLE t; --` looks for that text). A `${...}` reference in the query itself is refused. The values are
+text; the database converts them to what the query expects (`WHERE id = $1`, value `42`). For a NULL use
+`NULLIF($1, '')`. Every `$n` the query uses needs a value and every value must be used. Exactly one statement runs: a
+second one after a `;` is refused by the database.
+
+**Read-only is the database's.** By default the statement runs in a `READ ONLY` transaction that is rolled back, and a
+first query has run before it, so the server itself refuses `INSERT`, `UPDATE`, `DROP` and a `DO` block that tries to
+change the mode: "25006: cannot execute DELETE in a read-only transaction (the node is read-only: turn on 'Allow
+changes' to write)". With *Allow changes* the statement may change data and its transaction is committed when it
+succeeds, rolled back when it fails. This does not replace a database role with only the privileges the node needs:
+**connect with such a role** (a read-only one for a read-only node).
+
+**Result.** `data` is `{"rows": [...], "columns": [...], "row_count": 2, "truncated": false}`; the step's `output` is
+the rows as JSON. Each row is an object by column name (a repeated name becomes `name_2`). Numbers and text are as they
+are, `numeric` as text (`"12.50"`, no precision lost), dates and times as ISO text, `bytea` as `\x...`, `jsonb` as
+JSON, arrays as lists. A later step reads `${node.Postgres.data.rows.0.title}` or takes the whole list
+`${node.Postgres.data.rows}`. At most *Max rows* rows and 48 KiB are kept; more are left out and `truncated` is true.
+A read-only statement is read row by row and cancelled when the limit is reached; one with *Allow changes* runs to its
+end (it is committed whole) and reports the rows it changed in `row_count`. `columns` is empty when a read-only
+statement returns no row.
+
+**Time.** The timeout is also the statement timeout on the server; when it is up the node fails with
+"Timeout after N s" and the statement is cancelled there.
+
+**Network.** The host name is resolved by the application and every address is vetted like the HTTP node's (cloud
+metadata, unspecified and multicast addresses never; loopback and private addresses only when the node's *Private
+network* switch **and** `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS=true` are on); the connection goes to the vetted
+address and keeps the name for TLS. A database in the same Docker network or on the host is a private address, so both
+switches are needed for it.
+
+**Failures** are reported in words without the URL, the user or the address: "Could not connect to the database: the
+user or the password was refused", or an SQL error with its code (`42P01: relation "tickets" does not exist`).
+
+### Example: the open tickets
+
+Secret `TICKETS_DB`; *Query* `SELECT id, title FROM tickets WHERE status = $1 ORDER BY id LIMIT 20`, *Values* `open`,
+*Private network* on if the database is internal. A following node reads `${node.Postgres.data.rows}`.
 
 ## If and Switch nodes
 

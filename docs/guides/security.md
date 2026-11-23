@@ -85,7 +85,7 @@ Code node is not behind it.
 **LLM providers** go through the same guard: the connection test, the model list and every request of an Agent
 node. A provider on a private or local address needs its own switch *and* `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS=true`;
 that setting does not open HTTP nodes, and OpenRouter's address is fixed. `http` is allowed with a warning. The
-**tools of an agent** (MCP Client Tool, HTTP Request Tool) use the same guard and the same two switches (the tool's
+**tools of an agent** (MCP Client Tool, HTTP Request Tool, Postgres Tool) use the same guard and the same two switches (the tool's
 *Private network* and the operator's); a Code Tool runs under the Code node's rules.
 
 **What an agent's tools may do** is what the model decides within what you offer: a tool's answer and an MCP server's
@@ -93,6 +93,16 @@ tool descriptions are text from outside and can steer the model. Offer only the 
 *Tools to include: selected* with the read tools), keep tokens to the scopes the agent needs, and remember that there is
 no approval step before a tool call. Model values are filled in after the references, so a model cannot reach a secret
 by writing `${secret:...}`; the run's secret values are masked in tool answers before the model reads them.
+
+**GitHub and Postgres (ADR-041).** The *GitHub node* reads and, only with *Allow comments* on, writes one kind of thing:
+a comment; give its token the scope to comment and nothing more. The *Postgres node* and *Postgres Tool* run one
+statement with the values as bound parameters, never as SQL text, and read-only by the database's own enforcement unless
+*Allow changes* is on; that switch is no replacement for a database role with only the privileges the statement needs, so
+connect with such a role, and with TLS (`?sslmode=require`) beyond a trusted network. The connection URL is a secret; it
+and its password are masked in results, history and logs, and error texts never contain the URL, the user or the
+address. Connections go through the HTTP node's address guard (metadata addresses never, private ones only with both
+switches). Rows and answers are data from outside, like every node output. A Postgres Tool with *Allow changes* lets the
+model run a statement *you* wrote with the values *it* chooses: offer it only for statements where that is acceptable.
 
 **What an Agent node sends.** Everything a node maps into an agent's input goes to the provider and is stored in
 the step ("Request"). The provider's key is masked in results and logs and is never in a snapshot; other sensitive

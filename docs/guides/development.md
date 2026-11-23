@@ -22,7 +22,7 @@ development only. Conventions, the full check list and the commit style: [CONTRI
 | Command | Description |
 |---------|-------------|
 | `uv run openartifact` | Start the server (the one way to start it; also what the Docker image runs) |
-| `uv run pytest` | Unit and API tests (browser tests excluded) |
+| `uv run pytest` | Unit and API tests (browser tests excluded). The tests of the Postgres node need a real server: set `OA_TEST_POSTGRES_URL` (a role that may create databases, e.g. `postgresql://oa:pw@127.0.0.1:5432/postgres`), or have docker, which starts a throwaway container on a random port; without either they are skipped, saying so |
 | `uv run pytest -m e2e` | Browser tests; once: `playwright install chromium` |
 | `uv run ruff check .` | Lint code |
 | `uv run ruff format --check .` | Check formatting |

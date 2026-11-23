@@ -11,7 +11,9 @@
 | Agent node | The node kind of an action definition that asks a model for an agent; it maps the agent's inputs to the run, may override single settings and offers the model the tools attached to its *Tools* port (ADR-040). |
 | Provider (LLM) | Where agents send requests: OpenRouter or an OpenAI-compatible endpoint, with its models; it refers to its API key by the name of a secret. |
 | Pipeline | What an artifact runs through: a trigger, stages and a complete, connected by edges (ADR-012, ADR-013). Pages `/pipelines`. Formerly called "workflow" (ADR-015). |
-| Tool (of an agent) | A node attached below an Agent node (*MCP Client Tool*, *HTTP Request Tool*, *Code Tool*) that the model may call; its edge is an attachment the engine never walks (ADR-040). |
+| GitHub node | An execution node that reads GitHub (repository, issues, pull requests, files, comments) and, behind *Allow comments*, comments, without a model (ADR-041). |
+| Postgres node / Postgres Tool | An execution node, or a tool of an agent, that runs one SQL statement with bound parameters on a database whose connection URL is a secret; read-only unless *Allow changes* is on (ADR-041). |
+| Tool (of an agent) | A node attached below an Agent node (*MCP Client Tool*, *HTTP Request Tool*, *Code Tool*, *Postgres Tool*) that the model may call; its edge is an attachment the engine never walks (ADR-040). |
 | Trigger | The start node of a pipeline or action definition (placeholder for manual, webhook or event starts). |
 | Stage | A container inside a pipeline that holds actions and connects to other stages. |
 | Action | A step inside a stage that stands for one business execution; has an input, *On Pass* and *On Error*. It is linked to an action definition. |

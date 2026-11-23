@@ -1,12 +1,12 @@
 # ADR-041: The GitHub node and Postgres: an action node and a tool for agents
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-11-23  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** [ADR-040](040-agent-tools.md), [ADR-012](012-workflow-definition-editor.md)  
+**Amends:** [ADR-040](040-agent-tools.md), [ADR-012](012-workflow-definition-editor.md), [ADR-020](020-sqlite-stays-postgres-as-data-source.md)  
 **Amended by:** —  
-**Implemented in:** —
+**Implemented in:** migration `0036_github_and_postgres_nodes`; `graph/node_types.py` (`GithubType`, `PostgresType`, `PostgresToolType`), `engine/github_runner.py`, `engine/postgres_runner.py`, `engine/executors.py` (`_github`, `_postgres`), `agents/local_tools.py` (`build_postgres_tool`); the editor (`static/js/editor/node-types.js`, `templates/components/icons.html`)
 
 ## 1. Title
 
@@ -18,7 +18,7 @@ an agent.
 The owner takes n8n as the model. With ADR-040 an agent reaches GitHub through GitHub's MCP server; what is missing is a
 step of a flow that works without a model (n8n's GitHub node) and a way to read a Postgres database, as a step and as a
 tool of an agent (n8n's Postgres node and Postgres tool). SQLite stays the application's own database
-([ADR-010](010-sqlite-as-final-database.md)); Postgres only comes as a connector to someone else's data. Lists matter:
+([ADR-020](020-sqlite-stays-postgres-as-data-source.md)); Postgres only comes as a connector to someone else's data. Lists matter:
 a later Loop (postponed by the owner) iterates over a list a node returns, so these nodes return lists as lists.
 
 ## 3. Decision
@@ -28,7 +28,8 @@ a later Loop (postponed by the owner) iterates over a list a node returns, so th
 - An execution node (On Pass / On Fail) of action definitions, no model. It calls the GitHub REST API through the
   guarded HTTP path (SSRF rules, pinned addresses, no redirects, capped body); no new dependency. The token is a secret
   named in the node (*Secret with the token*, empty: no token, public data only). *API address* defaults to
-  `https://api.github.com` (GitHub Enterprise: its API address).
+  `https://api.github.com` (GitHub Enterprise: its API address). A private address (an Enterprise server on the
+  internal network) needs the operator's `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS`, as the HTTP node does.
 - One select *Operation*, as n8n's resource and operation in one: `Get repository`, `List issues`, `Get issue`,
   `List pull requests`, `Get pull request`, `Get pull request diff`, `List pull request files`, `Get file`,
   `List comments`, `Create comment`. Settings that an operation does not use are ignored: *Repository* (`owner/name`),
@@ -63,12 +64,16 @@ a later Loop (postponed by the owner) iterates over a list a node returns, so th
   against a real server: `SET TRANSACTION READ WRITE`, `set_config` and a `DO` block are refused). The switch *Allow
   changes* (off by default) lets the statement write; its transaction is committed when the statement succeeds. It is no
   substitute for a database role with the right privileges, which the documentation recommends.
-- **Bounds.** A statement timeout on the server, the node's time limit around everything (the running statement is
+- **Bounds.** A statement timeout on the server, the node's time limit around everything (a running statement is
   cancelled), at most *Max rows* (1 to 1000, default 100) and at most 48 KiB of result for the node, 15 KiB for the tool;
-  what does not fit is left out and `truncated` is true. Reading stops by cancelling the statement.
-- **Shape.** `data` is `{"rows": [...], "columns": [...], "row_count": n, "truncated": bool, "command": "SELECT 3"}`,
-  `output` the rows as JSON. Values become JSON: numbers and text as they are, decimals as text, dates as ISO text,
-  `bytea` as `\x...` text, JSON columns as JSON. The tool answers the model with the same JSON.
+  what does not fit is left out and `truncated` is true. A read-only statement is read row by row and cancelled when
+  the limit is reached, so a huge result is never held in memory. A statement that may change data is run to its end
+  by the server (it is committed whole) and its answer is cut afterwards; it also reports how many rows it changed
+  (`row_count`), which a read-only statement cannot.
+- **Shape.** `data` is `{"rows": [...], "columns": [...], "row_count": n, "truncated": bool}`, `output` the rows as
+  JSON (`columns` is empty for a read-only statement that returns no row). Values become JSON: numbers and text as they
+  are, decimals as text, dates as ISO text, `bytea` as `\x...` text, JSON columns as JSON. The tool answers the model
+  with `{"rows": [...], "row_count": n, "truncated": bool}`.
 - **Driver.** `psycopg` 3 (async, binary) is a dependency of the application.
 
 ### 3.3 In the editor and the graph
