@@ -77,7 +77,9 @@ class SettingControl {
 
   build() {
     const box = element("div", "ge-setting");
-    const labelled = field(this.setting.label, this.input, { row: this.constructor.row });
+    // the explanation (the setting's help and the control's own hint) is a tooltip after the label, not text under the field
+    const help = [this.setting.help, this.hint()].filter(Boolean).join("\n\n");
+    const labelled = field(this.setting.label, this.input, { row: this.constructor.row, help: help || null });
     const id = this.input.id;
     this.status = element("span", "field__status");
     this.status.id = `${id}-status`;
@@ -86,13 +88,8 @@ class SettingControl {
     this.error.id = `${id}-error`;
     this.error.setAttribute("role", "alert");
     this.error.hidden = true;
-    const notes = [this.setting.help, this.hint()].filter(Boolean).map((text, index) => {
-      const note = element("p", "field__help", text);
-      note.id = `${id}-help-${index}`;
-      return note;
-    });
-    this.input.setAttribute("aria-describedby", [...notes.map((n) => n.id), this.status.id, this.error.id].join(" "));
-    box.append(labelled, this.error, this.status, ...notes);
+    this.input.setAttribute("aria-describedby", [this.input.getAttribute("aria-describedby"), this.status.id, this.error.id].filter(Boolean).join(" "));
+    box.append(labelled, this.error, this.status);
     return box;
   }
 
@@ -267,7 +264,7 @@ class LinesControl extends SettingControl {
   build() {
     const box = super.build();
     this.count = element("span", "field__meta");
-    this.input.after(this.count);
+    box.querySelector(".field__head").append(this.count); // the count sits on the label's line, to the right
     this.updateCount();
     return box;
   }

@@ -30,7 +30,7 @@ export class InspectorPanel {
 
   /** Move focus to the first control (Enter on a node). */
   focusFirst() {
-    this.element.querySelector("input, select, textarea, button")?.focus();
+    this.element.querySelector("input, select, textarea, button:not(.info-tip)")?.focus(); // a field, not the (i) in front of it
   }
 
   #content(selection) {

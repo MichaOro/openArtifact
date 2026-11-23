@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e.helpers import add_setting, eventually, pick_node
+from tests.e2e.helpers import add_setting, eventually, pick_node, tip_of
 from tests.e2e.helpers import drag as _drag
 from tests.helpers import graph_url
 
@@ -124,7 +124,14 @@ def test_the_code_field_indents_with_tab_and_escape_then_tab_leaves_it(
     _add(page, "code")
     inspector = page.locator(".ge-inspector")
     code = inspector.get_by_label("Code", exact=True)
-    expect(inspector.get_by_text("Press Escape, then Tab to leave the field.")).to_be_visible()
+    expect(inspector.get_by_text("Press Escape, then Tab to leave the field.")).to_have_count(
+        0
+    )  # explained in the tooltip, not printed
+    tip_of(inspector, "Code").hover()
+    expect(
+        page.get_by_role("tooltip").filter(has_text="Press Escape, then Tab to leave the field.")
+    ).to_be_visible()
+    page.mouse.move(5, 5)  # the tooltip would lie over the field
     code.click()
     page.keyboard.type("if x:")
     page.keyboard.press("Tab")
@@ -138,7 +145,12 @@ def test_the_code_field_indents_with_tab_and_escape_then_tab_leaves_it(
     expect(summary).to_be_focused()
     page.keyboard.press("Enter")  # opens it
     page.keyboard.press("Tab")
+    expect(
+        tip_of(inspector, "Secrets")
+    ).to_be_focused()  # the (i) after a label is a stop of its own
+    page.keyboard.press("Tab")
     expect(inspector.get_by_label("Secrets")).to_be_focused()  # (migration 0022)
+    page.keyboard.press("Tab")
     page.keyboard.press("Tab")
     expect(inspector.get_by_label("Sets variables")).to_be_focused()  # declared variables (ADR-034)
 

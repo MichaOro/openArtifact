@@ -124,11 +124,12 @@ export class InspectorBlocks {
   }
 
   /**
-   * The action row, always New · Edit · Delete in this order; what does not apply is greyed out.
-   * @param {{create?: Function, edit?: string|null, remove?: boolean}} actions
+   * The action row of the settings: only what applies to the node. *New* where it can make what it links to or holds,
+   * *Edit* where it links (greyed until it links to something), *Delete* where the node may be deleted.
+   * @param {{create?: Function|null, edit?: string|null, remove?: boolean}} actions `edit`: omitted for a node that links to nothing
    */
-  actions(node, { create = null, edit = null, remove = false } = {}) {
-    if (!create && !edit && !remove) return null;
+  actions(node, { create = null, edit = undefined, remove = false } = {}) {
+    if (!create && edit === undefined && !remove) return null;
     const bar = document.createElement("div");
     bar.className = "ge-actionbar";
     const make = (tag, glyph, text, className = "") => {
@@ -139,16 +140,22 @@ export class InspectorBlocks {
       el.append(icon(glyph), document.createTextNode(text));
       return el;
     };
-    const newButton = make("button", "plus", "New");
-    if (create) newButton.addEventListener("click", create);
-    else newButton.disabled = true;
-    const editLink = make("a", "pencil", "Edit");
-    if (edit) editLink.href = edit;
-    else editLink.setAttribute("aria-disabled", "true");
-    const removeButton = make("button", "trash", "Delete", "is-danger ge-delete");
-    if (remove) removeButton.addEventListener("click", () => this.editor.remove(node));
-    else removeButton.disabled = true;
-    bar.append(newButton, editLink, removeButton);
+    if (create) {
+      const newButton = make("button", "plus", "New");
+      newButton.addEventListener("click", create);
+      bar.append(newButton);
+    }
+    if (edit !== undefined) {
+      const editLink = make("a", "pencil", "Edit");
+      if (edit) editLink.href = edit;
+      else editLink.setAttribute("aria-disabled", "true");
+      bar.append(editLink);
+    }
+    if (remove) {
+      const removeButton = make("button", "trash", "Delete", "is-danger ge-delete");
+      removeButton.addEventListener("click", () => this.editor.remove(node));
+      bar.append(removeButton);
+    }
     return bar;
   }
 }

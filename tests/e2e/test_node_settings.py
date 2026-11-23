@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 from playwright.sync_api import Page, expect
 
-from tests.e2e.helpers import add_setting, eventually, pick_node
+from tests.e2e.helpers import add_setting, eventually, pick_node, tip_of
 from tests.helpers import graph_url
 
 
@@ -158,3 +158,46 @@ def test_a_timer_has_a_single_column_with_its_one_setting(
     settings = page.locator("#node-modal .ge-settings")
     expect(settings).to_have_attribute("data-columns", "1")
     expect(settings.get_by_label("Seconds")).to_be_visible()
+
+
+def test_the_explanation_of_a_field_is_a_tooltip_after_its_label(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _open(page, base_url, api, "postgres")
+    dialog = page.locator("#node-modal")
+    query = dialog.get_by_label("Query", exact=True)
+    tip = tip_of(dialog, "Query")
+    expect(tip).to_be_visible()
+    text = "One SQL statement."
+    expect(dialog.get_by_text(text)).to_be_hidden()  # not printed under the field
+    tip.hover()  # hover opens it
+    tooltip = page.get_by_role("tooltip").filter(has_text=text)
+    expect(tooltip).to_be_visible()
+    expect(tooltip).to_contain_text(
+        "Stored in plain text, so no passwords in here."
+    )  # warnings are help too
+    box, tip_box = tooltip.bounding_box(), tip.bounding_box()
+    assert (
+        box and tip_box and box["y"] >= tip_box["y"]
+    )  # below the (i), inside the dialog (not hidden behind it)
+    page.mouse.move(5, 5)
+    expect(tooltip).to_be_hidden()  # leaving closes it
+    tip.focus()  # so does keyboard focus open it
+    expect(tooltip).to_be_visible()
+    page.keyboard.press("Escape")  # Escape closes the tooltip first, the dialog stays
+    expect(tooltip).to_be_hidden()
+    expect(dialog).to_be_visible()
+    described = query.get_attribute("aria-describedby") or ""
+    assert (tip.get_attribute("data-tip-id") or "x") in described  # the field is described by it
+    expect(
+        dialog.get_by_text("0 lines").first
+    ).to_be_visible()  # the count stays, on the label's line
+
+
+def test_the_footer_has_only_the_actions_that_apply_to_the_node(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _open(page, base_url, api, "postgres")
+    expect(page.locator("#node-modal .ge-actionbar .button")).to_have_text(
+        ["Delete"]
+    )  # nothing to create or open

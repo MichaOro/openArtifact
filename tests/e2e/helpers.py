@@ -440,3 +440,8 @@ def add_setting(page: Page, label: str) -> None:
         "button", name=re.compile("^Add (setting|override)$")
     ).first.click()
     page.get_by_role("menuitem", name=re.compile(f"^{re.escape(label)}")).click()
+
+
+def tip_of(scope: Locator, label: str) -> Locator:
+    """The (i) after the label of a field (its button is named "Help": the field is what it is about)."""
+    return scope.locator(f'.info-tip[data-about="{label}"]')

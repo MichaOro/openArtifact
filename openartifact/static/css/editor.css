@@ -340,7 +340,7 @@
 }
 
 /* three equal buttons across the full width: New flush left with the select above, Delete flush right */
-.ge-actionbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.ge-actionbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-2); }
 .ge-actionbar .button { width: 100%; justify-content: center; gap: var(--space-1); padding: 0 var(--space-2); }
 .ge-actionbar .icon { width: 1rem; height: 1rem; }
 .ge-actionbar a.button[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
