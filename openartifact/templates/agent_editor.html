@@ -85,8 +85,12 @@
                 <label class="field__label" for="ag-retries">Retries <span class="field__hint">(0 to 4)</span></label>
                 <input class="field__control" id="ag-retries" type="number" min="0" max="4" step="1" data-field="retries">
             </div>
+            <div class="field">
+                <label class="field__label" for="ag-max-iterations">Max iterations <span class="field__hint">(1 to 50)</span></label>
+                <input class="field__control" id="ag-max-iterations" type="number" min="1" max="50" step="1" data-field="max_iterations">
+            </div>
         </div>
-        <p class="field__help">A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds. The time limit of the node covers all attempts and waits.</p>
+        <p class="field__help">A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds. The time limit of the node covers all attempts and waits. With tools attached, Max iterations is how many requests a node may make while the model calls tools.</p>
     </section>
 
     <section class="ag-card glass ag-save" aria-labelledby="ag-save-title">

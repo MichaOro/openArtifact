@@ -14,6 +14,7 @@ export const OVERRIDES = [
   { key: "request_timeout_seconds", label: "Request timeout (seconds)", kind: "integer", min: 1, max: 300 },
   { key: "total_timeout_seconds", label: "Time limit of the node (seconds)", kind: "integer", min: 1, max: 1800 },
   { key: "retries", label: "Retries", kind: "integer", min: 0, max: 4 },
+  { key: "max_iterations", label: "Max iterations", kind: "integer", min: 1, max: 50 },
 ];
 
 const LABELS = Object.fromEntries([...OVERRIDES.map((o) => [o.key, o.label]), ["inputs", "Inputs"]]);
@@ -128,4 +129,11 @@ export const inputStateText = (state) => STATES[state] ?? state;
 /** "3.0 s" from milliseconds. */
 export function seconds(ms) {
   return ms == null ? "" : `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)} s`;
+}
+
+/** The rows of the tool calls of an agent step (ADR-040): turn, tool, arguments, result, time. */
+export function toolCallRows(turns) {
+  return (turns ?? []).flatMap((turn, index) =>
+    (turn.tool_calls ?? []).map((call) => [String(index + 1), call.tool, call.arguments, { text: call.result, state: call.error ? "error" : "" }, seconds(call.duration_ms)]),
+  );
 }

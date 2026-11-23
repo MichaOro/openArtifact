@@ -9,7 +9,7 @@ import { KEYS, removeStorage } from "../storage.js";
 import { AddMenu } from "./add-menu.js";
 import { createGraph, listGraphs } from "./api.js";
 import { Canvas } from "./canvas.js";
-import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
+import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextToolPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
 import { GraphModel } from "./graph-model.js";
 import { InspectorBlocks } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
@@ -52,7 +52,7 @@ export class GraphEditor {
       },
     });
 
-    new AddMenu(root, this.model.kind, (kind) => this.#addBeforeEnd(kind));
+    new AddMenu(root, this.model.kind, (kind) => (typeOf(kind).tool ? this.#addTool(kind) : this.#addBeforeEnd(kind)));
     root.querySelector("[data-zoom-in]").addEventListener("click", () => this.canvas.zoomBy(1.2));
     root.querySelector("[data-zoom-out]").addEventListener("click", () => this.canvas.zoomBy(1 / 1.2));
     root.querySelector("[data-zoom-fit]").addEventListener("click", () => this.canvas.fit());
@@ -154,6 +154,21 @@ export class GraphEditor {
       this.canvas.sync();
       await this.#save(() => this.model.updateNode(ending.id, { x: free }));
     }
+    this.canvas.reveal(created);
+  }
+
+  /** A new tool hangs below the selected agent (or the last one, or the agent of the selected tool) and
+   * is attached to it at once; without an agent it goes on the main line like any node. */
+  async #addTool(kind) {
+    let selected = this.selection?.type === "node" ? this.selection.id : null;
+    const attached = [...this.edges.values()].find((e) => e.source_id === selected && e.target_port === "tools");
+    if (attached) selected = attached.target_id;
+    const spot = nextToolPosition(this.nodes, this.edges, selected);
+    if (!spot) return this.#addBeforeEnd(kind);
+    const created = await this.#create({ kind, x: spot.x, y: spot.y });
+    if (!created) return;
+    await this.#connect(created, "tool", this.nodes.get(spot.agentId), "tools");
+    this.select({ type: "node", id: created.id });
     this.canvas.reveal(created);
   }
 

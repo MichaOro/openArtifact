@@ -1,7 +1,7 @@
 /* DOM building blocks shared by the agent pages, the agent node's inspector and the agent block of a
  * step. Everything is text (textContent, never innerHTML): prompts, values and provider messages come
  * from users and from outside. */
-import { fieldLabel, inputStateText, seconds, showValue } from "./model.js";
+import { fieldLabel, inputStateText, seconds, showValue, toolCallRows } from "./model.js";
 
 export function el(tag, className = "", text = null) {
   const node = document.createElement(tag);
@@ -85,6 +85,13 @@ export function attemptsTable(attempts) {
   );
 }
 
+/** The tools the model called, turn by turn (nothing when it called none). */
+export function toolCallsTable(turns) {
+  const rows = toolCallRows(turns);
+  if (!rows.length) return null;
+  return table("Tool calls", ["Turn", "Tool", "Arguments", "Result", "Took"], rows);
+}
+
 /** A list of problems as warnings (nothing if there are none). */
 export function problemList(problems) {
   const list = el("ul", "ag-problems");
@@ -125,13 +132,14 @@ export function detailView(detail) {
     `Request timeout ${settings.request_timeout_seconds} s`,
     `Time limit ${settings.total_timeout_seconds} s`,
     `Retries ${settings.retries}`,
+    settings.max_iterations != null ? `Max iterations ${settings.max_iterations}` : null,
   ].filter(Boolean);
   wrap.append(el("p", "ag-facts", limits.join(" · ")));
   const overrides = Object.keys(detail.overrides ?? {});
   wrap.append(el("p", "ag-facts", overrides.length ? `Set by the node itself: ${overrides.map(fieldLabel).join(", ")}` : "The node used the agent's settings as they are."));
   if (detail.system_prompt != null) wrap.append(block("System prompt as sent", detail.system_prompt));
   if (detail.user_prompt != null) wrap.append(block("User prompt as sent", detail.user_prompt));
-  for (const part of [inputsTable(detail.inputs), attemptsTable(detail.attempts)]) if (part) wrap.append(part);
+  for (const part of [inputsTable(detail.inputs), toolCallsTable(detail.turns), attemptsTable(detail.attempts)]) if (part) wrap.append(part);
   return wrap;
 }
 
@@ -144,6 +152,7 @@ export function configFacts(config) {
     config.temperature != null ? `Temperature: ${config.temperature}` : null,
     config.max_tokens != null ? `Max tokens: ${config.max_tokens}` : null,
     `Retries: ${config.retries}`,
+    config.max_iterations != null ? `Max iterations: ${config.max_iterations}` : null,
   ];
   return facts.filter(Boolean).join(" · ");
 }

@@ -212,6 +212,10 @@
 .ge-port--yes { border-color: var(--edge-pass); }
 .ge-port[data-side="right"]::after { right: 14px; white-space: nowrap; }
 .ge-port[data-side="left"]::after { left: 14px; white-space: nowrap; }
+/* the Tools port of an agent (bottom) and the port of a tool (top): ADR-040 */
+.ge-port[data-side="bottom"]::after { top: 16px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+.ge-port--tool,
+.ge-port--tools { border-style: dashed; }
 /* a stage has three points per side; only used ones show, all of them while hovering or connecting */
 .ge-node--stage > .ge-port { opacity: 0; pointer-events: none; }
 .ge-node--stage > .ge-port.is-used { opacity: 1; pointer-events: auto; }
@@ -232,6 +236,7 @@
 .ge-edge:hover .ge-edge__line,
 .ge-edge.is-selected .ge-edge__line { stroke-width: 3; }
 .ge-edge__line--draft { stroke: var(--color-accent); stroke-dasharray: 4 4; }
+.ge-edge--attachment .ge-edge__line { stroke: var(--color-text-muted); stroke-dasharray: 5 5; }
 .ge-arrow { fill: var(--color-text-secondary); }
 .ge-arrow--pass { fill: var(--edge-pass); }
 .ge-arrow--error { fill: var(--color-danger); }

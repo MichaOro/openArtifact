@@ -5,6 +5,7 @@ import { HEADER, typeOf } from "./node-types.js";
 export const PAD = 24; // space between a stage border and its actions
 export const ACTION_GAP = 64; // space between neighbouring actions
 export const TOP_LEVEL_GAP = 96; // space between a new node of the main line and its neighbour
+export const TOOL_GAP = 120; // space between an agent and the tools hanging below it
 export const STAGE_MIN = { width: 320, height: 220 };
 export const EDGE_STYLES = { curved: "Curved", straight: "Straight", elbow: "Elbow" };
 
@@ -55,7 +56,8 @@ const TIGHT = 48; // a forward connection with less room than this would bend to
  * room to bend, leaves to the right, runs below both nodes and comes in from the left instead of
  * cutting across them (rounded for curved and elbow, with sharp corners for straight).
  */
-export function edgePath(from, to, fromBox, toBox, { routed = true, style = "curved" } = {}) {
+export function edgePath(from, to, fromBox, toBox, { routed = true, style = "curved", attachment = false } = {}) {
+  if (attachment) return attachmentPath(from, to);
   const dx = to.x - from.x;
   if (routed && dx < TIGHT) {
     const low = Math.max(fromBox.y + fromBox.height, toBox.y + toBox.height) + DETOUR;
@@ -69,6 +71,12 @@ export function edgePath(from, to, fromBox, toBox, { routed = true, style = "cur
   }
   const reach = Math.min(Math.max(dx / 2, 48), 220);
   return `M ${from.x} ${from.y} C ${from.x + reach} ${from.y}, ${to.x - reach} ${to.y}, ${to.x} ${to.y}`;
+}
+
+/** A tool's attachment: from the top of the tool up to the bottom of the agent, whatever the style. */
+function attachmentPath(from, to) {
+  const reach = Math.min(Math.max(Math.abs(from.y - to.y) / 2, 32), 160);
+  return `M ${from.x} ${from.y} C ${from.x} ${from.y - reach}, ${to.x} ${to.y + reach}, ${to.x} ${to.y}`;
 }
 
 /** A polyline whose inner corners are replaced by quadratic curves of the given radius. */
@@ -103,6 +111,19 @@ export function nextTopLevelPosition(nodes, kind) {
   const line = [...nodes.values()].filter((n) => typeOf(n).chain);
   const right = Math.max(...line.map((n) => n.x + sizeOf(n).width), 60);
   return { x: Math.round(right + TOP_LEVEL_GAP), y: kind === "stage" ? 40 : 172 };
+}
+
+/**
+ * Where a new tool goes (ADR-040): below the agent `selectedId` names (or the last agent), right of the
+ * tools already attached to it; `null` when there is no agent. `agentId` is the agent to attach it to.
+ */
+export function nextToolPosition(nodes, edges, selectedId) {
+  const agents = [...nodes.values()].filter((n) => n.kind === "agent");
+  const agent = nodes.get(selectedId)?.kind === "agent" ? nodes.get(selectedId) : agents[agents.length - 1];
+  if (!agent) return null;
+  const tools = [...edges.values()].filter((e) => e.target_id === agent.id && e.target_port === "tools").map((e) => nodes.get(e.source_id)).filter(Boolean);
+  const x = tools.length ? Math.max(...tools.map((t) => t.x + sizeOf(t).width)) + ACTION_GAP / 2 : agent.x;
+  return { agentId: agent.id, x, y: agent.y + sizeOf(agent).height + TOOL_GAP };
 }
 
 /** Where a new action goes: flows run left to right, so right of the last action of its stage. */

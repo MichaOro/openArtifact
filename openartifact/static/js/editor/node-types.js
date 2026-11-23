@@ -58,11 +58,12 @@ export class NodeView {
 
   // ── ports ────────────────────────────────────────────────────────
 
-  /** Every port of the kind (shown or not), with its direction for dragging. */
+  /** Every port of the kind (shown or not), with its direction for dragging. Inputs sit left and outputs
+   * right unless the server gives a side (the Tools port of an agent at the bottom, a tool's port on top). */
   ports() {
     return [
-      ...this.inputs.map((p) => ({ ...p, direction: "input", side: "left", slot: 0 })),
-      ...this.outputs.map((p) => ({ ...p, direction: "output", side: "right", slot: 0 })),
+      ...this.inputs.map((p) => ({ ...p, direction: "input", side: p.side ?? "left", slot: 0 })),
+      ...this.outputs.map((p) => ({ ...p, direction: "output", side: p.side ?? "right", slot: 0 })),
     ];
   }
 
@@ -84,8 +85,10 @@ export class NodeView {
   /** Where a port sits relative to the node's top-left corner: shown ports spread down each side. */
   portLocal(node, port) {
     const { width, height } = this.size(node);
+    const own = [...this.inputs, ...this.outputs].find((p) => p.name === port);
+    if (own?.side === "top" || own?.side === "bottom") return { x: width / 2, y: own.side === "top" ? 0 : height };
     const input = this.inputs.some((p) => p.name === port) && !this.outputs.some((p) => p.name === port);
-    const side = (input ? this.inputs : this.outputs).filter((p) => this.isVisible(node, p.name));
+    const side = (input ? this.inputs : this.outputs).filter((p) => this.isVisible(node, p.name) && !p.side);
     const index = Math.max(0, side.findIndex((p) => p.name === port));
     return { x: input ? 0 : width, y: (height * (index + 1)) / (side.length + 1) };
   }
@@ -95,6 +98,7 @@ export class NodeView {
   /** May `source.sourcePort` (a node of this kind) feed `target.targetPort`? */
   canFeed(source, sourcePort, target, targetPort) {
     if (target.id === source.id) return false;
+    if (targetPort === "tools") return false; // only a tool attaches there (ToolView)
     if (target.kind === "action") return false;
     return !(target.kind === "stage" && targetPort !== "start");
   }
@@ -378,13 +382,60 @@ class HttpView extends ExecutionView {
   }
 }
 
+/** A tool of an agent (ADR-040): hangs below an Agent node, attached to its Tools port; no flow ports. */
+class ToolView extends NodeView {
+  static size = { width: 200, height: 64 };
+
+  subtitle() {
+    return this.label;
+  }
+
+  canFeed(source, sourcePort, target, targetPort) {
+    return target.kind === "agent" && targetPort === "tools";
+  }
+
+  /** The name the model calls it by (empty: the node's name). */
+  toolName(node) {
+    return node.config?.tool_name || node.name;
+  }
+}
+
+class McpToolView extends ToolView {
+  static kind = "mcp_tool";
+  static icon = "plug";
+
+  caption(node) {
+    return hostAndPath(node.config?.url ?? "") || "no endpoint yet";
+  }
+}
+
+class HttpToolView extends ToolView {
+  static kind = "http_tool";
+  static icon = "http";
+
+  caption(node) {
+    const { method = "GET", url = "" } = node.config ?? {};
+    return `${method} ${hostAndPath(url) || "no URL yet"}`;
+  }
+}
+
+class CodeToolView extends ToolView {
+  static kind = "code_tool";
+  static icon = "code";
+
+  caption(node) {
+    return `${node.config?.language ?? "python"} · ${this.toolName(node)}`;
+  }
+}
+
 /** `https://user:pw@example.org/hook?token=x#y` as `example.org/hook`. */
 function hostAndPath(url) {
   const plain = () => url.split(/[?#]/)[0].replace(/^[^/]*@/, "");
   try {
     const { host, pathname } = new URL(url);
     // `user:pw@host/path` without a scheme parses as an opaque URL with no host: never show the userinfo
-    return host ? `${host}${pathname === "/" ? "" : pathname}` : plain();
+    // the path as written: a tool's {parameter} stays readable
+    return host ? `${host}${pathname === "/" ? "" : decodeURI(pathname)}` : plain();
   } catch {
     return plain();
   }
@@ -397,7 +448,7 @@ export function registerView(View) {
   VIEWS.set(View.kind, View);
 }
 
-[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView, IfView, SwitchView, AgentView, SetView].forEach(registerView);
+[TriggerView, CompleteView, StageView, ActionView, PipelineNodeView, TimerView, OutputView, CodeView, HttpView, IfView, SwitchView, AgentView, SetView, McpToolView, HttpToolView, CodeToolView].forEach(registerView);
 
 const TYPES = new Map();
 

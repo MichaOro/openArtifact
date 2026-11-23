@@ -21,8 +21,8 @@ const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-mod
 const $ = (selector) => root.querySelector(selector);
 const control = (key) => root.querySelector(`[data-field="${key}"]`);
 
-const NUMBERS = ["temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries"];
-const DEFAULTS = { request_timeout_seconds: 60, total_timeout_seconds: 600, retries: 3 };
+const NUMBERS = ["temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations"];
+const DEFAULTS = { request_timeout_seconds: 60, total_timeout_seconds: 600, retries: 3, max_iterations: 10 };
 const ORIGINS = { user: "in the browser", api: "through the API" };
 
 let agent = null;

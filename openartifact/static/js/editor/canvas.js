@@ -158,10 +158,11 @@ export class Canvas {
       const source = this.nodes.get(edge.source_id);
       const target = this.nodes.get(edge.target_id);
       if (!source || !target) continue;
-      const d = edgePath(portPoint(source, edge.source_port, this.nodes, edge.source_slot), portPoint(target, edge.target_port, this.nodes, edge.target_slot), boxOf(source, this.nodes), boxOf(target, this.nodes), { style: edge.style });
-      const group = svg("g", { class: `ge-edge ge-edge--${edge.source_port}`, "data-edge-id": edge.id });
+      const attachment = edge.target_port === "tools"; // a tool hangs below its agent: dashed, no arrow
+      const d = edgePath(portPoint(source, edge.source_port, this.nodes, edge.source_slot), portPoint(target, edge.target_port, this.nodes, edge.target_slot), boxOf(source, this.nodes), boxOf(target, this.nodes), { style: edge.style, attachment });
+      const group = svg("g", { class: `ge-edge ge-edge--${attachment ? "attachment" : edge.source_port}`, "data-edge-id": edge.id });
       if (this.selection?.type === "edge" && this.selection.id === edge.id) group.classList.add("is-selected");
-      const line = svg("path", { class: "ge-edge__line", d, "marker-end": `url(#ge-arrow-${FAILING_PORTS.includes(edge.source_port) ? "error" : "pass"})` });
+      const line = svg("path", attachment ? { class: "ge-edge__line", d } : { class: "ge-edge__line", d, "marker-end": `url(#ge-arrow-${FAILING_PORTS.includes(edge.source_port) ? "error" : "pass"})` });
       group.append(...(this.readOnly ? [line] : [svg("path", { class: "ge-edge__hit", d }), line]));
       this.edgeLayer.append(group);
       this.handlers.onEdgeDrawn?.(edge, group);
@@ -311,7 +312,7 @@ export class Canvas {
     if (!g || event.pointerId !== g.pointerId) return;
     if (g.type === "connect") {
       const to = this.#toWorld(event);
-      g.line.setAttribute("d", edgePath(g.from, to, g.box, g.box, { routed: false }));
+      g.line.setAttribute("d", edgePath(g.from, to, g.box, g.box, { routed: false, attachment: g.port === "tool" }));
       const over = document.elementFromPoint(event.clientX, event.clientY)?.closest(".ge-port.is-valid");
       this.viewport.querySelectorAll(".ge-port.is-hover").forEach((el) => el.classList.toggle("is-hover", el === over));
       over?.classList.add("is-hover");

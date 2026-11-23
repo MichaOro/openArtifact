@@ -5,6 +5,7 @@ import { test } from "node:test";
 
 import {
   OVERRIDES,
+  toolCallRows,
   agentChips,
   agentFacts,
   fieldLabel,
@@ -46,8 +47,9 @@ test("an override is a setting with a value, and false and 0 are values", () => 
   assert.deepEqual(overridesOf({}), []);
 });
 
-test("every overridable setting has a label and the server's ten keys are covered", () => {
-  assert.equal(OVERRIDES.length, 10);
+test("every overridable setting has a label and the server's keys are covered", () => {
+  // agents/schemas.py OVERRIDABLE
+  assert.deepEqual(new Set(OVERRIDES.map((o) => o.key)), new Set(["system_prompt_enabled", "system_prompt", "user_prompt", "provider_id", "model", "temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations"]));
   assert.equal(fieldLabel("max_tokens"), "Max tokens");
   assert.equal(fieldLabel("inputs"), "Inputs");
   assert.equal(fieldLabel("unknown_key"), "unknown_key");
@@ -140,4 +142,21 @@ test("the state of an input and a duration are words", () => {
   assert.equal(seconds(1234), "1.2 s");
   assert.equal(seconds(45000), "45 s");
   assert.equal(seconds(null), "");
+});
+
+test("the tool calls of a step: turn, tool, arguments, result (an error marked) and time", () => {
+  const turns = [
+    { attempts: [], tool_calls: [{ tool: "get_issue", arguments: '{"number": 7}', result: "Issue #7", error: false, duration_ms: 1500 }] },
+    { attempts: [], tool_calls: [{ tool: "nothere", arguments: "{}", result: "Error: there is no tool named nothere", error: true, duration_ms: 0 }] },
+    { attempts: [], tool_calls: [] },
+  ];
+  assert.deepEqual(toolCallRows(turns), [
+    ["1", "get_issue", '{"number": 7}', { text: "Issue #7", state: "" }, "1.5 s"],
+    ["2", "nothere", "{}", { text: "Error: there is no tool named nothere", state: "error" }, "0.0 s"],
+  ]);
+  assert.deepEqual(toolCallRows(undefined), []); // a step from before tools
+});
+
+test("max iterations is a setting a node may override", () => {
+  assert.deepEqual(OVERRIDES.find((o) => o.key === "max_iterations"), { key: "max_iterations", label: "Max iterations", kind: "integer", min: 1, max: 50 });
 });

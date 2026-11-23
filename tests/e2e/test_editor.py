@@ -383,7 +383,18 @@ def test_create_an_action_definition_from_the_navigation(
     expect(page.locator(".ge-node--output")).to_have_count(1)
     page.click("[data-add-menu]")
     expect(page.locator("[data-add-list] [data-add]")).to_have_text(
-        ["Timer", "Code", "HTTP request", "If", "Switch", "Agent", "Edit Fields"]
+        [
+            "Timer",
+            "Code",
+            "HTTP request",
+            "If",
+            "Switch",
+            "Agent",
+            "Edit Fields",
+            "MCP Client Tool",
+            "HTTP Request Tool",
+            "Code Tool",
+        ]
     )
 
 

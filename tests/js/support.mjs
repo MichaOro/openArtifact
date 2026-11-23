@@ -103,6 +103,13 @@ export const NODE_TYPES = [
   }),
   kind("set", "Edit Fields", { addable: true, chain: true, scopes: ["action"], inputs: [port("in")], outputs: [port("pass", "On Pass"), port("fail", "On Fail")] }),
   kind("note", "Note", { addable: true, scopes: ["action"] }), // a kind without a view of its own
+  kind("agent", "Agent", {
+    addable: true, chain: true, scopes: ["action"], inputs: [port("in", "Input"), { name: "tools", label: "Tools", side: "bottom" }],
+    outputs: [port("pass", "On Pass"), port("fail", "On Fail")],
+  }),
+  ...[["mcp_tool", "MCP Client Tool"], ["http_tool", "HTTP Request Tool"], ["code_tool", "Code Tool"]].map(([name, label]) =>
+    kind(name, label, { addable: true, tool: true, scopes: ["action"], outputs: [{ name: "tool", label: "Tool", side: "top" }] }),
+  ),
 ];
 
 /** Load the kinds into node-types.js through a stubbed fetch. */
