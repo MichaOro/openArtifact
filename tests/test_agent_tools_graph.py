@@ -152,6 +152,7 @@ def test_every_tool_has_a_name_and_a_description_for_the_model(client: TestClien
         "parameters",
         "timeout_seconds",
         "success_status",
+        "allow_private",
     } <= set(http)
     code = _keys(client, "code_tool")
     assert {"language", "code", "secrets", "parameters", "timeout_seconds"} <= set(code)

@@ -37,6 +37,9 @@ from tests.helpers import (
 from tests.mcp_support import CALLS as MCP_CALLS
 from tests.mcp_support import TOKEN as MCP_TOKEN
 from tests.mcp_support import mcp_server
+from tests.test_http_runner import _Handler, server
+
+__all__ = ["server"]  # the fixture of the HTTP node tests, used by name
 
 
 @pytest.fixture
@@ -264,3 +267,38 @@ def test_a_tool_on_a_private_address_needs_its_own_switch(
     pipeline = tool_flow(api, agent, [_github_tool(github, allow_private=False)])
     step, _ = run_and_step(api, pipeline, "failed")
     assert step["reason"] == "Tool GitHub: The address is not allowed (private network address)"
+
+
+# ── a run with an HTTP Request Tool ──────────────────────────────────
+
+
+def test_a_secret_a_tool_sends_is_masked_in_the_history(
+    api: TestClient, llm: FakeLlm, server: int
+) -> None:
+    make_provider(api, llm)
+    put_secret(api, "SERVICE_KEY", "svc-very-secret-value")
+    agent = make_agent(api)
+    echo = {
+        "tool_name": "echo",
+        "method": "POST",
+        "url": f"http://127.0.0.1:{server}/echo",
+        "body": "key=${secret:SERVICE_KEY} said={text}",
+        "parameters": "text: What to say",
+        "allow_private": True,
+    }
+    pipeline = tool_flow(api, agent, [("http_tool", "Echo", echo)])
+    llm.script = [
+        (200, tool_answer(("c1", "echo", {"text": "hi ${secret:SERVICE_KEY}"}))),
+        (200, completion("Done")),
+    ]
+    _, read = run_and_step(api, pipeline, "done")
+    sent = _Handler.hits[-1][3]
+    assert (
+        sent == b"key=svc-very-secret-value said=hi ${secret:SERVICE_KEY}"
+    )  # the model's text stays literal
+    (call,) = read["detail"]["turns"][0]["tool_calls"]
+    assert call["result"] == "HTTP 200\nkey=*** said=hi ${secret:SERVICE_KEY}"
+    assert (
+        llm.completions()[1]["json"]["messages"][-1]["content"] == call["result"]
+    )  # the model gets it masked too
+    assert "svc-very-secret-value" not in json.dumps(read)

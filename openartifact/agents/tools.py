@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from openartifact.agents.mcp_client import McpToolError, open_mcp
+from openartifact.credentials.refs import mask_text
 from openartifact.models import NodeKind
 
 TOOL_RESULT_LIMIT_BYTES = 16 * 1024
@@ -223,7 +224,20 @@ async def open_toolbox(
                 built.append(builder(frozen, context))
             except ValueError as error:
                 raise ToolboxError(f"Tool {label}: {error}") from None
+        values = [v for v in context.secrets.values() if v]
+        if values:
+            for tool in built:
+                tool.run = _masking(tool.run, values)
         yield Toolbox(built)
+
+
+def _masking(run: Run, values: list[str]) -> Run:
+    """A tool whose answer has the run's secret values masked: the model never reads a secret back."""
+
+    async def masked(arguments: dict[str, Any]) -> str:
+        return mask_text(await run(arguments), values)
+
+    return masked
 
 
 def _mcp_call(call: Callable[[str, Mapping[str, Any]], Awaitable[str]], name: str) -> Run:

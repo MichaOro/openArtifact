@@ -1077,6 +1077,17 @@ def _timeout(default: int, maximum: int) -> Setting:
     )
 
 
+_ALLOW_PRIVATE = Setting(
+    "allow_private",
+    "Private network",
+    "switch",
+    default=False,
+    stored_in="config",
+    help="The address is on a private or local network. Counts only when the operator allows it too "
+    "(OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).",
+)
+
+
 class McpToolType(_ToolType):
     """Offers the tools of a remote MCP server (Streamable HTTP), for example GitHub's."""
 
@@ -1106,15 +1117,7 @@ class McpToolType(_ToolType):
             help="The name of a stored secret, sent as 'Authorization: Bearer'. Empty: no token.",
             check=_references(_check_secret_name),
         ),
-        Setting(
-            "allow_private",
-            "Private network",
-            "switch",
-            default=False,
-            stored_in="config",
-            help="The server is on a private or local network. Counts only when the operator allows it too "
-            "(OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).",
-        ),
+        _ALLOW_PRIVATE,
         Setting(
             "tools_mode",
             "Tools to include",
@@ -1182,6 +1185,7 @@ class HttpToolType(_ToolType):
             check=_references(_check_text_references),
         ),
         _PARAMETERS,
+        _ALLOW_PRIVATE,
         _timeout(30, 120),
         Setting(
             "success_status",
