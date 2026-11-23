@@ -107,7 +107,9 @@ def test_the_pages_load_their_script_and_mark_their_place(
     assert script in html and "/static/css/agents.css" in html
     marked = html.split('aria-current="page"')[1].split("</a>")[0]
     assert current in marked
-    assert 'href="/agents"' in html and 'href="/settings/providers"' in html
+    assert 'href="/settings/providers"' in html
+    # Agents is a sub-entry of Pipeline: shown with Pipeline's other entries on the pages inside it only
+    assert ('href="/agents"' in html) == path.startswith("/agents")
 
 
 def test_the_agent_page_carries_the_reference_and_the_pages_are_not_in_the_api_document(

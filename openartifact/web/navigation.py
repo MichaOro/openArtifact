@@ -91,12 +91,14 @@ SIDEBAR = (
             "Pipeline",
             "pipeline",
             href="/pipelines",
-            children=(NavLink("actions", "Actions", "action", href="/actions"),),
+            children=(
+                NavLink("actions", "Actions", "action", href="/actions"),
+                NavLink("agents", "Agents", "agent", href="/agents"),
+            ),
         )
     )
     .add(NavLink("executions", "Executions", "list", href="/executions"))
     .add(NavLink("artifact-types", "Artifact types", "tag", href="/artifact-types"))
-    .add(NavLink("agents", "Agents", "agent", href="/agents"))
     .add(
         NavLink(
             "settings",
