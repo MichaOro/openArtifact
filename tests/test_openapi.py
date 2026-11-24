@@ -40,6 +40,7 @@ DELETE /api/tasks/{ref}/comments/{comment_id} -> -
 DELETE /api/tasks/{task_id} -> -
 DELETE /api/tasks/{task_id}/executions -> DeletedCount
 DELETE /api/tasks/{task_id}/executions/{execution_id} -> -
+DELETE /api/ui-layouts/{kind}/{name} -> LayoutRead
 DELETE /api/v1/agents/{ref} -> -
 DELETE /api/v1/artifacts/{ref} -> -
 DELETE /api/v1/artifacts/{ref}/comments/{comment_id} -> -
@@ -50,6 +51,7 @@ DELETE /api/v1/lanes/{status} -> LaneRead[]
 DELETE /api/v1/providers/{ref} -> -
 DELETE /api/v1/providers/{ref}/models/{model_id} -> -
 DELETE /api/v1/secrets/{name} -> -
+DELETE /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/actions -> GraphRead[]
 GET /api/actions/{graph_id} -> GraphDetail
 GET /api/agents -> AgentRead[]
@@ -65,8 +67,8 @@ GET /api/credentials/{ref}/events -> CredentialEventRead[]
 GET /api/credentials/{ref}/uses -> CredentialUse[]
 GET /api/events -> -
 GET /api/executions -> ExecutionsPage
-GET /api/forms -> FormManifest[]
-GET /api/forms/{name} -> FormManifest
+GET /api/forms -> FormRead[]
+GET /api/forms/{name} -> FormRead
 GET /api/guard-attachments -> AttachmentRead[]
 GET /api/guard-attachments/{attachment_id} -> AttachmentRead
 GET /api/guards -> GuardDefinitionRead[]
@@ -97,6 +99,8 @@ GET /api/tasks/{task_id}/executions/{execution_id} -> ExecutionDetail
 GET /api/tasks/{task_id}/executions/{execution_id}/context -> RunContextRead
 GET /api/tasks/{task_id}/executions/{execution_id}/flow -> ExecutionFlow
 GET /api/tasks/{task_id}/executions/{execution_id}/steps/{step_id} -> ExecutionStepRead
+GET /api/ui-layouts/{kind}/{name} -> LayoutRead
+GET /api/ui-layouts/{kind}/{name}/export -> -
 GET /api/v1/agents -> AgentRead[]
 GET /api/v1/agents/{ref} -> AgentDetail
 GET /api/v1/agents/{ref}/uses -> AgentUse[]
@@ -127,6 +131,8 @@ GET /api/v1/providers/{ref} -> ProviderRead
 GET /api/v1/secrets -> SecretRead[]
 GET /api/v1/settings/retention -> RulesRead
 GET /api/v1/settings/run-limits -> RunLimitsRead
+GET /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
+GET /api/v1/ui-layouts/{kind}/{name}/export -> -
 GET /health -> HealthRead
 PATCH /api/actions/{graph_id} -> GraphRead
 PATCH /api/actions/{graph_id}/edges/{edge_id} -> EdgeRead
@@ -207,6 +213,7 @@ PUT /api/lanes/{status} -> LaneRead[]
 PUT /api/secrets/{name} -> SecretRead
 PUT /api/settings/retention -> RulesSaved
 PUT /api/settings/run-limits -> RunLimitsRead
+PUT /api/ui-layouts/{kind}/{name} -> LayoutRead
 PUT /api/v1/agents/{ref}/draft -> AgentDetail
 PUT /api/v1/artifact-fields -> ArtifactFieldsRead
 PUT /api/v1/guard-attachments/{attachment_id}/enabled -> AttachmentRead
@@ -214,6 +221,7 @@ PUT /api/v1/lanes/{status} -> LaneRead[]
 PUT /api/v1/secrets/{name} -> SecretRead
 PUT /api/v1/settings/retention -> RulesSaved
 PUT /api/v1/settings/run-limits -> RunLimitsRead
+PUT /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 """.splitlines()
 
 

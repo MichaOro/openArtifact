@@ -35,6 +35,7 @@ from openartifact.graph.schemas import (
 )
 from openartifact.i18n.web import language_for
 from openartifact.models import Graph, GraphKind, GraphNode, NodeKind
+from openartifact.ui import layout as ui_layout
 
 _LABELS: dict[GraphKind, str] = {GraphKind.PIPELINE: "Pipeline", GraphKind.ACTION: "Action"}
 
@@ -304,8 +305,10 @@ node_types_router = APIRouter(prefix="/api", tags=["node-types"], responses=GATE
     response_model_exclude_unset=True,
     summary="List node types",
 )
-async def list_node_types(request: Request) -> list[dict[str, Any]]:
+async def list_node_types(request: Request, session: SessionDep) -> list[dict[str, Any]]:
     """The kinds of nodes: scope, ports, settings, what they link to (the editor draws from this). The texts are in the
     language of the request (cookie ``oa_lang``, else ``Accept-Language``) where a translation exists, else English; the
     stored values (kinds, setting keys, options) never change."""
-    return localize([t.describe() for t in NODE_TYPES.values()], language_for(request))
+    saved = await ui_layout.load_all(session)
+    described = [ui_layout.apply_layout(f"nodes/{t.kind}", t.describe(), saved.get(f"nodes/{t.kind}")) for t in NODE_TYPES.values()]
+    return localize(described, language_for(request))

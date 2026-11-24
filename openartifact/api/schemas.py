@@ -88,6 +88,9 @@ class NodeTypeRead(BaseModel):
     menu_icon: str | None = None
     #: How its card looks: icon, size, caption, ... (``graph/manifest.py`` ``UiSpec``).
     ui: dict[str, Any] = {}
+    #: A saved arrangement of the window of this kind (ADR-063): the sides left to right; only present when one is saved.
+    layout: dict[str, Any] | None = None
+    layout_customised: bool | None = None
 
 
 class ChainActionRead(BaseModel):
