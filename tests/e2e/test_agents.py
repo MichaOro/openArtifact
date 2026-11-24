@@ -754,6 +754,8 @@ def test_the_inputs_table_has_a_required_column_and_a_description_only_when_one_
         },
     ).json()
     page = signed_in
+    # the column titles show in a wide panel; in a narrow one (below 52 rem) an input takes two rows and the titles go
+    page.set_viewport_size({"width": 1700, "height": 900})
     page.goto(f"{agents_url}/agents/{agent['id']}")
     editor = page.locator("[data-agent-editor]")
     _tab(editor, "Inputs")
