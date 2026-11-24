@@ -69,12 +69,28 @@ export function parseMapping(text) {
   return mapping;
 }
 
-/** {name: value} as the text the node stores; inputs without a value are left out (not mapped). */
-export function formatMapping(mapping) {
+/** What an artifact input of an agent is mapped to when the node is first given the agent (ADR-064). */
+export const ARTIFACT_PREFILL = "${card.text}";
+
+/** {name: value} as the text the node stores; inputs without a value are left out (not mapped), except the names in
+ * `keep`, which stay as `name =` so that an artifact input that was cleared on purpose is not filled in again. */
+export function formatMapping(mapping, keep = []) {
   return Object.entries(mapping)
-    .filter(([, value]) => (value ?? "").trim() !== "")
-    .map(([name, value]) => `${name} = ${value.trim().replace(/[\r\n]+/g, " ")}`)
+    .filter(([name, value]) => (value ?? "").trim() !== "" || keep.includes(name))
+    .map(([name, value]) => `${name} = ${(value ?? "").trim().replace(/[\r\n]+/g, " ")}`.trimEnd())
     .join("\n");
+}
+
+/** The mapping text with every declared input of type `artifact` that has no entry yet filled with `${card.text}`, or
+ * null when there is nothing to fill in. An entry that exists (even an empty one) is the user's decision and stays, and so does a card reference in any input. */
+export function prefillMapping(inputs, text) {
+  const mapping = parseMapping(text);
+  // the user already feeds the card to this agent in an input of their own: a second copy beside it is never added
+  if (Object.values(mapping).some((value) => value.includes("${card."))) return null;
+  const missing = inputs.filter((i) => i.type === "artifact" && !(i.name in mapping));
+  if (!missing.length) return null;
+  for (const input of missing) mapping[input.name] = ARTIFACT_PREFILL;
+  return formatMapping(mapping, inputs.filter((i) => i.type === "artifact").map((i) => i.name));
 }
 
 /** The mapping rows of a node: one per declared input, then what is mapped but not declared. */
@@ -170,5 +186,5 @@ export function optionsOf(config) {
 export function sampleHint(input) {
   if (input.default !== null && input.default !== undefined && input.default !== "") return `e.g. ${input.default}`;
   if (input.description) return `e.g. ${input.description}`;
-  return { number: "e.g. 3", boolean: "e.g. true" }[input.type] ?? t("agents.model.e_g_login_fails_after");
+  return { number: "e.g. 3", boolean: "e.g. true", artifact: t("agents.model.sample_epic") }[input.type] ?? t("agents.model.e_g_login_fails_after");
 }

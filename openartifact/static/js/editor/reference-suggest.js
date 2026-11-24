@@ -3,6 +3,7 @@
  * Tab insert, Escape closes it, typing filters, a click inserts. Focus never leaves the field
  * (aria-activedescendant), and a polite live region says how many suggestions there are. The
  * logic is in reference-completion.js; the popup looks like the "#" picker (components.css). */
+import { icon } from "../components/icons.js";
 import { placePopover } from "../components/popover.js";
 import { request } from "../http.js";
 import { applyCompletion, candidatesFor, openReference, suggestionsFor } from "./reference-completion.js";
@@ -10,6 +11,7 @@ import { typeOf } from "./node-types.js";
 import { t, tn } from "../i18n.js";
 
 const SECRETS_MAX_AGE_MS = 5000;
+const CARD_FIELDS_MAX_AGE_MS = 1000;
 let secretNames = [];
 let secretsAt = 0;
 
@@ -27,14 +29,20 @@ export async function refreshSecretNames() {
 let cardFields = [];
 let cardFieldsAt = 0;
 
-/** The artifact fields ({name, label}), offered as ${card.NAME}; fetched again when a field gets focus. */
+/** The artifact fields ({name, label}), offered as ${card.NAME}. Fetched again whenever a list opens or a field gets
+ * focus (at most once a second), so a field defined meanwhile is offered without reloading the editor. Resolves
+ * true when the list changed. */
 export async function refreshCardFields() {
-  if (Date.now() - cardFieldsAt < SECRETS_MAX_AGE_MS) return;
+  if (Date.now() - cardFieldsAt < CARD_FIELDS_MAX_AGE_MS) return false;
   cardFieldsAt = Date.now();
   try {
-    cardFields = (await request("/api/artifact-fields")).fields.map((f) => ({ name: f.name, label: f.label }));
+    const next = (await request("/api/artifact-fields")).fields.map((f) => ({ name: f.name, label: f.label }));
+    const changed = JSON.stringify(next) !== JSON.stringify(cardFields);
+    cardFields = next;
+    return changed;
   } catch {
     cardFieldsAt = 0;
+    return false;
   }
 }
 
@@ -109,9 +117,12 @@ export function suggestReferences(input, source, { allowSecrets }) {
     placePopover(el, (menu) => ({ left: box.left + (at.left - origin.left) - input.scrollLeft, top, flipTop: top - menu.height - at.height - 8 }));
   };
 
+  const redrawWhenFieldsChange = () => refreshCardFields().then((changed) => changed && document.activeElement === input && update());
+
   const update = () => {
     reference = input.selectionStart === input.selectionEnd ? openReference(input.value, input.selectionStart) : null;
     if (!reference) return close();
+    if (!el) redrawWhenFieldsChange(); // a field added meanwhile is offered without reloading the editor
     matches = suggestionsFor(candidatesFor(source.nodes(), { exceptId: source.exceptId, secrets: secretNames, allowSecrets, cardFields, kinds: typeOf }), reference.query);
     if (!matches.length) return close();
     if (!el) {
@@ -146,6 +157,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
         const detail = document.createElement("span");
         detail.className = "popover__number popover__detail";
         detail.textContent = candidate.detail;
+        if (candidate.icon) option.append(icon(candidate.icon, "popover__icon"));
         option.append(name, detail);
         return option;
       }),
@@ -160,7 +172,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
   input.addEventListener("blur", close);
   input.addEventListener("focus", () => {
     if (allowSecrets) refreshSecretNames();
-    refreshCardFields(); // ${card.NAME} is offered wherever references are
+    redrawWhenFieldsChange(); // ${card.NAME} is offered wherever references are
   });
   // capture: before the field's own Enter / Tab / Escape handling, which must not see a key the list used
   input.addEventListener(

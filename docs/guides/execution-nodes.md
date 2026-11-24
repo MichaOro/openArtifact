@@ -114,13 +114,27 @@ these are errors.
 
 ### Card parameters (`card`): the artifact fields
 
-The artifact fields ([concepts](concepts.md#terms), ADR-044) are copied into the context when the execution starts,
-under `card`: every field is a key with the artifact's value, else the field's default, else `null` (rendered as `null`
-like other empty values). Without any fields `card` is empty.
-`${card.urgency}` is replaced like `${var.urgency}`: text as it is, numbers and yes/no as JSON (`3`, `true`), percent-encoded
-in a URL. The name is the field's name (`[a-z][a-z0-9_]{0,31}`), not its label. A field that does not exist fails the
-node: `${card.x}: the artifact has no field "x"`. Code nodes read `card` in `context.json`. The context holds a **copy**:
-changing the artifact's fields later never changes an execution that exists, and the History shows what that run saw.
+Every artifact is a source of its run (ADR-064). When the execution starts, `card` holds a **copy** of:
+
+- the built-in values `${card.id}`, `${card.number}`, `${card.title}` and `${card.body}`, and `${card.text}`, which is
+  derived (`#<number> <title>`, a blank line, the body) and is what an agent input of type *artifact* is filled with;
+- every artifact field ([concepts](concepts.md#terms), ADR-044) with the artifact's value, else the field's default,
+  else nothing.
+
+A custom field cannot be named like a built-in (`title`, `body`, `number`, `id`, `text`; refused with 422, and existing
+clashes were renamed to `title_field` and so on by migration 0051, also in the references of node settings).
+`${card.urgency}` is replaced like `${var.urgency}`: text as it is, numbers and yes/no as JSON (`3`, `true`), a choice as its
+value, percent-encoded in a URL. A field that is defined but empty on this card is empty text. The name is the field's
+name (`[a-z][a-z0-9_]{0,31}`), not its label. A name that does not exist is a warning when the node is saved (it lists
+the known names) and fails the node in the run: `${card.x}: the artifact has no field "x" (it has: ...)`; the same holds
+for a field that was renamed or deleted after the node mapped it. Code nodes read `card` in `context.json`. The card
+of a run may hold at most 40 KiB; a larger one is refused when the run starts (never cut). Changing the artifact later
+never changes an execution that exists, and the History shows what that run saw.
+
+The editor offers all of it first in the picker, in the group **Card of this run**, and shows what a text becomes with a
+real card: *Preview with card* at the top of the settings (remembered per browser, `?card=` in the address) puts the
+resolved text under every field that takes references. Only `${card...}` is resolved there; nodes and variables stay
+placeholders and secrets are never shown.
 Field values are plain data: do not put secrets in them ([Security](security.md)).
 
 **Setting variables.** A Code node ends with a result line (see the *Result protocol* below). Add `"vars"`:

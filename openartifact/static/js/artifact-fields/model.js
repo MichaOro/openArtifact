@@ -21,8 +21,17 @@ export function typeText(state) {
   return `${label} · ${n} option${n === 1 ? "" : "s"}`;
 }
 
-/** A field name from its label: lowercase letters, digits and underscores, starting with a letter, at most 32. */
+/** What every artifact has as `${card.NAME}` by itself (artifact_fields/rules.py BUILT_IN_NAMES, ADR-064): not a field name. */
+export const BUILT_IN_NAMES = ["title", "body", "number", "id", "text"];
+
+/** A field name from its label: lowercase letters, digits and underscores, starting with a letter, at most 32; a name
+ * the artifact has by itself (a field labelled "Title") gets `_field`. */
 export function nameFromLabel(label) {
+  const name = plainName(label);
+  return BUILT_IN_NAMES.includes(name) ? `${name}_field` : name;
+}
+
+function plainName(label) {
   const folded = label
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")

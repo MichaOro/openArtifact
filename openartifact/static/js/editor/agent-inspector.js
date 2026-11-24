@@ -4,10 +4,12 @@
  * What is in effect is asked from the server (POST /api/agents/{id}/preview with the node), which resolves it the
  * same way a run does, so the panel never computes inheritance itself. */
 import { getAgent, listAgents, listProviders, previewAgent } from "../agents/api.js";
-import { formatMapping, mappingRows, preview as oneLine, showValue, usableModels } from "../agents/model.js"; // `oneLine`: `preview` is also a name of the server's answer here
+import { formatMapping, mappingRows, preview as oneLine, prefillMapping, showValue, usableModels } from "../agents/model.js"; // `oneLine`: `preview` is also a name of the server's answer here
 import { el, problemList } from "../agents/view.js";
+import { icon } from "../components/icons.js";
 import { field } from "./field.js";
 import { rememberAgents } from "./node-types.js";
+import { attachReferencePreview } from "./reference-preview.js";
 import { suggestReferences } from "./reference-suggest.js";
 import { buildSettings } from "./settings-layout.js";
 import { t } from "../i18n.js";
@@ -92,6 +94,15 @@ class AgentBlock {
       } catch (error) {
         extras.push(el("p", "ge-inspector__note", error.detail ?? error.message));
       }
+      if (preview && detail) {
+        // an input of type artifact starts as the card of the run (explicit and editable, ADR-064): put in once, never again
+        const filled = prefillMapping(detail.published.inputs, this.config.inputs ?? "");
+        if (filled !== null) {
+          const message = await this.editor.saveSetting(this.node, this.setting("inputs"), filled);
+          if (message) this.editor.showError(message);
+          else preview = await previewAgent(agent.id, { source: "published", node_id: this.node.id }); // what the filled mapping says
+        }
+      }
       extras.push(this.#status(agent));
       if (preview) {
         if (preview.problems.length) extras.push(problemList(preview.problems));
@@ -171,9 +182,10 @@ class AgentBlock {
     const error = el("p", "field__error");
     error.setAttribute("role", "alert");
     error.hidden = true;
+    const keep = rows.filter((r) => r.declared && r.type === "artifact").map((r) => r.name);
     const commit = async () => {
       const mapping = Object.fromEntries([...fields].map(([name, input]) => [name, input.value]));
-      const message = await this.save("inputs", formatMapping(mapping) || null, { redraw: false });
+      const message = await this.save("inputs", formatMapping(mapping, keep) || null, { redraw: false });
       error.textContent = message ?? "";
       error.hidden = !message;
       if (!message) await this.render();
@@ -181,14 +193,38 @@ class AgentBlock {
     for (const row of rows) {
       const input = Object.assign(el("input", "field__control"), { type: "text", value: row.value, autocomplete: "off", spellcheck: false });
       input.dataset.focusKey = `agent-input-${row.name}`;
-      input.placeholder = row.required ? "${(Node name).output}" : row.default != null ? t("editor.agent_inspector.default_value", { value: row.default }) : t("common.empty");
+      input.placeholder =
+        row.type === "artifact" && row.declared
+          ? t("editor.agent_inspector.defaults_to_card_text")
+          : row.required
+            ? "${(Node name).output}"
+            : row.default != null
+              ? t("editor.agent_inspector.default_value", { value: row.default })
+              : t("common.empty");
       input.addEventListener("change", commit);
       input.addEventListener("keydown", (event) => event.key === "Enter" && commit());
       const suggest = this.editor.suggestions?.(this.node);
       if (suggest) suggestReferences(input, suggest, { allowSecrets: false });
+      attachReferencePreview(input);
       fields.set(row.name, input);
       const label = row.declared ? `${row.name}${row.required ? " *" : ""} (${row.type})` : t("editor.agent_inspector.name_not_declared_by_agent", { name: row.name });
-      wrap.append(field(label, input));
+      if (row.declared) {
+        wrap.append(field(label, input));
+      } else {
+        // a mapping the agent no longer declares fails the run (nothing is ignored silently): it is shown, and it can be removed
+        const remove = el("button", "button button--ghost button--sm is-danger");
+        remove.type = "button";
+        remove.dataset.focusKey = `agent-input-remove-${row.name}`;
+        remove.setAttribute("aria-label", t("editor.agent_inspector.remove_mapping_of", { name: row.name }));
+        remove.append(icon("trash"), document.createTextNode(t("editor.agent_inspector.remove_mapping")));
+        remove.addEventListener("click", () => {
+          fields.delete(row.name);
+          commit();
+        });
+        const stale = el("div", "ag-node__stale");
+        stale.append(field(label, input), remove);
+        wrap.append(stale);
+      }
     }
     wrap.append(error);
     return wrap;

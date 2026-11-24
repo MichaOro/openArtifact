@@ -57,7 +57,16 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
 
 - **Prompts.** The user prompt is required; the system prompt is switched on in *Options*. A prompt uses `${input.NAME}` and
   nothing else: `${node...}`, `${var...}`, `${card...}` and `${secret:...}` are refused. That keeps an agent independent
-  of any pipeline.
+  of any pipeline. An input of type **artifact** is the card the run belongs to: the agent node fills it with
+  `${card.text}` the first time the agent is chosen (stored in the node's mapping, editable; once it is cleared or
+  changed it is not filled again). Any input can be mapped to `${card.title}`, `${card.body}`, `${card.NAME}` of a field,
+  or any other reference (ADR-064). A mapped name the agent does not declare (the agent changed) is shown with a
+  *Remove* button and fails the run until removed.
+  **The card is a source, never an implicit part of the request: the prompt decides.** The model sees the card only
+  where a prompt contains `${input.x}` and `x` is mapped to a card reference (`Read ${input.x}`, or `${input.x}` alone
+  as the whole prompt); two inputs mapped to the card and both used appear once each. A prompt that does not use an input
+  does not send it, and the node dialog warns about a mapped input that no prompt uses. The pre-fill of an
+  *artifact* input is not made when another input of the node already maps a `${card...}` reference.
 - **Inputs.** Declare what the agent needs in the table: a name (`[a-z][a-z0-9_]{0,31}`), a type (`string`, `number`,
   `boolean`), *Required* or *Optional*, and a default for an optional one. A description is added from the row's menu
   (⋮); the Description column shows while any input has one.

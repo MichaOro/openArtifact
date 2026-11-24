@@ -467,3 +467,8 @@
   overflow-wrap: anywhere;
 }
 .ge-add__from[hidden] { display: none; }
+
+/* "Preview with card" at the top of the settings of a node that takes references (reference-preview.js) */
+.ge-preview-card { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-3); }
+.ge-preview-card__label { flex: none; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.ge-preview-card__field { flex: 1; min-width: 0; }

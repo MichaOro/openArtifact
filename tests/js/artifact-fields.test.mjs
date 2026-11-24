@@ -10,6 +10,8 @@ test("a field name comes from its label", () => {
   assert.equal(nameFromLabel("Über uns"), "uber_uns");
   assert.equal(nameFromLabel("2nd try"), "f_2nd_try");
   assert.equal(nameFromLabel(""), "");
+  assert.equal(nameFromLabel("Title"), "title_field"); // a name the artifact has by itself is not a field name
+  assert.equal(nameFromLabel("Body"), "body_field");
 });
 
 test("a field has no required setting: the editor neither holds nor sends one", () => {
@@ -94,8 +96,9 @@ test("the server's refusal is split by field", () => {
 test("the artifact fields are offered as card.NAME references", async () => {
   const { candidatesFor } = await import("../../openartifact/static/js/editor/reference-completion.js");
   const found = candidatesFor([], { cardFields: [{ name: "size", label: "Size" }, { name: "estimate", label: "Estimate" }] });
-  assert.deepEqual(found.map((c) => c.insert), ["card.size", "card.estimate"]);
-  assert.equal(found[0].detail, "Size: field of the artifact");
-  assert.equal(found[0].complete, true);
-  assert.deepEqual(candidatesFor([], {}), []); // without fields nothing is offered
+  // what every artifact has comes first (ADR-064), then its own fields
+  assert.deepEqual(found.map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number", "card.id", "card.size", "card.estimate"]);
+  assert.equal(found[5].detail, "Size: field of the artifact");
+  assert.equal(found[5].complete, true);
+  assert.deepEqual(candidatesFor([], {}).map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number", "card.id"]); // without fields only those
 });

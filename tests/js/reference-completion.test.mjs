@@ -104,7 +104,7 @@ test("suggestions lead in steps: groups and nodes first, then what is behind the
   const first = suggestionsFor(all, "").map((c) => c.insert);
   assert.deepEqual(first, ["card.", "var.", "secret:", "(Fetch user).", "(Ping).", "(Decide).", "(Other)."]);
   assert.ok(suggestionsFor(all, "").every((c) => c.complete === false), "choosing one goes on to the next step");
-  assert.deepEqual(suggestionsFor(all, "card.").map((c) => c.insert), ["card.repo", "card.date"]);
+  assert.deepEqual(suggestionsFor(all, "card.").map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number", "card.id", "card.repo", "card.date"]);
   assert.deepEqual(suggestionsFor(all, "card.d").map((c) => c.insert), ["card.date"]);
   assert.deepEqual(suggestionsFor(all, "(Fetch user).").map((c) => c.insert), ["(Fetch user).output", "(Fetch user).exit_code", "(Fetch user).outcome", "(Fetch user).reason", "(Fetch user).data."]);
   assert.deepEqual(suggestionsFor(all, "(Fetch user).ou").map((c) => c.insert), ["(Fetch user).output", "(Fetch user).outcome"]);
@@ -116,9 +116,10 @@ test("suggestions lead in steps: groups and nodes first, then what is behind the
 
 test("a group shows how much is behind it", () => {
   const all = candidatesFor([], { kinds, cardFields: [{ name: "a", label: "A" }, { name: "b", label: "B" }] });
-  assert.equal(suggestionsFor(all, "")[0].detail, "2 artifact fields");
+  assert.equal(suggestionsFor(all, "")[0].detail, "Card of this run");
+  assert.equal(suggestionsFor(all, "")[0].icon, "card");
   const one = candidatesFor([{ id: "1", kind: "http", name: "Ping" }], { kinds });
-  assert.equal(suggestionsFor(one, "")[0].detail, "http node");
+  assert.equal(suggestionsFor(one, "").find((c) => c.insert === "(Ping).").detail, "http node");
 });
 
 test("every kind the manifests say leaves a result is offered, with no list of kinds in the editor", () => {
@@ -126,9 +127,10 @@ test("every kind the manifests say leaves a result is offered, with no list of k
   const withResult = candidatesFor(nodes, { kinds }).filter((c) => c.insert.endsWith(".output")).map((c) => c.kind);
   assert.deepEqual(withResult.sort(), ["agent", "artifact", "code", "github", "http", "if", "postgres", "set", "switch", "timer"]);
   // a trigger, an output and a tool leave nothing; a kind nobody described is not offered either
+  const ofNodes = (list) => list.filter((c) => c.head !== "card."); // the card of the run is always offered
   const none = candidatesFor([{ id: "t", kind: "trigger", name: "T" }, { id: "o", kind: "output", name: "O" }, { id: "m", kind: "mcp_tool", name: "M" }, { id: "x", kind: "unheard_of", name: "X" }], { kinds });
-  assert.deepEqual(none, []);
-  assert.deepEqual(candidatesFor(nodes), [], "without a description of the kinds nothing is assumed");
+  assert.deepEqual(ofNodes(none), []);
+  assert.deepEqual(ofNodes(candidatesFor(nodes)), [], "without a description of the kinds nothing is assumed");
 });
 
 test("a kind offers the keys of data it declares, and the variables it sets come from its manifest", () => {

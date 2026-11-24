@@ -58,6 +58,11 @@
             {# once fields exist, "Add field" is the page's usual create button, top right, in the accent colour #}
             <button type="button" class="button button--primary button--sm" data-add-field hidden>{{ icon("plus") }} {{ t('index.add_field') }}</button>
         </div>
+        {# every artifact has a title and a body: standard rows that cannot be changed, with the reference a run reads them by (ADR-064) #}
+        <ul class="af-standard" aria-label="{{ t('index.standard_fields') }}">
+            <li class="af-standard__row"><span class="af-standard__label">{{ t('index.standard_title') }}</span> <code>${card.title}</code> <span class="tag">{{ t('index.standard_tag') }}</span> <span class="af-standard__help">{{ t('index.standard_title_help') }}</span></li>
+            <li class="af-standard__row"><span class="af-standard__label">{{ t('index.standard_body') }}</span> <code>${card.body}</code> <span class="tag">{{ t('index.standard_tag') }}</span> <span class="af-standard__help">{{ t('index.standard_body_help') }}</span></li>
+        </ul>
         {# the fields on the left (a grip to reorder, a click to choose), the chosen field's settings on the right (ADR-050) #}
         <div class="af-layout">
             <div class="af-fields">

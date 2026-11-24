@@ -15,6 +15,8 @@ const NODE_FIELDS = [
   ["data.", t("editor.reference_completion.its_data_then_key")],
 ];
 const MAX_SUGGESTIONS = 40;
+/* What every artifact is as `${card.NAME}` by itself (engine/context.py BUILT_IN_CARD, ADR-064), offered before its own fields. */
+const CARD_BUILT_INS = ["title", "body", "text", "number", "id"];
 
 /** The names an Edit Fields node sets (mirror of engine/fields.py: the part before "=" of each line). */
 export function fieldNames(text) {
@@ -60,6 +62,7 @@ export function openReference(text, caret) {
  */
 export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecrets = false, cardFields = [], kinds = () => undefined } = {}) {
   const out = [];
+  for (const name of CARD_BUILT_INS) out.push({ insert: `card.${name}`, detail: t(`editor.reference_completion.card_${name}`), complete: true, head: "card." });
   for (const field of cardFields) out.push({ insert: `card.${field.name}`, detail: t("editor.reference_completion.label_field_artifact", { label: field.label }), complete: true, head: "card." });
   const seen = new Set();
   for (const node of nodes) {
@@ -105,8 +108,8 @@ export function suggestionsFor(all, query) {
     group.count += 1;
     heads.set(c.head, group);
   }
-  const labels = { "card.": (n) => tn("editor.reference.artifact_fields", n), "var.": (n) => tn("editor.reference.variables", n), "secret:": (n) => tn("editor.reference.secrets", n) };
-  const groups = [...heads.values()].map((g) => ({ insert: g.head, detail: labels[g.head]?.(g.count) ?? `${g.kind} node`, complete: false, head: "" }));
+  const labels = { "card.": () => t("editor.reference.card_of_run"), "var.": (n) => tn("editor.reference.variables", n), "secret:": (n) => tn("editor.reference.secrets", n) };
+  const groups = [...heads.values()].map((g) => ({ insert: g.head, detail: labels[g.head]?.(g.count) ?? `${g.kind} node`, complete: false, head: "", icon: g.head === "card." ? "card" : undefined }));
   const order = (g) => ["card.", "var.", "secret:"].indexOf(g.insert);
   const fixed = groups.filter((g) => order(g) >= 0).sort((a, b) => order(a) - order(b));
   return filterCandidates([...fixed, ...groups.filter((g) => order(g) < 0)], query);

@@ -154,7 +154,7 @@ function textInput(value, label, key, extra = {}) {
 function inputRow(input = { name: "", type: "string", required: false, default: null, description: "" }) {
   const row = el("li", "ag-input");
   const name = textInput(input.name, t("common.name"), "name", { maxLength: 32, placeholder: "ticket", spellcheck: false });
-  const type = choiceSelect([["string", "string"], ["number", "number"], ["boolean", "boolean"]], input.type, t("common.type"), "type");
+  const type = choiceSelect([["string", "string"], ["number", "number"], ["boolean", "boolean"], ["artifact", "artifact"]], input.type, t("common.type"), "type");
   const required = choiceSelect([["required", t("common.required")], ["optional", t("agents.editor_page.optional")]], input.required ? "required" : "optional", t("common.required"), "required");
   required.classList.add("ag-input__required");
   const fallback = textInput(input.default == null ? "" : String(input.default), t("common.default"), "default");
@@ -167,11 +167,14 @@ function inputRow(input = { name: "", type: "string", required: false, default: 
   more.append(icon("more"));
   const sync = () => {
     const isRequired = required.value === "required";
-    fallback.disabled = isRequired; // a required input has no default: the node must map it
-    fallback.placeholder = isRequired ? "—" : "";
-    if (isRequired) fallback.value = "";
+    const isArtifact = type.value === "artifact";
+    fallback.disabled = isRequired || isArtifact; // a required input has no default: the node must map it; an artifact input is the card of the run
+    fallback.placeholder = isRequired || isArtifact ? "—" : "";
+    if (isRequired || isArtifact) fallback.value = "";
+    type.title = isArtifact ? t("agents.editor_page.artifact_input_help") : "";
   };
   required.addEventListener("change", sync);
+  type.addEventListener("change", sync);
   sync();
   more.addEventListener("click", () => {
     const has = Boolean(description.firstChild);
@@ -295,7 +298,7 @@ function renderSamples() {
   host.replaceChildren(
     ...inputs.map((input) => {
       const wrap = el("div", "field");
-      const field = Object.assign(el("input", "field__control"), { type: "text", value: typed[input.name] ?? "", autocomplete: "off", placeholder: sampleHint(input) });
+      const field = Object.assign(el("input", "field__control"), { type: "text", value: typed[input.name] ?? (input.type === "artifact" ? t("agents.model.sample_epic") : ""), autocomplete: "off", placeholder: sampleHint(input) });
       field.id = `ag-sample-${input.name}`;
       field.dataset.sample = input.name;
       const label = el("label", "field__label", t("agents.editor_page.example_for", { name: input.name }) + (input.required ? " *" : ""));

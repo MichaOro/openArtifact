@@ -212,7 +212,7 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
     editor.get_by_label("User prompt").fill("Analyse: ${input.ticket} and ${input.missing}")
     editor.locator("[data-save]").click()
     expect(editor.locator("[data-problems] li")).to_have_text(
-        ["User prompt: ${input.missing} is not a declared input"]
+        ["User prompt: ${input.missing} is not a declared input (it declares: ticket)"]
     )
     editor.locator("[data-publish]").click()
     expect(editor.locator("[data-save-error]")).to_contain_text("is not a declared input")

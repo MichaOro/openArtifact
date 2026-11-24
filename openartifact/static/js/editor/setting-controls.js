@@ -4,6 +4,7 @@
  * keeps what the user typed when the save is refused. Add a type by subclassing SettingControl and
  * listing it in CONTROLS. */
 import { field } from "./field.js";
+import { attachReferencePreview } from "./reference-preview.js";
 import { suggestReferences } from "./reference-suggest.js";
 import { t, tn } from "../i18n.js";
 
@@ -47,7 +48,10 @@ class SettingControl {
     this.input = this.createInput(value);
     this.input.dataset.focusKey = `setting-${setting.key}`;
     this.input.addEventListener("change", () => this.commit());
-    if (suggest && setting.references && this.constructor.suggests) suggestReferences(this.input, suggest, { allowSecrets: setting.references === "all" });
+    if (suggest && setting.references && this.constructor.suggests) {
+      suggestReferences(this.input, suggest, { allowSecrets: setting.references === "all" });
+      if (setting.references !== "all") attachReferencePreview(this.input); // a field that may hold a secret reference never previews
+    }
     this.element = this.build();
   }
 

@@ -85,6 +85,11 @@ export class Combobox {
     if (this.isOpen) this.#open();
   }
 
+  /** Choose the option with this value (null clears the choice); `onChange` hears it like a click. */
+  choose(value) {
+    this.#select(this.options.find((o) => o.value === value) ?? null);
+  }
+
   close() {
     if (!this.isOpen) return;
     this.list.hidden = true;

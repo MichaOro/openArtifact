@@ -73,6 +73,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [061](061-what-a-failure-does.md) | What a failure does: Stop, Continue, or the error output (three values of *If the node fails*, for nodes and actions) | Accepted | 2026-11-24 | amends ADR-039, ADR-054, ADR-060 |
 | [062](062-configuration-windows-as-data.md) | Configuration windows as data: a form manifest (YAML) per window, one renderer, widgets from a registry, texts overridable per language; the guard editor as the pilot | Accepted | 2026-11-24 | amends ADR-059, ADR-060 |
 | [063](063-rearranging-manifest-windows.md) | Rearranging manifest windows: a layout layer in the data store over the shipped YAML, a handle on the top edge, an arrange view with drag and keys, reset and export | Accepted | 2026-11-24 | amends ADR-062, ADR-053, ADR-054 |
+| [064](064-the-card-is-a-source-of-the-run.md) | The card is a source of the run: `${card.title}`, `body`, `number`, `id`, `text` always exist next to the custom fields, an empty field is empty text, an agent input of type artifact, a resolved preview, reserved field names |
 
 ## Notes
 

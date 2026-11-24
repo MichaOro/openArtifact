@@ -2,6 +2,7 @@
  * Every change made in it draws the panel again; the control that had focus is found again by its
  * [data-focus-key], so keyboard users keep their place. */
 import { typeOf } from "./node-types.js";
+import { previewSelector } from "./reference-preview.js";
 
 export class InspectorPanel {
   /** @param {HTMLElement} element the [data-inspector] aside @param {import("./inspector.js").InspectorBlocks} blocks @param {import("./graph-model.js").GraphModel} model */
@@ -44,6 +45,8 @@ export class InspectorPanel {
     const { nodes } = this.model;
     if (selection?.type !== "node" || !nodes.has(selection.id)) return [];
     const node = nodes.get(selection.id);
-    return [this.blocks.title(node), ...typeOf(node).sections(node, this.blocks).filter(Boolean)];
+    const type = typeOf(node);
+    const takesReferences = type.ui?.block === "agent" || type.settings?.some((s) => s.references && s.references !== "all");
+    return [this.blocks.title(node), ...(takesReferences ? [previewSelector()] : []), ...type.sections(node, this.blocks).filter(Boolean)];
   }
 }

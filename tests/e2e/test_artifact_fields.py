@@ -214,7 +214,7 @@ def test_a_field_is_offered_as_a_reference_while_a_node_is_edited(board: Board) 
     url.click()
     board.page.wait_for_timeout(500)  # the fields are fetched when the field gets focus
     url.fill("http://127.0.0.1:1/")
-    url.press_sequentially("${card.")
+    url.press_sequentially("${card.si")  # the built-ins come first (ADR-064): narrow to the field
     options = board.page.locator("[role=listbox] [role=option]")
     expect(options.first).to_contain_text("card.size")
     expect(options.first).to_contain_text("Size: field of the artifact")

@@ -565,6 +565,7 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 /* "#" reference menu inside the body field: compact rows, the number stays quiet */
 .popover--reference { min-width: 14rem; max-width: min(24rem, 90vw); }
 .popover__option--reference { height: 2rem; }
+.popover__option--reference .popover__icon { flex: none; width: 1rem; height: 1rem; margin-right: var(--space-2); color: var(--color-text-secondary); }
 .popover__number {
   flex: none;
   min-width: 2.25rem;
