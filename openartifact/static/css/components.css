@@ -311,6 +311,20 @@
 .icon-button--sm { width: 2rem; height: 2rem; border-radius: var(--radius-sm); }
 .icon-button--sm .icon { width: 1rem; height: 1rem; }
 
+/* A quiet label that is not a control, such as "Soon" beside a menu entry that holds a place for something coming (ADR-059) */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--color-text-primary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+
 /* Subtle buttons at the right end of the lane header (add artifact, options) */
 .lane__add,
 .lane__menu {

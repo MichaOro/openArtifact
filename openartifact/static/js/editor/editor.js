@@ -16,7 +16,7 @@ import { GraphModel } from "./graph-model.js";
 import { InspectorBlocks } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
 import { rememberPipeline, setupBack, setupBackToAgent } from "./navigation.js";
-import { addableIn, typeOf } from "./node-types.js";
+import { addableIn, placeholderOf, typeOf } from "./node-types.js";
 import { forgetOpened } from "./settings-layout.js";
 import { t, tn } from "../i18n.js";
 
@@ -65,13 +65,18 @@ export class GraphEditor {
     this.menu = new ActionMenu();
     this.pastes = 0; // how often the same copy was pasted: each paste is placed a little further
 
-    new AddMenu(root, this.model.kind, (kind) => (typeOf(kind).tool ? this.#addTool(kind) : this.#addBeforeEnd(kind)));
+    new AddMenu(
+      root,
+      this.model.kind,
+      (kind) => (typeOf(kind).tool ? this.#addTool(kind) : this.#addBeforeEnd(kind)),
+      () => this.#guardsSoon(),
+    );
     root.querySelector("[data-zoom-in]").addEventListener("click", () => this.canvas.zoomBy(1.2));
     root.querySelector("[data-zoom-out]").addEventListener("click", () => this.canvas.zoomBy(1 / 1.2));
     root.querySelector("[data-zoom-fit]").addEventListener("click", () => this.canvas.fit());
     this.canvas.viewport.addEventListener("click", (event) => {
-      const add = event.target.closest("[data-add-action]");
-      if (add) this.#addAction(this.nodes.get(add.closest(".ge-node").dataset.nodeId));
+      const add = event.target.closest("[data-stage-add]");
+      if (add) this.#openStageAddMenu(this.nodes.get(add.closest(".ge-node").dataset.nodeId), add);
     });
     this.canvas.viewport.addEventListener("dblclick", (event) => this.#openSettingsAt(event));
     document.addEventListener("keydown", (event) => this.#onShortcut(event)); // wherever the focus is, as long as nothing else wants the key
@@ -373,6 +378,19 @@ export class GraphEditor {
     else this.#openNodeMenu(node, null, button);
   }
 
+  /** The "+" of a stage: a small menu to add an Action, or a Guard (a place held for something that is coming). */
+  #openStageAddMenu(stage, trigger) {
+    const guard = placeholderOf("guard");
+    const items = [{ label: typeOf("action").label, icon: "action", onSelect: () => this.#addAction(stage) }];
+    if (guard) items.push({ label: guard.label, icon: guard.icon, tag: guard.soon ? t("editor.add_menu.soon") : undefined, onSelect: () => this.#guardsSoon() });
+    this.menu.toggle(trigger, items, t("editor.node_types.add_to_stage"));
+  }
+
+  /** A Guard was chosen: nothing is added, the editor says that guards are not there yet. */
+  #guardsSoon() {
+    this.alert.show(t("editor.editor.guards_not_available_yet"), { autoHide: 8000 });
+  }
+
   /** The menu of a node: opened by a right click (at the pointer) or by the "..." of its bar (under it). */
   #openNodeMenu(node, point, trigger = null) {
     if (!this.canvas.multi.has(node.id)) this.select({ type: "node", id: node.id });
@@ -390,6 +408,11 @@ export class GraphEditor {
       { label: t("editor.editor.duplicate"), icon: "layers", shortcut: "Ctrl+D", disabledReason: copyable ? undefined : reasonFixed, onSelect: () => this.#duplicate(targets) },
       { label: t("common.delete"), icon: "trash", shortcut: "Del", danger: true, disabledReason: fixed ? reasonFixed : undefined, onSelect: () => this.#deleteTargets(targets) },
     ];
+    const guard = placeholderOf("guard");
+    if (guard && !several && node.kind === "action") {
+      // a guard watches this action: held for later (nothing is added), before Delete
+      items.splice(items.length - 1, 0, { label: guard.label, icon: guard.icon, tag: guard.soon ? t("editor.add_menu.soon") : undefined, onSelect: () => this.#guardsSoon() });
+    }
     const anchor = trigger ?? this.canvas.elements.get(node.id);
     this.menu.toggle(anchor, items, `Actions of ${displayName(node)}`, point ? { at: point } : {});
   }

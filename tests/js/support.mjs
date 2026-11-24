@@ -22,6 +22,10 @@ export class FakeNode {
     this.children.push(...items);
   }
 
+  setAttribute(name, value) {
+    this.attributes = { ...this.attributes, [name]: String(value) };
+  }
+
   replaceChildren(...items) {
     this.children = items;
   }
@@ -90,6 +94,10 @@ export const NODE_TYPES = [
     kind: "note", label: "Note", scopes: ["action"], fixed: false, addable: true, chain: false, ending: false, inputs: [], outputs: [], settings: [], links_to: null, tool: false, behaviour: "plain", menu: null, ui: {},
   }, // a kind that no behaviour dresses up
 ];
+
+/** The entries of the "+" menu that are no kinds (what the editor page carries in data-menu-placeholders): the real
+ * ones of graph/nodes/_menu.yaml, kept equal to the live answer by tests/test_node_manifests.py. */
+export const PLACEHOLDERS = JSON.parse(readFileSync(new URL("../fixtures/menu-placeholders.json", import.meta.url), "utf8"));
 
 /** Load the kinds into node-types.js through a stubbed fetch. */
 export async function loadTypes(loadNodeTypes) {

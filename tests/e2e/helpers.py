@@ -473,8 +473,16 @@ def pick_node(page: Page, kind: str) -> None:
     page.click(f"[data-add={kind}]")
 
 
+def add_action(page: Page, stage: int = 0) -> None:
+    """Add an action to a stage of the open editor: its "+" opens a menu (Action, Guard), "Action" adds."""
+    page.locator("[data-stage-add]").nth(stage).click()
+    page.get_by_role("menuitem", name="Action", exact=True).click()
+
+
 def menu_kinds(page: Page) -> dict[str, list[str]]:
-    """The open add menu: each cluster with the names of its kinds (opens the clusters one after the other)."""
+    """The open add menu: each cluster with the names of its KINDS (opens the clusters one after the other). A place held
+    for something coming (the Guard) is no kind and is not listed; a cluster that holds only such a place is left out too
+    (tests/e2e/test_guard_placeholders.py covers them)."""
     kinds: dict[str, list[str]] = {}
     for group in page.locator("[data-add-list] [data-group]").all():
         name = group.get_attribute("data-group") or ""
@@ -483,7 +491,7 @@ def menu_kinds(page: Page) -> dict[str, list[str]]:
             t.split("\n")[0]
             for t in page.locator("[data-add-list] [data-add] span:first-child").all_inner_texts()
         ]
-    return kinds
+    return {name: names for name, names in kinds.items() if names}
 
 
 def add_setting(page: Page, label: str) -> None:

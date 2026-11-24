@@ -153,17 +153,17 @@ def test_the_add_menu_has_closed_clusters_to_find_your_way_and_a_search_over_the
     expect(page.locator(".ge-add__search")).to_be_focused()  # type straight away
     groups = menu.locator(".ge-add__group")
     expect(groups).to_have_text(
-        ["AI1", "Agent tools4", "Apps and data2", "Core2", "Data2", "Flow3"]
-    )
+        ["Structure1", "AI1", "Agent tools4", "Apps and data2", "Core2", "Data2", "Flow3"]
+    )  # Structure holds only the place held for the Guard here: no kind can be added to an action from it
     expect(menu.locator("[data-add]")).to_have_count(0)  # closed: the list stays short
 
-    groups.nth(1).click()  # a cluster opens...
-    expect(groups.nth(1)).to_have_attribute("aria-expanded", "true")
+    groups.nth(2).click()  # a cluster opens...
+    expect(groups.nth(2)).to_have_attribute("aria-expanded", "true")
     expect(menu.locator("[data-add]")).to_have_count(4)
-    groups.nth(5).click()  # ...and the one before closes: one at a time
-    expect(groups.nth(1)).to_have_attribute("aria-expanded", "false")
+    groups.nth(6).click()  # ...and the one before closes: one at a time
+    expect(groups.nth(2)).to_have_attribute("aria-expanded", "false")
     expect(menu.locator("[data-add]")).to_have_text(["If", "Switch", "Timer"])
-    groups.nth(5).click()
+    groups.nth(6).click()
     expect(menu.locator("[data-add]")).to_have_count(0)
 
     page.locator(".ge-add__search").fill(
@@ -183,7 +183,7 @@ def test_the_add_menu_has_closed_clusters_to_find_your_way_and_a_search_over_the
     expect(menu).to_be_hidden()
     page.click("[data-add-menu]")  # opened again: a clean list, every cluster closed
     expect(page.locator(".ge-add__search")).to_have_value("")
-    expect(groups).to_have_count(6)
+    expect(groups).to_have_count(7)
     expect(menu.locator("[data-add]")).to_have_count(0)
 
 

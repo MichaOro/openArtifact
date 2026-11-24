@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import { FakeNode, NODE_TYPES, installDocument, loadTypes, textOf } from "./support.mjs";
+import { FakeNode, NODE_TYPES, PLACEHOLDERS, installDocument, loadTypes, textOf } from "./support.mjs";
 
 const JS = "../../openartifact/static/js/editor/";
-const { HEADER, SLOTS, slotY, slotHeights, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable, searchAddable } = await import(`${JS}node-types.js`);
+const { HEADER, SLOTS, slotY, slotHeights, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable, searchAddable, setPlaceholders, placeholderOf, placeholdersIn } = await import(`${JS}node-types.js`);
 
 before(async () => {
-  installDocument(["code", "http"]);
+  installDocument(["code", "http", "plus"]);
   await loadTypes(loadNodeTypes);
 });
 
@@ -215,7 +215,7 @@ test("render: a plain card gets its text, an icon kind gets its icon first", () 
   assert.ok(code.children[0].classes.has("ge-node__icon"));
 });
 
-test("render: a stage has a header with caption, name and the add button, and an empty body", () => {
+test("render: a stage has a header with caption, name and the \"+\" button that opens a menu, and an empty body", () => {
   const el = new FakeNode("div");
   typeOf("stage").render(el, node("stage"), { name: "NAME", caption: "CAPTION" });
   const [header, body] = el.children;
@@ -224,9 +224,13 @@ test("render: a stage has a header with caption, name and the add button, and an
   const [caption, name, add] = header.children;
   assert.deepEqual([caption, name], ["CAPTION", "NAME"]);
   assert.equal(add.type, "button");
-  assert.equal(add.textContent, "+ Action");
-  assert.equal(textOf(add), "+ Action");
-  assert.equal(add.dataset.addAction, "");
+  assert.equal(add.textContent, "", "an icon only: the name is its accessible name");
+  assert.equal(add.children[0].iconName, "plus");
+  assert.match(add.className, /\bicon-button\b/, "a catalog button (ADR-059), not a style of its own");
+  assert.equal(add.attributes["aria-label"], "Add to stage");
+  assert.equal(add.attributes["aria-haspopup"], "menu", "it opens a menu (Action, Guard), it does not add by itself");
+  assert.equal(add.dataset.stageAdd, "");
+  assert.equal(add.dataset.addAction, undefined);
 });
 
 // the add menu of the real manifests, plus a kind that has no place in it
@@ -251,4 +255,24 @@ test("searching looks at the elements only, by name or kind, ignoring case, and 
   assert.deepEqual(searchAddable(KINDS, "flow"), [], "a cluster's name is no search term: the clusters only help to find your way");
   assert.deepEqual(searchAddable(KINDS, "zzz"), []);
   assert.deepEqual(searchAddable(KINDS, "").length, KINDS.length, "no search: everything, in the order of the clusters");
+});
+
+test("a placeholder of the menu is no kind: it is offered in its scopes, in its cluster after Pipeline, and found by its name", () => {
+  setPlaceholders(PLACEHOLDERS);
+  try {
+    assert.deepEqual(addableIn("pipeline").map((t) => t.kind), ["stage", "pipeline"], "kinds only: choosing a placeholder never adds a node");
+    for (const scope of ["pipeline", "action"]) assert.deepEqual(placeholdersIn(scope).map((p) => p.kind), ["guard"]);
+    assert.deepEqual(placeholdersIn("elsewhere"), []);
+    const structure = groupAddable([...addableIn("pipeline"), ...placeholdersIn("pipeline")]).find((g) => g.group === "Structure");
+    assert.deepEqual(structure.types.map((t) => t.kind), ["stage", "pipeline", "guard"]);
+    const found = searchAddable([...addableIn("pipeline"), ...placeholdersIn("pipeline")], "guard");
+    assert.deepEqual(found, [{ kind: "guard", label: "Guard", group: "Structure", placeholder: true, icon: "shield", soon: true }]);
+    assert.equal(placeholderOf("guard").soon, true);
+    assert.equal(placeholderOf("nothing"), null);
+  } finally {
+    setPlaceholders([]);
+  }
+  assert.deepEqual(placeholdersIn("pipeline"), [], "without what the server declares there is nothing to offer");
+  setPlaceholders("not a list");
+  assert.deepEqual(placeholdersIn("pipeline"), [], "a bad answer is no list");
 });

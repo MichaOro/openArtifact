@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, Route, expect
 
-from tests.e2e.helpers import centre, drag, eventually, menu_kinds, pick_node
+from tests.e2e.helpers import add_action, centre, drag, eventually, menu_kinds, pick_node
 from tests.helpers import graph_url
 
 
@@ -83,8 +83,8 @@ def test_add_stage_and_actions_and_they_persist(
     _open(page, base_url, pipeline)
     _add_stage(page)
     expect(page.locator(".ge-node--stage")).to_have_count(1)
-    page.locator("[data-add-action]").click()
-    page.locator("[data-add-action]").click()
+    add_action(page)
+    add_action(page)
     expect(page.locator(".ge-node--action")).to_have_count(2)
     kinds = sorted(n["kind"] for n in _graph(api, pipeline)["nodes"])
     assert kinds == ["action", "action", "complete", "stage", "trigger"]
@@ -110,8 +110,8 @@ def _flow(page: Page, base_url: str, api: httpx.Client) -> dict[str, Any]:
         f"{graph_url(pipeline)}/nodes/{stage['id']}", json={"x": stage["x"] + 260}
     ).raise_for_status()
     _open(page, base_url, pipeline)
-    page.locator("[data-add-action]").click()
-    page.locator("[data-add-action]").click()
+    add_action(page)
+    add_action(page)
     expect(page.locator(".ge-node--action")).to_have_count(2)
     page.click("[data-zoom-fit]")  # everything on screen, so ports can be reached with the mouse
     return pipeline  # type: ignore[no-any-return]

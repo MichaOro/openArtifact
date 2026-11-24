@@ -3,7 +3,7 @@
  * the kinds themselves (name or kind), as one list that says each one's cluster. Arrow keys move, Enter adds the first
  * match, Escape closes. */
 import { icon } from "../components/icons.js";
-import { addableIn, groupAddable, searchAddable } from "./node-types.js";
+import { addableIn, groupAddable, placeholdersIn, searchAddable } from "./node-types.js";
 import { t } from "../i18n.js";
 
 export class AddMenu {
@@ -11,11 +11,12 @@ export class AddMenu {
    * @param {HTMLElement} root the editor element, containing [data-add-menu] and [data-add-list]
    * @param {"pipeline"|"action"} scope
    * @param {(kind: string) => void} onPick
+   * @param {(key: string) => void} [onPlaceholder] a place held for something that is coming was chosen (nothing is added)
    */
-  constructor(root, scope, onPick) {
+  constructor(root, scope, onPick, onPlaceholder = () => {}) {
     this.toggle = root.querySelector("[data-add-menu]");
     this.list = root.querySelector("[data-add-list]");
-    this.types = addableIn(scope);
+    this.types = [...addableIn(scope), ...placeholdersIn(scope)];
     this.open = null; // the cluster that is open
     this.search = Object.assign(document.createElement("input"), { type: "search", className: "field__control ge-add__search", placeholder: t("editor.add_menu.search_nodes"), autocomplete: "off", spellcheck: false });
     this.search.setAttribute("aria-label", t("editor.add_menu.search_nodes_2"));
@@ -36,6 +37,13 @@ export class AddMenu {
         this.open = this.open === group.dataset.group ? null : group.dataset.group;
         this.#fill();
         this.items.querySelector(`[data-group="${group.dataset.group}"]`)?.focus();
+        return;
+      }
+      const held = event.target.closest("[data-placeholder]");
+      if (held) {
+        this.#setOpen(false);
+        this.toggle.focus();
+        onPlaceholder(held.dataset.placeholder);
         return;
       }
       const item = event.target.closest("[data-add]");
@@ -63,8 +71,14 @@ export class AddMenu {
     const item = document.createElement("button");
     item.type = "button";
     item.className = "ge-add__item";
-    item.dataset.add = type.kind;
-    item.append(Object.assign(document.createElement("span"), { textContent: type.label }));
+    if (type.placeholder) item.dataset.placeholder = type.kind;
+    else item.dataset.add = type.kind;
+    const name = document.createElement("span");
+    name.className = "ge-add__name";
+    if (type.placeholder) name.append(icon(type.icon), Object.assign(document.createElement("span"), { textContent: type.label }));
+    else name.textContent = type.label;
+    item.append(name);
+    if (type.placeholder && type.soon) item.append(Object.assign(document.createElement("span"), { className: "tag", textContent: t("editor.add_menu.soon") }));
     if (group) item.append(Object.assign(document.createElement("span"), { className: "ge-add__tag", textContent: group }));
     return item;
   }
@@ -104,7 +118,7 @@ export class AddMenu {
       else buttons[Math.min(next, buttons.length - 1)].focus();
     } else if (event.key === "Enter" && event.target === this.search) {
       event.preventDefault();
-      this.items.querySelector("[data-add]")?.click();
+      this.items.querySelector("[data-add], [data-placeholder]")?.click();
     }
   }
 

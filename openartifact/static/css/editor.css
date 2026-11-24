@@ -105,6 +105,8 @@
 }
 .ge-add__item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .ge-add__tag { font-size: 0.6875rem; color: var(--color-text-muted); white-space: nowrap; }
+.ge-add__name { display: inline-flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; }
+.ge-add__name .icon { width: 1rem; height: 1rem; flex: none; }
 .ge-add__item:hover,
 .ge-add__item:focus-visible { background: var(--accent-soft); outline: none; }
 .ge-viewport {
@@ -204,7 +206,7 @@
 }
 .ge-stage__header .ge-node__name { flex: 1; min-width: 0; }
 .ge-stage__header .ge-node__kind { text-transform: uppercase; letter-spacing: 0.06em; color: var(--node-color); }
-.ge-stage__add { font-size: 0.75rem; padding: 0 var(--space-2); line-height: 1.5rem; } /* a compact chip-button */
+.ge-stage__add { flex: none; } /* the "+" of a stage: an icon-button that opens the menu Action / Guard */
 .ge-stage__add:hover { border-color: var(--node-color); color: var(--color-text-primary); }
 .ge-stage__body { position: absolute; left: 0; right: 0; top: var(--ge-stage-header, 44px); bottom: 0; }
 

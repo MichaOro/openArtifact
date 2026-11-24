@@ -46,7 +46,7 @@ export class ActionMenu {
    * @param {HTMLElement} trigger
    * @param {{label: string, icon: string, onSelect: () => void, disabledReason?: string, danger?: boolean}[]} items
    *   `disabledReason` set: the entry is disabled and shows that text as its hint; `danger`: it deletes
-   *   something and is drawn in the destructive colour (is-danger)
+   *   something and is drawn in the destructive colour (is-danger); `tag`: a quiet word after the label ("Soon")
    * @param {string} label what assistive technology calls the menu
    * @param {{at?: {x: number, y: number}}} [options] `at`: open at this point of the window (a context menu) instead of
    *   under the trigger; the focus still goes back to the trigger. An item may have a `shortcut` shown at its right.
@@ -83,7 +83,7 @@ export class ActionMenu {
     if (restoreFocus) this.trigger.focus();
   }
 
-  #entry({ label, icon: iconName, onSelect, disabledReason, danger = false, shortcut = null }) {
+  #entry({ label, icon: iconName, onSelect, disabledReason, danger = false, shortcut = null, tag = null }) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = danger ? "menu__item is-danger" : "menu__item";
@@ -91,6 +91,7 @@ export class ActionMenu {
     const text = document.createElement("span");
     text.textContent = label;
     button.append(icon(iconName), text);
+    if (tag) button.append(Object.assign(document.createElement("span"), { className: "tag", textContent: tag }));
     if (shortcut) {
       const key = document.createElement("kbd");
       key.className = "menu__key";

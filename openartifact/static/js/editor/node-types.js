@@ -185,9 +185,13 @@ class StageView extends NodeView {
     header.className = "ge-stage__header";
     const add = document.createElement("button");
     add.type = "button";
-    add.className = "chip-button ge-stage__add";
-    add.dataset.addAction = "";
-    add.textContent = t("editor.node_types.action");
+    add.className = "icon-button icon-button--sm ge-stage__add";
+    add.dataset.stageAdd = "";
+    add.setAttribute("aria-haspopup", "menu");
+    add.setAttribute("aria-expanded", "false");
+    add.setAttribute("aria-label", t("editor.node_types.add_to_stage"));
+    add.title = t("editor.node_types.add_to_stage");
+    add.append(icon("plus"));
     header.append(parts.caption, parts.name, add);
     const body = document.createElement("div");
     body.className = "ge-stage__body";
@@ -333,6 +337,34 @@ export function typeOf(nodeOrKind) {
   return TYPES.get(typeof nodeOrKind === "string" ? nodeOrKind : nodeOrKind.kind);
 }
 
+/**
+ * Entries of the "+" menu that are no kinds (`placeholders` in graph/nodes/_menu.yaml, handed to the page by the server):
+ * a place held for something that is coming. Choosing one creates nothing.
+ */
+let PLACEHOLDERS = [];
+
+/** @param {{key: string, label: string, icon: string, group: string, group_index: number, order: number, scopes: string[], soon: boolean}[]} list */
+export function setPlaceholders(list) {
+  PLACEHOLDERS = Array.isArray(list) ? list : [];
+}
+
+/** A placeholder by its key (null when the server declares none of that name). */
+export function placeholderOf(key) {
+  return PLACEHOLDERS.find((p) => p.key === key) ?? null;
+}
+
+/** The placeholders offered in one editor ("pipeline" or "action"), shaped like kinds so the menu can group and search them. */
+export function placeholdersIn(scope) {
+  return PLACEHOLDERS.filter((p) => p.scopes.includes(scope)).map((p) => ({
+    kind: p.key,
+    label: p.label,
+    icon: p.icon,
+    soon: p.soon,
+    placeholder: true,
+    menu: { group: p.group, group_index: p.group_index, order: p.order },
+  }));
+}
+
 /** The kinds that may be added to a pipeline ("pipeline") or an action definition ("action"). */
 export function addableIn(scope) {
   return [...TYPES.values()].filter((t) => t.addable && t.scopes.includes(scope));
@@ -365,6 +397,8 @@ export function groupAddable(types) {
 export function searchAddable(types, query) {
   const wanted = query.trim().toLowerCase();
   return groupAddable(types)
-    .flatMap(({ group, types: inGroup }) => inGroup.map((t) => ({ kind: t.kind, label: t.label, group })))
+    .flatMap(({ group, types: inGroup }) =>
+      inGroup.map((t) => ({ kind: t.kind, label: t.label, group, ...(t.placeholder ? { placeholder: true, icon: t.icon, soon: t.soon } : {}) })),
+    )
     .filter((t) => !wanted || t.label.toLowerCase().includes(wanted) || t.kind.toLowerCase().includes(wanted));
 }
