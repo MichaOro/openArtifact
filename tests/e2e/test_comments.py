@@ -27,7 +27,7 @@ def test_the_tab_starts_empty_and_a_comment_is_written_with_ctrl_enter(board: Bo
     task = board.create("Item")
     dialog = _open(board)
     expect(dialog.comments.locator("[data-comments-empty]")).to_be_visible()
-    send = dialog.comments.locator("[data-comments-send]")
+    send = dialog.comment_send
     expect(send).to_have_attribute("aria-disabled", "true")
     box = dialog.comments.locator("[data-comments-input]")
     box.fill("first line\nsecond line")
@@ -70,7 +70,7 @@ def test_comments_are_oldest_first_and_the_view_ends_at_the_newest(
     expect(dialog.comment_items.first.locator("[data-comment-body]")).to_have_text("one")
     expect(dialog.comment_items.last.locator("[data-comment-body]")).to_have_text("comment 30")
     board.page.wait_for_function(
-        "() => { const e = document.querySelector('[data-comments]');"
+        "() => { const e = document.querySelector('[data-comments-scroll]');"
         " return e.scrollHeight > e.clientHeight && e.scrollHeight - e.scrollTop - e.clientHeight < 8; }"
     )  # it overflows (30 comments) and ends at the newest one
 

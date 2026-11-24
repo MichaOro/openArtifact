@@ -2,9 +2,9 @@
    Prefix: comment(s)- = this tab. The author is an avatar (avatar.css). Colours via tokens only. */
 .comments { gap: var(--space-3); padding-top: var(--space-3); min-height: 0; }
 .comments .alert-bar { margin-bottom: 0; }
-/* no scroll box of its own (a scroller inside the scrolling panel doubled the scrollbars and left dead space): the list is as
-   tall as its comments, the box to write in follows right under it, the panel scrolls when both do not fit */
-.comments__scroll { display: flex; flex-direction: column; gap: var(--space-3); flex: none; }
+/* the list takes the free height above the box to write in and is the only thing that scrolls (min-height: 0 lets it
+   shrink; the box below keeps its size), so with few comments the box still sits at the bottom of the tab */
+.comments__scroll { display: flex; flex-direction: column; gap: var(--space-3); flex: 1; min-height: 0; overflow-y: auto; }
 .comments__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .comment { padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); min-width: 0; }
 .comment__head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
@@ -16,8 +16,7 @@
 .comment__body { white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment__edit { display: flex; flex-direction: column; gap: var(--space-2); }
 .comment__edit-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
-.comments__form { display: flex; flex-direction: column; gap: var(--space-2); }
-.comments__form { flex: none; }
-.comments__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.comments__foot .field__help { margin: 0; }
-.comments__foot [aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+.comments__form { display: flex; flex-direction: column; gap: var(--space-2); flex: none; }
+.comments__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.comments__head .field__help { margin: 0; text-align: right; }
+[data-comments-send][aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }

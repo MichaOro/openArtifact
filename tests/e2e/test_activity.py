@@ -4,6 +4,7 @@ execution, the filter, live updates; and the layout of the Comments tab."""
 from __future__ import annotations
 
 import httpx
+import pytest
 from playwright.sync_api import expect
 
 from tests.e2e.helpers import Board, Dialog, echo_pipeline, executions, start, wait_executions
@@ -118,52 +119,79 @@ def test_the_run_and_the_changes_are_in_one_order_by_time(board: Board, api: htt
 # ── the Comments tab layout ───────────────────────────────────────────
 
 
-def test_the_comments_tab_has_its_composer_right_under_the_list_and_only_close_in_the_footer(
+def _comment_layout(board: Board, count: int) -> dict[str, dict[str, float]]:
+    """Open the Comments tab of an artifact with ``count`` comments; the boxes of the parts that must not overlap."""
+    task = board.create("Item")
+    for number in range(count):
+        board.api.post(f"/api/tasks/{task['id']}/comments", json={"body": f"comment {number}"})
+    dialog = board.open().open_card("Item").open_comments()
+    expect(dialog.comment_items).to_have_count(count)
+    footer = dialog.root.locator(".task-view .modal__footer")
+    parts = {
+        "panel": dialog.comments,
+        "list": dialog.comments.locator("[data-comments-scroll]"),
+        "label": dialog.comments.locator("label[for=comment-input]"),
+        "hint": dialog.comments.locator("#comment-hint"),
+        "textarea": dialog.comments.locator("[data-comments-input]"),
+        "send": dialog.comment_send,
+        "close": footer.locator("[data-modal-close]"),
+        "footer": footer,
+    }
+    boxes = {name: part.bounding_box() for name, part in parts.items()}
+    assert all(boxes.values()), boxes
+    return {name: box for name, box in boxes.items() if box}
+
+
+def _check_composer_at_the_bottom(boxes: dict[str, dict[str, float]]) -> None:
+    panel, label, hint, text = boxes["panel"], boxes["label"], boxes["hint"], boxes["textarea"]
+    send, close, foot, lst = boxes["send"], boxes["close"], boxes["footer"], boxes["list"]
+    # the label is left and the hint right of it, on the same line
+    assert abs(label["y"] - hint["y"]) < label["height"], (label, hint)
+    assert hint["x"] > label["x"] + label["width"]
+    assert (
+        hint["x"] + hint["width"] >= text["x"] + text["width"] - 2
+    )  # right-aligned to the text box
+    # the text box is below that row, the full width of the tab, and at the bottom of the panel
+    assert text["y"] >= label["y"] + label["height"]
+    assert text["y"] + text["height"] >= panel["y"] + panel["height"] - 24, (text, panel)
+    assert text["width"] >= panel["width"] - 2 * 40
+    # the list is above the label and does not overlap the composer
+    assert lst["y"] + lst["height"] <= label["y"] + 1
+    # the send button is in the footer, right of Close (like Edit on the Details tab), and not under the text box
+    assert send["y"] >= foot["y"] and send["y"] + send["height"] <= foot["y"] + foot["height"] + 1
+    assert send["x"] >= close["x"] + close["width"]
+    assert send["y"] > text["y"] + text["height"]
+
+
+def test_the_send_button_is_in_the_footer_next_to_close_on_the_comments_tab_only(
     board: Board,
 ) -> None:
-    task = board.create("Item")
-    for number in range(2):
-        board.api.post(f"/api/tasks/{task['id']}/comments", json={"body": f"comment {number}"})
-    dialog = board.open().open_card("Item").open_comments()
-    expect(dialog.comment_items).to_have_count(2)
-    footer = dialog.root.locator(".task-view .modal__footer")
-    expect(footer.locator("button:visible")).to_have_text(
-        ["Close"]
-    )  # the send button is not repeated here
-    send = dialog.comments.locator("[data-comments-send]")
-    form = dialog.comments.locator("[data-comments-form]")
-    textarea = dialog.comments.locator("[data-comments-input]")
-    send.scroll_into_view_if_needed()  # the panel scrolls when list and box together are taller than the dialog
-    list_box = dialog.comments.locator("[data-comments-scroll]").bounding_box()
-    form_box = form.bounding_box()
-    text_box = textarea.bounding_box()
-    send_box = send.bounding_box()
-    footer_box = footer.bounding_box()
-    assert list_box and form_box and text_box and send_box and footer_box
-    # no dead space: the box to write in starts right under the last comment
-    assert 0 <= form_box["y"] - (list_box["y"] + list_box["height"]) <= 24
-    # the send button is under the text box, at its right edge, inside the panel and above the footer
-    assert send_box["y"] >= text_box["y"] + text_box["height"]
-    assert send_box["x"] + send_box["width"] <= text_box["x"] + text_box["width"] + 1
-    assert send_box["x"] > text_box["x"] + text_box["width"] / 2
-    assert send_box["y"] + send_box["height"] <= footer_box["y"] + 1
-    # nothing overlaps nothing: the list ends above the text box
-    assert list_box["y"] + list_box["height"] <= text_box["y"]
-
-
-def test_many_comments_scroll_in_the_panel_and_the_composer_stays_reachable(board: Board) -> None:
-    task = board.create("Item")
-    for number in range(30):
-        board.api.post(f"/api/tasks/{task['id']}/comments", json={"body": f"comment {number}"})
-    dialog = board.open().open_card("Item").open_comments()
-    expect(dialog.comment_items).to_have_count(30)
-    expect(
-        dialog.comments.locator("[data-comments-input]")
-    ).to_be_in_viewport()  # opened at the end
-    # one scroller only: the list does not scroll inside the panel
-    assert (
-        dialog.comments.locator("[data-comments-scroll]").evaluate(
-            "el => getComputedStyle(el).overflowY"
-        )
-        == "visible"
+    board.create("Item")
+    dialog = board.open().open_card("Item")
+    expect(dialog.comment_send).to_be_hidden()  # Details
+    dialog.open_comments()
+    expect(dialog.comment_send).to_be_visible()
+    expect(dialog.root.locator(".task-view .modal__footer").locator("button:visible")).to_have_text(
+        ["Close", "Comment"]
     )
+    dialog.open_history()
+    expect(dialog.comment_send).to_be_hidden()
+
+
+@pytest.mark.parametrize("count", [0, 2])
+def test_the_composer_sits_at_the_bottom_with_no_and_with_two_comments(
+    board: Board, count: int
+) -> None:
+    _check_composer_at_the_bottom(_comment_layout(board, count))
+
+
+def test_many_comments_scroll_in_the_list_and_the_composer_stays_in_place(board: Board) -> None:
+    boxes = _comment_layout(board, 30)
+    _check_composer_at_the_bottom(boxes)
+    dialog = Dialog(board.page)
+    scroll = dialog.comments.locator("[data-comments-scroll]")
+    assert scroll.evaluate("el => el.scrollHeight > el.clientHeight"), "the list should scroll"
+    assert scroll.evaluate("el => getComputedStyle(el).overflowY") == "auto"
+    # one scroller only: the panel itself does not scroll
+    assert dialog.comments.evaluate("el => el.scrollHeight <= el.clientHeight + 1")
+    expect(dialog.comments.locator("[data-comments-input]")).to_be_in_viewport()

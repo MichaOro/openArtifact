@@ -33,6 +33,10 @@
         </div>
         <button type="button" class="button button--ghost" data-modal-close>{{ t('common.close') }}</button>
         <button type="button" class="button button--primary" data-view-edit>{{ t('common.edit') }}</button>
+        <button type="submit" form="comment-form" class="button button--primary" aria-disabled="true" data-comments-send>
+            {{ icon("message") }}
+            <span>{{ t('comments.comment') }}</span>
+        </button>
     </footer>
 </section>
 {% call dialog_form("create-task-modal", ARTIFACT_FIELDS) %}{% endcall %}

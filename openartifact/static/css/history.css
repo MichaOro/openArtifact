@@ -20,6 +20,8 @@
 .task-view[data-tab="history"] .card-run,
 .task-view[data-tab="comments"] [data-view-edit],
 .task-view[data-tab="comments"] .card-run { display: none; }
+/* the send button of the Comments tab is in the footer, but only on that tab */
+.task-view:not([data-tab="comments"]) [data-comments-send] { display: none; }
 /* .modal__body is a flex column; hidden panels must really go */
 .modal__body[hidden] { display: none; }
 

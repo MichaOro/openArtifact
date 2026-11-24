@@ -35,7 +35,7 @@ changed and it cannot be deleted (title and body stay editable); stopping the ru
 code and the API an artifact is a `task`.
 
 **Comments.** Every artifact has comments (the *Comments* tab of its dialog, with a count): plain text, oldest first, newest last,
-with a box at the bottom (Ctrl+Enter sends). A comment shows who wrote it: a round, shaded avatar whose icon tells the way (the browser, API, MCP, a run, the system; its tooltip and accessible name say which) and the name beside it, *You* for the browser, the name of the token for *API* or *MCP*, the node's name for a *Run* (an Artifact node of a pipeline, linked to its execution). The dialog's tabs are Details, Comments, History. Any comment can be edited (it
+with a box at the bottom (its label left and the hint right on one line; Ctrl+Enter or the *Comment* button in the footer next to *Close* sends). A comment shows who wrote it: a round, shaded avatar whose icon tells the way (the browser, API, MCP, a run, the system; its tooltip and accessible name say which) and the name beside it, *You* for the browser, the name of the token for *API* or *MCP*, the node's name for a *Run* (an Artifact node of a pipeline, linked to its execution). The dialog's tabs are Details, Comments, History. Any comment can be edited (it
 then says "edited") or deleted; deleting the artifact deletes them. Pipelines read and write them with the
 [Artifact node](execution-nodes.md#artifact-node). There is no user management yet, so "You" is every person in the browser.
 

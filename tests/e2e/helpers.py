@@ -169,6 +169,9 @@ class Dialog:
         self.title_input = self.root.locator("#create-task-modal-field-title")
         self.body_input = self.root.locator("#create-task-modal-field-body")
         self.view = self.root.locator("[data-task-view]")
+        self.comment_send = self.root.locator(
+            "[data-comments-send]"
+        )  # in the footer, next to Close
         self.view_title = self.root.locator("[data-view-title]")
         self.view_body = self.root.locator("[data-view-body]")
         self.number = self.root.locator("[data-modal-number]")
@@ -251,9 +254,9 @@ class Dialog:
         return self
 
     def write_comment(self, text: str) -> None:
-        """Type into the box at the bottom and send with the button."""
+        """Type into the box at the bottom and send with the button in the footer."""
         self.comments.locator("[data-comments-input]").fill(text)
-        self.comments.locator("[data-comments-send]").click()
+        self.comment_send.click()
 
     def size(self) -> tuple[float, float]:
         box = self.root.locator(".modal__panel").bounding_box()

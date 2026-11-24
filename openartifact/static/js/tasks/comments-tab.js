@@ -39,9 +39,9 @@ export class CommentsTab {
     this.empty = root.querySelector("[data-comments-empty]");
     this.form = root.querySelector("[data-comments-form]");
     this.input = root.querySelector("[data-comments-input]");
-    this.send = root.querySelector("[data-comments-send]");
+    this.send = root.closest("[data-task-view]").querySelector("[data-comments-send]"); // in the dialog footer, next to Close
     this.error = root.querySelector("[data-comments-error]");
-    this.scroller = root; // the panel is the one thing that scrolls: the list and the box to write in move together
+    this.scroller = root.querySelector("[data-comments-scroll]");
     this.template = document.getElementById("comment-template");
 
     this.form.addEventListener("submit", (event) => {
