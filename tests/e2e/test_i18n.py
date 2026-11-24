@@ -44,7 +44,9 @@ def test_german_reaches_the_dialogs_the_comments_tab_and_the_settings_pages(
     )
     dialog.write_comment("Hallo")
     expect(dialog.comment_items).to_have_count(1)
-    expect(dialog.comment_items.first.locator("[data-comment-kind]")).to_contain_text("Benutzer")
+    expect(dialog.comment_items.first.locator(".avatar")).to_have_attribute(
+        "aria-label", "Benutzer"
+    )
     # German is complete: a settings page is German to the last button (the English fallback for a missing text is
     # tested with a German that has gaps made on purpose, in tests/test_i18n.py)
     page.goto(board.base_url + "/settings/credentials")

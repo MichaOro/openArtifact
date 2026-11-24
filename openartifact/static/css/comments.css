@@ -1,13 +1,10 @@
 /* The Comments tab of the artifact dialog: a list, oldest first, and the box to write at the bottom.
-   Prefix: comment(s)- = this tab. Chips are the History tab's (history-chip). Colours via tokens only. */
+   Prefix: comment(s)- = this tab. The author is an avatar (avatar.css). Colours via tokens only. */
 .comments { gap: var(--space-3); padding-top: var(--space-3); min-height: 0; }
 .comments .alert-bar { margin-bottom: 0; }
 .comments__scroll { flex: 1; min-height: 8rem; max-height: 22rem; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-3); }
 .comments__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .comment { padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); min-width: 0; }
-.comment[data-kind="run"] .comment__kind { --chip: var(--color-accent); }
-.comment[data-kind="mcp"] .comment__kind,
-.comment[data-kind="api"] .comment__kind { --chip: var(--lane-hue-3); }
 .comment__head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
 .comment__author { font-weight: 600; overflow-wrap: anywhere; }
 .comment__time, .comment__edited { font-size: 0.75rem; color: var(--color-text-secondary); }

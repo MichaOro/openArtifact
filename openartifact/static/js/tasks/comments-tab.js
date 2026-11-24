@@ -5,6 +5,7 @@
  * comment.created / updated / deleted reach it through handleEvent(). Editing happens in place; delete asks first. */
 import { ActionMenu } from "../components/action-menu.js";
 import { AlertBar } from "../components/alert-bar.js";
+import { avatar } from "../components/avatar.js";
 import { icon } from "../components/icons.js";
 import { addComment, deleteComment, listComments, updateComment } from "./comments-api.js";
 import { canSend, countText, inOrder, isEdited, kindOf, runLink, withComment } from "./comment-format.js";
@@ -161,9 +162,8 @@ export class CommentsTab {
     row.dataset.id = comment.id;
     row.dataset.kind = comment.author_kind;
     const kind = kindOf(comment);
-    const chip = row.querySelector("[data-comment-kind]");
-    chip.querySelector("[data-chip-icon]").replaceChildren(icon(kind.icon));
-    chip.querySelector("[data-chip-text]").textContent = kind.label;
+    // The kind is the avatar's icon and its accessible name; the name stands beside it, the kind is not written out.
+    row.querySelector("[data-comment-avatar]").replaceWith(avatar({ kind: comment.author_kind, label: kind.label, icon: kind.icon }));
     row.querySelector("[data-comment-author]").textContent = comment.author;
     const time = row.querySelector("[data-comment-time]");
     time.textContent = formatTime(comment.created_at);

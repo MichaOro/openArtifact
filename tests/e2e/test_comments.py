@@ -36,7 +36,11 @@ def test_the_tab_starts_empty_and_a_comment_is_written_with_ctrl_enter(board: Bo
     expect(dialog.comment_items).to_have_count(1)
     item = dialog.comment_items.first
     expect(item.locator("[data-comment-author]")).to_have_text("You")
-    expect(item.locator("[data-comment-kind]")).to_contain_text("User")
+    avatar = item.locator(".avatar")
+    expect(avatar).to_have_attribute("aria-label", "User")
+    expect(avatar).to_have_attribute("data-kind", "user")
+    expect(avatar).to_have_text("")  # the kind is the icon, not a word
+    expect(item.locator(".history-chip")).to_have_count(0)
     # the line break is kept; the text is not markup
     expect(item.locator("[data-comment-body]")).to_have_text("first line\nsecond line")
     expect(box).to_have_value("")
@@ -165,7 +169,8 @@ def test_a_comment_written_by_a_run_links_to_its_execution(board: Board) -> None
     dialog = _open(board)
     item = dialog.comment_items.first
     expect(item.locator("[data-comment-author]")).to_have_text("Reviewer")
-    expect(item.locator("[data-comment-kind]")).to_contain_text("Run")
+    expect(item.locator(".avatar")).to_have_attribute("aria-label", "Run")
+    expect(item.locator(".avatar")).to_have_attribute("data-kind", "run")
     anchor = item.locator("[data-comment-run]")
     expect(anchor).to_be_visible()
     execution = board.api.get(f"/api/tasks/{task['id']}/executions").json()["items"][0]
