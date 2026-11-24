@@ -41,7 +41,7 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -54,6 +54,10 @@ if TYPE_CHECKING:
 
 NODE_OUTPUT_LIMIT_BYTES = 4096
 CONTEXT_LIMIT_BYTES = 64 * 1024
+#: The card (title, body, fields) a run starts with: more than this and the run is not started (never cut).
+CARD_LIMIT_BYTES = 40 * 1024
+#: What `${card.NAME}` is for every artifact; `text` is derived from the others (ADR-064).
+BUILT_IN_CARD = ("title", "body", "text", "number", "id")
 VARS_LIMIT_BYTES = 32 * 1024
 MAX_VARS = 100
 MAX_DEPTH = 3
@@ -181,6 +185,61 @@ def _cap_output(text: str) -> tuple[str, bool]:
         return text, False
     kept = raw[:NODE_OUTPUT_LIMIT_BYTES].decode("utf-8", errors="ignore")
     return f"{kept}\n{TRUNCATED_MARK}", True
+
+
+def card_text(card: Mapping[str, Any]) -> str:
+    """``${card.text}``: "#<number> <title>", a blank line and the body (just the first part without a body)."""
+    head = f"#{card.get('number')} {card.get('title', '')}".rstrip()
+    body = card.get("body")
+    return f"{head}\n\n{body}" if isinstance(body, str) and body.strip() else head
+
+
+PREVIEW_LIMIT = 2000
+
+
+def preview_references(text: str, card: Mapping[str, Any]) -> tuple[str, list[str]]:
+    """``text`` as an editor shows it before a run (ADR-064): ``${card...}`` resolved against ``card``, a node or a
+    variable as a readable placeholder in single angle quotes (output of Fetch), a secret never. Returns the text and the
+    references that could not be resolved. One pass: a value that holds ``${...}`` is not scanned again."""
+    unresolved: list[str] = []
+    context = RunContext({"card": dict(card)})
+
+    def put(match: re.Match[str]) -> str:
+        if match[1] is not None:
+            return "\u2039secret\u203a"
+        try:
+            ref = parse(match[2])
+        except ContextError:
+            unresolved.append(match[2][:60])
+            return "\u2039malformed reference\u203a"
+        if ref.kind == "card":
+            try:
+                return _render(resolve(ref, context, NodeIndex()))
+            except ContextError:
+                unresolved.append(f"card.{ref.name}")
+                return f"\u2039no field {ref.name}\u203a"
+        if ref.kind == "var":
+            return f"\u2039variable {ref.name}\u203a"
+        path = ".".join((ref.field, *ref.path))
+        return f"\u2039{path} of {ref.name}\u203a"
+
+    return _ANY.sub(put, text), unresolved
+
+
+def check_card(card: Mapping[str, Any]) -> None:
+    """:class:`ContextError` when the card is too large for a run to hold; nothing is ever cut silently."""
+    size = _size(dict(card))
+    if size > CARD_LIMIT_BYTES:
+        raise ContextError(
+            f"The artifact is too large to run: its title, text and fields take {size // 1024 + 1} KiB and a run "
+            f"holds {CARD_LIMIT_BYTES // 1024} KiB of them. Shorten the text or split the artifact."
+        )
+
+
+def _known_card_names(card: Mapping[str, Any]) -> str:
+    names = [n for n in BUILT_IN_CARD if n in card or (n == "text" and "title" in card)]
+    names += [n for n in card if n not in BUILT_IN_CARD]
+    return ", ".join(names) or "none"
 
 
 class RunContext:
@@ -378,8 +437,12 @@ def resolve(ref: Reference, context: RunContext, index: NodeIndex) -> Any:
             raise ContextError(f"variable '{ref.name}' is not set")
         return context.vars[ref.name]
     if ref.kind == "card":
+        if ref.name == "text" and "title" in context.card:
+            return card_text(context.card)
         if ref.name not in context.card:
-            raise ContextError(f'the artifact has no field "{ref.name}"')
+            raise ContextError(
+                f'the artifact has no field "{ref.name}" (it has: {_known_card_names(context.card)})'
+            )
         return context.card[ref.name]
     index.lookup(ref.name)  # unknown or ambiguous names fail even if something ran under the key
     entry = context.nodes.get(ref.name)
@@ -446,17 +509,31 @@ def check_url_placement(url: str) -> None:
         )
 
 
-def problems(text: str, local: NodeIndex, elsewhere: Callable[[str], bool]) -> list[str]:
+def problems(
+    text: str,
+    local: NodeIndex,
+    elsewhere: Callable[[str], bool],
+    card_fields: Collection[str] | None = None,
+) -> list[str]:
     """Hints about the context references of a setting, for the time it is saved (it is still saved).
 
     ``local`` holds the nodes of the action the setting belongs to; ``elsewhere(key)`` says whether any
     other action has a node with that key (the pipeline that runs it decides at run time). Variables
-    are set while a run goes on, so only their syntax is checked.
+    are set while a run goes on, so only their syntax is checked. With ``card_fields`` (the names of the
+    artifact fields) a ``${card.x}`` that is neither a field nor built into every artifact is a hint too.
     """
     hints = []
     for shown, ref, problem in references_in(text):
         if ref is None:
             hints.append(problem)
+        elif ref.kind == "card":
+            if (
+                card_fields is not None
+                and ref.name not in BUILT_IN_CARD
+                and ref.name not in card_fields
+            ):
+                has = ", ".join([*BUILT_IN_CARD, *sorted(card_fields)])
+                hints.append(f'{shown}: the artifact has no field "{ref.name}" (it has: {has})')
         elif ref.kind == "node":
             if len({d.node_id for d in local.by_key.get(ref.name, [])}) > 1:
                 try:

@@ -60,9 +60,17 @@ def prompt_problems(text: str, declared: Sequence[str] | None, what: str) -> lis
     for match in _INPUT_LIKE.finditer(text):
         name = PLACEHOLDER.fullmatch(match[0])
         if name is None:
-            found.append(f"{what}: {match[0][:60]} is not a valid placeholder, use ${{input.NAME}}")
+            found.append(
+                f"{what}: {match[0][:60]} is not a valid placeholder: input names are lowercase "
+                "letters, digits and _, start with a letter and have at most 32 characters"
+            )
         elif declared is not None and name[1] not in declared:
-            found.append(f"{what}: ${{input.{name[1]}}} is not a declared input")
+            has = (
+                f"it declares: {', '.join(declared)}"
+                if declared
+                else "this agent declares no inputs: declare one on the agent, then map it in the node"
+            )
+            found.append(f"{what}: ${{input.{name[1]}}} is not a declared input ({has})")
     return list(dict.fromkeys(found))
 
 

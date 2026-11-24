@@ -12,6 +12,7 @@ from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.artifact_fields.service import field_specs
 from openartifact.engine.context import NodeIndex, node_key, problems
 from openartifact.graph.node_types import (
     NODE_TYPES,
@@ -218,27 +219,15 @@ class GraphRepository:
                 }
             ]
         )
+        results = [k for k in NodeKind if node_type(k).produces_result]
         others = await self._session.execute(
             select(GraphNode.name).where(
-                GraphNode.graph_id != node.graph_id,
-                GraphNode.kind.in_(
-                    [
-                        NodeKind.CODE,
-                        NodeKind.HTTP,
-                        NodeKind.TIMER,
-                        NodeKind.IF,
-                        NodeKind.SWITCH,
-                        NodeKind.AGENT,
-                        NodeKind.SET,
-                        NodeKind.GITHUB,
-                        NodeKind.POSTGRES,
-                        NodeKind.ARTIFACT,
-                    ]
-                ),
+                GraphNode.graph_id != node.graph_id, GraphNode.kind.in_(results)
             )
         )
         keys = {node_key(name) for (name,) in others}
-        return problems(text, local, lambda key: key in keys)
+        fields = {spec.name for spec in await field_specs(self._session)}
+        return problems(text, local, lambda key: key in keys, fields)
 
     async def touch(self, graph: Graph) -> None:
         """Mark the graph as changed (its nodes or edges changed)."""

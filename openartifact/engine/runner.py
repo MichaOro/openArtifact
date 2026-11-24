@@ -31,7 +31,7 @@ from openartifact.comments.schemas import Author
 from openartifact.database import SessionOpener
 from openartifact.engine import code_registry
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
-from openartifact.engine.context import ContextError, NodeIndex, RunContext, RunView
+from openartifact.engine.context import ContextError, NodeIndex, RunContext, RunView, check_card
 from openartifact.engine.executors import EXECUTORS, Limits
 from openartifact.engine.history import Changes, ExecutionHistory, utcnow
 from openartifact.engine.limits import RunLimits, load_limits
@@ -398,6 +398,12 @@ class RunEngine:
             except (TargetError, NestingError) as error:
                 raise ArtifactError(422, str(error)) from error
 
+            card = await card_of(session, task)
+            try:
+                check_card(card)  # a card too large for a run is refused here, not cut
+            except ContextError as error:
+                raise ArtifactError(422, str(error)) from error
+
             run, previous = await self._claim(session, task_id, run, pipeline_id, started_by)
             # the artifact keeps what it was started with, so the next start offers the same
             at_action = first_action if entry["kind"] == NodeKind.STAGE else None
@@ -420,7 +426,7 @@ class RunEngine:
                 stage_id=entry["id"],
                 action_id=at_action,
                 started_by=started_by,
-                context=RunContext.initial(await card_of(session, task)),
+                context=RunContext.initial(card),
             )
             run.execution_id = execution.id
             changes.updated.append(ExecutionRead.of(execution))

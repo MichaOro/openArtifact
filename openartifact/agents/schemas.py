@@ -60,7 +60,7 @@ class InputSpec(_Strict):
     """
 
     name: str
-    type: Literal["string", "number", "boolean"] = "string"
+    type: Literal["string", "number", "boolean", "artifact"] = "string"
     required: bool = False
     default: str | float | bool | None = None
     description: str = Field(default="", max_length=200)
@@ -81,6 +81,10 @@ class InputSpec(_Strict):
         if value is None or value == "":
             self.default = None
             return self
+        if self.type == "artifact":
+            raise ValueError(
+                f"input '{self.name}' is the artifact the run belongs to, so it has no default text"
+            )
         if self.required:
             raise ValueError(f"input '{self.name}' is required, so it cannot have a default")
         ok = (

@@ -272,10 +272,16 @@ def test_the_events_carry_the_fields(
     _define(client, SUMMARY)
     assert published[-1][0] == "artifact_fields.changed"
     assert [f["name"] for f in published[-1][1]["fields"]] == ["summary"]
+
+    def last(
+        prefix: str,
+    ) -> tuple[str, dict[str, Any]]:  # the activity log publishes its own events too (ADR-058)
+        return [p for p in published if p[0].startswith(prefix)][-1]
+
     task = _artifact(client, summary="s").json()
-    assert published[-1][0] == "task.created" and published[-1][1]["fields"] == {"summary": "s"}
+    assert last("task.")[0] == "task.created" and last("task.")[1]["fields"] == {"summary": "s"}
     client.patch(f"/api/tasks/{task['id']}", json={"fields": {"summary": "t"}})
-    assert published[-1][0] == "task.updated" and published[-1][1]["fields"] == {"summary": "t"}
+    assert last("task.")[0] == "task.updated" and last("task.")[1]["fields"] == {"summary": "t"}
 
 
 def test_the_artifact_types_are_gone(client: TestClient) -> None:
@@ -433,10 +439,10 @@ def test_card_references_render_like_other_values() -> None:
 
 
 def test_a_card_reference_to_an_unknown_field_fails_naming_it() -> None:
-    for view in (_view({"known": 1}), _view({})):
+    for card, has in (({"known": 1}, "known"), ({}, "none")):
         with pytest.raises(ContextError) as error:
-            view.render("go ${card.x} now")
-        assert str(error.value) == '${card.x}: the artifact has no field "x"'
+            _view(card).render("go ${card.x} now")
+        assert str(error.value) == f'${{card.x}}: the artifact has no field "x" (it has: {has})'
     with pytest.raises(ContextError, match="malformed reference"):
         _view({}).render("${card.Upper}")
 
@@ -488,7 +494,14 @@ def test_a_run_gets_the_card_and_an_http_node_uses_it_and_later_edits_do_not_cha
         wait_for_run(secured, task, "done")
     assert seen[0]["path"] == "/u/high" and seen[0]["body"] == "s"
     first = _detail(secured, task)
-    assert first["context"]["card"] == {
+    card = first["context"]["card"]
+    assert (card["title"], card["body"], card["number"], card["id"]) == (
+        task["title"],
+        task["body"] or "",
+        task["number"],
+        task["id"],
+    )
+    assert {k: card[k] for k in ("urgency", "summary", "score", "escalate")} == {
         "urgency": "high",
         "summary": "s",
         "score": None,

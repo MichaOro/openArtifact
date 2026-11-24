@@ -143,7 +143,9 @@ def test_an_incomplete_draft_can_be_saved_but_not_published(api: TestClient) -> 
     saved = api.put(f"/api/agents/{agent['id']}/draft", json=draft)
     assert saved.status_code == 200
     problems = saved.json()["problems"]
-    assert "User prompt: ${input.missing} is not a declared input" in problems
+    assert any(
+        p.startswith("User prompt: ${input.missing} is not a declared input (") for p in problems
+    )
     assert any("${var.x} is not allowed" in p for p in problems)
     assert "The chosen provider does not exist" in problems
     refused = api.post(f"/api/agents/{agent['id']}/publish")
@@ -327,7 +329,7 @@ def test_saving_an_agent_node_warns_about_what_will_fail(api: TestClient, llm: F
     ]
     assert warnings(inputs="ticket = ${var.ticket}") == []
     assert warnings(user_prompt="Only ${input.nope}") == [
-        "User prompt: ${input.nope} is not a declared input"
+        "User prompt: ${input.nope} is not a declared input (it declares: ticket, context)"
     ]
     assert warnings(user_prompt=None, model="unknown") == [
         'Model "unknown" is not enabled for provider "Local"'

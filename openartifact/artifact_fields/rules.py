@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from typing import Any
 
 FIELD_NAME = re.compile(r"[a-z][a-z0-9_]{0,31}")
+#: What every artifact has as `${card.NAME}` by itself (ADR-064); a custom field may not take these names.
+BUILT_IN_NAMES = ("title", "body", "number", "id", "text")
 KINDS = ("text", "number", "boolean", "choice")
 LABEL_MAX = 60
 MAX_FIELDS = 30
@@ -179,6 +181,10 @@ def check_definition(spec: FieldSpec) -> list[str]:
     if not FIELD_NAME.fullmatch(name):
         bad(
             "the name is lowercase letters, digits and underscores, starting with a letter, 1-32 characters"
+        )
+    if name in BUILT_IN_NAMES:
+        bad(
+            f"the name is built into every artifact (${{card.{name}}} is the artifact's own {name}); choose another"
         )
     if not spec.label.strip() or len(spec.label) > LABEL_MAX:
         bad(f"the label is 1-{LABEL_MAX} characters")

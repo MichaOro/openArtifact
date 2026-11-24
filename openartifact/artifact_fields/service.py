@@ -227,5 +227,15 @@ async def values_of_update(session: AsyncSession, task: Task, changes: dict[str,
 
 
 async def card_of(session: AsyncSession, task: Task) -> dict[str, Any]:
-    """The ``card`` a run starts with: every field with its value, else its default, else ``None``."""
-    return rules.card_values(await field_specs(session), stored_values(task))
+    """The ``card`` a run starts with (ADR-064): what every artifact has (``id``, ``number``, ``title``,
+    ``body``; ``${card.text}`` is derived from them when it is read) and then every field with its value,
+    else its default, else ``None``. A copy: it is not refreshed while the run goes on."""
+    card: dict[str, Any] = {
+        "id": task.id,
+        "number": task.number,
+        "title": task.title,
+        "body": task.body or "",
+    }
+    fields = rules.card_values(await field_specs(session), stored_values(task))
+    card.update({name: value for name, value in fields.items() if name not in rules.BUILT_IN_NAMES})
+    return card

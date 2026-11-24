@@ -30,6 +30,7 @@ from openartifact.api.guards import build_guards_router
 from openartifact.api.hardening import BodyLimit, CrossSiteGuard, HostCheck, SecurityHeaders
 from openartifact.api.lanes import router as lanes_router
 from openartifact.api.mcp import build_mcp
+from openartifact.api.previews import build_previews_router
 from openartifact.api.routes import public_router as public_api_router
 from openartifact.api.routes import router as api_router
 from openartifact.api.rules import router as rules_router
@@ -245,6 +246,10 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(v1_router)
     for router in agent_routers([Depends(require_api_token)]):
         app.include_router(router)
+    app.include_router(build_previews_router("/api", ["previews"]))
+    app.include_router(
+        build_previews_router("/api/v1", ["integration API"], [Depends(require_api_token)])
+    )
     app.include_router(build_settings_router("/api", ["settings"]))
     app.include_router(build_ui_layouts_router("/api", ["ui-layouts"]))
     app.include_router(
