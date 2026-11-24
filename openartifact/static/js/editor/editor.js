@@ -160,8 +160,21 @@ export class GraphEditor {
     this.canvas.select(selection, { multi: keepMulti });
     if (selection?.type === "edge") this.canvas.viewport.focus({ preventScroll: true }); // so Delete reaches it
     if (!picked) this.settingsModal.close();
-    else if (focusInspector) this.#openSettings(picked);
+    else if (focusInspector) this.#openNode(picked);
     else this.#renderInspector();
+  }
+
+  /**
+   * What opening a node does (a double click, Enter, the menu's Edit): a node that links to an action or a pipeline opens
+   * what it links to in its own editor (what "Edit" in its settings does); a node that links to nothing yet, and every
+   * other kind, opens its settings. The settings of a linking node (which definition, New, Delete) stay one menu entry away.
+   */
+  #openNode(node) {
+    if (typeOf(node).links_to && node.definition_id && node.definition_slug) {
+      window.location.assign(this.#linkUrl(node, node.definition_slug));
+      return;
+    }
+    this.#openSettings(node);
   }
 
   /** The settings of a node in an overlay: the node's title (renamed in place) and what its kind offers. */
@@ -391,7 +404,7 @@ export class GraphEditor {
   /** The "+" of a stage: a small menu to add an Action, or a Guard that watches the stage (ADR-060). */
   #openStageAddMenu(stage, trigger) {
     const guard = placeholderOf("guard");
-    const items = [{ label: typeOf("action").label, icon: "action", onSelect: () => this.#addAction(stage) }];
+    const items = [{ label: typeOf("action").label, icon: typeOf("action").menu_icon, onSelect: () => this.#addAction(stage) }];
     if (guard && this.guards) items.push({ label: guard.label, icon: guard.icon, onSelect: () => this.#newGuard("stage", stage.id, displayName(stage)) });
     this.menu.toggle(trigger, items, t("editor.node_types.add_to_stage"));
   }
@@ -475,7 +488,10 @@ export class GraphEditor {
     const reasonFixed = t("editor.editor.trigger_output_end_part_graph");
     const renameReason = several ? t("editor.editor.select_one_node_rename") : typeOf(node).renamable(node) ? undefined : t("editor.editor.node_named_by_what_links");
     const items = [
-      { label: t("common.edit"), icon: "pencil", shortcut: "Enter", disabledReason: several ? t("editor.editor.select_one_node_edit") : undefined, onSelect: () => this.#openSettings(node) },
+      { label: t("common.edit"), icon: "pencil", shortcut: "Enter", disabledReason: several ? t("editor.editor.select_one_node_edit") : undefined, onSelect: () => this.#openNode(node) },
+      ...(typeOf(node).links_to
+        ? [{ label: t("common.settings"), icon: "settings", disabledReason: several ? t("editor.editor.select_one_node_edit") : undefined, onSelect: () => this.#openSettings(node) }]
+        : []),
       { label: t("graph_list.rename"), icon: "tag", shortcut: "F2", disabledReason: renameReason, onSelect: () => this.#askRename(node) },
       { label: t("credentials.copy"), icon: "copy", shortcut: "Ctrl+C", disabledReason: copyable ? undefined : reasonFixed, onSelect: () => this.#copy(targets) },
       { label: t("editor.editor.cut"), icon: "copy", shortcut: "Ctrl+X", disabledReason: copyable && !fixed ? undefined : reasonFixed, onSelect: () => this.#cut(targets) },
@@ -664,14 +680,14 @@ export class GraphEditor {
     return this.targets[kind];
   }
 
-  /** A double click on a node opens its settings (an action or pipeline node offers "Edit" there to open what it links to). */
+  /** A double click on a node opens it: an action or pipeline node opens what it links to, any other node its settings. */
   #openSettingsAt(event) {
     // the canvas captures the pointer while a gesture runs, which makes the viewport the target of the click: look under the pointer
     const under = document.elementFromPoint(event.clientX, event.clientY);
     const el = under?.closest(".ge-node");
     if (!el || under.closest("button, input, select, a, .ge-port, .ge-resize")) return;
     const node = this.nodes.get(el.dataset.nodeId);
-    if (node) this.#openSettings(node);
+    if (node) this.#openNode(node);
   }
 
   /** Where the thing a node links to is edited, with the way back to this node. */

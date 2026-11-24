@@ -62,11 +62,12 @@ never passed them).
 
 In the editors the **right mouse button** drags the view and the wheel zooms. The **left** button selects: a click picks one node,
 a frame drawn on the background picks every node it touches (Shift adds), and dragging one of several selected nodes moves them
-all together. A **double click** (or Enter on a focused node) opens the node's settings in an overlay; there is no panel beside
-the canvas. While an execution is shown (read-only), the left button still drags the view.
+all together. A **double click** (or Enter on a focused node) opens the node: an action or a pipeline node opens what it links to in its own
+editor (when it links to nothing yet, its settings open so you can choose or create one), every other node opens its settings
+in an overlay; there is no panel beside the canvas. While an execution is shown (read-only), the left button still drags the view.
 
 Under a node a small bar appears on hover and while it is selected: a bin
-(**Delete**, after asking) and a menu (**⋯**, also opened by a right click on the node): Edit (the same as a double click: the settings), Rename (F2, a small dialog for the name; in the settings the title can also be clicked to rename it), Copy (Ctrl+C), Cut
+(**Delete**, after asking) and a menu (**⋯**, also opened by a right click on the node): Edit (the same as a double click), Settings (for an action or pipeline node: which definition, New, Edit, Delete), Rename (F2, a small dialog for the name; in the settings the title can also be clicked to rename it), Copy (Ctrl+C), Cut
 (Ctrl+X), Duplicate (Ctrl+D) and Delete (Del). Ctrl+V pastes what was copied, also into another action or pipeline editor
 (pasted nodes keep their settings and the connections between them, get names like "Fetch copy", and a stage takes its
 actions along). The trigger, the output and the end are part of a graph: they are not copied and not deleted. There is no

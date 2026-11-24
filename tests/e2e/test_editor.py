@@ -583,18 +583,7 @@ def _definition(api: httpx.Client, name: str, fail: bool = False) -> dict[str, A
     return definition  # type: ignore[no-any-return]
 
 
-def test_a_double_click_on_an_action_opens_its_settings_and_edit_there_opens_its_definition(
-    page: Page, base_url: str, api: httpx.Client
-) -> None:
-    pipeline = _flow(page, base_url, api)
-    shell = page.locator(".ge-node--action").first
-    shell.locator(".ge-node__name").dblclick()
-    expect(page.locator("#node-modal")).to_be_visible()
-    expect(page).to_have_url(f"{base_url}/pipelines/flow")  # the double click stays on this page
-    expect(page.locator(".ge-actionbar a")).to_have_attribute(
-        "aria-disabled", "true"
-    )  # nothing to open yet
-    page.keyboard.press("Escape")
+def _give_the_actions_a_definition(api: httpx.Client, pipeline: dict[str, Any]) -> None:
     definition = _definition(api, "Gap analysis")
     for node in _graph(api, pipeline)["nodes"]:
         if node["kind"] == "action":  # both shells use it, so the first one in the page does too
@@ -602,11 +591,74 @@ def test_a_double_click_on_an_action_opens_its_settings_and_edit_there_opens_its
                 f"{graph_url(pipeline)}/nodes/{node['id']}",
                 json={"definition_id": definition["id"]},
             )
+
+
+def test_a_double_click_on_an_action_without_a_definition_opens_its_settings(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _flow(page, base_url, api)
+    page.locator(".ge-node--action").first.locator(".ge-node__name").dblclick()
+    expect(
+        page.locator("#node-modal")
+    ).to_be_visible()  # nothing to open yet: choose or create one here
+    expect(page).to_have_url(f"{base_url}/pipelines/flow")
+    expect(page.locator(".ge-actionbar a")).to_have_attribute("aria-disabled", "true")
+
+
+def test_a_double_click_on_an_action_opens_the_action_itself(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _flow(page, base_url, api)
+    _give_the_actions_a_definition(api, pipeline)
     page.reload()
     page.locator(".ge-node--action").first.locator(".ge-node__name").dblclick()
-    page.locator(".ge-actionbar a", has_text="Edit").click()
     expect(page).to_have_url(re.compile(r"/actions/gap-analysis\?from=flow&"))
     expect(page.locator("[data-back]")).to_have_text("Back to Flow")
+
+
+def test_the_menu_edit_and_enter_open_the_action_like_a_double_click(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _flow(page, base_url, api)
+    _give_the_actions_a_definition(api, pipeline)
+    page.reload()
+    action = page.locator(".ge-node--action").first
+    action.click(button="right", position={"x": 30, "y": 5})
+    page.get_by_role("menuitem", name="Edit").click()
+    expect(page).to_have_url(re.compile(r"/actions/gap-analysis\?from=flow&"))
+    page.go_back()
+    action = page.locator(".ge-node--action").first
+    action.focus()
+    page.keyboard.press("Enter")
+    expect(page).to_have_url(re.compile(r"/actions/gap-analysis\?from=flow&"))
+
+
+def test_the_settings_of_an_action_stay_one_menu_entry_away(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """The double click no longer opens them: the menu's Settings does (which definition, New, Edit, Delete)."""
+    pipeline = _flow(page, base_url, api)
+    _give_the_actions_a_definition(api, pipeline)
+    page.reload()
+    action = page.locator(".ge-node--action").first
+    action.click(button="right", position={"x": 30, "y": 5})
+    page.get_by_role("menuitem", name="Settings").click()
+    expect(page.locator("#node-modal")).to_be_visible()
+    expect(page).to_have_url(f"{base_url}/pipelines/flow")
+    expect(page.locator(".ge-actionbar a", has_text="Edit")).to_have_attribute(
+        "href", re.compile(r"/actions/gap-analysis")
+    )
+
+
+def test_a_double_click_on_a_kind_that_does_not_link_still_opens_its_settings(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _flow(page, base_url, api)
+    _give_the_actions_a_definition(api, pipeline)
+    page.reload()
+    page.locator(".ge-node--trigger .ge-node__name").dblclick()
+    expect(page.locator("#node-modal")).to_be_visible()
+    expect(page).to_have_url(f"{base_url}/pipelines/flow")
 
 
 def test_the_style_choices_of_a_connection_are_pictograms_named_by_their_tooltip(

@@ -254,6 +254,9 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
     expect(page.locator(".ge-node").first).to_be_visible()
     _theme(page, theme)
     check("editor")
-    page.locator(".ge-node--action").first.dblclick(position={"x": 30, "y": 5})
+    # a double click opens the action itself (when it has a definition): its settings are the menu's Settings
+    page.locator(".ge-node--action").first.click(button="right", position={"x": 30, "y": 5})
+    page.get_by_role("menuitem", name="Settings").click()
+    expect(page.locator("#node-modal")).to_be_visible()
     check("editor / node dialog")
     assert not problems, "\n" + "\n".join(sorted(set(problems)))
