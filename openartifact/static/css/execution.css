@@ -156,3 +156,8 @@
 @media (max-width: 640px) {
   .ef-head__back { margin-left: 0; }
 }
+
+/* what the guards did in the execution (ADR-060) */
+.ef-guards { display: flex; flex-direction: column; gap: var(--space-1); margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: 0.875rem; }
+.ef-guards__item { display: flex; align-items: baseline; gap: var(--space-1); }
+.ef-guards__item .icon { width: 0.875rem; height: 0.875rem; flex: none; align-self: center; color: var(--color-accent); }

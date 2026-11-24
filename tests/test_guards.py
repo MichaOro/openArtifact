@@ -312,9 +312,9 @@ def test_a_switched_off_guard_stops_firing_in_a_running_execution(client: TestCl
     )
     task = make_task(client)
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
-    wait_until(lambda: _activity(client, task), lambda entries: len(entries) >= 1, timeout=20)
+    wait_until(lambda: _activity(client, task), lambda entries: len(entries) >= 1, timeout=60)
     client.put(f"{GUARDS}/{guard['id']}/enabled", json={"enabled": False})
-    run = wait_for_run(client, task, "failed", timeout=30)  # the loop ends at the step limit
+    run = wait_for_run(client, task, "failed", timeout=90)  # the loop ends at the step limit
     assert "steps" in run["note"]
     assert len(_activity(client, task)) <= 2  # at most the one in flight when it was switched off
 

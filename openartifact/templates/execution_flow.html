@@ -21,6 +21,7 @@
             <a class="button button--ghost button--sm ef-head__back" href="/">{{ t('execution_flow.back_to_the_board') }}</a>
         </div>
         <dl class="history-facts ef-head__facts" data-head-facts></dl>
+        <ol class="ef-guards" data-head-guards aria-label="{{ t('execution_flow.guard_firings') }}" hidden></ol>
     </header>
     <section class="ef-gone glass" data-gone hidden>
         <h2 class="ef-gone__title" data-gone-title tabindex="-1">{{ t('execution_flow.this_execution_does_not_exist') }}</h2>

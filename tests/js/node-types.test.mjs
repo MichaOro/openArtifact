@@ -261,13 +261,14 @@ test("a placeholder of the menu is no kind: it is offered in its scopes, in its 
   setPlaceholders(PLACEHOLDERS);
   try {
     assert.deepEqual(addableIn("pipeline").map((t) => t.kind), ["stage", "pipeline"], "kinds only: choosing a placeholder never adds a node");
-    for (const scope of ["pipeline", "action"]) assert.deepEqual(placeholdersIn(scope).map((p) => p.kind), ["guard"]);
+    assert.deepEqual(placeholdersIn("pipeline").map((p) => p.kind), ["guard"]);
+    assert.deepEqual(placeholdersIn("action"), [], "an action definition has no pipeline to attach a guard to (ADR-060)");
     assert.deepEqual(placeholdersIn("elsewhere"), []);
     const structure = groupAddable([...addableIn("pipeline"), ...placeholdersIn("pipeline")]).find((g) => g.group === "Structure");
     assert.deepEqual(structure.types.map((t) => t.kind), ["stage", "pipeline", "guard"]);
     const found = searchAddable([...addableIn("pipeline"), ...placeholdersIn("pipeline")], "guard");
-    assert.deepEqual(found, [{ kind: "guard", label: "Guard", group: "Structure", placeholder: true, icon: "shield", soon: true }]);
-    assert.equal(placeholderOf("guard").soon, true);
+    assert.deepEqual(found, [{ kind: "guard", label: "Guard", group: "Structure", placeholder: true, icon: "shield", soon: false }]);
+    assert.equal(placeholderOf("guard").soon, false, "guards exist: the entry is no longer a place held for later");
     assert.equal(placeholderOf("nothing"), null);
   } finally {
     setPlaceholders([]);

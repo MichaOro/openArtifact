@@ -183,3 +183,19 @@ test("a live entry is added once, in front, and replaces one with the same id", 
   assert.deepEqual(withEntry([one], two).map((e) => e.id), ["2", "1"]);
   assert.deepEqual(withEntry([two, one], { ...one, kind: "parent" }).map((e) => [e.id, e.kind]), [["1", "parent"], ["2", "title"]]);
 });
+
+// ── guards (ADR-060) ───────────────────────────────────────────────
+
+test("a guard entry says what the guard did and the facts it fired on, belongs to Executions and has a shield", async () => {
+  const A = await import("../../openartifact/static/js/tasks/activity-model.js");
+  const entry = { id: "g", kind: "guard", actor_kind: "system", actor_name: "Health guard", created_at: "2026-11-24T10:00:00Z", data: { outcome: "pause", scope_name: "Draft", facts: { runs: 10, idle: 840, errors: 0 } } };
+  assert.equal(A.actorName(entry), "Health guard");
+  assert.equal(A.sentenceOf(entry), "fired at Draft: paused the run (round 10, 14 min without progress)");
+  const [item] = A.mergeTimeline([], [entry]);
+  assert.equal(A.groupOf(item), "runs");
+  assert.deepEqual(A.markerOf(item), { icon: "shield", tone: "accent" });
+  const failed = { ...entry, data: { outcome: "failed", scope_name: "Draft", detail: "no answer within 600 s; the flow went on", facts: {} } };
+  assert.equal(A.sentenceOf(failed), "failed at Draft and the run went on: no answer within 600 s; the flow went on");
+  assert.equal(A.markerOf(A.mergeTimeline([], [failed])[0]).tone, "bad");
+  assert.equal(A.factsOf({ runs: 3, idle: 45, elapsed: 130, errors: 2 }), "round 3, 45 s without progress, 2 min in the scope, 2 errors");
+});

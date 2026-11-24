@@ -21,8 +21,31 @@ export function typeOfEntry(entry) {
   return "change";
 }
 
-/** The filter an item belongs to: executions (live and deleted), changes, or comments. */
-export const groupOf = (item) => ({ execution: "runs", trace: "runs", comment: "comments", change: "changes" })[item.type];
+/** The filter an item belongs to: executions (live and deleted, and what guards did to them), changes, or comments. */
+export const groupOf = (item) => (item.entry?.kind === "guard" ? "runs" : { execution: "runs", trace: "runs", comment: "comments", change: "changes" }[item.type]);
+
+/** A duration in seconds as the facts of a guard say it: "45 s", "14 min". */
+function span(seconds) {
+  return seconds >= 120 ? t("tasks.activity.minutes", { n: Math.round(seconds / 60) }) : t("tasks.activity.seconds", { n: Math.round(seconds) });
+}
+
+/** The facts a guard fired on, in a few words ("round 10, 14 min without progress", ADR-060). */
+export function factsOf(facts = {}) {
+  const parts = [t("tasks.activity.round", { n: facts.runs ?? 0 })];
+  if (facts.idle >= 1) parts.push(t("tasks.activity.without_progress", { time: span(facts.idle) }));
+  if (facts.elapsed >= 1) parts.push(t("tasks.activity.in_the_scope", { time: span(facts.elapsed) }));
+  if (facts.errors) parts.push(plural("tasks.activity.errors", facts.errors));
+  return parts.join(", ");
+}
+
+/** What a guard did: its consequence, or that it failed (and the flow went on), reached its cap or cannot act yet. */
+function guardSentence(d) {
+  const facts = factsOf(d.facts);
+  if (d.outcome === "failed") return t("tasks.activity.guard_failed", { scope: d.scope_name ?? "?", reason: d.detail ?? "" });
+  if (d.outcome === "capped") return t("tasks.activity.guard_capped", { scope: d.scope_name ?? "?" });
+  if (d.outcome === "unavailable") return t("tasks.activity.guard_unavailable", { scope: d.scope_name ?? "?" });
+  return t("tasks.activity.guard_fired", { outcome: t(`tasks.activity.guard_outcome.${d.outcome}`), scope: d.scope_name ?? "?", facts });
+}
 
 /** The time an entry belongs to, in milliseconds. */
 export const timeOf = (item) => new Date(item.at).getTime();
@@ -60,6 +83,8 @@ export function sentenceOf(entry) {
       return t("tasks.activity.stage_set", { to: d.to ?? "?" });
     case "action":
       return t("tasks.activity.action_set", { to: d.to ?? "?" });
+    case "guard":
+      return guardSentence(d);
     default:
       return entry.kind;
   }
@@ -179,8 +204,11 @@ const KIND_MARKERS = {
   action: { icon: "action", tone: "accent" },
 };
 
+const GUARD_TONES = { pause: "accent", abort: "bad", failed: "bad", capped: "muted", unavailable: "muted" };
+
 /** The round marker of an item: the icon and the tone say what kind of event it is. */
 export function markerOf(item) {
+  if (item.entry?.kind === "guard") return { icon: "shield", tone: GUARD_TONES[item.entry.data?.outcome] ?? "ok" };
   if (item.type === "execution") return STATUS_MARKERS[item.execution.status] ?? { icon: "clock", tone: "muted" };
   if (item.type === "trace") return { icon: "trash", tone: "bad" };
   if (item.type === "comment") return item.entry.kind === "comment_deleted" ? { icon: "trash", tone: "bad" } : { icon: "message", tone: "accent" };

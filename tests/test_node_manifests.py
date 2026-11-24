@@ -250,15 +250,17 @@ def _entry(**more: Any) -> dict[str, Any]:
 
 
 def test_the_menu_file_holds_a_place_for_guards_and_no_kind_is_behind_it() -> None:
+    # Guards exist (ADR-060): the entry is no longer "soon" and only the pipeline editor offers it (an action
+    # definition has no pipeline to attach a guard to)
     [guard] = manifest.read_placeholders()
     assert (guard.key, guard.label, guard.icon, guard.group, guard.soon) == (
         "guard",
         "Guard",
         "shield",
         "Structure",
-        True,
+        False,
     )
-    assert sorted(guard.scopes) == ["action", "pipeline"]
+    assert sorted(guard.scopes) == ["pipeline"]
     assert guard.key not in {k.value for k in NodeKind}, "a guard is not a kind of node"
     orders = {
         t.menu["order"]: t.kind
@@ -306,7 +308,7 @@ def test_placeholders_are_named_in_the_users_language(monkeypatch: pytest.Monkey
     monkeypatch.setattr(localize, "_own", lambda language, key: texts.get(key))
     [guard] = localize.placeholders("de")
     assert (guard["label"], guard["group"]) == ("Wächter", "Aufbau")
-    assert guard["group_index"] == 0 and guard["icon"] == "shield" and guard["soon"] is True
+    assert guard["group_index"] == 0 and guard["icon"] == "shield" and guard["soon"] is False
 
 
 def test_the_editor_page_carries_the_placeholders_and_the_fixture_of_the_js_tests_is_that_answer(

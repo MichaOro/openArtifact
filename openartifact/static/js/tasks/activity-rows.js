@@ -4,7 +4,7 @@
  * textContent only. */
 import { fillTime, placeByTime } from "./history-row.js";
 import { setMarker } from "./history-marker.js";
-import { actorName, markerOf, previewOf, sentenceOf, timeOf, traceOf } from "./activity-model.js";
+import { actorName, groupOf, markerOf, previewOf, sentenceOf, timeOf, traceOf } from "./activity-model.js";
 import { formatTime } from "./history-format.js";
 import { t } from "../i18n.js";
 
@@ -54,7 +54,7 @@ export class ActivityRows {
   #fill(row, item) {
     const { entry } = item;
     row.dataset.kind = entry.kind;
-    row.dataset.group = { change: "changes", trace: "runs", comment: "comments" }[item.type];
+    row.dataset.group = groupOf(item); // a guard's entry is about an execution: "runs"
     row.dataset.commentId = entry.data?.comment_id ?? "";
     setMarker(row, markerOf(item));
     row.querySelector("[data-event-actor]").textContent = actorName(entry);

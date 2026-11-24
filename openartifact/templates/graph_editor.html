@@ -6,7 +6,8 @@
 {% from "components/modal.html" import modal %}
 {% block title %}{{ t('page.' ~ section.key) }} · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
-<link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
+<link rel="stylesheet" href="/static/css/agents.css">
+<link rel="stylesheet" href="/static/css/rule-builder.css">{% endblock %}
 {% block content %}
 {# data-*-path: where a pipeline / an action definition is edited (the links between them). #}
 <div class="ge-editor" data-graph-id="{{ graph_id }}" data-kind="{{ section.kind }}"
@@ -16,6 +17,7 @@
     <div class="ge-bar glass" role="toolbar" aria-label="{{ t('graph.' ~ section.key ~ '.tools') }}">
         <a class="button button--ghost button--sm" href="{{ section.path }}">{{ t('graph.' ~ section.key ~ '.all') }}</a>
         <a class="button button--ghost button--sm" href="#" data-back hidden></a>
+        {% if section.kind == "pipeline" %}<span class="ge-bar__guards" data-pipeline-guards aria-label="{{ t('guards.pipeline_guards') }}" role="group"></span>{% endif %}
         <span class="ge-bar__spacer"></span>
         <button type="button" class="button button--ghost button--sm" data-zoom-out aria-label="{{ t('execution_flow.zoom_out') }}">−</button>
         <span class="ge-bar__zoom" data-zoom-label aria-live="polite">100%</span>
@@ -42,6 +44,20 @@
 <div class="modal__body ge-inspector" data-inspector></div>
 {% endcall %}
 {{ form_modal("new-modal", t('common.new'), NAME_FIELDS) }}
+{% if section.kind == "pipeline" %}
+{# a guard of the pipeline, a stage or an action (ADR-060), opened from a shield chip or a Guard entry #}
+{% call modal("guard-modal", t('guards.guard')) %}
+<form class="task-form gd-form" novalidate>
+    <div class="modal__body" data-guard-body></div>
+    <p class="form-error" role="alert" hidden data-form-error></p>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost is-danger gd-delete" data-delete hidden>{{ t('common.delete') }}</button>
+        <button type="button" class="button button--ghost" data-cancel>{{ t('common.cancel') }}</button>
+        <button type="submit" class="button button--primary" data-submit>{{ t('common.save') }}</button>
+    </footer>
+</form>
+{% endcall %}
+{% endif %}
 {{ confirm_modal("confirm-modal", t('common.delete')) }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/editor/editor-main.js"></script>{% endblock %}

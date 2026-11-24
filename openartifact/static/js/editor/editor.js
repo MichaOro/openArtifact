@@ -7,6 +7,7 @@ import { InlineName } from "../components/inline-name.js";
 import { Modal } from "../components/modal.js";
 import { KEYS, readJson, removeStorage, writeJson } from "../storage.js";
 import { ActionMenu } from "../components/action-menu.js";
+import { icon } from "../components/icons.js";
 import { AddMenu } from "./add-menu.js";
 import { createGraph, listGraphs } from "./api.js";
 import { Canvas } from "./canvas.js";
@@ -16,6 +17,7 @@ import { GraphModel } from "./graph-model.js";
 import { InspectorBlocks } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
 import { rememberPipeline, setupBack, setupBackToAgent } from "./navigation.js";
+import { GuardDialog, GuardStore, chipsOf, stageChips } from "./guards.js";
 import { addableIn, placeholderOf, typeOf } from "./node-types.js";
 import { forgetOpened } from "./settings-layout.js";
 import { t, tn } from "../i18n.js";
@@ -69,8 +71,9 @@ export class GraphEditor {
       root,
       this.model.kind,
       (kind) => (typeOf(kind).tool ? this.#addTool(kind) : this.#addBeforeEnd(kind)),
-      () => this.#guardsSoon(),
+      (key) => key === "guard" && this.#newGuard("pipeline", this.model.graph.id, this.model.graph.name),
     );
+    if (!this.model.isAction) this.#setUpGuards(root);
     root.querySelector("[data-zoom-in]").addEventListener("click", () => this.canvas.zoomBy(1.2));
     root.querySelector("[data-zoom-out]").addEventListener("click", () => this.canvas.zoomBy(1 / 1.2));
     root.querySelector("[data-zoom-fit]").addEventListener("click", () => this.canvas.fit());
@@ -166,7 +169,7 @@ export class GraphEditor {
     if (this.selection?.id !== node.id) this.select({ type: "node", id: node.id });
     this.settingsModal.dialog.querySelector(".modal__title").textContent = typeOf(node).label;
     forgetOpened(node.id); // what was added but never given a value is not kept
-    this.inspector.render(this.selection);
+    this.#renderSettings();
     this.settingsModal.open();
     this.inspector.focusFirst();
   }
@@ -174,7 +177,14 @@ export class GraphEditor {
   #renderInspector() {
     if (!this.settingsModal.isOpen) return;
     if (this.selection?.type !== "node" || !this.nodes.has(this.selection.id)) return this.settingsModal.close();
-    return this.inspector.render(this.selection);
+    this.#renderSettings();
+  }
+
+  /** The settings of the selected node; an action's end with the guards that watch it (ADR-060). */
+  #renderSettings() {
+    this.inspector.render(this.selection);
+    const node = this.nodes.get(this.selection.id);
+    if (this.guards && node?.kind === "action") this.inspector.element.append(this.#guardSection(node));
   }
 
   // ── adding ─────────────────────────────────────────────────────────
@@ -378,17 +388,81 @@ export class GraphEditor {
     else this.#openNodeMenu(node, null, button);
   }
 
-  /** The "+" of a stage: a small menu to add an Action, or a Guard (a place held for something that is coming). */
+  /** The "+" of a stage: a small menu to add an Action, or a Guard that watches the stage (ADR-060). */
   #openStageAddMenu(stage, trigger) {
     const guard = placeholderOf("guard");
     const items = [{ label: typeOf("action").label, icon: "action", onSelect: () => this.#addAction(stage) }];
-    if (guard) items.push({ label: guard.label, icon: guard.icon, tag: guard.soon ? t("editor.add_menu.soon") : undefined, onSelect: () => this.#guardsSoon() });
+    if (guard && this.guards) items.push({ label: guard.label, icon: guard.icon, onSelect: () => this.#newGuard("stage", stage.id, displayName(stage)) });
     this.menu.toggle(trigger, items, t("editor.node_types.add_to_stage"));
   }
 
-  /** A Guard was chosen: nothing is added, the editor says that guards are not there yet. */
-  #guardsSoon() {
-    this.alert.show(t("editor.editor.guards_not_available_yet"), { autoHide: 8000 });
+  // ── guards (ADR-060) ───────────────────────────────────────────────
+
+  #setUpGuards(root) {
+    this.guards = new GuardStore(root.dataset.graphId);
+    this.guardDialog = new GuardDialog(new Modal(document.getElementById("guard-modal")), this.guards, {
+      actionsPath: this.paths.action,
+      pipelineSlug: () => this.model.graph?.slug ?? "",
+      confirm: (message, action) => this.confirm.open({ message, onConfirm: action }),
+      onChanged: () => this.#loadGuards(),
+    });
+    this.pipelineGuards = root.querySelector("[data-pipeline-guards]");
+    stageChips.provider = (node) => this.#chips("stage", node.id);
+    this.#loadGuards();
+  }
+
+  async #loadGuards() {
+    try {
+      await this.guards.load();
+    } catch {
+      return; // the editor works without them; the next change loads them again
+    }
+    this.#drawGuards();
+  }
+
+  #chips(type, id) {
+    const found = this.guards?.forScope(type, id) ?? [];
+    return found.length ? chipsOf(found, (guard) => this.#openGuard(guard)) : null;
+  }
+
+  /** The chips of the pipeline (tool bar) and of every stage (its header) after the guards changed. */
+  #drawGuards() {
+    this.pipelineGuards?.replaceChildren(...[this.#chips("pipeline", null)].filter(Boolean));
+    for (const node of this.nodes.values()) {
+      if (node.kind !== "stage") continue;
+      const header = this.canvas.elements.get(node.id)?.querySelector(".ge-stage__header");
+      if (!header) continue;
+      header.querySelector(".ge-guards")?.remove();
+      const chips = this.#chips("stage", node.id);
+      if (chips) header.insertBefore(chips, header.querySelector("[data-stage-add]"));
+    }
+    this.#renderInspector();
+  }
+
+  #newGuard(type, id, name) {
+    if (!this.guardDialog || !this.guards.schema) return this.alert.show(t("guards.not_loaded"), { autoHide: 6000 });
+    this.guardDialog.openNew(type, id, name);
+  }
+
+  #openGuard(guard) {
+    const node = guard.scope_type === "pipeline" ? null : this.nodes.get(guard.scope_id);
+    this.guardDialog.open(guard, node ? displayName(node) : this.model.graph.name);
+  }
+
+  /** The "Guards" section of an action's settings: its chips and a way to add one. */
+  #guardSection(node) {
+    const section = document.createElement("div");
+    section.className = "ge-inspector__section ge-guard-section";
+    section.dataset.guardSection = "";
+    const heading = document.createElement("h3");
+    heading.textContent = t("guards.guards");
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "button button--ghost button--sm";
+    add.append(icon("shield"), document.createTextNode(t("guards.add_guard")));
+    add.addEventListener("click", () => this.#newGuard("action", node.id, displayName(node)));
+    section.append(heading, this.#chips("action", node.id) ?? Object.assign(document.createElement("p"), { className: "field__help", textContent: t("guards.none_on_action") }), add);
+    return section;
   }
 
   /** The menu of a node: opened by a right click (at the pointer) or by the "..." of its bar (under it). */
@@ -409,9 +483,9 @@ export class GraphEditor {
       { label: t("common.delete"), icon: "trash", shortcut: "Del", danger: true, disabledReason: fixed ? reasonFixed : undefined, onSelect: () => this.#deleteTargets(targets) },
     ];
     const guard = placeholderOf("guard");
-    if (guard && !several && node.kind === "action") {
-      // a guard watches this action: held for later (nothing is added), before Delete
-      items.splice(items.length - 1, 0, { label: guard.label, icon: guard.icon, tag: guard.soon ? t("editor.add_menu.soon") : undefined, onSelect: () => this.#guardsSoon() });
+    if (guard && this.guards && !several && node.kind === "action") {
+      // a guard that watches this action, before Delete
+      items.splice(items.length - 1, 0, { label: guard.label, icon: guard.icon, onSelect: () => this.#newGuard("action", node.id, displayName(node)) });
     }
     const anchor = trigger ?? this.canvas.elements.get(node.id);
     this.menu.toggle(anchor, items, `Actions of ${displayName(node)}`, point ? { at: point } : {});

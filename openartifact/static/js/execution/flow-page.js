@@ -3,6 +3,8 @@
  * (?visit=N) so a reload, a shared link and the browser's Back button all restore it. Nothing here
  * changes anything on the server. */
 import { AlertBar } from "../components/alert-bar.js";
+import { icon } from "../components/icons.js";
+import { sentenceOf } from "../tasks/activity-model.js";
 import { loadNodeTypes } from "../editor/node-types.js";
 import { connectEvents } from "../tasks/events.js";
 import { executionSeconds, formatDuration, formatTime, originLabel, setChip } from "../tasks/history-format.js";
@@ -71,6 +73,7 @@ class FlowPage {
       this.alert.hide();
       const first = this.model === null;
       this.model = new FlowModel(flow);
+      this.guards = flow.guards ?? {};
       root.querySelector("[data-body]").hidden = false;
       this.#renderHead();
       this.#show(first ? this.#visitFromUrl() : this.visit && this.model.visit(this.visit.index), { fit: first });
@@ -222,6 +225,24 @@ class FlowPage {
         dd.textContent = value;
         fact.append(dt, dd);
         return fact;
+      }),
+    );
+    this.#renderGuards();
+  }
+
+  /** What the guards did in this execution (ADR-060): one line per firing, with the facts it fired on. */
+  #renderGuards() {
+    const list = root.querySelector("[data-head-guards]");
+    const firings = this.guards?.firings ?? [];
+    list.hidden = !firings.length;
+    list.replaceChildren(
+      ...firings.map((firing) => {
+        const item = document.createElement("li");
+        item.className = "ef-guards__item";
+        const name = document.createElement("strong");
+        name.textContent = firing.guard;
+        item.append(icon("shield"), name, document.createTextNode(` ${sentenceOf({ kind: "guard", data: firing })}`));
+        return item;
       }),
     );
   }
