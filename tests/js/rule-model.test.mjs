@@ -110,3 +110,40 @@ test("what saving does is named after the actions of the rules that match someth
   assert.equal(M.effectOf(two, rules, [2, 1]), "deletes or archives");
   assert.equal(M.effectOf(two, rules, [0, 0]), "");
 });
+
+// ── the guard schema (ADR-060): seconds, numbers and result fields ──────────
+
+const GUARD = {
+  actions: [{ key: "pause", label: "Pause", phrase: "Pause when", effect: "pauses" }],
+  fields: [
+    { key: "idle", label: "Time without progress", kind: "duration", minimum: 0, units: ["hours", "minutes", "seconds"], operators: [{ key: "at_least", label: "is at least" }] },
+    { key: "var.", prefix: "var.", label: "Result field", kind: "number", operators: [{ key: "below", label: "is below" }] },
+    { key: "runs", label: "Rounds", kind: "count", minimum: 0, operators: [{ key: "at_least", label: "is at least" }] },
+  ],
+};
+
+test("a duration offers the units of its field, seconds included, and splits into the largest of them", () => {
+  assert.deepEqual(M.durationUnits(GUARD.fields[0]), ["hours", "minutes", "seconds"]);
+  assert.deepEqual(M.durationUnits(SCHEMA.fields[2]), ["days", "hours", "minutes"]); // retention keeps its units
+  assert.deepEqual(M.splitDuration(90, ["hours", "minutes", "seconds"]), { amount: 90, unit: "seconds" });
+  assert.deepEqual(M.splitDuration(180, ["hours", "minutes", "seconds"]), { amount: 3, unit: "minutes" });
+  assert.deepEqual(M.splitDuration(90), { amount: 2, unit: "minutes" }); // without seconds as before
+  assert.equal(M.joinDuration(45, "seconds"), 45);
+});
+
+test("a result field is the prefix and a name; it is complete only with a valid name", () => {
+  const fresh = M.newCondition(GUARD, "var.");
+  assert.deepEqual(fresh, { type: "condition", field: "var.", op: "below", value: 0 });
+  assert.equal(M.fieldOf(GUARD, "var.gain").key, "var.");
+  const named = M.withName(M.fieldOf(GUARD, "var."), fresh, "gain");
+  assert.equal(named.field, "var.gain");
+  assert.equal(M.isComplete({ type: "group", mode: "all", items: [fresh] }, GUARD), false);
+  assert.equal(M.isComplete({ type: "group", mode: "all", items: [{ ...named, value: -0.5 }] }, GUARD), true);
+  assert.equal(M.describe({ type: "group", mode: "all", items: [{ ...named, value: 0.05 }] }, GUARD), "Result field gain is below 0.05");
+});
+
+test("with the schema a count may be 0 where its field allows it; without, the old rule holds", () => {
+  const zero = { type: "group", mode: "all", items: [{ type: "condition", field: "runs", op: "at_least", value: 0 }] };
+  assert.equal(M.isComplete(zero, GUARD), true);
+  assert.equal(M.isComplete(zero), false);
+});

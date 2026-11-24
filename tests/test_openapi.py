@@ -69,6 +69,8 @@ GET /api/pipelines/{graph_id} -> GraphDetail
 GET /api/pipelines/{graph_id}/stages -> ChainEntryRead[]
 GET /api/providers -> ProviderRead[]
 GET /api/providers/{ref} -> ProviderRead
+GET /api/rules/schemas -> RuleSchemaRead[]
+GET /api/rules/schemas/{purpose} -> RuleSchemaRead
 GET /api/runs -> RunRead[]
 GET /api/runs/{task_id}/results -> NodeResultRead[]
 GET /api/secrets -> SecretRead[]

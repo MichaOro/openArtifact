@@ -6,7 +6,9 @@ The rules are a list; each says *when* (a condition tree) *then* an action. The 
 A condition tree is: a group says *all* or *any* of its items must hold; an item is a condition or an inner group.
 A condition tests one field of an execution: ``status`` and ``started_by`` (is / is not one of some values),
 ``pipeline`` (is / is not / contains a name, ignoring case), ``age`` (older than some seconds, counted from the
-start) or ``position`` (beyond the newest N executions of the same artifact: *keep the last N*). An execution that the tree matches is deleted for good, with its steps; a running one never is, and an
+start) or ``position`` (beyond the newest N executions of the same artifact: *keep the last N*). The fields and
+their checks are the ``retention`` schema of ``rules/catalog.py``; the tree is the one of ``rules/tree.py``, which
+also evaluates it in memory (the guards do); this module compiles it to SQL. An execution that the tree matches is deleted for good, with its steps; a running one never is, and an
 empty group matches nothing, so an empty rule deletes nothing.
 
 The rules are applied when something happens to the history (an execution is added or finishes) and when the rules
@@ -17,7 +19,7 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from sqlalchemy import ColumnElement, and_, false, func, not_, or_, select
@@ -25,77 +27,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from openartifact.models import AppSetting, Execution
-from openartifact.models.enums import RunStatus, StartedBy
+from openartifact.models.enums import RunStatus
+from openartifact.rules import catalog, tree
+from openartifact.rules.catalog import RETENTION, RuleSchema
 
 KEY = "history.rules"
-MAX_DEPTH = 4  # a group inside a group inside ...
-MAX_CONDITIONS = 50  # in one rule
+MAX_DEPTH = tree.MAX_DEPTH
+MAX_CONDITIONS = tree.MAX_CONDITIONS
 MAX_RULES = 20
-#: What a rule can do. Only deleting exists; another action is an entry here and a branch where the rules are applied.
-ACTIONS = ("delete",)
-MIN_AGE_SECONDS, MAX_AGE_SECONDS = 60, 10 * 365 * 24 * 3600
-#: What a status condition may name: a running execution is never deleted, so it cannot be a target.
-STATUSES = (RunStatus.DONE, RunStatus.FAILED, RunStatus.STOPPED)
-FIELDS: dict[str, tuple[str, ...]] = {
-    "status": ("is", "is_not"),
-    "started_by": ("is", "is_not"),
-    "pipeline": ("is", "is_not", "contains"),
-    "age": ("older_than",),
-    "position": ("beyond",),
-}
-MAX_POSITION = 100_000
+#: What a rule can do (the consequences of the ``retention`` schema). Only deleting exists; another action is an
+#: entry in ``rules/catalog.py`` and a branch where the rules are applied.
+ACTIONS = tuple(c.key for c in RETENTION.consequences if c.available)
+MIN_AGE_SECONDS, MAX_AGE_SECONDS = catalog.MIN_AGE_SECONDS, catalog.MAX_AGE_SECONDS
+STATUSES = catalog.RETENTION_STATUSES
+FIELDS: dict[str, tuple[str, ...]] = {f.key: f.operators for f in RETENTION.fields}
+MAX_POSITION = catalog.MAX_POSITION
 
 
-class Condition(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class Condition(tree.ConditionBase):
+    """A condition of a retention rule (checked against the ``retention`` schema)."""
 
-    type: Literal["condition"] = "condition"
-    field: str
-    op: str
-    value: list[str] | str | int
-
-    @model_validator(mode="after")
-    def _fits(self) -> Condition:
-        if self.field not in FIELDS:
-            raise ValueError(f"unknown field {self.field[:40]!r}: use {', '.join(FIELDS)}")
-        if self.op not in FIELDS[self.field]:
-            raise ValueError(
-                f"{self.field}: the operator {self.op!r} does not fit; use {', '.join(FIELDS[self.field])}"
-            )
-        if self.field in ("status", "started_by"):
-            allowed = (
-                [str(s) for s in STATUSES]
-                if self.field == "status"
-                else [str(s) for s in StartedBy]
-            )
-            if not isinstance(self.value, list) or not self.value:
-                raise ValueError(f"{self.field}: name at least one of {', '.join(allowed)}")
-            bad = [v for v in self.value if v not in allowed]
-            if bad:
-                note = " (a running execution is never deleted)" if bad[0] == "running" else ""
-                raise ValueError(
-                    f"{self.field}: {str(bad[0])[:40]!r} is not one of {', '.join(allowed)}{note}"
-                )
-        elif self.field == "pipeline":
-            if not isinstance(self.value, str) or not 1 <= len(self.value.strip()) <= 120:
-                raise ValueError("pipeline: give a name of 1 to 120 characters")
-        elif self.field == "position":
-            if (
-                isinstance(self.value, bool)
-                or not isinstance(self.value, int)
-                or not 1 <= self.value <= MAX_POSITION
-            ):
-                raise ValueError(
-                    f"position: give how many of the newest to keep, 1 to {MAX_POSITION}"
-                )
-        else:
-            if (
-                isinstance(self.value, bool)
-                or not isinstance(self.value, int)
-                or not MIN_AGE_SECONDS <= self.value <= MAX_AGE_SECONDS
-            ):
-                raise ValueError(f"age: give seconds, {MIN_AGE_SECONDS} (a minute) or more")
-        return self
+    SCHEMA: ClassVar[RuleSchema] = RETENTION
 
 
 class Group(BaseModel):
@@ -128,13 +80,7 @@ class Rule(BaseModel):
 
     @model_validator(mode="after")
     def _bounded(self) -> Rule:
-        def walk(group: Group, depth: int) -> int:
-            if depth > MAX_DEPTH:
-                raise ValueError(f"groups are nested too deep (at most {MAX_DEPTH} levels)")
-            return sum(walk(i, depth + 1) if isinstance(i, Group) else 1 for i in group.items)
-
-        if walk(self.when, 1) > MAX_CONDITIONS:
-            raise ValueError(f"at most {MAX_CONDITIONS} conditions in a rule")
+        tree.check_bounds(self.when, MAX_DEPTH, MAX_CONDITIONS)
         return self
 
 
@@ -189,9 +135,7 @@ def where(group: Group, now: Any) -> ColumnElement[bool]:
     return combined
 
 
-def group_is_empty(group: Group) -> bool:
-    """No condition anywhere in the group (an inner group that is empty counts as nothing)."""
-    return all(group_is_empty(i) if isinstance(i, Group) else False for i in group.items)
+group_is_empty = tree.group_is_empty
 
 
 def matching(rule: Rule, now: Any) -> ColumnElement[bool]:

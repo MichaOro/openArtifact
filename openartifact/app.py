@@ -29,6 +29,7 @@ from openartifact.api.lanes import router as lanes_router
 from openartifact.api.mcp import build_mcp
 from openartifact.api.routes import public_router as public_api_router
 from openartifact.api.routes import router as api_router
+from openartifact.api.rules import router as rules_router
 from openartifact.api.runs import router as runs_router
 from openartifact.api.secrets import router as secrets_router
 from openartifact.api.settings import build_settings_router
@@ -217,6 +218,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(pipelines_router)
     app.include_router(actions_router)
     app.include_router(runs_router)
+    app.include_router(rules_router)
     app.include_router(secrets_router)
     app.include_router(credentials_router)
     app.include_router(v1_router)

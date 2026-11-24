@@ -110,9 +110,9 @@ export class RuleBuilder {
 
   #row(condition, path) {
     const where = path.join("-");
-    const field = this.schema.fields.find((f) => f.key === condition.field) ?? this.schema.fields[0];
+    const field = model.fieldOf(this.schema, condition.field) ?? this.schema.fields[0];
     const row = make("div", "rb-row");
-    const fieldSelect = select(t("components.rule_builder.field"), this.schema.fields.map((f) => [f.key, f.label]), condition.field, (key) => this.#change(model.replaceItem(this.tree, path, model.withField(this.schema, condition, key)), `field-${where}`));
+    const fieldSelect = select(t("components.rule_builder.field"), this.schema.fields.map((f) => [f.key, f.label]), field.key, (key) => this.#change(model.replaceItem(this.tree, path, model.withField(this.schema, condition, key)), `field-${where}`));
     fieldSelect.dataset.rbKey = `field-${where}`;
     const operator = select(t("components.rule_builder.operator"), field.operators.map((o) => [o.key, o.label]), condition.op, (op) => this.#change(model.replaceItem(this.tree, path, model.withOperator(condition, op)), `op-${where}`));
     operator.dataset.rbKey = `op-${where}`;
@@ -123,8 +123,22 @@ export class RuleBuilder {
     bin.setAttribute("aria-label", t("components.rule_builder.remove_condition"));
     bin.append(icon("trash"));
     bin.addEventListener("click", () => this.#change(model.removeItem(this.tree, path)));
-    row.append(fieldSelect, operator, this.#value(field, condition, path), bin);
+    row.append(fieldSelect);
+    if (field.prefix) row.append(this.#name(field, condition, path));
+    row.append(operator, this.#value(field, condition, path), bin);
     return row;
+  }
+
+  /** The name of a result field (`gain` of `var.gain`), typed without drawing again. */
+  #name(field, condition, path) {
+    const input = Object.assign(make("input", "field__control rb-text rb-name"), { type: "text", value: model.nameOf(field, condition.field), maxLength: 64, autocomplete: "off", spellcheck: false });
+    input.setAttribute("aria-label", t("components.rule_builder.result_field_name"));
+    input.placeholder = t("components.rule_builder.result_field_placeholder");
+    input.addEventListener("input", () => {
+      this.tree = model.replaceItem(this.tree, path, model.withName(field, model.itemAt(this.tree, path), input.value.trim()));
+      this.onChange(this.tree);
+    });
+    return input;
   }
 
   #value(field, condition, path) {
@@ -156,14 +170,21 @@ export class RuleBuilder {
     }
     if (field.kind === "duration") {
       const wrap = make("div", "rb-duration");
-      const { amount, unit } = model.splitDuration(condition.value);
-      const number = Object.assign(make("input", "field__control rb-number"), { type: "number", min: 1, step: 1, value: String(amount) });
+      const offered = model.durationUnits(field);
+      const { amount, unit } = model.splitDuration(condition.value, offered);
+      const number = Object.assign(make("input", "field__control rb-number"), { type: "number", min: field.minimum === 0 ? 0 : 1, step: 1, value: String(amount) });
       number.setAttribute("aria-label", t("components.rule_builder.amount"));
-      const units = select(t("components.rule_builder.unit"), model.durationUnits().map((u) => [u, u]), unit, () => update());
+      const units = select(t("components.rule_builder.unit"), offered.map((u) => [u, t(`components.rule_builder.units.${u}`)]), unit, () => update());
       const update = () => set(model.joinDuration(Number(number.value) || 0, units.value));
       number.addEventListener("input", update);
       wrap.append(number, units);
       return wrap;
+    }
+    if (field.kind === "number") {
+      const number = Object.assign(make("input", "field__control rb-number"), { type: "number", step: "any", value: String(condition.value) });
+      number.setAttribute("aria-label", field.label);
+      number.addEventListener("input", () => set(Number(number.value)));
+      return number;
     }
     if (field.kind === "count") {
       const number = Object.assign(make("input", "field__control rb-number"), { type: "number", min: 1, step: 1, value: String(condition.value) });

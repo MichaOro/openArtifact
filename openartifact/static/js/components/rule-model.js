@@ -1,24 +1,40 @@
 /* The data of a rule builder, without a DOM: a rule is a tree of groups (`all` / `any`) holding conditions and inner
  * groups, exactly the shape the server takes (engine/retention.py). A schema says which fields exist, what each is
- * called, how its value is entered (`choice`: several of some options; `text`; `duration`: seconds; `count`: a whole number) and which
- * operators fit. Every edit returns a new tree, so the builder can compare and the original is never changed. */
+ * called, how its value is entered (`choice`: several of some options; `text`; `duration`: seconds, in the field's
+ * `units`; `count`: a whole number; `number`: any number) and which operators fit. A field with a `prefix` stands for
+ * many (`var.` + a name: a result field); its conditions name it as `prefix + name`. The schemas are the server's
+ * (GET /api/rules/schemas, rules/catalog.py). Every edit returns a new tree, so the builder can compare and the original is never changed. */
 
 const UNITS = [
   ["days", 86400],
   ["hours", 3600],
   ["minutes", 60],
+  ["seconds", 1],
 ];
+const DEFAULT_UNITS = ["days", "hours", "minutes"];
 const DEFAULT_DURATION = 86400;
 
 export const emptyGroup = (mode = "all") => ({ type: "group", mode, items: [] });
 
-const emptyValue = (field) => (field.kind === "choice" ? [] : field.kind === "duration" ? DEFAULT_DURATION : field.kind === "count" ? (field.default ?? 1) : "");
+const emptyValue = (field) =>
+  field.kind === "choice" ? [] : field.kind === "duration" ? (field.default ?? DEFAULT_DURATION) : field.kind === "count" ? (field.default ?? 1) : field.kind === "number" ? (field.default ?? 0) : "";
+
+/** The field of the schema a condition's `key` names (`var.gain` names the field with the prefix `var.`). */
+export function fieldOf(schema, key) {
+  return schema.fields.find((f) => f.key === key) ?? schema.fields.find((f) => f.prefix && key?.startsWith(f.prefix));
+}
+
+/** The name after a field's prefix (`gain` of `var.gain`); "" for a field without one. */
+export const nameOf = (field, key) => (field?.prefix && key.startsWith(field.prefix) ? key.slice(field.prefix.length) : "");
 
 /** A fresh condition for `key` (the first field of the schema when none is given). */
 export function newCondition(schema, key = schema.fields[0].key) {
-  const field = schema.fields.find((f) => f.key === key) ?? schema.fields[0];
-  return { type: "condition", field: field.key, op: field.operators[0].key, value: emptyValue(field) };
+  const field = fieldOf(schema, key) ?? schema.fields[0];
+  return { type: "condition", field: field.prefix ?? field.key, op: field.operators[0].key, value: emptyValue(field) };
 }
+
+/** The same condition naming another result field (`prefix + name`). */
+export const withName = (field, condition, name) => ({ ...condition, field: field.prefix + name });
 
 /** The same condition on another field: operator and value start over (they belong to the field). */
 export const withField = (schema, condition, key) => newCondition(schema, key);
@@ -62,41 +78,51 @@ export function canNest(tree, path, maxDepth) {
   return path.length + 1 < maxDepth;
 }
 
-/** Every condition has what the server needs; an empty rule is complete (it deletes nothing). */
-export function isComplete(group) {
+const NAME = /^[a-z][a-z0-9_]{0,63}$/;
+
+/** Every condition has what the server needs; an empty rule is complete (it deletes nothing). With a schema, a
+ * number may be any number, a count or a duration down to the field's minimum, and a result field needs a name. */
+export function isComplete(group, schema = null) {
   return group.items.every((item) => {
-    if (item.type === "group") return isComplete(item);
+    if (item.type === "group") return isComplete(item, schema);
+    const field = schema ? fieldOf(schema, item.field) : null;
+    if (field?.prefix && !NAME.test(nameOf(field, item.field))) return false;
+    if (field?.kind === "number") return typeof item.value === "number" && Number.isFinite(item.value);
+    if (field && (field.kind === "count" || field.kind === "duration")) return Number.isInteger(item.value) && item.value >= (field.minimum ?? 1);
     if (Array.isArray(item.value)) return item.value.length > 0;
     if (typeof item.value === "string") return item.value.trim() !== "";
     return Number.isInteger(item.value) && item.value > 0;
   });
 }
 
-/** Seconds as the largest whole unit: 7 days, 90 minutes. */
-export function splitDuration(seconds) {
-  for (const [unit, size] of UNITS) if (seconds >= size && seconds % size === 0) return { amount: seconds / size, unit };
+/** Seconds as the largest whole unit of `units`: 7 days, 90 minutes (with seconds offered: 90 seconds). */
+export function splitDuration(seconds, units = DEFAULT_UNITS) {
+  for (const [unit, size] of UNITS) if (units.includes(unit) && seconds >= size && seconds % size === 0) return { amount: seconds / size, unit };
+  if (units.includes("seconds")) return { amount: seconds, unit: "seconds" };
   return { amount: Math.max(1, Math.round(seconds / 60)), unit: "minutes" };
 }
 
 export const joinDuration = (amount, unit) => Math.round(amount) * (UNITS.find(([name]) => name === unit)?.[1] ?? 60);
 
-export const durationUnits = () => UNITS.map(([name]) => name);
+/** The units a duration field offers (days, hours, minutes unless the field says otherwise). */
+export const durationUnits = (field = null) => (field?.units?.length ? field.units : DEFAULT_UNITS);
 
 function words(condition, schema) {
-  const field = schema.fields.find((f) => f.key === condition.field);
+  const field = fieldOf(schema, condition.field);
   const op = field?.operators.find((o) => o.key === condition.op)?.label ?? condition.op;
   let value;
   if (field?.kind === "choice") {
     value = condition.value.map((v) => field.options.find((o) => o.value === v)?.label ?? v).join(" or ");
-  } else if (field?.kind === "count") {
+  } else if (field?.kind === "count" || field?.kind === "number") {
     value = String(condition.value);
   } else if (field?.kind === "duration") {
-    const { amount, unit } = splitDuration(condition.value);
+    const { amount, unit } = splitDuration(condition.value, durationUnits(field));
     value = `${amount} ${amount === 1 ? unit.slice(0, -1) : unit}`;
   } else {
     value = `"${condition.value}"`;
   }
-  return `${field?.label ?? condition.field} ${op} ${value}`;
+  const label = field?.prefix ? `${field.label} ${nameOf(field, condition.field)}` : field?.label;
+  return `${label ?? condition.field} ${op} ${value}`;
 }
 
 /** A rule in words ("Status is Done or Failed, and Age is older than 7 days"); "" for an empty one. */
