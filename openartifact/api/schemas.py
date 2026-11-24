@@ -83,6 +83,7 @@ class NodeTypeRead(BaseModel):
     behaviour: str = "plain"
     #: Where the kind sits in the "+" menu: its cluster, the cluster's place and its own place in it.
     menu: dict[str, Any] | None = None
+    menu_icon: str | None = None
     #: How its card looks: icon, size, caption, ... (``graph/manifest.py`` ``UiSpec``).
     ui: dict[str, Any] = {}
 

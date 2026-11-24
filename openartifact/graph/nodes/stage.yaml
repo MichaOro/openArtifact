@@ -12,6 +12,7 @@ default_size:
 menu:
   group: Structure
   order: 1
+menu_icon: layers
 ports:
   inputs:
   - name: start

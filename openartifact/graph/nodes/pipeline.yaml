@@ -10,6 +10,7 @@ links_to: pipeline
 menu:
   group: Structure
   order: 2
+menu_icon: pipeline
 ports:
   inputs:
   - name: in

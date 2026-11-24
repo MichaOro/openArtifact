@@ -355,6 +355,7 @@ export function placeholdersIn(scope) {
     kind: p.key,
     label: p.label,
     icon: p.icon,
+    menu_icon: p.icon,
     soon: p.soon,
     placeholder: true,
     menu: { group: p.group, group_index: p.group_index, order: p.order },
@@ -394,7 +395,7 @@ export function searchAddable(types, query) {
   const wanted = query.trim().toLowerCase();
   return groupAddable(types)
     .flatMap(({ group, types: inGroup }) =>
-      inGroup.map((t) => ({ kind: t.kind, label: t.label, group, ...(t.placeholder ? { placeholder: true, icon: t.icon, soon: t.soon } : {}) })),
+      inGroup.map((t) => ({ kind: t.kind, label: t.label, group, menu_icon: t.menu_icon, ...(t.placeholder ? { placeholder: true, icon: t.icon, soon: t.soon } : {}) })),
     )
     .filter((t) => !wanted || t.label.toLowerCase().includes(wanted) || t.kind.toLowerCase().includes(wanted));
 }

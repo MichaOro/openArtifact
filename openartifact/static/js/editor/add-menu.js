@@ -75,8 +75,10 @@ export class AddMenu {
     else item.dataset.add = type.kind;
     const name = document.createElement("span");
     name.className = "ge-add__name";
-    if (type.placeholder) name.append(icon(type.icon), Object.assign(document.createElement("span"), { textContent: type.label }));
-    else name.textContent = type.label;
+    // every entry has the glyph of its kind (the manifest's `menu_icon`, else its card icon): one column of icons, then the names
+    const glyph = type.menu_icon ?? type.icon;
+    const label = Object.assign(document.createElement("span"), { textContent: type.label });
+    name.append(...(glyph ? [icon(glyph), label] : [label]));
     item.append(name);
     if (type.placeholder && type.soon) item.append(Object.assign(document.createElement("span"), { className: "tag", textContent: t("editor.add_menu.soon") }));
     if (group) item.append(Object.assign(document.createElement("span"), { className: "ge-add__tag", textContent: group }));

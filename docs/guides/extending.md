@@ -137,6 +137,7 @@ prints its JSON Schema, which an editor can validate a file against.
 | `scopes`, `fixed`, `addable`, `chain`, `ending`, `tool`, `links_to`, `default_size`, `reference_keys` | what the base `NodeType` knows (see the table of fields in ADR-054) |
 | `menu` | `{group, order}`: the cluster of the "+" menu and the place in it (clusters and their order: `_menu.yaml`) |
 | `ports` | `inputs` / `outputs` with `name`, `label`, `side`, `visible_when` (`{fn: ...}` or `{node: field}`), `label_from`, `repeat` |
+| `menu_icon` | the glyph before the name in every menu that lists the kind (the "+" menus); without it the kind's `ui.icon` is used, and a kind must have one of the two (a test checks that it is an icon of `icons.html`). The card keeps its own look: a stage, a pipeline and a timer have no icon on their card but one in the menus |
 | `ui` | `icon`, `size`, `port_labels`, `caption` (a template or a function), `block`, `size_fn`, `group_used_fn` |
 | `settings` | the kind's settings: the fields of `Setting` (key, label, type, bounds, default, options, help, `stored_in`, `section`, `level`, `group`, `inherits`, `references`) and `check` |
 

@@ -282,6 +282,7 @@ class NodeType:
         tool: bool = False,
         reference_keys: tuple[str, ...] = (),
         menu: dict[str, Any] | None = None,
+        menu_icon: str | None = None,
         ui: dict[str, Any] | None = None,
     ) -> None:
         self.kind = kind
@@ -302,6 +303,7 @@ class NodeType:
         #: Config settings whose text may hold ``${node...}`` / ``${var...}`` (checked for hints on save).
         self.reference_keys = reference_keys
         self.menu = menu
+        self.menu_icon = menu_icon  # the glyph of the kind in the menus that list it
         self.ui = ui or {}
 
     @property
@@ -375,6 +377,7 @@ class NodeType:
             "links_to": self.links_to.value if self.links_to else None,
             "behaviour": self.behaviour,
             "menu": self.menu,
+            "menu_icon": self.menu_icon,
             "ui": self.ui,
         }
 
@@ -525,6 +528,7 @@ def load(directory: Any = NODES_DIR) -> list[NodeType]:
             tool=manifest.tool,
             reference_keys=tuple(manifest.reference_keys),
             menu=menu,
+            menu_icon=manifest.menu_icon or manifest.ui.icon,
             ui=ui,
         )
         loaded.append(register(node))

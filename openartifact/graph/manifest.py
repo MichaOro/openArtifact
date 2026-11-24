@@ -207,6 +207,8 @@ class NodeManifest(_Strict):
     default_size: SizeSpec | None = None
     reference_keys: list[str] = Field(default_factory=list)
     menu: MenuSpec | None = None
+    #: The glyph before the name in every menu that lists the kind (the "+" menus); else ``ui.icon``. The card keeps its own look.
+    menu_icon: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9-]*$")
     ports: PortsSpec = Field(default_factory=PortsSpec)
     ui: UiSpec = Field(default_factory=UiSpec)
     settings: list[RepeatSpec | SettingSpec] = Field(default_factory=list)

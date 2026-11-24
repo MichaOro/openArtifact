@@ -6,6 +6,7 @@ scopes:
 - action
 fixed: true
 ending: true
+menu_icon: inbox
 ports:
   inputs:
   - name: pass

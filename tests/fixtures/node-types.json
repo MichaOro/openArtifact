@@ -22,6 +22,7 @@
   "tool": false,
   "behaviour": "plain",
   "menu": null,
+  "menu_icon": "play",
   "ui": {}
  },
  {
@@ -63,6 +64,7 @@
    "group_index": 0,
    "order": 1
   },
+  "menu_icon": "layers",
   "ui": {}
  },
  {
@@ -96,6 +98,7 @@
   "tool": false,
   "behaviour": "action",
   "menu": null,
+  "menu_icon": "action",
   "ui": {
    "size": {
     "width": 190,
@@ -135,6 +138,7 @@
    "group_index": 0,
    "order": 2
   },
+  "menu_icon": "pipeline",
   "ui": {
    "size": {
     "width": 200,
@@ -164,6 +168,7 @@
   "tool": false,
   "behaviour": "plain",
   "menu": null,
+  "menu_icon": "check",
   "ui": {
    "size": {
     "width": 160,
@@ -215,6 +220,7 @@
    "group_index": 6,
    "order": 3
   },
+  "menu_icon": "clock",
   "ui": {
    "caption": {
     "template": "{@seconds} s"
@@ -263,6 +269,7 @@
   "tool": false,
   "behaviour": "output",
   "menu": null,
+  "menu_icon": "inbox",
   "ui": {
    "size": {
     "width": 250,
@@ -397,6 +404,7 @@
    "group_index": 4,
    "order": 1
   },
+  "menu_icon": "code",
   "ui": {
    "icon": "code",
    "caption": {
@@ -550,6 +558,7 @@
    "group_index": 4,
    "order": 2
   },
+  "menu_icon": "http",
   "ui": {
    "icon": "http",
    "caption": {
@@ -925,6 +934,7 @@
    "group_index": 6,
    "order": 1
   },
+  "menu_icon": "if",
   "ui": {
    "icon": "if",
    "size": {
@@ -1310,6 +1320,7 @@
    "group_index": 6,
    "order": 2
   },
+  "menu_icon": "switch",
   "ui": {
    "icon": "switch",
    "caption": {
@@ -1551,6 +1562,7 @@
    "group_index": 1,
    "order": 1
   },
+  "menu_icon": "agent",
   "ui": {
    "icon": "agent",
    "caption": {
@@ -1645,6 +1657,7 @@
    "group_index": 5,
    "order": 1
   },
+  "menu_icon": "pencil",
   "ui": {
    "icon": "pencil",
    "caption": {
@@ -1892,6 +1905,7 @@
    "group_index": 3,
    "order": 1
   },
+  "menu_icon": "github",
   "ui": {
    "icon": "github",
    "caption": {
@@ -2049,6 +2063,7 @@
    "group_index": 3,
    "order": 2
   },
+  "menu_icon": "database",
   "ui": {
    "icon": "database",
    "caption": {
@@ -2201,6 +2216,7 @@
    "group_index": 2,
    "order": 1
   },
+  "menu_icon": "plug",
   "ui": {
    "icon": "plug",
    "caption": {
@@ -2384,6 +2400,7 @@
    "group_index": 2,
    "order": 2
   },
+  "menu_icon": "http",
   "ui": {
    "icon": "http",
    "caption": {
@@ -2520,6 +2537,7 @@
    "group_index": 2,
    "order": 3
   },
+  "menu_icon": "code",
   "ui": {
    "icon": "code",
    "caption": {
@@ -2680,6 +2698,7 @@
    "group_index": 2,
    "order": 4
   },
+  "menu_icon": "database",
   "ui": {
    "icon": "database",
    "caption": {
@@ -2811,6 +2830,7 @@
    "group_index": 5,
    "order": 2
   },
+  "menu_icon": "message",
   "ui": {
    "icon": "message",
    "caption": {

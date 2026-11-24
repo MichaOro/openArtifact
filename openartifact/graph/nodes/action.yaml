@@ -5,6 +5,7 @@ behaviour: action
 scopes:
 - pipeline
 links_to: action
+menu_icon: action
 ports:
   inputs:
   - name: in

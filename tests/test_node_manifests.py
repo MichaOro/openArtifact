@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -331,3 +332,31 @@ def test_the_editor_page_carries_the_placeholders_and_the_fixture_of_the_js_test
     assert json.loads(PLACEHOLDER_FIXTURE.read_text(encoding="utf-8")) == live, (
         "run with UPDATE_FIXTURES=1 to write it again"
     )
+
+
+def _icon_names() -> set[str]:
+    """The names the icon macro knows (``icon_names`` in templates/components/icons.html)."""
+    source = (
+        Path(manifest.__file__).resolve().parents[1] / "templates" / "components" / "icons.html"
+    )
+    line = next(
+        row for row in source.read_text().splitlines() if "icon_names" in row and "[" in row
+    )
+    return set(re.findall(r'"([a-z0-9-]+)"', line.split("=", 1)[1]))
+
+
+def test_every_kind_has_one_glyph_for_the_menus_and_the_glyph_exists() -> None:
+    """The "+" menus show a glyph before every kind: the manifest's ``menu_icon`` or else its card icon."""
+    known = _icon_names()
+    for kind, node in NODE_TYPES.items():
+        glyph = node.describe()["menu_icon"]
+        assert glyph, f"{kind.value} has no glyph for the menus (menu_icon or ui.icon)"
+        assert glyph in known, f"{kind.value}: {glyph!r} is not an icon of icons.html"
+
+
+def test_a_menu_icon_must_be_a_plain_icon_name(tmp_path: Path) -> None:
+    (tmp_path / "bad.yaml").write_text(
+        "schema: 1\nkind: code\nlabel: Bad\nmenu_icon: 'Not An Icon'\n"
+    )
+    with pytest.raises(manifest.ManifestError, match=r"bad\.yaml"):
+        manifest.read(tmp_path / "bad.yaml")

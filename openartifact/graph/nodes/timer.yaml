@@ -9,6 +9,7 @@ chain: true
 menu:
   group: Flow
   order: 3
+menu_icon: clock
 ports:
   inputs:
   - name: in

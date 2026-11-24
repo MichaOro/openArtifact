@@ -7,6 +7,7 @@ scopes:
 - pipeline
 fixed: true
 chain: true
+menu_icon: play
 ports:
   outputs:
   - name: out

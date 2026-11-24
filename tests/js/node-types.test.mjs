@@ -238,8 +238,8 @@ test("render: a stage has a header with caption, name and the \"+\" button that 
 
 // the add menu of the real manifests, plus a kind that has no place in it
 const KINDS = [
-  ...NODE_TYPES.filter((t) => t.addable && t.kind !== "note").map(({ kind, label, menu }) => ({ kind, label, menu })),
-  { kind: "future_kind", label: "Something new", menu: null },
+  ...NODE_TYPES.filter((t) => t.addable && t.kind !== "note").map(({ kind, label, menu, menu_icon }) => ({ kind, label, menu, menu_icon })),
+  { kind: "future_kind", label: "Something new", menu: null, menu_icon: undefined },
 ];
 
 test("the kinds of the add menu are grouped in a fixed order, and a kind nobody grouped is still offered", () => {
@@ -251,7 +251,7 @@ test("the kinds of the add menu are grouped in a fixed order, and a kind nobody 
 });
 
 test("searching looks at the elements only, by name or kind, ignoring case, and says which cluster each is in", () => {
-  assert.deepEqual(searchAddable(KINDS, "git"), [{ kind: "github", label: "GitHub", group: "Apps and data" }]);
+  assert.deepEqual(searchAddable(KINDS, "git"), [{ kind: "github", label: "GitHub", group: "Apps and data", menu_icon: "github" }]);
   assert.deepEqual(searchAddable(KINDS, "HTTP").map((t) => t.kind), ["http_tool", "http"], "in the order of the clusters: the tool before the core kind");
   assert.deepEqual(searchAddable(KINDS, "mcp").map((t) => t.kind), ["mcp_tool"]); // the kind matches too
   assert.deepEqual(searchAddable(KINDS, "  CODE "), searchAddable(KINDS, "code"));
@@ -270,7 +270,7 @@ test("a placeholder of the menu is no kind: it is offered in its scopes, in its 
     const structure = groupAddable([...addableIn("pipeline"), ...placeholdersIn("pipeline")]).find((g) => g.group === "Structure");
     assert.deepEqual(structure.types.map((t) => t.kind), ["stage", "pipeline", "guard"]);
     const found = searchAddable([...addableIn("pipeline"), ...placeholdersIn("pipeline")], "guard");
-    assert.deepEqual(found, [{ kind: "guard", label: "Guard", group: "Structure", placeholder: true, icon: "shield", soon: false }]);
+    assert.deepEqual(found, [{ kind: "guard", label: "Guard", group: "Structure", menu_icon: "shield", placeholder: true, icon: "shield", soon: false }]);
     assert.equal(placeholderOf("guard").soon, false, "guards exist: the entry is no longer a place held for later");
     assert.equal(placeholderOf("nothing"), null);
   } finally {
@@ -279,4 +279,12 @@ test("a placeholder of the menu is no kind: it is offered in its scopes, in its 
   assert.deepEqual(placeholdersIn("pipeline"), [], "without what the server declares there is nothing to offer");
   setPlaceholders("not a list");
   assert.deepEqual(placeholdersIn("pipeline"), [], "a bad answer is no list");
+});
+
+test("every kind that can be added has a glyph for the menus: its manifest's menu_icon or its card icon", () => {
+  for (const scope of ["pipeline", "action"])
+    for (const type of addableIn(scope).filter((t) => t.kind !== "note")) assert.ok(type.menu_icon, `${type.kind} has no glyph`); // "note" is the tests' own kind, without a manifest
+  assert.equal(typeOf("stage").menu_icon, "layers", "no icon on its card, one in the menus");
+  assert.equal(typeOf("action").menu_icon, "action", "the stage's \"+\" menu reads it from here");
+  assert.deepEqual(searchAddable(KINDS, "stage").map((t) => t.menu_icon), ["layers"], "the search keeps the glyph");
 });
