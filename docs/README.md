@@ -25,6 +25,7 @@ How to run, use, change and test the application.
 | [Configuration reference](guides/configuration.md) | Every `OPENARTIFACT_*` setting, the compose-only variables, `FORWARDED_ALLOW_IPS` |
 | [Sign in and use the API and MCP](guides/integration.md) | Token, browser sign-in, `curl` against `/api/v1`, MCP client setup |
 | [API reference](guides/api-reference.md) | The operations of the browser and integration APIs and the MCP tools, generated from the OpenAPI schema |
+| [The UI catalog](guides/ui-catalog.md) | The one definition of buttons and the other components, the tokens for light and dark, contrast rules, how to extend it |
 | [Execution nodes](guides/execution-nodes.md) | Timer, Code, HTTP and Output nodes: settings, limits, what is and is not isolated |
 | [Agents and LLM providers](guides/agents.md) | Providers and models, agents with drafts and versions, the Agent node, what an execution keeps, limits |
 | [Credentials](guides/credentials.md) | The credential store: API, references from nodes, limits, backup |

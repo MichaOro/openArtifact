@@ -215,6 +215,12 @@ state from the REST API.
 4. **Test it.** Server: the `published` fixture of `tests/conftest.py` records every published event;
    assert on it. Browser: wait for the effect, not for a time (see the [testing guide](testing.md#waiting)).
 
+## Use the UI catalog
+
+A control is picked from the catalog, not styled: buttons, icon buttons, chips, tabs, menus and the other building blocks are
+listed in the [UI catalog](ui-catalog.md) with the tokens for both themes, and `tests/e2e/test_ui_catalog.py` fails for a
+button that is not a catalog component or cannot be read ([ADR-059](../architecture/adr/059-one-catalog-of-ui-building-blocks.md)).
+
 ## Add a language or a text
 
 Every text the interface shows is a key of `openartifact/i18n/locales/en.json` (`t(...)` in a template, `t(...)` from

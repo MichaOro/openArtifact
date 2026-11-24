@@ -182,6 +182,8 @@ quote the glob; they take a few seconds and need no npm packages).
 - A schema change needs a migration and keeps `tests/test_migrations.py` green.
 - A change to what the user sees or does gets a flow in `tests/e2e/` using the helpers in
   `tests/e2e/helpers.py`.
+- A new page, dialog or kind of control is added to `tests/e2e/test_ui_catalog.py` (its page list or its variant matrix):
+  every button must be a catalog component and readable in both themes ([UI catalog](ui-catalog.md)).
 - A new node kind: see [Extending](extending.md#add-a-kind-of-node) for the list of tests.
 - Code that runs processes or opens sockets is tested against real processes and a local server (see
   `test_code_runner.py`, `test_http_runner.py`); the SSRF rules are tested with real addresses and a local server;

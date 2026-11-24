@@ -68,6 +68,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [056](056-internationalisation.md) | Internationalisation: English source, a dictionary per language | Accepted | 2026-11-23 | amends ADR-054 |
 | [057](057-per-artifact-history-policy-removed.md) | The per-artifact history policy is removed; retention rules replace it | Accepted | 2026-11-23 | amends ADR-025, ADR-052 |
 | [058](058-activity-log-of-artifacts.md) | The activity of artifacts: what changed, who did it, comments, one slim line per delete action | Accepted | 2026-11-24 | amends ADR-025, ADR-055 |
+| [059](059-one-catalog-of-ui-building-blocks.md) | One catalog of UI building blocks: one definition per control, tokens for both themes, contrast that is tested | Accepted | 2026-11-24 | amends ADR-036 |
 
 ## Notes
 
