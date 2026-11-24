@@ -172,6 +172,9 @@ cover the same ground except for the static checks (`python tools/check_links.py
 `python tools/check_quarantine.py`, and the JavaScript unit tests: `node --test 'tests/js/*.test.mjs'`,
 quote the glob; they take a few seconds and need no npm packages).
 
+`tools/test_audit.sh` runs all of it in one go and reports start, end, duration and result per section (about
+35 minutes; `--fast` skips coverage and runs the Python tests in parallel). See [tools/README](../../tools/README.md).
+
 ## Writing tests
 
 - A new endpoint or rule gets a test next to the existing ones for that area (`tests/test_<area>.py`), through
