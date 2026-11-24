@@ -58,6 +58,15 @@ that must not count, such as tests). `tools/check_quarantine.py` (run by the `st
 `python tools/check_quarantine.py`) fails once an entry has had no calls for 14 days: then remove the code and the entry.
 The file is empty today and should stay so: quarantine is a short waiting room, not a list of tolerated dead code. See ADR-014 §3.6 and [tools/README.md](../tools/README.md).
 
+## Interface: components, not one-offs (binding)
+
+For every contribution that touches the interface, from a person or an automated tool alike: **every control and every
+section of a window or page is a reusable component** from the catalog (add a missing one there first, never a
+feature-specific copy); **windows are sized by their content** (as wide as necessary, as narrow as possible, two columns
+where there is room instead of an endless column); a window that saves carries its name in its title; colours only as
+tokens. The rules, their reasons and the checklist are in the [UI catalog](../docs/guides/ui-catalog.md) (*Binding rules
+for every contributor*) and [ADR-059](../docs/architecture/adr/059-one-catalog-of-ui-building-blocks.md).
+
 ## Code and comments
 
 - Type-annotated Python 3.12 (`mypy --strict`), `ruff` for lint and format (line length 100).

@@ -5,6 +5,24 @@ You pick a component; you do not style a button. This page is the reference for 
 the application (a node kind, a page, later a community add-on): use these classes and tokens and you get the light and the
 dark theme, every state and the contrast rules without writing any CSS for them.
 
+## Binding rules for every contributor
+
+These rules bind **everyone who changes the interface**, whether a person, a script or an automated tool; the document
+does not tell them apart. They are the owner's design decisions ([ADR-059](../architecture/adr/059-one-catalog-of-ui-building-blocks.md) §6),
+not suggestions, and a change that breaks one is sent back.
+
+1. **Build modules, not one-offs.** A control (button, switch, chip, menu entry) *and* a section of a window or page (a
+   list of rules, a form block, a popup of choices, a header with its actions) is a **reusable component**: one
+   definition, used wherever it is needed. If the component you need does not exist, add it to the catalog first and use
+   it from there; never write markup or CSS for one feature that another could have used.
+2. **Windows are sized by their content.** As wide as necessary, as narrow as possible, but cleanly readable. A window
+   does not grow into an endless page to scroll: when there is room its sections sit side by side in a two-column grid,
+   and it falls back to one column on a narrow screen. A window that is wider than the default is a named exception.
+3. **A window that saves carries its name in its title** (rule 6 below), and its configuration is described as data where
+   a description exists (node kinds, ADR-054), so that one renderer lays it out.
+4. **Colours, states and texts follow the catalog:** tokens only, the states and contrast rules below, the text rule of
+   a node. Every new component is covered by the catalog tests in both themes.
+
 ## Rules
 
 1. **Use a catalog component.** A `<button>` carries `button`, `icon-button`, `chip-button`, `ge-switch` (an on/off
@@ -127,6 +145,8 @@ exceptions are named, not implied.
   the test names the dialog and the owner confirms it. Today: the artifact dialog (`artifact`), the dialog of a node's
   settings, the guard window, the retention rules, the artifact fields and an agent version (`wide`).
 - Never set a fixed width on a dialog or on a single dialog's CSS: use the two tokens or declare the exception.
+- A dialog does not become a long column: its sections are components that sit in a two-column grid where the width allows it
+  and stack below that (binding rule 2 above).
 
 ## Texts of a node
 

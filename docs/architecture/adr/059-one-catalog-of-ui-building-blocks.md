@@ -93,3 +93,22 @@ field.
   from a node), *New agent* and the agent's name dialog (name and description), *Add lane* (lane name), the LLM provider
   dialog, the credential dialog, and *Create artifact* (its title is its name). The artifact fields dialog names many
   fields in rows, not one thing, and is not covered by the rule.
+
+## 6. Addendum 2026-11-24: the rules bind every contributor, and sections are components too
+
+The owner turned the recurring themes of the interface into **binding design decisions for all contributors**, people
+and automated tools alike (the rules do not distinguish them and are not an instruction written for one kind of
+contributor):
+
+- **Modules, not one-offs.** Every control and every *section* of a window or page is a reusable component with one
+  definition. A missing component is added to the catalog first. This extends the catalog from controls (buttons,
+  switches, chips) to blocks (a rule list, a form block, a popup of choices) and is the basis for third parties
+  and a later community hub, who must find components to reuse instead of building their own.
+- **Content-sized windows without endless scrolling.** As wide as necessary, as narrow as possible, but readable; sections
+  in a two-column grid when there is room, one column below it; wider windows are named exceptions (§4).
+- **Name in the title** for windows that save (§5).
+- The reference for what to do is [the UI catalog guide](../../guides/ui-catalog.md) (section *Binding rules for every
+  contributor*), and [CONTRIBUTING](../../../.github/CONTRIBUTING.md) names it as a requirement of a contribution.
+- Not decided here: a refactoring pass of the existing windows against these rules and the declarative description of
+  configuration windows; the owner schedules them (the latter in ADR-062).
+
