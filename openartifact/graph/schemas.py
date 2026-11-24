@@ -124,6 +124,12 @@ class NodeRead(BaseModel):
     #: Hints about the node's ``${node...}`` / ``${var...}`` references (unknown or ambiguous node
     #: names, malformed references) on a node just created or changed; the node is saved anyway.
     warnings: list[str] = Field(default_factory=list)
+    #: What a change of an error output did beyond this node (ADR-061 addendum): ``definition_on`` (the action
+    #: definition got On Fail too), ``definition_stays_on`` (other uses still need it), ``disconnected`` (connections
+    #: that went with a connector). Machine readable; the editor turns them into short messages. Only on a change.
+    notices: list[dict[str, Any]] = Field(default_factory=list)
+    #: Other nodes of this graph changed with it (the uses of one definition): reload the graph.
+    reload: bool = False
 
 
 class EdgeRead(BaseModel):

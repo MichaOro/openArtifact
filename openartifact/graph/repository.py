@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, cast
 
 from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.engine.context import NodeIndex, node_key, problems
 from openartifact.graph.node_types import (
     NODE_TYPES,
+    FailureMode,
     NodeType,
     Port,
     Ports,
@@ -38,6 +41,23 @@ class LinkInfo(NamedTuple):
     name: str
     fail_enabled: bool  # the definition has an On Fail output
     slug: str
+
+
+@dataclass
+class SyncReport:
+    """What a change did beyond the node itself: the error output is one state of an action definition and its uses
+    (ADR-061 addendum), so a change on one side can change the other. ``notices`` are machine readable, the editor turns
+    them into its short messages; ``graphs`` are the OTHER graphs whose nodes or edges changed (open editors reload);
+    ``reload`` says that other nodes of the edited graph changed too."""
+
+    notices: list[dict[str, Any]] = field(default_factory=list)
+    graphs: set[str] = field(default_factory=set)
+    reload: bool = False
+
+
+def _mode(node: GraphNode) -> str:
+    """The setting *If the node fails* of a node as stored (unset: Stop the run)."""
+    return str((node.config or {}).get("on_failure", FailureMode.FAIL))
 
 
 def _setting_keys() -> set[str]:
@@ -68,6 +88,12 @@ def _hidden_port_message(kind_type: NodeType, node: GraphNode, port_name: str) -
         shown = (setting.option_labels or {}).get(when["equals"], when["equals"])
         how = f": set '{setting.label}' to '{shown}' first"
     return f"The {_port_phrase(port)} of '{node.name}' is off{how}"
+
+
+def _disconnected(count: int, places: list[dict[str, Any]], inner: int) -> dict[str, Any]:
+    """The notice that connections were disconnected: how many, where (``places``), and how many of them inside the
+    definition itself (``inner``)."""
+    return {"kind": "disconnected", "count": count, "places": places, "inner": inner}
 
 
 class GraphRepository:
@@ -261,8 +287,15 @@ class GraphRepository:
         await self._session.flush()
         return node
 
-    async def update_node(self, node: GraphNode, data: NodeUpdate) -> None:
-        """Rename, move or (stages) resize a node."""
+    async def update_node(self, node: GraphNode, data: NodeUpdate) -> SyncReport:
+        """Rename, move or (stages) resize a node, or change its settings.
+
+        The error output is one state of an action definition (its Output's *On Fail*) and its uses (*If the action
+        fails: Error output*): a change on one side is carried to the other in this same transaction, and a change that
+        takes a connector away disconnects what was connected there instead of refusing (ADR-061 addendum). The report
+        says what happened beyond the node.
+        """
+        report = SyncReport()
         sent = data.model_fields_set
         kind_type = node_type(node.kind)
         if {"width", "height"} & sent and kind_type.size is None:
@@ -271,16 +304,21 @@ class GraphRepository:
         settings = _setting_keys()
         for key in settings & sent - own:
             raise NodeError(f"A {node.kind} has no setting '{key}'")
+        previous_mode = _mode(node)
+        previous_fail = node.fail_enabled
         if data.config is not None:
             merged = _merged_config(kind_type, node.config, data.config)
-            await self._refuse_connected_hidden_ports(node, kind_type, merged)
+            dropped = await self._drop_hidden_edges(node, kind_type, merged)
             node.config = merged
+            if dropped:
+                place = await self._place(node)
+                report.notices.append(_disconnected(dropped, [{**place, "count": dropped}], 0))
         if "definition_id" in sent:
             await self._link(node, data.definition_id)
-        for field in ("name", "x", "y", "width", "height", *sorted(settings)):
-            value = getattr(data, field)
-            if field in sent and value is not None:
-                setattr(node, field, value)
+        for field_name in ("name", "x", "y", "width", "height", *sorted(settings)):
+            value = getattr(data, field_name)
+            if field_name in sent and value is not None:
+                setattr(node, field_name, value)
         await self._session.flush()
         if node.kind == NodeKind.SWITCH and data.config is not None:
             unused = [
@@ -295,36 +333,189 @@ class GraphRepository:
                     )
                 )
             )
-        if data.fail_enabled is False:
-            # the On Fail connector is gone, and so is the Error output of actions linked to this definition
-            await self._session.execute(
-                delete(GraphEdge).where(
-                    GraphEdge.target_id == node.id, GraphEdge.target_port == Ports.FAIL
-                )
-            )
+        if (
+            node.kind == NodeKind.OUTPUT
+            and "fail_enabled" in sent
+            and node.fail_enabled != previous_fail
+        ):
+            await self._sync_definition(node, report)
+        elif node.kind == NodeKind.ACTION and ("config" in sent or "definition_id" in sent):
+            await self._sync_use(node, previous_mode, "definition_id" in sent, report)
+        if node.graph_id in report.graphs:  # other nodes of this very graph changed
+            report.graphs.discard(node.graph_id)
+            report.reload = True
+        await self._touch_ids(report.graphs)
+        return report
 
-    async def _refuse_connected_hidden_ports(
+    async def _place(self, node: GraphNode) -> dict[str, Any]:
+        """Where a node is, as a notice names it: its graph, its stage and its own name."""
+        graph = await self._session.get(Graph, node.graph_id)
+        stage = await self._session.get(GraphNode, node.stage_id) if node.stage_id else None
+        return {
+            "graph": graph.name if graph else None,
+            "stage": stage.name if stage else None,
+            "node": node.name,
+        }
+
+    async def _drop_hidden_edges(
         self, node: GraphNode, kind_type: NodeType, config: dict[str, Any]
-    ) -> None:
-        """A setting that takes a connector away (the error output) is refused while a connection uses it (ADR-061)."""
+    ) -> int:
+        """Delete the connections at the connectors that a setting takes away (the error output); how many."""
+        count = 0
         for port in (*kind_type.inputs, *kind_type.outputs):
             if not kind_type.port_hidden(config, port.name):
                 continue
-            used = await self._session.scalar(
-                select(GraphEdge.id)
-                .where(
+            result = await self._session.execute(
+                delete(GraphEdge).where(
                     or_(
                         and_(GraphEdge.source_id == node.id, GraphEdge.source_port == port.name),
                         and_(GraphEdge.target_id == node.id, GraphEdge.target_port == port.name),
                     )
                 )
-                .limit(1)
             )
-            if used is not None:
-                raise NodeError(
-                    f"The {_port_phrase(port)} of '{node.name}' is connected; "
-                    "remove that connection first"
+            count += int(cast("CursorResult[Any]", result).rowcount or 0)
+        return count
+
+    async def _outputs(self, definition_id: str) -> list[GraphNode]:
+        """The Output nodes of an action definition (older ones may hold several; they agree)."""
+        found = await self._session.scalars(
+            select(GraphNode).where(
+                GraphNode.graph_id == definition_id, GraphNode.kind == NodeKind.OUTPUT.value
+            )
+        )
+        return list(found)
+
+    async def _uses(self, definition_id: str, *, besides: str | None = None) -> list[GraphNode]:
+        """The action nodes of all pipelines that run this definition (``besides``: not this node)."""
+        statement = select(GraphNode).where(
+            GraphNode.kind == NodeKind.ACTION.value, GraphNode.definition_id == definition_id
+        )
+        if besides is not None:
+            statement = statement.where(GraphNode.id != besides)
+        found = await self._session.scalars(statement.order_by(GraphNode.created_at, GraphNode.id))
+        return list(found)
+
+    async def _promote_uses(self, uses: Sequence[GraphNode], report: SyncReport) -> None:
+        """Uses that stop the run on a failure get the error output (an unconnected one fails the run as before)."""
+        for use in uses:
+            if _mode(use) == FailureMode.FAIL:
+                use.config = {**(use.config or {}), "on_failure": FailureMode.ERROR_OUTPUT}
+                report.graphs.add(use.graph_id)
+
+    async def _sync_definition(self, output: GraphNode, report: SyncReport) -> None:
+        """The *On Fail* switch of a definition's Output changed: carry it to the other Outputs and to every use."""
+        outputs = await self._outputs(output.graph_id)
+        enabled = output.fail_enabled
+        for other in outputs:
+            other.fail_enabled = enabled
+        await self._session.flush()
+        if enabled:
+            await self._promote_uses(await self._uses(output.graph_id), report)
+        else:
+            await self._definition_off(output.graph_id, outputs, report)
+
+    async def _definition_off(
+        self, definition_id: str, outputs: Sequence[GraphNode], report: SyncReport
+    ) -> None:
+        """The definition has no error output any more: disconnect what was connected at it, in the definition and in
+        every use, and let the uses that followed it stop the run again. Nothing else is repaired."""
+        inner = 0
+        for out in outputs:
+            out.fail_enabled = False
+            result = await self._session.execute(
+                delete(GraphEdge).where(
+                    GraphEdge.target_id == out.id, GraphEdge.target_port == Ports.FAIL
                 )
+            )
+            inner += int(cast("CursorResult[Any]", result).rowcount or 0)
+        places: list[dict[str, Any]] = []
+        for use in await self._uses(definition_id):
+            result = await self._session.execute(
+                delete(GraphEdge).where(
+                    GraphEdge.source_id == use.id, GraphEdge.source_port == Ports.ERROR
+                )
+            )
+            cut = int(cast("CursorResult[Any]", result).rowcount or 0)
+            changed = cut > 0
+            if _mode(use) == FailureMode.ERROR_OUTPUT:
+                use.config = {**(use.config or {}), "on_failure": FailureMode.FAIL}
+                changed = True
+            if changed:
+                report.graphs.add(use.graph_id)
+            if cut:
+                places.append({**await self._place(use), "count": cut})
+        total = inner + sum(p["count"] for p in places)
+        if inner:
+            definition = await self._session.get(Graph, definition_id)
+            places.append(
+                {
+                    "graph": definition.name if definition else None,
+                    "stage": None,
+                    "node": outputs[0].name if outputs else "Output",
+                    "count": inner,
+                }
+            )
+            report.graphs.add(definition_id)
+        if total:
+            report.notices.append(_disconnected(total, places, inner))
+        await self._session.flush()
+
+    async def _sync_use(
+        self, use: GraphNode, previous_mode: str, linked: bool, report: SyncReport
+    ) -> None:
+        """An action node (a use of a definition) changed its error mode or its definition: carry it to the definition."""
+        if use.definition_id is None:
+            return
+        definition_id = use.definition_id
+        definition = await self._session.get(Graph, definition_id)
+        outputs = await self._outputs(definition_id)
+        if definition is None or not outputs:
+            return
+        flag = any(o.fail_enabled for o in outputs)
+        mode = _mode(use)
+        others = await self._uses(definition_id, besides=use.id)
+        if mode == FailureMode.ERROR_OUTPUT and (previous_mode != mode or linked):
+            if not flag:  # it has the error output now, so the definition offers it, and so does every other use
+                for out in outputs:
+                    out.fail_enabled = True
+                report.graphs.add(definition_id)
+                await self._promote_uses(others, report)
+                if others:
+                    report.notices.append(
+                        {
+                            "kind": "definition_on",
+                            "definition": definition.name,
+                            "uses": len(others),
+                        }
+                    )
+        elif mode == FailureMode.FAIL and linked and flag:
+            use.config = {**(use.config or {}), "on_failure": FailureMode.ERROR_OUTPUT}
+        elif (
+            previous_mode == FailureMode.ERROR_OUTPUT
+            and mode != previous_mode
+            and flag
+            and not linked
+        ):
+            still = [u for u in others if _mode(u) == FailureMode.ERROR_OUTPUT]
+            if still:
+                report.notices.append(
+                    {
+                        "kind": "definition_stays_on",
+                        "definition": definition.name,
+                        "uses": len(still),
+                    }
+                )
+            else:
+                await self._definition_off(definition_id, outputs, report)
+        await self._session.flush()
+
+    async def _touch_ids(self, graph_ids: set[str]) -> None:
+        """Mark other graphs that a change reached as changed."""
+        for graph_id in graph_ids:
+            graph = await self._session.get(Graph, graph_id)
+            if graph is not None:
+                graph.updated_at = datetime.now(UTC)
+        await self._session.flush()
 
     async def _link(self, node: GraphNode, definition_id: str | None) -> None:
         """Link an action to an action definition, or a pipeline node to the pipeline it calls.
@@ -382,7 +573,14 @@ class GraphRepository:
             )
             .where(Graph.id.in_(wanted))
         )
-        by_definition = {row[0]: LinkInfo(row[1], bool(row[2]), row[3]) for row in rows}
+        by_definition: dict[str, LinkInfo] = {}
+        for (
+            row
+        ) in rows:  # older definitions may hold several Outputs: it has On Fail if any of them has
+            known = by_definition.get(row[0])
+            by_definition[row[0]] = LinkInfo(
+                row[1], bool(row[2]) or bool(known and known.fail_enabled), row[3]
+            )
         return {
             n.id: by_definition[n.definition_id] for n in nodes if n.definition_id in by_definition
         }
