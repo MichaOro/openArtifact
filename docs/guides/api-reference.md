@@ -64,7 +64,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | DELETE | `/api/v1/artifacts/{ref}/executions/{execution_id}` | Delete one execution; `204` | 404, 409 (still running) |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/flow` | The graphs as frozen at the start, the path walked through them, the steps (`?outputs=true` adds step outputs) | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id}` | One step with its complete output | 404 |
-| GET | `/api/v1/artifacts/{ref}/activity` | What changed on the artifact and who did it, newest first, in pages: `limit` 1 to 200 (default 50), `before` = the `next` cursor of the previous page; the trace of a deleted execution is a `run` entry; executions that still exist are not repeated | 404, 422 |
+| GET | `/api/v1/artifacts/{ref}/activity` | What changed on the artifact and who did it, newest first, in pages: `limit` 1 to 200 (default 50), `before` = the `next` cursor of the previous page; a delete action on executions is one `run` entry, a comment is a `comment` entry (its id, never its text); executions that still exist are not repeated | 404, 422 |
 | GET | `/api/v1/artifacts/{ref}/comments` | The artifact's comments, oldest first (plain text; `author`, `author_kind`, `execution_id`) | 404 |
 | POST | `/api/v1/artifacts/{ref}/comments` | Add a comment `{"body", "author"?}` (1 to 65536 characters); `201`. The author is the managed token's name; only the environment token may pass `author`. Publishes `comment.created` | 404, 422 |
 | PATCH | `/api/v1/artifacts/{ref}/comments/{comment_id}` | Change the text `{"body"}`; publishes `comment.updated` | 404, 422 |
@@ -219,7 +219,7 @@ values together are at most 4 KiB. The refusal for a typo:
 |--------|------|------|--------|
 | GET | `/api/tasks/{ref}/activity` | The same as `/api/v1/artifacts/{ref}/activity`: `{items: [...], next}` | 404, 422 |
 
-An entry is `{id, task_id, kind, actor_kind, actor_name, execution_id, data, created_at}`. `kind` is `created`, `lane` (`data.from`, `data.to`: lane titles), `title`, `description` (no text), `parent`, `field` (`field`, `label`, `from`, `to`, cut to 80 characters), `pipeline`, `stage`, `action`, or `run`, the trace of an execution that was deleted (`number`, `pipeline`, `status`, `started_at`, `finished_at`, `duration_ms`, `steps`; `created_at` is when it started). There are at most 500 per artifact; read only. See [ADR-058](../architecture/adr/058-activity-log-of-artifacts.md).
+An entry is `{id, task_id, kind, actor_kind, actor_name, execution_id, data, created_at}`. `kind` is `created`, `lane` (`data.from`, `data.to`: lane titles), `title`, `description` (no text), `parent`, `field` (`field`, `label`, `from`, `to`, cut to 80 characters), `pipeline`, `stage`, `action`, `run`, the trace of ONE delete action on executions (`created_at` is the deletion time, the actor is who deleted: a user, a token, `system` named `retention rule` or `operator guard`, or `system`/`unknown` for an entry from before 0045; `data` is `{number, started_at}` for one execution, `{numbers, count}` for several, at most 50 numbers named), `comment` (`data.comment_id`, the actor is the comment's author; the text is never in the entry: read the comment), or `comment_deleted` (no data; the actor is who deleted the comment, and it replaces the `comment` entry). There are at most 500 per artifact; read only. See [ADR-058](../architecture/adr/058-activity-log-of-artifacts.md).
 
 ### Comments
 
@@ -335,7 +335,7 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `settings.changed` | `{"run_limits": {...}}` (as `GET /api/settings/run-limits`) | the run limits were changed |
 | `board.resync` | `{}` | other tasks got new positions or lost their parent: reload the board |
 | `run.updated` | the run state (as `GET /api/runs`) | a run starts, advances or ends |
-| `activity.created` | the entry (as `GET .../activity`) | something changed on an artifact, or a deleted execution left its trace |
+| `activity.created` | the entry (as `GET .../activity`) | something changed on an artifact, a comment was written or deleted, or a delete action left its trace |
 | `comment.created` | the comment | a comment was added |
 | `comment.updated` | the comment | its text was changed |
 | `comment.deleted` | `{"id", "task_id"}` | a comment was deleted |

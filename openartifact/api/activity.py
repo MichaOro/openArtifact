@@ -15,8 +15,9 @@ from openartifact.api.deps import ActivityDep
 DESCRIPTION = (
     "What changed on the artifact, newest first, in pages: ``created``, ``lane`` (``from``, ``to``: lane titles), "
     "``title``, ``description`` (no text), ``parent``, ``field`` (``field``, ``label``, ``from``, ``to``), ``pipeline``, "
-    "``stage``, ``action``, and ``run``: the trace of an execution that was deleted (``number``, ``pipeline``, "
-    "``status``, ``duration_ms``, ``started_at``; ``created_at`` is when it started). ``actor_kind`` and "
+    "``stage``, ``action``, ``run``: ONE entry per delete action on executions (``number`` and ``started_at``, or "
+    "``numbers`` and ``count`` for several; ``created_at`` is the deletion time and the actor is who deleted), "
+    "``comment`` (``comment_id``; never the text) and ``comment_deleted``. ``actor_kind`` and "
     "``actor_name`` say who did it, as for comments. Executions that still exist are not repeated here: read them "
     "with the executions endpoints. At most 500 entries are kept per artifact. ``next`` is the ``before`` cursor of the "
     "next, older page."

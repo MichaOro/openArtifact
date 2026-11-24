@@ -81,12 +81,18 @@ const history = new HistoryTab({
   root: document.querySelector("[data-history]"),
   badge: document.querySelector("[data-history-count]"),
   confirm: new ConfirmDialog(new Modal(document.getElementById("delete-execution-modal"))),
+  commentOf: (id) => comments.commentOf(id),
+  onJump: (id) => {
+    artifactDialog.openTab("comments"); // the comment shows itself: expands the list over it, scrolls, pulses
+    comments.reveal(id);
+  },
 });
 
 const comments = new CommentsTab({
   root: document.querySelector("[data-comments]"),
   badge: document.querySelector("[data-comments-count]"),
   confirm: new ConfirmDialog(new Modal(document.getElementById("delete-comment-modal"))),
+  onChange: () => history.refresh(), // the History tab shows the first words of a comment, read live
 });
 
 const artifactDialog = new ArtifactDialog({
@@ -376,8 +382,10 @@ connectEvents({
   onEvent: (type, data) => {
     if (type === "run.updated") processing.upsert(data);
     else if (type.startsWith("execution.") || type === "activity.created") history.handleEvent(type, data);
-    else if (type.startsWith("comment.")) comments.handleEvent(type, data);
-    else if (type === "task.deleted") {
+    else if (type.startsWith("comment.")) {
+      comments.handleEvent(type, data);
+      if (type === "comment.deleted") history.handleEvent(type, data); // its entry in the timeline becomes "deleted a comment"
+    } else if (type === "task.deleted") {
       board.remove(data.id);
       processing.remove(data.id);
     }

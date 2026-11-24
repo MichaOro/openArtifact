@@ -267,8 +267,8 @@ def build_mcp(
         artifact: str, limit: int = 50, before: str | None = None
     ) -> dict[str, Any]:
         """What changed on an artifact and who did it, newest first (kind ``created``, ``lane``, ``title``,
-        ``description``, ``parent``, ``field``, ``pipeline``, ``stage``, ``action``, and ``run``: the trace of an execution
-        that was deleted). ``limit`` is 1 to 200 (default 50); pass the answer's ``next`` as ``before`` for the older
+        ``description``, ``parent``, ``field``, ``pipeline``, ``stage``, ``action``, ``run``: one entry per delete action on
+        executions, ``comment`` with its ``comment_id`` and ``comment_deleted``). ``limit`` is 1 to 200 (default 50); pass the answer's ``next`` as ``before`` for the older
         page. Executions that still exist are not repeated: use ``list_executions``."""
         if not 1 <= limit <= PAGE_MAX:
             raise McpError(f"limit must be between 1 and {PAGE_MAX}")

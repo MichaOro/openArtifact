@@ -66,13 +66,19 @@ def test_comments_are_oldest_first_and_the_view_ends_at_the_newest(
     for i in range(2, 31):
         _comment(board.api, task, f"comment {i}")
     dialog = _open(board)
-    expect(dialog.comment_items).to_have_count(30)
-    expect(dialog.comment_items.first.locator("[data-comment-body]")).to_have_text("one")
+    expect(dialog.comment_items).to_have_count(
+        10
+    )  # the newest ten; the older ones are behind "Show 20 older comments"
+    expect(dialog.comment_items.first.locator("[data-comment-body]")).to_have_text("comment 21")
     expect(dialog.comment_items.last.locator("[data-comment-body]")).to_have_text("comment 30")
     board.page.wait_for_function(
         "() => { const e = document.querySelector('[data-comments-scroll]');"
         " return e.scrollHeight > e.clientHeight && e.scrollHeight - e.scrollTop - e.clientHeight < 8; }"
-    )  # it overflows (30 comments) and ends at the newest one
+    )  # it overflows and ends at the newest one
+    dialog.comments_fold.click()
+    expect(dialog.comment_items).to_have_count(30)  # all of them, still oldest first
+    expect(dialog.comment_items.first.locator("[data-comment-body]")).to_have_text("one")
+    expect(dialog.comment_items.last.locator("[data-comment-body]")).to_have_text("comment 30")
 
 
 def test_a_comment_is_edited_in_place_and_says_edited(board: Board) -> None:

@@ -110,6 +110,12 @@ export class ArtifactDialog extends FormDialog {
     this.comments.show(task);
   }
 
+  /** Switch to a tab from code (a link in another tab); what selecting it by hand does follows. */
+  openTab(name) {
+    this.tabs.select(name, { notify: false });
+    this.#showTab(name);
+  }
+
   #showTab(name) {
     this.tab = name;
     this.view.dataset.tab = name;

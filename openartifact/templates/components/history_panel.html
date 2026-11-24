@@ -15,11 +15,11 @@
             <button type="button" class="history__filter-button" data-filter="all" aria-pressed="true">{{ t('history.filter_all') }}</button>
             <button type="button" class="history__filter-button" data-filter="runs" aria-pressed="false">{{ t('common.executions') }}</button>
             <button type="button" class="history__filter-button" data-filter="changes" aria-pressed="false">{{ t('history.filter_changes') }}</button>
+            <button type="button" class="history__filter-button" data-filter="comments" aria-pressed="false">{{ t('common.comments') }}</button>
         </div>
         <ul class="history-list" aria-label="{{ t('common.history') }}" data-history-rows></ul>
         <p class="history__empty" data-history-empty hidden></p>
         <p class="field__help" data-history-more hidden></p>
-        <button type="button" class="button button--ghost button--sm history__older" data-history-older hidden>{{ t('history.show_older') }}</button>
     </div>
     <section class="history-detail" aria-labelledby="history-detail-heading" data-history-detail hidden>
         <div class="history-detail__bar">
@@ -51,21 +51,14 @@
 </template>
 <template id="activity-row-template">
     <li class="history-event">
-        <span data-event-avatar></span>
-        <p class="history-event__text"><span class="history-event__actor" data-event-actor></span> <span data-event-sentence></span></p>
+        <div class="history-event__body">
+            <span class="history-event__text"><span class="history-event__actor" data-event-actor></span> <span data-event-sentence></span></span>
+            <p class="history-event__sub" data-event-sub hidden></p>
+        </div>
         <time class="history-event__time" data-event-time></time>
     </li>
 </template>
-<template id="trace-row-template">
-    <li class="history-row history-row--trace">
-        <div class="history-row__open">
-            <span class="history-chip"><span data-chip-icon></span><span data-chip-text></span></span>
-            <span class="history-row__number" data-row-number></span>
-            <time class="history-row__time" data-row-time></time>
-            <span class="history-row__duration" data-row-duration></span>
-            <span class="history-row__pipeline" data-row-pipeline></span>
-            <span class="history-row__meta" data-row-meta></span>
-        </div>
-    </li>
+<template id="collapse-row-template">
+    <li class="history-collapse"><button type="button" class="button button--ghost button--sm" data-history-collapse></button></li>
 </template>
 {% include "components/history_step_template.html" %}

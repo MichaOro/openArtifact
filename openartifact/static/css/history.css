@@ -109,16 +109,6 @@
 .history-row__delete[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
 .history-row__delete[aria-disabled="true"]:hover { color: var(--color-text-secondary); background: var(--glass-bg); border-color: var(--glass-border); }
 
-/* ── Retention editor ────────────────────────────────────────────── */
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  font-size: 0.8125rem;
-}
-
 /* ── One execution ───────────────────────────────────────────────── */
 .history-detail__bar { display: flex; gap: var(--space-2); }
 .history-detail__delete { margin-left: auto; }
@@ -194,22 +184,49 @@
 .history__filter-button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .history__older { align-self: flex-start; }
 .history-list > li[hidden] { display: none; }
-.history-event {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-1) var(--space-3);
+/* the timeline: a round marker at the left of every entry, joined by a thin line (the marker says what kind of event
+   it is by its icon and tone; the sentence says it in words) */
+.history-list { --marker: 2rem; --marker-gap: var(--space-3); gap: 0; }
+.history-list > li { position: relative; margin: 0 0 var(--space-2) calc(var(--marker) + var(--marker-gap)); }
+.history-list > li::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * (var(--marker) + var(--marker-gap)) + var(--marker) / 2 - 1px);
+  top: calc(var(--marker) + 0.25rem);
+  bottom: calc(-1 * var(--space-2));
+  width: 2px;
+  background: var(--glass-border);
 }
-.history-event .avatar { width: 1.5rem; height: 1.5rem; }
-.history-event__text { margin: 0; font-size: 0.875rem; overflow-wrap: anywhere; }
+.history-list > li[data-last]::before { display: none; }
+.history-marker {
+  --tone: var(--lane-hue-8);
+  position: absolute;
+  left: calc(-1 * (var(--marker) + var(--marker-gap)));
+  top: 0.125rem;
+  display: grid;
+  place-items: center;
+  width: var(--marker);
+  height: var(--marker);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tone) 22%, var(--color-background));
+  color: var(--tone);
+}
+.history-marker .icon { width: 1rem; height: 1rem; }
+.history-marker[data-tone="ok"] { --tone: var(--lane-hue-3); }
+.history-marker[data-tone="bad"] { --tone: var(--color-danger); }
+.history-marker[data-tone="accent"] { --tone: var(--color-accent); }
+.history-event { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); min-height: var(--marker); padding: 0.375rem 0 0.125rem; }
+.history-event__body { min-width: 0; }
+.history-event__text { font-size: 0.875rem; overflow-wrap: anywhere; }
 .history-event__actor { font-weight: 600; }
+.history-event__sub { margin: 0; font-size: 0.75rem; color: var(--color-text-muted); }
 .history-event__time { font-size: 0.75rem; color: var(--color-text-secondary); white-space: nowrap; }
-/* a deleted execution: the facts stay, nothing can be opened or deleted any more */
-.history-row--trace { grid-template-columns: minmax(0, 1fr); border-style: dashed; background: transparent; }
-.history-row--trace:hover { border-color: var(--glass-border); }
-.history-row--trace .history-row__open { cursor: default; color: var(--color-text-secondary); }
+.history-event__jump { display: block; max-width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.history-event__jump:hover .history-event__text { text-decoration: underline; }
+.history-event__jump:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.history-event[data-kind="run"] .history-event__text,
+.history-event[data-kind="comment_deleted"] .history-event__text { color: var(--color-text-secondary); }
+.history-collapse { display: flex; align-items: center; min-height: var(--marker); }
 @media (max-width: 640px) {
-  .history-event { grid-template-columns: auto minmax(0, 1fr); }
-  .history-event__time { grid-column: 2; }
+  .history-event { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }

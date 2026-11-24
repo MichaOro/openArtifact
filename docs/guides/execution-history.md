@@ -48,7 +48,7 @@ panel and its API). Besides the rules there is one guard for the operator:
 - Retention runs when it has something new to decide: when an execution **starts**, when one **ends**, and when the
   rules are **saved** (then they apply at once). There is no timer: an artifact that is not run any more keeps its
   old executions until the rules are saved or it runs again.
-- Deleting an execution deletes its steps and leaves a trace (the activity of the artifact keeps its number, pipeline, status, duration and start; at most 500 entries per artifact). Deleting an artifact deletes all its executions and its activity.
+- Deleting an execution deletes its steps and leaves ONE slim entry per delete action in the artifact's activity: who deleted, which numbers and when (the deletion time); nothing else of the run is kept (at most 500 entries per artifact). *Clear finished* of 40 executions is one line. Deleting an artifact deletes all its executions and its activity.
 
 ### Retention rules (all artifacts)
 
@@ -76,7 +76,7 @@ own `run.updated` events.
 ## Where you see it
 
 **The History tab of the artifact dialog.** Open an artifact; the tab shows the number of entries of its timeline: the executions and what was changed on the artifact (lane, title, parent, fields, ...), with who did it ([concepts](concepts.md)); the filter *Executions* shows only runs. The list
-shows the executions newest first (up to 100) with their status, number, pipeline, origin and times. **An execution that is deleted leaves a trace** in the timeline (a dashed line with its number, status, pipeline, duration and start; it cannot be opened or deleted again), whichever way it went: by hand, *Clear finished*, the bulk delete, the retention rules or the operator's guard. Click one for its
+shows the executions newest first (up to 100) with their status, number, pipeline, origin and times. **An execution that is deleted leaves one slim line** in the timeline at the time it was deleted ("You deleted execution #3", with "ran …" in small type; "You deleted 12 executions (#3–#14)" for several; no buttons, no link), whichever way it went: by hand, *Clear finished*, the bulk delete ("retention rule" and "operator guard" are named as the deleter for those). Click one for its
 detail: the facts above and the steps, each expandable to its output and data. From there you can delete the
 execution (not while it runs: `409`) and clear all finished executions of the artifact (*Clear finished*). Everything updates live.
 

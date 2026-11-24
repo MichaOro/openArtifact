@@ -271,8 +271,8 @@ def test_clear_finished_deletes_after_confirmation_and_keeps_a_running_one(
     expect(confirm).to_contain_text("Delete all finished executions of this artifact?")
     confirm.locator("[data-confirm]").click()
     expect(dialog.rows).to_have_count(0)  # no execution is left ...
-    expect(dialog.traces).to_have_count(2)  # ... and each one left its trace (ADR-058)
-    expect(dialog.traces.first.locator("[data-row-meta]")).to_contain_text("deleted")
+    expect(dialog.traces).to_have_count(1)  # ... and the whole action left ONE line (ADR-058)
+    expect(dialog.traces.first).to_contain_text("You deleted 2 executions (#1, #2)")
     assert executions(api, task) == []
 
 

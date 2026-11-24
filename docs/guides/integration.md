@@ -243,7 +243,7 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
 
 ## Activity
 
-`GET /api/v1/artifacts/{ref}/activity` (and the MCP tool `list_activity`) answers what changed on an artifact and who did it: lane, title, parent, fields, pipeline, stage, action, and the trace of every execution that was deleted. A change you make through the API or MCP is recorded under the name of your managed token (the environment token as `api` or `mcp`). Read only; page with `before` = `next`.
+`GET /api/v1/artifacts/{ref}/activity` (and the MCP tool `list_activity`) answers what changed on an artifact and who did it: lane, title, parent, fields, pipeline, stage, action, comments, and one entry per delete action on executions (who deleted which numbers, and when). A change you make through the API or MCP is recorded under the name of your managed token (the environment token as `api` or `mcp`). Read only; page with `before` = `next`.
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:2909/api/v1/artifacts/12/activity?limit=20"

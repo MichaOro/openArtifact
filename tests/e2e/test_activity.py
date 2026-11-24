@@ -3,6 +3,8 @@ execution, the filter, live updates; and the layout of the Comments tab."""
 
 from __future__ import annotations
 
+import re
+
 import httpx
 import pytest
 from playwright.sync_api import expect
@@ -25,10 +27,19 @@ def test_changes_are_listed_newest_first_with_who_did_them(board: Board) -> None
         "You moved it from Backlog to Done",
         "You created this artifact in Backlog",
     ]
-    # who did it is an avatar with the kind as its name, then the name: no kind word is written out
+    # the actor is the bold name inside the sentence; the round marker is the kind of EVENT (no avatar in the timeline)
     first = dialog.events.first
-    expect(first.locator(".avatar")).to_have_attribute("aria-label", "User")
     expect(first.locator(".history-event__actor")).to_have_text("You")
+    expect(first.locator(".avatar")).to_have_count(0)
+    expect(dialog.events.first.locator(".history-marker")).to_have_attribute(
+        "data-tone", "muted"
+    )  # a rename
+    expect(dialog.events.nth(1).locator(".history-marker")).to_have_attribute(
+        "data-tone", "accent"
+    )  # a lane move
+    expect(dialog.events.nth(2).locator(".history-marker")).to_have_attribute(
+        "data-tone", "ok"
+    )  # created
     expect(dialog.root.locator("[data-history-count]")).to_have_text("3")
 
 
@@ -51,13 +62,13 @@ def test_a_drag_to_another_lane_is_a_change_too(board: Board) -> None:
     expect(dialog.events.first).to_contain_text("moved it from Backlog to Done")
 
 
-def test_a_deleted_execution_leaves_a_quiet_line_without_buttons_or_link(
+def test_a_deleted_execution_is_one_slim_line_with_the_deletion_time_and_who_deleted_it(
     board: Board, api: httpx.Client
 ) -> None:
     task = board.create("Item")
-    pipeline = echo_pipeline(api)
-    start(api, task, pipeline)
+    start(api, task, echo_pipeline(api))
     wait_executions(api, task, ["done"])
+    ran_at = executions(api, task)[0]["started_at"]
     dialog = _open(board)
     expect(dialog.rows).to_have_count(1)
     expect(dialog.traces).to_have_count(0)
@@ -67,17 +78,44 @@ def test_a_deleted_execution_leaves_a_quiet_line_without_buttons_or_link(
     expect(dialog.rows).to_have_count(0)
     expect(dialog.traces).to_have_count(1)  # the trace arrives by the live event
     trace = dialog.traces.first
-    expect(trace.locator(".history-chip")).to_have_text("Done")
-    expect(trace.locator("[data-row-number]")).to_have_text("#1")
-    expect(trace.locator("[data-row-pipeline]")).to_have_text("Echo flow")
-    expect(trace.locator("[data-row-duration]")).not_to_be_empty()
-    expect(trace).to_have_attribute("title", "The execution was deleted")
-    assert trace.locator("button, a").count() == 0  # nothing to press: no open, no delete
+    expect(trace.locator(".history-event__text")).to_have_text("You deleted execution #1")
+    expect(trace.locator(".history-marker")).to_have_attribute("data-tone", "bad")
+    expect(trace.locator(".history-event__sub")).to_contain_text(
+        "ran "
+    )  # when it ran: small, muted
+    # nothing else of the run is kept: no pipeline, duration, steps, status, and nothing to press
+    for gone in (".history-chip", "[data-row-pipeline]", "[data-row-duration]", "[data-row-meta]"):
+        expect(trace.locator(gone)).to_have_count(0)
+    assert trace.locator("button, a").count() == 0
+    # the time shown is the DELETION time (later than the start of the run), the run's time is in the second line
+    shown = trace.locator("time").get_attribute("datetime")
+    assert shown and shown > ran_at, (shown, ran_at)
     assert executions(api, task) == []
     # it is still there after a reload, from the stored activity
     dialog = _open(board)
     expect(dialog.traces).to_have_count(1)
     expect(dialog.rows).to_have_count(0)
+
+
+def test_deleting_several_executions_leaves_one_line_naming_them(
+    board: Board, api: httpx.Client
+) -> None:
+    task = board.create("Item")
+    pipeline = echo_pipeline(api)
+    for n in range(4):
+        start(api, task, pipeline)
+        wait_executions(api, task, ["done"] * (n + 1))
+    dialog = _open(board)
+    dialog.history.locator("[data-history-clear]").click()
+    board.page.locator("#delete-execution-modal [data-confirm]").click()
+    expect(dialog.rows).to_have_count(0)
+    expect(dialog.traces).to_have_count(1)  # one action, one line, not four
+    expect(dialog.traces.first.locator(".history-event__text")).to_have_text(
+        "You deleted 4 executions (#1\u2013#4)"
+    )
+    expect(
+        dialog.traces.first.locator(".history-event__sub")
+    ).to_be_hidden()  # no single "ran" time for a group
 
 
 def test_the_filter_shows_everything_only_executions_or_only_changes(
@@ -87,21 +125,28 @@ def test_the_filter_shows_everything_only_executions_or_only_changes(
     board.patch(task, status="done")
     start(api, task, echo_pipeline(api))
     wait_executions(api, task, ["done"])
+    board.api.post(
+        f"/api/tasks/{task['id']}/comments", json={"body": "a remark"}
+    ).raise_for_status()
     dialog = _open(board)
     items = dialog.history.locator("[data-history-rows] > li")
     visible = dialog.history.locator("[data-history-rows] > li:not([hidden])")
-    expect(visible).to_have_count(3)  # the run, the move, the creation
+    expect(visible).to_have_count(4)  # the run, the move, the creation, the comment
     runs = dialog.history.get_by_role("button", name="Executions", exact=True)
     changes = dialog.history.get_by_role("button", name="Changes")
+    comments = dialog.history.get_by_role("button", name="Comments", exact=True)
     runs.click()
     expect(runs).to_have_attribute("aria-pressed", "true")
     expect(visible).to_have_count(1)
-    expect(visible.first).to_have_class("history-row")
+    expect(visible.first).to_have_class(re.compile(r"\bhistory-row\b"))
     changes.click()
     expect(visible).to_have_count(2)
-    expect(items).to_have_count(3)  # all still in the page, only hidden
+    expect(items).to_have_count(4)  # all still in the page, only hidden
+    comments.click()
+    expect(visible).to_have_count(1)
+    expect(visible.first).to_contain_text("a remark")
     dialog.history.get_by_role("button", name="All").click()
-    expect(visible).to_have_count(3)
+    expect(visible).to_have_count(4)
 
 
 def test_the_run_and_the_changes_are_in_one_order_by_time(board: Board, api: httpx.Client) -> None:
@@ -125,7 +170,9 @@ def _comment_layout(board: Board, count: int) -> dict[str, dict[str, float]]:
     for number in range(count):
         board.api.post(f"/api/tasks/{task['id']}/comments", json={"body": f"comment {number}"})
     dialog = board.open().open_card("Item").open_comments()
-    expect(dialog.comment_items).to_have_count(count)
+    expect(dialog.comment_items).to_have_count(
+        min(count, 10)
+    )  # the newest ten; the rest is behind a fold
     footer = dialog.root.locator(".task-view .modal__footer")
     parts = {
         "panel": dialog.comments,
@@ -195,3 +242,184 @@ def test_many_comments_scroll_in_the_list_and_the_composer_stays_in_place(board:
     # one scroller only: the panel itself does not scroll
     assert dialog.comments.evaluate("el => el.scrollHeight <= el.clientHeight + 1")
     expect(dialog.comments.locator("[data-comments-input]")).to_be_in_viewport()
+
+
+# ── the fold, comments in the timeline and the jump to a comment (ADR-058) ────────────────────
+
+
+def _renamed(board: Board, times: int) -> str:
+    """An artifact with ``times`` renames: ``times + 1`` entries with "created"; returns its final title."""
+    task = board.create("T0")
+    for number in range(1, times + 1):
+        board.patch(task, title=f"T{number}")
+    return f"T{times}"
+
+
+def _commented(board: Board, count: int, title: str = "Item") -> dict[str, object]:
+    task = board.create(title)
+    for number in range(count):
+        board.api.post(
+            f"/api/tasks/{task['id']}/comments", json={"body": f"comment {number}"}
+        ).raise_for_status()
+    return task
+
+
+def test_a_long_history_shows_the_newest_ten_and_the_creation_and_folds_the_rest(
+    board: Board,
+) -> None:
+    title = _renamed(board, 24)  # 25 entries
+    dialog = board.open().open_card(title).open_history()
+    expect(dialog.root.locator("[data-history-count]")).to_have_text(
+        "25"
+    )  # the count stays the total
+    expect(dialog.timeline).to_have_count(12)  # ten, the fold row, and "created" at the bottom
+    expect(dialog.timeline.first).to_contain_text("renamed it from “T23” to “T24”")  # newest on top
+    expect(dialog.timeline.last).to_contain_text(
+        "created this artifact"
+    )  # the anchor is always there
+    expect(dialog.fold).to_have_text("Show 14 older entries")
+    # the fold sits between the ten and the anchor
+    assert dialog.history.locator("[data-history-rows] > li:not([hidden])").evaluate_all(
+        "rows => rows.map(r => r.classList.contains('history-collapse'))"
+    ) == [False] * 10 + [True, False]
+    dialog.fold.click()
+    expect(dialog.timeline).to_have_count(26)  # all 25 and the "Show fewer" row
+    expect(dialog.fold).to_have_text("Show fewer")
+    expect(dialog.timeline.nth(24)).to_contain_text("created this artifact")
+    dialog.fold.click()
+    expect(dialog.timeline).to_have_count(12)
+    expect(dialog.fold).to_have_text("Show 14 older entries")
+
+
+def test_ten_entries_or_fewer_have_no_fold(board: Board) -> None:
+    title = _renamed(board, 9)  # 10 entries
+    dialog = board.open().open_card(title).open_history()
+    expect(dialog.timeline).to_have_count(10)
+    expect(dialog.fold).to_have_count(0)
+
+
+def test_a_new_entry_arriving_live_keeps_the_fold_and_does_not_move_the_view(board: Board) -> None:
+    title = _renamed(board, 24)
+    task = board.stored()[title]
+    dialog = board.open().open_card(title).open_history()
+    expect(dialog.fold).to_have_text("Show 14 older entries")
+    board.patch(task, title="T25")
+    expect(dialog.timeline.first).to_contain_text("“T24” to “T25”")
+    expect(dialog.fold).to_have_text(
+        "Show 15 older entries"
+    )  # one more is hidden, the ten stay ten
+    expect(dialog.timeline).to_have_count(12)
+
+
+def test_comments_are_entries_with_their_first_words_and_a_new_one_arrives_live(
+    board: Board,
+) -> None:
+    task = _commented(board, 1)
+    dialog = board.open().open_card("Item").open_history()
+    expect(dialog.comment_entries).to_have_count(1)
+    entry = dialog.comment_entries.first
+    expect(entry.locator(".history-event__text")).to_have_text("You commented: “comment 0”")
+    expect(entry.locator(".history-marker")).to_have_attribute("data-tone", "accent")
+    board.api.post(f"/api/tasks/{task['id']}/comments", json={"body": "x" * 200}).raise_for_status()
+    expect(dialog.comment_entries).to_have_count(2)
+    long = dialog.comment_entries.first.locator(".history-event__text").inner_text()
+    assert long.endswith("…”") and len(long) < 120  # cut at about 80 characters
+    expect(dialog.root.locator("[data-history-count]")).to_have_text("3")  # created, two comments
+
+
+def test_an_entry_of_a_comment_jumps_to_it_expands_the_fold_and_pulses_the_border_three_times(
+    board: Board,
+) -> None:
+    _commented(board, 25)
+    dialog = board.open().open_card("Item").open_history()
+    dialog.history.get_by_role("button", name="Comments", exact=True).click()
+    oldest = dialog.comment_entries.filter(has_text="“comment 0”")
+    expect(dialog.timeline).to_have_count(
+        11
+    )  # the 10 newest comments and the fold ("created" is not in this filter)
+    expect(oldest).to_be_hidden()  # under the fold
+    dialog.fold.click()
+    expect(oldest).to_be_visible()
+    # the Comments tab folded its older comments too: the oldest one is not even rendered
+    dialog.open_comments()
+    expect(dialog.comment_items).to_have_count(10)
+    expect(dialog.comments_fold).to_have_text("Show 15 older comments")
+    dialog.open_history()
+    oldest.locator("[data-event-jump]").click()
+    # the tab switched, the list expanded over the comment, scrolled to it, focused it and pulses its border
+    expect(dialog.comments).to_be_visible()
+    expect(dialog.comment_items).to_have_count(25)
+    target = dialog.comment_items.filter(has_text="comment 0").first
+    expect(target).to_have_attribute("data-pulse", "")
+    style = target.evaluate(
+        "el => { const s = getComputedStyle(el); return [s.animationName, s.animationIterationCount, s.animationDuration]; }"
+    )
+    assert style == ["comment-pulse", "3", "0.5s"], style
+    expect(target).to_be_in_viewport()
+    assert target.evaluate("el => document.activeElement === el")  # focus is on the comment
+    expect(target).not_to_have_attribute(
+        "data-pulse", "", timeout=4000
+    )  # and the pulse ends by itself
+
+
+def test_the_jump_holds_a_static_highlight_when_motion_is_reduced(board: Board) -> None:
+    _commented(board, 3)
+    board.page.emulate_media(reduced_motion="reduce")
+    dialog = board.open().open_card("Item").open_history()
+    dialog.comment_entries.last.locator("[data-event-jump]").click()
+    target = dialog.comment_items.filter(has_text="comment 0").first
+    expect(target).to_have_attribute("data-pulse", "")
+    style = target.evaluate(
+        "el => { const s = getComputedStyle(el); return [s.animationName, s.boxShadow]; }"
+    )
+    assert style[0] == "none" and style[1] != "none", style  # no animation, a highlight that holds
+    expect(target).not_to_have_attribute("data-pulse", "", timeout=4000)
+
+
+def test_the_comment_entry_can_be_used_with_the_keyboard(board: Board) -> None:
+    _commented(board, 1)
+    dialog = board.open().open_card("Item").open_history()
+    jump = dialog.comment_entries.first.locator("[data-event-jump]")
+    jump.focus()
+    board.page.keyboard.press("Enter")
+    expect(dialog.comments).to_be_visible()
+    expect(dialog.comment_items.first).to_have_attribute("data-pulse", "")
+
+
+def test_the_comments_tab_folds_the_older_comments_and_keeps_the_view_when_they_are_shown(
+    board: Board,
+) -> None:
+    _commented(board, 25)
+    dialog = board.open().open_card("Item").open_comments()
+    expect(dialog.comment_items).to_have_count(10)
+    expect(dialog.comment_items.first).to_contain_text("comment 15")  # the newest ten, oldest first
+    expect(dialog.comment_items.last).to_contain_text("comment 24")
+    expect(dialog.comments.locator("[data-comments-summary]")).to_have_text(
+        "25 comments"
+    )  # the total
+    expect(dialog.comments_fold).to_have_text("Show 15 older comments")
+    dialog.comments_fold.click()
+    expect(dialog.comment_items).to_have_count(25)
+    expect(dialog.comments_fold).to_have_text("Show fewer")
+    dialog.comments_fold.click()
+    expect(dialog.comment_items).to_have_count(10)
+
+
+def test_a_deleted_comment_leaves_one_slim_line_and_its_text_is_nowhere_in_the_history(
+    board: Board,
+) -> None:
+    _commented(board, 1)
+    dialog = board.open().open_card("Item").open_comments()
+    dialog.comment_items.first.locator("[data-comment-more]").click()
+    board.page.get_by_role("menuitem", name="Delete").click()
+    board.page.locator("#delete-comment-modal [data-confirm]").click()
+    expect(dialog.comment_items).to_have_count(0)
+    dialog.open_history()
+    expect(dialog.comment_entries).to_have_count(
+        1
+    )  # the "commented" entry was replaced, not added to
+    gone = dialog.comment_entries.first
+    expect(gone.locator(".history-event__text")).to_have_text("You deleted a comment")
+    expect(gone.locator(".history-marker")).to_have_attribute("data-tone", "bad")
+    assert gone.locator("button, a").count() == 0
+    assert "comment 0" not in dialog.history.inner_text()  # no trace of the text

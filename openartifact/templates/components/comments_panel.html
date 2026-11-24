@@ -10,6 +10,7 @@
     <div class="visually-hidden" role="status" aria-live="polite" data-comments-live></div>
     <p class="history__summary" data-comments-summary>{{ t('comments.loading_comments') }}</p>
     <div class="comments__scroll" data-comments-scroll>
+        <button type="button" class="button button--ghost button--sm comments__older" data-comments-older hidden></button>
         <ul class="comments__list" aria-label="{{ t('common.comments') }}" data-comments-list></ul>
         <p class="history__empty" data-comments-empty hidden>{{ t('comments.no_comments_yet_write_the_first') }}</p>
     </div>

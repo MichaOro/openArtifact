@@ -3,6 +3,8 @@
  * with textContent only. What a click does is up to the caller (onOpen, onDelete). */
 import { originLabel, plural, setChip } from "./history-format.js";
 import { fillDeleteButton, fillDuration, fillOrigin, fillTime, placeByTime, RunningClock } from "./history-row.js";
+import { markerOf } from "./activity-model.js";
+import { setMarker } from "./history-marker.js";
 
 export class HistoryList {
   /**
@@ -96,6 +98,7 @@ export class HistoryList {
   #fill({ execution: e, row }) {
     row.dataset.executionId = e.id;
     row.dataset.status = e.status;
+    setMarker(row, markerOf({ type: "execution", execution: e }));
     setChip(row.querySelector(".history-chip"), e.status);
     row.querySelector("[data-row-number]").textContent = `#${e.number}`;
     fillTime(row.querySelector("[data-row-time]"), e.started_at);
@@ -115,7 +118,7 @@ export class HistoryList {
   /** Newest first, among the activity entries of the timeline too (they share this list, see activity-rows.js). */
   #place({ execution, row }) {
     row.dataset.number = String(execution.number);
-    row.dataset.group = "run";
+    row.dataset.group = "runs";
     placeByTime(this.root, row, new Date(execution.started_at).getTime());
   }
 

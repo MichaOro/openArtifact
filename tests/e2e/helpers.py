@@ -216,17 +216,37 @@ class Dialog:
     @property
     def rows(self) -> Locator:
         """The rows of executions that still exist (open them, delete them); a deleted one is in ``traces``."""
-        return self.history.locator(".history-row:not(.history-row--trace)")
+        return self.history.locator(".history-row")
 
     @property
     def traces(self) -> Locator:
-        """The quiet lines of executions that were deleted."""
-        return self.history.locator(".history-row--trace")
+        """The slim lines a delete action on executions left (who deleted, when)."""
+        return self.history.locator('.history-event[data-kind="run"]')
 
     @property
     def events(self) -> Locator:
         """The changes of the artifact (lane, title, ...), newest first."""
-        return self.history.locator(".history-event")
+        return self.history.locator('.history-event[data-group="changes"]')
+
+    @property
+    def comment_entries(self) -> Locator:
+        """The comments in the timeline, and the slim lines of deleted ones."""
+        return self.history.locator('.history-event[data-group="comments"]')
+
+    @property
+    def timeline(self) -> Locator:
+        """Every entry that is shown (the ones under the fold are hidden), newest first."""
+        return self.history.locator("[data-history-rows] > li:not([hidden])")
+
+    @property
+    def fold(self) -> Locator:
+        """The "Show N older entries" / "Show fewer" button of the timeline."""
+        return self.history.locator("[data-history-collapse]")
+
+    @property
+    def comments_fold(self) -> Locator:
+        """The "Show N older comments" / "Show fewer" button of the Comments tab."""
+        return self.comments.locator("[data-comments-older]")
 
     def row(self, number: int) -> Locator:
         return self.rows.filter(has=self.page.locator("[data-row-number]", has_text=f"#{number}"))

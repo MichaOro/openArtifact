@@ -1,21 +1,41 @@
-/* The pure parts of the History tab's timeline (ADR-058): what a change says, how the executions that still exist and
- * the entries of the activity are merged into one list, and the filter. No document access: tests/js/activity-model.test.mjs. */
-import { t } from "../i18n.js";
+/* The pure parts of the History tab's timeline (ADR-058): what an entry says, who is named, how the executions that
+ * still exist and the entries of the activity are merged into one list, the filter, the GitHub-style collapse and the
+ * marker of each entry. No document access: tests/js/activity-model.test.mjs. */
+import { plural, t } from "../i18n.js";
 
-/** The three views of the timeline. */
-export const FILTERS = ["all", "runs", "changes"];
+/** The views of the timeline. */
+export const FILTERS = ["all", "runs", "changes", "comments"];
 
-/** A trace is an execution that was deleted; every other entry is a change of the artifact. */
-export const isTrace = (entry) => entry.kind === "run";
+/** How many entries (and comments) are shown before "Show N older" (ADR-058). */
+export const COLLAPSED = 10;
 
-/** The time an entry belongs to, in milliseconds (a trace sits where its execution started). */
-export const timeOf = (item) => new Date(item.at).getTime();
+/** The longest preview of a comment in the timeline, in characters. */
+export const PREVIEW = 80;
 
 const quote = (text) => `“${text}”`;
 
+/** The type of an activity entry: a delete action on executions, a comment (or its deletion), or a change. */
+export function typeOfEntry(entry) {
+  if (entry.kind === "run") return "trace";
+  if (entry.kind === "comment" || entry.kind === "comment_deleted") return "comment";
+  return "change";
+}
+
+/** The filter an item belongs to: executions (live and deleted), changes, or comments. */
+export const groupOf = (item) => ({ execution: "runs", trace: "runs", comment: "comments", change: "changes" })[item.type];
+
+/** The time an entry belongs to, in milliseconds. */
+export const timeOf = (item) => new Date(item.at).getTime();
+
+/** Who an entry names: the operator's own actors and the unknown deleter of an old trace in words. */
+export function actorName(entry) {
+  if (entry.actor_kind !== "system") return entry.actor_name;
+  return { unknown: t("tasks.activity.someone"), "retention rule": t("tasks.activity.retention_rule"), "operator guard": t("tasks.activity.operator_guard") }[entry.actor_name] ?? entry.actor_name;
+}
+
 /**
  * What a change says, as one sentence without the name of who did it ("moved from Backlog to MVP").
- * @param {{kind: string, data: object}} entry an activity entry that is not a trace
+ * @param {{kind: string, data: object}} entry an activity entry that is a change
  */
 export function sentenceOf(entry) {
   const d = entry.data ?? {};
@@ -45,48 +65,124 @@ export function sentenceOf(entry) {
   }
 }
 
-/** The facts of a trace in the shape the history row cells take (see history-row.js): an execution without the steps. */
-export function traceAsExecution(entry) {
-  const d = entry.data ?? {};
-  return {
-    id: entry.execution_id,
-    number: d.number,
-    status: d.status,
-    pipeline_name: d.pipeline ?? "",
-    started_at: d.started_at ?? entry.created_at,
-    finished_at: d.finished_at ?? null,
-    duration_seconds: d.duration_ms == null ? null : d.duration_ms / 1000,
-    started_by: entry.actor_kind,
-    step_count: d.steps ?? 0,
-  };
+/** Numbers as ranges: [3, 4, 5, 9] -> "#3–#5, #9"; `count` larger than the numbers given adds "…". */
+export function rangesText(numbers, count = numbers.length) {
+  const sorted = [...numbers].sort((a, b) => a - b);
+  const parts = [];
+  for (let i = 0; i < sorted.length; ) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+    parts.push(j === i ? `#${sorted[i]}` : j === i + 1 ? `#${sorted[i]}, #${sorted[j]}` : `#${sorted[i]}–#${sorted[j]}`);
+    i = j + 1;
+  }
+  if (count > sorted.length) parts.push("…");
+  return parts.join(", ");
 }
 
 /**
- * The timeline: executions that still exist (interactive rows) and activity entries (changes, and the traces of deleted
- * executions), newest first. A trace of an execution that is shown as a live row is left out, so a run appears once.
- * @param {object[]} executions the artifact's executions
- * @param {object[]} activity the artifact's activity entries
- * @returns {{type: "execution"|"change"|"trace", at: string, key: string, execution?: object, entry?: object}[]}
+ * What a delete action on executions says, and when the single execution ran.
+ * @param {{data: object}} entry a ``run`` entry
+ * @returns {{sentence: string, ran: string | null}}
+ */
+export function traceOf(entry) {
+  const d = entry.data ?? {};
+  if (Array.isArray(d.numbers)) {
+    return { sentence: plural("tasks.activity.deleted_executions", d.count ?? d.numbers.length, { numbers: rangesText(d.numbers, d.count ?? d.numbers.length) }), ran: null };
+  }
+  return { sentence: t("tasks.activity.deleted_execution", { number: d.number ?? "?" }), ran: d.started_at ?? null };
+}
+
+/** The first line of a comment for the timeline: white space folded, cut at `PREVIEW` characters. */
+export function previewOf(body, max = PREVIEW) {
+  const text = String(body ?? "").replace(/\s+/g, " ").trim();
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+/**
+ * The timeline: executions that still exist (interactive rows) and activity entries, newest first. A trace of an
+ * execution that is shown as a live row is left out, so one never appears twice.
+ * @returns {{type: "execution"|"change"|"trace"|"comment", at: string, key: string, execution?: object, entry?: object}[]}
  */
 export function mergeTimeline(executions, activity) {
   const live = new Set(executions.map((e) => e.id));
   const items = [
     ...executions.map((execution) => ({ type: "execution", at: execution.started_at, key: `e:${execution.id}`, execution })),
     ...activity
-      .filter((entry) => !(isTrace(entry) && live.has(entry.execution_id)))
-      .map((entry) => ({ type: isTrace(entry) ? "trace" : "change", at: entry.created_at, key: `a:${entry.id}`, entry })),
+      .filter((entry) => !(entry.kind === "run" && live.has(entry.execution_id)))
+      .map((entry) => ({ type: typeOfEntry(entry), at: entry.created_at, key: `a:${entry.id}`, entry })),
   ];
   return items.sort((a, b) => timeOf(b) - timeOf(a) || b.key.localeCompare(a.key));
 }
 
-/** The items a filter shows: all, only runs (live and traces), or only changes. */
+/** The items a filter shows. */
 export function filterTimeline(items, filter) {
-  if (filter === "runs") return items.filter((item) => item.type !== "change");
-  if (filter === "changes") return items.filter((item) => item.type === "change");
-  return items;
+  return filter === "all" ? items : items.filter((item) => groupOf(item) === filter);
+}
+
+/**
+ * The window GitHub-style: the newest `limit` items and, always, the "created" entry at the bottom; the rest is hidden
+ * behind "Show N older". `expanded` shows everything.
+ * @returns {{shown: object[], hidden: number}}
+ */
+export function collapse(items, expanded, limit = COLLAPSED) {
+  if (expanded || items.length <= limit) return { shown: items, hidden: 0 };
+  const head = items.slice(0, limit);
+  const anchor = items.find((item) => item.entry?.kind === "created" && !head.includes(item));
+  const shown = anchor ? [...head, anchor] : head;
+  return { shown, hidden: items.length - shown.length };
+}
+
+/**
+ * The comments to show: the newest `limit`, oldest first as in the list; `keepId` (a comment being edited or jumped
+ * to) is never hidden - then everything is shown.
+ * @returns {{shown: object[], hidden: number}}
+ */
+export function collapseComments(comments, expanded, limit = COLLAPSED, keepId = null) {
+  if (expanded || comments.length <= limit) return { shown: comments, hidden: 0 };
+  const index = keepId === null ? -1 : comments.findIndex((c) => c.id === keepId);
+  if (index !== -1 && index < comments.length - limit) return { shown: comments, hidden: 0 };
+  return { shown: comments.slice(-limit), hidden: comments.length - limit };
+}
+
+/** Whether a comment is hidden in the collapsed list (so a jump to it must expand the list first). */
+export function isHiddenComment(comments, id, limit = COLLAPSED) {
+  const index = comments.findIndex((c) => c.id === id);
+  return index !== -1 && index < comments.length - limit;
 }
 
 /** The entries with this one added (by id); an entry already there is replaced. */
 export function withEntry(entries, entry) {
   return [entry, ...entries.filter((e) => e.id !== entry.id)];
+}
+
+/** The entries of the activity without the one that stands for this comment (it was deleted). */
+export function withoutComment(entries, commentId) {
+  return entries.filter((e) => !(e.kind === "comment" && e.data?.comment_id === commentId));
+}
+
+const STATUS_MARKERS = {
+  done: { icon: "check", tone: "ok" },
+  pass: { icon: "check", tone: "ok" },
+  failed: { icon: "x", tone: "bad" },
+  fail: { icon: "x", tone: "bad" },
+  running: { icon: "play", tone: "accent" },
+};
+const KIND_MARKERS = {
+  created: { icon: "plug", tone: "ok" },
+  lane: { icon: "columns", tone: "accent" },
+  parent: { icon: "parent", tone: "accent" },
+  title: { icon: "pencil", tone: "muted" },
+  description: { icon: "pencil", tone: "muted" },
+  field: { icon: "tag", tone: "muted" },
+  pipeline: { icon: "pipeline", tone: "accent" },
+  stage: { icon: "layers", tone: "accent" },
+  action: { icon: "action", tone: "accent" },
+};
+
+/** The round marker of an item: the icon and the tone say what kind of event it is. */
+export function markerOf(item) {
+  if (item.type === "execution") return STATUS_MARKERS[item.execution.status] ?? { icon: "clock", tone: "muted" };
+  if (item.type === "trace") return { icon: "trash", tone: "bad" };
+  if (item.type === "comment") return item.entry.kind === "comment_deleted" ? { icon: "trash", tone: "bad" } : { icon: "message", tone: "accent" };
+  return KIND_MARKERS[item.entry.kind] ?? { icon: "settings", tone: "muted" };
 }

@@ -8,14 +8,16 @@
 import { AlertBar } from "../components/alert-bar.js";
 import { listActivity } from "./activity-api.js";
 import { ActivityRows } from "./activity-rows.js";
-import { filterTimeline, mergeTimeline, withEntry } from "./activity-model.js";
+import { COLLAPSED, collapse, filterTimeline, mergeTimeline, withEntry, withoutComment } from "./activity-model.js";
 import { clearExecutions, deleteExecution, getExecution, listExecutions } from "./history-api.js";
 import { HistoryDetail } from "./history-detail.js";
-import { plural } from "./history-format.js";
+import { plural as countText } from "./history-format.js";
 import { HistoryList } from "./history-list.js";
-import { t } from "../i18n.js";
+import { plural, t } from "../i18n.js";
 
 const REFETCH_MS = 300;
+/** Entries fetched at once: the artifact keeps at most 500, so a first page of 200 holds the anchor ("created") of most. */
+const PAGE = 200;
 
 export class HistoryTab {
   /**
@@ -23,8 +25,10 @@ export class HistoryTab {
    * @param {HTMLElement} options.root the panel (templates/components/history_panel.html)
    * @param {HTMLElement} options.badge the count on the tab
    * @param {import("../components/confirm-dialog.js").ConfirmDialog} options.confirm
+   * @param {(id: string) => object | undefined} options.commentOf a comment of the artifact by id (previews are read live)
+   * @param {(commentId: string) => void} options.onJump a comment entry was activated: show that comment
    */
-  constructor({ root, badge, confirm }) {
+  constructor({ root, badge, confirm, commentOf, onJump }) {
     this.root = root;
     this.badge = badge;
     this.confirm = confirm;
@@ -38,6 +42,7 @@ export class HistoryTab {
     this.activity = []; // the activity entries loaded, newest first
     this.next = null; // the cursor of the next, older page of them
     this.filter = "all";
+    this.expanded = false; // the older entries are shown (GitHub-style "Show N older")
 
     this.alert = new AlertBar(root.querySelector("[data-history-alert]"));
     this.alert.onRetry(() => this.#retry());
@@ -47,21 +52,22 @@ export class HistoryTab {
     this.empty = root.querySelector("[data-history-empty]");
     this.more = root.querySelector("[data-history-more]");
     this.clearButton = root.querySelector("[data-history-clear]");
-    this.older = root.querySelector("[data-history-older]");
     this.filterButtons = [...root.querySelectorAll("[data-history-filter] [data-filter]")];
     this.list = new HistoryList({
       root: root.querySelector("[data-history-rows]"),
       onOpen: (execution) => this.#open(execution),
       onDelete: (execution) => this.#confirmDelete(execution),
     });
-    this.rows = new ActivityRows(root.querySelector("[data-history-rows]"));
+    this.rows = new ActivityRows(root.querySelector("[data-history-rows]"), { commentOf, onJump });
+    this.fold = document.getElementById("collapse-row-template").content.firstElementChild.cloneNode(true);
+    this.foldButton = this.fold.querySelector("[data-history-collapse]");
+    this.foldButton.addEventListener("click", () => this.#toggleExpanded());
     this.detail = new HistoryDetail({
       root: root.querySelector("[data-history-detail]"),
       onBack: () => this.#back(),
       onDelete: (execution) => this.#confirmDelete(execution),
     });
     this.clearButton.addEventListener("click", () => this.#confirmClear());
-    this.older.addEventListener("click", () => this.#loadOlder());
     for (const button of this.filterButtons) button.addEventListener("click", () => this.#setFilter(button.dataset.filter));
   }
 
@@ -77,6 +83,7 @@ export class HistoryTab {
       this.next = null;
       this.total = 0;
       this.notice = "";
+      this.expanded = false;
       this.deleted.clear();
       this.alert.hide();
       this.#render();
@@ -99,7 +106,7 @@ export class HistoryTab {
     if (!taskId) return;
     const token = ++this.token;
     try {
-      const [data, page] = await Promise.all([listExecutions(taskId, this.limit), listActivity(taskId)]);
+      const [data, page] = await Promise.all([listExecutions(taskId, this.limit), listActivity(taskId, { limit: PAGE })]);
       if (token !== this.token) return;
       this.list.render(data.items);
       this.total = data.total;
@@ -118,6 +125,11 @@ export class HistoryTab {
     if (!this.taskId || data.task_id !== this.taskId) return;
     if (type === "activity.created") {
       this.activity = withEntry(this.activity, data);
+      this.#render();
+      return;
+    }
+    if (type === "comment.deleted") {
+      this.activity = withoutComment(this.activity, data.id); // its entry is replaced by the "deleted a comment" one
       this.#render();
       return;
     }
@@ -141,53 +153,93 @@ export class HistoryTab {
     return !this.root.querySelector("[data-history-detail]").hidden;
   }
 
-  /** Bring the rows, the filter, the counts and the empty state in line with the data. */
+  /** The timeline in line with the data again (a comment changed: its preview is read live). */
+  refresh() {
+    if (this.taskId) this.#render();
+  }
+
+  /** The row of an item of the timeline (a live execution or an activity entry). */
+  #rowOf(item) {
+    return item.type === "execution" ? this.list.entries.get(item.execution.id)?.row : this.rows.get(item.key);
+  }
+
+  /** Bring the rows, the filter, the collapse, the counts and the empty state in line with the data. */
   #render() {
     const count = this.list.size;
     const finished = this.list.executions.some((execution) => execution.status !== "running");
     const items = mergeTimeline(this.list.executions, this.activity);
     this.rows.render(items.filter((item) => item.type !== "execution"));
-    const group = { runs: "run", changes: "change" }[this.filter];
-    for (const row of this.root.querySelectorAll("[data-history-rows] > li")) row.hidden = group !== undefined && row.dataset.group !== group;
-    const shown = filterTimeline(items, this.filter).length;
+    const filtered = filterTimeline(items, this.filter);
+    const { shown, hidden } = collapse(filtered, this.expanded);
+    const visible = new Set(shown.map((item) => item.key));
+    for (const item of items) {
+      const row = this.#rowOf(item);
+      if (row) row.hidden = !visible.has(item.key);
+    }
+    this.#placeFold(filtered, shown, hidden);
+    // the line ends at the last entry (the "Show fewer" row after it does not continue it)
+    const last = [...this.list.root.children].filter((row) => !row.hidden && row !== this.fold).at(-1);
+    for (const row of this.list.root.children) row.toggleAttribute("data-last", row === last);
     const more = this.next !== null || this.total > count;
     this.badge.hidden = this.taskId === null || items.length === 0;
     this.badge.textContent = this.badge.hidden ? "" : `${items.length}${more ? "+" : ""}`;
-    this.badge.title = plural(items.length, "entry");
-    this.summary.textContent = [this.notice, plural(items.length, "entry")].filter(Boolean).join(" ");
-    this.empty.hidden = shown > 0;
+    this.badge.title = countText(items.length, "entry");
+    this.summary.textContent = [this.notice, countText(items.length, "entry")].filter(Boolean).join(" ");
+    this.empty.hidden = filtered.length > 0;
     this.empty.textContent = {
       all: t("history.nothing_recorded_yet"),
       runs: t("history.no_executions_yet_start_processing_this"),
       changes: t("history.no_changes_recorded_yet"),
+      comments: t("history.no_comments_recorded_yet"),
     }[this.filter];
     this.more.hidden = this.total <= count;
     this.more.textContent = t("tasks.history_tab.showing_newest_count_total_executions", { count, total: this.total });
-    this.older.hidden = this.next === null;
     this.clearButton.setAttribute("aria-disabled", String(!finished));
     for (const button of this.filterButtons) button.setAttribute("aria-pressed", String(button.dataset.filter === this.filter));
   }
 
-  #setFilter(filter) {
-    this.filter = filter;
-    this.#render();
+  /** The "Show N older entries" row sits between the newest ones and the anchor ("created"), "Show fewer" at the end. */
+  #placeFold(filtered, shown, hidden) {
+    const folding = hidden > 0 || (this.expanded && filtered.length > COLLAPSED);
+    if (!folding) {
+      this.fold.remove();
+      return;
+    }
+    this.foldButton.textContent = hidden > 0 ? plural("tasks.activity.show_older", hidden) : t("tasks.activity.show_fewer");
+    this.foldButton.setAttribute("aria-expanded", String(hidden === 0));
+    const anchor = hidden > 0 && shown.length > COLLAPSED ? this.#rowOf(shown.at(-1)) : null;
+    if (anchor) anchor.before(this.fold);
+    else this.list.root.append(this.fold);
   }
 
-  /** The next, older page of the changes. */
-  async #loadOlder() {
-    const { taskId, next } = this;
-    if (!taskId || next === null) return;
+  async #toggleExpanded() {
+    this.expanded = !this.expanded;
+    this.#render();
+    if (this.expanded) await this.#loadRest();
+    this.foldButton.focus();
+  }
+
+  /** Every older page of the changes (the artifact keeps at most 500: a few requests). */
+  async #loadRest() {
+    const { taskId } = this;
     try {
-      const page = await listActivity(taskId, { before: next });
-      if (taskId !== this.taskId) return;
-      const known = new Set(this.activity.map((entry) => entry.id));
-      this.activity = [...this.activity, ...page.items.filter((entry) => !known.has(entry.id))];
-      this.next = page.next;
+      while (taskId === this.taskId && this.next !== null) {
+        const page = await listActivity(taskId, { limit: PAGE, before: this.next });
+        if (taskId !== this.taskId) return;
+        const known = new Set(this.activity.map((entry) => entry.id));
+        this.activity = [...this.activity, ...page.items.filter((entry) => !known.has(entry.id))];
+        this.next = page.next;
+      }
       this.alert.hide();
       this.#render();
     } catch (error) {
       if (taskId === this.taskId) this.alert.show(error.message || t("tasks.history_tab.history_could_not_be_loaded"), { retry: true });
     }
+  }
+
+  #setFilter(filter) {
+    this.filter = filter;
+    this.#render();
   }
 
   announce(message) {
@@ -294,7 +346,7 @@ export class HistoryTab {
       confirmLabel: t("tasks.history_tab.delete_all"),
       onConfirm: async () => {
         const { deleted } = await clearExecutions(this.taskId);
-        this.announce(t("executions.page.deleted_count", { what: plural(deleted, "execution") }));
+        this.announce(t("executions.page.deleted_count", { what: countText(deleted, "execution") }));
         await this.load();
       },
       onClose: () => this.clearButton.focus(),

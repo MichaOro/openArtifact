@@ -9,8 +9,14 @@ import { avatar } from "../components/avatar.js";
 import { icon } from "../components/icons.js";
 import { addComment, deleteComment, listComments, updateComment } from "./comments-api.js";
 import { canSend, countText, inOrder, isEdited, kindOf, runLink, withComment } from "./comment-format.js";
+import { collapseComments, isHiddenComment, COLLAPSED } from "./activity-model.js";
 import { formatTime } from "./history-format.js";
-import { t } from "../i18n.js";
+import { plural, t } from "../i18n.js";
+
+/** How long the highlight of a jumped-to comment stays when motion is reduced (it is a static one then), in ms. */
+const HOLD_MS = 1500;
+/** The longest the pulsing highlight can last (three pulses of half a second) before it is taken off anyway, in ms. */
+const PULSE_MAX_MS = 2500;
 
 export class CommentsTab {
   /**
@@ -18,8 +24,10 @@ export class CommentsTab {
    * @param {HTMLElement} options.root the panel (templates/components/comments_panel.html)
    * @param {HTMLElement} options.badge the count on the tab
    * @param {import("../components/confirm-dialog.js").ConfirmDialog} options.confirm
+   * @param {() => void} [options.onChange] the comments shown changed (the History tab reads their text live)
    */
-  constructor({ root, badge, confirm }) {
+  constructor({ root, badge, confirm, onChange = () => {} }) {
+    this.onChange = onChange;
     this.root = root;
     this.badge = badge;
     this.confirm = confirm;
@@ -30,6 +38,7 @@ export class CommentsTab {
     this.editingId = null;
     this.token = 0;
     this.sending = false;
+    this.expanded = false; // the older comments are shown (GitHub-style "Show N older comments")
 
     this.alert = new AlertBar(root.querySelector("[data-comments-alert]"));
     this.alert.onRetry(() => this.load());
@@ -42,6 +51,8 @@ export class CommentsTab {
     this.send = root.closest("[data-task-view]").querySelector("[data-comments-send]"); // in the dialog footer, next to Close
     this.error = root.querySelector("[data-comments-error]");
     this.scroller = root.querySelector("[data-comments-scroll]");
+    this.older = root.querySelector("[data-comments-older]");
+    this.older.addEventListener("click", () => this.#toggleExpanded());
     this.template = document.getElementById("comment-template");
 
     this.form.addEventListener("submit", (event) => {
@@ -73,6 +84,7 @@ export class CommentsTab {
     this.number = task.number;
     if (!same) {
       this.comments = [];
+      this.expanded = false;
       this.editingId = null;
       this.input.value = "";
       this.#setError("");
@@ -146,15 +158,68 @@ export class CommentsTab {
     this.badge.title = countText(this.comments.length);
     this.summary.textContent = countText(this.comments.length);
     this.empty.hidden = this.comments.length > 0;
+    // the newest comments are shown; a comment being edited is never hidden under the fold
+    const { shown, hidden } = collapseComments(this.comments, this.expanded, COLLAPSED, this.editingId);
+    this.older.hidden = hidden === 0 && !(this.expanded && this.comments.length > COLLAPSED);
+    this.older.textContent = hidden > 0 ? plural("tasks.comments_tab.show_older", hidden) : t("tasks.activity.show_fewer");
+    this.older.setAttribute("aria-expanded", String(hidden === 0));
     const open = this.root.querySelector("[data-comment-edit-input]");
     const typed = open?.value;
-    const rows = this.comments.map((comment) => this.#row(comment));
+    const rows = shown.map((comment) => this.#row(comment));
     this.list.replaceChildren(...rows);
     if (keep && typed !== undefined) {
       const again = this.root.querySelector("[data-comment-edit-input]");
       if (again) again.value = typed;
     }
     if (scroll) window.requestAnimationFrame(() => (this.scroller.scrollTop = this.scroller.scrollHeight));
+    this.onChange();
+  }
+
+  /** The comment of this id, or undefined (the History tab shows its first words next to its entry). */
+  commentOf(id) {
+    return this.comments.find((comment) => comment.id === id);
+  }
+
+  /** Show the older comments, or fold them again; the comments in view stay where they are. */
+  #toggleExpanded() {
+    const box = this.scroller;
+    const before = box.scrollHeight - box.scrollTop;
+    this.expanded = !this.expanded;
+    this.#render();
+    if (this.expanded) box.scrollTop = box.scrollHeight - before;
+    else box.scrollTop = box.scrollHeight;
+    this.older.focus();
+  }
+
+  /**
+   * Show a comment of the artifact: the tab expands over it when it is under the fold, scrolls it into view, moves the
+   * focus to it and pulses its border three times (once, held, when motion is reduced).
+   * @param {string} id
+   */
+  async reveal(id) {
+    if (!this.commentOf(id)) await this.load();
+    const comment = this.commentOf(id);
+    if (!comment) return this.announce(t("tasks.comments_tab.comment_no_longer_exists"));
+    if (isHiddenComment(this.comments, id)) this.expanded = true;
+    this.#render({ keep: true });
+    await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+    const row = this.list.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    if (!row) return;
+    row.scrollIntoView({ block: "center" });
+    row.tabIndex = -1;
+    row.focus({ preventScroll: true });
+    this.#pulse(row);
+    this.announce(t("tasks.comments_tab.comment_from_author", { author: comment.author }));
+  }
+
+  #pulse(row) {
+    row.removeAttribute("data-pulse");
+    void row.offsetWidth; // restart the animation when it is jumped to again
+    row.dataset.pulse = "";
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const off = () => row.removeAttribute("data-pulse");
+    if (!reduced) row.addEventListener("animationend", off, { once: true });
+    window.setTimeout(off, reduced ? HOLD_MS : PULSE_MAX_MS);
   }
 
   #row(comment) {
