@@ -48,9 +48,15 @@ In the pipeline editor every **Guard** entry opens the small popup **Add a guard
 - the menu of an action node (right click or **…**) → *Guard*, or **Add guard** in the *Guards* section of the action's
   settings: that action.
 
-The popup lists the guards of the library that may watch that kind of scope (*Can watch* of the definition) and are not
-attached there yet, with a search and **Attach**; **New guard…** opens the guard editor for a new definition that is
-attached there when you save it. Below, *Attached here* lists the guards of that scope.
+The popup has two buttons: **New guard…** (the primary one) opens the guard editor for a new definition that is attached
+there when you save it, and **Attach guard…** opens the **attach dialog**. **Attach guard…** is disabled with the note
+*No other guard to attach.* when every guard of the library is attached there already. Below, *Attached here* lists the
+guards of that scope, with their switch and Detach.
+
+The attach dialog has one field, a **combobox**: it lists the guards that are not attached to that scope yet; typing
+narrows the list by name first, then by description and what the guard does ("hea" finds *Health guard* and
+*Health agent*); arrow keys move through it, Enter takes the highlighted one (and does not submit), Escape closes the list
+and only then the dialog. **Attach** is there once one is chosen; the popup comes back with the guard under *Attached here*.
 
 ## The shield
 
@@ -75,18 +81,23 @@ Escape leaves only the field; a guard needs a name, an empty one is refused with
 many places the guard is used: **a change affects all of them** (at the next start of a run; a running execution keeps
 what it started with). There is no Name row and no template row (templates are in the page's *New guard* menu).
 
+The form is a manifest (`ui/forms/guard.yaml`, [ADR-062](../architecture/adr/062-configuration-windows-as-data.md)) drawn by
+`form-view.js`: on a wide window **Trigger** and **Then** side by side, **Condition** across the whole width, **Escalation steps**
+and **Logic** side by side; on a narrow window one column. *Held for* and *Quiet after firing* are folded behind **More
+options**. A typical guard needs 850 × 746 px (it was 1024 × 1216). The help of a part is in the (i) after its name.
+
 **Settings**
 
 | Part | What it says |
 |------|--------------|
-| Can watch | The kinds of scope it may be attached to: pipeline, stage, action (the Health guard: a stage) |
+| Can watch | **Hidden on purpose** (the owner may want it back): the kinds of scope a definition may be attached to (`scope_types`) stay in the data, the API and the checks, a new definition may watch all three, and the control is kept unused in `guards/scope-chips.js` with an entry in `quarantine.json` until the owner decides |
 | Trigger | **On an event**: entered, an action passed, an action erred, left, the run fails. The flow **waits** for the guard and goes on as it decides. **Every few seconds**: check every N seconds while the scope runs (at least the minimum interval), fire once the condition has held for *held for* seconds, then stay quiet for *quiet after firing* seconds; the running action keeps running meanwhile and is stopped if the guard pauses or aborts |
 | Condition | The rule builder (the same one as the retention rules) over the facts below; an empty condition never fires |
 | Escalation steps | "From firing k on, every N rounds (or N seconds)": counted from the guard's last firing. Without steps it fires whenever the condition holds |
 | Then | The consequence; *notify* and *hand over* are shown disabled until notifications (card #93) and handover (card #95) exist. For *Run the guard's action*: what follows when its action fails |
 | Preview | How many running scopes the condition holds for right now, over the places it is attached to (no trigger, escalation or cap applied) |
 
-**Logic.** The guard's own action, for the consequence *Run the guard's action*: choose an action definition, or
+**Logic** (a section of the form). The guard's own action, for the consequence *Run the guard's action*: choose an action definition, or
 **New** (an empty action definition named after the guard), and **Edit**, which saves the guard first and opens the
 action in the action editor (its *Back to …* returns to the guard). With another consequence the part says that the
 guard runs no action of its own and offers **Run an action when it fires**.

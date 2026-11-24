@@ -71,6 +71,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [059](059-one-catalog-of-ui-building-blocks.md) | One catalog of UI building blocks: one definition per control, tokens for both themes, contrast that is tested; a window that saves carries its name in its title | Accepted | 2026-11-24 | amends ADR-036 |
 | [060](060-guards.md) | Guards: scoped, event or interval driven specialised actions; one rule system; a guard library of definitions and attachments | Accepted | 2026-11-24 | amends ADR-052, ADR-058, ADR-039 |
 | [061](061-what-a-failure-does.md) | What a failure does: Stop, Continue, or the error output (three values of *If the node fails*, for nodes and actions) | Accepted | 2026-11-24 | amends ADR-039, ADR-054, ADR-060 |
+| [062](062-configuration-windows-as-data.md) | Configuration windows as data: a form manifest (YAML) per window, one renderer, widgets from a registry, texts overridable per language; the guard editor as the pilot | Accepted | 2026-11-24 | amends ADR-059, ADR-060 |
 
 ## Notes
 

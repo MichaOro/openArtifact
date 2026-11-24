@@ -114,6 +114,8 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A short message above a page | `alert-bar.js` with `templates/components/alert.html` |
 | An explanation of a field | `info-tip.js` (the (i) that opens a tooltip) |
 | An on/off setting | `switch.js` |
+| Choose one of many by typing | `combobox.js` (a field with a list under it; typing narrows it by name, then by description and keywords; arrow keys, Enter, Escape closes only the list; the list is a popup so a dialog does not clip it; ARIA combobox with `aria-activedescendant`; the pure part is `combobox-model.js`) |
+| The form of a configuration window | `form-view.js` draws a form manifest (`ui/forms/*.yaml`, ADR-062): sections in a two-column grid (one column on a narrow window), help in a tooltip, `advanced` fields folded, errors per field; the widgets are `form-widgets.js` (`registerWidget`), the layout rules are `form-plan.js` |
 | A text edited in place | `inline-name.js` (also the name in the title of a window that saves: rule 6) |
 | A person or system as a round shaded circle | `avatar.js` (the kind is the icon and the accessible name; `initials` for a person later) |
 | The marker of a timeline entry | `tasks/history-marker.js` |

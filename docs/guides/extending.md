@@ -289,6 +289,104 @@ Every dialog with input fields is a `FormDialog` over a `form_modal` ([ADR-010](
    `ConfirmDialog` (`confirm_modal.html`).
 3. **Test it** in `tests/e2e/test_dialog.py` or next to the page's other flows.
 
+## A configuration window is a manifest
+
+The form of a window that configures something (a guard, later a provider, a credential, a retention rule) is data, like
+a node kind ([ADR-062](../architecture/adr/062-configuration-windows-as-data.md)): you describe it in YAML and one
+component draws it, in two columns where there is room, with the help in tooltips and the errors under the fields. The
+frame around it (the title with the name renamed in place, "Used in N places", tabs, Save and Cancel) is yours. A question
+("Delete it?") is not a form: use `confirm-dialog.js`.
+
+**1. Describe the form** in `openartifact/ui/forms/<name>.yaml` (the file name is the form's name; a bad file stops the
+start and names itself). The shipped example is `guard.yaml`:
+
+```yaml
+schema: 1
+name: demo
+columns: 2          # a wide window has two columns, a narrow one always one
+width: 50           # rem: the form's width on a wide window (else the columns take what their content wants)
+sections:
+  - key: trigger
+    title: Trigger
+    column: 1       # 1, 2, auto (the column with less weight) or full (a row across the whole width)
+    fields:
+      - key: trigger.type          # a dotted path into the values: values.trigger.type
+        widget: choice
+        label: Trigger
+        hide_label: true           # the section title says it; the label stays for screen readers, a help goes next to the title
+        options: [{value: event, label: On an event}, {value: interval, label: Every few seconds}]
+      - key: trigger.every_seconds
+        widget: number
+        label: Check every (seconds)
+        min: 1
+        default: 60
+        help: One or two short sentences, shown in a tooltip.
+        visible_when: {field: trigger.type, equals: interval}   # or in: [a, b]
+      - key: trigger.cooldown_seconds
+        widget: number
+        label: Quiet after firing (seconds)
+        advanced: true             # folded behind "More options"
+```
+
+| Part | Says |
+|------|------|
+| section `weight` | How much room it takes when `auto` sections are balanced between the columns (default: its visible fields) |
+| field `required`, `min`, `max`, `step` | Checked by `form.validate()` for the fields that are there; the message sits under the field |
+| field `config` | Free settings of the widget (`max_length`, `rows`; a rule tree names its schema); `depends_on: [key, ...]` draws the form again when one of those values changes |
+| field `options` | The choices of `select`, `choice` and `chips`; `config: {options_from_code: name}` leaves them to the window (`overrides`) |
+
+**2. Pick the widgets.** Built in (`components/form-widgets.js`): `text`, `number`, `textarea`, `select`, `choice` (one of
+a few, as chips), `chips` (several, ticked), `switch`, `readonly`. What needs code is a **custom widget** registered
+once, in the browser and on the server, so a manifest may name it:
+
+```js
+import { registerWidget } from "../components/form-widgets.js";
+registerWidget("colour-picker", (ctx) => {
+  // ctx.field (the manifest's field), ctx.value (a copy to edit), ctx.options, ctx.context (what the window handed over),
+  // ctx.get(key) / ctx.set(value[, key]), ctx.id; return the element and the control the label belongs to (or null)
+  const input = Object.assign(document.createElement("input"), { type: "color", value: ctx.value ?? "#000000" });
+  input.addEventListener("input", () => ctx.set(input.value));
+  return { el: input, control: input };
+});
+```
+
+```python
+from openartifact.ui import forms
+forms.register_widget("colour-picker")   # before the manifests are read: a manifest naming it is valid
+```
+
+A test (`tests/test_forms.py`) checks that every widget a shipped manifest names is registered in the browser. The guard
+form's three custom widgets (`rule-tree`, `escalation-steps`, `action-picker`) are in `guards/widgets.js`.
+
+**3. Draw it in your window:**
+
+```js
+const manifest = await request("/api/forms/demo");          // in the language of the page
+const form = new FormView(host, {
+  manifest, values: state,                                  // the form edits `state` (nested keys by path)
+  context: { ruleSchema, actions },                         // data for your custom widgets
+  overrides: { consequence: { options: [...], help: "..." } }, // what the code decides for a field
+  normalize: (values, key) => { /* keep values consistent after a change */ },
+  onChange: () => scheduleAPreview(),
+});
+if (!form.validate()) return;                               // marks what breaks a limit
+form.setErrors({ "trigger.events": "Choose one" });          // a message of the server under its field
+```
+
+**4. Texts and German.** The manifest is the English source. German (and any language) overrides single texts in
+`locales/<language>.json` by key: `forms.demo.sections.trigger.title`, `forms.demo.fields.trigger.every_seconds.label` /
+`.help` / `.placeholder`, `forms.demo.fields.trigger.type.options.event`. What a language does not name stays English.
+`tests/test_forms.py` fails for an override that names nothing and for a text of a shipped form that German lacks.
+
+**Windows that could move to a manifest** (none is migrated yet; the owner schedules them): the retention rule (small:
+`rule-tree` and `select`; its title already carries the name), lane settings (small: `text` and `choice`), run limits (small:
+numbers), the LLM provider dialog (medium: `text`, a secret chooser and a model list), the credential dialog (medium: the
+fields come from the type, a `secret` widget that never shows the value), the artifact fields dialog (medium: a `rows` widget
+with add, remove and order), the *create artifact* dialog (medium: the artifact fields are dynamic). Not a form: the name
+dialogs (*New*, *Rename*, *Add lane*: change them so the name is the title, binding rule 3) and the agent version view
+(display only). The node settings dialog already has its own data (ADR-053/054); making it use `form-view.js` is a larger
+step.
+
 ## Extend the history detail and the flow view
 
 The History tab of the artifact dialog and the page of one execution share the markup and rendering of a
