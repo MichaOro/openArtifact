@@ -5,6 +5,7 @@
 {% from "components/icons.html" import icon %}
 {% from "components/modal.html" import modal %}
 {% from "components/guard_modal.html" import guard_modal %}
+{% from "components/guard_attach_modal.html" import guard_attach_modal %}
 {% block title %}{{ t('page.' ~ section.key) }} · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
 <link rel="stylesheet" href="/static/css/agents.css">
@@ -50,6 +51,7 @@
 {% if section.kind == "pipeline" %}
 {# the guard editor (ADR-060): a definition of the library, opened from a shield popup or "New guard…" #}
 {{ guard_modal() }}
+{{ guard_attach_modal() }}
 {% endif %}
 {{ confirm_modal("confirm-modal", t('common.delete')) }}
 {% endblock %}

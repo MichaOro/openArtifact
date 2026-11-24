@@ -9,7 +9,8 @@ placeholders that differ from English.
 ``t("key")``, ``tn("key")`` and ``plural("key")`` calls of templates, JavaScript and Python. A key that is built at
 run time (``t('nav.' ~ item.key ~ '.label')``, ``t(`graph.${noun}.load_error`)``) counts its literal prefix: every key
 with that prefix counts as used. Plural keys are written ``base.one`` / ``base.other`` and are used through ``base``.
-Node manifest overrides (``nodes.<kind>...``) are checked against the manifests by ``tests/test_i18n.py``.
+Node manifest overrides (``nodes.<kind>...``) are checked against the manifests by ``tests/test_i18n.py``, form manifest
+overrides (``forms.<form>...``) by ``tests/test_forms.py``.
 """
 
 from __future__ import annotations
@@ -28,8 +29,8 @@ PLURAL_SUFFIXES = ("zero", "one", "two", "few", "many", "other")
 CALL = re.compile(
     r"""\b(?:t|tn|plural)\(\s*(["'`])((?:[a-z0-9_]+\.)+[a-z0-9_]*)(?:(\1)|(\$\{|["'`]\s*~|["'`]\s*\+))"""
 )
-#: Keys the code builds from other keys (the manifests' texts are overrides, not used by literal calls).
-ALWAYS_USED = ("nodes.",)
+#: Keys the code builds from other keys (the texts of node and form manifests are overrides, not used by literal calls).
+ALWAYS_USED = ("nodes.", "forms.")
 SOURCES = (
     ("templates", "*.html"),
     ("static/js", "*.js"),

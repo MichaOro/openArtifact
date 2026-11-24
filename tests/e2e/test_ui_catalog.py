@@ -260,6 +260,16 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
         },
     )
     placed.raise_for_status()
+    other = api.post(  # one that hangs nowhere: the attach dialog's combobox offers it
+        "/api/guards",
+        json={
+            "name": "Health guard",
+            "trigger": {"type": "event", "events": ["enter"]},
+            "when": when | {"items": []},
+            "scope_types": ["pipeline", "stage", "action"],
+        },
+    )
+    other.raise_for_status()
 
     def check(where: str) -> None:
         problems.extend(_audit(page, theme, where))
@@ -302,7 +312,7 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
             page.keyboard.press("Escape")
             expect(dialog).to_be_hidden()
         if path == "/guards":  # the guard editor: Settings and Logic, the title renamed in place
-            page.locator(".gd-item .ge-item__link").click()
+            page.locator(".gd-item .ge-item__link").first.click()
             expect(page.locator("#guard-modal")).to_be_visible()
             check("guard editor")
             page.keyboard.press("Escape")
@@ -314,6 +324,27 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
     expect(page.locator("[data-guard-popover]")).to_be_visible()
     check("editor / shield popup")
     page.keyboard.press("Escape")
+    # "Add a guard": the two buttons, the attach dialog with its combobox and the list under it (name and description)
+    page.locator("[data-stage-add]").click()
+    page.get_by_role("menuitem", name="Guard").click()
+    popup = page.locator("[data-guard-popover]")
+    expect(popup).to_be_visible()
+    check("editor / add a guard popup")
+    popup.get_by_role("button", name="Attach guard…").click()
+    attach = page.locator("#guard-attach-modal")
+    expect(attach).to_be_visible()
+    attach.get_by_role("button", name="Show all choices").click()
+    expect(attach.locator(".combobox__option")).to_have_count(1)
+    check("editor / attach dialog")
+    for part in attach.locator(".combobox__name, .combobox__description").all():
+        text = _measure(page, part)["text"]
+        if text < TEXT_MIN:
+            problems.append(
+                f"combobox option [{theme}] {part.inner_text()!r}: text contrast {text:.2f} < {TEXT_MIN}"
+            )
+    page.keyboard.press("Escape")  # the list
+    page.keyboard.press("Escape")  # the dialog
+    expect(attach).to_be_hidden()
     # a double click opens the action itself (when it has a definition): its settings are the menu's Settings
     page.locator(".ge-node--action").first.click(button="right", position={"x": 30, "y": 5})
     page.get_by_role("menuitem", name="Settings").click()

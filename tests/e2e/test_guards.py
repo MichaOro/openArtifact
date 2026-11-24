@@ -7,6 +7,7 @@ the run, a stall guard stops a sleeping Code node; the History shows each firing
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -91,6 +92,18 @@ def _popup(page: Page) -> Any:
     return popup
 
 
+def _attach_through_dialog(page: Page, text: str) -> None:
+    """The popup's "Attach guard…": the attach dialog, a combobox typed into, the choice, Attach."""
+    popup = _popup(page)
+    popup.get_by_role("button", name="Attach guard…").click()
+    dialog = page.locator("#guard-attach-modal")
+    expect(dialog).to_be_visible()
+    dialog.get_by_role("combobox", name="Guard").fill(text)
+    dialog.locator(".combobox__option", has_text=text).first.click()
+    dialog.get_by_role("button", name="Attach", exact=True).click()
+    expect(dialog).to_be_hidden()
+
+
 # ── the library page ─────────────────────────────────────────────────
 
 
@@ -133,8 +146,18 @@ def test_a_template_becomes_a_library_guard_in_the_editor_titled_by_its_name_wit
     expect(window.locator("[data-guard-used]")).to_have_text("Not used yet")
     expect(window).not_to_contain_text("Start from")
     expect(window.get_by_label("Name", exact=True)).to_have_count(0)
-    expect(window.locator("[data-guard-part=settings] .gd-part__title")).to_have_text("Settings")
-    expect(window.locator("[data-guard-part=logic] .gd-part__title")).to_have_text("Logic")
+    sections = window.locator("[data-section]")
+    expect(sections).to_have_count(
+        5
+    )  # the form is drawn from the manifest: trigger, then, condition, escalation, logic
+    for key, title in {
+        "trigger": "Trigger",
+        "then": "Then",
+        "condition": "Condition",
+        "escalation": "Escalation steps",
+        "logic": "Logic",
+    }.items():
+        expect(window.locator(f"[data-section={key}] .fv-section__title")).to_contain_text(title)
     window.get_by_role("button", name="Cancel").click()
     item = page.locator(".gd-item")
     expect(item.locator(".ge-item__name")).to_have_text("Stall guard")
@@ -215,10 +238,10 @@ def test_the_logic_part_makes_the_guards_action_and_opens_it_with_the_way_back(
     page.goto(f"{base_url}/guards")
     page.locator(".gd-item .ge-item__link").click()
     window = _window(page)
-    logic = window.locator("[data-guard-part=logic]")
+    logic = window.locator("[data-section=logic]")
     expect(logic).to_contain_text("the guard runs no action of its own")
     logic.get_by_role("button", name="Run an action when it fires").click()
-    expect(window.locator("[data-guard-consequence]")).to_have_value("run_action")
+    expect(window.locator("[data-field-key=consequence]")).to_have_value("run_action")
     chooser = logic.locator("[data-guard-action]")
     expect(chooser.locator("option:checked")).to_have_text("None yet")
     logic.get_by_role("button", name="New").click()
@@ -290,11 +313,13 @@ def test_the_pipelines_guard_entry_attaches_a_library_guard_and_its_shield_appea
     page.locator("[data-placeholder=guard]").click()
     popup = _popup(page)
     expect(popup).to_have_accessible_name("Add a guard")
-    expect(popup.locator(".gd-pick__name")).to_have_text(["Round guard", "Stall guard"])
-    expect(popup.get_by_role("searchbox", name="Search guards")).to_be_focused()
-    page.keyboard.type("stall")
-    expect(popup.locator(".gd-pick__name")).to_have_text(["Stall guard"])
-    popup.get_by_role("button", name="Attach Stall guard").click()
+    expect(popup.get_by_role("searchbox")).to_have_count(
+        0
+    )  # no search: few guards hang on one scope
+    expect(popup.get_by_role("button", name="New guard…")).to_have_class(
+        re.compile(r"button--primary")
+    )
+    _attach_through_dialog(page, "Stall")
     expect(shield).to_be_visible()
     expect(shield).to_have_attribute("title", "1 guard configured")
     expect(popup.locator(".gd-attached__name")).to_have_text(["Stall guard"])
@@ -326,11 +351,14 @@ def test_a_stage_guard_is_attached_from_its_plus_and_its_shield_popup_switches_d
     page.keyboard.press("ArrowDown")
     expect(menu.get_by_role("menuitem", name="Guard")).to_be_focused()
     page.keyboard.press("Enter")
+    _popup(page)
+    _attach_through_dialog(page, "Round guard")
+    _attach_through_dialog(page, "Health guard")
     popup = _popup(page)
-    popup.get_by_role("button", name="Attach Round guard").click()
-    popup.get_by_role("button", name="Attach Health guard").click()
-    expect(popup.locator(".gd-pick")).to_have_count(0)
-    expect(popup).to_contain_text("No other guard of the library can watch this.")
+    expect(popup.get_by_role("button", name="Attach guard…")).to_have_attribute(
+        "aria-disabled", "true"
+    )
+    expect(popup).to_contain_text("No other guard to attach.")
     page.keyboard.press("Escape")
 
     shield = header.locator("[data-guard-shield]")
@@ -382,7 +410,7 @@ def test_a_new_guard_made_from_an_actions_menu_is_attached_to_it_and_its_card_sh
     assert labels.index("Guard") == len(labels) - 2 and labels[-1] == "Delete", labels
     menu.get_by_role("menuitem", name="Guard").click()
     popup = _popup(page)
-    expect(popup).to_contain_text("No other guard of the library can watch this.")
+    expect(popup).to_contain_text("No other guard to attach.")
     popup.get_by_role("button", name="New guard…").click()
     window = _window(page)
     expect(window).to_contain_text(

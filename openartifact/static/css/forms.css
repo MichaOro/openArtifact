@@ -232,3 +232,34 @@ textarea.field__control--lines { resize: vertical; }
 .ge-switch[aria-checked="true"] .ge-switch__state { right: auto; left: 0.75rem; }
 .ge-switch[aria-checked="true"] .ge-switch__thumb { transform: translateX(2.5rem); background: var(--color-accent); }
 .ge-switch:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* ── Combobox (components/combobox.js): a text field with a list of choices under it ─────────────── */
+.combobox { position: relative; min-width: 0; }
+.combobox__field { position: relative; display: flex; align-items: center; }
+.combobox__input { padding-right: 2.5rem; }
+.combobox__toggle { position: absolute; right: 0.25rem; }
+.combobox__list { z-index: 60; gap: 0; padding: var(--space-1); max-height: min(50vh, 18rem); min-width: 12rem; max-width: min(40rem, calc(100vw - 1rem)); }
+.combobox__list[hidden] { display: none; }
+.combobox__option { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; height: auto; min-height: 2.5rem; padding: 0.375rem var(--space-3); white-space: normal; }
+.combobox__option.is-active { background: var(--accent-soft); }
+.combobox__name { max-width: 100%; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.combobox__description { max-width: 100%; overflow: hidden; font-size: 0.75rem; color: var(--color-text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+.combobox__empty { padding: var(--space-2) var(--space-3); font-size: 0.875rem; color: var(--color-text-secondary); list-style: none; }
+
+/* ── Form renderer (components/form-view.js, ADR-062): the form of a configuration window from its manifest ─────── */
+.fv { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+@media (min-width: 52rem) { .fv { width: var(--fv-width, auto); max-width: 100%; } }
+.fv-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); align-items: start; }
+.fv-col { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+@media (min-width: 52rem) {
+  .fv-grid[data-columns="2"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.fv-section__title .info-tip { margin-left: var(--space-1); vertical-align: middle; }
+.fv-section { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+.fv-section__title { padding: 0 var(--space-1); font-weight: 600; }
+.fv-section > .button, .fv-section > .chip-button { align-self: flex-start; } /* a column would stretch them */
+.fv-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.fv-section .rb-choices { flex: none; } /* in a column: the rule builder's row basis would make it 12rem high */
+.modal__panel .fv-number { width: 7rem; min-width: 0; flex: none; } /* a count, not a text: narrower than the dialog's usual control */
+.fv-readonly { margin: 0; }
+.fv-error { margin: 0; }

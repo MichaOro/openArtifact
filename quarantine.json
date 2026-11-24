@@ -9,6 +9,17 @@
       "since": "2026-11-23",
       "usage": "(?<!def )\\b_FIELDS\\b(?! = )",
       "why": "Defined next to SYNTAX_HINT, which spells the fields itself; nothing reads _FIELDS. Found in the dead-code review of 2026-11-23."
+    },
+    {
+      "name": "The \"Can watch\" chips of the guard editor (hidden on purpose, may come back)",
+      "file": "openartifact/static/js/guards/scope-chips.js",
+      "symbol": "export function scopeChips",
+      "since": "2026-11-24",
+      "usage": "(?<!function )\\bscopeChips\\(",
+      "ignore": [
+        "tests/*"
+      ],
+      "why": "The owner hid the \"Can watch\" chips on 2026-11-24 (every guard may watch every scope for now) but may want them back in a day or two; the data (scope_types), the API and the checks stay. He decides in one or two weeks whether to drop the control for good."
     }
   ]
 }

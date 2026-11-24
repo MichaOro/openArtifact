@@ -1,7 +1,7 @@
 /* The small popup of a scope's guards in the pipeline editor (ADR-060). Two ways in:
- *   "add"  (the Guard entry of the pipeline's "+" menu, a stage's "+", an action's menu and settings): "Add a guard", a
- *          searchable list of the library's guards that may watch this scope with Attach, "New guard…", and below the
- *          guards attached here;
+ *   "add"  (the Guard entry of the pipeline's "+" menu, a stage's "+", an action's menu and settings): "Add a guard" with
+ *          two buttons, "New guard…" (the primary one) and "Attach guard…" (which opens the attach dialog with a combobox
+ *          of the guards not attached here yet), and below them the guards attached here;
  *   "list" (the shield of the pipeline, a stage or an action): the guards attached here.
  * An attached guard is listed by its name (muted and struck through while it is off) with its on/off switch and Detach;
  * its name opens the definition in the guard editor. A non-modal dialog next to its trigger: arrow keys move between its
@@ -22,11 +22,11 @@ function make(tag, className = "", text = null) {
   return el;
 }
 
-const FOCUSABLE = "input, button:not([disabled])";
+const FOCUSABLE = "button:not([disabled])";
 
 export class GuardPopover {
   /**
-   * @param {{attach: (guard: object) => Promise<void>, toggle: (attachment: object, on: boolean) => Promise<void>,
+   * @param {{chooseAttach: () => void, toggle: (attachment: object, on: boolean) => Promise<void>,
    *   detach: (attachment: object) => Promise<void>, open: (guard: object) => void, create: () => void}} actions
    */
   constructor(actions) {
@@ -36,7 +36,6 @@ export class GuardPopover {
     this.el.hidden = true;
     this.el.dataset.guardPopover = "";
     this.trigger = null;
-    this.query = "";
     this.el.addEventListener("keydown", (event) => this.#onKeydown(event));
     document.addEventListener(
       "pointerdown",
@@ -62,7 +61,6 @@ export class GuardPopover {
     this.close({ restoreFocus: false });
     this.trigger = trigger;
     this.what = what;
-    this.query = "";
     const host = trigger.closest("dialog[open]") ?? document.body; // a dialog is in the top layer: the popup goes in it
     if (this.el.parentElement !== host) host.append(this.el);
     this.el.setAttribute("aria-label", what.mode === "add" ? t("guards.add_a_guard") : t("guards.guards_of", { name: what.scope.name }));
@@ -106,18 +104,7 @@ export class GuardPopover {
     const parts = [];
     if (mode === "add") {
       parts.push(make("p", "popover__caption", t("guards.add_a_guard")));
-      const search = Object.assign(make("input", "field__control gd-popover__search"), { type: "search", value: this.query, placeholder: t("guards.search"), autocomplete: "off" });
-      search.setAttribute("aria-label", t("guards.search"));
-      search.dataset.focusKey = "search";
-      search.addEventListener("input", () => {
-        this.query = search.value;
-        this.#fillPicks(list, empty, guards, scope, schema);
-      });
-      const list = make("ul", "gd-popover__list");
-      list.setAttribute("aria-label", t("guards.library"));
-      const empty = make("p", "field__help gd-popover__empty");
-      this.#fillPicks(list, empty, guards, scope, schema);
-      const create = make("button", "button button--ghost button--sm gd-popover__new");
+      const create = make("button", "button button--primary button--sm gd-popover__new");
       create.type = "button";
       create.dataset.focusKey = "new";
       create.dataset.newGuard = "";
@@ -126,7 +113,21 @@ export class GuardPopover {
         this.close({ restoreFocus: false });
         this.actions.create();
       });
-      parts.push(search, list, empty, create);
+      const offered = model.attachable(guards, scope.type, scope.id);
+      const attach = make("button", "button button--ghost button--sm gd-popover__attach");
+      attach.type = "button";
+      attach.dataset.focusKey = "attach";
+      attach.dataset.attachGuard = "";
+      attach.append(icon("shield"), document.createTextNode(t("guards.attach_guard_ellipsis")));
+      attach.setAttribute("aria-disabled", String(!offered.length));
+      attach.addEventListener("click", () => {
+        if (!offered.length) return;
+        this.actions.chooseAttach();
+      });
+      const row = make("div", "gd-popover__actions");
+      row.append(create, attach);
+      parts.push(row);
+      if (!offered.length) parts.push(make("p", "field__help gd-popover__empty", t("guards.nothing_to_attach")));
     }
     const attached = model.attachedTo(guards, scope.type, scope.id);
     if (attached.length) {
@@ -137,29 +138,6 @@ export class GuardPopover {
       parts.push(rows);
     }
     this.el.replaceChildren(...parts);
-  }
-
-  #fillPicks(list, empty, guards, scope, schema) {
-    const offered = model.attachable(guards, scope.type, scope.id, this.query);
-    list.replaceChildren(
-      ...offered.map((guard) => {
-        const row = make("li", "gd-pick");
-        row.dataset.guardId = guard.id;
-        const text = make("span", "gd-pick__text");
-        text.append(make("span", "gd-pick__name", guard.name), make("span", "gd-pick__summary", model.summaryLine(guard, schema)));
-        text.title = guard.description || "";
-        const attach = make("button", "button button--ghost button--sm", t("guards.attach"));
-        attach.type = "button";
-        attach.dataset.focusKey = `attach:${guard.id}`;
-        attach.setAttribute("aria-label", t("guards.attach_name", { name: guard.name }));
-        attach.addEventListener("click", () => this.actions.attach(guard));
-        row.append(text, attach);
-        return row;
-      }),
-    );
-    list.hidden = !offered.length;
-    empty.textContent = this.query.trim() && model.attachable(guards, scope.type, scope.id).length ? t("guards.no_match") : t("guards.nothing_to_attach");
-    empty.hidden = Boolean(offered.length);
   }
 
   #attachedRow(attachment, guard) {
@@ -203,7 +181,6 @@ export class GuardPopover {
       return;
     }
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-    if (event.target.matches?.("input") && (event.key === "Home" || event.key === "End")) return; // the caret in the search
     const items = [...this.el.querySelectorAll(FOCUSABLE)].filter((el) => !el.closest("[hidden]"));
     if (!items.length) return;
     event.preventDefault();

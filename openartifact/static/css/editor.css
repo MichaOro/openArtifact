@@ -451,21 +451,11 @@
 .gd-attached.is-off .gd-attached__name { text-decoration: line-through; color: var(--color-text-secondary); }
 .gd-names { margin: 0 0 var(--space-2); padding-left: var(--space-4); }
 .gd-names .is-off { text-decoration: line-through; color: var(--color-text-secondary); }
-.gd-part { display: flex; flex-direction: column; gap: var(--space-3); }
-.gd-part + .gd-part { padding-top: var(--space-2); border-top: 1px solid var(--glass-border); }
-.gd-section .rb-choices { flex: none; } /* in a column: the rule builder's row basis would make it 12rem high */
-.gd-part__title { margin: 0; font-size: 1rem; font-weight: 600; }
 .gd-used { margin: var(--space-1) 0 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
 .gd-used[hidden] { display: none; }
 #guard-modal .modal__header { align-items: flex-start; }
 .gd-actionbar { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; }
-.gd-section > .button, .gd-part > .button { align-self: flex-start; } /* a column would stretch them */
-.gd-form .modal__body { display: flex; flex-direction: column; gap: var(--space-3); }
-.gd-section { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
-.gd-section__title { padding: 0 var(--space-1); font-weight: 600; }
-.gd-chips { display: flex; gap: var(--space-1); }
-.gd-row { display: flex; flex-wrap: wrap; gap: var(--space-3); }
-.gd-row .field { flex: 1 1 8rem; }
+.gd-form .modal__body { display: flex; flex-direction: column; gap: var(--space-2); }
 .modal__panel .gd-number { width: 6rem; min-width: 0; flex: none; } /* a count, not a text: narrower than the dialog's usual control */
 .gd-steps { display: flex; flex-direction: column; gap: var(--space-2); }
 .gd-step { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }

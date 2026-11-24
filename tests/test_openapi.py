@@ -65,6 +65,8 @@ GET /api/credentials/{ref}/events -> CredentialEventRead[]
 GET /api/credentials/{ref}/uses -> CredentialUse[]
 GET /api/events -> -
 GET /api/executions -> ExecutionsPage
+GET /api/forms -> FormManifest[]
+GET /api/forms/{name} -> FormManifest
 GET /api/guard-attachments -> AttachmentRead[]
 GET /api/guard-attachments/{attachment_id} -> AttachmentRead
 GET /api/guards -> GuardDefinitionRead[]

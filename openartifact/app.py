@@ -24,6 +24,7 @@ from openartifact.api.contract import GATED
 from openartifact.api.credentials import router as credentials_router
 from openartifact.api.events import router as events_router
 from openartifact.api.executions import router as executions_router
+from openartifact.api.forms import router as forms_router
 from openartifact.api.graphs import actions_router, node_types_router, pipelines_router
 from openartifact.api.guards import build_guards_router
 from openartifact.api.hardening import BodyLimit, CrossSiteGuard, HostCheck, SecurityHeaders
@@ -234,6 +235,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(actions_router)
     app.include_router(runs_router)
     app.include_router(rules_router)
+    app.include_router(forms_router)
     app.include_router(
         build_guards_router("/api", ["guards"], editor=True), dependencies=[], responses=GATED
     )

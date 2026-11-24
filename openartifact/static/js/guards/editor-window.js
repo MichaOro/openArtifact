@@ -1,22 +1,20 @@
-/* The guard editor (ADR-060): one window for one definition of the guard library, opened from the Guards page, from the
- * shield popup of a scope in the pipeline editor and from "New guard…" there. Its title is "Guard – NAME" with the name
- * renamed in place (as every name of a window that saves, ADR-059); there is no Name row and no template row
- * (templates are in the page's New menu). Two parts: Settings (the scopes it can watch, trigger, condition, escalation,
- * consequence and fallback, a live preview) and Logic (its own action for "Run the guard's action": choose an action
- * definition or make a new one, and open it in the action editor). The header says in how many places it is used: a
- * change acts on all of them. */
-import { icon } from "../components/icons.js";
+/* The guard editor (ADR-060, ADR-062): one window for one definition of the guard library, opened from the Guards page,
+ * from the shield popup of a scope in the pipeline editor and from "New guard…" there. Its title is "Guard – NAME" with
+ * the name renamed in place (as every name of a window that saves, ADR-059); there is no Name row and no template row
+ * (templates are in the page's New menu). The form itself is a manifest (ui/forms/guard.yaml) drawn by components/
+ * form-view.js in two columns on a wide window: trigger and condition on the left, escalation, consequence and the
+ * guard's own action (Logic) on the right; its custom widgets are in guards/widgets.js. Below it a live preview. The
+ * header says in how many places the definition is used: a change acts on all of them. */
+import { FormView } from "../components/form-view.js";
 import { InlineName } from "../components/inline-name.js";
-import { RuleBuilder } from "../components/rule-builder.js";
 import * as rules from "../components/rule-model.js";
 import { request } from "../http.js";
 import { t, tn } from "../i18n.js";
 import * as model from "./model.js";
+import "./widgets.js"; // registers the guard form's custom widgets
 
 const URL = "/api/guards";
-const FALLBACKS = ["pause", "abort", "continue"];
 const PREVIEW_MS = 400;
-const MAX_STEPS = 10;
 const MAX_NAME = 120; // the server's limit (guards/schemas.py MAX_NAME)
 
 const send = (url, method, data) => request(url, { method, body: JSON.stringify(data) });
@@ -28,65 +26,17 @@ function make(tag, className = "", text = null) {
   return el;
 }
 
-let nextId = 0;
-
-/** A label above a control, the way the other dialogs lay out a field. */
-function field(labelText, control, help = null) {
-  const wrap = make("div", "field");
-  control.id ||= `gd-${(nextId += 1)}`;
-  const label = make("label", "field__label", labelText);
-  label.htmlFor = control.id;
-  wrap.append(label, control);
-  if (help) wrap.append(make("p", "field__help", help));
-  return wrap;
-}
-
-function number(value, min = 0, label = "") {
-  const input = Object.assign(make("input", "field__control gd-number"), { type: "number", min, step: 1, value: String(value) });
-  if (label) input.setAttribute("aria-label", label);
-  return input;
-}
-
-function select(options, value, label = "") {
-  const el = make("select", "field__control");
-  for (const [key, text, disabled] of options) {
-    const option = new Option(text, key);
-    option.disabled = Boolean(disabled);
-    el.append(option);
-  }
-  el.value = value;
-  if (label) el.setAttribute("aria-label", label);
-  return el;
-}
-
-/** Ticked chips (the rule builder's `rb-chip`) for a few choices of which several may be on. */
-function checkChips(label, choices, chosen, onChange) {
-  const group = make("div", "rb-choices");
-  group.setAttribute("role", "group");
-  group.setAttribute("aria-label", label);
-  for (const [key, text] of choices) {
-    const wrap = make("label", "rb-chip");
-    const box = Object.assign(make("input", "rb-chip__input"), { type: "checkbox", checked: chosen.includes(key) });
-    box.dataset.choice = key;
-    box.addEventListener("change", () => onChange(key, box.checked));
-    const tick = make("span", "rb-chip__tick");
-    tick.append(icon("check"));
-    wrap.append(box, tick, make("span", "", text));
-    group.append(wrap);
-  }
-  return group;
-}
-
-function section(title, ...children) {
-  const box = make("fieldset", "gd-section");
-  box.append(make("legend", "gd-section__title", title), ...children);
-  return box;
-}
-
 /** What the window needs from the server once per page: the guard schema of the rule system. */
 let schemaOnce = null;
 export const loadSchema = () => (schemaOnce ??= request("/api/rules/schemas/guard").catch((error) => {
   schemaOnce = null;
+  throw error;
+}));
+
+/** The form manifest of the editor (`GET /api/forms/guard`, in the language of the page), once per page. */
+let formOnce = null;
+export const loadForm = () => (formOnce ??= request("/api/forms/guard").catch((error) => {
+  formOnce = null;
   throw error;
 }));
 
@@ -167,13 +117,14 @@ export class GuardEditor {
     this.state = state;
     this.#setError("");
     try {
-      const [schema, actions] = await Promise.all([loadSchema(), request("/api/actions")]);
+      const [schema, actions, manifest] = await Promise.all([loadSchema(), request("/api/actions"), loadForm()]);
+      this.manifest = manifest;
       this.serverSchema = schema;
       this.schema = model.builderSchema(schema);
       this.actions = actions;
     } catch {
       this.actions ??= [];
-      if (!this.serverSchema) throw new Error(t("guards.not_loaded"));
+      if (!this.serverSchema || !this.manifest) throw new Error(t("guards.not_loaded"));
     }
     this.nameText.setText(state.name);
     const count = guard?.used_by ?? 0;
@@ -191,214 +142,51 @@ export class GuardEditor {
   #draw() {
     const parts = [];
     if (this.attachTo) parts.push(make("p", "field__help gd-scope", t(`guards.attach_after_save_${this.attachTo.type}`, { name: this.attachTo.name })));
-    parts.push(this.#settingsPart(), this.#logicPart());
-    this.body.replaceChildren(...parts);
-  }
-
-  // ── Settings ──────────────────────────────────────────────────────
-
-  #settingsPart() {
-    const part = make("section", "gd-part");
-    part.dataset.guardPart = "settings";
-    const heading = make("h3", "gd-part__title", t("guards.settings"));
-    heading.id = `gd-settings-${(nextId += 1)}`;
-    part.setAttribute("aria-labelledby", heading.id);
+    const host = make("div", "gd-formhost");
     this.previewEl = make("p", "field__help gd-preview");
     this.previewEl.setAttribute("role", "status");
-    part.append(heading, this.#scopesPart(), this.#triggerPart(), this.#conditionPart(), this.#escalationPart(), this.#consequencePart(), this.previewEl);
-    return part;
-  }
-
-  #scopesPart() {
-    const s = this.state;
-    const chips = checkChips(
-      t("guards.can_watch"),
-      model.SCOPES.map((scope) => [scope, t(`guards.scope.${scope}`)]),
-      s.scope_types,
-      (scope, on) => {
-        const chosen = new Set(s.scope_types);
-        if (on) chosen.add(scope);
-        else chosen.delete(scope);
-        s.scope_types = model.SCOPES.filter((x) => chosen.has(x));
-      },
-    );
-    chips.dataset.guardScopes = "";
-    return section(t("guards.can_watch"), chips);
-  }
-
-  #triggerPart() {
-    const s = this.state;
-    const kinds = make("div", "gd-chips");
-    kinds.setAttribute("role", "group");
-    kinds.setAttribute("aria-label", t("guards.trigger"));
-    for (const kind of ["event", "interval"]) {
-      const chip = make("button", "chip-button", t(`guards.trigger_${kind}`));
-      chip.type = "button";
-      chip.setAttribute("aria-pressed", String(s.trigger.type === kind));
-      chip.addEventListener("click", () => {
-        s.trigger =
-          kind === "event"
-            ? { type: "event", events: s.trigger.events ?? ["enter"] }
-            : { type: "interval", every_seconds: s.trigger.every_seconds ?? 60, for_seconds: s.trigger.for_seconds ?? 0, cooldown_seconds: s.trigger.cooldown_seconds ?? 0 };
-        this.#redraw();
-      });
-      kinds.append(chip);
-    }
-    const box = section(t("guards.trigger"), kinds);
-    if (s.trigger.type === "event") {
-      const events = checkChips(
-        t("guards.events"),
-        model.EVENTS.map((name) => [name, t(`guards.event.${name}`)]),
-        s.trigger.events,
-        (name, on) => {
-          const chosen = new Set(s.trigger.events);
-          if (on) chosen.add(name);
-          else chosen.delete(name);
-          s.trigger.events = model.EVENTS.filter((e) => chosen.has(e));
-          this.#changed();
-        },
-      );
-      box.append(events, make("p", "field__help", t("guards.event_help")));
-    } else {
-      const row = make("div", "gd-row");
-      for (const key of ["every_seconds", "for_seconds", "cooldown_seconds"]) {
-        const input = number(s.trigger[key] ?? 0, key === "every_seconds" ? 1 : 0);
-        input.addEventListener("input", () => {
-          s.trigger[key] = Math.max(0, Math.round(Number(input.value) || 0));
-          this.#changed();
-        });
-        row.append(field(t(`guards.${key}`), input));
-      }
-      box.append(row, make("p", "field__help", t("guards.interval_help")));
-    }
-    return box;
-  }
-
-  #conditionPart() {
-    const host = make("div");
-    this.builder = new RuleBuilder(host, this.schema, {
-      onChange: (tree) => {
-        this.state.when = tree;
-        this.#changed();
-      },
+    parts.push(host, this.previewEl);
+    this.body.replaceChildren(...parts);
+    this.form = new FormView(host, {
+      manifest: this.manifest,
+      values: this.state,
+      context: this.#context(),
+      overrides: this.#overrides(),
+      normalize: (values, key) => this.#normalize(values, key),
+      onChange: () => this.#changed(),
     });
-    this.builder.load(this.state.when);
-    return section(t("guards.condition"), host);
   }
 
-  #escalationPart() {
-    const s = this.state;
-    const table = make("div", "gd-steps");
-    s.escalation.forEach((step, i) => {
-      const row = make("div", "gd-step");
-      row.setAttribute("role", "group");
-      row.setAttribute("aria-label", t("guards.step_n", { n: i + 1 }));
-      const from = number(step.from_firing, 1, t("guards.from_firing"));
-      from.addEventListener("input", () => {
-        step.from_firing = Math.max(1, Math.round(Number(from.value) || 1));
-        this.#changed();
-      });
-      const unit = step.every_runs != null ? "runs" : "seconds";
-      const amount = number(step.every_runs ?? step.every_seconds ?? 1, 1, t("guards.every_amount"));
-      const kind = select([["runs", t("guards.rounds")], ["seconds", t("components.rule_builder.units.seconds")]], unit, t("guards.every_unit"));
-      const update = () => {
-        const n = Math.max(1, Math.round(Number(amount.value) || 1));
-        delete step.every_runs;
-        delete step.every_seconds;
-        step[kind.value === "runs" ? "every_runs" : "every_seconds"] = n;
-        this.#changed();
-      };
-      amount.addEventListener("input", update);
-      kind.addEventListener("change", update);
-      const bin = make("button", "icon-button icon-button--sm is-danger");
-      bin.type = "button";
-      bin.setAttribute("aria-label", t("guards.remove_step"));
-      bin.title = t("guards.remove_step");
-      bin.append(icon("trash"));
-      bin.addEventListener("click", () => {
-        s.escalation.splice(i, 1);
-        this.#redraw();
-      });
-      row.append(make("span", "gd-step__text", t("guards.from_firing")), from, make("span", "gd-step__text", t("guards.every")), amount, kind, bin);
-      table.append(row);
-    });
-    const add = make("button", "button button--ghost button--sm");
-    add.type = "button";
-    add.append(icon("plus"), document.createTextNode(t("guards.add_step")));
-    add.disabled = s.escalation.length >= MAX_STEPS;
-    add.addEventListener("click", () => {
-      const last = s.escalation.at(-1);
-      s.escalation.push({ from_firing: last ? last.from_firing + 1 : 1, every_runs: 5 });
-      this.#redraw();
-    });
-    return section(t("guards.escalation"), make("p", "field__help", t("guards.escalation_help")), table, add);
+  /** What the custom widgets of the form need: the rule schema, the actions to pick from and the two buttons. */
+  #context() {
+    return {
+      ruleSchema: this.schema,
+      actions: this.actions,
+      newAction: () => this.#newAction(),
+      editAction: () => this.#save({ openAction: true }),
+    };
   }
 
-  #consequencePart() {
-    const s = this.state;
+  /** What the code decides for the form: which consequences exist (the ones not built yet are shown but cannot be chosen). */
+  #overrides() {
     const consequences = this.serverSchema.consequences;
-    const options = consequences.map((c) => [c.key, c.available ? t(`guards.consequence.${c.key}`) : `${t(`guards.consequence.${c.key}`)} (${t(`guards.needs.${c.key}`)})`, !c.available]);
-    const chooser = select(options, s.consequence);
-    chooser.dataset.guardConsequence = "";
-    chooser.addEventListener("change", () => {
-      s.consequence = chooser.value;
-      this.#redraw();
-    });
+    const options = consequences.map((c) => ({
+      value: c.key,
+      label: c.available ? t(`guards.consequence.${c.key}`) : `${t(`guards.consequence.${c.key}`)} (${t(`guards.needs.${c.key}`)})`,
+      disabled: !c.available,
+    }));
     const unavailable = consequences.filter((c) => !c.available).map((c) => t(`guards.needs.${c.key}`));
-    const box = section(t("guards.then"), field(t("guards.consequence_label"), chooser, unavailable.length ? t("guards.not_yet", { list: unavailable.join("; ") }) : null));
-    if (s.consequence === "run_action") {
-      const fallback = select(FALLBACKS.map((f) => [f, t(`guards.consequence.${f}`)]), s.fallback ?? "pause");
-      fallback.addEventListener("change", () => (s.fallback = fallback.value));
-      box.append(field(t("guards.fallback"), fallback, t("guards.fallback_help")));
-    }
-    return box;
+    return { consequence: { options, help: unavailable.length ? t("guards.not_yet", { list: unavailable.join("; ") }) : undefined } };
   }
 
-  // ── Logic ─────────────────────────────────────────────────────────
-
-  /** The guard's own action: the Definition select with New and Edit, as in a node's settings. */
-  #logicPart() {
-    const s = this.state;
-    const part = make("section", "gd-part");
-    part.dataset.guardPart = "logic";
-    const heading = make("h3", "gd-part__title", t("guards.logic"));
-    heading.id = `gd-logic-${(nextId += 1)}`;
-    part.setAttribute("aria-labelledby", heading.id);
-    part.append(heading, make("p", "field__help", t("guards.logic_help")));
-    if (s.consequence !== "run_action") {
-      const use = make("button", "button button--ghost button--sm");
-      use.type = "button";
-      use.dataset.useAction = "";
-      use.append(icon("action"), document.createTextNode(t("guards.use_action")));
-      use.addEventListener("click", () => {
-        s.consequence = "run_action";
-        this.#redraw();
-        this.body.querySelector("[data-guard-action]")?.focus();
-      });
-      part.append(make("p", "field__help", t("guards.logic_off")), use);
-      return part;
-    }
-    const chooser = select([["", t("guards.action_none")], ...this.actions.map((a) => [a.id, a.name])], s.action_id ?? "");
-    chooser.dataset.guardAction = "";
-    chooser.addEventListener("change", () => {
-      s.action_id = chooser.value || null;
-      this.#redraw();
-    });
-    const bar = make("div", "ge-actionbar gd-actionbar");
-    const newButton = make("button", "button button--ghost button--sm");
-    newButton.type = "button";
-    newButton.dataset.newAction = "";
-    newButton.append(icon("plus"), document.createTextNode(t("common.new")));
-    newButton.addEventListener("click", () => this.#newAction());
-    const edit = make("button", "button button--ghost button--sm");
-    edit.type = "button";
-    edit.dataset.editAction = "";
-    edit.append(icon("pencil"), document.createTextNode(t("common.edit")));
-    edit.title = t("guards.edit_saves_first");
-    edit.addEventListener("click", () => this.#save({ openAction: true }));
-    bar.append(newButton, edit);
-    part.append(field(t("guards.action_label"), chooser, s.action_id ? t("guards.edit_saves_first") : t("guards.action_made_on_save")), bar);
-    return part;
+  /** Switching the kind of trigger gives it what that kind needs (and drops what the other one had). */
+  #normalize(values, key) {
+    if (key !== "trigger.type") return;
+    const trigger = values.trigger;
+    values.trigger =
+      trigger.type === "event"
+        ? { type: "event", events: trigger.events ?? ["enter"] }
+        : { type: "interval", every_seconds: trigger.every_seconds ?? 60, for_seconds: trigger.for_seconds ?? 0, cooldown_seconds: trigger.cooldown_seconds ?? 0 };
   }
 
   /** A new, empty action definition for this guard, chosen at once (saved with the guard). */
@@ -406,23 +194,16 @@ export class GuardEditor {
     const name = t("guards.new_action_name", { name: this.state.name.trim() || t("guards.guard") });
     try {
       const created = await send("/api/actions", "POST", { name });
-      this.actions = [...this.actions, created].sort((a, b) => a.name.localeCompare(b.name));
-      this.state.action_id = created.id;
-      this.#redraw();
-      this.body.querySelector("[data-guard-action]")?.focus();
+      this.actions.push(created);
+      this.actions.sort((a, b) => a.name.localeCompare(b.name));
+      this.form.set("action_id", created.id);
+      this.form.focus("action_id");
     } catch (error) {
       this.#setError(error.detail ?? t("guards.could_not_save"));
     }
   }
 
   // ── keeping it up to date ─────────────────────────────────────────
-
-  #redraw() {
-    const focusKey = document.activeElement?.textContent;
-    this.#draw();
-    if (focusKey) [...this.body.querySelectorAll("button")].find((b) => b.textContent === focusKey)?.focus();
-    this.#changed();
-  }
 
   #changed() {
     clearTimeout(this.timer);
@@ -460,8 +241,9 @@ export class GuardEditor {
         this.nameText.element.querySelector(".inline-name__check")?.click();
       }
     }
+    const fieldsOk = this.form.validate();
     const problem = model.problem(this.state, this.schema);
-    if (problem) return this.#setError(problem);
+    if (problem || !fieldsOk) return this.#setError(problem || t("guards.fix_marked"));
     const body = model.body(this.state);
     this.saveButton.disabled = true;
     try {

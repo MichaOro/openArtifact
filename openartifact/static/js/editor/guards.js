@@ -4,12 +4,14 @@
  * action's as a badge on its card. The shield's tooltip says how many guards are configured there; a click opens the
  * popup of that scope's guards (guards/guard-popover.js): their names, the on/off switch and Detach, a name opens the
  * definition in the guard editor (guards/editor-window.js). The Guard entries (the "+" menu, a stage's "+", an action's
- * menu and settings) open the same popup as "Add a guard": attach a definition of the library or make a new one. */
+ * menu and settings) open the same popup as "Add a guard": "New guard…" makes a new definition, "Attach guard…" opens the
+ * attach dialog (a combobox of the guards that are not attached here yet). */
 import { icon } from "../components/icons.js";
 import { Modal } from "../components/modal.js";
 import { request } from "../http.js";
 import { t } from "../i18n.js";
 import { GuardEditor, loadSchema } from "../guards/editor-window.js";
+import { GuardAttachDialog } from "../guards/attach-dialog.js";
 import { GuardPopover } from "../guards/guard-popover.js";
 import * as model from "../guards/model.js";
 
@@ -58,8 +60,18 @@ export class EditorGuards {
       onSaved: () => this.load(),
       onDeleted: () => this.load(),
     });
+    this.attachDialog = new GuardAttachDialog(new Modal(document.getElementById("guard-attach-modal")), {
+      attach: async (guard, scope) => {
+        await this.#change(() => send(ATTACHMENTS, "POST", { guard_id: guard.id, pipeline_id: this.pipelineId, scope_type: scope.type, scope_id: scope.type === "pipeline" ? null : scope.id }));
+        this.#popup("add", scope.type, scope.id, this.opener); // back to the popup, now with the guard under "Attached here"
+      },
+    });
     this.popover = new GuardPopover({
-      attach: (guard) => this.#change(() => send(ATTACHMENTS, "POST", { guard_id: guard.id, pipeline_id: this.pipelineId, scope_type: this.scope.type, scope_id: this.scope.type === "pipeline" ? null : this.scope.id })),
+      chooseAttach: () => {
+        this.opener = this.popover.trigger;
+        this.popover.close({ restoreFocus: false });
+        this.attachDialog.open({ scope: this.scope, guards: this.guards, schema: this.schema });
+      },
       toggle: (attachment, on) => this.#change(() => send(`${ATTACHMENTS}/${attachment.id}/enabled`, "PUT", { enabled: on })),
       detach: (attachment) => this.#change(() => send(`${ATTACHMENTS}/${attachment.id}`, "DELETE")),
       open: (guard) => this.#openWindow(() => this.window.open(guard)),
