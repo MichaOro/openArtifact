@@ -154,6 +154,24 @@ Two conveniences keep files short. `use: name` takes a setting from `graph/nodes
 win): `on_failure`, `operator`, `query`, ... A block `{repeat: N, settings: [...]}` (or a port with `repeat`) is written N
 times with `{n}` for the number; `first:` holds what only the first copy has (a help text said once).
 
+**A place held in the "+" menu.** Something that is not a kind of node but should already have an entry (*Guard*, before it
+exists) is declared under `placeholders:` in `graph/nodes/_menu.yaml`, not as a manifest:
+
+```yaml
+placeholders:
+- key: guard          # lower case; no kind and no other placeholder may have it
+  label: Guard        # shown; a locale file may translate it: nodes.placeholders.guard.label
+  icon: shield        # an icon of templates/components/icons.html
+  group: Structure    # a cluster of `groups:` above
+  order: 3            # its place in the cluster (Stage 1, Pipeline 2)
+  scopes: [pipeline, action]   # in which editors it is offered
+  soon: true          # shows the "Soon" tag
+```
+
+`manifest.read_placeholders()` validates the list (a bad entry is refused with `_menu.yaml` in the message). The editor page
+carries it (`data-menu-placeholders`); `addableIn` still lists kinds only, so choosing a placeholder can never add a node: it
+shows a notice. To build the feature later, give it a kind or a service of its own and remove the entry.
+
 What a manifest cannot do: run code; add a kind that is not a `NodeKind` member and has no executor (kinds are rows of the
 `graph_nodes.kind` constraint, ADR-054 §4); change how a structural behaviour connects. **Loading manifests from a directory
 of the operator (for third-party kinds) is not enabled yet**: `node_types.load(directory)` already reads any directory, but

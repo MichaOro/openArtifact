@@ -30,7 +30,7 @@ dark theme, every state and the contrast rules without writing any CSS for them.
 | Icon only | `icon-button` (small: `icon-button icon-button--sm`) | A command with an icon and no text. It needs an accessible name: `aria-label` (or a visible tooltip name). |
 | Icon only, destructive | `icon-button is-danger` | A delete icon: it turns red on hover and focus. |
 | Chip (toggle) | `chip-button` with `aria-pressed="true|false"` | A filter or a switch among a few: *All / Comments / Executions / Changes*. |
-| Chip (small action) | `chip-button` without `aria-pressed` | A compact action in a tight place, such as *Action* in a stage header. |
+| Chip (small action) | `chip-button` without `aria-pressed` | A compact action in a tight place. |
 
 Sizes: the default is 2.5 rem high; `button--sm` (and every `.action-row`) is 2 rem. `button--md` brings one button back to
 the full size inside a compact container.
@@ -95,6 +95,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A person or system as a round shaded circle | `avatar.js` (the kind is the icon and the accessible name; `initials` for a person later) |
 | The marker of a timeline entry | `tasks/history-marker.js` |
 | A chip with a status | `.history-chip` in `history.css` |
+| A quiet label that is not a control ("Soon") | `.tag` in `components.css` (`--accent-soft` fill, primary text); in a menu: the `tag` option of `action-menu.js` |
 | A bar for selected rows | `selection.js` and `bulk-bar.js` |
 | A guard against leaving unsaved changes | `leave-guard.js` |
 | A collapsible rail or a navigation group | `collapsible-nav.js`, `nav-group.js` |

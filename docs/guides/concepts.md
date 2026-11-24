@@ -89,6 +89,14 @@ you pressed (source = the output, target = the input). A press on a port never m
 move it. While the pointer is on a port the bar under the node steps aside, so the Agent's *Tools* port at the lower
 edge can be pressed too.
 
+**Adding to a pipeline.** The "+" at the lower left of the canvas lists what can be added, in clusters; *Guard* sits in *Structure*
+after *Pipeline*. The "+" in the header of a stage opens a small menu: **Action** adds an action to that stage, **Guard** is next
+to it. The menu of an action node (right click, or the "…" under it) has a **Guard** entry as well, and the "+" inside an
+action definition lists it too. **Guard entries are placeholders for a coming feature**: a guard will watch a pipeline, stage
+or action and step in when something happens, for example after every fifth round, and its logic will be edited like an
+action. Today each entry carries a quiet *Soon* tag; choosing it adds and saves nothing and shows a notice that guards are not
+available yet.
+
 **Stage.** A container in a pipeline. It holds actions and connects to the next stage. Its start feeds
 the first action; its end is fed by the last actions and leads on.
 
