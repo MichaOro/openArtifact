@@ -103,6 +103,15 @@ you pressed (source = the output, target = the input). A press on a port never m
 move it. While the pointer is on a port the bar under the node steps aside, so the Agent's *Tools* port at the lower
 edge can be pressed too.
 
+**Connecting to a new node.** Release the line on the empty canvas (or an empty stretch of a stage) instead of on a port and
+the same menu as the "+" opens at the pointer, headed "Connects from: node · port" and listing only the kinds that can
+connect there (from an Agent's *Tools* port only tools; inside a stage in a pipeline only an action). The one you choose is
+made where the line ended, with the port that fits connected at once (a line close to the level of the dragged port is made
+straight; a tool hangs below its agent). The connection that already left the dragged output is replaced and the notice names
+the node it let go; an input may be fed by several nodes, so those stay. The new node is only selected, its settings stay
+closed. Escape or a click elsewhere cancels without changing anything; if the server refuses the connection its message is
+shown and the new node is taken back. A read-only flow does none of this.
+
 **Adding to a pipeline.** The "+" at the lower left of the canvas lists what can be added, in clusters; *Guard* sits in *Structure*
 after *Pipeline*. The "+" in the header of a stage opens a small menu: **Action** adds an action to that stage, **Guard** is next
 to it. The menu of an action node (right click, or the "…" under it) has a **Guard** entry as well, and so does the "+" inside an
