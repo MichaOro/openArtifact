@@ -312,3 +312,27 @@ def test_a_failure_in_the_middle_changes_nothing(
 
     assert _flag(client, definition) is False
     assert [_mode(client, pipeline, u) for u in uses] == ["fail", "fail"]
+
+
+def test_other_graphs_that_changed_are_announced_so_open_editors_reload(
+    client: TestClient, published: list[tuple[str, dict[str, Any]]]
+) -> None:
+    definition = build_definition(client, "Work")
+    pipeline, uses = _uses(client, definition, 1)
+    published.clear()
+
+    _patch(client, definition, kind_of(client, definition, "output"), fail_enabled=True)
+
+    assert ("graph.changed", {"graph_ids": [pipeline["id"]]}) in published
+    published.clear()
+    _patch(
+        client, pipeline, uses[0], config={"on_failure": "fail"}
+    )  # the definition's On Fail goes off too
+    assert [e for e in published if e[0] == "graph.changed"] == [
+        ("graph.changed", {"graph_ids": [definition["id"]]})
+    ]
+    published.clear()
+    _patch(
+        client, pipeline, uses[0], name="Renamed"
+    )  # nothing changed elsewhere: nothing to announce
+    assert [e for e in published if e[0] == "graph.changed"] == []

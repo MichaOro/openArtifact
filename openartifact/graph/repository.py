@@ -455,7 +455,7 @@ class GraphRepository:
                     "count": inner,
                 }
             )
-            report.graphs.add(definition_id)
+        report.graphs.add(definition_id)  # its Output has no On Fail now
         if total:
             report.notices.append(_disconnected(total, places, inner))
         await self._session.flush()
