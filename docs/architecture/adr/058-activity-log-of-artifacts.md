@@ -4,6 +4,7 @@
 **Date:** 2026-11-24  
 **Supersedes:** —  
 **Superseded by:** —  
+**Amended by:** [ADR-060](060-guards.md) (the `guard` entry)  
 **Amends:** [ADR-025](025-execution-history-and-retention.md) (a deleted execution leaves a trace), [ADR-055](055-comments-on-artifacts.md) (the identity rules are reused for changes)  
 **Implemented in:** migrations 0044 (`task_activity`, backfilled with one `created` entry per artifact) and 0045 (comments in the activity, slimmer traces); `openartifact/activity/` (`recorder.py`, `service.py`, `schemas.py`), `models/board.py` (`TaskActivity`), `tasks/service.py` (`create`, `update` record changes under an `actor`), `engine/history.py` (`remove` writes the trace), `api/activity.py`, `api/tasks.py`, `api/v1.py`, `api/mcp.py` (`list_activity`), `api/hardening.py` (pages are revalidated); `comments/service.py` (writes and replaces the comment entries), `static/js/tasks/activity-model.js`, `activity-rows.js`, `history-marker.js`, `activity-api.js`, `history-tab.js`, `comments-tab.js`, `templates/components/history_panel.html`; tests `tests/test_activity.py`, `tests/e2e/test_activity.py`, `tests/js/activity-model.test.mjs`  
 **Affected chapters:** guides [concepts](../../guides/concepts.md), [execution history](../../guides/execution-history.md), [API reference](../../guides/api-reference.md), [integration](../../guides/integration.md), [operations](../../guides/operations.md); arc42 [05.01](../arc42/05-building-block-view/05.01-domain-model.md), [05.05](../arc42/05-building-block-view/05.05-interfaces.md), [08.07](../arc42/08-cross-cutting-concepts/08.07-history-and-retention.md)
@@ -103,3 +104,9 @@ facts are of no use, and the time that matters is when it was *deleted*. Changed
 Consequence: the first page of the activity is 200 entries so the "created" anchor is usually at hand; an artifact with
 more than 200 entries shows the anchor only after "Show older" has fetched the rest. Not recorded still: starting and
 stopping a run, editing a comment.
+
+## Update 2026-11-24: guard entries (ADR-060)
+
+A guard that fires writes an entry of kind `guard`: actor `system` with the guard's name, the execution, and `data` with
+the scope, trigger, event, consequence, outcome and the facts it fired on. The timeline shows it with a shield marker
+under *Executions*.

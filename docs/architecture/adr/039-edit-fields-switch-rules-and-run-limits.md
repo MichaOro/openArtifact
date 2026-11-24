@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-013](013-execution-engine-and-runs.md) §4, [ADR-033](033-run-context.md), [ADR-034](034-branching-nodes-and-reference-suggestions.md)  
-**Amended by:** —  
+**Amended by:** [ADR-060](060-guards.md) (guards: a limit of their own per run)  
 **Implemented in:** migration 0034 (kind `set`, table `app_settings`); `engine/fields.py`, `engine/branching.py`
 (`evaluate_switch`), `engine/limits.py`, `engine/runner.py` (`_Walk.limits`, the time limit in `_execute`), `engine/flow.py`
 (`MAX_ACTIONS`), `graph/node_types.py` (`SetType`, `switch_case_used`, the case settings), `graph/repository.py`,

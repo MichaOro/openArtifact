@@ -52,6 +52,10 @@ The database is SQLite in WAL mode and stays so ([ADR-020](../architecture/adr/0
 |----------|------|---------|--------|---------|
 | `OPENARTIFACT_MAX_CONCURRENT_RUNS` | integer | `8` | at least 1 | Pipeline runs that may be active at the same time; a further start gets `429`. |
 | `OPENARTIFACT_MAX_SSE_SUBSCRIBERS` | integer | `50` | at least 1 | Open live-update streams (browser tabs); a further one gets `503`. |
+| `OPENARTIFACT_GUARD_MIN_INTERVAL_SECONDS` | number | `30` | 0.1 to 86400 | The shortest interval an interval guard may check at; a guard asking for less is refused (`422`) ([Guards](guards.md)). |
+| `OPENARTIFACT_GUARD_MAX_FIRINGS` | integer | `20` | 1 to 10000 | Firings of one guard on one scope in one run; the next one is skipped and the cap is recorded once. |
+| `OPENARTIFACT_GUARD_TIMEOUT_SECONDS` | number | `600` | 0.1 to 86400 | How long a guard (its condition and its own action) may take; then it is recorded as failed and the flow goes on. |
+| `OPENARTIFACT_HEARTBEAT_MIN_SPACING_SECONDS` | number | `1` | 0 to 3600 | The shortest spacing of two heartbeats of one execution; a closer one gets `429`. |
 
 The limits of a single execution (how many steps, how much time) are not environment variables: they are set on
 *Settings > Run limits* in the web interface or with `PUT /api/v1/settings/run-limits`, take effect for the executions

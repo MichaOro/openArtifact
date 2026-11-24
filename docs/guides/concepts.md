@@ -92,10 +92,15 @@ edge can be pressed too.
 **Adding to a pipeline.** The "+" at the lower left of the canvas lists what can be added, in clusters; *Guard* sits in *Structure*
 after *Pipeline*. The "+" in the header of a stage opens a small menu: **Action** adds an action to that stage, **Guard** is next
 to it. The menu of an action node (right click, or the "…" under it) has a **Guard** entry as well, and the "+" inside an
-action definition lists it too. **Guard entries are placeholders for a coming feature**: a guard will watch a pipeline, stage
-or action and step in when something happens, for example after every fifth round, and its logic will be edited like an
-action. Today each entry carries a quiet *Soon* tag; choosing it adds and saves nothing and shows a notice that guards are not
-available yet.
+action definition does not (it has no pipeline to attach a guard to). Each **Guard** entry opens the Guard window for a guard of
+the pipeline, that stage or that action ([Guards](guards.md)).
+
+**Guard.** A specialised action that watches a pipeline, a stage or an action while it runs and is triggered by an event of
+it (entered, an action passed or erred, left, the run fails; the flow waits for the guard) or by an interval. It tests a
+condition over the scope's facts (rounds, time in it, time without progress, errors, …) and then pauses, aborts, continues
+or runs its own action (an ordinary action definition). Guards are shield chips (in the tool bar, a stage's header, an
+action's settings), never nodes of the canvas; every firing is an entry of the artifact's History with the facts it fired on
+([Guards](guards.md), [ADR-060](../architecture/adr/060-guards.md)).
 
 **Stage.** A container in a pipeline. It holds actions and connects to the next stage. Its start feeds
 the first action; its end is fed by the last actions and leads on.

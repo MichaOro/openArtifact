@@ -215,6 +215,9 @@ Tools (14; all go through the same service as the browser and the REST API; argu
 | `get_processing_status(artifact)` | Run state, or `never processed` |
 | `get_processing_results(artifact)` | Steps inside action definitions with output, exit code, reason |
 | `list_activity(artifact, limit?, before?)` | What changed on the artifact and who did it, newest first |
+| `list_guards(pipeline?)` | The guards of the pipelines ([Guards](guards.md)) |
+| `set_guard_enabled(guard, enabled)` | Switch a guard on or off |
+| `heartbeat(execution_id, note?)` | Say that a running execution still makes progress |
 | `list_comments(artifact, limit?)` | The artifact's comments, oldest first |
 | `add_comment(artifact, text, author?)` | Add a comment; written under the name of your token |
 | `list_executions(artifact, limit?)` | The artifact's executions without steps |
@@ -261,3 +264,16 @@ replayed.
 
 The Host check, cookie flags and body limit are described in [Reverse proxy](reverse-proxy.md) and the
 [configuration reference](configuration.md). Do not publish the port to the network without a token.
+
+## Guards and the heartbeat
+
+Guards ([Guards](guards.md)) are managed under `/api/v1/guards` (list, create, change, `PUT .../enabled`,
+delete). An agent or a tool that works for a long time inside one action can keep a stall guard quiet with a heartbeat:
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $OPENARTIFACT_API_TOKEN" -H "Content-Type: application/json" \
+  -d '{"note": "still compiling"}' "$BASE/api/v1/executions/$EXECUTION_ID/heartbeat"
+```
+
+It answers `{"execution_id", "at", "count"}`; 404 for an unknown execution, 409 when it is not running, 429 when it comes
+sooner than `OPENARTIFACT_HEARTBEAT_MIN_SPACING_SECONDS` after the last one. The execution id is `execution_id` of the run.

@@ -80,13 +80,20 @@ shows the executions newest first (up to 100) with their status, number, pipelin
 detail: the facts above and the steps, each expandable to its output and data. From there you can delete the
 execution (not while it runs: `409`) and clear all finished executions of the artifact (*Clear finished*). Everything updates live.
 
+**Guard entries.** A guard ([Guards](guards.md)) that fires writes an entry of the artifact's History with a shield marker,
+under *Executions*: "**Stall guard** fired at Build: paused the run (round 1, 15 min without progress)". The actor is the
+guard (`system`), the entry names its execution and keeps the facts it fired on; a guard that failed (the run went on),
+reached its cap or has a consequence that is not available yet says so. A run a guard paused is *stopped* with the reason as
+its note; one it aborted is *failed*.
+
 **The flow view.** From an execution, "Open flow" shows it as a graph on the editor's canvas, read-only, at
 `/artifacts/<number or id>/executions/<execution id>`. It draws the **frozen** pipeline with the path that was
 walked highlighted and the nodes that were never reached dimmed and dashed. You can drill into an action (its
 definition, with the walked nodes highlighted) and into a nested pipeline; the breadcrumb and the `?visit=N`
 in the address keep the place, so a link or a reload restores it. An action that ran several times shows
 each pass as its own visit. A side panel lists the steps of the place you are in; the output of a step is
-loaded when you open it. A running execution is followed live.
+loaded when you open it. A running execution is followed live. Under the header the flow view lists what the guards did in the execution, one line
+per firing with its facts.
 
 **The global page `/executions`** (sidebar "Executions"). The executions of **all** artifacts, newest first,
 with filters (status, origin, pipeline name or id, a text over artifact title, pipeline name and note or an

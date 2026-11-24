@@ -4,6 +4,7 @@
 **Date:** 2026-11-23  
 **Supersedes:** —  
 **Superseded by:** —  
+**Amended by:** [ADR-060](060-guards.md) (one rule system)  
 **Amends:** [ADR-039](039-edit-fields-switch-rules-and-run-limits.md) (settings storage is reused), the history retention of the execution history guide  
 **Implemented in:** `engine/retention.py`, `engine/history.py` (`apply_rules`), `engine/runner.py` (the two call sites), `api/settings.py` (`/settings/retention`, `/settings/retention/preview`, also under `/api/v1`), `api/executions.py` (`POST /api/executions/delete`); `static/js/components/rule-model.js`, `rule-builder.js`, `selection.js`, `bulk-bar.js`, `static/js/executions/retention-dialog.js`, `css/rule-builder.css`  
 **Affected chapters:** guide [execution history](../../guides/execution-history.md), [API reference](../../guides/api-reference.md)
@@ -42,3 +43,13 @@ to select several rows and delete them at once.
 
 A rule that is too wide deletes quickly and irreversibly, which is why saving shows the count and the button says
 *Save and delete N*. Every start and every finish runs one extra indexed query when rules exist.
+
+## Update 2026-11-24: one rule system (ADR-060)
+
+The rules are now the rule system of the application (`rules/`): a rule is a trigger, a condition tree and a
+consequence. The tree models and their bounds are `rules/tree.py`, which also evaluates a tree in memory over a mapping
+of facts (the guards use it); the fields, operators and checks of the retention rules are the `retention` schema of
+`rules/catalog.py` (their wording, their stored format and this ADR's behaviour are unchanged, the existing tests prove
+it) and `GET /api/rules/schemas` hands every schema to the rule builder. This module keeps the SQL compiler; a test shows
+that both evaluators agree on the same trees. The rule builder takes a field's `units` (seconds for guards), `number`
+values and result fields (`var.NAME`). Lane rules are the documented, planned `lane` schema.

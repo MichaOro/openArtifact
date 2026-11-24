@@ -109,6 +109,24 @@ Guide: [Agents and LLM providers](agents.md).
 | PATCH | `/api/v1/providers/{ref}/models/{id}` | `enabled`, `label` (`id` is the row's id) | 404, 422 |
 | DELETE | `/api/v1/providers/{ref}/models/{id}` | Delete a model defined by hand; `204` | 404, 409 |
 
+### Guards and heartbeat (ADR-060)
+
+| Method | Path | Purpose | Errors |
+|--------|------|---------|--------|
+| GET | `/api/v1/guards?pipeline_id=` | The guards (of one pipeline) | 422 |
+| POST | `/api/v1/guards` | Create: `pipeline_id`, `name`, `scope_type` (`pipeline`, `stage`, `action`), `scope_id`, `trigger` (`{"type": "event", "events"}` or `{"type": "interval", "every_seconds", "for_seconds", "cooldown_seconds"}`), `when` (a condition tree of the `guard` schema), `consequence` (`pause`, `abort`, `continue`, `run_action`), `fallback`, `escalation`, `definition_id`, `enabled`; `201` | 404, 422 (`notify`/`handover` not available yet, a guard on a guard, an interval under the minimum, a scope that is not in the pipeline) |
+| GET | `/api/v1/guards/{id}` | One guard | 404 |
+| PATCH | `/api/v1/guards/{id}` | Change; a field left out keeps its value | 404, 422 |
+| PUT | `/api/v1/guards/{id}/enabled` | `{"enabled": bool}`; off acts on running executions at once | 404, 422 |
+| DELETE | `/api/v1/guards/{id}` | Delete (its own action stays); `204` | 404 |
+| POST | `/api/v1/executions/{id}/heartbeat` | `{"note?"}` (200 characters): restart the stall clock of a running execution; answers `execution_id`, `at`, `count` | 404, 409 (not running), 429 (closer than the minimum spacing) |
+
+The browser has the same guard routes under `/api/guards` plus `GET /api/guards/templates`, `POST /api/guards/from-template`
+(`template`, `pipeline_id`, `scope_type`, `scope_id?`, `name?`) and `POST /api/guards/preview` (a guard's body: how many
+running scopes its condition holds for now, with their facts). `GET /api/rules/schemas` (and `/api/rules/schemas/{purpose}`)
+lists the fields, operators and consequences of the rule system (`retention`, `guard`, the planned `lane`). The flow of an
+execution carries `guards`: the counters per scope and guard, the last heartbeat and the firings with their facts.
+
 ### Settings (`/api/v1/settings`)
 
 | Method | Path | Purpose | Errors |
@@ -285,7 +303,7 @@ The HTML pages (`/`, `/pipelines`, `/pipelines/{ref}`, `/actions`, `/actions/{re
 
 ## MCP tools
 
-`/mcp` offers 19 tools over Streamable HTTP. They go through the same service as the REST API; a refused
+`/mcp` offers 22 tools over Streamable HTTP. They go through the same service as the REST API; a refused
 call returns the reason as the tool's error text. Artifacts are addressed by number (`12` or `#12`) or id.
 Pipeline, stage and action are given by name.
 
@@ -313,6 +331,9 @@ Pipeline, stage and action are given by name.
 | `list_agents` | | The agents: name, description, active, published version, number of nodes; read only |
 | `get_agent` | `agent` (name or id) | One agent: published configuration, draft, versions; read only |
 | `list_providers` | | The LLM providers with their models and the last connection test; never a key; read only |
+| `list_guards` | `pipeline?` (name or id) | The guards: scope, trigger, condition, consequence, escalation, enabled |
+| `set_guard_enabled` | `guard` (name or id), `enabled` | Switch a guard on or off (off acts on running executions at once) |
+| `heartbeat` | `execution_id`, `note?` | Restart the stall clock of a running execution |
 
 Not available through MCP, on purpose: creating, changing, publishing or deleting agents and providers, writing or deleting credentials, deleting executions, changing
 retention rules and reading one step's complete output (`get_execution` returns all steps).
