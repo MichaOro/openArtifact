@@ -20,6 +20,9 @@ class FormRead(forms.FormManifest):
     """A form manifest as the browser gets it: with the saved arrangement of the instance put over it (ADR-063)."""
 
     layout_customised: bool | None = None
+    #: With a saved arrangement: ``areas``, every area of the window in order (``key``, ``title``, ``column``, ``custom``),
+    #: the ones of the user's own and the empty ones too (the form itself only draws sections that hold a field).
+    layout: dict[str, Any] | None = None
 
 
 def _with_layout(form: forms.FormManifest, saved: dict[str, Any], language: str) -> dict[str, Any]:

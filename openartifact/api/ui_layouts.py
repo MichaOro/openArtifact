@@ -19,9 +19,11 @@ from openartifact.ui import forms, layout
 DESCRIPTION = (
     "The layout of a window: ``sections`` in order; a form's section has its ``column`` (1, 2, ``auto`` or ``full``) and the "
     "keys of its ``fields`` and the folded ``advanced`` ones, the window of a node kind has the sections ``definition`` and "
-    "``behaviour`` (left to right) with the order of their settings (a group of settings is one entry ``group:<name>``). "
-    "``shipped`` is what the manifest says, ``layout`` what applies now, ``customised`` whether they differ by a saved "
-    "layout. Keys the manifest no longer has are ignored, new ones appear at their default place."
+    "``behaviour`` (and areas of your own) with the settings each holds, in order (a group of settings is one entry "
+    "``group:<name>``). A field or setting may sit in any area; an area of your own is ``custom_<id>`` with a ``title`` "
+    "(1 to 40 characters, at most 12 per window) and is only a container. ``shipped`` is what the manifest says, "
+    "``layout`` what applies now, ``customised`` whether they differ by a saved layout. Keys the manifest no longer has "
+    "are ignored, new ones appear at their default place."
 )
 
 
@@ -58,7 +60,7 @@ def _read(window: str, description: dict[str, Any], saved: Any) -> dict[str, Any
     return {
         "window": window,
         "customised": saved is not None,
-        "layout": layout.shipped_layout(window, merged) if saved is not None else shipped,
+        "layout": layout.current_layout(window, merged) if saved is not None else shipped,
         "shipped": shipped,
     }
 
