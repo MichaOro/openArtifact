@@ -56,3 +56,24 @@ picks a catalog component and, where nothing fits, adds a variant to the catalog
   of disabled controls); the Stop state of that button is the destructive look from the catalog.
 - Not decided: a published, versioned package of the catalog for third parties and a living catalog page (the guide and the
   test matrix are the reference today); components other than buttons are listed but not yet covered by contrast tests.
+
+## 4. Addendum: dialogs are sized by their content
+
+The owner's rule, for every screen overlay: **as large as necessary, as small as possible, but cleanly readable.** A dialog
+with one select and three buttons had been about 700 px wide because every dialog took the width of the artifact dialog
+(or a width of its own in its own stylesheet).
+
+- **One rule in the one dialog definition** (`.modal__panel` in `modal.css`): the panel is `fit-content`, at least
+  `--dialog-min-w` (20 rem), at most `--dialog-cap-w` (40 rem) and never wider than the window minus the gutters; form
+  controls inside keep a usable width (16 rem). The widths that dialogs had in their own stylesheets (provider, version,
+  artifact fields, retention rules, node settings) are gone.
+- **Exceptions are named, with a reason, by one mechanism:** `data-dialog-size` (`wide`, `full`, `artifact`) and
+  `data-dialog-reason` on the `<dialog>`, set through the `modal()` macro. `wide` and `full` raise the cap only (the dialog
+  still shrinks to its content); `artifact` keeps the artifact dialog's own sizing from its content height, with the rail.
+- **The list is a test:** `tests/e2e/test_dialog_sizes.py` fails when a dialog is added to or removed from the declared
+  exceptions, when one has no reason, when a dialog without an exception is wider than the cap, when a small dialog (name,
+  confirmation) is not small and when a dialog does not fit a 360 or 320 px screen.
+- **Declared today** (the owner may change any of them): the artifact dialog (`artifact`), the settings of a node, the guard
+  window, the retention rules, the artifact fields and an agent version (`wide`). The node settings are declared `wide` only
+  for kinds with two columns; an action's settings (one select) are compact all the same, because `wide` raises the cap and
+  does not set a width.

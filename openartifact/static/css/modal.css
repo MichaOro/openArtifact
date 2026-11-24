@@ -24,23 +24,15 @@ html:has(.modal[open]) { overflow: hidden; }
 .modal__panel {
   /* margin:auto centres without clipping the top on short viewports */
   margin: auto;
-  /* the form column keeps its width; the card grows by however wide the rail is */
-  --rail-w-collapsed: 3.75rem;
-  --rail-w-open: 11rem;
-  --rail-w: var(--rail-w-collapsed);
-  /* the base width of every dialog (form column plus the collapsed rail) and what a saved artifact
-     may grow to: width = clamp(base, ratio * height, max) */
-  --dialog-base-w: 34.75rem;
-  --dialog-max-w: 800px;
-  --dialog-ratio: 0.62;
-  --form-w: min(calc(var(--dialog-base-w) - var(--rail-w-collapsed)), calc(100vw - 2 * var(--space-4) - var(--rail-w-open)));
-  width: calc(var(--form-w) + var(--rail-w));
-  /* keep the left edge (the form and the rail's icon column with the toggle) where it is while
-     the card grows rightwards; never push the right edge out of the viewport */
-  --grow: max(var(--rail-w) - var(--rail-w-collapsed), 0rem);
-  --free: calc(100vw - 2 * var(--space-4) - var(--form-w) - var(--rail-w-collapsed));
-  translate: min(calc(var(--grow) / 2), max(calc((var(--free) - var(--grow)) / 2), 0rem)) 0;
-  transition: --rail-w 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* A dialog is sized by its content (ADR-059, "Dialogs are sized by their content"): as large as necessary, as small as
+     possible, but cleanly readable. It shrinks to what it holds, never below --dialog-min-w, and grows to --dialog-cap-w,
+     beyond which its content wraps or scrolls. A dialog that needs more says so with data-dialog-size (and a reason). */
+  --dialog-min-w: 20rem;
+  --dialog-cap-w: 40rem;
+  --dialog-room: calc(100vw - 2 * var(--space-4));
+  width: fit-content;
+  min-width: min(var(--dialog-min-w), var(--dialog-room));
+  max-width: min(var(--dialog-cap-w), var(--dialog-room));
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background:
@@ -52,6 +44,37 @@ html:has(.modal[open]) { overflow: hidden; }
     0 28px 64px -16px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) + 10%), transparent);
   animation: modal-panel-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+/* The declared exceptions (one mechanism, listed in docs/guides/ui-catalog.md; tests/e2e/test_dialog_sizes.py holds the list):
+   wide  = still sized by its content, but may grow further (columns, rule builders, tables);
+   full  = up to the whole window;
+   artifact = the artifact dialog: a form column and a rail, sized once from its content height. */
+.modal[data-dialog-size="wide"] .modal__panel { --dialog-cap-w: 64rem; }
+.modal[data-dialog-size="full"] .modal__panel { --dialog-cap-w: 100vw; }
+/* (:where keeps the weight of the plain panel, so .modal__panel--fit below still wins where it must) */
+:where(.modal[data-dialog-size="artifact"]) .modal__panel {
+  /* the form column keeps its width; the card grows by however wide the rail is */
+  --rail-w-collapsed: 3.75rem;
+  --rail-w-open: 11rem;
+  --rail-w: var(--rail-w-collapsed);
+  /* the base width of the artifact dialog (form column plus the collapsed rail) and what a saved artifact
+     may grow to: width = clamp(base, ratio * height, max) */
+  --dialog-base-w: 34.75rem;
+  --dialog-max-w: 800px;
+  --dialog-ratio: 0.62;
+  --form-w: min(calc(var(--dialog-base-w) - var(--rail-w-collapsed)), calc(100vw - 2 * var(--space-4) - var(--rail-w-open)));
+  width: calc(var(--form-w) + var(--rail-w));
+  min-width: 0;
+  max-width: none;
+  /* keep the left edge (the form and the rail's icon column with the toggle) where it is while
+     the card grows rightwards; never push the right edge out of the viewport */
+  --grow: max(var(--rail-w) - var(--rail-w-collapsed), 0rem);
+  --free: calc(100vw - 2 * var(--space-4) - var(--form-w) - var(--rail-w-collapsed));
+  translate: min(calc(var(--grow) / 2), max(calc((var(--free) - var(--grow)) / 2), 0rem)) 0;
+  transition: --rail-w 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* Inside a dialog a control keeps a usable width, so a dialog with one select is compact but not a sliver. */
+.modal__panel .field__control { min-width: 16rem; max-width: 100%; }
+@media (max-width: 40rem) { .modal__panel .field__control { min-width: 0; } }
 
 .modal__header {
   display: flex;
@@ -92,8 +115,8 @@ html:has(.modal[open]) { overflow: hidden; }
 .modal__subtitle:empty { display: none; }
 
 @property --rail-w { syntax: "<length>"; inherits: true; initial-value: 3.75rem; }
-.modal__panel:has([data-card-nav][data-state="expanded"]) { --rail-w: var(--rail-w-open); }
-.modal__panel:has([data-card-nav][hidden]) { --rail-w: 0rem; }  /* create mode: no rail */
+:where(.modal[data-dialog-size="artifact"]) .modal__panel:has([data-card-nav][data-state="expanded"]) { --rail-w: var(--rail-w-open); }
+:where(.modal[data-dialog-size="artifact"]) .modal__panel:has([data-card-nav][hidden]) { --rail-w: 0rem; }  /* create mode: no rail */
 .modal__layout { display: grid; grid-template-columns: var(--form-w) var(--rail-w); }
 .modal__layout > .task-form,
 .modal__layout > .task-view { grid-column: 1; grid-row: 1; min-width: 0; }
@@ -154,11 +177,11 @@ html:has(.modal[open]) { overflow: hidden; }
 /* Too narrow for the card to grow without moving the form: the rail stays a fixed icon bar.
    820px = form (31rem) + rail growth (7.25rem, twice, because the card is centred) + gutters. */
 @media (max-width: 820px) {
-  .modal__panel { --rail-w-open: var(--rail-w-collapsed); }
+  :where(.modal[data-dialog-size="artifact"]) .modal__panel { --rail-w-open: var(--rail-w-collapsed); }
 }
 
 @media (max-width: 640px) {
-  .modal__panel { --form-w: calc(100vw - 2 * var(--space-3) - var(--rail-w-collapsed)); }
+  :where(.modal[data-dialog-size="artifact"]) .modal__panel { --form-w: calc(100vw - 2 * var(--space-3) - var(--rail-w-collapsed)); }
   .modal { padding: var(--space-3); }
   .modal__header { padding: var(--space-4) var(--space-4) var(--space-2); }
   .modal__body { padding: var(--space-2) var(--space-4) var(--space-3); }

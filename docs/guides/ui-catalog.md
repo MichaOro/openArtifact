@@ -103,7 +103,24 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | Settings that override a default | `settings-group.js`, `override-row.js`, `options-panel.js` |
 | Rules with all/any conditions | `rule-builder.js`, `rule-set.js` |
 | A `#` reference in a text | `reference-picker.js` |
-| An icon | `icons.js` (`icon("name")`), the paths in `templates/components/icons.html` |
+| An icon | `icons.js` (`icon("name")`), the paths in `templates/components/icons.html`; a node kind's glyph in the menus is its manifest's `menu_icon` (else `ui.icon`) |
+
+## Dialogs are sized by their content
+
+A dialog is **as large as necessary and as small as possible, but cleanly readable**. This holds for every overlay; the
+exceptions are named, not implied.
+
+- A dialog shrinks to what it holds, never below `--dialog-min-w` (20 rem), and grows to `--dialog-cap-w` (40 rem);
+  beyond that its text wraps and its body scrolls. On a narrow screen it is never wider than the window minus the gutters.
+- A form control inside a dialog keeps a usable width (16 rem) so that a dialog with one select is compact, not a sliver.
+- A dialog that needs more declares it on its `<dialog>` with `data-dialog-size` and says why in `data-dialog-reason`
+  (the `modal()` macro takes `size=` and `reason=`): `wide` (still sized by its content but may grow to 64 rem: columns,
+  rule builders, tables), `full` (up to the whole window) or `artifact` (the artifact dialog: a form column and a rail,
+  sized once from its content height).
+- `tests/e2e/test_dialog_sizes.py` holds the list of declared exceptions. Adding one is a decision that shows up in a diff:
+  the test names the dialog and the owner confirms it. Today: the artifact dialog (`artifact`), the dialog of a node's
+  settings, the guard window, the retention rules, the artifact fields and an agent version (`wide`).
+- Never set a fixed width on a dialog or on a single dialog's CSS: use the two tokens or declare the exception.
 
 ## Exceptions that exist today
 

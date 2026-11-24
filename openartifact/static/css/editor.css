@@ -329,8 +329,6 @@
 #node-modal .modal__header { position: absolute; top: var(--space-4); right: var(--space-4); z-index: 2; padding: 0; }
 #node-modal .modal__body { padding-top: var(--space-5); }
 #node-modal .ge-inspector__heading { padding-right: 2.5rem; }
-#node-modal .modal__panel { --dialog-base-w: 44rem; width: min(44rem, calc(100vw - 2 * var(--space-4))); translate: none; }
-#node-modal.is-wide .modal__panel { width: min(64rem, calc(100vw - 2 * var(--space-4))); }
 .ge-inspector {
   display: flex;
   flex-direction: column;
@@ -434,6 +432,9 @@
 @container (min-width: 44rem) {
   .ge-settings[data-columns="2"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); }
 }
+/* two columns need room (the container query above measures the dialog, which is no longer wide by itself): a node dialog
+   that shows both (inspector-panel.js sets is-wide) is at least this wide; an action's one select stays compact */
+#node-modal.is-wide .modal__panel { --dialog-min-w: 56rem; }
 .ge-settings__column { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .ge-settings__title { margin: 0; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary); }
 .ge-settings__group { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }

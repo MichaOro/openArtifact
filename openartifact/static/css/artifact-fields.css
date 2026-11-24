@@ -6,14 +6,6 @@
 .at-editor__removal[hidden] { display: none; }
 .board-menu { margin-left: var(--space-2); }
 
-/* ── The editor dialog: wider than the artifact dialog, no rail ───────────────────────────────── */
-#fields-modal .modal__panel {
-  --rail-w: 0rem;
-  --rail-w-collapsed: 0rem;
-  --rail-w-open: 0rem;
-  --form-w: min(50rem, calc(100vw - 2 * var(--space-4)));
-  translate: none;
-}
 .at-editor__lead { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); }
 .at-fields { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
 .at-field {
@@ -41,7 +33,6 @@
 }
 
 /* ── the two panes (ADR-050): the fields on the left, the chosen one's settings on the right ── */
-#fields-modal .modal__panel { --form-w: min(56rem, calc(100vw - 2 * var(--space-4))); }
 .af-layout { display: grid; grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
 .af-fields { display: grid; gap: var(--space-2); align-content: start; }
 .af-list,

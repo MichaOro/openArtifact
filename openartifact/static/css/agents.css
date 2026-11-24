@@ -224,14 +224,6 @@
 .ag-check-step { display: flex; gap: var(--space-2); align-items: baseline; overflow-wrap: anywhere; }
 .ag-check-step[data-ok="true"] { color: var(--lane-hue-3); }
 .ag-check-step[data-ok="false"] { color: var(--color-danger); }
-#provider-modal .modal__panel {
-  --rail-w: 0rem;
-  --rail-w-collapsed: 0rem;
-  --rail-w-open: 0rem;
-  --form-w: min(40rem, calc(100vw - 2 * var(--space-4)));
-  translate: none;
-}
-
 /* ── the agent node in the inspector ─────────────────────────────────────────────────────────── */
 .ag-node { display: flex; flex-direction: column; gap: var(--space-3); }
 .ag-node__status { font-size: 0.8125rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
@@ -283,11 +275,6 @@
 
 /* ── a version, read-only (ADR-049): a wide dialog that grows in ── */
 #version-modal .modal__panel {
-  --rail-w: 0rem;
-  --rail-w-collapsed: 0rem;
-  --rail-w-open: 0rem;
-  --form-w: min(58rem, calc(100vw - 2 * var(--space-4)));
-  translate: none;
   animation: version-grow 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @keyframes version-grow { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }

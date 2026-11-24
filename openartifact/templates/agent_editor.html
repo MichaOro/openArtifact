@@ -175,7 +175,7 @@
 {{ confirm_modal("reference-modal", t('agents.editor_page.remove_agent_reference'), note="data-reference-note") }}
 {{ leave_modal("leave-modal") }}
 {# A published version, read-only (ADR-049): its areas as tabs, nothing to change. #}
-{% call modal("version-modal", t('common.version')) %}
+{% call modal("version-modal", t('common.version'), size="wide", reason="a published version, read-only: prompt and settings side by side") %}
 <div class="modal__body ag-version-view">
     <p class="field__help" data-version-facts></p>
     <div class="tab-bar" role="tablist" aria-label="{{ t('agent_editor.what_the_version_defined') }}" data-version-tabs>

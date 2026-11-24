@@ -56,7 +56,6 @@
 .ex-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); min-height: 2rem; }
 .ex-bar__tools { display: flex; align-items: center; gap: var(--space-2); }
 .ex-bar__tools .icon { width: 1rem; height: 1rem; }
-#retention-modal .modal__panel { --dialog-base-w: 44rem; width: min(48rem, calc(100vw - 2 * var(--space-4))); translate: none; }
 .ex-bar__count { font-size: 0.875rem; font-weight: 500; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
 
 /* ── Table ───────────────────────────────────────────────────────── */

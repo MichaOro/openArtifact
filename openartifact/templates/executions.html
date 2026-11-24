@@ -139,7 +139,7 @@
     </tr>
 </template>
 
-{% call modal("retention-modal", t('common.retention')) %}
+{% call modal("retention-modal", t('common.retention'), size="wide", reason="the rule builder: rows of conditions") %}
 <form class="task-form" id="retention-form" novalidate>
     <div class="modal__body">
         <p class="field__help">{{ t('executions.each_rule_says') }} <em>{{ t('executions.if') }}</em> {{ t('executions.conditions_hold_for_a_finished_execution') }} <em>{{ t('executions.then') }}</em> {{ t('executions.what_happens_to_it_the_rules') }}</p>

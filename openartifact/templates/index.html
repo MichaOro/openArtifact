@@ -50,7 +50,7 @@
 {{ confirm_modal("delete-execution-modal", t('dialog.delete_execution'), note="data-history-note") }}
 {{ confirm_modal("delete-comment-modal", t('dialog.delete_comment')) }}
 
-{% call modal("fields-modal", t('dialog.artifact_fields')) %}
+{% call modal("fields-modal", t('dialog.artifact_fields'), size="wide", reason="two panes: the list of fields and the settings of the chosen one") %}
 <form class="task-form at-editor" id="fields-modal-form" novalidate>
     <div class="modal__body">
         <div class="af-head">
