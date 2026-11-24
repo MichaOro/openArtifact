@@ -60,6 +60,15 @@ execution starts or finishes and when you save them; the dialog says first how m
 (*Save and delete N*). *Keep the last N* and *keep for N hours* are rules too (Position beyond N; Age older than N hours); they apply to every artifact alike, not to one. API:
 `GET` / `PUT /api/settings/retention` (also under `/api/v1`), `POST .../retention/preview`.
 
+**The list of rules.** The dialog opens on a list: one row per rule with a **switch**, its **name** (or *Rule 2*) and a line
+about what it does ("Delete finished executions where Status is Failed."). Switch a rule **off** to keep it without
+applying it: it deletes nothing, the preview ignores it, and the line under the list says what the rules that are on do
+(or that all are off). A click on a row opens the rule in the same dialog (name, switch and the rule builder);
+*Done*, the back button or Escape return to the list. The bin takes a rule out until you save (*Undo* brings it back).
+*Add rule* appends a rule that is on and opens it. In the API a rule is `{"when": {...}, "action": "delete",
+"name": "Old ones" | null, "enabled": true}`; `name` is at most 80 characters, and a rule without `name` and `enabled`
+(one stored by an earlier version) is unnamed and on.
+
 ## Live updates
 
 Changes arrive through the page's one event stream (`GET /api/events`) as

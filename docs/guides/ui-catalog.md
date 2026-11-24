@@ -7,8 +7,8 @@ dark theme, every state and the contrast rules without writing any CSS for them.
 
 ## Rules
 
-1. **Use a catalog component.** A `<button>` carries `button`, `icon-button`, `chip-button`, `task-tab`, `nav-link`,
-   `menu__item` or `popover__option`. The rare exception carries `data-ui="custom"` and `data-ui-reason="why"`.
+1. **Use a catalog component.** A `<button>` carries `button`, `icon-button`, `chip-button`, `ge-switch` (an on/off
+   switch, `switch.js`), `task-tab`, `nav-link`, `menu__item` or `popover__option`. The rare exception carries `data-ui="custom"` and `data-ui-reason="why"`.
 2. **No colour in a component.** Colours come from the tokens in `static/css/tokens.css` (`var(--color-text-primary)`,
    `var(--btn-outline-border)` ...), never from a literal. Both themes define the tokens; a component that only uses them
    works in both.
@@ -101,7 +101,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A collapsible rail or a navigation group | `collapsible-nav.js`, `nav-group.js` |
 | A list that is reordered by hand | `sortable.js` |
 | Settings that override a default | `settings-group.js`, `override-row.js`, `options-panel.js` |
-| Rules with all/any conditions | `rule-builder.js`, `rule-set.js` |
+| Rules with all/any conditions | `rule-builder.js` (the conditions), `rule-editor.js` (one rule: conditions and what to do), `rule-list.js` (the front door: a row per rule with its switch, name and a line about it, opening, taking out with Undo; data in `rule-list-model.js`) |
 | A `#` reference in a text | `reference-picker.js` |
 | An icon | `icons.js` (`icon("name")`), the paths in `templates/components/icons.html`; a node kind's glyph in the menus is its manifest's `menu_icon` (else `ui.icon`) |
 

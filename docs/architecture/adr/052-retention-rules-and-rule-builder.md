@@ -19,7 +19,7 @@ to select several rows and delete them at once.
 
 - **A rule is when / then:** the settings hold a list of rules, each with a condition tree (`when`) and an `action`. The
   only action is `delete` (`ACTIONS` in `engine/retention.py` is where another, such as archive or notify, would be added
-  with a branch where the rules are applied). The UI is `RuleSet` (a list of rules with a choice of action) around `RuleBuilder`.
+  with a branch where the rules are applied). The UI is a list of rules (`RuleList`) that opens one rule in a `RuleEditor` (a rule builder and a choice of action).
   Rules stored as one tree before this are read as one rule that deletes.
 - **The condition tree** is a tree of groups (*all* / *any*) holding conditions and inner groups. A condition tests `status` (done,
   failed, stopped), `started_by`, `pipeline` (is / is not / contains, ignoring case) or `age` (older than N seconds, from
@@ -53,3 +53,17 @@ of facts (the guards use it); the fields, operators and checks of the retention 
 it) and `GET /api/rules/schemas` hands every schema to the rule builder. This module keeps the SQL compiler; a test shows
 that both evaluators agree on the same trees. The rule builder takes a field's `units` (seconds for guards), `number`
 values and result fields (`var.NAME`). Lane rules are the documented, planned `lane` schema.
+
+## Update 2026-11-24: a name and a switch for each rule
+
+The dialog is a small management in front of the rule builder. A rule has an optional `name` (at most 80 characters, blank
+is none) and a switch `enabled` (default on); a rule stored before them reads as unnamed and on, so nothing changes for
+existing rules. **A rule that is off stays stored and is never applied**: not when an execution starts or finishes, not
+when the rules are saved, and the preview counts nothing for it. Its structure is still validated, so a half-finished
+rule cannot be saved. The dialog opens on the **list**: one row per rule with its switch, its name (or *Rule N*) and one
+line about what it does; a click opens the rule in the same frame (the rule builder as before, with a name field and the
+switch), *Done*, the back button and Escape return to the list (Escape closes the dialog only from the list). Taking a
+rule out marks the row ("Will be removed when you save", with Undo) until *Save*; *Cancel* drops all changes. The footer
+line and the *Save and delete N* count cover the rules that are on. The list is a component of its own
+(`components/rule-list.js`, data in `rule-list-model.js`; the one-rule editor is `rule-editor.js`, which replaced
+`rule-set.js`) so that other rule sets (guards, the planned lane rules) can use the same front door.
