@@ -280,6 +280,40 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
 # ── the node ─────────────────────────────────────────────────────────
 
 
+def test_the_agent_dialog_is_wide_and_draws_its_two_areas_side_by_side(
+    signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
+) -> None:
+    """The agent block fills in after the agents are fetched; the dialog must still become wide for its two areas.
+
+    The wide state was decided when the panel was drawn, before the block had its settings, so the dialog stayed at
+    its narrow width and Definition and Behaviour stood one above the other (the container query needs 44 rem).
+    """
+    _provider(api, llm)
+    agent = _agent(api)
+    action = api.post("/api/actions", json={"name": "Answer"}).json()
+    page = signed_in
+    page.goto(f"{agents_url}/actions/{action['slug']}")
+    expect(page.locator(".ge-node--output")).to_be_visible()
+    page.click("[data-add-menu]")
+    pick_node(page, "agent")
+    page.locator(".ge-node--agent").dblclick(position={"x": 30, "y": 5})
+    inspector = page.locator(".ge-inspector")
+    inspector.get_by_label("Agent", exact=True).select_option(agent["id"])
+    expect(inspector.locator(".ag-node__status")).to_contain_text("Runs version 1")
+    columns = inspector.locator(".ge-settings__column")
+    expect(columns).to_have_count(2)
+    definition, behaviour = (columns.nth(i).bounding_box() for i in (0, 1))
+    assert definition and behaviour
+    assert behaviour["x"] >= definition["x"] + definition["width"] - 1, (
+        "the two areas stand side by side"
+    )
+    wrap = inspector.locator(".ge-settings-wrap").bounding_box()
+    rem = page.evaluate("parseFloat(getComputedStyle(document.documentElement).fontSize)")
+    assert wrap and wrap["width"] >= 44 * rem, (
+        f"room for two columns ({wrap['width']} px, 44 rem = {44 * rem})"
+    )
+
+
 def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
     signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
 ) -> None:

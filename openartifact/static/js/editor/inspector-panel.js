@@ -9,6 +9,13 @@ export class InspectorPanel {
     this.element = element;
     this.blocks = blocks;
     this.model = model;
+    // a block that fills itself after the panel is drawn (the agent block, once its agents are fetched) brings its two areas
+    // later: the dialog becomes wide when they appear. Only ever wider here; render() below also takes it back.
+    new MutationObserver(() => this.#widen()).observe(element, { childList: true, subtree: true });
+  }
+
+  #widen() {
+    if (this.element.querySelector('.ge-settings[data-columns="2"]')) this.element.closest("dialog")?.classList.add("is-wide");
   }
 
   /** @param {{type: "node"|"edge", id: string}|null} selection a node (anything else shows nothing) */
