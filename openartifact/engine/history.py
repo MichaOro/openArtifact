@@ -25,6 +25,9 @@ from typing import Any
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.activity.recorder import record
+from openartifact.activity.schemas import ActivityRead
+from openartifact.comments.schemas import Author
 from openartifact.engine import retention
 from openartifact.engine.context import RunContext
 from openartifact.engine.schemas import ExecutionRead
@@ -46,12 +49,46 @@ def labels_of(snapshot: dict[str, Any]) -> dict[str, str]:
     return {n["id"]: n["label"] for graph in graphs for n in graph["nodes"]}
 
 
+def _utc(moment: datetime) -> datetime:
+    """A timestamp read from the database (naive, UTC) as an aware one."""
+    return moment if moment.tzinfo is not None else moment.replace(tzinfo=UTC)
+
+
+#: Who started an execution, as the actor of its trace.
+_STARTERS = {"user": "You", "api": "api", "mcp": "mcp", "system": "system"}
+
+
+async def _trace(session: AsyncSession, execution: Execution) -> ActivityRead:
+    """The activity entry that stays when ``execution`` is deleted (added in the caller's transaction)."""
+    started = _utc(execution.started_at)
+    finished = None if execution.finished_at is None else _utc(execution.finished_at)
+    duration = None if finished is None else int((finished - started).total_seconds() * 1000)
+    return await record(
+        session,
+        execution.task_id,
+        "run",
+        Author(execution.started_by, _STARTERS.get(execution.started_by, execution.started_by)),
+        {
+            "number": execution.number,
+            "pipeline": execution.pipeline_name,
+            "status": execution.status,
+            "started_at": started.isoformat(),
+            "finished_at": None if finished is None else finished.isoformat(),
+            "duration_ms": duration,
+            "steps": execution.step_count,
+        },
+        execution_id=execution.id,
+        at=started,
+    )
+
+
 @dataclass
 class Changes:
     """What a transaction did to the history; ``ExecutionHistory.publish`` announces it after the commit."""
 
     updated: list[ExecutionRead] = field(default_factory=list)
     deleted: dict[str, list[str]] = field(default_factory=dict)  # task id -> execution ids
+    traces: list[ActivityRead] = field(default_factory=list)  # what deleted executions leave behind
 
 
 class ExecutionHistory:
@@ -176,9 +213,16 @@ class ExecutionHistory:
 
     @staticmethod
     async def remove(session: AsyncSession, task_id: str, ids: list[str], changes: Changes) -> None:
-        """Delete executions with their steps in this transaction (never a running one: the callers check)."""
+        """Delete executions with their steps in this transaction (never a running one: the callers check).
+
+        Each leaves a trace in the artifact's activity (ADR-058): when it ran, the pipeline, how it ended and how long it took.
+        """
         for i in range(0, len(ids), _CHUNK):
             chunk = ids[i : i + _CHUNK]
+            for gone in (
+                await session.execute(select(Execution).where(Execution.id.in_(chunk)))
+            ).scalars():
+                changes.traces.append(await _trace(session, gone))
             await session.execute(
                 delete(RunNodeResult).where(RunNodeResult.execution_id.in_(chunk))
             )
@@ -203,3 +247,5 @@ class ExecutionHistory:
         for task_id, ids in changes.deleted.items():
             for execution_id in ids:
                 self._bus.publish("execution.deleted", {"task_id": task_id, "id": execution_id})
+        for trace in changes.traces:
+            self._bus.publish("activity.created", trace.model_dump(mode="json"))

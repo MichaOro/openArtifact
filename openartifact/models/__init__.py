@@ -16,7 +16,14 @@ The indexes and constraints declared here are the ones the migrations create; ``
 """
 
 from openartifact.models.agents import Agent, AgentVersion, LlmModel, LlmProvider
-from openartifact.models.board import ArtifactField, Lane, Task, TaskComment, TaskNumberSeq
+from openartifact.models.board import (
+    ArtifactField,
+    Lane,
+    Task,
+    TaskActivity,
+    TaskComment,
+    TaskNumberSeq,
+)
 from openartifact.models.credentials import (
     Credential,
     CredentialEvent,
@@ -67,6 +74,7 @@ __all__ = [
     "StageStatus",
     "StartedBy",
     "Task",
+    "TaskActivity",
     "TaskComment",
     "TaskNumberSeq",
 ]

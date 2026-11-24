@@ -76,6 +76,7 @@ GET /api/secrets/{name}/uses -> SecretUse[]
 GET /api/settings/retention -> RulesRead
 GET /api/settings/run-limits -> RunLimitsRead
 GET /api/tasks -> TaskRead[]
+GET /api/tasks/{ref}/activity -> ActivityPage
 GET /api/tasks/{ref}/comments -> CommentRead[]
 GET /api/tasks/{task_id} -> TaskRead
 GET /api/tasks/{task_id}/executions -> ExecutionList
@@ -91,6 +92,7 @@ GET /api/v1/agents/{ref}/versions/{number} -> VersionRead
 GET /api/v1/artifact-fields -> ArtifactFieldsRead
 GET /api/v1/artifacts -> TaskRead[]
 GET /api/v1/artifacts/{ref} -> TaskRead
+GET /api/v1/artifacts/{ref}/activity -> ActivityPage
 GET /api/v1/artifacts/{ref}/comments -> CommentRead[]
 GET /api/v1/artifacts/{ref}/executions -> ExecutionList
 GET /api/v1/artifacts/{ref}/executions/{execution_id} -> ExecutionDetail

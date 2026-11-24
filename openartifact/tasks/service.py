@@ -16,7 +16,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import undefer
 
+from openartifact.activity.recorder import SYSTEM, record, short
+from openartifact.activity.schemas import ActivityRead
 from openartifact.artifact_fields.service import values_of_new, values_of_update
+from openartifact.comments.schemas import Author
 from openartifact.database import SessionOpener
 from openartifact.engine import history as history_module
 from openartifact.engine import history_query
@@ -40,6 +43,7 @@ from openartifact.engine.targets import TargetError, resolve_target
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.models import (
+    ArtifactField,
     CreatedBy,
     Execution,
     Graph,
@@ -72,6 +76,18 @@ TARGET_FIELDS = {"pipeline_id", "stage_id", "action_id"}
 
 def _target_of(task: Task) -> tuple[str | None, str | None, str | None]:
     return task.pipeline_id, task.stage_id, task.action_id
+
+
+def _snapshot_of(task: Task) -> dict[str, Any]:
+    """What the activity compares an artifact with after an update."""
+    return {
+        "title": task.title,
+        "body": task.body,
+        "status": task.status,
+        "parent_id": task.parent_id,
+        "target": _target_of(task),
+        "fields": json.loads(task.field_values or "{}"),
+    }
 
 
 def requested_target(task: Task, payload: TaskUpdate) -> tuple[str | None, str | None, str | None]:
@@ -361,8 +377,14 @@ class ArtifactService:
 
     # ── changing ──────────────────────────────────────────────────────
 
-    async def create(self, data: TaskCreate, created_by: CreatedBy = CreatedBy.USER) -> TaskRead:
-        """Create an artifact: lane, optional parent, optional pipeline with its first stage and action."""
+    async def create(
+        self, data: TaskCreate, created_by: CreatedBy = CreatedBy.USER, actor: Author = SYSTEM
+    ) -> TaskRead:
+        """Create an artifact: lane, optional parent, optional pipeline with its first stage and action.
+
+        ``actor`` is who asked (it goes into the activity, ADR-058).
+        """
+        recorded: list[ActivityRead] = []
         async with self._session() as session:
             try:
                 status = (
@@ -377,6 +399,12 @@ class ArtifactService:
                     data, status=status, created_by=created_by, target=target
                 )
                 task.field_values = await values_of_new(session, data.fields)
+                lanes = await self._lane_titles(session)
+                recorded.append(
+                    await record(
+                        session, task.id, "created", actor, {"lane": lanes.get(task.status)}
+                    )
+                )
                 await session.commit()
             except lane_rules.LaneError as error:
                 raise ArtifactError(error.code, error.message) from error
@@ -386,10 +414,15 @@ class ArtifactService:
                 raise ArtifactError(409, LANE_GONE) from error
             created = TaskRead.model_validate(task)
         self._bus.publish("task.created", created.model_dump(mode="json"))
+        self._publish_activity(recorded)
         return created
 
-    async def update(self, ref: str, payload: TaskUpdate) -> TaskRead:
-        """Edit, move, reorder or re-target an artifact (lane, order, parent and target are locked while it runs)."""
+    async def update(self, ref: str, payload: TaskUpdate, actor: Author = SYSTEM) -> TaskRead:
+        """Edit, move, reorder or re-target an artifact (lane, order, parent and target are locked while it runs).
+
+        Every real change is recorded in the artifact's activity under ``actor`` (ADR-058).
+        """
+        recorded: list[ActivityRead] = []
         async with self._session() as session:
             repo = TaskRepository(session)
             task = await self._task(session, ref)
@@ -409,6 +442,7 @@ class ArtifactService:
             values = None
             if payload.fields is not None:
                 values = await values_of_update(session, task, payload.fields)
+            before = _snapshot_of(task)
             try:
                 result = await repo.update(task, payload, start_at=start_at)
                 if values is not None and values != task.field_values:
@@ -416,6 +450,7 @@ class ArtifactService:
                     result.changed.add("fields")
                 if not result.changed and not result.renumbered:
                     return TaskRead.model_validate(task)
+                recorded = await self._record_changes(session, task, before, actor)
                 await session.commit()
             except (PlacementError, ParentError) as error:
                 raise ArtifactError(422, str(error)) from error
@@ -427,6 +462,7 @@ class ArtifactService:
         self._bus.publish(
             "task.moved" if moved_only else "task.updated", updated.model_dump(mode="json")
         )
+        self._publish_activity(recorded)
         if result.renumbered:
             self._bus.publish("board.resync", {})  # other tasks of the lane got new positions
         return updated
@@ -482,6 +518,84 @@ class ArtifactService:
         return await self._engine.stop(task_id)
 
     # ── helpers ───────────────────────────────────────────────────────
+
+    def _publish_activity(self, entries: list[ActivityRead]) -> None:
+        for entry in entries:
+            self._bus.publish("activity.created", entry.model_dump(mode="json"))
+
+    @staticmethod
+    async def _lane_titles(session: AsyncSession) -> dict[str, str]:
+        return {lane.status: lane.title for lane in await lane_rules.effective_lanes(session)}
+
+    @staticmethod
+    async def _title_of(session: AsyncSession, task_id: str | None) -> str | None:
+        task = None if task_id is None else await session.get(Task, task_id)
+        return None if task is None else task.title
+
+    @staticmethod
+    async def _names_of(
+        session: AsyncSession, pipeline_id: str | None, *node_ids: str | None
+    ) -> tuple[str | None, list[str | None]]:
+        """The name of a pipeline and the labels of some of its nodes (``None`` where unknown)."""
+        if pipeline_id is None:
+            return None, [None] * len(node_ids)
+        graph = await graph_of(session, pipeline_id)
+        labels = {n["id"]: n["label"] for n in graph["nodes"]}
+        return graph["name"] or None, [labels.get(i) if i else None for i in node_ids]
+
+    async def _record_changes(
+        self, session: AsyncSession, task: Task, before: dict[str, Any], actor: Author
+    ) -> list[ActivityRead]:
+        """One activity entry per real change between ``before`` and the task now (in the caller's transaction)."""
+        entries: list[ActivityRead] = []
+
+        async def add(kind: str, data: dict[str, Any]) -> None:
+            entries.append(await record(session, task.id, kind, actor, data))
+
+        if task.status != before["status"]:
+            lanes = await self._lane_titles(session)
+            await add(
+                "lane",
+                {"from": lanes.get(before["status"]), "to": lanes.get(task.status)},
+            )
+        if task.title != before["title"]:
+            await add("title", {"from": short(before["title"]), "to": short(task.title)})
+        if task.body != before["body"]:
+            await add("description", {})
+        if task.parent_id != before["parent_id"]:
+            await add(
+                "parent",
+                {
+                    "from": await self._title_of(session, before["parent_id"]),
+                    "to": await self._title_of(session, task.parent_id),
+                },
+            )
+        if _target_of(task) != before["target"]:
+            old_pipeline, new_pipeline = before["target"][0], task.pipeline_id
+            if old_pipeline != new_pipeline:
+                name, _ = await self._names_of(session, new_pipeline)
+                await add("pipeline", {"to": name})
+            elif task.stage_id != before["target"][1]:
+                name, (stage,) = await self._names_of(session, new_pipeline, task.stage_id)
+                await add("stage", {"to": stage, "pipeline": name})
+            else:
+                name, (action,) = await self._names_of(session, new_pipeline, task.action_id)
+                await add("action", {"to": action, "pipeline": name})
+        now = json.loads(task.field_values or "{}")
+        for name in sorted(set(before["fields"]) | set(now)):
+            if before["fields"].get(name) == now.get(name):
+                continue
+            field_row = await session.get(ArtifactField, name)
+            await add(
+                "field",
+                {
+                    "field": name,
+                    "label": field_row.label if field_row else name,
+                    "from": short(before["fields"].get(name)),
+                    "to": short(now.get(name)),
+                },
+            )
+        return entries
 
     @staticmethod
     async def _task(session: AsyncSession, ref: str) -> Task:

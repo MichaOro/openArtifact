@@ -161,3 +161,28 @@ class TaskComment(Base):
     execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+
+
+class TaskActivity(Base):
+    """What changed on an artifact and who did it (ADR-058, migration 0044), or the trace of a deleted execution.
+
+    Attributes:
+        kind: ``created``, ``lane``, ``title``, ``description``, ``parent``, ``field``, ``pipeline``, ``stage``,
+            ``action`` or ``run`` (the trace an execution leaves when it is deleted).
+        actor_kind, actor_name: Who, as for comments (ADR-055).
+        execution_id: For ``run``: the deleted execution (no foreign key: it is gone).
+        data: A small JSON object that depends on the kind (names at the time, never the text of a description).
+        created_at: When it happened (for ``run``: when the execution started, so the timeline orders it right).
+    """
+
+    __tablename__ = "task_activity"
+    __table_args__ = (Index("ix_task_activity_task_created", "task_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("tasks.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(16))
+    actor_kind: Mapped[str] = mapped_column(String(16))
+    actor_name: Mapped[str] = mapped_column(String(64))
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
+    data: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

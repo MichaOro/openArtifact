@@ -15,6 +15,7 @@ from sqlalchemy.exc import OperationalError
 from starlette.routing import Route
 
 from openartifact import database
+from openartifact.activity.service import ActivityService
 from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.api.agents import routers as agent_routers
@@ -132,6 +133,7 @@ def _create_app(settings: Settings) -> FastAPI:
         database.new_session, app.state.secret_store, settings, app.state.event_bus
     )
     app.state.comments = CommentService(database.new_session, app.state.event_bus)
+    app.state.activity = ActivityService(database.new_session)
     app.state.engine = RunEngine(
         app.state.event_bus,
         database.new_session,
@@ -166,6 +168,7 @@ def _create_app(settings: Settings) -> FastAPI:
         app.state.agents,
         app.state.providers,
         app.state.comments,
+        app.state.activity,
     ).streamable_http_app(stateless_http=True, json_response=True, host="0.0.0.0")
     app.router.routes.append(Route("/mcp", endpoint=TokenProtected(app.state.mcp_app, settings)))
 

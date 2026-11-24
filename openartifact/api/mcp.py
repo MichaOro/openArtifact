@@ -15,6 +15,8 @@ from typing import Any
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
+from openartifact.activity.schemas import PAGE_MAX
+from openartifact.activity.service import ActivityService
 from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.api.contract import ARTIFACT_EXECUTIONS_MAX_LIMIT
@@ -85,6 +87,7 @@ def build_mcp(
     agents: AgentService,
     providers: ProviderService,
     comments: CommentService,
+    activity: ActivityService,
 ) -> MCPServer:
     """The server with its tools (see the module docstring)."""
     mcp = MCPServer("OpenArtifact", instructions=INSTRUCTIONS)
@@ -158,7 +161,13 @@ def build_mcp(
             action_id=action_id,
             fields=fields or {},
         )
-        return (await shown(await guarded(service.create(data, created_by=CreatedBy.MCP))))[0]
+        return (
+            await shown(
+                await guarded(
+                    service.create(data, created_by=CreatedBy.MCP, actor=author_of("mcp"))
+                )
+            )
+        )[0]
 
     @mcp.tool()
     async def update_artifact(
@@ -181,7 +190,13 @@ def build_mcp(
             changes["fields"] = fields
         if not changes:
             raise McpError("Give a title, a body, a lane or fields to change")
-        return (await shown(await guarded(service.update(artifact, TaskUpdate(**changes)))))[0]
+        return (
+            await shown(
+                await guarded(
+                    service.update(artifact, TaskUpdate(**changes), actor=author_of("mcp"))
+                )
+            )
+        )[0]
 
     @mcp.tool()
     async def start_processing(
@@ -246,6 +261,18 @@ def build_mcp(
         return (await guarded(comments.add(artifact, body, author_of("mcp", author)))).model_dump(
             mode="json"
         )
+
+    @mcp.tool()
+    async def list_activity(
+        artifact: str, limit: int = 50, before: str | None = None
+    ) -> dict[str, Any]:
+        """What changed on an artifact and who did it, newest first (kind ``created``, ``lane``, ``title``,
+        ``description``, ``parent``, ``field``, ``pipeline``, ``stage``, ``action``, and ``run``: the trace of an execution
+        that was deleted). ``limit`` is 1 to 200 (default 50); pass the answer's ``next`` as ``before`` for the older
+        page. Executions that still exist are not repeated: use ``list_executions``."""
+        if not 1 <= limit <= PAGE_MAX:
+            raise McpError(f"limit must be between 1 and {PAGE_MAX}")
+        return (await guarded(activity.activity(artifact, limit, before))).model_dump(mode="json")
 
     @mcp.tool()
     async def list_executions(artifact: str, limit: int = 20) -> dict[str, Any]:

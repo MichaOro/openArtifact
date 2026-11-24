@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.activity.service import ActivityService
 from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.artifact_fields.service import ArtifactFieldService
@@ -28,6 +29,12 @@ def get_artifacts(request: Request) -> ArtifactService:
 def get_artifact_fields(request: Request) -> ArtifactFieldService:
     """The application's artifact field service."""
     service: ArtifactFieldService = request.app.state.artifact_fields
+    return service
+
+
+def get_activity(request: Request) -> ActivityService:
+    """The application's activity service."""
+    service: ActivityService = request.app.state.activity
     return service
 
 
@@ -64,6 +71,7 @@ def get_event_bus(request: Request) -> EventBus:
 ServiceDep = Annotated[ArtifactService, Depends(get_artifacts)]
 FieldsDep = Annotated[ArtifactFieldService, Depends(get_artifact_fields)]
 CommentsDep = Annotated[CommentService, Depends(get_comments)]
+ActivityDep = Annotated[ActivityService, Depends(get_activity)]
 AgentsDep = Annotated[AgentService, Depends(get_agents)]
 ProvidersDep = Annotated[ProviderService, Depends(get_providers)]
 EngineDep = Annotated[RunEngine, Depends(get_engine)]

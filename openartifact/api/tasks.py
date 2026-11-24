@@ -11,6 +11,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
 
+from openartifact.api.activity import build_activity_router
 from openartifact.api.comments import build_comments_router
 from openartifact.api.contract import (
     ARTIFACT_EXECUTIONS_DEFAULT_LIMIT,
@@ -20,6 +21,7 @@ from openartifact.api.contract import (
 )
 from openartifact.api.deps import ServiceDep
 from openartifact.api.schemas import DeletedCount
+from openartifact.comments.service import author_of
 from openartifact.engine.flow_schemas import ExecutionFlow
 from openartifact.engine.schemas import (
     ExecutionDetail,
@@ -32,6 +34,7 @@ from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"], responses=GATED)
 router.include_router(build_comments_router("", "user", ["tasks"]))
+router.include_router(build_activity_router("", ["tasks"]))
 
 
 @router.get("", response_model=list[TaskRead], summary="List tasks")
@@ -63,7 +66,7 @@ async def create_task(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     gives it values of the artifact fields (checked now: 422 with one ``Field NAME: ...`` sentence per
     problem; the fields' defaults fill the rest). Publishes ``task.created``.
     """
-    return await service.create(payload, created_by=CreatedBy.USER)
+    return await service.create(payload, created_by=CreatedBy.USER, actor=author_of("user"))
 
 
 @router.patch(
@@ -82,7 +85,7 @@ async def update_task(task_id: str, payload: TaskUpdate, service: ServiceDep) ->
     the artifact is processed. Publishes ``task.moved`` when only lane/order changed, ``task.updated`` for any
     other change (and ``board.resync`` if neighbours had to be renumbered).
     """
-    return await service.update(task_id, payload)
+    return await service.update(task_id, payload, actor=author_of("user"))
 
 
 @router.delete(

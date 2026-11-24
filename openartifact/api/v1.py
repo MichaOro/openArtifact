@@ -12,6 +12,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
+from openartifact.api.activity import build_activity_router
 from openartifact.api.artifact_fields import WRITE_DESCRIPTION as FIELDS_WRITE_DESCRIPTION
 from openartifact.api.comments import build_comments_router
 from openartifact.api.contract import (
@@ -31,6 +32,7 @@ from openartifact.api.lanes import (
 from openartifact.api.schemas import PipelineChainRead
 from openartifact.api.secrets import StoreDep
 from openartifact.artifact_fields.schemas import ArtifactFieldsRead, ArtifactFieldsWrite
+from openartifact.comments.service import author_of
 from openartifact.credentials.store import SecretRead, SecretWrite
 from openartifact.engine.flow_schemas import ExecutionFlow
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
@@ -63,6 +65,7 @@ router = APIRouter(
     responses=GATED,
 )
 router.include_router(build_comments_router("/artifacts", "api", ["integration API"]))
+router.include_router(build_activity_router("/artifacts", ["integration API"]))
 
 
 @router.get(
@@ -156,7 +159,7 @@ async def create_artifact(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     one is 422 and lists the valid keys), parent and the pipeline it starts with (its first stage and
     action unless chosen), optionally ``fields`` ({name: value} of the artifact fields, checked now, 422
     names the field; defaults fill the rest). It is not started; call ``POST /artifacts/{ref}/run`` for that."""
-    return await service.create(payload, created_by=CreatedBy.API)
+    return await service.create(payload, created_by=CreatedBy.API, actor=author_of("api"))
 
 
 @router.get(
@@ -179,7 +182,7 @@ async def get_artifact(ref: str, service: ServiceDep) -> TaskRead:
 async def update_artifact(ref: str, payload: TaskUpdate, service: ServiceDep) -> TaskRead:
     """Change an artifact (lane, order, parent, pipeline and fields are locked with 409 while it is
     processed). ``fields`` are merged into the stored ones (``null`` clears one: it reads as the default)."""
-    return await service.update(ref, payload)
+    return await service.update(ref, payload, actor=author_of("api"))
 
 
 @router.delete(
