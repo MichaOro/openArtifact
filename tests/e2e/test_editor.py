@@ -117,8 +117,24 @@ def _flow(page: Page, base_url: str, api: httpx.Client) -> dict[str, Any]:
     return pipeline  # type: ignore[no-any-return]
 
 
+def _error_outputs_on(
+    page: Page, base_url: str, api: httpx.Client, pipeline: dict[str, Any]
+) -> None:
+    """Switch the error output of the actions on (it is there only with "If the action fails: Error output", ADR-061)."""
+    for node in _graph(api, pipeline)["nodes"]:
+        if node["kind"] == "action":
+            api.patch(
+                f"{graph_url(pipeline)}/nodes/{node['id']}",
+                json={"config": {"on_failure": "error_output"}},
+            ).raise_for_status()
+    _open(page, base_url, pipeline)
+    expect(page.locator(".ge-node--action")).to_have_count(2)
+    page.click("[data-zoom-fit]")
+
+
 def test_connect_by_dragging_between_ports(page: Page, base_url: str, api: httpx.Client) -> None:
     pipeline = _flow(page, base_url, api)
+    _error_outputs_on(page, base_url, api, pipeline)
     drag(
         page,
         page.locator(".ge-node--trigger .ge-port--out"),
@@ -197,6 +213,7 @@ def test_an_output_has_one_edge_and_reconnecting_replaces_it(
 
 def test_error_may_loop_back_to_its_own_input(page: Page, base_url: str, api: httpx.Client) -> None:
     pipeline = _flow(page, base_url, api)
+    _error_outputs_on(page, base_url, api, pipeline)
     first = page.locator(".ge-node--action").first
     drag(page, first.locator(".ge-port--error"), first.locator(".ge-port--in"))
     expect(page.locator(".ge-edge")).to_have_count(1)
@@ -736,7 +753,9 @@ def test_link_an_existing_action_switch_and_unlink(
     pipeline = _flow(page, base_url, api)
     node = page.locator(".ge-node--action").first
     node.locator(".ge-node__name").dblclick()
-    select = page.locator(".ge-inspector select")
+    select = page.locator(
+        ".ge-inspector select[data-focus-key='link']"
+    )  # the choice of the definition, not the setting
     expect(select.locator("option")).to_have_count(3)  # not defined + two definitions
 
     def choose(label: str) -> None:
@@ -746,15 +765,22 @@ def test_link_an_existing_action_switch_and_unlink(
 
     choose("With fail")
     expect(node.locator(".ge-node__name")).to_have_text("With fail")
+    # the error output comes from the action's own setting, not from its definition (ADR-061)
+    expect(node.locator(".ge-port--error")).to_be_hidden()
+    assert abs(_pass_offset(node)) < 2
+    page.locator(".ge-inspector").get_by_label("If the action fails").select_option(
+        label="Error output"
+    )
     expect(node.locator(".ge-port--error")).to_be_visible()
     assert _pass_offset(node) < -5  # Pass above the middle, Error below it
     choose("Without fail")
     expect(node.locator(".ge-node__name")).to_have_text("Without fail")
-    expect(node.locator(".ge-port--error")).to_be_hidden()
-    assert abs(_pass_offset(node)) < 2  # Pass moves to the middle
+    expect(
+        node.locator(".ge-port--error")
+    ).to_be_visible()  # another definition does not take it away
+    assert _pass_offset(node) < -5
     choose("With fail")  # and back again
     expect(node.locator(".ge-port--error")).to_be_visible()
-    assert _pass_offset(node) < -5
     choose("Without fail")
     choose("Not defined")
     expect(node.locator(".ge-node__kind")).to_have_text("Empty action")
@@ -767,7 +793,9 @@ def test_two_quick_link_changes_end_with_server_and_screen_in_agreement(
     pipeline = _flow(page, base_url, api)
     node = page.locator(".ge-node--action").first
     node.locator(".ge-node__name").dblclick()
-    select = page.locator(".ge-inspector select")
+    select = page.locator(
+        ".ge-inspector select[data-focus-key='link']"
+    )  # the choice of the definition, not the setting
     expect(select.locator("option")).to_have_count(2)
     armed = [False]
 

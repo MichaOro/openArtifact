@@ -22,6 +22,9 @@ ports:
     label: On Pass
   - name: fail
     label: On Fail
+    visible_when:
+      setting: on_failure
+      equals: error_output
 ui:
   icon: http
   caption:

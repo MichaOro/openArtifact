@@ -56,8 +56,8 @@ def localize(description: list[dict[str, Any]], language: str) -> list[dict[str,
                 for option in setting.get("options") or []
                 if (text := _own(language, f"{base}.options.{option}"))
             }
-            if labels:
-                setting["option_labels"] = labels
+            if labels:  # an option the language does not name keeps its English text
+                setting["option_labels"] = {**(setting.get("option_labels") or {}), **labels}
     return out
 
 

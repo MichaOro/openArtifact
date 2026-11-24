@@ -82,7 +82,10 @@ def _flow(
     ask = _node(client, action, "agent", name="Ask", config=settings)
     _connect(client, action, source, port, ask, "in")
     _connect(client, action, ask, "pass", output, "pass")
-    _connect(client, action, ask, "fail", output, "fail")
+    if (
+        config.get("on_failure") != "continue"
+    ):  # a node set to Continue has no error output to connect
+        _connect(client, action, ask, "fail", output, "fail")
     pipeline = _pipeline(client, stages=1)
     shell = pipeline["stages"][0][1]
     client.patch(f"{_url(pipeline)}/nodes/{shell['id']}", json={"definition_id": action["id"]})
@@ -346,7 +349,11 @@ def test_a_running_execution_keeps_the_version_it_started_with(
     # the next execution sees all of it: the agent is inactive now
     again = _run(api, pipeline, "failed")
     assert _ask(again)["reason"] == 'Agent "Triage" is inactive'
-    assert _ask(again)["data"] == {"agent_id": agent["id"], "agent_version": 2}
+    assert _ask(again)["data"] == {
+        "agent_id": agent["id"],
+        "agent_version": 2,
+        "error": {"message": 'Agent "Triage" is inactive', "mode": "error_output", "node": "Ask"},
+    }
 
 
 def test_new_executions_use_the_newly_published_version_and_keep_overrides(

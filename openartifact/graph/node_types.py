@@ -15,7 +15,7 @@ draws from them.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from openartifact.graph.manifest import (
@@ -113,6 +113,16 @@ class Ports:
     TOOL = "tool"
 
 
+class FailureMode:
+    """The values of the setting *If the node fails* / *If the action fails* (``on_failure``, ADR-061)."""
+
+    FAIL = "fail"  # stop: the failure ends the action (and, for an action, the run)
+    CONTINUE = "continue"  # go on through On Pass, the error stays as data
+    ERROR_OUTPUT = (
+        "error_output"  # go on through the error output, which exists only with this value
+    )
+
+
 @dataclass(frozen=True)
 class Port:
     """A connector of a node. ``side``: where the editor draws it when not on the usual side (inputs left,
@@ -121,7 +131,8 @@ class Port:
     name: str
     label: str
     side: str | None = None
-    #: When the port is there, for the editor: ``{"fn": ...}`` or ``{"node": field}`` (see ``graph/manifest.py``).
+    #: When the port is there: ``{"fn": ...}``, ``{"node": field}`` or ``{"setting": key, "equals": value}``
+    #: (see ``graph/manifest.py``).
     visible_when: dict[str, str] | None = None
     #: A function of the editor that labels the port from the node's settings (a Switch case by its condition).
     label_from: str | None = None
@@ -155,6 +166,8 @@ class Setting:
     maximum: int | None = None
     default: Any = None
     options: tuple[str, ...] | None = None
+    #: The shown text of an option (the stored value stays the option); not part of equality or the hash.
+    option_labels: dict[str, str] | None = field(default=None, hash=False, compare=False)
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None
@@ -206,6 +219,8 @@ class Setting:
         }
         if self.options is not None:
             data["options"] = list(self.options)
+        if self.option_labels is not None:
+            data["option_labels"] = dict(self.option_labels)
         if self.type in _DEFAULT_MAX_LENGTH:
             data["max_length"] = self.max_length or _DEFAULT_MAX_LENGTH[self.type]
         if self.placeholder is not None:
@@ -315,6 +330,19 @@ class NodeType:
 
     def output_names(self) -> tuple[str, ...]:
         return tuple(p.name for p in self.outputs)
+
+    def port_hidden(self, config: dict[str, Any] | None, name: str) -> bool:
+        """Whether the port is not there for a node with this config: its ``visible_when`` names a setting that does not
+        have the value (an unset one counts as its default). Other kinds of ``visible_when`` are the editor's business."""
+        port = next((p for p in (*self.inputs, *self.outputs) if p.name == name), None)
+        when = port.visible_when if port else None
+        if not when or "setting" not in when:
+            return False
+        setting = next((s for s in self.settings if s.key == when["setting"]), None)
+        if setting is None:
+            return False
+        value = (config or {}).get(setting.key, setting.default)
+        return bool(value != when["equals"])
 
     @property
     def config_settings(self) -> tuple[Setting, ...]:

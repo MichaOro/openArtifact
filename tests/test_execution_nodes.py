@@ -60,7 +60,10 @@ def _definition(client: TestClient, kind: str, **config: Any) -> dict[str, Any]:
     node = _node(client, action, kind, config=config)
     _connect(client, action, trigger, "out", node, "in")
     _connect(client, action, node, "pass", output, "pass")
-    _connect(client, action, node, "fail", output, "fail")
+    if (
+        config.get("on_failure") != "continue"
+    ):  # a node set to Continue has no error output to connect
+        _connect(client, action, node, "fail", output, "fail")
     action["node"] = node
     action["output"] = output
     return action
@@ -269,6 +272,15 @@ def test_connection_rules_follow_the_timer_and_the_output(client: TestClient) ->
         ).status_code
 
     assert edge(code, "pass", http, "in") == 201
+    assert (
+        edge(http, "fail", timer, "in") == 422
+    )  # the error output is there only with "Error output" (ADR-061)
+    assert (
+        client.patch(
+            f"{_url(action)}/nodes/{http['id']}", json={"config": {"on_failure": "error_output"}}
+        ).status_code
+        == 200
+    )
     assert edge(http, "fail", timer, "in") == 201
     assert edge(timer, "out", code, "in") == 201
     assert edge(code, "out", output, "pass") == 422  # no such output
@@ -362,7 +374,7 @@ def test_a_node_that_passes_is_not_changed_by_the_fail_open_setting(client: Test
     assert (step["outcome"], step["port"], step["reason"]) == ("pass", "pass", None)
 
 
-def test_the_default_is_to_fail_and_only_two_values_are_accepted(client: TestClient) -> None:
+def test_the_default_is_to_fail_and_only_three_values_are_accepted(client: TestClient) -> None:
     action = _post(client, "/api/actions", name="Defaults")
     node = _node(client, action, "code")
     assert node["config"]["on_failure"] == "fail"
@@ -375,7 +387,7 @@ def test_the_default_is_to_fail_and_only_two_values_are_accepted(client: TestCli
         assert (setting["type"], setting["default"], setting["options"]) == (
             "select",
             "fail",
-            ["fail", "continue"],
+            ["fail", "continue", "error_output"],
         )
 
 
@@ -405,7 +417,12 @@ def test_the_protocol_fails_a_zero_exit_and_keeps_data(client: TestClient) -> No
     _use(client, pipeline, _definition(client, "code", code=code))
     _start(client, pipeline, task)
     result = _work(_wait(client, task, "failed"))[0]
-    assert (result["exit_code"], result["reason"], result["data"]) == (0, "not today", {"n": 1})
+    assert (result["exit_code"], result["reason"]) == (0, "not today")
+    # what the node returned stays; the failure is added as data.error (ADR-061)
+    assert result["data"] == {
+        "n": 1,
+        "error": {"message": "not today", "mode": "error_output", "node": "Code"},
+    }
 
 
 def test_code_nodes_can_be_switched_off(make_client: Make) -> None:

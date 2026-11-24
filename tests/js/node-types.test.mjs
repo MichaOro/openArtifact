@@ -101,12 +101,13 @@ test("ports: inputs on the left, outputs on the right, a stage has three points 
   assert.deepEqual(stage.filter((p) => p.name === "end").map((p) => p.side), ["right", "right", "right"]);
 });
 
-test("visibility: an action without On Fail has no error port, an output without fail has no Fail port", () => {
+test("visibility: the error output exists only with the setting, an output without fail has no Fail port", () => {
   const action = typeOf("action");
-  assert.equal(action.isVisible(node("action", { definition_fail_enabled: false }), "error"), false);
-  assert.equal(action.isVisible(node("action", { definition_fail_enabled: true }), "error"), true);
-  assert.equal(action.isVisible(node("action"), "error"), true, "unknown (no definition): shown");
-  assert.equal(action.isVisible(node("action", { definition_fail_enabled: false }), "pass"), true);
+  assert.equal(action.isVisible(node("action", { config: {} }), "error"), false);
+  assert.equal(action.isVisible(node("action", { config: { on_failure: "error_output" } }), "error"), true);
+  assert.equal(action.isVisible(node("action"), "error"), false, "not set means the default, Stop the run");
+  assert.equal(action.isVisible(node("action", { config: { on_failure: "continue" } }), "error"), false);
+  assert.equal(action.isVisible(node("action", { config: {} }), "pass"), true);
   const output = typeOf("output");
   assert.equal(output.isVisible(node("output", { fail_enabled: false }), "fail"), false);
   assert.equal(output.isVisible(node("output", { fail_enabled: true }), "fail"), true);
@@ -125,14 +126,14 @@ test("port labels: only the outcomes of kinds that label ports, not in and out",
 
 test("slotHeights: from the first row of a new action to the lowest one, the middle one halfway, all inside the stage", () => {
   const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} against ${expected}`);
-  // the action is 68 high and 190 wide: its input sits at 34, its On Pass at a third of its height; the highest row is FIRST_ROW (12)
+  // the action is 68 high and 190 wide: its input sits at 34, and so does its On Pass (the error output is hidden by default, ADR-061); the highest row is FIRST_ROW (12)
   assert.equal(FIRST_ROW, 12, "the highest row an action can sit in");
   const topIn = HEADER + FIRST_ROW + 34;
   const bottomIn = 360 - STAGE_MARGIN - 68 + 34;
   assert.deepEqual(slotHeights(360, "in"), [topIn, (topIn + bottomIn) / 2, bottomIn], "left: the inputs");
   const out = slotHeights(360, "out");
-  near(out[0], HEADER + FIRST_ROW + 68 / 3, "right: the first row's On Pass");
-  near(out[2], 360 - STAGE_MARGIN - 68 + 68 / 3, "right: the lowest On Pass");
+  near(out[0], HEADER + FIRST_ROW + 34, "right: the first row's On Pass");
+  near(out[2], 360 - STAGE_MARGIN - 68 + 34, "right: the lowest On Pass");
   near(out[1], (out[0] + out[2]) / 2, "right: halfway");
   assert.deepEqual(slotHeights(460, "in").map((y, i) => y - slotHeights(360, "in")[i]), [0, 50, 100], "a taller stage moves the lower points");
   assert.ok(slotHeights(100, "in").every((y) => y >= HEADER / 2 && y <= 100 - 8), "never outside the stage, however small it is");
@@ -140,11 +141,11 @@ test("slotHeights: from the first row of a new action to the lowest one, the mid
 
 test("portLocal spreads the shown ports down their side; the output kind pins its connectors", () => {
   const action = typeOf("action");
-  const withFail = node("action", { definition_fail_enabled: true });
+  const withFail = node("action", { config: { on_failure: "error_output" } });
   assert.deepEqual(action.portLocal(withFail, "in"), { x: 0, y: 34 });
   assert.deepEqual(action.portLocal(withFail, "pass"), { x: 190, y: 68 / 3 });
   assert.deepEqual(action.portLocal(withFail, "error"), { x: 190, y: (68 / 3) * 2 });
-  const withoutFail = node("action", { definition_fail_enabled: false });
+  const withoutFail = node("action", { config: {} });
   assert.deepEqual(action.portLocal(withoutFail, "pass"), { x: 190, y: 34 }, "the only shown output sits in the middle");
   assert.deepEqual(action.portLocal(withoutFail, "nonsense"), { x: 190, y: 34 }, "an unknown port falls back to the first");
   const output = typeOf("output");
@@ -200,7 +201,7 @@ test("the inspector sections each kind asks for", () => {
   assert.deepEqual(sections("trigger"), ["settings:trigger", 'actions:trigger:{"remove":false}']);
   assert.deepEqual(sections("timer"), ["settings:timer", 'actions:timer:{"remove":true}']);
   assert.deepEqual(sections("stage"), ['actions:stage:{"create":"fn","remove":true}']);
-  assert.deepEqual(sections("action"), ["link:action:Definition/Action/Not defined", 'actions:action:{"open":true}']);
+  assert.deepEqual(sections("action"), ["link:action:Definition/Action/Not defined", "settings:action", 'actions:action:{"open":true}']);
   assert.deepEqual(sections("pipeline"), ["link:pipeline:Calls/Pipeline/Not chosen", 'actions:pipeline:{"open":true}']);
   const stage = node("stage");
   typeOf("stage").sections(stage, { actions: (n, options) => options.create(), addAction: (s) => calls.push(s.id) });

@@ -7,13 +7,14 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, NamedTuple
 
-from sqlalchemy import ColumnElement, delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.engine.context import NodeIndex, node_key, problems
 from openartifact.graph.node_types import (
     NODE_TYPES,
     NodeType,
+    Port,
     Ports,
     SettingError,
     fixed_in,
@@ -51,6 +52,22 @@ def _merged_config(
         return kind_type.merge_config(stored, changes)
     except SettingError as error:
         raise NodeError(str(error)) from error
+
+
+def _port_phrase(port: Port) -> str:
+    """How a message names a connector that a setting can take away: the error output, or the connector by its label."""
+    return "error output" if port.name in (Ports.FAIL, Ports.ERROR) else f"connector '{port.label}'"
+
+
+def _hidden_port_message(kind_type: NodeType, node: GraphNode, port_name: str) -> str:
+    port = next(p for p in (*kind_type.inputs, *kind_type.outputs) if p.name == port_name)
+    when = port.visible_when or {}
+    setting = next((s for s in kind_type.settings if s.key == when.get("setting")), None)
+    how = ""
+    if setting is not None:
+        shown = (setting.option_labels or {}).get(when["equals"], when["equals"])
+        how = f": set '{setting.label}' to '{shown}' first"
+    return f"The {_port_phrase(port)} of '{node.name}' is off{how}"
 
 
 class GraphRepository:
@@ -255,7 +272,9 @@ class GraphRepository:
         for key in settings & sent - own:
             raise NodeError(f"A {node.kind} has no setting '{key}'")
         if data.config is not None:
-            node.config = _merged_config(kind_type, node.config, data.config)
+            merged = _merged_config(kind_type, node.config, data.config)
+            await self._refuse_connected_hidden_ports(node, kind_type, merged)
+            node.config = merged
         if "definition_id" in sent:
             await self._link(node, data.definition_id)
         for field in ("name", "x", "y", "width", "height", *sorted(settings)):
@@ -283,7 +302,29 @@ class GraphRepository:
                     GraphEdge.target_id == node.id, GraphEdge.target_port == Ports.FAIL
                 )
             )
-            await self._drop_error_edges(GraphNode.definition_id == node.graph_id)
+
+    async def _refuse_connected_hidden_ports(
+        self, node: GraphNode, kind_type: NodeType, config: dict[str, Any]
+    ) -> None:
+        """A setting that takes a connector away (the error output) is refused while a connection uses it (ADR-061)."""
+        for port in (*kind_type.inputs, *kind_type.outputs):
+            if not kind_type.port_hidden(config, port.name):
+                continue
+            used = await self._session.scalar(
+                select(GraphEdge.id)
+                .where(
+                    or_(
+                        and_(GraphEdge.source_id == node.id, GraphEdge.source_port == port.name),
+                        and_(GraphEdge.target_id == node.id, GraphEdge.target_port == port.name),
+                    )
+                )
+                .limit(1)
+            )
+            if used is not None:
+                raise NodeError(
+                    f"The {_port_phrase(port)} of '{node.name}' is connected; "
+                    "remove that connection first"
+                )
 
     async def _link(self, node: GraphNode, definition_id: str | None) -> None:
         """Link an action to an action definition, or a pipeline node to the pipeline it calls.
@@ -305,12 +346,6 @@ class GraphRepository:
                 raise NodeError("A pipeline cannot call itself, not even through other pipelines")
         node.definition_id = definition_id
         await self._session.flush()
-        if (
-            not calls
-            and definition_id is not None
-            and not (await self.describe([node]))[node.id].fail_enabled
-        ):
-            await self._drop_error_edges(GraphNode.id == node.id)
 
     async def _calls(self, start_id: str, wanted_id: str) -> bool:
         """Whether the pipeline ``start_id`` is, or (through its pipeline nodes) calls, ``wanted_id``."""
@@ -332,15 +367,6 @@ class GraphRepository:
             )
             queue.extend(row[0] for row in rows if row[0])
         return False
-
-    async def _drop_error_edges(self, which: ColumnElement[bool]) -> None:
-        """Remove the Error connections of the actions matching ``which`` (they have no On Fail)."""
-        ids = select(GraphNode.id).where(which)
-        await self._session.execute(
-            delete(GraphEdge).where(
-                GraphEdge.source_port == Ports.ERROR, GraphEdge.source_id.in_(ids)
-            )
-        )
 
     async def describe(self, nodes: Sequence[GraphNode]) -> dict[str, LinkInfo]:
         """For linked nodes: the definition's name, whether it has On Fail and its URL name."""
@@ -396,12 +422,10 @@ class GraphRepository:
         validate_edge(_endpoint(source), data.source_port, _endpoint(target), data.target_port)
         if data.target_port == Ports.FAIL and not target.fail_enabled:
             raise NodeError("That action definition has no On Fail")
-        if (
-            data.source_port == Ports.ERROR
-            and source.definition_id
-            and not (await self.describe([source]))[source.id].fail_enabled
-        ):
-            raise NodeError("That action has no On Fail")
+        for end, port in ((source, data.source_port), (target, data.target_port)):
+            kind_type = node_type(end.kind)
+            if kind_type.port_hidden(kind_type.effective_config(end.config), port):
+                raise NodeError(_hidden_port_message(kind_type, end, port))
         if (data.source_slot and source.kind != NodeKind.STAGE.value) or (
             data.target_slot and target.kind != NodeKind.STAGE.value
         ):

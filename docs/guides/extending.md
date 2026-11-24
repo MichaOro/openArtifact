@@ -119,7 +119,7 @@ Every setting says where it is shown (ADR-053); the dialog is drawn from that, s
 | `inherits` | `None` (default), `"agent"` | Only when a real parent supplies the value (today the agent): the row then shows *Inherited* / *Overridden* / *Not set*, an override is stored only when the user commits a value, and removing it restores inheritance. |
 | `group` | any title | Settings of one group stay together: in *Definition* a group folds while unused (If conditions, Switch cases); in *Behaviour* it is a titled block (*Model & Generation*, *Execution limits*). |
 
-Use `ON_FAILURE` for "If the node fails" (it is already `behaviour`), `GROUP_LIMITS` for timeouts and limits, and
+Use `ON_FAILURE` for "If the node fails" (it is already `behaviour`; in a manifest `use: on_failure` takes the shared one), `GROUP_LIMITS` for timeouts and limits, and
 `level="optional"` for anything most nodes of the kind never touch. A kind with something the shared layout cannot draw
 (the Agent's choice of an agent and its input mapping) passes it as `extras` to `buildSettings`
 (`static/js/editor/settings-layout.js`) and `skip`s those keys; it does not write a layout of its own.
@@ -306,3 +306,11 @@ step shows comes from what ran, so it is set with `textContent` only.
 - Unused code is quarantined, not left behind (`quarantine.json`, see [CONTRIBUTING](../../.github/CONTRIBUTING.md)).
 - Run `ruff`, `mypy` and `pytest` ([testing guide](testing.md)) before the change is done; run the browser
   tests before a push.
+
+### A port that is there only with a setting
+
+A port may carry `visible_when: {setting: on_failure, equals: error_output}`: it is shown, and the server accepts a connection at it, only
+while the setting has that value (a setting that is not set counts as its default). This is how the error output of a kind works
+([ADR-061](../architecture/adr/061-what-a-failure-does.md)): declare the setting once with `use: on_failure` and give the failure
+output the `visible_when` above. A select may name the shown text of its options with `option_labels` (the stored value stays what
+`options` says); a locale file overrides them with `nodes.<kind>.settings.<key>.options.<value>`.

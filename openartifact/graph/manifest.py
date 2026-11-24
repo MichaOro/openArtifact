@@ -48,15 +48,21 @@ class _Strict(BaseModel):
 
 
 class VisibleWhen(_Strict):
-    """When a port is there: a function of the editor, or a field of the node that must be truthy."""
+    """When a port is there: a function of the editor, a field of the node that must be truthy, or a setting of the node
+    that must have a value (``setting`` with ``equals``; a setting that is not set counts as its default, and the
+    server refuses a connection at a port that is not there, ADR-061)."""
 
     fn: str | None = None
     node: str | None = None
+    setting: str | None = None
+    equals: str | None = None
 
     @model_validator(mode="after")
     def _one(self) -> VisibleWhen:
-        if (self.fn is None) == (self.node is None):
-            raise ValueError("name either fn or node")
+        if sum(x is not None for x in (self.fn, self.node, self.setting)) != 1:
+            raise ValueError("name one of fn, node or setting")
+        if (self.setting is None) != (self.equals is None):
+            raise ValueError("setting and equals belong together")
         if self.fn is not None and self.fn not in CLIENT_FUNCTIONS["visible"]:
             raise ValueError(
                 f"unknown function {self.fn!r}: use {', '.join(CLIENT_FUNCTIONS['visible'])}"
@@ -98,6 +104,8 @@ class SettingSpec(_Strict):
     maximum: int | float | None = None
     default: Any = None
     options: list[str] | None = None
+    #: The shown text of an option (the stored value stays what ``options`` says); an option without one is shown as it is.
+    option_labels: dict[str, str] | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None
@@ -117,6 +125,12 @@ class SettingSpec(_Strict):
             raise ValueError("a setting needs key, label and type (or use a shared one)")
         if self.check is not None and self.check not in VALIDATORS:
             raise ValueError(f"unknown rule {self.check!r}: use {', '.join(sorted(VALIDATORS))}")
+        if self.option_labels is not None and self.options is not None:
+            unknown = sorted(set(self.option_labels) - set(self.options))
+            if unknown:
+                raise ValueError(
+                    f"option_labels names options that do not exist: {', '.join(unknown)}"
+                )
         return self
 
 

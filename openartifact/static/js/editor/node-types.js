@@ -52,6 +52,12 @@ export function slotHeights(height, side = "in") {
   return [top, (top + bottom) / 2, bottom];
 }
 
+/** The value of a setting of a node: what its `config` holds, else the setting's default (a setting that is not set is its default). */
+export function settingValue(node, settings, key) {
+  const setting = (settings ?? []).find((s) => s.key === key);
+  return node.config?.[key] ?? setting?.default;
+}
+
 export class NodeView {
   static kind = null;
   static size = { width: 160, height: 64 };
@@ -120,6 +126,7 @@ export class NodeView {
   isVisible(node, port) {
     const when = [...this.inputs, ...this.outputs].find((p) => p.name === port)?.visible_when;
     if (!when) return true;
+    if (when.setting !== undefined) return settingValue(node, this.settings, when.setting) === when.equals; // the error output (ADR-061)
     return when.fn ? FUNCTIONS.visible[when.fn](node, port) : Boolean(node[when.node]);
   }
 
@@ -245,10 +252,6 @@ class ActionView extends NodeView {
     return node.definition_id ? this.label : t("editor.node_types.empty_action");
   }
 
-  isVisible(node, port) {
-    return port !== "error" || node.definition_fail_enabled !== false; // its definition has no On Fail
-  }
-
   canFeed(source, sourcePort, target, targetPort) {
     if (target.kind === "action") return target.stage_id === source.stage_id;
     return target.kind === "stage" && targetPort === "end" && target.id === source.stage_id;
@@ -259,7 +262,11 @@ class ActionView extends NodeView {
   }
 
   sections(node, blocks) {
-    return [blocks.link(node, t("editor.node_types.definition"), t("editor.node_types.action_2"), t("editor.node_types.not_defined")), blocks.actions(node, blocks.linkActions(node))];
+    return [
+      blocks.link(node, t("editor.node_types.definition"), t("editor.node_types.action_2"), t("editor.node_types.not_defined")),
+      blocks.settings(node),
+      blocks.actions(node, blocks.linkActions(node)),
+    ];
   }
 }
 

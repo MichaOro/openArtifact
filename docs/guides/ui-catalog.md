@@ -8,7 +8,7 @@ dark theme, every state and the contrast rules without writing any CSS for them.
 ## Rules
 
 1. **Use a catalog component.** A `<button>` carries `button`, `icon-button`, `chip-button`, `ge-switch` (an on/off
-   switch, `switch.js`), `task-tab`, `nav-link`, `menu__item` or `popover__option`. The rare exception carries `data-ui="custom"` and `data-ui-reason="why"`.
+   switch, `switch.js`), `task-tab`, `nav-link`, `menu__item`, `popover__option` or `info-tip`. The rare exception carries `data-ui="custom"` and `data-ui-reason="why"`.
 2. **No colour in a component.** Colours come from the tokens in `static/css/tokens.css` (`var(--color-text-primary)`,
    `var(--btn-outline-border)` ...), never from a literal. Both themes define the tokens; a component that only uses them
    works in both.

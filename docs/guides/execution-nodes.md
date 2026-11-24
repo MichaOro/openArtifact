@@ -360,7 +360,7 @@ label "Artifact" is the manifest's; it sits in the *Data* group of the "+" menu.
 | Characters per comment | Get: a longer one is cut with `…[cut]` (20 to 4000) | 800 |
 | Characters in total | Get: the transcript is at most this long (100 to 4000); older comments are left out first | 3500 |
 | Comment | Add: the text; may hold `${node...}`, `${var...}`, `${card...}`; no secrets (refused when saved) | empty |
-| If the node fails | `fail` or `continue` | fail |
+| If the node fails | `fail`, `continue` or `error_output` | fail |
 
 *Get comments* passes with the transcript as output (`[time] author (kind):` and the text, the oldest of the kept ones first; a first
 line says how many older comments were left out) and `data.comments`, a list of `{author, kind, body, at}`, plus `data.count` and
@@ -589,14 +589,22 @@ hints; nothing is checked in the browser and the Code text gets none (it is neve
 
 ## What a failure does to the way on
 
-Both nodes leave by **On Pass** or **On Fail**. The setting **If the node fails** (`on_failure`) chooses what a
-failure means for the way on:
+Both nodes leave by **On Pass**, and by **On Fail** when you ask for it. The setting **If the node fails** (`on_failure`)
+chooses what a failure means for the way on ([ADR-061](../architecture/adr/061-what-a-failure-does.md)):
 
-- `fail` (the default, closed): the node leaves by On Fail. If nothing is connected there, the action fails and
-  so does the run.
-- `continue` (fail open): the node leaves by On Pass although it failed. The step is still recorded as a failure
+- `fail` (**Stop the run**, the default): the failure ends the action as failed, and so the run, unless the action says
+  otherwise (*If the action fails* in its settings). There is no error output.
+- `continue` (**Continue**, fail open): the node leaves by On Pass although it failed. The step is still recorded as a failure
   with its reason, followed by "(continued through On Pass)", so the history and the flow view show what happened.
   A node that passes is not affected.
+- `error_output` (**Error output**): the node leaves by **On Fail**, which is shown only with this value. If nothing is
+  connected there, the action fails.
+
+Whatever the value, a failure is data of the step: `${node.NAME.data.error.message}` (and `.mode`, `.node`) are readable by a later node,
+and `${node.NAME.output}` is what the node produced (empty when it produced nothing). A connection at On Fail needs the value
+`error_output` first (the editor and the API refuse it otherwise), and the value cannot be changed while the connection exists.
+An **action** has the same three values as *If the action fails* in the settings of the action in its stage; its **On Error**
+output exists only with `error_output`, `continue` goes on through On Pass and leaves `data.error` under the action's name.
 
 The Code node ends when the shell ends: a background process that keeps the output open (`sleep 300 &` without a
 redirect) does not hold the node until the timeout. Whatever the code left running is killed with the process

@@ -20,18 +20,18 @@ await loadNodeTypes();
 globalThis.fetch = real;
 rememberAgents([{ id: "agent-1", name: "Triage" }]);
 
-const base = { id: "n", name: "Node", x: 0, y: 0, stage_id: null, config: {}, seconds: 5, fail_enabled: false, definition_id: null, definition_name: null, definition_fail_enabled: true, width: 300, height: 200 };
+const base = { id: "n", name: "Node", x: 0, y: 0, stage_id: null, config: {}, seconds: 5, fail_enabled: false, definition_id: null, definition_name: null, width: 300, height: 200 };
 
 const CASES = {
   trigger: [{}],
   complete: [{}],
   stage: [{}, { width: 420, height: 260 }],
-  action: [{}, { definition_id: "d", definition_name: "Check", definition_fail_enabled: false }, { definition_id: "d", definition_fail_enabled: true }],
+  action: [{}, { definition_id: "d", definition_name: "Check", config: { on_failure: "continue" } }, { definition_id: "d", config: { on_failure: "error_output" } }],
   pipeline: [{}, { definition_id: "p", definition_name: "Build" }],
   timer: [{ seconds: 5 }, { seconds: 90 }],
   output: [{ fail_enabled: false }, { fail_enabled: true }],
-  code: [{}, { config: { language: "python", code: "\n  print('hi')\nmore" } }, { config: { code: "echo one" } }],
-  http: [{}, { config: { method: "POST", url: "https://user:pw@example.org/hook?token=secret#frag" } }, { config: { url: "user:pw@example.org/a?x=1" } }],
+  code: [{}, { config: { language: "python", code: "\n  print('hi')\nmore" } }, { config: { code: "echo one" } }, { config: { code: "x", on_failure: "error_output" } }, { config: { code: "x", on_failure: "continue" } }],
+  http: [{}, { config: { method: "POST", url: "https://user:pw@example.org/hook?token=secret#frag" } }, { config: { url: "user:pw@example.org/a?x=1" } }, { config: { on_failure: "error_output" } }],
   if: [{}, { config: { left_1: "${var.p}", operator_1: "equals", right_1: "high" } }, { config: { left_2: "x", operator_2: "is empty", left_3: "y", right_3: "z", operator_3: "contains" } }, { config: { left_1: "a very long value that goes on and on and on forever", operator_1: "not equals", right_1: "b" } }],
   switch: [{}, { config: { value: "${var.tier}", case_1: "silver", case_2: "gold" } }, { config: { case_operator_1: "is empty", case_2: "10", case_operator_2: "greater than", case_3: "urgent", case_operator_3: "contains" } }, { config: { value: "v", case_1: "a", case_2: "b", case_3: "c", case_4: "d", case_5: "e", case_6: "f" } }],
   set: [{}, { config: { fields: "priority = high\nvar.score = 3\nBad = 1" } }, { config: { fields: "a = 1\nb = 2\nc = 3\nd = 4\ne = 5\nf = 6\ng = 7\nh = 8\ni = 9\nj = 10" } }],

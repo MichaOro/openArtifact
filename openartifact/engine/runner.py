@@ -41,7 +41,7 @@ from openartifact.engine.snapshot import NestingError, build_snapshot
 from openartifact.engine.targets import TargetError, load_pipeline, pick_start
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
-from openartifact.graph.node_types import Ports
+from openartifact.graph.node_types import FailureMode, Ports
 from openartifact.guards.monitor import GuardSettings, Monitor, Verdict
 from openartifact.models import (
     Execution,
@@ -81,6 +81,34 @@ def _cut(result: NodeResult) -> NodeResult:
         data={**(result.data or {}), "output_truncated": True},
         reason=f"{result.reason}; {note[6:]}" if result.reason else note,
     )
+
+
+def _failed_message(node: Mapping[str, Any], reason: str) -> str:
+    """Why a run stops at a failed action: its name and, when the last node said one, the reason."""
+    base = f'"{node["label"]}" failed'
+    return f"{base}: {reason}" if reason else base
+
+
+def _node_failed(node: Mapping[str, Any], result: NodeResult) -> tuple[NodeResult, str]:
+    """The result and the connector of a node that failed, by its setting *If the node fails* (ADR-061).
+
+    Whatever the setting, the failure is data of the step (``data.error`` with the message, the setting's value and the
+    node), so a later node and the run's view can read it. ``fail``: the way on is the (hidden) error output, which has no
+    connection, so the action ends as failed; ``continue``: On Pass (fail open: the step keeps its failure and reason);
+    ``error_output``: On Fail.
+    """
+    mode = (node.get("config") or {}).get("on_failure") or FailureMode.FAIL
+    message = result.reason or "The node failed"
+    error = {"message": message, "mode": mode, "node": node["name"]}
+    data = {**(result.data or {}), "error": error}
+    if mode == FailureMode.CONTINUE:
+        return (
+            replace(result, data=data, reason=f"{message} (continued through On Pass)"),
+            Ports.PASS,
+        )
+    return replace(
+        result, data=data
+    ), Ports.FAIL  # error_output follows the connection, stop has none
 
 
 class _RunFailedError(Exception):
@@ -842,15 +870,18 @@ class RunEngine:
             walk.action_id = action
             await self._save(walk.task_id, action_id=action)
             await self._guarded(monitor.enter("action", action, node["label"], walk.path))
-            passed = await self._run_action(node, walk)
+            passed, reason = await self._run_action(node, walk)
             await self._guarded(monitor.ended(action, passed))
             await self._guarded(monitor.leave("action", action, walk.path))
-            edge = edge_from(graph["edges"], action, Ports.PASS if passed else Ports.ERROR)
+            port = Ports.PASS
+            if not passed:
+                port = self._action_failed(node, reason, walk)
+            edge = edge_from(graph["edges"], action, port)
             if edge is None:
                 raise _RunFailedError(
                     f'"{node["label"]}" has no On Pass connection'
-                    if passed
-                    else f'"{node["label"]}" failed'
+                    if port == Ports.PASS
+                    else _failed_message(node, reason)
                 )
             target = nodes[edge["target_id"]]
             action = target["id"] if target["kind"] == NodeKind.ACTION else None
@@ -867,18 +898,29 @@ class RunEngine:
             stage_state=(top, StageStatus.FAILED) if top else None,
         )
 
-    async def _run_action(self, node: dict[str, Any], walk: _Walk) -> bool:
-        """Run an action's definition from its trigger: True for On Pass, False for On Fail.
+    async def _run_action(self, node: dict[str, Any], walk: _Walk) -> tuple[bool, str]:
+        """Run an action's definition from its trigger: (passed, the reason of the last node).
 
         Every node on the way is recorded as a step of the run. A node that has an executor is run and
         leaves by the port of its outcome (or by the port it chose itself). An action that is not linked to a definition is an empty
         shell and passes at once (and has no steps).
         """
         if not node["definition_id"]:
-            return True
+            return True, ""
         definition = walk.snapshot["definitions"][node["definition_id"]]
-        passed, _ = await self._run_definition(node["definition_id"], definition, walk, None)
-        return passed
+        return await self._run_definition(node["definition_id"], definition, walk, None)
+
+    def _action_failed(self, node: dict[str, Any], reason: str, walk: _Walk) -> str:
+        """The connector a failed action leaves by, by its setting *If the action fails* (ADR-061): ``fail`` stops the
+        run (a failure is raised), ``continue`` goes on through On Pass, ``error_output`` through On Error. The failure is kept
+        in the run context as the action's data (``${(Action).data.error}``) except when the run stops."""
+        mode = (node.get("config") or {}).get("on_failure") or FailureMode.FAIL
+        if mode == FailureMode.FAIL:
+            raise _RunFailedError(_failed_message(node, reason))
+        port = Ports.PASS if mode == FailureMode.CONTINUE else Ports.ERROR
+        error = {"message": reason or "The action failed", "mode": mode, "node": node["name"]}
+        walk.context.record(node, NodeResult("fail", reason=reason, data={"error": error}), port)
+        return port
 
     async def _run_definition(
         self,
@@ -938,14 +980,8 @@ class RunEngine:
                 if executor.by_outcome
                 else Ports.OUT
             )
-            if port == Ports.FAIL and (current.get("config") or {}).get("on_failure") == "continue":
-                port = (
-                    Ports.PASS
-                )  # fail open: the step keeps its failure and reason, the way on is On Pass
-                result = replace(
-                    result,
-                    reason=f"{result.reason or 'The node failed'} (continued through On Pass)",
-                )
+            if port == Ports.FAIL:
+                result, port = _node_failed(current, result)
             reason = result.reason or (result.output or "").strip()[-200:]
             if record:
                 await self._record(

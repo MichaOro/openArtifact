@@ -287,9 +287,9 @@ is saved at once.
 | PATCH | `/api/{kind}/{graph_id}` | Rename | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}` | Delete with everything in it; `204` | 404 |
 | POST | `/api/{kind}/{graph_id}/nodes` | Add a stage, an action, a node or an execution node; `201` | 404, 422 |
-| PATCH | `/api/{kind}/{graph_id}/nodes/{node_id}` | Rename, move, resize, change settings | 404, 422 |
+| PATCH | `/api/{kind}/{graph_id}/nodes/{node_id}` | Rename, move, resize, change settings (`config`). Setting `on_failure` away from `error_output` while a connection leaves the error output is `422` ("remove that connection first") | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}/nodes/{node_id}` | Delete with its edges; `204` | 404 |
-| POST | `/api/{kind}/{graph_id}/edges` | Connect an output port to an input port (the output's previous edge is replaced); `201` | 404, 422 |
+| POST | `/api/{kind}/{graph_id}/edges` | Connect an output port to an input port (the output's previous edge is replaced); `201`. A connection at a port that is not there is `422`: the error output (On Fail of a node, On Error of an action) exists only with the config value `on_failure: error_output` ([ADR-061](../architecture/adr/061-what-a-failure-does.md)) | 404, 422 |
 | PATCH | `/api/{kind}/{graph_id}/edges/{edge_id}` | Change how a connection is drawn | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}/edges/{edge_id}` | Remove; `204` | 404 |
 | GET | `/api/pipelines/{graph_id}/stages` | The stages in running order with their actions | 404 |

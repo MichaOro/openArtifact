@@ -103,7 +103,7 @@ Add an **Agent** node to an action definition and choose the agent.
   them all. In the API an override is a key of the node's `config`; `null` resets it.
 - **When the agent changes**, the fields a node does not override follow with the next execution; overridden fields
   stay. Publishing lists the nodes that override a changed field.
-- The node leaves by *On Pass* with the answer, or by *On Fail* (or goes on, with *If the node fails: continue*).
+- The node leaves by *On Pass* with the answer. A failure follows *If the node fails*: *Stop the run* (default), *Continue* through On Pass, or *Error output* (*On Fail*, shown only then).
 - Later nodes read `${(Agent name).output}` and `${(Agent name).data.model}`, `.data.usage.total_tokens`,
   `.data.finish_reason`, `.data.iterations`.
 

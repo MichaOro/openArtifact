@@ -48,9 +48,21 @@ def node(client: Any, graph: dict[str, Any], kind: str, **extra: Any) -> dict[st
     return post(client, f"{graph_url(graph)}/nodes", kind=kind, **extra)
 
 
+#: The kinds whose error output (``fail`` on a node, ``error`` on an action) is there only with *If it fails: Error output*.
+_ERROR_OUTPUT_KINDS = {"action", "code", "http", "github", "postgres", "artifact", "agent", "set"}
+
+
 def connect(
     client: Any, graph: dict[str, Any], a: dict[str, Any], ap: str, b: dict[str, Any], bp: str
 ) -> None:
+    """Connect two ports. Connecting an error output switches it on first (``on_failure: error_output``, ADR-061):
+    the server refuses a connection at an output that is not there. The tests that want the refusal post the edge themselves."""
+    explicit = (a.get("config") or {}).get("on_failure")
+    if ap in ("fail", "error") and a.get("kind") in _ERROR_OUTPUT_KINDS and explicit != "continue":
+        response = client.patch(
+            f"{graph_url(graph)}/nodes/{a['id']}", json={"config": {"on_failure": "error_output"}}
+        )
+        assert response.status_code == 200, response.text
     post(
         client,
         f"{graph_url(graph)}/edges",

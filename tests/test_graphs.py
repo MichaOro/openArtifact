@@ -224,6 +224,12 @@ def test_inputs_take_several_edges(client: TestClient) -> None:
     target = _node(client, pipeline, "action", stage_id=stage["id"])
     assert _edge(client, pipeline, a, "pass", target, "in").status_code == 201
     assert _edge(client, pipeline, b, "pass", target, "in").status_code == 201
+    assert (
+        _edge(client, pipeline, a, "error", target, "in").status_code == 422
+    )  # not there (ADR-061)
+    client.patch(
+        f"{_url(pipeline)}/nodes/{a['id']}", json={"config": {"on_failure": "error_output"}}
+    )
     assert _edge(client, pipeline, a, "error", target, "in").status_code == 201
     assert len(_graph(client, pipeline)["edges"]) == 4  # the three and the default one
 
@@ -379,24 +385,27 @@ def test_only_actions_link_to_existing_action_definitions(client: TestClient) ->
     assert _link(client, pipeline, shell, pipeline["id"]).status_code == 422  # not a definition
 
 
-def test_the_error_output_exists_only_if_the_definition_has_on_fail(client: TestClient) -> None:
+def test_the_error_output_of_an_action_exists_only_with_its_setting_not_with_its_definition(
+    client: TestClient,
+) -> None:
+    """Before ADR-061 On Error needed an Output with On Fail in the definition; now the action's own setting decides."""
     pipeline, shell = _shell(client)
-    stage_id = shell["stage_id"]
-    other = _node(client, pipeline, "action", stage_id=stage_id)
+    other = _node(client, pipeline, "action", stage_id=shell["stage_id"])
     definition = _action_definition(client)
     output = next(n for n in _graph(client, definition)["nodes"] if n["kind"] == "output")
-
-    def patch_output(fail: bool) -> None:
-        client.patch(f"{_url(definition)}/nodes/{output['id']}", json={"fail_enabled": fail})
-
-    patch_output(True)
+    client.patch(f"{_url(definition)}/nodes/{output['id']}", json={"fail_enabled": False})
     _link(client, pipeline, shell, definition["id"])
+    assert _edge(client, pipeline, shell, "error", other, "in").status_code == 422
+    client.patch(
+        f"{_url(pipeline)}/nodes/{shell['id']}", json={"config": {"on_failure": "error_output"}}
+    )
     assert _edge(client, pipeline, shell, "error", other, "in").status_code == 201
-    patch_output(False)  # switching On Fail off removes the Error connections of linked actions
+    client.patch(f"{_url(definition)}/nodes/{output['id']}", json={"fail_enabled": True})
+    client.patch(f"{_url(definition)}/nodes/{output['id']}", json={"fail_enabled": False})
+    # the definition's On Fail does not take the action's connection with it any more
     assert [
         e["source_port"] for e in _graph(client, pipeline)["edges"] if e["source_id"] == shell["id"]
-    ] == []
-    assert _edge(client, pipeline, shell, "error", other, "in").status_code == 422
+    ] == ["error"]
     assert _edge(client, pipeline, shell, "pass", other, "in").status_code == 201
 
 

@@ -26,6 +26,7 @@ CATALOG_CLASSES = {
     "nav-link",  # an entry of a navigation
     "menu__item",  # an item of a menu
     "popover__option",  # an option of a popover list
+    "info-tip",  # the (i) that opens the explanation of a field (components/info-tip.js)
 }
 
 MEASURE = """

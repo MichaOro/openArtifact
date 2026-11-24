@@ -27,7 +27,7 @@ const graph = {
   graph: { id: "g1", name: "Flow" },
   nodes: [
     { id: "t", kind: "trigger", x: 0, y: 0 },
-    { id: "a", kind: "action", x: 0, y: 0, stage_id: "s", definition_fail_enabled: false },
+    { id: "a", kind: "action", x: 0, y: 0, stage_id: "s", config: {} },
     { id: "s", kind: "stage", x: 0, y: 0, width: 400, height: 300 },
     { id: "c1", kind: "complete", x: 0, y: 0 },
   ],

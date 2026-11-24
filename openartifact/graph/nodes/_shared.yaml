@@ -8,8 +8,13 @@ settings:
     options:
     - fail
     - continue
-    help: 'fail (the default): leave by On Fail, the action fails if nothing is connected there. continue: leave
-      by On Pass although the node failed (fail open); the step still shows the failure and its reason.'
+    - error_output
+    option_labels:
+      fail: Stop the run
+      continue: Continue
+      error_output: Error output
+    help: Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error
+      output goes on through On Fail, which shows only then.
     stored_in: config
     section: behaviour
   method:

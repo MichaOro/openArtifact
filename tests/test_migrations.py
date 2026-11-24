@@ -794,3 +794,75 @@ def test_migration_0043_drops_the_history_policy_and_downgrade_brings_the_column
         assert conn.execute(
             "SELECT history_keep_last, history_keep_hours FROM tasks"
         ).fetchall() == [(None, None)]
+
+
+def test_migration_0048_gives_a_used_error_output_its_setting_and_keeps_the_rest(
+    at_revision: Callable[[str], Path],
+) -> None:
+    """A node or action whose error output is connected gets ``error_output`` (it followed that connection before); a
+    node set to ``continue`` never used the output, so a connection there is dead and goes; the others keep their value."""
+    import json
+
+    db = at_revision("0047")
+    nodes = [
+        # id, kind, config, error port, has an edge there
+        ("n_edge", "code", {"code": "x"}, "fail", True),
+        ("n_fail_edge", "http", {"on_failure": "fail"}, "fail", True),
+        ("n_continue_edge", "code", {"on_failure": "continue"}, "fail", True),
+        ("n_plain", "code", {"code": "y"}, "fail", False),
+        ("n_fail", "code", {"on_failure": "fail"}, "fail", False),
+        ("n_continue", "http", {"on_failure": "continue"}, "fail", False),
+        ("a_edge", "action", {}, "error", True),
+        ("a_plain", "action", {}, "error", False),
+    ]
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO graphs (id, name, slug, kind) VALUES ('g', 'G', 'g', 'pipeline')")
+        conn.execute(
+            "INSERT INTO graph_nodes (id, graph_id, kind, name) VALUES ('end', 'g', 'complete', 'End')"
+        )
+        for node_id, kind, config, port, edge in nodes:
+            conn.execute(
+                "INSERT INTO graph_nodes (id, graph_id, kind, name, config) VALUES (?, 'g', ?, ?, ?)",
+                (node_id, kind, node_id, json.dumps(config)),
+            )
+            if edge:
+                conn.execute(
+                    "INSERT INTO graph_edges (id, graph_id, source_id, source_port, target_id, target_port) "
+                    "VALUES (?, 'g', ?, ?, 'end', 'in')",
+                    (f"e_{node_id}", node_id, port),
+                )
+        # an edge of another port is not touched
+        conn.execute(
+            "INSERT INTO graph_edges (id, graph_id, source_id, source_port, target_id, target_port) "
+            "VALUES ('e_pass', 'g', 'n_plain', 'pass', 'end', 'in')"
+        )
+
+    command.upgrade(alembic_config(), "0048")
+    with sqlite3.connect(db) as conn:
+        config = {
+            r[0]: json.loads(r[1]) for r in conn.execute("SELECT id, config FROM graph_nodes")
+        }
+        edges = {r[0] for r in conn.execute("SELECT id FROM graph_edges")}
+    assert config["n_edge"] == {"code": "x", "on_failure": "error_output"}
+    assert config["n_fail_edge"] == {"on_failure": "error_output"}
+    assert config["a_edge"] == {"on_failure": "error_output"}
+    assert config["n_continue_edge"] == {
+        "on_failure": "continue"
+    }  # stays, its dead connection goes
+    assert "e_n_continue_edge" not in edges
+    assert config["n_plain"] == {"code": "y"}  # nothing was connected: the default (stop) stays
+    assert config["n_fail"] == {"on_failure": "fail"}
+    assert config["n_continue"] == {"on_failure": "continue"}
+    assert config["a_plain"] == {}
+    assert {"e_n_edge", "e_n_fail_edge", "e_a_edge", "e_pass"} <= edges  # the live connections stay
+
+    command.downgrade(alembic_config(), "0047")
+    with sqlite3.connect(db) as conn:
+        config = {
+            r[0]: json.loads(r[1]) for r in conn.execute("SELECT id, config FROM graph_nodes")
+        }
+    assert config["n_edge"] == {"code": "x"}  # the old default followed the error output
+    assert config["n_fail_edge"] == {}
+    assert config["a_edge"] == {}  # an action had no such setting before
+    assert config["n_continue_edge"] == {"on_failure": "continue"}
+    assert config["n_continue"] == {"on_failure": "continue"}

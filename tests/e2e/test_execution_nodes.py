@@ -251,6 +251,14 @@ def test_pass_and_fail_connect_to_the_output_and_the_next_node(
     output = page.locator(".ge-node--output")
     expect(code.locator(".ge-port--pass")).to_be_visible()
     expect(code.locator(".ge-port--pass")).to_have_attribute("data-label", "On Pass")
+    expect(
+        code.locator(".ge-port--fail")
+    ).to_be_hidden()  # the error output is there only with "Error output"
+    code.dblclick(position={"x": 30, "y": 5})
+    page.locator("#node-modal").get_by_label("If the node fails").select_option(
+        label="Error output"
+    )
+    page.keyboard.press("Escape")
     expect(code.locator(".ge-port--fail")).to_have_attribute("data-label", "On Fail")
     _drag(page, code.locator(".ge-port--pass"), output.locator(".ge-port--pass"))
     _expect_edges(api, definition, [("out", "pass"), ("pass", "pass")])
