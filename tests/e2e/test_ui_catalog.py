@@ -238,6 +238,28 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
         },
     ).raise_for_status()
 
+    # a guard of the library, attached to the stage and switched off there: the shield, its popup with a muted row,
+    # and the guard editor with its Delete refused while it is used (ADR-060)
+    guard = api.post(
+        "/api/guards",
+        json={
+            "name": "Stall guard",
+            "trigger": {"type": "event", "events": ["enter"]},
+            "when": when | {"items": []},
+        },
+    ).json()
+    placed = api.post(
+        "/api/guard-attachments",
+        json={
+            "guard_id": guard["id"],
+            "pipeline_id": pipeline["id"],
+            "scope_type": "stage",
+            "scope_id": pipeline["stages"][0][0]["id"],
+            "enabled": False,
+        },
+    )
+    placed.raise_for_status()
+
     def check(where: str) -> None:
         problems.extend(_audit(page, theme, where))
 
@@ -257,6 +279,7 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
         "/executions",
         "/pipelines",
         "/actions",
+        "/guards",
         "/agents",
         "/settings/providers",
         "/settings/credentials",
@@ -277,10 +300,19 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
             page.keyboard.press("Escape")
             page.keyboard.press("Escape")
             expect(dialog).to_be_hidden()
+        if path == "/guards":  # the guard editor: Settings and Logic, the title renamed in place
+            page.locator(".gd-item .ge-item__link").click()
+            expect(page.locator("#guard-modal")).to_be_visible()
+            check("guard editor")
+            page.keyboard.press("Escape")
     page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
     expect(page.locator(".ge-node").first).to_be_visible()
     _theme(page, theme)
     check("editor")
+    page.locator(".ge-stage__header [data-guard-shield]").click()
+    expect(page.locator("[data-guard-popover]")).to_be_visible()
+    check("editor / shield popup")
+    page.keyboard.press("Escape")
     # a double click opens the action itself (when it has a definition): its settings are the menu's Settings
     page.locator(".ge-node--action").first.click(button="right", position={"x": 30, "y": 5})
     page.get_by_role("menuitem", name="Settings").click()

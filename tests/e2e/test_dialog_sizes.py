@@ -67,6 +67,7 @@ def _pages(api: httpx.Client) -> list[str]:
         "/executions",
         "/pipelines",
         "/actions",
+        "/guards",
         "/agents",
         "/credentials",
         "/providers",

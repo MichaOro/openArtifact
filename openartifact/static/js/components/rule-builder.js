@@ -23,7 +23,12 @@ function select(label, options, value, onChange) {
   el.setAttribute("aria-label", label);
   for (const [optionValue, text] of options) el.append(new Option(text, optionValue));
   el.value = value;
-  el.addEventListener("change", () => onChange(el.value));
+  const named = () => (el.title = el.selectedOptions?.[0]?.textContent ?? ""); // the whole name, also where it is cut
+  named();
+  el.addEventListener("change", () => {
+    named();
+    onChange(el.value);
+  });
   return el;
 }
 

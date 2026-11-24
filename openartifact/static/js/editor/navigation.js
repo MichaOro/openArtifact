@@ -30,6 +30,18 @@ export async function setupBackToAgent(link, agentId) {
   link.hidden = false;
 }
 
+/** Offer "Back to <guard>" when a guard's action was opened from the guard editor of the Guards page (ADR-060). */
+export async function setupBackToGuard(link, guardId) {
+  link.href = `/guards?open=${encodeURIComponent(guardId)}`;
+  try {
+    const guard = await request(`/api/guards/${encodeURIComponent(guardId)}`);
+    link.textContent = t("editor.navigation.back_name", { name: guard.name });
+  } catch {
+    link.textContent = t("editor.navigation.back_guard");
+  }
+  link.hidden = false;
+}
+
 /** The sidebar's "Pipeline" reopens this pipeline with its action selected. */
 export function rememberPipeline(slug, nodeId) {
   writeJson(KEYS.lastPipeline, { slug, node: nodeId });

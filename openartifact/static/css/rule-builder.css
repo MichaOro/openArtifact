@@ -18,7 +18,9 @@
 .rb-items { display: flex; flex-direction: column; gap: var(--space-2); }
 .rb-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--color-surface); }
 .rb-row .rb-select { flex: 1 1 8rem; width: auto; min-width: 0; }
-.rb-row .rb-select:first-child { flex-basis: 9rem; }
+/* the field never shrinks below its longest name ("Time without progress"): the row wraps instead; on a screen
+   narrower than that it ends in an ellipsis and its title says the whole name */
+.rb-row .rb-select:first-child { flex: 1 0 auto; max-width: 100%; text-overflow: ellipsis; }
 .rb-text { flex: 2 1 10rem; min-width: 0; }
 .rb-duration { display: flex; flex: 2 1 10rem; gap: var(--space-2); }
 .rb-number { width: 5.5rem; }

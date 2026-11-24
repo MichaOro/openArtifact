@@ -22,6 +22,13 @@
   line-height: 1.5rem;
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
+/* the guard library (guards.html): the search sits left of "New guard", a row wraps on a narrow screen */
+.gd-library__bar { flex-wrap: wrap; align-items: center; gap: var(--space-2); justify-content: space-between; }
+.gd-library__bar .button { order: 2; }
+.gd-library__search { flex: 1 1 14rem; max-width: 24rem; height: 2rem; padding-block: 0; }
+.gd-item { flex-wrap: wrap; }
+.gd-item .ge-chip { flex: none; white-space: nowrap; }
+.ge-empty[hidden] { display: none; }
 .ge-empty { padding: var(--space-5); border-radius: var(--radius-md); color: var(--color-text-muted); }
 
 /* ── Editor ───────────────────────────────────────────────────────── */
@@ -418,26 +425,50 @@
 .ge-inspector__icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: var(--radius-md); background: color-mix(in srgb, var(--node-color, var(--color-accent)) 18%, transparent); color: var(--node-color, var(--color-accent)); }
 .ge-inspector__icon .icon { width: 1.25rem; height: 1.25rem; }
 
-/* guards (ADR-060): shield chips in the tool bar (the pipeline's), in a stage header and in an action's settings;
- * the Guard window. A guard is never a node of the canvas. */
-.ge-guards { display: inline-flex; flex-wrap: nowrap; gap: var(--space-1); min-width: 0; overflow: hidden; }
-.ge-guards__chip { height: 1.5rem; padding: 0 var(--space-2); gap: var(--space-1); font-size: 0.75rem; max-width: 12rem; }
-.ge-guards__chip .icon { width: 0.875rem; height: 0.875rem; flex: none; }
-.ge-guards__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ge-guards__chip.is-off .ge-guards__name { text-decoration: line-through; color: var(--color-text-secondary); }
-.ge-stage__header .ge-guards { flex: 0 1 auto; }
-.ge-bar__guards { display: inline-flex; min-width: 0; }
-.ge-guard-section .ge-guards { flex-wrap: wrap; margin-bottom: var(--space-2); }
+/* guards (ADR-060): one shield per scope that has guards attached (the pipeline's next to the "+" of the canvas, a
+ * stage's in its header, an action's as a badge on its card), the popup of a scope's guards and the guard editor. A guard
+ * is never a node of the canvas. */
+.ge-add__row { display: flex; align-items: center; gap: var(--space-1); }
+.ge-add__row .gd-shield[hidden] { display: none; }
+.gd-shield { flex: none; }
+.ge-stage__header .gd-shield:hover { border-color: var(--node-color); }
+/* on the card's top edge, right, clear of its name and of the port labels; the card's colour as its border */
+.gd-shield--node { position: absolute; top: calc(-1 * var(--space-3)); right: 4.5rem; z-index: 2; background: var(--color-glass-card); border-color: var(--node-color); }
+.gd-popover { z-index: 30; gap: var(--space-2); min-width: 18rem; max-width: min(26rem, calc(100vw - 1rem)); max-height: min(70vh, 32rem); }
+.gd-popover[hidden] { display: none; }
+.gd-popover__search { flex: none; }
+.gd-popover__list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.gd-popover__list[hidden], .gd-popover__empty[hidden] { display: none; }
+.gd-popover__empty { margin: 0; padding: 0 var(--space-2); }
+.gd-popover__new { align-self: flex-start; }
+.gd-pick { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); }
+.gd-pick:hover { background: var(--accent-soft); }
+.gd-pick__text { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.gd-pick__name { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.gd-pick__summary { overflow: hidden; font-size: 0.75rem; color: var(--color-text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+.gd-attached { display: flex; align-items: center; gap: var(--space-2); padding-left: var(--space-1); }
+.gd-attached__name { flex: 1; min-width: 0; height: 2rem; }
+.gd-attached.is-off .gd-attached__name { text-decoration: line-through; color: var(--color-text-secondary); }
+.gd-names { margin: 0 0 var(--space-2); padding-left: var(--space-4); }
+.gd-names .is-off { text-decoration: line-through; color: var(--color-text-secondary); }
+.gd-part { display: flex; flex-direction: column; gap: var(--space-3); }
+.gd-part + .gd-part { padding-top: var(--space-2); border-top: 1px solid var(--glass-border); }
+.gd-section .rb-choices { flex: none; } /* in a column: the rule builder's row basis would make it 12rem high */
+.gd-part__title { margin: 0; font-size: 1rem; font-weight: 600; }
+.gd-used { margin: var(--space-1) 0 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.gd-used[hidden] { display: none; }
+#guard-modal .modal__header { align-items: flex-start; }
+.gd-actionbar { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; }
+.gd-section > .button, .gd-part > .button { align-self: flex-start; } /* a column would stretch them */
 .gd-form .modal__body { display: flex; flex-direction: column; gap: var(--space-3); }
 .gd-section { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
 .gd-section__title { padding: 0 var(--space-1); font-weight: 600; }
 .gd-chips { display: flex; gap: var(--space-1); }
 .gd-row { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 .gd-row .field { flex: 1 1 8rem; }
-.gd-number { width: 6rem; }
+.modal__panel .gd-number { width: 6rem; min-width: 0; flex: none; } /* a count, not a text: narrower than the dialog's usual control */
 .gd-steps { display: flex; flex-direction: column; gap: var(--space-2); }
 .gd-step { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-.gd-step select { width: auto; }
-.gd-enabled { display: flex; align-items: center; gap: var(--space-3); }
+.modal__panel .gd-step select { width: auto; min-width: 8rem; }
 .gd-preview:empty { display: none; }
 .gd-delete { margin-right: auto; }

@@ -4,6 +4,7 @@
 {% from "components/form_modal.html" import form_modal, NAME_FIELDS %}
 {% from "components/icons.html" import icon %}
 {% from "components/modal.html" import modal %}
+{% from "components/guard_modal.html" import guard_modal %}
 {% block title %}{{ t('page.' ~ section.key) }} · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
 <link rel="stylesheet" href="/static/css/agents.css">
@@ -17,7 +18,6 @@
     <div class="ge-bar glass" role="toolbar" aria-label="{{ t('graph.' ~ section.key ~ '.tools') }}">
         <a class="button button--ghost button--sm" href="{{ section.path }}">{{ t('graph.' ~ section.key ~ '.all') }}</a>
         <a class="button button--ghost button--sm" href="#" data-back hidden></a>
-        {% if section.kind == "pipeline" %}<span class="ge-bar__guards" data-pipeline-guards aria-label="{{ t('guards.pipeline_guards') }}" role="group"></span>{% endif %}
         <span class="ge-bar__spacer"></span>
         <button type="button" class="button button--ghost button--sm" data-zoom-out aria-label="{{ t('execution_flow.zoom_out') }}">−</button>
         <span class="ge-bar__zoom" data-zoom-label aria-live="polite">100%</span>
@@ -33,7 +33,10 @@
                 </div>
             </div>
             <div class="ge-add">
+                <div class="ge-add__row">
+                {% if section.kind == "pipeline" %}<button type="button" class="icon-button gd-shield" data-pipeline-shield aria-haspopup="dialog" aria-expanded="false" hidden>{{ icon("shield") }}</button>{% endif %}
                 <button type="button" class="icon-button" data-add-menu aria-controls="ge-add-list" aria-expanded="false" aria-label="{{ t('graph_editor.add_to_the_canvas') }}" title="{{ t('common.add') }}">{{ icon("plus") }}</button>
+                </div>
                 <div class="ge-add__menu glass" id="ge-add-list" aria-label="{{ t('common.add') }}" hidden data-add-list></div>
             </div>
         </div>
@@ -45,18 +48,8 @@
 {% endcall %}
 {{ form_modal("new-modal", t('common.new'), NAME_FIELDS) }}
 {% if section.kind == "pipeline" %}
-{# a guard of the pipeline, a stage or an action (ADR-060), opened from a shield chip or a Guard entry #}
-{% call modal("guard-modal", t('guards.guard'), size="wide", reason="the guard window: trigger, rule builder and consequence") %}
-<form class="task-form gd-form" novalidate>
-    <div class="modal__body" data-guard-body></div>
-    <p class="form-error" role="alert" hidden data-form-error></p>
-    <footer class="modal__footer">
-        <button type="button" class="button button--ghost is-danger gd-delete" data-delete hidden>{{ t('common.delete') }}</button>
-        <button type="button" class="button button--ghost" data-cancel>{{ t('common.cancel') }}</button>
-        <button type="submit" class="button button--primary" data-submit>{{ t('common.save') }}</button>
-    </footer>
-</form>
-{% endcall %}
+{# the guard editor (ADR-060): a definition of the library, opened from a shield popup or "New guard…" #}
+{{ guard_modal() }}
 {% endif %}
 {{ confirm_modal("confirm-modal", t('common.delete')) }}
 {% endblock %}

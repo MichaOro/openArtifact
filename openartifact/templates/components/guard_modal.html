@@ -1,0 +1,17 @@
+{% from "components/modal.html" import modal %}
+{# The guard editor (ADR-060, static/js/guards/editor-window.js): one definition of the guard library. The title becomes
+   "Guard – NAME" with the name renamed in place; the body holds the parts Settings and Logic. Used by the Guards page and
+   the pipeline editor. #}
+{% macro guard_modal() -%}
+{% call modal("guard-modal", t('guards.guard'), size="wide", reason="the guard window: trigger, rule builder and consequence") %}
+<form class="task-form gd-form" novalidate>
+    <div class="modal__body" data-guard-body></div>
+    <p class="form-error" role="alert" hidden data-form-error></p>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost is-danger gd-delete" data-delete hidden>{{ t('common.delete') }}</button>
+        <button type="button" class="button button--ghost" data-cancel>{{ t('common.cancel') }}</button>
+        <button type="submit" class="button button--primary" data-submit>{{ t('common.save') }}</button>
+    </footer>
+</form>
+{% endcall %}
+{%- endmacro %}

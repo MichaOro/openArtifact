@@ -94,14 +94,21 @@ def test_navigation_shows_the_pipeline_entries_only_inside_the_pipeline(client: 
     assert 'href="/artifact-types"' not in html
     assert 'href="/pipelines"' in html  # the Pipeline entry itself
     assert 'href="/actions"' not in html and 'href="/agents"' not in html
+    assert 'href="/guards"' not in html
     for path, marked_as_section in (
         ("/pipelines", 0),
         ("/actions", 1),
+        ("/guards", 1),
         ("/agents", 1),
         ("/agents/x", 1),
     ):
         inside = client.get(path).text
-        assert 'href="/actions"' in inside and 'href="/agents"' in inside  # the sub-entries
+        # the sub-entries: Actions and Guards (the libraries), Agents
+        assert (
+            'href="/actions"' in inside
+            and 'href="/guards"' in inside
+            and 'href="/agents"' in inside
+        )
         assert inside.count("nav-link--section") == marked_as_section
         assert inside.count('aria-current="page"') == 1
 
@@ -120,6 +127,18 @@ def test_action_pages_render_and_mark_their_navigation_entry(db_client: TestClie
         assert response.status_code == 200
         assert 'href="/actions"' in response.text
         assert response.text.count('aria-current="page"') == 1
+
+
+def test_the_guards_page_renders_with_the_guard_editor_and_marks_its_entry(
+    db_client: TestClient,
+) -> None:
+    response = db_client.get("/guards")
+    assert response.status_code == 200
+    assert (
+        'aria-current="page"' in response.text and response.text.count('aria-current="page"') == 1
+    )
+    assert 'id="guard-modal"' in response.text and "data-guard-list" in response.text
+    assert "/static/js/guards/library-page.js" in response.text
 
 
 def test_board_has_three_empty_lanes(client: TestClient) -> None:

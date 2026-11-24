@@ -150,6 +150,12 @@ async def action_editor(request: Request, ref: str, session: SessionDep) -> HTML
     return await _editor_page(request, session, "action", ref)
 
 
+@router.get("/guards", response_class=HTMLResponse, include_in_schema=False)
+async def guards(request: Request) -> HTMLResponse:
+    """The guard library (ADR-060): definitions, edited in the guard editor and attached in the pipeline editor."""
+    return _page(request, "guards.html", "page.guards", "guards")
+
+
 @router.get("/executions", response_class=HTMLResponse, include_in_schema=False)
 async def executions(request: Request, page_size: int = 50) -> HTMLResponse:
     """The executions of all artifacts, newest first, with filters (the page loads them through the API).

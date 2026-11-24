@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/guard_modal.html" import guard_modal %}
+{% from "components/icons.html" import icon %}
+{% block title %}{{ t('page.guards') }} · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
+<link rel="stylesheet" href="/static/css/rule-builder.css">{% endblock %}
+{% block content %}
+{# The guard library (ADR-060, static/js/guards/library-page.js): what each guard does, where it is used; a guard is
+   edited in the guard editor and attached in the pipeline editor. #}
+{{ alert(t('guards.load_error')) }}
+<div class="action-row gd-library__bar">
+    <button type="button" class="button button--primary" data-new-guard aria-haspopup="menu" aria-expanded="false">{{ icon("plus") }} {{ t('guards.new_menu') }}</button>
+    <input type="search" class="field__control gd-library__search" data-guard-search placeholder="{{ t('guards.search_placeholder') }}" aria-label="{{ t('guards.search') }}" autocomplete="off">
+</div>
+<ul class="ge-list" data-guard-list aria-label="{{ t('guards.library') }}"></ul>
+<p class="ge-empty glass" data-guard-empty hidden>{{ t('guards.empty') }}</p>
+<p class="ge-empty glass" data-guard-nomatch hidden>{{ t('guards.no_match') }}</p>
+
+<template id="guard-item-template">
+    <li class="ge-item glass gd-item">
+        <a class="ge-item__link" href="#">
+            <h3 class="ge-item__name"></h3>
+            <p class="ge-item__meta" data-summary></p>
+        </a>
+        <span class="ge-chip" data-consequence></span>
+        <span class="ge-chip" data-used></span>
+        <button type="button" class="icon-button icon-button--sm is-danger" data-delete title="{{ t('common.delete') }}">{{ icon("trash") }}</button>
+    </li>
+</template>
+
+{{ guard_modal() }}
+{{ confirm_modal("confirm-modal", t('common.delete')) }}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/guards/library-page.js"></script>{% endblock %}

@@ -3,7 +3,6 @@
  * of the *kind of kind* (`behaviour`: plain, flow, stage, action, pipeline, output, tool): how it is drawn and connects. What
  * differs between kinds of one behaviour is data in the description, drawn by these views; there is no class per kind. A kind
  * may still get a view of its own with `registerView` (the way an extension would, ADR-014). */
-import { stageChips } from "./guards.js";
 import { icon } from "../components/icons.js";
 import { request } from "../http.js";
 import { renderCaption } from "./caption.js";
@@ -208,8 +207,7 @@ class StageView extends NodeView {
     add.title = t("editor.node_types.add_to_stage");
     add.append(icon("plus"));
     header.append(parts.caption, parts.name);
-    const guards = stageChips.provider?.(node); // the shield chips of its guards (ADR-060), never nodes
-    if (guards) header.append(guards);
+    // the shield of its guards (ADR-060) goes before the "+" when it has any (editor/guards.js)
     header.append(add);
     const body = document.createElement("div");
     body.className = "ge-stage__body";

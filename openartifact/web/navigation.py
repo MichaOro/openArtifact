@@ -101,6 +101,7 @@ SIDEBAR = (
             href="/pipelines",
             children=(
                 NavLink("actions", "Actions", "action", href="/actions"),
+                NavLink("guards", "Guards", "shield", href="/guards"),
                 NavLink("agents", "Agents", "agent", href="/agents"),
             ),
         )
