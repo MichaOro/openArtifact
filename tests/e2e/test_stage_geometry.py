@@ -26,6 +26,7 @@ STAGE_SIZE = {"width": 500, "height": 360}
 # the least a stage measures: its actions plus the band between its outer and inner border (STAGE_MARGIN = 56) on the right
 # and below (the right edge of an action at 100 + 190, the lower one ends at 44 + 170 + 68)
 BAND = 56
+DETOUR = 28  # how far a loop back keeps below the lowest action
 ACTION_WIDTH, ACTION_HEIGHT, HEADER = 190, 68, 44
 MIN_WIDTH, MIN_HEIGHT = 100 + ACTION_WIDTH + BAND, HEADER + 170 + ACTION_HEIGHT + BAND
 # An action's ports sit inside its 1px border, a stage's inside the stage's: the drawn lines use the model and are exact,
@@ -480,23 +481,28 @@ def test_both_grips_stop_one_band_from_the_actions(
     )
 
 
-def test_the_inner_border_shows_faintly_while_an_action_or_a_grip_is_dragged(
+def test_the_inner_border_is_a_limit_and_is_not_drawn_while_an_action_or_a_grip_is_dragged(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
+    """The owner does not want to see the inner border: it only limits the actions."""
     pipeline = _pipeline(api)
     _open(page, base_url, pipeline)
-    inner = page.locator(".ge-node--stage .ge-stage__inner")
-    expect(inner).to_have_css("opacity", "0")
+    inner = page.locator(".ge-node--stage .ge-stage__inner, .ge-node--stage.is-guiding")
+    expect(inner).to_have_count(0)
     action = _action(page, pipeline["upper"]["id"])
     x, y = centre(action.locator(".ge-node__name"))
     page.mouse.move(x, y)
     page.mouse.down()
     page.mouse.move(x + 20, y + 20, steps=6)
-    expect(page.locator(".ge-node--stage.is-guiding")).to_have_count(1)
-    expect(inner).to_have_css("opacity", "0.35")
+    expect(inner, "nothing of the inner border shows while an action is dragged").to_have_count(0)
     page.mouse.up()
-    expect(page.locator(".ge-node--stage.is-guiding")).to_have_count(0)
-    expect(inner).to_have_css("opacity", "0")
+    grip = page.locator(".ge-node--stage .ge-resize--se")
+    gx, gy = centre(grip)
+    page.mouse.move(gx, gy)
+    page.mouse.down()
+    page.mouse.move(gx + 30, gy + 30, steps=6)
+    expect(inner, "nor while a grip is dragged").to_have_count(0)
+    page.mouse.up()
 
 
 def test_a_loop_back_inside_a_stage_runs_in_the_band_between_the_borders(
@@ -537,11 +543,15 @@ def test_a_loop_back_inside_a_stage_runs_in_the_band_between_the_borders(
     assert path["y"] + path["height"] < frame["y"] + frame["height"] - 2, (
         "and stays inside the outer border"
     )
+    scale = frame["height"] / MIN_HEIGHT  # the page is zoomed to fit: model units to pixels
+    assert abs((path["y"] + path["height"]) - lowest - DETOUR * scale) < 4 * scale, (
+        f"its lowest run is DETOUR below the lowest action: {(path['y'] + path['height']) - lowest}"
+    )
     assert path["x"] > frame["x"] + 2, "also on the left"
     assert path["x"] + path["width"] < frame["x"] + frame["width"] - 2, "and on the right"
 
 
-def test_a_loop_back_in_a_taller_stage_still_runs_in_the_band_at_the_bottom(
+def test_a_loop_back_in_a_taller_stage_runs_right_below_the_nodes_not_at_the_stage_bottom(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     pipeline: dict[str, Any] = api.post("/api/pipelines", json={"name": "Tall loop"}).json()
@@ -564,8 +574,14 @@ def test_a_loop_back_in_a_taller_stage_still_runs_in_the_band_at_the_bottom(
     frame = page.locator(".ge-node--stage").bounding_box()
     assert path and frame
     scale = frame["height"] / height  # the page is zoomed to fit: model units to pixels
-    bottom_gap = frame["y"] + frame["height"] - (path["y"] + path["height"])
-    # the exact height is held by the unit test of edgePath; measured in the page (strokes, borders) it is the middle of the band
-    assert BAND * scale * 0.25 < bottom_gap < BAND * scale * 0.75, (
-        f"the lowest run lies in the band at the bottom, about half a band above the outer border: {bottom_gap}"
+    lowest = max(
+        _action(page, a["id"]).bounding_box()["y"] + _action(page, a["id"]).bounding_box()["height"]  # type: ignore[index]
+        for a in (upper, lower)
+    )
+    run = path["y"] + path["height"]
+    assert abs(run - lowest - DETOUR * scale) < 4 * scale, (
+        f"the lowest run is DETOUR below the lowest action, as before the borders: {run - lowest}"
+    )
+    assert frame["y"] + frame["height"] - run > BAND * scale, (
+        "and it does not drop to the stage's bottom: it stays well above the inner border's bottom"
     )

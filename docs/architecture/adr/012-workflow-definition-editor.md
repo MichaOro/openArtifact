@@ -149,8 +149,10 @@ at the inner border on the left and at the top; right and below the stage grows 
 there too. `minStageSize` (the floor of both grips and of the double click) is the actions plus the band to the right
 and below (before: 24 below and right, 12 on the left, and not the same for the two grips). The bottom attachment point
 is level with an action at the bottom of the inner border (stage height minus the band minus the action's height); the top and
-middle ones are unchanged. A connection that loops back between two actions of one stage keeps `DETOUR` plus its corner
-inside the band (`DETOUR + CORNER <= STAGE_MARGIN`, a test holds it) and is clamped to the stage's box, so it never
-crosses the outer border and never runs over an action. The inner border is drawn only while an action or a grip is dragged,
-as a faint dashed line. Stored positions do not change: a stage saved earlier may have an action closer to an edge; the
+middle ones are unchanged. A connection that loops back keeps its routing: `DETOUR` (28 px) below the lowest of its two nodes,
+wherever the stage's bottom edge is. It may cross the inner border and run in the band; since `DETOUR + CORNER <=
+STAGE_MARGIN` (a test holds it) the loop still lies inside the outer border at the least size of the stage. (A first version
+clamped the loop into the middle of the band at the bottom of the stage; the owner wanted the routing as before, close
+under the nodes.) The inner border is a limit and is not drawn (a first version showed it as a faint dashed line while an
+action or a grip was dragged; the owner did not want it). Stored positions do not change: a stage saved earlier may have an action closer to an edge; the
 limit applies when it is dragged, placed or resized.

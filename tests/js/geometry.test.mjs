@@ -263,35 +263,30 @@ test("the right and the bottom grip stop at the same distance from the actions",
   assert.equal(g.fitStage({ width: 1, height: 1 }, [a]).width, Math.max(least.width, 320));
 });
 
-test("a loop back inside a stage runs in the band between the stage's borders and never across the outer one", () => {
+test("a loop back runs DETOUR below the lowest of the two nodes, whatever the size of the stage", () => {
+  const a = action("a", 100, { y: 60, definition_fail_enabled: true });
+  const b = action("b", 400, { y: 60, definition_fail_enabled: true });
+  const nodes = nodesOf(stage, a, b);
+  const from = g.portPoint(b, "error", nodes);
+  const to = g.portPoint(a, "in", nodes);
+  const lowest = Math.max(g.boxOf(a, nodes).y + 68, g.boxOf(b, nodes).y + 68);
+  // a stage's size is not an input of the path: a taller stage gives the same line
+  const d = g.edgePath(from, to, g.boxOf(b, nodes), g.boxOf(a, nodes), { style: "straight", within: { x: stage.x, y: stage.y, width: 700, height: 900 }, below: lowest + 300 });
+  const ys = d.match(/-?\d+(\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 1);
+  assert.equal(Math.max(...ys), lowest + g.DETOUR, "the lowest run: DETOUR below the lowest node, not at the stage's bottom");
+});
+
+test("at the least size of a stage the loop, with its corner, still lies inside the outer border", () => {
   assert.ok(g.DETOUR + g.CORNER <= g.STAGE_MARGIN, "the detour and its corner fit into the band");
   const a = action("a", 100, { y: 60, definition_fail_enabled: true });
   const b = action("b", 400, { y: 60, definition_fail_enabled: true });
   const nodes = nodesOf(stage, a, b);
   const least = g.minStageSize([a, b]);
-  const box = { x: stage.x, y: stage.y, width: least.width, height: least.height };
   const from = g.portPoint(b, "error", nodes);
   const to = g.portPoint(a, "in", nodes);
   const lowest = Math.max(g.boxOf(a, nodes).y + 68, g.boxOf(b, nodes).y + 68);
-  const d = g.edgePath(from, to, g.boxOf(b, nodes), g.boxOf(a, nodes), { style: "straight", within: box, below: lowest });
-  const numbers = d.match(/-?\d+(\.\d+)?/g).map(Number);
-  const ys = numbers.filter((_, i) => i % 2 === 1);
-  const xs = numbers.filter((_, i) => i % 2 === 0);
-  assert.ok(Math.max(...ys) > lowest, "it runs below the lowest action");
-  assert.ok(Math.max(...ys) <= box.y + box.height - g.CORNER, "and stays inside the outer border at the bottom");
-  assert.ok(Math.min(...xs) >= box.x + g.CORNER && Math.max(...xs) <= box.x + box.width, "also on the left and the right");
-});
-
-test("a loop back in a stage larger than its actions still runs in the band at the bottom, in the middle of it", () => {
-  const a = action("a", 100, { y: 60, definition_fail_enabled: true });
-  const b = action("b", 400, { y: 60, definition_fail_enabled: true });
-  const nodes = nodesOf(stage, a, b);
-  const tall = { x: stage.x, y: stage.y, width: 700, height: 500 };
-  const from = g.portPoint(b, "error", nodes);
-  const to = g.portPoint(a, "in", nodes);
-  const lowest = g.boxOf(b, nodes).y + 68;
-  const d = g.edgePath(from, to, g.boxOf(b, nodes), g.boxOf(a, nodes), { style: "straight", within: tall, below: lowest });
+  const d = g.edgePath(from, to, g.boxOf(b, nodes), g.boxOf(a, nodes), { style: "straight" });
   const ys = d.match(/-?\d+(\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 1);
-  assert.equal(Math.max(...ys), tall.y + tall.height - g.STAGE_MARGIN / 2, "the lowest run: half a band above the outer border");
-  assert.ok(Math.max(...ys) > tall.y + tall.height - g.STAGE_MARGIN, "which is below the inner border");
+  assert.equal(Math.max(...ys), lowest + g.DETOUR, "DETOUR below the lowest action");
+  assert.ok(Math.max(...ys) <= stage.y + least.height - g.CORNER, "and inside the outer border at the least size");
 });

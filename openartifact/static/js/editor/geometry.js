@@ -59,8 +59,8 @@ export function canConnectFrom(start, other) {
 }
 
 export const CORNER = 12; // radius of rounded corners
-/** How far a routed edge keeps away from the nodes: inside a stage the whole loop (this and the corner) fits the band between the borders. */
-export const DETOUR = Math.min(28, STAGE_MARGIN - CORNER);
+/** How far a routed edge keeps away from the nodes. At the least size of a stage this and the corner (40) still fit the band (STAGE_MARGIN, 56) under its lowest action; in a larger stage the line stays this close to the nodes. */
+export const DETOUR = 28;
 const TIGHT = 48; // a forward connection with less room than this would bend too sharply
 
 /**
@@ -68,24 +68,13 @@ const TIGHT = 48; // a forward connection with less room than this would bend to
  * room to bend, leaves to the right, runs below both nodes and comes in from the left instead of
  * cutting across them (rounded for curved and elbow, with sharp corners for straight).
  */
-export function edgePath(from, to, fromBox, toBox, { routed = true, style = "curved", attachment = false, within = null, below = null } = {}) {
+export function edgePath(from, to, fromBox, toBox, { routed = true, style = "curved", attachment = false } = {}) {
   if (attachment) return attachmentPath(from, to);
   const dx = to.x - from.x;
   const level = Math.abs(to.y - from.y) < 1; // a straight run needs no room to bend: it is drawn as it is
   if (routed && dx < TIGHT && !(dx > 0 && level)) {
-    let low = Math.max(fromBox.y + fromBox.height, toBox.y + toBox.height, below ?? -Infinity) + DETOUR;
-    let out = from.x + DETOUR;
-    let back = to.x - DETOUR;
-    if (within) {
-      // both ends sit in one stage (`within` is its box, `below` the bottom of its lowest action): the loop's lowest run lies
-      // in the middle of the band between the stage's outer and inner border at the bottom (at the least size that is
-      // DETOUR below the lowest action), below every action and never across the outer border
-      const clear = Math.max(fromBox.y + fromBox.height, toBox.y + toBox.height, below ?? -Infinity) + DETOUR;
-      low = Math.min(Math.max(within.y + within.height - STAGE_MARGIN / 2, clear), within.y + within.height - CORNER);
-      out = Math.max(Math.min(out, within.x + within.width - CORNER), from.x + 4);
-      back = Math.min(Math.max(back, within.x + CORNER), to.x - 4);
-    }
-    const points = [from, { x: out, y: from.y }, { x: out, y: low }, { x: back, y: low }, { x: back, y: to.y }, to];
+    const low = Math.max(fromBox.y + fromBox.height, toBox.y + toBox.height) + DETOUR;
+    const points = [from, { x: from.x + DETOUR, y: from.y }, { x: from.x + DETOUR, y: low }, { x: to.x - DETOUR, y: low }, { x: to.x - DETOUR, y: to.y }, to];
     return polyline(points, style === "straight" ? 0 : CORNER);
   }
   if (style === "straight") return polyline([from, to], 0);

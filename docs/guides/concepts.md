@@ -90,10 +90,11 @@ glyph of diagonal strokes. Execution flows (read-only) have none.
 distance between them is the same on all four sides, and it is the one that has always been between the stage's top edge
 and the first action (56 px: the header and the first row). An action can be dragged and put anywhere inside the inner
 border; dragged towards the right or the bottom edge it pushes the stage's edge out, so the band stays. The grips stop at the
-actions plus the band, the same on the right and below; a double click fits the stage exactly to that. The connections that
-loop back inside a stage (for example an On Error that returns to the first action) run in the band between the two
-borders, below the actions. The inner border shows as a faint dashed line while you drag an action or a grip, and
-otherwise not. A stage saved before this may have an action closer to the left or bottom edge: nothing is moved, the
+actions plus the band, the same on the right and below; a double click fits the stage exactly to that. The inner border is
+a limit and is not drawn. Connections that loop back inside a stage (for example an On Error that returns to the first
+action) are routed as they always were: they leave to the right and run 28 px below the lowest of the two actions,
+wherever the stage's bottom edge is. A line that gets close to the inner border may cross it and run in the band; at the
+least size of a stage the loop (and its corner) still lies inside the outer border. A stage saved before this may have an action closer to the left or bottom edge: nothing is moved, the
 limit applies when you drag, place or resize.
 
 **Connecting.** Press on any port and drag: from an output to an input that fits, or the other way round, from an

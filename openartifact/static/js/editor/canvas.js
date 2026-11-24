@@ -11,7 +11,7 @@
  *  - click a node or an edge to select it. */
 import { EDGE_STYLES, actionsOf, clampInStage, boxOf, displayName, canConnectFrom, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, slotPairs, snapY } from "./geometry.js";
 import { icon } from "../components/icons.js";
-import { FAILING_PORTS, HEADER, STAGE_MARGIN, typeOf } from "./node-types.js";
+import { FAILING_PORTS, HEADER, typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -66,7 +66,6 @@ export class Canvas {
     this.hideTimer = null;
     this.edgeBar = this.readOnly ? null : this.#createEdgeBar();
     viewport.style.setProperty("--ge-stage-header", `${HEADER}px`); // read by editor.css
-    viewport.style.setProperty("--ge-stage-margin", `${STAGE_MARGIN}px`); // the inner border of a stage
 
     if (!readOnly) {
       viewport.classList.add("is-editor");
@@ -156,12 +155,6 @@ export class Canvas {
     type.render(el, node, { name, caption });
     for (const port of type.ports()) el.append(this.#port(node, type, port));
     if (!this.readOnly) el.append(this.#nodeBar(type));
-    if (type.behaviour === "stage") {
-      const inner = document.createElement("span");
-      inner.className = "ge-stage__inner"; // the inner border: the limit of the actions, shown only while they or a grip are dragged
-      inner.setAttribute("aria-hidden", "true");
-      el.append(inner);
-    }
     if (!this.readOnly && type.behaviour === "stage") for (const side of ["e", "s", "se"]) el.append(this.#resizeHandle(side));
     return el;
   }
@@ -226,21 +219,6 @@ export class Canvas {
     this.handlers.onNodeDrawn?.(node, el);
   }
 
-  /** Both ends in one stage: its box and the bottom of its lowest action, so a loop back runs in the band between the stage's borders. */
-  #stageBand(source, target) {
-    if (!source.stage_id || source.stage_id !== target.stage_id) return {};
-    const stage = this.nodes.get(source.stage_id);
-    if (!stage) return {};
-    const below = Math.max(...actionsOf(stage, this.nodes).map((a) => boxOf(a, this.nodes).y + sizeOf(a).height));
-    return { within: { x: stage.x, y: stage.y, width: stage.width, height: stage.height }, below };
-  }
-
-  /** Show (or remove) the faint inner border of a stage while an action is dragged in it or a grip is dragged. */
-  #guideStage(stage) {
-    this.viewport.querySelectorAll(".ge-node--stage.is-guiding").forEach((el) => el.classList.remove("is-guiding"));
-    if (stage) this.elements.get(stage.id)?.classList.add("is-guiding");
-  }
-
   /** Redraw every edge (cheap: a handful of paths). */
   drawEdges() {
     this.edgeLayer.querySelectorAll(".ge-edge").forEach((el) => el.remove());
@@ -250,7 +228,7 @@ export class Canvas {
       const target = this.nodes.get(edge.target_id);
       if (!source || !target) continue;
       const attachment = edge.target_port === "tools"; // a tool hangs below its agent: dashed, no arrow
-      const d = edgePath(portPoint(source, edge.source_port, this.nodes, edge.source_slot), portPoint(target, edge.target_port, this.nodes, edge.target_slot), boxOf(source, this.nodes), boxOf(target, this.nodes), { style: edge.style, attachment, ...this.#stageBand(source, target) });
+      const d = edgePath(portPoint(source, edge.source_port, this.nodes, edge.source_slot), portPoint(target, edge.target_port, this.nodes, edge.target_slot), boxOf(source, this.nodes), boxOf(target, this.nodes), { style: edge.style, attachment });
       const group = svg("g", { class: `ge-edge ge-edge--${attachment ? "attachment" : edge.source_port}`, "data-edge-id": edge.id });
       if (this.selection?.type === "edge" && this.selection.id === edge.id) group.classList.add("is-selected");
       const line = svg("path", attachment ? { class: "ge-edge__line", d } : { class: "ge-edge__line", d, "marker-end": `url(#ge-arrow-${FAILING_PORTS.includes(edge.source_port) ? "error" : "pass"})` });
@@ -517,7 +495,6 @@ export class Canvas {
     const node = this.nodes.get(grip.closest(".ge-node").dataset.nodeId);
     this.handlers.onSelect({ type: "node", id: node.id });
     this.viewport.classList.add("is-resizing");
-    this.#guideStage(node);
     this.gesture = { type: "resize", pointerId: event.pointerId, node, side: grip.dataset.resize, origin: { width: node.width, height: node.height }, startX: event.clientX, startY: event.clientY, moved: false };
     this.viewport.setPointerCapture(event.pointerId);
     event.preventDefault();
@@ -632,10 +609,6 @@ export class Canvas {
       const [wide, tall] = [g.side !== "s", g.side !== "e"];
       this.#resizeNode(g.node, g.origin.width + (wide ? dx / this.view.zoom : 0), g.origin.height + (tall ? dy / this.view.zoom : 0));
     } else {
-      if (g.node.stage_id && !g.guiding) {
-        g.guiding = true;
-        this.#guideStage(this.nodes.get(g.node.stage_id)); // the inner border shows while an action is dragged
-      }
       for (const { node, origin } of g.items) this.#moveNode(node, origin.x + dx / this.view.zoom, origin.y + dy / this.view.zoom);
       this.#snap(g, event.altKey);
     }
@@ -699,7 +672,6 @@ export class Canvas {
     this.viewport.releasePointerCapture?.(event.pointerId);
     this.viewport.classList.remove("is-panning");
     this.#guide(null);
-    this.#guideStage(null);
     this.viewport.classList.remove("is-resizing");
     if (g.type === "resize") {
       if (g.moved) this.handlers.onResized?.(g.node);
@@ -735,7 +707,6 @@ export class Canvas {
     this.gesture = null;
     this.viewport.classList.remove("is-panning");
     this.#guide(null);
-    this.#guideStage(null);
     this.viewport.classList.remove("is-resizing");
     if (g.type === "resize") this.#resizeNode(g.node, g.origin.width, g.origin.height);
     if (g.type === "marquee") g.frame.remove();
