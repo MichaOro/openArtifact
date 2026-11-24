@@ -9,6 +9,7 @@ does not override stays the manifest's English text:
   option of a select (the stored value stays what the manifest says)
 * ``nodes.<kind>.ports.<name>`` the label of a port
 * ``nodes.menu.<group>`` a cluster of the "+" menu
+* ``nodes.placeholders.<key>.label`` the name of a placeholder entry of the "+" menu (``_menu.yaml``)
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import copy
 from typing import Any
 
 from openartifact import i18n
+from openartifact.graph.manifest import menu_groups, read_placeholders
 
 
 def _own(language: str, key: str) -> str | None:
@@ -56,4 +58,18 @@ def localize(description: list[dict[str, Any]], language: str) -> list[dict[str,
             }
             if labels:
                 setting["option_labels"] = labels
+    return out
+
+
+def placeholders(language: str) -> list[dict[str, Any]]:
+    """The placeholder entries of the "+" menu (``_menu.yaml``) in the user's language, for the editor page: each with its
+    cluster, the cluster's place and its own place in it. They are no kinds of nodes and create nothing."""
+    groups = menu_groups()
+    out = []
+    for spec in read_placeholders():
+        entry = spec.model_dump()
+        entry["group_index"] = groups.index(spec.group)
+        entry["label"] = _own(language, f"nodes.placeholders.{spec.key}.label") or spec.label
+        entry["group"] = _own(language, f"nodes.menu.{spec.group}") or spec.group
+        out.append(entry)
     return out

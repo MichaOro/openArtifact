@@ -28,3 +28,15 @@ kinds:
 - code_tool
 - postgres_tool
 - artifact
+# Entries of the "+" menu that are not kinds of nodes: a place held for something that is coming (nothing is created
+# when one is chosen; the editor says it is not there yet). `scopes` says in which editors the entry is offered.
+placeholders:
+- key: guard
+  label: Guard
+  icon: shield
+  group: Structure
+  order: 3
+  scopes:
+  - pipeline
+  - action
+  soon: true

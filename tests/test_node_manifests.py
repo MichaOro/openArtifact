@@ -26,6 +26,7 @@ from openartifact.graph.node_types import (
 from openartifact.models import NodeKind
 
 FIXTURE = Path(__file__).parent / "fixtures" / "node-types.json"
+PLACEHOLDER_FIXTURE = Path(__file__).parent / "fixtures" / "menu-placeholders.json"
 
 
 def _write(directory: Path, name: str, data: dict[str, Any]) -> Path:
@@ -217,5 +218,114 @@ def test_the_description_fixture_of_the_editor_tests_is_the_live_answer(client: 
     if os.environ.get("UPDATE_FIXTURES"):
         FIXTURE.write_text(json.dumps(live, indent=1, ensure_ascii=False), encoding="utf-8")
     assert json.loads(FIXTURE.read_text(encoding="utf-8")) == live, (
+        "run with UPDATE_FIXTURES=1 to write it again"
+    )
+
+
+# ── placeholders of the "+" menu: entries that are no kinds (a place held for something coming) ──────────────
+
+
+def _menu_dir(tmp_path: Path, placeholders: Any, kinds: tuple[str, ...] = ()) -> Path:
+    (tmp_path / "_menu.yaml").write_text(
+        yaml.safe_dump(
+            {"groups": ["Structure", "Flow"], "kinds": [], "placeholders": placeholders}
+        ),
+        encoding="utf-8",
+    )
+    for kind in kinds:
+        _write(tmp_path, kind, _minimal(kind=kind))
+    return tmp_path
+
+
+def _entry(**more: Any) -> dict[str, Any]:
+    return {
+        "key": "guard",
+        "label": "Guard",
+        "icon": "shield",
+        "group": "Structure",
+        "order": 3,
+        "scopes": ["pipeline"],
+        **more,
+    }
+
+
+def test_the_menu_file_holds_a_place_for_guards_and_no_kind_is_behind_it() -> None:
+    [guard] = manifest.read_placeholders()
+    assert (guard.key, guard.label, guard.icon, guard.group, guard.soon) == (
+        "guard",
+        "Guard",
+        "shield",
+        "Structure",
+        True,
+    )
+    assert sorted(guard.scopes) == ["action", "pipeline"]
+    assert guard.key not in {k.value for k in NodeKind}, "a guard is not a kind of node"
+    orders = {
+        t.menu["order"]: t.kind
+        for t in NODE_TYPES.values()
+        if t.menu and t.menu["group"] == "Structure"
+    }
+    assert orders[1] == "stage" and orders[2] == "pipeline" and guard.order == 3, (
+        "right after Pipeline"
+    )
+
+
+def test_a_valid_placeholder_is_read(tmp_path: Path) -> None:
+    [spec] = manifest.read_placeholders(_menu_dir(tmp_path, [_entry(soon=False)]))
+    assert (spec.key, spec.soon, spec.scopes) == ("guard", False, ["pipeline"])
+    (tmp_path / "none").mkdir()
+    assert manifest.read_placeholders(_menu_dir(tmp_path / "none", None)) == []
+
+
+@pytest.mark.parametrize(
+    ("entries", "kinds", "message"),
+    [
+        ([_entry(group="Elsewhere")], (), "unknown cluster 'Elsewhere'"),
+        ([_entry(key="timer")], ("timer",), "is a kind or is declared twice"),
+        ([_entry(), _entry(label="Again")], (), "is a kind or is declared twice"),
+        ([_entry(key="Bad Key")], (), "key"),
+        ([_entry(scopes=[])], (), "scopes"),
+        ([_entry(scopes=["stage"])], (), "scopes"),
+        ([_entry(colour="red")], (), "colour"),
+        ([_entry(icon="")], (), "icon"),
+    ],
+)
+def test_a_bad_placeholder_is_refused_with_the_name_of_the_menu_file(
+    tmp_path: Path, entries: list[dict[str, Any]], kinds: tuple[str, ...], message: str
+) -> None:
+    with pytest.raises(ManifestError, match=r"_menu\.yaml: placeholder") as error:
+        manifest.read_placeholders(_menu_dir(tmp_path, entries, kinds))
+    assert message in str(error.value)
+
+
+def test_placeholders_are_named_in_the_users_language(monkeypatch: pytest.MonkeyPatch) -> None:
+    from openartifact.graph import localize
+
+    assert [p["label"] for p in localize.placeholders("en")] == ["Guard"]
+    texts = {"nodes.placeholders.guard.label": "Wächter", "nodes.menu.Structure": "Aufbau"}
+    monkeypatch.setattr(localize, "_own", lambda language, key: texts.get(key))
+    [guard] = localize.placeholders("de")
+    assert (guard["label"], guard["group"]) == ("Wächter", "Aufbau")
+    assert guard["group_index"] == 0 and guard["icon"] == "shield" and guard["soon"] is True
+
+
+def test_the_editor_page_carries_the_placeholders_and_the_fixture_of_the_js_tests_is_that_answer(
+    client: TestClient,
+) -> None:
+    import html
+    import re
+
+    page = client.get("/pipelines/anything").text
+    carried = re.search(r"data-menu-placeholders='([^']*)'", page)
+    assert carried, "the page hands the placeholders to the editor"
+    live = json.loads(html.unescape(carried[1]))
+    assert [p["key"] for p in live] == ["guard"]
+    action_page = client.get("/actions/anything").text
+    assert "data-menu-placeholders=" in action_page
+    if os.environ.get("UPDATE_FIXTURES"):
+        PLACEHOLDER_FIXTURE.write_text(
+            json.dumps(live, indent=1, ensure_ascii=False), encoding="utf-8"
+        )
+    assert json.loads(PLACEHOLDER_FIXTURE.read_text(encoding="utf-8")) == live, (
         "run with UPDATE_FIXTURES=1 to write it again"
     )

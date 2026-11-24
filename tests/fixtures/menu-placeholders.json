@@ -1,0 +1,15 @@
+[
+ {
+  "group": "Structure",
+  "group_index": 0,
+  "icon": "shield",
+  "key": "guard",
+  "label": "Guard",
+  "order": 3,
+  "scopes": [
+   "pipeline",
+   "action"
+  ],
+  "soon": true
+ }
+]

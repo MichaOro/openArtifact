@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.api.deps import ServiceDep, SessionDep
+from openartifact.graph.localize import placeholders
 from openartifact.graph.repository import GraphRepository
 from openartifact.i18n import t
 from openartifact.i18n.web import context_processor as language_context
@@ -120,6 +121,7 @@ async def _editor_page(
             "app_version": APP_VERSION,
             "graph_id": graph.id if graph else slug,
             "section": info,
+            "menu_placeholders": placeholders(language_for(request)),
         },
     )
 

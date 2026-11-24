@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from openartifact import i18n
 from openartifact.graph.localize import localize
+from openartifact.graph.manifest import read_placeholders
 from openartifact.graph.node_types import NODE_TYPES
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -278,6 +279,12 @@ def test_the_overrides_of_node_texts_name_things_that_exist() -> None:
             parts = key.split(".", 2)
             if parts[1] == "menu":
                 assert parts[2] in groups, f"{code}: {key}: no such cluster"
+                continue
+            if parts[1] == "placeholders":
+                name = parts[2].removesuffix(".label")
+                assert name in {p.key for p in read_placeholders()} and parts[2].endswith(
+                    ".label"
+                ), f"{code}: {key}: no such placeholder"
                 continue
             kind = kinds.get(parts[1])
             assert kind is not None, f"{code}: {key}: no such kind"

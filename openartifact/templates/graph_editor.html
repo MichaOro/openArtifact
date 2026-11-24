@@ -10,7 +10,8 @@
 {% block content %}
 {# data-*-path: where a pipeline / an action definition is edited (the links between them). #}
 <div class="ge-editor" data-graph-id="{{ graph_id }}" data-kind="{{ section.kind }}"
-     data-pipelines-path="/pipelines" data-actions-path="/actions">
+     data-pipelines-path="/pipelines" data-actions-path="/actions"
+     data-menu-placeholders='{{ menu_placeholders|tojson }}'>
     {{ alert() }}
     <div class="ge-bar glass" role="toolbar" aria-label="{{ t('graph.' ~ section.key ~ '.tools') }}">
         <a class="button button--ghost button--sm" href="{{ section.path }}">{{ t('graph.' ~ section.key ~ '.all') }}</a>

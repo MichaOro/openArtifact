@@ -176,6 +176,18 @@ class MenuSpec(_Strict):
     order: int = 0
 
 
+class PlaceholderSpec(_Strict):
+    """An entry of the "+" menu that is no kind of node: a place held for a feature that is coming (``_menu.yaml``)."""
+
+    key: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    label: str = Field(min_length=1, max_length=40)
+    icon: str = Field(min_length=1)
+    group: str
+    order: int = 0
+    scopes: list[Literal["pipeline", "action"]] = Field(min_length=1)
+    soon: bool = True
+
+
 class NodeManifest(_Strict):
     """What a file in ``graph/nodes/`` says about one kind of node."""
 
@@ -242,6 +254,33 @@ def menu_groups(directory: Path = NODES_DIR) -> list[str]:
     path = directory / "_menu.yaml"
     data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
     return [str(g) for g in (data or {}).get("groups", [])]
+
+
+def read_placeholders(directory: Path = NODES_DIR) -> list[PlaceholderSpec]:
+    """The placeholder entries of ``_menu.yaml`` (valid, with unique keys that are no kind and a known cluster)."""
+    path = directory / "_menu.yaml"
+    data = (yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}) or {}
+    groups = [str(g) for g in data.get("groups", [])]
+    kinds = {p.stem for p in directory.glob("*.yaml") if not p.name.startswith("_")}
+    found: list[PlaceholderSpec] = []
+    for entry in data.get("placeholders") or []:
+        try:
+            spec = PlaceholderSpec.model_validate(entry)
+        except ValidationError as error:
+            problems = "; ".join(
+                f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in error.errors()
+            )
+            raise ManifestError(f"{path.name}: placeholders: {problems}") from error
+        if spec.group not in groups:
+            raise ManifestError(
+                f"{path.name}: placeholder {spec.key!r}: unknown cluster {spec.group!r}"
+            )
+        if spec.key in kinds or spec.key in {p.key for p in found}:
+            raise ManifestError(
+                f"{path.name}: placeholder {spec.key!r} is a kind or is declared twice"
+            )
+        found.append(spec)
+    return found
 
 
 def expand_settings(
