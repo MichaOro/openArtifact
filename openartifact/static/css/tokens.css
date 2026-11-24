@@ -94,6 +94,8 @@
   /* Purple Accent */
   --color-accent: #8050e8;
   --color-on-accent: #ffffff;
+  /* the highlight that marks where a jump landed: the accent here, the sand tone in the dark theme */
+  --color-pulse: var(--color-accent);
   /* the chevron of a select (an image cannot read a token, so each theme has its own) */
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23514b43' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   /* The filled primary button is the complement of its theme: purple with white text on the light
@@ -154,6 +156,7 @@
   /* Purple Accent */
   --color-accent: #9665ff;
   --color-on-accent: #080519;
+  --color-pulse: #f0ede5; /* sand: dark purple on light purple is an awkward contrast */
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9c2dd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --button-primary-bg: #d9ccff;
   --button-primary-hover-bg: #eee7ff;

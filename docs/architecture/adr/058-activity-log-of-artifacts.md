@@ -44,7 +44,7 @@ where a deleted execution still leaves its minimum (time, pipeline, duration, st
   `before` is the opaque `next` cursor of the previous page; newest first), the MCP tool `list_activity`, the event
   `activity.created`. Read only. The activity does not repeat executions that still exist (`.../executions` has them).
 - **UI.** The History tab is one timeline, newest first: execution rows and change rows by time, with the actor as an avatar
-  and name, a filter *All / Executions / Changes*, the count of entries on the tab, and a quiet dashed line (no buttons, no link) for
+  and name, a filter *All / Comments / Executions / Changes*, the count of entries on the tab, and a quiet dashed line (no buttons, no link) for
   a deleted execution. *Clear finished* stays; the traces stay. The tabs are Details, Comments, History.
 - **Pages are revalidated.** HTML answers carry `Cache-Control: no-cache` (static files already did): a browser must ask again
   instead of showing the page of the build before, with the markup, language and dictionary of another version.
@@ -90,7 +90,7 @@ facts are of no use, and the time that matters is when it was *deleted*. Changed
 - **The timeline's look.** A round marker per entry joined by a thin line: the icon and tone are the kind of *event*
   (check done, cross failed, trash deleted, plug created, speech bubble comment, others by kind); no avatar circle in the
   timeline (the Comments tab keeps it). Live executions keep their bordered, interactive card. The filter is
-  *All / Executions / Changes / Comments* (a deleted comment is under Comments).
+  *All / Comments / Executions / Changes* (a deleted comment is under Comments).
 - **A fold in both tabs.** The History shows the newest ten entries (after the filter) and a row "Show N older entries"
   between them and the **"created" entry, which is always shown** at the bottom; a click shows everything (fetching the
   remaining pages: at most 500 per artifact), then "Show fewer". The Comments tab shows the newest ten comments with

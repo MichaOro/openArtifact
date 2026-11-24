@@ -15,8 +15,8 @@ import { plural, t } from "../i18n.js";
 
 /** How long the highlight of a jumped-to comment stays when motion is reduced (it is a static one then), in ms. */
 const HOLD_MS = 1500;
-/** The longest the pulsing highlight can last (three pulses of half a second) before it is taken off anyway, in ms. */
-const PULSE_MAX_MS = 2500;
+/** The longest the pulsing highlight can last (three pulses of a second) before it is taken off anyway, in ms. */
+const PULSE_MAX_MS = 3500;
 
 export class CommentsTab {
   /**

@@ -4,7 +4,7 @@
 import { plural, t } from "../i18n.js";
 
 /** The views of the timeline. */
-export const FILTERS = ["all", "runs", "changes", "comments"];
+export const FILTERS = ["all", "comments", "runs", "changes"];
 
 /** How many entries (and comments) are shown before "Show N older" (ADR-058). */
 export const COLLAPSED = 10;

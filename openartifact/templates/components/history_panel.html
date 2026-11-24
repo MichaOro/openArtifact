@@ -13,9 +13,9 @@
         </div>
         <div class="history__filter" role="group" aria-label="{{ t('history.show') }}" data-history-filter>
             <button type="button" class="history__filter-button" data-filter="all" aria-pressed="true">{{ t('history.filter_all') }}</button>
+            <button type="button" class="history__filter-button" data-filter="comments" aria-pressed="false">{{ t('common.comments') }}</button>
             <button type="button" class="history__filter-button" data-filter="runs" aria-pressed="false">{{ t('common.executions') }}</button>
             <button type="button" class="history__filter-button" data-filter="changes" aria-pressed="false">{{ t('history.filter_changes') }}</button>
-            <button type="button" class="history__filter-button" data-filter="comments" aria-pressed="false">{{ t('common.comments') }}</button>
         </div>
         <ul class="history-list" aria-label="{{ t('common.history') }}" data-history-rows></ul>
         <p class="history__empty" data-history-empty hidden></p>

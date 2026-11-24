@@ -354,12 +354,69 @@ def test_an_entry_of_a_comment_jumps_to_it_expands_the_fold_and_pulses_the_borde
     style = target.evaluate(
         "el => { const s = getComputedStyle(el); return [s.animationName, s.animationIterationCount, s.animationDuration]; }"
     )
-    assert style == ["comment-pulse", "3", "0.5s"], style
+    assert style == ["comment-pulse", "3", "1s"], style
     expect(target).to_be_in_viewport()
     assert target.evaluate("el => document.activeElement === el")  # focus is on the comment
     expect(target).not_to_have_attribute(
-        "data-pulse", "", timeout=4000
-    )  # and the pulse ends by itself
+        "data-pulse", "", timeout=6000
+    )  # and the pulse ends by itself (three pulses of a second)
+
+
+def _rgba(css: str) -> tuple[int, int, int, float]:
+    """The first colour of a computed style as 0-255 channels and alpha (Chromium writes color(srgb r g b / a))."""
+    match = re.search(
+        r"color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: / ([\d.]+))?\)|rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)",
+        css,
+    )
+    assert match, css
+    if match.group(1):
+        r, g, b = (round(float(match.group(i)) * 255) for i in (1, 2, 3))
+        return r, g, b, float(match.group(4) or 1)
+    return int(match.group(5)), int(match.group(6)), int(match.group(7)), float(match.group(8) or 1)
+
+
+def test_the_filter_buttons_come_in_the_order_all_comments_executions_changes(board: Board) -> None:
+    board.create("Item")
+    dialog = _open(board)
+    names = dialog.history.locator("[data-history-filter] button").all_inner_texts()
+    assert names == ["All", "Comments", "Executions", "Changes"], names
+
+
+def test_the_pulse_is_the_accent_in_the_light_theme_and_the_sand_tone_in_the_dark_one(
+    board: Board,
+) -> None:
+    _commented(board, 2)
+    board.page.emulate_media(
+        reduced_motion="reduce"
+    )  # the highlight is then static and can be read
+    dialog = board.open().open_card("Item").open_history()
+    colours = {}
+    for theme in ("light", "dark"):
+        board.page.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+        dialog.open_history()
+        dialog.comment_entries.last.locator("[data-event-jump]").click()
+        target = dialog.comment_items.filter(has_text="comment 0").first
+        expect(target).to_have_attribute("data-pulse", "")
+        board.page.wait_for_function(  # the border may still be fading to the highlight
+            "el => getComputedStyle(el).borderTopColor.includes('0.67')",
+            arg=target.element_handle(),
+        )
+        colours[theme] = target.evaluate(
+            "el => { const s = getComputedStyle(el); return [s.borderTopColor, s.boxShadow]; }"
+        )
+        expect(target).not_to_have_attribute("data-pulse", "", timeout=4000)
+    light_border, light_ring = (_rgba(part) for part in colours["light"])
+    dark_border, dark_ring = (_rgba(part) for part in colours["dark"])
+    # light: the violet accent (#8050e8); dark: the sand tone (#f0ede5); both paler than before: border 67 %, ring 30 % (it was 45 %)
+    assert light_border[:3] == (128, 80, 232) and light_ring[:3] == (128, 80, 232), (
+        light_border,
+        light_ring,
+    )
+    assert dark_border[:3] == (240, 237, 229) and dark_ring[:3] == (240, 237, 229), (
+        dark_border,
+        dark_ring,
+    )
+    assert light_ring[3] == dark_ring[3] == 0.3 and light_border[3] == dark_border[3] == 0.67
 
 
 def test_the_jump_holds_a_static_highlight_when_motion_is_reduced(board: Board) -> None:

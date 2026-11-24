@@ -21,13 +21,14 @@
 .comments__head .field__help { margin: 0; text-align: right; }
 [data-comments-send][aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 .comments__older { align-self: flex-start; flex: none; }
-/* a comment jumped to from the History: its border pulses three times (a static highlight when motion is reduced) */
+/* a comment jumped to from the History: its border pulses three times, a second each (a static highlight when motion is
+   reduced). The colour is --color-pulse: the accent in the light theme, the sand tone in the dark one. */
 .comment:focus-visible { outline: none; }
-.comment[data-pulse] { animation: comment-pulse 0.5s ease-in-out 3; }
+.comment[data-pulse] { animation: comment-pulse 1s ease-in-out 3; }
 @keyframes comment-pulse {
   0%, 100% { border-color: var(--glass-border); box-shadow: 0 0 0 0 transparent; }
-  50% { border-color: var(--color-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 45%, transparent); }
+  50% { border-color: color-mix(in srgb, var(--color-pulse) 67%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-pulse) 30%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .comment[data-pulse] { animation: none; border-color: var(--color-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 45%, transparent); }
+  .comment[data-pulse] { animation: none; border-color: color-mix(in srgb, var(--color-pulse) 67%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-pulse) 30%, transparent); }
 }
