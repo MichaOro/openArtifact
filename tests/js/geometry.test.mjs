@@ -179,3 +179,18 @@ test("fitStage grows to hold the actions and never shrinks", () => {
   const small = action("b", 0, { y: 0 });
   assert.deepEqual(g.fitStage({ width: 100, height: 100 }, [small]), { width: 320, height: 220 });
 });
+
+test("a connection pressed at an input is fed by an output that fits, and one pressed at an output feeds an input that fits", () => {
+  const a = action("a", 24);
+  const b = action("b", 300);
+  const end = (node, port, direction) => ({ node, port, direction });
+  // from the input of b, a's On Pass is a source that fits (the same rule as pressing a's On Pass and dropping on b's input)
+  assert.equal(g.canConnectFrom(end(b, "in", "input"), end(a, "pass", "output")), true);
+  assert.equal(g.canConnect(a, "pass", b, "in"), true);
+  // the other way round and the end that does not exist for this role
+  assert.equal(g.canConnectFrom(end(a, "pass", "output"), end(b, "in", "input")), true);
+  assert.equal(g.canConnectFrom(end(b, "in", "input"), end(a, "in", "input")), false); // an input is no source
+  assert.equal(g.canConnectFrom(end(a, "pass", "output"), end(b, "pass", "output")), false); // an output feeds no output
+  // a stage's two-way point can be the source for an action's input pressed at the input
+  assert.equal(g.canConnectFrom(end(a, "in", "input"), end(stage, "start", "both")), g.canConnect(stage, "start", a, "in"));
+});

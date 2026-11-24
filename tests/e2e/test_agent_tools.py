@@ -89,6 +89,33 @@ def test_a_tool_is_added_below_its_agent_and_another_is_attached_by_dragging(
     assert ("http_tool", "tool", "output", "pass") not in _edges(api, action)
 
 
+def test_a_tool_is_attached_by_dragging_from_the_agents_tools_port(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    """The connection can start at the agent's input as well as at the tool's output (it is stored the same way)."""
+    action = api.post("/api/actions", json={"name": "Reverse tools"}).json()
+    page = signed_in
+    page.goto(f"{agents_url}/actions/{action['slug']}")
+    expect(page.locator(".ge-node--output")).to_be_visible()
+    page.click("[data-add-menu]")
+    pick_node(page, "agent")
+    expect(page.locator(".ge-node--agent")).to_be_visible()
+    page.click("[data-add-menu]")
+    pick_node(page, "http_tool")
+    eventually(lambda: ("http_tool", "tool", "agent", "tools") in _edges(api, action), True)
+    graph = api.get(graph_url(action)).json()
+    http_id = next(n["id"] for n in graph["nodes"] if n["kind"] == "http_tool")
+    edge = next(e for e in graph["edges"] if e["source_id"] == http_id)
+    api.delete(f"{graph_url(action)}/edges/{edge['id']}").raise_for_status()
+    page.reload()
+    expect(page.locator(".ge-edge--attachment")).to_have_count(0)
+    http_port = page.locator(f'.ge-port[data-node-id="{http_id}"][data-port="tool"]')
+    tools_port = page.locator('.ge-node--agent .ge-port[data-port="tools"]')
+    drag(page, tools_port, http_port)  # from the agent's input to the tool's output
+    eventually(lambda: ("http_tool", "tool", "agent", "tools") in _edges(api, action), True)
+    expect(page.locator(".ge-edge--attachment")).to_have_count(1)
+
+
 def test_the_tool_calls_of_an_agent_step_are_shown(
     signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm, github: str
 ) -> None:

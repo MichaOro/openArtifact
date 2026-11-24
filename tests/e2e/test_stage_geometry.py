@@ -271,3 +271,23 @@ def test_the_flow_of_an_execution_has_no_grips(
     page.goto(flow_url(base_url, task, execution_of(api, task)))
     expect(page.locator(".ge-node--stage").first).to_be_visible()
     assert page.locator(".ge-resize").count() == 0
+
+
+def test_the_corner_grip_shows_diagonal_strokes_and_keeps_its_hit_area(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _pipeline(api)
+    _open(page, base_url, pipeline)
+    page.locator(".ge-node--stage").click(position={"x": 200, "y": 20})  # select: the grips show
+    grip = _grip(page, "se")
+    expect(grip).to_have_attribute("aria-label", "Resize stage")
+    glyph = grip.locator("svg.icon")
+    expect(glyph).to_have_count(1)
+    assert glyph.locator("path").count() == 3, "three diagonal strokes"
+    box = grip.bounding_box()
+    assert box and box["width"] >= 24 and box["height"] >= 24, "the hit area stays at least 24 px"
+    # the dot is gone: the corner draws nothing but the glyph
+    after = grip.evaluate("el => getComputedStyle(el, '::after').display")
+    assert after == "none"
+    # and the right and bottom grips are still the quiet bars
+    assert _grip(page, "e").evaluate("el => getComputedStyle(el, '::after').display") != "none"

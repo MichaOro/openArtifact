@@ -110,7 +110,7 @@ Add an **Agent** node to an action definition and choose the agent.
 ## 4. Tools
 
 A tool is a node of its own that hangs **below** an Agent node: drag from the tool's port (on its top) to the agent's
-*Tools* port (on its bottom), or add the tool from the menu while the agent is selected and it is attached at once.
+*Tools* port (on its bottom), or the other way round from the agent's *Tools* port to a tool's port, or add the tool from the menu while the agent is selected and it is attached at once.
 The edge is drawn dashed; it is an attachment, not a step of the flow: a tool runs only when the model calls it. An
 agent takes any number of tools; a tool belongs to one agent.
 

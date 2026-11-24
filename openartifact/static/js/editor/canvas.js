@@ -4,12 +4,12 @@
  * is deleted and edges cannot be picked: only panning, zooming and the notifications remain.
  *
  *  - drag a node to move it (an action stays inside its stage, which grows as needed);
- *  - drag from an output port to an input port to connect;
+ *  - drag from a port to a port that fits to connect (from an output to an input, or the other way round);
  *  - editor: the right button drags the view; the left button selects (a click, or a frame drawn on the background that
  *    takes every node it touches; Shift adds) and moves the selected nodes together; wheel or the zoom buttons zoom;
  *  - read-only: dragging the background with the left button pans;
  *  - click a node or an edge to select it. */
-import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnect, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, snapY } from "./geometry.js";
+import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnectFrom, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, snapY } from "./geometry.js";
 import { icon } from "../components/icons.js";
 import { FAILING_PORTS, HEADER, typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
@@ -170,6 +170,7 @@ export class Canvas {
     const label = { e: t("editor.canvas.resize_width"), s: t("editor.canvas.resize_height"), se: t("editor.canvas.resize_both") }[side];
     el.setAttribute("aria-label", label);
     el.title = label;
+    if (side === "se") el.append(icon("resize-corner")); // the usual grip glyph: diagonal strokes in the lower right half
     return el;
   }
 
@@ -454,7 +455,7 @@ export class Canvas {
     const grip = event.target.closest(".ge-resize");
     if (grip) return this.#startResize(event, grip);
     const port = event.target.closest(".ge-port");
-    if (port && port.dataset.direction !== "input") return this.#startConnect(event, port);
+    if (port) return this.#startConnect(event, port); // an input as well as an output: a press on a port never moves its node
     if (event.target.closest("button, input, select, a")) return;
     const edge = event.target.closest(".ge-edge");
     if (edge) {
@@ -568,10 +569,13 @@ export class Canvas {
     const from = portPoint(node, port.dataset.port, this.nodes, slot);
     const line = svg("path", { class: "ge-edge__line ge-edge__line--draft" });
     this.edgeLayer.append(line);
-    this.gesture = { type: "connect", pointerId: event.pointerId, node, port: port.dataset.port, slot, from, box: boxOf(node, this.nodes), line };
-    for (const el of this.viewport.querySelectorAll('.ge-port:not([data-direction="output"])')) {
-      const target = this.nodes.get(el.dataset.nodeId);
-      el.classList.toggle("is-valid", canConnect(node, port.dataset.port, target, el.dataset.port));
+    // pressed at an input the line is drawn the other way round: it ends at an output that can feed this input
+    const reverse = port.dataset.direction === "input";
+    this.gesture = { type: "connect", pointerId: event.pointerId, node, port: port.dataset.port, slot, from, reverse, box: boxOf(node, this.nodes), line };
+    const start = { node, port: port.dataset.port, direction: port.dataset.direction };
+    for (const el of this.viewport.querySelectorAll(reverse ? '.ge-port:not([data-direction="input"])' : '.ge-port:not([data-direction="output"])')) {
+      const other = { node: this.nodes.get(el.dataset.nodeId), port: el.dataset.port, direction: el.dataset.direction };
+      el.classList.toggle("is-valid", el !== port && canConnectFrom(start, other));
     }
     this.viewport.classList.add("is-connecting");
     this.viewport.setPointerCapture(event.pointerId);
@@ -584,7 +588,8 @@ export class Canvas {
     if (!g || event.pointerId !== g.pointerId) return;
     if (g.type === "connect") {
       const to = this.#toWorld(event);
-      g.line.setAttribute("d", edgePath(g.from, to, g.box, g.box, { routed: false, attachment: g.port === "tool" }));
+      const attachment = g.port === "tool" || g.port === "tools";
+      g.line.setAttribute("d", g.reverse ? edgePath(to, g.from, g.box, g.box, { routed: false, attachment }) : edgePath(g.from, to, g.box, g.box, { routed: false, attachment }));
       const over = document.elementFromPoint(event.clientX, event.clientY)?.closest(".ge-port.is-valid");
       this.viewport.querySelectorAll(".ge-port.is-hover").forEach((el) => el.classList.toggle("is-hover", el === over));
       over?.classList.add("is-hover");
@@ -654,7 +659,11 @@ export class Canvas {
       const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".ge-port.is-valid");
       this.#cancelGesture();
       if (target) {
-        this.handlers.onConnect(g.node, g.port, this.nodes.get(target.dataset.nodeId), target.dataset.port, { source_slot: g.slot, target_slot: Number(target.dataset.slot) });
+        const other = this.nodes.get(target.dataset.nodeId);
+        const slots = { source_slot: g.slot, target_slot: Number(target.dataset.slot) };
+        // stored in the normal direction, whichever end was pressed: source = the output, target = the input
+        if (g.reverse) this.handlers.onConnect(other, target.dataset.port, g.node, g.port, { source_slot: slots.target_slot, target_slot: slots.source_slot });
+        else this.handlers.onConnect(g.node, g.port, other, target.dataset.port, slots);
       }
       return;
     }

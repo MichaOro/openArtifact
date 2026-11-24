@@ -48,6 +48,16 @@ export function canConnect(source, sourcePort, target, targetPort) {
   return from.canFeed(source, sourcePort, target, targetPort);
 }
 
+/**
+ * May a connection that was pressed at `start` end at `other`? Pressed at an output (or a stage's two-way point) it feeds
+ * `other`, pressed at an input it is fed by `other`: the rule is `canConnect` with the two ends in their own roles, so a
+ * connection reads the same whichever end it was drawn from. Each end is {node, port, direction}.
+ */
+export function canConnectFrom(start, other) {
+  if (start.direction === "input") return other.direction !== "input" && canConnect(other.node, other.port, start.node, start.port);
+  return other.direction !== "output" && canConnect(start.node, start.port, other.node, other.port);
+}
+
 const CORNER = 12; // radius of rounded corners
 const DETOUR = 28; // how far a routed edge keeps away from the nodes
 const TIGHT = 48; // a forward connection with less room than this would bend too sharply

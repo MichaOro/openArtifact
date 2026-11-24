@@ -80,7 +80,14 @@ connected to as soon as it comes within 8 pixels (a thin dashed line shows it); 
 stage has grips on its right edge, its bottom edge and its bottom-right corner (shown when it is hovered or selected,
 also reachable with Tab): drag one to make the stage larger or smaller, never smaller than its actions need; arrow keys
 on a grip change the size by 10 (Shift: 40), a double click or Enter fits the stage to its actions. There are no grips
-on the left and top, because the actions' positions are relative to the stage. Execution flows (read-only) have none.
+on the left and top, because the actions' positions are relative to the stage. The corner grip shows the usual
+glyph of diagonal strokes. Execution flows (read-only) have none.
+
+**Connecting.** Press on any port and drag: from an output to an input that fits, or the other way round, from an
+input to an output that can feed it (the ports that fit light up). The connection is stored the same way whichever end
+you pressed (source = the output, target = the input). A press on a port never moves its node; press the node's body to
+move it. While the pointer is on a port the bar under the node steps aside, so the Agent's *Tools* port at the lower
+edge can be pressed too.
 
 **Stage.** A container in a pipeline. It holds actions and connects to the next stage. Its start feeds
 the first action; its end is fed by the last actions and leads on.

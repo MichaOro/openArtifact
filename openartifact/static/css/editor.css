@@ -230,7 +230,7 @@
   cursor: crosshair;
   z-index: 2;
 }
-.ge-port[data-direction="output"]:hover { background: var(--node-color); }
+.ge-port:hover { background: var(--node-color); }
 .ge-port::before { content: ""; position: absolute; inset: -8px; border-radius: 50%; } /* a bigger hit area */
 .ge-port[data-label]::after {
   content: attr(data-label);
@@ -276,7 +276,11 @@
 .ge-resize--s { left: 24px; right: 24px; bottom: 0; height: 24px; cursor: s-resize; }
 .ge-resize--s::after { left: 50%; bottom: 6px; width: 36px; height: 4px; margin-left: -18px; }
 .ge-resize--se { right: 0; bottom: 0; width: 24px; height: 24px; cursor: se-resize; }
-.ge-resize--se::after { right: 6px; bottom: 6px; width: 10px; height: 10px; border-radius: 3px; }
+.ge-resize--se::after { display: none; } /* the corner shows a glyph instead of the bar */
+.ge-resize--se .icon { position: absolute; right: 3px; bottom: 3px; width: 16px; height: 16px; color: var(--color-text-muted); pointer-events: none; transition: color 120ms; }
+.ge-resize--se:hover .icon,
+.ge-resize--se:focus-visible .icon,
+.is-resizing .ge-resize--se .icon { color: var(--color-accent); }
 /* the thin dashed line that shows a node settling level with a connected port */
 .ge-guide { stroke: var(--color-accent); stroke-width: 1; stroke-dasharray: 4 4; pointer-events: none; }
 .ge-port.is-valid { background: var(--accent-soft); border-color: var(--color-accent); transform: scale(1.35); }
@@ -419,6 +423,8 @@
   display: none;
   padding-top: 6px; /* bridges the gap, so the pointer can travel from the node to the bar */
   transform: translateX(-50%) scale(var(--ge-inverse-zoom, 1));
+/* a port at the lower edge (the Agent's Tools) lies under the bar: while the pointer is on a port the bar steps aside, so a press there starts a connection */
+.ge-node:has(> .ge-port:hover) > .ge-node-bar { display: none; }
   transform-origin: top center;
   cursor: default;
 }
