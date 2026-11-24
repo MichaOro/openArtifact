@@ -287,3 +287,15 @@ curl -s -X POST -H "Authorization: Bearer $OPENARTIFACT_API_TOKEN" -H "Content-T
 
 It answers `{"execution_id", "at", "count"}`; 404 for an unknown execution, 409 when it is not running, 429 when it comes
 sooner than `OPENARTIFACT_HEARTBEAT_MIN_SPACING_SECONDS` after the last one. The execution id is `execution_id` of the run.
+
+## Window layouts
+
+The sections and fields of the windows that are YAML manifests (the guard editor, the settings of a node kind) can be
+arranged in the browser (the handle on the window's top edge, [ADR-063](../architecture/adr/063-rearranging-manifest-windows.md))
+and the arrangement read, saved, reset or exported through the API:
+
+```bash
+curl -s "$BASE/api/v1/ui-layouts/forms/guard" -H "Authorization: Bearer $TOKEN" | jq .customised
+curl -s "$BASE/api/v1/ui-layouts/forms/guard/export" -H "Authorization: Bearer $TOKEN" > guard.layout.yaml
+curl -s -X DELETE "$BASE/api/v1/ui-layouts/forms/guard" -H "Authorization: Bearer $TOKEN"
+```

@@ -145,6 +145,22 @@ guard (by attachment), the last heartbeat and the firings with their facts.
 
 The browser has the same routes under `/api/settings`.
 
+### Window layouts (`/api/v1/ui-layouts`, ADR-063)
+
+The arrangement of the windows that are YAML manifests, saved as a layer over the shipped manifest. A window is
+`forms/<form>` (a configuration window, `GET /api/forms`) or `nodes/<kind>` (the settings of a node kind).
+
+| Method | Path | Purpose | Errors |
+|--------|------|---------|--------|
+| GET | `/api/v1/ui-layouts/{kind}/{name}` | `{window, customised, layout, shipped}`: the arrangement that applies and the one the manifest has | 404 |
+| PUT | `/api/v1/ui-layouts/{kind}/{name}` | Save `{sections: [...]}`: a form's section has `key`, `column` (1, 2, `auto`; a `full` section stays `full`), `fields` and the folded `advanced`; a node's has `key` (`definition` or `behaviour`, left to right) and `fields` (a group of settings is `group:<name>`); only known keys, no duplicates, a required field is never folded; publishes `settings.changed` | 404, 422 |
+| DELETE | `/api/v1/ui-layouts/{kind}/{name}` | Back to the shipped layout | 404 |
+| GET | `/api/v1/ui-layouts/{kind}/{name}/export` | The layout as YAML (`window`, `layout`), to put into the repository as the new default | 404 |
+
+`GET /api/forms` and `GET /api/node-types` return the merged description with `layout_customised: true` (a node kind also
+`layout.sections`). A key the manifest no longer has is ignored, a new key appears at its default place. The browser has the
+same routes under `/api/ui-layouts`.
+
 A step read alone (`GET /api/v1/artifacts/{ref}/executions/{id}/steps/{step_id}`) carries `detail` for an agent step:
 the prompts as sent, the inputs, the overrides, every attempt and, per request (`turns`), the tool calls with their
 arguments and results (cut to 16 KiB). Lists carry `detail: null`.

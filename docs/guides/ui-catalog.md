@@ -26,7 +26,7 @@ not suggestions, and a change that breaks one is sent back.
 ## Rules
 
 1. **Use a catalog component.** A `<button>` carries `button`, `icon-button`, `chip-button`, `ge-switch` (an on/off
-   switch, `switch.js`), `task-tab`, `nav-link`, `menu__item`, `popover__option` or `info-tip`. The rare exception carries `data-ui="custom"` and `data-ui-reason="why"`.
+   switch, `switch.js`), `task-tab`, `nav-link`, `menu__item`, `popover__option`, `info-tip`, `layout-handle` or `lw-grip`. The rare exception carries `data-ui="custom"` and `data-ui-reason="why"`.
 2. **No colour in a component.** Colours come from the tokens in `static/css/tokens.css` (`var(--color-text-primary)`,
    `var(--btn-outline-border)` ...), never from a literal. Both themes define the tokens; a component that only uses them
    works in both.
@@ -51,6 +51,8 @@ not suggestions, and a change that breaks one is sent back.
 | Danger, solid | `button button--danger` | Only the confirming button of a destructive dialog. |
 | Danger, outlined | `button button--ghost is-danger` | A visible destructive action in a toolbar: *Clear finished*. |
 | Icon only | `icon-button` (small: `icon-button icon-button--sm`) | A command with an icon and no text. It needs an accessible name: `aria-label` (or a visible tooltip name). |
+| Layout handle | `layout-handle` | The pill with nine dots on the top edge of a manifest window (ADR-063): `--layout-accent`, `--layout-accent-hover`, `--layout-on-accent` (a colour family of its own, so it is never taken for a "..." menu). 24 px high, the global focus ring. Its menu is `menu menu--layout`. |
+| Layout grip | `lw-grip` | The grip of a section or a field in the arrange view: icon only, coloured `--layout-accent-hover` (5.8:1 on the card), a quiet fill on hover, moves with the pointer or the arrow keys. |
 | Icon only, quiet | `icon-button icon-button--quiet icon-button--xs` | An icon with no frame and no fill (24 px hit area, a quiet fill on hover and the global focus ring): the guard shield on a card, a stage header and next to the canvas "+". Needs an accessible name. Colours: `--btn-quiet-text`, `--btn-quiet-text-hover`. |
 | Icon only, destructive | `icon-button is-danger` | A delete icon: it turns red on hover and focus. |
 | Chip (toggle) | `chip-button` with `aria-pressed="true|false"` | A filter or a switch among a few: *All / Comments / Executions / Changes*. |
@@ -117,6 +119,8 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | An on/off setting | `switch.js` |
 | Choose one of many by typing | `combobox.js` (a field with a list under it; typing narrows it by name, then by description and keywords; arrow keys, Enter, Escape closes only the list; the list is a popup so a dialog does not clip it; ARIA combobox with `aria-activedescendant`; the pure part is `combobox-model.js`) |
 | The form of a configuration window | `form-view.js` draws a form manifest (`ui/forms/*.yaml`, ADR-062): sections in a two-column grid (one column on a narrow window), help in a tooltip, `advanced` fields folded, errors per field; the widgets are `form-widgets.js` (`registerWidget`), the layout rules are `form-plan.js` |
+| The handle of a manifest window and its menu | `window-layout.js`: a round `layout-handle` with a 3x3 grid of dots on the top edge of the panel, in the middle (the colour family `--layout-accent`, teal, used by nothing else); its menu is the menu component as `menu--layout` (a coloured top edge and a title). Only windows that are YAML manifests have it (ADR-063) |
+| Arranging a window | `layout-arrange.js` draws the structure (sections as dashed outlines, fields as bars, a `lw-grip` each), `layout-model.js` holds the moves (pointer drop and arrow keys, unit-tested); the banner is `lw-banner` |
 | A text edited in place | `inline-name.js` (also the name in the title of a window that saves: rule 6) |
 | A person or system as a round shaded circle | `avatar.js` (the kind is the icon and the accessible name; `initials` for a person later) |
 | The marker of a timeline entry | `tasks/history-marker.js` |

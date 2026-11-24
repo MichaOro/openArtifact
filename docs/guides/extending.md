@@ -388,6 +388,25 @@ dialogs (*New*, *Rename*, *Add lane*: change them so the name is the title, bind
 (display only). The node settings dialog already has its own data (ADR-053/054); making it use `form-view.js` is a larger
 step.
 
+## Rearranging a window
+
+A window whose form is a manifest (a form under `ui/forms/`, a node kind under `graph/nodes/`) can be rearranged by the
+person who runs the application ([ADR-063](../architecture/adr/063-rearranging-manifest-windows.md)): the handle on the top
+edge of the window opens a menu with *Edit layout*; the sections and fields can be dragged (or moved with the arrow keys),
+the arrangement is saved for the whole instance and can be reset or exported. As the author of a window you need only this:
+
+- **Give every section and field a stable key.** The layout refers to them by key; a key you rename or remove is ignored in
+  a saved layout, a key you add appears where the manifest puts it (after the field before it). Never reuse a key for something else.
+- **A `full` section stays full width**, and a **required field is never folded away**: a layout that tries is refused.
+- **Nothing else changes with a layout:** no labels, no widgets, no visibility, no values. Those are the manifest's.
+- **A node kind's window** has two sides, `definition` and `behaviour`; a setting stays on its side. The rows of one `group`
+  move as one entry. A block the kind draws itself (the Agent's choice of agent and inputs) is listed as *fixed* in
+  `static/js/editor/node-layout.js` (`OWN_BLOCKS`: its name and the setting keys it draws itself): add your kind there if it does.
+- **To make an arrangement the default**, use *Export as YAML* in the layout menu (or `GET /api/ui-layouts/<kind>/<name>/export`)
+  and copy the order into the manifest in the repository: sections in order with their `column`, fields in order, `advanced`
+  as exported. A new window needs nothing: the form renderer and the settings dialog put the handle on every manifest
+  window; a window that is not a manifest has none.
+
 ## Extend the history detail and the flow view
 
 The History tab of the artifact dialog and the page of one execution share the markup and rendering of a
