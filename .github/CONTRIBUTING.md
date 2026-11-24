@@ -64,7 +64,9 @@ For every contribution that touches the interface, from a person or an automated
 section of a window or page is a reusable component** from the catalog (add a missing one there first, never a
 feature-specific copy); **windows are sized by their content** (as wide as necessary, as narrow as possible, two columns
 where there is room instead of an endless column); a window that saves carries its name in its title; colours only as
-tokens. The rules, their reasons and the checklist are in the [UI catalog](../docs/guides/ui-catalog.md) (*Binding rules
+tokens; **a change is saved on the user's act** (text on leaving the field or Enter, a choice when it changes, no autosave
+by keystroke or timer, nothing drawn again under a focused field: `static/js/editor/persist-policy.js`). The rules, their
+reasons and the checklist are in the [UI catalog](../docs/guides/ui-catalog.md) (*Binding rules
 for every contributor*) and [ADR-059](../docs/architecture/adr/059-one-catalog-of-ui-building-blocks.md).
 
 ## Code and comments

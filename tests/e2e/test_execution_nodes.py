@@ -72,7 +72,7 @@ def test_a_code_node_is_added_configured_and_persists(
     inspector = page.locator(".ge-inspector")
     code = inspector.get_by_label("Code", exact=True)
     code.fill("echo hello\necho second")
-    expect(inspector.get_by_text("Saved")).to_be_visible()
+    code.blur()  # a text is saved when the field is left (persist-policy.js)
     expect(node.locator(".ge-node__kind")).to_have_text("sh · echo hello")
     inspector.get_by_label("Language").select_option("python")
     add_setting(page, "Timeout (seconds)")
@@ -109,12 +109,14 @@ def test_a_refused_value_shows_the_server_message_and_keeps_the_text(
     long = "x" * 20001
     code = inspector.get_by_label("Code", exact=True)
     code.fill(long)
+    code.blur()
     expect(inspector.get_by_role("alert")).to_have_text("'code' is too long")
     expect(inspector.get_by_text("(too long)")).to_be_visible()
     assert len(code.input_value()) == 20001  # nothing was lost
     assert _stored(api, definition, "code")["config"]["code"] == ""
     code.fill("echo ok")
-    expect(inspector.get_by_text("Saved")).to_be_visible()
+    code.blur()
+    _config(api, definition, "code", code="echo ok")
 
 
 def test_the_code_field_indents_with_tab_and_escape_then_tab_leaves_it(
@@ -155,7 +157,7 @@ def test_the_code_field_indents_with_tab_and_escape_then_tab_leaves_it(
     expect(inspector.get_by_label("Sets variables")).to_be_focused()  # declared variables (ADR-034)
 
 
-def test_the_focus_stays_in_the_field_while_typing_and_saving(
+def test_the_focus_stays_in_the_field_while_typing_and_the_text_is_saved_when_it_is_left(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     definition = _open_action(page, base_url, api)
@@ -164,13 +166,12 @@ def test_the_focus_stays_in_the_field_while_typing_and_saving(
     code = inspector.get_by_label("Code", exact=True)
     code.click()
     page.keyboard.type("echo one")
-    expect(inspector.get_by_text("Saved")).to_be_visible()
-    expect(code).to_be_focused()
     page.keyboard.type(" two")
     expect(code).to_be_focused()
     expect(code).to_have_value("echo one two")
+    assert _stored(api, definition, "code")["config"]["code"] == ""  # nothing is saved while typing
+    code.blur()
     _config(api, definition, "code", code="echo one two")
-    expect(code).to_be_focused()
 
 
 def test_an_http_node_is_configured_and_persists(

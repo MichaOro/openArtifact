@@ -20,12 +20,13 @@ def test_an_edit_fields_node_is_added_and_its_fields_are_saved(
     inspector = page.locator(".ge-inspector")  # _add opened the node's settings
     fields = inspector.get_by_label("Fields", exact=True)
     fields.fill("priority = high\nscore = ${var.points}")
-    expect(inspector.get_by_text("Saved")).to_be_visible()
+    fields.blur()  # a text is saved when the field is left (persist-policy.js)
     _config(api, definition, "set", fields="priority = high\nscore = ${var.points}")
     expect(card.locator(".ge-node__kind")).to_have_text("priority, score")
     inspector.get_by_label("Value types").select_option("detect")
     _config(api, definition, "set", value_types="detect")
     fields.fill("Bad = 1")
+    fields.blur()
     expect(inspector.get_by_role("alert").filter(has_text="is not a variable name")).to_be_visible()
     _config(
         api, definition, "set", fields="priority = high\nscore = ${var.points}"

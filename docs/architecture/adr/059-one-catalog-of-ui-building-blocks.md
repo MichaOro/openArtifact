@@ -112,3 +112,21 @@ contributor):
 - Not decided here: a refactoring pass of the existing windows against these rules and the declarative description of
   configuration windows; the owner schedules them (the latter in ADR-062).
 
+## 7. Addendum 2026-11-24: persist on the user's act
+
+Typing in the settings of a node used to save while typing (a multi-line text 800 ms after the last keystroke) and the
+save drew the dialog again, which made it flicker and moved the caret. The owner made a rule binding for every contributor:
+**no autosave by interval or keystroke; text on leaving the field or Enter; a choice when it changes; never redraw under a
+focused field.** For the node dialog this is implemented once in `editor/persist-policy.js` and used by every control of
+it, including the agent block's override fields and the input mapping:
+
+- a one-line text saves on `focusout` and Enter; a textarea on `focusout` and Ctrl+Enter; a select, switch, checkbox or
+  chip once on `change`/click; never on `input`, never after a delay;
+- `InspectorPanel.render` and the agent block draw through `whenFieldFree`: with a text field focused the draw waits until
+  the field is left and the saves it caused are done, so a `graph.changed` event or a refetch never moves the caret (a
+  field just settled with Enter may be drawn again, and keeps its caret);
+- closing the dialog or selecting another node calls `flushDirty()` first, so text typed and not yet left is saved;
+- a dirty field shows the existing "Not saved" marker until it is saved.
+
+Not decided here: bringing other windows in line (listed in the [UI catalog](../../guides/ui-catalog.md), rule 5); the
+owner runs that conformity review.

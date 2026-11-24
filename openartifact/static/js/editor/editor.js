@@ -19,6 +19,7 @@ import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, ne
 import { GraphModel } from "./graph-model.js";
 import { InspectorBlocks } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
+import { flushDirty } from "./persist-policy.js";
 import { rememberPipeline, setupBack, setupBackToAgent, setupBackToGuard } from "./navigation.js";
 import { EditorGuards } from "./guards.js";
 import { nodeWindowStructure } from "./node-layout.js";
@@ -68,7 +69,10 @@ export class GraphEditor {
     });
     this.settingsModal.dialog.addEventListener("close", () => this.layout.cancel());
     const canClose = this.settingsModal.canClose;
-    this.settingsModal.canClose = () => this.layout.guardClose(() => this.settingsModal.close()) && canClose();
+    this.settingsModal.canClose = () => {
+      flushDirty(); // text typed and not left yet is saved first: a blur may not come when the dialog goes away
+      return this.layout.guardClose(() => this.settingsModal.close()) && canClose();
+    };
     this.canvas = new Canvas({
       viewport: root.querySelector("[data-viewport]"),
       nodes: this.nodes,
@@ -183,6 +187,7 @@ export class GraphEditor {
   /** Select a node or a connection (or nothing). `keepMulti`: the selection holds several nodes (a frame was drawn);
    * `focusInspector` (Enter on a node) opens the node's settings. */
   select(selection, { focusInspector = false, keepMulti = null } = {}) {
+    if (this.selection?.id !== selection?.id) flushDirty(); // unsaved text of the node that is left is saved first
     this.selection = selection;
     const picked = selection?.type === "node" ? this.nodes.get(selection.id) : null;
     this.#remember(picked?.kind === "action" ? picked.id : null);
@@ -232,10 +237,12 @@ export class GraphEditor {
   /** The settings of the selected node; the settings of what a guard can watch (an action in a pipeline, a node in an
    * action) end with the guards that watch it (ADR-060). */
   #renderSettings() {
+    this.inspector.onDrawn = () => {
+      const node = this.selection?.type === "node" ? this.nodes.get(this.selection.id) : null;
+      const watchable = node && ["action", "node"].includes(this.guards?.scopeTypeOf(node));
+      if (watchable) this.inspector.element.append(this.guards.section(node));
+    };
     this.inspector.render(this.selection);
-    const node = this.nodes.get(this.selection.id);
-    const watchable = node && ["action", "node"].includes(this.guards?.scopeTypeOf(node));
-    if (watchable) this.inspector.element.append(this.guards.section(node));
   }
 
   // ── adding ─────────────────────────────────────────────────────────
@@ -385,8 +392,12 @@ export class GraphEditor {
     let updated;
     try {
       updated = await this.model.updateNode(node.id, inConfig ? { config: { [setting.key]: value } } : { [setting.key]: value });
-      if (inConfig) node.config = updated.config;
-      else node[setting.key] = updated[setting.key];
+      // a reload may have replaced the node while the text was typed: both the node of the control and the current one take it
+      for (const holder of new Set([node, this.nodes.get(node.id)])) {
+        if (!holder) continue;
+        if (inConfig) holder.config = updated.config;
+        else holder[setting.key] = updated[setting.key];
+      }
     } catch (error) {
       return error.detail ?? Object.values(error.fieldErrors ?? {})[0] ?? error.message;
     }

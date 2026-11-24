@@ -22,6 +22,21 @@ not suggestions, and a change that breaks one is sent back.
    a description exists (node kinds, ADR-054), so that one renderer lays it out.
 4. **Colours, states and texts follow the catalog:** tokens only, the states and contrast rules below, the text rule of
    a node. Every new component is covered by the catalog tests in both themes.
+5. **Persist on the user's act** (ADR-059 §7): no autosave by interval or keystroke; text on leaving the field or Enter;
+   a choice when it changes; never redraw under a focused field. In detail, for the node dialog: a one-line text saves
+   on focusout and Enter, a textarea on focusout and Ctrl+Enter (Enter is a new line), a select, switch, checkbox or chip
+   once at the moment it changes; there is no save on an `input` event, no debounce timer, no interval. While a text
+   field has the focus nothing in its dialog is drawn again (a draw caused by an event waits until the field is left,
+   `whenFieldFree`), so the caret and the selection never move. Closing the dialog (X, Escape, backdrop) or switching
+   the node saves every field with unsaved text first (`flushDirty`); a field with unsaved text shows the "Not saved"
+   marker. The policy is one module, `static/js/editor/persist-policy.js` (pure rules `persistsOn`, `isTextEditing`,
+   unit tested); a control of a node dialog uses `bindPersist` / `persistText` and never listens to these events itself.
+   **Windows known not to follow the rule yet** (seen, not changed; the owner decides when they are brought in line):
+   the executions filter bar (`executions/filter-bar.js`, a filter applied by a keystroke timer, nothing is saved), the
+   previews of the guard editor and of the retention dialog (a debounced request per keystroke, nothing is saved), the
+   artifact field rail of the task window (`tasks/field-rail.js`, saves on `change`, has no "Not saved" marker and no
+   flush on closing), and the forms with their own Save button (providers, credentials, run limits, the agent editor)
+   which keep their form state until Save and are outside this rule.
 
 ## Rules
 

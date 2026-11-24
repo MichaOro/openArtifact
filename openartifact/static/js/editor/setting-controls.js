@@ -1,14 +1,14 @@
 /* The controls of the inspector for the settings of a node, one class per setting type the server
  * describes (GET /api/node-types: integer, number, switch, text, lines, code, select). A control shows the
  * value, saves it through `save(value)` (which resolves to null, or to the message of a refusal) and
- * keeps what the user typed when the save is refused. Add a type by subclassing SettingControl and
- * listing it in CONTROLS. */
+ * keeps what the user typed when the save is refused. When a control saves is the policy of persist-policy.js (a text
+ * on leaving the field or Enter, a choice when it changes, never on a keystroke). Add a type by subclassing
+ * SettingControl and listing it in CONTROLS. */
 import { field } from "./field.js";
-import { attachReferencePreview } from "./reference-preview.js";
+import { bindPersist, registerDirty, trackSave } from "./persist-policy.js";
 import { suggestReferences } from "./reference-suggest.js";
 import { t, tn } from "../i18n.js";
 
-const AUTOSAVE_MS = 800; // multi-line fields save this long after the last keystroke
 const INDENT = "  ";
 const LEAVE_HINT = t("editor.setting_controls.tab_indents_press_escape_then");
 
@@ -47,10 +47,16 @@ class SettingControl {
     this.again = false;
     this.input = this.createInput(value);
     this.input.dataset.focusKey = `setting-${setting.key}`;
-    this.input.addEventListener("change", () => this.commit());
+    if (this.constructor.kind !== "toggle")
+      bindPersist(this.input, this.constructor.kind, (event) => {
+        if (event.type === "focusout" && !this.isDirty()) return; // leaving a field nothing was typed in decides nothing
+        this.commit();
+      });
+    this.baseline = this.read();
+    this.input.addEventListener("input", () => this.markDirty());
+    registerDirty({ isDirty: () => this.isDirty(), commit: () => this.commit(), element: this.input });
     if (suggest && setting.references && this.constructor.suggests) {
       suggestReferences(this.input, suggest, { allowSecrets: setting.references === "all" });
-      if (setting.references !== "all") attachReferencePreview(this.input); // a field that may hold a secret reference never previews
     }
     this.element = this.build();
   }
@@ -68,6 +74,9 @@ class SettingControl {
   parse(raw) {
     return raw;
   }
+
+  /** How the control saves (persist-policy.js): "text", "multiline", "choice" or "toggle". */
+  static kind = "choice";
 
   /** Whether the layout puts label and control on one line. */
   static row = false;
@@ -98,8 +107,24 @@ class SettingControl {
     return box;
   }
 
+  /** Text typed and not saved yet. */
+  isDirty() {
+    return (this.constructor.kind === "text" || this.constructor.kind === "multiline") && this.read() !== this.baseline;
+  }
+
+  /** The "not saved" marker while text is typed that no request carries yet. */
+  markDirty() {
+    const dirty = this.isDirty();
+    this.element?.classList.toggle("is-dirty", dirty);
+    if (this.status) this.status.textContent = dirty ? t("agents.editor_page.not_saved") : "";
+  }
+
   /** The user is done with a value: save it (one request at a time, the latest value wins). */
-  async commit() {
+  commit() {
+    return trackSave(this.#drain());
+  }
+
+  async #drain() {
     if (this.busy) {
       this.again = true;
       return;
@@ -124,7 +149,9 @@ class SettingControl {
       return;
     }
     if (value === this.saved) {
+      this.baseline = this.read();
       this.fail(null);
+      this.markDirty();
       return;
     }
     this.status.textContent = t("editor.setting_controls.saving");
@@ -134,7 +161,9 @@ class SettingControl {
       return;
     }
     this.saved = value;
+    this.baseline = this.read();
     this.fail(null);
+    this.element.classList.remove("is-dirty");
     this.status.textContent = t("agents.editor_page.saved");
   }
 
@@ -149,6 +178,8 @@ class SettingControl {
 }
 
 class IntegerControl extends SettingControl {
+  static kind = "text";
+
   createInput(value) {
     const input = element("input", "field__control");
     input.type = "number";
@@ -156,9 +187,6 @@ class IntegerControl extends SettingControl {
     if (this.setting.minimum != null) input.min = String(this.setting.minimum);
     if (this.setting.maximum != null) input.max = String(this.setting.maximum);
     input.value = String(value ?? "");
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") this.commit(); // the focus stays where it is
-    });
     return input;
   }
 
@@ -185,6 +213,7 @@ class NumberControl extends IntegerControl {
 }
 
 class SwitchControl extends SettingControl {
+  static kind = "toggle";
   static row = true;
 
   createInput(value) {
@@ -225,6 +254,7 @@ class SwitchControl extends SettingControl {
 }
 
 class TextControl extends SettingControl {
+  static kind = "text";
   static suggests = true;
 
   createInput(value) {
@@ -235,15 +265,13 @@ class TextControl extends SettingControl {
     if (this.setting.max_length) input.maxLength = this.setting.max_length;
     if (this.setting.placeholder) input.placeholder = this.setting.placeholder;
     input.value = value ?? "";
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") this.commit();
-    });
     return input;
   }
 }
 
-/** Several lines: saved a moment after typing stops and when the field is left; a counter shows the length. */
+/** Several lines: saved when the field is left (and on Ctrl+Enter), never while typing; a counter shows the length. */
 class LinesControl extends SettingControl {
+  static kind = "multiline";
   static suggests = true;
 
   createInput(value) {
@@ -252,14 +280,7 @@ class LinesControl extends SettingControl {
     area.rows = this.constructor.rows;
     if (this.setting.placeholder) area.placeholder = this.setting.placeholder;
     area.value = value ?? "";
-    let timer = null;
-    area.addEventListener("input", () => {
-      this.updateCount();
-      this.status.textContent = "";
-      clearTimeout(timer);
-      timer = setTimeout(() => this.commit(), AUTOSAVE_MS);
-    });
-    area.addEventListener("change", () => clearTimeout(timer));
+    area.addEventListener("input", () => this.updateCount());
     return area;
   }
 
