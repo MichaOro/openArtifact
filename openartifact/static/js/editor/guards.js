@@ -4,7 +4,7 @@
  * action's as a badge on its card. The shield's tooltip says how many guards are configured there; a click opens the
  * popup of that scope's guards (guards/guard-popover.js): their names, the on/off switch and Detach, a name opens the
  * definition in the guard editor (guards/editor-window.js). The Guard entries (the "+" menu, a stage's "+", an action's
- * menu and settings) open the same popup as "Add a guard": "New guard…" makes a new definition, "Attach guard…" opens the
+ * menu and settings) open the same popup as "Add a guard": "New guard" makes a new definition, "Attach guard" opens the
  * attach dialog (a combobox of the guards that are not attached here yet). */
 import { icon } from "../components/icons.js";
 import { Modal } from "../components/modal.js";
@@ -22,7 +22,7 @@ const send = (url, method, data) => request(url, { method, body: data === undefi
 export function shieldButton(count, scopeName) {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "icon-button icon-button--sm gd-shield";
+  button.className = "icon-button icon-button--quiet icon-button--xs gd-shield";
   button.dataset.guardShield = "";
   button.setAttribute("aria-haspopup", "dialog");
   button.setAttribute("aria-expanded", "false");

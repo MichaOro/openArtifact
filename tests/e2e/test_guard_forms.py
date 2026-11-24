@@ -1,5 +1,5 @@
-"""The guard editor as a form manifest and the attach dialog (ADR-062, ADR-060): the add popup has "New guard…" as the
-primary button and "Attach guard…" next to it, the attach dialog is a combobox that narrows as you type and offers only the
+"""The guard editor as a form manifest and the attach dialog (ADR-062, ADR-060): the add popup has "New guard" as the
+primary button and "Attach guard" next to it, the attach dialog is a combobox that narrows as you type and offers only the
 guards not attached yet, the editor lays its manifest out in two columns on a wide window and one on a narrow one, folds
 the advanced fields, marks what breaks a limit and no longer shows "Can watch" (the data stays)."""
 
@@ -48,10 +48,10 @@ def test_the_attach_dialog_narrows_as_you_type_and_offers_only_guards_not_attach
     page.locator("[data-stage-add]").click()
     page.get_by_role("menuitem", name="Guard").click()
     popup = _popup(page)
-    expect(popup.get_by_role("button", name="New guard…")).to_have_class(
+    expect(popup.get_by_role("button", name="New guard")).to_have_class(
         re.compile("button--primary")
     )
-    popup.get_by_role("button", name="Attach guard…").click()
+    popup.get_by_role("button", name="Attach guard").click()
 
     dialog = page.locator("#guard-attach-modal")
     expect(dialog.locator(".modal__title")).to_have_text("Attach guard")
@@ -117,10 +117,10 @@ def test_a_guard_is_offered_to_the_attach_dialog_only_while_it_hangs_nowhere_on_
     page.locator("[data-stage-add]").click()
     page.get_by_role("menuitem", name="Guard").click()
     popup = _popup(page)  # on the stage it is still free ...
-    expect(popup.get_by_role("button", name="Attach guard…")).not_to_have_attribute(
+    expect(popup.get_by_role("button", name="Attach guard")).not_to_have_attribute(
         "aria-disabled", "true"
     )
-    popup.get_by_role("button", name="Attach guard…").click()
+    popup.get_by_role("button", name="Attach guard").click()
     dialog = page.locator("#guard-attach-modal")
     dialog.get_by_role("combobox", name="Guard").fill("only")
     expect(dialog.locator(".combobox__name")).to_have_text(["Only one"])
@@ -132,7 +132,7 @@ def test_a_guard_is_offered_to_the_attach_dialog_only_while_it_hangs_nowhere_on_
     page.locator('.ge-add__group[data-group="Structure"]').click()
     page.locator("[data-placeholder=guard]").click()
     popup = _popup(page)
-    expect(popup.get_by_role("button", name="Attach guard…")).to_have_attribute(
+    expect(popup.get_by_role("button", name="Attach guard")).to_have_attribute(
         "aria-disabled", "true"
     )
     expect(popup).to_contain_text("No other guard to attach.")
@@ -283,3 +283,94 @@ def test_the_guard_form_speaks_german(page: Page, base_url: str, api: httpx.Clie
     expect(window.get_by_role("checkbox", name="Betreten (jede Runde)")).to_be_checked()
     window.get_by_role("button", name="In einem Intervall").click()
     expect(window.get_by_role("button", name="Weitere Optionen")).to_be_visible()
+
+
+# ── the buttons of the add popup and the borderless shield ───────────
+
+
+def _overlap(a: dict[str, float], b: dict[str, float]) -> bool:
+    return not (
+        a["x"] + a["width"] <= b["x"]
+        or b["x"] + b["width"] <= a["x"]
+        or a["y"] + a["height"] <= b["y"]
+        or b["y"] + b["height"] <= a["y"]
+    )
+
+
+def _popup_buttons(
+    page: Page, base_url: str, api: httpx.Client, lang: str
+) -> tuple[Locator, Locator]:
+    page.context.add_cookies([{"name": "oa_lang", "value": lang, "url": base_url}])
+    pipeline = _pipeline(api)
+    _guard(api, "Spare guard")
+    _open(page, base_url, f"/pipelines/{pipeline['slug']}")
+    page.locator("[data-stage-add]").click()
+    page.get_by_role("menuitem", name=re.compile("Guard|Wächter")).click()
+    popup = _popup(page)
+    attach = popup.locator("[data-attach-guard]")
+    new = popup.locator("[data-new-guard]")
+    return attach, new
+
+
+def test_attach_guard_comes_before_new_guard_and_the_two_buttons_never_overlap(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """Both languages, side by side or wrapped, never on top of each other; no dots in the labels."""
+    attach, new = _popup_buttons(page, base_url, api, "en")
+    expect(attach).to_have_text("Attach guard")
+    expect(new).to_have_text("New guard")
+    a, n = _box(attach), _box(new)
+    assert a["x"] < n["x"] or a["y"] < n["y"], "Attach guard must come first"
+    assert not _overlap(a, n), (a, n)
+    assert a["height"] <= 32, a  # the catalog's small size
+
+
+def test_the_popup_buttons_do_not_overlap_in_german_either(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    attach, new = _popup_buttons(page, base_url, api, "de")
+    expect(attach).to_have_text("Wächter anhängen")
+    expect(new).to_have_text("Neuer Wächter")
+    a, n = _box(attach), _box(new)
+    assert a["x"] < n["x"] or a["y"] < n["y"]
+    assert not _overlap(a, n), (a, n)
+    popup = _box(page.locator("[data-guard-popover]"))
+    for box in (a, n):  # inside the popup's width
+        assert (
+            box["x"] >= popup["x"] - 1
+            and box["x"] + box["width"] <= popup["x"] + popup["width"] + 1
+        )
+
+
+def test_the_shield_has_no_frame_but_a_hit_area_and_a_visible_focus_ring(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """A bare icon: border width 0 (transparent), no fill, a box of at least 24 px, the global focus outline on the keyboard."""
+    pipeline = _pipeline(api, with_action=True)
+    guard = _guard(api, "Round guard")
+    _attach(api, guard, pipeline, "action", pipeline["action"]["id"])
+    _attach(api, guard, pipeline, "stage", pipeline["stage"]["id"])
+    _open(page, base_url, f"/pipelines/{pipeline['slug']}")
+    shields = page.locator("[data-guard-shield]")
+    expect(shields).to_have_count(2)
+    for i in range(2):
+        shield = shields.nth(i)
+        style = shield.evaluate(
+            """el => { const s = getComputedStyle(el); const r = el.getBoundingClientRect();
+              return {border: s.borderTopColor, width: s.borderTopWidth, bg: s.backgroundColor, w: r.width, h: r.height}; }"""
+        )
+        assert style["border"] in ("rgba(0, 0, 0, 0)", "transparent"), style  # not drawn
+        assert style["bg"] in ("rgba(0, 0, 0, 0)", "transparent"), style
+        assert style["w"] >= 24 and style["h"] >= 24, style
+    card_shield = page.locator(".ge-node--action [data-guard-shield]")
+    card = page.locator(".ge-node--action")
+    c, s = _box(card), _box(card_shield)
+    assert c["x"] + c["width"] - (s["x"] + s["width"]) <= 8, "in the card's right corner"
+    assert s["y"] - c["y"] <= 8, "in the card's top corner"
+    card_shield.focus()
+    page.keyboard.press("Shift")
+    card_shield.focus()
+    outline = card_shield.evaluate(
+        "el => getComputedStyle(el).outlineStyle + ' ' + getComputedStyle(el).outlineWidth"
+    )
+    assert outline.startswith("solid") and not outline.endswith(" 0px"), outline

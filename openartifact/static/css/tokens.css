@@ -218,6 +218,9 @@
   --btn-disabled-text: color-mix(in srgb, var(--color-text-secondary) 74%, var(--color-glass-card));
   --btn-disabled-border: var(--btn-outline-border);
   --btn-danger-border: color-mix(in srgb, var(--color-danger) 80%, var(--color-glass-card));
+  /* the quiet icon button (no frame): the icon is readable on the card in both themes (>= 3:1) */
+  --btn-quiet-text: var(--color-text-secondary);
+  --btn-quiet-text-hover: var(--color-text-primary);
   /* a pressed chip (toggle) */
   --btn-chip-on-bg: var(--accent-soft);
 

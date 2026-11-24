@@ -431,16 +431,16 @@
 .ge-add__row { display: flex; align-items: center; gap: var(--space-1); }
 .ge-add__row .gd-shield[hidden] { display: none; }
 .gd-shield { flex: none; }
-.ge-stage__header .gd-shield:hover { border-color: var(--node-color); }
-/* on the card's top edge, right, clear of its name and of the port labels; the card's colour as its border */
-.gd-shield--node { position: absolute; top: calc(-1 * var(--space-3)); right: 4.5rem; z-index: 2; background: var(--color-glass-card); border-color: var(--node-color); }
+/* on an action's card: a bare shield tucked into the top right corner (no frame; the hit area is the 24 px quiet icon button) */
+.gd-shield--node { position: absolute; top: 2px; right: 2px; z-index: 2; }
 .gd-popover { z-index: 30; gap: var(--space-2); min-width: 18rem; max-width: min(26rem, calc(100vw - 1rem)); max-height: min(70vh, 32rem); }
 .gd-popover[hidden] { display: none; }
 .gd-popover__search { flex: none; }
 .gd-popover__list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .gd-popover__list[hidden], .gd-popover__empty[hidden] { display: none; }
 .gd-popover__empty { margin: 0; padding: 0 var(--space-2); }
-.gd-popover__new { align-self: flex-start; }
+.gd-popover__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.gd-popover__actions .button { flex: 0 1 auto; white-space: nowrap; }
 .gd-pick { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); }
 .gd-pick:hover { background: var(--accent-soft); }
 .gd-pick__text { display: flex; flex: 1; flex-direction: column; min-width: 0; }

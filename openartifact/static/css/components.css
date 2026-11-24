@@ -309,6 +309,12 @@
 }
 
 .icon-button--sm { width: 2rem; height: 2rem; border-radius: var(--radius-sm); }
+/* Quiet icon button (catalog, ADR-059): no frame and no fill, the icon alone; a quiet fill on hover. The 24 px box is the hit
+   area even though nothing is drawn around the icon (the focus ring is the global one). */
+.icon-button--xs { width: 1.5rem; height: 1.5rem; border-radius: var(--radius-sm); }
+.icon-button--xs .icon { width: 1rem; height: 1rem; }
+.icon-button--quiet { border-color: transparent; background: transparent; box-shadow: none; color: var(--btn-quiet-text); }
+.icon-button--quiet:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--accent-soft); border-color: transparent; color: var(--btn-quiet-text-hover); }
 .icon-button--sm .icon { width: 1rem; height: 1rem; }
 
 /* A quiet label that is not a control, such as "Soon" beside a menu entry that holds a place for something coming (ADR-059) */

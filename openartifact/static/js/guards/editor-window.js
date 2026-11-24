@@ -1,5 +1,5 @@
 /* The guard editor (ADR-060, ADR-062): one window for one definition of the guard library, opened from the Guards page,
- * from the shield popup of a scope in the pipeline editor and from "New guard…" there. Its title is "Guard – NAME" with
+ * from the shield popup of a scope in the pipeline editor and from "New guard" there. Its title is "Guard – NAME" with
  * the name renamed in place (as every name of a window that saves, ADR-059); there is no Name row and no template row
  * (templates are in the page's New menu). The form itself is a manifest (ui/forms/guard.yaml) drawn by components/
  * form-view.js in two columns on a wide window: trigger and condition on the left, escalation, consequence and the

@@ -48,8 +48,9 @@ In the pipeline editor every **Guard** entry opens the small popup **Add a guard
 - the menu of an action node (right click or **…**) → *Guard*, or **Add guard** in the *Guards* section of the action's
   settings: that action.
 
-The popup has two buttons: **New guard…** (the primary one) opens the guard editor for a new definition that is attached
-there when you save it, and **Attach guard…** opens the **attach dialog**. **Attach guard…** is disabled with the note
+The popup has two buttons, **Attach guard** on the left and **New guard** (the primary one) on the right; they wrap under
+each other when the popup is too narrow. **New guard** opens the guard editor for a new definition that is attached
+there when you save it, and **Attach guard** opens the **attach dialog**. **Attach guard** is disabled with the note
 *No other guard to attach.* when every guard of the library is attached there already. Below, *Attached here* lists the
 guards of that scope, with their switch and Detach.
 
@@ -61,7 +62,7 @@ and only then the dialog. **Attach** is there once one is chosen; the popup come
 ## The shield
 
 A scope with at least one guard attached shows **one shield**: the pipeline's next to the **+** at the top right of the
-canvas, a stage's in its header next to its **+**, an action's as a small badge on the top edge of its card. Its
+canvas, a stage's in its header next to its **+**, an action's as a bare icon in the top right corner of its card. The shield is the quiet icon button of the catalog: no frame, a 24 px hit area. Its
 tooltip says how many guards are configured there ("2 guards configured"; it never says *active*: guards act only
 while a run goes). A click opens the popup of that scope's guards:
 

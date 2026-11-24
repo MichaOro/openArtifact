@@ -1,4 +1,4 @@
-/* The attach dialog of the guards (ADR-060): "Attach guard…" of the shield popup opens it. One field, a combobox
+/* The attach dialog of the guards (ADR-060): "Attach guard" of the shield popup opens it. One field, a combobox
  * (components/combobox.js) of the guards of the library that may watch the scope and are not attached to it yet; typing
  * narrows the list (name first, then its description and what it does: "hea" finds the Health guard and a guard that
  * says it watches health). Attach is there once one is chosen. */

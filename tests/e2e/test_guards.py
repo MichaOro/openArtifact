@@ -93,9 +93,9 @@ def _popup(page: Page) -> Any:
 
 
 def _attach_through_dialog(page: Page, text: str) -> None:
-    """The popup's "Attach guard…": the attach dialog, a combobox typed into, the choice, Attach."""
+    """The popup's "Attach guard": the attach dialog, a combobox typed into, the choice, Attach."""
     popup = _popup(page)
-    popup.get_by_role("button", name="Attach guard…").click()
+    popup.get_by_role("button", name="Attach guard").click()
     dialog = page.locator("#guard-attach-modal")
     expect(dialog).to_be_visible()
     dialog.get_by_role("combobox", name="Guard").fill(text)
@@ -316,7 +316,7 @@ def test_the_pipelines_guard_entry_attaches_a_library_guard_and_its_shield_appea
     expect(popup.get_by_role("searchbox")).to_have_count(
         0
     )  # no search: few guards hang on one scope
-    expect(popup.get_by_role("button", name="New guard…")).to_have_class(
+    expect(popup.get_by_role("button", name="New guard")).to_have_class(
         re.compile(r"button--primary")
     )
     _attach_through_dialog(page, "Stall")
@@ -355,7 +355,7 @@ def test_a_stage_guard_is_attached_from_its_plus_and_its_shield_popup_switches_d
     _attach_through_dialog(page, "Round guard")
     _attach_through_dialog(page, "Health guard")
     popup = _popup(page)
-    expect(popup.get_by_role("button", name="Attach guard…")).to_have_attribute(
+    expect(popup.get_by_role("button", name="Attach guard")).to_have_attribute(
         "aria-disabled", "true"
     )
     expect(popup).to_contain_text("No other guard to attach.")
@@ -411,7 +411,7 @@ def test_a_new_guard_made_from_an_actions_menu_is_attached_to_it_and_its_card_sh
     menu.get_by_role("menuitem", name="Guard").click()
     popup = _popup(page)
     expect(popup).to_contain_text("No other guard to attach.")
-    popup.get_by_role("button", name="New guard…").click()
+    popup.get_by_role("button", name="New guard").click()
     window = _window(page)
     expect(window).to_contain_text(
         "Saving adds it to the library and attaches it to the action Draft."

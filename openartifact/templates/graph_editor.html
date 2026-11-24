@@ -49,7 +49,7 @@
 {% endcall %}
 {{ form_modal("new-modal", t('common.new'), NAME_FIELDS) }}
 {% if section.kind == "pipeline" %}
-{# the guard editor (ADR-060): a definition of the library, opened from a shield popup or "New guard…" #}
+{# the guard editor (ADR-060): a definition of the library, opened from a shield popup or "New guard" #}
 {{ guard_modal() }}
 {{ guard_attach_modal() }}
 {% endif %}

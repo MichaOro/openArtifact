@@ -152,6 +152,7 @@ VARIANTS = {
     "ghost danger": '<button class="button button--ghost is-danger">Clear finished</button>',
     "icon": '<button class="icon-button" aria-label="Menu"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
     "icon danger": '<button class="icon-button is-danger" aria-label="Delete"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
+    "icon quiet": '<button class="icon-button icon-button--quiet icon-button--xs" aria-label="Guards"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
     "chip off": '<button class="chip-button" aria-pressed="false">Comments</button>',
     "chip on": '<button class="chip-button" aria-pressed="true">Comments</button>',
 }
@@ -330,7 +331,7 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
     popup = page.locator("[data-guard-popover]")
     expect(popup).to_be_visible()
     check("editor / add a guard popup")
-    popup.get_by_role("button", name="Attach guard…").click()
+    popup.get_by_role("button", name="Attach guard").click()
     attach = page.locator("#guard-attach-modal")
     expect(attach).to_be_visible()
     attach.get_by_role("button", name="Show all choices").click()

@@ -51,6 +51,7 @@ not suggestions, and a change that breaks one is sent back.
 | Danger, solid | `button button--danger` | Only the confirming button of a destructive dialog. |
 | Danger, outlined | `button button--ghost is-danger` | A visible destructive action in a toolbar: *Clear finished*. |
 | Icon only | `icon-button` (small: `icon-button icon-button--sm`) | A command with an icon and no text. It needs an accessible name: `aria-label` (or a visible tooltip name). |
+| Icon only, quiet | `icon-button icon-button--quiet icon-button--xs` | An icon with no frame and no fill (24 px hit area, a quiet fill on hover and the global focus ring): the guard shield on a card, a stage header and next to the canvas "+". Needs an accessible name. Colours: `--btn-quiet-text`, `--btn-quiet-text-hover`. |
 | Icon only, destructive | `icon-button is-danger` | A delete icon: it turns red on hover and focus. |
 | Chip (toggle) | `chip-button` with `aria-pressed="true|false"` | A filter or a switch among a few: *All / Comments / Executions / Changes*. |
 | Chip (small action) | `chip-button` without `aria-pressed` | A compact action in a tight place. |

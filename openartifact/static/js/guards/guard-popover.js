@@ -1,6 +1,6 @@
 /* The small popup of a scope's guards in the pipeline editor (ADR-060). Two ways in:
  *   "add"  (the Guard entry of the pipeline's "+" menu, a stage's "+", an action's menu and settings): "Add a guard" with
- *          two buttons, "New guard…" (the primary one) and "Attach guard…" (which opens the attach dialog with a combobox
+ *          two buttons, "New guard" (the primary one) and "Attach guard" (which opens the attach dialog with a combobox
  *          of the guards not attached here yet), and below them the guards attached here;
  *   "list" (the shield of the pipeline, a stage or an action): the guards attached here.
  * An attached guard is listed by its name (muted and struck through while it is off) with its on/off switch and Detach;
@@ -108,7 +108,7 @@ export class GuardPopover {
       create.type = "button";
       create.dataset.focusKey = "new";
       create.dataset.newGuard = "";
-      create.append(icon("plus"), document.createTextNode(t("guards.new_guard_ellipsis")));
+      create.append(icon("plus"), document.createTextNode(t("guards.new_menu")));
       create.addEventListener("click", () => {
         this.close({ restoreFocus: false });
         this.actions.create();
@@ -118,14 +118,14 @@ export class GuardPopover {
       attach.type = "button";
       attach.dataset.focusKey = "attach";
       attach.dataset.attachGuard = "";
-      attach.append(icon("shield"), document.createTextNode(t("guards.attach_guard_ellipsis")));
+      attach.append(icon("shield"), document.createTextNode(t("guards.attach_guard")));
       attach.setAttribute("aria-disabled", String(!offered.length));
       attach.addEventListener("click", () => {
         if (!offered.length) return;
         this.actions.chooseAttach();
       });
       const row = make("div", "gd-popover__actions");
-      row.append(create, attach);
+      row.append(attach, create); // Attach first, the primary New guard on the right
       parts.push(row);
       if (!offered.length) parts.push(make("p", "field__help gd-popover__empty", t("guards.nothing_to_attach")));
     }
