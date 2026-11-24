@@ -27,6 +27,7 @@ DELETE /api/actions/{graph_id}/edges/{edge_id} -> -
 DELETE /api/actions/{graph_id}/nodes/{node_id} -> -
 DELETE /api/agents/{ref} -> -
 DELETE /api/credentials/{ref} -> -
+DELETE /api/guards/{guard_id} -> -
 DELETE /api/lanes/{status} -> LaneRead[]
 DELETE /api/pipelines/{graph_id} -> -
 DELETE /api/pipelines/{graph_id}/edges/{edge_id} -> -
@@ -42,6 +43,7 @@ DELETE /api/v1/agents/{ref} -> -
 DELETE /api/v1/artifacts/{ref} -> -
 DELETE /api/v1/artifacts/{ref}/comments/{comment_id} -> -
 DELETE /api/v1/artifacts/{ref}/executions/{execution_id} -> -
+DELETE /api/v1/guards/{guard_id} -> -
 DELETE /api/v1/lanes/{status} -> LaneRead[]
 DELETE /api/v1/providers/{ref} -> -
 DELETE /api/v1/providers/{ref}/models/{model_id} -> -
@@ -61,6 +63,9 @@ GET /api/credentials/{ref}/events -> CredentialEventRead[]
 GET /api/credentials/{ref}/uses -> CredentialUse[]
 GET /api/events -> -
 GET /api/executions -> ExecutionsPage
+GET /api/guards -> GuardRead[]
+GET /api/guards/templates -> TemplateRead[]
+GET /api/guards/{guard_id} -> GuardRead
 GET /api/info -> InfoRead
 GET /api/lanes -> LaneRead[]
 GET /api/node-types -> NodeTypeRead[]
@@ -104,6 +109,8 @@ GET /api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id} -> Executi
 GET /api/v1/artifacts/{ref}/run -> RunRead
 GET /api/v1/artifacts/{ref}/run/results -> NodeResultRead[]
 GET /api/v1/executions -> ExecutionsPage
+GET /api/v1/guards -> GuardRead[]
+GET /api/v1/guards/{guard_id} -> GuardRead
 GET /api/v1/lanes -> LaneRead[]
 GET /api/v1/pipelines -> PipelineChainRead[]
 GET /api/v1/providers -> ProviderRead[]
@@ -117,6 +124,7 @@ PATCH /api/actions/{graph_id}/edges/{edge_id} -> EdgeRead
 PATCH /api/actions/{graph_id}/nodes/{node_id} -> NodeRead
 PATCH /api/agents/{ref} -> AgentDetail
 PATCH /api/credentials/{ref} -> CredentialRead
+PATCH /api/guards/{guard_id} -> GuardRead
 PATCH /api/pipelines/{graph_id} -> GraphRead
 PATCH /api/pipelines/{graph_id}/edges/{edge_id} -> EdgeRead
 PATCH /api/pipelines/{graph_id}/nodes/{node_id} -> NodeRead
@@ -127,6 +135,7 @@ PATCH /api/tasks/{task_id} -> TaskRead
 PATCH /api/v1/agents/{ref} -> AgentDetail
 PATCH /api/v1/artifacts/{ref} -> TaskRead
 PATCH /api/v1/artifacts/{ref}/comments/{comment_id} -> CommentRead
+PATCH /api/v1/guards/{guard_id} -> GuardRead
 PATCH /api/v1/providers/{ref} -> ProviderRead
 PATCH /api/v1/providers/{ref}/models/{model_id} -> ProviderRead
 POST /api/actions -> GraphRead
@@ -143,6 +152,9 @@ POST /api/credentials/{ref}/revoke -> CredentialRead
 POST /api/credentials/{ref}/rotate -> CredentialCreated
 POST /api/credentials/{ref}/test -> CredentialRead
 POST /api/executions/delete -> ExecutionsDeleted
+POST /api/guards -> GuardRead
+POST /api/guards/from-template -> GuardRead
+POST /api/guards/preview -> GuardPreview
 POST /api/lanes -> LaneRead[]
 POST /api/pipelines -> GraphRead
 POST /api/pipelines/{graph_id}/edges -> EdgeRead
@@ -166,6 +178,8 @@ POST /api/v1/artifacts -> TaskRead
 POST /api/v1/artifacts/{ref}/comments -> CommentRead
 POST /api/v1/artifacts/{ref}/run -> RunRead
 POST /api/v1/artifacts/{ref}/run/stop -> RunRead
+POST /api/v1/executions/{execution_id}/heartbeat -> HeartbeatRead
+POST /api/v1/guards -> GuardRead
 POST /api/v1/lanes -> LaneRead[]
 POST /api/v1/providers -> ProviderRead
 POST /api/v1/providers/test -> CheckResult
@@ -176,12 +190,14 @@ POST /api/v1/settings/retention/preview -> RulesPreview
 PUT /api/agents/{ref}/draft -> AgentDetail
 PUT /api/artifact-fields -> ArtifactFieldsRead
 PUT /api/credentials/{ref}/enabled -> CredentialRead
+PUT /api/guards/{guard_id}/enabled -> GuardRead
 PUT /api/lanes/{status} -> LaneRead[]
 PUT /api/secrets/{name} -> SecretRead
 PUT /api/settings/retention -> RulesSaved
 PUT /api/settings/run-limits -> RunLimitsRead
 PUT /api/v1/agents/{ref}/draft -> AgentDetail
 PUT /api/v1/artifact-fields -> ArtifactFieldsRead
+PUT /api/v1/guards/{guard_id}/enabled -> GuardRead
 PUT /api/v1/lanes/{status} -> LaneRead[]
 PUT /api/v1/secrets/{name} -> SecretRead
 PUT /api/v1/settings/retention -> RulesSaved

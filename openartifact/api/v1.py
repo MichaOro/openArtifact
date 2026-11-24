@@ -23,6 +23,7 @@ from openartifact.api.contract import (
 )
 from openartifact.api.deps import FieldsDep, ServiceDep
 from openartifact.api.executions import LIST_DESCRIPTION
+from openartifact.api.guards import build_guards_router, build_heartbeat_router
 from openartifact.api.lanes import (
     CREATE_DESCRIPTION,
     DELETE_DESCRIPTION,
@@ -66,6 +67,8 @@ router = APIRouter(
 )
 router.include_router(build_comments_router("/artifacts", "api", ["integration API"]))
 router.include_router(build_activity_router("/artifacts", ["integration API"]))
+router.include_router(build_guards_router("", ["integration API"], editor=False))
+router.include_router(build_heartbeat_router("", ["integration API"]))
 
 
 @router.get(

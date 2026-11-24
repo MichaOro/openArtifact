@@ -3,20 +3,23 @@
 Every graph in it carries its ``id``, ``name`` and ``kind``; nodes carry their size and ``fail_enabled``,
 edges their ``id``, style and slots, so the execution flow can draw it like the editor does. An agent
 node also carries ``agent``: its agent as it was published when the snapshot was taken, with the
-provider, the model and the node's overrides resolved (``agents/freeze.py``). Snapshots
+provider, the model and the node's overrides resolved (``agents/freeze.py``). ``guards`` and ``guard_definitions``
+are the enabled guards of the pipelines and their own actions (ADR-060). Snapshots
 frozen before those fields existed lack them; :mod:`openartifact.engine.flow` fills them in.
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.agents.freeze import freeze_agents
 from openartifact.graph.node_types import node_type
 from openartifact.graph.repository import GraphRepository
-from openartifact.models import Graph, GraphEdge, GraphNode, NodeKind
+from openartifact.models import Graph, GraphEdge, GraphNode, Guard, NodeKind
 
 
 def _node(node: GraphNode, label: str) -> dict[str, Any]:
@@ -100,4 +103,43 @@ async def build_snapshot(session: AsyncSession, graph: Graph) -> dict[str, Any]:
     snapshot["pipelines"] = {}
     await _collect(session, snapshot, snapshot, (graph.id,))
     await freeze_agents(session, snapshot)  # agent nodes keep the version they start with
+    await freeze_guards(session, snapshot)
     return snapshot
+
+
+async def freeze_guards(session: AsyncSession, snapshot: dict[str, Any]) -> None:
+    """The enabled guards of the pipeline and of the pipelines it calls (``guards``) and their own actions
+    (``guard_definitions``, apart from ``definitions`` so their node names never clash with the run's references)."""
+    pipelines = [snapshot["id"], *snapshot.get("pipelines", {})]
+    rows = (
+        await session.scalars(
+            select(Guard)
+            .where(Guard.pipeline_id.in_(pipelines), Guard.enabled.is_(True))
+            .order_by(Guard.name, Guard.id)
+        )
+    ).all()
+    snapshot["guards"] = [guard_data(row) for row in rows]
+    bodies: dict[str, Any] = {}
+    for row in rows:
+        if row.definition_id and row.definition_id not in bodies:
+            bodies[row.definition_id] = await graph_of(session, row.definition_id)
+    snapshot["guard_definitions"] = bodies
+    await freeze_agents(session, {"definitions": bodies})
+
+
+def guard_data(row: Guard) -> dict[str, Any]:
+    """A guard as the engine and the API carry it (its JSON columns parsed)."""
+    return {
+        "id": row.id,
+        "pipeline_id": row.pipeline_id,
+        "name": row.name,
+        "scope_type": row.scope_type,
+        "scope_id": row.scope_id,
+        "trigger": json.loads(row.trigger or "{}"),
+        "when": json.loads(row.condition or "{}"),
+        "consequence": row.consequence,
+        "fallback": row.fallback,
+        "escalation": json.loads(row.escalation or "[]"),
+        "definition_id": row.definition_id,
+        "enabled": row.enabled,
+    }

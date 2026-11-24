@@ -20,10 +20,12 @@ from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.api.agents import routers as agent_routers
 from openartifact.api.artifact_fields import router as artifact_fields_router
+from openartifact.api.contract import GATED
 from openartifact.api.credentials import router as credentials_router
 from openartifact.api.events import router as events_router
 from openartifact.api.executions import router as executions_router
 from openartifact.api.graphs import actions_router, node_types_router, pipelines_router
+from openartifact.api.guards import build_guards_router
 from openartifact.api.hardening import BodyLimit, CrossSiteGuard, HostCheck, SecurityHeaders
 from openartifact.api.lanes import router as lanes_router
 from openartifact.api.mcp import build_mcp
@@ -48,6 +50,8 @@ from openartifact.exceptions import (
     ConfigurationError,
     OpenArtifactError,
 )
+from openartifact.guards.monitor import GuardSettings
+from openartifact.guards.service import GuardService
 from openartifact.logging_config import configure_logging
 from openartifact.oidc import Oidc
 from openartifact.security import AccessGate, TokenProtected, require_api_token
@@ -141,6 +145,15 @@ def _create_app(settings: Settings) -> FastAPI:
         max_runs=settings.max_concurrent_runs,
         limits=Limits.from_settings(settings, app.state.secret_store.resolve, app.state.comments),
         history_default_keep=settings.execution_history_default_keep,
+        guards=GuardSettings(
+            min_interval_seconds=settings.guard_min_interval_seconds,
+            max_firings=settings.guard_max_firings,
+            timeout_seconds=settings.guard_timeout_seconds,
+            heartbeat_spacing_seconds=settings.heartbeat_min_spacing_seconds,
+        ),
+    )
+    app.state.guards = GuardService(
+        database.new_session, app.state.event_bus, settings.guard_min_interval_seconds
     )
     app.state.artifacts = ArtifactService(
         database.new_session, app.state.event_bus, app.state.engine
@@ -219,6 +232,9 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(actions_router)
     app.include_router(runs_router)
     app.include_router(rules_router)
+    app.include_router(
+        build_guards_router("/api", ["guards"], editor=True), dependencies=[], responses=GATED
+    )
     app.include_router(secrets_router)
     app.include_router(credentials_router)
     app.include_router(v1_router)

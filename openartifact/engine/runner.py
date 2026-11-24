@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import uuid
+from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -24,7 +25,9 @@ from sqlalchemy import CursorResult, delete, func, select, update
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.activity import recorder as activity
 from openartifact.artifact_fields.service import card_of
+from openartifact.comments.schemas import Author
 from openartifact.database import SessionOpener
 from openartifact.engine import code_registry
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
@@ -39,8 +42,10 @@ from openartifact.engine.targets import TargetError, load_pipeline, pick_start
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import Ports
+from openartifact.guards.monitor import GuardSettings, Monitor, Verdict
 from openartifact.models import (
     Execution,
+    Guard,
     NodeKind,
     PipelineRun,
     RunNodeResult,
@@ -82,6 +87,10 @@ class _RunFailedError(Exception):
     """The run cannot go on (shown as the note of a failed run)."""
 
 
+class _RunPausedError(Exception):
+    """A guard paused the run: it ends ``stopped`` with the reason as its note and can be started again."""
+
+
 @dataclass
 class _Walk:
     """What one execution of a run carries along: its snapshot, the steps taken and where it is."""
@@ -103,6 +112,11 @@ class _Walk:
     index: NodeIndex = field(default_factory=NodeIndex)
     #: The limits the execution froze at its start (Settings > Run limits).
     limits: RunLimits = field(default_factory=RunLimits)
+    #: The guards of the execution (ADR-060) and the path of pipeline nodes that leads to where the walk is.
+    monitor: Monitor | None = None
+    path: str = ""
+    #: What an interval guard decided while the flow ran (the job was cancelled for it).
+    interrupt: Verdict | None = None
 
     def step(self) -> None:
         """Count a step; actions and the nodes of their definitions count against the same limit, so a
@@ -115,6 +129,69 @@ class _Walk:
             )
 
 
+class _GuardHooks:
+    """What the engine does for the guard monitor of one execution."""
+
+    def __init__(self, engine: RunEngine, walk: _Walk) -> None:
+        self._engine = engine
+        self._walk = walk
+
+    async def run_body(
+        self, guard: Mapping[str, Any], facts: Mapping[str, Any]
+    ) -> tuple[bool, str]:
+        """The guard's own action, as a child of the run: a copy of the run's context with the facts as
+        ``${var.guard_*}``; what it does to that copy is not kept."""
+        walk = self._walk
+        definition_id = str(guard.get("definition_id") or "")
+        definition = walk.snapshot.get("guard_definitions", {}).get(definition_id)
+        if definition is None:
+            raise RuntimeError("the guard has no action to run")
+        context = RunContext.loads(walk.context.dumps())
+        inputs: dict[str, Any] = {"guard_name": str(guard.get("name", ""))}
+        for key, value in facts.items():
+            if key.startswith("var."):
+                continue
+            name = "guard_firing" if key == "guard.runs" else f"guard_{key}"
+            inputs[name] = value
+        context.set_vars(inputs)
+        view = RunView(context, NodeIndex.of_graphs([definition]), walk.task_id, walk.execution_id)
+        return await self._engine._run_definition(definition_id, definition, walk, view)
+
+    async def interrupt(self, verdict: Verdict) -> None:
+        self._walk.interrupt = verdict
+        job = self._engine._jobs.get(self._walk.task_id)
+        if job is not None and not job.done():
+            job.cancel()
+
+    async def fired(self, firing: Mapping[str, Any], state: str) -> None:
+        """An activity entry of the artifact (kind ``guard``, the guard as the actor, the facts) and the state."""
+        walk = self._walk
+        data = {k: v for k, v in firing.items() if k not in ("at", "scope_id")}
+        async with self._engine._session() as session:
+            entry = await activity.record(
+                session,
+                walk.task_id,
+                "guard",
+                Author("system", str(firing["guard"])),
+                data,
+                execution_id=walk.execution_id,
+            )
+            if walk.execution_id is not None:
+                await session.execute(
+                    update(Execution)
+                    .where(Execution.id == walk.execution_id)
+                    .values(guard_state=state)
+                )
+            await session.commit()
+        self._engine._bus.publish("activity.created", entry.model_dump(mode="json"))
+        self._engine._bus.publish(
+            "guard.fired", {"task_id": walk.task_id, "execution_id": walk.execution_id, **firing}
+        )
+
+    async def persist(self, state: str) -> None:
+        await self._engine._store_guard_state(self._walk.execution_id, state)
+
+
 class RunEngine:
     """Starts, stops and executes runs."""
 
@@ -125,6 +202,7 @@ class RunEngine:
         max_runs: int = 8,
         limits: Limits | None = None,
         history_default_keep: int = 50,
+        guards: GuardSettings | None = None,
     ) -> None:
         self._bus = bus
         self.history = ExecutionHistory(bus, history_default_keep)
@@ -134,6 +212,9 @@ class RunEngine:
         # artifacts whose start has not reached its background task
         self._starting: set[str] = set()
         self._jobs: dict[str, asyncio.Task[None]] = {}
+        self.guard_settings = guards or GuardSettings()
+        #: The guard monitor of every execution that runs, by execution id (heartbeats, previews).
+        self.monitors: dict[str, tuple[str, Monitor]] = {}
 
     # ── reading ───────────────────────────────────────────────────────
 
@@ -519,6 +600,105 @@ class RunEngine:
         if self._jobs.get(task_id) is asyncio.current_task():
             del self._jobs[task_id]
 
+    # ── guards (ADR-060) ──────────────────────────────────────────────
+
+    def _monitor(self, walk: _Walk) -> Monitor:
+        """The guard monitor of an execution: the frozen guards, the engine's effects, the run's variables."""
+
+        async def enabled(guard_id: str) -> bool:
+            async with self._session() as session:
+                return bool(await session.scalar(select(Guard.enabled).where(Guard.id == guard_id)))
+
+        return Monitor(
+            list(walk.snapshot.get("guards", [])),
+            _GuardHooks(self, walk),
+            self.guard_settings,
+            variables=lambda: walk.context.vars,
+            enabled=enabled,
+        )
+
+    @staticmethod
+    async def _guarded(verdict_of: Awaitable[Verdict]) -> None:
+        """Wait for the guards of an event in the flow and do what they decided."""
+        verdict = await verdict_of
+        if verdict.kind == "pause":
+            raise _RunPausedError(verdict.note)
+        if verdict.kind == "abort":
+            raise _RunFailedError(verdict.note)
+
+    async def _pause(self, task_id: str, note: str) -> None:
+        """A guard paused the run: it is stopped with the reason and stays where it is, to be started again."""
+        async with self._session() as session:
+            run = await self._run_of(session, task_id)
+            if run is None:
+                return
+            run.status = RunStatus.STOPPED
+            run.note = note
+            await self._pause_running_stages(session, run.id)
+            changes = await self._close_execution(session, run)
+            await session.commit()
+        await self._publish(task_id)
+        self.history.publish(changes)
+
+    async def heartbeat(self, execution_id: str, note: str | None) -> dict[str, Any]:
+        """An agent or tool says the execution still makes progress: its stall clock starts again (ADR-060)."""
+        held = self.monitors.get(execution_id)
+        if held is None:
+            async with self._session() as session:
+                found = await session.scalar(
+                    select(Execution.status).where(Execution.id == execution_id)
+                )
+            if found is None:
+                raise ArtifactError(404, "Execution not found")
+            if found != RunStatus.RUNNING:
+                raise ArtifactError(409, "The execution is not running")
+            # it has just started and its guards are not watching yet: nothing to restart
+            return {"execution_id": execution_id, "at": utcnow(), "count": 0}
+        _, monitor = held
+        last = (monitor.heartbeat or {}).get("at")
+        spacing = self.guard_settings.heartbeat_spacing_seconds
+        if last and (utcnow() - datetime.fromisoformat(last)).total_seconds() < spacing:
+            raise ArtifactError(429, f"At most one heartbeat per {spacing:g} s")
+        monitor.progress(note, heartbeat=True)
+        await self._store_guard_state(execution_id, monitor.dump())
+        heartbeat = monitor.heartbeat or {}
+        return {"execution_id": execution_id, "at": heartbeat["at"], "count": heartbeat["count"]}
+
+    async def _store_guard_state(self, execution_id: str | None, state: str) -> None:
+        if execution_id is None:
+            return
+        async with self._session() as session:
+            await session.execute(
+                update(Execution).where(Execution.id == execution_id).values(guard_state=state)
+            )
+            await session.commit()
+
+    def preview_guard(self, guard: dict[str, Any]) -> tuple[int, list[dict[str, Any]]]:
+        """Which running scopes a guard would fire on now (its condition only): how many run, and the matches."""
+        from openartifact.guards.schemas import GuardGroup
+        from openartifact.rules import tree
+
+        when = GuardGroup.model_validate(guard["when"])
+        running, matches = 0, []
+        for execution_id, (task_id, monitor) in list(self.monitors.items()):
+            for scope in monitor.active():
+                if scope.type != guard["scope_type"] or scope.id != guard.get("scope_id"):
+                    continue
+                running += 1
+                facts = monitor.facts(scope)
+                count = monitor.counts.get(f"{guard.get('id') or ''}|{scope.key}")
+                facts["guard.runs"] = count.runs if count else 0
+                if tree.evaluate(when, facts):
+                    matches.append(
+                        {
+                            "task_id": task_id,
+                            "execution_id": execution_id,
+                            "scope_name": scope.name,
+                            "facts": facts,
+                        }
+                    )
+        return running, matches
+
     async def _execute(self, task_id: str, execution_id: str) -> None:
         walk: _Walk | None = None
         try:
@@ -537,6 +717,8 @@ class RunEngine:
                     )
                 )
                 walk.index = NodeIndex.of_snapshot(walk.snapshot)
+            walk.monitor = self._monitor(walk)
+            self.monitors[execution_id] = (task_id, walk.monitor)
             chain = pipeline_chain(walk.snapshot["nodes"], walk.snapshot["edges"])
             start = next(i for i, s in enumerate(chain) if s["id"] == stage_id)
             minutes = walk.limits.time_limit_minutes
@@ -545,7 +727,10 @@ class RunEngine:
                 async with (
                     deadline
                 ):  # when it expires, the running node is cancelled like a stopped run's
+                    root = walk.snapshot
+                    await self._guarded(walk.monitor.enter("pipeline", root["id"], root["name"]))
                     await self._walk(walk, walk.snapshot, chain, start, action_id, 0, run_pipeline)
+                    await self._guarded(walk.monitor.leave("pipeline", root["id"]))
             except TimeoutError:
                 if not deadline.expired():
                     raise  # a timeout of something inside, not the run's: the handler below decides
@@ -556,13 +741,28 @@ class RunEngine:
             # it rests where it ended, even inside a called pipeline
             await self._save(task_id, status=RunStatus.DONE)
         except asyncio.CancelledError:
-            raise
+            interrupt = walk.interrupt if walk else None
+            current = asyncio.current_task()
+            if interrupt is None or current is None:
+                raise
+            current.uncancel()  # an interval guard stopped the running node: the run ends as it decided
+            if interrupt.kind == "pause":
+                await self._pause(task_id, interrupt.note)
+            else:
+                await self._fail(task_id, interrupt.note, walk)
+        except _RunPausedError as paused:
+            await self._pause(task_id, str(paused))
         except _RunFailedError as failure:
+            if walk is not None and walk.monitor is not None:
+                await walk.monitor.fail()
             await self._fail(task_id, str(failure), walk)
         except Exception:
             logger.exception("Run of artifact %s failed", task_id)
             await self._fail(task_id, "Internal error", walk)
         finally:
+            if walk is not None and walk.monitor is not None:
+                await walk.monitor.close()
+            self.monitors.pop(execution_id, None)
             # a stopped run must not remove the bookkeeping of the run that replaced it
             self._release(task_id)
 
@@ -594,7 +794,14 @@ class RunEngine:
                     walk.task_id, stage_id=entry["id"], action_id=None, stage_state=running
                 )
                 inner = pipeline_chain(called["nodes"], called["edges"])
+                outer, walk.path = walk.path, f"{walk.path}/{entry['id']}"
+                monitor = cast(Monitor, walk.monitor)
+                await self._guarded(
+                    monitor.enter("pipeline", called["id"], called["name"], walk.path)
+                )
                 await self._walk(walk, called, inner, 0, None, depth + 1, entry["pipeline_id"])
+                await self._guarded(monitor.leave("pipeline", called["id"], walk.path))
+                walk.path = outer
             else:
                 first = action_id or entry["first_action_id"]
                 action_id = None
@@ -602,20 +809,38 @@ class RunEngine:
                 await self._save(
                     walk.task_id, stage_id=entry["id"], action_id=first, stage_state=running
                 )
-                await self._run_actions(walk, graph, first)
+                monitor = cast(Monitor, walk.monitor)
+                await self._guarded(monitor.enter("stage", entry["id"], entry["name"], walk.path))
+                await self._run_actions(walk, graph, first, entry)
+                await self._guarded(monitor.leave("stage", entry["id"], walk.path))
             if top:
                 await self._save(walk.task_id, stage_state=(entry["id"], StageStatus.PASSED))
 
-    async def _run_actions(self, walk: _Walk, graph: dict[str, Any], action: str | None) -> None:
+    async def _run_actions(
+        self,
+        walk: _Walk,
+        graph: dict[str, Any],
+        action: str | None,
+        stage: dict[str, Any] | None = None,
+    ) -> None:
         """Run the actions of a stage from ``action`` on, along *On Pass* / *On Error*, until the
-        flow leaves the stage."""
+        flow leaves the stage. A loop back to the stage's entry action enters the stage again (its guards
+        count a round)."""
         nodes = {n["id"]: n for n in graph["nodes"]}
+        monitor = cast(Monitor, walk.monitor)
+        first = True
         while action is not None:
             walk.step()
             node = nodes[action]
+            if stage is not None and not first and action == stage.get("first_action_id"):
+                await self._guarded(monitor.enter("stage", stage["id"], stage["name"], walk.path))
+            first = False
             walk.action_id = action
             await self._save(walk.task_id, action_id=action)
+            await self._guarded(monitor.enter("action", action, node["label"], walk.path))
             passed = await self._run_action(node, walk)
+            await self._guarded(monitor.ended(action, passed))
+            await self._guarded(monitor.leave("action", action, walk.path))
             edge = edge_from(graph["edges"], action, Ports.PASS if passed else Ports.ERROR)
             if edge is None:
                 raise _RunFailedError(
@@ -648,40 +873,60 @@ class RunEngine:
         if not node["definition_id"]:
             return True
         definition = walk.snapshot["definitions"][node["definition_id"]]
+        passed, _ = await self._run_definition(node["definition_id"], definition, walk, None)
+        return passed
+
+    async def _run_definition(
+        self,
+        definition_id: str,
+        definition: dict[str, Any],
+        walk: _Walk,
+        view: RunView | None,
+    ) -> tuple[bool, str]:
+        """Walk an action definition from its trigger to its output: (passed, the reason of the last node).
+
+        With ``view`` it is a guard's own action (ADR-060): it reads and writes that view's context, its steps are not
+        recorded and count against a limit of their own, not the run's."""
+        record = view is None
+        run_view = view or RunView(walk.context, walk.index, walk.task_id, walk.execution_id)
         nodes = {n["id"]: n for n in definition["nodes"]}
         current = next(n for n in definition["nodes"] if n["kind"] == NodeKind.TRIGGER)
         now = datetime.now(UTC)
-        await self._record(walk, node["definition_id"], current, "pass", Ports.OUT, None, now)
+        if record:
+            await self._record(walk, definition_id, current, "pass", Ports.OUT, None, now)
         port = Ports.OUT
+        reason = ""
+        own_steps = 0
         while True:
-            walk.step()
+            if record:
+                walk.step()
+            else:
+                own_steps += 1
+                if own_steps > walk.limits.max_steps:
+                    raise RuntimeError(
+                        f"the guard's action took more than {walk.limits.max_steps} steps"
+                    )
             edge = edge_from(definition["edges"], current["id"], port)
             if edge is None:
-                return False  # a dead end: the action did not come to its output
+                return False, reason  # a dead end: the action did not come to its output
             current = nodes[edge["target_id"]]
             started = datetime.now(UTC)
             if current["kind"] == NodeKind.OUTPUT:
                 passed = edge["target_port"] == Ports.PASS
                 outcome = "pass" if passed else "fail"
-                await self._record(
-                    walk, node["definition_id"], current, outcome, None, None, started
-                )
-                return bool(passed)
+                if record:
+                    await self._record(walk, definition_id, current, outcome, None, None, started)
+                return bool(passed), reason
             executor = EXECUTORS.get(NodeKind(current["kind"]))
             if executor is None:
                 port = Ports.OUT
-                await self._record(
-                    walk, node["definition_id"], current, "pass", port, None, started
-                )
+                if record:
+                    await self._record(walk, definition_id, current, "pass", port, None, started)
                 continue
-            result = await executor.run(
-                current,
-                self._limits,
-                RunView(walk.context, walk.index, walk.task_id, walk.execution_id),
-            )
+            result = await executor.run(current, self._limits, run_view)
             if result.outcome == "pass" and result.variables:
                 try:
-                    walk.context.set_vars(result.variables)
+                    run_view.context.set_vars(result.variables)
                 except ContextError as error:
                     result = replace(result, outcome="fail", reason=f"Invalid vars: {error}")
             port = result.port or (
@@ -697,9 +942,13 @@ class RunEngine:
                     result,
                     reason=f"{result.reason or 'The node failed'} (continued through On Pass)",
                 )
-            await self._record(
-                walk, node["definition_id"], current, result.outcome, port, result, started
-            )
+            reason = result.reason or (result.output or "").strip()[-200:]
+            if record:
+                await self._record(
+                    walk, definition_id, current, result.outcome, port, result, started
+                )
+            if run_view.context is not walk.context:
+                run_view.context.record(current, result, port)
 
     async def _record(
         self,
@@ -723,6 +972,11 @@ class RunEngine:
         if result is not None:  # the context is the node's result, as it is stored (masked, capped)
             walk.context.record(node, result, port)
             changes["context"] = walk.context.dumps()
+        if walk.monitor is not None:  # every step is progress for the guards' stall clock
+            walk.monitor.progress()
+            cost = (result.data or {}).get("cost") if result is not None else None
+            if isinstance(cost, int | float) and not isinstance(cost, bool):
+                walk.monitor.add_cost(float(cost))
         async with self._session() as session:
             run = await self._run_of(session, walk.task_id)
             if run is None:

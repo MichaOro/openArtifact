@@ -101,6 +101,9 @@ class Execution(Base):
     step_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     snapshot: Mapped[str] = mapped_column(Text, default="{}", server_default="{}", deferred=True)
     context: Mapped[str] = mapped_column(Text, default="{}", server_default="{}", deferred=True)
+    #: The guards' bookkeeping of the run (ADR-060, migration 0046): counters per scope and per guard, the last
+    #: heartbeat and the firings (JSON); written while the run goes, kept with the execution; deferred.
+    guard_state: Mapped[str] = mapped_column(Text, default="{}", server_default="{}", deferred=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     finished_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None)

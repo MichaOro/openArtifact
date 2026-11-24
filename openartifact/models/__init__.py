@@ -42,6 +42,7 @@ from openartifact.models.enums import (
     StartedBy,
 )
 from openartifact.models.graphs import Graph, GraphEdge, GraphNode
+from openartifact.models.guards import Guard
 from openartifact.models.runs import Execution, PipelineRun, RunNodeResult, RunStage
 from openartifact.models.settings import AppSetting
 
@@ -59,6 +60,7 @@ __all__ = [
     "GraphEdge",
     "GraphKind",
     "GraphNode",
+    "Guard",
     "InternalCredential",
     "InternalToken",
     "Lane",

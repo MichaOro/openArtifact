@@ -93,6 +93,17 @@ class Settings(BaseSettings):
     #: Open event streams (browser tabs); a further one gets ``503``.
     max_sse_subscribers: int = Field(default=50, ge=1, le=100000)
 
+    # ── Guards (ADR-060) ────────────────────────────────────────────
+    #: The shortest interval an interval guard may check at, in seconds; a guard that asks for less is refused
+    #: (``422``) and a stored one is checked at this interval at least.
+    guard_min_interval_seconds: float = Field(default=30, ge=0.1, le=86400)
+    #: Firings of one guard on one scope in one run; the next firing is skipped and the cap is recorded once.
+    guard_max_firings: int = Field(default=20, ge=1, le=10000)
+    #: How long a guard (its condition and its own action) may take; then the flow goes on (fail open).
+    guard_timeout_seconds: float = Field(default=600, ge=0.1, le=86400)
+    #: The shortest spacing of two heartbeats of one execution, in seconds; a closer one gets ``429``.
+    heartbeat_min_spacing_seconds: float = Field(default=1.0, ge=0, le=3600)
+
     # ── Execution history ───────────────────────────────────────────
     #: How many executions of an artifact are kept when its owner has set no retention policy of its
     #: own; the oldest finished ones beyond that are deleted. ``0`` keeps all of them: the database then

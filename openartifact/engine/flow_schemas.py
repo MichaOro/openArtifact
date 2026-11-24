@@ -138,3 +138,6 @@ class ExecutionFlow(BaseModel):
     steps: list[FlowStepRead]
     visits: list[FlowVisit]
     reached: dict[str, FlowReached]
+    #: The guards' bookkeeping of the execution (ADR-060): ``scopes`` (counters per scope), ``guards`` (per guard
+    #: and scope), ``progress_at``, ``heartbeat`` and ``firings`` (each with its facts); ``{}`` without guards.
+    guards: dict[str, Any] = Field(default_factory=dict)

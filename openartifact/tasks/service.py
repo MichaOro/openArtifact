@@ -298,12 +298,16 @@ class ArtifactService:
             task = await self._task(session, ref)
             row = await self._execution(session, task.id, execution_id, with_snapshot=True)
             steps, _ = await self._engine.node_results(session, row.id)
+            guard_state = await session.scalar(
+                select(Execution.guard_state).where(Execution.id == row.id)
+            )
             return build_flow(
                 ExecutionRead.of(row),
                 row.snapshot,
                 self._named(steps, row.snapshot),
                 outputs,
                 (row.started_stage_id, row.started_action_id),
+                guard_state,
             )
 
     async def execution_step(self, ref: str, execution_id: str, step_id: str) -> ExecutionStepRead:

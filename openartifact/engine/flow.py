@@ -349,6 +349,7 @@ def build_flow(
     steps: list[ExecutionStepRead],
     outputs: bool,
     start: tuple[str | None, str | None],
+    guard_state: str | None = None,
 ) -> ExecutionFlow:
     """The flow of an execution from its snapshot, its steps and where it started (stage id, action id)."""
     try:
@@ -367,7 +368,12 @@ def build_flow(
         entry = reached.setdefault(visit.graph_id, FlowReached(nodes=[], edges=[]))
         entry.nodes += [n for n in dict.fromkeys(visit.nodes) if n not in entry.nodes]
         entry.edges += [e.id for e in visit.edges if e.id not in entry.edges]
+    try:
+        guards = json.loads(guard_state or "{}")
+    except ValueError:
+        guards = {}
     return ExecutionFlow(
+        guards=guards if isinstance(guards, dict) else {},
         execution=execution,
         root_graph_id=root_id,
         graphs={
