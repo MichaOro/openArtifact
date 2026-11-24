@@ -1,12 +1,15 @@
 """The guards of one running execution (ADR-060): counters per scope, watches, verdicts.
 
 The engine tells the monitor where the flow is: a scope is *entered* (a pipeline after its trigger, a stage before its
-entry action, again every time a loop brings the flow back to that action, an action before it runs), an action
-*ends* (On Pass or On Error), a scope is *left*, the run *fails*. Every step the engine records and every heartbeat
+entry action, again every time a loop brings the flow back to that action, an action before it runs, the definition
+of that action and each execution node inside it before it runs), an action or a node *ends* (On Pass or On Error), a
+scope is *left*, the run *fails*. Every step the engine records and every heartbeat
 is *progress*. From that the monitor keeps, per scope instance and per run, the counters (``runs``: entries,
 ``passes``, ``errors``, the last action's status, when it was entered) and per guard on it its own (``guard.runs``:
 times it fired, when and at which round it fired last). The counters are never reset within a run; a called
-pipeline counts per call (its scopes are keyed by the path of pipeline nodes that leads to it).
+pipeline counts per call (its scopes are keyed by the path of pipeline nodes that leads to it); the scopes of an action
+definition (``definition``, ``node``) are keyed by the path *and* the action node that runs it, so the same definition
+in two stages, and the same node in two executions of a loop, count apart.
 
 Two kinds of trigger:
 
@@ -110,6 +113,8 @@ class Scope:
     id: str
     name: str
     entered_at: datetime
+    #: For a node: the name of the action it is in (a firing says "node X of action Y").
+    parent: str = ""
     runs: int = 0
     passes: int = 0
     errors: int = 0
@@ -117,11 +122,23 @@ class Scope:
     cost: float = 0.0
     active: bool = True
 
+    @property
+    def label(self) -> str:
+        """How a firing names the scope."""
+        if self.type == "node":
+            return (
+                f"node '{self.name}' of action '{self.parent}'"
+                if self.parent
+                else f"node '{self.name}'"
+            )
+        return self.name
+
     def dump(self) -> dict[str, Any]:
         return {
             "type": self.type,
             "id": self.id,
             "name": self.name,
+            "parent": self.parent,
             "runs": self.runs,
             "passes": self.passes,
             "errors": self.errors,
@@ -302,6 +319,13 @@ class Monitor:
             if g.data["scope_type"] == scope.type and g.data.get("scope_id") == scope.id
         ]
 
+    def watches(self, kind: str, ident: str) -> bool:
+        """Whether any guard is attached to this scope (the engine asks before it enters one of the scopes that only
+        exist for their guards, so a node without a guard costs nothing)."""
+        return any(
+            g.data["scope_type"] == kind and g.data.get("scope_id") == ident for g in self._guards
+        )
+
     def active(self) -> list[Scope]:
         return [s for s in self.scopes.values() if s.active]
 
@@ -314,14 +338,16 @@ class Monitor:
             count = (self.heartbeat or {}).get("count", 0) + 1
             self.heartbeat = {"at": self.progress_at.isoformat(), "note": note, "count": count}
 
-    async def enter(self, kind: str, ident: str, name: str, path: str = "") -> Verdict:
+    async def enter(
+        self, kind: str, ident: str, name: str, path: str = "", parent: str = ""
+    ) -> Verdict:
         """The flow enters a scope (again, for a loop back to a stage's entry action)."""
         key = f"{path}|{kind}:{ident}"
         scope = self.scopes.get(key)
         at = now()
         if scope is None or not scope.active:
             if scope is None:
-                scope = self.scopes[key] = Scope(key, kind, ident, name, at)
+                scope = self.scopes[key] = Scope(key, kind, ident, name, at, parent)
             scope.active, scope.entered_at = True, at
             self._watch(scope)
         scope.runs += 1
@@ -329,10 +355,19 @@ class Monitor:
         await self._persist()
         return verdict
 
-    async def ended(self, action_id: str, passed: bool) -> Verdict:
-        """An action ended by On Pass or On Error: it and every scope around it count it; then their guards."""
+    async def ended(
+        self, action_id: str, passed: bool, definition_id: str | None = None
+    ) -> Verdict:
+        """An action ended by On Pass or On Error: it, its definition and every scope around it count it; then their
+        guards (the innermost first). The nodes inside it count themselves (:meth:`node_ended`)."""
         status = "pass" if passed else "error"
-        touched = [s for s in self.active() if s.type != "action" or s.id == action_id]
+        touched = [
+            s
+            for s in self.active()
+            if s.type in ("pipeline", "stage")
+            or (s.type == "action" and s.id == action_id)
+            or (s.type == "definition" and s.id == definition_id)
+        ]
         for scope in touched:
             if passed:
                 scope.passes += 1
@@ -344,6 +379,22 @@ class Monitor:
             verdict = await self._event(scope, status)
             if verdict.stops:
                 break
+        await self._persist()
+        return verdict
+
+    async def node_ended(self, node_id: str, path: str, passed: bool) -> Verdict:
+        """A node of an action definition ended (it passed, or it failed whatever its failure setting does with that):
+        it counts it, then its guards hear it."""
+        scope = self.scopes.get(f"{path}|node:{node_id}")
+        if scope is None or not scope.active:
+            return CONTINUE
+        status = "pass" if passed else "error"
+        if passed:
+            scope.passes += 1
+        else:
+            scope.errors += 1
+        scope.last_status = status
+        verdict = await self._event(scope, status)
         await self._persist()
         return verdict
 
@@ -443,7 +494,7 @@ class Monitor:
     ) -> Verdict:
         """Carry out the consequence: the one place they are dispatched (``CONSEQUENCES``)."""
         consequence = str(guard.data["consequence"])
-        reason = f"{guard.name} fired at {scope.name}: {describe_facts(facts)}"
+        reason = f"{guard.name} fired at {scope.label}: {describe_facts(facts)}"
         handler = CONSEQUENCES.get(consequence)
         if handler is None:  # declared but not built (notify, handover): never stops the run
             await self._record(guard, scope, event, facts, "unavailable", consequence)
@@ -488,6 +539,7 @@ class Monitor:
             "scope_type": scope.type,
             "scope_id": scope.id,
             "scope_name": scope.name,
+            "scope_label": scope.label,
             "trigger": guard.trigger.get("type"),
             "event": event,
             "consequence": guard.data["consequence"],

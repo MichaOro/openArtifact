@@ -366,16 +366,21 @@ def build_mcp(
     if guards is not None:
 
         @mcp.tool()
-        async def list_guards(pipeline: str | None = None) -> list[dict[str, Any]]:
+        async def list_guards(
+            pipeline: str | None = None, action_definition: str | None = None
+        ) -> list[dict[str, Any]]:
             """The guard library (ADR-060): each definition with its trigger (an event of the scope or an interval),
             its condition (``when``), its consequence (pause, abort, continue, run_action), its escalation steps, the
-            scope types it may watch, and its ``attachments``: where it watches (``scope_type``, ``scope_id``,
-            ``pipeline_id``) and whether it is switched on there (``enabled``). With ``pipeline`` (name or id): only
-            the guards attached to that pipeline."""
-            pipeline_id = None
+            scope types it may watch (pipeline, stage, action of a pipeline; definition, node of an action
+            definition), and its ``attachments``: where it watches (``scope_type``, ``scope_id``, ``scope_name``),
+            the graph that holds the scope (``graph_id``, ``holder_kind`` pipeline or action, ``holder_name``) and
+            whether it is switched on there (``enabled``). With ``pipeline`` (name or id): only the guards attached to
+            that pipeline. With ``action_definition`` (the id of an action definition, as ``graph_id`` shows it):
+            only the guards attached inside that action."""
+            graph_id = action_definition
             if pipeline is not None:
-                pipeline_id = _named(await guarded(service.pipelines()), pipeline, "pipeline")["id"]
-            return [g.model_dump(mode="json") for g in await guarded(guards.list(pipeline_id))]
+                graph_id = _named(await guarded(service.pipelines()), pipeline, "pipeline")["id"]
+            return [g.model_dump(mode="json") for g in await guarded(guards.list(graph_id))]
 
         @mcp.tool()
         async def set_guard_enabled(

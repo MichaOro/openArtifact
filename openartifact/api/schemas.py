@@ -79,6 +79,8 @@ class NodeTypeRead(BaseModel):
     links_to: str | None
     #: A tool node (ADR-040): attached to an Agent node's Tools port, not part of the flow.
     tool: bool = False
+    #: A guard may be attached to a node of this kind inside an action definition (ADR-060).
+    guardable: bool = False
     #: How the kind connects and is drawn (``plain``, ``flow``, ``stage``, ``action``, ``pipeline``, ``output``, ``tool``, ``switch``).
     behaviour: str = "plain"
     #: Where the kind sits in the "+" menu: its cluster, the cluster's place and its own place in it.

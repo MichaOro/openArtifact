@@ -31,7 +31,7 @@ from openartifact.guards.service import GuardService, templates
 DESCRIPTION = (
     "A guard definition (the library) says what a guard is; it watches nothing until it is attached to a scope "
     "(``/guard-attachments``). ``scope_types``: the kinds of scope it may be attached to (``pipeline``, ``stage``, "
-    "``action``). ``trigger``: ``event`` (``events``: ``enter``, ``pass``, ``error``, ``leave``, ``fail``; the flow "
+    "``action``, ``definition``, ``node``). ``trigger``: ``event`` (``events``: ``enter``, ``pass``, ``error``, ``leave``, ``fail``; the flow "
     "waits for the guard) or ``interval`` (``every_seconds`` at least the minimum interval, ``for_seconds``: the "
     "condition must hold that long, ``cooldown_seconds``: quiet after firing). ``when``: a condition tree of the "
     "``guard`` schema (``GET /api/rules/schemas/guard``: ``runs``, ``elapsed``, ``idle``, ``errors``, ``passes``, "
@@ -42,10 +42,15 @@ DESCRIPTION = (
     "(``used_by``) at the next start of a run."
 )
 ATTACH_DESCRIPTION = (
-    "An attachment puts a guard definition on a pipeline (``scope_type: pipeline``, ``scope_id`` may be left out), a "
-    "stage or an action of it and switches it on or off there. 422 when the definition may not watch that kind of "
-    "scope (its ``scope_types``) or the scope is not part of the pipeline; 409 when it is attached there already. An "
-    "attachment goes with its pipeline and with its stage or action."
+    "An attachment puts a guard definition on a scope and switches it on or off there. The graph that holds the scope "
+    "is ``graph_id`` (``pipeline_id`` is the same thing under its old name): a pipeline holds ``pipeline`` "
+    "(``scope_id`` may be left out), ``stage`` and ``action`` scopes (a node of it); an action definition holds "
+    "``definition`` (the whole action, wherever it is used; ``scope_id`` may be left out) and ``node`` (one execution "
+    "node of it, a kind whose ``guardable`` is true in ``GET /api/node-types``). 422 when the definition may not watch "
+    "that kind of scope (its ``scope_types``), the graph cannot hold it or the scope is not part of the graph; 409 when "
+    "it is attached there already. An attachment goes with its graph and with its node. List: ``?pipeline_id=`` is any "
+    "graph that holds scopes; ``inner=true`` adds the attachments inside the action definitions the pipeline's action "
+    "nodes use."
 )
 
 
@@ -78,13 +83,16 @@ def build_guards_router(prefix: str, tags: list[str | Enum], *, editor: bool) ->
         name=f"{name}list_guards",
         summary="List the guard library",
         description=DESCRIPTION
-        + " With ``pipeline_id``: only the guards attached to that pipeline, with their attachments there.",
+        + " With ``pipeline_id`` (a pipeline or an action definition): only the guards attached to that graph, with "
+        "their attachments there; ``inner=true`` adds those attached inside the action definitions the pipeline uses.",
         responses=errors(422),
     )
     async def list_guards(
-        service: GuardsDep, pipeline_id: Annotated[str | None, Query(max_length=36)] = None
+        service: GuardsDep,
+        pipeline_id: Annotated[str | None, Query(max_length=36)] = None,
+        inner: bool = False,
     ) -> list[GuardDefinitionRead]:
-        return await service.list(pipeline_id)
+        return await service.list(pipeline_id, inner=inner)
 
     @router.post(
         "/guards",
@@ -208,16 +216,18 @@ def build_guards_router(prefix: str, tags: list[str | Enum], *, editor: bool) ->
         responses=errors(422),
     )
     async def list_attachments(
-        service: GuardsDep, pipeline_id: Annotated[str | None, Query(max_length=36)] = None
+        service: GuardsDep,
+        pipeline_id: Annotated[str | None, Query(max_length=36)] = None,
+        inner: bool = False,
     ) -> list[AttachmentRead]:
-        return await service.attachments(pipeline_id)
+        return await service.attachments(pipeline_id, inner=inner)
 
     @router.post(
         "/guard-attachments",
         response_model=AttachmentRead,
         status_code=status.HTTP_201_CREATED,
         name=f"{name}attach_guard",
-        summary="Attach a guard to a pipeline, a stage or an action",
+        summary="Attach a guard to a pipeline, stage, action, action definition or node",
         description=ATTACH_DESCRIPTION,
         responses=errors(404, 409, 422, write=True, body=True),
     )

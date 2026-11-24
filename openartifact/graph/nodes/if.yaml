@@ -2,6 +2,7 @@ schema: 1
 kind: if
 label: If
 behaviour: flow
+guardable: true
 scopes:
 - action
 addable: true

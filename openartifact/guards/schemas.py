@@ -21,8 +21,13 @@ from openartifact.rules import tree
 from openartifact.rules.catalog import GUARD, RuleSchema
 from openartifact.schemas_common import UtcDateTime
 
-#: What a guard can watch. A guard on a guard does not exist in this version.
-SCOPES = ("pipeline", "stage", "action")
+#: What a guard can watch. A guard on a guard does not exist in this version. ``pipeline``, ``stage`` and ``action``
+#: (an action node of a pipeline) are scopes of a pipeline; ``definition`` (a whole action definition, wherever it is
+#: used) and ``node`` (one execution node of an action definition) are scopes of an action definition.
+SCOPES = ("pipeline", "stage", "action", "definition", "node")
+#: The scopes a pipeline holds and the scopes an action definition holds.
+PIPELINE_SCOPES = ("pipeline", "stage", "action")
+DEFINITION_SCOPES = ("definition", "node")
 #: Events of a scope: ``enter`` (before its first execution and every time a loop brings the flow back to its
 #: entry), ``pass`` / ``error`` (an action in it left by On Pass / On Error), ``leave`` (the flow left it) and
 #: ``fail`` (the run fails inside it).
@@ -191,14 +196,22 @@ class GuardDefinitionCreate(GuardDefinitionWrite):
 
 
 class AttachmentRead(BaseModel):
-    """A guard definition on a scope of a pipeline; ``name`` is the definition's."""
+    """A guard definition on a scope of a pipeline or of an action definition; ``name`` is the definition's.
+
+    ``graph_id`` is the graph that holds the scope (``holder_kind``: ``pipeline`` or ``action``, ``holder_name`` its
+    name); ``pipeline_id`` is the same id when the holder is a pipeline and ``None`` otherwise. ``scope_name`` is the
+    name of the stage, action or node (or of the graph itself for ``pipeline`` and ``definition``)."""
 
     id: str
     guard_id: str
     name: str
-    pipeline_id: str
+    graph_id: str
+    pipeline_id: str | None
+    holder_kind: str
+    holder_name: str = ""
     scope_type: str
     scope_id: str
+    scope_name: str = ""
     enabled: bool
     created_at: UtcDateTime
 
@@ -222,12 +235,15 @@ class GuardDefinitionRead(BaseModel):
 
 
 class AttachmentCreate(BaseModel):
-    """Attach a definition to a scope: the pipeline itself (``scope_id`` may be left out), a stage or an action of it."""
+    """Attach a definition to a scope: the pipeline (or the action definition) itself (``scope_id`` may be left out), a
+    stage or an action of a pipeline, a node of an action definition. The holder is ``graph_id``; ``pipeline_id`` is
+    the same thing under its old name (one of the two is needed)."""
 
     model_config = ConfigDict(extra="forbid")
 
     guard_id: str = Field(min_length=1, max_length=36)
-    pipeline_id: str = Field(min_length=1, max_length=36)
+    graph_id: str | None = Field(default=None, min_length=1, max_length=36)
+    pipeline_id: str | None = Field(default=None, min_length=1, max_length=36)
     scope_type: str
     scope_id: str | None = Field(default=None, min_length=1, max_length=36)
     enabled: bool = True
@@ -236,6 +252,20 @@ class AttachmentCreate(BaseModel):
     @classmethod
     def _known_scope(cls, value: str) -> str:
         return _scope(value)
+
+    @model_validator(mode="after")
+    def _holder(self) -> AttachmentCreate:
+        if self.graph_id is None and self.pipeline_id is None:
+            raise ValueError(
+                "graph_id is needed (the pipeline or the action definition that holds the scope)"
+            )
+        if self.graph_id is not None and self.pipeline_id not in (None, self.graph_id):
+            raise ValueError("graph_id and pipeline_id name different graphs: use graph_id")
+        return self
+
+    @property
+    def holder(self) -> str:
+        return str(self.graph_id or self.pipeline_id)
 
 
 class FromTemplate(BaseModel):

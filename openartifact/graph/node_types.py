@@ -295,6 +295,7 @@ class NodeType:
         links_to: GraphKind | None = None,
         size: tuple[float, float] | None = None,
         tool: bool = False,
+        guardable: bool = False,
         reference_keys: tuple[str, ...] = (),
         menu: dict[str, Any] | None = None,
         menu_icon: str | None = None,
@@ -303,6 +304,7 @@ class NodeType:
         self.kind = kind
         self.label = label
         self.behaviour = behaviour
+        self.guardable = guardable  # a guard may watch a node of this kind in an action (ADR-060)
         self.scopes = scopes
         self.fixed = fixed  # comes with the graph, cannot be added or deleted
         self.addable = addable  # offered in the "+" menu
@@ -401,6 +403,7 @@ class NodeType:
             "inputs": [p.describe() for p in self.inputs],
             "outputs": [p.describe() for p in self.outputs],
             "tool": self.tool,
+            "guardable": self.guardable,
             "settings": [s.describe() for s in self.settings],
             "links_to": self.links_to.value if self.links_to else None,
             "behaviour": self.behaviour,
@@ -554,6 +557,7 @@ def load(directory: Any = NODES_DIR) -> list[NodeType]:
             if manifest.default_size
             else None,
             tool=manifest.tool,
+            guardable=manifest.guardable,
             reference_keys=tuple(manifest.reference_keys),
             menu=menu,
             menu_icon=manifest.menu_icon or manifest.ui.icon,

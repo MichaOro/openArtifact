@@ -3,10 +3,11 @@
 A **definition** is what a guard is: its trigger, condition, escalation, consequence, fallback and its own action (for
 ``run_action``, an ordinary action definition edited in the action editor; a definition saved with ``run_action`` and
 no action gets an empty one). It may be attached to the scope types it lists. An **attachment** puts a definition on a
-pipeline, one of its stages or one of its actions and is switched on or off there. A change to a definition acts on
+pipeline, one of its stages or one of its actions, or on an action definition (the whole action, or one execution node
+of it), and is switched on or off there; the graph that holds the scope is the attachment's ``graph_id``. A change to a definition acts on
 every place it is attached to (at the next start: a running execution keeps what it froze); switching an attachment
 off acts on running executions at once. A definition cannot be deleted while it is attached anywhere (409).
-Every change publishes ``guards.changed`` (``{"guard_id"}`` and, for an attachment, ``{"pipeline_id"}``).
+Every change publishes ``guards.changed`` (``{"guard_id"}`` and, for an attachment, ``{"graph_id"}``).
 """
 
 from __future__ import annotations
@@ -27,10 +28,14 @@ from openartifact.database import SessionOpener
 from openartifact.engine.snapshot import definition_data
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
+from openartifact.graph.node_types import node_type
 from openartifact.graph.repository import GraphRepository, NodeError
 from openartifact.graph.rules import EdgeError
 from openartifact.graph.schemas import EdgeCreate, NodeCreate, NodeUpdate
 from openartifact.guards.schemas import (
+    DEFINITION_SCOPES,
+    PIPELINE_SCOPES,
+    SCOPES,
     AttachmentCreate,
     AttachmentRead,
     GuardDefinitionCreate,
@@ -47,7 +52,7 @@ from openartifact.models import (
 )
 
 TEMPLATES = Path(__file__).parent / "templates"
-MAX_GUARDS_PER_PIPELINE = 100
+MAX_GUARDS_PER_PIPELINE = 100  # per graph that holds scopes
 MAX_DEFINITIONS = 1000
 
 
@@ -61,25 +66,65 @@ def templates() -> dict[str, dict[str, Any]]:
     return found
 
 
-def read_attachment(row: GuardAttachment, name: str) -> AttachmentRead:
+#: What names a graph or a node: ``(holder id) -> (name, kind)`` and ``(node id) -> name``.
+Names = tuple[dict[str, tuple[str, str]], dict[str, str]]
+NO_NAMES: Names = ({}, {})
+
+
+def read_attachment(row: GuardAttachment, name: str, names: Names = NO_NAMES) -> AttachmentRead:
+    graphs, nodes = names
+    holder_name, holder_kind = graphs.get(row.graph_id, ("", "action"))
+    if row.scope_type in ("pipeline", "definition"):
+        scope_name = holder_name
+    else:
+        scope_name = nodes.get(row.scope_id, "")
     return AttachmentRead(
         id=row.id,
         guard_id=row.guard_id,
         name=name,
-        pipeline_id=row.pipeline_id,
+        graph_id=row.graph_id,
+        pipeline_id=row.graph_id if row.scope_type in PIPELINE_SCOPES else None,
+        holder_kind="pipeline" if row.scope_type in PIPELINE_SCOPES else holder_kind,
+        holder_name=holder_name,
         scope_type=row.scope_type,
         scope_id=row.scope_id,
+        scope_name=scope_name,
         enabled=row.enabled,
         created_at=row.created_at,
     )
 
 
-def read(row: GuardDefinition, attachments: Sequence[GuardAttachment]) -> GuardDefinitionRead:
+async def names_of(session: AsyncSession, rows: Sequence[GuardAttachment]) -> Names:
+    """The names of the graphs that hold the attachments and of the nodes they watch (two queries for any number)."""
+    graph_ids = {r.graph_id for r in rows}
+    node_ids = {r.scope_id for r in rows if r.scope_type not in ("pipeline", "definition")}
+    graphs = (
+        {
+            g.id: (g.name, g.kind.value if hasattr(g.kind, "value") else str(g.kind))
+            for g in await session.scalars(select(Graph).where(Graph.id.in_(graph_ids)))
+        }
+        if graph_ids
+        else {}
+    )
+    nodes = (
+        {
+            n.id: n.name
+            for n in await session.scalars(select(GraphNode).where(GraphNode.id.in_(node_ids)))
+        }
+        if node_ids
+        else {}
+    )
+    return graphs, nodes
+
+
+def read(
+    row: GuardDefinition, attachments: Sequence[GuardAttachment], names: Names = NO_NAMES
+) -> GuardDefinitionRead:
     return GuardDefinitionRead.model_validate(
         {
             **definition_data(row),
             "used_by": len(attachments),
-            "attachments": [read_attachment(a, row.name) for a in attachments],
+            "attachments": [read_attachment(a, row.name, names) for a in attachments],
             "created_at": row.created_at,
             "updated_at": row.updated_at,
         }
@@ -96,29 +141,54 @@ class GuardService:
 
     # ── definitions ──────────────────────────────────────────────────
 
-    async def list(self, pipeline_id: str | None = None) -> list[GuardDefinitionRead]:
-        """Every definition with its attachments; with ``pipeline_id`` only the ones attached to that pipeline, with
-        their attachments there."""
+    async def holders(self, graph_id: str, *, inner: bool = False) -> builtins.list[str]:
+        """The graphs whose attachments belong to ``graph_id``: itself and, with ``inner``, the action definitions its
+        action nodes use (the guards that sit inside those actions, which the editor mirrors on the action's card)."""
+        ids = [graph_id]
+        if inner:
+            async with self._session() as session:
+                used = await session.scalars(
+                    select(GraphNode.definition_id)
+                    .where(
+                        GraphNode.graph_id == graph_id,
+                        GraphNode.kind == NodeKind.ACTION,
+                        GraphNode.definition_id.is_not(None),
+                    )
+                    .distinct()
+                )
+                ids += [i for i in used if i]
+        return ids
+
+    async def list(
+        self, pipeline_id: str | None = None, *, inner: bool = False
+    ) -> builtins.list[GuardDefinitionRead]:
+        """Every definition with its attachments; with ``pipeline_id`` (any graph that holds scopes) only the ones
+        attached to that graph, with their attachments there; with ``inner`` also those attached inside the action
+        definitions the graph's action nodes use."""
+        holders = await self.holders(pipeline_id, inner=inner) if pipeline_id is not None else None
         async with self._session() as session:
             query = select(GuardAttachment).order_by(GuardAttachment.created_at, GuardAttachment.id)
-            if pipeline_id is not None:
-                query = query.where(GuardAttachment.pipeline_id == pipeline_id)
-            by_guard: dict[str, list[GuardAttachment]] = defaultdict(list)
-            for attachment in await session.scalars(query):
+            if holders is not None:
+                query = query.where(GuardAttachment.graph_id.in_(holders))
+            attachments = builtins.list(await session.scalars(query))
+            names = await names_of(session, attachments)
+            by_guard: dict[str, builtins.list[GuardAttachment]] = defaultdict(builtins.list)
+            for attachment in attachments:
                 by_guard[attachment.guard_id].append(attachment)
             rows = await session.scalars(
                 select(GuardDefinition).order_by(GuardDefinition.name, GuardDefinition.id)
             )
             return [
-                read(row, by_guard.get(row.id, []))
+                read(row, by_guard.get(row.id, []), names)
                 for row in rows
-                if pipeline_id is None or row.id in by_guard
+                if holders is None or row.id in by_guard
             ]
 
     async def get(self, guard_id: str) -> GuardDefinitionRead:
         async with self._session() as session:
             row = await self._row(session, guard_id)
-            return read(row, await self._attachments_of(session, row.id))
+            attachments = await self._attachments_of(session, row.id)
+            return read(row, attachments, await names_of(session, attachments))
 
     async def create(self, data: GuardDefinitionCreate) -> GuardDefinitionRead:
         async with self._session() as session:
@@ -145,7 +215,7 @@ class GuardService:
             if row.consequence == "run_action" and row.action_id is None:
                 row.action_id = (await self._new_action(session, f"{row.name} (guard)")).id
             await session.commit()
-            result = read(row, attachments)
+            result = read(row, attachments, await names_of(session, attachments))
         self._changed(guard_id=result.id)
         return result
 
@@ -190,64 +260,72 @@ class GuardService:
 
     # ── attachments ──────────────────────────────────────────────────
 
-    async def attachments(self, pipeline_id: str | None = None) -> builtins.list[AttachmentRead]:
+    async def attachments(
+        self, pipeline_id: str | None = None, *, inner: bool = False
+    ) -> builtins.list[AttachmentRead]:
+        """The attachments of a graph (a pipeline or an action definition; with ``inner`` also those inside the action
+        definitions a pipeline uses), or every attachment."""
+        holders = await self.holders(pipeline_id, inner=inner) if pipeline_id is not None else None
         async with self._session() as session:
             query = (
                 select(GuardAttachment, GuardDefinition.name)
                 .join(GuardDefinition, GuardDefinition.id == GuardAttachment.guard_id)
                 .order_by(GuardDefinition.name, GuardAttachment.id)
             )
-            if pipeline_id is not None:
-                query = query.where(GuardAttachment.pipeline_id == pipeline_id)
-            return [
-                read_attachment(row, name) for row, name in (await session.execute(query)).all()
-            ]
+            if holders is not None:
+                query = query.where(GuardAttachment.graph_id.in_(holders))
+            found = (await session.execute(query)).all()
+            names = await names_of(session, [row for row, _ in found])
+            return [read_attachment(row, name, names) for row, name in found]
 
     async def attachments_of(self, guard_id: str) -> builtins.list[AttachmentRead]:
         """Where one definition is attached (404 for an unknown definition)."""
         async with self._session() as session:
             row = await self._row(session, guard_id)
-            return [
-                read_attachment(a, row.name) for a in await self._attachments_of(session, row.id)
-            ]
+            attached = await self._attachments_of(session, row.id)
+            names = await names_of(session, attached)
+            return [read_attachment(a, row.name, names) for a in attached]
 
     async def attachment(self, attachment_id: str) -> AttachmentRead:
         async with self._session() as session:
             row, name = await self._attachment(session, attachment_id)
-            return read_attachment(row, name)
+            return read_attachment(row, name, await names_of(session, [row]))
 
     async def attach(self, data: AttachmentCreate) -> AttachmentRead:
-        """Attach a definition to a scope: 404 for an unknown definition or pipeline; 422 when the definition may not
-        watch that kind of scope or the scope is not part of the pipeline; 409 when it is attached there already."""
+        """Attach a definition to a scope: 404 for an unknown definition or graph; 422 when the definition may not
+        watch that kind of scope, the graph cannot hold it (a pipeline holds ``pipeline``, ``stage`` and ``action``, an
+        action definition ``definition`` and ``node``) or the scope is not part of the graph; 409 when it is attached
+        there already."""
         async with self._session() as session:
             definition = await self._row(session, data.guard_id)
-            pipeline = await session.get(Graph, data.pipeline_id)
-            if pipeline is None or pipeline.kind != GraphKind.PIPELINE:
-                raise ArtifactError(404, "Pipeline not found")
+            holder = await session.get(Graph, data.holder)
+            if holder is None or holder.kind not in (GraphKind.PIPELINE, GraphKind.ACTION):
+                raise ArtifactError(404, "Pipeline or action definition not found")
             allowed = json.loads(definition.scope_types or "[]")
             if data.scope_type not in allowed:
                 raise ArtifactError(
                     422,
                     f"The guard {definition.name!r} watches a {' or '.join(allowed)}, not a {data.scope_type}",
                 )
-            scope_id = pipeline.id if data.scope_type == "pipeline" else data.scope_id
-            if data.scope_type != "pipeline":
-                node = await session.get(GraphNode, scope_id or "")
-                if node is None or node.graph_id != pipeline.id or node.kind != data.scope_type:
-                    raise ArtifactError(
-                        422, f"The scope is not a {data.scope_type} of this pipeline"
-                    )
-            assert scope_id is not None
-            placed = await session.scalars(
-                select(GuardAttachment.guard_id).where(GuardAttachment.pipeline_id == pipeline.id)
+            fits = PIPELINE_SCOPES if holder.kind == GraphKind.PIPELINE else DEFINITION_SCOPES
+            if data.scope_type not in fits:
+                raise ArtifactError(
+                    422,
+                    f"A {holder.kind.value if hasattr(holder.kind, 'value') else holder.kind} holds "
+                    f"{' and '.join(fits)} scopes, not a {data.scope_type}",
+                )
+            scope_id = await self._scope_id(session, holder, data)
+            count = await session.scalar(
+                select(func.count())
+                .select_from(GuardAttachment)
+                .where(GuardAttachment.graph_id == holder.id)
             )
-            placed_ids = list(placed)
-            if len(placed_ids) >= MAX_GUARDS_PER_PIPELINE:
-                raise ArtifactError(422, f"A pipeline has at most {MAX_GUARDS_PER_PIPELINE} guards")
+            if (count or 0) >= MAX_GUARDS_PER_PIPELINE:
+                raise ArtifactError(422, f"A graph has at most {MAX_GUARDS_PER_PIPELINE} guards")
             same = await session.scalar(
                 select(GuardAttachment.id).where(
                     GuardAttachment.guard_id == definition.id,
-                    GuardAttachment.pipeline_id == pipeline.id,
+                    GuardAttachment.graph_id == holder.id,
                     GuardAttachment.scope_type == data.scope_type,
                     GuardAttachment.scope_id == scope_id,
                 )
@@ -257,16 +335,34 @@ class GuardService:
             row = GuardAttachment(
                 id=str(uuid.uuid4()),
                 guard_id=definition.id,
-                pipeline_id=pipeline.id,
+                graph_id=holder.id,
                 scope_type=data.scope_type,
                 scope_id=scope_id,
                 enabled=data.enabled,
             )
             session.add(row)
             await session.commit()
-            result = read_attachment(row, definition.name)
-        self._changed(guard_id=result.guard_id, pipeline_id=result.pipeline_id)
+            result = read_attachment(row, definition.name, await names_of(session, [row]))
+        self._changed(guard_id=result.guard_id, graph_id=result.graph_id)
         return result
+
+    @staticmethod
+    async def _scope_id(session: AsyncSession, holder: Graph, data: AttachmentCreate) -> str:
+        """The id the attachment watches; 422 when it is not part of the holder."""
+        if data.scope_type in ("pipeline", "definition"):
+            return holder.id
+        of = "pipeline" if holder.kind == GraphKind.PIPELINE else "action"
+        node = await session.get(GraphNode, data.scope_id or "")
+        if node is None or node.graph_id != holder.id:
+            raise ArtifactError(422, f"The scope is not a {data.scope_type} of this {of}")
+        if data.scope_type in ("stage", "action"):
+            if node.kind != data.scope_type:
+                raise ArtifactError(422, f"The scope is not a {data.scope_type} of this {of}")
+        elif not node_type(NodeKind(node.kind)).guardable:
+            raise ArtifactError(
+                422, f"A guard cannot watch a {node.kind} node (it does not run as a step)"
+            )
+        return node.id
 
     async def set_enabled(self, attachment_id: str, enabled: bool) -> AttachmentRead:
         """Switch an attachment on or off: off acts on running executions at once, on at the next start."""
@@ -274,18 +370,18 @@ class GuardService:
             row, name = await self._attachment(session, attachment_id)
             row.enabled = enabled
             await session.commit()
-            result = read_attachment(row, name)
-        self._changed(guard_id=result.guard_id, pipeline_id=result.pipeline_id)
+            result = read_attachment(row, name, await names_of(session, [row]))
+        self._changed(guard_id=result.guard_id, graph_id=result.graph_id)
         return result
 
     async def detach(self, attachment_id: str) -> None:
         """Take a definition off a scope (the definition stays in the library)."""
         async with self._session() as session:
             row, _name = await self._attachment(session, attachment_id)
-            guard_id, pipeline_id = row.guard_id, row.pipeline_id
+            guard_id, graph_id = row.guard_id, row.graph_id
             await session.delete(row)
             await session.commit()
-        self._changed(guard_id=guard_id, pipeline_id=pipeline_id)
+        self._changed(guard_id=guard_id, graph_id=graph_id)
 
     # ── checks ───────────────────────────────────────────────────────
 
@@ -306,7 +402,7 @@ class GuardService:
                 [s.model_dump(mode="json", exclude_none=True) for s in data.escalation]
             )
         row.description = row.description or ""
-        row.scope_types = row.scope_types or json.dumps(["pipeline", "stage", "action"])
+        row.scope_types = row.scope_types or json.dumps(list(SCOPES))
         row.consequence = row.consequence or "pause"
         row.fallback = row.fallback or "pause"
         row.condition = row.condition or json.dumps({"type": "group", "mode": "all", "items": []})
@@ -419,8 +515,9 @@ class GuardService:
             raise ArtifactError(422, f"The template's action cannot be built: {error}") from error
         return graph
 
-    def _changed(self, *, guard_id: str, pipeline_id: str | None = None) -> None:
+    def _changed(self, *, guard_id: str, graph_id: str | None = None) -> None:
         data = {"guard_id": guard_id}
-        if pipeline_id is not None:
-            data["pipeline_id"] = pipeline_id
+        if graph_id is not None:
+            data["graph_id"] = graph_id
+            data["pipeline_id"] = graph_id  # the editor's old name for it
         self._bus.publish("guards.changed", data)

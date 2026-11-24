@@ -148,7 +148,13 @@ def test_a_definition_is_created_attached_switched_off_detached_and_only_then_de
         [],
         "continue",
     )
-    assert created["scope_types"] == ["pipeline", "stage", "action"]  # every scope unless narrowed
+    assert created["scope_types"] == [
+        "pipeline",
+        "stage",
+        "action",
+        "definition",
+        "node",
+    ]  # every scope unless narrowed
     placed = _attach(client, created, pipeline, "stage", stage["id"])
     assert (placed["guard_id"], placed["name"], placed["scope_id"], placed["enabled"]) == (
         created["id"],
@@ -236,7 +242,10 @@ def test_an_attachment_is_checked_against_the_pipeline_and_the_scope_types_of_it
     on_a_guard = client.post(ATTACHMENTS, json={**body, "scope_type": "guard", "scope_id": "x"})
     assert on_a_guard.status_code == 422 and "no guards on guards" in on_a_guard.text
     no_pipeline = client.post(ATTACHMENTS, json={**body, "pipeline_id": "nope"})
-    assert no_pipeline.status_code == 404 and "Pipeline not found" in no_pipeline.text
+    assert (
+        no_pipeline.status_code == 404
+        and "Pipeline or action definition not found" in no_pipeline.text
+    )
     no_guard = client.post(ATTACHMENTS, json={**body, "guard_id": "nope", "scope_id": stage["id"]})
     assert no_guard.status_code == 404 and "Guard not found" in no_guard.text
     post(client, ATTACHMENTS, **body, scope_id=stage["id"])
@@ -597,6 +606,312 @@ def test_0047_makes_every_guard_one_definition_and_one_attachment_with_its_id_an
         ("g2", "p", "Health", "stage", "s", "run_action", "abort", steps, "body", 0),
     ]
     assert not {"guard_definitions", "guard_attachments"} & tables
+    command.upgrade(alembic_config(), "head")
+
+
+# ── guards on an action definition and on its nodes (0049) ───────────
+
+
+def _attach_to(
+    client: TestClient,
+    guard: dict[str, Any],
+    holder: dict[str, Any],
+    scope_type: str,
+    scope_id: str | None,
+) -> Any:
+    return client.post(
+        ATTACHMENTS,
+        json={
+            "guard_id": guard["id"],
+            "graph_id": holder["id"],
+            "scope_type": scope_type,
+            "scope_id": scope_id,
+        },
+    )
+
+
+def test_a_guard_is_attached_to_an_action_definition_and_to_a_node_of_it_and_refused_elsewhere(
+    client: TestClient,
+) -> None:
+    action = _code_definition(client, "Summarise", "echo ok")
+    code = kind_of(client, action, "code")
+    trigger = kind_of(client, action, "trigger")
+    guard = post(client, GUARDS, **_definition())
+    whole = _attach_to(client, guard, action, "definition", None)
+    assert whole.status_code == 201, whole.text
+    body = whole.json()
+    assert (body["graph_id"], body["pipeline_id"], body["holder_kind"], body["scope_type"]) == (
+        action["id"],
+        None,
+        "action",
+        "definition",
+    )
+    assert (body["scope_id"], body["scope_name"], body["holder_name"]) == (
+        action["id"],
+        "Summarise",
+        "Summarise",
+    )
+    one = _attach_to(client, guard, action, "node", code["id"])
+    assert one.status_code == 201 and one.json()["scope_name"] == "Check"
+    assert _attach_to(client, guard, action, "node", code["id"]).status_code == 409
+    # what an action definition cannot hold, and what a node must be
+    elsewhere = _attach_to(
+        client, guard, action, "node", kind_of(client, build_pipeline(client, 1), "trigger")["id"]
+    )
+    assert elsewhere.status_code == 422 and "not a node of this action" in elsewhere.text
+    for scope_type in ("stage", "action", "pipeline"):
+        refused = _attach_to(client, guard, action, scope_type, None)
+        assert refused.status_code == 422 and "holds definition and node scopes" in refused.text
+    refused = _attach_to(client, guard, action, "node", trigger["id"])
+    assert refused.status_code == 422 and "cannot watch a trigger node" in refused.text
+    pipeline = build_pipeline(client, 1)
+    refused = _attach_to(client, guard, pipeline, "node", pipeline["stages"][0][1]["id"])
+    assert (
+        refused.status_code == 422 and "holds pipeline and stage and action scopes" in refused.text
+    )
+    narrow = post(client, GUARDS, **_definition(name="Stage only", scope_types=["stage"]))
+    refused = _attach_to(client, narrow, action, "node", code["id"])
+    assert refused.status_code == 422 and "watches a stage, not a node" in refused.text
+    # the list of an action definition: only what is attached in it
+    listed = client.get(f"{GUARDS}?pipeline_id={action['id']}").json()
+    assert [g["id"] for g in listed] == [guard["id"]] and len(listed[0]["attachments"]) == 2
+
+
+def test_the_guards_inside_the_actions_of_a_pipeline_are_listed_with_it_on_request_and_go_with_their_graph(
+    client: TestClient,
+) -> None:
+    pipeline = build_pipeline(client, stages=2, name="Two")
+    (_s1, first), (_s2, second) = pipeline["stages"]
+    action = _code_definition(client, "Shared", "echo ok")
+    link(client, pipeline, first, action)
+    link(client, pipeline, second, action)
+    code = kind_of(client, action, "code")
+    own = post(client, GUARDS, **_definition(name="Own"))
+    inner = post(client, GUARDS, **_definition(name="Inner"))
+    _attach(client, own, pipeline, "action", first["id"])
+    _attach_to(client, inner, action, "definition", None)
+    _attach_to(client, inner, action, "node", code["id"])
+    plain = client.get(f"{ATTACHMENTS}?pipeline_id={pipeline['id']}").json()
+    assert [a["name"] for a in plain] == ["Own"]
+    with_inner = client.get(f"{ATTACHMENTS}?pipeline_id={pipeline['id']}&inner=true").json()
+    assert sorted((a["name"], a["scope_type"], a["holder_kind"]) for a in with_inner) == [
+        ("Inner", "definition", "action"),
+        ("Inner", "node", "action"),
+        ("Own", "action", "pipeline"),
+    ]
+    assert {
+        g["name"] for g in client.get(f"{GUARDS}?pipeline_id={pipeline['id']}&inner=true").json()
+    } == {"Own", "Inner"}
+    # a node that goes takes its attachment; the action definition that goes takes the rest; the definitions stay
+    assert client.delete(f"{graph_url(action)}/nodes/{code['id']}").status_code in (200, 204)
+    assert [
+        a["scope_type"] for a in client.get(f"{ATTACHMENTS}?pipeline_id={action['id']}").json()
+    ] == ["definition"]
+    link_free = client.delete(f"/api/actions/{action['id']}")
+    assert link_free.status_code in (200, 204, 409)
+    if link_free.status_code == 409:  # in use: unlink first, then it can go
+        for stage_action in (first, second):
+            client.patch(
+                f"{graph_url(pipeline)}/nodes/{stage_action['id']}", json={"definition_id": None}
+            )
+        assert client.delete(f"/api/actions/{action['id']}").status_code in (200, 204)
+    assert client.get(f"{ATTACHMENTS}?pipeline_id={action['id']}").json() == []
+    assert client.get(f"{GUARDS}/{inner['id']}").status_code == 200
+
+
+def test_a_node_guard_stops_a_stalled_agent_like_node_inside_an_action_and_pauses_the_run(
+    client: TestClient,
+) -> None:
+    pipeline = build_pipeline(client, stages=1, name="Inner stall")
+    _stage, work = pipeline["stages"][0]
+    action = _code_definition(client, "Sleeping action", "sleep 30")
+    link(client, pipeline, work, action)
+    code = kind_of(client, action, "code")
+    guard = post(
+        client,
+        GUARDS,
+        **_definition(
+            name="Node stall",
+            trigger={"type": "interval", "every_seconds": 1, "for_seconds": 0},
+            when=_group(_at_least("idle", 1)),
+            consequence="pause",
+        ),
+    )
+    assert _attach_to(client, guard, action, "node", code["id"]).status_code == 201
+    task = make_task(client)
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    run = wait_for_run(client, task, "stopped", timeout=15)
+    assert run["note"].startswith(
+        "Paused by guard Node stall fired at node 'Check' of action 'Sleeping action': "
+    )
+    entry = _activity(client, task)[0]
+    assert (entry["data"]["scope_type"], entry["data"]["scope_name"], entry["data"]["trigger"]) == (
+        "node",
+        "Check",
+        "interval",
+    )
+    assert entry["data"]["scope_label"] == "node 'Check' of action 'Sleeping action'"
+    flow = client.get(f"/api/tasks/{task['id']}/executions/{run['execution_id']}/flow").json()[
+        "guards"
+    ]
+    scope = next(s for s in flow["scopes"].values() if s["type"] == "node")
+    assert (scope["name"], scope["parent"], scope["runs"]) == ("Check", "Sleeping action", 1)
+
+
+def test_a_definition_guard_counts_apart_for_one_action_used_in_two_stages(
+    client: TestClient,
+) -> None:
+    pipeline = build_pipeline(client, stages=2, name="Shared action")
+    (_s1, first), (_s2, second) = pipeline["stages"]
+    action = _code_definition(client, "Shared", "echo ok")
+    link(client, pipeline, first, action)
+    link(client, pipeline, second, action)
+    guard = post(client, GUARDS, **_definition(name="Per use", when=_group(_at_least("runs", 1))))
+    assert _attach_to(client, guard, action, "definition", None).status_code == 201
+    task = make_task(client)
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    run = wait_for_run(client, task, "done", timeout=15)
+    entries = list(reversed(_activity(client, task)))
+    # one firing per use, each its own first entry: the two stages did not share one counter
+    assert [(e["data"]["scope_type"], e["data"]["facts"]["runs"]) for e in entries] == [
+        ("definition", 1),
+        ("definition", 1),
+    ]
+    flow = client.get(f"/api/tasks/{task['id']}/executions/{run['execution_id']}/flow").json()[
+        "guards"
+    ]
+    keys = [k for k, s in flow["scopes"].items() if s["type"] == "definition"]
+    assert len(keys) == 2 and keys[0] != keys[1]
+
+
+def test_a_node_guard_in_a_looping_action_counts_every_entry_and_hears_pass_and_error(
+    client: TestClient,
+) -> None:
+    pipeline, _stage = _looping_pipeline(client)
+    work = next(
+        n
+        for n in client.get(graph_url(pipeline)).json()["nodes"]
+        if n["name"] != "Check" and n["kind"] == "action"
+    )
+    action = _code_definition(client, "Step", "echo ok")
+    link(client, pipeline, work, action)
+    code = kind_of(client, action, "code")
+    guard = post(
+        client,
+        GUARDS,
+        **_definition(name="Third entry", when=_group(_at_least("runs", 3)), consequence="pause"),
+    )
+    assert _attach_to(client, guard, action, "node", code["id"]).status_code == 201
+    passed = post(
+        client,
+        GUARDS,
+        **_definition(
+            name="Heard a pass",
+            trigger={"type": "event", "events": ["pass"]},
+            when=_group(_at_least("passes", 2)),
+            consequence="continue",
+        ),
+    )
+    assert _attach_to(client, passed, action, "node", code["id"]).status_code == 201
+    task = make_task(client)
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    run = wait_for_run(client, task, "stopped", timeout=20)
+    assert "node 'Check' of action 'Step'" in run["note"] and "round 3" in run["note"]
+    by_guard = {e["actor_name"]: e["data"] for e in _activity(client, task)}
+    assert by_guard["Third entry"]["facts"]["runs"] == 3
+    assert (
+        by_guard["Heard a pass"]["event"] == "pass"
+        and by_guard["Heard a pass"]["facts"]["passes"] >= 2
+    )
+
+
+def test_a_node_guard_hears_an_error_whatever_the_failure_setting_does_with_it(
+    client: TestClient,
+) -> None:
+    pipeline = build_pipeline(client, stages=1, name="Fails")
+    _stage, work = pipeline["stages"][0]
+    action = _code_definition(client, "Broken", "exit 3")
+    link(client, pipeline, work, action)
+    code = kind_of(client, action, "code")
+    guard = post(
+        client,
+        GUARDS,
+        **_definition(
+            name="Saw an error",
+            trigger={"type": "event", "events": ["error"]},
+            when=_group(_at_least("errors", 1)),
+            consequence="continue",
+        ),
+    )
+    assert _attach_to(client, guard, action, "node", code["id"]).status_code == 201
+    task = make_task(client)
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    wait_for_run(client, task, "failed", timeout=15)
+    entry = _activity(client, task)[0]["data"]
+    assert (entry["event"], entry["scope_type"], entry["facts"]["errors"]) == ("error", "node", 1)
+
+
+def test_0049_renames_the_holder_widens_what_could_watch_everything_and_goes_down(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0048")
+    everywhere = '["pipeline", "stage", "action"]'
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "INSERT INTO graphs (id, name, status, kind, slug, created_at, updated_at) "
+            "VALUES ('p', 'p', 'draft', 'pipeline', 'p', '2026-11-01', '2026-11-01')"
+        )
+        for ident, scopes in (
+            ("wide", everywhere),
+            ("narrow", '["stage"]'),
+            ("odd", '["pipeline", "action"]'),
+        ):
+            conn.execute(
+                "INSERT INTO guard_definitions (id, name, description, scope_types, trigger, condition, consequence, "
+                "fallback, escalation, created_at, updated_at) "
+                "VALUES (?, ?, '', ?, '{}', '{}', 'pause', 'pause', '[]', '2026-11-01', '2026-11-01')",
+                (ident, ident, scopes),
+            )
+        conn.execute(
+            "INSERT INTO guard_attachments (id, guard_id, pipeline_id, scope_type, scope_id, enabled, created_at) "
+            "VALUES ('a1', 'wide', 'p', 'pipeline', 'p', 1, '2026-11-01')"
+        )
+    command.upgrade(alembic_config(), "0049")
+    with sqlite3.connect(db) as conn:
+        columns = [r[1] for r in conn.execute("PRAGMA table_info(guard_attachments)")]
+        scopes = dict(conn.execute("SELECT id, scope_types FROM guard_definitions").fetchall())
+        attachment = conn.execute(
+            "SELECT id, graph_id, scope_type, scope_id FROM guard_attachments"
+        ).fetchall()
+        indexes = {r[1] for r in conn.execute("PRAGMA index_list(guard_attachments)")}
+    assert "graph_id" in columns and "pipeline_id" not in columns
+    assert attachment == [("a1", "p", "pipeline", "p")]
+    assert (
+        "ix_guard_attachments_graph_id" in indexes
+        and "ix_guard_attachments_pipeline_id" not in indexes
+    )
+    assert json.loads(scopes["wide"]) == ["pipeline", "stage", "action", "definition", "node"]
+    assert json.loads(scopes["narrow"]) == ["stage"]  # narrowed on purpose: untouched
+    assert json.loads(scopes["odd"]) == ["pipeline", "action"]
+    with sqlite3.connect(
+        db
+    ) as conn:  # attachments of the new kinds are held by an action definition
+        conn.execute(
+            "INSERT INTO graphs (id, name, status, kind, slug, created_at, updated_at) "
+            "VALUES ('act', 'act', 'draft', 'action', 'act', '2026-11-01', '2026-11-01')"
+        )
+        conn.execute(
+            "INSERT INTO guard_attachments (id, guard_id, graph_id, scope_type, scope_id, enabled, created_at) "
+            "VALUES ('a2', 'wide', 'act', 'definition', 'act', 1, '2026-11-01')"
+        )
+    command.downgrade(alembic_config(), "0048")
+    with sqlite3.connect(db) as conn:
+        columns = [r[1] for r in conn.execute("PRAGMA table_info(guard_attachments)")]
+        kept = [r[0] for r in conn.execute("SELECT id FROM guard_attachments")]
+        scopes = dict(conn.execute("SELECT id, scope_types FROM guard_definitions").fetchall())
+    assert "pipeline_id" in columns and "graph_id" not in columns
+    assert kept == ["a1"]  # the attachment of an action definition does not fit the old rule
+    assert json.loads(scopes["wide"]) == ["pipeline", "stage", "action"]
     command.upgrade(alembic_config(), "head")
 
 

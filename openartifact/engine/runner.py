@@ -870,8 +870,21 @@ class RunEngine:
             walk.action_id = action
             await self._save(walk.task_id, action_id=action)
             await self._guarded(monitor.enter("action", action, node["label"], walk.path))
+            # the guards of the action's definition watch it wherever it is used: their counters are keyed by the
+            # action node that runs it (the path), so two stages that use one definition count apart
+            definition_id = node.get("definition_id")
+            inside = f"{walk.path}>{action}"
+            watched = bool(definition_id) and monitor.watches("definition", str(definition_id))
+            if watched:
+                await self._guarded(
+                    monitor.enter("definition", str(definition_id), node["label"], inside)
+                )
             passed, reason = await self._run_action(node, walk)
-            await self._guarded(monitor.ended(action, passed))
+            await self._guarded(
+                monitor.ended(action, passed, str(definition_id) if watched else None)
+            )
+            if watched:
+                await self._guarded(monitor.leave("definition", str(definition_id), inside))
             await self._guarded(monitor.leave("action", action, walk.path))
             port = Ports.PASS
             if not passed:
@@ -969,6 +982,16 @@ class RunEngine:
                 if record:
                     await self._record(walk, definition_id, current, "pass", port, None, started)
                 continue
+            monitor = walk.monitor if record else None  # a guard's own action is not watched
+            inside = f"{walk.path}>{walk.action_id}"
+            node_watched = monitor is not None and monitor.watches("node", current["id"])
+            if node_watched:
+                assert monitor is not None
+                await self._guarded(
+                    monitor.enter(
+                        "node", current["id"], current["name"], inside, definition["name"]
+                    )
+                )
             result = await executor.run(current, self._limits, run_view)
             if result.outcome == "pass" and result.variables:
                 try:
@@ -987,6 +1010,12 @@ class RunEngine:
                 await self._record(
                     walk, definition_id, current, result.outcome, port, result, started
                 )
+            if node_watched:
+                assert monitor is not None
+                await self._guarded(
+                    monitor.node_ended(current["id"], inside, result.outcome == "pass")
+                )
+                await self._guarded(monitor.leave("node", current["id"], inside))
             if run_view.context is not walk.context:
                 run_view.context.record(current, result, port)
 

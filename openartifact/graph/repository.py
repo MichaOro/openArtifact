@@ -405,7 +405,7 @@ class GraphRepository:
         ]
         await self._session.execute(
             delete(GuardAttachment).where(
-                GuardAttachment.pipeline_id == graph.id, GuardAttachment.scope_id.in_(watched)
+                GuardAttachment.graph_id == graph.id, GuardAttachment.scope_id.in_(watched)
             )
         )
         await self._session.delete(node)

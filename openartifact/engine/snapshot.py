@@ -115,15 +115,16 @@ async def build_snapshot(session: AsyncSession, graph: Graph) -> dict[str, Any]:
 
 
 async def freeze_guards(session: AsyncSession, snapshot: dict[str, Any]) -> None:
-    """The switched-on guard attachments of the pipeline and of the pipelines it calls, each with its definition
-    (``guards``), and the guards' own actions (``guard_definitions``, apart from ``definitions`` so their node names
-    never clash with the run's references). A change to a definition after the start does not reach the run."""
-    pipelines = [snapshot["id"], *snapshot.get("pipelines", {})]
+    """The switched-on guard attachments of the pipeline, of the pipelines it calls and of the action definitions the run
+    uses (the whole action and its nodes), each with its definition (``guards``), and the guards' own actions
+    (``guard_definitions``, apart from ``definitions`` so their node names never clash with the run's references). A
+    change to a definition or to an attachment after the start does not reach the run."""
+    pipelines = [snapshot["id"], *snapshot.get("pipelines", {}), *snapshot.get("definitions", {})]
     rows = (
         await session.execute(
             select(GuardAttachment, GuardDefinition)
             .join(GuardDefinition, GuardDefinition.id == GuardAttachment.guard_id)
-            .where(GuardAttachment.pipeline_id.in_(pipelines), GuardAttachment.enabled.is_(True))
+            .where(GuardAttachment.graph_id.in_(pipelines), GuardAttachment.enabled.is_(True))
             .order_by(GuardDefinition.name, GuardAttachment.id)
         )
     ).all()
@@ -160,7 +161,8 @@ def guard_data(definition: GuardDefinition, attachment: GuardAttachment) -> dict
     return {
         "id": attachment.id,
         "guard_id": definition.id,
-        "pipeline_id": attachment.pipeline_id,
+        "graph_id": attachment.graph_id,
+        "pipeline_id": attachment.graph_id,
         "name": definition.name,
         "scope_type": attachment.scope_type,
         "scope_id": attachment.scope_id,

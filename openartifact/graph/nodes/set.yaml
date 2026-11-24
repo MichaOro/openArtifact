@@ -2,6 +2,7 @@ schema: 1
 kind: set
 label: Edit Fields
 behaviour: flow
+guardable: true
 scopes:
 - action
 addable: true

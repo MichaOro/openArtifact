@@ -2,6 +2,7 @@ schema: 1
 kind: artifact
 label: Artifact
 behaviour: flow
+guardable: true
 scopes:
 - action
 addable: true

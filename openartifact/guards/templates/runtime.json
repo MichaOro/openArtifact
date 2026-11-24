@@ -2,7 +2,7 @@
   "key": "runtime",
   "name": "Runtime guard",
   "summary": "Checks every minute while the scope runs; once it has run for an hour, the run is aborted (the running action is stopped).",
-  "scope_types": ["action", "stage", "pipeline"],
+  "scope_types": ["action", "stage", "pipeline", "definition", "node"],
   "guard": {
     "trigger": {"type": "interval", "every_seconds": 60, "for_seconds": 0, "cooldown_seconds": 0},
     "when": {"type": "group", "mode": "all", "items": [

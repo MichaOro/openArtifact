@@ -20,6 +20,7 @@
   "settings": [],
   "links_to": null,
   "tool": false,
+  "guardable": false,
   "behaviour": "plain",
   "menu": null,
   "menu_icon": "play",
@@ -58,6 +59,7 @@
   "settings": [],
   "links_to": null,
   "tool": false,
+  "guardable": false,
   "behaviour": "stage",
   "menu": {
    "group": "Structure",
@@ -124,6 +126,7 @@
   ],
   "links_to": "action",
   "tool": false,
+  "guardable": false,
   "behaviour": "action",
   "menu": null,
   "menu_icon": "action",
@@ -160,6 +163,7 @@
   "settings": [],
   "links_to": "pipeline",
   "tool": false,
+  "guardable": false,
   "behaviour": "pipeline",
   "menu": {
    "group": "Structure",
@@ -194,6 +198,7 @@
   "settings": [],
   "links_to": null,
   "tool": false,
+  "guardable": false,
   "behaviour": "plain",
   "menu": null,
   "menu_icon": "check",
@@ -242,6 +247,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": true,
   "behaviour": "plain",
   "menu": {
    "group": "Flow",
@@ -295,6 +301,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": false,
   "behaviour": "output",
   "menu": null,
   "menu_icon": "inbox",
@@ -436,6 +443,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": true,
   "behaviour": "flow",
   "menu": {
    "group": "Core",
@@ -600,6 +608,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": true,
   "behaviour": "flow",
   "menu": {
    "group": "Core",
@@ -976,6 +985,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": true,
   "behaviour": "flow",
   "menu": {
    "group": "Flow",
@@ -1362,6 +1372,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": true,
   "behaviour": "switch",
   "menu": {
    "group": "Flow",
@@ -1614,6 +1625,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": true,
   "behaviour": "flow",
   "menu": {
    "group": "AI",
@@ -1719,6 +1731,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": true,
   "behaviour": "flow",
   "menu": {
    "group": "Data",
@@ -1981,6 +1994,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": true,
   "behaviour": "flow",
   "menu": {
    "group": "Apps and data",
@@ -2149,6 +2163,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": true,
   "behaviour": "flow",
   "menu": {
    "group": "Apps and data",
@@ -2302,6 +2317,7 @@
   ],
   "links_to": null,
   "tool": true,
+  "guardable": false,
   "behaviour": "tool",
   "menu": {
    "group": "Agent tools",
@@ -2486,6 +2502,7 @@
   ],
   "links_to": null,
   "tool": true,
+  "guardable": false,
   "behaviour": "tool",
   "menu": {
    "group": "Agent tools",
@@ -2623,6 +2640,7 @@
   ],
   "links_to": null,
   "tool": true,
+  "guardable": false,
   "behaviour": "tool",
   "menu": {
    "group": "Agent tools",
@@ -2784,6 +2802,7 @@
   ],
   "links_to": null,
   "tool": true,
+  "guardable": false,
   "behaviour": "tool",
   "menu": {
    "group": "Agent tools",
@@ -2926,6 +2945,7 @@
   ],
   "links_to": null,
   "tool": false,
+  "guardable": true,
   "behaviour": "flow",
   "menu": {
    "group": "Data",

@@ -217,6 +217,8 @@ class NodeManifest(_Strict):
     chain: bool = False
     ending: bool = False
     tool: bool = False
+    #: A guard may be attached to a node of this kind inside an action definition (the kind runs as a step).
+    guardable: bool = False
     links_to: Literal["pipeline", "action"] | None = None
     default_size: SizeSpec | None = None
     reference_keys: list[str] = Field(default_factory=list)
