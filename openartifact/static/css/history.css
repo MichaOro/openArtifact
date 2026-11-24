@@ -106,13 +106,10 @@
 .history-row__meta { grid-area: meta; justify-self: end; font-size: 0.75rem; color: var(--color-text-muted); white-space: nowrap; }
 .history-row__note { grid-area: note; font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .history-row__delete { margin-right: var(--space-2); }
-.history-row__delete[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
-.history-row__delete[aria-disabled="true"]:hover { color: var(--color-text-secondary); background: var(--glass-bg); border-color: var(--glass-border); }
 
 /* ── One execution ───────────────────────────────────────────────── */
 .history-detail__bar { display: flex; gap: var(--space-2); }
 .history-detail__delete { margin-left: auto; }
-.history-detail__delete[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 .history-detail__heading { font-size: 1rem; }
 .history-detail__heading:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
 .history-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-4); margin: 0; font-size: 0.8125rem; }
@@ -168,20 +165,6 @@
 
 /* ── Timeline: changes, filter and the trace of a deleted execution (ADR-058) ───────────────── */
 .history__filter { display: flex; flex-wrap: wrap; gap: var(--space-1); }
-.history__filter-button {
-  padding: 0 var(--space-3);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-text-secondary);
-  font: inherit;
-  font-size: 0.8125rem;
-  line-height: 1.75rem;
-  cursor: pointer;
-}
-.history__filter-button:hover { border-color: var(--glass-border-hover); }
-.history__filter-button[aria-pressed="true"] { background: var(--accent-soft); border-color: transparent; color: var(--color-text-primary); font-weight: 600; }
-.history__filter-button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .history__older { align-self: flex-start; }
 .history-list > li[hidden] { display: none; }
 /* the timeline: a round marker at the left of every entry, joined by a thin line (the marker says what kind of event

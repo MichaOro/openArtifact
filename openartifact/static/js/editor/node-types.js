@@ -185,7 +185,7 @@ class StageView extends NodeView {
     header.className = "ge-stage__header";
     const add = document.createElement("button");
     add.type = "button";
-    add.className = "ge-stage__add";
+    add.className = "chip-button ge-stage__add";
     add.dataset.addAction = "";
     add.textContent = t("editor.node_types.action");
     header.append(parts.caption, parts.name, add);

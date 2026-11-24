@@ -1,6 +1,10 @@
 /* Form primitives: buttons, fields, spinner. Colours via tokens only. */
 
-/* ── Buttons ─────────────────────────────────────────────────────── */
+/* ── Button catalog (ADR-059, docs/guides/ui-catalog.md): ONE definition ──────────────────────────────
+   Variants: .button--primary, .button--ghost (the outlined secondary), .button--danger, plus .icon-button
+   (components.css) and .chip-button (a toggle pill). Sizes: default, .button--sm. Destructive: .is-danger.
+   Every colour comes from the --btn-* / --button-primary-* tokens (tokens.css), which have values for both
+   themes; a state never lowers the opacity, so a disabled button stays readable in light and dark. */
 .button {
   display: inline-flex;
   align-items: center;
@@ -14,7 +18,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: background var(--transition-fast), border-color var(--transition-fast),
-    color var(--transition-fast), opacity var(--transition-fast);
+    color var(--transition-fast);
 }
 /* Sizes are three custom properties, so a container can set the size of the buttons in it and a single
    button can override it. The compact size is the standard for the create buttons of a page (".action-row":
@@ -22,8 +26,7 @@
 .button--sm,
 .action-row { --button-h: 2rem; --button-px: var(--space-3); --button-fs: 0.8125rem; }
 .button--md { --button-h: 2.5rem; --button-px: var(--space-4); --button-fs: inherit; }
-.button:disabled,
-.button[aria-disabled="true"] { cursor: not-allowed; opacity: 0.6; }
+.button[aria-busy="true"] { cursor: progress; }
 
 .button--primary {
   background: var(--button-primary-bg);
@@ -43,13 +46,43 @@
 }
 
 .button--ghost {
-  background: var(--glass-bg);
-  border-color: var(--glass-border);
-  color: var(--color-text-secondary);
+  background: var(--btn-outline-bg);
+  border-color: var(--btn-outline-border);
+  color: var(--btn-outline-text);
 }
 .button--ghost:hover:not(:disabled):not([aria-disabled="true"]) {
-  background: var(--accent-soft);
-  border-color: var(--accent-ring);
+  background: var(--btn-outline-bg-hover);
+  border-color: var(--btn-outline-border-hover);
+}
+
+/* A toggle pill (filters): outlined when off, tinted when on (aria-pressed). */
+.chip-button {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--btn-outline-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--btn-outline-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.75rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.chip-button:hover:not(:disabled) { border-color: var(--btn-outline-border-hover); }
+.chip-button[aria-pressed="true"] {
+  background: var(--btn-chip-on-bg);
+  border-color: transparent;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* Disabled: ONE look for every variant (tokens, no opacity), so it is readable in both themes. */
+:is(.button, .icon-button, .chip-button):is(:disabled, [aria-disabled="true"]) {
+  background: var(--btn-disabled-bg);
+  border-color: var(--btn-disabled-border);
+  color: var(--btn-disabled-text);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 /* ── Destructive controls: ONE definition (ADR-036) ───────────────────────────────────────────────
@@ -57,11 +90,11 @@
    rest, icon buttons turn red on hover and focus; the red tint is the same everywhere. The solid
    `button--danger` is only for the confirming button of a dialog. Disabled controls stay as they are. */
 .is-danger:is(.button--ghost, .menu__item):not(:disabled):not([aria-disabled="true"]) { color: var(--color-danger); }
-.button--ghost.is-danger:not(:disabled):not([aria-disabled="true"]) { border-color: var(--danger-ring); }
+.button--ghost.is-danger:not(:disabled):not([aria-disabled="true"]) { border-color: var(--btn-danger-border); }
 :is(.button, .icon-button, .menu__item, .nav-link).is-danger:is(:hover, :focus-visible):not(:disabled):not([aria-disabled="true"]) {
   color: var(--color-danger);
   background: var(--danger-soft);
-  border-color: var(--danger-ring);
+  border-color: var(--color-danger);
 }
 
 /* ── Spinner (visible while a button is aria-busy) ───────────────── */

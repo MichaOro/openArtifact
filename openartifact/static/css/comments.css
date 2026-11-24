@@ -19,7 +19,6 @@
 .comments__form { display: flex; flex-direction: column; gap: var(--space-2); flex: none; }
 .comments__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
 .comments__head .field__help { margin: 0; text-align: right; }
-[data-comments-send][aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 .comments__older { align-self: flex-start; flex: none; }
 /* a comment jumped to from the History: its border pulses three times, a second each (a static highlight when motion is
    reduced). The colour is --color-pulse: the accent in the light theme, the sand tone in the dark one. */

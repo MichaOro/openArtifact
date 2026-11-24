@@ -101,7 +101,7 @@
   /* The filled primary button is the complement of its theme: purple with white text on the light
      surfaces, a light lavender with dark text on the dark ones. */
   --button-primary-bg: var(--color-accent);
-  --button-primary-hover-bg: color-mix(in srgb, var(--color-accent) 86%, var(--color-highlight));
+  --button-primary-hover-bg: color-mix(in srgb, var(--color-accent) 86%, var(--color-text-primary));
   --button-primary-text: var(--color-on-accent);
   --color-danger: #b3261e; /* error text/borders only */
   --color-highlight: var(--color-glass-card); /* light reflections = pearl white */
@@ -204,6 +204,22 @@
   --accent-ring: color-mix(in srgb, var(--color-accent) 55%, transparent);
   --danger-soft: color-mix(in srgb, var(--color-danger) 12%, transparent);
   --danger-ring: color-mix(in srgb, var(--color-danger) 45%, var(--glass-border));
+
+  /* ── Button catalog (docs/guides/ui-catalog.md, ADR-059): the same formulas in both themes, only the scalars
+     above differ. Every variant and state reads from here; nothing styles a button with an opacity. ── */
+  --btn-outline-text: var(--color-text-secondary);
+  --btn-outline-bg: var(--glass-bg);
+  --btn-outline-bg-hover: var(--accent-soft);
+  /* an outline that is visible in both themes (>= 3:1 against the card) */
+  --btn-outline-border: color-mix(in srgb, var(--color-text-secondary) 62%, var(--color-glass-card));
+  --btn-outline-border-hover: color-mix(in srgb, var(--color-text-secondary) 85%, var(--color-glass-card));
+  /* disabled: dimmer, never faint (text >= 3:1) */
+  --btn-disabled-bg: color-mix(in srgb, var(--color-text-secondary) 8%, transparent);
+  --btn-disabled-text: color-mix(in srgb, var(--color-text-secondary) 74%, var(--color-glass-card));
+  --btn-disabled-border: var(--btn-outline-border);
+  --btn-danger-border: color-mix(in srgb, var(--color-danger) 80%, var(--color-glass-card));
+  /* a pressed chip (toggle) */
+  --btn-chip-on-bg: var(--accent-soft);
 
   /* Glass material: tinted fill + soft top-left sheen */
   --glass-bg: color-mix(in srgb, var(--color-glass-card) var(--glass-opacity), transparent);

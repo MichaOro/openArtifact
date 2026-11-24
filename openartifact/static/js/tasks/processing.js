@@ -154,6 +154,7 @@ export class ProcessingPanel {
     });
     const canStart = Boolean(draft.pipeline && draft.stage);
     this.button.dataset.state = locked ? "running" : "idle";
+    this.button.classList.toggle("is-danger", locked); // Stop is a destructive look, from the catalog
     this.button.disabled = !locked && !canStart;
     this.buttonLabel.textContent = locked ? t("tasks.processing.stop_processing") : t("create_task.start_processing");
     this.button.title = locked ? t("tasks.processing.stop_processing") : canStart ? t("create_task.start_processing") : t("tasks.processing.choose_pipeline_first");

@@ -29,6 +29,8 @@ export class InlineName {
     this.emptyText = emptyText;
     this.text = element.textContent;
     element.classList.add("inline-name");
+    element.dataset.ui = "custom"; // not a catalog button: it reads as the heading until it is hovered or focused
+    element.dataset.uiReason = "inline rename";
     element.tabIndex = 0;
     element.setAttribute("role", "button");
     this.label = label;

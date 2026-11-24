@@ -11,7 +11,7 @@
             <div class="modal__heading">
                 <h2 class="modal__title" id="{{ id }}-title">{{ title }}</h2>
                 {% if chip %}<span class="modal__subtitle modal__subtitle--static" data-modal-chip></span>{% endif %}
-                {% if subtitle %}<button type="button" class="modal__subtitle" data-modal-subtitle aria-haspopup="listbox" aria-expanded="false"></button>
+                {% if subtitle %}<button type="button" class="modal__subtitle" data-ui="custom" data-ui-reason="lane chip tinted with the lane hue" data-modal-subtitle aria-haspopup="listbox" aria-expanded="false"></button>
                 <div class="lane-chips" data-lane-chips inert aria-hidden="true"><div class="lane-chips__clip"><div class="lane-chips__inner" role="listbox" aria-label="{{ t('modal.move_to_lane') }}"></div></div></div>{% endif %}
             </div>
             {% if subtitle %}<span class="modal__number" data-modal-number hidden></span>{% endif %}

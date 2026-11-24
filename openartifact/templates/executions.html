@@ -17,10 +17,10 @@
     <h2 class="visually-hidden">{{ t('common.executions') }}</h2>
 
     <section class="ex-summary" aria-label="{{ t('executions.summary') }}">
-        <button type="button" class="ex-count glass" data-summary="running" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.running_now') }}</span></button>
-        <button type="button" class="ex-count glass" data-summary="failed_24h" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.failed_in_the_last_24_h') }}</span></button>
-        <button type="button" class="ex-count glass" data-summary="done_24h" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.done_in_the_last_24_h') }}</span></button>
-        <button type="button" class="ex-count glass" data-summary="total" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.total') }}</span></button>
+        <button type="button" class="ex-count glass" data-ui="custom" data-ui-reason="a statistic tile that filters the list" data-summary="running" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.running_now') }}</span></button>
+        <button type="button" class="ex-count glass" data-ui="custom" data-ui-reason="a statistic tile that filters the list" data-summary="failed_24h" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.failed_in_the_last_24_h') }}</span></button>
+        <button type="button" class="ex-count glass" data-ui="custom" data-ui-reason="a statistic tile that filters the list" data-summary="done_24h" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.done_in_the_last_24_h') }}</span></button>
+        <button type="button" class="ex-count glass" data-ui="custom" data-ui-reason="a statistic tile that filters the list" data-summary="total" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.total') }}</span></button>
     </section>
 
     <form class="ex-filters glass" role="search" aria-label="{{ t('executions.filter_executions') }}" novalidate data-filters>

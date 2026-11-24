@@ -27,7 +27,6 @@
 .ag-item .icon-button,
 .ag-item .ag-chips { align-self: center; }
 .ag-item__hint { font-size: 0.75rem; color: var(--color-text-muted); }
-.ag-item [data-delete][aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
 
 /* ── the agent editor ────────────────────────────────────────────────────────────────────────── */
 /* The agent editor (ADR-045): a header across the page, the tabs and the active area on the left, status and the

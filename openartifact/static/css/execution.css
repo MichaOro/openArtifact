@@ -115,7 +115,6 @@
 
 .ef-passes { display: flex; align-items: center; gap: var(--space-2); }
 .ef-passes__text { min-width: 6rem; text-align: center; font-size: 0.8125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.ef-passes .icon-button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .ef-path { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .ef-path__item { display: flex; align-items: center; gap: var(--space-1); border: 1px solid transparent; border-left: 3px solid var(--lane-hue-3); border-radius: var(--radius-sm); }

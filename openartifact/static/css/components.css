@@ -168,10 +168,10 @@
   transition: background var(--transition-fast), color var(--transition-fast),
     border-color var(--transition-fast);
 }
-.icon-button:hover {
+.icon-button:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--accent-soft);
-  border-color: var(--accent-ring);
-  color: var(--color-accent);
+  border-color: var(--btn-outline-border-hover);
+  color: var(--btn-outline-text);
 }
 .sidebar-toggle .icon { transition: transform var(--transition-base); }
 :root[data-sidebar="collapsed"] .sidebar-toggle .icon { transform: rotate(180deg); }
@@ -701,7 +701,7 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font: inherit;
   font-size: 0.875rem;
   font-weight: 500;
@@ -732,7 +732,7 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
   white-space: nowrap;
 }
 .tab-bar .task-tab .icon { width: 1rem; height: 1rem; }
-.tab-bar .task-tab[aria-selected="true"] { background: var(--accent-soft); color: var(--color-accent); box-shadow: inset 0 -2px 0 var(--color-accent); }
+.tab-bar .task-tab[aria-selected="true"] { background: var(--accent-soft); color: var(--color-text-primary); box-shadow: inset 0 -2px 0 var(--color-accent); }
 
 /* A card of optional settings (components/settings-group.js): a head with an icon, title, lead and "Add setting";
    the settings that are added, two per row where there is room, each with its bin. */

@@ -27,7 +27,6 @@
 .at-field__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .at-field__title { font-weight: 600; overflow-wrap: anywhere; }
 .at-field__tools { display: flex; gap: var(--space-1); }
-.at-field__tools .icon-button:disabled { opacity: 0.35; cursor: default; }
 .at-field__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--space-3); align-items: start; }
 .at-field__item--wide { grid-column: 1 / -1; }
 .at-check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; align-self: end; font-size: 0.875rem; }

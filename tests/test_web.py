@@ -322,7 +322,8 @@ def test_task_dialog_offers_lane_switch(client: TestClient) -> None:
     """Lane chip (no icon, a button) and the Lane field of the rail both open the lane menu."""
     html = client.get("/").text
     assert (
-        '<button type="button" class="modal__subtitle" data-modal-subtitle '
+        '<button type="button" class="modal__subtitle" data-ui="custom" '
+        'data-ui-reason="lane chip tinted with the lane hue" data-modal-subtitle '
         'aria-haspopup="listbox" aria-expanded="false"></button>'
     ) in html
     assert 'data-card-field="lane"' in html

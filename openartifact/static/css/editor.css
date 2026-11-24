@@ -204,17 +204,7 @@
 }
 .ge-stage__header .ge-node__name { flex: 1; min-width: 0; }
 .ge-stage__header .ge-node__kind { text-transform: uppercase; letter-spacing: 0.06em; color: var(--node-color); }
-.ge-stage__add {
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-text-secondary);
-  font: inherit;
-  font-size: 0.75rem;
-  padding: 0 var(--space-2);
-  line-height: 1.5rem;
-  cursor: pointer;
-}
+.ge-stage__add { font-size: 0.75rem; padding: 0 var(--space-2); line-height: 1.5rem; } /* a compact chip-button */
 .ge-stage__add:hover { border-color: var(--node-color); color: var(--color-text-primary); }
 .ge-stage__body { position: absolute; left: 0; right: 0; top: var(--ge-stage-header, 44px); bottom: 0; }
 
@@ -366,7 +356,7 @@
 .ge-actionbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-2); }
 .ge-actionbar .button { width: 100%; justify-content: center; gap: var(--space-1); padding: 0 var(--space-2); }
 .ge-actionbar .icon { width: 1rem; height: 1rem; }
-.ge-actionbar a.button[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+.ge-actionbar a.button[aria-disabled="true"] { pointer-events: none; }
 
 /* an on/off switch with its state written in it */
 .ge-switch {
@@ -423,8 +413,6 @@
   display: none;
   padding-top: 6px; /* bridges the gap, so the pointer can travel from the node to the bar */
   transform: translateX(-50%) scale(var(--ge-inverse-zoom, 1));
-/* a port at the lower edge (the Agent's Tools) lies under the bar: while the pointer is on a port the bar steps aside, so a press there starts a connection */
-.ge-node:has(> .ge-port:hover) > .ge-node-bar { display: none; }
   transform-origin: top center;
   cursor: default;
 }
@@ -435,6 +423,8 @@
 .ge-node--stage:not(.is-selected) > .ge-node-bar { display: none; } /* a stage is large: its bar only while it is selected */
 .has-multi .ge-node.is-selected:not(:hover) > .ge-node-bar { display: none; }
 .is-panning .ge-node-bar, .is-connecting .ge-node-bar { display: none !important; }
+/* a port at the lower edge (the Agent's Tools) lies under the bar: while the pointer is on a port the bar steps aside, so a press there starts a connection */
+.ge-node:has(> .ge-port:hover) > .ge-node-bar { display: none; }
 
 /* the settings of a node: Definition and Behaviour (editor/settings-layout.js) */
 .ge-settings-wrap { container-type: inline-size; }
