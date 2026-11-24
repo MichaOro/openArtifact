@@ -28,6 +28,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from openartifact.agents import client
+from openartifact.agents.artifact_inputs import ArtifactInputError, artifact_values
 from openartifact.agents.client import UNENCRYPTED_REFUSED, Completion, Endpoint, ProviderError
 from openartifact.agents.render import (
     MappingError,
@@ -45,6 +46,7 @@ from openartifact.agents.schemas import (
     TOTAL_TIMEOUT_DEFAULT,
 )
 from openartifact.agents.tools import Toolbox, ToolboxError
+from openartifact.engine.artifact_runner import CommentsGateway
 from openartifact.engine.context import NODE_OUTPUT_LIMIT_BYTES, RunView
 from openartifact.engine.results import NodeResult, failed
 from openartifact.models import ProviderKind
@@ -212,6 +214,7 @@ async def run_node(
     complete: Complete = client.complete,
     sleep: Sleep = asyncio.sleep,
     open_tools: OpenTools | None = None,
+    comments: CommentsGateway | None = None,
 ) -> NodeResult:
     """Run an agent node of a frozen pipeline: ``node["agent"]`` is what the snapshot resolved.
     ``open_tools`` opens the toolbox of the tools frozen with it (none: the agent has no tools)."""
@@ -255,7 +258,12 @@ async def run_node(
         mapping = parse_mapping(str((node.get("config") or {}).get("inputs") or ""))
     except MappingError as error:
         return refuse(f"Input mapping: {error}")
-    states = resolve_inputs(frozen.get("inputs") or [], mapping, view)
+    specs = frozen.get("inputs") or []
+    try:
+        from_artifact = await artifact_values(specs, view, comments)
+    except ArtifactInputError as error:
+        return refuse(str(error))
+    states = resolve_inputs(specs, mapping, view, artifact=from_artifact)
     detail["inputs"] = [s.model_dump() for s in states]
     if problems := input_problems(states):
         return refuse("; ".join(problems))

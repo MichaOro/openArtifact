@@ -10,7 +10,9 @@ from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.agents.service import artifact_inputs_mapped
 from openartifact.agents.service import node_hints as agent_node_hints
 from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import SessionDep
@@ -42,6 +44,20 @@ _LABELS: dict[GraphKind, str] = {GraphKind.PIPELINE: "Pipeline", GraphKind.ACTIO
 
 def _not_found(what: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{what} not found")
+
+
+async def _refuse_artifact_mapping(
+    session: AsyncSession, kind: str, agent_id: Any, config: dict[str, Any] | None
+) -> None:
+    """An agent node cannot map an input that comes from the artifact: the agent's definition fixes it (ADR-064)."""
+    if kind != NodeKind.AGENT or not config or not str(config.get("inputs") or "").strip():
+        return
+    if not isinstance(agent_id, str) or not agent_id:
+        return
+    for name in await artifact_inputs_mapped(session, agent_id, str(config["inputs"])):
+        raise _invalid(
+            ValueError(f"input '{name}' comes from the artifact and cannot be mapped in the action")
+        )
 
 
 def _invalid(error: ValueError) -> HTTPException:
@@ -168,6 +184,9 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         """Add a stage, an action (inside a stage), a complete node or an execution node."""
         repo = GraphRepository(session)
         graph = await _graph(repo, graph_id)
+        await _refuse_artifact_mapping(
+            session, payload.kind, (payload.config or {}).get("agent_id"), payload.config
+        )
         try:
             node = await repo.add_node(graph, payload)
         except NodeError as error:
@@ -200,6 +219,12 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         node = await repo.get_node(graph_id, node_id)
         if node is None:
             raise _not_found("Node")
+        await _refuse_artifact_mapping(
+            session,
+            node.kind,
+            (payload.config or {}).get("agent_id", (node.config or {}).get("agent_id")),
+            payload.config,
+        )
         try:
             report = await repo.update_node(node, payload)
         except NodeError as error:

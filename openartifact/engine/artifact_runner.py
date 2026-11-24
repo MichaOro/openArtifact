@@ -38,6 +38,14 @@ def _at(comment: CommentRead) -> str:
     return comment.created_at.strftime("%Y-%m-%d %H:%M")
 
 
+def comment_blocks(comments: list[CommentRead]) -> str:
+    """All the comments, oldest first, one block each: ``<author> (<kind>), <date time>: <text>`` (an agent's input
+    of the part Comments, ADR-064); no limit of its own, the caller refuses a text that is too large."""
+    return "\n\n".join(
+        f"{c.author} ({c.author_kind}), {_at(c)}: {c.body.strip()}" for c in comments
+    )
+
+
 def transcript(
     comments: list[CommentRead], max_chars: int, max_total: int
 ) -> tuple[str, list[dict[str, str]], int]:

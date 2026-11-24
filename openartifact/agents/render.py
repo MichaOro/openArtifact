@@ -18,6 +18,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from openartifact.agents.artifact_inputs import ARTIFACT_SAMPLES, NO_ARTIFACT
 from openartifact.agents.schemas import INPUT_NAME, InputState
 from openartifact.engine.context import CANDIDATE as CONTEXT_REFERENCE
 from openartifact.engine.context import ContextError, RunView
@@ -75,16 +76,29 @@ def prompt_problems(text: str, declared: Sequence[str] | None, what: str) -> lis
 
 
 def unused_inputs(
-    mapping: Mapping[str, str], prompts: Sequence[str], declared: Sequence[str]
+    mapping: Mapping[str, str],
+    prompts: Sequence[str],
+    declared: Sequence[str],
+    artifact: Sequence[str] = (),
 ) -> list[str]:
-    """A calm warning per input that is mapped to something but that no prompt uses: the agent does not receive it
-    (a prompt decides what the model sees, ADR-064; nothing is added to the request on the side)."""
+    """A calm warning per input that is mapped to something (or comes from the artifact) but that no prompt uses: the
+    agent does not receive it (a prompt decides what the model sees, ADR-064; nothing is added to the request on the
+    side). A mapping line for an input of the artifact is stale, not "unused"."""
     text = "\n".join(prompts)
-    return [
+    warnings = [
         f"Input {name} is mapped but no prompt uses it: the agent does not receive it"
         for name, value in mapping.items()
-        if name in declared and value.strip() and f"${{input.{name}}}" not in text
+        if name in declared
+        and name not in artifact
+        and value.strip()
+        and f"${{input.{name}}}" not in text
     ]
+    warnings += [
+        f"Input {name} comes from the artifact but no prompt uses it: the agent does not receive it"
+        for name in artifact
+        if f"${{input.{name}}}" not in text
+    ]
+    return warnings
 
 
 def parse_mapping(text: str) -> dict[str, str]:
@@ -128,18 +142,43 @@ def resolve_inputs(
     view: RunView | None,
     *,
     samples: Mapping[str, str] | None = None,
+    artifact: Mapping[str, str] | None = None,
 ) -> list[InputState]:
     """How every declared input gets its value, and what is wrong with the mapping.
 
     ``view`` is the run the mapping reads. Without one (a preview) a mapping that reads the run is
-    ``pending``; ``samples`` are example values that stand in for it. A mapped name that is not
-    declared comes back as an extra state with an error, so nothing is ignored silently.
+    ``pending``; ``samples`` are example values that stand in for it. An input of the artifact (ADR-064) is fixed
+    by the agent: its value is in ``artifact`` (by name, read by the caller) or, in a preview, an example of its
+    part; a mapping line for it is ``stale`` and ignored. A mapped name that is not declared comes back as an extra
+    state with an error, so nothing is ignored silently.
     """
     samples = samples or {}
     states: list[InputState] = []
     declared = {str(spec["name"]) for spec in specs}
+    from_artifact = {str(s["name"]) for s in specs if s.get("source") == "artifact"}
     for spec in specs:
         name, kind = str(spec["name"]), str(spec.get("type") or "string")
+        if spec.get("source") == "artifact":
+            part = str(spec.get("part") or "title_body")
+            state = InputState(
+                name=name,
+                type=part,
+                required=False,
+                state="unset",
+                value="",
+                origin="artifact",
+                part=part,
+            )
+            if name in samples and view is None:
+                state.state, state.value = "sample", samples[name]
+            elif artifact is not None and name in artifact:
+                state.state, state.value = "artifact", artifact[name]
+            elif view is None:
+                state.state, state.value = "sample", ARTIFACT_SAMPLES.get(part, "")
+            else:
+                state.state, state.value, state.error = "error", None, NO_ARTIFACT
+            states.append(state)
+            continue
         required = bool(spec.get("required"))
         state = InputState(name=name, type=kind, required=required, state="unset", value="")
         template = mapping.get(name)
@@ -172,7 +211,11 @@ def resolve_inputs(
                 state.state = "error"
         states.append(state)
     for name, template in mapping.items():
-        if name not in declared:
+        if name in from_artifact:
+            states.append(
+                InputState(name=name, type="string", required=False, state="stale", source=template)
+            )
+        elif name not in declared:
             states.append(
                 InputState(
                     name=name,
@@ -197,7 +240,7 @@ def fill(text: str, states: Sequence[InputState], *, preview: bool = False) -> s
     replaced by an empty text silently. A ``preview`` keeps such a placeholder as it is written instead
     (its problem is reported with the inputs), and so does a ``pending`` input.
     """
-    by_name = {s.name: s for s in states}
+    by_name = {s.name: s for s in states if s.state != "stale"}
 
     def put(match: re.Match[str]) -> str:
         state = by_name.get(match[1])

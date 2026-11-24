@@ -52,18 +52,41 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+#: Where the value of an input comes from: a value the action's node maps, or the artifact the run belongs to (ADR-064).
+INPUT_SOURCES = ("value", "artifact")
+#: What an artifact input delivers: the title, the body, both together, the number or all comments (oldest first).
+ARTIFACT_PARTS = ("title", "body", "title_body", "number", "comments")
+
+
 class InputSpec(_Strict):
     """One declared input of an agent, used in its prompts as ``${input.NAME}``.
 
-    A required input has no default: the node must map it. An optional input without a mapping is its
-    default, or the empty text when it has none.
+    Every input has a source (ADR-064). A ``value`` input has a ``type`` and is mapped in the action's node: a required
+    one has no default, an optional one without a mapping is its default, or the empty text when it has none. An
+    ``artifact`` input has a ``part`` of the artifact the run belongs to and is fixed by the definition: the node cannot
+    map it, so it has no required flag and no default.
     """
 
     name: str
-    type: Literal["string", "number", "boolean", "artifact"] = "string"
+    source: Literal["value", "artifact"] = "value"
+    type: Literal["string", "number", "boolean"] | None = None
+    part: Literal["title", "body", "title_body", "number", "comments"] | None = None
     required: bool = False
     default: str | float | bool | None = None
     description: str = Field(default="", max_length=200)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _older_shapes(cls, data: Any) -> Any:
+        """Inputs stored before the source existed: no source is a value; the type ``artifact`` is the artifact."""
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        if data.get("type") == "artifact":
+            data["type"] = None
+            data["source"] = "artifact"
+            data.setdefault("part", "title_body")
+        return data
 
     @field_validator("name")
     @classmethod
@@ -76,15 +99,20 @@ class InputSpec(_Strict):
         return value
 
     @model_validator(mode="after")
-    def _default(self) -> InputSpec:
+    def _by_source(self) -> InputSpec:
+        if self.source == "artifact":
+            # an artifact input is fixed by the definition: what the node could ask is normalised away
+            self.type = None
+            self.part = self.part or "title_body"
+            self.required = False
+            self.default = None
+            return self
+        self.part = None
+        self.type = self.type or "string"
         value = self.default
         if value is None or value == "":
             self.default = None
             return self
-        if self.type == "artifact":
-            raise ValueError(
-                f"input '{self.name}' is the artifact the run belongs to, so it has no default text"
-            )
         if self.required:
             raise ValueError(f"input '{self.name}' is required, so it cannot have a default")
         ok = (
@@ -298,7 +326,8 @@ class PreviewRequest(_Strict):
 class InputState(BaseModel):
     """How one input got its value. ``state``: ``mapped`` (from the node's mapping), ``sample`` (an
     example value of a preview), ``default``, ``unset`` (optional, no value: empty text), ``pending``
-    (a preview cannot know it: the mapping reads the run) or ``error``."""
+    (a preview cannot know it: the mapping reads the run), ``artifact`` (an input of the artifact, fixed by the agent),
+    ``stale`` (a mapping line of the node for an input that now comes from the artifact: ignored) or ``error``."""
 
     name: str
     type: str
@@ -307,6 +336,9 @@ class InputState(BaseModel):
     source: str | None = None
     value: str | None = None
     error: str | None = None
+    #: ``value`` or ``artifact`` (ADR-064), and for an artifact input which part of the artifact.
+    origin: str = "value"
+    part: str | None = None
 
 
 class SettingState(BaseModel):

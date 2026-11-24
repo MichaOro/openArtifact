@@ -175,7 +175,6 @@ POST /api/lanes -> LaneRead[]
 POST /api/pipelines -> GraphRead
 POST /api/pipelines/{graph_id}/edges -> EdgeRead
 POST /api/pipelines/{graph_id}/nodes -> NodeRead
-POST /api/previews/references -> ReferencePreviewRead
 POST /api/providers -> ProviderRead
 POST /api/providers/test -> CheckResult
 POST /api/providers/{ref}/models -> ProviderRead
@@ -200,7 +199,6 @@ POST /api/v1/guard-attachments -> AttachmentRead
 POST /api/v1/guards -> GuardDefinitionRead
 POST /api/v1/guards/from-template -> GuardDefinitionRead
 POST /api/v1/lanes -> LaneRead[]
-POST /api/v1/previews/references -> ReferencePreviewRead
 POST /api/v1/providers -> ProviderRead
 POST /api/v1/providers/test -> CheckResult
 POST /api/v1/providers/{ref}/models -> ProviderRead

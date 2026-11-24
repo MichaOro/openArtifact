@@ -456,7 +456,10 @@ class AgentService:
         user = str(value["user_prompt"] or "")
         system = str(value["system_prompt"] or "")
         problems += unused_inputs(
-            mapping, [user, system if value["system_prompt_enabled"] else ""], declared
+            mapping,
+            [user, system if value["system_prompt_enabled"] else ""],
+            declared,
+            _artifact_names(config),
         )
         if not user.strip():
             problems.append("The user prompt is empty")
@@ -477,6 +480,35 @@ class AgentService:
             model=model,
             problems=list(dict.fromkeys(problems + found)),
         )
+
+
+async def artifact_inputs_mapped(session: AsyncSession, agent_id: str, text: str) -> list[str]:
+    """The inputs of the agent's published version (its draft when nothing is published) that come from the artifact
+    and that the mapping ``text`` of a node maps anyway: a node cannot override them (ADR-064)."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        return []
+    if agent.published_number is None:
+        config = AgentConfig.loads(agent.draft)
+    else:
+        config = AgentConfig.loads(
+            await session.scalar(
+                select(AgentVersion.config).where(
+                    AgentVersion.agent_id == agent.id,
+                    AgentVersion.number == agent.published_number,
+                )
+            )
+        )
+    try:
+        mapped = parse_mapping(text)
+    except MappingError:
+        return []
+    return [n for n in _artifact_names(config.effective()) if mapped.get(n, "").strip()]
+
+
+def _artifact_names(config: AgentConfig) -> list[str]:
+    """The inputs of the agent that come from the artifact (fixed by the definition, ADR-064)."""
+    return [i.name for i in config.inputs if i.source == "artifact"]
 
 
 async def node_hints(session: AsyncSession, node: GraphNode) -> list[str]:
@@ -517,6 +549,7 @@ async def node_hints(session: AsyncSession, node: GraphNode) -> list[str]:
         mapping,
         [str(own[k] if own[k] is not None else data[k] or "") for k in own],
         declared,
+        _artifact_names(published),
     )
     hints += pick_provider(data, config, await load_providers(session))[2]
     return list(dict.fromkeys(hints))

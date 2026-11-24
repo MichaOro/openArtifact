@@ -329,6 +329,7 @@ async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = No
             run_view,
             values.get(name) if name else None,
             open_tools=lambda: agent_tools.open_toolbox(tools, context),
+            comments=limits.comments,
         )
 
     return await _with_secrets(list(dict.fromkeys(names)), limits, run)

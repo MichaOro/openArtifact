@@ -194,39 +194,6 @@ def card_text(card: Mapping[str, Any]) -> str:
     return f"{head}\n\n{body}" if isinstance(body, str) and body.strip() else head
 
 
-PREVIEW_LIMIT = 2000
-
-
-def preview_references(text: str, card: Mapping[str, Any]) -> tuple[str, list[str]]:
-    """``text`` as an editor shows it before a run (ADR-064): ``${card...}`` resolved against ``card``, a node or a
-    variable as a readable placeholder in single angle quotes (output of Fetch), a secret never. Returns the text and the
-    references that could not be resolved. One pass: a value that holds ``${...}`` is not scanned again."""
-    unresolved: list[str] = []
-    context = RunContext({"card": dict(card)})
-
-    def put(match: re.Match[str]) -> str:
-        if match[1] is not None:
-            return "\u2039secret\u203a"
-        try:
-            ref = parse(match[2])
-        except ContextError:
-            unresolved.append(match[2][:60])
-            return "\u2039malformed reference\u203a"
-        if ref.kind == "card":
-            try:
-                found = resolve(ref, context, NodeIndex())
-                return "" if found is None else _render(found)
-            except ContextError:
-                unresolved.append(f"card.{ref.name}")
-                return f"\u2039no field {ref.name}\u203a"
-        if ref.kind == "var":
-            return f"\u2039variable {ref.name}\u203a"
-        path = ".".join((ref.field, *ref.path))
-        return f"\u2039{path} of {ref.name}\u203a"
-
-    return _ANY.sub(put, text), unresolved
-
-
 def check_card(card: Mapping[str, Any]) -> None:
     """:class:`ContextError` when the card is too large for a run to hold; nothing is ever cut silently."""
     size = _size(dict(card))

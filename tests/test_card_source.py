@@ -5,6 +5,7 @@ mapping)."""
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from collections.abc import Callable, Generator, Iterator
 from pathlib import Path
@@ -166,40 +167,94 @@ def test_a_string_input_mapped_to_the_title_the_body_and_a_custom_field_reaches_
     assert _asked(llm) == f"T={EPIC}|B={BODY}|F=custom value"
 
 
-# ── (b) the artifact input ───────────────────────────────────────────
+# ── (b) the artifact input: a source with a part, fixed by the definition ────────────────────────
 
 
-def test_an_artifact_input_pre_filled_with_the_card_text_shows_number_title_and_body_to_the_model(
+def test_an_artifact_input_of_the_part_title_and_body_shows_number_title_and_body_to_the_model(
     api: TestClient, llm: FakeLlm
 ) -> None:
     task = _task(api)
     agent = make_agent(
         api,
         user_prompt="Epic:\n${input.epic}",
-        inputs=[{"name": "epic", "type": "artifact", "required": True}],
+        inputs=[{"name": "epic", "source": "artifact", "part": "title_body"}],
     )
-    run = _run(api, _flow(api, agent, "epic = ${card.text}"), task)
-    asked = _asked(llm)
-    assert asked == f"Epic:\n#{task['number']} {EPIC}\n\n{BODY}"
+    run = _run(api, _flow(api, agent, ""), task)  # the node maps nothing: the definition fixes it
+    assert _asked(llm) == f"Epic:\n#{task['number']} {EPIC}\n\n{BODY}"
     detail = _step(api, run)["detail"]
-    assert [(i["name"], i["type"], i["state"]) for i in detail["inputs"]] == [
-        ("epic", "artifact", "mapped")
+    assert [(i["name"], i["origin"], i["part"], i["state"]) for i in detail["inputs"]] == [
+        ("epic", "artifact", "title_body", "artifact")
     ]
 
 
-def test_the_artifact_type_is_a_type_of_the_agent_api(api: TestClient) -> None:
+def test_the_input_shape_is_normalised_and_an_old_artifact_type_is_read_as_the_source(
+    api: TestClient,
+) -> None:
     agent = make_agent(
         api,
-        user_prompt="${input.epic}",
-        inputs=[{"name": "epic", "type": "artifact"}],
+        user_prompt="${input.epic} ${input.word}",
+        inputs=[
+            {"name": "epic", "type": "artifact"},  # the shape before the sources
+            {"name": "word"},  # no source: a value
+        ],
         publish=False,
     )
-    assert api.get(f"/api/agents/{agent['id']}").json()["draft"]["inputs"][0]["type"] == "artifact"
-    bad = api.put(
-        f"/api/agents/{agent['id']}/draft",
-        json={"user_prompt": "x", "inputs": [{"name": "epic", "type": "artifact", "default": "x"}]},
+    inputs = api.get(f"/api/agents/{agent['id']}").json()["draft"]["inputs"]
+    assert (inputs[0]["source"], inputs[0]["part"], inputs[0]["type"]) == (
+        "artifact",
+        "title_body",
+        None,
     )
-    assert bad.status_code == 422  # an artifact input is the card: it has no default text
+    assert (inputs[1]["source"], inputs[1]["type"], inputs[1]["part"]) == ("value", "string", None)
+    odd = api.put(
+        f"/api/agents/{agent['id']}/draft",
+        json={
+            "user_prompt": "${input.epic}",
+            "inputs": [
+                {
+                    "name": "epic",
+                    "source": "artifact",
+                    "part": "body",
+                    "required": True,
+                    "default": "x",
+                }
+            ],
+        },
+    )
+    assert odd.status_code == 200, (
+        odd.text
+    )  # required and default make no sense here: normalised away
+    kept = odd.json()["draft"]["inputs"][0]
+    assert (kept["part"], kept["required"], kept["default"]) == ("body", False, None)
+    refused = api.put(
+        f"/api/agents/{agent['id']}/draft",
+        json={
+            "user_prompt": "x",
+            "inputs": [{"name": "epic", "source": "artifact", "part": "nope"}],
+        },
+    )
+    assert refused.status_code == 422
+
+
+def test_a_node_cannot_map_an_input_that_comes_from_the_artifact(api: TestClient) -> None:
+    agent = make_agent(
+        api,
+        user_prompt="${input.epic} ${input.word}",
+        inputs=[{"name": "epic", "source": "artifact", "part": "body"}, {"name": "word"}],
+    )
+    action = _post(api, "/api/actions", name="Answer")
+    ask = _node(api, action, "agent", name="Ask", config={"agent_id": agent["id"]})
+    refused = api.patch(
+        f"{_url(action)}/nodes/{ask['id']}", json={"config": {"inputs": "epic = ${card.title}"}}
+    )
+    assert refused.status_code == 422
+    assert refused.json()["detail"] == (
+        "input 'epic' comes from the artifact and cannot be mapped in the action"
+    )
+    fine = api.patch(
+        f"{_url(action)}/nodes/{ask['id']}", json={"config": {"inputs": "word = ${card.title}"}}
+    )
+    assert fine.status_code == 200, fine.text
 
 
 # ── (c) other sources in the mapping ─────────────────────────────────
@@ -352,13 +407,13 @@ def test_the_mapping_works_when_the_action_runs_in_a_stage_of_a_pipeline_started
     task = _task(api)
     agent = make_agent(
         api,
-        user_prompt="${input.epic}",
-        inputs=[{"name": "epic", "type": "artifact", "required": True}],
+        user_prompt="${input.epic} / ${input.who}",
+        inputs=[{"name": "epic", "source": "artifact", "part": "title_body"}, {"name": "who"}],
     )
     run = _run(
-        api, _flow(api, agent, "epic = ${card.text}"), task
+        api, _flow(api, agent, "who = ${card.title}"), task
     )  # always started from the card, in a stage
-    assert _asked(llm) == f"#{task['number']} {EPIC}\n\n{BODY}"
+    assert _asked(llm) == f"#{task['number']} {EPIC}\n\n{BODY} / {EPIC}"
     asked_step = next(r for r in run["node_results"] if r["node_name"] == "Ask")
     assert (
         asked_step["stage_id"] and asked_step["action_id"]
@@ -415,46 +470,13 @@ def test_the_migration_renames_a_clashing_field_its_values_and_the_references_to
         ]
 
 
-# ── the resolved preview ─────────────────────────────────────────────
+# ── the resolved preview is gone ─────────────────────────────────────
 
 
-def test_the_preview_resolves_the_card_and_leaves_nodes_variables_and_secrets_as_placeholders(
-    api: TestClient,
-) -> None:
-    task = _task(api)
-    text = "A=${card.title} B=${card.number} C=${(Fetch).output} D=${var.x} E=${secret:TOKEN} F=${card.nope}"
-    response = api.post(
-        "/api/previews/references", json={"text": text, "card": str(task["number"])}
-    )
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert body["resolved"] == (
-        f"A={EPIC} B={task['number']} C=\u2039output of Fetch\u203a D=\u2039variable x\u203a E=\u2039secret\u203a F=\u2039no field nope\u203a"
-    )
-    assert body["unresolved"] == ["card.nope"] and body["truncated"] is False
-
-
-def test_the_preview_never_shows_a_secret_and_caps_a_long_result(api: TestClient) -> None:
-    task = _task(api, body="y" * 5000)
-    body = api.post(
-        "/api/previews/references",
-        json={"text": "${card.body} ${secret:TOKEN}", "card": task["id"]},
-    ).json()
-    assert body["truncated"] is True and len(body["resolved"]) <= 2001
-    assert "TOKEN" not in body["resolved"]
-
-
-def test_the_preview_of_an_unknown_card_is_not_found_and_needs_the_token(
-    api: TestClient, migrated_settings: Settings
-) -> None:
-    assert (
-        api.post("/api/previews/references", json={"text": "x", "card": "99999"}).status_code == 404
-    )
-    with TestClient(_create_app(migrated_settings.model_copy(update=SECURE))) as anonymous:
-        assert (
-            anonymous.post("/api/previews/references", json={"text": "x", "card": "1"}).status_code
-            == 401
-        )
+def test_there_is_no_reference_preview_endpoint_any_more(api: TestClient) -> None:
+    """The owner dropped the "Preview with card" and the resolved preview under fields (ADR-064 revised)."""
+    for path in ("/api/previews/references", "/api/v1/previews/references"):
+        assert api.post(path, json={"text": "x", "card": "1"}).status_code in (404, 405)
 
 
 # ── the messages ─────────────────────────────────────────────────────
@@ -734,21 +756,21 @@ def test_an_artifact_input_that_no_prompt_uses_is_not_sent_and_the_dialog_says_s
     agent = make_agent(
         api,
         user_prompt="Say hello",
-        inputs=[{"name": "epic", "type": "artifact", "required": False}],
+        inputs=[{"name": "epic", "source": "artifact", "part": "title_body"}],
     )
-    pipeline = _flow(api, agent, "epic = ${card.text}")
+    pipeline = _flow(api, agent, "")
     _run(api, pipeline, _task(api))
     request = json.dumps(llm.completions()[-1]["json"])
     assert EPIC not in request and "Line one" not in request
     action = next(a for a in api.get("/api/actions").json() if a["name"] == "Answer")
     ask = next(n for n in api.get(_url(action)).json()["nodes"] if n["name"] == "Ask")
-    calm = "Input epic is mapped but no prompt uses it: the agent does not receive it"
+    calm = "Input epic comes from the artifact but no prompt uses it: the agent does not receive it"
     preview = api.post(
         f"/api/agents/{agent['id']}/preview", json={"source": "published", "node_id": ask["id"]}
     ).json()
     assert calm in preview["problems"]
     saved = api.patch(
-        f"{_url(action)}/nodes/{ask['id']}", json={"config": {"inputs": "epic = ${card.text}"}}
+        f"{_url(action)}/nodes/{ask['id']}", json={"config": {"user_prompt": "Say hello"}}
     ).json()
     assert calm in saved["warnings"]
     # used by a prompt of the node itself: no warning
@@ -756,3 +778,237 @@ def test_an_artifact_input_that_no_prompt_uses_is_not_sent_and_the_dialog_says_s
         f"{_url(action)}/nodes/{ask['id']}", json={"config": {"user_prompt": "Read ${input.epic}"}}
     ).json()
     assert calm not in used["warnings"]
+
+
+# ── every part of the artifact, as the model receives it ─────────────────────────────────────────
+
+
+def _parts_agent(api: TestClient, prompt: str, *inputs: tuple[str, str]) -> dict[str, Any]:
+    return make_agent(
+        api,
+        user_prompt=prompt,
+        inputs=[{"name": name, "source": "artifact", "part": part} for name, part in inputs],
+    )
+
+
+@pytest.mark.parametrize(
+    ("part", "expected"),
+    [
+        ("title", EPIC),
+        ("body", BODY),
+        ("title_body", "#{n} " + EPIC + "\n\n" + BODY),
+        ("number", "{n}"),
+    ],
+)
+def test_every_part_of_the_card_reaches_the_model_as_the_definition_says(
+    api: TestClient, llm: FakeLlm, part: str, expected: str
+) -> None:
+    task = _task(api)
+    agent = _parts_agent(api, "[${input.x}]", ("x", part))
+    _run(api, _flow(api, agent, ""), task)
+    assert _asked(llm) == "[" + expected.replace("{n}", str(task["number"])) + "]"
+
+
+def test_the_comments_part_delivers_every_comment_oldest_first_with_its_author(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    task = _task(api)
+    for text in ("first answer", "second\nanswer", "third answer"):
+        assert api.post(f"/api/tasks/{task['id']}/comments", json={"body": text}).status_code == 201
+    agent = _parts_agent(api, "Use the last two:\n${input.talk}", ("talk", "comments"))
+    run = _run(api, _flow(api, agent, ""), task)
+    asked = _asked(llm)
+    blocks = asked.removeprefix("Use the last two:\n").split("\n\n")
+    pattern = re.compile(r"^.+ \(\w+\), \d{4}-\d\d-\d\d \d\d:\d\d: ")
+    assert len(blocks) == 3 and all(pattern.match(b) for b in blocks)
+    assert [b.split(": ", 1)[1] for b in blocks] == [
+        "first answer",
+        "second\nanswer",
+        "third answer",
+    ]
+    assert [i["state"] for i in _step(api, run)["detail"]["inputs"]] == ["artifact"]
+
+
+def test_comments_beyond_the_limit_of_one_input_fail_the_run_naming_the_input(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    task = _task(api)
+    for _ in range(3):
+        assert (
+            api.post(f"/api/tasks/{task['id']}/comments", json={"body": "x" * 30000}).status_code
+            == 201
+        )
+    agent = _parts_agent(api, "${input.talk}", ("talk", "comments"))
+    run = _run(api, _flow(api, agent, ""), task, status="failed")
+    reason = str(_step(api, run)["reason"])
+    assert "input 'talk'" in reason and "limit for one input is 64 KiB" in reason
+    assert not llm.completions()  # the model was not asked, nothing was cut
+
+
+def test_two_inputs_of_the_artifact_in_one_prompt_appear_once_each(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    task = _task(api)
+    agent = _parts_agent(api, "T=${input.t}|B=${input.b}", ("t", "title"), ("b", "body"))
+    _run(api, _flow(api, agent, ""), task)
+    asked = _asked(llm)
+    assert asked == f"T={EPIC}|B={BODY}" and asked.count(EPIC) == 1
+
+
+def test_an_artifact_input_without_an_artifact_fails_the_node_clearly() -> None:
+    import asyncio
+
+    from openartifact.agents.artifact_inputs import (
+        NO_ARTIFACT,
+        ArtifactInputError,
+        artifact_values,
+    )
+    from openartifact.engine.context import RunView
+
+    specs = [{"name": "epic", "source": "artifact", "part": "title_body"}]
+    with pytest.raises(
+        ArtifactInputError, match="needs an artifact, but the run has none"
+    ) as caught:
+        asyncio.run(artifact_values(specs, RunView(), None))
+    assert str(caught.value) == NO_ARTIFACT == "this agent needs an artifact, but the run has none"
+
+
+def test_a_stale_mapping_line_of_an_input_that_now_comes_from_the_artifact_is_ignored(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    task = _task(api)
+    agent = make_agent(api, user_prompt="${input.epic}", inputs=[{"name": "epic"}])
+    pipeline = _flow(api, agent, "epic = something typed once")
+    config = {
+        "user_prompt": "${input.epic}",
+        "inputs": [{"name": "epic", "source": "artifact", "part": "title"}],
+    }
+    assert api.put(f"/api/agents/{agent['id']}/draft", json=config).status_code == 200
+    assert api.post(f"/api/agents/{agent['id']}/publish").status_code == 200
+    run = _run(api, pipeline, task)
+    assert _asked(llm) == EPIC  # the definition wins over the line left in the node
+    states = [(i["name"], i["state"]) for i in _step(api, run)["detail"]["inputs"]]
+    assert states == [
+        ("epic", "artifact"),
+        ("epic", "stale"),
+    ]  # the line is shown as stale, never used
+
+
+def test_the_quick_test_of_the_editor_shows_general_examples_for_the_parts(api: TestClient) -> None:
+    agent = make_agent(
+        api,
+        user_prompt="${input.t} | ${input.b} | ${input.tb} | ${input.n} | ${input.c}",
+        inputs=[
+            {"name": "t", "source": "artifact", "part": "title"},
+            {"name": "b", "source": "artifact", "part": "body"},
+            {"name": "tb", "source": "artifact", "part": "title_body"},
+            {"name": "n", "source": "artifact", "part": "number"},
+            {"name": "c", "source": "artifact", "part": "comments"},
+        ],
+        publish=False,
+    )
+    shown = api.post(f"/api/agents/{agent['id']}/preview", json={"source": "draft"}).json()
+    prompt = shown["user_prompt"]
+    assert "Example artifact | This is the body of the example artifact. |" in prompt
+    assert "#1 Example artifact\n\nThis is the body of the example artifact." in prompt
+    assert "You (user), 2026-01-01 09:00: First comment" in prompt
+    assert "Alice (user), 2026-01-01 09:05: Second comment" in prompt
+    assert {i["state"] for i in shown["inputs"]} == {"sample"}
+
+
+# ── the migration: the sources of the inputs ─────────────────────────────────────────────────────
+
+
+def test_the_migration_writes_the_sources_and_takes_the_lines_of_artifact_inputs_out_of_the_nodes(
+    unmigrated_settings: Settings, at_revision: Callable[[str], Path]
+) -> None:
+    path = at_revision("0051")
+    old = {
+        "user_prompt": "${input.text} ${input.word}",
+        "inputs": [
+            {
+                "name": "text",
+                "type": "artifact",
+                "required": False,
+                "default": None,
+                "description": "",
+            },
+            {
+                "name": "word",
+                "type": "string",
+                "required": True,
+                "default": None,
+                "description": "",
+            },
+            {"name": "n", "type": "number", "required": False, "default": 3, "description": ""},
+        ],
+    }
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "INSERT INTO agents (id, name, description, active, draft, published_number, version_seq, "
+            "created_at, updated_at) VALUES ('a1', 'Sum', '', 1, ?, 2, 2, '2026-01-01', '2026-01-01')",
+            (json.dumps(old),),
+        )
+        for number in (1, 2):
+            db.execute(
+                "INSERT INTO agent_versions (id, agent_id, number, config, published_via, published_at) "
+                "VALUES (?, 'a1', ?, ?, 'publish', '2026-01-01')",
+                (f"v{number}", number, json.dumps(old)),
+            )
+        db.execute(
+            "INSERT INTO graphs (id, name, status, created_at, updated_at, kind, slug) "
+            "VALUES ('g1', 'Act', 'draft', '2026-01-01', '2026-01-01', 'action', 'act')"
+        )
+        configs = {
+            "n1": {"agent_id": "a1", "inputs": "text = ${card.text}\nword = ${card.title}"},
+            "n2": {"agent_id": "a1", "inputs": "text = ${card.text}"},
+            "n3": {"agent_id": "a1", "inputs": "input.word = x\nn = 4"},
+            "n4": {"agent_id": "gone", "inputs": "text = kept"},
+        }
+        for node_id, config in configs.items():
+            db.execute(
+                "INSERT INTO graph_nodes (id, graph_id, kind, name, x, y, created_at, updated_at, "
+                "fail_enabled, config) VALUES (?, 'g1', 'agent', ?, 0, 0, '2026-01-01', '2026-01-01', 0, ?)",
+                (node_id, node_id, json.dumps(config)),
+            )
+    cfg = alembic_config()
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(path) as db:
+        draft = json.loads(db.execute("SELECT draft FROM agents WHERE id='a1'").fetchone()[0])
+        versions = [
+            json.loads(r[0])
+            for r in db.execute("SELECT config FROM agent_versions ORDER BY number")
+        ]
+        nodes = {r[0]: json.loads(r[1]) for r in db.execute("SELECT id, config FROM graph_nodes")}
+    for config in (draft, *versions):
+        by_name = {i["name"]: i for i in config["inputs"]}
+        assert (by_name["text"]["source"], by_name["text"]["part"], by_name["text"]["type"]) == (
+            "artifact",
+            "title_body",
+            None,
+        )
+        assert (
+            by_name["word"]["source"],
+            by_name["word"]["type"],
+            by_name["word"]["required"],
+        ) == (
+            "value",
+            "string",
+            True,
+        )
+        assert by_name["n"]["default"] == 3 and by_name["n"]["source"] == "value"
+    assert (
+        nodes["n1"]["inputs"] == "word = ${card.title}"
+    )  # the artifact line is gone, the rest stays
+    assert "inputs" not in nodes["n2"]  # nothing left: the key goes
+    assert nodes["n3"]["inputs"] == "input.word = x\nn = 4"
+    assert nodes["n4"]["inputs"] == "text = kept"  # an agent that does not exist: untouched
+    command.downgrade(cfg, "0051")
+    with sqlite3.connect(path) as db:
+        back = json.loads(db.execute("SELECT draft FROM agents WHERE id='a1'").fetchone()[0])
+    assert {i["name"]: i["type"] for i in back["inputs"]} == {
+        "text": "artifact",
+        "word": "string",
+        "n": "number",
+    }
+    assert all("source" not in i for i in back["inputs"])
