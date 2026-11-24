@@ -7,6 +7,13 @@ import { t } from "../i18n.js";
 
 const TICK_MS = 1000;
 
+/** Put a row of the timeline in its place: newest (latest `time`, in ms) first, executions and activity entries in one list. */
+export function placeByTime(root, row, time) {
+  row.dataset.time = String(time);
+  const next = [...root.children].find((other) => other !== row && Number(other.dataset.time) < time);
+  if (next !== row.nextElementSibling || row.parentElement !== root) root.insertBefore(row, next ?? null);
+}
+
 /** A <time> element showing the local time of a UTC timestamp, with the ISO value as title and datetime. */
 export function fillTime(element, iso) {
   element.textContent = formatTime(iso);

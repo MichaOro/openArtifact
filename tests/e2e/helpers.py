@@ -212,7 +212,18 @@ class Dialog:
 
     @property
     def rows(self) -> Locator:
-        return self.history.locator(".history-row")
+        """The rows of executions that still exist (open them, delete them); a deleted one is in ``traces``."""
+        return self.history.locator(".history-row:not(.history-row--trace)")
+
+    @property
+    def traces(self) -> Locator:
+        """The quiet lines of executions that were deleted."""
+        return self.history.locator(".history-row--trace")
+
+    @property
+    def events(self) -> Locator:
+        """The changes of the artifact (lane, title, ...), newest first."""
+        return self.history.locator(".history-event")
 
     def row(self, number: int) -> Locator:
         return self.rows.filter(has=self.page.locator("[data-row-number]", has_text=f"#{number}"))

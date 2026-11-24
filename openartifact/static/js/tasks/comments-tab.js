@@ -41,7 +41,7 @@ export class CommentsTab {
     this.input = root.querySelector("[data-comments-input]");
     this.send = root.querySelector("[data-comments-send]");
     this.error = root.querySelector("[data-comments-error]");
-    this.scroller = root.querySelector("[data-comments-scroll]");
+    this.scroller = root; // the panel is the one thing that scrolls: the list and the box to write in move together
     this.template = document.getElementById("comment-template");
 
     this.form.addEventListener("submit", (event) => {

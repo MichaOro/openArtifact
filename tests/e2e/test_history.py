@@ -3,6 +3,7 @@ the retention rules (no per-artifact editor), live updates."""
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import httpx
@@ -33,7 +34,9 @@ def test_a_saved_artifact_has_aria_tabs_and_create_mode_has_none(board: Board) -
     board.create("Item")
     dialog = board.open().open_card("Item")
     expect(dialog.root.locator("[role=tablist]")).to_be_visible()
-    expect(dialog.tabs).to_have_text(["Details", "Comments", "History"])
+    expect(dialog.tabs).to_have_text(
+        ["Details", "Comments", re.compile(r"^History\d*$")]
+    )  # the count of entries is on the tab
     expect(dialog.tab("details")).to_have_attribute("aria-selected", "true")
     expect(dialog.tab("history")).to_have_attribute("tabindex", "-1")
     expect(dialog.root.locator("#artifact-panel-details")).to_be_visible()
@@ -116,19 +119,25 @@ def test_the_list_shows_the_execution_and_a_restart_adds_number_two(
     expect(row.locator("[data-row-pipeline]")).to_have_text("Echo flow")
     expect(row.locator("[data-row-meta]")).to_contain_text("User")
     expect(row.locator("time")).to_have_attribute("title", executions(api, task)[0]["started_at"])
-    expect(dialog.root.locator("[data-history-count]")).to_have_text("1")
+    expect(dialog.root.locator("[data-history-count]")).to_have_text(
+        "2"
+    )  # "created" and the execution
     start(api, task, pipeline)  # the restart, while the tab is open
     expect(dialog.rows).to_have_count(2)
     expect(dialog.rows.locator("[data-row-number]")).to_have_text(["#2", "#1"])
     expect(dialog.row(2).locator(".history-chip")).to_have_text("Done")
-    expect(dialog.root.locator("[data-history-count]")).to_have_text("2")
+    expect(dialog.root.locator("[data-history-count]")).to_have_text("3")
 
 
 def test_an_artifact_without_executions_says_so(board: Board) -> None:
     board.create("Item")
     dialog = _open(board)
+    expect(dialog.rows).to_have_count(0)
+    expect(dialog.events).to_have_count(1)  # what is known: it was created
+    expect(dialog.root.locator("[data-history-count]")).to_have_text("1")
+    dialog.history.get_by_role("button", name="Executions", exact=True).click()
     expect(dialog.history.locator("[data-history-empty]")).to_contain_text("No executions yet")
-    expect(dialog.root.locator("[data-history-count]")).to_be_hidden()
+    expect(dialog.events.first).to_be_hidden()  # the filter hides the change
 
 
 def test_the_origin_is_a_label_and_an_unknown_one_is_shown_as_it_is(
@@ -261,8 +270,9 @@ def test_clear_finished_deletes_after_confirmation_and_keeps_a_running_one(
     dialog.history.locator("[data-history-clear]").click()
     expect(confirm).to_contain_text("Delete all finished executions of this artifact?")
     confirm.locator("[data-confirm]").click()
-    expect(dialog.rows).to_have_count(0)
-    expect(dialog.history.locator("[data-history-empty]")).to_be_visible()
+    expect(dialog.rows).to_have_count(0)  # no execution is left ...
+    expect(dialog.traces).to_have_count(2)  # ... and each one left its trace (ADR-058)
+    expect(dialog.traces.first.locator("[data-row-meta]")).to_contain_text("deleted")
     assert executions(api, task) == []
 
 

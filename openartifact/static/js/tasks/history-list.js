@@ -2,7 +2,7 @@
  * created, change status or are deleted. Rows are built from <template id="history-row-template">
  * with textContent only. What a click does is up to the caller (onOpen, onDelete). */
 import { originLabel, plural, setChip } from "./history-format.js";
-import { fillDeleteButton, fillDuration, fillOrigin, fillTime, RunningClock } from "./history-row.js";
+import { fillDeleteButton, fillDuration, fillOrigin, fillTime, placeByTime, RunningClock } from "./history-row.js";
 
 export class HistoryList {
   /**
@@ -75,8 +75,12 @@ export class HistoryList {
   /** The id of the row after (else before) this one, so focus can move on when it is deleted. */
   neighbour(id) {
     const row = this.entries.get(id)?.row;
-    const near = row?.nextElementSibling ?? row?.previousElementSibling;
-    return near ? [...this.entries].find(([, entry]) => entry.row === near)?.[0] : null;
+    const idOf = new Map([...this.entries].map(([key, entry]) => [entry.row, key]));
+    // the rows of changes and traces sit in the same list: only an execution row can take the focus
+    for (const step of ["nextElementSibling", "previousElementSibling"]) {
+      for (let el = row?.[step]; el; el = el[step]) if (idOf.has(el)) return idOf.get(el);
+    }
+    return null;
   }
 
   /** Focus a row's open button; the list itself when there is no such row. */
@@ -108,11 +112,11 @@ export class HistoryList {
     fillDuration(row.querySelector("[data-row-duration]"), execution);
   }
 
-  /** Newest (highest number) first. */
+  /** Newest first, among the activity entries of the timeline too (they share this list, see activity-rows.js). */
   #place({ execution, row }) {
     row.dataset.number = String(execution.number);
-    const next = [...this.root.children].find((other) => other !== row && Number(other.dataset.number) < execution.number);
-    if (next !== row.nextElementSibling || row.parentElement !== this.root) this.root.insertBefore(row, next ?? null);
+    row.dataset.group = "run";
+    placeByTime(this.root, row, new Date(execution.started_at).getTime());
   }
 
   #tickWhileRunning() {

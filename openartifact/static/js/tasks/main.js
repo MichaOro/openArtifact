@@ -375,7 +375,7 @@ connectEvents({
   },
   onEvent: (type, data) => {
     if (type === "run.updated") processing.upsert(data);
-    else if (type.startsWith("execution.")) history.handleEvent(type, data);
+    else if (type.startsWith("execution.") || type === "activity.created") history.handleEvent(type, data);
     else if (type.startsWith("comment.")) comments.handleEvent(type, data);
     else if (type === "task.deleted") {
       board.remove(data.id);

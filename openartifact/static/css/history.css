@@ -173,3 +173,41 @@
   .history-facts dd { margin-bottom: var(--space-2); }
 }
 
+
+/* ── Timeline: changes, filter and the trace of a deleted execution (ADR-058) ───────────────── */
+.history__filter { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.history__filter-button {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.75rem;
+  cursor: pointer;
+}
+.history__filter-button:hover { border-color: var(--glass-border-hover); }
+.history__filter-button[aria-pressed="true"] { background: var(--accent-soft); border-color: transparent; color: var(--color-text-primary); font-weight: 600; }
+.history__filter-button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.history__older { align-self: flex-start; }
+.history-list > li[hidden] { display: none; }
+.history-event {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+}
+.history-event .avatar { width: 1.5rem; height: 1.5rem; }
+.history-event__text { margin: 0; font-size: 0.875rem; overflow-wrap: anywhere; }
+.history-event__actor { font-weight: 600; }
+.history-event__time { font-size: 0.75rem; color: var(--color-text-secondary); white-space: nowrap; }
+/* a deleted execution: the facts stay, nothing can be opened or deleted any more */
+.history-row--trace { grid-template-columns: minmax(0, 1fr); border-style: dashed; background: transparent; }
+.history-row--trace:hover { border-color: var(--glass-border); }
+.history-row--trace .history-row__open { cursor: default; color: var(--color-text-secondary); }
+@media (max-width: 640px) {
+  .history-event { grid-template-columns: auto minmax(0, 1fr); }
+  .history-event__time { grid-column: 2; }
+}

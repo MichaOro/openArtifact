@@ -266,6 +266,19 @@ def test_static_assets_are_revalidated_not_heuristically_cached(client: TestClie
     assert again.status_code == 304
 
 
+@pytest.mark.parametrize("page", ["/", "/pipelines", "/actions", "/executions", "/login"])
+def test_pages_are_revalidated_so_a_new_build_is_never_shown_as_the_old_one(
+    client: TestClient, page: str
+) -> None:
+    """A page (HTML) carries the markup, language and dictionary of its build: it must not be reused from the cache."""
+    response = client.get(page)
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert response.headers["cache-control"] == "no-cache"
+    # an API answer is not a page: it keeps whatever the endpoint says (nothing)
+    assert "cache-control" not in client.get("/api/tasks").headers
+
+
 def test_task_modal_supports_create_and_edit_modes(client: TestClient) -> None:
     """The same dialog is reused for editing: its title and submit label are switchable."""
     html = client.get("/").text

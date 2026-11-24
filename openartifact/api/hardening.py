@@ -194,6 +194,14 @@ class SecurityHeaders:
                 ]
                 if https:
                     headers.append((b"strict-transport-security", b"max-age=31536000"))
+                # A page is built from the templates, the language and the dictionary of this very build: a browser must
+                # ask again instead of showing the page of the build before (static files do the same, web/static.py).
+                kinds = {k.lower(): v for k, v in headers}
+                if (
+                    kinds.get(b"content-type", b"").startswith(b"text/html")
+                    and b"cache-control" not in kinds
+                ):
+                    headers.append((b"cache-control", b"no-cache"))
                 message = {**message, "headers": headers}
             await send(message)
 

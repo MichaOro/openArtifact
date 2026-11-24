@@ -1,10 +1,14 @@
-/* The History tab of the artifact dialog: the executions of the shown artifact. Orchestrates the
- * list (HistoryList) and one execution (HistoryDetail); owns
- * what they share: the loaded data, the live events and the confirmation of deletes.
+/* The History tab of the artifact dialog: one timeline of what happened to the shown artifact: its executions (live
+ * rows you can open and delete) and the changes made to it, with the quiet trace an execution leaves when it is
+ * deleted (ADR-058). Orchestrates the rows (HistoryList for executions, ActivityRows for the rest) and one execution
+ * (HistoryDetail); owns what they share: the loaded data, the filter, the live events and the confirmation of deletes.
  *
- * The tab follows the artifact the dialog shows (show / hide) and is kept current by the page's one
- * event stream: execution.updated and execution.deleted reach it through handleEvent(). */
+ * The tab follows the artifact the dialog shows (show / hide) and is kept current by the page's one event stream:
+ * execution.updated, execution.deleted and activity.created reach it through handleEvent(). */
 import { AlertBar } from "../components/alert-bar.js";
+import { listActivity } from "./activity-api.js";
+import { ActivityRows } from "./activity-rows.js";
+import { filterTimeline, mergeTimeline, withEntry } from "./activity-model.js";
 import { clearExecutions, deleteExecution, getExecution, listExecutions } from "./history-api.js";
 import { HistoryDetail } from "./history-detail.js";
 import { plural } from "./history-format.js";
@@ -31,6 +35,9 @@ export class HistoryTab {
     this.refetchTimer = null;
     this.deleted = new Set(); // ids deleted here: a late status event must not bring them back
     this.notice = "";
+    this.activity = []; // the activity entries loaded, newest first
+    this.next = null; // the cursor of the next, older page of them
+    this.filter = "all";
 
     this.alert = new AlertBar(root.querySelector("[data-history-alert]"));
     this.alert.onRetry(() => this.#retry());
@@ -40,17 +47,22 @@ export class HistoryTab {
     this.empty = root.querySelector("[data-history-empty]");
     this.more = root.querySelector("[data-history-more]");
     this.clearButton = root.querySelector("[data-history-clear]");
+    this.older = root.querySelector("[data-history-older]");
+    this.filterButtons = [...root.querySelectorAll("[data-history-filter] [data-filter]")];
     this.list = new HistoryList({
       root: root.querySelector("[data-history-rows]"),
       onOpen: (execution) => this.#open(execution),
       onDelete: (execution) => this.#confirmDelete(execution),
     });
+    this.rows = new ActivityRows(root.querySelector("[data-history-rows]"));
     this.detail = new HistoryDetail({
       root: root.querySelector("[data-history-detail]"),
       onBack: () => this.#back(),
       onDelete: (execution) => this.#confirmDelete(execution),
     });
     this.clearButton.addEventListener("click", () => this.#confirmClear());
+    this.older.addEventListener("click", () => this.#loadOlder());
+    for (const button of this.filterButtons) button.addEventListener("click", () => this.#setFilter(button.dataset.filter));
   }
 
   /** The dialog shows this artifact: start from its list (a reopened one keeps what it had until the fresh data arrives). */
@@ -61,6 +73,8 @@ export class HistoryTab {
     this.#showList();
     if (!same) {
       this.list.render([]);
+      this.activity = [];
+      this.next = null;
       this.total = 0;
       this.notice = "";
       this.deleted.clear();
@@ -85,10 +99,12 @@ export class HistoryTab {
     if (!taskId) return;
     const token = ++this.token;
     try {
-      const data = await listExecutions(taskId, this.limit);
+      const [data, page] = await Promise.all([listExecutions(taskId, this.limit), listActivity(taskId)]);
       if (token !== this.token) return;
       this.list.render(data.items);
       this.total = data.total;
+      this.activity = page.items;
+      this.next = page.next;
       this.alert.hide();
       this.#render();
       if (this.#detailShown()) this.#refetchDetail();
@@ -97,9 +113,14 @@ export class HistoryTab {
     }
   }
 
-  /** execution.updated / execution.deleted of the event stream. */
+  /** execution.updated / execution.deleted / activity.created of the event stream. */
   handleEvent(type, data) {
     if (!this.taskId || data.task_id !== this.taskId) return;
+    if (type === "activity.created") {
+      this.activity = withEntry(this.activity, data);
+      this.#render();
+      return;
+    }
     if (type === "execution.deleted") {
       const known = this.list.get(data.id) ?? (this.detail.executionId === data.id ? this.detail.execution : null);
       if (known) this.#vanished(known);
@@ -120,17 +141,53 @@ export class HistoryTab {
     return !this.root.querySelector("[data-history-detail]").hidden;
   }
 
+  /** Bring the rows, the filter, the counts and the empty state in line with the data. */
   #render() {
     const count = this.list.size;
     const finished = this.list.executions.some((execution) => execution.status !== "running");
-    this.badge.hidden = this.taskId === null || this.total === 0;
-    this.badge.textContent = this.badge.hidden ? "" : String(this.total);
-    this.badge.title = `${plural(this.total, "execution")}`;
-    this.summary.textContent = [this.notice, plural(this.total, "execution")].filter(Boolean).join(" ");
-    this.empty.hidden = count > 0;
+    const items = mergeTimeline(this.list.executions, this.activity);
+    this.rows.render(items.filter((item) => item.type !== "execution"));
+    const group = { runs: "run", changes: "change" }[this.filter];
+    for (const row of this.root.querySelectorAll("[data-history-rows] > li")) row.hidden = group !== undefined && row.dataset.group !== group;
+    const shown = filterTimeline(items, this.filter).length;
+    const more = this.next !== null || this.total > count;
+    this.badge.hidden = this.taskId === null || items.length === 0;
+    this.badge.textContent = this.badge.hidden ? "" : `${items.length}${more ? "+" : ""}`;
+    this.badge.title = plural(items.length, "entry");
+    this.summary.textContent = [this.notice, plural(items.length, "entry")].filter(Boolean).join(" ");
+    this.empty.hidden = shown > 0;
+    this.empty.textContent = {
+      all: t("history.nothing_recorded_yet"),
+      runs: t("history.no_executions_yet_start_processing_this"),
+      changes: t("history.no_changes_recorded_yet"),
+    }[this.filter];
     this.more.hidden = this.total <= count;
     this.more.textContent = t("tasks.history_tab.showing_newest_count_total_executions", { count, total: this.total });
+    this.older.hidden = this.next === null;
     this.clearButton.setAttribute("aria-disabled", String(!finished));
+    for (const button of this.filterButtons) button.setAttribute("aria-pressed", String(button.dataset.filter === this.filter));
+  }
+
+  #setFilter(filter) {
+    this.filter = filter;
+    this.#render();
+  }
+
+  /** The next, older page of the changes. */
+  async #loadOlder() {
+    const { taskId, next } = this;
+    if (!taskId || next === null) return;
+    try {
+      const page = await listActivity(taskId, { before: next });
+      if (taskId !== this.taskId) return;
+      const known = new Set(this.activity.map((entry) => entry.id));
+      this.activity = [...this.activity, ...page.items.filter((entry) => !known.has(entry.id))];
+      this.next = page.next;
+      this.alert.hide();
+      this.#render();
+    } catch (error) {
+      if (taskId === this.taskId) this.alert.show(error.message || t("tasks.history_tab.history_could_not_be_loaded"), { retry: true });
+    }
   }
 
   announce(message) {

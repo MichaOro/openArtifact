@@ -70,7 +70,7 @@ def test_comments_are_oldest_first_and_the_view_ends_at_the_newest(
     expect(dialog.comment_items.first.locator("[data-comment-body]")).to_have_text("one")
     expect(dialog.comment_items.last.locator("[data-comment-body]")).to_have_text("comment 30")
     board.page.wait_for_function(
-        "() => { const e = document.querySelector('[data-comments-scroll]');"
+        "() => { const e = document.querySelector('[data-comments]');"
         " return e.scrollHeight > e.clientHeight && e.scrollHeight - e.scrollTop - e.clientHeight < 8; }"
     )  # it overflows (30 comments) and ends at the newest one
 

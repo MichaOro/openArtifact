@@ -8,12 +8,18 @@
     <div class="visually-hidden" role="status" aria-live="polite" data-history-live></div>
     <div class="history__list-view" data-history-list-view>
         <div class="history__toolbar">
-            <p class="history__summary" data-history-summary>{{ t('history.loading_executions') }}</p>
+            <p class="history__summary" data-history-summary>{{ t('history.loading_history') }}</p>
             <button type="button" class="button button--ghost button--sm is-danger" data-history-clear>{{ t('history.clear_finished') }}</button>
         </div>
-        <ul class="history-list" aria-label="{{ t('common.executions') }}" data-history-rows></ul>
-        <p class="history__empty" data-history-empty hidden>{{ t('history.no_executions_yet_start_processing_this') }}</p>
+        <div class="history__filter" role="group" aria-label="{{ t('history.show') }}" data-history-filter>
+            <button type="button" class="history__filter-button" data-filter="all" aria-pressed="true">{{ t('history.filter_all') }}</button>
+            <button type="button" class="history__filter-button" data-filter="runs" aria-pressed="false">{{ t('common.executions') }}</button>
+            <button type="button" class="history__filter-button" data-filter="changes" aria-pressed="false">{{ t('history.filter_changes') }}</button>
+        </div>
+        <ul class="history-list" aria-label="{{ t('common.history') }}" data-history-rows></ul>
+        <p class="history__empty" data-history-empty hidden></p>
         <p class="field__help" data-history-more hidden></p>
+        <button type="button" class="button button--ghost button--sm history__older" data-history-older hidden>{{ t('history.show_older') }}</button>
     </div>
     <section class="history-detail" aria-labelledby="history-detail-heading" data-history-detail hidden>
         <div class="history-detail__bar">
@@ -41,6 +47,25 @@
             <span class="history-row__note" data-row-note hidden></span>
         </button>
         <button type="button" class="icon-button icon-button--sm is-danger history-row__delete" data-row-delete></button>
+    </li>
+</template>
+<template id="activity-row-template">
+    <li class="history-event">
+        <span data-event-avatar></span>
+        <p class="history-event__text"><span class="history-event__actor" data-event-actor></span> <span data-event-sentence></span></p>
+        <time class="history-event__time" data-event-time></time>
+    </li>
+</template>
+<template id="trace-row-template">
+    <li class="history-row history-row--trace">
+        <div class="history-row__open">
+            <span class="history-chip"><span data-chip-icon></span><span data-chip-text></span></span>
+            <span class="history-row__number" data-row-number></span>
+            <time class="history-row__time" data-row-time></time>
+            <span class="history-row__duration" data-row-duration></span>
+            <span class="history-row__pipeline" data-row-pipeline></span>
+            <span class="history-row__meta" data-row-meta></span>
+        </div>
     </li>
 </template>
 {% include "components/history_step_template.html" %}
