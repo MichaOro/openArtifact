@@ -14,6 +14,7 @@ from fastapi import APIRouter, Query
 from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import ServiceDep
 from openartifact.api.schemas import ExecutionsDelete, ExecutionsDeleted
+from openartifact.comments.service import author_of
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.engine.schemas import ExecutionsPage
 
@@ -72,5 +73,5 @@ async def list_all_executions(
 async def delete_executions(payload: ExecutionsDelete, service: ServiceDep) -> ExecutionsDeleted:
     """Delete the finished executions among ``ids`` (1 to 500, of any artifacts) with their steps. A running
     execution is not deleted and counted in ``skipped_running``; an id that does not exist is already gone."""
-    deleted, skipped = await service.delete_executions(payload.ids)
+    deleted, skipped = await service.delete_executions(payload.ids, author_of("user"))
     return ExecutionsDeleted(deleted=deleted, skipped_running=skipped)

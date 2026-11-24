@@ -5,14 +5,15 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.activity.recorder import SYSTEM, record
 from openartifact.comments.schemas import AUTHOR_MAX_LENGTH, Author, CommentRead
 from openartifact.database import SessionOpener
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
-from openartifact.models import Task, TaskComment
+from openartifact.models import Task, TaskActivity, TaskComment
 from openartifact.security import ADMIN, principal
 from openartifact.tasks.service import ArtifactService
 
@@ -78,9 +79,14 @@ class CommentService:
                 updated_at=now,
             )
             session.add(row)
+            await session.flush()
+            entry = await record(
+                session, task.id, "comment", author, {"comment_id": row.id}, at=now
+            )
             await session.commit()
             read = CommentRead.model_validate(row)
         self._bus.publish("comment.created", read.model_dump(mode="json"))
+        self._bus.publish("activity.created", entry.model_dump(mode="json"))
         return read
 
     async def update(self, ref: str, comment_id: str, body: str) -> CommentRead:
@@ -94,14 +100,24 @@ class CommentService:
         self._bus.publish("comment.updated", read.model_dump(mode="json"))
         return read
 
-    async def delete(self, ref: str, comment_id: str) -> None:
-        """Delete a comment."""
+    async def delete(self, ref: str, comment_id: str, actor: Author = SYSTEM) -> None:
+        """Delete a comment. Its ``comment`` entry in the activity is replaced by one ``comment_deleted`` entry (who, when);
+        the text is gone from everywhere (ADR-058)."""
         async with self._session() as session:
             row = await self._row(session, ref, comment_id)
             task_id = row.task_id
             await session.delete(row)
+            await session.execute(
+                delete(TaskActivity).where(
+                    TaskActivity.task_id == task_id,
+                    TaskActivity.kind == "comment",
+                    func.json_extract(TaskActivity.data, "$.comment_id") == comment_id,
+                )
+            )
+            entry = await record(session, task_id, "comment_deleted", actor)
             await session.commit()
         self._bus.publish("comment.deleted", {"id": comment_id, "task_id": task_id})
+        self._bus.publish("activity.created", entry.model_dump(mode="json"))
 
     @staticmethod
     async def _row(session: AsyncSession, ref: str, comment_id: str) -> TaskComment:

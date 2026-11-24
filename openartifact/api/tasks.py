@@ -132,7 +132,7 @@ async def list_executions(
 async def clear_executions(task_id: str, service: ServiceDep) -> DeletedCount:
     """Delete every finished execution of the artifact; a running one stays. Returns ``{"deleted": n}``.
     Publishes ``execution.deleted`` for each."""
-    return DeletedCount(deleted=await service.clear_executions(task_id))
+    return DeletedCount(deleted=await service.clear_executions(task_id, author_of("user")))
 
 
 @router.get(
@@ -199,5 +199,5 @@ async def get_execution_step(
 async def delete_execution(task_id: str, execution_id: str, service: ServiceDep) -> Response:
     """Delete one execution with its steps; 409 while it is running, 404 if unknown.
     Publishes ``execution.deleted``."""
-    await service.delete_execution(task_id, execution_id)
+    await service.delete_execution(task_id, execution_id, author_of("user"))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

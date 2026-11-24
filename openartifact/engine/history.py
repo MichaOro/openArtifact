@@ -54,32 +54,29 @@ def _utc(moment: datetime) -> datetime:
     return moment if moment.tzinfo is not None else moment.replace(tzinfo=UTC)
 
 
-#: Who started an execution, as the actor of its trace.
-_STARTERS = {"user": "You", "api": "api", "mcp": "mcp", "system": "system"}
+#: Who deletes when nobody asked: the operator's per-artifact guard and the global retention rules (ADR-058).
+GUARD = Author("system", "operator guard")
+RULES = Author("system", "retention rule")
+#: A trace of many deleted executions names at most this many numbers; ``count`` has the rest.
+TRACE_NUMBERS = 50
 
 
-async def _trace(session: AsyncSession, execution: Execution) -> ActivityRead:
-    """The activity entry that stays when ``execution`` is deleted (added in the caller's transaction)."""
-    started = _utc(execution.started_at)
-    finished = None if execution.finished_at is None else _utc(execution.finished_at)
-    duration = None if finished is None else int((finished - started).total_seconds() * 1000)
-    return await record(
-        session,
-        execution.task_id,
-        "run",
-        Author(execution.started_by, _STARTERS.get(execution.started_by, execution.started_by)),
-        {
-            "number": execution.number,
-            "pipeline": execution.pipeline_name,
-            "status": execution.status,
-            "started_at": started.isoformat(),
-            "finished_at": None if finished is None else finished.isoformat(),
-            "duration_ms": duration,
-            "steps": execution.step_count,
-        },
-        execution_id=execution.id,
-        at=started,
-    )
+async def _trace(
+    session: AsyncSession, task_id: str, gone: list[tuple[str, int, datetime]], actor: Author
+) -> ActivityRead:
+    """The ONE entry a delete action leaves for an artifact: who deleted which executions, and when (now).
+
+    One execution: ``number`` and ``started_at``. Several: ``numbers`` (the first ``TRACE_NUMBERS``) and ``count``.
+    Nothing else of them is kept: they cannot be opened any more (ADR-058).
+    """
+    gone = sorted(gone, key=lambda e: e[1])
+    if len(gone) == 1:
+        data: dict[str, Any] = {"number": gone[0][1], "started_at": _utc(gone[0][2]).isoformat()}
+        execution_id: str | None = gone[0][0]
+    else:
+        data = {"numbers": [e[1] for e in gone[:TRACE_NUMBERS]], "count": len(gone)}
+        execution_id = None
+    return await record(session, task_id, "run", actor, data, execution_id=execution_id)
 
 
 @dataclass
@@ -197,7 +194,7 @@ class ExecutionHistory:
             for rank, row in enumerate(rows, start=1)
             if rank > keep_last and rank != 1 and row.status != RunStatus.RUNNING
         ]
-        await self.remove(session, task.id, doomed, changes)
+        await self.remove(session, task.id, doomed, changes, GUARD)
         return len(doomed)
 
     async def apply_rules(self, session: AsyncSession, changes: Changes) -> int:
@@ -208,21 +205,30 @@ class ExecutionHistory:
         for task_id, execution_id in found:
             by_task.setdefault(task_id, []).append(execution_id)
         for task_id, ids in by_task.items():
-            await self.remove(session, task_id, ids, changes)
+            await self.remove(session, task_id, ids, changes, RULES)
         return len(found)
 
     @staticmethod
-    async def remove(session: AsyncSession, task_id: str, ids: list[str], changes: Changes) -> None:
+    async def remove(
+        session: AsyncSession,
+        task_id: str,
+        ids: list[str],
+        changes: Changes,
+        actor: Author = RULES,
+    ) -> None:
         """Delete executions with their steps in this transaction (never a running one: the callers check).
 
-        Each leaves a trace in the artifact's activity (ADR-058): when it ran, the pipeline, how it ended and how long it took.
+        The whole action leaves ONE trace in the artifact's activity (ADR-058): who deleted, which numbers, when.
         """
+        gone: list[tuple[str, int, datetime]] = []
         for i in range(0, len(ids), _CHUNK):
             chunk = ids[i : i + _CHUNK]
-            for gone in (
-                await session.execute(select(Execution).where(Execution.id.in_(chunk)))
-            ).scalars():
-                changes.traces.append(await _trace(session, gone))
+            rows = await session.execute(
+                select(Execution.id, Execution.number, Execution.started_at).where(
+                    Execution.id.in_(chunk)
+                )
+            )
+            gone.extend((row.id, row.number, row.started_at) for row in rows)
             await session.execute(
                 delete(RunNodeResult).where(RunNodeResult.execution_id.in_(chunk))
             )
@@ -232,6 +238,8 @@ class ExecutionHistory:
                 .values(execution_id=None)
             )
             await session.execute(delete(Execution).where(Execution.id.in_(chunk)))
+        if gone:
+            changes.traces.append(await _trace(session, task_id, gone, actor))
         if ids:
             changes.deleted.setdefault(task_id, []).extend(ids)
 

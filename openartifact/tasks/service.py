@@ -320,7 +320,7 @@ class ArtifactService:
                 raise ArtifactError(404, "Step not found")
             return self._named([NodeResultRead.of(step, detail=step.detail)], row.snapshot)[0]
 
-    async def delete_execution(self, ref: str, execution_id: str) -> None:
+    async def delete_execution(self, ref: str, execution_id: str, actor: Author = SYSTEM) -> None:
         """Delete one execution with its steps (409 while it runs)."""
         async with self._session() as session:
             task = await self._task(session, ref)
@@ -328,11 +328,11 @@ class ArtifactService:
             if row.status == RunStatus.RUNNING:
                 raise ArtifactError(409, "The execution is running; stop it first")
             changes = Changes()
-            await self._engine.history.remove(session, task.id, [row.id], changes)
+            await self._engine.history.remove(session, task.id, [row.id], changes, actor)
             await session.commit()
         self._engine.history.publish(changes)
 
-    async def delete_executions(self, ids: list[str]) -> tuple[int, int]:
+    async def delete_executions(self, ids: list[str], actor: Author = SYSTEM) -> tuple[int, int]:
         """Delete the finished ones among these executions, whatever artifact they belong to; returns
         ``(deleted, skipped_running)``. An unknown id is already gone; a running execution is never touched."""
         wanted = list(dict.fromkeys(ids))
@@ -351,12 +351,12 @@ class ArtifactService:
                     by_task.setdefault(row.task_id, []).append(row.id)
             changes = Changes()
             for task_id, execution_ids in by_task.items():
-                await self._engine.history.remove(session, task_id, execution_ids, changes)
+                await self._engine.history.remove(session, task_id, execution_ids, changes, actor)
             await session.commit()
         self._engine.history.publish(changes)
         return sum(len(v) for v in by_task.values()), skipped
 
-    async def clear_executions(self, ref: str) -> int:
+    async def clear_executions(self, ref: str, actor: Author = SYSTEM) -> int:
         """Delete every finished execution of the artifact (the running one stays); returns how many."""
         async with self._session() as session:
             task = await self._task(session, ref)
@@ -370,7 +370,7 @@ class ArtifactService:
                 ).all()
             )
             changes = Changes()
-            await self._engine.history.remove(session, task.id, ids, changes)
+            await self._engine.history.remove(session, task.id, ids, changes, actor)
             await session.commit()
         self._engine.history.publish(changes)
         return len(ids)

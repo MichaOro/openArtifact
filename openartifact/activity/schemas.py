@@ -9,7 +9,8 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from openartifact.schemas_common import UtcDateTime
 
-#: What can be recorded: a change of the artifact, or the trace of a deleted execution (``run``).
+#: What can be recorded: a change of the artifact, the trace of a delete action on executions (``run``), a comment
+#: (``comment``: its id, never its text) and the trace of a deleted comment (``comment_deleted``).
 KINDS = (
     "created",
     "lane",
@@ -21,6 +22,8 @@ KINDS = (
     "stage",
     "action",
     "run",
+    "comment",
+    "comment_deleted",
 )
 PAGE_DEFAULT = 50
 PAGE_MAX = 200

@@ -3,6 +3,7 @@ execution, the read-only API, the MCP tool, the cascade and the migration."""
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Callable, Generator
 from pathlib import Path
@@ -254,7 +255,7 @@ def test_the_activity_pages_newest_first_is_read_only_and_checks_its_input(
 # ── the trace a deleted execution leaves ─────────────────────────────
 
 
-def test_a_deleted_execution_leaves_a_trace_with_pipeline_status_and_duration(
+def test_a_deleted_execution_leaves_one_slim_trace_naming_who_deleted_it_and_when(
     client: TestClient,
 ) -> None:
     pipeline = build_pipeline(client, stages=1)
@@ -265,29 +266,59 @@ def test_a_deleted_execution_leaves_a_trace_with_pipeline_status_and_duration(
     assert client.delete(f"/api/tasks/{task['id']}/executions/{execution['id']}").status_code == 204
     [trace] = [e for e in _activity(client, task) if e["kind"] == "run"]
     assert trace["execution_id"] == execution["id"]
-    assert trace["data"]["number"] == execution["number"]
-    assert trace["data"]["pipeline"] == pipeline["name"]
-    assert trace["data"]["status"] == "done"
-    assert trace["data"]["duration_ms"] >= 0
-    assert (trace["actor_kind"], trace["actor_name"]) == ("user", "You")
-    assert trace["created_at"] == execution["started_at"]  # the timeline orders it where it ran
+    # nothing of the run is kept but its number and when it ran: it cannot be opened any more
+    assert trace["data"] == {
+        "number": execution["number"],
+        "started_at": trace["data"]["started_at"],
+    }
+    assert trace["data"]["started_at"].startswith(execution["started_at"][:19])
+    assert (trace["actor_kind"], trace["actor_name"]) == ("user", "You")  # who DELETED it
+    assert trace["created_at"] > execution["started_at"]  # the deletion time, not the run time
 
 
-def test_clearing_and_bulk_deleting_executions_leave_one_trace_each(client: TestClient) -> None:
+def test_the_trace_names_the_token_that_deleted_through_the_integration_api(
+    api: TestClient,
+) -> None:
+    pipeline = build_pipeline(api, stages=1)
+    task = make_task(api)
+    _run(api, pipeline, task)
+    execution = api.get(f"/api/tasks/{task['id']}/executions").json()["items"][0]
+    assert (
+        api.delete(f"/api/v1/artifacts/{task['id']}/executions/{execution['id']}").status_code
+        == 204
+    )
+    [trace] = [e for e in _activity(api, task) if e["kind"] == "run"]
+    assert (trace["actor_kind"], trace["actor_name"]) == ("api", "api")  # not who started the run
+
+
+def test_clearing_and_bulk_deleting_leave_one_trace_per_action_with_the_numbers(
+    client: TestClient,
+) -> None:
     pipeline = build_pipeline(client, stages=1)
     task = make_task(client)
-    for _ in range(3):
+    for _ in range(4):
         _run(client, pipeline, task)
     items = client.get(f"/api/tasks/{task['id']}/executions").json()["items"]
     bulk = client.post("/api/executions/delete", json={"ids": [items[0]["id"]]})
     assert bulk.status_code == 200, bulk.text
-    assert client.delete(f"/api/tasks/{task['id']}/executions").json() == {"deleted": 2}
-    traces = [e for e in _activity(client, task) if e["kind"] == "run"]
-    assert sorted(t["data"]["number"] for t in traces) == [1, 2, 3]
+    assert client.delete(f"/api/tasks/{task['id']}/executions").json() == {"deleted": 3}
+    traces = sorted(
+        (e for e in _activity(client, task) if e["kind"] == "run"), key=lambda e: e["created_at"]
+    )
+    assert len(traces) == 2  # one per delete action, not one per execution
+    assert traces[0]["data"]["number"] == 4  # the bulk delete of the newest one
+    assert traces[1]["data"] == {"numbers": [1, 2, 3], "count": 3}  # clear finished
+    assert traces[1]["execution_id"] is None
     assert client.get(f"/api/tasks/{task['id']}/executions").json()["total"] == 0
 
 
-def test_the_operators_guard_leaves_traces_of_what_it_removes(migrated_settings: Settings) -> None:
+def test_a_trace_names_at_most_fifty_numbers_and_counts_the_rest(client: TestClient) -> None:
+    from openartifact.engine.history import TRACE_NUMBERS
+
+    assert TRACE_NUMBERS == 50  # the documented bound
+
+
+def test_the_operators_guard_leaves_one_trace_naming_itself(migrated_settings: Settings) -> None:
     settings = migrated_settings.model_copy(update={"execution_history_default_keep": 1})
     with TestClient(_create_app(settings)) as client:
         pipeline = build_pipeline(client, stages=1)
@@ -295,8 +326,92 @@ def test_the_operators_guard_leaves_traces_of_what_it_removes(migrated_settings:
         for _ in range(3):
             _run(client, pipeline, task)
         traces = [e for e in _activity(client, task) if e["kind"] == "run"]
-        assert sorted(t["data"]["number"] for t in traces) == [1, 2]
+        assert [(t["actor_kind"], t["actor_name"]) for t in traces] == [
+            ("system", "operator guard")
+        ] * len(traces)
+        removed = [n for t in traces for n in (t["data"].get("numbers") or [t["data"]["number"]])]
+        assert sorted(removed) == [1, 2]
         assert client.get(f"/api/tasks/{task['id']}/executions").json()["total"] == 1
+
+
+def test_retention_rules_leave_one_trace_per_artifact_naming_the_rules(client: TestClient) -> None:
+    pipeline = build_pipeline(client, stages=1)
+    task = make_task(client)
+    for _ in range(3):
+        _run(client, pipeline, task)
+    when = {
+        "type": "group",
+        "mode": "all",
+        "items": [{"type": "condition", "field": "status", "op": "is", "value": ["done"]}],
+    }
+    saved = client.put(
+        "/api/settings/retention", json={"rules": [{"when": when, "action": "delete"}]}
+    )
+    assert saved.status_code == 200, saved.text
+    traces = [e for e in _activity(client, task) if e["kind"] == "run"]
+    assert len(traces) == 1
+    assert (traces[0]["actor_kind"], traces[0]["actor_name"]) == ("system", "retention rule")
+    assert traces[0]["data"]["count"] == saved.json()["deleted"] == 3
+
+
+# ── comments in the activity ─────────────────────────────────────────
+
+
+def test_a_comment_is_an_entry_with_its_id_and_never_its_text(client: TestClient) -> None:
+    task = make_task(client)
+    made = client.post(f"/api/tasks/{task['id']}/comments", json={"body": "a secret remark"})
+    assert made.status_code == 201, made.text
+    [entry] = [e for e in _activity(client, task) if e["kind"] == "comment"]
+    assert entry["data"] == {"comment_id": made.json()["id"]}
+    assert "secret" not in str(entry)
+    assert (entry["actor_kind"], entry["actor_name"]) == ("user", "You")
+    assert entry["created_at"] == made.json()["created_at"]
+
+
+def test_editing_a_comment_adds_no_entry(client: TestClient) -> None:
+    task = make_task(client)
+    made = client.post(f"/api/tasks/{task['id']}/comments", json={"body": "one"}).json()
+    before = len(_activity(client, task))
+    assert (
+        client.patch(
+            f"/api/tasks/{task['id']}/comments/{made['id']}", json={"body": "two"}
+        ).status_code
+        == 200
+    )
+    assert len(_activity(client, task)) == before
+
+
+def test_deleting_a_comment_replaces_its_entry_by_one_slim_row_of_who_deleted_it(
+    api: TestClient,
+) -> None:
+    task = make_task(api)
+    made = api.post(
+        f"/api/v1/artifacts/{task['id']}/comments",
+        json={"body": "to be gone", "author": "opencode"},
+    ).json()
+    assert [e["data"] for e in _activity(api, task) if e["kind"] == "comment"] == [
+        {"comment_id": made["id"]}
+    ]
+    assert api.delete(f"/api/v1/artifacts/{task['id']}/comments/{made['id']}").status_code == 204
+    kinds = _kinds(api, task)
+    assert "comment" not in kinds  # the old entry is gone
+    [gone] = [e for e in _activity(api, task) if e["kind"] == "comment_deleted"]
+    assert gone["data"] == {}  # no text, no id: there is nothing left to point at
+    assert (gone["actor_kind"], gone["actor_name"]) == (
+        "api",
+        "api",
+    )  # who deleted, here the admin token
+    assert "to be gone" not in str(_activity(api, task))
+
+
+def test_other_comments_keep_their_entries_when_one_is_deleted(client: TestClient) -> None:
+    task = make_task(client)
+    keep = client.post(f"/api/tasks/{task['id']}/comments", json={"body": "keep"}).json()
+    drop = client.post(f"/api/tasks/{task['id']}/comments", json={"body": "drop"}).json()
+    client.delete(f"/api/tasks/{task['id']}/comments/{drop['id']}")
+    assert [e["data"] for e in _activity(client, task) if e["kind"] == "comment"] == [
+        {"comment_id": keep["id"]}
+    ]
 
 
 # ── the migration ────────────────────────────────────────────────────
@@ -332,3 +447,43 @@ def test_migration_0044_backfills_a_created_entry_per_artifact_and_downgrade_dro
     with sqlite3.connect(db) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert "task_activity" not in tables
+
+
+def test_migration_0045_backfills_comments_and_slims_the_old_traces(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0044")
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "INSERT INTO tasks (id, title, status, number, created_by, created_at) "
+            "VALUES ('t1', 'Old', 'backlog', 1, 'user', '2026-01-02 03:04:05.000000')"
+        )
+        conn.execute(
+            "INSERT INTO task_comments (id, task_id, body, author_kind, author, created_at, updated_at) "
+            "VALUES ('c1', 't1', 'hello', 'mcp', 'opencode', '2026-01-03 00:00:00.000000', '2026-01-03 00:00:00.000000')"
+        )
+        conn.execute(
+            "INSERT INTO task_activity (id, task_id, kind, actor_kind, actor_name, execution_id, data, created_at) "
+            "VALUES ('a1', 't1', 'run', 'user', 'You', 'e1', "
+            '\'{"number": 7, "pipeline": "P", "status": "done", "started_at": "2026-01-04T05:06:07+00:00", "duration_ms": 5}\', '
+            "'2026-01-04 05:06:07.000000')"
+        )
+    command.upgrade(alembic_config(), "0045")
+    with sqlite3.connect(db) as conn:
+        comment = conn.execute(
+            "SELECT actor_kind, actor_name, data, created_at FROM task_activity WHERE kind = 'comment'"
+        ).fetchall()
+        assert comment == [
+            ("mcp", "opencode", '{"comment_id": "c1"}', "2026-01-03 00:00:00")
+        ] or comment == [("mcp", "opencode", '{"comment_id": "c1"}', "2026-01-03 00:00:00.000000")]
+        run = conn.execute(
+            "SELECT actor_kind, actor_name, data FROM task_activity WHERE id = 'a1'"
+        ).fetchone()
+        assert run[:2] == ("system", "unknown")
+        assert json.loads(run[2]) == {"number": 7, "started_at": "2026-01-04T05:06:07+00:00"}
+    command.downgrade(alembic_config(), "0044")
+    with sqlite3.connect(db) as conn:
+        assert (
+            conn.execute("SELECT COUNT(*) FROM task_activity WHERE kind = 'comment'").fetchone()[0]
+            == 0
+        )

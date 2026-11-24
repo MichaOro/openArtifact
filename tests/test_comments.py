@@ -90,7 +90,8 @@ def test_a_comment_is_edited_and_deleted_and_the_events_say_so(
     assert client.get(url).json() == []
     kinds = [e for e, _ in published if e.startswith("comment.")]
     assert kinds == ["comment.created", "comment.updated", "comment.deleted"]
-    assert published[-1][1] == {"id": made["id"], "task_id": task["id"]}
+    deleted = [data for e, data in published if e == "comment.deleted"]
+    assert deleted == [{"id": made["id"], "task_id": task["id"]}]
     for method, status in (("patch", 404), ("delete", 404)):
         gone = getattr(client, method)(
             f"{url}/{made['id']}", **({"json": {"body": "x"}} if method == "patch" else {})

@@ -71,7 +71,7 @@ def build_comments_router(prefix: str, channel: str, tags: list[str | Enum]) -> 
     )
     async def delete_comment(ref: str, comment_id: str, service: CommentsDep) -> Response:
         """Delete a comment. Publishes ``comment.deleted``."""
-        await service.delete(ref, comment_id)
+        await service.delete(ref, comment_id, author_of(channel))
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return router

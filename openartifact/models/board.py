@@ -168,11 +168,12 @@ class TaskActivity(Base):
 
     Attributes:
         kind: ``created``, ``lane``, ``title``, ``description``, ``parent``, ``field``, ``pipeline``, ``stage``,
-            ``action`` or ``run`` (the trace an execution leaves when it is deleted).
+            ``action``, ``run`` (the trace of one delete action on executions: who, which numbers), ``comment`` (a comment's
+            id, never its text) or ``comment_deleted``.
         actor_kind, actor_name: Who, as for comments (ADR-055).
-        execution_id: For ``run``: the deleted execution (no foreign key: it is gone).
+        execution_id: For ``run`` (one execution): the deleted execution; for ``comment`` by a run: its execution (no foreign key).
         data: A small JSON object that depends on the kind (names at the time, never the text of a description).
-        created_at: When it happened (for ``run``: when the execution started, so the timeline orders it right).
+        created_at: When it happened (for ``run`` and ``comment_deleted``: when it was deleted).
     """
 
     __tablename__ = "task_activity"

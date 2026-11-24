@@ -358,7 +358,7 @@ async def get_execution_step(
 )
 async def delete_execution(ref: str, execution_id: str, service: ServiceDep) -> Response:
     """Delete one execution (409 while it is running)."""
-    await service.delete_execution(ref, execution_id)
+    await service.delete_execution(ref, execution_id, author_of("api"))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
