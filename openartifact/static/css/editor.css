@@ -442,7 +442,8 @@
 .gd-popover__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .gd-popover__actions .button { flex: 0 1 auto; white-space: nowrap; }
 /* Variant "stack": the popup of a stage header or a card, which would cover them side by side (ui-catalog.md) */
-.gd-popover--stack .gd-popover__actions { flex-direction: column; align-items: stretch; }
+.gd-popover--stack { min-width: 0; width: max-content; } /* from a stage or a card: as wide as its buttons and list need, not a long empty bar */
+.gd-popover--stack .gd-popover__actions { flex-direction: column; align-items: flex-start; }
 .gd-popover--stack .gd-popover__actions .button { justify-content: flex-start; }
 .gd-attached--inner { flex-wrap: wrap; row-gap: 0; }
 .gd-attached__scope { flex: 1 0 100%; margin: 0; padding-left: var(--space-2); }

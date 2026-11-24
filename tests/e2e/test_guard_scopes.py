@@ -87,18 +87,23 @@ def test_the_add_popup_stacks_its_buttons_from_a_stage_header_and_a_card_and_not
         popup = _popup(page)
         attach = _box(popup.get_by_role("button", name="Attach guard"))
         new = _box(popup.get_by_role("button", name="New guard"))
-        layouts[where] = (attach, new)
+        layouts[where] = (attach, new, _box(popup))
         page.keyboard.press("Escape")
         expect(popup).to_be_hidden()
-    attach, new = layouts["canvas"]
+    attach, new, _ = layouts["canvas"]
     assert new["x"] > attach["x"] + attach["width"] - 1 and abs(new["y"] - attach["y"]) < 2, (
         "side by side"
     )
     for where in ("stage", "card"):
-        attach, new = layouts[where]
+        attach, new, popup = layouts[where]
         assert new["y"] >= attach["y"] + attach["height"] - 1, f"{where}: stacked"
-        assert abs(new["x"] - attach["x"]) < 2 and abs(new["width"] - attach["width"]) < 2, (
-            f"{where}: same column"
+        assert abs(new["x"] - attach["x"]) < 2, f"{where}: same column"
+        # no long empty bar: each button is as wide as its own content and the popup as wide as its widest
+        # button plus its padding (this popup holds nothing else)
+        widest = max(attach["width"], new["width"])
+        assert widest < 200, f"{where}: content-sized buttons ({widest}px)"
+        assert popup["width"] <= widest + 40, (
+            f"{where}: popup {popup['width']}px for buttons of {widest}px"
         )
 
 
