@@ -260,6 +260,25 @@
 .ge-node--stage:hover > .ge-port,
 .ge-node--stage.is-selected > .ge-port,
 .is-connecting .ge-node--stage > .ge-port { opacity: 1; pointer-events: auto; }
+/* Grips to resize a stage (right edge, bottom edge, corner). A 24px hit area just inside the border (the bar under the stage and the ports sit outside or above it) around a quiet mark; below the ports (z-index 2) so a port wins where they overlap. No grips on the left or top: the actions' positions are relative to the stage. */
+.ge-resize { position: absolute; z-index: 1; opacity: 0; transition: opacity 120ms ease-out; }
+.ge-node--stage:hover > .ge-resize,
+.ge-node--stage.is-selected > .ge-resize,
+.ge-resize:focus-visible,
+.is-resizing .ge-resize { opacity: 1; }
+.ge-resize::after { content: ""; position: absolute; border-radius: 999px; background: var(--color-text-muted); transition: background 120ms; }
+.ge-resize:hover::after,
+.ge-resize:focus-visible::after,
+.is-resizing .ge-resize::after { background: var(--color-accent); }
+.ge-resize:focus-visible { outline: none; }
+.ge-resize--e { top: var(--ge-stage-header, 44px); bottom: 24px; right: 0; width: 24px; cursor: e-resize; }
+.ge-resize--e::after { top: 50%; right: 6px; width: 4px; height: 36px; margin-top: -18px; }
+.ge-resize--s { left: 24px; right: 24px; bottom: 0; height: 24px; cursor: s-resize; }
+.ge-resize--s::after { left: 50%; bottom: 6px; width: 36px; height: 4px; margin-left: -18px; }
+.ge-resize--se { right: 0; bottom: 0; width: 24px; height: 24px; cursor: se-resize; }
+.ge-resize--se::after { right: 6px; bottom: 6px; width: 10px; height: 10px; border-radius: 3px; }
+/* the thin dashed line that shows a node settling level with a connected port */
+.ge-guide { stroke: var(--color-accent); stroke-width: 1; stroke-dasharray: 4 4; pointer-events: none; }
 .ge-port.is-valid { background: var(--accent-soft); border-color: var(--color-accent); transform: scale(1.35); }
 .ge-port.is-hover { background: var(--color-accent); }
 

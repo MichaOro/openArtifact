@@ -9,13 +9,15 @@
  *    takes every node it touches; Shift adds) and moves the selected nodes together; wheel or the zoom buttons zoom;
  *  - read-only: dragging the background with the left button pans;
  *  - click a node or an edge to select it. */
-import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnect, edgePath, fitStage, originOf, portPoint, sizeOf } from "./geometry.js";
+import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnect, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, snapY } from "./geometry.js";
 import { icon } from "../components/icons.js";
 import { FAILING_PORTS, HEADER, typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
+const SNAP_DISTANCE = 8; // screen pixels within which a dragged node settles level with a connected port
+const RESIZE_STEP = 10; // a key press on a resize handle changes the stage by this much (Shift: four times)
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
 const NUDGE = 8;
@@ -73,6 +75,11 @@ export class Canvas {
       const button = event.target.closest("[data-node-action]");
       const el = button?.closest(".ge-node");
       if (button && el && !this.readOnly) this.handlers.onNodeAction?.(button.dataset.nodeAction, this.nodes.get(el.dataset.nodeId), button);
+    });
+    viewport.addEventListener("dblclick", (event) => {
+      // the pointer is captured while a gesture runs, which makes the viewport the target: look under the pointer
+      const grip = this.readOnly ? null : document.elementFromPoint(event.clientX, event.clientY)?.closest(".ge-resize");
+      if (grip) this.fitToContent(this.nodes.get(grip.closest(".ge-node").dataset.nodeId));
     });
     viewport.addEventListener("pointerdown", (event) => this.#onPointerDown(event));
     viewport.addEventListener("pointermove", (event) => this.#onPointerMove(event));
@@ -148,6 +155,21 @@ export class Canvas {
     type.render(el, node, { name, caption });
     for (const port of type.ports()) el.append(this.#port(node, type, port));
     if (!this.readOnly) el.append(this.#nodeBar(type));
+    if (!this.readOnly && type.behaviour === "stage") for (const side of ["e", "s", "se"]) el.append(this.#resizeHandle(side));
+    return el;
+  }
+
+  /** A grip on the right edge (e), the bottom edge (s) or the corner (se) of a stage: it makes the stage larger or smaller. */
+  #resizeHandle(side) {
+    const el = document.createElement("span");
+    el.className = `ge-resize ge-resize--${side}`;
+    el.dataset.resize = side;
+    el.tabIndex = 0;
+    el.setAttribute("role", "separator");
+    el.setAttribute("aria-orientation", side === "e" ? "vertical" : "horizontal");
+    const label = { e: t("editor.canvas.resize_width"), s: t("editor.canvas.resize_height"), se: t("editor.canvas.resize_both") }[side];
+    el.setAttribute("aria-label", label);
+    el.title = label;
     return el;
   }
 
@@ -186,7 +208,7 @@ export class Canvas {
     caption.textContent = text ?? "";
     caption.hidden = text === null;
     el.querySelectorAll(":scope > .ge-port").forEach((port) => {
-      const at = type.portLocal(node, port.dataset.port, Number(port.dataset.slot));
+      const at = type.portLocal(node, port.dataset.port, Number(port.dataset.slot), this.nodes);
       port.style.left = `${at.x}px`;
       port.style.top = `${at.y}px`;
       port.hidden = !type.isVisible(node, port.dataset.port);
@@ -429,6 +451,8 @@ export class Canvas {
       return this.#startPan(event, event.target.closest(".ge-node")); // a click on a node activates it (see #onPointerUp)
     }
     if (event.target.closest(".ge-edge-bar")) return; // its buttons act on click; the bar is no place to pan from
+    const grip = event.target.closest(".ge-resize");
+    if (grip) return this.#startResize(event, grip);
     const port = event.target.closest(".ge-port");
     if (port && port.dataset.direction !== "input") return this.#startConnect(event, port);
     if (event.target.closest("button, input, select, a")) return;
@@ -463,6 +487,48 @@ export class Canvas {
     const items = ids.map((id) => ({ node: this.nodes.get(id), origin: { x: this.nodes.get(id).x, y: this.nodes.get(id).y } }));
     this.gesture = { type: "move", pointerId: event.pointerId, node, items, group, startX: event.clientX, startY: event.clientY, moved: false };
     this.viewport.setPointerCapture(event.pointerId);
+  }
+
+  /** A press on a stage's grip: the stage follows the pointer, never smaller than its actions need. */
+  #startResize(event, grip) {
+    const node = this.nodes.get(grip.closest(".ge-node").dataset.nodeId);
+    this.handlers.onSelect({ type: "node", id: node.id });
+    this.viewport.classList.add("is-resizing");
+    this.gesture = { type: "resize", pointerId: event.pointerId, node, side: grip.dataset.resize, origin: { width: node.width, height: node.height }, startX: event.clientX, startY: event.clientY, moved: false };
+    this.viewport.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
+  /** Give a stage a size (not below what its actions need) and redraw it and its connections. */
+  #resizeNode(node, width, height) {
+    const least = minStageSize(actionsOf(node, this.nodes));
+    node.width = Math.max(least.width, width);
+    node.height = Math.max(least.height, height);
+    this.#updateNode(node, this.elements.get(node.id));
+    this.drawEdges();
+  }
+
+  /** The stage is exactly as large as its actions need (a double click on a grip). */
+  fitToContent(node) {
+    const least = minStageSize(actionsOf(node, this.nodes));
+    this.#resizeNode(node, least.width, least.height);
+    this.handlers.onResized?.(node);
+  }
+
+  /** A press on a stage's grip: the arrow keys resize it (Shift: four times as much), Enter or Home fits it to its actions. */
+  #onGripKey(event, grip) {
+    const node = this.nodes.get(grip.closest(".ge-node").dataset.nodeId);
+    const step = event.shiftKey ? RESIZE_STEP * 4 : RESIZE_STEP;
+    const grows = { ArrowRight: [step, 0], ArrowLeft: [-step, 0], ArrowDown: [0, step], ArrowUp: [0, -step] }[event.key];
+    const side = grip.dataset.resize;
+    if (grows) {
+      event.preventDefault();
+      this.#resizeNode(node, node.width + (side === "s" ? 0 : grows[0]), node.height + (side === "e" ? 0 : grows[1]));
+      this.handlers.onResized?.(node);
+    } else if (event.key === "Enter" || event.key === "Home") {
+      event.preventDefault();
+      this.fitToContent(node);
+    }
   }
 
   /** A press on the background: a frame follows the pointer; on release it selects the nodes it touches. */
@@ -534,9 +600,51 @@ export class Canvas {
       this.#applyView();
     } else if (g.type === "marquee") {
       this.#drawMarquee(g, event);
+    } else if (g.type === "resize") {
+      const [wide, tall] = [g.side !== "s", g.side !== "e"];
+      this.#resizeNode(g.node, g.origin.width + (wide ? dx / this.view.zoom : 0), g.origin.height + (tall ? dy / this.view.zoom : 0));
     } else {
       for (const { node, origin } of g.items) this.#moveNode(node, origin.x + dx / this.view.zoom, origin.y + dy / this.view.zoom);
+      this.#snap(g, event.altKey);
     }
+  }
+
+  /**
+   * A dragged node settles level with a port it is connected to (so the line between them is straight) when it comes
+   * within a few pixels; a thin dashed guide shows the alignment. Alt switches it off. The nodes moved together keep their
+   * distances: the primary node decides.
+   */
+  #snap(g, off) {
+    const moving = new Set(g.items.map((item) => item.node.id));
+    const pairs = off ? [] : this.#levelPairs(g.node, moving);
+    const hit = snapY(pairs, SNAP_DISTANCE / this.view.zoom);
+    if (hit && hit.delta !== 0) for (const { node } of g.items) this.#moveNode(node, node.x, node.y + hit.delta);
+    this.#guide(hit ? pairs.find((pair) => pair.other === hit.y) : null);
+  }
+
+  /** For each connection of `node` to a node that stays put: the height of its port, of the other port, and where both are. */
+  #levelPairs(node, moving) {
+    const pairs = [];
+    for (const edge of this.edges.values()) {
+      if (edge.target_port === "tools") continue; // a tool hangs below its agent
+      const ends = edge.source_id === node.id ? ["source", "target"] : edge.target_id === node.id ? ["target", "source"] : null;
+      if (!ends) continue;
+      const other = this.nodes.get(edge[`${ends[1]}_id`]);
+      // a stage's own points follow its actions: aligning with them would always match
+      if (!other || moving.has(other.id) || other.id === node.stage_id || other.stage_id === node.id) continue;
+      const mine = portPoint(node, edge[`${ends[0]}_port`], this.nodes, edge[`${ends[0]}_slot`]);
+      const theirs = portPoint(other, edge[`${ends[1]}_port`], this.nodes, edge[`${ends[1]}_slot`]);
+      pairs.push({ own: mine.y, other: theirs.y, from: mine.x, to: theirs.x });
+    }
+    return pairs;
+  }
+
+  /** Show (or, given null, remove) the guide line of an alignment. */
+  #guide(pair) {
+    this.edgeLayer.querySelector(".ge-guide")?.remove();
+    if (!pair) return;
+    const [left, right] = [Math.min(pair.from, pair.to) - 24, Math.max(pair.from, pair.to) + 24];
+    this.edgeLayer.append(svg("line", { class: "ge-guide", x1: left, x2: right, y1: pair.other, y2: pair.other }));
   }
 
   #onPointerUp(event) {
@@ -553,6 +661,12 @@ export class Canvas {
     this.gesture = null;
     this.viewport.releasePointerCapture?.(event.pointerId);
     this.viewport.classList.remove("is-panning");
+    this.#guide(null);
+    this.viewport.classList.remove("is-resizing");
+    if (g.type === "resize") {
+      if (g.moved) this.handlers.onResized?.(g.node);
+      return;
+    }
     if (g.type === "marquee") return this.#endMarquee(g);
     if (g.type === "pan" && !g.moved && g.nodeEl) {
       this.focusNode(g.nodeEl.dataset.nodeId);
@@ -582,6 +696,9 @@ export class Canvas {
     if (!g) return;
     this.gesture = null;
     this.viewport.classList.remove("is-panning");
+    this.#guide(null);
+    this.viewport.classList.remove("is-resizing");
+    if (g.type === "resize") this.#resizeNode(g.node, g.origin.width, g.origin.height);
     if (g.type === "marquee") g.frame.remove();
     if (g.type === "connect") {
       g.line.remove();
@@ -608,6 +725,11 @@ export class Canvas {
 
   /** Arrow keys nudge the focused node; Delete removes it. */
   #onKeydown(event) {
+    const grip = event.target.closest?.(".ge-resize");
+    if (grip) {
+      if (!this.readOnly) this.#onGripKey(event, grip);
+      return;
+    }
     const el = event.target.closest?.(".ge-node");
     if (!el || event.target.closest("input, select, button")) return;
     const node = this.nodes.get(el.dataset.nodeId);

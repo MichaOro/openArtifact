@@ -3,7 +3,7 @@ import { before, test } from "node:test";
 import { FakeNode, NODE_TYPES, installDocument, loadTypes, textOf } from "./support.mjs";
 
 const JS = "../../openartifact/static/js/editor/";
-const { HEADER, SLOTS, slotY, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable, searchAddable } = await import(`${JS}node-types.js`);
+const { HEADER, SLOTS, slotY, slotHeights, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable, searchAddable } = await import(`${JS}node-types.js`);
 
 before(async () => {
   installDocument(["code", "http"]);
@@ -121,6 +121,15 @@ test("port labels: only the outcomes of kinds that label ports, not in and out",
   assert.equal(typeOf("trigger").labelled({ name: "pass" }), false);
   assert.equal(typeOf("output").portLabel("fail"), "On Fail");
   assert.equal(typeOf("output").portLabel("unknown"), "unknown");
+});
+
+test("slotHeights: level with the highest and the lowest port, the middle one centred, all inside the stage", () => {
+  assert.deepEqual(slotHeights(200, []), [HEADER / 2, 100, 200 - HEADER / 2], "no actions: the defaults");
+  assert.deepEqual(slotHeights(300, [150, 90, 210]), [90, 150, 210], "spread over the highest and the lowest");
+  assert.deepEqual(slotHeights(300, [120]), [120, 144, 168], "one height: the first point is level, the others follow");
+  assert.deepEqual(slotHeights(300, [120, 150]), [120, 144, 168], "closer than the span: treated as one height");
+  assert.deepEqual(slotHeights(200, [180]), [180, 192, 192], "the lowest points stay 8 above the bottom edge");
+  assert.deepEqual(slotHeights(300, [5]), [HEADER / 2, 29, 53], "never above the middle of the header");
 });
 
 test("portLocal spreads the shown ports down their side; the output kind pins its connectors", () => {

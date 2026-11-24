@@ -72,6 +72,16 @@ Under a node a small bar appears on hover and while it is selected: a bin
 actions along). The trigger, the output and the end are part of a graph: they are not copied and not deleted. There is no
 undo yet.
 
+**Straight lines.** The attachment points of a stage (three on each side) sit level with the ports of its actions:
+on the left the first point is level with the highest action's input and the last with the lowest one's, the middle one
+is centred between them; on the right they face the actions' On Pass. So a line from a stage point to an action runs
+horizontally, and the points follow the actions when you move them. A node you drag settles level with a port it is
+connected to as soon as it comes within 8 pixels (a thin dashed line shows it); hold **Alt** to move it freely. A
+stage has grips on its right edge, its bottom edge and its bottom-right corner (shown when it is hovered or selected,
+also reachable with Tab): drag one to make the stage larger or smaller, never smaller than its actions need; arrow keys
+on a grip change the size by 10 (Shift: 40), a double click or Enter fits the stage to its actions. There are no grips
+on the left and top, because the actions' positions are relative to the stage. Execution flows (read-only) have none.
+
 **Stage.** A container in a pipeline. It holds actions and connects to the next stage. Its start feeds
 the first action; its end is fed by the last actions and leads on.
 

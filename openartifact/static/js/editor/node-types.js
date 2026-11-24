@@ -19,6 +19,25 @@ export function slotY(height, slot) {
   return [HEADER / 2, height / 2, height - HEADER / 2][slot];
 }
 
+const SLOT_SPACING = 24; // between the three points when the actions leave no room to spread them
+const SLOT_SPAN_MIN = 48; // the least distance between the highest and the lowest port that is spread over three points
+const SLOT_EDGE = 8; // the lowest point keeps this far from the stage's bottom edge
+
+/**
+ * Heights of a stage's three attachment points on one side, top to bottom. `anchors` are the heights (from the stage's
+ * top) of the ports of its actions that face this side: the first point is level with the highest, the last with the
+ * lowest and the middle one is centred between them, so a line from a point to such a port runs straight. Actions at
+ * (nearly) one height give the first point that height and place the others below it. Without actions the
+ * points keep their default heights (`slotY`). Every point stays inside the stage.
+ */
+export function slotHeights(height, anchors) {
+  const ys = anchors.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!ys.length) return [0, 1, 2].map((slot) => slotY(height, slot));
+  const [low, high] = [ys[0], ys[ys.length - 1]];
+  const spots = high - low >= SLOT_SPAN_MIN ? [low, (low + high) / 2, high] : [low, low + SLOT_SPACING, low + 2 * SLOT_SPACING];
+  return spots.map((y) => Math.min(Math.max(y, HEADER / 2), height - SLOT_EDGE));
+}
+
 export class NodeView {
   static kind = null;
   static size = { width: 160, height: 64 };
@@ -185,8 +204,22 @@ class StageView extends NodeView {
     return ports;
   }
 
-  portLocal(node, port, slot = 0) {
-    return { x: port === "start" ? 0 : node.width, y: slotY(node.height, slot) };
+  /** With `nodes` (the editor's Map) the points follow the actions of this stage; without them they keep their defaults. */
+  portLocal(node, port, slot = 0, nodes = null) {
+    return { x: port === "start" ? 0 : node.width, y: slotHeights(node.height, this.#anchors(node, port, nodes))[slot] };
+  }
+
+  /** Heights of the ports of the stage's actions facing this side: their inputs on the left, their On Pass on the right. */
+  #anchors(stage, port, nodes) {
+    if (!nodes) return [];
+    const anchors = [];
+    for (const action of nodes.values()) {
+      if (action.stage_id !== stage.id) continue;
+      const view = typeOf(action);
+      const facing = (port === "start" ? view.inputs : view.outputs)[0]?.name;
+      if (facing && view.isVisible(action, facing)) anchors.push(HEADER + action.y + view.portLocal(action, facing).y);
+    }
+    return anchors;
   }
 
   canFeed(source, sourcePort, target, targetPort) {

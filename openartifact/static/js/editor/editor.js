@@ -52,6 +52,7 @@ export class GraphEditor {
       handlers: {
         onSelect: (selection, options) => this.select(selection, options),
         onMoved: (node) => this.#persistPosition(node),
+        onResized: (node) => this.#persistSize(node),
         onConnect: (source, port, target, targetPort, slots) => this.#connect(source, port, target, targetPort, slots),
         onDelete: (selection) => this.requestDelete(selection),
         onEdgeDelete: (id) => this.#removeEdge(id),
@@ -243,6 +244,13 @@ export class GraphEditor {
       await this.model.updateNode(node.id, fields);
       if (stage) await this.model.updateNode(stage.id, { width: stage.width, height: stage.height });
     });
+  }
+
+  /** A stage the user resized: its size is saved once, when the pointer is released. */
+  async #persistSize(stage) {
+    stage.width = Math.round(stage.width);
+    stage.height = Math.round(stage.height);
+    await this.#save(() => this.model.updateNode(stage.id, { width: stage.width, height: stage.height }));
   }
 
   /** The name in the page header, which can be renamed in place as well. */
@@ -564,7 +572,7 @@ export class GraphEditor {
     // the canvas captures the pointer while a gesture runs, which makes the viewport the target of the click: look under the pointer
     const under = document.elementFromPoint(event.clientX, event.clientY);
     const el = under?.closest(".ge-node");
-    if (!el || under.closest("button, input, select, a, .ge-port")) return;
+    if (!el || under.closest("button, input, select, a, .ge-port, .ge-resize")) return;
     const node = this.nodes.get(el.dataset.nodeId);
     if (node) this.#openSettings(node);
   }

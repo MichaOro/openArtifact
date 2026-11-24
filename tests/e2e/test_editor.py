@@ -100,6 +100,16 @@ def _flow(page: Page, base_url: str, api: httpx.Client) -> dict[str, Any]:
         api.delete(f"{graph_url(pipeline)}/edges/{edge['id']}")
     _open(page, base_url, pipeline)
     _add_stage(page)
+    # The stage's connection points follow its actions, so the line from the trigger is short when the stage sits right
+    # beside it: the hover bar covers all of such a line. Put the stage further away, as the owner's pipelines have it.
+    eventually(
+        lambda: any(n["kind"] == "stage" for n in _graph(api, pipeline)["nodes"]), True
+    )  # saved asynchronously
+    stage = next(n for n in _graph(api, pipeline)["nodes"] if n["kind"] == "stage")
+    api.patch(
+        f"{graph_url(pipeline)}/nodes/{stage['id']}", json={"x": stage["x"] + 260}
+    ).raise_for_status()
+    _open(page, base_url, pipeline)
     page.locator("[data-add-action]").click()
     page.locator("[data-add-action]").click()
     expect(page.locator(".ge-node--action")).to_have_count(2)

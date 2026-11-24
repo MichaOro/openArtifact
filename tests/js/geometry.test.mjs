@@ -34,8 +34,52 @@ test("portPoint adds the local position to the origin; a stage port honours its 
   const a = action("a", 24, { definition_fail_enabled: true });
   const nodes = nodesOf(stage, a);
   assert.deepEqual(g.portPoint(a, "in", nodes), { x: 124, y: 132 + 34 });
-  assert.deepEqual(g.portPoint(stage, "end", nodes, 1), { x: 500, y: 40 + 150 });
-  assert.deepEqual(g.portPoint(stage, "start", nodes, 0), { x: 100, y: 40 + 22 });
+  const empty = nodesOf(stage);
+  assert.deepEqual(g.portPoint(stage, "end", empty, 1), { x: 500, y: 40 + 150 }, "a stage without actions keeps the default heights");
+  assert.deepEqual(g.portPoint(stage, "start", empty, 0), { x: 100, y: 40 + 22 });
+});
+
+test("the attachment points of a stage sit at the height of its actions' ports, so a line between them is horizontal", () => {
+  const a = action("a", 24, { definition_fail_enabled: true });
+  const nodes = nodesOf(stage, a);
+  // one action: the first point is level with the action's input, the other two follow below it
+  const level = (x, y, message) => assert.ok(Math.abs(x - y) < 1e-9, `${message}: ${x} against ${y}`);
+  level(g.portPoint(stage, "start", nodes, 0).y, g.portPoint(a, "in", nodes).y, "the start side is level with the action's input");
+  level(g.portPoint(stage, "end", nodes, 0).y, g.portPoint(a, "pass", nodes).y, "the end side is level with the action's On Pass");
+  assert.equal(g.portPoint(stage, "start", nodes, 1).y - g.portPoint(stage, "start", nodes, 0).y, 24);
+  assert.equal(g.portPoint(stage, "start", nodes, 2).y - g.portPoint(stage, "start", nodes, 1).y, 24);
+  // two actions far apart: top and bottom point are level with them, the middle one is centred between
+  const low = action("b", 300, { y: 160, definition_fail_enabled: true });
+  const both = nodesOf(stage, a, low);
+  const [top, middle, bottom] = [0, 1, 2].map((slot) => g.portPoint(stage, "start", both, slot).y);
+  level(top, g.portPoint(a, "in", both).y, "top");
+  level(bottom, g.portPoint(low, "in", both).y, "bottom");
+  level(middle, (top + bottom) / 2, "middle");
+});
+
+test("an attachment point never leaves its stage's edge", () => {
+  const tall = { ...stage, height: 220 };
+  const near = action("a", 24, { y: 150 }); // its port is level with 44 + 150 + 34 = 228, below the stage's bottom (220)
+  const [, , bottom] = [0, 1, 2].map((slot) => g.portPoint(tall, "start", nodesOf(tall, near), slot).y - tall.y);
+  assert.ok(bottom <= tall.height - 8, `the lowest point stays inside: ${bottom}`);
+  const [first] = [0].map((slot) => g.portPoint(tall, "start", nodesOf(tall, action("b", 24, { y: -90 })), slot).y - tall.y);
+  assert.ok(first >= 22, `the first point stays below the header's middle: ${first}`);
+});
+
+test("minStageSize is what the actions need, however large the stage is", () => {
+  assert.deepEqual(g.minStageSize([]), { width: 320, height: 220 });
+  const far = { x: 400, y: 200, kind: "action", definition_fail_enabled: false };
+  assert.deepEqual(g.minStageSize([far]), { width: 400 + 190 + 24, height: 44 + 200 + 68 + 24 });
+  // fitStage keeps a larger stage; minStageSize is the floor a resize may go down to
+  assert.deepEqual(g.fitStage({ width: 900, height: 700 }, [far]), { width: 900, height: 700 });
+});
+
+test("snapY pulls a node level with a connected port within the threshold and ignores the rest", () => {
+  assert.deepEqual(g.snapY([{ own: 100, other: 105 }], 8), { delta: 5, y: 105 });
+  assert.equal(g.snapY([{ own: 100, other: 109 }], 8), null, "outside the threshold");
+  assert.deepEqual(g.snapY([{ own: 100, other: 107 }, { own: 100, other: 96 }], 8), { delta: -4, y: 96 }, "the nearest wins");
+  assert.deepEqual(g.snapY([{ own: 100, other: 100 }], 8), { delta: 0, y: 100 }, "already level");
+  assert.equal(g.snapY([], 8), null);
 });
 
 test("canConnect needs both ports to exist and be shown, then asks the kind", () => {
@@ -65,6 +109,15 @@ test("edgePath: a forward connection is a cubic curve with a bounded reach", () 
   assert.equal(far, "M 0 0 C 220 0, 780 0, 1000 0", "reach never above 220");
 });
 
+test("edgePath: a short forward connection between level ports is drawn straight, not routed around the nodes", () => {
+  const level = g.edgePath({ x: 0, y: 50 }, { x: 24, y: 50 }, box(-100, 20), box(24, 20));
+  assert.doesNotMatch(level, /Q/, "no detour: nothing has to bend");
+  assert.match(level, /^M 0 50 C /);
+  const off = g.edgePath({ x: 0, y: 50 }, { x: 24, y: 80 }, box(-100, 20), box(24, 50));
+  assert.match(off, /Q/, "ports at different heights with little room still go around");
+  assert.match(g.edgePath({ x: 40, y: 50 }, { x: 10, y: 50 }, box(-60, 20), box(10, 20)), /Q/, "a connection that goes back is still routed");
+});
+
 test("edgePath: straight and elbow forward connections", () => {
   const from = { x: 0, y: 0 };
   const to = { x: 200, y: 100 };
@@ -85,9 +138,9 @@ test("edgePath: a backward or too tight connection runs below both nodes", () =>
   assert.ok(rounded.endsWith("L 100 120"));
   const sharp = g.edgePath(from, to, box(200, 0), box(100, 100), { style: "straight" });
   assert.equal(sharp, `M 300 20 L 328 20 Q 328 20 328 20 L 328 ${below} Q 328 ${below} 328 ${below} L 72 ${below} Q 72 ${below} 72 ${below} L 72 120 Q 72 120 72 120 L 100 120`);
-  // 47 pixels of room is still too tight, 48 is enough
-  assert.ok(g.edgePath({ x: 0, y: 0 }, { x: 47, y: 0 }, box(-100, -25), box(47, -25)).includes(" Q "));
-  assert.ok(g.edgePath({ x: 0, y: 0 }, { x: 48, y: 0 }, box(-100, -25), box(48, -25)).includes(" C "));
+  // 47 pixels of room is still too tight, 48 is enough (the ports are at different heights: level ports run straight, see below)
+  assert.ok(g.edgePath({ x: 0, y: 0 }, { x: 47, y: 10 }, box(-100, -25), box(47, -25)).includes(" Q "));
+  assert.ok(g.edgePath({ x: 0, y: 0 }, { x: 48, y: 10 }, box(-100, -25), box(48, -25)).includes(" C "));
   // routed: false keeps the plain curve even going backwards
   assert.match(g.edgePath(from, to, box(200, 0), box(100, 100), { routed: false }), /^M 300 20 C /);
 });

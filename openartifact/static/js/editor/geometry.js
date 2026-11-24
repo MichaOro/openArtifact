@@ -35,7 +35,7 @@ export function boxOf(node, nodes) {
 /** Where a port sits on the canvas (`slot` picks one of a stage's three points per side). */
 export function portPoint(node, port, nodes, slot = 0) {
   const origin = originOf(node, nodes);
-  const local = typeOf(node).portLocal(node, port, slot);
+  const local = typeOf(node).portLocal(node, port, slot, nodes);
   return { x: origin.x + local.x, y: origin.y + local.y };
 }
 
@@ -60,7 +60,8 @@ const TIGHT = 48; // a forward connection with less room than this would bend to
 export function edgePath(from, to, fromBox, toBox, { routed = true, style = "curved", attachment = false } = {}) {
   if (attachment) return attachmentPath(from, to);
   const dx = to.x - from.x;
-  if (routed && dx < TIGHT) {
+  const level = Math.abs(to.y - from.y) < 1; // a straight run needs no room to bend: it is drawn as it is
+  if (routed && dx < TIGHT && !(dx > 0 && level)) {
     const low = Math.max(fromBox.y + fromBox.height, toBox.y + toBox.height) + DETOUR;
     const points = [from, { x: from.x + DETOUR, y: from.y }, { x: from.x + DETOUR, y: low }, { x: to.x - DETOUR, y: low }, { x: to.x - DETOUR, y: to.y }, to];
     return polyline(points, style === "straight" ? 0 : CORNER);
@@ -134,8 +135,8 @@ export function nextActionPosition(stage, nodes) {
   return { x, y: PAD * 2 };
 }
 
-/** The smallest stage size that still contains all its actions. */
-export function fitStage(stage, actions) {
+/** The least a stage may measure: the smallest size that still holds all its actions (and never below STAGE_MIN). */
+export function minStageSize(actions) {
   let width = STAGE_MIN.width;
   let height = STAGE_MIN.height;
   for (const action of actions) {
@@ -143,5 +144,25 @@ export function fitStage(stage, actions) {
     width = Math.max(width, action.x + size.width + PAD);
     height = Math.max(height, HEADER + action.y + size.height + PAD);
   }
-  return { width: Math.max(stage.width, width), height: Math.max(stage.height, height) };
+  return { width, height };
+}
+
+/** A stage grows to hold its actions and never shrinks by itself; only a resize makes it smaller. */
+export function fitStage(stage, actions) {
+  const least = minStageSize(actions);
+  return { width: Math.max(stage.width, least.width), height: Math.max(stage.height, least.height) };
+}
+
+/**
+ * Where a node dragged by its port heights should settle so that a connection runs straight: `pairs` are
+ * `{ own, other }` heights of one of its ports and the port it is connected to. The nearest pair within `threshold`
+ * wins; the result is how far to move the node and the height that is then shared, or null when nothing is near.
+ */
+export function snapY(pairs, threshold) {
+  let best = null;
+  for (const { own, other } of pairs) {
+    const delta = other - own;
+    if (Math.abs(delta) <= threshold && (!best || Math.abs(delta) < Math.abs(best.delta))) best = { delta, y: other };
+  }
+  return best;
 }

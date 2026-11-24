@@ -123,3 +123,14 @@ The history above is kept; what changed afterwards.
   then" is outdated. Node settings beyond the timer's live in a JSON `config`
   ([ADR-022](022-node-settings-as-json-config.md)). The missing keyboard way to connect nodes is a scope decision
   in [ADR-030](030-accessibility-scope.md).
+
+## Addendum (2026-11-24): straight lines and resizing
+
+The three attachment points of a stage side no longer sit at fixed heights (header, middle, bottom): they follow the
+actions of the stage (the first is level with the highest action's port on that side, the last with the lowest one's,
+the middle one between; actions at one height give the first point that height and the others follow below), so a
+line between a point and an action can be horizontal. A node dragged in the editor settles level with a connected
+port within 8 screen pixels (Alt switches it off), and a stage can be resized with grips on its right edge, bottom edge
+and corner down to the size its actions need (`minStageSize`). A level connection with little room is drawn straight
+instead of being routed around the nodes. The stored data does not change: an edge keeps its slot, the heights are
+computed.
