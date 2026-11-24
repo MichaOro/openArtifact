@@ -74,8 +74,8 @@ actions along). The trigger, the output and the end are part of a graph: they ar
 undo yet.
 
 **Straight lines.** The attachment points of a stage (three on each side) follow the stage's height, not its actions:
-the top one is level with an action in the first row (where a new action goes), the bottom one with an action dragged
-to the very bottom, the middle one is halfway; on the left they face the actions' input, on the right their On Pass.
+the top one is level with an action at the very top (the highest an action can sit, where a new one also goes), the
+bottom one with an action dragged to the very bottom, the middle one is halfway; on the left they face the actions' input, on the right their On Pass.
 So a line from the top or the bottom point to an action there runs horizontally, whatever the other actions do, and
 the lower points move with the bottom edge when you resize the stage. A node you drag settles level with a port it is
 connected to or with a point of its stage as soon as it comes within 8 pixels (a thin dashed line shows it); hold

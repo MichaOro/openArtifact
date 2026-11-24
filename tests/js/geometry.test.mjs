@@ -61,6 +61,22 @@ test("the attachment points of a stage follow the stage's height, not its action
   level(heights(lowestNodes)[1], (heights(lowestNodes)[0] + heights(lowestNodes)[2]) / 2, "the middle one is halfway");
 });
 
+test("the top point is level with an action at the very top: where the drag stops, the highest row", () => {
+  const level = (x, y, message) => assert.ok(Math.abs(x - y) < 1e-9, `${message}: ${x} against ${y}`);
+  // an action dragged far above the stage is stopped by clampInStage: its input is then level with the top point
+  const dragged = action("d", 24, { ...g.clampInStage(24, -500), definition_fail_enabled: true });
+  const nodes = nodesOf(stage, dragged);
+  assert.equal(dragged.y, g.nextActionPosition(stage, nodesOf(stage)).y, "the highest row is where a new action goes");
+  level(g.portPoint(stage, "start", nodes, 0).y, g.portPoint(dragged, "in", nodes).y, "top = the highest an action can sit (input)");
+  level(g.portPoint(stage, "end", nodes, 0).y, g.portPoint(dragged, "pass", nodes).y, "top = the highest an action can sit (On Pass)");
+  const [top, middle, bottom] = [0, 1, 2].map((slot) => g.portPoint(stage, "start", nodes, slot).y);
+  level(middle, (top + bottom) / 2, "the middle one is halfway between the top and the bottom one");
+  assert.ok(top < middle && middle < bottom, "in order");
+  const smallest = { ...stage, height: g.STAGE_MIN.height };
+  const [a, b, c] = [0, 1, 2].map((slot) => g.portPoint(smallest, "start", nodesOf(smallest), slot).y - smallest.y);
+  assert.ok(a < b && b < c && c <= smallest.height - 8, `in order inside the edge at the smallest size: ${a}, ${b}, ${c}`);
+});
+
 test("the attachment points follow a resized stage at once", () => {
   const taller = { ...stage, height: 460 };
   const [top, , bottom] = [0, 1, 2].map((slot) => g.portPoint(stage, "start", nodesOf(stage), slot).y - stage.y);
@@ -195,9 +211,9 @@ test("a new stage or timer goes to the right of the main line; the other kinds a
 });
 
 test("a new action goes right of the last one of its stage, or at the padding", () => {
-  assert.deepEqual(g.nextActionPosition(stage, nodesOf(stage)), { x: 24, y: 48 });
+  assert.deepEqual(g.nextActionPosition(stage, nodesOf(stage)), { x: 24, y: 12 });
   const nodes = nodesOf(stage, action("a", 24), action("b", 300));
-  assert.deepEqual(g.nextActionPosition(stage, nodes), { x: 300 + 190 + 64, y: 48 });
+  assert.deepEqual(g.nextActionPosition(stage, nodes), { x: 300 + 190 + 64, y: 12 });
 });
 
 test("fitStage grows to hold the actions and never shrinks", () => {

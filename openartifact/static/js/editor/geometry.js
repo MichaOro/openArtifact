@@ -138,7 +138,12 @@ export function nextToolPosition(nodes, edges, selectedId) {
   return { agentId: agent.id, x, y: agent.y + sizeOf(agent).height + TOOL_GAP };
 }
 
-/** Where a new action goes: flows run left to right, so right of the last action of its stage. */
+/** Where an action may be put in its stage: not left of or above the padding (the highest row is FIRST_ROW, see slotHeights). */
+export function clampInStage(x, y) {
+  return { x: Math.max(PAD / 2, x), y: Math.max(FIRST_ROW, y) };
+}
+
+/** Where a new action goes: flows run left to right, so right of the last action of its stage, in the highest row. */
 export function nextActionPosition(stage, nodes) {
   const actions = actionsOf(stage, nodes);
   const x = actions.length ? Math.max(...actions.map((a) => a.x + sizeOf(a).width)) + ACTION_GAP : PAD;

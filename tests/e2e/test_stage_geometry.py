@@ -1,5 +1,5 @@
 """Straight lines in the pipeline editor: the attachment points of a stage follow the stage's height (the top one is level
-with an action in the first row, the bottom one with an action at the very bottom), a dragged node settles level with a
+with an action at the very top, the bottom one with an action at the very bottom), a dragged node settles level with a
 connected port or a point of its stage (Alt switches that off), and a stage has grips to make it larger or smaller
 (never smaller than its actions need)."""
 
@@ -30,12 +30,14 @@ MIN_WIDTH, MIN_HEIGHT = 320, 306
 BORDER = 1.5
 
 
-def _pipeline(client: httpx.Client) -> dict[str, Any]:
+def _pipeline(client: httpx.Client, upper_y: int = 12) -> dict[str, Any]:
     """Trigger -> a stage with two actions (one above the other, the first feeding the second)."""
     pipeline: dict[str, Any] = client.post("/api/pipelines", json={"name": "Straight"}).json()
     stage = node(client, pipeline, "stage", name="Gap", x=200, y=40)
     client.patch(f"{graph_url(pipeline)}/nodes/{stage['id']}", json=STAGE_SIZE).raise_for_status()
-    upper = node(client, pipeline, "action", stage_id=stage["id"], x=100, y=48)
+    upper = node(
+        client, pipeline, "action", stage_id=stage["id"], x=100, y=upper_y
+    )  # 12 is the highest row
     lower = node(client, pipeline, "action", stage_id=stage["id"], x=100, y=170)
     connect(client, pipeline, stage, "start", upper, "in")
     connect(client, pipeline, upper, "pass", lower, "in")
@@ -89,7 +91,7 @@ def test_the_top_point_is_level_with_the_first_row_and_does_not_follow_the_actio
     upper, lower = _action(page, pipeline["upper"]["id"]), _action(page, pipeline["lower"]["id"])
     top, middle, bottom = (_y(_stage_port(page, slot)) for slot in range(3))
     assert abs(top - _y(upper.locator(".ge-port--in"))) <= BORDER, (
-        "the top point is level with an action in the first row"
+        "the top point is level with an action in the highest row"
     )
     assert abs(bottom - _y(lower.locator(".ge-port--in"))) > 20, (
         "the bottom point is not tied to the lowest action: this one sits higher than the bottom"
@@ -97,6 +99,38 @@ def test_the_top_point_is_level_with_the_first_row_and_does_not_follow_the_actio
     assert abs(middle - (top + bottom) / 2) < 0.6, "the middle point is halfway between them"
     # on the right the stage's points face the actions' On Pass
     assert abs(_y(_stage_port(page, 0, "end")) - _y(upper.locator(".ge-port--pass"))) <= BORDER
+
+
+def test_the_top_point_is_level_with_an_action_at_the_very_top(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """The highest an action can sit (what the drag clamp allows) is the height of the stage's top point.
+
+    The owner had put his first action as high as it goes: its input was 36 px above the stage's top point, so no
+    straight line was possible there. The middle point is halfway between the top and the bottom one.
+    """
+    pipeline: dict[str, Any] = api.post("/api/pipelines", json={"name": "Very top"}).json()
+    stage = node(api, pipeline, "stage", name="Gap", x=200, y=40)
+    api.patch(f"{graph_url(pipeline)}/nodes/{stage['id']}", json=STAGE_SIZE).raise_for_status()
+    first = node(
+        api, pipeline, "action", stage_id=stage["id"], x=100, y=48
+    )  # lower than the highest row
+    connect(api, pipeline, stage, "start", first, "in")
+    page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
+    expect(page.locator(".ge-node--action")).to_have_count(1)
+    page.click("[data-zoom-fit]")
+    action = _action(page, first["id"])
+    x, y = centre(action.locator(".ge-node__name"))
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.mouse.move(x, y - 200, steps=12)  # far above what the stage allows
+    page.mouse.up()
+    top, middle, bottom = (_y(_stage_port(page, slot)) for slot in range(3))
+    port = _y(action.locator(".ge-port--in"))
+    assert abs(port - top) <= BORDER, (
+        f"input {port:.1f} vs top point {top:.1f}: {port - top:+.1f} px"
+    )
+    assert abs(middle - (top + bottom) / 2) < 0.6, (top, middle, bottom)
 
 
 def test_a_line_from_a_stage_point_to_an_action_is_horizontal(
@@ -182,6 +216,10 @@ def test_the_points_follow_a_resized_stage_at_once(
         "the bottom point keeps its distance from the bottom edge"
     )
     assert _y(_stage_port(page, 1)) - grown["y"] > from_top[1] + 10, "the middle one moved down"
+    top, middle, bottom = (_y(_stage_port(page, slot)) for slot in range(3))
+    assert abs(middle - (top + bottom) / 2) < 0.6, (
+        "and stays halfway between the top and the bottom one"
+    )
 
 
 def test_the_first_action_of_an_empty_stage_is_level_with_the_top_point(
@@ -225,7 +263,9 @@ def _drag_lower_near_the_upper_pass(
 def test_a_dragged_node_settles_level_with_a_connected_port(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    pipeline = _pipeline(api)
+    pipeline = _pipeline(
+        api, upper_y=60
+    )  # its On Pass lies below the highest row, so the lower input can reach it
     _open(page, base_url, pipeline)
     own, target = _drag_lower_near_the_upper_pass(page, pipeline, alt=False)
     assert abs(own - target) < 0.6, f"level after the drag: {own} against {target}"
@@ -235,7 +275,9 @@ def test_a_dragged_node_settles_level_with_a_connected_port(
 
 
 def test_alt_switches_the_settling_off(page: Page, base_url: str, api: httpx.Client) -> None:
-    pipeline = _pipeline(api)
+    pipeline = _pipeline(
+        api, upper_y=60
+    )  # its On Pass lies below the highest row, so the lower input can reach it
     _open(page, base_url, pipeline)
     own, target = _drag_lower_near_the_upper_pass(page, pipeline, alt=True)
     assert 3 < abs(own - target) < 8, (

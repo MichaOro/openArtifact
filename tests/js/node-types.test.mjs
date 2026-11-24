@@ -3,7 +3,7 @@ import { before, test } from "node:test";
 import { FakeNode, NODE_TYPES, PLACEHOLDERS, installDocument, loadTypes, textOf } from "./support.mjs";
 
 const JS = "../../openartifact/static/js/editor/";
-const { HEADER, SLOTS, slotY, slotHeights, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable, searchAddable, setPlaceholders, placeholderOf, placeholdersIn } = await import(`${JS}node-types.js`);
+const { HEADER, FIRST_ROW, SLOTS, slotY, slotHeights, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable, searchAddable, setPlaceholders, placeholderOf, placeholdersIn } = await import(`${JS}node-types.js`);
 
 before(async () => {
   installDocument(["code", "http", "plus"]);
@@ -125,10 +125,12 @@ test("port labels: only the outcomes of kinds that label ports, not in and out",
 
 test("slotHeights: from the first row of a new action to the lowest one, the middle one halfway, all inside the stage", () => {
   const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} against ${expected}`);
-  // the action is 68 high and 190 wide: its input sits at 34, its On Pass at a third of its height; the first row is at 48
-  assert.deepEqual(slotHeights(360, "in"), [HEADER + 48 + 34, (126 + 302) / 2, 360 - 24 - 68 + 34], "left: the inputs");
+  // the action is 68 high and 190 wide: its input sits at 34, its On Pass at a third of its height; the highest row is FIRST_ROW (12)
+  assert.equal(FIRST_ROW, 12, "the highest row an action can sit in");
+  const topIn = HEADER + FIRST_ROW + 34;
+  assert.deepEqual(slotHeights(360, "in"), [topIn, (topIn + 302) / 2, 360 - 24 - 68 + 34], "left: the inputs");
   const out = slotHeights(360, "out");
-  near(out[0], HEADER + 48 + 68 / 3, "right: the first row's On Pass");
+  near(out[0], HEADER + FIRST_ROW + 68 / 3, "right: the first row's On Pass");
   near(out[2], 360 - 24 - 68 + 68 / 3, "right: the lowest On Pass");
   near(out[1], (out[0] + out[2]) / 2, "right: halfway");
   assert.deepEqual(slotHeights(460, "in").map((y, i) => y - slotHeights(360, "in")[i]), [0, 50, 100], "a taller stage moves the lower points");

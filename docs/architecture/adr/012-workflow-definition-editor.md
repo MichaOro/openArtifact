@@ -128,11 +128,12 @@ The history above is kept; what changed afterwards.
 
 The three attachment points of a stage side no longer sit at fixed heights (header, middle, bottom) and do not follow its
 actions either (a first version let the last point follow the lowest action, which left no point near the bottom edge
-when that action sat high): they follow the stage's **height**. The first point is level with the port of an action in
-the first row, where a new action goes (`nextActionPosition`); the last one is level with the port of an action dragged as
+when that action sat high): they follow the stage's **height**. The first point is level with the port of an action at the
+very top: the highest row an action can sit in, which is also where a new action goes and where the drag stops
+(`FIRST_ROW`, one number for the three, `clampInStage`); it is fixed, whatever the other actions do; the last one is level with the port of an action dragged as
 low as it goes without the stage growing (stage height minus the padding minus the action's height); the middle one is
 halfway. On the left they face the actions' input, on the right their On Pass. A line from a point to an action in the
-first row or at the very bottom is therefore horizontal, and resizing the stage moves the lower points with its edge. A
+very top or at the very bottom is therefore horizontal, and resizing the stage moves the lower points with its edge. A
 node dragged in the editor settles level with a connected port or with one of its stage's points (the connected one
 first when two are equally near) within 8 screen pixels (Alt switches it off), and a stage can be resized with grips on
 its right edge, bottom edge and corner down to the size its actions need (`minStageSize`). A level connection with little

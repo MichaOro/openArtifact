@@ -22,12 +22,13 @@ export function slotY(height, slot) {
 
 const SLOT_EDGE = 8; // the lowest point keeps this far from the stage's bottom edge
 export const PAD = 24; // space between a stage border and its actions
-export const FIRST_ROW = PAD * 2; // where a new action goes in a stage (body coordinates, see nextActionPosition)
+/** The highest an action can sit in a stage (body coordinates, below the header): the drag clamp stops there, a new action goes there, and the stage's top attachment point is level with its port. One number for all three. */
+export const FIRST_ROW = PAD / 2;
 
 /**
  * Heights of a stage's three attachment points on one side, top to bottom, from the stage's top. They depend on the
- * stage's height only, never on its actions: the first is level with the port of an action in the first row (where a new
- * action goes), the last with the port of an action dragged as low as it goes without the stage growing, the middle one
+ * stage's height only, never on its actions: the first is level with the port of an action at the very top (FIRST_ROW: the highest
+ * an action can sit and where a new one goes), the last with the port of an action dragged as low as it goes without the stage growing, the middle one
  * halfway. So a line from a point to an action in either place is straight, however the other actions sit. `side` is
  * "in" for the left edge (the inputs of the actions) and "out" for the right edge (their On Pass). Every point stays inside
  * the stage.

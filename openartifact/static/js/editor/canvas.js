@@ -9,7 +9,7 @@
  *    takes every node it touches; Shift adds) and moves the selected nodes together; wheel or the zoom buttons zoom;
  *  - read-only: dragging the background with the left button pans;
  *  - click a node or an edge to select it. */
-import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnectFrom, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, slotPairs, snapY } from "./geometry.js";
+import { EDGE_STYLES, actionsOf, clampInStage, boxOf, displayName, canConnectFrom, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, slotPairs, snapY } from "./geometry.js";
 import { icon } from "../components/icons.js";
 import { FAILING_PORTS, HEADER, typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
@@ -720,8 +720,7 @@ export class Canvas {
   /** Move a node; an action stays inside its stage and makes the stage grow if needed. */
   #moveNode(node, x, y) {
     if (node.stage_id) {
-      node.x = Math.max(PAD / 2, x);
-      node.y = Math.max(PAD / 2, y);
+      Object.assign(node, clampInStage(x, y));
       const stage = this.nodes.get(node.stage_id);
       Object.assign(stage, fitStage(stage, actionsOf(stage, this.nodes)));
       this.#updateNode(stage, this.elements.get(stage.id));
