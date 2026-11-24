@@ -6,6 +6,7 @@
 import { placePopover } from "../components/popover.js";
 import { request } from "../http.js";
 import { applyCompletion, candidatesFor, openReference, suggestionsFor } from "./reference-completion.js";
+import { typeOf } from "./node-types.js";
 import { t, tn } from "../i18n.js";
 
 const SECRETS_MAX_AGE_MS = 5000;
@@ -111,7 +112,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
   const update = () => {
     reference = input.selectionStart === input.selectionEnd ? openReference(input.value, input.selectionStart) : null;
     if (!reference) return close();
-    matches = suggestionsFor(candidatesFor(source.nodes(), { exceptId: source.exceptId, secrets: secretNames, allowSecrets, cardFields }), reference.query);
+    matches = suggestionsFor(candidatesFor(source.nodes(), { exceptId: source.exceptId, secrets: secretNames, allowSecrets, cardFields, kinds: typeOf }), reference.query);
     if (!matches.length) return close();
     if (!el) {
       el = document.createElement("div");

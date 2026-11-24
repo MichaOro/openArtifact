@@ -1178,5 +1178,6 @@
  "editor.sync.definition_stays_on.one": "Stays on in the action '{definition}': {count} other use still has the error output.",
  "editor.sync.definition_stays_on.other": "Stays on in the action '{definition}': {count} other uses still have the error output.",
  "editor.sync.disconnected.one": "Disconnected {count} connection ({places}).",
- "editor.sync.disconnected.other": "Disconnected {count} connections ({places})."
+ "editor.sync.disconnected.other": "Disconnected {count} connections ({places}).",
+ "editor.reference_completion.its_data_path": "its data: {path}"
 }

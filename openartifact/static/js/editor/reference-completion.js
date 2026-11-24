@@ -4,8 +4,9 @@
  * (the server does), and a name it does not know is simply not offered. */
 
 import { t, tn } from "../i18n.js";
-/** Kinds of nodes that leave a result in the run context (the others have nothing to reference). */
-export const RESULT_KINDS = ["code", "http", "timer", "if", "switch", "agent", "set"];
+/* Which kinds leave a result in the run context, which keys of `data` they always leave and which run variables they set is
+ * DATA of the kind (its manifest: `produces_result`, `result_data`, `variables`, ADR-054), handed in as `kinds`; there is no
+ * list of kinds here. */
 const NODE_FIELDS = [
   ["output", t("editor.reference_completion.text_node_wrote")],
   ["exit_code", t("editor.reference_completion.exit_code")],
@@ -49,19 +50,20 @@ export function openReference(text, caret) {
 /**
  * Every completion a graph offers.
  * @param {{id: string, kind: string, name: string, config?: object}[]} nodes the nodes of the graph being edited
- * @param {{exceptId?: string, secrets?: string[], allowSecrets?: boolean, cardFields?: {name: string, label: string}[]}} options
+ * @param {{exceptId?: string, secrets?: string[], allowSecrets?: boolean, cardFields?: {name: string, label: string}[], kinds?: (kind: string) => object|undefined}} options
  *   `exceptId`: the node being edited (it cannot read its own result); `secrets`: names only;
- *   `cardFields`: the artifact fields, offered as `card.NAME` (ADR-044)
+ *   `cardFields`: the artifact fields, offered as `card.NAME` (ADR-044); `kinds`: the description of a kind (what the server
+ *   says: `produces_result`, `result_data`, `variables`); a node of a kind that is not described or leaves no result is not offered
  * @returns {{insert: string, detail: string, complete: boolean, head: string, kind?: string}[]} `insert` is what goes between
  *   "${" and "}"; `complete` is false when the user continues typing (a data path); `head` is the group it belongs to
  *   ("card.", "var.", "secret:", or the node as "(Name)."), see `suggestionsFor`
  */
-export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecrets = false, cardFields = [] } = {}) {
+export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecrets = false, cardFields = [], kinds = () => undefined } = {}) {
   const out = [];
   for (const field of cardFields) out.push({ insert: `card.${field.name}`, detail: t("editor.reference_completion.label_field_artifact", { label: field.label }), complete: true, head: "card." });
   const seen = new Set();
   for (const node of nodes) {
-    if (node.id === exceptId || !RESULT_KINDS.includes(node.kind)) continue;
+    if (node.id === exceptId || !kinds(node.kind)?.produces_result) continue;
     const key = nodeKey(node.name);
     if (seen.has(key)) continue; // two nodes with one name: the reference would be ambiguous, so it is not offered
     seen.add(key);
@@ -69,11 +71,13 @@ export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecre
     const name = node.name.trim();
     const head = /[()}\r\n]/.test(name) || !name ? `node.${key}.` : `(${name}).`;
     for (const [field, detail] of NODE_FIELDS) out.push({ insert: `${head}${field}`, detail: `${node.name}: ${detail}`, complete: !field.endsWith("."), head, kind: node.kind });
+    for (const path of kinds(node.kind).result_data ?? []) out.push({ insert: `${head}data.${path}`, detail: `${node.name}: ${t("editor.reference_completion.its_data_path", { path })}`, complete: true, head, kind: node.kind });
   }
   const variables = new Set();
   for (const node of nodes) {
-    const declared =
-      node.kind === "code" ? String(node.config?.sets_variables ?? "").split("\n") : node.kind === "set" ? fieldNames(node.config?.fields) : [];
+    const spec = kinds(node.kind)?.variables;
+    const text = spec ? node.config?.[spec.setting] : "";
+    const declared = !spec ? [] : spec.format === "assignments" ? fieldNames(text) : String(text ?? "").split("\n");
     for (const line of declared) {
       const name = line.trim();
       if (name && !variables.has(name)) {

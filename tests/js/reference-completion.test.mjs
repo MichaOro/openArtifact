@@ -3,6 +3,11 @@ import { test } from "node:test";
 
 const { applyCompletion, candidatesFor, filterCandidates, nodeKey, openReference, suggestionsFor } = await import("../../openartifact/static/js/editor/reference-completion.js");
 
+// what the server says about each kind (the manifests): which kinds leave a result, their data keys and the variables they set
+const { readFileSync } = await import("node:fs");
+const DESCRIBED = new Map(JSON.parse(readFileSync(new URL("../fixtures/node-types.json", import.meta.url), "utf8")).map((d) => [d.kind, d]));
+const kinds = (kind) => DESCRIBED.get(kind);
+
 const NODES = [
   { id: "a", kind: "code", name: "Fetch user", config: { sets_variables: "priority\nscore\n\n" } },
   { id: "b", kind: "http", name: "Ping" },
@@ -29,24 +34,24 @@ test("a reference is open after ${ until it is closed or broken", () => {
 });
 
 test("candidates list the nodes with results, the declared variables once, and secrets only when allowed", () => {
-  const found = candidatesFor(NODES, { exceptId: "d", secrets: ["API_KEY"] }).map((c) => c.insert);
+  const found = candidatesFor(NODES, { kinds, exceptId: "d", secrets: ["API_KEY"] }).map((c) => c.insert);
   assert.deepEqual(found.filter((i) => i.startsWith("node.Fetch_user")), []);
   assert.deepEqual(found.filter((i) => i.startsWith("(Fetch user)")), ["(Fetch user).output", "(Fetch user).exit_code", "(Fetch user).outcome", "(Fetch user).reason", "(Fetch user).data."]);
   assert.ok(found.includes("(Ping).output"));
   assert.ok(!found.some((i) => i.startsWith("(Trigger)") || i.startsWith("(Decide)")), "no trigger, not the node itself");
   assert.deepEqual(found.filter((i) => i.startsWith("var.")), ["var.priority", "var.score"]);
   assert.ok(!found.some((i) => i.startsWith("secret:")));
-  const withSecrets = candidatesFor(NODES, { secrets: ["API_KEY"], allowSecrets: true }).map((c) => c.insert);
+  const withSecrets = candidatesFor(NODES, { kinds, secrets: ["API_KEY"], allowSecrets: true }).map((c) => c.insert);
   assert.ok(withSecrets.includes("secret:API_KEY"));
 });
 
 test("two nodes with one name are not offered (the reference would be ambiguous)", () => {
   const twice = [{ id: "1", kind: "code", name: "Same" }, { id: "2", kind: "http", name: "Same" }];
-  assert.equal(candidatesFor(twice).filter((c) => c.insert.endsWith(".output")).length, 1);
+  assert.equal(candidatesFor(twice, { kinds }).filter((c) => c.insert.endsWith(".output")).length, 1);
 });
 
 test("filtering is case-insensitive, prefix matches first, and bounded", () => {
-  const all = candidatesFor(NODES, {});
+  const all = candidatesFor(NODES, { kinds });
   assert.equal(filterCandidates(all, "").length, all.length);
   const hits = filterCandidates(all, "(ping").map((c) => c.insert);
   assert.deepEqual(hits.slice(0, 2), ["(Ping).output", "(Ping).exit_code"]);
@@ -80,7 +85,7 @@ test("an Edit Fields node offers its result and the variables it sets", async ()
     { id: "s", kind: "set", name: "Prepare", config: { fields: "priority = high\nscore = 3" } },
     { id: "c", kind: "code", name: "Code", config: { sets_variables: "score" } },
   ];
-  const inserts = candidatesFor(nodes).map((c) => c.insert);
+  const inserts = candidatesFor(nodes, { kinds }).map((c) => c.insert);
   assert.ok(inserts.includes("(Prepare).output"));
   assert.deepEqual(inserts.filter((i) => i.startsWith("var.")), ["var.priority", "var.score"]); // once each
 });
@@ -90,12 +95,12 @@ test("a name with blanks and a colon stays open while its parenthesis is typed, 
   assert.deepEqual(openReference("${(Code: hello).da", 18), { start: 0, query: "(Code: hello).da" });
   assert.equal(openReference("${(Code: hello).data x", 22), null); // blanks after the name end it
   assert.equal(openReference("${(Code\nx", 9), null);
-  const odd = candidatesFor([{ id: "1", kind: "code", name: "Say (hi)" }]).map((c) => c.insert);
+  const odd = candidatesFor([{ id: "1", kind: "code", name: "Say (hi)" }], { kinds }).map((c) => c.insert);
   assert.ok(odd.includes("node.Say__hi_.output"), "a name the reference cannot spell is offered by its key");
 });
 
 test("suggestions lead in steps: groups and nodes first, then what is behind the one chosen", () => {
-  const all = candidatesFor(NODES, { secrets: ["API_KEY"], allowSecrets: true, cardFields: [{ name: "repo", label: "repo" }, { name: "date", label: "Date" }] });
+  const all = candidatesFor(NODES, { kinds, secrets: ["API_KEY"], allowSecrets: true, cardFields: [{ name: "repo", label: "repo" }, { name: "date", label: "Date" }] });
   const first = suggestionsFor(all, "").map((c) => c.insert);
   assert.deepEqual(first, ["card.", "var.", "secret:", "(Fetch user).", "(Ping).", "(Decide).", "(Other)."]);
   assert.ok(suggestionsFor(all, "").every((c) => c.complete === false), "choosing one goes on to the next step");
@@ -110,8 +115,31 @@ test("suggestions lead in steps: groups and nodes first, then what is behind the
 });
 
 test("a group shows how much is behind it", () => {
-  const all = candidatesFor([], { cardFields: [{ name: "a", label: "A" }, { name: "b", label: "B" }] });
+  const all = candidatesFor([], { kinds, cardFields: [{ name: "a", label: "A" }, { name: "b", label: "B" }] });
   assert.equal(suggestionsFor(all, "")[0].detail, "2 artifact fields");
-  const one = candidatesFor([{ id: "1", kind: "http", name: "Ping" }]);
+  const one = candidatesFor([{ id: "1", kind: "http", name: "Ping" }], { kinds });
   assert.equal(suggestionsFor(one, "")[0].detail, "http node");
+});
+
+test("every kind the manifests say leaves a result is offered, with no list of kinds in the editor", () => {
+  const nodes = ["code", "http", "github", "postgres", "artifact", "set", "agent", "if", "switch", "timer"].map((kind, i) => ({ id: String(i), kind, name: kind }));
+  const withResult = candidatesFor(nodes, { kinds }).filter((c) => c.insert.endsWith(".output")).map((c) => c.kind);
+  assert.deepEqual(withResult.sort(), ["agent", "artifact", "code", "github", "http", "if", "postgres", "set", "switch", "timer"]);
+  // a trigger, an output and a tool leave nothing; a kind nobody described is not offered either
+  const none = candidatesFor([{ id: "t", kind: "trigger", name: "T" }, { id: "o", kind: "output", name: "O" }, { id: "m", kind: "mcp_tool", name: "M" }, { id: "x", kind: "unheard_of", name: "X" }], { kinds });
+  assert.deepEqual(none, []);
+  assert.deepEqual(candidatesFor(nodes), [], "without a description of the kinds nothing is assumed");
+});
+
+test("a kind offers the keys of data it declares, and the variables it sets come from its manifest", () => {
+  const nodes = [
+    { id: "a", kind: "artifact", name: "Artifact" },
+    { id: "p", kind: "postgres", name: "Postgres" },
+    { id: "s", kind: "set", name: "Edit", config: { fields: "score = 3\nvar.tag = x" } },
+    { id: "c", kind: "code", name: "Code", config: { sets_variables: "level\n\nowner" } },
+  ];
+  const inserts = candidatesFor(nodes, { kinds }).map((c) => c.insert);
+  assert.ok(inserts.includes("(Artifact).data.comments"), "the comments of the artifact node");
+  assert.ok(inserts.includes("(Postgres).data.rows"));
+  for (const variable of ["var.score", "var.tag", "var.level", "var.owner"]) assert.ok(inserts.includes(variable), variable);
 });

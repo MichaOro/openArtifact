@@ -1697,5 +1697,6 @@
  "editor.sync.definition_stays_on.one": "Bleibt in der Action „{definition}“ eingeschaltet: {count} weitere Verwendung hat den Fehlerausgang noch.",
  "editor.sync.definition_stays_on.other": "Bleibt in der Action „{definition}“ eingeschaltet: {count} weitere Verwendungen haben den Fehlerausgang noch.",
  "editor.sync.disconnected.one": "{count} Verbindung getrennt ({places}).",
- "editor.sync.disconnected.other": "{count} Verbindungen getrennt ({places})."
+ "editor.sync.disconnected.other": "{count} Verbindungen getrennt ({places}).",
+ "editor.reference_completion.its_data_path": "seine Daten: {path}"
 }

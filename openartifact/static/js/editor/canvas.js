@@ -148,6 +148,8 @@ export class Canvas {
     const el = document.createElement(type.constructor.kind === "stage" ? "section" : "div");
     el.className = `ge-node ge-node--${node.kind}`;
     el.dataset.nodeId = node.id;
+    el.dataset.behaviour = type.behaviour; // the card's look is keyed by it and by the manifest's colour, not by kind (editor.css)
+    if (type.ui?.color) el.style.setProperty("--node-color", `var(--node-${type.ui.color}, var(--node-action))`);
     el.tabIndex = 0;
     const name = document.createElement("strong");
     name.className = "ge-node__name";

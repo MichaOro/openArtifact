@@ -17,7 +17,6 @@ const el = (tag, className, text) => {
   return node;
 };
 
-const WORKS = ["code", "http", "timer", "agent"]; // a trigger or an output takes no time worth showing
 const visitSeconds = (visit) => (visit.started_at ? secondsBetween(visit.started_at, visit.finished_at) : null);
 
 export class FlowPanel {
@@ -149,7 +148,7 @@ export class FlowPanel {
     main.type = "button";
     const kind = typeOf(node);
     const exit = entry.step?.exit_code != null ? t("execution.flow_panel.exit_code_exit_code", { exit_code: entry.step.exit_code }) : null;
-    const took = entry.step && WORKS.includes(entry.step.kind) ? stepDuration(entry.step) : null;
+    const took = entry.step && kind?.timed ? stepDuration(entry.step) : null;
     main.setAttribute("aria-label", [`${entry.position + 1} ${kind.label}: ${nameOf(node)}`, STATES[entry.state][1], exit, took, entry.children.length ? t("execution.flow_panel.enter_opens") : null].filter(Boolean).join(", "));
     main.setAttribute("aria-current", String(entry.id === selected));
     const seq = el("span", "ef-path__seq", String(entry.position + 1));

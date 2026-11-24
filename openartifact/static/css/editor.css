@@ -165,34 +165,19 @@
   border-color: var(--node-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--node-color) 35%, transparent), var(--shadow-card);
 }
-.ge-node--trigger,
-.ge-node--action,
-.ge-node--timer,
-.ge-node--pipeline,
-.ge-node--complete { display: flex; align-items: center; padding: 0 var(--space-4); }
-.ge-node--trigger { --node-color: var(--node-trigger); }
-.ge-node--action { --node-color: var(--node-action); }
-.ge-node--timer { --node-color: var(--node-timer); }
-.ge-node--pipeline { --node-color: var(--node-pipeline); }
-.ge-node--complete { --node-color: var(--node-complete); }
-.ge-node--code,
-.ge-node--http,
-.ge-node--if,
-.ge-node--switch,
-.ge-node--agent { display: flex; align-items: center; gap: var(--space-3); padding: 0 4.5rem 0 var(--space-4); } /* room for On Pass / On Fail */
-.ge-node--agent { --node-color: var(--node-agent); }
-.ge-node--code { --node-color: var(--node-code); }
-.ge-node--http { --node-color: var(--node-http); }
-.ge-node--if,
-.ge-node--switch { --node-color: var(--node-branch); }
+/* The look of a card is keyed by the BEHAVIOUR of its kind (data-behaviour, set from the manifest) and its colour is the manifest's
+   ui.color (--node-color, set in canvas.js from the token --node-<color>): there is no rule per kind (ADR-054). */
+.ge-node[data-behaviour="plain"],
+.ge-node[data-behaviour="action"],
+.ge-node[data-behaviour="pipeline"],
+.ge-node[data-behaviour="tool"] { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); }
+.ge-node[data-behaviour="flow"],
+.ge-node[data-behaviour="switch"] { display: flex; align-items: center; gap: var(--space-3); padding: 0 4.5rem 0 var(--space-4); } /* room for On Pass / On Fail */
 .ge-node__icon { flex: none; width: 1.25rem; height: 1.25rem; color: var(--node-color); }
-.ge-node--code .ge-node__kind,
-.ge-node--http .ge-node__kind,
-.ge-node--if .ge-node__kind,
-.ge-node--agent .ge-node__kind,
-.ge-node--switch .ge-node__kind { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ge-node--output { --node-color: var(--node-output); padding: var(--space-3) var(--space-4); }
-.ge-node--stage { --node-color: var(--node-stage); background: var(--stage-bg); border-color: var(--stage-border); }
+.ge-node[data-behaviour="flow"] .ge-node__kind,
+.ge-node[data-behaviour="switch"] .ge-node__kind { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ge-node[data-behaviour="output"] { padding: var(--space-3) var(--space-4); }
+.ge-node[data-behaviour="stage"] { background: var(--stage-bg); border-color: var(--stage-border); }
 .ge-node__text { display: flex; flex-direction: column; min-width: 0; }
 .ge-node__name {
   font-size: 0.875rem;
@@ -201,7 +186,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ge-node__kind { font-size: 0.6875rem; color: var(--color-text-muted); }
+.ge-node__kind { font-size: 0.6875rem; color: var(--color-text-secondary); } /* secondary, not muted: on the tinted card the muted text fell under 4.5:1 (checked per kind in both themes) */
 
 /* --ge-stage-header is set by canvas.js from HEADER in node-types.js; 44px is only the fallback */
 .ge-stage__header {

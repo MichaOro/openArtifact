@@ -7,7 +7,6 @@ import { icon } from "../components/icons.js";
 import { formatDuration, secondsBetween, setChip } from "./history-format.js";
 import { t } from "../i18n.js";
 
-const KIND_ICONS = { code: "code", http: "http", timer: "clock", trigger: "play", output: "check", if: "if", switch: "switch", agent: "agent", set: "pencil" };
 const PORTS = { pass: t("tasks.history_step.pass"), fail: t("tasks.history_step.fail"), out: t("tasks.history_step.next"), yes: t("tasks.field_rail.yes"), no: "No", else: t("tasks.history_step.else") };
 
 /** How long a step took ("0.4 s"), null while it has not finished. */
@@ -39,7 +38,7 @@ export function fillStep(template, step, open = new Set(), { loadDetail = null }
   item.dataset.kind = step.kind;
   item.style.setProperty("--depth", String(step.depth ?? 0));
   item.querySelector("[data-step-seq]").textContent = String(step.seq);
-  item.querySelector("[data-step-kind-icon]").replaceChildren(icon(KIND_ICONS[step.kind] ?? "action"));
+  item.querySelector("[data-step-kind-icon]").replaceChildren(icon(step.icon ?? "action"));
   item.querySelector("[data-step-name]").textContent = step.node_name ?? step.kind;
   item.querySelector("[data-step-kind]").textContent = step.kind;
   setChip(item.querySelector("[data-step-outcome]"), step.outcome);

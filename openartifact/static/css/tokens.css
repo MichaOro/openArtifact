@@ -36,6 +36,13 @@
   --node-http: var(--lane-hue-4);
   --node-branch: var(--lane-hue-5);
   --node-agent: var(--lane-hue-1);
+  /* the colour of a kind's card is the manifest's ui.color (graph/nodes/*.yaml): a token --node-<color>, built from the lane hues so
+     both themes follow; a new kind picks one of these or adds its own here (docs/guides/extending.md) */
+  --node-github: var(--lane-hue-8);
+  --node-postgres: color-mix(in srgb, var(--lane-hue-4) 55%, var(--lane-hue-6));
+  --node-set: var(--lane-hue-2);
+  --node-artifact: color-mix(in srgb, var(--lane-hue-6) 55%, var(--lane-hue-3));
+  --node-mcp: color-mix(in srgb, var(--lane-hue-1) 55%, var(--lane-hue-4));
   --edge-pass: var(--lane-hue-3);
 }
 
