@@ -1,9 +1,9 @@
 /* Geometry of the graph canvas. Pure functions over plain node/edge objects as the API returns
  * them; what a kind of node looks like and may connect to comes from its view (node-types.js). */
-import { FIRST_ROW, HEADER, PAD, slotHeights, typeOf } from "./node-types.js";
+import { FIRST_ROW, HEADER, PAD, STAGE_MARGIN, slotHeights, typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
 
-export { PAD }; // space between a stage border and its actions
+export { PAD, STAGE_MARGIN }; // PAD: unit of spacing; STAGE_MARGIN: the band between a stage's outer and inner border
 export const ACTION_GAP = 64; // space between neighbouring actions
 export const TOP_LEVEL_GAP = 96; // space between a new node of the main line and its neighbour
 export const TOOL_GAP = 120; // space between an agent and the tools hanging below it
@@ -58,8 +58,9 @@ export function canConnectFrom(start, other) {
   return other.direction !== "output" && canConnect(start.node, start.port, other.node, other.port);
 }
 
-const CORNER = 12; // radius of rounded corners
-const DETOUR = 28; // how far a routed edge keeps away from the nodes
+export const CORNER = 12; // radius of rounded corners
+/** How far a routed edge keeps away from the nodes: inside a stage the whole loop (this and the corner) fits the band between the borders. */
+export const DETOUR = Math.min(28, STAGE_MARGIN - CORNER);
 const TIGHT = 48; // a forward connection with less room than this would bend too sharply
 
 /**
@@ -67,13 +68,24 @@ const TIGHT = 48; // a forward connection with less room than this would bend to
  * room to bend, leaves to the right, runs below both nodes and comes in from the left instead of
  * cutting across them (rounded for curved and elbow, with sharp corners for straight).
  */
-export function edgePath(from, to, fromBox, toBox, { routed = true, style = "curved", attachment = false } = {}) {
+export function edgePath(from, to, fromBox, toBox, { routed = true, style = "curved", attachment = false, within = null, below = null } = {}) {
   if (attachment) return attachmentPath(from, to);
   const dx = to.x - from.x;
   const level = Math.abs(to.y - from.y) < 1; // a straight run needs no room to bend: it is drawn as it is
   if (routed && dx < TIGHT && !(dx > 0 && level)) {
-    const low = Math.max(fromBox.y + fromBox.height, toBox.y + toBox.height) + DETOUR;
-    const points = [from, { x: from.x + DETOUR, y: from.y }, { x: from.x + DETOUR, y: low }, { x: to.x - DETOUR, y: low }, { x: to.x - DETOUR, y: to.y }, to];
+    let low = Math.max(fromBox.y + fromBox.height, toBox.y + toBox.height, below ?? -Infinity) + DETOUR;
+    let out = from.x + DETOUR;
+    let back = to.x - DETOUR;
+    if (within) {
+      // both ends sit in one stage (`within` is its box, `below` the bottom of its lowest action): the loop's lowest run lies
+      // in the middle of the band between the stage's outer and inner border at the bottom (at the least size that is
+      // DETOUR below the lowest action), below every action and never across the outer border
+      const clear = Math.max(fromBox.y + fromBox.height, toBox.y + toBox.height, below ?? -Infinity) + DETOUR;
+      low = Math.min(Math.max(within.y + within.height - STAGE_MARGIN / 2, clear), within.y + within.height - CORNER);
+      out = Math.max(Math.min(out, within.x + within.width - CORNER), from.x + 4);
+      back = Math.min(Math.max(back, within.x + CORNER), to.x - 4);
+    }
+    const points = [from, { x: out, y: from.y }, { x: out, y: low }, { x: back, y: low }, { x: back, y: to.y }, to];
     return polyline(points, style === "straight" ? 0 : CORNER);
   }
   if (style === "straight") return polyline([from, to], 0);
@@ -138,26 +150,30 @@ export function nextToolPosition(nodes, edges, selectedId) {
   return { agentId: agent.id, x, y: agent.y + sizeOf(agent).height + TOOL_GAP };
 }
 
-/** Where an action may be put in its stage: not left of or above the padding (the highest row is FIRST_ROW, see slotHeights). */
+/**
+ * Where an action may be put in its stage: not left of or above the inner border, STAGE_MARGIN from the stage's edge (the
+ * highest row is FIRST_ROW below the header, see slotHeights). Right and below the stage grows with the action (fitStage), so
+ * the inner border keeps its distance there too.
+ */
 export function clampInStage(x, y) {
-  return { x: Math.max(PAD / 2, x), y: Math.max(FIRST_ROW, y) };
+  return { x: Math.max(STAGE_MARGIN, x), y: Math.max(FIRST_ROW, y) };
 }
 
 /** Where a new action goes: flows run left to right, so right of the last action of its stage, in the highest row. */
 export function nextActionPosition(stage, nodes) {
   const actions = actionsOf(stage, nodes);
-  const x = actions.length ? Math.max(...actions.map((a) => a.x + sizeOf(a).width)) + ACTION_GAP : PAD;
+  const x = actions.length ? Math.max(...actions.map((a) => a.x + sizeOf(a).width)) + ACTION_GAP : STAGE_MARGIN;
   return { x, y: FIRST_ROW };
 }
 
-/** The least a stage may measure: the smallest size that still holds all its actions (and never below STAGE_MIN). */
+/** The least a stage may measure: its actions plus STAGE_MARGIN to the right and below, and never below STAGE_MIN. One function for both grips and fitStage. */
 export function minStageSize(actions) {
   let width = STAGE_MIN.width;
   let height = STAGE_MIN.height;
   for (const action of actions) {
     const size = sizeOf(action);
-    width = Math.max(width, action.x + size.width + PAD);
-    height = Math.max(height, HEADER + action.y + size.height + PAD);
+    width = Math.max(width, action.x + size.width + STAGE_MARGIN);
+    height = Math.max(height, HEADER + action.y + size.height + STAGE_MARGIN);
   }
   return { width, height };
 }

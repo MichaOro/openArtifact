@@ -139,3 +139,18 @@ first when two are equally near) within 8 screen pixels (Alt switches it off), a
 its right edge, bottom edge and corner down to the size its actions need (`minStageSize`). A level connection with little
 room is drawn straight instead of being routed around the nodes. The stored data does not change: an edge keeps its slot,
 the heights are computed.
+
+## Addendum (2026-11-24, later): outer and inner border, one band
+
+A stage has an outer border (its edge) and an inner border, the limit of its actions, the same distance from the edge on
+all four sides: `STAGE_MARGIN`, the header plus `FIRST_ROW` (56 px), which is the distance from a stage's top edge to an
+action in the first row; it is one number derived from those two, not a second value. `clampInStage` stops an action
+at the inner border on the left and at the top; right and below the stage grows with it (`fitStage`), so the band stays
+there too. `minStageSize` (the floor of both grips and of the double click) is the actions plus the band to the right
+and below (before: 24 below and right, 12 on the left, and not the same for the two grips). The bottom attachment point
+is level with an action at the bottom of the inner border (stage height minus the band minus the action's height); the top and
+middle ones are unchanged. A connection that loops back between two actions of one stage keeps `DETOUR` plus its corner
+inside the band (`DETOUR + CORNER <= STAGE_MARGIN`, a test holds it) and is clamped to the stage's box, so it never
+crosses the outer border and never runs over an action. The inner border is drawn only while an action or a grip is dragged,
+as a faint dashed line. Stored positions do not change: a stage saved earlier may have an action closer to an edge; the
+limit applies when it is dragged, placed or resized.

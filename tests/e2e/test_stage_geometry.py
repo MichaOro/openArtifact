@@ -20,11 +20,14 @@ from tests.e2e.helpers import (
     run_started,
     two_stage_pipeline,
 )
-from tests.helpers import connect, graph_url, make_task, node, post
+from tests.helpers import build_definition, connect, graph_url, make_task, node, post
 
 STAGE_SIZE = {"width": 500, "height": 360}
-# STAGE_MIN wide; the lower action ends at 44 + 170 + 68, plus 24 padding
-MIN_WIDTH, MIN_HEIGHT = 320, 306
+# the least a stage measures: its actions plus the band between its outer and inner border (STAGE_MARGIN = 56) on the right
+# and below (the right edge of an action at 100 + 190, the lower one ends at 44 + 170 + 68)
+BAND = 56
+ACTION_WIDTH, ACTION_HEIGHT, HEADER = 190, 68, 44
+MIN_WIDTH, MIN_HEIGHT = 100 + ACTION_WIDTH + BAND, HEADER + 170 + ACTION_HEIGHT + BAND
 # An action's ports sit inside its 1px border, a stage's inside the stage's: the drawn lines use the model and are exact,
 # the dots measured in the page differ by that border.
 BORDER = 1.5
@@ -404,3 +407,165 @@ def test_the_corner_grip_shows_diagonal_strokes_and_keeps_its_hit_area(
     assert after == "none"
     # and the right and bottom grips are still the quiet bars
     assert _grip(page, "e").evaluate("el => getComputedStyle(el, '::after').display") != "none"
+
+
+# ── one band between the outer and the inner border, on all four sides ───
+
+
+def _drag_action_by(page: Page, action: Locator, dx: float, dy: float) -> None:
+    x, y = centre(action.locator(".ge-node__name"))
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.mouse.move(x + dx, y + dy, steps=12)
+    page.mouse.up()
+
+
+def test_an_action_stops_at_the_inner_border_on_the_left_and_at_the_top(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """The inner border is the band's width from the stage's edge: the top one has always been 56 px (the header and the
+    first row), now the left one is the same instead of 12 px."""
+    pipeline = _pipeline(api)
+    upper_id = pipeline["upper"]["id"]
+    _open(page, base_url, pipeline)
+    _drag_action_by(page, _action(page, upper_id), -3000, -3000)
+    eventually(
+        lambda: (_stored(api, pipeline, upper_id)["x"], _stored(api, pipeline, upper_id)["y"]),
+        (BAND, 12),
+    )
+
+
+def test_the_stage_grows_with_an_action_dragged_right_and_down_and_keeps_the_band(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _pipeline(api)
+    lower_id, stage_id = pipeline["lower"]["id"], pipeline["stage"]["id"]
+    _open(page, base_url, pipeline)
+    _drag_action_by(page, _action(page, lower_id), 3000, 3000)
+    eventually(lambda: _stored(api, pipeline, stage_id)["width"] > STAGE_SIZE["width"], True)
+    lower, stage = _stored(api, pipeline, lower_id), _stored(api, pipeline, stage_id)
+    assert stage["width"] - (lower["x"] + ACTION_WIDTH) == BAND, (
+        "right: the outer border stays a band away"
+    )
+    assert stage["height"] - (HEADER + lower["y"] + ACTION_HEIGHT) == BAND, "below: likewise"
+
+
+def test_both_grips_stop_one_band_from_the_actions(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _pipeline(api)
+    stage_id = pipeline["stage"]["id"]
+    _open(page, base_url, pipeline)
+    page.locator(".ge-node--stage .ge-stage__header").click()
+    _drag_by(page, _grip(page, "e"), -3000, 0)
+    _drag_by(page, _grip(page, "s"), 0, -3000)
+    eventually(
+        lambda: (
+            _stored(api, pipeline, stage_id)["width"],
+            _stored(api, pipeline, stage_id)["height"],
+        ),
+        (MIN_WIDTH, MIN_HEIGHT),
+    )
+    stage = _stored(api, pipeline, stage_id)
+    right = max(
+        _stored(api, pipeline, a["id"])["x"] + ACTION_WIDTH
+        for a in (pipeline["upper"], pipeline["lower"])
+    )
+    bottom = max(
+        HEADER + _stored(api, pipeline, a["id"])["y"] + ACTION_HEIGHT
+        for a in (pipeline["upper"], pipeline["lower"])
+    )
+    assert stage["width"] - right == stage["height"] - bottom == BAND, (
+        "the same band on the right and below"
+    )
+
+
+def test_the_inner_border_shows_faintly_while_an_action_or_a_grip_is_dragged(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _pipeline(api)
+    _open(page, base_url, pipeline)
+    inner = page.locator(".ge-node--stage .ge-stage__inner")
+    expect(inner).to_have_css("opacity", "0")
+    action = _action(page, pipeline["upper"]["id"])
+    x, y = centre(action.locator(".ge-node__name"))
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.mouse.move(x + 20, y + 20, steps=6)
+    expect(page.locator(".ge-node--stage.is-guiding")).to_have_count(1)
+    expect(inner).to_have_css("opacity", "0.35")
+    page.mouse.up()
+    expect(page.locator(".ge-node--stage.is-guiding")).to_have_count(0)
+    expect(inner).to_have_css("opacity", "0")
+
+
+def test_a_loop_back_inside_a_stage_runs_in_the_band_between_the_borders(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """On Error of the lower action goes back to the first one: the line leaves to the right, runs below both and comes in
+    from the left, and all of it lies between the stage's outer border and the actions."""
+    pipeline: dict[str, Any] = api.post("/api/pipelines", json={"name": "Loop"}).json()
+    stage = node(api, pipeline, "stage", name="Gap", x=200, y=40)
+    api.patch(
+        f"{graph_url(pipeline)}/nodes/{stage['id']}",
+        json={"width": MIN_WIDTH, "height": MIN_HEIGHT},
+    )
+    upper = node(api, pipeline, "action", stage_id=stage["id"], x=100, y=12)
+    definition = build_definition(
+        api, "Fails", output=None, fail_enabled=True
+    )  # an action with an On Error output
+    lower = node(api, pipeline, "action", stage_id=stage["id"], x=100, y=170)
+    api.patch(
+        f"{graph_url(pipeline)}/nodes/{lower['id']}", json={"definition_id": definition["id"]}
+    ).raise_for_status()
+    connect(api, pipeline, stage, "start", upper, "in")
+    connect(api, pipeline, upper, "pass", lower, "in")
+    connect(api, pipeline, lower, "error", upper, "in")
+    _open(page, base_url, pipeline)
+    # the first action as far left as it goes: the line that comes in from its left has to find room in the band
+    _drag_action_by(page, _action(page, upper["id"]), -3000, 0)
+    eventually(lambda: _stored(api, pipeline, upper["id"])["x"], BAND)
+    loop = page.locator(".ge-edge--error .ge-edge__line")
+    expect(loop).to_have_count(1)
+    path, frame = loop.bounding_box(), page.locator(".ge-node--stage").bounding_box()
+    lowest = max(
+        _action(page, a["id"]).bounding_box()["y"] + _action(page, a["id"]).bounding_box()["height"]  # type: ignore[index]
+        for a in (upper, lower)
+    )
+    assert path and frame
+    assert path["y"] + path["height"] > lowest, "it runs below the lowest action"
+    assert path["y"] + path["height"] < frame["y"] + frame["height"] - 2, (
+        "and stays inside the outer border"
+    )
+    assert path["x"] > frame["x"] + 2, "also on the left"
+    assert path["x"] + path["width"] < frame["x"] + frame["width"] - 2, "and on the right"
+
+
+def test_a_loop_back_in_a_taller_stage_still_runs_in_the_band_at_the_bottom(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline: dict[str, Any] = api.post("/api/pipelines", json={"name": "Tall loop"}).json()
+    stage = node(api, pipeline, "stage", name="Gap", x=200, y=40)
+    height = MIN_HEIGHT + 120
+    api.patch(
+        f"{graph_url(pipeline)}/nodes/{stage['id']}", json={"width": MIN_WIDTH, "height": height}
+    )
+    upper = node(api, pipeline, "action", stage_id=stage["id"], x=100, y=12)
+    definition = build_definition(api, "Fails", output=None, fail_enabled=True)
+    lower = node(api, pipeline, "action", stage_id=stage["id"], x=100, y=170)
+    api.patch(
+        f"{graph_url(pipeline)}/nodes/{lower['id']}", json={"definition_id": definition["id"]}
+    ).raise_for_status()
+    connect(api, pipeline, stage, "start", upper, "in")
+    connect(api, pipeline, upper, "pass", lower, "in")
+    connect(api, pipeline, lower, "error", upper, "in")
+    _open(page, base_url, pipeline)
+    path = page.locator(".ge-edge--error .ge-edge__line").bounding_box()
+    frame = page.locator(".ge-node--stage").bounding_box()
+    assert path and frame
+    scale = frame["height"] / height  # the page is zoomed to fit: model units to pixels
+    bottom_gap = frame["y"] + frame["height"] - (path["y"] + path["height"])
+    # the exact height is held by the unit test of edgePath; measured in the page (strokes, borders) it is the middle of the band
+    assert BAND * scale * 0.25 < bottom_gap < BAND * scale * 0.75, (
+        f"the lowest run lies in the band at the bottom, about half a band above the outer border: {bottom_gap}"
+    )

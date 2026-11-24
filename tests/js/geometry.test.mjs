@@ -14,6 +14,7 @@ const nodesOf = (...list) => new Map(list.map((n) => [n.id, n]));
 
 test("constants", () => {
   assert.deepEqual([g.PAD, g.ACTION_GAP, g.TOP_LEVEL_GAP, g.STAGE_MIN], [24, 64, 96, { width: 320, height: 220 }]);
+  assert.equal(g.STAGE_MARGIN, 56, "the band between a stage's outer and inner border");
   assert.deepEqual(g.EDGE_STYLES, { curved: "Curved", straight: "Straight", elbow: "Elbow" });
 });
 
@@ -52,8 +53,8 @@ test("the attachment points of a stage follow the stage's height, not its action
   const first = action("n", 24, { y: g.nextActionPosition(stage, nodesOf(stage)).y, definition_fail_enabled: true });
   level(g.portPoint(stage, "start", nodesOf(stage, first), 0).y, g.portPoint(first, "in", nodesOf(stage, first)).y, "top = first row (input)");
   level(g.portPoint(stage, "end", nodesOf(stage, first), 0).y, g.portPoint(first, "pass", nodesOf(stage, first)).y, "top = first row (On Pass)");
-  // the bottom point is level with the input of an action dragged as low as it goes without the stage growing
-  const lowest = action("z", 24, { y: stage.height - 44 - g.PAD - 68, definition_fail_enabled: true });
+  // the bottom point is level with the input of an action dragged to the inner border at the bottom (without the stage growing)
+  const lowest = action("z", 56, { y: stage.height - 44 - g.STAGE_MARGIN - 68, definition_fail_enabled: true });
   const lowestNodes = nodesOf(stage, lowest);
   assert.equal(g.fitStage(stage, g.actionsOf(stage, lowestNodes)).height, stage.height, "the stage does not grow for it");
   level(g.portPoint(stage, "start", lowestNodes, 2).y, g.portPoint(lowest, "in", lowestNodes).y, "bottom = lowest action (input)");
@@ -110,7 +111,7 @@ test("an action's ports offer the heights of its stage's points to settle on", (
 test("minStageSize is what the actions need, however large the stage is", () => {
   assert.deepEqual(g.minStageSize([]), { width: 320, height: 220 });
   const far = { x: 400, y: 200, kind: "action", definition_fail_enabled: false };
-  assert.deepEqual(g.minStageSize([far]), { width: 400 + 190 + 24, height: 44 + 200 + 68 + 24 });
+  assert.deepEqual(g.minStageSize([far]), { width: 400 + 190 + g.STAGE_MARGIN, height: 44 + 200 + 68 + g.STAGE_MARGIN }, "its actions plus the band, on the right and below alike");
   // fitStage keeps a larger stage; minStageSize is the floor a resize may go down to
   assert.deepEqual(g.fitStage({ width: 900, height: 700 }, [far]), { width: 900, height: 700 });
 });
@@ -210,8 +211,8 @@ test("a new stage or timer goes to the right of the main line; the other kinds a
   assert.deepEqual(g.nextTopLevelPosition(new Map(), "stage"), { x: 156, y: 40 }, "an empty graph starts at 60 + gap");
 });
 
-test("a new action goes right of the last one of its stage, or at the padding", () => {
-  assert.deepEqual(g.nextActionPosition(stage, nodesOf(stage)), { x: 24, y: 12 });
+test("a new action goes right of the last one of its stage, or at the inner border", () => {
+  assert.deepEqual(g.nextActionPosition(stage, nodesOf(stage)), { x: g.STAGE_MARGIN, y: 12 });
   const nodes = nodesOf(stage, action("a", 24), action("b", 300));
   assert.deepEqual(g.nextActionPosition(stage, nodes), { x: 300 + 190 + 64, y: 12 });
 });
@@ -220,7 +221,7 @@ test("fitStage grows to hold the actions and never shrinks", () => {
   assert.deepEqual(g.fitStage({ width: 100, height: 100 }, []), { width: 320, height: 220 }, "the minimum");
   assert.deepEqual(g.fitStage({ width: 900, height: 700 }, []), { width: 900, height: 700 }, "the stage's own size wins when larger");
   const far = action("a", 400, { y: 200 });
-  assert.deepEqual(g.fitStage({ width: 100, height: 100 }, [far]), { width: 400 + 190 + 24, height: 44 + 200 + 68 + 24 });
+  assert.deepEqual(g.fitStage({ width: 100, height: 100 }, [far]), { width: 400 + 190 + g.STAGE_MARGIN, height: 44 + 200 + 68 + g.STAGE_MARGIN });
   const small = action("b", 0, { y: 0 });
   assert.deepEqual(g.fitStage({ width: 100, height: 100 }, [small]), { width: 320, height: 220 });
 });
@@ -238,4 +239,59 @@ test("a connection pressed at an input is fed by an output that fits, and one pr
   assert.equal(g.canConnectFrom(end(a, "pass", "output"), end(b, "pass", "output")), false); // an output feeds no output
   // a stage's two-way point can be the source for an action's input pressed at the input
   assert.equal(g.canConnectFrom(end(a, "in", "input"), end(stage, "start", "both")), g.canConnect(stage, "start", a, "in"));
+});
+
+test("the margin is the measured distance between a stage's top edge and the top of an action in the first row", () => {
+  // the header and the first row: the one number the four sides share (not a second hard-coded value)
+  assert.equal(g.STAGE_MARGIN, 44 + g.nextActionPosition(stage, nodesOf(stage)).y);
+  assert.equal(g.STAGE_MARGIN, 44 + g.clampInStage(0, -999).y);
+});
+
+test("clampInStage stops an action at the inner border on the left and at the top; right and below the stage grows with it, keeping the band", () => {
+  assert.deepEqual(g.clampInStage(-50, -50), { x: g.STAGE_MARGIN, y: 12 });
+  assert.deepEqual(g.clampInStage(200, 90), { x: 200, y: 90 }, "inside it nothing changes");
+  const nodes = nodesOf(stage, action("a", 700, { y: 400 }));
+  const grown = g.fitStage(stage, g.actionsOf(stage, nodes));
+  assert.equal(grown.width - (700 + 190), g.STAGE_MARGIN, "right: the outer border keeps the band's width from the action");
+  assert.equal(grown.height - (44 + 400 + 68), g.STAGE_MARGIN, "below: likewise");
+});
+
+test("the right and the bottom grip stop at the same distance from the actions", () => {
+  const a = action("a", 100, { y: 60 });
+  const least = g.minStageSize([a]);
+  assert.equal(least.width - (a.x + 190), least.height - (44 + a.y + 68), "the same band on both sides");
+  assert.equal(g.fitStage({ width: 1, height: 1 }, [a]).width, Math.max(least.width, 320));
+});
+
+test("a loop back inside a stage runs in the band between the stage's borders and never across the outer one", () => {
+  assert.ok(g.DETOUR + g.CORNER <= g.STAGE_MARGIN, "the detour and its corner fit into the band");
+  const a = action("a", 100, { y: 60, definition_fail_enabled: true });
+  const b = action("b", 400, { y: 60, definition_fail_enabled: true });
+  const nodes = nodesOf(stage, a, b);
+  const least = g.minStageSize([a, b]);
+  const box = { x: stage.x, y: stage.y, width: least.width, height: least.height };
+  const from = g.portPoint(b, "error", nodes);
+  const to = g.portPoint(a, "in", nodes);
+  const lowest = Math.max(g.boxOf(a, nodes).y + 68, g.boxOf(b, nodes).y + 68);
+  const d = g.edgePath(from, to, g.boxOf(b, nodes), g.boxOf(a, nodes), { style: "straight", within: box, below: lowest });
+  const numbers = d.match(/-?\d+(\.\d+)?/g).map(Number);
+  const ys = numbers.filter((_, i) => i % 2 === 1);
+  const xs = numbers.filter((_, i) => i % 2 === 0);
+  assert.ok(Math.max(...ys) > lowest, "it runs below the lowest action");
+  assert.ok(Math.max(...ys) <= box.y + box.height - g.CORNER, "and stays inside the outer border at the bottom");
+  assert.ok(Math.min(...xs) >= box.x + g.CORNER && Math.max(...xs) <= box.x + box.width, "also on the left and the right");
+});
+
+test("a loop back in a stage larger than its actions still runs in the band at the bottom, in the middle of it", () => {
+  const a = action("a", 100, { y: 60, definition_fail_enabled: true });
+  const b = action("b", 400, { y: 60, definition_fail_enabled: true });
+  const nodes = nodesOf(stage, a, b);
+  const tall = { x: stage.x, y: stage.y, width: 700, height: 500 };
+  const from = g.portPoint(b, "error", nodes);
+  const to = g.portPoint(a, "in", nodes);
+  const lowest = g.boxOf(b, nodes).y + 68;
+  const d = g.edgePath(from, to, g.boxOf(b, nodes), g.boxOf(a, nodes), { style: "straight", within: tall, below: lowest });
+  const ys = d.match(/-?\d+(\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 1);
+  assert.equal(Math.max(...ys), tall.y + tall.height - g.STAGE_MARGIN / 2, "the lowest run: half a band above the outer border");
+  assert.ok(Math.max(...ys) > tall.y + tall.height - g.STAGE_MARGIN, "which is below the inner border");
 });

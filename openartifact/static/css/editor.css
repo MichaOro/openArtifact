@@ -275,6 +275,18 @@
 .is-resizing .ge-resize--se .icon { color: var(--color-accent); }
 /* the thin dashed line that shows a node settling level with a connected port */
 .ge-guide { stroke: var(--color-accent); stroke-width: 1; stroke-dasharray: 4 4; pointer-events: none; }
+/* a stage's inner border: the limit of its actions, STAGE_MARGIN from the edge on all four sides; faint, and only while an action or a grip is dragged */
+.ge-stage__inner {
+  position: absolute;
+  inset: var(--ge-stage-margin, 56px);
+  border: 1px dashed var(--node-color);
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms;
+}
+.ge-node--stage.is-guiding > .ge-stage__inner { opacity: 0.35; }
+@media (prefers-reduced-motion: reduce) { .ge-stage__inner { transition: none; } }
 .ge-port.is-valid { background: var(--accent-soft); border-color: var(--color-accent); transform: scale(1.35); }
 .ge-port.is-hover { background: var(--color-accent); }
 

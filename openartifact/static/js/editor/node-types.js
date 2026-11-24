@@ -24,12 +24,20 @@ const SLOT_EDGE = 8; // the lowest point keeps this far from the stage's bottom 
 export const PAD = 24; // space between a stage border and its actions
 /** The highest an action can sit in a stage (body coordinates, below the header): the drag clamp stops there, a new action goes there, and the stage's top attachment point is level with its port. One number for all three. */
 export const FIRST_ROW = PAD / 2;
+/**
+ * The band between a stage's outer border (its edge) and its inner border (the limit of its actions), the same on all four
+ * sides: it is the distance from the stage's top edge to the top of an action in the first row (the header and FIRST_ROW).
+ * Actions stay inside the inner border, a stage is never smaller than its actions plus this band, and the connections
+ * that loop back run inside the band.
+ */
+export const STAGE_MARGIN = HEADER + FIRST_ROW;
 
 /**
  * Heights of a stage's three attachment points on one side, top to bottom, from the stage's top. They depend on the
  * stage's height only, never on its actions: the first is level with the port of an action at the very top (FIRST_ROW: the highest
  * an action can sit and where a new one goes), the last with the port of an action dragged as low as it goes without the stage growing, the middle one
- * halfway. So a line from a point to an action in either place is straight, however the other actions sit. `side` is
+ * halfway. So a line from a point to an action in either place is straight, however the other actions sit. The lowest
+ * place is an action at the inner border's bottom (STAGE_MARGIN above the stage's bottom edge). `side` is
  * "in" for the left edge (the inputs of the actions) and "out" for the right edge (their On Pass). Every point stays inside
  * the stage.
  */
@@ -40,8 +48,8 @@ export function slotHeights(height, side = "in") {
   const facing = (side === "in" ? view.inputs : view.outputs)[0]?.name;
   const port = facing ? view.portLocal(sample, facing).y : view.size(sample).height / 2;
   const clamp = (y) => Math.min(Math.max(y, HEADER / 2), height - SLOT_EDGE);
-  const top = clamp(HEADER + FIRST_ROW + port);
-  const bottom = clamp(Math.max(height - PAD - view.size(sample).height + port, top));
+  const top = clamp(STAGE_MARGIN + port);
+  const bottom = clamp(Math.max(height - STAGE_MARGIN - view.size(sample).height + port, top));
   return [top, (top + bottom) / 2, bottom];
 }
 

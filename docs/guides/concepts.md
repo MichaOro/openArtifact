@@ -74,17 +74,27 @@ actions along). The trigger, the output and the end are part of a graph: they ar
 undo yet.
 
 **Straight lines.** The attachment points of a stage (three on each side) follow the stage's height, not its actions:
-the top one is level with an action at the very top (the highest an action can sit, where a new one also goes), the
-bottom one with an action dragged to the very bottom, the middle one is halfway; on the left they face the actions' input, on the right their On Pass.
+the top one is level with an action at the very top of the stage's inner border (the highest an action can sit, where a new one also goes), the
+bottom one with an action dragged to the inner border at the bottom, the middle one is halfway; on the left they face the actions' input, on the right their On Pass.
 So a line from the top or the bottom point to an action there runs horizontally, whatever the other actions do, and
 the lower points move with the bottom edge when you resize the stage. A node you drag settles level with a port it is
 connected to or with a point of its stage as soon as it comes within 8 pixels (a thin dashed line shows it); hold
 **Alt** to move it freely. A
 stage has grips on its right edge, its bottom edge and its bottom-right corner (shown when it is hovered or selected,
-also reachable with Tab): drag one to make the stage larger or smaller, never smaller than its actions need; arrow keys
+also reachable with Tab): drag one to make the stage larger or smaller, never smaller than its actions plus the band (below); arrow keys
 on a grip change the size by 10 (Shift: 40), a double click or Enter fits the stage to its actions. There are no grips
 on the left and top, because the actions' positions are relative to the stage. The corner grip shows the usual
 glyph of diagonal strokes. Execution flows (read-only) have none.
+
+**Borders of a stage.** A stage has an **outer border** (its edge) and an **inner border**: the limit of its actions. The
+distance between them is the same on all four sides, and it is the one that has always been between the stage's top edge
+and the first action (56 px: the header and the first row). An action can be dragged and put anywhere inside the inner
+border; dragged towards the right or the bottom edge it pushes the stage's edge out, so the band stays. The grips stop at the
+actions plus the band, the same on the right and below; a double click fits the stage exactly to that. The connections that
+loop back inside a stage (for example an On Error that returns to the first action) run in the band between the two
+borders, below the actions. The inner border shows as a faint dashed line while you drag an action or a grip, and
+otherwise not. A stage saved before this may have an action closer to the left or bottom edge: nothing is moved, the
+limit applies when you drag, place or resize.
 
 **Connecting.** Press on any port and drag: from an output to an input that fits, or the other way round, from an
 input to an output that can feed it (the ports that fit light up). The connection is stored the same way whichever end

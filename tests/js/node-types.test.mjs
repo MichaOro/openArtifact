@@ -3,7 +3,7 @@ import { before, test } from "node:test";
 import { FakeNode, NODE_TYPES, PLACEHOLDERS, installDocument, loadTypes, textOf } from "./support.mjs";
 
 const JS = "../../openartifact/static/js/editor/";
-const { HEADER, FIRST_ROW, SLOTS, slotY, slotHeights, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable, searchAddable, setPlaceholders, placeholderOf, placeholdersIn } = await import(`${JS}node-types.js`);
+const { HEADER, FIRST_ROW, STAGE_MARGIN, SLOTS, slotY, slotHeights, NodeView, registerView, loadNodeTypes, typeOf, addableIn, groupAddable, searchAddable, setPlaceholders, placeholderOf, placeholdersIn } = await import(`${JS}node-types.js`);
 
 before(async () => {
   installDocument(["code", "http", "plus"]);
@@ -128,10 +128,11 @@ test("slotHeights: from the first row of a new action to the lowest one, the mid
   // the action is 68 high and 190 wide: its input sits at 34, its On Pass at a third of its height; the highest row is FIRST_ROW (12)
   assert.equal(FIRST_ROW, 12, "the highest row an action can sit in");
   const topIn = HEADER + FIRST_ROW + 34;
-  assert.deepEqual(slotHeights(360, "in"), [topIn, (topIn + 302) / 2, 360 - 24 - 68 + 34], "left: the inputs");
+  const bottomIn = 360 - STAGE_MARGIN - 68 + 34;
+  assert.deepEqual(slotHeights(360, "in"), [topIn, (topIn + bottomIn) / 2, bottomIn], "left: the inputs");
   const out = slotHeights(360, "out");
   near(out[0], HEADER + FIRST_ROW + 68 / 3, "right: the first row's On Pass");
-  near(out[2], 360 - 24 - 68 + 68 / 3, "right: the lowest On Pass");
+  near(out[2], 360 - STAGE_MARGIN - 68 + 68 / 3, "right: the lowest On Pass");
   near(out[1], (out[0] + out[2]) / 2, "right: halfway");
   assert.deepEqual(slotHeights(460, "in").map((y, i) => y - slotHeights(360, "in")[i]), [0, 50, 100], "a taller stage moves the lower points");
   assert.ok(slotHeights(100, "in").every((y) => y >= HEADER / 2 && y <= 100 - 8), "never outside the stage, however small it is");
