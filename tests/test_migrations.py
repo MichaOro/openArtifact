@@ -866,3 +866,74 @@ def test_migration_0048_gives_a_used_error_output_its_setting_and_keeps_the_rest
     assert config["a_edge"] == {}  # an action had no such setting before
     assert config["n_continue_edge"] == {"on_failure": "continue"}
     assert config["n_continue"] == {"on_failure": "continue"}
+
+
+def test_migration_0050_brings_an_action_definition_and_its_uses_in_step(
+    at_revision: Callable[[str], Path],
+) -> None:
+    """A use in the error output mode switches its definition's On Fail on; every use that stops the run follows a
+    definition that has On Fail; a use set to continue is left alone; definitions without any of it change nothing."""
+    import json
+
+    db = at_revision("0049")
+    # definition -> (has On Fail before); uses -> (definition, config)
+    definitions = {"d_on": 1, "d_off": 0, "d_wanted": 0, "d_plain": 0}
+    uses = [
+        ("u_on_stop", "d_on", {}),  # offered, stops: gets the error output
+        ("u_on_fail", "d_on", {"on_failure": "fail"}),
+        ("u_on_continue", "d_on", {"on_failure": "continue"}),  # untouched
+        ("u_on_error", "d_on", {"on_failure": "error_output"}),
+        ("u_wants", "d_wanted", {"on_failure": "error_output"}),  # switches d_wanted on ...
+        ("u_wanted_stop", "d_wanted", {}),  # ... and carries its other use along
+        ("u_plain", "d_plain", {}),  # a definition without it: nothing changes
+        ("u_off_continue", "d_off", {"on_failure": "continue"}),
+        ("u_shell", None, {}),  # an empty action has no definition
+    ]
+    with sqlite3.connect(db) as conn:
+        conn.execute("INSERT INTO graphs (id, name, slug, kind) VALUES ('p', 'P', 'p', 'pipeline')")
+        for name, flag in definitions.items():
+            conn.execute(
+                "INSERT INTO graphs (id, name, slug, kind) VALUES (?, ?, ?, 'action')",
+                (name, name, name),
+            )
+            conn.execute(
+                "INSERT INTO graph_nodes (id, graph_id, kind, name, fail_enabled) VALUES (?, ?, 'output', 'Output', ?)",
+                (f"out_{name}", name, flag),
+            )
+        for use_id, definition, config in uses:
+            conn.execute(
+                "INSERT INTO graph_nodes (id, graph_id, kind, name, definition_id, config) "
+                "VALUES (?, 'p', 'action', ?, ?, ?)",
+                (use_id, use_id, definition, json.dumps(config)),
+            )
+
+    command.upgrade(alembic_config(), "0050")
+    with sqlite3.connect(db) as conn:
+        flags = {
+            r[0]: r[1]
+            for r in conn.execute(
+                "SELECT graph_id, fail_enabled FROM graph_nodes WHERE kind = 'output'"
+            )
+        }
+        config = {
+            r[0]: json.loads(r[1])
+            for r in conn.execute("SELECT id, config FROM graph_nodes WHERE kind = 'action'")
+        }
+    assert flags == {"d_on": 1, "d_off": 0, "d_wanted": 1, "d_plain": 0}
+    assert config["u_on_stop"] == {"on_failure": "error_output"}
+    assert config["u_on_fail"] == {"on_failure": "error_output"}
+    assert config["u_on_continue"] == {"on_failure": "continue"}
+    assert config["u_on_error"] == {"on_failure": "error_output"}
+    assert config["u_wants"] == {"on_failure": "error_output"}
+    assert config["u_wanted_stop"] == {"on_failure": "error_output"}
+    assert config["u_plain"] == {}
+    assert config["u_off_continue"] == {"on_failure": "continue"}
+    assert config["u_shell"] == {}
+
+    command.downgrade(alembic_config(), "0049")  # nothing to undo: both states were legal before
+    with sqlite3.connect(db) as conn:
+        again = {
+            r[0]: json.loads(r[1])
+            for r in conn.execute("SELECT id, config FROM graph_nodes WHERE kind = 'action'")
+        }
+    assert again == config

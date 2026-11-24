@@ -114,7 +114,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A tab list | `tabs.js` (`.task-tabs` / `.task-tab`) |
 | A menu of commands | `action-menu.js` (`menu__item`) |
 | A list to pick from, placed next to its trigger | `lane-picker.js` and `popover.js` (`popover__option`) |
-| A short message above a page | `alert-bar.js` with `templates/components/alert.html` |
+| A short message above a page | `alert-bar.js` with `templates/components/alert.html`; `show(message, { tone: "info" })` is the calm look for news that is not an error (what a change did beyond the node); it floats above an open window (popover layer), because a window's backdrop would cover the bar |
 | An explanation of a field | `info-tip.js` (the (i) that opens a tooltip) |
 | An on/off setting | `switch.js` |
 | The add menu of the editor, under the "+" or at a point | `add-menu.js`; `openFrom(point, {types, header, emptyText, onPick})` opens the same menu at the pointer for a line released on the canvas (anchored mode: `is-anchored`, a header line `ge-add__from`, only the given kinds), glue and plan in `connect-menu.js` and `connect-plan.js` |

@@ -303,7 +303,7 @@ is saved at once.
 | PATCH | `/api/{kind}/{graph_id}` | Rename | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}` | Delete with everything in it; `204` | 404 |
 | POST | `/api/{kind}/{graph_id}/nodes` | Add a stage, an action, a node or an execution node; `201` | 404, 422 |
-| PATCH | `/api/{kind}/{graph_id}/nodes/{node_id}` | Rename, move, resize, change settings (`config`). Setting `on_failure` away from `error_output` while a connection leaves the error output is `422` ("remove that connection first") | 404, 422 |
+| PATCH | `/api/{kind}/{graph_id}/nodes/{node_id}` | Rename, move, resize, change settings (`config`). The answer carries `notices` (`definition_on`: the action definition got On Fail too, with `definition` and `uses`; `definition_stays_on`: other uses still need it; `disconnected`: `count`, `inner` and `places` (`graph`, `stage`, `node`, `count`) of the connections that went with a connector) and `reload` (other nodes of this graph changed too). Setting `on_failure` away from `error_output`, or switching an Output's `fail_enabled` off, **disconnects** what was connected at that connector and reports it (ADR-061 §4); the error output of an action and its definition's On Fail are one state, so a change on one side reaches every use | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}/nodes/{node_id}` | Delete with its edges; `204` | 404 |
 | POST | `/api/{kind}/{graph_id}/edges` | Connect an output port to an input port (the output's previous edge is replaced); `201`. A connection at a port that is not there is `422`: the error output (On Fail of a node, On Error of an action) exists only with the config value `on_failure: error_output` ([ADR-061](../architecture/adr/061-what-a-failure-does.md)) | 404, 422 |
 | PATCH | `/api/{kind}/{graph_id}/edges/{edge_id}` | Change how a connection is drawn | 404, 422 |
@@ -379,6 +379,7 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `agents.changed` | `{}` | an agent was created, changed, published or deleted: reload `GET /api/agents` |
 | `providers.changed` | `{}` | a provider or one of its models changed: reload `GET /api/providers` |
 | `settings.changed` | `{"run_limits": {...}}` (as `GET /api/settings/run-limits`) | the run limits were changed |
+| `graph.changed` | `{"graph_ids": [...]}` | other pipelines or action definitions changed through a node (the error output is shared by a definition and its uses): an open editor shows one of them loads it again |
 | `board.resync` | `{}` | other tasks got new positions or lost their parent: reload the board |
 | `run.updated` | the run state (as `GET /api/runs`) | a run starts, advances or ends |
 | `activity.created` | the entry (as `GET .../activity`) | something changed on an artifact, a comment was written or deleted, or a delete action left its trace |

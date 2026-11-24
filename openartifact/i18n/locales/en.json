@@ -1172,5 +1172,11 @@
  "components.layout.delete_area_blocked": "Move its settings out first",
  "components.layout.drop_here": "Drop settings here",
  "components.layout.max_areas": "At most {count} areas of your own",
- "components.layout.moved_field_area": "{title}: {area}, position {position}"
+ "components.layout.moved_field_area": "{title}: {area}, position {position}",
+ "editor.sync.definition_on.one": "Also switched on in the action '{definition}'; it applies to {count} other use.",
+ "editor.sync.definition_on.other": "Also switched on in the action '{definition}'; it applies to {count} other uses.",
+ "editor.sync.definition_stays_on.one": "Stays on in the action '{definition}': {count} other use still has the error output.",
+ "editor.sync.definition_stays_on.other": "Stays on in the action '{definition}': {count} other uses still have the error output.",
+ "editor.sync.disconnected.one": "Disconnected {count} connection ({places}).",
+ "editor.sync.disconnected.other": "Disconnected {count} connections ({places})."
 }

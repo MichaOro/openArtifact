@@ -188,22 +188,31 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         responses=errors(404, 422, write=True, body=True),
     )
     async def update_node(
-        graph_id: str, node_id: str, payload: NodeUpdate, session: SessionDep
+        graph_id: str, node_id: str, payload: NodeUpdate, session: SessionDep, request: Request
     ) -> NodeRead:
-        """Rename, move or resize a node. ``warnings`` lists problems with the node's context references."""
+        """Rename, move or resize a node. ``warnings`` lists problems with the node's context references.
+
+        The error output is one state of an action definition and its uses (ADR-061 addendum): ``notices`` says what a
+        change did beyond the node (the definition's On Fail, other uses, connections that were disconnected) and
+        ``reload`` that other nodes of this graph changed; ``graph.changed`` goes out for the other graphs."""
         repo = GraphRepository(session)
         graph = await _graph(repo, graph_id)
         node = await repo.get_node(graph_id, node_id)
         if node is None:
             raise _not_found("Node")
         try:
-            await repo.update_node(node, payload)
+            report = await repo.update_node(node, payload)
         except NodeError as error:
             raise _invalid(error) from error
         await repo.touch(graph)
         await session.commit()
+        if report.graphs:
+            request.app.state.event_bus.publish(
+                "graph.changed", {"graph_ids": sorted(report.graphs)}
+            )
         read = (await _node_reads(repo, [node]))[0]
         read.warnings = await repo.reference_hints(node)
+        read.notices, read.reload = report.notices, report.reload
         if node.kind == NodeKind.AGENT:
             read.warnings += await agent_node_hints(session, node)
         return read

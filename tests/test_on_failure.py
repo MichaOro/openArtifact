@@ -106,22 +106,25 @@ def test_a_connection_at_a_hidden_error_output_is_refused(client: TestClient) ->
     )
 
 
-def test_the_error_output_cannot_be_hidden_while_it_is_connected(client: TestClient) -> None:
-    action = _code_definition(client, "error_output")
-    _raw_connect(
-        client, action, action["node"], "fail", action["output"], "pass"
-    ).raise_for_status()
+def test_hiding_the_error_output_disconnects_it_instead_of_being_refused(
+    client: TestClient,
+) -> None:
+    """ADR-061 refused this ("remove that connection first"); the addendum disconnects and says so."""
     for value in ("fail", "continue"):
-        refused = _set(client, action, action["node"], value)
-        assert refused.status_code == 422, value
-        assert "remove that connection first" in refused.json()["detail"]
-    node = next(
-        n for n in client.get(_url(action)).json()["nodes"] if n["id"] == action["node"]["id"]
-    )
-    assert node["config"]["on_failure"] == "error_output"  # nothing changed
-    edge = next(e for e in client.get(_url(action)).json()["edges"] if e["source_port"] == "fail")
-    assert client.delete(f"{_url(action)}/edges/{edge['id']}").status_code == 204
-    assert _set(client, action, action["node"], "continue").status_code == 200
+        action = _code_definition(client, "error_output")
+        _raw_connect(
+            client, action, action["node"], "fail", action["output"], "pass"
+        ).raise_for_status()
+        answer = _set(client, action, action["node"], value)
+        assert answer.status_code == 200, value
+        (notice,) = answer.json()["notices"]
+        assert notice["kind"] == "disconnected" and notice["count"] == 1
+        node = next(
+            n for n in client.get(_url(action)).json()["nodes"] if n["id"] == action["node"]["id"]
+        )
+        assert node["config"]["on_failure"] == value
+        edges = client.get(_url(action)).json()["edges"]
+        assert [e for e in edges if e["source_port"] == "fail"] == []  # the connection went
 
 
 def test_an_unknown_value_is_refused(client: TestClient) -> None:
@@ -220,9 +223,12 @@ def test_an_action_set_to_the_error_output_follows_it(client: TestClient) -> Non
     _raw_connect(client, pipeline, shell, "error", stage, "end").raise_for_status()
     task = _run(client, pipeline, _always_failing(client))
     _wait(client, task, "done")
-    # and it cannot be hidden while it is connected
-    refused = _set(client, pipeline, shell, "continue")
-    assert refused.status_code == 422 and "remove that connection first" in refused.json()["detail"]
+    # hiding it disconnects what was connected there (the user draws it again if wanted)
+    answer = _set(client, pipeline, shell, "continue")
+    assert answer.status_code == 200 and answer.json()["notices"][0]["kind"] == "disconnected"
+    assert [
+        e for e in client.get(_url(pipeline)).json()["edges"] if e["source_port"] == "error"
+    ] == []
 
 
 def test_an_action_set_to_the_error_output_with_nothing_connected_fails_the_run(

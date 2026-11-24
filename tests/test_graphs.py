@@ -385,27 +385,33 @@ def test_only_actions_link_to_existing_action_definitions(client: TestClient) ->
     assert _link(client, pipeline, shell, pipeline["id"]).status_code == 422  # not a definition
 
 
-def test_the_error_output_of_an_action_exists_only_with_its_setting_not_with_its_definition(
+def test_the_error_output_of_an_action_follows_its_setting_and_is_kept_in_step_with_its_definition(
     client: TestClient,
 ) -> None:
-    """Before ADR-061 On Error needed an Output with On Fail in the definition; now the action's own setting decides."""
+    """The action's setting decides whether On Error exists (ADR-061); the definition's On Fail is kept in step with it
+    in both directions (ADR-061 addendum)."""
     pipeline, shell = _shell(client)
     other = _node(client, pipeline, "action", stage_id=shell["stage_id"])
     definition = _action_definition(client)
     output = next(n for n in _graph(client, definition)["nodes"] if n["kind"] == "output")
     client.patch(f"{_url(definition)}/nodes/{output['id']}", json={"fail_enabled": False})
     _link(client, pipeline, shell, definition["id"])
-    assert _edge(client, pipeline, shell, "error", other, "in").status_code == 422
+    assert _edge(client, pipeline, shell, "error", other, "in").status_code == 422  # not there
     client.patch(
         f"{_url(pipeline)}/nodes/{shell['id']}", json={"config": {"on_failure": "error_output"}}
     )
     assert _edge(client, pipeline, shell, "error", other, "in").status_code == 201
-    client.patch(f"{_url(definition)}/nodes/{output['id']}", json={"fail_enabled": True})
+    # setting it on the action switched On Fail on in the definition
+    assert next(n for n in _graph(client, definition)["nodes"] if n["id"] == output["id"])[
+        "fail_enabled"
+    ]
+    # switching it off there takes the action's connection and its setting with it
     client.patch(f"{_url(definition)}/nodes/{output['id']}", json={"fail_enabled": False})
-    # the definition's On Fail does not take the action's connection with it any more
     assert [
         e["source_port"] for e in _graph(client, pipeline)["edges"] if e["source_id"] == shell["id"]
-    ] == ["error"]
+    ] == []
+    node = next(n for n in _graph(client, pipeline)["nodes"] if n["id"] == shell["id"])
+    assert node["config"]["on_failure"] == "fail"
     assert _edge(client, pipeline, shell, "pass", other, "in").status_code == 201
 
 

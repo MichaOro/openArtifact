@@ -1691,5 +1691,11 @@
  "components.layout.delete_area_blocked": "Zuerst die Einstellungen herausschieben",
  "components.layout.drop_here": "Einstellungen hierher ziehen",
  "components.layout.max_areas": "Höchstens {count} eigene Bereiche",
- "components.layout.moved_field_area": "{title}: {area}, Position {position}"
+ "components.layout.moved_field_area": "{title}: {area}, Position {position}",
+ "editor.sync.definition_on.one": "Auch in der Action „{definition}“ eingeschaltet; gilt für {count} weitere Verwendung.",
+ "editor.sync.definition_on.other": "Auch in der Action „{definition}“ eingeschaltet; gilt für {count} weitere Verwendungen.",
+ "editor.sync.definition_stays_on.one": "Bleibt in der Action „{definition}“ eingeschaltet: {count} weitere Verwendung hat den Fehlerausgang noch.",
+ "editor.sync.definition_stays_on.other": "Bleibt in der Action „{definition}“ eingeschaltet: {count} weitere Verwendungen haben den Fehlerausgang noch.",
+ "editor.sync.disconnected.one": "{count} Verbindung getrennt ({places}).",
+ "editor.sync.disconnected.other": "{count} Verbindungen getrennt ({places})."
 }
