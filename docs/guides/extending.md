@@ -399,9 +399,14 @@ the arrangement is saved for the whole instance and can be reset or exported. As
   a saved layout, a key you add appears where the manifest puts it (after the field before it). Never reuse a key for something else.
 - **A `full` section stays full width**, and a **required field is never folded away**: a layout that tries is refused.
 - **Nothing else changes with a layout:** no labels, no widgets, no visibility, no values. Those are the manifest's.
-- **A node kind's window** has two sides, `definition` and `behaviour`; a setting stays on its side. The rows of one `group`
-  move as one entry. A block the kind draws itself (the Agent's choice of agent and inputs) is listed as *fixed* in
-  `static/js/editor/node-layout.js` (`OWN_BLOCKS`: its name and the setting keys it draws itself): add your kind there if it does.
+- **A node kind's window** has two areas, `definition` and `behaviour`, and the person who runs the application may add areas
+  of their own. A setting may sit in any of them (only its place changes: its level, validation and inheritance are yours). The
+  rows of one `group` move as one entry. A block the kind draws itself (the Agent's choice of agent and inputs) is *fixed*: list it
+  in `static/js/editor/node-layout.js` (`OWN_BLOCKS`: its name and the setting keys it draws itself) **and** in `FIXED_BLOCKS` in
+  `openartifact/ui/layout.py`, so the server refuses it in a layout.
+- **Areas of one's own** are `custom_<id>` with a plain title (1 to 40 characters, at most 12 per window kind), only
+  containers, and are stored in the layout layer. In a form manifest the same can be written as an ordinary section with a
+  literal `title`; the manifests of node kinds know `definition` and `behaviour` only, so custom node areas stay in the layer.
 - **To make an arrangement the default**, use *Export as YAML* in the layout menu (or `GET /api/ui-layouts/<kind>/<name>/export`)
   and copy the order into the manifest in the repository: sections in order with their `column`, fields in order, `advanced`
   as exported. A new window needs nothing: the form renderer and the settings dialog put the handle on every manifest

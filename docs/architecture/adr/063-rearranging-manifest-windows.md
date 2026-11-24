@@ -51,9 +51,8 @@ The shipped manifests live in the image (read-only file system); "save it as the
   landing place, the window scrolls at its edge, Escape cancels the drag), or focus it and press the arrow keys (Up and Down
   in a list, Left and Right between the columns; a node's sections swap sides); the move is announced in a live region. A
   required field is not folded away. Closing the window with an arrangement not saved asks first.
-- **What a node's window can and cannot do.** Its sides are its sections, so a section is moved by swapping the sides; a
-  setting stays on its side (Definition or Behaviour: that is meaning, not layout), and its level (always shown, optional,
-  folded) is the manifest's. The blocks a kind draws itself (the Agent's choice of agent and its inputs) are shown as a
+- **What a node's window can and cannot do.** *(Changed by §4: a setting may sit in any area.)* Its sides are its sections,
+  so a section is moved by swapping the sides; its level (always shown, optional, folded) is the manifest's. The blocks a kind draws itself (the Agent's choice of agent and its inputs) are shown as a
   **fixed** bar and stay at the top of Definition.
 
 ## 3. Consequences
@@ -65,3 +64,37 @@ already data. The arrange view does not show live controls, which keeps it simpl
 widgets to add from (a hidden `layout` entry that names a widget key would be the place), per-user layouts, windows that are
 not manifests (the retention rule, the provider and credential dialogs: they get the handle when they become manifests), and
 rearranging the *blocks* a kind draws itself.
+
+## 4. Addendum 2026-11-24: a setting in any area, and areas of one's own
+
+The owner could move the order of settings inside Definition and Behaviour but not a setting from one into the other (the
+User prompt into Behaviour, *If the node fails* into Definition), and wanted to make such an area himself, "as it is only a
+container". Both are layout, not meaning, so they follow the same rules as everything else in this layer.
+
+- **A field or setting may sit in ANY area** (a node's Definition, Behaviour or an area of one's own; a form's sections),
+  by pointer drop or by key (up and down move through a list and on into the next area, left and right go to the
+  neighbouring area at the same position; announced in the live region). The setting keeps its level (core, optional, advanced),
+  its validation, its inherit/override behaviour: only `section` in the description changes. Everything that reads a setting's
+  area uses the effective one (`settings-plan.js` takes the areas from `layout.sections`, the rows are drawn where the plan puts
+  them; the group of settings in Definition folds when unused, in any other area it is a titled block). The block a kind draws
+  itself (the Agent's choice of agent and inputs) stays fixed on top of Definition; the server refuses it in a layout
+  (`FIXED_BLOCKS` in `ui/layout.py`, mirrored by `OWN_BLOCKS` in `node-layout.js`).
+- **Areas of one's own**: `custom_<id>` (lower-case letters and digits), a plain title of 1 to 40 characters stored as the
+  user typed it (not translated), at most 12 per window kind, created with *Add area* in the arrange view (its title opens for
+  renaming in place), deleted with the bin while the area is empty (it says "Move its settings out first" otherwise).
+  A shipped area (Definition, Behaviour, a form's shipped sections) is neither renamed nor deleted. An area is a container: it
+  may be empty and then is not drawn in the normal view (a form's description leaves it out of `sections`, a node's plan drops it).
+  A form's custom section sits in column 1, 2 or auto, never full width.
+- **Storage** is the same `ui.layouts` entry: `{sections: [{key, fields, (advanced, column), (title for a custom one)}]}`. The
+  document of the previous version reads unchanged (every shipped key keeps its meaning); a stale key, a custom area with an
+  invalid key or title is ignored on read; a field the layout does not list stays in its shipped area after the one before it.
+  Written strictly: a setting listed twice anywhere, an unknown or fixed one, a title on a shipped area, a custom area without
+  a valid title, more than 12 are 422 with the reason. `layout.sections` of a node kind lists all areas in order (custom and
+  empty ones too) and `layout.titles` the custom titles; a form's description carries `layout.areas`.
+- **Export** is the layout document with the custom areas and their titles; it loads back into the same layout. A form's
+  custom section can be written into its manifest as an ordinary section with a literal `title`; the manifests of node kinds
+  have the two shipped sections only, so a node kind's custom areas stay in the layer (say so when you export them).
+- **In the arrange view** every area is always shown: side by side where the window is wide, one under the other where it is
+  narrow, and a drop lands in the area under the pointer (an empty one says "Drop settings here"); a dragged area finds its slot in
+  reading order (`slotAmong`).
+

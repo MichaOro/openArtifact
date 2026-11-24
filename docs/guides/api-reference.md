@@ -153,7 +153,7 @@ The arrangement of the windows that are YAML manifests, saved as a layer over th
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
 | GET | `/api/v1/ui-layouts/{kind}/{name}` | `{window, customised, layout, shipped}`: the arrangement that applies and the one the manifest has | 404 |
-| PUT | `/api/v1/ui-layouts/{kind}/{name}` | Save `{sections: [...]}`: a form's section has `key`, `column` (1, 2, `auto`; a `full` section stays `full`), `fields` and the folded `advanced`; a node's has `key` (`definition` or `behaviour`, left to right) and `fields` (a group of settings is `group:<name>`); only known keys, no duplicates, a required field is never folded; publishes `settings.changed` | 404, 422 |
+| PUT | `/api/v1/ui-layouts/{kind}/{name}` | Save `{sections: [...]}`: a form's section has `key`, `column` (1, 2, `auto`; a `full` section stays `full`), `fields` and the folded `advanced`; a node's has `key` (`definition`, `behaviour` or an area of your own) and `fields` (a group of settings is `group:<name>`); a field or setting may sit in any area; an area of your own is `custom_<id>` with a `title` of 1 to 40 characters (at most 12 per window, deleted by leaving it out, shipped areas have no `title`); only known keys, no duplicates, a required field is never folded, a block the kind draws itself (the Agent's agent and inputs) is refused; publishes `settings.changed` | 404, 422 |
 | DELETE | `/api/v1/ui-layouts/{kind}/{name}` | Back to the shipped layout | 404 |
 | GET | `/api/v1/ui-layouts/{kind}/{name}/export` | The layout as YAML (`window`, `layout`), to put into the repository as the new default | 404 |
 
