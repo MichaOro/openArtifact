@@ -34,9 +34,8 @@ settings:
   default: ''
   max_length: 20000
   placeholder: priority = ${node.Classify.output}
-  help: 'One ''name = value'' per line. Each sets the variable ${var.name} for the nodes after this one (names:
-    lowercase letters, digits and underscores). A value may hold ${node.NAME.output}, ${node.NAME.data.key}, ${var.name}
-    or ${card.name}; secrets cannot be used, a variable is plain data.'
+  help: One 'name = value' per line; each sets ${var.name} for later nodes (lowercase letters, digits, _). A value may hold
+    ${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or ${card.name}, but no secrets.
   stored_in: config
   check: edit_fields
   references: context

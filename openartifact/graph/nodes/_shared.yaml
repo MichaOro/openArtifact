@@ -51,8 +51,7 @@ settings:
     default: ''
     max_length: 20000
     placeholder: SELECT id, title FROM tickets WHERE status = $1 LIMIT 20
-    help: 'One SQL statement. Values go in as parameters: $1, $2, ... (never ${...} in the text). Stored in plain
-      text, so no passwords in here.'
+    help: One SQL statement; values go in as $1, $2, ... (never ${...}). Stored in plain text, so no passwords.
     stored_in: config
     check: sql_query
   allow_write:
@@ -60,9 +59,8 @@ settings:
     label: Allow changes
     type: switch
     default: false
-    help: 'Off (the default): the statement runs in a read-only transaction that is rolled back, so the database
-      refuses any change. On: it may change data and is committed when it succeeds. Use a database role that has
-      only the privileges the statement needs.'
+    help: 'Off: the statement runs in a read-only transaction that is rolled back, so any change is refused. On: it may change
+      data and is committed; use a database role with only the privileges it needs.'
     stored_in: config
   max_rows:
     key: max_rows

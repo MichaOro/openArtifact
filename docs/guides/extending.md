@@ -178,6 +178,20 @@ What a manifest cannot do: run code; add a kind that is not a `NodeKind` member 
 of the operator (for third-party kinds) is not enabled yet**: `node_types.load(directory)` already reads any directory, but
 only the built-in one is loaded.
 
+### A port that is there only with a setting
+
+A port may carry `visible_when: {setting: on_failure, equals: error_output}`: it is shown, and the server accepts a connection at it, only
+while the setting has that value (a setting that is not set counts as its default). This is how the error output of a kind works
+([ADR-061](../architecture/adr/061-what-a-failure-does.md)): declare the setting once with `use: on_failure` and give the failure
+output the `visible_when` above. A select may name the shown text of its options with `option_labels` (the stored value stays what
+`options` says); a locale file overrides them with `nodes.<kind>.settings.<key>.options.<value>`.
+
+### The texts of a kind
+
+The labels, helps, placeholders, options and ports of a manifest follow one short rule, kept by `tests/test_node_texts.py` for the
+English text and for the German overrides (a language may be a quarter longer); the rule and its reasons are in the
+[UI catalog](ui-catalog.md#texts-of-a-node). A text that needs more says why in `ALLOWED` of that test.
+
 ## Add a setting type
 
 A setting is one `Setting(key, label, type, ...)` in a node type. The types are `integer`, `number` (whole or
@@ -306,11 +320,3 @@ step shows comes from what ran, so it is set with `textContent` only.
 - Unused code is quarantined, not left behind (`quarantine.json`, see [CONTRIBUTING](../../.github/CONTRIBUTING.md)).
 - Run `ruff`, `mypy` and `pytest` ([testing guide](testing.md)) before the change is done; run the browser
   tests before a push.
-
-### A port that is there only with a setting
-
-A port may carry `visible_when: {setting: on_failure, equals: error_output}`: it is shown, and the server accepts a connection at it, only
-while the setting has that value (a setting that is not set counts as its default). This is how the error output of a kind works
-([ADR-061](../architecture/adr/061-what-a-failure-does.md)): declare the setting once with `use: on_failure` and give the failure
-output the `visible_when` above. A select may name the shown text of its options with `option_labels` (the stored value stays what
-`options` says); a locale file overrides them with `nodes.<kind>.settings.<key>.options.<value>`.

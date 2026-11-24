@@ -45,7 +45,11 @@ export function overrideRow({ key, label, source, inheritedText, overridden, edi
     if (text) button.append(document.createTextNode(text));
     return button;
   };
-  const note = (text) => el("p", "ov__value", text);
+  const note = (text) => {
+    const line = el("p", "ov__value", text);
+    line.title = text; // a long value is cut to one line by the style; the whole of it stays in the tooltip
+    return line;
+  };
 
   if (state === "inherited" || state === "not-set") {
     const button = action(null, state === "not-set" ? "Set a value" : "Override", state === "not-set" ? `Set ${label}` : `Override ${label} in this node`, "button button--ghost button--sm");

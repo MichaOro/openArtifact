@@ -48,6 +48,9 @@ settings:
   - Get file
   - List comments
   - Create comment
+  option_labels:
+    Get pull request diff: Get PR diff
+    List pull request files: List PR files
   help: What the node does. Settings the operation does not use are ignored.
   stored_in: config
 - key: repository
@@ -80,7 +83,7 @@ settings:
   check: file_path
   references: context
 - key: ref
-  label: Branch, tag or commit
+  label: Git reference
   type: text
   default: ''
   max_length: 200
@@ -122,7 +125,7 @@ settings:
   help: 'Create comment writes to GitHub: it only runs when this is on. Every other operation reads.'
   stored_in: config
 - key: secret
-  label: Secret with the token
+  label: Token secret
   type: text
   default: ''
   max_length: 64

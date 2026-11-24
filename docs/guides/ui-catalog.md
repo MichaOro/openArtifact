@@ -128,6 +128,26 @@ exceptions are named, not implied.
   settings, the guard window, the retention rules, the artifact fields and an agent version (`wide`).
 - Never set a fixed width on a dialog or on a single dialog's CSS: use the two tokens or declare the exception.
 
+## Texts of a node
+
+The settings of a node, its card and its ports are read in a narrow dialog, so their texts are short. One rule for the English
+source (`graph/nodes/*.yaml`) and, a quarter longer, for every language (`tests/test_node_texts.py` keeps it; an exception is named there
+with its reason, and an exception that is not needed any more is removed):
+
+| Text | Rule |
+|------|------|
+| Label of a kind or a setting | At most 3 words, no full stop |
+| Title of a group of settings | At most 4 words |
+| Help (the tooltip of the (i)) | At most 2 sentences and about 220 characters. All of the explanation is here, warnings included: a field shows no explanatory line |
+| Placeholder | At most 60 characters; an example, not an instruction |
+| Option of a select | At most 3 words (`option_labels` gives a stored value another shown text) |
+| Port | At most 2 words |
+| Card caption | One line, no sentence; the parts filled in are `{...}` |
+| A note under a field (the server's answers excepted) | One sentence |
+
+A value that is long in itself is never shown whole: a row that names what a setting inherits (a prompt of thousands of
+characters) shows a one-line preview and the whole text in its tooltip (`preview` in `agents/model.js`).
+
 ## Exceptions that exist today
 
 | Where | Why it is not a catalog component |

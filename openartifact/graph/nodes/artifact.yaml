@@ -35,7 +35,8 @@ settings:
   options:
   - Get comments
   - Add comment
-  help: 'Get comments reads the newest comments of the artifact this run belongs to (the output is a readable transcript, data.comments the list). Add comment writes one under the name of this node. Only the run''s own artifact is ever touched.'
+  help: 'Get comments reads the newest comments of this run''s artifact (output: a transcript; data.comments: the list). Add
+    comment writes one under this node''s name; no other artifact is ever touched.'
   stored_in: config
 - key: limit
   label: Newest comments

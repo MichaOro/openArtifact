@@ -486,7 +486,7 @@
  "editor.agent_inspector.not_published": "not published",
  "editor.agent_inspector.nothing_published_yet_node_will": "Nothing is published yet: the node will fail.",
  "editor.agent_inspector.open_agent": "Open agent",
- "editor.agent_inspector.runs_version_published_number_version": "Runs version {published_number} (the version published when an execution starts).",
+ "editor.agent_inspector.runs_version_published_number_version": "Runs version {published_number} (published at the start of a run).",
  "editor.canvas.change_line_style": "Change line style",
  "editor.canvas.delete_connection": "Delete connection",
  "editor.canvas.more_actions": "More actions",

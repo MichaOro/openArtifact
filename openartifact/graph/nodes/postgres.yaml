@@ -29,7 +29,7 @@ ui:
     template: '{?allow_write:changes · }{query|first_line|short|default:no query yet}'
 settings:
 - key: secret
-  label: Secret with the connection URL
+  label: Connection secret
   type: text
   default: ''
   max_length: 64
@@ -45,8 +45,8 @@ settings:
   default: ''
   max_length: 20000
   placeholder: open
-  help: 'One value per line: the first is $1, the second $2, ... Text; the database converts it to the type the
-    query expects. ${node...} and ${var...} insert earlier results; no secrets. Use NULLIF($1, '''') for a NULL.'
+  help: One value per line (the first is $1, the second $2); the database converts the text to the type the query expects,
+    and NULLIF($1, '') gives a NULL. ${node...} and ${var...} insert earlier results, no secrets.
   stored_in: config
   check: query_values
   references: context

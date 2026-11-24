@@ -50,6 +50,13 @@ export function showValue(value, kind = "") {
   return String(value);
 }
 
+/** A value as one short line, for a row that names what a setting inherits (a prompt of thousands of characters is not a
+ * label): the markup marks go, line breaks become a space, and a longer text is cut with an ellipsis. */
+export function preview(value, limit = 70) {
+  const flat = String(value).replace(/[*_`#>]+/g, "").replace(/\s+/g, " ").trim();
+  return flat.length > limit ? `${flat.slice(0, limit - 1).trimEnd()}…` : flat;
+}
+
 /** `name = value` per line as {name: value}; lines that are not such a pair are left out. */
 export function parseMapping(text) {
   const mapping = {};

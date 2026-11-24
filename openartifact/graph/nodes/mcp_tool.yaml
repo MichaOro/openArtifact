@@ -37,7 +37,7 @@ settings:
   stored_in: config
   check: tool_endpoint
 - key: secret
-  label: Secret with the token
+  label: Token secret
   type: text
   default: ''
   max_length: 64

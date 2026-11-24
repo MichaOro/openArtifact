@@ -17,6 +17,7 @@ import {
   numberOf,
   overridesOf,
   parseMapping,
+  preview,
   providerInEffect,
   seconds,
   showValue,
@@ -182,4 +183,17 @@ test("the grey example of a Quick test field says what goes in", () => {
   assert.equal(sampleHint({ type: "number", default: null }), "e.g. 3");
   assert.equal(sampleHint({ type: "boolean" }), "e.g. true");
   assert.equal(sampleHint({ type: "string" }), "e.g. Login fails after the update");
+});
+
+test("a long inherited value is shown as a one-line preview, the markup flattened", () => {
+  assert.equal(preview("Off"), "Off");
+  assert.equal(preview(0.2), "0.2");
+  const prompt = "**Primary Role**\n\nYou are the Epic Gap Analyzer Agent.\n\n**Operating Context**\n\nYou are a requirements-analysis agent operating at the clarification stage of an Epic refinement pipeline.";
+  const shown = preview(prompt);
+  assert.ok(shown.length <= 70, `at most 70 characters: ${shown.length}`);
+  assert.ok(shown.startsWith("Primary Role You are the Epic Gap Analyzer Agent."), shown);
+  assert.ok(shown.endsWith("…"), "cut text says so");
+  assert.ok(!/[\n*]/.test(shown), "one line, no emphasis marks");
+  assert.equal(preview("short text"), "short text", "a short text is as it is");
+  assert.equal(preview("a\n\nb"), "a b", "line breaks become a space");
 });

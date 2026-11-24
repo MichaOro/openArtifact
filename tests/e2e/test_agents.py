@@ -393,6 +393,47 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
     expect(page.locator(".ge-node--agent .ge-node__kind")).to_have_text("Triage")
 
 
+def test_a_long_prompt_of_the_agent_is_one_line_in_the_inspector(
+    signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
+) -> None:
+    """The prompts are inherited from the agent; a prompt of thousands of characters is a preview of one line (the whole of
+    it in the tooltip), in the row and in the "Add override" menu, and the labels of a row stay on one line."""
+    _provider(api, llm)
+    long_prompt = (
+        "**Primary Role**\n\nYou are the Gap Analyzer.\n\n"
+        + "Check every claim against the evidence. " * 200
+    )
+    agent = _agent(api, system_prompt=long_prompt, system_prompt_enabled=True)
+    action = api.post("/api/actions", json={"name": "Answer"}).json()
+    page = signed_in
+    page.goto(f"{agents_url}/actions/{action['slug']}")
+    expect(page.locator(".ge-node--output")).to_be_visible()
+    page.click("[data-add-menu]")
+    pick_node(page, "agent")
+    page.locator(".ge-node--agent").dblclick(position={"x": 30, "y": 5})
+    inspector = page.locator(".ge-inspector")
+    inspector.get_by_label("Agent", exact=True).select_option(agent["id"])
+    expect(inspector.locator(".ag-node__status")).to_contain_text("Runs version 1")
+    row = inspector.locator('.ov[data-setting="system_prompt"]')
+    value = row.locator(".ov__value")
+    expect(value).to_contain_text("Agent: Primary Role You are the Gap Analyzer.")
+    expect(value).to_contain_text("…")
+    box = value.bounding_box()
+    assert box is not None and box["height"] < 24, f"one line, not {box}"
+    assert len(value.inner_text()) < 100  # not the 8000 characters of the prompt
+    expect(value).to_have_attribute("title", re.compile(r"^Agent: Primary Role"))
+    label = row.locator(".ov__label")
+    label_box = label.bounding_box()
+    assert label_box is not None and label_box["height"] < 24, (
+        "the name of the row stays on one line"
+    )
+    # the same in the menu that offers a setting to override
+    page.locator(".ge-inspector").get_by_role("button", name="Add override").click()
+    options = page.locator("[role=menuitem], [role=option]")
+    texts = [options.nth(i).inner_text() for i in range(options.count())]
+    assert texts and all(len(text) < 120 for text in texts), texts
+
+
 def test_the_request_of_an_agent_step_is_shown_with_its_attempts(
     signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
 ) -> None:

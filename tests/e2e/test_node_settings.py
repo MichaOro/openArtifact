@@ -168,13 +168,13 @@ def test_the_explanation_of_a_field_is_a_tooltip_after_its_label(
     query = dialog.get_by_label("Query", exact=True)
     tip = tip_of(dialog, "Query")
     expect(tip).to_be_visible()
-    text = "One SQL statement."
+    text = "One SQL statement"
     expect(dialog.get_by_text(text)).to_be_hidden()  # not printed under the field
     tip.hover()  # hover opens it
     tooltip = page.get_by_role("tooltip").filter(has_text=text)
     expect(tooltip).to_be_visible()
     expect(tooltip).to_contain_text(
-        "Stored in plain text, so no passwords in here."
+        "Stored in plain text, so no passwords."
     )  # warnings are help too
     box, tip_box = tooltip.bounding_box(), tip.bounding_box()
     assert (

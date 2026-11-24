@@ -362,7 +362,7 @@
     "default": "",
     "stored_in": "config",
     "max_length": 20000,
-    "help": "Stored and shown in plain text, so no secrets in here: ${secret:NAME} is not replaced in code, and neither are ${node...} or ${var...}. List the secrets the code needs in 'Secrets' below; they come as environment variables. The run context (variables and earlier results) is the file context.json in the working directory. To set variables, print a last line like {\"ok\": true, \"vars\": {\"name\": \"value\"}}.",
+    "help": "Plain text, so no secrets here; ${...} is not replaced in code. The run context is the file context.json, and a last line {\"ok\": true, \"vars\": {\"name\": \"value\"}} sets variables.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -377,7 +377,7 @@
     "stored_in": "config",
     "max_length": 2000,
     "placeholder": "API_KEY",
-    "help": "One secret name per line (capitals, digits, underscores). Each is available to the code as an environment variable of that name, for example $API_KEY or os.environ['API_KEY']. Manage the values under Secrets; a missing secret fails the node.",
+    "help": "One secret name per line; each is an environment variable of that name, like $API_KEY. A missing secret fails the node.",
     "section": "definition",
     "level": "advanced",
     "inherits": null
@@ -392,7 +392,7 @@
     "stored_in": "config",
     "max_length": 2000,
     "placeholder": "ticket_priority",
-    "help": "Optional: the variable names this code sets (one per line, as in \"vars\"). Documents the node and feeds the suggestions; a difference between this list and what the code really sets is noted in the step, it does not fail the node.",
+    "help": "Optional: the variables this code sets, one per line, as in \"vars\". They feed the suggestions; a difference is noted in the step and does not fail the node.",
     "section": "definition",
     "level": "advanced",
     "inherits": null
@@ -541,7 +541,7 @@
     "default": "",
     "stored_in": "config",
     "max_length": 20000,
-    "help": "Sent as it is, stored in plain text: put a secret in as ${secret:NAME}, which is replaced by its value when the node runs. ${node.NAME.output}, ${node.NAME.data.key} and ${var.NAME} insert an earlier node's result or a variable (NAME: the node's name with spaces as _).",
+    "help": "Sent as it is, stored in plain text: use ${secret:NAME} for a secret. ${node.NAME.output}, ${node.NAME.data.key} and ${var.NAME} insert earlier results (NAME: the node's name, _ for spaces).",
     "references": "all",
     "section": "definition",
     "level": "core",
@@ -1446,7 +1446,7 @@
    },
    {
     "key": "system_prompt_enabled",
-    "label": "Use a system prompt",
+    "label": "Use system prompt",
     "type": "switch",
     "minimum": null,
     "maximum": null,
@@ -1551,7 +1551,7 @@
    },
    {
     "key": "total_timeout_seconds",
-    "label": "Time limit of the node (seconds)",
+    "label": "Time limit (seconds)",
     "type": "integer",
     "minimum": 1,
     "maximum": 1800,
@@ -1670,7 +1670,7 @@
     "stored_in": "config",
     "max_length": 20000,
     "placeholder": "priority = ${node.Classify.output}",
-    "help": "One 'name = value' per line. Each sets the variable ${var.name} for the nodes after this one (names: lowercase letters, digits and underscores). A value may hold ${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or ${card.name}; secrets cannot be used, a variable is plain data.",
+    "help": "One 'name = value' per line; each sets ${var.name} for later nodes (lowercase letters, digits, _). A value may hold ${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or ${card.name}, but no secrets.",
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -1784,6 +1784,10 @@
      "List comments",
      "Create comment"
     ],
+    "option_labels": {
+     "Get pull request diff": "Get PR diff",
+     "List pull request files": "List PR files"
+    },
     "help": "What the node does. Settings the operation does not use are ignored.",
     "section": "definition",
     "level": "core",
@@ -1838,7 +1842,7 @@
    },
    {
     "key": "ref",
-    "label": "Branch, tag or commit",
+    "label": "Git reference",
     "type": "text",
     "minimum": null,
     "maximum": null,
@@ -1912,7 +1916,7 @@
    },
    {
     "key": "secret",
-    "label": "Secret with the token",
+    "label": "Token secret",
     "type": "text",
     "minimum": null,
     "maximum": null,
@@ -2024,7 +2028,7 @@
   "settings": [
    {
     "key": "secret",
-    "label": "Secret with the connection URL",
+    "label": "Connection secret",
     "type": "text",
     "minimum": null,
     "maximum": null,
@@ -2047,7 +2051,7 @@
     "stored_in": "config",
     "max_length": 20000,
     "placeholder": "SELECT id, title FROM tickets WHERE status = $1 LIMIT 20",
-    "help": "One SQL statement. Values go in as parameters: $1, $2, ... (never ${...} in the text). Stored in plain text, so no passwords in here.",
+    "help": "One SQL statement; values go in as $1, $2, ... (never ${...}). Stored in plain text, so no passwords.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2062,7 +2066,7 @@
     "stored_in": "config",
     "max_length": 20000,
     "placeholder": "open",
-    "help": "One value per line: the first is $1, the second $2, ... Text; the database converts it to the type the query expects. ${node...} and ${var...} insert earlier results; no secrets. Use NULLIF($1, '') for a NULL.",
+    "help": "One value per line (the first is $1, the second $2); the database converts the text to the type the query expects, and NULLIF($1, '') gives a NULL. ${node...} and ${var...} insert earlier results, no secrets.",
     "references": "context",
     "section": "definition",
     "level": "core",
@@ -2076,7 +2080,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "help": "Off (the default): the statement runs in a read-only transaction that is rolled back, so the database refuses any change. On: it may change data and is committed when it succeeds. Use a database role that has only the privileges the statement needs.",
+    "help": "Off: the statement runs in a read-only transaction that is rolled back, so any change is refused. On: it may change data and is committed; use a database role with only the privileges it needs.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2224,7 +2228,7 @@
    },
    {
     "key": "secret",
-    "label": "Secret with the token",
+    "label": "Token secret",
     "type": "text",
     "minimum": null,
     "maximum": null,
@@ -2683,7 +2687,7 @@
    },
    {
     "key": "secret",
-    "label": "Secret with the connection URL",
+    "label": "Connection secret",
     "type": "text",
     "minimum": null,
     "maximum": null,
@@ -2706,7 +2710,7 @@
     "stored_in": "config",
     "max_length": 20000,
     "placeholder": "SELECT id, title FROM tickets WHERE status = $1 LIMIT 20",
-    "help": "One SQL statement. Values go in as parameters: $1, $2, ... (never ${...} in the text). Stored in plain text, so no passwords in here.",
+    "help": "One SQL statement; values go in as $1, $2, ... (never ${...}). Stored in plain text, so no passwords.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2734,7 +2738,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "help": "Off (the default): the statement runs in a read-only transaction that is rolled back, so the database refuses any change. On: it may change data and is committed when it succeeds. Use a database role that has only the privileges the statement needs.",
+    "help": "Off: the statement runs in a read-only transaction that is rolled back, so any change is refused. On: it may change data and is committed; use a database role with only the privileges it needs.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2837,7 +2841,7 @@
      "Get comments",
      "Add comment"
     ],
-    "help": "Get comments reads the newest comments of the artifact this run belongs to (the output is a readable transcript, data.comments the list). Add comment writes one under the name of this node. Only the run's own artifact is ever touched.",
+    "help": "Get comments reads the newest comments of this run's artifact (output: a transcript; data.comments: the list). Add comment writes one under this node's name; no other artifact is ever touched.",
     "section": "definition",
     "level": "core",
     "inherits": null

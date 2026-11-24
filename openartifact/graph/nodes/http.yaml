@@ -55,9 +55,8 @@ settings:
   label: Body
   type: lines
   default: ''
-  help: 'Sent as it is, stored in plain text: put a secret in as ${secret:NAME}, which is replaced by its value
-    when the node runs. ${node.NAME.output}, ${node.NAME.data.key} and ${var.NAME} insert an earlier node''s result
-    or a variable (NAME: the node''s name with spaces as _).'
+  help: 'Sent as it is, stored in plain text: use ${secret:NAME} for a secret. ${node.NAME.output}, ${node.NAME.data.key}
+    and ${var.NAME} insert earlier results (NAME: the node''s name, _ for spaces).'
   stored_in: config
   check: text_references
   references: all

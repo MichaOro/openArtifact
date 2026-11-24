@@ -29,7 +29,7 @@ settings:
     is $1.'
   stored_in: config
 - key: secret
-  label: Secret with the connection URL
+  label: Connection secret
   type: text
   default: ''
   max_length: 64

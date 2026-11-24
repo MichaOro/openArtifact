@@ -51,7 +51,7 @@ settings:
   check: agent_inputs
   references: context
 - key: system_prompt_enabled
-  label: Use a system prompt
+  label: Use system prompt
   type: switch
   stored_in: config
   inherits: agent
@@ -118,7 +118,7 @@ settings:
   level: optional
   inherits: agent
 - key: total_timeout_seconds
-  label: Time limit of the node (seconds)
+  label: Time limit (seconds)
   type: integer
   minimum: 1
   maximum: 1800
