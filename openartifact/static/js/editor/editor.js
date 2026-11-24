@@ -72,9 +72,9 @@ export class GraphEditor {
       root,
       this.model.kind,
       (kind) => (typeOf(kind).tool ? this.#addTool(kind) : this.#addBeforeEnd(kind)),
-      (key) => key === "guard" && this.guards?.add("pipeline", this.model.graph.id, root.querySelector("[data-add-menu]")),
+      (key) => key === "guard" && this.guards?.add(this.guards.rootType, this.model.graph.id, root.querySelector("[data-add-menu]")),
     );
-    if (!this.model.isAction) this.#setUpGuards(root);
+    this.#setUpGuards(root);
     root.querySelector("[data-zoom-in]").addEventListener("click", () => this.canvas.zoomBy(1.2));
     root.querySelector("[data-zoom-out]").addEventListener("click", () => this.canvas.zoomBy(1 / 1.2));
     root.querySelector("[data-zoom-fit]").addEventListener("click", () => this.canvas.fit());
@@ -196,11 +196,13 @@ export class GraphEditor {
     this.#renderSettings();
   }
 
-  /** The settings of the selected node; an action's end with the guards that watch it (ADR-060). */
+  /** The settings of the selected node; the settings of what a guard can watch (an action in a pipeline, a node in an
+   * action) end with the guards that watch it (ADR-060). */
   #renderSettings() {
     this.inspector.render(this.selection);
     const node = this.nodes.get(this.selection.id);
-    if (this.guards && node?.kind === "action") this.inspector.element.append(this.guards.section(node));
+    const watchable = node && ["action", "node"].includes(this.guards?.scopeTypeOf(node));
+    if (watchable) this.inspector.element.append(this.guards.section(node));
   }
 
   // ── adding ─────────────────────────────────────────────────────────
@@ -414,13 +416,17 @@ export class GraphEditor {
 
   // ── guards (ADR-060) ───────────────────────────────────────────────
 
-  /** The guards attached to this pipeline: shields on the pipeline, its stages and actions, and their popups. */
+  /** The guards of this graph: in a pipeline shields on the pipeline, its stages and actions (counting the guards inside
+   * the actions' definitions), in an action definition shields on the action as a whole and on its nodes. */
   #setUpGuards(root) {
     this.guards = new EditorGuards(root, {
-      pipelineId: root.dataset.graphId,
-      scopeName: (type, id) => (type === "pipeline" ? (this.model.graph?.name ?? "") : displayName(this.nodes.get(id) ?? { name: "" })),
+      graphId: root.dataset.graphId,
+      isAction: this.model.isAction,
+      scopeName: (type, id) => (type === "pipeline" || type === "definition" ? (this.model.graph?.name ?? "") : displayName(this.nodes.get(id) ?? { name: "" })),
+      guardable: (node) => Boolean(typeOf(node).guardable),
+      definitionOf: (nodeId) => this.nodes.get(nodeId)?.definition_id ?? null,
       actionsPath: this.paths.action,
-      pipelineSlug: () => this.model.graph?.slug ?? "",
+      pipelineSlug: () => (this.model.isAction ? "" : (this.model.graph?.slug ?? "")),
       confirm: (message, action) => this.confirm.open({ message, onConfirm: action }),
       showError: (message) => this.alert.show(message, { autoHide: 6000 }),
       redraw: () => this.canvas.sync(),
@@ -448,10 +454,11 @@ export class GraphEditor {
       { label: t("common.delete"), icon: "trash", shortcut: "Del", danger: true, disabledReason: fixed ? reasonFixed : undefined, onSelect: () => this.#deleteTargets(targets) },
     ];
     const guard = placeholderOf("guard");
-    if (guard && this.guards && !several && node.kind === "action") {
-      // a guard that watches this action, before Delete
+    const watches = this.guards?.scopeTypeOf(node);
+    if (guard && this.guards && !several && (watches === "action" || watches === "node")) {
+      // a guard that watches this action (in a pipeline) or this node (in an action), before Delete
       const anchor = trigger ?? this.canvas.elements.get(node.id);
-      items.splice(items.length - 1, 0, { label: guard.label, icon: guard.icon, onSelect: () => this.guards.add("action", node.id, anchor.isConnected ? anchor : this.canvas.elements.get(node.id)) });
+      items.splice(items.length - 1, 0, { label: guard.label, icon: guard.icon, onSelect: () => this.guards.add(watches, node.id, anchor.isConnected ? anchor : this.canvas.elements.get(node.id)) });
     }
     const anchor = trigger ?? this.canvas.elements.get(node.id);
     this.menu.toggle(anchor, items, `Actions of ${displayName(node)}`, point ? { at: point } : {});

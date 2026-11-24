@@ -71,7 +71,7 @@ export class GuardEditor {
     return this.modal.isOpen;
   }
 
-  /** A new definition; `attachTo` ({pipelineId, type, id, name}): attach it there once it is saved. */
+  /** A new definition; `attachTo` ({graphId, type, id, name}): attach it there once it is saved. */
   async openNew({ attachTo = null } = {}) {
     await this.#show(null, model.blank(""), attachTo);
     this.nameText.edit(); // a definition needs a name: the title starts as its field
@@ -251,7 +251,7 @@ export class GuardEditor {
       this.guard = saved;
       if (this.attachTo) {
         const place = this.attachTo;
-        await send("/api/guard-attachments", "POST", { guard_id: saved.id, pipeline_id: place.pipelineId, scope_type: place.type, scope_id: place.type === "pipeline" ? null : place.id });
+        await send("/api/guard-attachments", "POST", { guard_id: saved.id, graph_id: place.graphId, scope_type: place.type, scope_id: model.isGraphScope(place.type) ? null : place.id });
         this.attachTo = null;
         saved = await request(`${URL}/${saved.id}`);
         this.guard = saved;

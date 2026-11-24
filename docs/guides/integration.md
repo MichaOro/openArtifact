@@ -275,7 +275,7 @@ attached, switched on or off and detached under `/api/v1/guard-attachments`:
 GUARD=$(curl -s -X POST "$BASE/api/v1/guards/from-template" -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"template": "stall"}' | jq -r .id)
 curl -s -X POST "$BASE/api/v1/guard-attachments" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"guard_id\": \"$GUARD\", \"pipeline_id\": \"$PIPELINE\", \"scope_type\": \"pipeline\"}"
+  -d "{\"guard_id\": \"$GUARD\", \"graph_id\": \"$PIPELINE\", \"scope_type\": \"pipeline\"}"
 ```
 
 An agent or a tool that works for a long time inside one action can keep a stall guard quiet with a heartbeat:

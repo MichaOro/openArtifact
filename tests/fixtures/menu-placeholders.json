@@ -7,7 +7,8 @@
   "label": "Guard",
   "order": 3,
   "scopes": [
-   "pipeline"
+   "pipeline",
+   "action"
   ],
   "soon": false
  }

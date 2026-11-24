@@ -11,6 +11,7 @@ import pytest
 from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.helpers import Board, echo_pipeline
+from tests.helpers import graph_url
 
 TEXT_MIN = 4.5  # WCAG AA for text
 DISABLED_TEXT_MIN = 3.0  # WCAG exempts disabled controls; the catalog does not: they stay readable
@@ -351,4 +352,42 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
     page.get_by_role("menuitem", name="Settings").click()
     expect(page.locator("#node-modal")).to_be_visible()
     check("editor / node dialog")
+    page.keyboard.press("Escape")
+    # guards INSIDE the action the pipeline's action card runs: the card's shield mirrors them (its popup has the group "In
+    # the action" and the link to the action), and the action editor has its own shield next to the "+" and on a node
+    graph = api.get(graph_url(pipeline)).json()
+    action_node = next(n for n in graph["nodes"] if n["kind"] == "action")
+    definition = api.get(f"/api/actions/{action_node['definition_id']}").json()
+    code = next(n for n in definition["nodes"] if n["kind"] == "code")
+    inner = api.post(
+        "/api/guards",
+        json={
+            "name": "Inner guard",
+            "trigger": {"type": "event", "events": ["enter"]},
+            "when": when | {"items": []},
+        },
+    ).json()
+    for scope, scope_id in (("definition", None), ("node", code["id"])):
+        api.post(
+            "/api/guard-attachments",
+            json={
+                "guard_id": inner["id"],
+                "graph_id": definition["graph"]["id"],
+                "scope_type": scope,
+                "scope_id": scope_id,
+            },
+        ).raise_for_status()
+    page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
+    _theme(page, theme)
+    page.locator(".ge-node--action [data-guard-shield]").first.click()
+    expect(page.locator("[data-guard-popover] .gd-popover__inner")).to_be_visible()
+    check("editor / action card shield popup (guards inside)")
+    page.goto(f"{base_url}/actions/{definition['graph']['slug']}")
+    _theme(page, theme)
+    expect(page.locator("[data-pipeline-shield]")).to_be_visible()
+    expect(page.locator(".ge-node--code [data-guard-shield]")).to_be_visible()
+    check("action editor / shields")
+    page.locator("[data-pipeline-shield]").click()
+    expect(page.locator("[data-guard-popover]")).to_be_visible()
+    check("action editor / shield popup")
     assert not problems, "\n" + "\n".join(sorted(set(problems)))

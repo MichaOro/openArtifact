@@ -270,7 +270,9 @@ def test_can_watch_is_hidden_but_what_a_guard_may_watch_is_kept(
         "pipeline",
         "stage",
         "action",
-    ]  # a new guard may watch all three
+        "definition",
+        "node",
+    ]  # a new guard may watch all five
 
 
 def test_the_guard_form_speaks_german(page: Page, base_url: str, api: httpx.Client) -> None:

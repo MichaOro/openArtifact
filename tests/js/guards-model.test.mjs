@@ -66,3 +66,38 @@ test("the editor saves the trigger of its kind only, the scopes in their order, 
   assert.equal(G.problem({ ...state, trigger: { type: "event", events: [] } }, SCHEMA), "Choose at least one event.");
   assert.equal(G.problem(state, SCHEMA), "");
 });
+
+const place = (id, scope_type, scope_id, extra = {}) => ({ id, scope_type, scope_id, graph_id: extra.graph_id ?? "p", enabled: true, ...extra });
+
+test("the scopes of a pipeline and of an action definition are counted by the graph that holds them", () => {
+  const guards = [
+    guard("Stall", { attachments: [place("a1", "pipeline", "p"), place("a2", "action", "n1"), place("a3", "node", "code", { graph_id: "def", scope_name: "Summarise" })] }),
+    guard("Round", { attachments: [place("a4", "definition", "def", { graph_id: "def" }), place("a5", "action", "n1")] }),
+  ];
+  assert.deepEqual([...G.countsByScope(guards, "p")], [["pipeline|p", 1], ["action|n1", 2]]);
+  assert.deepEqual([...G.countsByScope(guards, "def")], [["node|code", 1], ["definition|def", 1]]);
+  assert.equal(G.isGraphScope("pipeline") && G.isGraphScope("definition"), true);
+  assert.equal(G.isGraphScope("stage") || G.isGraphScope("action") || G.isGraphScope("node"), false);
+});
+
+test("the guards inside an action are listed by name with what they watch, and an action without a definition has none", () => {
+  const guards = [
+    guard("Stall", { attachments: [place("a3", "node", "code", { graph_id: "def", scope_name: "Summarise" })] }),
+    guard("Round", { attachments: [place("a4", "definition", "def", { graph_id: "def" }), place("a5", "action", "n1")] }),
+  ];
+  const inner = G.innerOf(guards, "def");
+  assert.deepEqual(inner.map(({ guard: g, attachment }) => [g.name, attachment.scope_type]), [["Round", "definition"], ["Stall", "node"]]);
+  assert.equal(G.innerScopeText(inner[0].attachment), "The whole action");
+  assert.equal(G.innerScopeText(inner[1].attachment), "Node Summarise");
+  assert.deepEqual(G.innerOf(guards, null), []);
+  assert.deepEqual(G.innerOf(guards, "other"), []);
+});
+
+test("a node of an action is offered the guards that are not attached to it, and its inner guards count in the card's shield", () => {
+  const all = ["pipeline", "stage", "action", "definition", "node"];
+  const guards = [guard("Stall", { scope_types: all, attachments: [place("a3", "node", "code", { graph_id: "def" })] }), guard("Round", { scope_types: all }), guard("Stage only", { scope_types: ["stage"] })];
+  assert.deepEqual(G.attachable(guards, "node", "code").map((g) => g.name), ["Round"]); // not the one that is there, not the one that may not watch a node
+  assert.deepEqual(G.attachable(guards, "node", "other").map((g) => g.name), ["Round", "Stall"]);
+  assert.equal(G.shieldCount(1, 2), 3);
+  assert.equal(G.shieldText(G.shieldCount(0, 1)), "1 guard configured");
+});

@@ -41,10 +41,10 @@ export function factsOf(facts = {}) {
 /** What a guard did: its consequence, or that it failed (and the flow went on), reached its cap or cannot act yet. */
 function guardSentence(d) {
   const facts = factsOf(d.facts);
-  if (d.outcome === "failed") return t("tasks.activity.guard_failed", { scope: d.scope_name ?? "?", reason: d.detail ?? "" });
-  if (d.outcome === "capped") return t("tasks.activity.guard_capped", { scope: d.scope_name ?? "?" });
-  if (d.outcome === "unavailable") return t("tasks.activity.guard_unavailable", { scope: d.scope_name ?? "?" });
-  return t("tasks.activity.guard_fired", { outcome: t(`tasks.activity.guard_outcome.${d.outcome}`), scope: d.scope_name ?? "?", facts });
+  if (d.outcome === "failed") return t("tasks.activity.guard_failed", { scope: scopeOf(d), reason: d.detail ?? "" });
+  if (d.outcome === "capped") return t("tasks.activity.guard_capped", { scope: scopeOf(d) });
+  if (d.outcome === "unavailable") return t("tasks.activity.guard_unavailable", { scope: scopeOf(d) });
+  return t("tasks.activity.guard_fired", { outcome: t(`tasks.activity.guard_outcome.${d.outcome}`), scope: scopeOf(d), facts });
 }
 
 /** The time an entry belongs to, in milliseconds. */
@@ -60,6 +60,12 @@ export function actorName(entry) {
  * What a change says, as one sentence without the name of who did it ("moved from Backlog to MVP").
  * @param {{kind: string, data: object}} entry an activity entry that is a change
  */
+/** What a guard firing names: the scope's name, and for a node of an action "node X of action Y" in the reader's language. */
+export function scopeOf(d) {
+  if (d.scope_type === "node") return t("tasks.activity.scope_node", { name: d.scope_name ?? "?", parent: d.scope_parent ?? "?" });
+  return d.scope_name ?? "?";
+}
+
 export function sentenceOf(entry) {
   const d = entry.data ?? {};
   switch (entry.kind) {

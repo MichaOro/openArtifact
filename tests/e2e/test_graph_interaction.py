@@ -153,17 +153,17 @@ def test_the_add_menu_has_closed_clusters_to_find_your_way_and_a_search_over_the
     expect(page.locator(".ge-add__search")).to_be_focused()  # type straight away
     groups = menu.locator(".ge-add__group")
     expect(groups).to_have_text(
-        ["AI1", "Agent tools4", "Apps and data2", "Core2", "Data2", "Flow3"]
-    )  # no Structure here: nothing of it can be added to an action, and an action definition offers no Guard (ADR-060)
+        ["Structure1", "AI1", "Agent tools4", "Apps and data2", "Core2", "Data2", "Flow3"]
+    )  # Structure holds only the Guard here: nothing else of it can be added to an action (ADR-060)
     expect(menu.locator("[data-add]")).to_have_count(0)  # closed: the list stays short
 
-    groups.nth(1).click()  # a cluster opens...
-    expect(groups.nth(1)).to_have_attribute("aria-expanded", "true")
+    groups.nth(2).click()  # a cluster opens...
+    expect(groups.nth(2)).to_have_attribute("aria-expanded", "true")
     expect(menu.locator("[data-add]")).to_have_count(4)
-    groups.nth(5).click()  # ...and the one before closes: one at a time
-    expect(groups.nth(1)).to_have_attribute("aria-expanded", "false")
+    groups.nth(6).click()  # ...and the one before closes: one at a time
+    expect(groups.nth(2)).to_have_attribute("aria-expanded", "false")
     expect(menu.locator("[data-add]")).to_have_text(["If", "Switch", "Timer"])
-    groups.nth(5).click()
+    groups.nth(6).click()
     expect(menu.locator("[data-add]")).to_have_count(0)
 
     page.locator(".ge-add__search").fill(
@@ -183,7 +183,7 @@ def test_the_add_menu_has_closed_clusters_to_find_your_way_and_a_search_over_the
     expect(menu).to_be_hidden()
     page.click("[data-add-menu]")  # opened again: a clean list, every cluster closed
     expect(page.locator(".ge-add__search")).to_have_value("")
-    expect(groups).to_have_count(6)
+    expect(groups).to_have_count(7)  # with Structure, which holds the Guard
     expect(menu.locator("[data-add]")).to_have_count(0)
 
 
@@ -213,7 +213,15 @@ def test_the_bar_under_a_node_edits_deletes_and_opens_the_menu(
     node.get_by_role("button", name="More actions").click()
     menu = page.get_by_role("menu")
     expect(menu.get_by_role("menuitem")).to_have_text(
-        ["EditEnter", "RenameF2", "CopyCtrl+C", "CutCtrl+X", "DuplicateCtrl+D", "DeleteDel"]
+        [
+            "EditEnter",
+            "RenameF2",
+            "CopyCtrl+C",
+            "CutCtrl+X",
+            "DuplicateCtrl+D",
+            "Guard",  # a Code node in an action may be watched (ADR-060)
+            "DeleteDel",
+        ]
     )
     menu.get_by_role("menuitem", name="Edit").click()  # the same as a double click
     expect(page.locator("#node-modal")).to_be_visible()

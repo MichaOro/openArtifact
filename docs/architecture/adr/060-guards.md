@@ -182,11 +182,63 @@ there).
 
 ### 4.4 Not in this step (extension points)
 
-- **Guards on single nodes inside an action**: a new `scope_type` (and a scope id that is a node of an action
-  definition); `scope_types` of a definition and the attachment check are where it plugs in.
+- ~~**Guards on single nodes inside an action**~~: built, see §5.
 - **"Applies to" rules and kinds** (attach to every action of a kind): an attachment that names a rule instead of one
   scope; `freeze_guards` is the one place that resolves attachments.
 - **Parameters / overrides per attachment** (e.g. another interval on one action): columns or a JSON column on
   `guard_attachments`, merged over the definition in `guard_data`.
 - **Runtime colours of the shield** in the execution flow view and its overlay, and **a check before starting a run**
   (which guards will watch): read `snapshot.guards` and `guard_state`.
+
+## 5. Addendum 2026-11-24: guards on an action definition and on its nodes (migration 0049)
+
+The owner wanted a stall guard on an Agent node, and a guard for "this action wherever it is used", not only for the
+action card of one stage. Two scopes are added, held by an **action definition** instead of a pipeline:
+
+| Scope | Holder (`graph_id`) | `scope_id` | Meaning |
+|-------|---------------------|------------|---------|
+| `definition` | the action definition | its own id | the whole action, in every stage of every pipeline that uses it |
+| `node` | the action definition | a node of it | one execution node of the action, whose kind says `guardable: true` |
+
+- **The holder is any graph.** `guard_attachments.pipeline_id` is renamed `graph_id` (a plain `RENAME COLUMN`, same
+  foreign key and cascade; the index is renamed too; no table is rebuilt, see 0043). The API still takes and shows
+  `pipeline_id` (equal to `graph_id` for the three pipeline scopes, `null` for the two new ones), and adds `holder_kind`
+  (`pipeline` or `action`), `holder_name` and `scope_name`. A pipeline holds `pipeline`, `stage` and `action`; an action
+  definition holds `definition` and `node` (422 otherwise, 409 for a duplicate as before). An attachment goes with its
+  graph and with its node (the repository's node delete already removed a node's attachments).
+- **`guardable` is a manifest flag** (ADR-054): the kinds that run as a step in an action: Code, HTTP, Timer, If, Switch,
+  Agent, Edit Fields, Postgres, GitHub, Artifact. Not the trigger, the output, a stage, an action node, a pipeline node or
+  a tool node (a tool is used by an agent, it does not run as a step of its own). `GET /api/node-types` carries it.
+- **"Can watch" no longer restricts.** The migration widens every definition that could watch pipeline, stage and action
+  to `definition` and `node` as well; a definition that was narrowed (the Health template: stage only) is left alone; a
+  new definition may watch all five; the Stall and Runtime templates list all five.
+- **Freezing across action definitions.** `freeze_guards` takes the switched-on attachments of the pipeline, of the
+  pipelines it calls **and of every action definition the run uses** (the snapshot's `definitions`, resolved at the
+  start). A guard attached to a definition after the start does not reach the run, as for any other guard.
+- **Counters per use.** A scope of an action definition is keyed by the path of pipeline nodes **and the action node that
+  runs it** (`<path>><action node>|node:<id>`): the same definition in two stages counts apart, and a node inside a loop
+  counts a new entry each time the flow reaches it (`runs`). Facts are the same as for every scope (runs, elapsed, idle,
+  errors, passes, last status, `guard.runs`, result fields).
+- **Events.** `definition` behaves like an action: entered when the action starts, `pass` / `error` when it ends, left
+  after. `node`: entered before the node runs, `pass` / `error` after it (an error counts whatever *If the node fails*
+  does with it, see ADR-061), left after; an **interval** watch runs while the node runs and may stop it through the
+  existing stop mechanism (the process group of a Code node is killed), so a Stall guard on an Agent node interrupts it.
+  A guard's own action is not watched (no guards on guards) and does not count as steps of the run.
+- **Firings** say where: "fired at node 'Summarise' of action 'Analyze epic gaps'" (`scope_label` in the English note of
+  a paused or aborted run; the History and the flow view build the sentence from `scope_type`, `scope_name` and
+  `scope_parent` in the reader's language).
+- **Mirroring in the pipeline.** The card of an action in a pipeline shows its shield when the card has attachments of
+  its own **or** its definition has guards (on the definition or on a node); the tooltip counts both. The popup lists the
+  card's own guards first (switch, Detach) and under *In the action* the inner ones by name with what they watch (no
+  switch and no Detach: they belong to the action), and a link that opens the action. `GET /api/guards` carries every
+  attachment, so the editor needs no extra request; `?pipeline_id=…&inner=true` (guards and attachments) is the same
+  view for an integration.
+- **The popup's two layouts** (UI catalog): the buttons *Attach guard* and *New guard* stack when the popup opens from a
+  stage header or a card, which it would cover side by side; from the canvas "+", its shield and the settings they sit
+  side by side.
+- **Copies carry no attachments.** There is no copy path for a graph; duplicating or pasting nodes in the editor makes
+  new nodes, which have no guards. A guard is attached to what it watches, not to its copy.
+
+Not in this step: "applies to" rules and kinds, parameters per attachment, runtime colours of the shield in the flow view,
+the check before a start (§4.4).
+

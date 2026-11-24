@@ -40,4 +40,5 @@ placeholders:
   order: 3
   scopes:
   - pipeline
+  - action
   soon: false

@@ -4,7 +4,11 @@
  *          of the guards not attached here yet), and below them the guards attached here;
  *   "list" (the shield of the pipeline, a stage or an action): the guards attached here.
  * An attached guard is listed by its name (muted and struck through while it is off) with its on/off switch and Detach;
- * its name opens the definition in the guard editor. A non-modal dialog next to its trigger: arrow keys move between its
+ * its name opens the definition in the guard editor. The card of an action in a pipeline also lists the guards that sit
+ * INSIDE the action (on the whole action definition or on one of its nodes) under "In the action", by name with what
+ * they watch (no switch, no Detach: they belong to the action) and a link that opens the action.
+ * Variant `stack` (the popup opened from a stage header or a card, which it would cover side by side): the two buttons
+ * sit one above the other; everywhere else they sit side by side. A non-modal dialog next to its trigger: arrow keys move between its
  * controls, Escape closes it and gives the focus back to the trigger, a click elsewhere closes it. What is listed comes
  * from model.js. */
 import { icon } from "../components/icons.js";
@@ -54,7 +58,8 @@ export class GuardPopover {
   /**
    * Open next to `trigger` (or close it if it is open for that trigger).
    * @param {HTMLElement} trigger
-   * @param {{mode: "add"|"list", scope: {type: string, id: string, name: string}, guards: object[], schema: object|null}} what
+   * @param {{mode: "add"|"list", scope: {type: string, id: string, name: string, inner?: object[], actionHref?: string},
+   *   guards: object[], schema: object|null, stack?: boolean}} what
    */
   toggle(trigger, what) {
     if (this.isOpen && this.trigger === trigger) return this.close();
@@ -63,6 +68,7 @@ export class GuardPopover {
     this.what = what;
     const host = trigger.closest("dialog[open]") ?? document.body; // a dialog is in the top layer: the popup goes in it
     if (this.el.parentElement !== host) host.append(this.el);
+    this.el.classList.toggle("gd-popover--stack", Boolean(what.stack));
     this.el.setAttribute("aria-label", what.mode === "add" ? t("guards.add_a_guard") : t("guards.guards_of", { name: what.scope.name }));
     this.#render();
     this.el.hidden = false;
@@ -77,7 +83,9 @@ export class GuardPopover {
     if (!this.isOpen) return;
     const key = document.activeElement?.closest?.("[data-focus-key]")?.dataset.focusKey;
     this.what = { ...this.what, guards, schema };
-    if (this.what.mode === "list" && !model.attachedTo(guards, this.what.scope.type, this.what.scope.id).length) {
+    const scope = this.what.scope;
+    if (scope.definitionId) scope.inner = model.innerOf(guards, scope.definitionId);
+    if (this.what.mode === "list" && !model.attachedTo(guards, scope.type, scope.id).length && !scope.inner?.length) {
       this.close(); // the last guard was detached: the shield is gone, so is its popup
       return;
     }
@@ -137,7 +145,44 @@ export class GuardPopover {
       for (const { attachment, guard } of attached) rows.append(this.#attachedRow(attachment, guard));
       parts.push(rows);
     }
+    const inner = scope.inner ?? [];
+    if (inner.length) {
+      parts.push(make("p", "popover__caption", t("guards.in_the_action")));
+      const rows = make("ul", "gd-popover__list gd-popover__inner");
+      rows.setAttribute("aria-label", t("guards.in_the_action"));
+      for (const { attachment, guard } of inner) rows.append(this.#innerRow(attachment, guard));
+      parts.push(rows);
+      if (scope.actionHref) {
+        const open = make("a", "button button--ghost button--sm gd-popover__open-action");
+        open.href = scope.actionHref;
+        open.dataset.openAction = "";
+        open.dataset.focusKey = "open-action";
+        open.append(icon("pencil"), document.createTextNode(t("guards.open_the_action")));
+        parts.push(open);
+      }
+    }
     this.el.replaceChildren(...parts);
+  }
+
+  /** A guard inside the action: its name (it opens the guard), what it watches and whether it is off. No switch, no
+   * Detach: it is attached to the action, not to this card. */
+  #innerRow(attachment, guard) {
+    const row = make("li", "gd-attached gd-attached--inner");
+    row.dataset.attachmentId = attachment.id;
+    row.classList.toggle("is-off", !attachment.enabled);
+    const name = make("button", "popover__option gd-attached__name", guard.name);
+    name.type = "button";
+    name.dataset.focusKey = `inner:${attachment.id}`;
+    const label = attachment.enabled ? t("guards.open_guard", { name: guard.name }) : t("guards.open_guard_off", { name: guard.name });
+    name.title = label;
+    name.setAttribute("aria-label", `${label}: ${model.innerScopeText(attachment)}`);
+    name.addEventListener("click", () => {
+      this.close({ restoreFocus: false });
+      this.actions.open(guard);
+    });
+    const watches = make("span", "gd-attached__scope field__help", model.innerScopeText(attachment));
+    row.append(name, watches);
+    return row;
   }
 
   #attachedRow(attachment, guard) {

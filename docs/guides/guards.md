@@ -20,6 +20,18 @@ places it is attached to; an attachment can be switched on or off on its own.
 
 A guard watches only while its scope is active. There are no guards on guards.
 
+An **action definition** can hold guards too. They are scopes of the *action editor*:
+
+| Scope | Entered | Left |
+|-------|---------|------|
+| Definition (the whole action) | before the action runs, wherever it is used | after it ended |
+| Node (one execution node of it) | before the node runs, every time a loop brings the flow back to it | after it ended |
+
+A guard on a definition watches that action in **every stage of every pipeline** that uses it, with a counter of its own
+for each use; a guard on a node watches that node only. A node can be watched when its kind is *guardable*: Code, HTTP,
+Timer, If, Switch, Agent, Edit Fields, Postgres, GitHub and Artifact (not the trigger, the output or a tool node). A
+*stall* guard on an Agent node therefore stops that node while the rest of the action waits.
+
 **Counters.** Per scope and run the engine counts `runs` (entries: the rounds of a looping stage), `passes` and `errors`
 (actions in it left by On Pass / On Error), the last action's status and the time since the entry; per guard,
 `guard.runs` (times it fired). They are never reset within a run; a new start is a new run. A called pipeline counts per
@@ -48,8 +60,13 @@ In the pipeline editor every **Guard** entry opens the small popup **Add a guard
 - the menu of an action node (right click or **…**) → *Guard*, or **Add guard** in the *Guards* section of the action's
   settings: that action.
 
+In the **action editor** (an action definition) the same entries exist: the **+** menu of the canvas → *Guard*: the whole
+action; the menu of a node (Code, HTTP, Agent, …) → *Guard*, or **Add guard** in its settings: that node. The trigger and
+the output have no such entry.
+
 The popup has two buttons, **Attach guard** on the left and **New guard** (the primary one) on the right; they wrap under
-each other when the popup is too narrow. **New guard** opens the guard editor for a new definition that is attached
+each other when the popup is too narrow. Opened from a **stage header or a card** (which the popup would cover next to each
+other) the two buttons are **stacked**, one above the other; from the canvas "+", the shield or the settings they sit side by side. **New guard** opens the guard editor for a new definition that is attached
 there when you save it, and **Attach guard** opens the **attach dialog**. **Attach guard** is disabled with the note
 *No other guard to attach.* when every guard of the library is attached there already. Below, *Attached here* lists the
 guards of that scope, with their switch and Detach.
@@ -61,8 +78,9 @@ and only then the dialog. **Attach** is there once one is chosen; the popup come
 
 ## The shield
 
-A scope with at least one guard attached shows **one shield**: the pipeline's next to the **+** at the top right of the
-canvas, a stage's in its header next to its **+**, an action's as a bare icon in the top right corner of its card. The shield is the quiet icon button of the catalog: no frame, a 24 px hit area. Its
+A scope with at least one guard attached shows **one shield**: the pipeline's (in an action editor: the action's) next to
+the **+** at the top right of the canvas, a stage's in its header next to its **+**, an action's or a node's as a bare icon
+in the top right corner of its card. The shield is the quiet icon button of the catalog: no frame, a 24 px hit area. Its
 tooltip says how many guards are configured there ("2 guards configured"; it never says *active*: guards act only
 while a run goes). A click opens the popup of that scope's guards:
 
@@ -71,6 +89,10 @@ while a run goes). A click opens the popup of that scope's guards:
 | The switch | Switches the guard on or off **there** (off acts at once on running executions; on at the next start) |
 | The name | Opens the definition in the guard editor; a guard that is off is muted and struck through |
 | × (Detach) | Takes the guard off that scope; the definition stays in the library |
+| *In the action* (an action's card in a pipeline) | The guards that sit **inside** the action's definition, on the whole action or on one of its nodes, by name with what they watch; no switch and no Detach (they belong to the action); a name opens the guard; **Open the action** opens the action editor |
+
+The card of an action in a pipeline counts the guards inside its definition as well ("3 guards configured": its own and
+the ones in the action), so a stall guard on an Agent node shows up in the pipeline too.
 
 Arrow keys move between the controls of the popup, Escape closes it and returns to the shield. A guard is never a node
 of the canvas; deleting a stage or an action detaches the guards attached to it (their definitions stay).
@@ -91,7 +113,7 @@ options**. A typical guard needs 850 × 746 px (it was 1024 × 1216). The help o
 
 | Part | What it says |
 |------|--------------|
-| Can watch | **Hidden on purpose** (the owner may want it back): the kinds of scope a definition may be attached to (`scope_types`) stay in the data, the API and the checks, a new definition may watch all three, and the control is kept unused in `guards/scope-chips.js` with an entry in `quarantine.json` until the owner decides |
+| Can watch | **Hidden on purpose** (the owner may want it back): the kinds of scope a definition may be attached to (`scope_types`) stay in the data, the API and the checks, a new definition may watch all five scopes (pipeline, stage, action, definition, node; definitions made before the action scopes were widened by migration 0049), and the control is kept unused in `guards/scope-chips.js` with an entry in `quarantine.json` until the owner decides |
 | Trigger | **On an event**: entered, an action passed, an action erred, left, the run fails. The flow **waits** for the guard and goes on as it decides. **Every few seconds**: check every N seconds while the scope runs (at least the minimum interval), fire once the condition has held for *held for* seconds, then stay quiet for *quiet after firing* seconds; the running action keeps running meanwhile and is stopped if the guard pauses or aborts |
 | Condition | The rule builder (the same one as the retention rules) over the facts below; an empty condition never fires |
 | Escalation steps | "From firing k on, every N rounds (or N seconds)": counted from the guard's last firing. Without steps it fires whenever the condition holds |
@@ -187,8 +209,8 @@ execution, 409 when it is not running. The last heartbeat and a count are kept w
 | `POST /api/v1/guards` | Create a definition (`name`, `description?`, `scope_types?`, `trigger`, `when`, `consequence`, `fallback`, `escalation`, `action_id`) |
 | `GET /api/v1/guards/templates`, `POST /api/v1/guards/from-template` | The templates; make one into a definition (`template`, `name?`, `description?`) |
 | `GET`, `PATCH`, `DELETE /api/v1/guards/{id}` | Read, change (acts on every place it is attached to), delete (`409` while attached; its action stays) |
-| `GET /api/v1/guard-attachments?pipeline_id=` | Where guards are attached |
-| `POST /api/v1/guard-attachments` | Attach: `guard_id`, `pipeline_id`, `scope_type`, `scope_id` (left out for the pipeline), `enabled?`; `422` for a scope the guard may not watch or that is not part of the pipeline, `409` when it is attached there already |
+| `GET /api/v1/guard-attachments?pipeline_id=` | Where guards are attached: `pipeline_id` is any graph that holds scopes (a pipeline or an action definition); `inner=true` adds the attachments inside the action definitions a pipeline uses. Each row has `graph_id`, `holder_kind`, `holder_name`, `scope_type`, `scope_id`, `scope_name` |
+| `POST /api/v1/guard-attachments` | Attach: `guard_id`, `graph_id` (the pipeline or action definition that holds the scope; `pipeline_id` is the old name), `scope_type` (`pipeline`, `stage`, `action` of a pipeline; `definition`, `node` of an action definition), `scope_id` (left out for `pipeline` and `definition`), `enabled?`; `422` for a scope the guard may not watch or that is not part of the pipeline, `409` when it is attached there already |
 | `PUT /api/v1/guard-attachments/{id}/enabled` | `{"enabled": false}` switches it off there |
 | `DELETE /api/v1/guard-attachments/{id}` | Detach |
 | `POST /api/v1/executions/{id}/heartbeat` | The heartbeat |

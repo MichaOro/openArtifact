@@ -135,6 +135,7 @@ prints its JSON Schema, which an editor can validate a file against.
 | `kind`, `label`, `schema` | the `NodeKind` value, the name shown, the manifest version (1) |
 | `behaviour` | how the kind connects and is drawn: `plain`, `flow` (a step of an action definition: On Pass / On Fail or branches), `tool`, and the structural `stage`, `action`, `pipeline`, `output`, `switch` |
 | `scopes`, `fixed`, `addable`, `chain`, `ending`, `tool`, `links_to`, `default_size`, `reference_keys` | what the base `NodeType` knows (see the table of fields in ADR-054) |
+| `guardable` | `true` for a kind that runs as a step of an action: a guard may be attached to such a node (ADR-060 addendum; the node's menu gets a *Guard* entry) |
 | `menu` | `{group, order}`: the cluster of the "+" menu and the place in it (clusters and their order: `_menu.yaml`) |
 | `ports` | `inputs` / `outputs` with `name`, `label`, `side`, `visible_when` (`{fn: ...}` or `{node: field}`), `label_from`, `repeat` |
 | `menu_icon` | the glyph before the name in every menu that lists the kind (the "+" menus); without it the kind's `ui.icon` is used, and a kind must have one of the two (a test checks that it is an icon of `icons.html`). The card keeps its own look: a stage, a pipeline and a timer have no icon on their card but one in the menus |

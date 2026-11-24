@@ -433,12 +433,15 @@ def test_a_new_guard_made_from_an_actions_menu_is_attached_to_it_and_its_card_sh
     expect(section.get_by_role("button", name="Add guard")).to_be_visible()
 
 
-def test_an_action_definition_offers_no_guard(page: Page, base_url: str, api: httpx.Client) -> None:
+def test_an_action_definition_offers_a_guard_in_its_plus_menu(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """It may watch the whole action and each of its nodes (tests/e2e/test_guard_scopes.py has the rest)."""
     definition = api.post("/api/actions", json={"name": "Check"}).json()
     _open(page, base_url, f"/actions/{definition['slug']}")
     page.click("[data-add-menu]")
     page.fill(".ge-add__search", "guard")
-    expect(page.locator("[data-placeholder=guard]")).to_have_count(0)
+    expect(page.locator("[data-placeholder=guard]")).to_have_count(1)
 
 
 def test_adding_an_action_through_the_stage_menu_still_works(

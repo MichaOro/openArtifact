@@ -251,8 +251,8 @@ def _entry(**more: Any) -> dict[str, Any]:
 
 
 def test_the_menu_file_holds_a_place_for_guards_and_no_kind_is_behind_it() -> None:
-    # Guards exist (ADR-060): the entry is no longer "soon" and only the pipeline editor offers it (an action
-    # definition has no pipeline to attach a guard to)
+    # Guards exist (ADR-060): the entry is no longer "soon" and both editors offer it: in a pipeline it watches the
+    # pipeline, in an action definition the whole action (the nodes have it in their own menu)
     [guard] = manifest.read_placeholders()
     assert (guard.key, guard.label, guard.icon, guard.group, guard.soon) == (
         "guard",
@@ -261,7 +261,7 @@ def test_the_menu_file_holds_a_place_for_guards_and_no_kind_is_behind_it() -> No
         "Structure",
         False,
     )
-    assert sorted(guard.scopes) == ["pipeline"]
+    assert sorted(guard.scopes) == ["action", "pipeline"]
     assert guard.key not in {k.value for k in NodeKind}, "a guard is not a kind of node"
     orders = {
         t.menu["order"]: t.kind

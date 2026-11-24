@@ -540,6 +540,7 @@ class Monitor:
             "scope_id": scope.id,
             "scope_name": scope.name,
             "scope_label": scope.label,
+            "scope_parent": scope.parent,
             "trigger": guard.trigger.get("type"),
             "event": event,
             "consequence": guard.data["consequence"],

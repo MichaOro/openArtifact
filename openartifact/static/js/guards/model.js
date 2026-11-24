@@ -3,8 +3,11 @@
 import * as rules from "../components/rule-model.js";
 import { t, tn } from "../i18n.js";
 
-export const SCOPES = ["pipeline", "stage", "action"];
+export const SCOPES = ["pipeline", "stage", "action", "definition", "node"];
 export const EVENTS = ["enter", "pass", "error", "leave", "fail"];
+
+/** A scope that is the graph itself (a pipeline, or an action definition as a whole): it has no node id of its own. */
+export const isGraphScope = (type) => type === "pipeline" || type === "definition";
 
 const keyOf = (fieldKey) => fieldKey.replace(/\.$/, "").replace(/\./g, "_");
 
@@ -77,17 +80,40 @@ export function attachedTo(guards, type, id) {
   return found.sort((a, b) => a.guard.name.localeCompare(b.guard.name) || a.attachment.id.localeCompare(b.attachment.id));
 }
 
-/** How many attachments a pipeline's scope has, by `type|id`. */
-export function countsByScope(guards, pipelineId) {
+/** How many attachments the scopes of one graph (a pipeline or an action definition) have, by `type|id`. */
+export function countsByScope(guards, graphId) {
   const counts = new Map();
   for (const guard of guards) {
     for (const a of guard.attachments ?? []) {
-      if (a.pipeline_id !== pipelineId) continue;
+      if ((a.graph_id ?? a.pipeline_id) !== graphId) continue;
       const key = `${a.scope_type}|${a.scope_id}`;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
   }
   return counts;
+}
+
+/** The guards that sit INSIDE an action definition (on the whole action or on one of its nodes), `{attachment, guard}`,
+ * by the guard's name: what the pipeline's action card shows under "In the action". */
+export function innerOf(guards, definitionId) {
+  const found = [];
+  if (!definitionId) return found;
+  for (const guard of guards) {
+    for (const attachment of guard.attachments ?? []) {
+      if ((attachment.graph_id ?? attachment.pipeline_id) === definitionId) found.push({ attachment, guard });
+    }
+  }
+  return found.sort((a, b) => a.guard.name.localeCompare(b.guard.name) || a.attachment.id.localeCompare(b.attachment.id));
+}
+
+/** What an inner guard watches, in words: "the whole action" or "node Summarise". */
+export function innerScopeText(attachment) {
+  return attachment.scope_type === "node" ? t("guards.inner_node", { name: attachment.scope_name || "?" }) : t("guards.inner_whole");
+}
+
+/** How many guards a card's shield counts: its own attachments and, for an action, the ones inside its definition. */
+export function shieldCount(own, inner) {
+  return own + inner;
 }
 
 /** The guards the "Add a guard" popup offers for a scope: allowed on that kind of scope, not attached to it yet and
