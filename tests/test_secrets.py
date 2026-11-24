@@ -247,7 +247,9 @@ def test_node_settings_validate_references_on_save(secured: TestClient) -> None:
 def test_the_code_node_has_a_secrets_setting_and_old_nodes_still_read(secured: TestClient) -> None:
     settings = {s["key"]: s for s in node_type(NodeKind.CODE).describe()["settings"]}
     assert settings["secrets"]["type"] == "lines" and settings["secrets"]["stored_in"] == "config"
-    assert "${secret:NAME}" in settings["code"]["help"]
+    # the help of the code says secrets are not written into the code (the short text rule moved the how-to to the setting)
+    assert "no secrets" in settings["code"]["help"]
+    assert "environment variable" in settings["secrets"]["help"]
     assert node_type(NodeKind.CODE).effective_config({"code": "x"})["secrets"] == ""
 
 

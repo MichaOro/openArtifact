@@ -173,6 +173,11 @@ def test_delete_unknown_or_twice_is_404(client: TestClient) -> None:
 # ── Events published for every change ─────────────────────────────────
 
 
+def _task_events(published: list[tuple[str, dict[str, Any]]]) -> list[tuple[str, dict[str, Any]]]:
+    """The task events; the activity entries that the same changes write are the subject of test_activity.py."""
+    return [(name, data) for name, data in published if not name.startswith("activity.")]
+
+
 def test_changes_are_published_as_events(
     client: TestClient, published: list[tuple[str, dict[str, Any]]]
 ) -> None:
@@ -180,11 +185,12 @@ def test_changes_are_published_as_events(
     client.patch(f"/api/tasks/{task['id']}", json={"status": "in_progress"})
     client.delete(f"/api/tasks/{task['id']}")
 
-    assert [t for t, _ in published] == ["task.created", "task.moved", "task.deleted"]
-    assert published[0][1]["id"] == task["id"]
-    assert published[0][1]["status"] == "backlog"
-    assert published[1][1]["status"] == "in_progress"
-    assert published[2][1] == {"id": task["id"]}
+    events = _task_events(published)
+    assert [t for t, _ in events] == ["task.created", "task.moved", "task.deleted"]
+    assert events[0][1]["id"] == task["id"]
+    assert events[0][1]["status"] == "backlog"
+    assert events[1][1]["status"] == "in_progress"
+    assert events[2][1] == {"id": task["id"]}
 
 
 def test_failed_or_noop_requests_publish_nothing(
@@ -270,9 +276,10 @@ def test_edit_publishes_updated_and_move_publishes_moved(
     client.patch(f"/api/tasks/{task['id']}", json={"title": "renamed"})
     client.patch(f"/api/tasks/{task['id']}", json={"status": "done"})
     client.patch(f"/api/tasks/{task['id']}", json={"title": "again", "status": "backlog"})
-    assert [t for t, _ in published] == ["task.updated", "task.moved", "task.updated"]
-    assert published[0][1]["title"] == "renamed"
-    assert published[2][1]["status"] == "backlog"
+    events = _task_events(published)
+    assert [t for t, _ in events] == ["task.updated", "task.moved", "task.updated"]
+    assert events[0][1]["title"] == "renamed"
+    assert events[2][1]["status"] == "backlog"
 
 
 def test_edit_without_changes_publishes_nothing_and_keeps_updated_at(
@@ -401,7 +408,7 @@ def test_content_edit_together_with_reorder_is_an_update(
     a, _b, c = _three(client)
     published.clear()
     client.patch(f"/api/tasks/{a['id']}", json={"title": "A!", "before_id": c["id"]})
-    assert [t for t, _ in published] == ["task.updated"]
+    assert [t for t, _ in _task_events(published)] == ["task.updated"]
     assert _titles(client)[0] == "A!"
 
 
@@ -473,8 +480,9 @@ def test_parent_change_is_an_update_event_and_noop_is_silent(
     parent, child = _create(client, title="p"), _create(client, title="c")
     published.clear()
     _parent(client, child, parent)
-    assert [t for t, _ in published] == ["task.updated"]
-    assert published[0][1]["parent_id"] == parent["id"]
+    events = _task_events(published)
+    assert [t for t, _ in events] == ["task.updated"]
+    assert events[0][1]["parent_id"] == parent["id"]
     published.clear()
     _parent(client, child, parent)  # same parent again
     assert published == []
