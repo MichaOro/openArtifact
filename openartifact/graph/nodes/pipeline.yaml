@@ -19,6 +19,7 @@ ports:
   - name: out
     label: Next
 ui:
+  color: pipeline
   size:
     width: 200
     height: 64

@@ -2,6 +2,7 @@ schema: 1
 kind: switch
 label: Switch
 behaviour: switch
+produces_result: true
 guardable: true
 scopes:
 - action
@@ -32,6 +33,7 @@ ports:
   - name: else
     label: Else
 ui:
+  color: branch
   icon: switch
   caption:
     fn: switch_summary

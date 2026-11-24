@@ -2,6 +2,11 @@ schema: 1
 kind: postgres
 label: Postgres
 behaviour: flow
+produces_result: true
+timed: true
+result_data:
+- rows
+- truncated
 guardable: true
 scopes:
 - action
@@ -25,6 +30,7 @@ ports:
       setting: on_failure
       equals: error_output
 ui:
+  color: postgres
   icon: database
   caption:
     template: '{?allow_write:changes · }{query|first_line|short|default:no query yet}'

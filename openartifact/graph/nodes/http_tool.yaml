@@ -15,6 +15,7 @@ ports:
     label: Tool
     side: top
 ui:
+  color: http
   icon: http
   caption:
     template: '{method|default:GET} {url|host_path|default:no URL yet}'

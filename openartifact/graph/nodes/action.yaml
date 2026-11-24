@@ -19,6 +19,7 @@ ports:
       setting: on_failure
       equals: error_output
 ui:
+  color: action
   size:
     width: 190
     height: 68

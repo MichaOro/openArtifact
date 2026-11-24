@@ -159,3 +159,45 @@ def test_the_node_is_described_for_the_editor_without_a_target_artifact_setting(
     assert described["label"] == "Artifact"
     keys = [s["key"] for s in described["settings"]]
     assert keys[:2] == ["operation", "limit"] and not {"artifact", "task", "task_id"} & set(keys)
+
+
+def test_a_later_node_reads_the_output_and_the_data_of_an_artifact_node_in_a_real_run(
+    client: TestClient,
+) -> None:
+    """``${(Artifact).output}`` and ``${(Artifact).data.count}`` resolve for the node of a kind the editor did not list before."""
+    from tests.test_execution_nodes import _connect, _node, _url
+
+    task = make_task(client)
+    client.post(f"/api/tasks/{task['id']}/comments", json={"body": "first"})
+    client.post(f"/api/tasks/{task['id']}/comments", json={"body": "second"})
+    pipeline = build_pipeline(client, stages=1)
+    definition = _definition(client, "artifact")
+    reader = definition["node"]
+    graph = client.get(_url(definition)).json()
+    edge = next(
+        e for e in graph["edges"] if e["source_id"] == reader["id"] and e["source_port"] == "pass"
+    )
+    client.delete(f"{_url(definition)}/edges/{edge['id']}")
+    check = _node(
+        client,
+        definition,
+        "if",
+        name="Count",
+        config={
+            "left_1": f"${{({reader['name']}).data.count}}",
+            "operator_1": "equals",
+            "right_1": "2",
+            "left_2": f"${{({reader['name']}).output}}",
+            "operator_2": "contains",
+            "right_2": "second",
+        },
+    )
+    _connect(client, definition, reader, "pass", check, "in")
+    _connect(client, definition, check, "yes", definition["output"], "pass")
+    _use(client, pipeline, definition)
+    _start(client, pipeline, task)
+    run = wait_for_run(client, task, "done")
+    step = next(r for r in run["node_results"] if r["kind"] == "if")
+    assert step["port"] == "yes", (
+        step
+    )  # both references were read: two comments, one of them "second"

@@ -12,3 +12,5 @@ ports:
   outputs:
   - name: out
     label: Next
+ui:
+  color: trigger

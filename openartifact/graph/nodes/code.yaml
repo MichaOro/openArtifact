@@ -2,6 +2,11 @@ schema: 1
 kind: code
 label: Code
 behaviour: flow
+produces_result: true
+timed: true
+variables:
+  setting: sets_variables
+  format: lines
 guardable: true
 scopes:
 - action
@@ -23,6 +28,7 @@ ports:
       setting: on_failure
       equals: error_output
 ui:
+  color: code
   icon: code
   caption:
     template: '{language|default:sh} · {code|first_line|default:no code yet}'

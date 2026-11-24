@@ -2,6 +2,10 @@ schema: 1
 kind: http
 label: HTTP request
 behaviour: flow
+produces_result: true
+timed: true
+result_data:
+- truncated
 guardable: true
 scopes:
 - action
@@ -27,6 +31,7 @@ ports:
       setting: on_failure
       equals: error_output
 ui:
+  color: http
   icon: http
   caption:
     template: '{method|default:GET} {url|host_path|default:no URL yet}'

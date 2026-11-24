@@ -15,6 +15,7 @@ ports:
     label: Tool
     side: top
 ui:
+  color: postgres
   icon: database
   caption:
     template: '{tool_name|default:@name} · {?allow_write:changes · }{query|first_line|short|default:no query yet}'

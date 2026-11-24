@@ -16,6 +16,8 @@ ports:
     visible_when:
       node: fail_enabled
 ui:
+  color: output
+  step_icon: check
   size:
     width: 250
     height: 104

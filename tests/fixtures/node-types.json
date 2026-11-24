@@ -21,10 +21,16 @@
   "links_to": null,
   "tool": false,
   "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "plain",
   "menu": null,
   "menu_icon": "play",
-  "ui": {}
+  "ui": {
+   "color": "trigger"
+  }
  },
  {
   "kind": "stage",
@@ -60,6 +66,10 @@
   "links_to": null,
   "tool": false,
   "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "stage",
   "menu": {
    "group": "Structure",
@@ -67,7 +77,9 @@
    "order": 1
   },
   "menu_icon": "layers",
-  "ui": {}
+  "ui": {
+   "color": "stage"
+  }
  },
  {
   "kind": "action",
@@ -127,10 +139,15 @@
   "links_to": "action",
   "tool": false,
   "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "action",
   "menu": null,
   "menu_icon": "action",
   "ui": {
+   "color": "action",
    "size": {
     "width": 190,
     "height": 68
@@ -164,6 +181,10 @@
   "links_to": "pipeline",
   "tool": false,
   "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "pipeline",
   "menu": {
    "group": "Structure",
@@ -172,6 +193,7 @@
   },
   "menu_icon": "pipeline",
   "ui": {
+   "color": "pipeline",
    "size": {
     "width": 200,
     "height": 64
@@ -199,10 +221,15 @@
   "links_to": null,
   "tool": false,
   "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "plain",
   "menu": null,
   "menu_icon": "check",
   "ui": {
+   "color": "complete",
    "size": {
     "width": 160,
     "height": 56
@@ -248,6 +275,10 @@
   "links_to": null,
   "tool": false,
   "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [],
+  "variables": null,
   "behaviour": "plain",
   "menu": {
    "group": "Flow",
@@ -256,6 +287,7 @@
   },
   "menu_icon": "clock",
   "ui": {
+   "color": "timer",
    "caption": {
     "template": "{@seconds} s"
    }
@@ -302,10 +334,16 @@
   "links_to": null,
   "tool": false,
   "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "output",
   "menu": null,
   "menu_icon": "inbox",
   "ui": {
+   "color": "output",
+   "step_icon": "check",
    "size": {
     "width": 250,
     "height": 104
@@ -444,6 +482,13 @@
   "links_to": null,
   "tool": false,
   "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [],
+  "variables": {
+   "setting": "sets_variables",
+   "format": "lines"
+  },
   "behaviour": "flow",
   "menu": {
    "group": "Core",
@@ -453,6 +498,7 @@
   "menu_icon": "code",
   "ui": {
    "icon": "code",
+   "color": "code",
    "caption": {
     "template": "{language|default:sh} · {code|first_line|default:no code yet}"
    }
@@ -609,6 +655,12 @@
   "links_to": null,
   "tool": false,
   "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "truncated"
+  ],
+  "variables": null,
   "behaviour": "flow",
   "menu": {
    "group": "Core",
@@ -618,6 +670,7 @@
   "menu_icon": "http",
   "ui": {
    "icon": "http",
+   "color": "http",
    "caption": {
     "template": "{method|default:GET} {url|host_path|default:no URL yet}"
    }
@@ -986,6 +1039,10 @@
   "links_to": null,
   "tool": false,
   "guardable": true,
+  "produces_result": true,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "flow",
   "menu": {
    "group": "Flow",
@@ -995,6 +1052,7 @@
   "menu_icon": "if",
   "ui": {
    "icon": "if",
+   "color": "branch",
    "size": {
     "width": 250,
     "height": 104
@@ -1373,6 +1431,10 @@
   "links_to": null,
   "tool": false,
   "guardable": true,
+  "produces_result": true,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "switch",
   "menu": {
    "group": "Flow",
@@ -1382,6 +1444,7 @@
   "menu_icon": "switch",
   "ui": {
    "icon": "switch",
+   "color": "branch",
    "caption": {
     "fn": "switch_summary"
    },
@@ -1626,6 +1689,15 @@
   "links_to": null,
   "tool": false,
   "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "model",
+   "usage.total_tokens",
+   "finish_reason",
+   "iterations"
+  ],
+  "variables": null,
   "behaviour": "flow",
   "menu": {
    "group": "AI",
@@ -1635,6 +1707,7 @@
   "menu_icon": "agent",
   "ui": {
    "icon": "agent",
+   "color": "agent",
    "caption": {
     "fn": "agent_summary"
    },
@@ -1732,6 +1805,13 @@
   "links_to": null,
   "tool": false,
   "guardable": true,
+  "produces_result": true,
+  "timed": false,
+  "result_data": [],
+  "variables": {
+   "setting": "fields",
+   "format": "assignments"
+  },
   "behaviour": "flow",
   "menu": {
    "group": "Data",
@@ -1741,6 +1821,7 @@
   "menu_icon": "pencil",
   "ui": {
    "icon": "pencil",
+   "color": "set",
    "caption": {
     "template": "{fields|field_names|short|default:no field yet}"
    }
@@ -1995,6 +2076,10 @@
   "links_to": null,
   "tool": false,
   "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [],
+  "variables": null,
   "behaviour": "flow",
   "menu": {
    "group": "Apps and data",
@@ -2004,6 +2089,7 @@
   "menu_icon": "github",
   "ui": {
    "icon": "github",
+   "color": "github",
    "caption": {
     "template": "{operation|default:Get repository}{?operation=Create comment&!allow_comments: (off)} · {repository|trim|short|default:no repository yet}"
    }
@@ -2164,6 +2250,13 @@
   "links_to": null,
   "tool": false,
   "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "rows",
+   "truncated"
+  ],
+  "variables": null,
   "behaviour": "flow",
   "menu": {
    "group": "Apps and data",
@@ -2173,6 +2266,7 @@
   "menu_icon": "database",
   "ui": {
    "icon": "database",
+   "color": "postgres",
    "caption": {
     "template": "{?allow_write:changes · }{query|first_line|short|default:no query yet}"
    }
@@ -2318,6 +2412,10 @@
   "links_to": null,
   "tool": true,
   "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "tool",
   "menu": {
    "group": "Agent tools",
@@ -2327,6 +2425,7 @@
   "menu_icon": "plug",
   "ui": {
    "icon": "plug",
+   "color": "mcp",
    "caption": {
     "template": "{url|host_path|default:no endpoint yet}"
    }
@@ -2503,6 +2602,10 @@
   "links_to": null,
   "tool": true,
   "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "tool",
   "menu": {
    "group": "Agent tools",
@@ -2512,6 +2615,7 @@
   "menu_icon": "http",
   "ui": {
    "icon": "http",
+   "color": "http",
    "caption": {
     "template": "{method|default:GET} {url|host_path|default:no URL yet}"
    }
@@ -2641,6 +2745,10 @@
   "links_to": null,
   "tool": true,
   "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "tool",
   "menu": {
    "group": "Agent tools",
@@ -2650,6 +2758,7 @@
   "menu_icon": "code",
   "ui": {
    "icon": "code",
+   "color": "code",
    "caption": {
     "template": "{language|default:python} · {tool_name|default:@name}"
    }
@@ -2803,6 +2912,10 @@
   "links_to": null,
   "tool": true,
   "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
   "behaviour": "tool",
   "menu": {
    "group": "Agent tools",
@@ -2812,6 +2925,7 @@
   "menu_icon": "database",
   "ui": {
    "icon": "database",
+   "color": "postgres",
    "caption": {
     "template": "{tool_name|default:@name} · {?allow_write:changes · }{query|first_line|short|default:no query yet}"
    }
@@ -2946,6 +3060,13 @@
   "links_to": null,
   "tool": false,
   "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "comments",
+   "count"
+  ],
+  "variables": null,
   "behaviour": "flow",
   "menu": {
    "group": "Data",
@@ -2955,6 +3076,7 @@
   "menu_icon": "message",
   "ui": {
    "icon": "message",
+   "color": "artifact",
    "caption": {
     "template": "{operation|default:Get comments}"
    }

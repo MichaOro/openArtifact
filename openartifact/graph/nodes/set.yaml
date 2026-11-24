@@ -2,6 +2,10 @@ schema: 1
 kind: set
 label: Edit Fields
 behaviour: flow
+produces_result: true
+variables:
+  setting: fields
+  format: assignments
 guardable: true
 scopes:
 - action
@@ -25,6 +29,7 @@ ports:
       setting: on_failure
       equals: error_output
 ui:
+  color: set
   icon: pencil
   caption:
     template: '{fields|field_names|short|default:no field yet}'

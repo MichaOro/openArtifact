@@ -2,6 +2,8 @@ schema: 1
 kind: github
 label: GitHub
 behaviour: flow
+produces_result: true
+timed: true
 guardable: true
 scopes:
 - action
@@ -29,6 +31,7 @@ ports:
       setting: on_failure
       equals: error_output
 ui:
+  color: github
   icon: github
   caption:
     template: '{operation|default:Get repository}{?operation=Create comment&!allow_comments: (off)} · {repository|trim|short|default:no

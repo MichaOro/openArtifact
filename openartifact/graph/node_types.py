@@ -296,6 +296,10 @@ class NodeType:
         size: tuple[float, float] | None = None,
         tool: bool = False,
         guardable: bool = False,
+        produces_result: bool = False,
+        timed: bool = False,
+        result_data: tuple[str, ...] = (),
+        variables: dict[str, str] | None = None,
         reference_keys: tuple[str, ...] = (),
         menu: dict[str, Any] | None = None,
         menu_icon: str | None = None,
@@ -305,6 +309,12 @@ class NodeType:
         self.label = label
         self.behaviour = behaviour
         self.guardable = guardable  # a guard may watch a node of this kind in an action (ADR-060)
+        self.produces_result = (
+            produces_result  # leaves output/data for later nodes (the reference suggestions)
+        )
+        self.timed = timed  # the flow panel shows how long a step took
+        self.result_data = result_data  # keys of `data` it always leaves
+        self.variables = variables  # the setting it sets run variables from
         self.scopes = scopes
         self.fixed = fixed  # comes with the graph, cannot be added or deleted
         self.addable = addable  # offered in the "+" menu
@@ -404,6 +414,10 @@ class NodeType:
             "outputs": [p.describe() for p in self.outputs],
             "tool": self.tool,
             "guardable": self.guardable,
+            "produces_result": self.produces_result,
+            "timed": self.timed,
+            "result_data": list(self.result_data),
+            "variables": self.variables,
             "settings": [s.describe() for s in self.settings],
             "links_to": self.links_to.value if self.links_to else None,
             "behaviour": self.behaviour,
@@ -506,6 +520,18 @@ def node_type(kind: NodeKind | str) -> NodeType:
     return NODE_TYPES[NodeKind(kind)]
 
 
+def step_icon(kind: str) -> str | None:
+    """The glyph of a step of this kind in the history: the manifest's ``ui.step_icon``, else the card's icon, else its menu glyph.
+
+    A kind the application does not know (a step of an older version) has none, and the history shows its plain glyph."""
+    try:
+        view = node_type(kind)
+    except ValueError:
+        return None
+    ui = view.ui or {}
+    return ui.get("step_icon") or ui.get("icon") or view.menu_icon
+
+
 def kinds_in(scope: GraphKind) -> set[NodeKind]:
     """The kinds a pipeline (``pipeline``) or an action definition (``action``) may contain."""
     return {t.kind for t in NODE_TYPES.values() if scope in t.scopes}
@@ -558,6 +584,10 @@ def load(directory: Any = NODES_DIR) -> list[NodeType]:
             else None,
             tool=manifest.tool,
             guardable=manifest.guardable,
+            produces_result=manifest.produces_result,
+            timed=manifest.timed,
+            result_data=tuple(manifest.result_data),
+            variables=manifest.variables.model_dump() if manifest.variables else None,
             reference_keys=tuple(manifest.reference_keys),
             menu=menu,
             menu_icon=manifest.menu_icon or manifest.ui.icon,

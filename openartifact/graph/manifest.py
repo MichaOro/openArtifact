@@ -163,8 +163,19 @@ class CaptionSpec(_Strict):
         return self
 
 
+class VariablesSpec(_Strict):
+    """Where a kind declares the run variables it sets: a setting holding one name per line, or ``name = value`` lines."""
+
+    setting: str = Field(min_length=1)
+    format: Literal["lines", "assignments"]
+
+
 class UiSpec(_Strict):
     icon: str | None = None
+    #: The colour of the card: the name of a token ``--node-<color>`` in tokens.css (no CSS per kind, ADR-054).
+    color: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9-]*$")
+    #: The glyph of a step of this kind in the history when it differs from the card's (else ``icon``, else the menu glyph).
+    step_icon: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9-]*$")
     size: SizeSpec | None = None
     port_labels: bool | None = None
     caption: CaptionSpec | None = None
@@ -219,6 +230,14 @@ class NodeManifest(_Strict):
     tool: bool = False
     #: A guard may be attached to a node of this kind inside an action definition (the kind runs as a step).
     guardable: bool = False
+    #: The node leaves ``output`` and ``data`` in the run context for later nodes (the ``${(Name).output}`` suggestions).
+    produces_result: bool = False
+    #: The flow panel shows how long a step of this kind took (it is a step that takes time worth showing).
+    timed: bool = False
+    #: Keys of ``data`` the kind always leaves (dotted paths), offered after ``${(Name).data.``.
+    result_data: list[str] = Field(default_factory=list)
+    #: The run variables the node sets, read from one of its settings (offered as ``${var.name}``).
+    variables: VariablesSpec | None = None
     links_to: Literal["pipeline", "action"] | None = None
     default_size: SizeSpec | None = None
     reference_keys: list[str] = Field(default_factory=list)

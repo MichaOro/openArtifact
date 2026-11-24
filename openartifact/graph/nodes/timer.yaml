@@ -2,6 +2,8 @@ schema: 1
 kind: timer
 label: Timer
 behaviour: plain
+produces_result: true
+timed: true
 guardable: true
 scopes:
 - action
@@ -19,6 +21,7 @@ ports:
   - name: out
     label: Next
 ui:
+  color: timer
   caption:
     template: '{@seconds} s'
 settings:

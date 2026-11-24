@@ -15,6 +15,7 @@ ports:
     label: Tool
     side: top
 ui:
+  color: code
   icon: code
   caption:
     template: '{language|default:python} · {tool_name|default:@name}'

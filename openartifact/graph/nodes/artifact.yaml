@@ -2,6 +2,11 @@ schema: 1
 kind: artifact
 label: Artifact
 behaviour: flow
+produces_result: true
+timed: true
+result_data:
+- comments
+- count
 guardable: true
 scopes:
 - action
@@ -25,6 +30,7 @@ ports:
       setting: on_failure
       equals: error_output
 ui:
+  color: artifact
   icon: message
   caption:
     template: '{operation|default:Get comments}'

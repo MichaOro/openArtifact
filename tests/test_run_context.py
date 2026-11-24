@@ -1005,3 +1005,21 @@ def test_migration_0028_adds_the_column_and_goes_down_and_up_with_data(
         assert conn.execute("SELECT count(*) FROM executions").fetchone() == (1,)
     command.upgrade(cfg, "head")
     assert state()[2] == ("{}",)
+
+
+@pytest.mark.parametrize(
+    "kind", ["github", "postgres", "artifact", "set", "agent", "http", "if", "switch", "timer"]
+)
+def test_the_result_of_any_kind_of_node_can_be_referenced(kind: str) -> None:
+    """A reference does not depend on the kind: what a node left in the context is read by its name (the editor offers it
+    for every kind whose manifest says it leaves a result)."""
+    context = RunContext()
+    context.record(
+        {"name": "Left", "kind": kind},
+        _result(output="done", data={"rows": [{"a": 1}], "count": 1}),
+        "pass",
+    )
+    view = _view(context, (kind, "Left", {}))
+    assert (
+        view.render("${(Left).output}|${(Left).data.count}|${(Left).data.rows.0.a}") == "done|1|1"
+    )

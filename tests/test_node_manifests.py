@@ -360,3 +360,116 @@ def test_a_menu_icon_must_be_a_plain_icon_name(tmp_path: Path) -> None:
     )
     with pytest.raises(manifest.ManifestError, match=r"bad\.yaml"):
         manifest.read(tmp_path / "bad.yaml")
+
+
+# ── one card for every kind: colour, result and timing are data (ADR-054 addendum) ──────────────────
+
+
+TOKENS_CSS = Path(__file__).parent.parent / "openartifact" / "static" / "css" / "tokens.css"
+RESULT_KINDS = {
+    "code",
+    "http",
+    "github",
+    "postgres",
+    "artifact",
+    "set",
+    "agent",
+    "if",
+    "switch",
+    "timer",
+}
+
+
+def test_every_kind_names_the_colour_of_its_card_and_the_token_exists() -> None:
+    """The card's colour is the manifest's ``ui.color``, a token ``--node-<name>`` of tokens.css (no CSS per kind)."""
+    css = TOKENS_CSS.read_text()
+    root = (
+        css[: css.index(':root[data-theme="dark"]')] if ':root[data-theme="dark"]' in css else css
+    )
+    for kind, node in NODE_TYPES.items():
+        if kind.value in {"note"}:
+            continue
+        color = node.describe()["ui"].get("color")
+        assert color, f"{kind.value} names no ui.color"
+        token = re.search(rf"--node-{re.escape(color)}:\s*([^;]+);", root)
+        assert token, f"{kind.value}: tokens.css has no --node-{color}"
+        # it is built from the lane hues, which both themes define, so it follows the theme (no literal colour)
+        assert "var(--lane-hue-" in token.group(1), (
+            f"--node-{color} is a literal, not a theme colour"
+        )
+
+
+def test_the_kinds_that_leave_a_result_for_later_nodes_say_so() -> None:
+    """``produces_result`` replaces the list of kinds the editor kept for the ``${...}`` suggestions."""
+    said = {k.value for k, n in NODE_TYPES.items() if n.describe()["produces_result"]}
+    assert said == RESULT_KINDS
+    for kind, node in NODE_TYPES.items():
+        if node.behaviour in ("flow", "switch"):
+            assert node.describe()["produces_result"], (
+                f"{kind.value} is a step but leaves no result"
+            )
+
+
+def test_result_data_and_variables_are_declared_by_the_kind_not_by_the_editor() -> None:
+    artifact = node_type(NodeKind("artifact")).describe()
+    assert "comments" in artifact["result_data"]
+    postgres = node_type(NodeKind("postgres")).describe()
+    assert "rows" in postgres["result_data"]
+    assert node_type(NodeKind("code")).describe()["variables"] == {
+        "setting": "sets_variables",
+        "format": "lines",
+    }
+    assert node_type(NodeKind("set")).describe()["variables"] == {
+        "setting": "fields",
+        "format": "assignments",
+    }
+
+
+def test_a_timed_kind_shows_its_duration_in_the_flow_panel() -> None:
+    timed = {k.value for k, n in NODE_TYPES.items() if n.describe()["timed"]}
+    assert timed == {"code", "http", "github", "postgres", "artifact", "agent", "timer"}
+
+
+def test_a_colour_must_be_a_plain_token_name(tmp_path: Path) -> None:
+    (tmp_path / "bad.yaml").write_text(
+        "schema: 1\nkind: code\nlabel: Bad\nui:\n  color: 'Not A Token'\n"
+    )
+    with pytest.raises(manifest.ManifestError, match=r"bad\.yaml"):
+        manifest.read(tmp_path / "bad.yaml")
+
+
+def test_a_variables_declaration_needs_a_known_format(tmp_path: Path) -> None:
+    (tmp_path / "bad.yaml").write_text(
+        "schema: 1\nkind: code\nlabel: Bad\nvariables:\n  setting: sets_variables\n  format: csv\n"
+    )
+    with pytest.raises(manifest.ManifestError, match=r"bad\.yaml"):
+        manifest.read(tmp_path / "bad.yaml")
+
+
+def test_a_step_of_every_kind_carries_the_glyph_its_manifest_names() -> None:
+    """The history showed the plain action glyph for the steps of GitHub, Postgres and Artifact nodes: the browser kept a list of kinds."""
+    from openartifact.engine.schemas import NodeResultRead
+    from openartifact.graph.node_types import step_icon
+
+    known = _icon_names()
+    for kind in NODE_TYPES:
+        glyph = step_icon(kind.value)
+        assert glyph in known, f"{kind.value}: {glyph!r} is not an icon of icons.html"
+    # what the browser's list said before stays what it is
+    old = {
+        "code": "code",
+        "http": "http",
+        "timer": "clock",
+        "trigger": "play",
+        "output": "check",
+        "if": "if",
+    }
+    old |= {"switch": "switch", "agent": "agent", "set": "pencil"}
+    assert {k: step_icon(k) for k in old} == old
+    assert (
+        step_icon("github") == "github"
+        and step_icon("postgres") == "database"
+        and step_icon("artifact") == "message"
+    )
+    assert step_icon("a_kind_from_the_future") is None
+    assert NodeResultRead.model_construct(kind="postgres").icon == "database"

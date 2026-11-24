@@ -12,6 +12,7 @@ ports:
   - name: in
     label: Input
 ui:
+  color: complete
   size:
     width: 160
     height: 56

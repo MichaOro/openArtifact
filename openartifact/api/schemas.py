@@ -81,6 +81,12 @@ class NodeTypeRead(BaseModel):
     tool: bool = False
     #: A guard may be attached to a node of this kind inside an action definition (ADR-060).
     guardable: bool = False
+    #: The node leaves ``output`` and ``data`` for later nodes; its duration is worth showing; the keys of ``data`` it always
+    #: leaves; the setting that holds the run variables it sets (``{setting, format}``).
+    produces_result: bool = False
+    timed: bool = False
+    result_data: list[str] = []
+    variables: dict[str, str] | None = None
     #: How the kind connects and is drawn (``plain``, ``flow``, ``stage``, ``action``, ``pipeline``, ``output``, ``tool``, ``switch``).
     behaviour: str = "plain"
     #: Where the kind sits in the "+" menu: its cluster, the cluster's place and its own place in it.

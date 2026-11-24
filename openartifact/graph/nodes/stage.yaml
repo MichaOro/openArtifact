@@ -24,3 +24,5 @@ ports:
     label: First action
   - name: end
     label: Next
+ui:
+  color: stage

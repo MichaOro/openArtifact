@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 from openartifact.engine.context import RunContext
+from openartifact.graph.node_types import step_icon
 from openartifact.models import Execution, RunNodeResult, RunStatus, StageStatus, StartedBy
 from openartifact.schemas_common import UtcDateTime, as_utc
 
@@ -55,6 +56,12 @@ class NodeResultRead(BaseModel):
     detail: dict[str, Any] | None = None
     started_at: UtcDateTime
     finished_at: UtcDateTime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def icon(self) -> str | None:
+        """The glyph of the step's kind in the history, from the kind's manifest (no list of kinds in the browser)."""
+        return step_icon(self.kind)
 
     @classmethod
     def of(
