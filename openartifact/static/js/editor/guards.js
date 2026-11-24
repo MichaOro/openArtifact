@@ -48,7 +48,7 @@ export class EditorGuards {
   /**
    * @param {HTMLElement} root the editor element
    * @param {{graphId: string, isAction: boolean, scopeName: (type: string, id: string) => string, actionsPath: string,
-   *   pipelineSlug: () => string, confirm: (text: string, action: () => Promise<void>) => void,
+   *   pipelineSlug: () => string, confirm: (text: string, action: () => Promise<void>, options?: object) => void,
    *   guardable: (node: object) => boolean, definitionOf: (nodeId: string) => string|null,
    *   showError: (text: string) => void, redraw: () => void}} hooks
    *   graphId: the pipeline or action definition being edited; redraw: draw the canvas again (its nodes get their

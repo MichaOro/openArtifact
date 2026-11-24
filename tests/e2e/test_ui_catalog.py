@@ -28,6 +28,8 @@ CATALOG_CLASSES = {
     "menu__item",  # an item of a menu
     "popover__option",  # an option of a popover list
     "info-tip",  # the (i) that opens the explanation of a field (components/info-tip.js)
+    "layout-handle",  # the handle on the top edge of a manifest window (components/window-layout.js, ADR-063)
+    "lw-grip",  # the grip of a section or field in the arrange view (components/layout-arrange.js)
 }
 
 MEASURE = """
@@ -154,6 +156,8 @@ VARIANTS = {
     "icon": '<button class="icon-button" aria-label="Menu"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
     "icon danger": '<button class="icon-button is-danger" aria-label="Delete"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
     "icon quiet": '<button class="icon-button icon-button--quiet icon-button--xs" aria-label="Guards"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
+    "layout handle": '<button class="layout-handle" aria-label="Window layout"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
+    "layout grip": '<button class="lw-grip" aria-label="Move"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
     "chip off": '<button class="chip-button" aria-pressed="false">Comments</button>',
     "chip on": '<button class="chip-button" aria-pressed="true">Comments</button>',
 }

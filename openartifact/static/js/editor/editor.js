@@ -5,6 +5,7 @@ import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { InlineName } from "../components/inline-name.js";
 import { Modal } from "../components/modal.js";
+import { WindowLayout } from "../components/window-layout.js";
 import { KEYS, readJson, removeStorage, writeJson } from "../storage.js";
 import { ActionMenu } from "../components/action-menu.js";
 import { icon } from "../components/icons.js";
@@ -18,7 +19,8 @@ import { InspectorBlocks } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
 import { rememberPipeline, setupBack, setupBackToAgent, setupBackToGuard } from "./navigation.js";
 import { EditorGuards } from "./guards.js";
-import { addableIn, placeholderOf, typeOf } from "./node-types.js";
+import { nodeWindowStructure } from "./node-layout.js";
+import { addableIn, loadNodeTypes, placeholderOf, typeOf } from "./node-types.js";
 import { forgetOpened } from "./settings-layout.js";
 import { t, tn } from "../i18n.js";
 
@@ -47,6 +49,22 @@ export class GraphEditor {
     this.blocks = new InspectorBlocks(this.#blockActions(), this.model);
     this.settingsModal = new Modal(document.getElementById("node-modal"));
     this.inspector = new InspectorPanel(document.querySelector("#node-modal [data-inspector]"), this.blocks, this.model);
+    // the layout handle of a node's settings window (ADR-063): arranging its sides and settings, saved for the kind
+    this.layout = new WindowLayout({
+      panel: this.settingsModal.dialog.querySelector(".modal__panel"),
+      content: this.inspector.element,
+      window: null,
+      structure: () => nodeWindowStructure(this.#layoutType()),
+      customised: () => Boolean(this.#layoutType()?.layout_customised),
+      reload: async () => {
+        await loadNodeTypes();
+        if (this.settingsModal.isOpen) this.#renderSettings();
+      },
+      confirm: ({ message, confirmLabel, onConfirm }) => this.confirm.open({ message, confirmLabel, tone: "primary", onConfirm: async () => onConfirm() }),
+    });
+    this.settingsModal.dialog.addEventListener("close", () => this.layout.cancel());
+    const canClose = this.settingsModal.canClose;
+    this.settingsModal.canClose = () => this.layout.guardClose(() => this.settingsModal.close()) && canClose();
     this.canvas = new Canvas({
       viewport: root.querySelector("[data-viewport]"),
       nodes: this.nodes,
@@ -183,11 +201,18 @@ export class GraphEditor {
   /** The settings of a node in an overlay: the node's title (renamed in place) and what its kind offers. */
   #openSettings(node) {
     if (this.selection?.id !== node.id) this.select({ type: "node", id: node.id });
+    this.layoutKind = node.kind;
+    this.layout.setWindow(typeOf(node).settings?.length ? `nodes/${node.kind}` : null);
     this.settingsModal.dialog.querySelector(".modal__title").textContent = typeOf(node).label;
     forgetOpened(node.id); // what was added but never given a value is not kept
     this.#renderSettings();
     this.settingsModal.open();
     this.inspector.focusFirst();
+  }
+
+  /** The view of the kind whose settings window is open (what the layout handle arranges). */
+  #layoutType() {
+    return typeOf(this.layoutKind);
   }
 
   #renderInspector() {
@@ -427,7 +452,7 @@ export class GraphEditor {
       definitionOf: (nodeId) => this.nodes.get(nodeId)?.definition_id ?? null,
       actionsPath: this.paths.action,
       pipelineSlug: () => (this.model.isAction ? "" : (this.model.graph?.slug ?? "")),
-      confirm: (message, action) => this.confirm.open({ message, onConfirm: action }),
+      confirm: (message, action, options = {}) => this.confirm.open({ message, onConfirm: action, ...options }),
       showError: (message) => this.alert.show(message, { autoHide: 6000 }),
       redraw: () => this.canvas.sync(),
     });

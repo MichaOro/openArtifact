@@ -45,7 +45,7 @@ const TITLES = { definition: t("editor.node_types.definition"), behaviour: t("ed
  */
 export function buildSettings({ node, editor, suggest, skip = [], extras = [], inheritance = null }) {
   const type = typeOf(node);
-  const plan = planSettings(type.settings, node, { skip });
+  const plan = planSettings(type.settings, node, { skip, sections: type.layout?.sections });
   const order = new Map(type.settings.map((s, i) => [s.key, i]));
   const redraw = () => (inheritance ? inheritance.refresh() : editor.refresh());
   const open = () => {

@@ -1,0 +1,135 @@
+/* Arranging a manifest window (components/layout-model.js, ADR-063): the structure of a form and of a node's settings, the
+ * moves of a section or a field by drop and by key, and the document that is saved. */
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { blocksOf, fieldPlace, formStructure, moveFieldBy, moveSectionBy, movedText, nodeStructure, placeField, placeSection, sameLayout, sectionPlace, toLayout } from "../../openartifact/static/js/components/layout-model.js";
+
+const field = (key, extra = {}) => ({ key, widget: "text", label: key.toUpperCase(), ...extra });
+const manifest = {
+  name: "demo",
+  columns: 2,
+  sections: [
+    { key: "a", title: "A", column: 1, fields: [field("a1"), field("a2", { advanced: true }), field("a3", { visible_when: { field: "a1", equals: "x" } })] },
+    { key: "b", title: "B", column: 2, fields: [field("b1", { required: true }), field("b2")] },
+    { key: "wide", title: "Wide", column: "full", fields: [field("w1")] },
+    { key: "c", title: "C", column: "auto", fields: [field("c1")] },
+    { key: "d", title: "D", column: 1, fields: [field("d1")] },
+  ],
+};
+const keys = (structure) => structure.sections.map((s) => s.key);
+const lanes = (structure) => blocksOf(structure).map((b) => (b.full ? [b.full.key] : b.lanes.map((l) => l.map((s) => s.key))));
+
+test("a form's structure holds every field, also the ones a condition hides, and resolves auto columns", () => {
+  const s = formStructure(manifest);
+  assert.deepEqual(keys(s), ["a", "b", "wide", "c", "d"]);
+  assert.deepEqual(s.sections.find((x) => x.key === "a").fields.map((f) => f.key), ["a1", "a2", "a3"]);
+  assert.equal(s.sections.find((x) => x.key === "a").fields[2].condition, true);
+  assert.equal(s.sections.find((x) => x.key === "wide").column, "full");
+  assert.ok([1, 2].includes(s.sections.find((x) => x.key === "c").column)); // auto became a column
+});
+
+test("the saved document lists shown and folded fields apart", () => {
+  const layout = toLayout(formStructure(manifest));
+  assert.deepEqual(layout.sections[0], { key: "a", column: 1, fields: ["a1", "a3"], advanced: ["a2"] });
+});
+
+test("a section moves to the other column and within a lane, a full one only among the rows", () => {
+  const s = formStructure(manifest);
+  const moved = placeSection(s, "a", { block: 0, lane: 1, index: 0 });
+  assert.deepEqual(lanes(moved)[0], [[], ["a", "b"]]);
+  assert.equal(sectionPlace(moved, "a").lane, 1);
+  const first = placeSection(s, "wide", { block: 0 }); // a full row only changes its place among the blocks, and stays full
+  assert.equal(keys(first)[0], "wide");
+  assert.equal(first.sections[0].column, "full");
+  // the original is untouched
+  assert.deepEqual(lanes(s)[0][0].includes("a"), true);
+  const below = placeSection(s, "d", { block: 2, lane: 1, index: 0 });
+  assert.ok(lanes(below)[2][1].includes("d"));
+});
+
+test("the keys move a section by one: up and down in its lane, left and right between the columns", () => {
+  const s = formStructure(manifest);
+  const right = moveSectionBy(s, "a", "right");
+  assert.equal(sectionPlace(right, "a").lane, 1);
+  assert.equal(moveSectionBy(s, "a", "left"), null); // already in the first column
+  const lane = placeSection(s, "c", { block: 2, lane: 0, index: 0 });
+  const down = moveSectionBy(lane, "c", "down");
+  assert.ok(down === null || sectionPlace(down, "c").index === 1);
+  const row = moveSectionBy(s, "wide", "up");
+  assert.deepEqual(keys(row).slice(0, 3).sort(), ["a", "b", "wide"].sort());
+  assert.equal(sectionPlace(row, "wide").block, 0);
+});
+
+test("a field moves within its section, into the folded group and back, and a required one is never folded", () => {
+  const s = formStructure(manifest);
+  const up = placeField(s, "a", "a3", { advanced: false, index: 0 });
+  assert.deepEqual(up.sections[0].fields.map((f) => f.key), ["a3", "a1", "a2"]);
+  const folded = placeField(s, "a", "a1", { advanced: true, index: 0 });
+  assert.deepEqual(folded.sections[0].fields.map((f) => [f.key, f.advanced]), [["a3", false], ["a1", true], ["a2", true]]);
+  assert.equal(placeField(s, "b", "b1", { advanced: true, index: 0 }), null);
+  assert.equal(fieldPlace(folded, "a", "a1").advanced, true);
+});
+
+test("down from the last shown field goes into the folded group, up from its start comes back", () => {
+  const s = formStructure(manifest);
+  const into = moveFieldBy(s, "a", "a3", "down");
+  assert.equal(fieldPlace(into, "a", "a3").advanced, true);
+  assert.equal(fieldPlace(into, "a", "a3").index, 0);
+  const back = moveFieldBy(into, "a", "a3", "up");
+  assert.equal(fieldPlace(back, "a", "a3").advanced, false);
+  assert.equal(fieldPlace(back, "a", "a3").index, 1); // at the end of the shown ones
+  assert.equal(moveFieldBy(s, "b", "b1", "up"), null); // first already
+  assert.equal(moveFieldBy(s, "b", "b2", "down")?.sections[1].fields.find((f) => f.key === "b2").advanced, true);
+  assert.equal(moveFieldBy(s, "a", "a1", "left"), null);
+});
+
+const settings = [
+  { key: "language", label: "Language", section: "definition", level: "core" },
+  { key: "left_1", label: "Left", section: "definition", level: "core", group: "Condition 1" },
+  { key: "right_1", label: "Right", section: "definition", level: "core", group: "Condition 1" },
+  { key: "secrets", label: "Secrets", section: "definition", level: "advanced" },
+  { key: "timeout", label: "Timeout", section: "behaviour", level: "optional" },
+  { key: "agent_id", label: "Agent", section: "definition", level: "core" },
+];
+const titles = { definition: "Definition", behaviour: "Behaviour" };
+
+test("a node's window has its two sides, a group is one entry and what the kind draws itself is left out", () => {
+  const s = nodeStructure({ settings }, { titles, skip: ["agent_id"], fixed: ["Agent"] });
+  assert.deepEqual(keys(s), ["definition", "behaviour"]);
+  assert.deepEqual(s.sections[0].fields.map((f) => f.key), ["language", "group:Condition 1", "secrets"]);
+  assert.deepEqual(s.fixed, ["Agent"]);
+  assert.deepEqual(toLayout(s).sections[1], { key: "behaviour", fields: ["timeout"] });
+});
+
+test("a node's sides swap and its entries reorder, but nothing leaves its side", () => {
+  const s = nodeStructure({ settings }, { titles });
+  const swapped = moveSectionBy(s, "behaviour", "left");
+  assert.deepEqual(keys(swapped), ["behaviour", "definition"]);
+  assert.equal(moveSectionBy(s, "definition", "left"), null);
+  const reordered = placeField(s, "definition", "secrets", { index: 0 });
+  assert.deepEqual(reordered.sections[0].fields.map((f) => f.key), ["secrets", "language", "group:Condition 1", "agent_id"]);
+  assert.equal(moveFieldBy(s, "definition", "language", "up"), null);
+  assert.equal(moveFieldBy(s, "definition", "agent_id", "down"), null); // the last one: there is no folded group to fall into
+  assert.deepEqual(keys(nodeStructure({ settings, layout: { sections: ["behaviour", "definition"] } }, { titles })), ["behaviour", "definition"]);
+});
+
+test("a layout that did not change is the same layout", () => {
+  const s = formStructure(manifest);
+  assert.equal(sameLayout(s, formStructure(manifest)), true);
+  assert.equal(sameLayout(s, moveSectionBy(s, "a", "right")), false);
+});
+
+test("a move is announced with its place", () => {
+  const labels = {
+    column: ({ title, column, position }) => `${title}: column ${column}, ${position}`,
+    row: ({ title, position }) => `${title}: row ${position}`,
+    side: ({ title, position }) => `${title}: side ${position}`,
+    field: ({ title, position }) => `${title}: ${position}`,
+    folded: ({ title, position }) => `${title}: folded ${position}`,
+  };
+  const s = moveSectionBy(formStructure(manifest), "a", "right");
+  assert.equal(movedText(s, "section", { section: "a" }, labels), "A: column 2, 1");
+  const f = moveFieldBy(formStructure(manifest), "a", "a3", "down");
+  assert.equal(movedText(f, "field", { section: "a", field: "a3" }, labels), "A3: folded 1");
+});

@@ -310,5 +310,8 @@ async def list_node_types(request: Request, session: SessionDep) -> list[dict[st
     language of the request (cookie ``oa_lang``, else ``Accept-Language``) where a translation exists, else English; the
     stored values (kinds, setting keys, options) never change."""
     saved = await ui_layout.load_all(session)
-    described = [ui_layout.apply_layout(f"nodes/{t.kind}", t.describe(), saved.get(f"nodes/{t.kind}")) for t in NODE_TYPES.values()]
+    described = [
+        ui_layout.apply_layout(f"nodes/{t.kind}", t.describe(), saved.get(f"nodes/{t.kind}"))
+        for t in NODE_TYPES.values()
+    ]
     return localize(described, language_for(request))

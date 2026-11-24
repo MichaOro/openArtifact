@@ -25,12 +25,14 @@ export function isSet(node, setting) {
 /**
  * @param {object[]} settings the kind's settings as the server describes them
  * @param {object} node the node (its config holds the values)
- * @param {{skip?: string[]}} [options] `skip`: keys a kind draws itself
+ * @param {{skip?: string[], sections?: string[]}} [options] `skip`: keys a kind draws itself; `sections`: the sides, left to right
  * @returns {{columns: 1|2, sections: {id: string, core: object[], shown: object[], available: object[], advanced: {settings: object[], open: boolean}}[]}}
  */
-export function planSettings(settings, node, { skip = [] } = {}) {
+export function planSettings(settings, node, { skip = [], sections: order = SECTIONS } = {}) {
   const left = settings.filter((s) => !skip.includes(s.key));
-  const sections = SECTIONS.map((id) => {
+  // the sides left to right: the saved layout of the kind (ADR-063) may swap them; a side it does not name keeps its place
+  const ids = [...order.filter((id) => SECTIONS.includes(id)), ...SECTIONS.filter((id) => !order.includes(id))];
+  const sections = ids.map((id) => {
     const own = left.filter((s) => (s.section ?? "definition") === id);
     const optional = own.filter((s) => s.level === "optional");
     const advanced = own.filter((s) => s.level === "advanced");

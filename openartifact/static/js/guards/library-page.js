@@ -24,7 +24,7 @@ const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-mod
 const menu = new ActionMenu();
 const editor = new GuardEditor(new Modal(document.getElementById("guard-modal")), {
   actionUrl: (actionId, guardId) => `/actions/${encodeURIComponent(actionId)}?guard=${encodeURIComponent(guardId)}`,
-  confirm: (message, action) => confirm.open({ message, onConfirm: action }),
+  confirm: (message, action, options = {}) => confirm.open({ message, onConfirm: action, ...options }),
   onSaved: () => load(),
   onDeleted: () => load(),
 });

@@ -7,6 +7,8 @@
  * header says in how many places the definition is used: a change acts on all of them. */
 import { FormView } from "../components/form-view.js";
 import { InlineName } from "../components/inline-name.js";
+import { formStructure } from "../components/layout-model.js";
+import { WindowLayout } from "../components/window-layout.js";
 import * as rules from "../components/rule-model.js";
 import { request } from "../http.js";
 import { t, tn } from "../i18n.js";
@@ -43,7 +45,7 @@ export const loadForm = () => (formOnce ??= request("/api/forms/guard").catch((e
 export class GuardEditor {
   /**
    * @param {import("../components/modal.js").Modal} modal the #guard-modal (templates/components/guard_modal.html)
-   * @param {{actionUrl: (actionId: string, guardId: string) => string, confirm: (text: string, action: () => Promise<void>) => void,
+   * @param {{actionUrl: (actionId: string, guardId: string) => string, confirm: (text: string, action: () => Promise<void>, options?: {confirmLabel?: string, tone?: string}) => void,
    *   onSaved: (guard: object) => void, onDeleted?: (guard: object) => void}} hooks
    *   actionUrl: where the action editor opens an action (with the way back to here)
    */
@@ -62,6 +64,24 @@ export class GuardEditor {
     });
     this.deleteButton.addEventListener("click", () => this.#delete());
     this.#buildHeader();
+    // the layout handle of the window (ADR-063): its form is a manifest, so its sections and fields can be arranged
+    this.layout = new WindowLayout({
+      panel: this.root.querySelector(".modal__panel"),
+      content: this.body,
+      window: null,
+      structure: () => formStructure(this.manifest),
+      customised: () => Boolean(this.manifest?.layout_customised),
+      reload: async () => {
+        formOnce = null;
+        this.manifest = await loadForm();
+        this.layout.setWindow("forms/guard", { width: this.manifest.width ?? null });
+        this.#draw();
+      },
+      confirm: ({ message, confirmLabel, onConfirm }) => this.hooks.confirm(message, async () => onConfirm(), { confirmLabel, tone: "primary" }),
+    });
+    this.root.addEventListener("close", () => this.layout.cancel());
+    const canClose = modal.canClose;
+    modal.canClose = () => this.layout.guardClose(() => this.modal.close()) && canClose();
     this.timer = 0;
     this.turn = 0;
     this.actions = [];
@@ -126,6 +146,7 @@ export class GuardEditor {
       this.actions ??= [];
       if (!this.serverSchema || !this.manifest) throw new Error(t("guards.not_loaded"));
     }
+    this.layout.setWindow("forms/guard", { width: this.manifest.width ?? null });
     this.nameText.setText(state.name);
     const count = guard?.used_by ?? 0;
     this.used.hidden = !guard;
