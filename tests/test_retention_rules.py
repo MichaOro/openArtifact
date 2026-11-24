@@ -104,6 +104,74 @@ def test_invalid_rules_are_refused_with_the_reason(client: TestClient) -> None:
     assert client.get(RULES).json()["rules"] == []  # nothing was stored
 
 
+# ── name and switch of a rule ────────────────────────────────────────
+
+
+def test_a_rule_keeps_its_name_and_its_switch_and_an_old_rule_reads_as_on_and_unnamed(
+    client: TestClient,
+) -> None:
+    when = _group(_cond("age", "older_than", 86400))
+    saved = client.put(
+        RULES,
+        json={"rules": [{**_rule(when), "name": "  Old ones ", "enabled": False}, _rule(when)]},
+    )
+    assert saved.status_code == 200, saved.text
+    stored = client.get(RULES).json()["rules"]
+    assert [(r["name"], r["enabled"]) for r in stored] == [("Old ones", False), (None, True)]
+
+
+def test_an_empty_name_is_no_name_and_a_bad_name_or_switch_is_refused(client: TestClient) -> None:
+    when = _group(_cond("age", "older_than", 86400))
+    ok = client.put(RULES, json={"rules": [{**_rule(when), "name": "   "}]})
+    assert ok.status_code == 200 and client.get(RULES).json()["rules"][0]["name"] is None
+    too_long = client.put(RULES, json={"rules": [{**_rule(when), "name": "x" * 81}]})
+    assert too_long.status_code == 422
+    assert "80" in too_long.text
+    not_text = client.put(RULES, json={"rules": [{**_rule(when), "name": 7}]})
+    assert not_text.status_code == 422
+    assert "string" in not_text.text
+    not_bool = client.put(RULES, json={"rules": [{**_rule(when), "enabled": "maybe"}]})
+    assert not_bool.status_code == 422
+    assert "enabled" in not_bool.text
+
+
+def test_a_rule_that_is_off_deletes_nothing_and_the_same_rule_on_deletes(
+    client: TestClient, old: dict[str, str]
+) -> None:
+    when = _group(_cond("status", "is", ["failed"]))
+    off = client.put(RULES, json={"rules": [{**_rule(when), "enabled": False}]})
+    assert off.json()["deleted"] == 0
+    assert old["failed_old"] in _ids(_list(client))  # still there
+    preview = client.post(
+        RULES + "/preview", json={"rules": [{**_rule(when), "enabled": False}]}
+    ).json()
+    assert preview == {"matching": 0, "per_rule": [0]}  # a rule that is off matches nothing now
+    on = client.put(RULES, json={"rules": [{**_rule(when), "enabled": True}]})
+    assert on.json()["deleted"] == 1
+    assert old["failed_old"] not in _ids(_list(client))
+
+
+def test_a_rule_stored_before_names_and_switches_exist_still_deletes(
+    client: TestClient, old: dict[str, str]
+) -> None:
+    import json
+
+    when = _group(_cond("status", "is", ["failed"]))
+    client.put(RULES, json={"rules": [_rule(_group())]})  # makes the settings row
+    db = sqlite3.connect(
+        Path(client.app.state.settings.data_dir / client.app.state.settings.database_filename)  # type: ignore[attr-defined]
+    )
+    db.execute(
+        "UPDATE app_settings SET value = ? WHERE key = 'history.rules'",
+        (json.dumps({"rules": [{"when": when, "action": "delete"}]}),),
+    )
+    db.commit()
+    db.close()
+    stored = client.get(RULES).json()["rules"]
+    assert (stored[0]["name"], stored[0]["enabled"]) == (None, True)
+    assert client.post(RULES + "/preview", json={"rules": stored}).json()["matching"] == 1
+
+
 # ── what a rule deletes ──────────────────────────────────────────────
 
 
@@ -330,4 +398,7 @@ def test_rules_stored_as_one_tree_before_actions_existed_still_work(
             (json.dumps({"rules": _group(_cond("status", "is", ["stopped"]))}),),
         )
     read = client.get(RULES).json()["rules"]
-    assert read == [_rule(_group(_cond("status", "is", ["stopped"])))]
+    # an old rule reads as unnamed and on (ADR-052: name and enabled came later)
+    assert read == [
+        {**_rule(_group(_cond("status", "is", ["stopped"]))), "name": None, "enabled": True}
+    ]

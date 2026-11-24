@@ -63,13 +63,33 @@ class Group(BaseModel):
 Group.model_rebuild()
 
 
+MAX_NAME = 80
+
+
 class Rule(BaseModel):
-    """*When* a condition tree holds, *then* an action on the execution."""
+    """*When* a condition tree holds, *then* an action on the execution.
+
+    A rule may have a ``name`` (a label for the list, at most 80 characters; blank is no name) and a switch
+    ``enabled``: a rule that is off stays stored but is never applied and matches nothing. Rules stored before
+    these two existed read as unnamed and on.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     when: Group = Field(default_factory=Group)
     action: str = "delete"
+    name: str | None = Field(default=None, max_length=MAX_NAME * 4)
+    enabled: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def _label(cls, name: str | None) -> str | None:
+        if name is None:
+            return None
+        name = name.strip()
+        if len(name) > MAX_NAME:
+            raise ValueError(f"the name is at most {MAX_NAME} characters")
+        return name or None
 
     @field_validator("action")
     @classmethod
@@ -172,7 +192,9 @@ async def save_rules(session: AsyncSession, rules: Rules) -> None:
 
 
 def _usable(rules: Rules, action: str) -> list[Rule]:
-    return [r for r in rules.rules if r.action == action and not group_is_empty(r.when)]
+    return [
+        r for r in rules.rules if r.enabled and r.action == action and not group_is_empty(r.when)
+    ]
 
 
 async def matching_ids(
@@ -188,10 +210,10 @@ async def matching_ids(
 
 
 async def count_per_rule(session: AsyncSession, rules: Rules, now: Any) -> list[int]:
-    """How many executions each rule matches on its own (an empty rule: none)."""
+    """How many executions each rule matches on its own (an empty rule or one that is off: none)."""
     counts = []
     for rule in rules.rules:
-        if group_is_empty(rule.when):
+        if not rule.enabled or group_is_empty(rule.when):
             counts.append(0)
             continue
         counts.append(
