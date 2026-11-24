@@ -25,7 +25,9 @@ from openartifact.comments.schemas import AUTHOR_MAX_LENGTH, BODY_MAX_LENGTH
 from openartifact.comments.service import CommentService, author_of
 from openartifact.credentials.store import SecretStore
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
+from openartifact.engine.runner import RunEngine
 from openartifact.exceptions import ArtifactError
+from openartifact.guards.service import GuardService
 from openartifact.models import CreatedBy, StartedBy
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 from openartifact.tasks.service import ArtifactService
@@ -88,6 +90,8 @@ def build_mcp(
     providers: ProviderService,
     comments: CommentService,
     activity: ActivityService,
+    guards: GuardService | None = None,
+    engine: RunEngine | None = None,
 ) -> MCPServer:
     """The server with its tools (see the module docstring)."""
     mcp = MCPServer("OpenArtifact", instructions=INSTRUCTIONS)
@@ -358,5 +362,38 @@ def build_mcp(
         outcome of the last connection test. An API key is never available through this server, only
         the name of the secret that holds it."""
         return [p.model_dump(mode="json") for p in await guarded(providers.list_all())]
+
+    if guards is not None:
+
+        @mcp.tool()
+        async def list_guards(pipeline: str | None = None) -> list[dict[str, Any]]:
+            """The guards (ADR-060), of one pipeline (name or id) or of all: what each watches (``scope_type``,
+            ``scope_id``), its trigger (an event of the scope or an interval), its condition (``when``), its
+            consequence (pause, abort, continue, run_action), its escalation steps and whether it is enabled."""
+            pipeline_id = None
+            if pipeline is not None:
+                pipeline_id = _named(await guarded(service.pipelines()), pipeline, "pipeline")["id"]
+            return [g.model_dump(mode="json") for g in await guarded(guards.list(pipeline_id))]
+
+        @mcp.tool()
+        async def set_guard_enabled(guard: str, enabled: bool) -> dict[str, Any]:
+            """Switch a guard (name or id) on or off. Off acts at once on running executions (it no longer fires);
+            on acts on executions started afterwards."""
+            listed = [g.model_dump(mode="json") for g in await guarded(guards.list())]
+            chosen = _named(listed, guard, "guard")
+            return (await guarded(guards.set_enabled(chosen["id"], enabled))).model_dump(
+                mode="json"
+            )
+
+    if engine is not None:
+
+        @mcp.tool()
+        async def heartbeat(execution_id: str, note: str | None = None) -> dict[str, Any]:
+            """Say that a running execution (its id) still makes progress, with an optional short note (200
+            characters): the stall clock of its guards starts again. Not more often than the minimum spacing."""
+            if note is not None and len(note) > 200:
+                raise McpError("A note has at most 200 characters")
+            result = await guarded(engine.heartbeat(execution_id, note))
+            return {**result, "at": str(result["at"])}
 
     return mcp

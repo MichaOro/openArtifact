@@ -183,6 +183,8 @@ def _create_app(settings: Settings) -> FastAPI:
         app.state.providers,
         app.state.comments,
         app.state.activity,
+        app.state.guards,
+        app.state.engine,
     ).streamable_http_app(stateless_http=True, json_response=True, host="0.0.0.0")
     app.router.routes.append(Route("/mcp", endpoint=TokenProtected(app.state.mcp_app, settings)))
 

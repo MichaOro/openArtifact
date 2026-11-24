@@ -3,6 +3,7 @@ an interval guard that stops a stalled Code node, the heartbeat, the safety rule
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Generator
 from typing import Any
@@ -395,3 +396,39 @@ def test_guards_go_with_their_pipeline_and_the_migration_goes_down(
     with sqlite3.connect(path) as conn:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(executions)")}
     assert "guard_state" in columns
+
+
+# ── MCP ──────────────────────────────────────────────────────────────
+
+
+def _tool(client: TestClient, name: str, **arguments: Any) -> tuple[bool, Any]:
+    response = client.post(
+        "/mcp",
+        headers={**HEADERS, "Accept": "application/json, text/event-stream"},
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": name, "arguments": arguments},
+        },
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()["result"]
+    text = result["content"][0]["text"] if result["content"] else "[]"
+    if result.get("isError"):
+        return True, text
+    return False, result.get("structuredContent", {}).get("result", json.loads(text))
+
+
+def test_mcp_lists_guards_switches_one_off_and_sends_a_heartbeat(client: TestClient) -> None:
+    pipeline, stage = _looping_pipeline(client)
+    guard = post(client, GUARDS, **_guard(pipeline, "stage", stage["id"], name="Loop watch"))
+    error, listed = _tool(client, "list_guards", pipeline="Loop")
+    assert not error and [g["id"] for g in listed] == [guard["id"]]
+    error, off = _tool(client, "set_guard_enabled", guard="loop watch", enabled=False)
+    assert not error and off["enabled"] is False
+    assert client.get(f"{GUARDS}/{guard['id']}").json()["enabled"] is False
+    error, text = _tool(client, "set_guard_enabled", guard="nope", enabled=True)
+    assert error and "Unknown guard 'nope'" in text
+    error, text = _tool(client, "heartbeat", execution_id="nothing")
+    assert error and "Execution not found" in text
