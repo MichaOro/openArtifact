@@ -27,6 +27,19 @@ def _box(el: Locator) -> dict[str, float]:
     return box
 
 
+def _settled(page: Page, *locators: Locator) -> list[dict[str, float]]:
+    """The boxes of the locators once they stand still: the window scales in when it opens, and boxes read while it moves
+    differ by a few pixels between two elements."""
+    last: list[dict[str, float]] = []
+    for _ in range(60):
+        now = [_box(el) for el in locators]
+        if now == last:
+            return now
+        last = now
+        page.wait_for_timeout(50)
+    return last
+
+
 def _open_editor(page: Page, base_url: str, guard: dict[str, Any]) -> Locator:
     page.goto(f"{base_url}/guards?open={guard['id']}")
     return _window(page)
@@ -150,7 +163,7 @@ def test_the_guard_editor_has_two_columns_on_a_wide_window_one_on_a_narrow_one_a
     trigger, then = (window.locator(f"[data-section={k}]") for k in ("trigger", "then"))
     condition = window.locator("[data-section=condition]")
     escalation, logic = (window.locator(f"[data-section={k}]") for k in ("escalation", "logic"))
-    t, th, c = _box(trigger), _box(then), _box(condition)
+    t, th, c = _settled(page, trigger, then, condition)
     assert t["x"] < th["x"] and abs(t["y"] - th["y"]) < 2, "trigger and consequence side by side"
     assert c["width"] > t["width"] * 1.8, "the rule builder has the whole width"
     e, lg = _box(escalation), _box(logic)

@@ -270,7 +270,7 @@ class GuardService:
             query = (
                 select(GuardAttachment, GuardDefinition.name)
                 .join(GuardDefinition, GuardDefinition.id == GuardAttachment.guard_id)
-                .order_by(GuardDefinition.name, GuardAttachment.id)
+                .order_by(GuardDefinition.name, GuardAttachment.created_at, GuardAttachment.id)
             )
             if holders is not None:
                 query = query.where(GuardAttachment.graph_id.in_(holders))
