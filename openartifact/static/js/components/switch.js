@@ -39,6 +39,6 @@ export class Switch {
   set on(value) {
     this.button.setAttribute("aria-checked", String(Boolean(value)));
     const state = this.button.querySelector(".ge-switch__state");
-    if (state) state.textContent = value ? "On" : t("components.switch.off");
+    if (state) state.textContent = value ? t("common.on") : t("components.switch.off");
   }
 }

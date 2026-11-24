@@ -195,3 +195,40 @@ textarea.field__control--lines { resize: vertical; }
 .info-tip__text[hidden] { display: none; }
 .info-tip__text p { margin: 0; }
 .info-tip__text p + p { margin-top: var(--space-2); }
+
+/* An on/off switch with its state written in it (switch.js): a catalog component like the buttons. The look is made of
+   the button tokens, so it reads in both themes; the state is a word, not only a colour. */
+.ge-switch {
+  position: relative;
+  display: block;
+  width: 4.5rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--btn-outline-border);
+  border-radius: var(--radius-pill);
+  background: var(--btn-outline-bg);
+  color: var(--btn-outline-text);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.ge-switch__state { position: absolute; top: 50%; right: 0.75rem; transform: translateY(-50%); }
+.ge-switch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--btn-outline-border);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+.ge-switch[aria-checked="true"] {
+  background: var(--btn-chip-on-bg);
+  border-color: var(--color-accent);
+}
+.ge-switch[aria-checked="true"] .ge-switch__state { right: auto; left: 0.75rem; }
+.ge-switch[aria-checked="true"] .ge-switch__thumb { transform: translateX(2.5rem); background: var(--color-accent); }
+.ge-switch:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }

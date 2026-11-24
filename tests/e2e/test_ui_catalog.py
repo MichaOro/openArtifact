@@ -21,6 +21,7 @@ CATALOG_CLASSES = {
     "button",  # .button--primary / --ghost / --danger (+ --sm), .is-danger
     "icon-button",
     "chip-button",  # a toggle pill (aria-pressed): filters
+    "ge-switch",  # an on/off switch (switch.js)
     "task-tab",  # a tab of a tab list
     "nav-link",  # an entry of a navigation
     "menu__item",  # an item of a menu
@@ -222,6 +223,20 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
     board.create("Item")
     pipeline = echo_pipeline(api)
     problems: list[str] = []
+    when = {
+        "type": "group",
+        "mode": "all",
+        "items": [{"type": "condition", "field": "status", "op": "is", "value": ["failed"]}],
+    }
+    api.put(  # one rule that is on and one that is off: both looks of a row (nothing exists yet to delete)
+        "/api/settings/retention",
+        json={
+            "rules": [
+                {"when": when, "action": "delete", "name": "Failed ones"},
+                {"when": when, "action": "delete", "enabled": False},
+            ]
+        },
+    ).raise_for_status()
 
     def check(where: str) -> None:
         problems.extend(_audit(page, theme, where))
@@ -250,6 +265,18 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
         page.goto(base_url + path)
         _theme(page, theme)
         check(path)
+        if (
+            path == "/executions"
+        ):  # the retention dialog: the list of rules, then one rule in the same frame
+            page.get_by_role("button", name="Retention").click()
+            dialog = page.locator("#retention-modal")
+            expect(dialog.locator(".rl-row")).to_have_count(2)
+            check("retention dialog / list")
+            dialog.get_by_role("button", name="Open Failed ones").click()
+            check("retention dialog / rule")
+            page.keyboard.press("Escape")
+            page.keyboard.press("Escape")
+            expect(dialog).to_be_hidden()
     page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
     expect(page.locator(".ge-node").first).to_be_visible()
     _theme(page, theme)

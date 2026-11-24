@@ -5,6 +5,8 @@
  * many (`var.` + a name: a result field); its conditions name it as `prefix + name`. The schemas are the server's
  * (GET /api/rules/schemas, rules/catalog.py). Every edit returns a new tree, so the builder can compare and the original is never changed. */
 
+import { t, tn } from "../i18n.js";
+
 const UNITS = [
   ["days", 86400],
   ["hours", 3600],
@@ -112,12 +114,12 @@ function words(condition, schema) {
   const op = field?.operators.find((o) => o.key === condition.op)?.label ?? condition.op;
   let value;
   if (field?.kind === "choice") {
-    value = condition.value.map((v) => field.options.find((o) => o.value === v)?.label ?? v).join(" or ");
+    value = condition.value.map((v) => field.options.find((o) => o.value === v)?.label ?? v).join(` ${t("components.rule_model.or")} `);
   } else if (field?.kind === "count" || field?.kind === "number") {
     value = String(condition.value);
   } else if (field?.kind === "duration") {
     const { amount, unit } = splitDuration(condition.value, durationUnits(field));
-    value = `${amount} ${amount === 1 ? unit.slice(0, -1) : unit}`;
+    value = tn(`components.rule_model.duration.${unit}`, amount);
   } else {
     value = `"${condition.value}"`;
   }
@@ -128,7 +130,7 @@ function words(condition, schema) {
 /** A rule in words ("Status is Done or Failed, and Age is older than 7 days"); "" for an empty one. */
 export function describe(group, schema, nested = false) {
   const parts = group.items.map((item) => (item.type === "group" ? describe(item, schema, true) : words(item, schema))).filter(Boolean);
-  const glue = group.mode === "all" ? "and" : "or";
+  const glue = group.mode === "all" ? t("components.rule_model.and") : t("components.rule_model.or");
   const text = parts.join(nested ? ` ${glue} ` : `, ${glue} `);
   return nested && parts.length > 1 ? `(${text})` : text;
 }

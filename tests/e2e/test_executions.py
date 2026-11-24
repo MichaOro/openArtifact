@@ -40,6 +40,9 @@ def api(secured_url: str) -> Iterator[httpx.Client]:
         for path in ("/api/pipelines", "/api/actions"):
             for graph in client.get(path).json():
                 assert client.delete(f"{path}/{graph['id']}").status_code == 204
+        client.put(
+            "/api/settings/retention", json={"rules": []}
+        ).raise_for_status()  # no rules left over
         yield client
 
 
@@ -684,7 +687,7 @@ def test_the_retention_dialog_builds_a_rule_says_what_it_deletes_and_saving_dele
     expect(dialog.locator("[data-rule-text]")).to_have_text(
         "No rules: nothing happens to executions automatically."
     )
-    dialog.get_by_role("button", name="Add rule").click()
+    dialog.get_by_role("button", name="Add rule").click()  # the new rule opens in the same frame
     expect(dialog.get_by_label("Then")).to_have_value("delete")  # the one action there is so far
     dialog.get_by_role("button", name="Add condition").click()
     expect(dialog.locator(".rb-row")).to_have_count(1)
@@ -718,15 +721,17 @@ def test_the_retention_dialog_builds_a_rule_says_what_it_deletes_and_saving_dele
     second.get_by_role("button", name="Remove this condition").click()  # back to: Status is Failed
     expect(dialog.locator("[data-submit-label]")).to_have_text("Save and delete 1")
 
+    dialog.get_by_role("button", name="Done").click()  # back to the list of rules
     dialog.get_by_role(
         "button", name="Add rule"
     ).click()  # a second rule, empty: it does nothing and is dropped again
-    expect(dialog.locator(".rs-rule")).to_have_count(2)
+    dialog.get_by_role("button", name="Done").click()
+    expect(dialog.locator(".rl-row")).to_have_count(2)
     expect(dialog.locator("[data-rule-text]")).to_have_text(
         "Rule 1: Delete finished executions where Status is Failed."
     )
-    dialog.get_by_role("button", name="Remove rule 2").click()
-    expect(dialog.locator(".rs-rule")).to_have_count(1)
+    dialog.get_by_role("button", name="Remove rule 2").click()  # taken out until saving, with Undo
+    expect(dialog.locator(".rl-row[data-state=removed]")).to_have_count(1)
     expect(dialog.locator("[data-submit-label]")).to_have_text("Save and delete 1")
 
     dialog.locator("[data-submit]").click()
@@ -736,4 +741,215 @@ def test_the_retention_dialog_builds_a_rule_says_what_it_deletes_and_saving_dele
     assert sorted(e["status"] for e in executions(api, made["a"])) == ["done"]
 
     page.get_by_role("button", name="Retention").click()  # the rule is stored
+    expect(dialog.locator(".rl-row")).to_have_count(1)  # the removed one was left out
+    dialog.get_by_role("button", name="Open Rule 1").click()
     expect(dialog.locator(".rb-chip:has(input:checked)")).to_have_text(["Failed"])
+
+
+# ── the list of retention rules: a name and a switch each ─────────────
+
+FAILED = {
+    "type": "group",
+    "mode": "all",
+    "items": [{"type": "condition", "field": "status", "op": "is", "value": ["failed"]}],
+}
+OLDER = {
+    "type": "group",
+    "mode": "all",
+    "items": [{"type": "condition", "field": "age", "op": "older_than", "value": 7 * 86400}],
+}
+
+
+def _store_rules(api: httpx.Client, *rules: dict[str, Any]) -> None:
+    """Store rules the way a client does. Saving applies them, so a test that must keep its executions stores them off."""
+    api.put("/api/settings/retention", json={"rules": list(rules)}).raise_for_status()
+
+
+def _rule(when: dict[str, Any], **more: Any) -> dict[str, Any]:
+    return {"when": when, "action": "delete", **more}
+
+
+def _retention(page: Page, secured_url: str) -> Locator:
+    _open(page, secured_url)
+    page.get_by_role("button", name="Retention").click()
+    dialog = page.locator("#retention-modal")
+    expect(dialog).to_be_visible()
+    return dialog
+
+
+def test_the_retention_dialog_starts_with_a_list_of_rules_with_a_switch_and_a_line_about_each(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    _seed(api)
+    _store_rules(
+        api,
+        _rule(FAILED, name="Failed ones", enabled=False),
+        _rule(OLDER, enabled=False),
+    )
+    dialog = _retention(page, secured_url)
+    expect(dialog.locator('[data-view="list"]')).to_be_visible()
+    expect(dialog.locator('[data-view="detail"]')).to_be_hidden()
+    rows = dialog.locator(".rl-row")
+    expect(rows).to_have_count(2)
+    expect(rows.nth(0).locator(".rl-row__name")).to_have_text("Failed ones")
+    expect(rows.nth(1).locator(".rl-row__name")).to_have_text("Rule 2")  # unnamed: its place
+    expect(rows.nth(0).locator(".rl-row__summary")).to_have_text(
+        "Delete finished executions where Status is Failed."
+    )
+    expect(rows.nth(1).locator(".rl-row__summary")).to_have_text(
+        "Delete finished executions where Age is older than 7 days."
+    )
+    switches = dialog.get_by_role("switch")
+    expect(switches).to_have_count(2)
+    expect(switches.nth(0)).to_have_attribute("aria-checked", "false")
+    expect(rows.nth(0)).to_have_attribute("data-state", "off")
+    # nothing is on: the footer line says so, and nothing would be deleted
+    expect(dialog.locator("[data-rule-text]")).to_have_text(
+        "All rules are off: nothing happens to executions automatically."
+    )
+    expect(dialog.locator("[data-preview]")).to_be_hidden()
+
+
+def test_the_switch_of_a_rule_decides_what_saving_would_delete(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    made = _seed(api)  # A#2 failed
+    _store_rules(api, _rule(FAILED, name="Failed ones", enabled=False))
+    dialog = _retention(page, secured_url)
+    label, preview = dialog.locator("[data-submit-label]"), dialog.locator("[data-preview]")
+    expect(label).to_have_text("Save")
+    dialog.get_by_role("switch", name="Failed ones").click()  # on
+    expect(preview).to_have_text("1 execution matches now: saving deletes it.")
+    expect(label).to_have_text("Save and delete 1")
+    expect(dialog.locator("[data-rule-text]")).to_have_text(
+        "Failed ones: Delete finished executions where Status is Failed."
+    )
+    dialog.get_by_role("switch", name="Failed ones").click()  # off again
+    expect(preview).to_be_hidden()
+    expect(label).to_have_text("Save")
+    expect(dialog.locator("[data-rule-text]")).to_have_text(
+        "All rules are off: nothing happens to executions automatically."
+    )
+    assert len(executions(api, made["a"])) == 2  # nothing was deleted by looking
+
+
+def test_a_rule_that_is_off_deletes_nothing_when_the_rules_are_saved(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    made = _seed(api)
+    _store_rules(api, _rule(FAILED, name="Failed ones", enabled=False))
+    rows = _open(page, secured_url)
+    expect(rows).to_have_count(4)
+    page.get_by_role("button", name="Retention").click()
+    dialog = page.locator("#retention-modal")
+    dialog.get_by_role("button", name="Open Failed ones").click()
+    dialog.get_by_label("Name").fill("Failed ones (paused)")  # only the name changes
+    dialog.get_by_role("button", name="Done").click()
+    dialog.locator("[data-submit]").click()
+    expect(dialog).to_be_hidden()
+    expect(rows).to_have_count(4)  # the failed one is still there
+    assert sorted(e["status"] for e in executions(api, made["a"])) == ["done", "failed"]
+    stored = api.get("/api/settings/retention").json()["rules"]
+    assert [(r["name"], r["enabled"]) for r in stored] == [("Failed ones (paused)", False)]
+
+
+def test_a_new_rule_opens_in_the_same_frame_and_done_goes_back_to_its_row(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    _seed(api)
+    dialog = _retention(page, secured_url)
+    title = dialog.locator(".modal__title")
+    expect(dialog.locator("[data-rule-text]")).to_have_text(
+        "No rules: nothing happens to executions automatically."
+    )
+    dialog.get_by_role("button", name="Add rule").click()
+    expect(dialog.locator('[data-view="detail"]')).to_be_visible()
+    expect(dialog.locator('[data-view="list"]')).to_be_hidden()
+    expect(title).to_have_text("Retention")  # the same frame
+    expect(dialog.get_by_label("Name")).to_be_focused()
+    expect(dialog.get_by_label("Name")).to_have_attribute(
+        "placeholder", "Rule 1"
+    )  # what it is called now
+    dialog.get_by_label("Name").fill("Mine")
+    dialog.get_by_role("button", name="Done").click()
+    expect(dialog.locator('[data-view="list"]')).to_be_visible()
+    expect(dialog.locator(".rl-row__name")).to_have_text(["Mine"])
+    expect(dialog.get_by_role("button", name="Open Mine")).to_be_focused()
+    expect(dialog.locator(".rl-row__summary")).to_have_text("No conditions yet")  # it says so
+
+
+def test_a_rule_taken_out_stays_in_the_list_with_undo_until_it_is_saved(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    _seed(api)
+    _store_rules(api, _rule(FAILED, name="Failed ones", enabled=False), _rule(OLDER, enabled=False))
+    dialog = _retention(page, secured_url)
+    dialog.get_by_role("button", name="Remove rule 1").click()
+    removed = dialog.locator(".rl-row[data-state=removed]")
+    expect(removed).to_have_count(1)
+    expect(removed).to_contain_text("Will be removed when you save")
+    removed.get_by_role("button", name="Undo").click()
+    expect(dialog.locator(".rl-row[data-state=removed]")).to_have_count(0)
+    expect(dialog.locator(".rl-row__name").first).to_have_text("Failed ones")  # as it was
+    dialog.get_by_role("button", name="Remove rule 1").click()
+    dialog.locator("[data-submit]").click()
+    expect(dialog).to_be_hidden()
+    stored = api.get("/api/settings/retention").json()["rules"]
+    assert [r["name"] for r in stored] == [None]  # only the second rule is left
+
+
+def test_the_name_and_the_switch_are_saved_and_show_again(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    _seed(api)
+    dialog = _retention(page, secured_url)
+    dialog.get_by_role("button", name="Add rule").click()
+    dialog.get_by_label("Name").fill("Keep it")
+    dialog.get_by_role("button", name="Add condition").click()
+    dialog.locator(".rb-chip", has_text="Failed").click()
+    dialog.locator("[data-rule-switch]").get_by_role("switch").click()  # off
+    dialog.get_by_role("button", name="Done").click()
+    expect(dialog.get_by_role("switch", name="Keep it")).to_have_attribute("aria-checked", "false")
+    dialog.locator("[data-submit]").click()
+    expect(dialog).to_be_hidden()
+    stored = api.get("/api/settings/retention").json()["rules"]
+    assert [(r["name"], r["enabled"]) for r in stored] == [("Keep it", False)]
+    page.reload()
+    page.get_by_role("button", name="Retention").click()
+    expect(dialog.locator(".rl-row__name")).to_have_text(["Keep it"])
+    expect(dialog.get_by_role("switch", name="Keep it")).to_have_attribute("aria-checked", "false")
+
+
+def test_escape_in_an_open_rule_goes_back_to_the_list_and_from_the_list_it_closes(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    _seed(api)
+    _store_rules(api, _rule(FAILED, name="Failed ones", enabled=False))
+    dialog = _retention(page, secured_url)
+    dialog.get_by_role("button", name="Open Failed ones").click()
+    expect(dialog.locator('[data-view="detail"]')).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(dialog).to_be_visible()  # the dialog stays
+    expect(dialog.locator('[data-view="list"]')).to_be_visible()
+    expect(dialog.get_by_role("button", name="Open Failed ones")).to_be_focused()
+    dialog.get_by_role("button", name="Open Failed ones").click()
+    dialog.get_by_role("button", name="Back to the rules").click()
+    expect(dialog.locator('[data-view="list"]')).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(dialog).to_be_hidden()
+
+
+def test_the_list_of_rules_speaks_german(page: Page, secured_url: str, api: httpx.Client) -> None:
+    _seed(api)
+    _store_rules(api, _rule(FAILED, enabled=False))
+    page.context.add_cookies([{"name": "oa_lang", "value": "de", "url": secured_url}])
+    _open(page, secured_url)
+    page.get_by_role("button", name="Aufbewahrung").click()
+    dialog = page.locator("#retention-modal")
+    expect(dialog.locator(".rl-row__name")).to_have_text(["Regel 1"])
+    expect(dialog.locator(".rl-row__summary")).to_contain_text("Status ist Fehlgeschlagen")
+    expect(dialog.get_by_role("button", name="Regel hinzufügen")).to_be_visible()
+    expect(dialog.get_by_role("switch")).to_have_text("Aus")
+    dialog.get_by_role("button", name="Regel 1 öffnen").click()
+    expect(dialog.get_by_label("Name")).to_have_attribute("placeholder", "Regel 1")
+    expect(dialog.get_by_role("button", name="Fertig")).to_be_visible()

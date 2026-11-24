@@ -370,43 +370,6 @@
 .ge-actionbar .icon { width: 1rem; height: 1rem; }
 .ge-actionbar a.button[aria-disabled="true"] { pointer-events: none; }
 
-/* an on/off switch with its state written in it */
-.ge-switch {
-  position: relative;
-  display: block;
-  width: 4.5rem;
-  height: 2rem;
-  padding: 0;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
-}
-.ge-switch__state { position: absolute; top: 50%; right: 0.75rem; transform: translateY(-50%); }
-.ge-switch__thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  background: var(--color-text-muted);
-  transition: transform var(--transition-fast), background var(--transition-fast);
-}
-.ge-switch[aria-checked="true"] {
-  background: var(--accent-soft);
-  border-color: var(--color-accent);
-  color: var(--color-text-primary);
-}
-.ge-switch[aria-checked="true"] .ge-switch__state { right: auto; left: 0.75rem; }
-.ge-switch[aria-checked="true"] .ge-switch__thumb { transform: translateX(2.5rem); background: var(--color-accent); }
-.ge-switch:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-
 /* a label and its control on one line (the switches of the inspector) */
 .field--row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .field--row .field__label { margin: 0; }

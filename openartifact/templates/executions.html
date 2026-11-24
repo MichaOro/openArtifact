@@ -142,8 +142,26 @@
 {% call modal("retention-modal", t('common.retention'), size="wide", reason="the rule builder: rows of conditions") %}
 <form class="task-form" id="retention-form" novalidate>
     <div class="modal__body">
-        <p class="field__help">{{ t('executions.each_rule_says') }} <em>{{ t('executions.if') }}</em> {{ t('executions.conditions_hold_for_a_finished_execution') }} <em>{{ t('executions.then') }}</em> {{ t('executions.what_happens_to_it_the_rules') }}</p>
-        <div data-rules></div>
+        {# Two views in one frame: the list of rules (a switch each) and the rule that is open. #}
+        <div class="rl-view" data-view="list">
+            <p class="field__help">{{ t('executions.each_rule_says') }} <em>{{ t('executions.if') }}</em> {{ t('executions.conditions_hold_for_a_finished_execution') }} <em>{{ t('executions.then') }}</em> {{ t('executions.what_happens_to_it_the_rules') }}</p>
+            <div data-rules></div>
+        </div>
+        <div class="rl-view rl-detail" data-view="detail" hidden>
+            <button type="button" class="button button--ghost button--sm rl-back" data-back aria-label="{{ t('components.rule_list.back_to_rules') }}">{{ icon("chevron-left") }}<span>{{ t('components.rule_list.rules') }}</span></button>
+            <div class="rl-detail__meta">
+                <label class="field rl-detail__name">
+                    <span class="field__label">{{ t('components.rule_list.name') }}</span>
+                    <input class="field__control" type="text" maxlength="80" autocomplete="off" data-rule-name>
+                </label>
+                <div class="rl-detail__switch">
+                    <span class="field__label" id="retention-rule-on">{{ t('common.on') }}</span>
+                    <span data-rule-switch></span>
+                </div>
+            </div>
+            <div data-rule-editor></div>
+            <div class="rl-detail__foot"><button type="button" class="button button--ghost button--sm" data-done>{{ t('components.rule_list.done') }}</button></div>
+        </div>
         <p class="field__help" data-rule-text></p>
         <p class="ag-warning" data-preview role="status" hidden></p>
         <p class="form-error" role="alert" hidden data-form-error></p>
