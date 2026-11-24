@@ -1,6 +1,7 @@
-"""Straight lines in the pipeline editor: the attachment points of a stage sit level with the ports of its actions,
-a dragged node settles level with a connected port (Alt switches that off), and a stage has grips to make it larger
-or smaller (never smaller than its actions need)."""
+"""Straight lines in the pipeline editor: the attachment points of a stage follow the stage's height (the top one is level
+with an action in the first row, the bottom one with an action at the very bottom), a dragged node settles level with a
+connected port or a point of its stage (Alt switches that off), and a stage has grips to make it larger or smaller
+(never smaller than its actions need)."""
 
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ import httpx
 from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.helpers import (
+    add_action,
     centre,
     eventually,
     execution_of,
@@ -18,7 +20,7 @@ from tests.e2e.helpers import (
     run_started,
     two_stage_pipeline,
 )
-from tests.helpers import connect, graph_url, make_task, node
+from tests.helpers import connect, graph_url, make_task, node, post
 
 STAGE_SIZE = {"width": 500, "height": 360}
 # STAGE_MIN wide; the lower action ends at 44 + 170 + 68, plus 24 padding
@@ -79,7 +81,7 @@ def _drag_by(page: Page, grip: Locator, dx: float, dy: float) -> None:
 # ── the attachment points of a stage ────────────────────────────────
 
 
-def test_the_points_of_a_stage_are_level_with_the_ports_of_its_actions(
+def test_the_top_point_is_level_with_the_first_row_and_does_not_follow_the_actions(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     pipeline = _pipeline(api)
@@ -87,12 +89,12 @@ def test_the_points_of_a_stage_are_level_with_the_ports_of_its_actions(
     upper, lower = _action(page, pipeline["upper"]["id"]), _action(page, pipeline["lower"]["id"])
     top, middle, bottom = (_y(_stage_port(page, slot)) for slot in range(3))
     assert abs(top - _y(upper.locator(".ge-port--in"))) <= BORDER, (
-        "the top point is level with the upper action"
+        "the top point is level with an action in the first row"
     )
-    assert abs(bottom - _y(lower.locator(".ge-port--in"))) <= BORDER, (
-        "the bottom point with the lower one"
+    assert abs(bottom - _y(lower.locator(".ge-port--in"))) > 20, (
+        "the bottom point is not tied to the lowest action: this one sits higher than the bottom"
     )
-    assert abs(middle - (top + bottom) / 2) < 0.6, "the middle point is centred between them"
+    assert abs(middle - (top + bottom) / 2) < 0.6, "the middle point is halfway between them"
     # on the right the stage's points face the actions' On Pass
     assert abs(_y(_stage_port(page, 0, "end")) - _y(upper.locator(".ge-port--pass"))) <= BORDER
 
@@ -110,21 +112,90 @@ def test_a_line_from_a_stage_point_to_an_action_is_horizontal(
     assert numbers[-2] > numbers[0], "and runs to the right"
 
 
-def test_moving_an_action_moves_the_points_of_its_stage(
+def test_moving_an_action_does_not_move_the_points_of_its_stage(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     pipeline = _pipeline(api)
     _open(page, base_url, pipeline)
     lower = _action(page, pipeline["lower"]["id"])
-    before = _y(_stage_port(page, 2))
+    before = [_y(_stage_port(page, slot)) for slot in range(3)]
     x, y = centre(lower.locator(".ge-node__name"))
     page.mouse.move(x, y)
     page.mouse.down()
     page.mouse.move(x, y - 40, steps=10)
     page.mouse.up()
-    after = _y(_stage_port(page, 2))
-    assert after < before - 20, "the bottom point followed the action up"
-    assert abs(after - _y(lower.locator(".ge-port--in"))) <= BORDER
+    after = [_y(_stage_port(page, slot)) for slot in range(3)]
+    assert all(abs(a - b) < 0.6 for a, b in zip(after, before, strict=True)), (before, after)
+
+
+def test_an_action_dragged_to_the_very_bottom_settles_level_with_the_bottom_point(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """A straight line from the lowest point of the stage to an action at the very bottom must be possible."""
+    pipeline = _pipeline(api)
+    stage, lower = pipeline["stage"], pipeline["lower"]
+    edge = post(
+        api,
+        f"{graph_url(pipeline)}/edges",
+        source_id=stage["id"],
+        source_port="start",
+        source_slot=2,
+        target_id=lower["id"],
+        target_port="in",
+    )
+    _open(page, base_url, pipeline)
+    action = _action(page, lower["id"])
+    bottom = _y(_stage_port(page, 2))
+    x, y = centre(action.locator(".ge-node__name"))
+    offset = (
+        bottom - 5 - _y(action.locator(".ge-port--in"))
+    )  # dropped 5 px short of the bottom point
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.mouse.move(x, y + offset, steps=12)
+    assert page.locator(".ge-guide").count() == 1, "the guide shows that it settles"
+    page.mouse.up()
+    assert abs(_y(action.locator(".ge-port--in")) - bottom) <= BORDER, (
+        "level, and the stage did not grow"
+    )
+    assert abs(_y(_stage_port(page, 2)) - bottom) < 0.6
+    line = page.locator(f'[data-edge-id="{edge["id"]}"] .ge-edge__line').get_attribute("d")
+    numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", line or "")]
+    assert line and "Q" not in line and abs(numbers[1] - numbers[-1]) < 0.01, f"horizontal: {line}"
+
+
+def test_the_points_follow_a_resized_stage_at_once(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _pipeline(api)
+    _open(page, base_url, pipeline)
+    stage = page.locator(".ge-node--stage")
+    box = stage.bounding_box()
+    assert box
+    from_top = [_y(_stage_port(page, slot)) - box["y"] for slot in (0, 1)]
+    to_bottom = box["y"] + box["height"] - _y(_stage_port(page, 2))
+    _drag_by(page, _grip(page, "s"), 0, 60)
+    grown = stage.bounding_box()
+    assert grown and grown["height"] > box["height"] + 30
+    assert abs(_y(_stage_port(page, 0)) - grown["y"] - from_top[0]) < 0.6, "the top point stays"
+    assert abs(grown["y"] + grown["height"] - _y(_stage_port(page, 2)) - to_bottom) < 0.6, (
+        "the bottom point keeps its distance from the bottom edge"
+    )
+    assert _y(_stage_port(page, 1)) - grown["y"] > from_top[1] + 10, "the middle one moved down"
+
+
+def test_the_first_action_of_an_empty_stage_is_level_with_the_top_point(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline: dict[str, Any] = api.post("/api/pipelines", json={"name": "First row"}).json()
+    node(api, pipeline, "stage", name="Empty", x=200, y=40)
+    page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
+    expect(page.locator(".ge-node--stage")).to_have_count(1)
+    add_action(page)
+    expect(page.locator(".ge-node--action")).to_have_count(1)
+    page.click("[data-zoom-fit]")
+    new = page.locator(".ge-node--action .ge-port--in")
+    assert abs(_y(new) - _y(_stage_port(page, 0))) <= BORDER
 
 
 # ── settling level while dragging ───────────────────────────────────

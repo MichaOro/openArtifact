@@ -9,7 +9,7 @@
  *    takes every node it touches; Shift adds) and moves the selected nodes together; wheel or the zoom buttons zoom;
  *  - read-only: dragging the background with the left button pans;
  *  - click a node or an edge to select it. */
-import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnectFrom, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, snapY } from "./geometry.js";
+import { EDGE_STYLES, PAD, actionsOf, boxOf, displayName, canConnectFrom, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, slotPairs, snapY } from "./geometry.js";
 import { icon } from "../components/icons.js";
 import { FAILING_PORTS, HEADER, typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
@@ -621,13 +621,14 @@ export class Canvas {
    */
   #snap(g, off) {
     const moving = new Set(g.items.map((item) => item.node.id));
-    const pairs = off ? [] : this.#levelPairs(g.node, moving);
+    // the ports it is connected to come first: with equally near candidates a connected one wins
+    const pairs = off ? [] : [...this.#levelPairs(g.node, moving), ...slotPairs(g.node, this.nodes)];
     const hit = snapY(pairs, SNAP_DISTANCE / this.view.zoom);
     if (hit && hit.delta !== 0) for (const { node } of g.items) this.#moveNode(node, node.x, node.y + hit.delta);
     this.#guide(hit ? pairs.find((pair) => pair.other === hit.y) : null);
   }
 
-  /** For each connection of `node` to a node that stays put: the height of its port, of the other port, and where both are. */
+  /** For each connection of `node` to a node that stays put (also its own stage, whose points no longer follow it): the height of its port, of the other port, and where both are. */
   #levelPairs(node, moving) {
     const pairs = [];
     for (const edge of this.edges.values()) {
@@ -635,8 +636,8 @@ export class Canvas {
       const ends = edge.source_id === node.id ? ["source", "target"] : edge.target_id === node.id ? ["target", "source"] : null;
       if (!ends) continue;
       const other = this.nodes.get(edge[`${ends[1]}_id`]);
-      // a stage's own points follow its actions: aligning with them would always match
-      if (!other || moving.has(other.id) || other.id === node.stage_id || other.stage_id === node.id) continue;
+      // the actions of a stage move with it: aligning a stage with their ports would always match
+      if (!other || moving.has(other.id) || other.stage_id === node.id) continue;
       const mine = portPoint(node, edge[`${ends[0]}_port`], this.nodes, edge[`${ends[0]}_slot`]);
       const theirs = portPoint(other, edge[`${ends[1]}_port`], this.nodes, edge[`${ends[1]}_slot`]);
       pairs.push({ own: mine.y, other: theirs.y, from: mine.x, to: theirs.x });

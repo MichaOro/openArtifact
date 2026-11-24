@@ -72,11 +72,13 @@ Under a node a small bar appears on hover and while it is selected: a bin
 actions along). The trigger, the output and the end are part of a graph: they are not copied and not deleted. There is no
 undo yet.
 
-**Straight lines.** The attachment points of a stage (three on each side) sit level with the ports of its actions:
-on the left the first point is level with the highest action's input and the last with the lowest one's, the middle one
-is centred between them; on the right they face the actions' On Pass. So a line from a stage point to an action runs
-horizontally, and the points follow the actions when you move them. A node you drag settles level with a port it is
-connected to as soon as it comes within 8 pixels (a thin dashed line shows it); hold **Alt** to move it freely. A
+**Straight lines.** The attachment points of a stage (three on each side) follow the stage's height, not its actions:
+the top one is level with an action in the first row (where a new action goes), the bottom one with an action dragged
+to the very bottom, the middle one is halfway; on the left they face the actions' input, on the right their On Pass.
+So a line from the top or the bottom point to an action there runs horizontally, whatever the other actions do, and
+the lower points move with the bottom edge when you resize the stage. A node you drag settles level with a port it is
+connected to or with a point of its stage as soon as it comes within 8 pixels (a thin dashed line shows it); hold
+**Alt** to move it freely. A
 stage has grips on its right edge, its bottom edge and its bottom-right corner (shown when it is hovered or selected,
 also reachable with Tab): drag one to make the stage larger or smaller, never smaller than its actions need; arrow keys
 on a grip change the size by 10 (Shift: 40), a double click or Enter fits the stage to its actions. There are no grips

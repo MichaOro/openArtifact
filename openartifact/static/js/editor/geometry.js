@@ -1,9 +1,9 @@
 /* Geometry of the graph canvas. Pure functions over plain node/edge objects as the API returns
  * them; what a kind of node looks like and may connect to comes from its view (node-types.js). */
-import { HEADER, typeOf } from "./node-types.js";
+import { FIRST_ROW, HEADER, PAD, slotHeights, typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
 
-export const PAD = 24; // space between a stage border and its actions
+export { PAD }; // space between a stage border and its actions
 export const ACTION_GAP = 64; // space between neighbouring actions
 export const TOP_LEVEL_GAP = 96; // space between a new node of the main line and its neighbour
 export const TOOL_GAP = 120; // space between an agent and the tools hanging below it
@@ -142,7 +142,7 @@ export function nextToolPosition(nodes, edges, selectedId) {
 export function nextActionPosition(stage, nodes) {
   const actions = actionsOf(stage, nodes);
   const x = actions.length ? Math.max(...actions.map((a) => a.x + sizeOf(a).width)) + ACTION_GAP : PAD;
-  return { x, y: PAD * 2 };
+  return { x, y: FIRST_ROW };
 }
 
 /** The least a stage may measure: the smallest size that still holds all its actions (and never below STAGE_MIN). */
@@ -175,4 +175,24 @@ export function snapY(pairs, threshold) {
     if (Math.abs(delta) <= threshold && (!best || Math.abs(delta) < Math.abs(best.delta))) best = { delta, y: other };
   }
   return best;
+}
+
+/**
+ * The heights an action (or any node of a stage) can settle on so that a line to its stage's points is straight: its input
+ * level with each of the stage's three points on the left edge, its first output level with each on the right edge. Each
+ * entry is `{ own, other, from, to }` as `snapY` takes it (`from` and `to` are where the guide line starts and ends).
+ */
+export function slotPairs(node, nodes) {
+  const stage = node.stage_id ? nodes.get(node.stage_id) : null;
+  if (!stage) return [];
+  const view = typeOf(node);
+  const pairs = [];
+  for (const [side, ports, edge] of [["in", view.inputs, "start"], ["out", view.outputs, "end"]]) {
+    const port = ports.find((p) => !p.side && view.isVisible(node, p.name));
+    if (!port) continue;
+    const mine = portPoint(node, port.name, nodes);
+    const heights = slotHeights(stage.height, side);
+    heights.forEach((y) => pairs.push({ own: mine.y, other: stage.y + y, from: mine.x, to: edge === "start" ? stage.x : stage.x + stage.width }));
+  }
+  return pairs;
 }

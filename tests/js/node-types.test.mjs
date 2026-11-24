@@ -123,13 +123,16 @@ test("port labels: only the outcomes of kinds that label ports, not in and out",
   assert.equal(typeOf("output").portLabel("unknown"), "unknown");
 });
 
-test("slotHeights: level with the highest and the lowest port, the middle one centred, all inside the stage", () => {
-  assert.deepEqual(slotHeights(200, []), [HEADER / 2, 100, 200 - HEADER / 2], "no actions: the defaults");
-  assert.deepEqual(slotHeights(300, [150, 90, 210]), [90, 150, 210], "spread over the highest and the lowest");
-  assert.deepEqual(slotHeights(300, [120]), [120, 144, 168], "one height: the first point is level, the others follow");
-  assert.deepEqual(slotHeights(300, [120, 150]), [120, 144, 168], "closer than the span: treated as one height");
-  assert.deepEqual(slotHeights(200, [180]), [180, 192, 192], "the lowest points stay 8 above the bottom edge");
-  assert.deepEqual(slotHeights(300, [5]), [HEADER / 2, 29, 53], "never above the middle of the header");
+test("slotHeights: from the first row of a new action to the lowest one, the middle one halfway, all inside the stage", () => {
+  const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} against ${expected}`);
+  // the action is 68 high and 190 wide: its input sits at 34, its On Pass at a third of its height; the first row is at 48
+  assert.deepEqual(slotHeights(360, "in"), [HEADER + 48 + 34, (126 + 302) / 2, 360 - 24 - 68 + 34], "left: the inputs");
+  const out = slotHeights(360, "out");
+  near(out[0], HEADER + 48 + 68 / 3, "right: the first row's On Pass");
+  near(out[2], 360 - 24 - 68 + 68 / 3, "right: the lowest On Pass");
+  near(out[1], (out[0] + out[2]) / 2, "right: halfway");
+  assert.deepEqual(slotHeights(460, "in").map((y, i) => y - slotHeights(360, "in")[i]), [0, 50, 100], "a taller stage moves the lower points");
+  assert.ok(slotHeights(100, "in").every((y) => y >= HEADER / 2 && y <= 100 - 8), "never outside the stage, however small it is");
 });
 
 test("portLocal spreads the shown ports down their side; the output kind pins its connectors", () => {
@@ -145,8 +148,8 @@ test("portLocal spreads the shown ports down their side; the output kind pins it
   assert.deepEqual(output.portLocal(node("output"), "pass"), { x: 0, y: 60 });
   assert.deepEqual(output.portLocal(node("output"), "fail"), { x: 0, y: 84 });
   const stage = node("stage", { width: 400, height: 300 });
-  assert.deepEqual(typeOf("stage").portLocal(stage, "start", 2), { x: 0, y: 300 - HEADER / 2 });
-  assert.deepEqual(typeOf("stage").portLocal(stage, "end"), { x: 400, y: HEADER / 2 });
+  assert.deepEqual(typeOf("stage").portLocal(stage, "start", 2), { x: 0, y: slotHeights(300, "in")[2] }, "the left points use the heights of the inputs");
+  assert.deepEqual(typeOf("stage").portLocal(stage, "end"), { x: 400, y: slotHeights(300, "out")[0] }, "the right ones those of the On Pass");
 });
 
 test("connection rules of each kind", () => {

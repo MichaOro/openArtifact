@@ -20,23 +20,28 @@ export function slotY(height, slot) {
   return [HEADER / 2, height / 2, height - HEADER / 2][slot];
 }
 
-const SLOT_SPACING = 24; // between the three points when the actions leave no room to spread them
-const SLOT_SPAN_MIN = 48; // the least distance between the highest and the lowest port that is spread over three points
 const SLOT_EDGE = 8; // the lowest point keeps this far from the stage's bottom edge
+export const PAD = 24; // space between a stage border and its actions
+export const FIRST_ROW = PAD * 2; // where a new action goes in a stage (body coordinates, see nextActionPosition)
 
 /**
- * Heights of a stage's three attachment points on one side, top to bottom. `anchors` are the heights (from the stage's
- * top) of the ports of its actions that face this side: the first point is level with the highest, the last with the
- * lowest and the middle one is centred between them, so a line from a point to such a port runs straight. Actions at
- * (nearly) one height give the first point that height and place the others below it. Without actions the
- * points keep their default heights (`slotY`). Every point stays inside the stage.
+ * Heights of a stage's three attachment points on one side, top to bottom, from the stage's top. They depend on the
+ * stage's height only, never on its actions: the first is level with the port of an action in the first row (where a new
+ * action goes), the last with the port of an action dragged as low as it goes without the stage growing, the middle one
+ * halfway. So a line from a point to an action in either place is straight, however the other actions sit. `side` is
+ * "in" for the left edge (the inputs of the actions) and "out" for the right edge (their On Pass). Every point stays inside
+ * the stage.
  */
-export function slotHeights(height, anchors) {
-  const ys = anchors.filter(Number.isFinite).sort((a, b) => a - b);
-  if (!ys.length) return [0, 1, 2].map((slot) => slotY(height, slot));
-  const [low, high] = [ys[0], ys[ys.length - 1]];
-  const spots = high - low >= SLOT_SPAN_MIN ? [low, (low + high) / 2, high] : [low, low + SLOT_SPACING, low + 2 * SLOT_SPACING];
-  return spots.map((y) => Math.min(Math.max(y, HEADER / 2), height - SLOT_EDGE));
+export function slotHeights(height, side = "in") {
+  const view = typeOf("action");
+  if (!view) return [0, 1, 2].map((slot) => slotY(height, slot));
+  const sample = { kind: "action", x: 0, y: 0 };
+  const facing = (side === "in" ? view.inputs : view.outputs)[0]?.name;
+  const port = facing ? view.portLocal(sample, facing).y : view.size(sample).height / 2;
+  const clamp = (y) => Math.min(Math.max(y, HEADER / 2), height - SLOT_EDGE);
+  const top = clamp(HEADER + FIRST_ROW + port);
+  const bottom = clamp(Math.max(height - PAD - view.size(sample).height + port, top));
+  return [top, (top + bottom) / 2, bottom];
 }
 
 export class NodeView {
@@ -212,22 +217,9 @@ class StageView extends NodeView {
     return ports;
   }
 
-  /** With `nodes` (the editor's Map) the points follow the actions of this stage; without them they keep their defaults. */
-  portLocal(node, port, slot = 0, nodes = null) {
-    return { x: port === "start" ? 0 : node.width, y: slotHeights(node.height, this.#anchors(node, port, nodes))[slot] };
-  }
-
-  /** Heights of the ports of the stage's actions facing this side: their inputs on the left, their On Pass on the right. */
-  #anchors(stage, port, nodes) {
-    if (!nodes) return [];
-    const anchors = [];
-    for (const action of nodes.values()) {
-      if (action.stage_id !== stage.id) continue;
-      const view = typeOf(action);
-      const facing = (port === "start" ? view.inputs : view.outputs)[0]?.name;
-      if (facing && view.isVisible(action, facing)) anchors.push(HEADER + action.y + view.portLocal(action, facing).y);
-    }
-    return anchors;
+  /** The points follow the stage's height (`slotHeights`); `nodes` is accepted for the callers that pass it and not needed. */
+  portLocal(node, port, slot = 0) {
+    return { x: port === "start" ? 0 : node.width, y: slotHeights(node.height, port === "start" ? "in" : "out")[slot] };
   }
 
   canFeed(source, sourcePort, target, targetPort) {

@@ -34,36 +34,61 @@ test("portPoint adds the local position to the origin; a stage port honours its 
   const a = action("a", 24, { definition_fail_enabled: true });
   const nodes = nodesOf(stage, a);
   assert.deepEqual(g.portPoint(a, "in", nodes), { x: 124, y: 132 + 34 });
-  const empty = nodesOf(stage);
-  assert.deepEqual(g.portPoint(stage, "end", empty, 1), { x: 500, y: 40 + 150 }, "a stage without actions keeps the default heights");
-  assert.deepEqual(g.portPoint(stage, "start", empty, 0), { x: 100, y: 40 + 22 });
+  const [top, middle, bottom] = [0, 1, 2].map((slot) => g.portPoint(stage, "end", nodes, slot).y - 40);
+  assert.ok(Math.abs(middle - (top + bottom) / 2) < 1e-9, "the middle point is halfway between the top and the bottom one");
+  assert.deepEqual(g.portPoint(stage, "start", nodes, 0).x, 100);
+  assert.deepEqual(g.portPoint(stage, "end", nodes, 0).x, 500);
 });
 
-test("the attachment points of a stage sit at the height of its actions' ports, so a line between them is horizontal", () => {
-  const a = action("a", 24, { definition_fail_enabled: true });
-  const nodes = nodesOf(stage, a);
-  // one action: the first point is level with the action's input, the other two follow below it
+test("the attachment points of a stage follow the stage's height, not its actions", () => {
   const level = (x, y, message) => assert.ok(Math.abs(x - y) < 1e-9, `${message}: ${x} against ${y}`);
-  level(g.portPoint(stage, "start", nodes, 0).y, g.portPoint(a, "in", nodes).y, "the start side is level with the action's input");
-  level(g.portPoint(stage, "end", nodes, 0).y, g.portPoint(a, "pass", nodes).y, "the end side is level with the action's On Pass");
-  assert.equal(g.portPoint(stage, "start", nodes, 1).y - g.portPoint(stage, "start", nodes, 0).y, 24);
-  assert.equal(g.portPoint(stage, "start", nodes, 2).y - g.portPoint(stage, "start", nodes, 1).y, 24);
-  // two actions far apart: top and bottom point are level with them, the middle one is centred between
+  const heights = (nodes, side = "start") => [0, 1, 2].map((slot) => g.portPoint(stage, side, nodes, slot).y);
+  const a = action("a", 24, { definition_fail_enabled: true });
   const low = action("b", 300, { y: 160, definition_fail_enabled: true });
-  const both = nodesOf(stage, a, low);
-  const [top, middle, bottom] = [0, 1, 2].map((slot) => g.portPoint(stage, "start", both, slot).y);
-  level(top, g.portPoint(a, "in", both).y, "top");
-  level(bottom, g.portPoint(low, "in", both).y, "bottom");
-  level(middle, (top + bottom) / 2, "middle");
+  assert.deepEqual(heights(nodesOf(stage)), heights(nodesOf(stage, a)), "an action changes nothing");
+  assert.deepEqual(heights(nodesOf(stage, a, low)), heights(nodesOf(stage)), "nor do two, one far below the other");
+  assert.deepEqual(heights(nodesOf(stage, a), "end"), heights(nodesOf(stage), "end"), "the same on the right");
+  // the top point is level with the input of an action placed where a new action goes
+  const first = action("n", 24, { y: g.nextActionPosition(stage, nodesOf(stage)).y, definition_fail_enabled: true });
+  level(g.portPoint(stage, "start", nodesOf(stage, first), 0).y, g.portPoint(first, "in", nodesOf(stage, first)).y, "top = first row (input)");
+  level(g.portPoint(stage, "end", nodesOf(stage, first), 0).y, g.portPoint(first, "pass", nodesOf(stage, first)).y, "top = first row (On Pass)");
+  // the bottom point is level with the input of an action dragged as low as it goes without the stage growing
+  const lowest = action("z", 24, { y: stage.height - 44 - g.PAD - 68, definition_fail_enabled: true });
+  const lowestNodes = nodesOf(stage, lowest);
+  assert.equal(g.fitStage(stage, g.actionsOf(stage, lowestNodes)).height, stage.height, "the stage does not grow for it");
+  level(g.portPoint(stage, "start", lowestNodes, 2).y, g.portPoint(lowest, "in", lowestNodes).y, "bottom = lowest action (input)");
+  level(g.portPoint(stage, "end", lowestNodes, 2).y, g.portPoint(lowest, "pass", lowestNodes).y, "bottom = lowest action (On Pass)");
+  level(heights(lowestNodes)[1], (heights(lowestNodes)[0] + heights(lowestNodes)[2]) / 2, "the middle one is halfway");
+});
+
+test("the attachment points follow a resized stage at once", () => {
+  const taller = { ...stage, height: 460 };
+  const [top, , bottom] = [0, 1, 2].map((slot) => g.portPoint(stage, "start", nodesOf(stage), slot).y - stage.y);
+  const [top2, , bottom2] = [0, 1, 2].map((slot) => g.portPoint(taller, "start", nodesOf(taller), slot).y - taller.y);
+  assert.equal(top2, top, "the first row does not move");
+  assert.equal(bottom2 - bottom, 160, "the bottom point moves with the bottom edge");
 });
 
 test("an attachment point never leaves its stage's edge", () => {
-  const tall = { ...stage, height: 220 };
-  const near = action("a", 24, { y: 150 }); // its port is level with 44 + 150 + 34 = 228, below the stage's bottom (220)
-  const [, , bottom] = [0, 1, 2].map((slot) => g.portPoint(tall, "start", nodesOf(tall, near), slot).y - tall.y);
-  assert.ok(bottom <= tall.height - 8, `the lowest point stays inside: ${bottom}`);
-  const [first] = [0].map((slot) => g.portPoint(tall, "start", nodesOf(tall, action("b", 24, { y: -90 })), slot).y - tall.y);
-  assert.ok(first >= 22, `the first point stays below the header's middle: ${first}`);
+  const small = { ...stage, height: 100 };
+  const [first, , last] = [0, 1, 2].map((slot) => g.portPoint(small, "start", nodesOf(small), slot).y - small.y);
+  assert.ok(last <= small.height - 8, `the lowest point stays inside: ${last}`);
+  assert.ok(first >= 22 && first <= last, `the first point stays below the header's middle and above the last: ${first}`);
+});
+
+test("an action's ports offer the heights of its stage's points to settle on", () => {
+  const a = action("a", 24, { definition_fail_enabled: true, y: 100 });
+  const nodes = nodesOf(stage, a);
+  const pairs = g.slotPairs(a, nodes);
+  assert.equal(pairs.length, 6, "three on the left for its input, three on the right for its On Pass");
+  const own = g.portPoint(a, "in", nodes);
+  const left = pairs.filter((pair) => pair.own === own.y);
+  assert.deepEqual(left.map((pair) => pair.other), [0, 1, 2].map((slot) => g.portPoint(stage, "start", nodes, slot).y));
+  assert.deepEqual(left.map((pair) => [pair.from, pair.to]), [0, 1, 2].map(() => [own.x, 100]), "the guide runs from the port to the stage's edge");
+  const right = pairs.filter((pair) => pair.own === g.portPoint(a, "pass", nodes).y);
+  assert.deepEqual(right.map((pair) => pair.other), [0, 1, 2].map((slot) => g.portPoint(stage, "end", nodes, slot).y));
+  assert.deepEqual(g.slotPairs(stage, nodes), [], "a stage has no stage of its own");
+  assert.deepEqual(g.slotPairs({ ...a, kind: "code" }, nodes).length > 0, true, "any node of a stage settles on its points");
 });
 
 test("minStageSize is what the actions need, however large the stage is", () => {
@@ -72,6 +97,10 @@ test("minStageSize is what the actions need, however large the stage is", () => 
   assert.deepEqual(g.minStageSize([far]), { width: 400 + 190 + 24, height: 44 + 200 + 68 + 24 });
   // fitStage keeps a larger stage; minStageSize is the floor a resize may go down to
   assert.deepEqual(g.fitStage({ width: 900, height: 700 }, [far]), { width: 900, height: 700 });
+});
+
+test("snapY: equally near candidates keep the order given (a connected point is listed first)", () => {
+  assert.deepEqual(g.snapY([{ own: 100, other: 104, connected: true }, { own: 100, other: 96 }], 8), { delta: 4, y: 104 });
 });
 
 test("snapY pulls a node level with a connected port within the threshold and ignores the rest", () => {
