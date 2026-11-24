@@ -1,12 +1,13 @@
 /* The retention rules of the execution list: which finished executions are deleted. One dialog with two views in the same
  * frame: the list of rules (a name, a switch and a line about what each does) and, after a click on one, that rule in
- * the rule builder. Saving applies the rules that are on to what exists; the dialog says beforehand how many
+ * the rule builder, with its name in the title ("Retention – name") and the way back next to the close button. Saving applies the rules that are on to what exists; the dialog says beforehand how many
  * executions that deletes. */
 import { ActionDialog } from "../components/action-dialog.js";
 import { RuleEditor } from "../components/rule-editor.js";
 import { RuleList } from "../components/rule-list.js";
 import * as listModel from "../components/rule-list-model.js";
-import { createSwitch, Switch } from "../components/switch.js";
+import { InlineName } from "../components/inline-name.js";
+import { icon } from "../components/icons.js";
 import * as model from "../components/rule-model.js";
 import { request } from "../http.js";
 import { plural } from "../tasks/history-format.js";
@@ -61,7 +62,7 @@ export class RetentionDialog extends ActionDialog {
     this.label = this.root.querySelector("[data-submit-label]");
     this.listView = this.root.querySelector('[data-view="list"]');
     this.detailView = this.root.querySelector('[data-view="detail"]');
-    this.nameInput = this.root.querySelector("[data-rule-name]");
+    this.#buildHeader();
     this.index = -1; // the open rule, or -1 for the list
     this.list = new RuleList(this.root.querySelector("[data-rules]"), SCHEMA, {
       onChange: () => this.#changed(),
@@ -70,17 +71,13 @@ export class RetentionDialog extends ActionDialog {
     this.editor = new RuleEditor(this.root.querySelector("[data-rule-editor]"), SCHEMA, {
       onChange: (change) => this.list.patch(this.index, change),
     });
-    const toggle = createSwitch("retention-rule-on");
-    this.root.querySelector("[data-rule-switch]").replaceChildren(toggle);
-    this.switch = new Switch(toggle, { onChange: (on) => this.list.patch(this.index, { enabled: on }) });
-    this.nameInput.addEventListener("input", () => this.list.patch(this.index, { name: this.nameInput.value }));
-    this.root.querySelector("[data-back]").addEventListener("click", () => this.#showList());
     this.root.querySelector("[data-done]").addEventListener("click", () => this.#showList());
     // Escape in an open rule goes back to the list; only from the list does it close the dialog.
     document.addEventListener(
       "keydown",
       (event) => {
         if (event.key !== "Escape" || this.index < 0 || !this.modal.isOpen) return;
+        if (event.target.closest?.(".inline-name--editing")) return; // Escape in the name field only leaves the field
         event.preventDefault();
         event.stopPropagation();
         this.#showList();
@@ -117,20 +114,56 @@ export class RetentionDialog extends ActionDialog {
     this.index = -1;
     this.detailView.hidden = true;
     this.listView.hidden = false;
+    this.#showTitle();
     if (focus && was >= 0) this.list.focusRow(was);
   }
 
-  /** Show one rule in the same frame: its name and switch, then the rule builder. */
+  /** Show one rule in the same frame: its name in the title, then the rule builder; the way back is in the header. */
   #openRule(index) {
     const rule = this.list.rules[index];
     this.index = index;
     this.listView.hidden = true;
     this.detailView.hidden = false;
-    this.nameInput.value = rule.name;
-    this.nameInput.placeholder = listModel.labelOf({ name: "" }, index);
-    this.switch.on = rule.enabled;
+    this.nameText.emptyText = listModel.labelOf({ name: "" }, index);
+    this.nameText.setText(rule.name);
+    this.#showTitle();
     this.editor.load(rule);
-    this.nameInput.focus();
+    this.nameText.element.focus();
+  }
+
+  /** The header: in the list the title is "Retention"; in an open rule it is "Retention – <name>" (the name renames the
+   * rule in place, as every name does) and a back button sits next to the close button. */
+  #buildHeader() {
+    const header = this.root.querySelector(".modal__header");
+    this.title = header.querySelector(".modal__title");
+    const lead = Object.assign(document.createElement("span"), { className: "rl-title__lead", textContent: this.title.textContent });
+    const sep = Object.assign(document.createElement("span"), { className: "rl-title__sep", textContent: " – " });
+    sep.setAttribute("aria-hidden", "true");
+    const name = Object.assign(document.createElement("span"), { className: "rl-title__name" });
+    this.nameText = new InlineName(name, {
+      label: t("components.rule_list.rule_name"),
+      maxLength: 80,
+      allowEmpty: true,
+      onCommit: (value) => {
+        this.list.patch(this.index, { name: value });
+        this.nameText.setText(value);
+      },
+    });
+    this.titleParts = [sep, name];
+    this.title.classList.add("rl-title");
+    this.title.replaceChildren(lead);
+    this.back = Object.assign(document.createElement("button"), { type: "button", className: "button button--ghost button--sm rl-back", hidden: true });
+    this.back.dataset.back = "";
+    this.back.setAttribute("aria-label", t("components.rule_list.back_to_rules"));
+    this.back.append(icon("chevron-left"), Object.assign(document.createElement("span"), { textContent: t("components.rule_list.rules") }));
+    header.insertBefore(this.back, header.querySelector("[data-modal-close]"));
+    this.back.addEventListener("click", () => this.#showList());
+  }
+
+  #showTitle() {
+    const open = this.index >= 0;
+    this.title.replaceChildren(this.title.firstElementChild, ...(open ? this.titleParts : []));
+    this.back.hidden = !open;
   }
 
   #describe() {

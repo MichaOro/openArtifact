@@ -61,8 +61,9 @@ is none) and a switch `enabled` (default on); a rule stored before them reads as
 existing rules. **A rule that is off stays stored and is never applied**: not when an execution starts or finishes, not
 when the rules are saved, and the preview counts nothing for it. Its structure is still validated, so a half-finished
 rule cannot be saved. The dialog opens on the **list**: one row per rule with its switch, its name (or *Rule N*) and one
-line about what it does; a click opens the rule in the same frame (the rule builder as before, with a name field and the
-switch), *Done*, the back button and Escape return to the list (Escape closes the dialog only from the list). Taking a
+line about what it does; a click opens the rule in the same frame (the rule builder as before; the title reads *Retention – name* and the name renames the rule in place like every name,
+the back button sits next to the close button, the switch stays in the list), *Done*, the back button and Escape return to the list (Escape
+in the name field only leaves the field; it closes the dialog only from the list). Taking a
 rule out marks the row ("Will be removed when you save", with Undo) until *Save*; *Cancel* drops all changes. The footer
 line and the *Save and delete N* count cover the rules that are on. The list is a component of its own
 (`components/rule-list.js`, data in `rule-list-model.js`; the one-rule editor is `rule-editor.js`, which replaced

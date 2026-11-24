@@ -769,6 +769,14 @@ def _rule(when: dict[str, Any], **more: Any) -> dict[str, Any]:
     return {"when": when, "action": "delete", **more}
 
 
+def _rename_in_title(dialog: Locator, name: str) -> None:
+    """Rename the open rule the way every name is renamed: click the name in the title, type, Enter."""
+    dialog.locator(".rl-title__name").click()
+    field = dialog.get_by_label("Rule name", exact=True)
+    field.fill(name)
+    field.press("Enter")
+
+
 def _retention(page: Page, secured_url: str) -> Locator:
     _open(page, secured_url)
     page.get_by_role("button", name="Retention").click()
@@ -843,7 +851,7 @@ def test_a_rule_that_is_off_deletes_nothing_when_the_rules_are_saved(
     page.get_by_role("button", name="Retention").click()
     dialog = page.locator("#retention-modal")
     dialog.get_by_role("button", name="Open Failed ones").click()
-    dialog.get_by_label("Name").fill("Failed ones (paused)")  # only the name changes
+    _rename_in_title(dialog, "Failed ones (paused)")  # only the name changes
     dialog.get_by_role("button", name="Done").click()
     dialog.locator("[data-submit]").click()
     expect(dialog).to_be_hidden()
@@ -859,23 +867,130 @@ def test_a_new_rule_opens_in_the_same_frame_and_done_goes_back_to_its_row(
     _seed(api)
     dialog = _retention(page, secured_url)
     title = dialog.locator(".modal__title")
+    expect(title).to_have_text("Retention")  # the list: just the dialog's name
+    expect(dialog.locator("[data-back]")).to_be_hidden()
     expect(dialog.locator("[data-rule-text]")).to_have_text(
         "No rules: nothing happens to executions automatically."
     )
     dialog.get_by_role("button", name="Add rule").click()
     expect(dialog.locator('[data-view="detail"]')).to_be_visible()
     expect(dialog.locator('[data-view="list"]')).to_be_hidden()
-    expect(title).to_have_text("Retention")  # the same frame
-    expect(dialog.get_by_label("Name")).to_be_focused()
-    expect(dialog.get_by_label("Name")).to_have_attribute(
-        "placeholder", "Rule 1"
-    )  # what it is called now
-    dialog.get_by_label("Name").fill("Mine")
+    expect(title).to_have_text(
+        "Retention \u2013 Rule 1"
+    )  # the same frame, the rule's name in the title
+    expect(dialog.locator(".rl-title__name")).to_have_class(
+        re.compile("inline-name--empty")
+    )  # not named yet
+    expect(dialog.locator(".rl-title__name")).to_be_focused()
+    expect(dialog.locator("[data-back]")).to_be_visible()
+    _rename_in_title(dialog, "Mine")
+    expect(title).to_have_text("Retention \u2013 Mine")
     dialog.get_by_role("button", name="Done").click()
+    expect(title).to_have_text("Retention")  # back in the list
     expect(dialog.locator('[data-view="list"]')).to_be_visible()
     expect(dialog.locator(".rl-row__name")).to_have_text(["Mine"])
     expect(dialog.get_by_role("button", name="Open Mine")).to_be_focused()
     expect(dialog.locator(".rl-row__summary")).to_have_text("No conditions yet")  # it says so
+
+
+def test_the_open_rule_has_no_switch_and_no_name_field_its_name_is_in_the_title_and_the_way_back_is_next_to_close(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    _seed(api)
+    _store_rules(api, _rule(FAILED, name="Failed ones", enabled=False))
+    dialog = _retention(page, secured_url)
+    dialog.get_by_role("button", name="Open Failed ones").click()
+    detail = dialog.locator('[data-view="detail"]')
+    expect(detail).to_be_visible()
+    expect(detail.get_by_role("switch")).to_have_count(0)  # on and off is the list's business
+    expect(detail.get_by_label("Name", exact=True)).to_have_count(
+        0
+    )  # no field row: the title renames
+    back = dialog.locator(".modal__header [data-back]")
+    expect(back).to_be_visible()
+    expect(back).to_have_accessible_name("Back to the rules")
+    close = dialog.locator("[data-modal-close]")
+    back_box, close_box, title_box = (
+        back.bounding_box(),
+        close.bounding_box(),
+        dialog.locator(".modal__title").bounding_box(),
+    )
+    assert back_box and close_box and title_box
+    assert back_box["x"] + back_box["width"] <= close_box["x"] + 1, (
+        "the back button is left of the close button"
+    )
+    assert (
+        abs((back_box["y"] + back_box["height"] / 2) - (close_box["y"] + close_box["height"] / 2))
+        < 4
+    ), "same row"
+    assert title_box["x"] + title_box["width"] <= back_box["x"] + 1, (
+        "the title comes first, then the buttons"
+    )
+    expect(dialog.locator(".modal__title")).to_have_text("Retention \u2013 Failed ones")
+    back.click()
+    expect(dialog.locator('[data-view="list"]')).to_be_visible()
+    expect(back).to_be_hidden()
+    expect(dialog.get_by_role("button", name="Open Failed ones")).to_be_focused()
+    # the rule kept its state: it is still off
+    expect(dialog.get_by_role("switch", name="Failed ones")).to_have_attribute(
+        "aria-checked", "false"
+    )
+
+
+def test_renaming_in_the_title_updates_the_list_with_the_keyboard_and_empty_falls_back_to_the_place(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    _seed(api)
+    _store_rules(api, _rule(FAILED, name="Failed ones", enabled=False))
+    dialog = _retention(page, secured_url)
+    dialog.get_by_role("button", name="Open Failed ones").click()
+    name = dialog.locator(".rl-title__name")
+    name.focus()
+    page.keyboard.press("Enter")  # the keyboard opens the rename
+    field = dialog.get_by_label("Rule name", exact=True)
+    expect(field).to_be_focused()
+    page.keyboard.press("Escape")  # leaves the field only: the rule and the dialog stay open
+    expect(dialog.locator('[data-view="detail"]')).to_be_visible()
+    expect(name).to_have_text("Failed ones")
+    name.click()
+    field.fill("x" * 120)
+    assert len(field.input_value()) == 80  # the limit of a name
+    field.fill("")
+    page.keyboard.press("Enter")  # empty: no name, the title shows its place
+    expect(dialog.locator(".modal__title")).to_have_text("Retention \u2013 Rule 1")
+    expect(name).to_have_class(re.compile("inline-name--empty"))
+    dialog.get_by_role("button", name="Done").click()
+    expect(dialog.locator(".rl-row__name")).to_have_text(["Rule 1"])
+    dialog.locator("[data-submit]").click()
+    expect(dialog).to_be_hidden()
+    assert [r["name"] for r in api.get("/api/settings/retention").json()["rules"]] == [None]
+
+
+def test_the_title_and_the_buttons_of_an_open_rule_fit_a_narrow_screen(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    _seed(api)
+    _store_rules(
+        api,
+        _rule(
+            FAILED,
+            name="A rather long name for a rule that must not push the buttons away",
+            enabled=False,
+        ),
+    )
+    page.set_viewport_size({"width": 360, "height": 740})
+    dialog = _retention(page, secured_url)
+    dialog.get_by_role("button", name="Open A rather long name").click()
+    close, back = dialog.locator("[data-modal-close]"), dialog.locator("[data-back]")
+    expect(close).to_be_in_viewport()
+    expect(back).to_be_in_viewport()  # the buttons stay visible
+    name = dialog.locator(".rl-title__name")
+    assert name.evaluate("el => el.scrollWidth > el.clientWidth"), (
+        "the name is cut with an ellipsis"
+    )
+    name.click()  # and it can still be edited
+    expect(dialog.get_by_label("Rule name", exact=True)).to_be_visible()
+    assert dialog.evaluate("el => el.scrollWidth <= el.clientWidth + 1"), "no sideways scrolling"
 
 
 def test_a_rule_taken_out_stays_in_the_list_with_undo_until_it_is_saved(
@@ -904,11 +1019,11 @@ def test_the_name_and_the_switch_are_saved_and_show_again(
     _seed(api)
     dialog = _retention(page, secured_url)
     dialog.get_by_role("button", name="Add rule").click()
-    dialog.get_by_label("Name").fill("Keep it")
+    _rename_in_title(dialog, "Keep it")
     dialog.get_by_role("button", name="Add condition").click()
     dialog.locator(".rb-chip", has_text="Failed").click()
-    dialog.locator("[data-rule-switch]").get_by_role("switch").click()  # off
     dialog.get_by_role("button", name="Done").click()
+    dialog.get_by_role("switch", name="Keep it").click()  # off, in the list
     expect(dialog.get_by_role("switch", name="Keep it")).to_have_attribute("aria-checked", "false")
     dialog.locator("[data-submit]").click()
     expect(dialog).to_be_hidden()
@@ -951,5 +1066,6 @@ def test_the_list_of_rules_speaks_german(page: Page, secured_url: str, api: http
     expect(dialog.get_by_role("button", name="Regel hinzufügen")).to_be_visible()
     expect(dialog.get_by_role("switch")).to_have_text("Aus")
     dialog.get_by_role("button", name="Regel 1 öffnen").click()
-    expect(dialog.get_by_label("Name")).to_have_attribute("placeholder", "Regel 1")
+    expect(dialog.locator(".modal__title")).to_have_text("Aufbewahrung \u2013 Regel 1")
+    expect(dialog.get_by_role("button", name="Zurück zu den Regeln")).to_be_visible()
     expect(dialog.get_by_role("button", name="Fertig")).to_be_visible()

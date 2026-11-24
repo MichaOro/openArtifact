@@ -63,8 +63,9 @@ execution starts or finishes and when you save them; the dialog says first how m
 **The list of rules.** The dialog opens on a list: one row per rule with a **switch**, its **name** (or *Rule 2*) and a line
 about what it does ("Delete finished executions where Status is Failed."). Switch a rule **off** to keep it without
 applying it: it deletes nothing, the preview ignores it, and the line under the list says what the rules that are on do
-(or that all are off). A click on a row opens the rule in the same dialog (name, switch and the rule builder);
-*Done*, the back button or Escape return to the list. The bin takes a rule out until you save (*Undo* brings it back).
+(or that all are off). A click on a row opens the rule in the same dialog (the title reads *Retention – name*; click the name to rename the rule, empty
+means no name; then the rule builder; the switch stays in the list); *Done*, the *Rules* button next to the close
+button or Escape return to the list. The bin takes a rule out until you save (*Undo* brings it back).
 *Add rule* appends a rule that is on and opens it. In the API a rule is `{"when": {...}, "action": "delete",
 "name": "Old ones" | null, "enabled": true}`; `name` is at most 80 characters, and a rule without `name` and `enabled`
 (one stored by an earlier version) is unnamed and on.
