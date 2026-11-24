@@ -16,10 +16,13 @@ export class AlertBar {
 
   /**
    * @param {string} message
-   * @param {{retry?: boolean, autoHide?: number}} options retry: offer Retry; autoHide: hide after this many ms
+   * @param {{retry?: boolean, autoHide?: number, tone?: "info"}} options retry: offer Retry; autoHide: hide after
+   *   this many ms; tone "info": a message that is news, not an error (calm colour)
    */
-  show(message, { retry = false, autoHide = 0 } = {}) {
+  show(message, { retry = false, autoHide = 0, tone = "" } = {}) {
     this.text.textContent = message;
+    if (tone) this.root.dataset.tone = tone;
+    else delete this.root.dataset.tone;
     if (this.retryButton) this.retryButton.hidden = !retry;
     this.root.hidden = false;
     window.clearTimeout(this.timer);

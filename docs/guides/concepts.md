@@ -125,7 +125,7 @@ the first action; its end is fed by the last actions and leads on.
 **Action.** One step inside a stage. It has an input and two outcomes, **On Pass** and **On Error**, which you
 connect to the next action or to the end of the stage. An action does nothing by itself: it runs the action
 definition it is linked to. An action without a definition is an empty shell: it passes at once and leaves no
-step in the history. What a failure does is the setting **If the action fails** in the action's settings: *Stop the run* (the default: the run fails there), *Continue* (goes on through On Pass) or *Error output* (the **On Error** connector, which is shown only with this value). Nodes inside an action have the same three values ([ADR-061](../architecture/adr/061-what-a-failure-does.md)).
+step in the history. What a failure does is the setting **If the action fails** in the action's settings: *Stop the run* (the default: the run fails there), *Continue* (goes on through On Pass) or *Error output* (the **On Error** connector, which is shown only with this value). Nodes inside an action have the same three values ([ADR-061](../architecture/adr/061-what-a-failure-does.md)). The action's error output and the *On Fail* of its definition's Output are one state: switching one on switches the other on, switching it off disconnects what was connected (the editor says how many), and all uses of the definition follow.
 
 **Action definition.** What an action does, as a graph of its own: a trigger, then **execution nodes**, then an
 **Output**. The Output has an **On Pass** connector and, if switched on, an **On Fail** connector; the node

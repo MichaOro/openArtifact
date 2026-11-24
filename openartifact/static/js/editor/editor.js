@@ -20,12 +20,14 @@ import { rememberPipeline, setupBack, setupBackToAgent, setupBackToGuard } from 
 import { EditorGuards } from "./guards.js";
 import { addableIn, placeholderOf, typeOf } from "./node-types.js";
 import { forgetOpened } from "./settings-layout.js";
+import { followGraphChanges, needsReload, noticeText } from "./error-output-sync.js";
 import { t, tn } from "../i18n.js";
 
 export class GraphEditor {
   #pasteQueue = Promise.resolve(); // pastes run one after the other, so each sees the names the one before made
   #linkTurns = new Map(); // node id -> the number of the newest link request
   #linkQueue = new Map(); // node id -> the link request in flight (or done)
+  #lastLinkAnswer = null; // the server's answer to the newest link request (its notices)
 
   /** @param {HTMLElement} root the element carrying data-graph-id */
   constructor(root) {
@@ -75,6 +77,7 @@ export class GraphEditor {
       (key) => key === "guard" && this.guards?.add(this.guards.rootType, this.model.graph.id, root.querySelector("[data-add-menu]")),
     );
     this.#setUpGuards(root);
+    followGraphChanges(this.model.id, () => this.load()); // a definition or a use changed elsewhere (ADR-061 addendum)
     root.querySelector("[data-zoom-in]").addEventListener("click", () => this.canvas.zoomBy(1.2));
     root.querySelector("[data-zoom-out]").addEventListener("click", () => this.canvas.zoomBy(1 / 1.2));
     root.querySelector("[data-zoom-fit]").addEventListener("click", () => this.canvas.fit());
@@ -314,8 +317,9 @@ export class GraphEditor {
    */
   async #saveSetting(node, setting, value) {
     const inConfig = setting.stored_in === "config";
+    let updated;
     try {
-      const updated = await this.model.updateNode(node.id, inConfig ? { config: { [setting.key]: value } } : { [setting.key]: value });
+      updated = await this.model.updateNode(node.id, inConfig ? { config: { [setting.key]: value } } : { [setting.key]: value });
       if (inConfig) node.config = updated.config;
       else node[setting.key] = updated[setting.key];
     } catch (error) {
@@ -324,7 +328,16 @@ export class GraphEditor {
     this.model.dropHiddenEdges(node); // connections at ports that are gone with it (e.g. no On Fail)
     this.canvas.sync();
     this.alert.hide();
+    await this.#announce(updated);
     return null;
+  }
+
+  /** What a change did beyond the node (the error output is shared by a definition and its uses): reload the graph when
+   * other nodes or connections changed, then say what happened, calmly and only when something did. */
+  async #announce(answer) {
+    const text = noticeText(answer.notices);
+    if (needsReload(answer)) await this.load();
+    if (text) this.alert.show(text, { autoHide: 9000, tone: "info" });
   }
 
   async #renameGraph(name) {
@@ -667,6 +680,7 @@ export class GraphEditor {
     const newest = () => this.#linkTurns.get(node.id) === turn;
     await this.#save(async () => {
       const updated = await this.model.updateNode(node.id, { definition_id: targetId });
+      this.#lastLinkAnswer = updated;
       if (!newest()) return; // a later choice is already queued: its answer is the one to show
       Object.assign(node, {
         definition_id: updated.definition_id,
@@ -679,6 +693,7 @@ export class GraphEditor {
     this.model.dropHiddenEdges(node); // e.g. no On Fail
     this.canvas.sync();
     this.#renderInspector();
+    await this.#announce(this.#lastLinkAnswer ?? {});
   }
 
   /** Ask for the name of something new to link to (like creating an artifact on the board). */

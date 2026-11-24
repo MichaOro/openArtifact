@@ -1131,5 +1131,11 @@
  "tasks.processing.did_not_work": "That did not work.",
  "tasks.processing.pipelines_could_not_be_loaded": "The pipelines could not be loaded.",
  "tasks.processing.stop_processing": "Stop processing",
- "tasks.references.no_artifact_number": "No artifact #{number}"
+ "tasks.references.no_artifact_number": "No artifact #{number}",
+ "editor.sync.definition_on.one": "Also switched on in the action '{definition}'; it applies to {count} other use.",
+ "editor.sync.definition_on.other": "Also switched on in the action '{definition}'; it applies to {count} other uses.",
+ "editor.sync.definition_stays_on.one": "Stays on in the action '{definition}': {count} other use still has the error output.",
+ "editor.sync.definition_stays_on.other": "Stays on in the action '{definition}': {count} other uses still have the error output.",
+ "editor.sync.disconnected.one": "Disconnected {count} connection ({places}).",
+ "editor.sync.disconnected.other": "Disconnected {count} connections ({places})."
 }

@@ -50,7 +50,7 @@ def test_the_error_output_of_a_node_is_there_only_with_the_third_value(
     expect(code.locator(".ge-port--fail")).to_have_attribute("data-label", "On Fail")
 
 
-def test_the_error_output_stays_while_a_connection_uses_it(
+def test_hiding_the_error_output_disconnects_what_was_connected_there(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     definition, code = _action_with_code(page, base_url, api)
@@ -76,11 +76,11 @@ def test_the_error_output_stays_while_a_connection_uses_it(
     page.locator(".ge-node--code").dblclick(position={"x": 30, "y": 5})
     setting = page.locator("#node-modal").get_by_label(FAIL_LABEL)
     setting.select_option(label="Stop the run")
-    # refused, said plainly, and nothing changed
-    expect(page.locator("#node-modal")).to_contain_text("remove that connection first")
-    assert _stored(api, definition, "code")["config"]["on_failure"] == "error_output"
-    expect(page.locator(".ge-node--code .ge-port--fail")).to_be_visible()
-    expect(page.locator(".ge-edge--fail")).to_have_count(1)
+    # the connection goes with the connector, said plainly (it was refused before ADR-061's addendum)
+    expect(page.locator("[data-alert]")).to_contain_text("Disconnected 1 connection")
+    eventually(lambda: _stored(api, definition, "code")["config"]["on_failure"], "fail")
+    expect(page.locator(".ge-node--code .ge-port--fail")).to_be_hidden()
+    expect(page.locator(".ge-edge--fail")).to_have_count(0)
 
 
 def test_an_action_has_the_setting_and_its_error_output_follows_it(

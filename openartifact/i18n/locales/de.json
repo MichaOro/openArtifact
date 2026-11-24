@@ -1650,5 +1650,11 @@
  "tasks.processing.did_not_work": "Das hat nicht geklappt.",
  "tasks.processing.pipelines_could_not_be_loaded": "Die Pipelines konnten nicht geladen werden.",
  "tasks.processing.stop_processing": "Verarbeitung stoppen",
- "tasks.references.no_artifact_number": "Kein Artefakt #{number}"
+ "tasks.references.no_artifact_number": "Kein Artefakt #{number}",
+ "editor.sync.definition_on.one": "Auch in der Action „{definition}“ eingeschaltet; gilt für {count} weitere Verwendung.",
+ "editor.sync.definition_on.other": "Auch in der Action „{definition}“ eingeschaltet; gilt für {count} weitere Verwendungen.",
+ "editor.sync.definition_stays_on.one": "Bleibt in der Action „{definition}“ eingeschaltet: {count} weitere Verwendung hat den Fehlerausgang noch.",
+ "editor.sync.definition_stays_on.other": "Bleibt in der Action „{definition}“ eingeschaltet: {count} weitere Verwendungen haben den Fehlerausgang noch.",
+ "editor.sync.disconnected.one": "{count} Verbindung getrennt ({places}).",
+ "editor.sync.disconnected.other": "{count} Verbindungen getrennt ({places})."
 }

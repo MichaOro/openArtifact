@@ -31,9 +31,8 @@ only for the third.
   leaves the same `data.error` in the run context under its own name.
 - **The error output exists only with `error_output`.** A manifest says so with a port's `visible_when: {setting:
   on_failure, equals: error_output}`; a setting that is not set counts as its default. The server **refuses** a connection
-  at a port that is not there (422, "The error output of … is off: set … first") and refuses a change of the value
-  that would hide a port with a connection (422, "The error output … is connected; remove that connection first").
-  Nothing is removed silently.
+  at a port that is not there (422, "The error output of … is off: set … first"). A change of the value that hides a
+  port with a connection first **refused** it; since the addendum below it disconnects and says so.
 - **An action's error output no longer depends on its definition.** Before, it existed when the definition's Output had
   *On Fail* (and linking another definition could remove the connection). Now only the action's own setting decides;
   the Output's *On Fail* only decides whether the definition itself can end in a failure.
@@ -48,3 +47,38 @@ its reason instead of looking for a connector that is not drawn. A failure that 
 needs `error_output`, which the migration sets. Third parties declare the setting once (`use: on_failure`) and the port with
 `visible_when`; the server's rule and the editor's drawing follow from it. The step shows `outcome: fail` with `port: pass`
 (continued) or `port: fail` (error output).
+
+## 4. Addendum 2026-11-24: the error output is one state of a definition and its uses
+
+An action definition can be used in many places, and the owner switches *On Fail* on in the definition and expects the
+place that uses it to get *On Error*, and the other way round. The decoupling of §2 left the two apart, so one of them
+had to be switched twice. They are now **one state**, kept in step by the server in one transaction. This is a
+deliberate decision: the definition is shared, so a change on one side reaches every use, and the notices say so.
+
+- **State.** The definition's Output `fail_enabled` (*On Fail*) and, per use (an action node), `on_failure =
+  error_output`. Older definitions may hold several Outputs; the switch of one is the switch of all, and a definition
+  *has* On Fail if any Output has it.
+- **Definition On Fail on:** every use whose value is `fail` (stop) gets `error_output`. A use on `continue` is left alone.
+  Nothing changes in behaviour: an error output with nothing connected fails the run like *Stop the run*. No notice.
+- **A use set to `error_output`:** the definition's On Fail is switched on and, as above, the other uses on `fail` follow.
+  The editor says *Also switched on in the action 'X'; it applies to N other uses.* **only when N > 0**.
+- **Definition On Fail off:** the connections at the error output of **every** use are disconnected, the uses on
+  `error_output` fall back to `fail`, and the connections inside the definition that end at the Output's *On Fail* are
+  disconnected too. The editor says how many and where (*Disconnected N connections (…)*), only when N > 0. Nothing else
+  is repaired: drawing a connection again is the user's work.
+- **A use leaves `error_output`:** its own connection at the error port is disconnected. The definition's On Fail goes off
+  only if no other use is still on `error_output` (then as above); otherwise it stays on and the notice says *Stays on …
+  N other uses still have the error output.*
+- **Linking** an action node to a definition does the same: a use on `fail` of a definition with On Fail gets
+  `error_output`; a use on `error_output` of one without it switches it on.
+- **Disconnect instead of refuse** holds for every kind: a node that leaves `error_output` loses the connection at its On
+  Fail and the answer says so. Creating a connection to a port that is not there is still refused.
+- **One function, one transaction.** `GraphRepository.update_node` does all of it (`_sync_definition`, `_sync_use`,
+  `_definition_off`); a failure keeps nothing. The `PATCH` of a node answers with `notices` (machine readable:
+  `definition_on`, `definition_stays_on`, `disconnected`) and `reload` (other nodes of this graph changed); the **other**
+  graphs that changed are announced by the event `graph.changed` (`{"graph_ids": [...]}`), so an open editor loads
+  the graph again.
+- **Migration 0050** brings existing data in step: a use on `error_output` switches its definition's On Fail on (its other
+  uses follow), and every use on `fail` of a definition with On Fail gets `error_output`. Downgrade: nothing to undo.
+- **Not included:** a view of all uses of a definition for cleaning up (an optional board card).
+

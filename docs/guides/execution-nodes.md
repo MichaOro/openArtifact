@@ -602,9 +602,25 @@ chooses what a failure means for the way on ([ADR-061](../architecture/adr/061-w
 
 Whatever the value, a failure is data of the step: `${node.NAME.data.error.message}` (and `.mode`, `.node`) are readable by a later node,
 and `${node.NAME.output}` is what the node produced (empty when it produced nothing). A connection at On Fail needs the value
-`error_output` first (the editor and the API refuse it otherwise), and the value cannot be changed while the connection exists.
+`error_output` first (the editor and the API refuse it otherwise); changing the value away from it disconnects what was connected there, and the editor says so.
 An **action** has the same three values as *If the action fails* in the settings of the action in its stage; its **On Error**
 output exists only with `error_output`, `continue` goes on through On Pass and leaves `data.error` under the action's name.
+
+**An action's error output and its definition's On Fail are one state.** The definition's Output has the switch *On Fail*;
+the place that uses the definition has *If the action fails: Error output*. Whichever you switch, the other follows
+([ADR-061](../architecture/adr/061-what-a-failure-does.md) §4), because a definition is shared by every place that uses it:
+
+- *On Fail* on in the definition: every use that stops the run gets the error output (an unconnected one fails like Stop,
+  so no behaviour changes); a use on *Continue* stays.
+- *Error output* on a use: the definition's *On Fail* is switched on. When other uses exist, the editor says "Also switched
+  on in the action 'X'; it applies to N other uses." (and they get the error output too); with a single use it says nothing.
+- *On Fail* off in the definition: the connections at the error output of **every** use and the connections inside the
+  definition that end at *On Fail* are disconnected, and the uses go back to *Stop the run*. The editor says how many and where.
+  You draw them again if you want them.
+- A use leaves *Error output*: its connection goes; the definition's *On Fail* goes off only when no other use still has the
+  error output, otherwise it stays on ("Stays on …").
+
+Open editors follow: a pipeline editor that shows a use loads the graph again when the definition changes in another tab.
 
 The Code node ends when the shell ends: a background process that keeps the output open (`sleep 300 &` without a
 redirect) does not hold the node until the timeout. Whatever the code left running is killed with the process

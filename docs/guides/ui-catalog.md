@@ -112,7 +112,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A tab list | `tabs.js` (`.task-tabs` / `.task-tab`) |
 | A menu of commands | `action-menu.js` (`menu__item`) |
 | A list to pick from, placed next to its trigger | `lane-picker.js` and `popover.js` (`popover__option`) |
-| A short message above a page | `alert-bar.js` with `templates/components/alert.html` |
+| A short message above a page | `alert-bar.js` with `templates/components/alert.html`; `show(message, { tone: "info" })` is the calm look for news that is not an error (what a change did beyond the node) |
 | An explanation of a field | `info-tip.js` (the (i) that opens a tooltip) |
 | An on/off setting | `switch.js` |
 | Choose one of many by typing | `combobox.js` (a field with a list under it; typing narrows it by name, then by description and keywords; arrow keys, Enter, Escape closes only the list; the list is a popup so a dialog does not clip it; ARIA combobox with `aria-activedescendant`; the pure part is `combobox-model.js`) |

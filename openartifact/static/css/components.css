@@ -480,6 +480,7 @@ body.is-dragging * { cursor: grabbing !important; }
   color: var(--color-danger);
 }
 .alert-bar[hidden] { display: none; }
+.alert-bar[data-tone="info"] { color: var(--color-text-primary); }
 
 .empty-state {
   flex: 1;
