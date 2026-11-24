@@ -1,7 +1,7 @@
 /* What a published version was, read-only (ADR-049): its prompts, inputs and model & limits as the areas of the
  * editor show them, without controls. The view is filled into the version dialog's tabs; an area the version did
  * not use has no tab. */
-import { LIMIT_DEFAULTS, optionsOf } from "./model.js";
+import { LIMIT_DEFAULTS, optionsOf, partOf, partText, sourceOf } from "./model.js";
 import { el } from "./view.js";
 import { t } from "../i18n.js";
 
@@ -40,7 +40,9 @@ export function inputsView(config) {
   table.append(head);
   for (const input of config.inputs) {
     const row = el("tr");
-    for (const value of [input.name, input.type, input.required ? t("common.required") : t("agents.editor_page.optional"), input.required ? "—" : (input.default ?? "—"), input.description || "—"]) row.append(el("td", "", String(value)));
+    const fromArtifact = sourceOf(input) === "artifact";
+    const kind = fromArtifact ? `${t("agents.editor_page.source_artifact")}: ${partText(partOf(input))}` : input.type;
+    for (const value of [input.name, kind, fromArtifact ? "—" : input.required ? t("common.required") : t("agents.editor_page.optional"), fromArtifact || input.required ? "—" : (input.default ?? "—"), input.description || "—"]) row.append(el("td", "", String(value)));
     table.append(row);
   }
   return table;

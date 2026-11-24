@@ -4,7 +4,7 @@
 **Date:** 2026-11-24  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** [ADR-044](044-artifact-fields.md) (custom field names), [ADR-045](045-agent-inputs-and-prompts.md) (a new input type; the prompt rule stays)  
+**Amends:** [ADR-044](044-artifact-fields.md) (custom field names), [ADR-045](045-agent-editor-progressive-disclosure.md) (inputs have a source: a value or the artifact; the prompt rule stays)  
 **Implemented in:** `engine/context.py` (`BUILT_IN_CARD`, `check_card`, `card_problems`, `preview_references`), `artifact_fields/service.py` (`card_of`), `api/previews.py` (`POST /api/previews/references`, also under `/api/v1`), `agents/schemas.py` (type `artifact`), migration `0051`, editor: `reference-completion.js`, `reference-preview*.js`, `agent-inspector.js`  
 **Affected chapters:** guides [execution nodes](../../guides/execution-nodes.md), [agents](../../guides/agents.md), [concepts](../../guides/concepts.md), [API reference](../../guides/api-reference.md); arc42 [building blocks](../arc42/05-building-block-view/05.04-frontend-components.md)
 
@@ -25,19 +25,26 @@ mapped ran with empty inputs and the model answered that "the text is empty". Pr
 - **Every defined field is a key.** A field nobody filled is an empty text (`""`) when it is referenced in text, not
   `null`; a name that is not defined at all is refused (warning when saved, error in the run).
 - **A card too large is refused, never cut.** The card as a whole is limited to 40 KiB at run start (422).
-- **Agent input type `artifact`.** The agent node fills such an input with `${card.text}` once, stored explicitly in
-  the node's `inputs`; an entry the user cleared or changed is never added again. No default and no "Get artifact"
-  operation.
+- **Every input of an agent has a source (revised 2026-11-24).** `source` is `value` (with a `type`: `string`,
+  `number` or `boolean`; mapped in the action's node, required or optional, with a default) or `artifact` (with a `part`
+  of the artifact the run belongs to: `title`, `body`, `title_body` = `#<number> <title>`, a blank line, the body,
+  `number`, or `comments`). An artifact input is **fixed by the definition**: it has no mapping field in the agent node,
+  no required flag and no default, and the API refuses (422) a node that maps it ("input 'x' comes from the artifact
+  and cannot be mapped in the action"). A line left in a node for an input that became an artifact input is **ignored**
+  by a run and shown in the dialog as stale with a *Remove* button. `comments` is all comments of the artifact, oldest
+  first, read when the node runs, each as "<author> (<kind>), <date time>: <text>"; one input is limited to 64 KiB and a
+  larger value fails the node with a clear message, it is never cut. A run without an artifact fails the node
+  ("this agent needs an artifact, but the run has none"). The old shape (`type: artifact`, no `source`) reads as the
+  source `artifact`, part `title_body` (migration 0052 writes it down and takes the now-ignored lines out of the nodes).
+  There is no pre-fill of the node, no `${card.text}` copy and no `artifact` type choice any more.
 - **The card is a source, never an implicit part of the request; the prompt decides.** Nothing about the card is added
   to the model's request on the side. The card text reaches the model only where the author wrote `${input.x}` in a
-  prompt and mapped `x` to a card reference; an input no prompt uses is not sent. The node dialog says so calmly
-  (a warning, not an error): "Input epic is mapped but no prompt uses it: the agent does not receive it". The
-  pre-fill of an `artifact` input is skipped when another input of the node already holds a `${card...}` reference, so
-  the agent never receives the same text twice because of us.
-- **A resolved preview.** `POST /api/previews/references` (`{text, card}`) resolves only `${card...}`; nodes and
-  variables stay placeholders, secrets are never shown or resolved, the result is cut at 2000 characters, the call
-  changes nothing. The editor shows it under reference fields for the card chosen in "Preview with card"
-  (browser storage, `?card=` in the address).
+  prompt and `x` takes the card (an artifact input, or a value mapped to a card reference); an input no prompt uses is
+  not sent. The node dialog says so calmly (a warning, not an error): "Input epic comes from the artifact but no prompt
+  uses it: the agent does not receive it".
+- **No resolved preview.** `POST /api/previews/references`, the "Preview with card" choice and the resolved line under
+  fields were removed again (the owner's decision); the editors show general examples instead (the Quick test of an agent
+  uses a fixed sample per part: title "Example artifact", an example body, number 1, two example comments).
 - **Typos.** A `${card.x}` that names nothing is a warning when the node is saved (also in the agent dialog) and a clear
   error in the run; it is not refused when saved, like the other reference hints.
 

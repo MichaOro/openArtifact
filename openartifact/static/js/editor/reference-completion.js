@@ -16,7 +16,7 @@ const NODE_FIELDS = [
 ];
 const MAX_SUGGESTIONS = 40;
 /* What every artifact is as `${card.NAME}` by itself (engine/context.py BUILT_IN_CARD, ADR-064), offered before its own fields. */
-const CARD_BUILT_INS = ["title", "body", "text", "number", "id"];
+const CARD_BUILT_INS = ["title", "body", "text", "number"];
 
 /** The names an Edit Fields node sets (mirror of engine/fields.py: the part before "=" of each line). */
 export function fieldNames(text) {

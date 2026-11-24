@@ -104,7 +104,7 @@ test("suggestions lead in steps: groups and nodes first, then what is behind the
   const first = suggestionsFor(all, "").map((c) => c.insert);
   assert.deepEqual(first, ["card.", "var.", "secret:", "(Fetch user).", "(Ping).", "(Decide).", "(Other)."]);
   assert.ok(suggestionsFor(all, "").every((c) => c.complete === false), "choosing one goes on to the next step");
-  assert.deepEqual(suggestionsFor(all, "card.").map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number", "card.id", "card.repo", "card.date"]);
+  assert.deepEqual(suggestionsFor(all, "card.").map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number", "card.repo", "card.date"]);
   assert.deepEqual(suggestionsFor(all, "card.d").map((c) => c.insert), ["card.date"]);
   assert.deepEqual(suggestionsFor(all, "(Fetch user).").map((c) => c.insert), ["(Fetch user).output", "(Fetch user).exit_code", "(Fetch user).outcome", "(Fetch user).reason", "(Fetch user).data."]);
   assert.deepEqual(suggestionsFor(all, "(Fetch user).ou").map((c) => c.insert), ["(Fetch user).output", "(Fetch user).outcome"]);

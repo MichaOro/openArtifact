@@ -47,7 +47,6 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | POST | `/api/v1/lanes` | Add a lane: body `{"title": "Review"}`; 1 to 40 characters, no control characters, different from the other lanes (ignoring case); at most 12 lanes; appended at the end; `201`, answers the lanes | 422 |
 | PUT | `/api/v1/lanes/{status}` | Change a lane (its key stays): body `{"title"?: "Review", "style"?: "finished"}`, at least one; same title rules; `style` is `normal` or `finished` (an unknown one is 422 and lists them); answers the lanes | 404, 422 |
 | DELETE | `/api/v1/lanes/{status}` | Delete a lane: `409` "A lane can only be deleted when it contains no artifacts." while it holds artifacts, and for the last lane; answers the remaining lanes | 404, 409 |
-| POST | `/api/v1/previews/references` | `{text, card}`: the text with its `${card...}` references resolved against that artifact (`card` is its number or id); nodes and variables stay placeholders, secrets are never shown, the result is cut at 2000 characters; changes nothing | 404, 422 |
 | GET | `/api/v1/artifact-fields` | The artifact fields every artifact has, each with `artifact_count` (see [Artifact fields](#artifact-fields)) | |
 | PUT | `/api/v1/artifact-fields` | Replace the whole list `{"fields": [...]}`; a removed field takes its values, a change stored values no longer fit is `409` | 409, 422 |
 | GET | `/api/v1/artifacts` | All artifacts in board order | |
@@ -208,7 +207,6 @@ Only the title changes; artifacts keep their `status` code.
 
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
-| POST | `/api/previews/references` | The same as `/api/v1/previews/references` for the editor | 404, 422 |
 | GET | `/api/artifact-fields` | `{"fields": [...]}` in order, each with `artifact_count` | |
 | PUT | `/api/artifact-fields` | Replace the whole list | 409, 422 |
 

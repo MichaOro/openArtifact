@@ -1,6 +1,6 @@
-"""The card as a source of the run in the browser (ADR-064): the picker, the pre-filled artifact input of an agent, the
-input mapping of an agent node end to end (the dialog, a reload, a run against the fake model), the resolved preview,
-the stale mapping key, and the standard rows of the artifact fields."""
+"""The card as a source of the run in the browser (ADR-064): the picker, the inputs of an agent node (the ones that come
+from the artifact are fixed rows, the others are mapped), the mapping end to end (the dialog, a reload, a run against
+the fake model), the stale and the undeclared mapping line, and the standard rows of the artifact fields."""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ from playwright.sync_api import Page, expect
 
 from tests.agent_support import API_KEY, HEADERS, TOKEN, FakeLlm, fake_llm
 from tests.e2e.conftest import _serve
-from tests.e2e.helpers import pick_node
-from tests.helpers import build_pipeline, graph_url, node, wait_until
+from tests.e2e.helpers import eventually, pick_node
+from tests.helpers import build_pipeline, graph_url, wait_until
 
 BODY = 'First line\nSecond "line" with ${not.a.reference}'
 
@@ -124,7 +124,7 @@ def test_the_picker_offers_the_card_of_this_run_first_with_title_and_body(
     agent = _agent(api, [{"name": "t", "required": True}], "${input.t}")
     action = api.post("/api/actions", json={"name": "Answer"}).json()
     inspector = _open_agent_node(signed_in, card_url, action, agent)
-    field = inspector.get_by_label("t * (string)")
+    field = inspector.get_by_label("Value for ${input.t}")
     field.click()
     field.fill("${")
     options = signed_in.locator(".popover--suggest [role=option]")
@@ -137,17 +137,17 @@ def test_the_picker_offers_the_card_of_this_run_first_with_title_and_body(
     expect(signed_in.locator(".popover--suggest [role=option]").nth(1)).to_contain_text("card.body")
 
 
-# ── (e) the dialog: pre-fill, warnings, typo, reload, second node ────
+# ── (e) the dialog: fixed rows, warnings, typo, reload ───────────────
 
 
-def test_an_artifact_input_is_pre_filled_and_every_warning_follows_the_mapping(
+def test_an_input_from_the_artifact_is_a_fixed_row_and_every_warning_follows_the_mapping(
     signed_in: Page, card_url: str, api: httpx.Client, llm: FakeLlm
 ) -> None:
     _provider(api, llm)
     agent = _agent(
         api,
         [
-            {"name": "epic", "type": "artifact", "required": True},
+            {"name": "epic", "source": "artifact", "part": "title_body"},
             {"name": "ticket", "required": True},
         ],
         "E=${input.epic}|T=${input.ticket}",
@@ -155,13 +155,15 @@ def test_an_artifact_input_is_pre_filled_and_every_warning_follows_the_mapping(
     action = api.post("/api/actions", json={"name": "Answer"}).json()
     page = signed_in
     inspector = _open_agent_node(page, card_url, action, agent)
-    epic, ticket = (
-        inspector.get_by_label("epic * (artifact)"),
-        inspector.get_by_label("ticket * (string)"),
-    )
+    ticket = inspector.get_by_label("Value for ${input.ticket}")
     problems = inspector.locator(".ag-problems li")
-    expect(epic).to_have_value("${card.text}")  # the card of the run, there without being asked for
-    expect(epic).to_have_attribute("placeholder", "Defaults to ${card.text}")
+    fixed = inspector.locator(".ag-node__fixed")
+    expect(fixed).to_have_count(1)
+    expect(fixed).to_contain_text("epic comes from the artifact: Title and body")
+    expect(inspector.get_by_label("Value for ${input.epic}")).to_have_count(
+        0
+    )  # nothing to type: the agent fixes it
+    assert _mapping(api, action) == ""  # and nothing was written into the node
     expect(problems).to_have_text(["required input 'ticket' is not mapped"])
     # mapped: the warning goes away; cleared: it comes back
     ticket.fill("${card.title}")
@@ -179,31 +181,39 @@ def test_an_artifact_input_is_pre_filled_and_every_warning_follows_the_mapping(
     ticket.fill("Epic: ${card.title} / ${card.body}")
     ticket.press("Enter")
     expect(problems).to_have_count(0)
-    # an artifact input cleared on purpose stays empty (an error: required and empty), also after a reload
-    epic.fill("")
-    epic.press("Enter")
-    expect(problems).to_have_text(["required input 'epic' is empty"])
+    assert _mapping(api, action) == "ticket = Epic: ${card.title} / ${card.body}"
     inspector = _reopen(page, card_url, action)
-    expect(inspector.get_by_label("epic * (artifact)")).to_have_value("")
-    expect(inspector.get_by_label("ticket * (string)")).to_have_value(
+    expect(inspector.get_by_label("Value for ${input.ticket}")).to_have_value(
         "Epic: ${card.title} / ${card.body}"
     )
-    expect(inspector.locator(".ag-problems li")).to_have_text(["required input 'epic' is empty"])
-    inspector.get_by_label("epic * (artifact)").fill("${card.body}")
-    inspector.get_by_label("epic * (artifact)").press("Enter")
-    expect(inspector.locator(".ag-problems")).to_have_count(0)
-    assert (
-        _mapping(api, action) == "epic = ${card.body}\nticket = Epic: ${card.title} / ${card.body}"
-    )
+    expect(inspector.locator(".ag-node__fixed")).to_have_count(1)
+
+
+def test_a_line_left_for_an_input_that_now_comes_from_the_artifact_is_shown_as_ignored_and_removable(
+    signed_in: Page, card_url: str, api: httpx.Client, llm: FakeLlm
+) -> None:
+    _provider(api, llm)
+    agent = _agent(api, [{"name": "epic"}], "${input.epic}")
+    action = api.post("/api/actions", json={"name": "Answer"}).json()
+    page = signed_in
+    inspector = _open_agent_node(page, card_url, action, agent)
+    inspector.get_by_label("Value for ${input.epic}").fill("typed once")
+    inspector.get_by_label("Value for ${input.epic}").press("Enter")
+    eventually(lambda: _mapping(api, action), "epic = typed once", page=page)
+    # the agent now takes the artifact for this input: the line stays in the node but is ignored
+    config = {
+        "user_prompt": "${input.epic}",
+        "inputs": [{"name": "epic", "source": "artifact", "part": "title"}],
+    }
+    api.put(f"/api/agents/{agent['id']}/draft", json=config).raise_for_status()
+    api.post(f"/api/agents/{agent['id']}/publish").raise_for_status()
     inspector = _reopen(page, card_url, action)
-    expect(inspector.get_by_label("epic * (artifact)")).to_have_value("${card.body}")
-    # a second node of the same agent gets its own pre-fill
-    node(api, action, "agent", name="Second", x=700, y=420)
-    page.goto(f"{card_url}/actions/{action['slug']}")
-    page.locator(".ge-node--agent", has_text="Second").dblclick(position={"x": 30, "y": 5})
-    second = page.locator(".ge-inspector")
-    second.get_by_label("Agent", exact=True).select_option(agent["id"])
-    expect(second.get_by_label("epic * (artifact)")).to_have_value("${card.text}")
+    stale = inspector.locator(".ag-node__stale")
+    expect(stale).to_have_count(1)
+    expect(stale).to_contain_text("now comes from the artifact, this line is ignored")
+    stale.get_by_role("button", name="Remove the mapping of epic").click()
+    expect(inspector.locator(".ag-node__stale")).to_have_count(0)
+    eventually(lambda: _mapping(api, action), "", page=page)
 
 
 # ── (f) a mapping key the agent no longer declares ───────────────────
@@ -217,7 +227,7 @@ def test_a_mapping_key_the_agent_no_longer_declares_is_shown_with_a_remove_butto
     action = api.post("/api/actions", json={"name": "Answer"}).json()
     page = signed_in
     inspector = _open_agent_node(page, card_url, action, agent)
-    field = inspector.get_by_label("t * (string)")
+    field = inspector.get_by_label("Value for ${input.t}")
     field.fill("${card.title}")
     field.press("Enter")
     nodes = api.get(graph_url(action)).json()["nodes"]
@@ -239,42 +249,6 @@ def test_a_mapping_key_the_agent_no_longer_declares_is_shown_with_a_remove_butto
     assert _mapping(api, action) == "t = ${card.title}"
 
 
-# ── the resolved preview ─────────────────────────────────────────────
-
-
-def test_a_field_with_references_shows_what_it_becomes_with_the_chosen_card(
-    signed_in: Page, card_url: str, api: httpx.Client, llm: FakeLlm
-) -> None:
-    _provider(api, llm)
-    task = api.post(
-        "/api/tasks", json={"title": "Der letzte Leuchtturm", "body": "A body line"}
-    ).json()
-    agent = _agent(api, [{"name": "t", "required": True}], "T=${input.t}")
-    action = api.post("/api/actions", json={"name": "Answer"}).json()
-    page = signed_in
-    inspector = _open_agent_node(page, card_url, action, agent)
-    field = inspector.get_by_label("t * (string)")
-    field.fill("Epic: ${card.title} / ${card.body} / ${(Fetch).output} / ${var.x}")
-    field.press("Enter")
-    expect(
-        inspector.locator(".field__preview")
-    ).to_be_hidden()  # no card chosen: nothing is resolved
-    box = inspector.get_by_label("Preview with card")
-    box.click()
-    box.fill(str(task["number"]))
-    page.locator(".combobox__list [role=option]").first.click()
-    preview = inspector.locator(".field__preview").first
-    expect(preview).to_have_text(
-        "Epic: Der letzte Leuchtturm / A body line / \u2039output of Fetch\u203a / \u2039variable x\u203a"
-    )
-    expect(preview).to_have_attribute("data-state", "ok")
-    field.fill("${card.titel}")
-    field.press("Enter")
-    expect(preview).to_contain_text("Not resolved: card.titel")
-    # the artifact itself is untouched by a preview
-    assert api.get(f"/api/tasks/{task['id']}").json()["body"] == "A body line"
-
-
 # ── a run through the dialog's mapping, against the fake model ───────
 
 
@@ -284,14 +258,14 @@ def test_the_mapping_made_in_the_dialog_reaches_the_model_in_a_run_from_a_card(
     _provider(api, llm)
     task = api.post("/api/tasks", json={"title": "Epic A", "body": BODY}).json()
     agent = _agent(
-        api, [{"name": "epic", "type": "artifact", "required": True}], "Epic:\n${input.epic}"
+        api, [{"name": "epic", "source": "artifact", "part": "title_body"}], "Epic:\n${input.epic}"
     )
     action = api.post("/api/actions", json={"name": "Answer"}).json()
     page = signed_in
-    _open_agent_node(page, card_url, action, agent)  # the dialog pre-fills the mapping
-    expect(page.locator(".ge-inspector").get_by_label("epic * (artifact)")).to_have_value(
-        "${card.text}"
-    )
+    _open_agent_node(
+        page, card_url, action, agent
+    )  # the agent fixes the input: the node maps nothing
+    expect(page.locator(".ge-inspector .ag-node__fixed")).to_have_count(1)
     nodes = api.get(graph_url(action)).json()
     trigger = next(n for n in nodes["nodes"] if n["kind"] == "trigger")
     output = next(n for n in nodes["nodes"] if n["kind"] == "output")
@@ -363,11 +337,11 @@ def test_every_custom_field_is_offered_in_the_card_group_and_a_new_one_without_a
     action = api.post("/api/actions", json={"name": "Answer"}).json()
     page = signed_in
     inspector = _open_agent_node(page, card_url, action, agent)
-    field = inspector.get_by_label("t * (string)")
+    field = inspector.get_by_label("Value for ${input.t}")
     field.click()
     field.fill("${card.")
     options = page.locator(".popover--suggest [role=option]")
-    expect(options).to_have_count(5 + len(FIELDS))
+    expect(options).to_have_count(4 + len(FIELDS))
     for name in ("epic_url", "priority", "needs_review", "repo"):
         expect(page.locator(".popover--suggest")).to_contain_text(f"card.{name}")
     # a field defined while the editor is open shows up the next time the picker opens
@@ -392,7 +366,7 @@ def test_a_field_deleted_after_it_was_mapped_is_named_in_the_dialog(
     action = api.post("/api/actions", json={"name": "Answer"}).json()
     page = signed_in
     inspector = _open_agent_node(page, card_url, action, agent)
-    field = inspector.get_by_label("t * (string)")
+    field = inspector.get_by_label("Value for ${input.t}")
     field.fill("${card.epic_url}")
     field.press("Enter")
     expect(inspector.locator(".ag-problems")).to_have_count(0)
@@ -401,6 +375,6 @@ def test_a_field_deleted_after_it_was_mapped_is_named_in_the_dialog(
     expect(inspector.locator(".ag-problems li").first).to_contain_text(
         '${card.epic_url}: the artifact has no field "epic_url"'
     )
-    expect(inspector.get_by_label("t * (string)")).to_have_value(
+    expect(inspector.get_by_label("Value for ${input.t}")).to_have_value(
         "${card.epic_url}"
     )  # nothing is dropped silently

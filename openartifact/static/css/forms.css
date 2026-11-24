@@ -264,20 +264,7 @@ textarea.field__control--lines { resize: vertical; }
 .fv-readonly { margin: 0; }
 .fv-error { margin: 0; }
 
-/* The resolved preview under a field that takes references (reference-preview.js, ADR-064): plain text, never markup */
-.field__preview {
-  margin: var(--space-1) 0 0;
-  padding: var(--space-2) var(--space-3);
-  max-height: 9rem;
-  overflow: auto;
-  border-left: 3px solid var(--color-accent);
-  border-radius: var(--radius-sm);
-  background: var(--accent-soft);
-  color: var(--color-text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.field__preview[data-state="unresolved"],
-.field__preview[data-state="error"] { border-left-color: var(--color-danger); }
+
+/* text typed in a field of a node's settings and not saved yet (persist-policy.js): saved when the field is left */
+.field.is-dirty .field__control { border-color: var(--accent-ring); }
+.field.is-dirty .field__label::after { content: " · " attr(data-unsaved); font-weight: 400; color: var(--color-text-secondary); }

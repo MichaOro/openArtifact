@@ -18,7 +18,7 @@ import { Tabs } from "../components/tabs.js";
 import { connectEvents } from "../tasks/events.js";
 import { formatTime } from "../tasks/history-format.js";
 import { agentUses, discardDraft, getVersion, removeAgentReference, getAgent, listProviders, previewAgent, publishAgent, republishVersion, saveDraft, updateAgent } from "./api.js";
-import { agentChips, fieldLabel, optionsOf, providerInEffect, sampleHint, usableModels } from "./model.js";
+import { ARTIFACT_PARTS, agentChips, fieldLabel, optionsOf, partOf, partText, providerInEffect, sampleHint, sourceOf, usableModels } from "./model.js";
 import { inputsView, limitsView, promptsView } from "./version-view.js";
 import { chip, configFacts, el, previewView, problemList } from "./view.js";
 import { t, tn } from "../i18n.js";
@@ -151,10 +151,13 @@ function textInput(value, label, key, extra = {}) {
 }
 
 /** One row of the inputs table: name, type, required or optional, default, the description if it has one, and its menu. */
-function inputRow(input = { name: "", type: "string", required: false, default: null, description: "" }) {
+function inputRow(input = { name: "", source: "value", type: "string", required: false, default: null, description: "" }) {
   const row = el("li", "ag-input");
   const name = textInput(input.name, t("common.name"), "name", { maxLength: 32, placeholder: "ticket", spellcheck: false });
-  const type = choiceSelect([["string", "string"], ["number", "number"], ["boolean", "boolean"], ["artifact", "artifact"]], input.type, t("common.type"), "type");
+  const source = choiceSelect([["value", t("agents.editor_page.source_value")], ["artifact", t("agents.editor_page.source_artifact")]], sourceOf(input), t("agent_editor.comes_from"), "source");
+  source.title = t("agents.editor_page.source_help");
+  // the second choice follows the first: the type of a value, the part of the artifact
+  const type = choiceSelect([], "", t("common.type"), "type");
   const required = choiceSelect([["required", t("common.required")], ["optional", t("agents.editor_page.optional")]], input.required ? "required" : "optional", t("common.required"), "required");
   required.classList.add("ag-input__required");
   const fallback = textInput(input.default == null ? "" : String(input.default), t("common.default"), "default");
@@ -165,16 +168,32 @@ function inputRow(input = { name: "", type: "string", required: false, default: 
   more.title = t("agents.editor_page.input_actions");
   more.setAttribute("aria-haspopup", "menu");
   more.append(icon("more"));
+  const fillType = () => {
+    const choices = source.value === "artifact" ? ARTIFACT_PARTS.map((part) => [part, partText(part)]) : [["string", "string"], ["number", "number"], ["boolean", "boolean"]];
+    const wanted = source.value === "artifact" ? partOf(input) : (input.type ?? "string");
+    const keep = [...type.options].some((o) => o.value === type.value) && choices.some(([v]) => v === type.value) ? type.value : wanted;
+    type.replaceChildren(...choices.map(([value, text]) => new Option(text, value)));
+    type.value = choices.some(([v]) => v === keep) ? keep : choices[0][0];
+    type.setAttribute("aria-label", source.value === "artifact" ? t("common.part") : t("common.type"));
+    type.title = source.value === "artifact" ? t("agents.editor_page.part_help") : "";
+  };
   const sync = () => {
     const isRequired = required.value === "required";
-    const isArtifact = type.value === "artifact";
-    fallback.disabled = isRequired || isArtifact; // a required input has no default: the node must map it; an artifact input is the card of the run
+    const isArtifact = source.value === "artifact";
+    required.disabled = isArtifact; // an input from the artifact is always there: it is neither required nor optional
+    fallback.disabled = isRequired || isArtifact; // a required input has no default: the node must map it; the artifact has no default text
     fallback.placeholder = isRequired || isArtifact ? "—" : "";
     if (isRequired || isArtifact) fallback.value = "";
-    type.title = isArtifact ? t("agents.editor_page.artifact_input_help") : "";
+    if (isArtifact) required.value = "optional";
   };
+  fillType();
   required.addEventListener("change", sync);
-  type.addEventListener("change", sync);
+  source.addEventListener("change", () => {
+    fillType();
+    sync();
+    renderSamples();
+  });
+  type.addEventListener("change", renderSamples);
   sync();
   more.addEventListener("click", () => {
     const has = Boolean(description.firstChild);
@@ -189,7 +208,7 @@ function inputRow(input = { name: "", type: "string", required: false, default: 
       `Input ${name.value || ""}`.trim(),
     );
   });
-  row.append(name, type, required, fallback, description, more);
+  row.append(name, source, type, required, fallback, description, more);
   if (input.description) setDescription(row, input.description, { quiet: true });
   name.addEventListener("change", renderSamples);
   return row;
@@ -225,13 +244,15 @@ function showDescriptionColumn() {
 function readInputs() {
   return [...$("[data-inputs]").children].map((row) => {
     const get = (key) => row.querySelector(`[data-input="${key}"]`);
+    const source = get("source").value;
+    if (source === "artifact") return { name: get("name").value.trim(), source, part: get("type").value, description: get("description")?.value.trim() ?? "" };
     const type = get("type").value;
     const raw = get("default").value.trim();
     let fallback = raw === "" ? null : raw;
     if (fallback !== null && type === "number" && !Number.isNaN(Number(raw))) fallback = Number(raw);
     if (fallback !== null && type === "boolean" && ["true", "false"].includes(raw.toLowerCase())) fallback = raw.toLowerCase() === "true";
     const required = get("required").value === "required";
-    return { name: get("name").value.trim(), type, required, default: required ? null : fallback, description: get("description")?.value.trim() ?? "" };
+    return { name: get("name").value.trim(), source, type, required, default: required ? null : fallback, description: get("description")?.value.trim() ?? "" };
   });
 }
 
@@ -298,7 +319,12 @@ function renderSamples() {
   host.replaceChildren(
     ...inputs.map((input) => {
       const wrap = el("div", "field");
-      const field = Object.assign(el("input", "field__control"), { type: "text", value: typed[input.name] ?? (input.type === "artifact" ? t("agents.model.sample_epic") : ""), autocomplete: "off", placeholder: sampleHint(input) });
+      if (sourceOf(input) === "artifact") {
+        // fixed by the definition: the preview uses a general example, there is nothing to type
+        wrap.append(el("p", "field__help", t("agents.editor_page.quick_artifact_note", { name: input.name })));
+        return wrap;
+      }
+      const field = Object.assign(el("input", "field__control"), { type: "text", value: typed[input.name] ?? "", autocomplete: "off", placeholder: sampleHint(input) });
       field.id = `ag-sample-${input.name}`;
       field.dataset.sample = input.name;
       const label = el("label", "field__label", t("agents.editor_page.example_for", { name: input.name }) + (input.required ? " *" : ""));

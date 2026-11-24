@@ -131,7 +131,7 @@ def test_the_reference_picker_of_an_agent_input_offers_the_result_of_every_kind_
     page.reload()
     expect(page.locator(".ge-node--agent")).to_be_visible()
     page.locator(".ge-node--agent").dblclick(position={"x": 30, "y": 5})
-    field = page.locator(".ge-inspector").get_by_label("ticket * (string)")
+    field = page.locator(".ge-inspector").get_by_label("Value for ${input.ticket}")
     field.click()
     field.fill("${")
     popup = page.locator(".popover--suggest")

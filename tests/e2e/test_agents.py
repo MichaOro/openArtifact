@@ -336,8 +336,8 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
     )
     expect(card.locator(".ge-node__kind")).to_have_text("Triage")
 
-    inspector.get_by_label("ticket * (string)").fill("${var.ticket}")
-    inspector.get_by_label("ticket * (string)").press("Enter")
+    inspector.get_by_label("Value for ${input.ticket}").fill("${var.ticket}")
+    inspector.get_by_label("Value for ${input.ticket}").press("Enter")
     expect(inspector.locator(".ag-problems")).to_have_count(0)
 
     def stored() -> dict[str, Any]:

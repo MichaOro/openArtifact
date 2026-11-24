@@ -69,40 +69,50 @@ export function parseMapping(text) {
   return mapping;
 }
 
-/** What an artifact input of an agent is mapped to when the node is first given the agent (ADR-064). */
-export const ARTIFACT_PREFILL = "${card.text}";
-
-/** {name: value} as the text the node stores; inputs without a value are left out (not mapped), except the names in
- * `keep`, which stay as `name =` so that an artifact input that was cleared on purpose is not filled in again. */
-export function formatMapping(mapping, keep = []) {
+/** {name: value} as the text the node stores; inputs without a value are left out (not mapped). */
+export function formatMapping(mapping) {
   return Object.entries(mapping)
-    .filter(([name, value]) => (value ?? "").trim() !== "" || keep.includes(name))
-    .map(([name, value]) => `${name} = ${(value ?? "").trim().replace(/[\r\n]+/g, " ")}`.trimEnd())
+    .filter(([, value]) => (value ?? "").trim() !== "")
+    .map(([name, value]) => `${name} = ${(value ?? "").trim().replace(/[\r\n]+/g, " ")}`)
     .join("\n");
 }
 
-/** The mapping text with every declared input of type `artifact` that has no entry yet filled with `${card.text}`, or
- * null when there is nothing to fill in. An entry that exists (even an empty one) is the user's decision and stays, and so does a card reference in any input. */
-export function prefillMapping(inputs, text) {
-  const mapping = parseMapping(text);
-  // the user already feeds the card to this agent in an input of their own: a second copy beside it is never added
-  if (Object.values(mapping).some((value) => value.includes("${card."))) return null;
-  const missing = inputs.filter((i) => i.type === "artifact" && !(i.name in mapping));
-  if (!missing.length) return null;
-  for (const input of missing) mapping[input.name] = ARTIFACT_PREFILL;
-  return formatMapping(mapping, inputs.filter((i) => i.type === "artifact").map((i) => i.name));
+/** The parts of the artifact an input can take (agents/schemas.py ARTIFACT_PARTS), in the order a menu shows them. */
+export const ARTIFACT_PARTS = ["title", "body", "title_body", "number", "comments"];
+
+/** What an input of an agent says about where its value comes from: `value` (the node maps it) or `artifact`. Older
+ * shapes read the same as the server reads them: no source is a value, the type `artifact` is the artifact with title and body. */
+export function sourceOf(input) {
+  if (input.source === "artifact" || input.type === "artifact") return "artifact";
+  return "value";
 }
 
-/** The mapping rows of a node: one per declared input, then what is mapped but not declared. */
+export function partOf(input) {
+  return input.part ?? "title_body";
+}
+
+/** The name of a part of the artifact, for people. */
+export const partText = (part) => t(`agents.model.part_${part}`);
+
+/**
+ * The mapping rows of a node. `value`: one per input the node maps (the inputs that take a value). `artifact`: the inputs
+ * the agent fixes to the artifact (shown, never mapped). `stale`: lines the node still has for an input that now comes from
+ * the artifact (ignored by a run, shown so they can be removed). `undeclared`: lines for names the agent does not declare.
+ */
 export function mappingRows(inputs, text) {
   const mapping = parseMapping(text);
-  const declared = new Set(inputs.map((i) => i.name));
-  return [
-    ...inputs.map((input) => ({ ...input, value: mapping[input.name] ?? "", declared: true })),
-    ...Object.entries(mapping)
-      .filter(([name]) => !declared.has(name))
-      .map(([name, value]) => ({ name, type: "string", required: false, value, declared: false })),
-  ];
+  const byName = new Map(inputs.map((input) => [input.name, input]));
+  const rows = { value: [], artifact: [], stale: [], undeclared: [] };
+  for (const input of inputs) {
+    if (sourceOf(input) === "artifact") rows.artifact.push({ ...input, part: partOf(input) });
+    else rows.value.push({ ...input, value: mapping[input.name] ?? "" });
+  }
+  for (const [name, value] of Object.entries(mapping)) {
+    const declared = byName.get(name);
+    if (!declared) rows.undeclared.push({ name, value });
+    else if (sourceOf(declared) === "artifact") rows.stale.push({ name, value });
+  }
+  return rows;
 }
 
 /** Whether an address is plain http: the only kind that needs the owner's confirmation. */
@@ -150,6 +160,8 @@ const STATES = {
   default: "default",
   unset: t("agents.model.not_set_empty"),
   pending: t("agents.model.known_when_node_runs"),
+  artifact: t("agents.model.from_artifact"),
+  stale: t("agents.model.stale_ignored"),
   error: "error",
 };
 
@@ -182,9 +194,9 @@ export function optionsOf(config) {
   return { system_prompt: Boolean(config.system_prompt_enabled), inputs, limits };
 }
 
-/** The grey example in a Quick test field: the input's default, else its description, else a value of its type. */
+/** The grey example in a Quick test field of a value input: its default, else its description, else a value of its type. */
 export function sampleHint(input) {
   if (input.default !== null && input.default !== undefined && input.default !== "") return `e.g. ${input.default}`;
   if (input.description) return `e.g. ${input.description}`;
-  return { number: "e.g. 3", boolean: "e.g. true", artifact: t("agents.model.sample_epic") }[input.type] ?? t("agents.model.e_g_login_fails_after");
+  return { number: "e.g. 3", boolean: "e.g. true" }[input.type] ?? t("agents.model.e_g_login_fails_after");
 }

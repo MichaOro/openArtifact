@@ -97,8 +97,8 @@ test("the artifact fields are offered as card.NAME references", async () => {
   const { candidatesFor } = await import("../../openartifact/static/js/editor/reference-completion.js");
   const found = candidatesFor([], { cardFields: [{ name: "size", label: "Size" }, { name: "estimate", label: "Estimate" }] });
   // what every artifact has comes first (ADR-064), then its own fields
-  assert.deepEqual(found.map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number", "card.id", "card.size", "card.estimate"]);
-  assert.equal(found[5].detail, "Size: field of the artifact");
-  assert.equal(found[5].complete, true);
-  assert.deepEqual(candidatesFor([], {}).map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number", "card.id"]); // without fields only those
+  assert.deepEqual(found.map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number", "card.size", "card.estimate"]);
+  assert.equal(found[4].detail, "Size: field of the artifact");
+  assert.equal(found[4].complete, true);
+  assert.deepEqual(candidatesFor([], {}).map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number"]); // without fields only those
 });

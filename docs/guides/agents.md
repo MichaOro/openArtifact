@@ -57,18 +57,18 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
 
 - **Prompts.** The user prompt is required; the system prompt is switched on in *Options*. A prompt uses `${input.NAME}` and
   nothing else: `${node...}`, `${var...}`, `${card...}` and `${secret:...}` are refused. That keeps an agent independent
-  of any pipeline. An input of type **artifact** is the card the run belongs to: the agent node fills it with
-  `${card.text}` the first time the agent is chosen (stored in the node's mapping, editable; once it is cleared or
-  changed it is not filled again). Any input can be mapped to `${card.title}`, `${card.body}`, `${card.NAME}` of a field,
-  or any other reference (ADR-064). A mapped name the agent does not declare (the agent changed) is shown with a
-  *Remove* button and fails the run until removed.
-  **The card is a source, never an implicit part of the request: the prompt decides.** The model sees the card only
-  where a prompt contains `${input.x}` and `x` is mapped to a card reference (`Read ${input.x}`, or `${input.x}` alone
-  as the whole prompt); two inputs mapped to the card and both used appear once each. A prompt that does not use an input
-  does not send it, and the node dialog warns about a mapped input that no prompt uses. The pre-fill of an
-  *artifact* input is not made when another input of the node already maps a `${card...}` reference.
-- **Inputs.** Declare what the agent needs in the table: a name (`[a-z][a-z0-9_]{0,31}`), a type (`string`, `number`,
-  `boolean`), *Required* or *Optional*, and a default for an optional one. A description is added from the row's menu
+  of any pipeline. Every input has a **source** (ADR-064): a *Value*
+  (the agent node of an action gives it: typed text, or a reference such as `${card.title}`, `${card.NAME}` of a field or any
+  other) or the *Artifact* (a part of the card the run belongs to: *Title*, *Body*, *Title and body*, *Number* or
+  *Comments*, all comments oldest first with author and time). An input from the artifact is fixed here, in the agent: the
+  action's node shows it as a fixed line and cannot change it (the API answers 422). A line a node still has for an
+  input that now comes from the artifact is ignored and shown with a *Remove* button; a mapped name the agent does not
+  declare fails the run until removed.
+  **The card is a source, never an implicit part of the request: the prompt decides.** The model sees an artifact
+  input only where a prompt contains `${input.x}`; a prompt that does not use an input does not send it, and the node
+  dialog warns about an input that no prompt uses. A run that has no artifact fails the node when the agent needs one.
+- **Inputs.** Declare what the agent needs in the table: a name (`[a-z][a-z0-9_]{0,31}`), where it *Comes from* (*Value* with a type `string`, `number` or `boolean`, or *Artifact* with its part), for a value
+  *Required* or *Optional*, and a default for an optional one. A description is added from the row's menu
   (⋮); the Description column shows while any input has one.
 
   | Input | Node maps it | Result |

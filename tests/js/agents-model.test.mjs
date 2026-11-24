@@ -76,21 +76,21 @@ test("a mapping is name = value per line and survives a round trip", () => {
   assert.deepEqual(parseMapping(formatMapping({ a: "1", b: "x = y" })), { a: "1", b: "x = y" });
 });
 
-test("the rows of a mapping are the declared inputs, then what is mapped without being declared", () => {
+test("the rows of a mapping are the value inputs, then what is mapped without being declared", () => {
   const inputs = [
-    { name: "ticket", type: "string", required: true },
-    { name: "context", type: "string", required: false, default: "none" },
+    { name: "ticket", source: "value", type: "string", required: true },
+    { name: "context", source: "value", type: "string", required: false, default: "none" },
   ];
   const rows = mappingRows(inputs, "ticket = T\nold = gone");
   assert.deepEqual(
-    rows.map((r) => [r.name, r.value, r.declared, r.required]),
+    rows.value.map((r) => [r.name, r.value, r.required]),
     [
-      ["ticket", "T", true, true],
-      ["context", "", true, false],
-      ["old", "gone", false, false],
+      ["ticket", "T", true],
+      ["context", "", false],
     ],
   );
-  assert.equal(rows[1].default, "none");
+  assert.deepEqual(rows.undeclared.map((r) => [r.name, r.value]), [["old", "gone"]]);
+  assert.deepEqual([rows.artifact, rows.stale], [[], []]);
 });
 
 test("only enabled models that are still listed can be chosen", () => {
