@@ -329,7 +329,9 @@ def test_saving_an_agent_node_warns_about_what_will_fail(api: TestClient, llm: F
     ]
     assert warnings(inputs="ticket = ${var.ticket}") == []
     assert warnings(user_prompt="Only ${input.nope}") == [
-        "User prompt: ${input.nope} is not a declared input (it declares: ticket, context)"
+        "User prompt: ${input.nope} is not a declared input (it declares: ticket, context)",
+        # the node's own prompt does not use the mapped input (ADR-064: a prompt decides what the model sees)
+        "Input ticket is mapped but no prompt uses it: the agent does not receive it",
     ]
     assert warnings(user_prompt=None, model="unknown") == [
         'Model "unknown" is not enabled for provider "Local"'

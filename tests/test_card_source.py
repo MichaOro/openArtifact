@@ -511,3 +511,248 @@ def test_a_typo_in_a_card_reference_is_a_warning_at_save_that_names_the_known_na
     assert warnings("t = ${card.titel}") == [
         '${card.titel}: the artifact has no field "titel" (it has: title, body, text, number, id, test)'
     ]
+
+
+def test_the_node_dialog_is_told_about_a_typo_in_a_card_reference_of_the_mapping(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    _define_fields(api, "test")
+    agent = make_agent(api, user_prompt="${input.t}", inputs=[{"name": "t", "required": True}])
+    _flow(api, agent, "t = ${card.titel}")
+    answer = next(g for g in api.get("/api/actions").json() if g["name"] == "Answer")
+    ask = next(n for n in api.get(_url(answer)).json()["nodes"] if n["name"] == "Ask")
+    preview = api.post(
+        f"/api/agents/{agent['id']}/preview", json={"source": "published", "node_id": ask["id"]}
+    ).json()
+    assert (
+        '${card.titel}: the artifact has no field "titel" (it has: title, body, text, number, id, test)'
+        in preview["problems"]
+    )
+
+
+# ── (h) every custom field is mappable, whatever its name and type ───────────────────────────────
+
+LONG = "a_name_of_exactly_32_characters_"  # 32 characters
+FIELDS = [
+    {"name": "epic_url", "label": "Epic URL", "kind": "text"},
+    {"name": "priority", "label": "Priority", "kind": "number"},
+    {"name": "ratio", "label": "Ratio", "kind": "number"},
+    {"name": "needs_review", "label": "Needs review", "kind": "boolean"},
+    {"name": "repo", "label": "Repo", "kind": "choice", "options": ["api", "web"]},
+    {"name": "v2_step_3", "label": "Step", "kind": "text"},
+    {"name": LONG, "label": "Long", "kind": "text"},
+]
+VALUES = {
+    "epic_url": "https://example.test/e?a=1&b=${x}",
+    "priority": 3,
+    "ratio": 1.5,
+    "needs_review": True,
+    "repo": "web",
+    "v2_step_3": "2026-12-31",  # a date is a text field: it stays as stored
+    LONG: "long",
+}
+
+
+def _map(names: list[str]) -> tuple[str, list[dict[str, Any]], str]:
+    # optional inputs: an input that is required and resolves to nothing fails the run by its own rule
+    inputs = [{"name": f"i{n}", "required": False} for n in range(len(names))]
+    mapping = "\n".join(f"i{n} = ${{card.{name}}}" for n, name in enumerate(names))
+    prompt = "|".join(f"${{input.i{n}}}" for n in range(len(names)))
+    return mapping, inputs, prompt
+
+
+def _define_all(api: TestClient) -> None:
+    assert len(LONG) == 32
+    assert api.put("/api/artifact-fields", json={"fields": FIELDS}).status_code == 200
+
+
+def test_every_kind_of_field_reaches_the_model_as_the_engine_writes_it_and_an_empty_one_is_empty_text(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    _define_all(api)
+    names = [f["name"] for f in FIELDS]
+    mapping, inputs, prompt = _map(names)
+    agent = make_agent(api, user_prompt=prompt, inputs=inputs)
+    pipeline = _flow(api, agent, mapping)
+    _run(api, pipeline, _task(api, **VALUES))
+    assert _asked(llm) == "|".join(
+        ["https://example.test/e?a=1&b=${x}", "3", "1.5", "true", "web", "2026-12-31", "long"]
+    )
+    # a card that filled none of them: every defined field is a key, empty, and the run does not fail
+    _run(api, pipeline, _task(api, "Empty card", "b"))
+    assert _asked(llm) == "|" * 6
+
+
+def test_a_field_that_is_not_defined_is_refused_at_save_with_the_known_names(
+    api: TestClient,
+) -> None:
+    _define_all(api)
+    agent = make_agent(api, user_prompt="${input.t}", inputs=[{"name": "t", "required": True}])
+    pipeline = _flow(api, agent, "t = ${card.nothing}")
+    nodes = api.get(_url(next(a for a in api.get("/api/actions").json()))).json()["nodes"]
+    ask = next(n for n in nodes if n["name"] == "Ask")
+    action = next(a for a in api.get("/api/actions").json() if a["name"] == "Answer")
+    saved = api.patch(
+        f"{_url(action)}/nodes/{ask['id']}",
+        json={"config": {"inputs": "t = ${card.nothing}", "agent_id": agent["id"]}},
+    ).json()
+    text = " ".join(saved["warnings"])
+    assert 'the artifact has no field "nothing"' in text
+    assert "epic_url" in text and "title" in text and LONG in text
+    assert pipeline
+
+
+def test_a_field_deleted_after_a_node_mapped_it_fails_the_run_naming_the_field(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    _define_all(api)
+    agent = make_agent(api, user_prompt="${input.t}", inputs=[{"name": "t", "required": True}])
+    pipeline = _flow(api, agent, "t = ${card.epic_url}")
+    task = _task(api, **VALUES)
+    kept = [
+        f for f in FIELDS if f["name"] != "epic_url"
+    ]  # renaming is the same: the old name is gone
+    assert api.put("/api/artifact-fields", json={"fields": kept}).status_code == 200
+    run = _run(api, pipeline, task, status="failed")
+    assert not llm.completions()
+    step = _step(api, run)
+    assert '${card.epic_url}: the artifact has no field "epic_url"' in str(step)
+
+
+def test_the_node_dialog_names_a_field_deleted_after_the_mapping(api: TestClient) -> None:
+    _define_all(api)
+    agent = make_agent(api, user_prompt="${input.t}", inputs=[{"name": "t", "required": True}])
+    _flow(api, agent, "t = ${card.epic_url}")
+    action = next(a for a in api.get("/api/actions").json() if a["name"] == "Answer")
+    ask = next(n for n in api.get(_url(action)).json()["nodes"] if n["name"] == "Ask")
+    url = f"/api/agents/{agent['id']}/preview"
+    body = {"source": "published", "node_id": ask["id"]}
+    assert not [p for p in api.post(url, json=body).json()["problems"] if "card." in p]
+    kept = [f for f in FIELDS if f["name"] != "epic_url"]
+    api.put("/api/artifact-fields", json={"fields": kept}).raise_for_status()
+    problems = api.post(url, json=body).json()["problems"]
+    assert any('${card.epic_url}: the artifact has no field "epic_url"' in p for p in problems)
+
+
+def test_custom_fields_work_in_conditions_edit_fields_and_the_code_context(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    _define_all(api)
+    agent = make_agent(
+        api,
+        user_prompt="${input.a}|${input.b}|${input.c}",
+        inputs=[{"name": n, "required": True} for n in "abc"],
+    )
+    code = {
+        "language": "python",
+        "code": "import json\nc = json.load(open('context.json'))['card']\n"
+        "print(json.dumps({'ok': True, 'vars': {'seen': str(c['priority']) + c['repo']}}))",
+    }
+    pipeline = _flow(
+        api,
+        agent,
+        "a = ${var.copied}\nb = ${var.seen}\nc = ${(Check).output}",
+        before=[
+            ("set", "Edit", {"fields": "copied = ${card.needs_review}-${card.ratio}"}),
+            ("code", "Code", code),
+        ],
+    )
+    action = next(a for a in api.get("/api/actions").json() if a["name"] == "Answer")
+    graph = api.get(_url(action)).json()
+    code_node = next(n for n in graph["nodes"] if n["name"] == "Code")
+    ask = next(n for n in graph["nodes"] if n["name"] == "Ask")
+    branch = _node(
+        api,
+        action,
+        "if",
+        name="Check",
+        config={"left_1": "${card.priority}", "operator_1": "greater than", "right_1": "2"},
+    )
+    for edge in graph["edges"]:
+        if edge["source_id"] == code_node["id"] and edge["target_id"] == ask["id"]:
+            api.delete(f"{_url(action)}/edges/{edge['id']}")
+    _connect(api, action, code_node, "pass", branch, "in")
+    _connect(api, action, branch, "yes", ask, "in")
+    _run(api, pipeline, _task(api, **VALUES))
+    assert _asked(llm).startswith("true-1.5|3web|")
+
+
+# ── (i) the card reaches the model only where the prompt put it ───────────────────────────────────
+
+
+def _prompt_run(
+    api: TestClient, llm: FakeLlm, prompt: str, inputs: list[dict[str, Any]], mapping: str
+) -> str:
+    agent = make_agent(api, user_prompt=prompt, inputs=inputs)
+    _run(api, _flow(api, agent, mapping), _task(api))
+    return _asked(llm)
+
+
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("${input.x}", BODY),
+        ("Read ${input.x}", f"Read {BODY}"),
+        ("Lies ${input.x} und fasse zusammen", f"Lies {BODY} und fasse zusammen"),
+    ],
+)
+def test_the_prompt_styles_put_the_card_exactly_where_the_author_wrote_it(
+    api: TestClient, llm: FakeLlm, prompt: str, expected: str
+) -> None:
+    asked = _prompt_run(api, llm, prompt, [{"name": "x", "required": True}], "x = ${card.body}")
+    assert asked == expected
+    assert asked.count(EPIC) == 0 and len(llm.completions()) == 1
+
+
+def test_title_and_body_in_separate_inputs_and_two_card_inputs_appear_once_each(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    asked = _prompt_run(
+        api,
+        llm,
+        "Title: ${input.t}\nBody: ${input.b}",
+        [{"name": "t", "required": True}, {"name": "b", "required": True}],
+        "t = ${card.title}\nb = ${card.body}",
+    )
+    assert asked == f"Title: {EPIC}\nBody: {BODY}"
+    assert asked.count(EPIC) == 1 and asked.count("Line one") == 1
+
+
+def test_a_prompt_that_does_not_mention_the_card_gets_no_card_text(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    agent = make_agent(api, user_prompt="Say hello", system_prompt="Be brief", inputs=[])
+    _run(api, _flow(api, agent, ""), _task(api))
+    request = json.dumps(llm.completions()[-1]["json"])
+    assert "Say hello" in request
+    assert EPIC not in request and "Line one" not in request
+
+
+def test_an_artifact_input_that_no_prompt_uses_is_not_sent_and_the_dialog_says_so(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    agent = make_agent(
+        api,
+        user_prompt="Say hello",
+        inputs=[{"name": "epic", "type": "artifact", "required": False}],
+    )
+    pipeline = _flow(api, agent, "epic = ${card.text}")
+    _run(api, pipeline, _task(api))
+    request = json.dumps(llm.completions()[-1]["json"])
+    assert EPIC not in request and "Line one" not in request
+    action = next(a for a in api.get("/api/actions").json() if a["name"] == "Answer")
+    ask = next(n for n in api.get(_url(action)).json()["nodes"] if n["name"] == "Ask")
+    calm = "Input epic is mapped but no prompt uses it: the agent does not receive it"
+    preview = api.post(
+        f"/api/agents/{agent['id']}/preview", json={"source": "published", "node_id": ask["id"]}
+    ).json()
+    assert calm in preview["problems"]
+    saved = api.patch(
+        f"{_url(action)}/nodes/{ask['id']}", json={"config": {"inputs": "epic = ${card.text}"}}
+    ).json()
+    assert calm in saved["warnings"]
+    # used by a prompt of the node itself: no warning
+    used = api.patch(
+        f"{_url(action)}/nodes/{ask['id']}", json={"config": {"user_prompt": "Read ${input.epic}"}}
+    ).json()
+    assert calm not in used["warnings"]

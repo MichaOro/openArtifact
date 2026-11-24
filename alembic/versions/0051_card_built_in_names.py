@@ -38,7 +38,8 @@ def _rename_everywhere(bind: sa.engine.Connection, pairs: dict[str, str]) -> Non
         return
     for old, new in pairs.items():
         bind.execute(
-            sa.text("UPDATE artifact_fields SET name = :new WHERE name = :old"), {"new": new, "old": old}
+            sa.text("UPDATE artifact_fields SET name = :new WHERE name = :old"),
+            {"new": new, "old": old},
         )
     for task_id, raw in bind.execute(
         sa.text("SELECT id, field_values FROM tasks WHERE field_values != '{}'")
@@ -83,7 +84,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     bind = op.get_bind()
     taken = {r[0] for r in bind.execute(sa.text("SELECT name FROM artifact_fields")).fetchall()}
-    pairs = {
-        old + SUFFIX: old for old in RESERVED if old + SUFFIX in taken and old not in taken
-    }
+    pairs = {old + SUFFIX: old for old in RESERVED if old + SUFFIX in taken and old not in taken}
     _rename_everywhere(bind, pairs)

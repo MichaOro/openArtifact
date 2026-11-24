@@ -433,7 +433,8 @@ def _view(card: dict[str, Any]) -> RunView:
 def test_card_references_render_like_other_values() -> None:
     view = _view({"s": "text é", "n": 3, "f": 1.5, "b": True, "z": None})
     assert (
-        view.render("${card.s}|${card.n}|${card.f}|${card.b}|${card.z}") == "text é|3|1.5|true|null"
+        view.render("${card.s}|${card.n}|${card.f}|${card.b}|${card.z}")
+        == "text é|3|1.5|true|"  # an empty field is empty text, not "null" (ADR-064)
     )
     assert view.render("/p/${card.s}", percent_encode=True) == "/p/text%20%C3%A9"
 

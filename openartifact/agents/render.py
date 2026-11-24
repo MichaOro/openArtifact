@@ -74,6 +74,19 @@ def prompt_problems(text: str, declared: Sequence[str] | None, what: str) -> lis
     return list(dict.fromkeys(found))
 
 
+def unused_inputs(
+    mapping: Mapping[str, str], prompts: Sequence[str], declared: Sequence[str]
+) -> list[str]:
+    """A calm warning per input that is mapped to something but that no prompt uses: the agent does not receive it
+    (a prompt decides what the model sees, ADR-064; nothing is added to the request on the side)."""
+    text = "\n".join(prompts)
+    return [
+        f"Input {name} is mapped but no prompt uses it: the agent does not receive it"
+        for name, value in mapping.items()
+        if name in declared and value.strip() and f"${{input.{name}}}" not in text
+    ]
+
+
 def parse_mapping(text: str) -> dict[str, str]:
     """``name = value`` per line as ``{name: value}`` (empty lines are skipped); :class:`MappingError`."""
     mapping: dict[str, str] = {}

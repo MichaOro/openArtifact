@@ -29,6 +29,7 @@ from openartifact.agents.render import (
     parse_mapping,
     prompt_problems,
     resolve_inputs,
+    unused_inputs,
 )
 from openartifact.agents.resolve import (
     ProviderInfo,
@@ -50,7 +51,9 @@ from openartifact.agents.schemas import (
     PublishResult,
     VersionRead,
 )
+from openartifact.artifact_fields.service import field_specs
 from openartifact.database import SessionOpener
+from openartifact.engine.context import card_problems
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import node_type
@@ -435,6 +438,7 @@ class AgentService:
                 if node_config.get("agent_id") != agent.id:
                     raise ArtifactError(422, "The node refers to another agent")
             providers = await load_providers(session)
+            card_fields = {spec.name for spec in await field_specs(session)}
         config = config.effective()
         data = config.model_dump()
         problems: list[str] = []
@@ -445,11 +449,15 @@ class AgentService:
             problems.append(f"Input mapping: {error}")
         states = resolve_inputs(data["inputs"], mapping, None, samples=request.values)
         problems += input_problems(states)
+        problems += card_problems("\n".join(mapping.values()), card_fields)
         settings = setting_states(data, node_config)
         value = {s.key: s.value for s in settings}
         declared = [i.name for i in config.inputs]
         user = str(value["user_prompt"] or "")
         system = str(value["system_prompt"] or "")
+        problems += unused_inputs(
+            mapping, [user, system if value["system_prompt_enabled"] else ""], declared
+        )
         if not user.strip():
             problems.append("The user prompt is empty")
         problems += prompt_problems(user, declared, "User prompt")
@@ -504,5 +512,11 @@ async def node_hints(session: AsyncSession, node: GraphNode) -> list[str]:
     for key, what in (("user_prompt", "User prompt"), ("system_prompt", "System prompt")):
         if config.get(key) is not None:
             hints += prompt_problems(str(config[key]), declared, what)
+    own = {k: config.get(k) for k in ("user_prompt", "system_prompt")}
+    hints += unused_inputs(
+        mapping,
+        [str(own[k] if own[k] is not None else data[k] or "") for k in own],
+        declared,
+    )
     hints += pick_provider(data, config, await load_providers(session))[2]
     return list(dict.fromkeys(hints))

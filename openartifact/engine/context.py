@@ -214,7 +214,8 @@ def preview_references(text: str, card: Mapping[str, Any]) -> tuple[str, list[st
             return "\u2039malformed reference\u203a"
         if ref.kind == "card":
             try:
-                return _render(resolve(ref, context, NodeIndex()))
+                found = resolve(ref, context, NodeIndex())
+                return "" if found is None else _render(found)
             except ContextError:
                 unresolved.append(f"card.{ref.name}")
                 return f"\u2039no field {ref.name}\u203a"
@@ -486,7 +487,10 @@ class RunView:
                     return match[0]
             else:
                 try:
-                    value = _render(resolve(parse(match[2]), self.context, self.index))
+                    ref = parse(match[2])
+                    found = resolve(ref, self.context, self.index)
+                    # a field the artifact has but nobody filled is empty text, not "null" (ADR-064)
+                    value = "" if ref.kind == "card" and found is None else _render(found)
                 except ContextError as error:
                     raise ContextError(f"{match[0]}: {error}") from error
             return quote(value, safe="") if percent_encode else value
@@ -509,6 +513,22 @@ def check_url_placement(url: str) -> None:
         )
 
 
+def card_problems(text: str, card_fields: Collection[str]) -> list[str]:
+    """The ``${card.x}`` of ``text`` that name neither a field nor something built into every artifact (ADR-064),
+    each with what the artifact has: a typo is told when the setting is saved, not only when a run fails."""
+    hints: list[str] = []
+    for shown, ref, _ in references_in(text):
+        if (
+            ref is not None
+            and ref.kind == "card"
+            and ref.name not in BUILT_IN_CARD
+            and ref.name not in card_fields
+        ):
+            has = ", ".join([*BUILT_IN_CARD, *sorted(card_fields)])
+            hints.append(f'{shown}: the artifact has no field "{ref.name}" (it has: {has})')
+    return list(dict.fromkeys(hints))
+
+
 def problems(
     text: str,
     local: NodeIndex,
@@ -527,13 +547,8 @@ def problems(
         if ref is None:
             hints.append(problem)
         elif ref.kind == "card":
-            if (
-                card_fields is not None
-                and ref.name not in BUILT_IN_CARD
-                and ref.name not in card_fields
-            ):
-                has = ", ".join([*BUILT_IN_CARD, *sorted(card_fields)])
-                hints.append(f'{shown}: the artifact has no field "{ref.name}" (it has: {has})')
+            if card_fields is not None:
+                hints += card_problems(shown, card_fields)
         elif ref.kind == "node":
             if len({d.node_id for d in local.by_key.get(ref.name, [])}) > 1:
                 try:
