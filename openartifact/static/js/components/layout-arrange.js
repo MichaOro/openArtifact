@@ -83,7 +83,7 @@ export class ArrangeView {
     if (this.width) root.style.setProperty("--lw-width", `${this.width}rem`);
     if (this.current.mode === "node") {
       const grid = make("div", "lw-grid");
-      grid.dataset.columns = String(this.current.sections.length);
+      grid.dataset.columns = String(Math.min(2, this.current.sections.length)); // a third area wraps into the next row
       this.current.sections.forEach((section, side) => {
         const lane = make("div", "lw-lane");
         lane.dataset.lane = String(side);

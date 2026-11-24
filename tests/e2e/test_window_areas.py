@@ -250,6 +250,12 @@ def test_an_area_of_ones_own_is_added_named_filled_deleted_and_saved(
         "Drop settings here"
     )  # empty: it says where to drop
     key = custom.get_attribute("data-section") or ""
+    # with a third area the first two stay side by side in a wide window; the new one wraps into the next row
+    left = _settled(page, arrange.locator("[data-section='definition']"))
+    right = _settled(page, arrange.locator("[data-section='behaviour']"))
+    own = _settled(page, custom)
+    assert right["x"] > left["x"] + left["width"] - 4 and abs(right["y"] - left["y"]) < 4
+    assert own["y"] > left["y"] + 20
     drag(page, _grip(arrange, "behaviour", "on_failure"), custom.locator(".lw-fields").first)
     expect(custom.locator("[data-field='on_failure']")).to_have_count(1)
     delete = custom.locator("[data-delete-area]")
@@ -340,6 +346,9 @@ def test_a_field_of_the_guard_editor_moves_into_a_section_of_its_own(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     _reset(api, GUARD)
+    page.set_viewport_size(
+        {"width": 1280, "height": 1200}
+    )  # the whole arrange view in sight: a drag near the edge would scroll
     window = _guard_window(page, base_url, api)
     arrange = _arrange(page, window)
     arrange.locator("[data-add-area]").click()
@@ -348,6 +357,10 @@ def test_a_field_of_the_guard_editor_moves_into_a_section_of_its_own(
     page.keyboard.press("Control+a")
     page.keyboard.type("My part")
     page.keyboard.press("Enter")
+    expect(custom.locator("[data-area-title]")).to_have_text("My part")
+    _settled(
+        page, custom
+    )  # the view is drawn again after the rename: drag only once it stands still
     drag(
         page,
         arrange.locator("[data-section='then'] [data-field='consequence'] .lw-grip"),
@@ -357,7 +370,7 @@ def test_a_field_of_the_guard_editor_moves_into_a_section_of_its_own(
     _save(page, window)
     saved = api.get(GUARD).json()["layout"]["sections"]
     mine = next(s for s in saved if s.get("title") == "My part")
-    assert mine["fields"] == ["consequence"]
+    assert mine["fields"] == ["consequence"], saved
     key = mine["key"]
     form = window.locator("[data-form='guard']")
     section = form.locator(f"[data-section='{key}']")
