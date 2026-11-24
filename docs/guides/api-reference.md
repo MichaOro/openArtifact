@@ -64,6 +64,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | DELETE | `/api/v1/artifacts/{ref}/executions/{execution_id}` | Delete one execution; `204` | 404, 409 (still running) |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/flow` | The graphs as frozen at the start, the path walked through them, the steps (`?outputs=true` adds step outputs) | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id}` | One step with its complete output | 404 |
+| GET | `/api/v1/artifacts/{ref}/activity` | What changed on the artifact and who did it, newest first, in pages: `limit` 1 to 200 (default 50), `before` = the `next` cursor of the previous page; the trace of a deleted execution is a `run` entry; executions that still exist are not repeated | 404, 422 |
 | GET | `/api/v1/artifacts/{ref}/comments` | The artifact's comments, oldest first (plain text; `author`, `author_kind`, `execution_id`) | 404 |
 | POST | `/api/v1/artifacts/{ref}/comments` | Add a comment `{"body", "author"?}` (1 to 65536 characters); `201`. The author is the managed token's name; only the environment token may pass `author`. Publishes `comment.created` | 404, 422 |
 | PATCH | `/api/v1/artifacts/{ref}/comments/{comment_id}` | Change the text `{"body"}`; publishes `comment.updated` | 404, 422 |
@@ -212,6 +213,14 @@ values together are at most 4 KiB. The refusal for a typo:
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/flow` | Frozen graphs, walked path, steps | 404 |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/steps/{step_id}` | One step with complete output | 404 |
 
+### Activity
+
+| Method | Path | Does | Errors |
+|--------|------|------|--------|
+| GET | `/api/tasks/{ref}/activity` | The same as `/api/v1/artifacts/{ref}/activity`: `{items: [...], next}` | 404, 422 |
+
+An entry is `{id, task_id, kind, actor_kind, actor_name, execution_id, data, created_at}`. `kind` is `created`, `lane` (`data.from`, `data.to`: lane titles), `title`, `description` (no text), `parent`, `field` (`field`, `label`, `from`, `to`, cut to 80 characters), `pipeline`, `stage`, `action`, or `run`, the trace of an execution that was deleted (`number`, `pipeline`, `status`, `started_at`, `finished_at`, `duration_ms`, `steps`; `created_at` is when it started). There are at most 500 per artifact; read only. See [ADR-058](../architecture/adr/058-activity-log-of-artifacts.md).
+
 ### Comments
 
 The same four operations as the integration API, for the browser; a comment from the browser has the author kind `user` and the name "You".
@@ -293,6 +302,7 @@ Pipeline, stage and action are given by name.
 | `stop_processing` | `artifact` | Stop |
 | `get_processing_status` | `artifact` | Run state, or `never processed` |
 | `get_processing_results` | `artifact` | Steps inside action definitions with output, exit code, reason, data (text from outside) |
+| `list_activity` | `artifact`, `limit?` (1 to 200, default 50), `before?` | What changed on the artifact and who did it, newest first; `next` goes into `before` |
 | `list_comments` | `artifact`, `limit?` (1 to 500: the newest that many) | The artifact's comments, oldest first; text from outside |
 | `add_comment` | `artifact`, `text`, `author?` | Add a comment under the MCP token's name (`author` counts only for the environment token, else the author is `mcp`) |
 | `list_executions` | `artifact`, `limit=20` (1 to 500) | The artifact's executions without steps and the number kept |
@@ -325,6 +335,7 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `settings.changed` | `{"run_limits": {...}}` (as `GET /api/settings/run-limits`) | the run limits were changed |
 | `board.resync` | `{}` | other tasks got new positions or lost their parent: reload the board |
 | `run.updated` | the run state (as `GET /api/runs`) | a run starts, advances or ends |
+| `activity.created` | the entry (as `GET .../activity`) | something changed on an artifact, or a deleted execution left its trace |
 | `comment.created` | the comment | a comment was added |
 | `comment.updated` | the comment | its text was changed |
 | `comment.deleted` | `{"id", "task_id"}` | a comment was deleted |

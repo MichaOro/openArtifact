@@ -39,6 +39,8 @@ with a box at the bottom (Ctrl+Enter sends). A comment shows who wrote it: a rou
 then says "edited") or deleted; deleting the artifact deletes them. Pipelines read and write them with the
 [Artifact node](execution-nodes.md#artifact-node). There is no user management yet, so "You" is every person in the browser.
 
+**History.** The *History* tab of an artifact's dialog is one timeline, newest first: what was *done to* the artifact (created, moved to another lane, renamed, description changed, parent set, a field changed, a pipeline, stage or action assigned) with who did it (the same avatar and name as in comments) and the artifact's *executions*. Executions that still exist are rows you can open and delete; one that was deleted (by hand, *Clear finished*, retention or the operator's guard) leaves a quiet line with its time, pipeline, number, status and duration, nothing more. The filter shows all, only executions or only changes; the tab shows the number of entries. At most 500 entries are kept per artifact, and nothing from before this feature was recorded is known ([ADR-058](../architecture/adr/058-activity-log-of-artifacts.md)).
+
 **Artifact fields.** Custom fields every artifact has (ADR-044), defined once in *Artifact fields* (the menu next to
 *Add lane* on the board): label, name, kind (text, number, yes/no, choice) with its limits and a default that pre-fills new
 artifacts (a choice is a single or a multi select; the editor lists the fields on the left, reordered by their grip,

@@ -84,6 +84,7 @@ oa pull && oa up -d
 
 The entrypoint runs `alembic upgrade head` before the server starts and aborts the start when a
 migration fails: the container exits (and, with `restart: unless-stopped`, is restarted); `oa logs` shows why.
+The pages (HTML) are sent with `Cache-Control: no-cache` and the static files revalidate with their ETag, so a browser shows the new build after a reload, not the old one from its cache.
 After the update check `oa ps` (healthy), `curl http://localhost:2909/health` (the answer carries the
 version) and the start of the log (below).
 

@@ -214,6 +214,7 @@ Tools (14; all go through the same service as the browser and the REST API; argu
 | `stop_processing(artifact)` | Stop |
 | `get_processing_status(artifact)` | Run state, or `never processed` |
 | `get_processing_results(artifact)` | Steps inside action definitions with output, exit code, reason |
+| `list_activity(artifact, limit?, before?)` | What changed on the artifact and who did it, newest first |
 | `list_comments(artifact, limit?)` | The artifact's comments, oldest first |
 | `add_comment(artifact, text, author?)` | Add a comment; written under the name of your token |
 | `list_executions(artifact, limit?)` | The artifact's executions without steps |
@@ -240,10 +241,18 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
   -d '{"body":"Reviewed, two findings."}' http://localhost:2909/api/v1/artifacts/12/comments
 ```
 
+## Activity
+
+`GET /api/v1/artifacts/{ref}/activity` (and the MCP tool `list_activity`) answers what changed on an artifact and who did it: lane, title, parent, fields, pipeline, stage, action, and the trace of every execution that was deleted. A change you make through the API or MCP is recorded under the name of your managed token (the environment token as `api` or `mcp`). Read only; page with `before` = `next`.
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:2909/api/v1/artifacts/12/activity?limit=20"
+```
+
 ## Live updates
 
 `GET /api/events` is a server-sent event stream for the browser (also usable by scripts with the bearer
-token): `task.*`, `board.resync`, `run.updated`, `execution.updated`, `execution.deleted`, `comment.created`, `comment.updated`,
+token): `task.*`, `board.resync`, `run.updated`, `execution.updated`, `execution.deleted`, `activity.created`, `comment.created`, `comment.updated`,
 `comment.deleted`. The events are
 listed in the [API reference](api-reference.md#server-sent-events-get-apievents); missed events are not
 replayed.
