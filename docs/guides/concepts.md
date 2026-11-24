@@ -106,14 +106,17 @@ edge can be pressed too.
 **Adding to a pipeline.** The "+" at the lower left of the canvas lists what can be added, in clusters; *Guard* sits in *Structure*
 after *Pipeline*. The "+" in the header of a stage opens a small menu: **Action** adds an action to that stage, **Guard** is next
 to it. The menu of an action node (right click, or the "…" under it) has a **Guard** entry as well, and the "+" inside an
-action definition does not (it has no pipeline to attach a guard to). Each **Guard** entry opens the Guard window for a guard of
-the pipeline, that stage or that action ([Guards](guards.md)).
+action definition does not (it has no pipeline to attach a guard to). Each **Guard** entry opens the popup *Add a guard*:
+attach a guard of the library to the pipeline, that stage or that action, or make a new one ([Guards](guards.md)).
 
 **Guard.** A specialised action that watches a pipeline, a stage or an action while it runs and is triggered by an event of
 it (entered, an action passed or erred, left, the run fails; the flow waits for the guard) or by an interval. It tests a
 condition over the scope's facts (rounds, time in it, time without progress, errors, …) and then pauses, aborts, continues
-or runs its own action (an ordinary action definition). Guards are shield chips (in the tool bar, a stage's header, an
-action's settings), never nodes of the canvas; every firing is an entry of the artifact's History with the facts it fired on
+or runs its own action (an ordinary action definition). Guards are a **library** like actions: a guard is defined once
+(*Pipeline* → **Guards**, next to **Actions**) and **attached** to a pipeline, a stage or an action; an attachment is
+switched on or off on its own, a change to the definition acts on every place it is attached to. A scope with guards shows
+one shield (next to the canvas "+", in a stage's header, on an action's card) whose popup lists them; guards are never
+nodes of the canvas; every firing is an entry of the artifact's History with the facts it fired on
 ([Guards](guards.md), [ADR-060](../architecture/adr/060-guards.md)).
 
 **Stage.** A container in a pipeline. It holds actions and connects to the next stage. Its start feeds

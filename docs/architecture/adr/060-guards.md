@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-052](052-retention-rules-and-rule-builder.md) (one rule system), [ADR-058](058-activity-log-of-artifacts.md) (the `guard` entry), [ADR-039](039-edit-fields-switch-rules-and-run-limits.md) (limits of a run)  
-**Implemented in:** `rules/tree.py`, `rules/catalog.py`, `api/rules.py`; `guards/schemas.py`, `guards/monitor.py`, `guards/service.py`, `guards/templates/*.json`, `api/guards.py`, `api/mcp.py`; `engine/runner.py` (the monitor in the walk, `_GuardHooks`, `heartbeat`, `preview_guard`), `engine/snapshot.py` (`freeze_guards`), `engine/flow.py`; `models/guards.py`, migration `0046`; `static/js/editor/guards.js`, `components/rule-model.js`, `components/rule-builder.js`, `tasks/activity-model.js`, `execution/flow-page.js`  
+**Implemented in:** `rules/tree.py`, `rules/catalog.py`, `api/rules.py`; `guards/schemas.py`, `guards/monitor.py`, `guards/service.py`, `guards/templates/*.json`, `api/guards.py`, `api/mcp.py`; `engine/runner.py` (the monitor in the walk, `_GuardHooks`, `heartbeat`, `preview_guard`), `engine/snapshot.py` (`freeze_guards`), `engine/flow.py`; `models/guards.py`, migrations `0046` and `0047` (the library, §4); `static/js/guards/` (`model.js`, `editor-window.js`, `guard-popover.js`, `library-page.js`), `templates/guards.html`, `templates/components/guard_modal.html`, `static/js/editor/guards.js`, `components/rule-model.js`, `components/rule-builder.js`, `tasks/activity-model.js`, `execution/flow-page.js`  
 **Affected chapters:** guide [Guards](../../guides/guards.md), [API reference](../../guides/api-reference.md), [integration](../../guides/integration.md), [execution history](../../guides/execution-history.md), [configuration](../../guides/configuration.md); arc42 5.3, 5.6
 
 ## 1. Context
@@ -118,7 +118,7 @@ Every firing is an activity entry of the artifact (ADR-058): kind `guard`, actor
 execution, and `data` with the scope, trigger, event, consequence, outcome (`continue`, `pause`, `abort`, `failed`,
 `capped`, `unavailable`) and the **facts snapshot** ("round 10, 14 min without progress"). The History timeline shows it
 with a shield marker under *Executions*; the flow view lists the firings of the execution. The editor shows guards as
-shield chips (pipeline: tool bar; stage: its header; action: its settings), never as canvas nodes, and opens the Guard
+shield chips (pipeline: tool bar; stage: its header; action: its settings; since §4: one shield per scope and its popup), never as canvas nodes, and opens the Guard
 window from them or from the *Guard* entries (the "+" menu, the "+" of a stage, the menu of an action node). The window
 has a live preview: how many running scopes the condition holds for now, with their facts.
 
@@ -130,3 +130,63 @@ has a live preview: how many running scopes the condition holds for now, with th
 - Guard templates (Stall, Runtime, Health) ship as JSON in `guards/templates/` and are created through `POST
   /api/guards/from-template`; the global JSON import layer (cards MUST 31-33) does not exist yet and can take them over.
 - `notify` and `handover` wait for cards #93 and #95.
+
+## 4. Addendum 2026-11-24: the guard library (definitions and attachments)
+
+### 4.1 Context
+
+A guard was one row per guard *and* place (`guards`, 0046): the same Stall guard on five actions was five copies, a
+change had to be made five times, and the editor showed a chip per guard and place. The owner wanted guards to work like
+actions: defined once in a library and reused.
+
+### 4.2 Decision
+
+- **Definition** (`guard_definitions`): what a guard is: name (required, not unique, 120 characters), description, the
+  scope types it may be attached to (`scope_types`), trigger, condition, escalation, consequence, fallback and its own
+  action (`action_id`, an ordinary action definition). It has **no on/off**. A change acts on every place it is attached
+  to, at the next start of a run (`used_by` says how many; the editor says "a change affects all of them").
+- **Attachment** (`guard_attachments`): a definition on a scope of a pipeline (`pipeline_id`, `scope_type`, `scope_id`)
+  and whether it is switched on there. It goes with its pipeline (`ON DELETE CASCADE`) and with its stage or action
+  (the graph repository deletes the attachments of a node it deletes, a stage's with its actions'). Attaching a
+  definition to a kind of scope it may not watch is refused (422), so is narrowing `scope_types` below where it is
+  attached; attaching it twice to one scope is refused (409). A definition cannot be deleted while it is attached
+  (409, "detach it first").
+- **The engine reads definitions through attachments.** `freeze_guards` joins the switched-on attachments of the
+  pipeline (and the pipelines it calls) with their definitions; each frozen guard keeps the shape it had: `id` is the
+  attachment's (the counters, the cap and the live on/off check are per place), `guard_id` the definition's,
+  `definition_id` its own action. A running execution therefore keeps the definition and the attachments it started
+  with; switching an attachment off still acts at once. The monitor did not change.
+- **API**: `/api/guards` (and `/api/v1/guards`) are the definitions (list with `used_by` and `attachments`, create,
+  from a template, change, delete); `/api/guard-attachments` (and `/api/v1/...`) attach, switch and detach. The old
+  routes that created a guard *on* a scope and switched a guard (`PUT /api/guards/{id}/enabled`) were replaced, not
+  kept: keeping them would have meant a second way to make a definition per place, the very duplication this removes.
+  MCP: `list_guards` returns the definitions with their attachments; `set_guard_enabled` switches an attachment (its
+  id, or the guard's name when it is attached in one place, optionally narrowed by `pipeline`).
+- **UI**: a *Guards* page under *Pipeline*, next to *Actions* (the library: search, New blank or from a template,
+  "Used in N places", Delete refused with the reason while used); the guard editor titled "Guard – NAME" with the name
+  renamed in place (ADR-059 addendum 2026-11-24), the parts *Settings* and *Logic* (its action: choose, New, Edit);
+  in the pipeline editor the *Guard* entries open "Add a guard" (attach from the library or make a new one) and every
+  scope with attachments shows **one shield** (tooltip "N guards configured", never "active") whose popup lists the
+  attached guards by name with their switch and Detach. The templates are library entries made through *New → From
+  template*; the editor has no template row.
+
+### 4.3 Migration 0047
+
+Every row of `guards` becomes one definition and one attachment, **both with the guard's id** (two tables, so the
+same id names both), with the same settings and the same on/off state: a run started after the migration freezes the
+same guards with the same ids, so counters and activity entries line up. A guard whose stage or action no longer
+existed watched nothing; it becomes a definition without an attachment (nothing written is lost, and the library could
+not have detached it). Plain `CREATE TABLE`, `INSERT … SELECT`, `DROP TABLE`. The downgrade rebuilds `guards` from the
+attachments joined with their definitions (one row per attachment; a definition without attachments has no place
+there).
+
+### 4.4 Not in this step (extension points)
+
+- **Guards on single nodes inside an action**: a new `scope_type` (and a scope id that is a node of an action
+  definition); `scope_types` of a definition and the attachment check are where it plugs in.
+- **"Applies to" rules and kinds** (attach to every action of a kind): an attachment that names a rule instead of one
+  scope; `freeze_guards` is the one place that resolves attachments.
+- **Parameters / overrides per attachment** (e.g. another interval on one action): columns or a JSON column on
+  `guard_attachments`, merged over the definition in `guard_data`.
+- **Runtime colours of the shield** in the execution flow view and its overlay, and **a check before starting a run**
+  (which guards will watch): read `snapshot.guards` and `guard_state`.

@@ -18,6 +18,11 @@ dark theme, every state and the contrast rules without writing any CSS for them.
    themes, a row in the table below and an entry in the matrix of `tests/e2e/test_ui_catalog.py`.
 5. **Destructive controls** (delete, discard, clear) add `is-danger` to the catalog component; the solid `button--danger`
    is only for the confirming button of a dialog.
+6. **A window that saves carries the name in its title.** A window with a Save button (where something is created or
+   edited, not a display-only window) shows "Kind – NAME" in its title bar with the name as an inline rename
+   (`inline-name.js`); there is no separate Name row. A thing that needs a name refuses an empty one with a hint under
+   the field. Examples: the retention rule, the guard editor. The windows that do not follow it yet are listed in
+   [ADR-059](../architecture/adr/059-one-catalog-of-ui-building-blocks.md) §5.
 
 ## Buttons
 
@@ -91,7 +96,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A short message above a page | `alert-bar.js` with `templates/components/alert.html` |
 | An explanation of a field | `info-tip.js` (the (i) that opens a tooltip) |
 | An on/off setting | `switch.js` |
-| A text edited in place | `inline-name.js` |
+| A text edited in place | `inline-name.js` (also the name in the title of a window that saves: rule 6) |
 | A person or system as a round shaded circle | `avatar.js` (the kind is the icon and the accessible name; `initials` for a person later) |
 | The marker of a timeline entry | `tasks/history-marker.js` |
 | A chip with a status | `.history-chip` in `history.css` |
@@ -103,6 +108,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | Settings that override a default | `settings-group.js`, `override-row.js`, `options-panel.js` |
 | Rules with all/any conditions | `rule-builder.js` (the conditions), `rule-editor.js` (one rule: conditions and what to do), `rule-list.js` (the front door: a row per rule with its switch, name and a line about it, opening, taking out with Undo; data in `rule-list-model.js`) |
 | A `#` reference in a text | `reference-picker.js` |
+| The guards of a scope: one shield and its popup (names, switch, Detach; "Add a guard") | `editor/guards.js` (`shieldButton`), `guards/guard-popover.js` (a `popover` with `popover__option`, `ge-switch` and catalog buttons) |
 | An icon | `icons.js` (`icon("name")`), the paths in `templates/components/icons.html`; a node kind's glyph in the menus is its manifest's `menu_icon` (else `ui.icon`) |
 
 ## Dialogs are sized by their content

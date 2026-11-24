@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-036](036-ui-conventions-and-lane-settings.md) (the destructive look is one variant of the catalog; its rules stay)  
-**Amended by:** —  
+**Amended by:** — (addenda in this record: dialogs sized by their content; a window that saves carries its name in its title)  
 **Implemented in:** `static/css/tokens.css` (the `--btn-*` and `--button-primary-*` tokens, `--color-pulse`), `static/css/forms.css` (`.button` and its variants, `.chip-button`, the one disabled look), `static/css/components.css` (`.icon-button`, `.task-tab`), `static/css/avatar.css`; tests `tests/e2e/test_ui_catalog.py`  
 **Affected chapters:** [UI catalog guide](../../guides/ui-catalog.md), [Extending](../../guides/extending.md), arc42 [05.04](../arc42/05-building-block-view/05.04-frontend-components.md)
 
@@ -77,3 +77,19 @@ with one select and three buttons had been about 700 px wide because every dialo
   window, the retention rules, the artifact fields and an agent version (`wide`). The node settings are declared `wide` only
   for kinds with two columns; an action's settings (one select) are compact all the same, because `wide` raises the cap and
   does not set a width.
+
+## 5. Addendum 2026-11-24: a window that saves carries its name in its title
+
+The owner's rule: **a window with a Save button (where something is created or edited, not a display-only window)
+carries the name of the thing in its title bar as an inline rename; there is no separate Name row.** The title reads
+"Kind – NAME" (an en dash between them), the name is `inline-name.js` (click, Enter or Space edits; Enter keeps, Escape
+leaves only the field, as everywhere), its maximum length is the server's, and where a thing needs a name an empty one
+is refused with a hint under the field instead of being dropped silently. A new thing starts with the name as its
+field.
+
+- Applied: the retention rule (ADR-052), the settings of a node (its title), the guard editor (ADR-060 addendum).
+- Not yet applied (they keep a Name row until they are changed; the list is the owner's to schedule): the name dialog of
+  the Pipelines and Actions pages (*New*, *Rename*), the *New* dialog of the pipeline editor (a new action or pipeline
+  from a node), *New agent* and the agent's name dialog (name and description), *Add lane* (lane name), the LLM provider
+  dialog, the credential dialog, and *Create artifact* (its title is its name). The artifact fields dialog names many
+  fields in rows, not one thing, and is not covered by the rule.

@@ -34,7 +34,7 @@ should use `/api/v1` and MCP. Open without a token: `/health`, `/login`, `/logou
 
 Errors are JSON `{"detail": "..."}`. The columns "Errors" below list the statuses specific to a route in
 addition to these. The OpenAPI schema (`/api/docs`, `/openapi.json`) declares them per route and lists the
-72 operations of the API only (the HTML pages are not part of it); `tests/test_openapi.py` guards the contract.
+190 operations of the API only (the HTML pages are not part of it); `tests/test_openapi.py` guards the contract.
 
 ## Integration API (`/api/v1`)
 
@@ -111,21 +111,30 @@ Guide: [Agents and LLM providers](agents.md).
 
 ### Guards and heartbeat (ADR-060)
 
+A guard is a **definition** of the guard library; it watches nothing until it is **attached** to a pipeline, a stage or
+an action ([Guards](guards.md)).
+
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
-| GET | `/api/v1/guards?pipeline_id=` | The guards (of one pipeline) | 422 |
-| POST | `/api/v1/guards` | Create: `pipeline_id`, `name`, `scope_type` (`pipeline`, `stage`, `action`), `scope_id`, `trigger` (`{"type": "event", "events"}` or `{"type": "interval", "every_seconds", "for_seconds", "cooldown_seconds"}`), `when` (a condition tree of the `guard` schema), `consequence` (`pause`, `abort`, `continue`, `run_action`), `fallback`, `escalation`, `definition_id`, `enabled`; `201` | 404, 422 (`notify`/`handover` not available yet, a guard on a guard, an interval under the minimum, a scope that is not in the pipeline) |
-| GET | `/api/v1/guards/{id}` | One guard | 404 |
-| PATCH | `/api/v1/guards/{id}` | Change; a field left out keeps its value | 404, 422 |
-| PUT | `/api/v1/guards/{id}/enabled` | `{"enabled": bool}`; off acts on running executions at once | 404, 422 |
-| DELETE | `/api/v1/guards/{id}` | Delete (its own action stays); `204` | 404 |
+| GET | `/api/v1/guards?pipeline_id=` | The library: each definition with `used_by` and its `attachments` (with `pipeline_id`: only the guards attached to that pipeline) | 422 |
+| POST | `/api/v1/guards` | Create a definition: `name` (120 characters), `description?`, `scope_types?` (`pipeline`, `stage`, `action`; all when left out), `trigger` (`{"type": "event", "events"}` or `{"type": "interval", "every_seconds", "for_seconds", "cooldown_seconds"}`), `when` (a condition tree of the `guard` schema), `consequence` (`pause`, `abort`, `continue`, `run_action`), `fallback`, `escalation`, `action_id` (its own action; `run_action` without one makes an empty one); `201` | 422 (`notify`/`handover` not available yet, a guard on a guard, an interval under the minimum, an empty name) |
+| GET | `/api/v1/guards/templates` | The templates (Stall, Runtime, Health guard) | — |
+| POST | `/api/v1/guards/from-template` | `template`, `name?`, `description?`: the template as a definition, with its own action where it has one; `201` | 404, 422 |
+| GET | `/api/v1/guards/{id}` | One definition | 404 |
+| PATCH | `/api/v1/guards/{id}` | Change; a field left out keeps its value; acts on every place it is attached to (from the next start) | 404, 422 (also: `scope_types` narrowed below where it is attached) |
+| DELETE | `/api/v1/guards/{id}` | Delete (its own action stays); `204` | 404, 409 (attached somewhere: detach it first) |
+| GET | `/api/v1/guard-attachments?pipeline_id=` | Where guards are attached: `id`, `guard_id`, `name`, `pipeline_id`, `scope_type`, `scope_id`, `enabled` | 422 |
+| POST | `/api/v1/guard-attachments` | Attach: `guard_id`, `pipeline_id`, `scope_type`, `scope_id` (left out for the pipeline), `enabled?`; `201` | 404 (guard, pipeline), 409 (attached there already), 422 (a scope the guard may not watch, or not part of the pipeline; a guard on a guard) |
+| GET | `/api/v1/guard-attachments/{id}` | One attachment | 404 |
+| PUT | `/api/v1/guard-attachments/{id}/enabled` | `{"enabled": bool}`; off acts on running executions at once | 404, 422 |
+| DELETE | `/api/v1/guard-attachments/{id}` | Detach; `204` | 404 |
 | POST | `/api/v1/executions/{id}/heartbeat` | `{"note?"}` (200 characters): restart the stall clock of a running execution; answers `execution_id`, `at`, `count` | 404, 409 (not running), 429 (closer than the minimum spacing) |
 
-The browser has the same guard routes under `/api/guards` plus `GET /api/guards/templates`, `POST /api/guards/from-template`
-(`template`, `pipeline_id`, `scope_type`, `scope_id?`, `name?`) and `POST /api/guards/preview` (a guard's body: how many
-running scopes its condition holds for now, with their facts). `GET /api/rules/schemas` (and `/api/rules/schemas/{purpose}`)
-lists the fields, operators and consequences of the rule system (`retention`, `guard`, the planned `lane`). The flow of an
-execution carries `guards`: the counters per scope and guard, the last heartbeat and the firings with their facts.
+The browser has the same routes under `/api/guards` and `/api/guard-attachments`, plus `POST /api/guards/preview`
+(`guard_id`, `when`: how many running scopes of its attachments the condition holds for now, with their facts).
+`GET /api/rules/schemas` (and `/api/rules/schemas/{purpose}`) lists the fields, operators and consequences of the rule
+system (`retention`, `guard`, the planned `lane`). The flow of an execution carries `guards`: the counters per scope and
+guard (by attachment), the last heartbeat and the firings with their facts.
 
 ### Settings (`/api/v1/settings`)
 
@@ -331,8 +340,8 @@ Pipeline, stage and action are given by name.
 | `list_agents` | | The agents: name, description, active, published version, number of nodes; read only |
 | `get_agent` | `agent` (name or id) | One agent: published configuration, draft, versions; read only |
 | `list_providers` | | The LLM providers with their models and the last connection test; never a key; read only |
-| `list_guards` | `pipeline?` (name or id) | The guards: scope, trigger, condition, consequence, escalation, enabled |
-| `set_guard_enabled` | `guard` (name or id), `enabled` | Switch a guard on or off (off acts on running executions at once) |
+| `list_guards` | `pipeline?` (name or id) | The guard library: each definition (trigger, condition, consequence, escalation, scope types) with its attachments (where, on or off); with `pipeline` only the guards attached to it |
+| `set_guard_enabled` | `guard` (an attachment's id, or the guard's name or id when it is attached in one place), `enabled`, `pipeline?` | Switch a guard on or off where it is attached (off acts on running executions at once) |
 | `heartbeat` | `execution_id`, `note?` | Restart the stall clock of a running execution |
 
 Not available through MCP, on purpose: creating, changing, publishing or deleting agents and providers, writing or deleting credentials, deleting executions, changing

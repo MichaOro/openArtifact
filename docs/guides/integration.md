@@ -215,8 +215,8 @@ Tools (14; all go through the same service as the browser and the REST API; argu
 | `get_processing_status(artifact)` | Run state, or `never processed` |
 | `get_processing_results(artifact)` | Steps inside action definitions with output, exit code, reason |
 | `list_activity(artifact, limit?, before?)` | What changed on the artifact and who did it, newest first |
-| `list_guards(pipeline?)` | The guards of the pipelines ([Guards](guards.md)) |
-| `set_guard_enabled(guard, enabled)` | Switch a guard on or off |
+| `list_guards(pipeline?)` | The guard library with where each guard is attached ([Guards](guards.md)) |
+| `set_guard_enabled(guard, enabled, pipeline?)` | Switch a guard on or off where it is attached |
 | `heartbeat(execution_id, note?)` | Say that a running execution still makes progress |
 | `list_comments(artifact, limit?)` | The artifact's comments, oldest first |
 | `add_comment(artifact, text, author?)` | Add a comment; written under the name of your token |
@@ -267,8 +267,18 @@ The Host check, cookie flags and body limit are described in [Reverse proxy](rev
 
 ## Guards and the heartbeat
 
-Guards ([Guards](guards.md)) are managed under `/api/v1/guards` (list, create, change, `PUT .../enabled`,
-delete). An agent or a tool that works for a long time inside one action can keep a stall guard quiet with a heartbeat:
+Guards ([Guards](guards.md)) are a library: the definitions are managed under `/api/v1/guards` (list with
+`used_by`, create, from a template, change, delete, which is refused with `409` while the guard is attached) and
+attached, switched on or off and detached under `/api/v1/guard-attachments`:
+
+```bash
+GUARD=$(curl -s -X POST "$BASE/api/v1/guards/from-template" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"template": "stall"}' | jq -r .id)
+curl -s -X POST "$BASE/api/v1/guard-attachments" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"guard_id\": \"$GUARD\", \"pipeline_id\": \"$PIPELINE\", \"scope_type\": \"pipeline\"}"
+```
+
+An agent or a tool that works for a long time inside one action can keep a stall guard quiet with a heartbeat:
 
 ```bash
 curl -s -X POST -H "Authorization: Bearer $OPENARTIFACT_API_TOKEN" -H "Content-Type: application/json" \

@@ -52,7 +52,7 @@ header lines of each ADR and this table are kept in step. An accepted ADR keeps 
 | Why this stack | ADR-003 (FastAPI), ADR-005 (SQLite), ADR-010 (vanilla JS), ADR-020 (SQLite stays) | ADR-009 is deprecated; ADR-007 (Docker) |
 | Pipelines, actions and the engine | ADR-012, ADR-013, ADR-014 | ADR-018 (typed runs, atomic start), ADR-021, ADR-022 |
 | Execution history | ADR-025 | ADR-026 (origin), ADR-027 (flow replay), ADR-028 (global list) |
-| Rules and guards | ADR-052 (retention rules, rule builder) | ADR-060 (one rule system, guards) |
+| Rules and guards | ADR-052 (retention rules, rule builder) | ADR-060 (one rule system, guards; addendum: the guard library, definitions and attachments) |
 | Security | ADR-008, ADR-016, ADR-017 | ADR-023 (execution nodes), ADR-024 (credential store) |
 | Frontend | ADR-010, ADR-011 (board), ADR-029 (dialogs) | ADR-030 (accessibility scope) |
 | Structure and conventions | ADR-015 (vocabulary), ADR-019 (module boundaries) | ADR-032 (unused model removed) |

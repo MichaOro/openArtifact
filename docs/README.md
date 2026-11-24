@@ -29,7 +29,7 @@ How to run, use, change and test the application.
 | [Execution nodes](guides/execution-nodes.md) | Timer, Code, HTTP and Output nodes: settings, limits, what is and is not isolated |
 | [Agents and LLM providers](guides/agents.md) | Providers and models, agents with drafts and versions, the Agent node, what an execution keeps, limits |
 | [Credentials](guides/credentials.md) | The credential store: API, references from nodes, limits, backup |
-| [Guards](guides/guards.md) | Guards that watch a pipeline, stage or action: triggers, conditions, consequences, heartbeat, limits, templates |
+| [Guards](guides/guards.md) | The guard library and attaching guards to a pipeline, stage or action: the shield, triggers, conditions, consequences, heartbeat, limits, templates |
 | [Execution history](guides/execution-history.md) | Recording, retention, the flow view, the global executions page, the API |
 | [Operate the Docker deployment](guides/operations.md) | Start, update, health, backup and restore of the SQLite volume |
 | [Run behind a reverse proxy](guides/reverse-proxy.md) | nginx and Caddy, TLS, `Host`, forwarded headers, cookie, limits |
