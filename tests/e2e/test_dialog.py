@@ -123,6 +123,24 @@ def test_parent_picker_excludes_the_artifact_and_its_descendants(board: Board) -
     assert sorted(options.all_inner_texts()) == ["No parent", "Other"]
 
 
+def test_parent_picker_keeps_every_option_readable_when_the_list_scrolls(board: Board) -> None:
+    """With many artifacts the list is longer than its box: the rows must keep their height and scroll.
+
+    A flex column squeezed every row to 0 px (rows hide their overflow, so nothing held them open),
+    and the picker looked empty although it had all the artifacts.
+    """
+    for number in range(40):
+        board.create(f"Artifact {number:02d}")
+    dialog = board.open().open_card("Artifact 00")
+    dialog.rail("parent").click()
+    options = dialog.root.locator(".popover:not([hidden]) [role=option]")
+    expect(options).to_have_count(40)  # "No parent" and the 39 others
+    heights = [box["height"] for box in (options.nth(i).bounding_box() for i in (0, 1, 20))]
+    assert all(height >= 24 for height in heights), heights
+    popover = dialog.root.locator(".popover:not([hidden])")
+    assert popover.evaluate("el => el.scrollHeight > el.clientHeight"), "the list should scroll"
+
+
 def test_delete_through_the_rail(board: Board) -> None:
     board.create("Plan")
     dialog = board.open().open_card("Plan")
