@@ -83,3 +83,19 @@ test("the menu names an optional setting with what applies while it is not set",
   assert.equal(optionLabel(s("t", { label: "Temperature", inherits: "agent" }), "0.2"), "Temperature · Agent: 0.2");
   assert.equal(optionLabel(s("t", { label: "Headers" })), "Headers");
 });
+
+test("the plan follows the areas the layout of the kind names: a setting sits where its section says, an empty area is not drawn", () => {
+  const settings = [
+    s("url"),
+    s("user_prompt", { section: "behaviour" }), // moved from Definition into Behaviour by the layout
+    s("retries", { section: "custom_a1" }),
+    s("model", { section: "custom_b2" }),
+  ];
+  const plan = planSettings(settings, node(), { sections: ["definition", "behaviour", "custom_a1", "custom_empty"] });
+  assert.deepEqual(plan.sections.map((x) => x.id), ["definition", "behaviour", "custom_a1"]);
+  assert.deepEqual(plan.sections.map((x) => x.core.map((y) => y.key)), [["url"], ["user_prompt"], ["retries"]]);
+  assert.equal(plan.columns, 2); // three areas: two columns, the third wraps into the next row
+  assert.deepEqual(planSettings(settings.slice(0, 2), node(), { sections: ["behaviour", "definition"] }).sections.map((x) => x.id), ["behaviour", "definition"]);
+  const alone = planSettings([s("url")], node(), { sections: ["definition", "behaviour", "custom_a1"] });
+  assert.equal(alone.columns, 1);
+});

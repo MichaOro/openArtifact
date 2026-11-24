@@ -1,13 +1,16 @@
 /* The arrange view of a manifest window (ADR-063): the window's structure drawn as sections (dashed outlines, a grip each) with
  * their fields as bars (a grip each) in the same grid the window has, so a section or a field can be dragged where it should
  * sit. Drag the grip with the pointer (a line shows where it will land, the window scrolls while the pointer is at its edge,
- * Escape cancels the drag), or focus it and press the arrow keys (Up/Down in a list, Left/Right between the columns; Alt is
- * the same): the move is announced. The pure rules are layout-model.js; this draws and listens.
+ * Escape cancels the drag), or focus it and press the arrow keys (Up/Down in a list and on into the next area, Left/Right to
+ * the neighbouring area; Alt is the same): the move is announced. A field or setting may be dropped into ANY area, an empty
+ * one shows "Drop settings here". "Add area" appends an area of the user's own (a plain title, renamed in place, deleted while
+ * it is empty). The pure rules are layout-model.js; this draws and listens.
  *
  *   const view = new ArrangeView(host, {structure, width, onChange});  view.structure  view.setStructure(s)
  */
 import { icon } from "./icons.js";
-import { blocksOf, fieldPlace, moveFieldBy, moveSectionBy, movedText, placeField, placeSection, sectionPlace } from "./layout-model.js";
+import { InlineName } from "./inline-name.js";
+import { MAX_CUSTOM, TITLE_MAX, addArea, blocksOf, customCount, deleteArea, fieldPlace, moveFieldBy, moveSectionBy, movedText, placeField, placeSection, renameArea, sectionOfField, sectionPlace, slotAmong } from "./layout-model.js";
 import { t } from "../i18n.js";
 
 function make(tag, className = "", text = null) {
@@ -23,6 +26,7 @@ const LABELS = {
   side: (v) => t("components.layout.moved_side", v),
   field: (v) => t("components.layout.moved_field", v),
   folded: (v) => t("components.layout.moved_folded", v),
+  fieldArea: (v) => t("components.layout.moved_field_area", v),
 };
 
 /** The nearest ancestor that scrolls (the dialog), else the document's scroller. */
@@ -42,7 +46,6 @@ function indexAt(items, y) {
   }).length;
 }
 
-const inside = (box, x, y) => x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
 
 export class ArrangeView {
   /**
@@ -56,6 +59,7 @@ export class ArrangeView {
     this.onChange = onChange;
     this.current = structure;
     this.drag = null;
+    this.names = new Map(); // custom area key -> its InlineName
     this.live = make("div", "visually-hidden");
     this.live.setAttribute("role", "status");
     host.addEventListener("pointerdown", (event) => this.#start(event));
@@ -73,6 +77,7 @@ export class ArrangeView {
   }
 
   render(focusKey = null) {
+    this.names.clear();
     const root = make("div", "lw-arrange");
     root.dataset.mode = this.current.mode;
     if (this.width) root.style.setProperty("--lw-width", `${this.width}rem`);
@@ -109,7 +114,7 @@ export class ArrangeView {
         root.append(grid);
       });
     }
-    root.append(this.live);
+    root.append(this.#addTile(), this.live);
     this.host.replaceChildren(root);
     if (focusKey) this.host.querySelector(`[data-grip-key="${CSS.escape(focusKey)}"]`)?.focus({ preventScroll: true });
   }
@@ -130,8 +135,17 @@ export class ArrangeView {
   #section(section) {
     const box = make("fieldset", "lw-section");
     box.dataset.section = section.key;
+    box.dataset.custom = section.custom ? "true" : "false";
     const head = make("legend", "lw-section__head");
-    head.append(this.#grip(t("components.layout.move_section", { title: section.title }), `s:${section.key}`, "section"), make("span", "lw-section__title", section.title));
+    head.append(this.#grip(t("components.layout.move_section", { title: section.title }), `s:${section.key}`, "section"));
+    const title = make("span", "lw-section__title", section.title);
+    head.append(title);
+    if (section.custom) {
+      // an area of one's own: its title is renamed in place and the area deleted while it is empty
+      title.dataset.areaTitle = section.key;
+      this.names.set(section.key, new InlineName(title, { label: t("components.layout.area_title"), maxLength: TITLE_MAX, onCommit: (value) => this.#rename(section.key, value) }));
+      head.append(this.#remove(section));
+    }
     if (section.column === "full") head.append(make("span", "tag", t("components.layout.full_width")));
     box.append(head);
     if (this.current.mode === "node" && section.key === "definition") {
@@ -165,7 +179,70 @@ export class ArrangeView {
       if (field.required) item.append(make("span", "lw-field__tag", t("components.layout.required")));
       list.append(item);
     }
+    if (!fields.length && !advanced) list.append(make("li", "lw-hint", t("components.layout.drop_here")));
     return list;
+  }
+
+  /** The delete button of an area of one's own: only an empty one can go, the others say what to do first. */
+  #remove(section) {
+    const button = make("button", "icon-button icon-button--sm is-danger lw-section__delete");
+    button.type = "button";
+    button.dataset.deleteArea = section.key;
+    const blocked = section.fields.length > 0;
+    button.setAttribute("aria-label", t("components.layout.delete_area", { title: section.title }));
+    button.title = blocked ? t("components.layout.delete_area_blocked") : t("components.layout.delete_area", { title: section.title });
+    if (blocked) button.setAttribute("aria-disabled", "true");
+    button.append(icon("trash"));
+    button.addEventListener("click", () => {
+      if (blocked) {
+        this.#announce(t("components.layout.delete_area_blocked"));
+        return;
+      }
+      const next = deleteArea(this.current, section.key);
+      if (!next) return;
+      this.current = next;
+      this.render();
+      this.#announce(t("components.layout.area_deleted", { title: section.title }));
+      this.onChange(next);
+    });
+    return button;
+  }
+
+  /** The tile that adds an area of one's own; at the limit it says so. */
+  #addTile() {
+    const button = make("button", "button button--ghost button--sm lw-add");
+    button.type = "button";
+    button.dataset.addArea = "";
+    button.append(icon("plus"), document.createTextNode(t("components.layout.add_area")));
+    if (customCount(this.current) >= MAX_CUSTOM) {
+      button.setAttribute("aria-disabled", "true");
+      button.title = t("components.layout.max_areas", { count: MAX_CUSTOM });
+    }
+    button.addEventListener("click", () => {
+      if (button.getAttribute("aria-disabled") === "true") return;
+      const next = addArea(this.current, t("components.layout.new_area"));
+      if (!next) return;
+      const key = next.sections.at(-1).key;
+      this.current = next;
+      this.render();
+      this.#announce(t("components.layout.area_added", { title: next.sections.at(-1).title }));
+      this.onChange(next);
+      this.names.get(key)?.edit(); // its title is the first thing to give it
+    });
+    return button;
+  }
+
+  #rename(key, value) {
+    const next = renameArea(this.current, key, value);
+    if (!next) return;
+    this.current = next;
+    this.render(`s:${key}`);
+    this.onChange(next);
+  }
+
+  #announce(text) {
+    this.live.textContent = "";
+    window.setTimeout(() => (this.live.textContent = text), 0);
   }
 
   // ── moving ──────────────────────────────────────────────────────────
@@ -194,7 +271,10 @@ export class ArrangeView {
     }
     const [, section, ...rest] = grip.dataset.gripKey.split(":");
     const field = rest.join(":");
-    this.#apply(moveFieldBy(this.current, section, field, direction), "field", { section, field }, grip.dataset.gripKey);
+    const next = moveFieldBy(this.current, section, field, direction);
+    if (!next) return;
+    const now = sectionOfField(next, field); // a field may have gone into another area
+    this.#apply(next, "field", { section: now, field, from: section }, `f:${now}:${field}`);
   }
 
   #start(event) {
@@ -258,19 +338,29 @@ export class ArrangeView {
     const y = event.clientY;
     let target = null;
     if (kind === "field") {
-      const section = this.host.querySelector(`[data-section="${CSS.escape(keys.section)}"]`);
-      const box = section.getBoundingClientRect();
-      if (inside({ left: box.left - 24, right: box.right + 24, top: box.top - 24, bottom: box.bottom + 24 }, x, y)) {
-        const folded = section.querySelector("[data-folded]");
+      // the area nearest to the pointer (within a margin), whichever it is: a field may sit in any of them
+      let best = null;
+      let nearest = 28;
+      for (const candidate of this.host.querySelectorAll(".lw-section")) {
+        const box = candidate.getBoundingClientRect();
+        const distance = Math.hypot(Math.max(box.left - x, 0, x - box.right), Math.max(box.top - y, 0, y - box.bottom));
+        if (distance < nearest) {
+          best = candidate;
+          nearest = distance;
+        }
+      }
+      if (best) {
+        const folded = best.querySelector("[data-folded]");
         const useFolded = Boolean(folded) && y >= folded.getBoundingClientRect().top;
-        const list = section.querySelector(`[data-list="${useFolded ? "folded" : "shown"}"]`);
+        const list = best.querySelector(`[data-list="${useFolded ? "folded" : "shown"}"]`);
         const items = [...list.children].filter((c) => c !== element && c.classList.contains("lw-field"));
-        target = { list, anchor: items, index: indexAt(items, y), place: { advanced: useFolded } };
+        target = { list, anchor: items, index: indexAt(items, y), place: { section: best.dataset.section, advanced: useFolded } };
       }
     } else if (this.current.mode === "node") {
-      const lanes = [...this.host.querySelectorAll(".lw-lane")];
-      const lane = lanes.find((l) => inside(l.getBoundingClientRect(), x, y)) ?? null;
-      if (lane) target = { list: lane, anchor: [], index: 0, place: { lane: Number(lane.dataset.lane) } };
+      // the areas flow side by side or one under the other: the slot is read in reading order
+      const lanes = [...this.host.querySelectorAll(".lw-lane")].filter((l) => !l.contains(element));
+      const index = slotAmong(lanes.map((l) => l.getBoundingClientRect()), x, y);
+      target = { list: null, anchor: lanes, index, place: { lane: index }, marks: true };
     } else if (sectionPlace(this.current, keys.section)?.full) {
       const rows = [...this.host.querySelectorAll("[data-block]")].filter((b) => b.classList.contains("lw-row") || b.classList.contains("lw-grid"));
       const index = indexAt(
@@ -292,7 +382,14 @@ export class ArrangeView {
     }
     this.drag.target = target;
     indicator.remove();
+    this.#clearMarks();
     if (!target) return;
+    if (target.marks) {
+      const lane = target.anchor[target.index];
+      if (lane) lane.classList.add("is-drop-before");
+      else target.anchor.at(-1)?.classList.add("is-drop-after");
+      return;
+    }
     if (target.rows) {
       const rows = target.anchor.filter((r) => !r.contains(element));
       if (rows[target.index]) rows[target.index].before(indicator);
@@ -302,6 +399,10 @@ export class ArrangeView {
     const before = target.anchor[target.index];
     if (before) before.before(indicator);
     else target.list.append(indicator);
+  }
+
+  #clearMarks() {
+    for (const lane of this.host.querySelectorAll(".is-drop-before, .is-drop-after")) lane.classList.remove("is-drop-before", "is-drop-after");
   }
 
   #end(event, move, end, cancel) {
@@ -314,14 +415,18 @@ export class ArrangeView {
     window.clearInterval(drag.timer);
     drag.ghost.remove();
     drag.indicator.remove();
+    this.#clearMarks();
     drag.element.classList.remove("is-dragging");
     this.drag = null;
     if (!event || event.type === "pointercancel" || !drag.target) return;
     const { kind, keys, target } = drag;
     if (kind === "field") {
-      const next = placeField(this.current, keys.section, keys.field, { advanced: target.place.advanced, index: target.index });
+      const into = target.place.section;
+      const next = placeField(this.current, keys.section, keys.field, { advanced: target.place.advanced, index: target.index, toSection: into });
       const at = fieldPlace(this.current, keys.section, keys.field);
-      if (next && (at.advanced !== target.place.advanced || at.index !== target.index)) this.#apply(next, "field", keys, `f:${keys.section}:${keys.field}`);
+      if (next && (into !== keys.section || at.advanced !== target.place.advanced || at.index !== target.index)) {
+        this.#apply(next, "field", { section: into, field: keys.field, from: keys.section }, `f:${into}:${keys.field}`);
+      }
       return;
     }
     const next = placeSection(this.current, keys.section, { block: target.place.block ?? 0, lane: target.place.lane ?? 0, index: target.index });

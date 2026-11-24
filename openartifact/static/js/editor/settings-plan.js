@@ -4,7 +4,8 @@
  *
  *  - core: always shown. optional: shown once the node stores a value for it, else offered ("Add setting").
  *  - advanced: folded, and open while one of them has a value, so a configured value is never hidden.
- *  - a section without anything is not part of the plan; two columns only when both sections have something. */
+ *  - a section without anything is not part of the plan (so an empty area of the user's own is not drawn); two columns when
+ *    there are two or more sections. */
 
 import { t } from "../i18n.js";
 const SECTIONS = ["definition", "behaviour"];
@@ -25,13 +26,15 @@ export function isSet(node, setting) {
 /**
  * @param {object[]} settings the kind's settings as the server describes them
  * @param {object} node the node (its config holds the values)
- * @param {{skip?: string[], sections?: string[]}} [options] `skip`: keys a kind draws itself; `sections`: the sides, left to right
+ * @param {{skip?: string[], sections?: string[]}} [options] `skip`: keys a kind draws itself; `sections`: the areas, in order
+ *   (the saved layout of the kind names Definition, Behaviour and the user's own; a setting's `section` is the area it sits in)
  * @returns {{columns: 1|2, sections: {id: string, core: object[], shown: object[], available: object[], advanced: {settings: object[], open: boolean}}[]}}
  */
 export function planSettings(settings, node, { skip = [], sections: order = SECTIONS } = {}) {
   const left = settings.filter((s) => !skip.includes(s.key));
-  // the sides left to right: the saved layout of the kind (ADR-063) may swap them; a side it does not name keeps its place
-  const ids = [...order.filter((id) => SECTIONS.includes(id)), ...SECTIONS.filter((id) => !order.includes(id))];
+  // the areas in order: the saved layout of the kind (ADR-063) may swap them and add areas of the user's own; a shipped area it
+  // does not name comes after them
+  const ids = [...order, ...SECTIONS.filter((id) => !order.includes(id))];
   const sections = ids.map((id) => {
     const own = left.filter((s) => (s.section ?? "definition") === id);
     const optional = own.filter((s) => s.level === "optional");
@@ -44,7 +47,7 @@ export function planSettings(settings, node, { skip = [], sections: order = SECT
       advanced: { settings: advanced, open: advanced.some((s) => isSet(node, s)) },
     };
   }).filter((s) => s.core.length || s.shown.length || s.available.length || s.advanced.settings.length);
-  return { columns: sections.length === 2 ? 2 : 1, sections };
+  return { columns: sections.length >= 2 ? 2 : 1, sections };
 }
 
 /** Settings of one group together, in the order declared; settings without a group are their own entries. */

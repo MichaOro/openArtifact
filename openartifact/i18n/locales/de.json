@@ -1681,5 +1681,15 @@
  "tasks.references.no_artifact_number": "Kein Artefakt #{number}",
  "editor.connect_menu.connects_from": "Verbindet von: {node} · {port}",
  "editor.connect_menu.nothing_fits": "Hier lässt sich kein Node anschließen.",
- "editor.connect_menu.disconnected": "Getrennt von {names}."
+ "editor.connect_menu.disconnected": "Getrennt von {names}.",
+ "components.layout.add_area": "Bereich hinzufügen",
+ "components.layout.new_area": "Neuer Bereich",
+ "components.layout.area_title": "Titel des Bereichs",
+ "components.layout.area_added": "Bereich {title} hinzugefügt",
+ "components.layout.area_deleted": "Bereich {title} gelöscht",
+ "components.layout.delete_area": "Bereich {title} löschen",
+ "components.layout.delete_area_blocked": "Zuerst die Einstellungen herausschieben",
+ "components.layout.drop_here": "Einstellungen hierher ziehen",
+ "components.layout.max_areas": "Höchstens {count} eigene Bereiche",
+ "components.layout.moved_field_area": "{title}: {area}, Position {position}"
 }

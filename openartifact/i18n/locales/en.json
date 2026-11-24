@@ -1162,5 +1162,15 @@
  "tasks.references.no_artifact_number": "No artifact #{number}",
  "editor.connect_menu.connects_from": "Connects from: {node} · {port}",
  "editor.connect_menu.nothing_fits": "No node can be connected here.",
- "editor.connect_menu.disconnected": "Disconnected from {names}."
+ "editor.connect_menu.disconnected": "Disconnected from {names}.",
+ "components.layout.add_area": "Add area",
+ "components.layout.new_area": "New area",
+ "components.layout.area_title": "Area title",
+ "components.layout.area_added": "Area {title} added",
+ "components.layout.area_deleted": "Area {title} deleted",
+ "components.layout.delete_area": "Delete area {title}",
+ "components.layout.delete_area_blocked": "Move its settings out first",
+ "components.layout.drop_here": "Drop settings here",
+ "components.layout.max_areas": "At most {count} areas of your own",
+ "components.layout.moved_field_area": "{title}: {area}, position {position}"
 }

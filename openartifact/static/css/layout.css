@@ -137,3 +137,23 @@
   background: var(--color-glass-card);
   box-shadow: var(--shadow-card-hover);
 }
+
+/* a list that holds nothing yet: where a field may be dropped */
+.lw-hint {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-sm);
+  list-style: none;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+/* an area of one's own: renamed in place, deleted while empty */
+.lw-section__title[data-area-title] { min-width: 3rem; }
+.lw-section__delete { margin-left: auto; }
+.lw-section__delete[aria-disabled="true"] { cursor: not-allowed; }
+.lw-add { align-self: flex-start; }
+/* where a dragged area will land in a grid of areas: a bar on the edge it goes before or after */
+.lw-lane.is-drop-before { box-shadow: inset 4px 0 0 var(--layout-accent), inset 0 4px 0 var(--layout-accent); }
+.lw-lane.is-drop-after { box-shadow: inset -4px 0 0 var(--layout-accent), inset 0 -4px 0 var(--layout-accent); }

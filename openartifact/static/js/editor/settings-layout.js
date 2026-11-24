@@ -1,7 +1,8 @@
 /* The settings of a node as the dialog shows them (ADR-053): one canonical layout for every kind. What is shown is
  * decided by settings-plan.js from what the server says about each setting (section, level, parent); this draws it:
  *
- *  - *Definition* (left) and *Behaviour* (right) columns, two only when both have something, stacked when narrow;
+ *  - *Definition* (left) and *Behaviour* (right) areas, and areas of the user's own (ADR-063), two columns when two or more have
+ *    something, stacked when narrow; a setting sits in the area the layout of its kind puts it in;
  *  - core settings always, optional ones once set or added through "Add setting", advanced ones folded;
  *  - a setting that has a parent supplying its value is an override row (components/override-row.js);
  *  - groups: in Definition a group of settings folds when unused (If conditions, Switch cases); in Behaviour a
@@ -45,6 +46,7 @@ const TITLES = { definition: t("editor.node_types.definition"), behaviour: t("ed
  */
 export function buildSettings({ node, editor, suggest, skip = [], extras = [], inheritance = null }) {
   const type = typeOf(node);
+  const titles = { ...TITLES, ...(type.layout?.titles ?? {}) };
   const plan = planSettings(type.settings, node, { skip, sections: type.layout?.sections });
   const order = new Map(type.settings.map((s, i) => [s.key, i]));
   const redraw = () => (inheritance ? inheritance.refresh() : editor.refresh());
@@ -124,10 +126,10 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     return createControl(setting, settingValue(node, setting), save(setting), suggest).element;
   };
 
-  /** A group in Definition folds while unused; a group of Behaviour is a titled block. */
+  /** A group in Definition folds while unused; a group in any other area is a titled block. */
   const groupOf = (group, rows, section, settings) => {
     if (group === null) return rows;
-    if (section === "behaviour") {
+    if (section !== "definition") {
       const block = make("section", "ge-settings__group");
       block.dataset.group = group;
       block.append(make("h4", "ge-settings__group-title", group), ...rows);
@@ -165,7 +167,8 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
   const column = (section) => {
     const el = make("div", "ge-settings__column");
     el.dataset.section = section.id;
-    if (plan.columns === 2) el.append(make("h3", "ge-settings__title", TITLES[section.id]));
+    // the title of an area says which side it is when there are two; an area of the user's own always shows the title they gave it
+    if (plan.columns === 2 || section.id in (type.layout?.titles ?? {})) el.append(make("h3", "ge-settings__title", titles[section.id] ?? section.id));
     if (section.id === "definition") el.append(...extras);
     const added = open();
     const visible = [...section.core, ...section.shown, ...section.available.filter((s) => added.has(s.key))].sort((a, b) => order.get(a.key) - order.get(b.key));
