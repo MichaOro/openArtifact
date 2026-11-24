@@ -468,3 +468,16 @@
 .modal__panel .gd-step select { width: auto; min-width: 8rem; }
 .gd-preview:empty { display: none; }
 .gd-delete { margin-right: auto; }
+
+/* The add menu opened at the pointer for a line released on the empty canvas (static/js/editor/connect-menu.js): the
+ * same menu as under the "+", fixed at the point, with a line that says where the line comes from. */
+.ge-add__menu.is-anchored { position: fixed; z-index: 30; }
+.ge-add__from {
+  margin: 0;
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--glass-border);
+  overflow-wrap: anywhere;
+}
+.ge-add__from[hidden] { display: none; }

@@ -3,6 +3,7 @@
  * the kinds themselves (name or kind), as one list that says each one's cluster. Arrow keys move, Enter adds the first
  * match, Escape closes. */
 import { icon } from "../components/icons.js";
+import { placePopover } from "../components/popover.js";
 import { addableIn, groupAddable, placeholdersIn, searchAddable } from "./node-types.js";
 import { t } from "../i18n.js";
 
@@ -17,13 +18,16 @@ export class AddMenu {
     this.toggle = root.querySelector("[data-add-menu]");
     this.list = root.querySelector("[data-add-list]");
     this.types = [...addableIn(scope), ...placeholdersIn(scope)];
+    this.baseTypes = this.types;
+    this.anchored = null; // set while the menu is open at a point for a line released on the canvas (openFrom)
     this.open = null; // the cluster that is open
     this.search = Object.assign(document.createElement("input"), { type: "search", className: "field__control ge-add__search", placeholder: t("editor.add_menu.search_nodes"), autocomplete: "off", spellcheck: false });
     this.search.setAttribute("aria-label", t("editor.add_menu.search_nodes_2"));
     this.items = document.createElement("div");
     this.items.className = "ge-add__items";
     this.empty = Object.assign(document.createElement("p"), { className: "ge-add__empty", textContent: t("editor.add_menu.no_node_matches"), hidden: true });
-    this.list.append(this.search, this.items, this.empty);
+    this.from = Object.assign(document.createElement("p"), { className: "ge-add__from", hidden: true });
+    this.list.append(this.from, this.search, this.items, this.empty);
     this.#fill();
 
     this.search.addEventListener("input", () => this.#fill());
@@ -48,8 +52,9 @@ export class AddMenu {
       }
       const item = event.target.closest("[data-add]");
       if (!item) return;
+      const pick = this.anchored?.onPick ?? onPick; // read before closing: closing ends the anchored mode
       this.#setOpen(false);
-      onPick(item.dataset.add);
+      pick(item.dataset.add);
     });
     this.list.addEventListener("keydown", (event) => this.#key(event));
     document.addEventListener("pointerdown", (event) => {
@@ -85,9 +90,33 @@ export class AddMenu {
     return item;
   }
 
+  /**
+   * Open the same menu at a point instead of under the "+": for a line that was released on the empty canvas. It offers the
+   * given kinds only, says where the line comes from, and closes (cancelling everything) on Escape or a click elsewhere.
+   * @param {{x: number, y: number}} point where the pointer was released (page coordinates)
+   * @param {{types: object[], header: string, emptyText: string, onPick: (kind: string) => void}} options
+   */
+  openFrom({ x, y }, { types, header, emptyText, onPick }) {
+    this.#setOpen(false);
+    this.anchored = { onPick, emptyText };
+    this.types = types;
+    this.from.textContent = header;
+    this.from.hidden = false;
+    this.list.classList.add("is-anchored");
+    this.#setOpen(true);
+    placePopover(this.list, (size) => ({ left: x, top: y, flipTop: y - size.height }));
+    this.search.focus();
+  }
+
   /** Draw what the search says: the clusters (one open), or the matching kinds as one list. */
   #fill() {
     const query = this.search.value.trim();
+    if (this.anchored && !this.types.length) {
+      this.items.replaceChildren();
+      this.empty.textContent = this.anchored.emptyText;
+      this.empty.hidden = false;
+      return;
+    }
     if (query) {
       const found = searchAddable(this.types, query);
       this.items.replaceChildren(...found.map((t) => this.#item(t, t.group)));
@@ -125,6 +154,14 @@ export class AddMenu {
   }
 
   #setOpen(open) {
+    if (!open && this.anchored) {
+      this.anchored = null;
+      this.types = this.baseTypes;
+      this.from.hidden = true;
+      this.list.classList.remove("is-anchored");
+      this.list.style.left = this.list.style.top = "";
+      this.empty.textContent = t("editor.add_menu.no_node_matches");
+    }
     this.list.hidden = !open;
     this.toggle.setAttribute("aria-expanded", String(open));
     if (open) {

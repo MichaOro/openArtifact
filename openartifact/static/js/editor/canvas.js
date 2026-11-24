@@ -21,6 +21,7 @@ const RESIZE_STEP = 10; // a key press on a resize handle changes the stage by t
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
 const NUDGE = 8;
+const RELEASE_MIN = 12; // a line must be dragged this far (screen pixels) before releasing it on the canvas opens the menu
 
 const svg = (name, attributes = {}) => {
   const el = document.createElementNS(SVG_NS, name);
@@ -571,7 +572,7 @@ export class Canvas {
     this.edgeLayer.append(line);
     // pressed at an input the line is drawn the other way round: it ends at an output that can feed this input
     const reverse = port.dataset.direction === "input";
-    this.gesture = { type: "connect", pointerId: event.pointerId, node, port: port.dataset.port, slot, from, reverse, box: boxOf(node, this.nodes), line };
+    this.gesture = { type: "connect", pointerId: event.pointerId, node, port: port.dataset.port, slot, from, reverse, box: boxOf(node, this.nodes), line, direction: port.dataset.direction, startX: event.clientX, startY: event.clientY };
     const start = { node, port: port.dataset.port, direction: port.dataset.direction };
     for (const el of this.viewport.querySelectorAll(reverse ? '.ge-port:not([data-direction="input"])' : '.ge-port:not([data-direction="output"])')) {
       const other = { node: this.nodes.get(el.dataset.nodeId), port: el.dataset.port, direction: el.dataset.direction };
@@ -659,6 +660,7 @@ export class Canvas {
     if (g.type === "connect") {
       const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".ge-port.is-valid");
       this.#cancelGesture();
+      if (!target) this.#released(g, event);
       if (target) {
         const other = this.nodes.get(target.dataset.nodeId);
         const slots = { source_slot: g.slot, target_slot: Number(target.dataset.slot) };
@@ -687,6 +689,24 @@ export class Canvas {
     if (g.type === "move" && g.moved) for (const { node } of g.items) this.handlers.onMoved(node);
     // a click on one node of a selection of several selects that node alone
     if (g.type === "move" && !g.moved && g.group) this.handlers.onSelect({ type: "node", id: g.node.id });
+  }
+
+  /** A line dragged from a port and released on the empty canvas (or an empty stretch of a stage): the editor opens the menu of what can be connected there. */
+  #released(g, event) {
+    if (this.readOnly || Math.hypot(event.clientX - g.startX, event.clientY - g.startY) < RELEASE_MIN) return;
+    const over = document.elementFromPoint(event.clientX, event.clientY);
+    if (!over || !this.viewport.contains(over) || over.closest(".ge-port, .ge-edge-bar, button, input")) return;
+    const el = over.closest(".ge-node");
+    if (el && !el.classList.contains("ge-node--stage")) return; // released on a node (not on a port that fits): nothing happens, as before
+    this.handlers.onConnectRelease?.({
+      node: g.node,
+      port: g.port,
+      slot: g.slot,
+      direction: g.direction,
+      point: { x: event.clientX, y: event.clientY },
+      world: this.#toWorld(event),
+      stageId: el?.dataset.nodeId ?? null,
+    });
   }
 
   #endMarquee(g) {

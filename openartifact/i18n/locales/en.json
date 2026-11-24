@@ -1159,5 +1159,8 @@
  "tasks.processing.did_not_work": "That did not work.",
  "tasks.processing.pipelines_could_not_be_loaded": "The pipelines could not be loaded.",
  "tasks.processing.stop_processing": "Stop processing",
- "tasks.references.no_artifact_number": "No artifact #{number}"
+ "tasks.references.no_artifact_number": "No artifact #{number}",
+ "editor.connect_menu.connects_from": "Connects from: {node} · {port}",
+ "editor.connect_menu.nothing_fits": "No node can be connected here.",
+ "editor.connect_menu.disconnected": "Disconnected from {names}."
 }

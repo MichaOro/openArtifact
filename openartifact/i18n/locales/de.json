@@ -1678,5 +1678,8 @@
  "tasks.processing.did_not_work": "Das hat nicht geklappt.",
  "tasks.processing.pipelines_could_not_be_loaded": "Die Pipelines konnten nicht geladen werden.",
  "tasks.processing.stop_processing": "Verarbeitung stoppen",
- "tasks.references.no_artifact_number": "Kein Artefakt #{number}"
+ "tasks.references.no_artifact_number": "Kein Artefakt #{number}",
+ "editor.connect_menu.connects_from": "Verbindet von: {node} · {port}",
+ "editor.connect_menu.nothing_fits": "Hier lässt sich kein Node anschließen.",
+ "editor.connect_menu.disconnected": "Getrennt von {names}."
 }

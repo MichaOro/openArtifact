@@ -13,6 +13,8 @@ import { AddMenu } from "./add-menu.js";
 import { createGraph, listGraphs } from "./api.js";
 import { Canvas } from "./canvas.js";
 import { copyOf, pastePlan } from "./clipboard.js";
+import { ConnectMenu } from "./connect-menu.js";
+import { choosePort, connectionFor, placement, replacedEdges } from "./connect-plan.js";
 import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextToolPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
 import { GraphModel } from "./graph-model.js";
 import { InspectorBlocks } from "./inspector.js";
@@ -74,6 +76,7 @@ export class GraphEditor {
         onMoved: (node) => this.#persistPosition(node),
         onResized: (node) => this.#persistSize(node),
         onConnect: (source, port, target, targetPort, slots) => this.#connect(source, port, target, targetPort, slots),
+        onConnectRelease: (origin) => this.connectMenu.open(origin),
         onDelete: (selection) => this.requestDelete(selection),
         onEdgeDelete: (id) => this.#removeEdge(id),
         onEdgeStyle: (edge, style) => this.#restyle(edge, style),
@@ -86,12 +89,14 @@ export class GraphEditor {
     this.menu = new ActionMenu();
     this.pastes = 0; // how often the same copy was pasted: each paste is placed a little further
 
-    new AddMenu(
+    const addMenu = new AddMenu(
       root,
       this.model.kind,
       (kind) => (typeOf(kind).tool ? this.#addTool(kind) : this.#addBeforeEnd(kind)),
       (key) => key === "guard" && this.guards?.add(this.guards.rootType, this.model.graph.id, root.querySelector("[data-add-menu]")),
     );
+    // a line released on the empty canvas opens the same menu at the pointer (connect-menu.js)
+    this.connectMenu = new ConnectMenu({ addMenu, scope: this.model.kind, nodes: this.nodes, onChoose: (choice) => this.#addFromPort(choice) });
     this.#setUpGuards(root);
     root.querySelector("[data-zoom-in]").addEventListener("click", () => this.canvas.zoomBy(1.2));
     root.querySelector("[data-zoom-out]").addEventListener("click", () => this.canvas.zoomBy(1 / 1.2));
@@ -264,6 +269,41 @@ export class GraphEditor {
   async #addAction(stage) {
     const created = await this.#create({ kind: "action", stage_id: stage.id, ...nextActionPosition(stage, this.nodes) });
     if (created) await this.#growStage(stage);
+  }
+
+  /**
+   * A kind chosen from the menu of a line released on the canvas (connect-menu.js): make the node where the line ended and
+   * connect it at once. The connection that already left the dragged output is dissolved (the server replaces it) and the
+   * notice names it; if the server refuses, its message is shown, the new node is taken back and nothing else changed.
+   */
+  async #addFromPort({ origin, kind, stage }) {
+    const port = choosePort(origin, kind, stage);
+    if (!port) return;
+    const spec = placement({ origin, kind, release: origin.world, nodes: this.nodes, edges: this.edges, stage });
+    const replaced = replacedEdges(origin, this.edges, this.nodes);
+    const created = await this.#create(spec);
+    if (!created) return;
+    if (spec.stage_id) await this.#growStage(stage);
+    const link = connectionFor(origin, created, port.name);
+    const saved = await this.#save(async () => {
+      const previous = this.model.edgeFrom(link.source_id, link.source_port);
+      const edge = await this.model.connect({ ...link, style: previous?.style });
+      for (const [id, old] of this.edges) if (old.source_id === link.source_id && old.source_port === link.source_port) this.edges.delete(id);
+      this.edges.set(edge.id, edge);
+    });
+    if (!saved) {
+      try {
+        await this.model.deleteNode(created.id);
+      } catch {
+        /* the graph was reloaded from the server: what it still holds is what it shows */
+      }
+      this.nodes.delete(created.id);
+      this.canvas.sync();
+      return;
+    }
+    this.canvas.drawEdges();
+    this.#renderInspector();
+    if (replaced.length) this.alert.show(t("editor.connect_menu.disconnected", { names: replaced.map((r) => `'${r.name}'`).join(", ") }), { autoHide: 6000 });
   }
 
   async #create(fields) {
