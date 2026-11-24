@@ -367,20 +367,43 @@ def build_mcp(
 
         @mcp.tool()
         async def list_guards(pipeline: str | None = None) -> list[dict[str, Any]]:
-            """The guards (ADR-060), of one pipeline (name or id) or of all: what each watches (``scope_type``,
-            ``scope_id``), its trigger (an event of the scope or an interval), its condition (``when``), its
-            consequence (pause, abort, continue, run_action), its escalation steps and whether it is enabled."""
+            """The guard library (ADR-060): each definition with its trigger (an event of the scope or an interval),
+            its condition (``when``), its consequence (pause, abort, continue, run_action), its escalation steps, the
+            scope types it may watch, and its ``attachments``: where it watches (``scope_type``, ``scope_id``,
+            ``pipeline_id``) and whether it is switched on there (``enabled``). With ``pipeline`` (name or id): only
+            the guards attached to that pipeline."""
             pipeline_id = None
             if pipeline is not None:
                 pipeline_id = _named(await guarded(service.pipelines()), pipeline, "pipeline")["id"]
             return [g.model_dump(mode="json") for g in await guarded(guards.list(pipeline_id))]
 
         @mcp.tool()
-        async def set_guard_enabled(guard: str, enabled: bool) -> dict[str, Any]:
-            """Switch a guard (name or id) on or off. Off acts at once on running executions (it no longer fires);
-            on acts on executions started afterwards."""
-            listed = [g.model_dump(mode="json") for g in await guarded(guards.list())]
-            chosen = _named(listed, guard, "guard")
+        async def set_guard_enabled(
+            guard: str, enabled: bool, pipeline: str | None = None
+        ) -> dict[str, Any]:
+            """Switch a guard on or off where it is attached. ``guard``: the attachment's id, or the guard's name or
+            id when it is attached in one place (narrow it with ``pipeline``, name or id). Off acts at once on
+            running executions (it no longer fires); on acts on executions started afterwards."""
+            pipeline_id = None
+            if pipeline is not None:
+                pipeline_id = _named(await guarded(service.pipelines()), pipeline, "pipeline")["id"]
+            places = [
+                a.model_dump(mode="json") for a in await guarded(guards.attachments(pipeline_id))
+            ]
+            chosen = next((a for a in places if a["id"] == guard), None)
+            if chosen is None:
+                definitions = [
+                    g.model_dump(mode="json") for g in await guarded(guards.list(pipeline_id))
+                ]
+                found = _named(definitions, guard, "guard")
+                where = [a for a in places if a["guard_id"] == found["id"]]
+                if len(where) != 1:
+                    ids = ", ".join(a["id"] for a in where) or "none"
+                    raise McpError(
+                        f"The guard '{found['name']}' is attached in {len(where)} places: name the attachment "
+                        f"(one of: {ids}) or the pipeline"
+                    )
+                chosen = where[0]
             return (await guarded(guards.set_enabled(chosen["id"], enabled))).model_dump(
                 mode="json"
             )

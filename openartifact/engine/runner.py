@@ -45,7 +45,7 @@ from openartifact.graph.node_types import Ports
 from openartifact.guards.monitor import GuardSettings, Monitor, Verdict
 from openartifact.models import (
     Execution,
-    Guard,
+    GuardAttachment,
     NodeKind,
     PipelineRun,
     RunNodeResult,
@@ -607,7 +607,11 @@ class RunEngine:
 
         async def enabled(guard_id: str) -> bool:
             async with self._session() as session:
-                return bool(await session.scalar(select(Guard.enabled).where(Guard.id == guard_id)))
+                return bool(
+                    await session.scalar(
+                        select(GuardAttachment.enabled).where(GuardAttachment.id == guard_id)
+                    )
+                )
 
         return Monitor(
             list(walk.snapshot.get("guards", [])),

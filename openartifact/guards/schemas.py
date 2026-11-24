@@ -1,4 +1,5 @@
-"""The shapes of a guard (ADR-060): where it is attached, what fires it, its condition and its consequence."""
+"""The shapes of a guard (ADR-060): a definition of the library (what fires it, its condition and its consequence) and
+its attachments (where it watches)."""
 
 from __future__ import annotations
 
@@ -29,6 +30,8 @@ EVENTS = ("enter", "pass", "error", "leave", "fail")
 #: What may follow when a guard's own action fails (``run_action``) or when a consequence cannot be carried out.
 FALLBACKS = ("pause", "abort", "continue")
 MAX_ESCALATION_STEPS = 10
+MAX_NAME = 120
+MAX_DESCRIPTION = 500
 MAX_INTERVAL_SECONDS = 7 * 24 * 3600
 NO_GUARDS_ON_GUARDS = "A guard cannot watch a guard (no guards on guards)"
 
@@ -128,31 +131,45 @@ def _steps(steps: list[EscalationStep]) -> list[EscalationStep]:
     return steps
 
 
-class GuardWrite(BaseModel):
-    """Everything of a guard that can be set (a field left out of an update keeps its value)."""
+def _scope_types(values: list[str]) -> list[str]:
+    for value in values:
+        _scope(value)
+    if len(set(values)) != len(values):
+        raise ValueError("each scope type once")
+    return [s for s in SCOPES if s in values]
+
+
+class GuardDefinitionWrite(BaseModel):
+    """Everything of a guard definition that can be set (a field left out of an update keeps its value)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str | None = Field(default=None, min_length=1, max_length=120)
-    scope_type: str | None = None
-    scope_id: str | None = Field(default=None, min_length=1, max_length=36)
+    name: str | None = Field(default=None, min_length=1, max_length=MAX_NAME)
+    description: str | None = Field(default=None, max_length=MAX_DESCRIPTION)
+    scope_types: list[str] | None = Field(default=None, min_length=1, max_length=len(SCOPES))
     trigger: Trigger | None = None
     when: GuardGroup | None = None
     consequence: str | None = None
     fallback: Literal["pause", "abort", "continue"] | None = None
     escalation: list[EscalationStep] | None = Field(default=None, max_length=MAX_ESCALATION_STEPS)
-    definition_id: str | None = None
-    enabled: bool | None = None
+    action_id: str | None = Field(default=None, max_length=36)
+
+    @field_validator("name")
+    @classmethod
+    def _named(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("a guard needs a name")
+        return None if value is None else value.strip()
 
     @field_validator("consequence")
     @classmethod
     def _known_consequence(cls, value: str | None) -> str | None:
         return None if value is None else _consequence(value)
 
-    @field_validator("scope_type")
+    @field_validator("scope_types")
     @classmethod
-    def _known_scope(cls, value: str | None) -> str | None:
-        return None if value is None else _scope(value)
+    def _known_scopes(cls, value: list[str] | None) -> list[str] | None:
+        return None if value is None else _scope_types(value)
 
     @field_validator("escalation")
     @classmethod
@@ -167,31 +184,84 @@ class GuardWrite(BaseModel):
         return when
 
 
-class GuardCreate(GuardWrite):
-    pipeline_id: str = Field(min_length=1, max_length=36)
-    name: str = Field(min_length=1, max_length=120)
-    scope_type: str
+class GuardDefinitionCreate(GuardDefinitionWrite):
+    name: str = Field(min_length=1, max_length=MAX_NAME)
     trigger: Trigger
     consequence: str = "pause"
 
 
-class GuardRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class AttachmentRead(BaseModel):
+    """A guard definition on a scope of a pipeline; ``name`` is the definition's."""
 
     id: str
-    pipeline_id: str
+    guard_id: str
     name: str
+    pipeline_id: str
     scope_type: str
-    scope_id: str | None
+    scope_id: str
+    enabled: bool
+    created_at: UtcDateTime
+
+
+class GuardDefinitionRead(BaseModel):
+    id: str
+    name: str
+    description: str
+    scope_types: list[str]
     trigger: dict[str, Any]
     when: dict[str, Any]
     consequence: str
     fallback: str
     escalation: list[dict[str, Any]]
-    definition_id: str | None
-    enabled: bool
+    action_id: str | None
+    #: How many places it is attached to (a change acts on all of them; it cannot be deleted while used)
+    used_by: int
+    attachments: list[AttachmentRead]
     created_at: UtcDateTime
     updated_at: UtcDateTime
+
+
+class AttachmentCreate(BaseModel):
+    """Attach a definition to a scope: the pipeline itself (``scope_id`` may be left out), a stage or an action of it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    guard_id: str = Field(min_length=1, max_length=36)
+    pipeline_id: str = Field(min_length=1, max_length=36)
+    scope_type: str
+    scope_id: str | None = Field(default=None, min_length=1, max_length=36)
+    enabled: bool = True
+
+    @field_validator("scope_type")
+    @classmethod
+    def _known_scope(cls, value: str) -> str:
+        return _scope(value)
+
+
+class FromTemplate(BaseModel):
+    """A definition made from a shipped template (Stall, Runtime, Health guard)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    template: str = Field(min_length=1, max_length=40)
+    name: str | None = Field(default=None, min_length=1, max_length=MAX_NAME)
+    #: the template's summary when left out (the editor sends it in the reader's language)
+    description: str | None = Field(default=None, max_length=MAX_DESCRIPTION)
+
+
+class PreviewRequest(BaseModel):
+    """The condition being edited, evaluated over the running scopes of the definition's attachments."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    guard_id: str | None = Field(default=None, max_length=36)
+    when: GuardGroup
+
+    @field_validator("when")
+    @classmethod
+    def _bounded(cls, when: GuardGroup) -> GuardGroup:
+        tree.check_bounds(when)
+        return when
 
 
 class GuardEnabled(BaseModel):

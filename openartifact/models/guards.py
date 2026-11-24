@@ -1,4 +1,9 @@
-"""Guards (ADR-060): specialised actions attached to a scope of a pipeline (migration 0046)."""
+"""Guards (ADR-060): a library of guard definitions, attached to scopes of pipelines (migration 0047).
+
+A :class:`GuardDefinition` is what a guard *is* (its trigger, condition, escalation, consequence and own action); it is
+defined once and reused. A :class:`GuardAttachment` says *where* it watches (a pipeline, one of its stages or one of
+its actions) and whether it is switched on there. A change to a definition acts on every place it is attached to.
+"""
 
 from __future__ import annotations
 
@@ -9,14 +14,16 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from openartifact.database import Base
 
+#: Every scope a guard can watch; the default of a definition's ``scope_types``.
+ALL_SCOPES = '["pipeline", "stage", "action"]'
 
-class Guard(Base):
-    """A guard of a pipeline.
+
+class GuardDefinition(Base):
+    """A guard of the library.
 
     Attributes:
-        pipeline_id: The pipeline the guard belongs to (it goes with it).
-        scope_type, scope_id: What it watches: ``pipeline`` (``scope_id`` is the pipeline's id), ``stage`` or
-            ``action`` (a node id of the pipeline). A guard on a guard does not exist.
+        name, description: How it is shown (the name is required, not unique).
+        scope_types: JSON list: the kinds of scope it may be attached to (``pipeline``, ``stage``, ``action``).
         trigger: JSON: ``{"type": "event", "events": [...]}`` or ``{"type": "interval", "every_seconds",
             "for_seconds", "cooldown_seconds"}``.
         condition: JSON: the condition tree (``when``, the ``guard`` schema of ``rules/catalog.py``).
@@ -24,28 +31,50 @@ class Guard(Base):
             not available yet).
         fallback: What follows when the guard's own action fails: ``pause``, ``abort`` or ``continue``.
         escalation: JSON list of steps ``{"from_firing", "every_runs" | "every_seconds"}``.
-        definition_id: The guard's own action (an action definition), run by ``run_action``.
+        action_id: The guard's own action (an action definition), run by ``run_action``.
     """
 
-    __tablename__ = "guards"
+    __tablename__ = "guard_definitions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    pipeline_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("graphs.id", ondelete="CASCADE"), index=True
-    )
     name: Mapped[str] = mapped_column(String(120))
-    scope_type: Mapped[str] = mapped_column(String(16))
-    scope_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
+    scope_types: Mapped[str] = mapped_column(Text, default=ALL_SCOPES, server_default=ALL_SCOPES)
     trigger: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
     condition: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
     consequence: Mapped[str] = mapped_column(String(16), default="pause", server_default="pause")
     fallback: Mapped[str] = mapped_column(String(16), default="pause", server_default="pause")
     escalation: Mapped[str] = mapped_column(Text, default="[]", server_default="[]")
-    definition_id: Mapped[str | None] = mapped_column(
+    action_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("graphs.id", ondelete="SET NULL"), nullable=True, default=None
     )
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
+
+
+class GuardAttachment(Base):
+    """A guard definition attached to a scope of a pipeline.
+
+    Attributes:
+        guard_id: The definition (a definition with attachments cannot be deleted).
+        pipeline_id: The pipeline the scope belongs to (the attachment goes with it).
+        scope_type, scope_id: What it watches: ``pipeline`` (``scope_id`` is the pipeline's id), ``stage`` or
+            ``action`` (a node id of the pipeline; the attachment goes with the node).
+        enabled: Off: it does not watch (acts at once on running executions).
+    """
+
+    __tablename__ = "guard_attachments"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    guard_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("guard_definitions.id", ondelete="CASCADE"), index=True
+    )
+    pipeline_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("graphs.id", ondelete="CASCADE"), index=True
+    )
+    scope_type: Mapped[str] = mapped_column(String(16))
+    scope_id: Mapped[str] = mapped_column(String(36))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

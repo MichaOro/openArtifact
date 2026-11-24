@@ -1,19 +1,23 @@
-"""Guards (ADR-060) through the application: the API, a looping stage with a round guard and its escalation table,
-an interval guard that stops a stalled Code node, the heartbeat, the safety rules and the templates."""
+"""Guards (ADR-060) through the application: the library of definitions and their attachments, a looping stage with a
+round guard and its escalation table, an interval guard that stops a stalled Code node, the heartbeat, the safety
+rules, the templates, the frozen definition of a running execution and the migration of 0046's guards (0047)."""
 
 from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Generator
+from collections.abc import Callable, Generator
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
+from alembic import command
 from openartifact.app import _create_app
 from openartifact.config import Settings
 from tests.helpers import (
+    alembic_config,
     build_pipeline,
     connect,
     graph_url,
@@ -28,6 +32,7 @@ from tests.helpers import (
 from tests.test_history import HEADERS, TOKEN
 
 GUARDS = "/api/guards"
+ATTACHMENTS = "/api/guard-attachments"
 
 
 @pytest.fixture
@@ -54,20 +59,44 @@ def _at_least(field: str, value: int) -> dict[str, Any]:
     return {"type": "condition", "field": field, "op": "at_least", "value": value}
 
 
-def _guard(
-    pipeline: dict[str, Any], scope_type: str, scope_id: str | None, **extra: Any
-) -> dict[str, Any]:
-    body = {
-        "pipeline_id": pipeline["id"],
+def _definition(**extra: Any) -> dict[str, Any]:
+    """A guard definition of the library: fires at every entry of its scope and only records."""
+    return {
         "name": "Round guard",
-        "scope_type": scope_type,
-        "scope_id": scope_id,
         "trigger": {"type": "event", "events": ["enter"]},
         "when": _group(_at_least("runs", 1)),
         "consequence": "continue",
         **extra,
     }
-    return body
+
+
+def _attach(
+    client: TestClient,
+    guard: dict[str, Any],
+    pipeline: dict[str, Any],
+    scope_type: str,
+    scope_id: str | None,
+) -> dict[str, Any]:
+    return post(
+        client,
+        ATTACHMENTS,
+        guard_id=guard["id"],
+        pipeline_id=pipeline["id"],
+        scope_type=scope_type,
+        scope_id=scope_id,
+    )
+
+
+def _guard_on(
+    client: TestClient,
+    pipeline: dict[str, Any],
+    scope_type: str,
+    scope_id: str | None,
+    **extra: Any,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """A definition made for this test and attached to one scope: (definition, attachment)."""
+    guard = post(client, GUARDS, **_definition(**extra))
+    return guard, _attach(client, guard, pipeline, scope_type, scope_id)
 
 
 def _code_definition(
@@ -109,23 +138,55 @@ def _activity(client: TestClient, task: dict[str, Any]) -> list[dict[str, Any]]:
 # ── the API ──────────────────────────────────────────────────────────
 
 
-def test_a_guard_is_created_listed_changed_switched_off_and_deleted(client: TestClient) -> None:
+def test_a_definition_is_created_attached_switched_off_detached_and_only_then_deleted(
+    client: TestClient,
+) -> None:
     pipeline, stage = _looping_pipeline(client)
-    created = post(client, GUARDS, **_guard(pipeline, "stage", stage["id"]))
-    assert (created["scope_type"], created["enabled"], created["consequence"]) == (
-        "stage",
-        True,
+    created = post(client, GUARDS, **_definition())
+    assert (created["used_by"], created["attachments"], created["consequence"]) == (
+        0,
+        [],
         "continue",
     )
-    assert client.get(GUARDS, params={"pipeline_id": pipeline["id"]}).json() == [created]
-    changed = client.patch(f"{GUARDS}/{created['id']}", json={"name": "Renamed"}).json()
-    assert (changed["name"], changed["trigger"]) == ("Renamed", created["trigger"])
-    off = client.put(f"{GUARDS}/{created['id']}/enabled", json={"enabled": False}).json()
-    assert off["enabled"] is False
-    whole = post(client, GUARDS, **_guard(pipeline, "pipeline", None))
+    assert created["scope_types"] == ["pipeline", "stage", "action"]  # every scope unless narrowed
+    placed = _attach(client, created, pipeline, "stage", stage["id"])
+    assert (placed["guard_id"], placed["name"], placed["scope_id"], placed["enabled"]) == (
+        created["id"],
+        "Round guard",
+        stage["id"],
+        True,
+    )
+    whole = _attach(client, created, pipeline, "pipeline", None)
     assert whole["scope_id"] == pipeline["id"]  # a pipeline guard watches its own pipeline
+    [listed] = client.get(GUARDS).json()
+    assert listed["used_by"] == 2 and [a["id"] for a in listed["attachments"]] == [
+        placed["id"],
+        whole["id"],
+    ]
+    assert [
+        a["id"] for a in client.get(ATTACHMENTS, params={"pipeline_id": pipeline["id"]}).json()
+    ] == [
+        placed["id"],
+        whole["id"],
+    ]
+    changed = client.patch(f"{GUARDS}/{created['id']}", json={"name": "Renamed"}).json()
+    assert (changed["name"], changed["trigger"], changed["used_by"]) == (
+        "Renamed",
+        created["trigger"],
+        2,
+    )
+    off = client.put(f"{ATTACHMENTS}/{placed['id']}/enabled", json={"enabled": False}).json()
+    assert (off["enabled"], off["name"]) == (False, "Renamed")
+    used = client.delete(f"{GUARDS}/{created['id']}")
+    assert used.status_code == 409
+    assert "attached in 2 places: detach it first" in used.text
+    assert client.delete(f"{ATTACHMENTS}/{placed['id']}").status_code == 204
+    assert client.delete(f"{ATTACHMENTS}/{whole['id']}").status_code == 204
+    assert client.get(f"{GUARDS}/{created['id']}").json()["used_by"] == 0
     assert client.delete(f"{GUARDS}/{created['id']}").status_code == 204
     assert client.get(f"{GUARDS}/{created['id']}").status_code == 404
+    gone = client.get(f"{ATTACHMENTS}/{placed['id']}")
+    assert gone.status_code == 404 and "Guard attachment not found" in gone.text
 
 
 @pytest.mark.parametrize(
@@ -133,7 +194,10 @@ def test_a_guard_is_created_listed_changed_switched_off_and_deleted(client: Test
     [
         ({"consequence": "notify"}, "needs notifications (MVP 25, card #93)"),
         ({"consequence": "handover"}, "needs handover (MVP 27, card #95)"),
-        ({"scope_type": "guard"}, "no guards on guards"),
+        ({"scope_types": ["guard"]}, "no guards on guards"),
+        ({"scope_types": []}, "at least 1 item"),
+        ({"name": "   "}, "a guard needs a name"),
+        ({"name": "x" * 121}, "at most 120 characters"),
         ({"trigger": {"type": "interval", "every_seconds": 0.1}}, "valid integer"),
         ({"escalation": [{"from_firing": 1}]}, "every N runs or every N seconds"),
         (
@@ -149,35 +213,67 @@ def test_a_guard_is_created_listed_changed_switched_off_and_deleted(client: Test
 def test_what_a_guard_cannot_be_is_refused_with_the_reason(
     client: TestClient, change: dict[str, Any], reason: str
 ) -> None:
-    pipeline, stage = _looping_pipeline(client)
-    response = client.post(GUARDS, json={**_guard(pipeline, "stage", stage["id"]), **change})
+    response = client.post(GUARDS, json={**_definition(), **change})
     assert response.status_code == 422
     assert reason in response.text
 
 
-def test_the_scope_and_the_interval_are_checked_against_the_pipeline_and_the_settings(
+def test_an_attachment_is_checked_against_the_pipeline_and_the_scope_types_of_its_guard(
     client: TestClient,
 ) -> None:
     pipeline, stage = _looping_pipeline(client)
     other = build_pipeline(client, stages=1, name="Other")
-    elsewhere = client.post(GUARDS, json=_guard(pipeline, "stage", other["stages"][0][0]["id"]))
+    guard = post(client, GUARDS, **_definition(scope_types=["stage"]))
+    body = {"guard_id": guard["id"], "pipeline_id": pipeline["id"], "scope_type": "stage"}
+    elsewhere = client.post(ATTACHMENTS, json={**body, "scope_id": other["stages"][0][0]["id"]})
     assert elsewhere.status_code == 422 and "not a stage of this pipeline" in elsewhere.text
-    wrong_kind = client.post(GUARDS, json=_guard(pipeline, "action", stage["id"]))
-    assert wrong_kind.status_code == 422 and "not a action of this pipeline" in wrong_kind.text
+    action = pipeline["stages"][0][1]
+    not_allowed = client.post(
+        ATTACHMENTS, json={**body, "scope_type": "action", "scope_id": action["id"]}
+    )
+    assert not_allowed.status_code == 422
+    assert "The guard 'Round guard' watches a stage, not a action" in not_allowed.text
+    on_a_guard = client.post(ATTACHMENTS, json={**body, "scope_type": "guard", "scope_id": "x"})
+    assert on_a_guard.status_code == 422 and "no guards on guards" in on_a_guard.text
+    no_pipeline = client.post(ATTACHMENTS, json={**body, "pipeline_id": "nope"})
+    assert no_pipeline.status_code == 404 and "Pipeline not found" in no_pipeline.text
+    no_guard = client.post(ATTACHMENTS, json={**body, "guard_id": "nope", "scope_id": stage["id"]})
+    assert no_guard.status_code == 404 and "Guard not found" in no_guard.text
+    post(client, ATTACHMENTS, **body, scope_id=stage["id"])
+    twice = client.post(ATTACHMENTS, json={**body, "scope_id": stage["id"]})
+    assert twice.status_code == 409 and "attached there already" in twice.text
+    narrowed = client.patch(f"{GUARDS}/{guard['id']}", json={"scope_types": ["action"]})
+    assert narrowed.status_code == 422
+    assert "attached to a stage: detach it there first" in narrowed.text
+
+
+def test_the_interval_is_checked_against_the_settings(client: TestClient) -> None:
     interval = {"type": "interval", "every_seconds": 1}
     settings = client.app.state.guards
     settings.min_interval_seconds = 30  # the operator's minimum
     try:
-        short = client.post(GUARDS, json=_guard(pipeline, "stage", stage["id"], trigger=interval))
+        short = client.post(GUARDS, json=_definition(trigger=interval))
     finally:
         settings.min_interval_seconds = 0.2
     assert short.status_code == 422 and "at most every 30 s" in short.text
 
 
-def test_run_action_without_an_action_gets_an_empty_action_definition(client: TestClient) -> None:
+def test_an_attachment_goes_with_its_stage_and_its_actions_and_the_definition_stays(
+    client: TestClient,
+) -> None:
     pipeline, stage = _looping_pipeline(client)
-    guard = post(client, GUARDS, **_guard(pipeline, "stage", stage["id"], consequence="run_action"))
-    definition = client.get(f"/api/actions/{guard['definition_id']}").json()
+    action = pipeline["stages"][0][1]
+    guard, _ = _guard_on(client, pipeline, "stage", stage["id"])
+    _attach(client, guard, pipeline, "action", action["id"])
+    _attach(client, guard, pipeline, "pipeline", None)
+    assert client.delete(f"{graph_url(pipeline)}/nodes/{stage['id']}").status_code == 204
+    left = client.get(f"{GUARDS}/{guard['id']}").json()
+    assert [a["scope_type"] for a in left["attachments"]] == ["pipeline"]
+
+
+def test_run_action_without_an_action_gets_an_empty_action_definition(client: TestClient) -> None:
+    guard = post(client, GUARDS, **_definition(consequence="run_action"))
+    definition = client.get(f"/api/actions/{guard['action_id']}").json()
     assert definition["graph"]["name"] == "Round guard (guard)"
 
 
@@ -202,18 +298,15 @@ def test_a_round_guard_fires_at_round_5_and_8_by_its_escalation_table_and_pauses
     # its own action passes at the first firing and fails at the second: the fallback pauses
     judge = 'import json, sys\nsys.exit(0 if json.load(open("context.json"))["vars"]["guard_firing"] < 2 else 1)'
     body = _code_definition(client, "Judge", judge, "python")
-    post(
+    _guard_on(
         client,
-        GUARDS,
-        **_guard(
-            pipeline,
-            "stage",
-            stage["id"],
-            consequence="run_action",
-            fallback="pause",
-            definition_id=body["id"],
-            escalation=[{"from_firing": 1, "every_runs": 5}, {"from_firing": 2, "every_runs": 3}],
-        ),
+        pipeline,
+        "stage",
+        stage["id"],
+        consequence="run_action",
+        fallback="pause",
+        action_id=body["id"],
+        escalation=[{"from_firing": 1, "every_runs": 5}, {"from_firing": 2, "every_runs": 3}],
     )
     task = make_task(client)
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
@@ -239,18 +332,15 @@ def test_an_interval_guard_stops_a_stalled_code_node_and_aborts_the_run(client: 
     pipeline = build_pipeline(client, stages=1, name="Stall")
     _stage, action = pipeline["stages"][0]
     link(client, pipeline, action, _code_definition(client, "Sleeper", "sleep 30"))
-    post(
+    _guard_on(
         client,
-        GUARDS,
-        **_guard(
-            pipeline,
-            "action",
-            action["id"],
-            name="Stall guard",
-            trigger={"type": "interval", "every_seconds": 1, "for_seconds": 0},
-            when=_group(_at_least("idle", 1)),
-            consequence="abort",
-        ),
+        pipeline,
+        "action",
+        action["id"],
+        name="Stall guard",
+        trigger={"type": "interval", "every_seconds": 1, "for_seconds": 0},
+        when=_group(_at_least("idle", 1)),
+        consequence="abort",
     )
     task = make_task(client)
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
@@ -266,17 +356,14 @@ def test_a_heartbeat_keeps_a_stall_guard_quiet_and_is_rate_limited(client: TestC
     pipeline = build_pipeline(client, stages=1, name="Beat")
     _stage, action = pipeline["stages"][0]
     link(client, pipeline, action, _code_definition(client, "Sleeper", "sleep 4"))
-    post(
+    _guard_on(
         client,
-        GUARDS,
-        **_guard(
-            pipeline,
-            "action",
-            action["id"],
-            trigger={"type": "interval", "every_seconds": 1},
-            when=_group(_at_least("idle", 2)),
-            consequence="abort",
-        ),
+        pipeline,
+        "action",
+        action["id"],
+        trigger={"type": "interval", "every_seconds": 1},
+        when=_group(_at_least("idle", 2)),
+        consequence="abort",
     )
     task = make_task(client)
     started = post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
@@ -305,15 +392,13 @@ def test_a_heartbeat_keeps_a_stall_guard_quiet_and_is_rate_limited(client: TestC
 
 def test_a_switched_off_guard_stops_firing_in_a_running_execution(client: TestClient) -> None:
     pipeline, stage = _looping_pipeline(client)
-    guard = post(
-        client,
-        GUARDS,
-        **_guard(pipeline, "stage", stage["id"], escalation=[{"from_firing": 1, "every_runs": 50}]),
+    _guard, place = _guard_on(
+        client, pipeline, "stage", stage["id"], escalation=[{"from_firing": 1, "every_runs": 50}]
     )
     task = make_task(client)
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
     wait_until(lambda: _activity(client, task), lambda entries: len(entries) >= 1, timeout=60)
-    client.put(f"{GUARDS}/{guard['id']}/enabled", json={"enabled": False})
+    client.put(f"{ATTACHMENTS}/{place['id']}/enabled", json={"enabled": False})
     run = wait_for_run(client, task, "failed", timeout=90)  # the loop ends at the step limit
     assert "steps" in run["note"]
     assert len(_activity(client, task)) <= 2  # at most the one in flight when it was switched off
@@ -325,8 +410,12 @@ def test_the_preview_counts_the_running_scopes_it_would_fire_on(client: TestClie
     link(client, pipeline, action, _code_definition(client, "Sleeper", "sleep 5"))
     task = make_task(client)
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
-    fires = _guard(pipeline, "stage", stage["id"], when=_group(_at_least("runs", 1)))
-    quiet = _guard(pipeline, "stage", stage["id"], when=_group(_at_least("runs", 2)))
+    guard, _ = _guard_on(client, pipeline, "stage", stage["id"], when=_group(_at_least("runs", 5)))
+    fires = {
+        "guard_id": guard["id"],
+        "when": _group(_at_least("runs", 1)),
+    }  # the condition being edited
+    quiet = {"guard_id": guard["id"], "when": _group(_at_least("runs", 2))}
     preview = wait_until(
         lambda: client.post(f"{GUARDS}/preview", json=fires).json(),
         lambda p: p["running_scopes"] == 1,
@@ -337,65 +426,178 @@ def test_the_preview_counts_the_running_scopes_it_would_fire_on(client: TestClie
         and preview["matches"][0]["task_id"] == task["id"]
     )
     assert client.post(f"{GUARDS}/preview", json=quiet).json()["matching"] == 0
+    unattached = client.post(f"{GUARDS}/preview", json={"when": fires["when"]}).json()
+    assert unattached["running_scopes"] == 0  # a new guard watches nothing yet
     client.post(f"/api/tasks/{task['id']}/stop")
 
 
-def test_the_templates_make_guards_and_the_health_guard_brings_its_judging_action(
+def test_the_templates_make_library_guards_and_the_health_guard_brings_its_judging_action(
     client: TestClient,
 ) -> None:
     pipeline, stage = _looping_pipeline(client)
     listed = {t["key"]: t for t in client.get(f"{GUARDS}/templates").json()}
     assert set(listed) == {"stall", "runtime", "health"}
-    health = post(
-        client,
-        f"{GUARDS}/from-template",
-        template="health",
-        pipeline_id=pipeline["id"],
-        scope_type="stage",
-        scope_id=stage["id"],
+    health = post(client, f"{GUARDS}/from-template", template="health")
+    assert (health["name"], health["consequence"], health["fallback"]) == (
+        "Health guard",
+        "run_action",
+        "pause",
     )
-    assert (health["consequence"], health["fallback"]) == ("run_action", "pause")
+    assert health["scope_types"] == ["stage"] and health["used_by"] == 0
+    assert health["description"] == listed["health"]["summary"]
     assert health["escalation"] == [
         {"from_firing": 1, "every_runs": 5},
         {"from_firing": 2, "every_runs": 3},
     ]
-    action = client.get(f"/api/actions/{health['definition_id']}").json()
+    action = client.get(f"/api/actions/{health['action_id']}").json()
     names = {n["name"] for n in action["nodes"]}
     assert {"Judge progress", "Marginal gain"} <= names
     judge = next(n for n in action["nodes"] if n["name"] == "Judge progress")
-    assert "marginal" not in judge["config"]["user_prompt"].lower() or True
     assert '"gain"' in judge["config"]["user_prompt"]
+    _attach(client, health, pipeline, "stage", stage["id"])
+    wrong = client.post(
+        ATTACHMENTS,
+        json={
+            "guard_id": health["id"],
+            "pipeline_id": pipeline["id"],
+            "scope_type": "action",
+            "scope_id": pipeline["stages"][0][1]["id"],
+        },
+    )
+    assert wrong.status_code == 422 and "watches a stage, not a action" in wrong.text
     stall = post(
         client,
         f"{GUARDS}/from-template",
         template="stall",
-        pipeline_id=pipeline["id"],
-        scope_type="pipeline",
+        name="Stall watch",
+        description="Mein Text",
     )
-    assert stall["trigger"]["type"] == "interval" and stall["scope_id"] == pipeline["id"]
-    wrong = client.post(
-        f"{GUARDS}/from-template",
-        json={
-            "template": "health",
-            "pipeline_id": pipeline["id"],
-            "scope_type": "action",
-            "scope_id": stage["id"],
-        },
+    assert (stall["name"], stall["description"], stall["trigger"]["type"]) == (
+        "Stall watch",
+        "Mein Text",
+        "interval",
     )
-    assert wrong.status_code == 422 and "watches a stage" in wrong.text
+    missing = client.post(f"{GUARDS}/from-template", json={"template": "nope"})
+    assert missing.status_code == 404 and "Guard template not found" in missing.text
+    v1 = client.post("/api/v1/guards/from-template", json={"template": "runtime"})
+    assert v1.status_code == 201 and v1.json()["consequence"] == "abort"
 
 
-def test_guards_go_with_their_pipeline_and_the_migration_goes_down(
+def test_a_running_execution_keeps_the_definition_it_started_with_and_the_next_one_takes_the_change(
+    client: TestClient,
+) -> None:
+    pipeline, stage = _looping_pipeline(client)
+    guard, _ = _guard_on(
+        client,
+        pipeline,
+        "stage",
+        stage["id"],
+        consequence="pause",
+        when=_group(_at_least("runs", 5)),
+    )
+    task = make_task(client)
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    changed = {"name": "Renamed", "when": _group(_at_least("runs", 7))}
+    assert client.patch(f"{GUARDS}/{guard['id']}", json=changed).status_code == 200
+    first = wait_for_run(client, task, "stopped", timeout=20)
+    assert first["note"].startswith("Paused by guard Round guard fired at Stage 1: round 5")
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    second = wait_for_run(
+        client, task, "stopped", where=lambda run: run["note"] != first["note"], timeout=20
+    )
+    assert second["note"].startswith("Paused by guard Renamed fired at Stage 1: round 7")
+
+
+def test_guards_attached_to_a_pipeline_go_with_it_and_the_definition_stays(
     client: TestClient, migrated_settings: Settings
 ) -> None:
     pipeline, stage = _looping_pipeline(client)
-    post(client, GUARDS, **_guard(pipeline, "stage", stage["id"]))
+    guard, _ = _guard_on(client, pipeline, "stage", stage["id"])
     assert client.delete(f"/api/pipelines/{pipeline['id']}").status_code == 204
-    assert client.get(GUARDS).json() == []
+    assert client.get(ATTACHMENTS).json() == []
+    assert client.get(f"{GUARDS}/{guard['id']}").json()["used_by"] == 0
     path = migrated_settings.database_url.split("///", 1)[1]
     with sqlite3.connect(path) as conn:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(executions)")}
     assert "guard_state" in columns
+
+
+# ── migration 0047 ───────────────────────────────────────────────────
+
+_GUARD_ROW = (
+    "INSERT INTO guards (id, pipeline_id, name, scope_type, scope_id, trigger, condition, consequence, fallback, "
+    "escalation, definition_id, enabled, created_at, updated_at) VALUES (?, 'p', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+    "'2026-11-01 10:00:00', '2026-11-02 10:00:00')"
+)
+
+
+def test_0047_makes_every_guard_one_definition_and_one_attachment_with_its_id_and_goes_down(
+    at_revision: Callable[[str], Path],
+) -> None:
+    db = at_revision("0046")
+    trigger = json.dumps(
+        {"type": "interval", "every_seconds": 60, "for_seconds": 0, "cooldown_seconds": 600}
+    )
+    when = json.dumps(_group(_at_least("idle", 900)))
+    steps = json.dumps([{"from_firing": 1, "every_runs": 5}])
+    with sqlite3.connect(db) as conn:
+        for graph, kind in (("p", "pipeline"), ("body", "action")):
+            conn.execute(
+                "INSERT INTO graphs (id, name, status, kind, slug, created_at, updated_at) "
+                "VALUES (?, ?, 'draft', ?, ?, '2026-11-01', '2026-11-01')",
+                (graph, graph, kind, graph),
+            )
+        conn.execute(
+            "INSERT INTO graph_nodes (id, graph_id, kind, name, x, y, fail_enabled, config, created_at, updated_at) "
+            "VALUES ('s', 'p', 'stage', 'Draft', 0, 0, 0, '{}', '2026-11-01', '2026-11-01')"
+        )
+        conn.execute(
+            _GUARD_ROW,
+            ("g1", "Stall", "pipeline", "p", trigger, when, "pause", "pause", "[]", None, 1),
+        )
+        conn.execute(
+            _GUARD_ROW,
+            ("g2", "Health", "stage", "s", "{}", when, "run_action", "abort", steps, "body", 0),
+        )
+        conn.execute(
+            _GUARD_ROW,
+            ("g3", "Orphan", "action", "gone", "{}", when, "abort", "pause", "[]", None, 1),
+        )
+    command.upgrade(alembic_config(), "0047")
+    with sqlite3.connect(db) as conn:
+        definitions = conn.execute(
+            "SELECT id, name, scope_types, trigger, condition, consequence, fallback, escalation, action_id "
+            "FROM guard_definitions ORDER BY id"
+        ).fetchall()
+        attachments = conn.execute(
+            "SELECT id, guard_id, pipeline_id, scope_type, scope_id, enabled FROM guard_attachments ORDER BY id"
+        ).fetchall()
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    everywhere = '["pipeline", "stage", "action"]'
+    assert definitions == [
+        ("g1", "Stall", everywhere, trigger, when, "pause", "pause", "[]", None),
+        ("g2", "Health", everywhere, "{}", when, "run_action", "abort", steps, "body"),
+        ("g3", "Orphan", everywhere, "{}", when, "abort", "pause", "[]", None),
+    ]
+    # same ids, same place, same on/off; the guard of a node that is gone watched nothing and is not attached
+    assert attachments == [
+        ("g1", "g1", "p", "pipeline", "p", 1),
+        ("g2", "g2", "p", "stage", "s", 0),
+    ]
+    assert "guards" not in tables
+    command.downgrade(alembic_config(), "0046")
+    with sqlite3.connect(db) as conn:
+        rows = conn.execute(
+            "SELECT id, pipeline_id, name, scope_type, scope_id, consequence, fallback, escalation, definition_id, "
+            "enabled FROM guards ORDER BY id"
+        ).fetchall()
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert rows == [
+        ("g1", "p", "Stall", "pipeline", "p", "pause", "pause", "[]", None, 1),
+        ("g2", "p", "Health", "stage", "s", "run_action", "abort", steps, "body", 0),
+    ]
+    assert not {"guard_definitions", "guard_attachments"} & tables
+    command.upgrade(alembic_config(), "head")
 
 
 # ── MCP ──────────────────────────────────────────────────────────────
@@ -420,14 +622,25 @@ def _tool(client: TestClient, name: str, **arguments: Any) -> tuple[bool, Any]:
     return False, result.get("structuredContent", {}).get("result", json.loads(text))
 
 
-def test_mcp_lists_guards_switches_one_off_and_sends_a_heartbeat(client: TestClient) -> None:
+def test_mcp_lists_the_library_switches_an_attachment_off_and_sends_a_heartbeat(
+    client: TestClient,
+) -> None:
     pipeline, stage = _looping_pipeline(client)
-    guard = post(client, GUARDS, **_guard(pipeline, "stage", stage["id"], name="Loop watch"))
+    guard, place = _guard_on(client, pipeline, "stage", stage["id"], name="Loop watch")
+    post(client, GUARDS, **_definition(name="Unused"))
     error, listed = _tool(client, "list_guards", pipeline="Loop")
     assert not error and [g["id"] for g in listed] == [guard["id"]]
+    assert [a["id"] for a in listed[0]["attachments"]] == [place["id"]]
+    error, everything = _tool(client, "list_guards")
+    assert not error and {g["name"] for g in everything} == {"Loop watch", "Unused"}
     error, off = _tool(client, "set_guard_enabled", guard="loop watch", enabled=False)
-    assert not error and off["enabled"] is False
-    assert client.get(f"{GUARDS}/{guard['id']}").json()["enabled"] is False
+    assert not error and (off["id"], off["enabled"]) == (place["id"], False)
+    assert client.get(f"{ATTACHMENTS}/{place['id']}").json()["enabled"] is False
+    _attach(client, guard, pipeline, "pipeline", None)
+    error, text = _tool(client, "set_guard_enabled", guard="Loop watch", enabled=True)
+    assert error and "attached in 2 places: name the attachment" in text
+    error, on = _tool(client, "set_guard_enabled", guard=place["id"], enabled=True)
+    assert not error and on["enabled"] is True
     error, text = _tool(client, "set_guard_enabled", guard="nope", enabled=True)
     assert error and "Unknown guard 'nope'" in text
     error, text = _tool(client, "heartbeat", execution_id="nothing")

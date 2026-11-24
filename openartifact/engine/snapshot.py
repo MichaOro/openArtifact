@@ -19,7 +19,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from openartifact.agents.freeze import freeze_agents
 from openartifact.graph.node_types import node_type
 from openartifact.graph.repository import GraphRepository
-from openartifact.models import Graph, GraphEdge, GraphNode, Guard, NodeKind
+from openartifact.models import (
+    Graph,
+    GraphEdge,
+    GraphNode,
+    GuardAttachment,
+    GuardDefinition,
+    NodeKind,
+)
 
 
 def _node(node: GraphNode, label: str) -> dict[str, Any]:
@@ -108,38 +115,60 @@ async def build_snapshot(session: AsyncSession, graph: Graph) -> dict[str, Any]:
 
 
 async def freeze_guards(session: AsyncSession, snapshot: dict[str, Any]) -> None:
-    """The enabled guards of the pipeline and of the pipelines it calls (``guards``) and their own actions
-    (``guard_definitions``, apart from ``definitions`` so their node names never clash with the run's references)."""
+    """The switched-on guard attachments of the pipeline and of the pipelines it calls, each with its definition
+    (``guards``), and the guards' own actions (``guard_definitions``, apart from ``definitions`` so their node names
+    never clash with the run's references). A change to a definition after the start does not reach the run."""
     pipelines = [snapshot["id"], *snapshot.get("pipelines", {})]
     rows = (
-        await session.scalars(
-            select(Guard)
-            .where(Guard.pipeline_id.in_(pipelines), Guard.enabled.is_(True))
-            .order_by(Guard.name, Guard.id)
+        await session.execute(
+            select(GuardAttachment, GuardDefinition)
+            .join(GuardDefinition, GuardDefinition.id == GuardAttachment.guard_id)
+            .where(GuardAttachment.pipeline_id.in_(pipelines), GuardAttachment.enabled.is_(True))
+            .order_by(GuardDefinition.name, GuardAttachment.id)
         )
     ).all()
-    snapshot["guards"] = [guard_data(row) for row in rows]
+    snapshot["guards"] = [guard_data(definition, attachment) for attachment, definition in rows]
     bodies: dict[str, Any] = {}
-    for row in rows:
-        if row.definition_id and row.definition_id not in bodies:
-            bodies[row.definition_id] = await graph_of(session, row.definition_id)
+    for _attachment, definition in rows:
+        if definition.action_id and definition.action_id not in bodies:
+            bodies[definition.action_id] = await graph_of(session, definition.action_id)
     snapshot["guard_definitions"] = bodies
     await freeze_agents(session, {"definitions": bodies})
 
 
-def guard_data(row: Guard) -> dict[str, Any]:
-    """A guard as the engine and the API carry it (its JSON columns parsed)."""
+def definition_data(row: GuardDefinition) -> dict[str, Any]:
+    """A guard definition with its JSON columns parsed."""
     return {
         "id": row.id,
-        "pipeline_id": row.pipeline_id,
         "name": row.name,
-        "scope_type": row.scope_type,
-        "scope_id": row.scope_id,
+        "description": row.description or "",
+        "scope_types": json.loads(row.scope_types or "[]"),
         "trigger": json.loads(row.trigger or "{}"),
         "when": json.loads(row.condition or "{}"),
         "consequence": row.consequence,
         "fallback": row.fallback,
         "escalation": json.loads(row.escalation or "[]"),
-        "definition_id": row.definition_id,
-        "enabled": row.enabled,
+        "action_id": row.action_id,
+    }
+
+
+def guard_data(definition: GuardDefinition, attachment: GuardAttachment) -> dict[str, Any]:
+    """A guard as the engine carries it: one attachment with its definition. ``id`` is the attachment's (the
+    counters and the live on/off check are per place), ``guard_id`` the definition's and ``definition_id`` its own
+    action (the key frozen executions have always had)."""
+    data = definition_data(definition)
+    return {
+        "id": attachment.id,
+        "guard_id": definition.id,
+        "pipeline_id": attachment.pipeline_id,
+        "name": definition.name,
+        "scope_type": attachment.scope_type,
+        "scope_id": attachment.scope_id,
+        "trigger": data["trigger"],
+        "when": data["when"],
+        "consequence": definition.consequence,
+        "fallback": definition.fallback,
+        "escalation": data["escalation"],
+        "definition_id": definition.action_id,
+        "enabled": attachment.enabled,
     }

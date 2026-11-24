@@ -24,7 +24,7 @@ from openartifact.graph.node_types import (
 from openartifact.graph.rules import Endpoint, validate_edge
 from openartifact.graph.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
 from openartifact.graph.slug import slugify
-from openartifact.models import Graph, GraphEdge, GraphKind, GraphNode, NodeKind
+from openartifact.models import Graph, GraphEdge, GraphKind, GraphNode, GuardAttachment, NodeKind
 
 
 class NodeError(ValueError):
@@ -372,6 +372,16 @@ class GraphRepository:
             )
             if same == 1:  # older graphs may hold several; the last one stays
                 raise NodeError(f"The {kind.value} of a {graph.kind} stays")
+        # the guards attached to it (and, for a stage, to its actions) go with it; their definitions stay
+        watched = [
+            node.id,
+            *await self._session.scalars(select(GraphNode.id).where(GraphNode.stage_id == node.id)),
+        ]
+        await self._session.execute(
+            delete(GuardAttachment).where(
+                GuardAttachment.pipeline_id == graph.id, GuardAttachment.scope_id.in_(watched)
+            )
+        )
         await self._session.delete(node)
         await self._session.flush()
 
