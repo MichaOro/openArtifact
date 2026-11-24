@@ -52,3 +52,26 @@ A new kind of an existing behaviour is one YAML file, a `NodeKind` member, a mig
 no editor code. The shared snippets and the golden test make a change of a common setting a one-line edit that every kind
 shows. Help texts and defaults now live in YAML, reviewed like code but not type-checked by mypy: the schema and the
 parity tests are what catch a typo.
+
+## 5. Addendum 2026-11-25: the card, the colour and the result are data too
+
+The views of the editor were data driven, but the CSS and a few lists were not: the card layout and colour existed as rules for
+five kinds (`.ge-node--code, .ge-node--http, ...`), so the Artifact, GitHub, Postgres and Edit Fields nodes fell back to an older
+look (their icon over the title), and `RESULT_KINDS = [code, http, timer, if, switch, agent, set]` in the reference suggestions
+left the result of GitHub, Postgres and Artifact nodes out of every `${...}` field and out of the mapping of an agent's inputs.
+That is a per-kind code path, which this ADR set out to remove.
+
+- **The look is keyed by behaviour.** The canvas sets `data-behaviour` on every card and `--node-color` from the manifest's
+  `ui.color` (`var(--node-<color>, var(--node-action))`); `editor.css` has one set of rules per behaviour (a flow card, a plain
+  card, an output, a stage) and none per kind. New tokens `--node-github`, `--node-postgres`, `--node-set`, `--node-artifact`
+  and `--node-mcp` are built from the lane hues. The caption of a card is the secondary text colour: the muted one fell under
+  4.5:1 on the tinted cards of some kinds (the test measures every kind in both themes).
+- **What a kind leaves is its own declaration.** `produces_result`, `result_data` (keys of `data` offered after `${(Name).data.`),
+  `variables` (the setting that holds the run variables the node sets) and `timed` (the flow panel shows its duration) replace
+  the lists in `reference-completion.js` and `flow-panel.js`. The editor asks the kind (`typeOf(kind)`), nothing else.
+- **The step icon in the history** comes from the manifest (`ui.step_icon`, else `ui.icon`, else the menu glyph) as `icon` of every
+  step the API returns, instead of a map in `history-step.js` that lacked three kinds.
+- **Left as it is on purpose** (genuinely different behaviour, not "the same for every flow kind"): the structural rules of stage,
+  action and pipeline connections and the tool-to-agent rule in `node-types.js`, which kind needs which credential setting
+  (`credentials/store.py`), the executors, and the Agent's own settings block.
+

@@ -187,6 +187,22 @@ while the setting has that value (a setting that is not set counts as its defaul
 output the `visible_when` above. A select may name the shown text of its options with `option_labels` (the stored value stays what
 `options` says); a locale file overrides them with `nodes.<kind>.settings.<key>.options.<value>`.
 
+### The card, the colour and what a node leaves behind
+
+A new kind needs **no CSS and no editor code** to look like the others and to be found by the reference suggestions: the
+manifest says it. The card's layout is keyed by the kind's `behaviour` (the editor sets `data-behaviour` on the card), not by
+its name; its colour is `ui.color`, the name of a token `--node-<color>` in `static/css/tokens.css` (pick one that exists or add
+yours there, built from the lane hues so both themes follow; `tests/test_node_manifests.py` fails for a colour without a token
+or one that is a literal); its glyph is `ui.icon` (an icon of `icons.html`). Three more keys:
+
+- `produces_result: true`: the node leaves `output` and `data` in the run context, so it is offered after `${(` in every
+  reference field and in the mapping of an agent's inputs. A kind without it (a trigger, an output, a tool) has nothing to
+  reference. `result_data: [comments, count]` lists keys of `data` it always leaves (offered as `${(Name).data.comments}`).
+- `variables: {setting: sets_variables, format: lines}`: the run variables the node sets are read from that setting
+  (`lines`: one name per line; `assignments`: the names before the `=` of `name = value` lines) and offered as `${var.name}`.
+- `timed: true`: the flow panel of an execution shows how long a step of this kind took. `ui.step_icon` overrides the
+  glyph of its step in the history when it should differ from the card's.
+
 ### The texts of a kind
 
 The labels, helps, placeholders, options and ports of a manifest follow one short rule, kept by `tests/test_node_texts.py` for the

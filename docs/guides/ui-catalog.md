@@ -110,6 +110,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 
 | Need | Use |
 |---|---|
+| The card of a node in the graph editor | `.ge-node` keyed by `data-behaviour`, coloured by the manifest's `ui.color` (a `--node-<color>` token), icon inline before the text column: no rule per kind, see [extending](extending.md#the-card-the-colour-and-what-a-node-leaves-behind) |
 | A dialog | `modal.js` with `templates/components/modal.html`; a question: `confirm-dialog.js`; input fields: `form-dialog.js`; a dialog that runs a request: `action-dialog.js` |
 | A tab list | `tabs.js` (`.task-tabs` / `.task-tab`) |
 | A menu of commands | `action-menu.js` (`menu__item`) |
