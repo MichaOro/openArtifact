@@ -91,7 +91,12 @@ registerWidget("choice", (ctx) => {
     chip.dataset.focusKey = `${ctx.field.key}:${option.value}`;
     chip.dataset.choice = option.value;
     chip.setAttribute("aria-pressed", String(ctx.value === option.value));
-    chip.addEventListener("click", () => ctx.set(option.value));
+    chip.addEventListener("click", () => {
+      // the marking follows the click itself: a form draws again only when a change decides what is there (visible_when), and
+      // a choice nothing else depends on would keep showing the old one
+      for (const other of group.querySelectorAll("[data-choice]")) other.setAttribute("aria-pressed", String(other === chip));
+      ctx.set(option.value);
+    });
     group.append(chip);
   }
   return { el: group, control: null };

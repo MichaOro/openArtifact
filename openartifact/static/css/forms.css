@@ -71,7 +71,7 @@
 .chip-button:hover:not(:disabled) { border-color: var(--btn-outline-border-hover); }
 .chip-button[aria-pressed="true"] {
   background: var(--btn-chip-on-bg);
-  border-color: transparent;
+  border-color: var(--color-accent); /* on: tinted AND framed in the accent colour (never a frame that comes and goes) */
   color: var(--color-text-primary);
   font-weight: 600;
 }

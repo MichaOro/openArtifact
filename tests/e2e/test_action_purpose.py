@@ -141,3 +141,40 @@ def test_the_sqlite_node_is_offered_only_in_a_guard_action_and_is_set_up_like_th
     page.click("[data-add-menu]")
     page.fill(".ge-add__search", "postgres")
     expect(page.locator("[data-add=postgres]")).to_have_count(1)
+
+
+def _chips(dialog):  # type: ignore[no-untyped-def]
+    return {
+        purpose: dialog.locator(f'[data-choice="{purpose}"]') for purpose in ("pipeline", "guard")
+    }
+
+
+def _outlined(chip) -> bool:  # type: ignore[no-untyped-def]
+    """The chip has a visible frame: a width and a colour that is not transparent."""
+    width, colour = chip.evaluate(
+        "el => { const s = getComputedStyle(el); return [parseFloat(s.borderTopWidth), s.borderTopColor]; }"
+    )
+    return bool(width > 0 and colour not in ("rgba(0, 0, 0, 0)", "transparent"))
+
+
+def test_the_chosen_type_is_marked_with_a_tint_and_a_frame_and_it_is_the_type_that_is_made(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    page.goto(f"{base_url}/actions")
+    page.click("[data-new-graph]")
+    dialog = page.locator("#action-modal")
+    expect(dialog).to_be_visible()
+    chips = _chips(dialog)
+    for chosen, other in (("guard", "pipeline"), ("pipeline", "guard"), ("guard", "pipeline")):
+        chips[chosen].click()
+        expect(chips[chosen]).to_have_attribute("aria-pressed", "true")
+        expect(chips[other]).to_have_attribute("aria-pressed", "false")
+        page.mouse.move(5, 5)  # not hovered, not the pointer: the marking itself
+        assert _outlined(chips[chosen]), f"the chosen chip ({chosen}) keeps its frame"
+        tinted = chips[chosen].evaluate("el => getComputedStyle(el).backgroundColor")
+        plain = chips[other].evaluate("el => getComputedStyle(el).backgroundColor")
+        assert tinted != plain, "the chosen chip is tinted"
+    dialog.get_by_label("Name").fill("Gate")
+    dialog.locator("[data-submit]").click()
+    expect(page).to_have_url(re.compile(r"/actions/[a-z0-9-]+$"))
+    assert [a["purpose"] for a in api.get("/api/actions").json()] == ["guard"]
