@@ -14,6 +14,7 @@ TEMPLATES = Path(__file__).resolve().parent.parent / "openartifact" / "templates
 #: Windows whose fields are a manifest: the id of the dialog -> the form (``ui/forms/<form>.yaml``) or "nodes" (the settings of a
 #: node kind, ``graph/nodes/*.yaml``, ADR-053/054).
 MANIFEST_WINDOWS = {
+    "agent-modal": "agent",  # the window of the agents list
     "credential-modal": "credential",
     "graph-modal": "action",  # the window of the pipeline list and of the action list (form: pipeline or action)
     "guard-modal": "guard",

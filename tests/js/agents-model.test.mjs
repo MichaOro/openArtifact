@@ -197,3 +197,15 @@ test("a long inherited value is shown as a one-line preview, the markup flattene
   assert.equal(preview("short text"), "short text", "a short text is as it is");
   assert.equal(preview("a\n\nb"), "a b", "line breaks become a space");
 });
+
+test("the page names the limits an agent sets, and only while its own limits are in effect", async () => {
+  const { limitRows } = await import("../../openartifact/static/js/agents/model.js");
+  assert.deepEqual(limitRows({ limits_enabled: true, max_iterations: 100, retries: 0, total_timeout_seconds: null, token_budget: 5000 }), [
+    ["max_iterations", 100],
+    ["retries", 0],
+    ["token_budget", 5000],
+  ]);
+  assert.deepEqual(limitRows({ limits_enabled: false, max_iterations: 100 }), [], "switched off: the defaults apply");
+  assert.deepEqual(limitRows({ max_iterations: 100 }), [["max_iterations", 100]], "an agent from before the switch: any limit that differs counts");
+  assert.deepEqual(limitRows({}), []);
+});

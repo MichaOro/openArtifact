@@ -24,6 +24,8 @@ CATALOG_CLASSES = {
     "chip-button",  # a toggle pill (aria-pressed): filters
     "ge-switch",  # an on/off switch (switch.js)
     "task-tab",  # a tab of a tab list
+    "mg-segment__tab",  # a tab of the segment of a management page (components/management-page.js, ADR-069)
+    "mg-tabs__tab",  # a tab of the panel of a management page (same component)
     "nav-link",  # an entry of a navigation
     "menu__item",  # an item of a menu
     "popover__option",  # an option of a popover list

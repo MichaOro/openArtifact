@@ -51,3 +51,22 @@ artifacts start in it and how many runs it had).
   published one) is a decision of its own.
 - The migration number `0055` is reserved for the event log (card #100); `0056` follows `0054` until that one exists, then its
   `down_revision` becomes `0055`.
+
+## 4. Addendum (2026-11-26): the agents page
+
+The agents page (`static/js/agents/list-page.js`, `templates/agents.html`) is a `ManagementPage`. It is about the *definition* of an agent, not
+about where it is used. The card says the name, the chips (active, published version, "Draft has changes"), the first sentence of the user
+prompt, the provider and model the agent sets itself and how many nodes use it. The panel has two tabs:
+
+- **Overview**: the **user prompt** and, only while it is in effect, the **system prompt** (a `ClampedText`: its first lines, *Show more*,
+  *Copy*; `textContent` only), the status, the provider and the model (when the agent's own limits are in effect), the limits it sets
+  (`limitRows` in `agents/model.js`), the description, *Open* and *Properties*. The published configuration is what runs and what the panel
+  shows; when the draft differs a *Published | Draft* switch shows the draft's prompts.
+- **Versions**: the published versions (number, date, "repeats vN" for a rollback, which one is current). Publishing and rolling back stay
+  in the editor (one button leads there), so nothing about versions changed.
+
+The list API (`GET /api/agents`) now says what the page needs without loading each agent: `user_prompt_start`, `system_prompt_enabled`,
+`provider_id`, `model` and `shown_from` (``published`` or ``draft`` while nothing is published). The prompts themselves come from
+`GET /api/agents/{id}` when an agent is selected. An agent that a node refers to cannot be deleted: the bin is disabled and says why
+(`deleteBlocked` of the frame, optional). The window that makes or changes an agent is the form manifest `ui/forms/agent.yaml` (name,
+description); the handmade `name-modal` of the list is gone (the editor page keeps its own rename window).

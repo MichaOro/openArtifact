@@ -138,6 +138,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A tab list | `tabs.js` (`.task-tabs` / `.task-tab`); a tab with `disabled` is a place held for what is not built (greyed, skipped by the keys) |
 | A page that manages definitions (list of cards or rows, toolbar, detail panel with tabs) | `management-page.js` (`ManagementPage`, `chip`, `make`), styled by `management.css` (`.mg-*`); see "Management pages" below |
 | The small picture of a pipeline or an action | `graph-preview.js` (`GraphPreview`, `lazyPreview`) with the layout in `preview-layout.js` (`structureOfGraph`, `structureOfChain`, `layoutPreview`) |
+| A long text in a panel (a prompt): its first lines, "Show more", "Copy" | `clamped-text.js` (`new ClampedText({ text, lines, label, empty })`, `.element`); `textContent` only, the frame is `.ct__box`, tokens only |
 | Short labels typed as one line | the form widget `tags` (`form-widgets.js`): a list in the values |
 | A menu of commands | `action-menu.js` (`menu__item`) |
 | A list to pick from, placed next to its trigger | `lane-picker.js` and `popover.js` (`popover__option`) |
@@ -177,6 +178,7 @@ const page = new ManagementPage(document.querySelector("[data-management]"), {
   search: (item) => `${item.name} ${item.description}`, tagsOf: (item) => item.tags,                // both optional
   sorts: [{ key: "name", label: "Name (A-Z)", compare: (a, b) => a.name.localeCompare(b.name) }],
   card: (item, view) => element,           // the content of a card (view "cards") or of a row ("list")
+  deleteBlocked: (item) => "why it cannot be deleted" || null,   // optional: the bin is disabled and says why
   panel: { icon: (item) => "action", title: (item) => item.name, chips: (item) => [chip("Draft")],
            tabs: (item) => [{ key: "overview", label, render: (body, item) => {} }, { key: "versions", label, disabled: true, render() {} }] },
   onOpen, onEdit, onDelete,                // each gets the item; the page asks before it deletes
