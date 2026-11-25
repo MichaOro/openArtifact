@@ -34,6 +34,7 @@ from openartifact.security import (
 )
 from openartifact.version import __version__ as APP_VERSION  # noqa: N812
 from openartifact.web import navigation
+from openartifact.web.navigation import registry
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ async def index(request: Request, service: ServiceDep) -> HTMLResponse:
         name="index.html",
         context={
             "page_title": "page.board",
-            "active_nav": "board",
+            "active_nav": _active_nav_from_path(request.url.path),
             "app_version": APP_VERSION,
             "lanes": await service.lanes(),
         },
@@ -96,7 +97,7 @@ def _list_page(request: Request, section: str) -> HTMLResponse:
         name="graph_list.html",
         context={
             "page_title": f"page.{info['key']}s",
-            "active_nav": info["nav"],
+            "active_nav": _active_nav_from_path(request.url.path),
             "app_version": APP_VERSION,
             "section": info,
         },
@@ -117,7 +118,7 @@ async def _editor_page(
         name="graph_editor.html",
         context={
             "page_title": f"page.{info['key']}",
-            "active_nav": info["nav"],
+            "active_nav": _active_nav_from_path(request.url.path),
             "app_version": APP_VERSION,
             "graph_id": graph.id if graph else slug,
             "section": info,
@@ -153,7 +154,7 @@ async def action_editor(request: Request, ref: str, session: SessionDep) -> HTML
 @router.get("/guards", response_class=HTMLResponse, include_in_schema=False)
 async def guards(request: Request) -> HTMLResponse:
     """The guard library (ADR-060): definitions, edited in the guard editor and attached in the pipeline editor."""
-    return _page(request, "guards.html", "page.guards", "guards")
+    return _page(request, "guards.html", "page.guards", "")
 
 
 @router.get("/executions", response_class=HTMLResponse, include_in_schema=False)
@@ -163,24 +164,40 @@ async def executions(request: Request, page_size: int = 50) -> HTMLResponse:
     ``page_size`` (1 to 200, default 50) is how many rows one request fetches; the filters live in the
     query string and are read by the page.
     """
-    return templates.TemplateResponse(
-        request=request,
-        name="executions.html",
-        context={
-            "page_title": "page.executions",
-            "active_nav": "executions",
-            "app_version": APP_VERSION,
-            "page_size": max(1, min(page_size, 200)),
-        },
-    )
+    return _page(request, "executions.html", "page.executions", "", page_size=max(1, min(page_size, 200)))
 
 
 def _page(request: Request, name: str, title: str, nav: str, **more: str) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name=name,
-        context={"page_title": title, "active_nav": nav, "app_version": APP_VERSION, **more},
+        context={"page_title": title, "active_nav": _active_nav_from_path(request.url.path), "app_version": APP_VERSION, **more},
     )
+
+
+def _active_nav_from_path(path: str) -> str:
+    """Derive the active navigation key from the request path using the registry."""
+    # Map paths to nav keys
+    path_to_nav = {
+        "/": "board",
+        "/pipelines": "pipeline",
+        "/actions": "actions",
+        "/guards": "guards",
+        "/agents": "agents",
+        "/executions": "executions",
+        "/settings/providers": "providers",
+        "/settings/credentials": "credentials",
+        "/settings/run-limits": "run-limits",
+        "/settings/personal": "personal",
+    }
+    # Exact match first
+    if path in path_to_nav:
+        return path_to_nav[path]
+    # Prefix match for nested paths
+    for prefix, nav_key in path_to_nav.items():
+        if path.startswith(prefix + "/") or path.startswith(prefix + "?"):
+            return nav_key
+    return "board"  # fallback
 
 
 @router.get("/agents", response_class=HTMLResponse, include_in_schema=False)
