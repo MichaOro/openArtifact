@@ -43,14 +43,14 @@
 {% call dialog_form("create-task-modal", ARTIFACT_FIELDS) %}{% endcall %}
 <aside class="card-nav" id="card-nav" data-card-nav data-state="collapsed" aria-label="{{ t('create_task.artifact_details') }}" hidden>
     <ul class="nav-list card-nav__fields">
-        {{ nav_items(navigation.ARTIFACT_RAIL.groups.fields) }}
+        {{ nav_items(rail.fields) }}
     </ul>
     {# The artifact fields (ADR-044): hidden until fields are defined; an entry with sub-entries like the main navigation. #}
     <ul class="nav-list card-nav__custom" data-field-rail hidden>
-        {{ nav_items(navigation.ARTIFACT_RAIL.groups.custom) }}
+        {{ nav_items(rail.custom) }}
     </ul>
     <ul class="nav-list card-nav__actions">
-        {{ nav_items(navigation.ARTIFACT_RAIL.groups.actions) }}
+        {{ nav_items(rail.actions) }}
     </ul>
     <button type="button" class="icon-button icon-button--sm card-nav__toggle" data-card-nav-toggle
             aria-controls="card-nav" aria-expanded="false" aria-label="{{ t('create_task.expand_artifact_details') }}">

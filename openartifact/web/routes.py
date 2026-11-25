@@ -6,6 +6,7 @@ import asyncio
 import logging
 import re
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -48,11 +49,22 @@ def _auth_context(request: Request) -> dict[str, bool]:
     return {"auth_enabled": bool(settings and settings.api_token)}
 
 
+def _navigation_context(request: Request) -> dict[str, Any]:
+    """The navigation of this page from the registry of the application (``app.state.navigation``): the sidebar, the
+    rail of the artifact dialog and the entry the path belongs to. No page names its own entry."""
+    registry = getattr(request.app.state, "navigation", None) or navigation.build_registry()
+    context = {"path": request.url.path}
+    return {
+        "sidebar": registry.build_sidebar(context),
+        "rail": registry.build_rail(context),
+        "active_nav": registry.active_key(request.url.path),
+    }
+
+
 templates = Jinja2Templates(
     directory=str(Path(__file__).parent.parent / "templates"),
-    context_processors=[_auth_context, language_context],
+    context_processors=[_auth_context, language_context, _navigation_context],
 )
-templates.env.globals["navigation"] = navigation
 install_i18n(templates)
 
 
@@ -64,7 +76,6 @@ async def index(request: Request, service: ServiceDep) -> HTMLResponse:
         name="index.html",
         context={
             "page_title": "page.board",
-            "active_nav": _active_nav_from_path(request.url.path),
             "app_version": APP_VERSION,
             "lanes": await service.lanes(),
         },
@@ -74,14 +85,12 @@ async def index(request: Request, service: ServiceDep) -> HTMLResponse:
 _SECTIONS = {
     "pipeline": {
         "kind": GraphKind.PIPELINE.value,
-        "nav": "pipeline",
         "path": "/pipelines",
         "label": "Pipeline",
         "key": "pipeline",
     },
     "action": {
         "kind": GraphKind.ACTION.value,
-        "nav": "actions",
         "path": "/actions",
         "label": "Action",
         "key": "action",
@@ -96,7 +105,6 @@ def _list_page(request: Request, section: str) -> HTMLResponse:
         name="graph_list.html",
         context={
             "page_title": f"page.{info['key']}s",
-            "active_nav": _active_nav_from_path(request.url.path),
             "app_version": APP_VERSION,
             "section": info,
         },
@@ -117,7 +125,6 @@ async def _editor_page(
         name="graph_editor.html",
         context={
             "page_title": f"page.{info['key']}",
-            "active_nav": _active_nav_from_path(request.url.path),
             "app_version": APP_VERSION,
             "graph_id": graph.id if graph else slug,
             "section": info,
@@ -153,7 +160,7 @@ async def action_editor(request: Request, ref: str, session: SessionDep) -> HTML
 @router.get("/guards", response_class=HTMLResponse, include_in_schema=False)
 async def guards(request: Request) -> HTMLResponse:
     """The guard library (ADR-060): definitions, edited in the guard editor and attached in the pipeline editor."""
-    return _page(request, "guards.html", "page.guards", "")
+    return _page(request, "guards.html", "page.guards")
 
 
 @router.get("/executions", response_class=HTMLResponse, include_in_schema=False)
@@ -168,78 +175,48 @@ async def executions(request: Request, page_size: int = 50) -> HTMLResponse:
     )
 
 
-def _page(request: Request, name: str, title: str, nav: str, **more: str) -> HTMLResponse:
+def _page(request: Request, name: str, title: str, **more: Any) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name=name,
-        context={
-            "page_title": title,
-            "active_nav": _active_nav_from_path(request.url.path),
-            "app_version": APP_VERSION,
-            **more,
-        },
+        context={"page_title": title, "app_version": APP_VERSION, **more},
     )
-
-
-def _active_nav_from_path(path: str) -> str:
-    """Derive the active navigation key from the request path using the registry."""
-    # Map paths to nav keys
-    path_to_nav = {
-        "/": "board",
-        "/pipelines": "pipeline",
-        "/actions": "actions",
-        "/guards": "guards",
-        "/agents": "agents",
-        "/executions": "executions",
-        "/settings/providers": "providers",
-        "/settings/credentials": "credentials",
-        "/settings/run-limits": "run-limits",
-        "/settings/personal": "personal",
-    }
-    # Exact match first
-    if path in path_to_nav:
-        return path_to_nav[path]
-    # Prefix match for nested paths
-    for prefix, nav_key in path_to_nav.items():
-        if path.startswith(prefix + "/") or path.startswith(prefix + "?"):
-            return nav_key
-    return "board"  # fallback
 
 
 @router.get("/agents", response_class=HTMLResponse, include_in_schema=False)
 async def agents(request: Request) -> HTMLResponse:
     """The agents (the page loads and changes them through the API)."""
-    return _page(request, "agents.html", "page.agents", "agents")
+    return _page(request, "agents.html", "page.agents")
 
 
 @router.get("/agents/{ref}", response_class=HTMLResponse, include_in_schema=False)
 async def agent_editor(request: Request, ref: str) -> HTMLResponse:
     """One agent: draft, publishing, versions, preview. An unknown id still renders; the page says so."""
-    return _page(request, "agent_editor.html", "page.agent", "agents", agent_ref=ref)
+    return _page(request, "agent_editor.html", "page.agent", agent_ref=ref)
 
 
 @router.get("/settings/providers", response_class=HTMLResponse, include_in_schema=False)
 async def providers(request: Request) -> HTMLResponse:
     """The LLM providers and their models."""
-    return _page(request, "providers.html", "page.providers", "providers")
+    return _page(request, "providers.html", "page.providers")
 
 
 @router.get("/settings/credentials", response_class=HTMLResponse, include_in_schema=False)
 async def credentials(request: Request) -> HTMLResponse:
     """The managed credentials: access tokens OpenArtifact makes and values for other systems."""
-    return _page(request, "credentials.html", "page.credentials", "credentials")
+    return _page(request, "credentials.html", "page.credentials")
 
 
 @router.get("/settings/run-limits", response_class=HTMLResponse, include_in_schema=False)
 async def run_limits(request: Request) -> HTMLResponse:
     """How many steps and how much time an execution may take."""
-    return _page(request, "run_limits.html", "page.run_limits", "run-limits")
+    return _page(request, "run_limits.html", "page.run_limits")
 
 
 @router.get("/settings/personal", response_class=HTMLResponse, include_in_schema=False)
 async def personal(request: Request) -> HTMLResponse:
     """Personal display preferences."""
-    return _page(request, "personal.html", "page.personal", "personal")
+    return _page(request, "personal.html", "page.personal")
 
 
 @router.get(
@@ -258,7 +235,6 @@ async def execution_flow(request: Request, ref: str, execution_id: str) -> HTMLR
         name="execution_flow.html",
         context={
             "page_title": "page.execution_flow",
-            "active_nav": "executions",
             "app_version": APP_VERSION,
             "task_ref": ref,
             "execution_id": execution_id,

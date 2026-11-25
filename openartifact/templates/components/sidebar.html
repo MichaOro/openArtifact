@@ -1,6 +1,6 @@
 {% from "components/icons.html" import icon %}
 {% from "components/nav.html" import nav_items %}
-{# The entries come from web/navigation.py (SIDEBAR). #}
+{# The entries come from the registry of web/navigation.py (`sidebar`, `active_nav` of the context processor). #}
 <aside class="sidebar" id="sidebar" aria-label="{{ t('sidebar.sidebar') }}">
     <div class="sidebar__brand">
         <span class="sidebar__logo">{{ icon("logo") }}</span>
@@ -9,7 +9,7 @@
 
     <nav class="sidebar__nav" aria-label="{{ t('sidebar.main_navigation') }}">
         <ul class="nav-list">
-            {{ nav_items(navigation.SIDEBAR.groups.main, active_nav) }}
+            {{ nav_items(sidebar, active_nav) }}
         </ul>
     </nav>
 
