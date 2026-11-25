@@ -10,6 +10,7 @@
 {% block title %}{{ t('page.' ~ section.key) }} · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
 <link rel="stylesheet" href="/static/css/agents.css">
+<link rel="stylesheet" href="/static/css/management.css">
 <link rel="stylesheet" href="/static/css/rule-builder.css">{% endblock %}
 {% block content %}
 {# data-*-path: where a pipeline / an action definition is edited (the links between them). #}
@@ -20,6 +21,7 @@
     <div class="ge-bar glass" role="toolbar" aria-label="{{ t('graph.' ~ section.key ~ '.tools') }}">
         <a class="button button--ghost button--sm" href="{{ section.path }}">{{ t('graph.' ~ section.key ~ '.all') }}</a>
         <a class="button button--ghost button--sm" href="#" data-back hidden></a>
+        <span class="ge-bar__state" data-publication hidden></span>
         <span class="ge-bar__spacer"></span>
         <button type="button" class="button button--ghost button--sm" data-zoom-out aria-label="{{ t('execution_flow.zoom_out') }}">−</button>
         <span class="ge-bar__zoom" data-zoom-label aria-live="polite">100%</span>

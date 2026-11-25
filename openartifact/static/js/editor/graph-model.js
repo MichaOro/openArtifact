@@ -11,7 +11,16 @@ export class GraphModel {
     this.graph = null;
     this.nodes = new Map();
     this.edges = new Map();
+    /** Called after every change the server accepted (a node or a connection came, changed or went): the editor then asks where the
+     * draft stands against the published version. */
+    this.onChange = null;
   }
+
+  #saved = async (call) => {
+    const result = await call;
+    this.onChange?.();
+    return result;
+  };
 
   /** An action definition: its trigger and output are fixed. */
   get isAction() {
@@ -54,10 +63,10 @@ export class GraphModel {
   // ── saving ──────────────────────────────────────────────────────
 
   rename = (name) => api.renameGraph(this.kind, this.id, name);
-  addNode = (fields) => api.addNode(this.kind, this.id, fields);
-  updateNode = (nodeId, fields) => api.updateNode(this.kind, this.id, nodeId, fields);
-  deleteNode = (nodeId) => api.deleteNode(this.kind, this.id, nodeId);
-  connect = (edge) => api.connect(this.kind, this.id, edge);
+  addNode = (fields) => this.#saved(api.addNode(this.kind, this.id, fields));
+  updateNode = (nodeId, fields) => this.#saved(api.updateNode(this.kind, this.id, nodeId, fields));
+  deleteNode = (nodeId) => this.#saved(api.deleteNode(this.kind, this.id, nodeId));
+  connect = (edge) => this.#saved(api.connect(this.kind, this.id, edge));
   restyle = (edgeId, style) => api.restyleEdge(this.kind, this.id, edgeId, style);
-  disconnect = (edgeId) => api.disconnect(this.kind, this.id, edgeId);
+  disconnect = (edgeId) => this.#saved(api.disconnect(this.kind, this.id, edgeId));
 }

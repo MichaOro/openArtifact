@@ -111,3 +111,21 @@ Pipelines and actions have versions ([ADR-070](070-versions-of-actions-and-pipel
 *In use*, *Show* (the *Graph* tab shows that version read-only; the page sets `page.panelTab = "graph"` and calls `refreshPanel()`) and
 *Publish again*; the chip of the card and of the panel is `publicationChip` (*Draft*, *v3 published*, *Draft has changes*). A tab that is not
 built is still `disabled: true`.
+
+## 9. Addendum (2026-11-26): one size for every card, the mark of the editor
+
+- **A card has one size** on all four pages (Actions, Pipelines, Agents, Guards): **19 rem wide and 13 rem high** (`--mg-card-w`, `--mg-card-h` on
+  `.mg`). The grid is `repeat(auto-fill, 19rem)` and never stretches a card: it starts a new row only when the room beside the panel no longer holds
+  another card. 19 rem is the width in which a title, the chips of a guard ("On entered", "Run the guard's action") and a line of facts stand without
+  being squeezed, and two cards stand beside each other in the two thirds that remain next to the panel on a 1440 px screen; 13 rem is the height
+  in which the parts below fit *at their maximum*: a title of two lines, a text of two lines, two rows of chips and two lines of facts. A card that
+  holds less keeps the same size (the free room is in the middle), so no row has two heights.
+- **The arrangement is one function**, `cardBody({title, text, chips, facts})` of `management-page.js`, which the four pages use instead of
+  building their own: the title on top (up to two lines, then an ellipsis, and never under the pencil and the bin: it has their room reserved), the text
+  in the middle (up to two lines; there is no element when there is no text: an agent without a description shows nothing there, a guard shows its condition
+  in words), at the bottom, flush to the edge, the chips and the facts. In rows the same parts stand in one line. The day of the change, not the time,
+  stands on a card (the panel has both).
+- **The mark in the editor.** The toolbar of the pipeline and the action editor shows, right beside "All pipelines" / "All actions", the same chip as the
+  pages: **Draft** while nothing is published or the draft differs from the published version, **v3 published** while they are equal (`editorChip` in
+  `versions-tab.js`; its tooltip says what executions run). It follows every change the server accepts (`GraphModel.onChange`, asked again 250 ms later)
+  and asks again when the tab gets the focus back, because a publication happens on the management page. Guards have no versions and no mark.

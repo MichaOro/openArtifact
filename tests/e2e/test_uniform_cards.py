@@ -135,3 +135,35 @@ def test_the_grid_starts_a_new_row_only_when_the_room_is_gone_and_never_stretche
     assert widths[1900][0] == 3 or widths[1500][0] >= 2, (
         f"three cards stand beside each other where the room holds them: {widths}"
     )
+
+
+def test_the_editor_marks_draft_or_published_beside_the_way_back_and_follows_every_change(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """ "Draft" while nothing is published or the draft differs, "v1 published" while they are equal; it changes as soon as something is
+    changed in the editor, and again when the tab is asked after a publication (that happens on the management page)."""
+    from tests.e2e.helpers import pick_node
+
+    action = post(api, "/api/actions", name="Marked")
+    page.goto(f"{base_url}/actions/{action['slug']}")
+    mark = page.locator(".ge-bar__state")
+    expect(mark).to_have_text("Draft")
+    back = page.locator(".ge-bar a", has_text="All actions").bounding_box()
+    box = mark.bounding_box()
+    assert back and box and box["x"] > back["x"] + back["width"] - 1, (
+        "right beside the way back, left of the zoom buttons"
+    )
+    assert box["x"] < back["x"] + back["width"] + 200
+    api.post(f"/api/actions/{action['id']}/publish").raise_for_status()
+    page.reload()
+    expect(mark).to_have_text("v1 published")
+    expect(mark.locator(".mg-chip")).to_have_attribute("data-publication", "published")
+    # a change in the editor turns it to Draft (the version in use stays 1: the tooltip says so)
+    page.click("[data-add-menu]")
+    pick_node(page, "code")
+    expect(mark).to_have_text("Draft")
+    assert "version 1" in (mark.locator(".mg-chip").get_attribute("title") or "")
+    # publishing happens elsewhere: the tab asks again when it is back
+    api.post(f"/api/actions/{action['id']}/publish").raise_for_status()
+    page.evaluate("window.dispatchEvent(new Event('focus'))")
+    expect(mark).to_have_text("v2 published")

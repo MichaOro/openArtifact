@@ -198,6 +198,14 @@ entry is a form manifest drawn by `ManifestDialog` (ADR-065), opened from the *P
 The room of the detail panel is reserved (two thirds entries, one third panel, a quiet `panel.placeholder` line without a selection) so that
 the entries do not move when one is selected; the page size ("Per page") is part of the toolbar next to the switch between cards and rows (ADR-069 §6).
 
+**Cards** (ADR-069 §9): every card of every management page has one size (19 rem by 13 rem, `--mg-card-w` / `--mg-card-h`) and one arrangement, built by
+`cardBody({title, text, chips, facts})` of `management-page.js`: the title on top (two lines, then "…", clear of the pencil and the bin), the text in the
+middle (two lines, only when there is one), the chips and the facts at the bottom. A page never builds its own card markup. The grid is
+`repeat(auto-fill, 19rem)` and does not stretch.
+
+**Draft / published mark of an editor** (ADR-069 §9, ADR-070): `editorChip(graph)` of `editor/versions-tab.js`, in the toolbar beside "All pipelines" /
+"All actions": "Draft" or "v3 published", following the changes of the editor.
+
 ## Dialogs are sized by their content
 
 A dialog is **as large as necessary and as small as possible, but cleanly readable**. This holds for every overlay; the
