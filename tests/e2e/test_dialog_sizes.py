@@ -24,6 +24,7 @@ EXCEPTIONS = {
     "node-modal": "wide",
     "guard-modal": "wide",
     "retention-modal": "wide",
+    "card-rules-modal": "wide",
     "version-modal": "wide",
 }
 

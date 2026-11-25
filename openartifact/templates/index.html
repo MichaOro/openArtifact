@@ -12,7 +12,8 @@
 <link rel="stylesheet" href="/static/css/avatar.css">
 <link rel="stylesheet" href="/static/css/comments.css">
 <link rel="stylesheet" href="/static/css/agents.css">
-<link rel="stylesheet" href="/static/css/artifact-fields.css">{% endblock %}
+<link rel="stylesheet" href="/static/css/artifact-fields.css">
+<link rel="stylesheet" href="/static/css/rule-builder.css">{% endblock %}
 {% block content %}
 {{ alert(t('tasks.board.artifacts_could_not_be_loaded')) }}
 <div class="action-row action-row--slim">
@@ -32,6 +33,7 @@
         <div class="task-card__content">
             <h3 class="task-card__title"></h3>
             <p class="task-card__body"></p>
+            <ul class="task-card__labels" hidden></ul>
             <p class="task-card__meta" hidden></p>
             <p class="task-card__run" hidden></p>
         </div>
@@ -44,7 +46,7 @@
 
 {% include "components/create_task_modal.html" %}
 {{ form_modal("add-lane-modal", t('dialog.add_lane'), LANE_FIELDS, submit=t('dialog.add_lane')) }}
-{% include "components/lane_settings_modal.html" %}
+{% include "components/card_rules_modal.html" %}
 {{ confirm_modal("delete-lane-modal", t('dialog.delete_lane')) }}
 {{ confirm_modal("delete-task-modal", t('dialog.delete_artifact'), note="data-children-note") }}
 {{ confirm_modal("delete-execution-modal", t('dialog.delete_execution'), note="data-history-note") }}

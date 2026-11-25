@@ -35,7 +35,7 @@ EXCEPTIONS = {
     # still handmade, waiting for a manifest (the owner schedules them; see the list in guides/extending.md)
     "provider-modal": "to migrate: the LLM provider dialog (text, a credential chooser and a model list)",
     "retention-modal": "to migrate: the retention rule (a rule tree and a select)",
-    "lane-settings-modal": "to migrate: lane settings (text and choice)",
+    "card-rules-modal": "to migrate: the rules of a lane and of the board (a rule tree and a select; the frame of retention-modal)",
     "fields-modal": "to migrate: the artifact fields dialog (a rows widget with add, remove and order)",
     "create-task-modal": "to migrate: the create-artifact dialog (its fields are dynamic)",
 }

@@ -5,7 +5,8 @@ import { t } from "../i18n.js";
 import * as model from "./rule-model.js";
 
 /** What a dialog holds for stored rules: a rule from before names and switches reads as unnamed and on. */
-export const normalize = (rules) => (rules ?? []).map((r) => ({ when: r.when, action: r.action, name: r.name ?? "", enabled: r.enabled !== false }));
+export const normalize = (rules) =>
+  (rules ?? []).map((r) => ({ when: r.when, action: r.action, name: r.name ?? "", enabled: r.enabled !== false, ...(r.params ? { params: r.params } : {}) }));
 
 /** A rule is called by its name, else "Rule N" (N counted from one in the list). */
 export const labelOf = (rule, index) => rule.name?.trim() || t("components.rule_set.rule", { number: index + 1 });
@@ -28,7 +29,7 @@ export const restore = (rules, index) => rules.map((r, i) => {
 });
 
 /** What is saved: the rules that are not taken out, with the name or null and the switch. */
-export const kept = (rules) => rules.filter((r) => !r.removed).map((r) => ({ when: r.when, action: r.action, name: r.name?.trim() ? r.name.trim() : null, enabled: r.enabled !== false }));
+export const kept = (rules) => rules.filter((r) => !r.removed).map((r) => ({ when: r.when, action: r.action, name: r.name?.trim() ? r.name.trim() : null, enabled: r.enabled !== false, ...(r.params ? { params: r.params } : {}) }));
 
 /** What a row tells about its rule: the sentence, or that there are no conditions yet or that one is unfinished. */
 export function summaryOf(rule, schema) {

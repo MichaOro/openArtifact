@@ -4,6 +4,7 @@
  * change came from (own API response, SSE event from any tab, optimistic drag & drop).
  * Both are idempotent, so the same change arriving twice is harmless.
  * Content is always set via textContent (never innerHTML). */
+import { applyMarks } from "./card-marks.js";
 import { cardPreview, previewSegments } from "./body-model.js";
 import { renderResolvedBody } from "./references.js";
 import { AlertBar } from "../components/alert-bar.js";
@@ -112,6 +113,11 @@ export class Board {
     add.setAttribute("aria-label", t("tasks.board.add_artifact_title", { title }));
     section.querySelector("[data-lane-menu]").setAttribute("aria-label", t("tasks.board.options_lane_title", { title }));
     lane.list.setAttribute("aria-label", t("tasks.board.lane_artifacts", { title }));
+  }
+
+  /** The lanes as choices for a rule: `{status, title}` in board order. */
+  laneChoices() {
+    return this.statuses.map((status) => ({ status, title: this.laneTitle(status) }));
   }
 
   /** How a lane draws its cards: "normal" or "finished". */
@@ -291,6 +297,7 @@ export class Board {
   #renderContent(card, task) {
     this.#renderRun(card, task.id);
     card.querySelector(".task-card__title").textContent = task.title;
+    applyMarks(card, task.marks);
     const body = card.querySelector(".task-card__body");
 
     const segments = previewSegments(task); // marked while the personal setting says so
