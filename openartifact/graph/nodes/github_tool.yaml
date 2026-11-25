@@ -38,8 +38,33 @@ settings:
   level: optional
   help: 'Off: the agent can only read (the connection is held to reading and the tools that change something are left out). On: it may also create and change issues, comments and more.'
   stored_in: config
-- use: tool_name
+- key: tools_mode
+  label: Tools to include
+  type: select
+  default: all
+  options:
+  - all
+  - selected
+  - all_except
+  option_labels:
+    all_except: all except
   level: optional
+  help: 'Every tool is described to the model with each request: fewer tools, a smaller prompt. Tools that change something stay out while Allow writes is off.'
+  stored_in: config
+- key: tool_names
+  label: Tools
+  type: lines
+  default: ''
+  max_length: 10000
+  placeholder: get_file_contents
+  help: One tool name per line. A name the server does not have is no error, the step says so.
+  stored_in: config
+  check: tool_names
+  shown_when:
+    setting: tools_mode
+    values:
+    - selected
+    - all_except
 - key: timeout_seconds
   label: Timeout (seconds)
   type: integer
@@ -48,3 +73,5 @@ settings:
   default: 60
   level: optional
   stored_in: config
+- use: tool_name
+  level: optional

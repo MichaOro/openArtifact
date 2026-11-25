@@ -1904,5 +1904,12 @@
  "guards.template.agent_quiet": "Agent-Leerlauf- und Wiederholungs-Wächter",
  "guards.template.agent_quiet_summary": "Prüft jede Minute, solange ein Agent arbeitet; 5 Minuten Ruhe oder derselbe Tool-Aufruf mit denselben Argumenten 10 Mal hintereinander pausiert den Lauf. Zehn verschiedene Aufrufe eines Tools sind Arbeit, kein Sturm.",
  "guards.template.agent_health": "Agent-Gesundheits-Wächter",
- "guards.template.agent_health_summary": "Ist ein Agent 5 Minuten ruhig, wiederholt einen Aufruf 5 Mal oder scheitert 5 Mal, beurteilt ein Agent die letzten Tool-Aufrufe (gelesen mit dem SQLite-Node); ungesund bricht den Lauf ab. Den Agenten wählst du in der Aktion des Wächters."
+ "guards.template.agent_health_summary": "Ist ein Agent 5 Minuten ruhig, wiederholt einen Aufruf 5 Mal oder scheitert 5 Mal, beurteilt ein Agent die letzten Tool-Aufrufe (gelesen mit dem SQLite-Node); ungesund bricht den Lauf ab. Den Agenten wählst du in der Aktion des Wächters.",
+ "nodes.github_tool.settings.tools_mode.label": "Einzubeziehende Werkzeuge",
+ "nodes.github_tool.settings.tools_mode.help": "Jedes Werkzeug wird dem Modell bei jeder Anfrage beschrieben: weniger Werkzeuge, kleinerer Prompt. Werkzeuge, die etwas ändern, bleiben weg, solange Schreiben erlauben aus ist.",
+ "nodes.github_tool.settings.tools_mode.options.all": "alle",
+ "nodes.github_tool.settings.tools_mode.options.selected": "ausgewählte",
+ "nodes.github_tool.settings.tools_mode.options.all_except": "alle außer",
+ "nodes.github_tool.settings.tool_names.label": "Werkzeuge",
+ "nodes.github_tool.settings.tool_names.help": "Ein Werkzeugname pro Zeile. Ein Name, den der Server nicht hat, ist kein Fehler, der Schritt weist darauf hin."
 }
