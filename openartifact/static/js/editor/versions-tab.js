@@ -5,6 +5,7 @@
  *
  *   publicationOf(graph)                      -> (versions-model.js, pure) {state: "draft" | "published" | "changed", number}
  *   publicationChip(graph)                    -> the chip of the card and of the panel
+ *   editorChip(graph)                         -> the mark in the toolbar of the graph editor ("Draft" or "v3 published")
  *   renderVersions(body, graph, hooks)        -> fills the tab
  */
 import { foldEntries, foldSeparator } from "../components/fold-list.js";
@@ -28,6 +29,19 @@ export function publicationChip(graph) {
   const where = publicationOf(graph);
   const el = chip(publicationText(where), { glyph: where.state === "published" ? "check" : "undo" });
   el.dataset.publication = where.state;
+  return el;
+}
+
+/**
+ * The mark in the toolbar of the editor: "Draft" while nothing is published or the draft differs from the published version, "v3 published"
+ * while they are equal. The tooltip says what executions run.
+ */
+export function editorChip(graph) {
+  const where = publicationOf(graph);
+  const published = where.state === "published";
+  const el = chip(published ? t("graph_versions.chip_published", { number: where.number }) : t("common.draft"), { glyph: published ? "check" : "undo" });
+  el.dataset.publication = where.state;
+  el.title = where.state === "draft" ? t("graph_versions.note_nothing_published") : t(`graph_versions.note_${published ? "equal" : "changed"}`, { number: where.number });
   return el;
 }
 

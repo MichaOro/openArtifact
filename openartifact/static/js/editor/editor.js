@@ -11,13 +11,14 @@ import { KEYS, readJson, removeStorage, writeJson } from "../storage.js";
 import { ActionMenu } from "../components/action-menu.js";
 import { icon } from "../components/icons.js";
 import { AddMenu } from "./add-menu.js";
-import { createGraph, listGraphs } from "./api.js";
+import { createGraph, listGraphs, loadGraph } from "./api.js";
 import { Canvas } from "./canvas.js";
 import { copyOf, pastePlan } from "./clipboard.js";
 import { ConnectMenu } from "./connect-menu.js";
 import { choosePort, connectionFor, placement, replacedEdges } from "./connect-plan.js";
 import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextToolPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
 import { GraphModel } from "./graph-model.js";
+import { editorChip } from "./versions-tab.js";
 import { InspectorBlocks, joinFooter } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
 import { flushDirty } from "./persist-policy.js";
@@ -135,6 +136,7 @@ export class GraphEditor {
       this.addMenu.setPurpose(this.model.graph?.purpose ?? null); // an action for guards offers the kinds for guards
       this.alert.hide();
       this.#showTitle();
+      this.#showPublication();
       document.title = t("editor.editor.name_openartifact", { name: this.model.graph.name });
       this.canvas.sync();
       if (fit) this.canvas.fit();
@@ -369,6 +371,33 @@ export class GraphEditor {
   }
 
   /** The name in the page header, which can be renamed in place as well. */
+  /** The mark beside "All pipelines": "Draft" or "v3 published" (ADR-070). It follows every change the server accepts, so it turns to "Draft"
+   * as soon as something is changed after a publication. */
+  #showPublication() {
+    const mark = this.root.querySelector("[data-publication]");
+    if (!mark) return;
+    mark.hidden = false;
+    mark.replaceChildren(editorChip(this.model.graph));
+    if (!this.model.onChange) {
+      this.model.onChange = () => this.#refreshPublication();
+      // a publication happens on the management page: coming back to this tab asks again
+      window.addEventListener("focus", () => this.#refreshPublication());
+    }
+  }
+
+  #refreshPublication() {
+    window.clearTimeout(this.publicationTimer);
+    this.publicationTimer = window.setTimeout(async () => {
+      try {
+        const { graph } = await loadGraph(this.model.kind, this.model.id);
+        Object.assign(this.model.graph, { published_version: graph.published_version, draft_changed: graph.draft_changed });
+        this.#showPublication();
+      } catch {
+        /* the mark keeps what it showed: it is a hint, not the editor's state */
+      }
+    }, 250);
+  }
+
   #showTitle() {
     const { graph, isAction } = this.model;
     if (this.titleName) {

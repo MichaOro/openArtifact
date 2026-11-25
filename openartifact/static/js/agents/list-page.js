@@ -4,7 +4,7 @@
 import { AlertBar } from "../components/alert-bar.js";
 import { ClampedText } from "../components/clamped-text.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
-import { ManagementPage, chip, make } from "../components/management-page.js";
+import { ManagementPage, cardBody, chip, make } from "../components/management-page.js";
 import { ManifestDialog } from "../components/manifest-dialog.js";
 import { Modal } from "../components/modal.js";
 import { connectEvents } from "../tasks/events.js";
@@ -18,6 +18,8 @@ const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-mod
 const dialog = new ManifestDialog(new Modal(document.getElementById("agent-modal")), { form: "agent", confirm: (options) => confirm.open(options) });
 
 const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+/** The day only, for a card: its one line of facts has no room for the time (the panel has both). */
+const day = (iso) => new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
 const editorUrl = (agent) => `/agents/${encodeURIComponent(agent.id)}`;
 const toneOf = { ok: "ok", warn: "warn", bad: "bad", accent: "accent", "": null };
 
@@ -38,25 +40,15 @@ function detailOf(agent) {
 }
 
 function card(agent) {
-  const box = make("div", "mg-card__body");
-  const head = make("div", "mg-card__head");
-  head.append(make("h3", "mg-card__name", agent.name));
-  const chips = make("div", "mg-card__chips");
-  chips.append(...chipsOf(agent));
-  head.append(chips);
-  box.append(head);
   // the text of a card is the description, when one is kept; without one nothing stands there (the prompt is in the panel)
-  if (agent.description) box.append(make("p", "mg-card__text", agent.description));
-  const facts = make("p", "mg-card__facts");
-  const engine = engineOf(agent);
-  for (const [value, before] of [[engine, ""], [useText(agent.node_count), ""], [when(agent.updated_at), `${t("graph_list.changed")} `]]) {
+  const facts = [];
+  for (const [value, before] of [[engineOf(agent), ""], [useText(agent.node_count), ""], [day(agent.updated_at), `${t("graph_list.changed")} `]]) {
     if (!value) continue;
     const part = make("span");
     part.append(document.createTextNode(before), make("b", "", value));
-    facts.append(part);
+    facts.push(part);
   }
-  box.append(facts);
-  return box;
+  return cardBody({ title: agent.name, text: agent.description, chips: chipsOf(agent), facts });
 }
 
 // ── the panel ────────────────────────────────────────────────────────
