@@ -40,10 +40,11 @@ export function formStructure(manifest) {
         advanced: Boolean(f.advanced),
         required: Boolean(f.required),
         condition: Boolean(f.visible_when),
+        ...(f.visible_when ? { when: whenText(f.visible_when) } : {}),
       })),
     });
   };
-  const { blocks } = planForm(everything, {}, { columns: 2, expanded: new Set(manifest.sections.map((s) => s.key)) });
+  const { blocks } = planForm(everything, {}, { columns: manifest.columns ?? 2, expanded: new Set(manifest.sections.map((s) => s.key)) });
   for (const block of blocks) {
     if (block.full) add(block.full, "full");
     else block.columns.forEach((lane, at) => lane.forEach((plan) => add(plan, at + 1)));
@@ -58,7 +59,13 @@ export function formStructure(manifest) {
     const place = previous ? sections.findIndex((x) => x.key === previous.key) + 1 : 0;
     sections.splice(place, 0, { key: area.key, title: area.title, custom: Boolean(area.custom), column: area.column === 2 ? 2 : 1, fields: [] });
   }
-  return { mode: "form", sections, fixed: [] };
+  return { mode: "form", sections, fixed: [], columns: manifest.columns ?? 2 };
+}
+
+/** What a conditional field waits for, as a short text for its tag: "type: github_pat" or "type: a, b". */
+function whenText(when) {
+  const values = when.in ?? (when.equals !== undefined && when.equals !== null ? [when.equals] : []);
+  return values.length ? `${when.field}: ${values.join(", ")}` : when.field;
 }
 
 /** The entries of the settings of a node kind per section, as the server counts them (a run of settings of one group is

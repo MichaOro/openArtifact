@@ -244,3 +244,21 @@ test("a drop finds its slot in reading order: side by side and stacked", () => {
   const grid = [box(0, 0, 100, 100), box(110, 0, 210, 100), box(0, 110, 100, 210)];
   assert.equal(slotAmong(grid, 20, 160), 2); // second row, left half: after the first row
 });
+
+
+test("a conditional field says what it waits for, and a one-column form is arranged in one column", () => {
+  const manifest = {
+    name: "credential",
+    columns: 1,
+    sections: [
+      { key: "general", title: "General", fields: [{ key: "type", label: "Type", widget: "select" }] },
+      { key: "access", title: "Access", fields: [{ key: "a.value", label: "Token", widget: "text", visible_when: { field: "type", equals: "github_pat" } }, { key: "b.value", label: "Key", widget: "text", visible_when: { field: "type", in: ["x", "y"] } }] },
+    ],
+  };
+  const structure = formStructure(manifest);
+  assert.equal(structure.columns, 1);
+  assert.deepEqual(structure.sections.map((s) => s.column), [1, 1], "all in the one column");
+  const access = structure.sections.find((s) => s.key === "access");
+  assert.deepEqual(access.fields.map((f) => f.when), ["type: github_pat", "type: x, y"]);
+  assert.equal(structure.sections[0].fields[0].when, undefined);
+});

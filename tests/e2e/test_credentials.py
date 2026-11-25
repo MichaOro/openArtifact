@@ -166,3 +166,30 @@ def test_the_github_node_chooses_makes_and_edits_its_credential_in_the_credentia
         expect(dialog.get_by_label("Timeout (seconds)", exact=True)).to_be_visible()
         add_setting(page, "If the node fails")  # for every node: Stop the run until it is chosen
         expect(dialog.get_by_label("If the node fails", exact=True)).to_have_value("fail")
+
+
+def test_the_credential_window_is_arranged_in_one_column_with_readable_rows(
+    page: Page, secured_url: str
+) -> None:
+    from tests.e2e.test_window_layout import _item, _menu
+
+    _open(page, secured_url)
+    page.get_by_role("tab", name="External").click()
+    page.get_by_role("button", name="New credential").click()
+    window = page.locator("#credential-modal")
+    expect(window).to_be_visible()
+    _item(_menu(page, window), "Edit layout").click()
+    arrange = window.locator(".lw-arrange")
+    expect(arrange).to_be_visible()
+    # a window of one column is arranged in one column, as it is drawn
+    expect(arrange.locator('.lw-grid[data-columns="1"]')).to_have_count(1)
+    expect(arrange.locator(".lw-lane")).to_have_count(1)
+    # the name of a field stays readable: one line (not a letter per line), and a field of a kind says which kind it is for
+    heights = arrange.locator(".lw-field__label").evaluate_all(
+        "els => els.map(e => e.getBoundingClientRect().height)"
+    )
+    assert heights and max(heights) < 30, heights
+    tags = arrange.locator(".lw-field__tag--when").all_inner_texts()
+    assert "type: github_pat" in tags
+    box = arrange.bounding_box()
+    assert box and box["width"] < 560, "the arranged window is as narrow as the form"

@@ -102,9 +102,10 @@ export class ArrangeView {
           return;
         }
         const grid = make("div", "lw-grid");
-        grid.dataset.columns = "2";
+        const single = this.current.columns === 1; // a one-column window is arranged in one column, as it is drawn
+        grid.dataset.columns = single ? "1" : "2";
         grid.dataset.block = String(at);
-        block.lanes.forEach((sections, side) => {
+        block.lanes.slice(0, single ? 1 : 2).forEach((sections, side) => {
           const lane = make("div", "lw-lane");
           lane.dataset.lane = String(side);
           lane.dataset.block = String(at);
@@ -175,7 +176,11 @@ export class ArrangeView {
       const label = make("span", "lw-field__label", field.label);
       item.append(this.#grip(t("components.layout.move_field", { title: field.label }), `f:${section.key}:${field.key}`, "field"), label);
       if (field.tag) item.append(make("span", "lw-field__tag", field.tag === "group" && field.count > 1 ? t("components.layout.group_of", { count: field.count }) : field.tag));
-      if (field.condition) item.append(make("span", "lw-field__tag lw-field__tag--when", t("components.layout.conditional")));
+      if (field.condition) {
+        const when = make("span", "lw-field__tag lw-field__tag--when", field.when ?? t("components.layout.conditional"));
+        when.title = t("components.layout.conditional"); // only there while the other field has that value
+        item.append(when);
+      }
       if (field.required) item.append(make("span", "lw-field__tag", t("components.layout.required")));
       list.append(item);
     }
