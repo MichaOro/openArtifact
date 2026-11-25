@@ -89,7 +89,7 @@ This audit examines two foundational extensions for the Settings area and the na
 
 #### 3.1.1 Data Model & Storage
 
-**Current state:** `AppSetting` table stores arbitrary key-value pairs as JSON text. Keys like `run_limits`, `retention_rules` exist. No personal settings yet.
+**Current state:** `AppSetting` table stores arbitrary key-value pairs as JSON text. Keys use dotted names such as `run.max_steps` (`models/settings.py`); the new ones follow that style (`personal.mark_resolved_references`). No personal settings yet.
 
 **Gap to requirement:** Need namespaced keys (`personal.*`) to separate personal from global/admin settings later (per card #99: System → Global → Personal resolution).
 
@@ -262,7 +262,6 @@ def resolve_body_segments(body: str, card: Mapping) -> list[Segment]:
 | **Visibility/rights** | Not implemented | ❌ No `visible_when`/`permission` on entries | — |
 | **Active state** | Template checks `item.key == active_nav` and `item.contains(active_nav)` | ✅ Works for `NavLink` | `templates/components/nav.html:6, 14` |
 | **Hardcoded navigation outside system** | Settings pages: routes in `web/routes.py` (`/settings/providers`, `/settings/credentials`, `/settings/run-limits`) — not in `SIDEBAR` children until manually added | ❌ Settings sub-navigation duplicated: once in `SIDEBAR` constant, once in route definitions | `web/routes.py:198-213`, `web/navigation.py:116-120` |
-| **Editor navigation** | Graph editor tabs (Definition/Behaviour) hardcoded in `graph_editor.html` | ❌ Not in navigation system | `templates/graph_editor.html` |
 | **Settings pages navigation** | Each settings page standalone; no sub-nav component | ❌ No reusable settings sub-nav | `templates/providers.html`, `run_limits.html` |
 
 #### 3.2.2 Gap Analysis & Target Architecture
@@ -272,7 +271,7 @@ def resolve_body_segments(body: str, card: Mapping) -> list[Segment]:
 **Target:** 
 - `NavigationRegistry` — single instance, populated at startup + by extensions
 - `NavEntry` (abstract base) → `NavLink`, `NavGroup`, `NavAction`, `NavDivider`, `NavField`
-- Each entry declares: `key`, `label_key` (i18n), `icon`, `order`, `visible_when` (callable or expr), `permission` (future), `children` (for groups/links), `badge` (optional)
+- Each entry declares: `key`, `label_key` (i18n), `icon`, `order`, `visible_when` (a Python callable, see D7), `permission` (future), `children` (for groups/links), `badge` (optional)
 - Registration: `registry.register(NavLink(...), parent="settings", order=10)`
 - Rendering: `registry.build_sidebar(active_nav, context)` → list of entries filtered by `visible_when(context)`
 
@@ -338,10 +337,9 @@ Run in CI; fails if new page added without nav registration.
 |------|--------|-------|
 | **1. Abstract base** | Convert `NavItem` to `ABC` with abstract `render(context)`; keep dataclass fields | Unit: subclasses instantiate, `kind` correct |
 | **2. Registry class** | `NavigationRegistry` with `register()`, `build_sidebar()`, `build_rail()`; move `SIDEBAR`/`ARTIFACT_RAIL` construction into `registry.populate_builtin()` | Unit: registry builds same structure as old constants |
-| **3. Visibility predicate** | Add `visible_when: Callable[[dict], bool] | str` to `NavEntry`; evaluate in `build_*` with request context (user, permissions, feature flags) | Unit: entry hidden when predicate false |
+| **3. Visibility predicate** | Add `visible_when: Callable[[dict], bool] | None` to `NavEntry`; evaluate in `build_*` with an explicit context dict (the request's page and the feature flags; no user or rights while the system has one user, card #99) | Unit: entry hidden when predicate false |
 | **4. Settings sub-nav** | Create `NavGroup("settings", "Settings", "settings")` with dynamic children from registry (filter `parent="settings"`); replace hardcoded children in `SIDEBAR` | E2E: Settings dropdown shows Providers, Credentials, Run limits, Personal |
 | **5. Migrate routes** | In `web/routes.py`, remove hardcoded `_page(..., nav="providers")` — derive `active_nav` from registry via request path | E2E: Active highlight works on all settings pages |
-| **6. Editor tabs** | Replace `graph_editor.html` hardcoded tabs with `NavGroup("editor_tabs", ...)` filled by registry | E2E: Editor tabs render, active state correct |
 | **7. Third-party API** | Document `registry.register()` in `extending.md`; add example plugin | Integration test: external package adds entry |
 | **8. Enforcement test** | Add `test_no_hardcoded_nav_links_in_templates.py` and `test_all_routes_have_nav_entries.py` to CI | CI passes on current codebase |
 
@@ -369,12 +367,12 @@ Run in CI; fails if new page added without nav registration.
 |------|-------------|--------|-------|
 | **B1** | Create `NavigationRegistry` class + `NavEntry` ABC in `web/navigation.py` | Medium | Unit: registry builds current sidebar/rail |
 | **B2** | Migrate `SIDEBAR`/`ARTIFACT_RAIL` to `registry.populate_builtin()` | Small | Unit: same output; E2E: navigation unchanged |
-| **B3** | Add `visible_when` predicate support + context (request, user, features) | Medium | Unit: visibility toggles |
+| **B3** | Add `visible_when` predicate support + context (page, features) | Medium | Unit: visibility toggles |
 | **B4** | Replace Settings hardcoded children with dynamic `NavGroup("settings")` from registry | Small | E2E: Settings dropdown works |
 | **B5** | Derive `active_nav` from registry in `web/routes.py` (remove manual `active_nav` args) | Small | E2E: Active highlight on all pages |
 | **B6** | Add enforcement tests: `test_no_hardcoded_nav_links_in_templates.py`, `test_all_routes_have_nav_entries.py` | Small | CI passes |
 | **B7** | Document in ADR-065, `extending.md`, `CONTRIBUTING.md` | Small | Docs review |
-| **B8** | (Future) Editor tabs, third-party registration API | Medium | Integration test |
+| **B8** | (Future) third-party registration API | Medium | Integration test |
 
 ---
 
@@ -388,7 +386,7 @@ Run in CI; fails if new page added without nav registration.
 | **D4** | Highlight token name | **`--color-resolved-ref-bg`** — semantic, matches `--color-accent` family |
 | **D5** | Language/Theme move to Personal Settings now or later | **Later** — keep cookies; add manifest placeholder with `visible_when: false` |
 | **D6** | Navigation registry: global singleton vs. per-request | **Global singleton** (populated at startup) — simpler, matches current constant pattern |
-| **D7** | `visible_when` expression language: Python callable / string expr / feature flag key | **Python callable** — full power, testable; string expr for simple cases via `eval`-safe subset |
+| **D7** | `visible_when` expression language: Python callable / string expr / feature flag key | **Python callable only** — testable, no expression language and no `eval` of strings (a corrected recommendation: the first draft proposed an `eval`-safe subset) |
 | **D8** | Order property: integer (like current `menu.order`) or lexical key | **Integer `order`** — matches node manifests (`menu.order`), allows insertion between |
 
 ---
@@ -401,7 +399,7 @@ Run in CI; fails if new page added without nav registration.
 | **Highlight contrast fails in dark mode** | Low | Medium | Define token in both themes; catalog test `test_ui_catalog.py` matrix covers it |
 | **Navigation registry becomes bottleneck** | Low | Medium | Simple dict-based registry; no locks (populated at startup); extensions register before app serves |
 | **Third-party nav entries clash on keys** | Medium | Low | Namespace convention: `ext.<pkg>.<feature>`; registry warns on duplicate key |
-| **`visible_when` callable captures request incorrectly** | Medium | Medium | Pass explicit `context` dict (user, permissions, features); no closure over request |
+| **`visible_when` callable captures request incorrectly** | Medium | Medium | Pass explicit `context` dict (page, features); no closure over request |
 | **Form manifest for settings feels heavy for one switch** | Low | Low | Reuse pays off at 2+ settings; `form-view.js` already loaded on other settings pages |
 | **SSE `settings.changed` not received in all tabs** | Low | Medium | Existing pattern for run-limits/retention works; same bus, same retry logic |
 | **Board preview performance with segments** | Low | Low | Preview limited to 60 words; segments array small; budget already stops early |
