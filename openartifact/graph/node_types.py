@@ -300,6 +300,8 @@ class NodeType:
         label: str,
         behaviour: str = "plain",
         scopes: frozenset[GraphKind] = frozenset({PIPELINE}),
+        purposes: frozenset[str] = frozenset({"pipeline", "guard"}),
+        requires: str | None = None,
         fixed: bool = False,
         addable: bool = False,
         chain: bool = False,
@@ -331,6 +333,10 @@ class NodeType:
         self.result_data = result_data  # keys of `data` it always leaves
         self.variables = variables  # the setting it sets run variables from
         self.scopes = scopes
+        #: The kinds of action definition it may be used in (``pipeline`` and/or ``guard``, ADR-067) and the right it needs
+        #: (a hook for the permissions of card #99, not evaluated yet).
+        self.purposes = purposes
+        self.requires = requires
         self.fixed = fixed  # comes with the graph, cannot be added or deleted
         self.addable = addable  # offered in the "+" menu
         self.chain = chain  # a step of the main line (new ones are placed after these)
@@ -421,6 +427,8 @@ class NodeType:
             "kind": self.kind.value,
             "label": self.label,
             "scopes": sorted(s.value for s in self.scopes),
+            "purposes": sorted(self.purposes),
+            "requires": self.requires,
             "fixed": self.fixed,
             "addable": self.addable,
             "chain": self.chain,
@@ -547,9 +555,15 @@ def step_icon(kind: str) -> str | None:
     return ui.get("step_icon") or ui.get("icon") or view.menu_icon
 
 
-def kinds_in(scope: GraphKind) -> set[NodeKind]:
-    """The kinds a pipeline (``pipeline``) or an action definition (``action``) may contain."""
-    return {t.kind for t in NODE_TYPES.values() if scope in t.scopes}
+def kinds_in(scope: GraphKind, purpose: str | None = None) -> set[NodeKind]:
+    """The kinds a pipeline (``pipeline``) or an action definition (``action``) may contain; for an action definition of a
+    ``purpose`` (``pipeline`` or ``guard``, ADR-067) only the kinds that may be used there."""
+    return {
+        t.kind
+        for t in NODE_TYPES.values()
+        if scope in t.scopes
+        and (purpose is None or scope != GraphKind.ACTION or purpose in t.purposes)
+    }
 
 
 def fixed_in(scope: GraphKind) -> list[NodeType]:
@@ -586,6 +600,8 @@ def load(directory: Any = NODES_DIR) -> list[NodeType]:
             label=manifest.label,
             behaviour=manifest.behaviour,
             scopes=frozenset(GraphKind(s) for s in manifest.scopes),
+            purposes=frozenset(manifest.purposes),
+            requires=manifest.requires,
             fixed=manifest.fixed,
             addable=manifest.addable,
             chain=manifest.chain,

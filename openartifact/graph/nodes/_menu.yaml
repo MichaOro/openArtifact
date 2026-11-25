@@ -23,11 +23,13 @@ kinds:
 - set
 - github
 - postgres
+- sqlite
 - mcp_tool
 - github_tool
 - http_tool
 - code_tool
 - postgres_tool
+- sqlite_tool
 - artifact
 # Entries of the "+" menu that are not kinds of nodes. `scopes` says in which editors the entry is offered; `soon`
 # marks a place held for something that is coming. Guard (ADR-060) opens the Guard window: a guard of the pipeline

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import sqlite3
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -44,8 +47,10 @@ from openartifact.comments.service import CommentService
 from openartifact.config import DEFAULT_SECRET_KEY, Settings, get_settings
 from openartifact.credentials.service import CredentialService
 from openartifact.credentials.store import SecretStore
+from openartifact.engine import guard_views
 from openartifact.engine.executors import Limits
 from openartifact.engine.runner import RunEngine
+from openartifact.engine.telemetry import Telemetry
 from openartifact.events import EventBus
 from openartifact.exceptions import (
     ArtifactError,
@@ -114,6 +119,16 @@ def _create_app(settings: Settings) -> FastAPI:
         except OperationalError:
             logger.warning("Run recovery skipped: the database is not migrated yet")
 
+        try:
+            # the views a guard action reads the application's data through, made again so they follow the tables (ADR-068)
+            await asyncio.to_thread(
+                guard_views.install, settings.data_dir / settings.database_filename
+            )
+        except sqlite3.Error:
+            logger.warning(
+                "The views for guard actions could not be made: the database is not migrated yet"
+            )
+
         async with app.state.mcp_app.router.lifespan_context(app.state.mcp_app):
             yield
 
@@ -145,6 +160,13 @@ def _create_app(settings: Settings) -> FastAPI:
         build_registry()
     )  # the sidebar and the rail of the artifact dialog (ADR-066)
     app.state.activity = ActivityService(database.new_session)
+    #: What the agents of a running execution do, in memory: the ``agent.*`` facts of the guards (ADR-060 addendum).
+    app.state.telemetry = Telemetry()
+
+    def publish(event_type: str, data: dict[str, Any]) -> object:
+        app.state.telemetry.record(event_type, data)  # what the guards read ...
+        return app.state.event_bus.publish(event_type, data)  # ... and what the pages show
+
     app.state.engine = RunEngine(
         app.state.event_bus,
         database.new_session,
@@ -154,7 +176,7 @@ def _create_app(settings: Settings) -> FastAPI:
             app.state.secret_store.resolve,
             app.state.comments,
             app.state.credentials.settings_of,
-            app.state.event_bus.publish,
+            publish,
         ),
         history_default_keep=settings.execution_history_default_keep,
         guards=GuardSettings(
@@ -163,6 +185,7 @@ def _create_app(settings: Settings) -> FastAPI:
             timeout_seconds=settings.guard_timeout_seconds,
             heartbeat_spacing_seconds=settings.heartbeat_min_spacing_seconds,
         ),
+        telemetry=app.state.telemetry,
     )
     app.state.guards = GuardService(
         database.new_session, app.state.event_bus, settings.guard_min_interval_seconds

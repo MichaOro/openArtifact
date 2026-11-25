@@ -376,9 +376,12 @@ export function placeholdersIn(scope) {
   }));
 }
 
-/** The kinds that may be added to a pipeline ("pipeline") or an action definition ("action"). */
-export function addableIn(scope) {
-  return [...TYPES.values()].filter((t) => t.addable && t.scopes.includes(scope));
+/** The kinds that may be added to a pipeline ("pipeline") or an action definition ("action"); in an action of a `purpose`
+ * ("pipeline" or "guard", ADR-067) only the kinds that may be used there. */
+export function addableIn(scope, purpose = null) {
+  return [...TYPES.values()].filter(
+    (t) => t.addable && t.scopes.includes(scope) && (scope !== "action" || !purpose || (t.purposes ?? ["pipeline", "guard"]).includes(purpose)),
+  );
 }
 
 /**

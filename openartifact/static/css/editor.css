@@ -22,6 +22,8 @@
   line-height: 1.5rem;
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
+.ge-chip--guard { background: var(--chip-guard-bg); }
+.ge-chip[hidden] { display: none; }
 /* the guard library (guards.html): the search sits left of "New guard", a row wraps on a narrow screen */
 .gd-library__bar { flex-wrap: wrap; align-items: center; gap: var(--space-2); justify-content: space-between; }
 .gd-library__bar .button { order: 2; }

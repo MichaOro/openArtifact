@@ -14,7 +14,8 @@ export class ConnectMenu {
    * @param {Map<string, object>} options.nodes
    * @param {(choice: {origin: object, kind: string, stage: object|null}) => void} options.onChoose
    */
-  constructor({ addMenu, scope, nodes, onChoose }) {
+  constructor({ addMenu, scope, nodes, onChoose, purpose = () => null }) {
+    this.purpose = purpose;
     this.addMenu = addMenu;
     this.scope = scope;
     this.nodes = nodes;
@@ -24,7 +25,7 @@ export class ConnectMenu {
   /** @param {{node: object, port: string, direction: string, slot: number, point: {x: number, y: number}, world: {x: number, y: number}, stageId: string|null}} origin */
   open(origin) {
     const stage = origin.stageId ? this.nodes.get(origin.stageId) ?? null : null;
-    const offered = candidates(origin, kindsFor(this.scope, stage, addableIn(this.scope)), stage);
+    const offered = candidates(origin, kindsFor(this.scope, stage, addableIn(this.scope, this.purpose())), stage);
     const port = typeOf(origin.node).portLabel(origin.port, origin.node);
     this.addMenu.openFrom(origin.point, {
       types: offered,

@@ -263,6 +263,13 @@ class NodeManifest(_Strict):
         "plain", "flow", "stage", "action", "pipeline", "output", "tool", "switch"
     ] = "plain"
     scopes: list[Literal["pipeline", "action"]] = ["pipeline"]
+    #: In which kind of action definition the kind may be used (ADR-067): ``pipeline`` (an action of a stage) and/or ``guard``
+    #: (an action of a guard). Every kind is in both by default; a kind for guards only says ``[guard]``. Pipelines have no purpose.
+    purposes: list[Literal["pipeline", "guard"]] = Field(
+        default_factory=lambda: ["pipeline", "guard"], min_length=1
+    )
+    #: The right a person needs to use the kind (a hook for the permissions of card #99; nothing evaluates it yet).
+    requires: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_.:-]*$")
     fixed: bool = False
     addable: bool = False
     chain: bool = False

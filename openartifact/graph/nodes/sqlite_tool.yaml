@@ -1,0 +1,67 @@
+schema: 1
+kind: sqlite_tool
+label: SQLite Tool
+behaviour: tool
+scopes:
+- action
+purposes:
+- guard
+addable: true
+tool: true
+menu:
+  group: Agent tools
+  order: 5
+ports:
+  outputs:
+  - name: tool
+    label: Tool
+    side: top
+ui:
+  color: sqlite
+  icon: database
+  hint: This tool lets an agent read data of the application (runs, steps, tool calls, artifacts, lanes) through the views v_guard_*. It never writes.
+  caption:
+    template: '{tool_name|default:@name} · {query|first_line|short|default:no query yet}'
+settings:
+- use: tool_name
+- key: description
+  label: Description
+  type: lines
+  default: ''
+  max_length: 1000
+  help: 'Tells the model what the tool does and when to use it. Name the parameters the query takes below: the first is ?1.'
+  stored_in: config
+- key: source
+  label: Data source
+  type: select
+  default: app
+  options:
+  - app
+  option_labels:
+    app: Application data
+  help: Where the query reads (the views v_guard_*).
+  stored_in: config
+- key: query
+  label: Query
+  type: code
+  default: ''
+  max_length: 20000
+  placeholder: SELECT status, step_count FROM v_guard_runs WHERE id = ?1
+  help: One read-only SQL statement on the views of the data source; the parameters go in as ?1, ?2, ... in the order they are declared below.
+  stored_in: config
+  check: sql_query
+- use: parameters
+- key: blocked
+  label: Blocked tables
+  type: lines
+  default: ''
+  max_length: 2000
+  level: optional
+  placeholder: tasks.title
+  help: 'Tables or columns this query may not read, one per line. Secrets, credentials, tokens, providers and settings are always blocked.'
+  stored_in: config
+  check: blocked_list
+- use: max_rows
+  level: optional
+- use: timeout_seconds
+  level: optional

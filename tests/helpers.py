@@ -110,12 +110,13 @@ def build_definition(
     seconds: int | None = None,
     output: str | None = "pass",
     fail_enabled: bool = False,
+    purpose: str = "pipeline",
 ) -> dict[str, Any]:
     """An action definition: trigger -> [timer] -> the output port ``output`` ('pass' or 'fail').
 
-    ``output=None`` leaves the trigger unconnected (a dead end).
+    ``output=None`` leaves the trigger unconnected (a dead end). ``purpose``: ``guard`` for the action a guard runs (ADR-067).
     """
-    definition = post(client, "/api/actions", name=name)
+    definition = post(client, "/api/actions", name=name, purpose=purpose)
     trigger = kind_of(client, definition, "trigger")
     out = kind_of(client, definition, "output")
     graph = client.get(graph_url(definition)).json()

@@ -8,7 +8,15 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, Route, expect
 
-from tests.e2e.helpers import add_action, centre, drag, eventually, menu_kinds, pick_node
+from tests.e2e.helpers import (
+    add_action,
+    centre,
+    drag,
+    eventually,
+    failure_setting,
+    menu_kinds,
+    pick_node,
+)
 from tests.helpers import graph_url
 
 
@@ -501,17 +509,25 @@ def test_create_an_action_definition_from_the_navigation(
     page.goto(f"{base_url}/pipelines")
     page.click(".nav-link[href='/actions']")
     expect(page).to_have_url(re.compile(r"/actions$"))
-    expect(page.locator("[data-ge-empty]")).to_be_visible()
+    expect(page.locator('[data-ge-empty][data-purpose="pipeline"]')).to_be_visible()
     page.click("[data-new-graph]")
-    page.fill("#name-modal-field-name", "Gap analysis")
-    page.click("#name-modal [data-submit]")
+    page.locator("#action-modal").get_by_label("Name").fill(
+        "Gap analysis"
+    )  # a window of the form manifest (ADR-065, ADR-067)
+    page.click("#action-modal [data-submit]")
     expect(page).to_have_url(f"{base_url}/actions/gap-analysis")
     expect(page.locator(".ge-node--trigger")).to_have_count(1)
     expect(page.locator(".ge-node--output")).to_have_count(1)
     page.click("[data-add-menu]")
     assert menu_kinds(page) == {
         "AI": ["Agent"],
-        "Agent tools": ["MCP Client Tool", "HTTP Request Tool", "Code Tool", "Postgres Tool"],
+        "Agent tools": [
+            "MCP Client Tool",
+            "GitHub MCP",
+            "HTTP Request Tool",
+            "Code Tool",
+            "Postgres Tool",
+        ],
         "Apps and data": ["GitHub", "Postgres"],
         "Core": ["Code", "HTTP request"],
         "Data": ["Edit Fields", "Artifact"],
@@ -783,9 +799,7 @@ def test_link_an_existing_action_switch_and_unlink(
     # the error output comes from the action's own setting, not from its definition (ADR-061)
     expect(node.locator(".ge-port--error")).to_be_hidden()
     assert abs(_pass_offset(node)) < 2
-    page.locator(".ge-inspector").get_by_label("If the action fails").select_option(
-        label="Error output"
-    )
+    failure_setting(page, "If the action fails").select_option(label="Error output")
     expect(node.locator(".ge-port--error")).to_be_visible()
     assert _pass_offset(node) < -5  # Pass above the middle, Error below it
     choose("Without fail")

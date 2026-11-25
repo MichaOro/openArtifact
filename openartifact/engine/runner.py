@@ -39,6 +39,7 @@ from openartifact.engine.results import NodeResult
 from openartifact.engine.schemas import ExecutionRead, NodeResultRead, RunRead, RunStageRead
 from openartifact.engine.snapshot import NestingError, build_snapshot
 from openartifact.engine.targets import TargetError, load_pipeline, pick_start
+from openartifact.engine.telemetry import TelemetrySource
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import FailureMode, Ports
@@ -179,8 +180,11 @@ class _GuardHooks:
         for key, value in facts.items():
             if key.startswith("var."):
                 continue
-            name = "guard_firing" if key == "guard.runs" else f"guard_{key}"
+            name = "guard_firing" if key == "guard.runs" else f"guard_{key.replace('.', '_')}"
             inputs[name] = value
+        # where the guard looks (a SQLite node of the guard action reads the run through these, ADR-068)
+        inputs["guard_execution"] = walk.execution_id or ""
+        inputs["guard_task"] = walk.task_id
         context.set_vars(inputs)
         view = RunView(context, NodeIndex.of_graphs([definition]), walk.task_id, walk.execution_id)
         return await self._engine._run_definition(definition_id, definition, walk, view)
@@ -231,8 +235,11 @@ class RunEngine:
         limits: Limits | None = None,
         history_default_keep: int = 50,
         guards: GuardSettings | None = None,
+        telemetry: TelemetrySource | None = None,
     ) -> None:
         self._bus = bus
+        #: What the agents of a running execution do (the ``agent.*`` facts of the guards); ``None``: nothing is known.
+        self._telemetry = telemetry
         self.history = ExecutionHistory(bus, history_default_keep)
         self._session = session
         self._max_runs = max_runs
@@ -647,12 +654,23 @@ class RunEngine:
                     )
                 )
 
+        async def board() -> dict[str, int]:
+            """The artifacts in each lane (``lane.<lane>`` facts): looked up only when a guard's condition names one."""
+            async with self._session() as session:
+                rows = await session.execute(
+                    select(Task.status, func.count()).group_by(Task.status)
+                )
+                return {f"lane.{status}": count for status, count in rows}
+
+        telemetry = self._telemetry
         return Monitor(
             list(walk.snapshot.get("guards", [])),
             _GuardHooks(self, walk),
             self.guard_settings,
             variables=lambda: walk.context.vars,
             enabled=enabled,
+            agent=(lambda: telemetry.facts(walk.execution_id)) if telemetry else dict,
+            board=board,
         )
 
     @staticmethod

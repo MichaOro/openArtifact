@@ -97,6 +97,27 @@ the ones in the action), so a stall guard on an Agent node shows up in the pipel
 Arrow keys move between the controls of the popup, Escape closes it and returns to the shield. A guard is never a node
 of the canvas; deleting a stage or an action detaches the guards attached to it (their definitions stay).
 
+## Guard actions
+
+A guard that *runs its action* (consequence *Run the guard's action*) runs a **guard action**. An action is made for pipelines or for
+guards when it is created (the window of the Actions page asks for the type; ADR-067), and the two never mix:
+
+- the **Actions** page has two tabs, *Pipeline actions* and *Guard actions*; a guard action shows a **Guard** chip next to *Draft*;
+- a stage offers only pipeline actions, the guard editor only guard actions (*New* there makes a guard action);
+- the type changes in the same window as the name (the pencil), unless the action is used on the other side: a pipeline action that a
+  stage uses cannot become a guard action and the other way round, and neither can one that holds a node of a kind the other type may
+  not use. The window says where it is used;
+- a node kind can be for guards only (the SQLite node, card #102): it appears only in the "+" menu of a guard action and the server
+  refuses it in a pipeline action.
+
+Everything else is the same: a guard action is edited in the action editor like any action.
+
+## Reading data in a guard action
+
+A guard action can read data of the application: the **SQLite** node (a plain query) and the **SQLite Tool** (an agent asks) read the
+views `v_guard_runs`, `v_guard_steps`, `v_guard_tool_calls`, `v_guard_artifacts` and `v_guard_lanes`, read-only (ADR-068; the views and
+examples are in [execution-nodes](execution-nodes.md#sqlite-node-guard-actions-only)). Both exist only in guard actions.
+
 ## The guard editor
 
 The window's title is **Guard – NAME**: the name is renamed in place (click it, or Enter or Space on it; Enter keeps,
@@ -137,8 +158,19 @@ guard runs no action of its own and offers **Run an action when it fires**.
 | Last action (`last_status`) | passed, erred, none yet |
 | Cost (`cost`) | Only when a node reports a cost (none does yet): a condition on it never fires today |
 | Result field (`var.NAME`) | A numeric run variable, e.g. one a Code node declares and sets (`"vars": {"gain": 0.02}`) |
+| Agent rounds / Tool calls of the agents / Failed tool calls (`agent.turns`, `agent.tool_calls`, `agent.tool_errors`) | What the agents of the execution have done so far |
+| Same tool call in a row (`agent.repeat`) | How often the last tool call was made with the **same arguments** in a row (the end of the streak) |
+| Same tool in a row (`agent.same_tool`) | How often the last **tool** was called in a row, whatever its arguments |
+| Tokens of the agents (`agent.tokens`) | The tokens the agent step has used so far |
+| Time since the last agent activity (`agent.idle`) | Seconds since an agent last started or finished a round or a tool call |
+| Time since the last tool call (`agent.since_tool_call`) | Seconds since a tool call last started or finished |
+| Artifacts in lane (`lane.NAME`) | How many artifacts are in the lane `NAME` (its status key, e.g. `backlog`, `in_progress`, `done_2`); looked up only when a condition names a lane |
 
-A fact that is missing makes every condition on it false.
+A fact that is missing makes every condition on it false: an execution without an agent has no `agent.*` facts (they exist once an agent has
+done something), so a condition on one never fires there. The `agent.*` facts come from the **runtime telemetry** of the application, kept in
+memory per execution (`engine/telemetry.py`): the agent loop tells what happens (`agent.turn`, `agent.tool_call` with a fingerprint of the
+arguments, never the arguments), the application hands it to the event bus and to the telemetry. They are the numbers of a running agent: the
+detail of an agent step is only stored when it is done. The event log written during the run (card #100) can take the telemetry's place.
 
 ### Consequences
 
@@ -164,6 +196,28 @@ object `{"gain": 0..1, "improving": …, "reason": …}` judging whether the lat
 **Code** node *Marginal gain* that reads the judgement from `context.json`, declares and sets the result field `gain`, and
 passes only when `gain ≥ 0.05` (change `MIN_GAIN` to suit the work). Too little gain fails the action, and the fallback
 pauses the run.
+
+### Judging the health of an agent: the examples
+
+*Healthy* is for you to define: a rule, a guard action, or both.
+
+| Unhealthy when | As a condition |
+|---|---|
+| Nothing happened for **5 minutes** | `agent.idle` at least 5 minutes |
+| The agent asks for the **same README 10 times** in a row | `agent.repeat` at least 10 |
+| The agent opens **ten different websites** with one tool | not unhealthy: `agent.same_tool` is 10, `agent.repeat` is 1 |
+| Too many tool calls fail | `agent.tool_errors` at least 5 (and, if you like, `agent.tool_calls` at least 20) |
+| The pipeline runs but the **backlog is empty** | `lane.backlog` equals 0 |
+| Any of these | a group *any* of the conditions; *all* for a combination |
+
+The templates **Agent quiet and storm guard** (rules only: pauses the run at 5 minutes of quiet or 10 identical calls) and **Agent health guard**
+(when quiet, a call repeated 5 times or 5 failed calls, a guard action judges: the **SQLite** node reads the recent tool calls
+of the execution from `v_guard_tool_calls`, an agent judges them, a Code node turns the verdict into pass or fail; *unhealthy* aborts the run)
+show both. In the guard's action the facts are variables with the dots written as underscores (`${var.guard_agent_idle}`,
+`${var.guard_agent_repeat}`, `${var.guard_lane_backlog}`) and `${var.guard_execution}` / `${var.guard_task}` name the execution and the artifact, so a SQLite
+node can ask `WHERE execution_id = ?1` with the value `${var.guard_execution}`. A guard action that passes means *healthy*; one that fails with a
+reason means *unhealthy*, and the guard's fallback (abort or pause) follows; in a pipeline the error output of the node can take the run
+somewhere else.
 
 ## Heartbeat
 

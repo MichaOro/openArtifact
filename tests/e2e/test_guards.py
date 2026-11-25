@@ -136,7 +136,9 @@ def test_a_template_becomes_a_library_guard_in_the_editor_titled_by_its_name_wit
             "Blank guard",
             "From template: Stall guard",
             "From template: Runtime guard",
+            "From template: Agent quiet and storm guard",
             "From template: Health guard",
+            "From template: Agent health guard",
         ]
     )
     menu.get_by_role("menuitem", name="From template: Stall guard").click()
@@ -534,6 +536,7 @@ def test_a_round_guard_fires_at_round_5_and_8_and_pauses_the_run_and_the_history
         guard_api,
         "Judge",
         'import json, sys\nsys.exit(0 if json.load(open("context.json"))["vars"]["guard_firing"] < 2 else 1)',
+        purpose="guard",
     )
     health = _guard(
         guard_api,

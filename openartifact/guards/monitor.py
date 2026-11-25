@@ -206,6 +206,13 @@ def describe_facts(facts: Mapping[str, Any]) -> str:
             parts.append(f"{amount} {words}")
     if facts.get("errors"):
         parts.append(f"{facts['errors']} errors")
+    if facts.get("agent.repeat", 0) >= 3:
+        parts.append(f"the same tool call {facts['agent.repeat']} times in a row")
+    if facts.get("agent.tool_errors"):
+        parts.append(f"{facts['agent.tool_errors']} failed tool calls")
+    idle = facts.get("agent.idle")
+    if isinstance(idle, int | float) and idle >= 60:
+        parts.append(f"agent quiet for {round(idle / 60)} min")
     return ", ".join(parts)
 
 
@@ -239,6 +246,10 @@ class Monitor:
     variables: Callable[[], Mapping[str, Any]] = dict
     #: Whether a guard is still enabled (checked live, so switching one off acts on running executions).
     enabled: Callable[[str], Awaitable[bool]] | None = None
+    #: The facts about what the agents of the execution do (``agent.*``, from the telemetry), read when a guard evaluates.
+    agent: Callable[[], Mapping[str, Any]] = dict
+    #: The facts of the board (``lane.<lane>``: the artifacts in a lane): looked up only when a condition names one.
+    board: Callable[[], Awaitable[Mapping[str, Any]]] | None = None
 
     def __post_init__(self) -> None:
         self._guards: list[_Guard] = []
@@ -306,6 +317,7 @@ class Monitor:
             number = _number(value)
             if number is not None:
                 facts[f"var.{name}"] = number
+        facts.update(self.agent())
         return facts
 
     @staticmethod
@@ -457,6 +469,10 @@ class Monitor:
         count = self.counts.setdefault(self._count_key(guard, scope), Count())
         try:
             facts = self.facts(scope, guard, at)
+            if self.board is not None and any(
+                f.startswith("lane.") for f in tree.fields_of(guard.when)
+            ):
+                facts.update(await self.board())
             if not tree.evaluate(guard.when, facts):
                 count.holding_since = None
                 return None

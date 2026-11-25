@@ -15,6 +15,7 @@ TEMPLATES = Path(__file__).resolve().parent.parent / "openartifact" / "templates
 #: node kind, ``graph/nodes/*.yaml``, ADR-053/054).
 MANIFEST_WINDOWS = {
     "credential-modal": "credential",
+    "action-modal": "action",
     "guard-modal": "guard",
     "node-modal": "nodes",
 }
@@ -39,6 +40,8 @@ EXCEPTIONS = {
 }
 
 MODAL = re.compile(r"\{%-?\s*call\s+modal\(\s*(?:\"([a-z0-9-]+)\"|([a-z_]+))")
+#: A manifest window is made by the shared macro ``{{ manifest_modal("id", ...) }}`` (templates/components/manifest_modal.html).
+MANIFEST_MODAL = re.compile(r"\{\{\s*manifest_modal\(\s*\"([a-z0-9-]+)\"")
 
 
 def _windows() -> dict[str, list[str]]:
@@ -48,8 +51,11 @@ def _windows() -> dict[str, list[str]]:
     for path in sorted(TEMPLATES.rglob("*.html")):
         if path.name == "modal.html":  # the macro itself (its usage example is a comment)
             continue
-        for literal, variable in MODAL.findall(path.read_text(encoding="utf-8")):
+        text = path.read_text(encoding="utf-8")
+        for literal, variable in MODAL.findall(text):
             found.setdefault(literal or f"<{variable}>", []).append(path.name)
+        for literal in MANIFEST_MODAL.findall(text):
+            found.setdefault(literal, []).append(path.name)
     return found
 
 

@@ -29,6 +29,7 @@ class Graph(Base):
         name: Display name.
         status: Lifecycle of the definition (only ``draft`` exists so far).
         kind: ``pipeline``, or ``action`` for the definition of what an action does.
+        purpose: What an action definition is for: ``pipeline`` (a stage uses it) or ``guard`` (only a guard uses it, ADR-067).
         slug: Readable URL name, unique per kind (follows the name).
         created_at: Creation timestamp (UTC).
         updated_at: Last modification timestamp (UTC).
@@ -42,6 +43,7 @@ class Graph(Base):
     status: Mapped[str] = mapped_column(String(32), default="draft")
     kind: Mapped[str] = mapped_column(String(16), default="pipeline", server_default="pipeline")
     slug: Mapped[str] = mapped_column(String(100))
+    purpose: Mapped[str] = mapped_column(String(16), default="pipeline", server_default="pipeline")
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),

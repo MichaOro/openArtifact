@@ -39,7 +39,7 @@ test("registerView replaces the view of a kind for kinds loaded afterwards", asy
 
 test("addableIn lists the addable kinds of one scope, in server order", () => {
   assert.deepEqual(addableIn("pipeline").map((t) => t.kind), ["stage", "pipeline"]);
-  assert.deepEqual(addableIn("action").map((t) => t.kind), ["timer", "code", "http", "if", "switch", "agent", "set", "github", "postgres", "mcp_tool", "github_tool", "http_tool", "code_tool", "postgres_tool", "artifact", "note"]);
+  assert.deepEqual(addableIn("action").map((t) => t.kind), ["timer", "code", "http", "if", "switch", "agent", "set", "github", "postgres", "sqlite", "mcp_tool", "github_tool", "http_tool", "code_tool", "postgres_tool", "sqlite_tool", "artifact", "note"]);
   assert.deepEqual(addableIn("elsewhere"), []);
 });
 

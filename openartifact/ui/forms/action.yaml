@@ -1,0 +1,23 @@
+# The form of the window that makes or changes an action (ADR-062, ADR-065, ADR-067): its name and what it is for. A pipeline action is
+# used by the stages of a pipeline, a guard action only by guards; the two never mix.
+schema: 1
+name: action
+columns: 1
+width: 28
+sections:
+  - key: general
+    title: Action
+    fields:
+      - key: name
+        widget: text
+        label: Name
+        required: true
+        config: {max_length: 255}
+      - key: purpose
+        widget: choice
+        label: Type
+        help: A pipeline action is used by the stages of a pipeline. A guard action is run by a guard (for example to judge the health of a run) and can hold nodes that only guards may use.
+        default: pipeline
+        options:
+          - {value: pipeline, label: For pipelines}
+          - {value: guard, label: For guards}

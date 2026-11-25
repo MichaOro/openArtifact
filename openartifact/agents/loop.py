@@ -39,7 +39,7 @@ from openartifact.agents.context_window import (
     shape_messages,
 )
 from openartifact.agents.schemas import TOOL_RESULT_DEFAULT
-from openartifact.agents.tools import Toolbox
+from openartifact.agents.tools import Toolbox, args_key
 from openartifact.engine.context import NODE_OUTPUT_LIMIT_BYTES
 from openartifact.engine.results import NodeResult, failed
 
@@ -361,6 +361,9 @@ async def run_turns(
                 "tool_node_name": node_name,
                 "tool": call.name,
                 "turn": number,
+                "args_key": args_key(
+                    call.arguments
+                ),  # a hash: the guards tell the same call from the same tool for other things
             }
             if node_id:
                 tell("tool_call", {"state": "started", **base})

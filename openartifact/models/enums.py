@@ -50,6 +50,14 @@ class GraphKind(enum.StrEnum):
     ACTION = "action"
 
 
+class GraphPurpose(enum.StrEnum):
+    """What an action definition is for (ADR-067): a ``pipeline`` action is used by the stages of a pipeline, a ``guard`` action
+    only by guards. Every pipeline is ``pipeline``. The two never mix."""
+
+    PIPELINE = "pipeline"
+    GUARD = "guard"
+
+
 class NodeKind(enum.StrEnum):
     """Kinds of nodes in a graph."""
 
@@ -73,6 +81,8 @@ class NodeKind(enum.StrEnum):
     GITHUB = "github"
     POSTGRES = "postgres"
     POSTGRES_TOOL = "postgres_tool"
+    SQLITE = "sqlite"
+    SQLITE_TOOL = "sqlite_tool"
     ARTIFACT = "artifact"
 
 

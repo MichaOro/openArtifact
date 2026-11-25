@@ -100,10 +100,10 @@ def _guard_on(
 
 
 def _code_definition(
-    client: TestClient, name: str, code: str, language: str = "sh"
+    client: TestClient, name: str, code: str, language: str = "sh", purpose: str = "pipeline"
 ) -> dict[str, Any]:
-    """trigger -> code -> On Pass / On Fail."""
-    definition = post(client, "/api/actions", name=name)
+    """trigger -> code -> On Pass / On Fail. ``purpose``: ``guard`` for the action a guard runs (ADR-067)."""
+    definition = post(client, "/api/actions", name=name, purpose=purpose)
     trigger, out = kind_of(client, definition, "trigger"), kind_of(client, definition, "output")
     for edge in client.get(graph_url(definition)).json()["edges"]:
         client.delete(f"{graph_url(definition)}/edges/{edge['id']}")
@@ -306,7 +306,7 @@ def test_a_round_guard_fires_at_round_5_and_8_by_its_escalation_table_and_pauses
     pipeline, stage = _looping_pipeline(client)
     # its own action passes at the first firing and fails at the second: the fallback pauses
     judge = 'import json, sys\nsys.exit(0 if json.load(open("context.json"))["vars"]["guard_firing"] < 2 else 1)'
-    body = _code_definition(client, "Judge", judge, "python")
+    body = _code_definition(client, "Judge", judge, "python", purpose="guard")
     _guard_on(
         client,
         pipeline,
@@ -335,6 +335,65 @@ def test_a_round_guard_fires_at_round_5_and_8_by_its_escalation_table_and_pauses
     # the guard's own action is a child: its steps are not steps of the execution
     steps = client.get(f"/api/tasks/{task['id']}/executions/{run['execution_id']}").json()["steps"]
     assert all(s["node_name"] != "Check" or s["kind"] != "code" for s in steps)
+
+
+def test_a_guard_action_knows_the_execution_and_the_facts_of_the_board_as_variables(
+    client: TestClient,
+) -> None:
+    """A fact with a dot reaches the guard's action as a variable with an underscore (``lane.backlog`` -> ``guard_lane_backlog``), and it
+    knows which execution and artifact it is about (``guard_execution``, ``guard_task``): a SQLite node reads them with ``?1`` (ADR-068)."""
+    pipeline, stage = _looping_pipeline(client)
+    judge = (
+        "import json, sys\nv = json.load(open('context.json'))['vars']\n"
+        "ok = v.get('guard_execution') and v.get('guard_task') and v.get('guard_lane_backlog', 0) >= 1\n"
+        "sys.exit(2 if not ok else (0 if v['guard_firing'] < 2 else 1))"
+    )
+    body = _code_definition(client, "Judge", judge, "python", purpose="guard")
+    _guard_on(
+        client,
+        pipeline,
+        "stage",
+        stage["id"],
+        consequence="run_action",
+        fallback="pause",
+        action_id=body["id"],
+        when=_group(_at_least("runs", 1), _at_least("lane.backlog", 1)),
+        escalation=[{"from_firing": 1, "every_runs": 3}],
+    )
+    task = make_task(client)  # a card in the backlog
+    post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    run = wait_for_run(client, task, "stopped", timeout=20)
+    entries = list(reversed(_activity(client, task)))
+    assert [e["data"]["outcome"] for e in entries] == ["continue", "pause"]
+    assert entries[1]["data"]["detail"] == "its action failed: Exit code 1; pause", (
+        "exit code 2 would mean a variable was missing"
+    )
+    assert entries[0]["data"]["facts"]["lane.backlog"] >= 1 and run["note"].startswith(
+        "Paused by guard"
+    )
+
+
+def test_the_agent_events_of_the_application_reach_the_telemetry_of_the_guards(
+    client: TestClient,
+) -> None:
+    """The one wire: the engine tells the application what an agent does; the application passes it to the event bus (the pages) and to
+    the telemetry (the guards)."""
+    app = client.app
+    publish = app.state.engine._limits.publish  # type: ignore[attr-defined]
+    publish(
+        "agent.tool_call",
+        {"execution_id": "ex-1", "state": "finished", "tool": "t", "args_key": "k", "ok": True},
+    )
+    publish(
+        "agent.tool_call",
+        {"execution_id": "ex-1", "state": "finished", "tool": "t", "args_key": "k", "ok": False},
+    )
+    facts = app.state.telemetry.facts("ex-1")
+    assert (facts["agent.tool_calls"], facts["agent.tool_errors"], facts["agent.repeat"]) == (
+        2,
+        1,
+        2,
+    )
 
 
 def test_an_interval_guard_stops_a_stalled_code_node_and_aborts_the_run(client: TestClient) -> None:
@@ -445,7 +504,7 @@ def test_the_templates_make_library_guards_and_the_health_guard_brings_its_judgi
 ) -> None:
     pipeline, stage = _looping_pipeline(client)
     listed = {t["key"]: t for t in client.get(f"{GUARDS}/templates").json()}
-    assert set(listed) == {"stall", "runtime", "health"}
+    assert set(listed) == {"stall", "runtime", "health", "agent_quiet", "agent_health"}
     health = post(client, f"{GUARDS}/from-template", template="health")
     assert (health["name"], health["consequence"], health["fallback"]) == (
         "Health guard",

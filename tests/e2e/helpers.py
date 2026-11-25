@@ -338,10 +338,15 @@ def arrange(client: httpx.Client, graph: dict[str, Any]) -> None:
 
 
 def code_definition(
-    client: httpx.Client, name: str, code: str, node_name: str | None = None
+    client: httpx.Client,
+    name: str,
+    code: str,
+    node_name: str | None = None,
+    purpose: str = "pipeline",
 ) -> dict[str, Any]:
-    """An action definition: trigger -> a Python Code node -> Output (On Pass and On Fail)."""
-    definition = build_definition(client, name, output=None, fail_enabled=True)
+    """An action definition: trigger -> a Python Code node -> Output (On Pass and On Fail). ``purpose``: ``guard`` for the action a
+    guard runs (ADR-067)."""
+    definition = build_definition(client, name, output=None, fail_enabled=True, purpose=purpose)
     trigger, output = kind_of(client, definition, "trigger"), kind_of(client, definition, "output")
     step = node(
         client,

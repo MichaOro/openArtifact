@@ -33,6 +33,8 @@ from openartifact.engine.http_runner import (
     parse_headers,
 )
 from openartifact.engine.postgres_runner import PostgresError, bind_values, run_query
+from openartifact.engine.sqlite_runner import APP_SOURCE, SqliteError, blocked_names
+from openartifact.engine.sqlite_runner import run_query as run_sqlite_query
 from openartifact.graph.node_types import parse_status_spec
 from openartifact.models import NodeKind
 
@@ -273,6 +275,57 @@ def build_postgres_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool
     )
 
 
+def build_sqlite_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
+    """The SQLite Tool of a frozen tool node (ADR-068): the author's read-only statement on the views of a data source, the model's
+    values as its parameters (``?1`` is the first declared parameter); :class:`ValueError` when it cannot be used."""
+    config = frozen.get("config") or {}
+    declared = parse_parameters(str(config.get("parameters") or ""))
+    query = str(config.get("query") or "")
+    if not query.strip():
+        raise ValueError("The query is empty")
+    name = str(config.get("source") or APP_SOURCE)
+    source = context.limits.data_sources.get(name)
+    if source is None:
+        raise ValueError(f"The data source '{name}' is not there")
+    try:
+        blocked = blocked_names(str(config.get("blocked") or ""))
+    except SqliteError as error:
+        raise ValueError(str(error)) from None
+    timeout = float(config.get("timeout_seconds") or 30)
+    max_rows = int(config.get("max_rows") or 100)
+    names = list(declared)
+
+    async def run(arguments: dict[str, Any]) -> str:
+        for param in names:
+            if arguments.get(param) is None:
+                return f"Error: the parameter {param} is missing"
+        try:
+            result = await run_sqlite_query(
+                source,
+                query,
+                [_text(arguments[param]) for param in names],
+                blocked=blocked,
+                timeout=timeout,
+                max_rows=max_rows,
+                max_bytes=TOOL_ANSWER_LIMIT_BYTES,
+            )
+        except SqliteError as error:
+            return f"Error: {error}"
+        return json.dumps(
+            {"rows": result.rows, "row_count": result.row_count, "truncated": result.truncated},
+            ensure_ascii=False,
+            default=str,
+        )
+
+    return Tool(
+        str(frozen.get("tool_name") or "tool"),
+        str(config.get("description") or ""),
+        _schema(declared),
+        run,
+    )
+
+
 LOCAL_TOOLS[NodeKind.HTTP_TOOL] = build_http_tool
 LOCAL_TOOLS[NodeKind.CODE_TOOL] = build_code_tool
 LOCAL_TOOLS[NodeKind.POSTGRES_TOOL] = build_postgres_tool
+LOCAL_TOOLS[NodeKind.SQLITE_TOOL] = build_sqlite_tool

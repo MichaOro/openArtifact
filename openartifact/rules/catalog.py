@@ -275,6 +275,63 @@ GUARD = RuleSchema(
             "guard.runs", "count", _NUMERIC, "Times this guard fired", minimum=0, maximum=1_000_000
         ),
         FieldSpec("last_status", "choice", ("is", "is_not"), "Last action", LAST_STATUSES),
+        # what the agents of the execution do (runtime telemetry, engine/telemetry.py; only there once an agent has done something)
+        FieldSpec("agent.turns", "count", _NUMERIC, "Agent rounds", minimum=0, maximum=1_000_000),
+        FieldSpec(
+            "agent.tool_calls",
+            "count",
+            _NUMERIC,
+            "Agent tool calls",
+            minimum=0,
+            maximum=1_000_000,
+        ),
+        FieldSpec(
+            "agent.tool_errors",
+            "count",
+            _NUMERIC,
+            "Failed tool calls",
+            minimum=0,
+            maximum=1_000_000,
+        ),
+        FieldSpec(
+            "agent.repeat",
+            "count",
+            _NUMERIC,
+            "Same call in a row",
+            minimum=0,
+            maximum=1_000_000,
+        ),
+        FieldSpec(
+            "agent.same_tool", "count", _NUMERIC, "Same tool in a row", minimum=0, maximum=1_000_000
+        ),
+        FieldSpec("agent.tokens", "count", _NUMERIC, "Agent tokens", minimum=0, maximum=1e12),
+        FieldSpec(
+            "agent.idle",
+            "duration",
+            _DURATION,
+            "Agent idle time",
+            minimum=0,
+            maximum=30 * DAY,
+            units=_SHORT_UNITS,
+        ),
+        FieldSpec(
+            "agent.since_tool_call",
+            "duration",
+            _DURATION,
+            "Time since tool call",
+            minimum=0,
+            maximum=30 * DAY,
+            units=_SHORT_UNITS,
+        ),
+        FieldSpec(
+            "lane.",
+            "count",
+            _NUMERIC,
+            "Artifacts in lane",
+            minimum=0,
+            maximum=1_000_000,
+            prefix="lane.",
+        ),
         FieldSpec("cost", "number", ("at_least", "below"), "Cost", minimum=0, maximum=1e9),
         FieldSpec(
             "var.",

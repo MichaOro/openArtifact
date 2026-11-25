@@ -76,6 +76,8 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [064](064-the-card-is-a-source-of-the-run.md) | The card is a source of the run: `${card.title}`, `body`, `number`, `id`, `text` always exist next to the custom fields, an empty field is empty text, an agent input of type artifact, a resolved preview, reserved field names |
 | [065](065-every-window-is-a-form-manifest.md) | Every window is a form manifest: each new window or overlay that asks for something is a YAML form with the layout handle; handmade ones are named exceptions with a reason, kept by a test; the credential window moved first | Accepted | 2026-11-25 | amends ADR-062, ADR-059 |
 | [066](066-modular-navigation.md) | Modular navigation: every entry is an object of a `NavEntry` class registered once in a `NavigationRegistry` (`app.state.navigation`), the sidebar, the rail and the active entry are drawn from it at every request, the active entry is the longest path prefix (no `active_nav` in routes), `visible_when` is a plain function that is logged when it fails, and a test keeps every page in the navigation |
+| [067](067-pipeline-actions-and-guard-actions.md) | Pipeline actions and guard actions: an action definition is for pipelines or for guards (chosen when made, exclusive, changed with protection); a node kind says in which it may be used, with a hook for permissions | Accepted | 2026-11-25 | amends ADR-060, ADR-054 |
+| [068](068-sqlite-node-for-guard-actions.md) | The SQLite node and tool: read-only SQL on the application's own data for guard actions, enforced by the database (read-only file, authorizer, listed `v_guard_*` views, a fixed floor of secrets), data sources registered by name | Accepted | 2026-11-25 | amends ADR-041, ADR-060 |
 
 ## Notes
 

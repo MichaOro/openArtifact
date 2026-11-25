@@ -104,7 +104,8 @@ export class GraphEditor {
       (key) => key === "guard" && this.guards?.add(this.guards.rootType, this.model.graph.id, root.querySelector("[data-add-menu]")),
     );
     // a line released on the empty canvas opens the same menu at the pointer (connect-menu.js)
-    this.connectMenu = new ConnectMenu({ addMenu, scope: this.model.kind, nodes: this.nodes, onChoose: (choice) => this.#addFromPort(choice) });
+    this.addMenu = addMenu;
+    this.connectMenu = new ConnectMenu({ addMenu, scope: this.model.kind, nodes: this.nodes, onChoose: (choice) => this.#addFromPort(choice), purpose: () => this.model.graph?.purpose ?? null });
     this.#setUpGuards(root);
     followGraphChanges(this.model.id, () => this.load()); // a definition or a use changed elsewhere (ADR-061 addendum)
     root.querySelector("[data-zoom-in]").addEventListener("click", () => this.canvas.zoomBy(1.2));
@@ -131,6 +132,7 @@ export class GraphEditor {
   async load({ fit = false } = {}) {
     try {
       await this.model.load();
+      this.addMenu.setPurpose(this.model.graph?.purpose ?? null); // an action for guards offers the kinds for guards
       this.alert.hide();
       this.#showTitle();
       document.title = t("editor.editor.name_openartifact", { name: this.model.graph.name });
@@ -662,7 +664,7 @@ export class GraphEditor {
       offset: 40 * times,
       names: new Set([...this.nodes.values()].map((n) => n.name)),
       stageFor: (old) => (this.nodes.has(old) ? old : selected?.kind === "stage" ? selected.id : selected?.stage_id ?? null),
-      allowed: new Set([...addableIn(this.model.kind).map((t) => t.kind), ...(this.model.kind === "pipeline" ? ["action"] : [])]), // an action is made inside its stage, not by the menu
+      allowed: new Set([...addableIn(this.model.kind, this.model.graph?.purpose ?? null).map((t) => t.kind), ...(this.model.kind === "pipeline" ? ["action"] : [])]), // an action is made inside its stage, not by the menu
     });
     if (plan.error) return this.#showError(plan.error);
     if (!plan.items.length) return this.#showError(t("editor.editor.cannot_add_here", { kinds: plan.skipped.map((k) => typeOf(k)?.label ?? k).join(", ") }));
@@ -725,7 +727,8 @@ export class GraphEditor {
 
   /** The things a node may link to, fetched once until something new is created. */
   #listTargets(kind) {
-    this.targets[kind] ??= listGraphs(kind).catch((error) => {
+    // a stage takes the actions for pipelines, never an action that is for guards (ADR-067)
+    this.targets[kind] ??= listGraphs(kind, kind === "action" ? "pipeline" : null).catch((error) => {
       delete this.targets[kind];
       throw error;
     });
