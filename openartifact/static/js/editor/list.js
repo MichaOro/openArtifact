@@ -5,7 +5,7 @@
 import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { GraphPreview } from "../components/graph-preview.js";
-import { ManagementPage, chip, make } from "../components/management-page.js";
+import { ManagementPage, cardBody, chip, make } from "../components/management-page.js";
 import { ManifestDialog } from "../components/manifest-dialog.js";
 import { Modal } from "../components/modal.js";
 import { structureOfChain, structureOfGraph } from "../components/preview-layout.js";
@@ -24,6 +24,8 @@ const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-mod
 const dialog = new ManifestDialog(new Modal(document.getElementById("graph-modal")), { form: noun, confirm: (options) => confirm.open(options) });
 
 const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+/** The day only, for a card: its one line of facts has no room for the time (the panel has both). */
+const day = (iso) => new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
 const editorUrl = (graph) => `${path}/${encodeURIComponent(graph.slug)}`;
 
 /** The sidebar's "Pipeline" must not reopen a pipeline that is gone. */
@@ -50,26 +52,22 @@ const purposeChip = (graph) => (kind === "action" ? (graph.purpose === "guard" ?
 const chipsOf = (graph) => [purposeChip(graph), publicationChip(graph)].filter(Boolean);
 
 function card(graph) {
-  const box = make("div", "mg-card__body");
-  const head = make("div", "mg-card__head");
-  head.append(make("h3", "mg-card__name", graph.name));
-  const chips = make("div", "mg-card__chips");
-  chips.append(...chipsOf(graph));
-  head.append(chips);
-  if (graph.description) head.append(make("p", "mg-card__text", graph.description));
-  const facts = make("p", "mg-card__facts");
-  facts.append(
-    ...[
-      [String(graph.node_count), ` ${t("graph_list.nodes")}`, ""],
-      [when(graph.updated_at), "", `${t("graph_list.changed")} `],
-    ].map(([value, after, before]) => {
-      const part = make("span");
-      part.append(document.createTextNode(before), make("b", "", value), document.createTextNode(after));
-      return part;
-    }),
-  );
-  box.append(head, facts); // no picture on a card: the graph is in the panel (tab Graph), which keeps the cards calm
-  return box;
+  // no picture on a card: the graph is in the panel (tab Graph), which keeps the cards calm
+  return cardBody({
+    title: graph.name,
+    text: graph.description,
+    chips: chipsOf(graph),
+    facts: [
+      factOf(String(graph.node_count), ` ${t("graph_list.nodes")}`, ""),
+      factOf(day(graph.updated_at), "", `${t("graph_list.changed")} `),
+    ],
+  });
+}
+
+function factOf(value, after, before) {
+  const part = make("span");
+  part.append(document.createTextNode(before), make("b", "", value), document.createTextNode(after));
+  return part;
 }
 
 // ── the panel ────────────────────────────────────────────────────────

@@ -39,6 +39,32 @@ export function make(tag, className = "", text = null) {
 }
 
 /** A chip: a small label with an optional icon (`tone`: "guard" for the chip of a guard action). */
+/**
+ * The content of a card, the same on all four pages (a fixed size, ADR-069 addendum): the title on top (up to two lines, then "…",
+ * and never under the pencil and the bin), a short text in the middle (up to two lines, only when there is one), and at the bottom the
+ * chips and one line of facts, flush to the bottom edge. In rows ("list") the same parts stand in one line.
+ * @param {{title: string, text?: string|null, textTitle?: string, chips?: HTMLElement[], facts?: (HTMLElement|string)[]}} parts
+ */
+export function cardBody({ title, text = null, textTitle = "", chips = [], facts = [] }) {
+  const box = make("div", "mg-card__body");
+  const name = make("h3", "mg-card__name", title);
+  name.title = title;
+  box.append(name);
+  if (text) {
+    const middle = make("p", "mg-card__text", text);
+    if (textTitle) middle.title = textTitle;
+    box.append(middle);
+  }
+  const foot = make("div", "mg-card__foot");
+  const row = make("div", "mg-card__chips");
+  row.append(...chips);
+  const line = make("p", "mg-card__facts");
+  line.append(...facts);
+  foot.append(row, line);
+  box.append(foot);
+  return box;
+}
+
 export function chip(text, { glyph = null, tone = null } = {}) {
   const el = make("span", `ge-chip mg-chip${tone ? ` ge-chip--${tone}` : ""}`);
   if (glyph) el.append(icon(glyph));

@@ -7,7 +7,7 @@
 import { ActionMenu } from "../components/action-menu.js";
 import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
-import { ManagementPage, chip, make } from "../components/management-page.js";
+import { ManagementPage, cardBody, chip, make } from "../components/management-page.js";
 import { Modal } from "../components/modal.js";
 import * as rules from "../components/rule-model.js";
 import { request } from "../http.js";
@@ -48,19 +48,16 @@ const triggerChip = (guard) => chip(model.triggerText(guard.trigger), { glyph: g
 const consequenceChip = (guard) => chip(t(`guards.consequence.${guard.consequence}`), { glyph: "shield" });
 
 function card(guard) {
-  const box = make("div", "mg-card__body");
-  const head = make("div", "mg-card__head");
-  head.append(make("h3", "mg-card__name", guard.name));
-  const chips = make("div", "mg-card__chips");
-  chips.append(triggerChip(guard), consequenceChip(guard));
-  head.append(chips);
-  if (guard.description) head.append(make("p", "mg-card__text", guard.description));
-  const condition = make("p", "mg-card__facts", conditionText(guard));
-  condition.title = conditionText(guard);
-  const used = make("p", "mg-card__facts", model.usedText(guard.used_by)); // where it is used: a line, not a third chip that wraps
+  // the middle is the condition in words (the description is in the panel); the foot: what triggers it, what it does, and where it is used
+  const used = make("span", "", model.usedText(guard.used_by)); // where it is used: a line, not a third chip that wraps
   used.dataset.used = "";
-  box.append(head, condition, used);
-  return box;
+  return cardBody({
+    title: guard.name,
+    text: conditionText(guard),
+    textTitle: conditionText(guard),
+    chips: [triggerChip(guard), consequenceChip(guard)],
+    facts: [used],
+  });
 }
 
 // ── the panel ────────────────────────────────────────────────────────
