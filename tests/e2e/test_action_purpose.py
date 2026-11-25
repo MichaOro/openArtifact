@@ -124,7 +124,9 @@ def test_the_sqlite_node_is_offered_only_in_a_guard_action_and_is_set_up_like_th
     expect(dialog.get_by_label("Data source")).to_have_value("app")
     query = dialog.get_by_label("Query", exact=True)
     query.fill("SELECT lane, count(*) FROM v_guard_artifacts GROUP BY lane")
-    dialog.get_by_label("Data source").focus()  # leaving the field saves it (a code field keeps Tab for indenting)
+    dialog.get_by_label(
+        "Data source"
+    ).focus()  # leaving the field saves it (a code field keeps Tab for indenting)
     eventually(
         lambda: next(
             n["config"].get("query")

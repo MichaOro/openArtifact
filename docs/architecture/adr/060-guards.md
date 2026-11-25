@@ -242,3 +242,21 @@ action card of one stage. Two scopes are added, held by an **action definition**
 Not in this step: "applies to" rules and kinds, parameters per attachment, runtime colours of the shield in the flow view,
 the check before a start (§4.4).
 
+
+## Addendum (2026-11-25): facts about agents and the board, templates for the health of an agent
+
+- **New facts** in the guard schema: `agent.turns`, `agent.tool_calls`, `agent.tool_errors`, `agent.repeat` (the same tool with the
+  **same arguments** in a row), `agent.same_tool` (the same tool in a row, whatever the arguments), `agent.tokens`, `agent.idle`,
+  `agent.since_tool_call`, and `lane.NAME` (artifacts in a lane). The difference between `agent.repeat` and `agent.same_tool` is the point:
+  ten calls of an HTTP tool to ten different websites are work, ten calls for the same README are a storm.
+- **Where they come from.** The agent loop tells the application what happens (`agent.turn`, `agent.tool_call`, with `args_key`, a hash of the
+  arguments); `app.py` passes each event to the event bus and to `Telemetry` (`engine/telemetry.py`), which keeps in memory, per execution,
+  what a guard needs. The guards read it through `TelemetrySource`, so the event log written during the run (card #100) can replace it
+  without a change in the guards. The monitor takes the facts from a callable (`agent`) and looks up the lanes (`board`, an async
+  callable) only when a condition names one.
+- **In the guard's action** the facts are variables (`guard_agent_idle`, `guard_lane_backlog`: the dot becomes an underscore), and
+  `guard_execution` and `guard_task` name what it is about, so the SQLite node (ADR-068) can read the execution through the views.
+- **Templates:** *Agent quiet and storm guard* (rules only) and *Agent health guard* (rules, then a guard action: SQLite node, agent, code
+  node). *Healthy* stays the author's definition (rules, code, an agent, or a combination).
+- **Not built:** a persisted history of the agent facts (the event log, #100), the consequences "Hint to the agent" and "Wrap up now",
+  and the facts in the preview of a guard for lanes (the preview is synchronous and shows the others).

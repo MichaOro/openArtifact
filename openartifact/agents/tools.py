@@ -13,6 +13,7 @@ servers (their tools listed and filtered) and builds the HTTP Request and Code t
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import re
 import time
@@ -80,6 +81,18 @@ class ToolCallRecord:
             "node_id": self.node_id,
             "node_name": self.node_name,
         }
+
+
+def args_key(arguments: str) -> str:
+    """A short fingerprint of the arguments of a tool call (the same arguments give the same key, whatever the order of the keys or
+    the spaces): the guards tell "the same call again" from "the same tool for other things" by it. It is a hash, never the text."""
+    try:
+        text = json.dumps(
+            json.loads(arguments), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        )
+    except ValueError:
+        text = arguments.strip()
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
 
 
 def cut(text: str) -> str:
