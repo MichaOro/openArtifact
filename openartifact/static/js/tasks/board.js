@@ -4,7 +4,8 @@
  * change came from (own API response, SSE event from any tab, optimistic drag & drop).
  * Both are idempotent, so the same change arriving twice is harmless.
  * Content is always set via textContent (never innerHTML). */
-import { cardPreview } from "./body-model.js";
+import { cardPreview, shouldMarkResolved } from "./body-model.js";
+import { renderResolvedBody } from "./references.js";
 import { AlertBar } from "../components/alert-bar.js";
 import { InlineName } from "../components/inline-name.js";
 import { t, tn } from "../i18n.js";
@@ -291,9 +292,17 @@ export class Board {
     this.#renderRun(card, task.id);
     card.querySelector(".task-card__title").textContent = task.title;
     const body = card.querySelector(".task-card__body");
-    const preview = cardPreview(task);
-    body.textContent = preview;
-    body.hidden = !preview;
+
+    if (shouldMarkResolved(task) && task.body_resolved_segments) {
+      // Render with highlighted resolved segments
+      body.replaceChildren(renderResolvedBody(task.body_resolved_segments, this.findByNumber));
+    } else {
+      // Normal rendering
+      const preview = cardPreview(task);
+      body.textContent = preview;
+    }
+    body.hidden = !body.textContent;
+
     card.querySelector("[data-delete-task]").setAttribute("aria-label", t("tasks.board.delete_artifact_title", { title: task.title }));
   }
 

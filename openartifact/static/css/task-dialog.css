@@ -58,6 +58,42 @@
 .card-nav__value--plain::before { display: none; }
 .card-nav__value > span { overflow: hidden; text-overflow: ellipsis; }
 
+/* Resolved reference highlight (A6) */
+.resolved-ref {
+  background: var(--color-resolved-ref-bg);
+  border-radius: var(--radius-sm);
+  padding: 0 0.25rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Legend for resolved references */
+.resolved-legend {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-glass-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+.resolved-legend summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.resolved-legend__mark {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  background: var(--color-resolved-ref-bg);
+  border-radius: var(--radius-sm);
+}
+
 /* Easter egg: clicking the lane chip unrolls the other lanes as chips *inside* the header.
    The form below slides down to make room: no popup, no edge, just a fade. */
 .lane-chips {

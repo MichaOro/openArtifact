@@ -34,3 +34,8 @@ export function rememberWarnings(saved) {
 export function warningsFor(warned, task) {
   return warned && task && warned.id === task.id ? warned.warnings : [];
 }
+
+/** Whether the mark_resolved_references setting is enabled for this task. */
+export function shouldMarkResolved(task) {
+  return task?.mark_resolved_references === true;
+}

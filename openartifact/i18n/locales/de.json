@@ -1731,5 +1731,7 @@
  "index.standard_tag": "Standard",
  "index.standard_title_help": "Jedes Artefakt hat einen.",
  "index.standard_body_help": "Der Text jedes Artefakts.",
- "tasks.body.saved_with_notes": "Gespeichert. Nicht jeder Verweis lässt sich einsetzen:"
+ "tasks.body.saved_with_notes": "Gespeichert. Nicht jeder Verweis lässt sich einsetzen:",
+ "artifact_dialog.resolved_legend": "Legende",
+ "artifact_dialog.resolved_explanation": "▉ Aufgelöste Referenz"
 }

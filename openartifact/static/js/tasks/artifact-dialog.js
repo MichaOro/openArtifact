@@ -6,7 +6,7 @@
 import { FormDialog } from "../components/form-dialog.js";
 import { Tabs } from "../components/tabs.js";
 import { bodyText, rememberWarnings, warningsFor } from "./body-model.js";
-import { renderReferences } from "./references.js";
+import { renderReferences, renderResolvedBody } from "./references.js";
 import { t } from "../i18n.js";
 
 /** Share of the viewport height a saved artifact's dialog may use at most. */
@@ -251,10 +251,37 @@ export class ArtifactDialog extends FormDialog {
     this.mode = "view";
     this.#present(t("executions.artifact"), t("common.save"));
     this.viewTitle.textContent = task.title;
-    this.viewBody.replaceChildren(renderReferences(bodyText(task), this.findByNumber));
+
+    // Check if mark_resolved_references setting is enabled
+    const markResolved = task.mark_resolved_references === true;
+
+    if (markResolved && task.body_resolved_segments) {
+      // Render with highlighted resolved segments
+      this.viewBody.replaceChildren(renderResolvedBody(task.body_resolved_segments, this.findByNumber));
+      this.#showLegend();
+    } else {
+      // Normal rendering (original behavior)
+      this.viewBody.replaceChildren(renderReferences(bodyText(task), this.findByNumber));
+      this.#hideLegend();
+    }
+
     const notes = warningsFor(this.warned, task);
     this.viewWarning.hidden = notes.length === 0;
     this.viewWarning.textContent = notes.length ? [t("tasks.body.saved_with_notes"), ...notes].join("\n") : "";
+  }
+
+  #showLegend() {
+    if (!this.legend) {
+      this.legend = document.createElement("details");
+      this.legend.className = "resolved-legend";
+      this.legend.innerHTML = `<summary>${t("artifact_dialog.resolved_legend")}</summary><span class="resolved-legend__mark"></span>${t("artifact_dialog.resolved_explanation")}`;
+      this.viewBody.parentNode.insertBefore(this.legend, this.viewBody.nextSibling);
+    }
+    this.legend.hidden = false;
+  }
+
+  #hideLegend() {
+    if (this.legend) this.legend.hidden = true;
   }
 
   /** The artifact number in the header (only for saved artifacts). */
