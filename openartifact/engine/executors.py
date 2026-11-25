@@ -319,16 +319,17 @@ async def _set(node: dict[str, Any], limits: Limits, view: RunView | None = None
     return run_set(node["config"], view or RunView())
 
 
-def _tool_events(limits: Limits, view: RunView) -> Callable[[dict[str, Any]], None] | None:
-    """What the agent node's tool calls tell the application while they run: ``agent.tool_call`` with the artifact and the execution
-    (the flow page shows the tool node working)."""
+def _agent_events(limits: Limits, view: RunView) -> Callable[[str, dict[str, Any]], None] | None:
+    """What an agent node tells the application while it runs, with the artifact and the execution: ``agent.tool_call`` (a call of a
+    tool node started or ended: the flow page shows the node working) and ``agent.turn`` (a request started or ended, with the start
+    of the answer and the tokens: the flow page shows the rounds). Names, counts and states; never arguments or results."""
     if limits.publish is None or view.execution_id is None:
         return None
     publish = limits.publish
 
-    def tell(event: dict[str, Any]) -> None:
+    def tell(event: str, data: dict[str, Any]) -> None:
         publish(
-            "agent.tool_call", {"task_id": view.task_id, "execution_id": view.execution_id, **event}
+            f"agent.{event}", {"task_id": view.task_id, "execution_id": view.execution_id, **data}
         )
 
     return tell
@@ -362,7 +363,7 @@ async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = No
             values.get(name) if name else None,
             open_tools=lambda: agent_tools.open_toolbox(tools, context),
             comments=limits.comments,
-            on_tool=_tool_events(limits, run_view),
+            on_event=_agent_events(limits, run_view),
         )
 
     return await _with_secrets(list(dict.fromkeys(names)), limits, run)

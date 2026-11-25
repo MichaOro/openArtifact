@@ -44,7 +44,7 @@
  "agents.an_agent_is_a_reusable_prompt": "Ein Agent ist ein wiederverwendbarer Prompt für ein Sprachmodell. Ein",
  "agents.delete_agent": "Agent löschen",
  "agents.editor_page.0_4_request_tried_again": "0 bis 4. Eine Anfrage wird nach einem Netzwerkfehler, einem Timeout oder HTTP 408, 429 und 5xx erneut versucht, mit Wartezeiten von 3, 10, 30 und 60 Sekunden.",
- "agents.editor_page.1_50_how_many_requests": "1 bis 50; wie viele Anfragen ein Node stellen darf, während das Modell Werkzeuge aufruft. Nur mit Werkzeugen.",
+ "agents.editor_page.1_50_how_many_requests": "1 bis 500; eine Sicherung, kein Ziel. An der Grenze schreibt der Agent seine Antwort aus dem, was er gefunden hat, ohne Werkzeuge. Nur mit Werkzeugen.",
  "agents.editor_page.action_will_no_longer_use": "Die Aktion verwendet diesen Agent nicht mehr. Ihre Konfiguration kann unvollständig werden, und künftige Ausführungen können fehlschlagen, bis der Node neu konfiguriert ist.",
  "agents.editor_page.add_description": "Beschreibung hinzufügen",
  "agents.editor_page.add_description_2": "Beschreibung hinzufügen",
@@ -1809,5 +1809,16 @@
  "forms.personal.fields.mark_resolved_references.help": "Hebt den Text, für den eine ${card.X}-Referenz steht, im Artefakt-Dialog und auf den Karten des Boards farbig hervor und zeigt eine Legende.",
  "execution.flow_view.tool_calls.one": "{count} Aufruf",
  "execution.flow_view.tool_calls.other": "{count} Aufrufe",
- "execution.flow_view.tool_calls_failed": "{calls}, {errors} fehlgeschlagen"
+ "execution.flow_view.tool_calls_failed": "{calls}, {errors} fehlgeschlagen",
+ "agents.editor_page.token_budget": "Token-Budget",
+ "agents.editor_page.no_budget": "kein Budget",
+ "agents.editor_page.token_budget_hint": "1000 bis 10000000; so viele Tokens dürfen alle Anfragen eines Laufs höchstens verbrauchen. Am Budget antwortet der Agent aus dem, was er hat.",
+ "agents.editor_page.tool_result_limit": "Grenze für Werkzeug-Ergebnisse",
+ "agents.editor_page.tool_result_limit_hint": "500 bis 100000; wie viele Zeichen eines Werkzeug-Ergebnisses das Modell liest. Ältere Ergebnisse werden stärker gekürzt; der Schritt behält das Ergebnis.",
+ "agents.view.token_budget_value": "Token-Budget {value}",
+ "nodes.agent.settings.max_iterations.help": "Eine Sicherung, kein Ziel (Standard 100). An der Grenze schreibt der Agent seine Antwort aus dem, was er gefunden hat, ohne Werkzeuge.",
+ "nodes.agent.settings.token_budget.label": "Token-Budget",
+ "nodes.agent.settings.token_budget.help": "So viele Tokens dürfen alle Anfragen eines Laufs höchstens verbrauchen. Nicht gesetzt - kein Budget; am Budget antwortet der Agent aus dem, was er hat.",
+ "nodes.agent.settings.tool_result_chars.label": "Grenze für Werkzeug-Ergebnisse",
+ "nodes.agent.settings.tool_result_chars.help": "Wie viele Zeichen eines Werkzeug-Ergebnisses das Modell liest (Standard 12000); ältere Ergebnisse werden stärker gekürzt. Der Schritt behält das Ergebnis."
 }

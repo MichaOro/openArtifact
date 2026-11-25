@@ -43,7 +43,7 @@
  "agents.an_agent_is_a_reusable_prompt": "An agent is a reusable prompt for a language model. An",
  "agents.delete_agent": "Delete agent",
  "agents.editor_page.0_4_request_tried_again": "0 to 4. A request is tried again after a network error, a timeout or HTTP 408, 429 and 5xx, waiting 3, 10, 30 and 60 seconds.",
- "agents.editor_page.1_50_how_many_requests": "1 to 50; how many requests a node may make while the model calls tools. Only with tools.",
+ "agents.editor_page.1_50_how_many_requests": "1 to 500; a safety net, not a goal. At the limit the agent writes its answer from what it has found, without tools. Only with tools.",
  "agents.editor_page.action_will_no_longer_use": "The action will no longer use this agent. Its configuration may become incomplete, and future executions may fail until the node is reconfigured.",
  "agents.editor_page.add_description": "Add a description",
  "agents.editor_page.add_description_2": "Add description",
@@ -1220,5 +1220,11 @@
  "nav.personal.tooltip": "Personal settings",
  "execution.flow_view.tool_calls.one": "{count} call",
  "execution.flow_view.tool_calls.other": "{count} calls",
- "execution.flow_view.tool_calls_failed": "{calls}, {errors} failed"
+ "execution.flow_view.tool_calls_failed": "{calls}, {errors} failed",
+ "agents.editor_page.token_budget": "Token budget",
+ "agents.editor_page.no_budget": "no budget",
+ "agents.editor_page.token_budget_hint": "1000 to 10000000; the most tokens all requests of a run may use. At the budget the agent answers from what it has.",
+ "agents.editor_page.tool_result_limit": "Tool result limit",
+ "agents.editor_page.tool_result_limit_hint": "500 to 100000; how many characters of one tool result the model reads. Older results are shortened more; the step keeps the result.",
+ "agents.view.token_budget_value": "Token budget {value}"
 }

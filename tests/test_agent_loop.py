@@ -161,9 +161,11 @@ async def test_an_unknown_tool_bad_arguments_and_a_failing_tool_go_back_to_the_m
     assert [c["error"] for c in result.detail["turns"][0]["tool_calls"]] == [True] * 4  # type: ignore[index]
 
 
-async def test_the_iteration_limit_fails_the_node_without_running_the_last_calls() -> None:
+async def test_the_iteration_limit_asks_for_the_answer_without_running_the_last_calls() -> None:
+    """The limit is a safety net: the agent writes its answer from what it has (one more request, without tools); the step passes
+    with a note (card #104; it failed with "Stopped after 2 iterations without a final answer" before)."""
     weather = Recorder()
-    script = Scripted(_asks(("c1", "weather", "{}")), _asks(("c2", "weather", "{}")))
+    script = Scripted(_asks(("c1", "weather", "{}")), _asks(("c2", "weather", "{}")), OK)
     result = await run_node(
         _with_tools(max_iterations=2),
         VIEW,
@@ -172,14 +174,16 @@ async def test_the_iteration_limit_fails_the_node_without_running_the_last_calls
         sleep=script.sleep,
         open_tools=_box(Tool("weather", "", WEATHER, weather)),
     )
-    assert (result.outcome, result.reason) == (
-        "fail",
-        "Stopped after 2 iterations without a final answer",
+    assert (result.outcome, result.output) == ("pass", "Fine")
+    assert "the limit of 2 iterations was reached" in (result.reason or "")
+    assert len(weather.seen) == 1, "the calls of the last answer were not run"
+    assert len(script.calls) == 3 and "tools" not in script.calls[2], (
+        "the final request offers no tools"
     )
-    assert len(weather.seen) == 1 and len(script.calls) == 2
 
 
-async def test_a_long_tool_result_is_cut_for_the_model_and_the_history() -> None:
+async def test_a_long_tool_result_is_cut_for_the_history_and_further_for_the_model() -> None:
+    """The step keeps the result up to 16 KiB; the model reads at most the node's tool result limit (agents/context_window.py)."""
     script = Scripted(_asks(("c1", "weather", "{}")), OK)
     huge = "x" * (TOOL_RESULT_LIMIT_BYTES + 500)
     result = await run_node(
@@ -190,14 +194,17 @@ async def test_a_long_tool_result_is_cut_for_the_model_and_the_history() -> None
         sleep=script.sleep,
         open_tools=_box(Tool("weather", "", WEATHER, Recorder(huge))),
     )
-    sent = script.calls[1]["messages"][-1]["content"]
-    assert len(sent.encode()) <= TOOL_RESULT_LIMIT_BYTES + 100 and sent.endswith(
+    stored = result.detail["turns"][0]["tool_calls"][0]["result"]  # type: ignore[index]
+    assert len(stored.encode()) <= TOOL_RESULT_LIMIT_BYTES + 100 and stored.endswith(
         "[cut: the result is longer than 16 KiB]"
-    )
-    assert result.detail["turns"][0]["tool_calls"][0]["result"] == sent  # type: ignore[index]
+    ), "the step keeps the result up to 16 KiB"
+    sent = script.calls[1]["messages"][-1]["content"]
+    assert sent.startswith("x" * 12000) and "[cut for the model:" in sent and len(sent) < 12200
 
 
 async def test_the_time_limit_of_the_node_covers_the_tool_calls() -> None:
+    """A tool that outlasts the time of the node is stopped and reported to the model as an error, then the agent answers from what it
+    has (it failed the node with "The tool weather did not finish within the time limit of 1 s" before, card #104)."""
     script = Scripted(_asks(("c1", "weather", "{}")), OK)
     result = await run_node(
         _with_tools(total_timeout_seconds=1),
@@ -207,11 +214,14 @@ async def test_the_time_limit_of_the_node_covers_the_tool_calls() -> None:
         sleep=script.sleep,
         open_tools=_box(Tool("weather", "", WEATHER, Recorder(3.0))),
     )
-    assert (result.outcome, result.reason) == (
-        "fail",
-        "The tool weather did not finish within the time limit of 1 s",
+    assert (result.outcome, result.output) == ("pass", "Fine")
+    assert "the time limit of 1 s was reached" in (result.reason or "")
+    (call,) = result.detail["turns"][0]["tool_calls"]  # type: ignore[index]
+    assert (
+        call["error"] is True
+        and call["result"] == "Error: the tool weather did not answer within 1 s"
     )
-    assert len(script.calls) == 1
+    assert len(script.calls) == 2 and "tools" not in script.calls[1]
 
 
 async def test_tools_that_cannot_be_opened_fail_the_node_before_any_request() -> None:
@@ -305,7 +315,10 @@ async def test_opening_the_tools_counts_against_the_time_limit_of_the_node() -> 
 async def test_a_later_turn_names_the_time_limit_of_the_node_not_what_was_left() -> None:
     from tests.test_agent_runtime import _transient
 
-    script = Scripted(_asks(("c1", "weather", "{}")), _transient(503))
+    # the request after the tool call fails (the wait of the retry does not fit), and so does the final request
+    script = Scripted(
+        _asks(("c1", "weather", "{}")), _transient(503), _transient(503), _transient(503)
+    )
     result = await run_node(
         _with_tools(total_timeout_seconds=5, retries=1),
         VIEW,

@@ -103,12 +103,11 @@ def snapshot_agent(client: TestClient, task: dict[str, Any]) -> dict[str, Any]:
 # ── the snapshot ─────────────────────────────────────────────────────
 
 
-def test_max_iterations_is_an_agent_setting_from_1_to_50() -> None:
-    assert (
-        AgentConfig().max_iterations is None and ITERATIONS_DEFAULT == 10
-    )  # not set: the runtime's 10
-    assert AgentConfig(max_iterations=50).max_iterations == 50
-    for wrong in (0, 51):
+def test_max_iterations_is_an_agent_setting_from_1_to_500() -> None:
+    """A loose safety net (card #104): 100 unless set, up to 500 (it was 10 and 1 to 50: a review makes many more calls)."""
+    assert AgentConfig().max_iterations is None and ITERATIONS_DEFAULT == 100
+    assert AgentConfig(max_iterations=500).max_iterations == 500
+    for wrong in (0, 501):
         with pytest.raises(ValueError):
             AgentConfig(max_iterations=wrong)
 
