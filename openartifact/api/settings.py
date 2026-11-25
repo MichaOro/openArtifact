@@ -8,8 +8,9 @@ from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
+from openartifact import personal_settings
 from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import SessionDep
 from openartifact.engine import history as history_module
@@ -24,6 +25,32 @@ DESCRIPTION = (
     "execution fails. An execution keeps the limits it started with. ``max_concurrent_runs`` is the "
     "operator's ``OPENARTIFACT_MAX_CONCURRENT_RUNS`` and read-only."
 )
+
+PERSONAL = (
+    "Personal preferences of the user (a single-user system): ``mark_resolved_references`` (default off) marks the text "
+    "a ``${card.x}`` reference stands for, in the artifact dialog and on the board's cards. Which settings exist and "
+    "their defaults are declared in the form manifest ``ui/forms/personal.yaml``. A change takes effect at once."
+)
+
+
+def _default(name: str) -> Any:
+    """The default of a personal setting: the form manifest is the one place that declares it."""
+    return personal_settings.defaults()[name]
+
+
+class PersonalSettingsRead(BaseModel):
+    """The personal settings; what was never set has the default of the manifest."""
+
+    mark_resolved_references: bool = _default("mark_resolved_references")
+
+
+class PersonalSettingsWrite(BaseModel):
+    """A change of personal settings; a field that is left out keeps its value, a name nobody declared is refused."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    mark_resolved_references: bool | None = None
+
 
 RETENTION = (
     "What happens to finished executions, for all artifacts: a list of rules, each ``when`` a tree of groups "
@@ -144,5 +171,37 @@ def build_settings_router(
         return RulesPreview(
             matching=len(found), per_rule=await retention.count_per_rule(session, payload, now)
         )
+
+    # ── Personal settings ────────────────────────────────────────────────
+
+    @router.get(
+        "/personal",
+        response_model=PersonalSettingsRead,
+        name=f"{tag}get_personal",
+        summary="Get personal settings",
+        description=PERSONAL,
+    )
+    async def get_personal(session: SessionDep) -> PersonalSettingsRead:
+        return PersonalSettingsRead(**await personal_settings.load(session))
+
+    @router.put(
+        "/personal",
+        response_model=PersonalSettingsRead,
+        name=f"{tag}put_personal",
+        summary="Change personal settings",
+        description=PERSONAL
+        + " A field that is left out keeps its value. Publishes ``settings.changed``.",
+        responses=errors(422, write=True, body=True),
+    )
+    async def put_personal(
+        payload: PersonalSettingsWrite, request: Request, session: SessionDep
+    ) -> PersonalSettingsRead:
+        await personal_settings.save(session, payload.model_dump(exclude_unset=True))
+        await session.commit()
+        result = PersonalSettingsRead(**await personal_settings.load(session))
+        request.app.state.event_bus.publish(
+            "settings.changed", {"personal": result.model_dump(mode="json")}
+        )
+        return result
 
     return router

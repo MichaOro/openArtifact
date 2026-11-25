@@ -88,6 +88,7 @@ GET /api/runs -> RunRead[]
 GET /api/runs/{task_id}/results -> NodeResultRead[]
 GET /api/secrets -> SecretRead[]
 GET /api/secrets/{name}/uses -> SecretUse[]
+GET /api/settings/personal -> PersonalSettingsRead
 GET /api/settings/retention -> RulesRead
 GET /api/settings/run-limits -> RunLimitsRead
 GET /api/tasks -> TaskRead[]
@@ -129,6 +130,7 @@ GET /api/v1/pipelines -> PipelineChainRead[]
 GET /api/v1/providers -> ProviderRead[]
 GET /api/v1/providers/{ref} -> ProviderRead
 GET /api/v1/secrets -> SecretRead[]
+GET /api/v1/settings/personal -> PersonalSettingsRead
 GET /api/v1/settings/retention -> RulesRead
 GET /api/v1/settings/run-limits -> RunLimitsRead
 GET /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
@@ -211,6 +213,7 @@ PUT /api/credentials/{ref}/enabled -> CredentialRead
 PUT /api/guard-attachments/{attachment_id}/enabled -> AttachmentRead
 PUT /api/lanes/{status} -> LaneRead[]
 PUT /api/secrets/{name} -> SecretRead
+PUT /api/settings/personal -> PersonalSettingsRead
 PUT /api/settings/retention -> RulesSaved
 PUT /api/settings/run-limits -> RunLimitsRead
 PUT /api/ui-layouts/{kind}/{name} -> LayoutRead
@@ -219,6 +222,7 @@ PUT /api/v1/artifact-fields -> ArtifactFieldsRead
 PUT /api/v1/guard-attachments/{attachment_id}/enabled -> AttachmentRead
 PUT /api/v1/lanes/{status} -> LaneRead[]
 PUT /api/v1/secrets/{name} -> SecretRead
+PUT /api/v1/settings/personal -> PersonalSettingsRead
 PUT /api/v1/settings/retention -> RulesSaved
 PUT /api/v1/settings/run-limits -> RunLimitsRead
 PUT /api/v1/ui-layouts/{kind}/{name} -> LayoutRead

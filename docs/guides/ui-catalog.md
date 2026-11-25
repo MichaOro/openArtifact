@@ -41,6 +41,10 @@ not suggestions, and a change that breaks one is sent back.
    artifact field rail of the task window (`tasks/field-rail.js`, saves on `change`, has no "Not saved" marker and no
    flush on closing), and the forms with their own Save button (providers, credentials, run limits, the agent editor)
    which keep their form state until Save and are outside this rule.
+6. **Navigation entries go through `NavigationRegistry`.** No hardcoded `<a href="/settings/...">` in templates,
+   no manual `active_nav` strings in routes. Every page registers its entry via
+   `registry.register(NavLinkEntry(...))` (see [ADR-066](../architecture/adr/066-modular-navigation.md)).
+   A test enforces this (`tests/test_navigation_modularity.py`).
 
 ## Rules
 
@@ -137,6 +141,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A short message above a page | `alert-bar.js` with `templates/components/alert.html`; `show(message, { tone: "info" })` is the calm look for news that is not an error (what a change did beyond the node); it floats above an open window (popover layer), because a window's backdrop would cover the bar |
 | An explanation of a field | `info-tip.js` (the (i) that opens a tooltip) |
 | An on/off setting | `switch.js` |
+| The legend under text that marks resolved references | `resolved-legend.js` (`new ResolvedLegend()`, `.element` after the text, `.show(visible)`); a closed disclosure with the colour swatch `--color-resolved-ref-bg` (`.resolved-legend__mark`) and the words, no `innerHTML`, no glyph in the text; the marked text itself is `<mark class="resolved-ref">` (`renderResolvedBody` in `tasks/references.js`), shown only while the personal setting *Mark resolved references* is on |
 | The add menu of the editor, under the "+" or at a point | `add-menu.js`; `openFrom(point, {types, header, emptyText, onPick})` opens the same menu at the pointer for a line released on the canvas (anchored mode: `is-anchored`, a header line `ge-add__from`, only the given kinds), glue and plan in `connect-menu.js` and `connect-plan.js` |
 | Choose one of many by typing | `combobox.js` (a field with a list under it; typing narrows it by name, then by description and keywords; arrow keys, Enter, Escape closes only the list; the list is a popup so a dialog does not clip it; ARIA combobox with `aria-activedescendant`; the pure part is `combobox-model.js`) |
 | The form of a configuration window | `form-view.js` draws a form manifest (`ui/forms/*.yaml`, ADR-062): sections in a two-column grid (one column on a narrow window), help in a tooltip, `advanced` fields folded, errors per field; the widgets are `form-widgets.js` (`registerWidget`), the layout rules are `form-plan.js` |

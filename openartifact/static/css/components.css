@@ -469,6 +469,16 @@ body.is-dragging * { cursor: grabbing !important; }
 .lane--finished .task-card:not(.task-card--placeholder) { opacity: 0.75; }
 .lane--finished .task-card__title { text-decoration: line-through; color: var(--color-text-muted); }
 .lane--finished .task-card__body { color: var(--color-text-secondary); }
+
+/* Resolved reference highlight in board preview (A7) */
+.task-card__body .resolved-ref {
+  background: var(--color-resolved-ref-bg);
+  border-radius: var(--radius-sm);
+  padding: 0 0.125rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .alert-bar {
   display: flex;
   align-items: center;

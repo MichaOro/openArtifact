@@ -1795,5 +1795,16 @@
  "forms.credential.fields.bearer_token.value.label": "Token",
  "forms.credential.fields.mcp_auth.value.label": "Token",
  "forms.credential.fields.generic_api_key.value.label": "Wert",
- "forms.credential.fields.expires.options.never": "Nie"
+ "forms.credential.fields.expires.options.never": "Nie",
+ "page.personal": "Persönlich",
+ "settings.personal_page.intro": "Persönliche Anzeige-Einstellungen. Änderungen wirken sofort.",
+ "settings.personal_page.personal_could_not_be": "Die persönlichen Einstellungen konnten nicht geladen werden.",
+ "settings.personal_page.saved": "Gespeichert.",
+ "artifact_dialog.resolved_legend": "Legende",
+ "artifact_dialog.resolved_explanation": "Aufgelöste Referenz",
+ "nav.personal.label": "Persönlich",
+ "nav.personal.tooltip": "Persönliche Einstellungen",
+ "forms.personal.sections.display.title": "Anzeige",
+ "forms.personal.fields.mark_resolved_references.label": "Aufgelöste Referenzen markieren",
+ "forms.personal.fields.mark_resolved_references.help": "Hebt den Text, für den eine ${card.X}-Referenz steht, im Artefakt-Dialog und auf den Karten des Boards farbig hervor und zeigt eine Legende."
 }

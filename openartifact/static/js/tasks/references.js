@@ -34,3 +34,27 @@ export function renderReferences(text, find) {
   fragment.append(text.slice(last));
   return fragment;
 }
+
+/**
+ * Render body from resolved segments with highlighted resolved parts.
+ * @param {Array<{text: string, resolved: boolean}>} segments - from body_resolved_segments API
+ * @param {(number: number) => {title: string}|undefined} find - for #n references inside segments
+ * @returns {DocumentFragment}
+ */
+export function renderResolvedBody(segments, find) {
+  const fragment = document.createDocumentFragment();
+  for (const segment of segments) {
+    if (segment.resolved) {
+      // Resolved text: wrap in mark with special class for highlighting
+      const mark = document.createElement("mark");
+      mark.className = "resolved-ref";
+      // Recursively render any #n references inside the resolved segment
+      mark.append(renderReferences(segment.text, find));
+      fragment.append(mark);
+    } else {
+      // Original text: render #n references as links
+      fragment.append(renderReferences(segment.text, find));
+    }
+  }
+  return fragment;
+}

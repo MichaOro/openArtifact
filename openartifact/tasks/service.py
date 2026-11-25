@@ -16,11 +16,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import undefer
 
+from openartifact import personal_settings
 from openartifact.activity.recorder import SYSTEM, record, short
 from openartifact.activity.schemas import ActivityRead
 from openartifact.artifact_fields import rules as field_rules
 from openartifact.artifact_fields.body import (
+    PREVIEW_WORDS,
     has_references,
+    marked_or_none,
     preview_or_none,
     resolved_or_none,
     unknown_references,
@@ -138,15 +141,20 @@ class ArtifactService:
         """All artifacts in board order; a body with references also carries ``preview``, its first words filled in."""
         async with self._session() as session:
             tasks = await TaskRepository(session).list_all()
-            specs = await field_specs(session) if any(has_references(t.body) for t in tasks) else []
-            return [self._read(t, specs, preview=True) for t in tasks]
+            refs = any(has_references(t.body) for t in tasks)
+            specs = await field_specs(session) if refs else []
+            marks = refs and await personal_settings.marks_resolved_references(session)
+            return [self._read(t, specs, preview=True, marks=marks) for t in tasks]
 
     async def get(self, ref: str) -> TaskRead:
         """One artifact by id, or by its number (``12`` or ``#12``); ``body_resolved`` has the references filled in."""
         async with self._session() as session:
             task = await self._task(session, ref)
             specs = await field_specs(session) if has_references(task.body) else []
-            return self._read(task, specs, resolved=True)
+            marks = has_references(task.body) and await personal_settings.marks_resolved_references(
+                session
+            )
+            return self._read(task, specs, resolved=True, marks=marks)
 
     @staticmethod
     def _read(
@@ -155,22 +163,31 @@ class ArtifactService:
         *,
         resolved: bool = False,
         preview: bool = False,
+        marks: bool = False,
     ) -> TaskRead:
-        """The artifact as read, with what a body's ``${card.x}`` stand for filled in where it is asked for."""
+        """The artifact as read, with what a body's ``${card.x}`` stand for filled in where it is asked for; with
+        ``marks`` (the personal setting *Mark resolved references*) also as segments that tell filled in text from written."""
         read = TaskRead.model_validate(task)
         if has_references(task.body) and (resolved or preview):
             card = body_card(specs, task)
             if resolved:
                 read.body_resolved = resolved_or_none(task.body, card)
+                if marks:
+                    read.body_resolved_segments = marked_or_none(task.body, card)
             if preview:
                 read.preview = preview_or_none(task.body, card)
+                if marks:
+                    read.preview_segments = marked_or_none(task.body, card, PREVIEW_WORDS)
         return read
 
     async def _read_after_save(self, session: AsyncSession, task: Task) -> TaskRead:
         """The artifact after a create or an update: resolved body and preview for the open dialog and the board
         (they travel in the event), and the calm note about a reference that names nothing (never a refusal)."""
         specs = await field_specs(session) if has_references(task.body) else []
-        read = self._read(task, specs, resolved=True, preview=True)
+        marks = has_references(task.body) and await personal_settings.marks_resolved_references(
+            session
+        )
+        read = self._read(task, specs, resolved=True, preview=True, marks=marks)
         if has_references(task.body):
             read.warnings = unknown_references(task.body, set(body_card(specs, task)))
         return read

@@ -67,9 +67,11 @@ feature-specific copy); **every window and overlay that asks for something is a 
 exception listed in `tests/test_window_rule.py`); **windows are sized by their content** (as wide as necessary, as narrow as possible, two columns
 where there is room instead of an endless column); a window that saves carries its name in its title; colours only as
 tokens; **a change is saved on the user's act** (text on leaving the field or Enter, a choice when it changes, no autosave
-by keystroke or timer, nothing drawn again under a focused field: `static/js/editor/persist-policy.js`). The rules, their
-reasons and the checklist are in the [UI catalog](../docs/guides/ui-catalog.md) (*Binding rules
-for every contributor*) and [ADR-059](../docs/architecture/adr/059-one-catalog-of-ui-building-blocks.md).
+by keystroke or timer, nothing drawn again under a focused field: `static/js/editor/persist-policy.js`). **Navigation
+entries go through `NavigationRegistry`** (no hardcoded links in templates, no manual `active_nav` in routes; see
+[ADR-066](../docs/architecture/adr/066-modular-navigation.md)). The rules, their reasons and the checklist are in the
+[UI catalog](../docs/guides/ui-catalog.md) (*Binding rules for every contributor*) and
+[ADR-059](../docs/architecture/adr/059-one-catalog-of-ui-building-blocks.md).
 
 ## Code and comments
 

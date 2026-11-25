@@ -59,6 +59,7 @@ from openartifact.oidc import Oidc
 from openartifact.security import AccessGate, TokenProtected, require_api_token
 from openartifact.tasks.service import ArtifactService
 from openartifact.version import __version__
+from openartifact.web.navigation import build_registry
 from openartifact.web.routes import router as web_router
 from openartifact.web.static import RevalidatingStaticFiles
 
@@ -140,6 +141,9 @@ def _create_app(settings: Settings) -> FastAPI:
         database.new_session, app.state.secret_store, settings, app.state.event_bus
     )
     app.state.comments = CommentService(database.new_session, app.state.event_bus)
+    app.state.navigation = (
+        build_registry()
+    )  # the sidebar and the rail of the artifact dialog (ADR-066)
     app.state.activity = ActivityService(database.new_session)
     app.state.engine = RunEngine(
         app.state.event_bus,

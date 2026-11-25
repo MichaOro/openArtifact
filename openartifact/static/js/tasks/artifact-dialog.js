@@ -5,8 +5,9 @@
  * goes is delegated via createTask/updateTask/onSaved, so this module never touches the board. */
 import { FormDialog } from "../components/form-dialog.js";
 import { Tabs } from "../components/tabs.js";
-import { bodyText, rememberWarnings, warningsFor } from "./body-model.js";
-import { renderReferences } from "./references.js";
+import { ResolvedLegend } from "../components/resolved-legend.js";
+import { bodySegments, bodyText, rememberWarnings, warningsFor } from "./body-model.js";
+import { renderReferences, renderResolvedBody } from "./references.js";
 import { t } from "../i18n.js";
 
 /** Share of the viewport height a saved artifact's dialog may use at most. */
@@ -251,10 +252,23 @@ export class ArtifactDialog extends FormDialog {
     this.mode = "view";
     this.#present(t("executions.artifact"), t("common.save"));
     this.viewTitle.textContent = task.title;
-    this.viewBody.replaceChildren(renderReferences(bodyText(task), this.findByNumber));
+
+    const segments = bodySegments(task); // only while the personal setting marks resolved references
+    this.viewBody.replaceChildren(segments ? renderResolvedBody(segments, this.findByNumber) : renderReferences(bodyText(task), this.findByNumber));
+    this.#legend().show(Boolean(segments));
+
     const notes = warningsFor(this.warned, task);
     this.viewWarning.hidden = notes.length === 0;
     this.viewWarning.textContent = notes.length ? [t("tasks.body.saved_with_notes"), ...notes].join("\n") : "";
+  }
+
+  /** The legend under the read view, made once. */
+  #legend() {
+    if (!this.legend) {
+      this.legend = new ResolvedLegend();
+      this.viewBody.after(this.legend.element);
+    }
+    return this.legend;
   }
 
   /** The artifact number in the header (only for saved artifacts). */

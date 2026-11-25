@@ -127,6 +127,12 @@ class TaskRead(BaseModel):
     #: the body holds nothing to fill in. A convenience: ``body`` stays the original and ``fields`` the values, so a
     #: consumer may fill in itself. Set on a single artifact and in the events of a change, not in the list.
     body_resolved: str | None = None
+    #: The resolved body as segments (the text that was written against the text a reference stands for):
+    #: ``[{"text": str, "resolved": bool}, ...]``. Only there when the user's personal setting *Mark resolved references*
+    #: is on and something was filled in; otherwise ``null`` and ``body_resolved`` is all there is.
+    body_resolved_segments: list[dict[str, Any]] | None = None
+    #: The same for the board's ``preview`` (the first words only), under the same two conditions.
+    preview_segments: list[dict[str, Any]] | None = None
     #: The list of the board only: the first words of the resolved body, ``null`` when the body holds no reference
     #: (the client then shows the original as before).
     preview: str | None = None

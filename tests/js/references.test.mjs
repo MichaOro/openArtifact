@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { FakeNode, installDocument, textOf, uninstallDocument } from "./support.mjs";
 
-const { renderReferences } = await import("../../openartifact/static/js/tasks/references.js");
+const { renderReferences, renderResolvedBody } = await import("../../openartifact/static/js/tasks/references.js");
 
 beforeEach(() => installDocument());
 afterEach(() => uninstallDocument());
@@ -68,4 +68,21 @@ test("markup in the text is kept as text, never as elements", () => {
   const out = renderReferences("<img src=x onerror=alert(1)> #7", find);
   assert.equal(out.children[0], "<img src=x onerror=alert(1)> ");
   assert.equal(out.children.filter((p) => p instanceof FakeNode).length, 1);
+});
+
+test("resolved text is marked and written text is not; a #n inside either is still a link", () => {
+  const segments = [
+    { text: "The word is ", resolved: false },
+    { text: "see #12", resolved: true },
+    { text: " and #7.", resolved: false },
+  ];
+  const [written, marked, after] = renderResolvedBody(segments, find).children;
+  assert.deepEqual(written.children, ["The word is "]);
+  assert.equal(marked.tagName, "mark");
+  assert.equal(marked.className, "resolved-ref");
+  const [inside] = marked.children[0].children;
+  assert.equal(inside, "see ");
+  assert.equal(marked.children[0].children[1].tagName, "a", "a reference inside the marked text is a link");
+  assert.equal(after.children[1].tagName, "a");
+  assert.equal(textOf(renderResolvedBody(segments, find)), "The word is see #12 and #7.", "the text is the same, only marked");
 });

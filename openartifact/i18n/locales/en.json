@@ -1209,5 +1209,13 @@
  "editor.setting_controls.create_credential": "Create new credential",
  "editor.setting_controls.edit_credential": "Edit this credential",
  "credentials.name_help_internal": "Says who or what the token is for, for example the CI job.",
- "credentials.fix_marked": "Fix what is marked."
+ "credentials.fix_marked": "Fix what is marked.",
+ "page.personal": "Personal",
+ "settings.personal_page.intro": "Personal display preferences. Changes take effect immediately.",
+ "settings.personal_page.personal_could_not_be": "The personal settings could not be loaded.",
+ "settings.personal_page.saved": "Saved.",
+ "artifact_dialog.resolved_legend": "Legend",
+ "artifact_dialog.resolved_explanation": "Resolved reference",
+ "nav.personal.label": "Personal",
+ "nav.personal.tooltip": "Personal settings"
 }
