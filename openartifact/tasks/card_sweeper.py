@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.activity.recorder import SYSTEM, record
 from openartifact.activity.schemas import ActivityRead
+from openartifact.comments.schemas import Author
 from openartifact.models import Task
 from openartifact.tasks import card_rules
 from openartifact.tasks.card_rules import CardRules, Rule
@@ -50,6 +51,10 @@ async def plan(session: AsyncSession, rules: CardRules, now: datetime) -> Plan:
             if hit:
                 result.delete.append(task)
                 result.rule_of[task.id] = hit[0].name or hit[0].action
+    busy = await card_rules.running_ids(session, [t.id for t in result.archive])
+    result.archive = [
+        t for t in result.archive if t.id not in busy
+    ]  # a card that is being processed stays
     blocked = await card_rules.delete_blockers(session, [t.id for t in result.delete])
     result.spared = {t.id: blocked[t.id] for t in result.delete if t.id in blocked}
     result.delete = [t for t in result.delete if t.id not in blocked]
@@ -62,16 +67,18 @@ def _all(rules: CardRules) -> list[Rule]:
     ]
 
 
-async def archive(session: AsyncSession, tasks: list[Task], now: datetime) -> list[ActivityRead]:
+async def archive(
+    session: AsyncSession, tasks: list[Task], now: datetime, actor: Author = SYSTEM
+) -> list[ActivityRead]:
     """Set ``archived_at`` (the card's ``updated_at`` stays: archiving is no sign of life) and note it in the activity."""
     entries = []
     for task in tasks:
         await session.execute(
             update(Task)
             .where(Task.id == task.id)
-            .values(archived_at=now, updated_at=task.updated_at)
+            .values(archived_at=now, archived_from_status=task.status, updated_at=task.updated_at)
         )
-        entries.append(await record(session, task.id, "archived", SYSTEM, {}, at=now))
+        entries.append(await record(session, task.id, "archived", actor, {}, at=now))
     return entries
 
 
@@ -106,10 +113,13 @@ async def preview(
         and ((t.archived_at is not None) == (rule.action == "delete"))
     ]
     facts = await card_rules.load_facts(session, tasks, now)
-    hit = [t for t in tasks if card_rules.holds(rule.model_copy(update={"enabled": True}), facts[t.id])]
+    hit = [
+        t for t in tasks if card_rules.holds(rule.model_copy(update={"enabled": True}), facts[t.id])
+    ]
     spared: dict[str, str] = {}
     if rule.action == "delete":
         spared = await card_rules.delete_blockers(session, [t.id for t in hit])
+
     def row(task: Task) -> dict[str, Any]:
         return {"id": task.id, "number": task.number, "title": task.title, "lane": task.status}
 

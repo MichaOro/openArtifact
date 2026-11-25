@@ -206,6 +206,8 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
             "pipeline_id",
             "stage_id",
             "action_id",
+            "archived_at",
+            "archived_from_status",
             "created_by",
             "execution_seq",
             "field_values",

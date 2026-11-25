@@ -7,7 +7,7 @@ A refused request is an ``ArtifactError``; the application answers it (see ``app
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response, status
 
@@ -37,13 +37,58 @@ router.include_router(build_comments_router("", "user", ["tasks"]))
 router.include_router(build_activity_router("", ["tasks"]))
 
 
-@router.get("", response_model=list[TaskRead], summary="List tasks", responses=errors(422))
+LIST_DESCRIPTION = (
+    "The tasks, each with its ``marks`` (card rules, ADR-071). ``archived``: ``exclude`` (default: the board), ``only`` (the archive) or "
+    "``include`` (both). Board order; with ``sort`` ``archived_at`` (the default of ``archived=only``, newest first) or ``title`` and "
+    "``order`` ``asc`` / ``desc``. ``limit`` (1 to 500) and ``offset`` page the answer; the header ``X-Total-Count`` has the number of cards "
+    "before paging. One card by id or number is always readable, archived or not."
+)
+
+
+@router.get(
+    "",
+    response_model=list[TaskRead],
+    summary="List tasks",
+    description=LIST_DESCRIPTION,
+    responses=errors(422),
+)
 async def list_tasks(
-    service: ServiceDep, include_archived: bool = Query(default=False)
+    service: ServiceDep,
+    response: Response,
+    archived: Annotated[Literal["exclude", "include", "only"], Query()] = "exclude",
+    sort: Annotated[Literal["archived_at", "title"] | None, Query()] = None,
+    order: Annotated[Literal["asc", "desc"] | None, Query()] = None,
+    limit: Annotated[int | None, Query(ge=1, le=500)] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[TaskRead]:
-    """List all tasks in board order (lane, then position), each with its ``marks`` (card rules). Archived cards (hidden by a
-    rule) are left out unless ``include_archived``; one is still read by its id or number."""
-    return await service.list_all(include_archived)
+    response.headers["X-Total-Count"] = str(await service.count_cards(archived))
+    return await service.list_all(archived, sort, order, limit, offset)
+
+
+@router.post(
+    "/{task_id}/archive",
+    response_model=TaskRead,
+    summary="Archive a task",
+    description="Move the card into the archive: it leaves the board, remembers its lane (``archived_from_status``) and can only be "
+    "read until ``unarchive``; every change, comment, move, delete and run is 409 ``archived``. 409 ``archived`` when it already is, 409 "
+    "while it is processed. Its children stay on the board and keep their parent link. Publishes ``task.updated``, ``board.updated`` and "
+    "``board.resync``.",
+    responses=errors(404, 409, 422, write=True),
+)
+async def archive_task(task_id: str, service: ServiceDep) -> TaskRead:
+    return await service.archive(task_id, author_of("user"))
+
+
+@router.post(
+    "/{task_id}/unarchive",
+    response_model=TaskRead,
+    summary="Take a task out of the archive",
+    description="Back into the lane it was archived from, at the very top (the first lane when that lane is gone); "
+    "``archived_at`` and ``archived_from_status`` are cleared. 409 ``not archived`` for a card that is on the board.",
+    responses=errors(404, 409, 422, write=True),
+)
+async def unarchive_task(task_id: str, service: ServiceDep) -> TaskRead:
+    return await service.unarchive(task_id, author_of("user"))
 
 
 @router.get("/{task_id}", response_model=TaskRead, summary="Get a task", responses=errors(404, 422))

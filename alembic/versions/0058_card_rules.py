@@ -4,7 +4,8 @@ Revision ID: 0058
 Revises: 0057
 Create Date: 2026-11-25
 
-``tasks.archived_at`` (UTC, empty = visible). The number 0055 is reserved for the event log (card #100). Every lane with the style
+``tasks.archived_at`` (UTC, empty = visible) and ``tasks.archived_from_status`` (the lane the card was in when it was archived, to
+put it back). The archive is the set of cards with ``archived_at``. The number 0055 is reserved for the event log (card #100). Every lane with the style
 ``finished`` gets one rule *Set card as done* without a condition in ``app_settings`` (key ``cards.rules``), so what the lane did
 before it still does. The downgrade drops the column and leaves the rules (a version before this one does not read them).
 """
@@ -34,6 +35,7 @@ RULE = {
 def upgrade() -> None:
     with op.batch_alter_table("tasks") as batch:
         batch.add_column(sa.Column("archived_at", sa.DateTime(), nullable=True))
+        batch.add_column(sa.Column("archived_from_status", sa.String(32), nullable=True))
         batch.create_index("ix_tasks_archived_at", ["archived_at"])
     connection = op.get_bind()
     finished = [
@@ -70,4 +72,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     with op.batch_alter_table("tasks") as batch:
         batch.drop_index("ix_tasks_archived_at")
+        batch.drop_column("archived_from_status")
         batch.drop_column("archived_at")

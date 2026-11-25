@@ -160,6 +160,7 @@ def test_the_schemas_list_the_fields_and_mark_what_is_not_built_yet(client: Test
     unavailable = {c["key"]: c["needs"] for c in guard["consequences"] if not c["available"]}
     assert set(unavailable) == {"notify", "handover"}
     assert "#93" in unavailable["notify"] and "#95" in unavailable["handover"]
-    assert by_purpose["lane"]["planned"] is True
+    assert by_purpose["lane"]["planned"] is False  # built with the card rules (ADR-071)
+    assert by_purpose["board"]["planned"] is False
     assert client.get("/api/rules/schemas/guard").json() == GUARD.to_data()
     assert client.get("/api/rules/schemas/nothing").status_code == 404

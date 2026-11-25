@@ -127,6 +127,9 @@ class TaskRead(BaseModel):
     #: When a card rule archived the card (ADR-071); ``null`` while it is visible. An archived card is not in the board's list
     #: unless asked for (``include_archived``), but is read by its id or number.
     archived_at: UtcDateTime | None = None
+    #: The lane key the card was archived from, and that lane's title now (``null`` when the lane is gone): where it goes back to.
+    archived_from_status: str | None = None
+    archived_from_lane: str | None = None
     #: What the card rules say about the card right now (derived when it is read, never stored): ``{"done": bool, "labels":
     #: [{"text", "tone"}], "colour": {"tone", "mode"} | null}``; ``null`` when no rule says anything.
     marks: CardMarks | None = None

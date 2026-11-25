@@ -49,7 +49,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | DELETE | `/api/v1/lanes/{status}` | Delete a lane: `409` "A lane can only be deleted when it contains no artifacts." while it holds artifacts, and for the last lane; answers the remaining lanes | 404, 409 |
 | GET | `/api/v1/artifact-fields` | The artifact fields every artifact has, each with `artifact_count` (see [Artifact fields](#artifact-fields)) | |
 | PUT | `/api/v1/artifact-fields` | Replace the whole list `{"fields": [...]}`; a removed field takes its values, a change stored values no longer fit is `409` | 409, 422 |
-| GET | `/api/v1/artifacts` | All artifacts in board order | |
+| GET | `/api/v1/artifacts` | All artifacts in board order, each with `marks` (card rules: `{done, labels: [{text, tone}], colour: {tone, mode}}` or `null`); archived cards as for `/api/tasks` (`archived`, `sort`, `order`, `limit`, `offset`) | 422 |
 | POST | `/api/v1/artifacts` | Create an artifact (`title`, `body`, `status`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`, `fields`); not started; `201` | 422 |
 | GET | `/api/v1/artifacts/{ref}` | One artifact: `body` as written, `fields`, and `body_resolved` (the body with `${card.title}`, `${card.number}`, `${card.id}` and `${card.<field>}` filled in; `null` when it has none). A create or change also answers `warnings` (a reference that names nothing; saved anyway). The list has `preview` (first words, filled in) instead of `body_resolved` | 404 |
 | PATCH | `/api/v1/artifacts/{ref}` | Change it (partial); `fields` are merged into the stored ones (`null` clears one); lane, order, parent, pipeline, type and parameters are locked while it is processed | 404, 409, 422 |
@@ -191,6 +191,13 @@ match the integration API where the names match.
 | POST | `/api/lanes` | Add a lane (body `{"title": string}`, same rules as `POST /api/v1/lanes`); `201`; publishes `board.lanes` | 422 |
 | PUT | `/api/lanes/{status}` | Change: body `{"title"?: string, "style"?: "normal"\|"finished"}` (at least one); answers the lanes; publishes `board.lanes` | 404, 422 |
 | DELETE | `/api/lanes/{status}` | Delete an empty lane (not the last); answers the lanes; publishes `board.lanes` | 404, 409 |
+| POST | `/api/tasks/{id}/archive`, `/api/tasks/{id}/unarchive` (also `/api/v1/artifacts/{ref}/...`) | Archive by hand (the card remembers its lane; read-only, every change is 409 `archived`; 409 while processed) / back to the top of its lane (the first lane if that is gone) | 404, 409 |
+| GET / PUT | `/api/lanes/{status}/rules` | The card rules of a lane (`{"rules": [{when, action, name, enabled, params}]}`; actions `set_done`, `archive`, `label`, `colour`; at most 20); PUT replaces them, archives at once; publishes `cards.rules.changed`, `board.lanes`, `board.resync` ([ADR-071](../architecture/adr/071-card-rules.md)) | 404, 422 |
+| POST | `/api/lanes/{status}/rules/preview` | Body `{"rule": {...}}`: how many cards of the lane the rule hits now (`count`, ten in `cards`); changes nothing | 404, 422 |
+| GET / PUT | `/api/board/rules` | The card rules of the board (actions `archive`, `delete`, `label`, `colour`); `delete` needs a condition, is off until switched on, hits only archived cards and never one with children or a running run | 422 |
+| POST | `/api/board/rules/preview` | As the lane's, for the board; for `delete` also `spared` (cards it would not delete, with the reason): the dry run of a deletion | 422 |
+| POST | `/api/board/rules/sweep` | Apply archive and delete now (`?dry_run=true`: only say what would happen): `{archive, delete, spared, dry_run}` | 422 |
+| GET | `/api/board/rules/deletions` | The last 100 cards a rule deleted: number, title, lane, rule, time | |
 
 Only the title changes; artifacts keep their `status` code.
 
@@ -198,7 +205,7 @@ Only the title changes; artifacts keep their `status` code.
 
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
-| GET | `/api/tasks` | All tasks in board order (lane, then position) | |
+| GET | `/api/tasks` | All tasks in board order (lane, then position) with `marks` and `archived_at`; archived cards with `?archived=include\|only` (also `sort=archived_at\|title`, `order`, `limit`, `offset`, header `X-Total-Count`); one card by id or number is always readable | 422 |
 | POST | `/api/tasks` | Create a task in a lane (`status` is a lane key; left out: the first lane; an unknown key is 422 and lists the valid ones); `201` | 409, 422 |
 | GET | `/api/tasks/{task_id}` | One task | 404 |
 | PATCH | `/api/tasks/{task_id}` | Edit, move to another lane, reorder (`before_id`), set parent, pipeline or `fields` (merged; `null` clears one) | 404, 409, 422 |
@@ -376,6 +383,8 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `task.moved` | the task | lane or position changes |
 | `task.deleted` | `{"id"}` | an artifact is deleted |
 | `board.lanes` | `{"lanes": [...]}` (as `GET /api/lanes`) | a lane was added, renamed, restyled or deleted |
+| `cards.rules.changed` | `{}` | card rules were saved |
+| `board.updated` | `{"archived": n, "deleted": n}` | a sweep archived or deleted cards (followed by `board.resync`) |
 | `artifact_fields.changed` | `{"fields": [...]}` (as `GET /api/artifact-fields`) | the list of artifact fields was replaced |
 | `agents.changed` | `{}` | an agent was created, changed, published or deleted: reload `GET /api/agents` |
 | `providers.changed` | `{}` | a provider or one of its models changed: reload `GET /api/providers` |

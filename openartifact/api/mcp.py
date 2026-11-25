@@ -132,7 +132,7 @@ def build_mcp(
     ) -> list[dict[str, Any]]:
         """All artifacts (cards) in board order, not paged; ``lane`` (a key from list_lanes) filters. Cards hidden by a card
         rule (archived) are left out unless ``include_archived``."""
-        artifacts = await service.list_all(include_archived)
+        artifacts = await service.list_all("include" if include_archived else "exclude")
         return await shown(*(a for a in artifacts if lane is None or a.status == lane))
 
     @mcp.tool()

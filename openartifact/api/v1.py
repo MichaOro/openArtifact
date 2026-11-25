@@ -8,7 +8,7 @@ number (``12``). Creating and starting are separate calls on purpose.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
@@ -145,14 +145,47 @@ async def replace_artifact_fields(
 
 
 @router.get(
-    "/artifacts", response_model=list[TaskRead], summary="List artifacts", responses=errors(422)
+    "/artifacts",
+    response_model=list[TaskRead],
+    summary="List artifacts",
+    description="All artifacts in board order, each with ``marks`` (card rules). ``archived``: ``exclude`` (default), ``only`` or "
+    "``include``; ``sort`` (``archived_at``, ``title``), ``order``, ``limit`` (1 to 500) and ``offset`` as for ``GET /api/tasks``; "
+    "``X-Total-Count`` has the number before paging.",
+    responses=errors(422),
 )
 async def list_artifacts(
-    service: ServiceDep, include_archived: bool = Query(default=False)
+    service: ServiceDep,
+    response: Response,
+    archived: Annotated[Literal["exclude", "include", "only"], Query()] = "exclude",
+    sort: Annotated[Literal["archived_at", "title"] | None, Query()] = None,
+    order: Annotated[Literal["asc", "desc"] | None, Query()] = None,
+    limit: Annotated[int | None, Query(ge=1, le=500)] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[TaskRead]:
-    """All artifacts in board order, each with its ``marks`` (card rules). Archived ones (hidden by a rule) only with
-    ``include_archived``; one is still read by its id or number."""
-    return await service.list_all(include_archived)
+    response.headers["X-Total-Count"] = str(await service.count_cards(archived))
+    return await service.list_all(archived, sort, order, limit, offset)
+
+
+@router.post(
+    "/artifacts/{ref}/archive",
+    response_model=TaskRead,
+    summary="Archive an artifact",
+    description="As ``POST /api/tasks/{id}/archive``: out of the board, read-only (409 ``archived``) until unarchived; 409 while processed.",
+    responses=errors(404, 409, 422, write=True),
+)
+async def archive_artifact(ref: str, service: ServiceDep) -> TaskRead:
+    return await service.archive(ref, author_of("api"))
+
+
+@router.post(
+    "/artifacts/{ref}/unarchive",
+    response_model=TaskRead,
+    summary="Take an artifact out of the archive",
+    description="As ``POST /api/tasks/{id}/unarchive``: back to the top of the lane it came from (the first lane if that is gone).",
+    responses=errors(404, 409, 422, write=True),
+)
+async def unarchive_artifact(ref: str, service: ServiceDep) -> TaskRead:
+    return await service.unarchive(ref, author_of("api"))
 
 
 @router.post(

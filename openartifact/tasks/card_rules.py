@@ -49,7 +49,7 @@ LOG_KEEP = 100
 TONES = CARD_TONES
 MODES = ("fill", "border")
 #: The activity kinds that mean the card came into its lane (a move, or its creation); the others say that something happened.
-ENTERED_LANE = ("lane", "created")
+ENTERED_LANE = ("lane", "created", "unarchived")
 #: Activity that is no sign of life of the card (the sweeper's own entry).
 NOT_ACTIVITY = ("archived",)
 SCHEMAS: dict[str, RuleSchema] = {"lane": LANE, "board": BOARD}
@@ -140,7 +140,9 @@ class Rule(BaseModel):
             extra = set(params)
             self.params = {}
             if action == "delete" and tree.group_is_empty(self.when):
-                raise ValueError("delete: give at least one condition (an empty rule would hit every archived card)")
+                raise ValueError(
+                    "delete: give at least one condition (an empty rule would hit every archived card)"
+                )
         if extra:
             raise ValueError(f"{action}: unknown parameter {sorted(extra)[0][:40]!r}")
         return self
@@ -211,7 +213,9 @@ async def load_rules(session: AsyncSession) -> CardRules:
     try:
         return CardRules.model_validate(json.loads(row.value))
     except (ValueError, ValidationError):
-        return CardRules()  # a stored rule that no longer fits does nothing, rather than acting on a guess
+        return (
+            CardRules()
+        )  # a stored rule that no longer fits does nothing, rather than acting on a guess
 
 
 async def _store(session: AsyncSession, rules: CardRules) -> None:
@@ -409,6 +413,20 @@ def wants(action: str, task: Task, rules: CardRules, facts: Mapping[str, Any]) -
 
 
 # ── deleting: what is never deleted ───────────────────────────────────
+
+
+async def running_ids(session: AsyncSession, ids: Sequence[str]) -> set[str]:
+    """The cards among ``ids`` that a run is running on."""
+    found: set[str] = set()
+    for chunk in _chunks(list(ids)):
+        found |= set(
+            await session.scalars(
+                select(PipelineRun.task_id).where(
+                    PipelineRun.task_id.in_(chunk), PipelineRun.status == RunStatus.RUNNING
+                )
+            )
+        )
+    return found
 
 
 async def delete_blockers(session: AsyncSession, ids: Sequence[str]) -> dict[str, str]:

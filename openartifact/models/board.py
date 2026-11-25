@@ -39,6 +39,7 @@ class Task(Base):
             (migration 0019); ``None`` until a pipeline is chosen.
         created_by: How it was created: ``user``, ``api``, ``mcp`` or ``action``.
         execution_seq: The last execution number handed out for this artifact (never reused).
+        archived_from_status: The lane it was archived from (migration 0058).
         archived_at: When it was archived (migration 0058, ADR-071); ``None`` while it is visible.
         field_values: The values of the artifact fields by name (JSON object text, migration 0038; a
             field without a value reads as its default); see ``openartifact/artifact_fields``.
@@ -77,6 +78,10 @@ class Task(Base):
     field_values: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
     #: When a card rule (or the user) archived it: it is then left out of the board's list (ADR-071); ``None``: visible.
     archived_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None, index=True)
+    #: The lane key the card was in when it was archived (no foreign key: the lane may be gone when it comes back).
+    archived_from_status: Mapped[str | None] = mapped_column(
+        String(32), nullable=True, default=None
+    )
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),

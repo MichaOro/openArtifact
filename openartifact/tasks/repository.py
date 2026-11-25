@@ -135,8 +135,6 @@ class TaskRepository:
 
         for name in result.changed - {"position", "parent_id", "pipeline"}:
             setattr(task, name, new_values[name])
-        if "status" in result.changed:
-            task.archived_at = None  # a card moved by hand to another lane is visible again (ADR-071)
         if "parent_id" in result.changed:
             task.parent_id = data.parent_id
         if result.changed or result.renumbered:

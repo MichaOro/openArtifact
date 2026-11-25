@@ -111,7 +111,9 @@ async def put_lane_rules(status: str, payload: RuleList, service: ServiceDep) ->
     description="Reads only: the cards of this lane the rule would hit now (``count``, ten of them in ``cards``).",
     responses=errors(404, 422, write=True, body=True),
 )
-async def preview_lane_rule(status: str, payload: CardPreviewWrite, service: ServiceDep) -> CardPreviewRead:
+async def preview_lane_rule(
+    status: str, payload: CardPreviewWrite, service: ServiceDep
+) -> CardPreviewRead:
     return _preview(await service.preview_rule(payload.rule, status))
 
 

@@ -23,6 +23,7 @@ from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.api.agents import routers as agent_routers
 from openartifact.api.artifact_fields import router as artifact_fields_router
+from openartifact.api.card_rules import router as card_rules_router
 from openartifact.api.contract import GATED
 from openartifact.api.credentials import router as credentials_router
 from openartifact.api.events import router as events_router
@@ -31,7 +32,6 @@ from openartifact.api.forms import router as forms_router
 from openartifact.api.graphs import actions_router, node_types_router, pipelines_router
 from openartifact.api.guards import build_guards_router
 from openartifact.api.hardening import BodyLimit, CrossSiteGuard, HostCheck, SecurityHeaders
-from openartifact.api.card_rules import router as card_rules_router
 from openartifact.api.lanes import router as lanes_router
 from openartifact.api.mcp import build_mcp
 from openartifact.api.routes import public_router as public_api_router
