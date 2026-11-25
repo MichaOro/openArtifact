@@ -99,9 +99,15 @@
 .gp { position: relative; width: 100%; min-height: 2.5rem; overflow: hidden; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-background) 40%, transparent); }
 .gp__stage { position: absolute; top: 0; transform-origin: top left; }
 .gp__links { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.gp__link { fill: none; stroke: var(--color-border); stroke-width: 2; }
-.gp__link.is-failing { stroke: var(--color-danger); }
+.gp__link { fill: none; stroke: var(--color-text-secondary); stroke-width: 1.5; stroke-linejoin: round; }
+.gp__link.is-passing { stroke: var(--edge-pass); }
+.gp__link.is-failing { stroke: var(--color-danger); stroke-dasharray: 5 4; }
 .gp__link.is-tool { stroke-dasharray: 4 4; stroke: var(--color-text-muted); }
+.gp__arrow { fill: var(--color-text-secondary); }
+.gp__arrow--pass { fill: var(--edge-pass); }
+.gp__arrow--failing { fill: var(--color-danger); }
+.gp-cluster { position: absolute; box-sizing: border-box; border: 1px solid var(--glass-border-hover, var(--color-border)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-text-primary) 5%, transparent); }
+.gp-cluster .icon { position: absolute; left: 6px; top: 3px; width: 11px; height: 11px; color: var(--color-text-muted); }
 .gp-node { position: absolute; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--node-color) 60%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--node-color) 20%, var(--color-glass-card)); color: var(--node-color); }
 .gp-node .icon { width: 55%; height: 55%; }
 .gp-node.is-tool { border-style: dashed; opacity: 0.85; }

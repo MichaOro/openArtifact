@@ -252,7 +252,7 @@ A page that lists definitions (pipelines, actions, agents, guards) is a page scr
    a card shows, the chips and the tabs of the panel, and what open, edit and delete do. Selecting, the keys, cards or list, paging and
    the sheet on a narrow screen come from the component.
 3. A tab that is not built is `disabled: true` (greyed). The window that makes or changes an entry is a form manifest (`ui/forms/<name>.yaml`, ADR-065).
-4. Show the picture of a graph in the panel (tab Graph) with `GraphPreview` and a structure from `structureOfGraph` or `structureOfChain`; give a new kind of picture a
+4. Show the picture of a graph in the panel (tab Graph) with `GraphPreview` and a scene from `sceneOfGraph(detail, isTool)`; give a new kind of picture a
    function that returns `{columns, links}` rather than a layout of its own.
 
 ## Add a navigation entry
