@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from openartifact.agents import completion
+from openartifact.agents import completion as completion_module
 from openartifact.app import _create_app
 from openartifact.config import Settings
 from openartifact.engine import runner
@@ -53,9 +53,8 @@ def llm() -> Iterator[FakeLlm]:
 
 @pytest.fixture
 def quick_retries(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        completion, "BACKOFF_SECONDS", (0.01, 0.01, 0.01, 0.01)
-    )  # the request lives in agents/completion.py
+    # the request lives in agents/completion.py
+    monkeypatch.setattr(completion_module, "BACKOFF_SECONDS", (0.01, 0.01, 0.01, 0.01))
 
 
 def _flow(
