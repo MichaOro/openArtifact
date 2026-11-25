@@ -2,6 +2,7 @@
  * at once; if the server refuses one, the graph is reloaded and the reason shown. */
 import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
+import { setCredentialConfirm } from "../components/credential-dialog.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { InlineName } from "../components/inline-name.js";
 import { Modal } from "../components/modal.js";
@@ -50,6 +51,7 @@ export class GraphEditor {
     this.alert.onRetry(() => this.load());
     this.zoomLabel = root.querySelector("[data-zoom-label]");
     this.confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
+    setCredentialConfirm((options) => this.confirm.open({ ...options, tone: "primary" })); // the credential window asks before it resets its layout
     this.nameDialog = new FormDialog(new Modal(document.getElementById("new-modal")));
     this.blocks = new InspectorBlocks(this.#blockActions(), this.model);
     this.settingsModal = new Modal(document.getElementById("node-modal"));

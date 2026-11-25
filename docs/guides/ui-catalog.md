@@ -20,6 +20,10 @@ not suggestions, and a change that breaks one is sent back.
    and it falls back to one column on a narrow screen. A window that is wider than the default is a named exception.
 3. **A window that saves carries its name in its title** (rule 6 below), and its configuration is described as data where
    a description exists (node kinds, ADR-054), so that one renderer lays it out.
+   **Every window and every overlay that asks for something is a form manifest** ([ADR-065](../architecture/adr/065-every-window-is-a-form-manifest.md)):
+   a YAML file in `ui/forms/`, drawn by `FormView`, with the layout handle so the owner can arrange it himself. A hand-built
+   window is only allowed as a named exception with a reason (a question, a display-only window, a picker; the list is in
+   `tests/test_window_rule.py`); an existing one is moved when it is touched. Never build the fields of a window by hand.
 4. **Colours, states and texts follow the catalog:** tokens only, the states and contrast rules below, the text rule of
    a node. Every new component is covered by the catalog tests in both themes.
 5. **Persist on the user's act** (ADR-059 §7): no autosave by interval or keystroke; text on leaving the field or Enter;

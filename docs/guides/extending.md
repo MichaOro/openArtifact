@@ -308,7 +308,12 @@ Every dialog with input fields is a `FormDialog` over a `form_modal` ([ADR-010](
 
 ## A configuration window is a manifest
 
-The form of a window that configures something (a guard, later a provider, a credential, a retention rule) is data, like
+**This is the rule for every new window and overlay that asks for something** ([ADR-065](../architecture/adr/065-every-window-is-a-form-manifest.md),
+binding for people and AI agents alike): its form is a manifest, never hand-built markup. A handmade window is only allowed as a
+named exception with a reason (a question, a display-only window, a picker or a name dialog); the exceptions are listed in
+`tests/test_window_rule.py`, which fails for a window that is neither. Existing handmade windows move when they are touched.
+
+The form of a window that configures something (a guard, a credential, later a provider, a retention rule) is data, like
 a node kind ([ADR-062](../architecture/adr/062-configuration-windows-as-data.md)): you describe it in YAML and one
 component draws it, in two columns where there is room, with the help in tooltips and the errors under the fields. The
 frame around it (the title with the name renamed in place, "Used in N places", tabs, Save and Cancel) is yours. A question
@@ -395,10 +400,13 @@ form.setErrors({ "trigger.events": "Choose one" });          // a message of the
 `.help` / `.placeholder`, `forms.demo.fields.trigger.type.options.event`. What a language does not name stays English.
 `tests/test_forms.py` fails for an override that names nothing and for a text of a shipped form that German lacks.
 
-**Windows that could move to a manifest** (none is migrated yet; the owner schedules them): the retention rule (small:
+**Migrated:** the guard editor (`guard.yaml`) and the credential window (`credential.yaml`: one field per field of every credential
+type, declared with `visible_when` on the type; a secret is a `text` field with `config: {secret: true}` and a field that cannot change
+has `config: {readonly: true}`; `tests/test_forms.py` keeps it the same as `credentials/types.py`).
+
+**Windows that could move to a manifest** (the owner schedules them, or a change that rebuilds one moves it): the retention rule (small:
 `rule-tree` and `select`; its title already carries the name), lane settings (small: `text` and `choice`), run limits (small:
-numbers), the LLM provider dialog (medium: `text`, a secret chooser and a model list), the credential dialog (medium: the
-fields come from the type, a `secret` widget that never shows the value), the artifact fields dialog (medium: a `rows` widget
+numbers), the LLM provider dialog (medium: `text`, a credential chooser and a model list), the artifact fields dialog (medium: a `rows` widget
 with add, remove and order), the *create artifact* dialog (medium: the artifact fields are dynamic). Not a form: the name
 dialogs (*New*, *Rename*, *Add lane*: change them so the name is the title, binding rule 3) and the agent version view
 (display only). The node settings dialog already has its own data (ADR-053/054); making it use `form-view.js` is a larger

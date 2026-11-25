@@ -476,10 +476,6 @@
  "credentials.credentials_page.use_as_authorization_bearer_token": "Use it as: Authorization: Bearer <token>",
  "credentials.external_credentials": "External credentials",
  "credentials.i_have_copied_it": "I have copied it",
- "credentials.in_1_day": "In 1 day",
- "credentials.in_1_year": "In 1 year",
- "credentials.in_30_days": "In 30 days",
- "credentials.in_90_days": "In 90 days",
  "credentials.internal_credentials": "Internal credentials",
  "credentials.last_test": "Last test",
  "credentials.never": "Never",
@@ -1212,6 +1208,6 @@
  "editor.setting_controls.no_credential": "No credential",
  "editor.setting_controls.create_credential": "Create new credential",
  "editor.setting_controls.edit_credential": "Edit this credential",
- "credentials.name_help_external": "Nodes find the credential by this name: capitals, digits and underscores, starting with a letter.",
- "credentials.name_help_internal": "Says who or what the token is for, for example the CI job."
+ "credentials.name_help_internal": "Says who or what the token is for, for example the CI job.",
+ "credentials.fix_marked": "Fix what is marked."
 }

@@ -4,6 +4,7 @@
 **Date:** 2026-11-24  
 **Supersedes:** —  
 **Superseded by:** —  
+**Amended by:** [ADR-065](065-every-window-is-a-form-manifest.md) (every window is a form manifest)  
 **Amends:** [ADR-059](059-one-catalog-of-ui-building-blocks.md) (a section of a window is a component too), [ADR-060](060-guards.md) (the guard editor)  
 **Implemented in:** `ui/forms.py`, `ui/forms/guard.yaml`, `api/forms.py` (`/api/forms`), `static/js/components/form-view.js`, `form-plan.js`, `form-widgets.js`, `static/js/guards/widgets.js`, `guards/editor-window.js`  
 **Affected chapters:** guide [extending](../../guides/extending.md) (*A configuration window is a manifest*), [UI catalog](../../guides/ui-catalog.md), [guards](../../guides/guards.md); arc42 [05.04](../arc42/05-building-block-view/05.04-frontend-components.md)

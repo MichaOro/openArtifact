@@ -23,7 +23,7 @@ def _open(page: Page, secured_url: str) -> None:
 def test_a_token_is_shown_once_works_and_stops_when_revoked(page: Page, secured_url: str) -> None:
     _open(page, secured_url)
     page.get_by_role("button", name="New token").click()
-    page.fill("#cr-name", "e2e-job")
+    page.get_by_label("Name", exact=True).fill("e2e-job")
     page.get_by_role("button", name="Generate token").click()
     token_el = page.locator("[data-token]")
     expect(token_el).to_contain_text("oa_")
@@ -55,9 +55,9 @@ def test_an_external_credential_is_stored_listed_without_its_value_and_deleted(
     _open(page, secured_url)
     page.get_by_role("tab", name="External").click()
     page.get_by_role("button", name="New credential").click()
-    page.select_option("#cr-type", "generic_api_key")
-    page.fill("#cr-name", "E2E_KEY")
-    page.fill("#cr-f-value", "very-secret-e2e-value")
+    page.get_by_label("Type", exact=True).select_option("generic_api_key")
+    page.get_by_label("Name", exact=True).fill("E2E_KEY")
+    page.get_by_label("Value", exact=True).fill("very-secret-e2e-value")
     page.get_by_role("button", name="Store").click()
 
     row = page.locator('[data-credential="E2E_KEY"]')
@@ -137,19 +137,25 @@ def test_the_github_node_chooses_makes_and_edits_its_credential_in_the_credentia
         edit.click()
         window = page.locator("#credential-modal")
         expect(window).to_be_visible()
-        expect(window.get_by_label("Name")).to_have_value("GH_ONE")
+        expect(window.get_by_label("Name", exact=True)).to_have_value("GH_ONE")
+        # a manifest window: it has the layout handle every one has, so the owner can arrange it
+        expect(window.locator("[data-layout-handle]")).to_have_count(1)
+        # the name of an existing credential is shown, not changed
+        expect(window.get_by_label("Name", exact=True)).to_have_attribute("readonly", "")
         # the explanations are tooltips after their labels, not lines under the fields
         expect(window.locator('.info-tip[data-about="GitHub server"]')).to_have_count(1)
         expect(window.locator('.info-tip[data-about="Name"]')).to_have_count(1)
-        expect(window.locator(".field__help")).to_have_count(1)  # only the type's own line
+        expect(window.locator(".field__help")).to_have_count(
+            0
+        )  # no explaining line under any field (the type's own help is a tooltip too)
         window.get_by_role("button", name="Cancel").click()
         expect(window).to_be_hidden()
         # a new one: only a GitHub access token fits, so no type to choose; it is chosen once stored
         credential.select_option("+ Create new credential")
         expect(window).to_be_visible()
-        expect(window.get_by_label("Type")).to_be_hidden()
-        window.get_by_label("Name").fill("GH_TWO")
-        window.get_by_label("Token").fill("ghp_test_two")
+        expect(window.get_by_label("Type", exact=True)).to_be_hidden()
+        window.get_by_label("Name", exact=True).fill("GH_TWO")
+        window.get_by_label("Token", exact=True).fill("ghp_test_two")
         window.locator("[data-submit]").click()
         expect(window).to_be_hidden()
         expect(credential).to_have_value("GH_TWO")

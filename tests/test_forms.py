@@ -154,7 +154,7 @@ def test_the_forms_endpoint_serves_the_manifest_in_english_and_404s_for_an_unkno
     client: TestClient,
 ) -> None:
     listed = client.get("/api/forms").json()
-    assert [f["name"] for f in listed] == ["guard"]
+    assert [f["name"] for f in listed] == ["credential", "guard"]
     guard = client.get("/api/forms/guard").json()
     assert guard["schema"] == 1 and guard["columns"] == 2 and guard["width"] == 50
     trigger = guard["sections"][0]
@@ -244,3 +244,27 @@ def test_every_text_of_the_guard_form_has_a_german_override() -> None:
                     if f"{base}.options.{o.value}" not in de
                 ]
     assert missing == [], f"German lacks form texts: {missing}"
+
+
+def test_the_credential_form_has_the_fields_of_every_credential_type_and_no_others() -> None:
+    """The window is a manifest and the types are data (credentials/types.py): the two say the same, so a field added to a type
+    cannot be forgotten in the window (and one the window shows cannot be unknown to the server)."""
+    from openartifact.credentials.types import TYPES
+
+    form = forms.FORMS["credential"]
+    by_key = {f.key: f for s in form.sections for f in s.fields}
+    expected = {f"{t.id}.{f.name}": (f, t) for t in TYPES.values() for f in t.fields}
+    assert {k for k in by_key if "." in k} == set(expected)
+    for key, (field, kind) in expected.items():
+        spec = by_key[key]
+        assert spec.label == field.label, key
+        assert spec.required == field.required, key
+        assert bool(spec.config.get("secret")) == field.secret, key
+        assert (spec.placeholder or "") == field.placeholder, key
+        assert (spec.help or "") == field.help, key
+        assert spec.visible_when is not None and spec.visible_when.equals == kind.id, key
+    # the kinds of credential to choose from are the ones the server has: the options come from the types, in code
+    assert by_key["type"].config.get("options_from_code") is True
+    internal = [t.id for t in TYPES.values() if t.category == "internal"]
+    assert by_key["expires"].visible_when is not None
+    assert by_key["expires"].visible_when.in_ == internal

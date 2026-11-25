@@ -62,7 +62,9 @@ The file is empty today and should stay so: quarantine is a short waiting room, 
 
 For every contribution that touches the interface, from a person or an automated tool alike: **every control and every
 section of a window or page is a reusable component** from the catalog (add a missing one there first, never a
-feature-specific copy); **windows are sized by their content** (as wide as necessary, as narrow as possible, two columns
+feature-specific copy); **every window and overlay that asks for something is a form manifest** (`ui/forms/<name>.yaml` drawn by
+`FormView`, with the layout handle, [ADR-065](../docs/architecture/adr/065-every-window-is-a-form-manifest.md); a handmade one is a named
+exception listed in `tests/test_window_rule.py`); **windows are sized by their content** (as wide as necessary, as narrow as possible, two columns
 where there is room instead of an endless column); a window that saves carries its name in its title; colours only as
 tokens; **a change is saved on the user's act** (text on leaving the field or Enter, a choice when it changes, no autosave
 by keystroke or timer, nothing drawn again under a focused field: `static/js/editor/persist-policy.js`). The rules, their

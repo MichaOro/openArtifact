@@ -74,6 +74,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [062](062-configuration-windows-as-data.md) | Configuration windows as data: a form manifest (YAML) per window, one renderer, widgets from a registry, texts overridable per language; the guard editor as the pilot | Accepted | 2026-11-24 | amends ADR-059, ADR-060 |
 | [063](063-rearranging-manifest-windows.md) | Rearranging manifest windows: a layout layer in the data store over the shipped YAML, a handle on the top edge, an arrange view with drag and keys, reset and export | Accepted | 2026-11-24 | amends ADR-062, ADR-053, ADR-054 |
 | [064](064-the-card-is-a-source-of-the-run.md) | The card is a source of the run: `${card.title}`, `body`, `number`, `id`, `text` always exist next to the custom fields, an empty field is empty text, an agent input of type artifact, a resolved preview, reserved field names |
+| [065](065-every-window-is-a-form-manifest.md) | Every window is a form manifest: each new window or overlay that asks for something is a YAML form with the layout handle; handmade ones are named exceptions with a reason, kept by a test; the credential window moved first | Accepted | 2026-11-25 | amends ADR-062, ADR-059 |
 
 ## Notes
 

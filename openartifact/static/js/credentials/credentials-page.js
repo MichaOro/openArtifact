@@ -68,6 +68,7 @@ const dialog = new CredentialDialog(new Modal(document.getElementById("credentia
   types: () => types,
   saved: () => load(),
   token: (token, note) => tokenDialog.show(token, note),
+  confirm: (options) => confirm.open({ ...options, tone: "primary" }),
 });
 
 // ── the lists ──────────────────────────────────────────────────────────

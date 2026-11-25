@@ -43,7 +43,10 @@ function controlOf(ctx, el) {
 }
 
 registerWidget("text", (ctx) => {
-  const input = Object.assign(make("input", "field__control"), { type: "text", value: ctx.value ?? "" });
+  const secret = Boolean(ctx.field.config?.secret); // a value that is not shown as it is typed (a token)
+  const input = Object.assign(make("input", "field__control"), { type: secret ? "password" : "text", value: ctx.value ?? "" });
+  if (secret) Object.assign(input, { autocomplete: "new-password", spellcheck: false });
+  if (ctx.field.config?.readonly) input.readOnly = true; // shown as a field, not changed (a window may decide that for a field at run time)
   if (ctx.field.placeholder) input.placeholder = ctx.field.placeholder;
   if (ctx.field.config?.max_length) input.maxLength = ctx.field.config.max_length;
   input.addEventListener("input", () => ctx.set(input.value));
