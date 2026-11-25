@@ -26,7 +26,10 @@ def test_a_click_selects_and_shows_the_details_and_opening_takes_a_double_click_
     _goto(page, base_url)
     card = page.locator(".mg-card")
     panel = page.locator(".mg__panel")
-    expect(panel).to_be_hidden()
+    expect(panel).to_contain_text(
+        "Select a guard to see its details"
+    )  # the room is reserved, a quiet line stands in it
+    expect(panel.locator("h2")).to_have_count(0)
     card.click()
     expect(card).to_have_attribute("aria-current", "true")
     expect(panel).to_be_visible()

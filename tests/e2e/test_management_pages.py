@@ -23,7 +23,10 @@ def test_a_click_selects_and_shows_the_panel_a_double_click_and_the_pencil_open_
     post(api, "/api/actions", name="Gap analysis", description="Finds gaps.", tags=["epic"])
     page.goto(f"{base_url}/actions")
     panel = page.locator(".mg__panel")
-    expect(panel).to_be_hidden()
+    expect(panel).to_contain_text(
+        "Select an action to see its details"
+    )  # the room is reserved, a quiet line stands in it
+    expect(panel.locator("h2")).to_have_count(0)
     _card(page, "Gap analysis").click()
     expect(panel).to_be_visible()
     expect(panel.locator("h2")).to_have_text("Gap analysis")
@@ -125,3 +128,85 @@ def test_a_new_pipeline_gets_description_and_tags_and_the_panel_is_a_sheet_on_a_
     assert box and abs(box["y"] + box["height"] - 850) < 2 and box["width"] >= 410
     panel.get_by_role("button", name=re.compile("Close")).click()
     expect(panel).to_be_hidden()
+
+
+def _first_card_box(page: Page) -> dict[str, float]:
+    box = page.locator(".mg-card").first.bounding_box()
+    assert box is not None
+    return box
+
+
+def test_the_room_of_the_panel_is_reserved_so_the_cards_stay_where_they_are_on_every_page(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """Two thirds for the entries and one third for the panel, whether or not an entry is selected: the first card keeps its place and
+    width when one is selected and again when the panel is closed (it used to jump when the panel appeared)."""
+    from tests.e2e.helpers import code_definition
+    from tests.e2e.test_agents_page import _agent
+    from tests.e2e.test_guards import _guard
+
+    post(api, "/api/actions", name="Reserved action")
+    post(api, "/api/pipelines", name="Reserved flow")
+    _agent(api, "Reserved agent", user_prompt="Say hi.")
+    _guard(api, "Reserved guard")
+    del code_definition
+    for path in ("actions", "pipelines", "agents", "guards"):
+        page.goto(f"{base_url}/{path}")
+        expect(page.locator(".mg-card").first).to_be_visible()
+        # the page size is in the toolbar, left of the two switches, on the same line (and not under the entries)
+        toolbar = page.locator(".mg__toolbar")
+        size_box, view_box = (
+            toolbar.locator(".mg__size").bounding_box(),
+            toolbar.locator(".mg-view").bounding_box(),
+        )
+        assert size_box and view_box
+        assert (
+            size_box["x"] + size_box["width"] <= view_box["x"] + 1
+            and abs(size_box["y"] - view_box["y"]) < 12
+        ), path
+        expect(page.locator(".mg__pager .mg__size")).to_have_count(0)
+        panel = page.locator(".mg__panel")
+        expect(panel).to_be_visible()  # reserved even without a selection
+        expect(panel.locator(".mg-panel__placeholder")).to_be_visible()
+        before = _first_card_box(page)
+        shell = page.locator(".mg").bounding_box()
+        panel_box = panel.bounding_box()
+        assert shell and panel_box
+        share = panel_box["width"] / shell["width"]
+        assert 0.28 < share < 0.36, f"{path}: the panel has about a third ({share:.2f})"
+        page.locator(".mg-card").first.click()
+        expect(panel.locator("h2")).to_be_visible()
+        after = _first_card_box(page)
+        assert (after["x"], after["y"], after["width"]) == (
+            before["x"],
+            before["y"],
+            before["width"],
+        ), f"{path}: the card stays where it was when one is selected"
+        panel.locator(".mg-panel__close").click()
+        expect(panel.locator(".mg-panel__placeholder")).to_be_visible()
+        again = _first_card_box(page)
+        assert (again["x"], again["width"]) == (before["x"], before["width"]), (
+            f"{path}: nor when it is closed"
+        )
+
+
+def test_the_page_size_is_in_the_toolbar_next_to_the_switch_and_the_pager_keeps_range_and_pages(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    post(api, "/api/actions", name="One")
+    page.goto(f"{base_url}/actions")
+    expect(page.locator(".mg-card").first).to_be_visible()
+    toolbar = page.locator(".mg__toolbar")
+    size = toolbar.locator(".mg__size select")
+    expect(size).to_have_count(1)
+    expect(page.locator(".mg__pager .mg__size")).to_have_count(0)
+    expect(page.locator(".mg__pager .mg__count")).to_have_text(re.compile(r"^1.1 of 1$"))
+    size_box, view_box = (
+        toolbar.locator(".mg__size").bounding_box(),
+        toolbar.locator(".mg-view").bounding_box(),
+    )
+    assert size_box and view_box
+    assert size_box["x"] + size_box["width"] <= view_box["x"] + 1, "left of the switch"
+    assert abs(size_box["y"] - view_box["y"]) < 12, "on the same line"
+    size.select_option("24")
+    assert page.evaluate("JSON.parse(localStorage.getItem('oa-management-actions')).size") == 24

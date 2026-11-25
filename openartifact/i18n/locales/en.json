@@ -1328,5 +1328,10 @@
  "agents.page.repeats": "repeats v{number}",
  "agents.page.current": "current",
  "agents.page.manage_versions": "Publish or roll back in the editor",
- "agents.page.edit_agent": "Agent"
+ "agents.page.edit_agent": "Agent",
+ "components.management.select_one": "Select an entry to see its details",
+ "graph.action.select": "Select an action to see its details",
+ "graph.pipeline.select": "Select a pipeline to see its details",
+ "agents.page.select": "Select an agent to see its details",
+ "guards.select_one": "Select a guard to see its details"
 }
