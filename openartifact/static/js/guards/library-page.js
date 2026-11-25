@@ -29,7 +29,7 @@ const editor = new GuardEditor(new Modal(document.getElementById("guard-modal"))
   onDeleted: () => load(),
 });
 
-const ORDER = ["stall", "runtime", "health"]; // the templates from the simplest on
+const ORDER = ["stall", "runtime", "agent_quiet", "health", "agent_health"]; // the templates from the simplest on (rules only first, then the ones with an action)
 
 let guards = [];
 let schema = null;

@@ -136,7 +136,9 @@ def test_a_template_becomes_a_library_guard_in_the_editor_titled_by_its_name_wit
             "Blank guard",
             "From template: Stall guard",
             "From template: Runtime guard",
+            "From template: Agent quiet and storm guard",
             "From template: Health guard",
+            "From template: Agent health guard",
         ]
     )
     menu.get_by_role("menuitem", name="From template: Stall guard").click()
