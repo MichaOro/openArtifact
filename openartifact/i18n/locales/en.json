@@ -1210,5 +1210,9 @@
  "index.standard_body": "Body",
  "index.standard_tag": "Standard",
  "index.standard_title_help": "Every artifact has one.",
- "index.standard_body_help": "The text of every artifact."
+ "index.standard_body_help": "The text of every artifact.",
+ "tasks.body.resolved": "References resolved",
+ "tasks.body.show_written": "Show as written",
+ "tasks.body.show_resolved": "Show resolved",
+ "tasks.body.saved_with_notes": "Saved. Not every reference can be filled in:"
 }

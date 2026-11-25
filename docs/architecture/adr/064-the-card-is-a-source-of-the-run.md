@@ -48,6 +48,23 @@ mapped ran with empty inputs and the model answered that "the text is empty". Pr
 - **Typos.** A `${card.x}` that names nothing is a warning when the node is saved (also in the agent dialog) and a clear
   error in the run; it is not refused when saved, like the other reference hints.
 
+- **The body with its references filled in (2026-11-25).** A body may hold `${card.title}`, `${card.number}`,
+  `${card.id}` and `${card.<field>}`; only the original is stored. One pure function
+  (`artifact_fields/body.py`, `resolve_body(body, card, max_words=None)`) fills them in: `${card.body}` and
+  `${card.text}` (a body cannot contain itself), `node`/`var`/`secret` references and names the artifact does not
+  have stay as written, one level only, an empty field is empty text, numbers and booleans render as compact JSON.
+  Where it is used: the single read (`GET /api/tasks/{id}`, `/api/v1/artifacts/{ref}`, MCP `get_artifact`) returns
+  `body` (original), `fields` and `body_resolved` (`null` when nothing was filled in); the list returns `preview`
+  (the first `PREVIEW_WORDS = 60` words, filled in, `null` when the body has no reference, then the client cuts the
+  original as before). The preview reads the text token by token and stops when the budget is spent, so a body of ten
+  thousand words costs what a short one does, and a body without `${card.` is not scanned. The budget is 60 words, not
+  25: the board never cut by words (CSS clamps at six lines), 60 keeps the look. Saving a body with a reference that
+  names nothing answers with `warnings` (never a refusal; not part of the events). The events carry `body_resolved`
+  and `preview`. The card a run starts with holds the RESOLVED body, so `${card.body}`, `${card.text}` and the
+  agent's artifact inputs read the finished text; titles are never filled in. The artifact dialog shows the finished
+  text with the marker "References resolved" and the toggle "Show as written"; Edit shows the original; an open
+  dialog and the board refresh when the fields change. No migration.
+
 ## 3. Consequences
 
 - A run's inputs no longer depend on the author having defined a field for title and body.

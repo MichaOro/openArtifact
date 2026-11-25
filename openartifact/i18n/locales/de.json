@@ -1729,5 +1729,9 @@
  "index.standard_body": "Body",
  "index.standard_tag": "Standard",
  "index.standard_title_help": "Jedes Artefakt hat einen.",
- "index.standard_body_help": "Der Text jedes Artefakts."
+ "index.standard_body_help": "Der Text jedes Artefakts.",
+ "tasks.body.resolved": "Verweise aufgelöst",
+ "tasks.body.show_written": "Wie geschrieben anzeigen",
+ "tasks.body.show_resolved": "Aufgelöst anzeigen",
+ "tasks.body.saved_with_notes": "Gespeichert. Nicht jeder Verweis lässt sich einsetzen:"
 }

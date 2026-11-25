@@ -5,7 +5,8 @@ import { Modal } from "../components/modal.js";
 import { ReferencePicker } from "../components/reference-picker.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { KEYS } from "../storage.js";
-import { createTask, deleteTask, listRuns, listTasks, placeTask, updateTask } from "./api.js";
+import { createTask, deleteTask, getTask, listRuns, listTasks, placeTask, updateTask } from "./api.js";
+import { needsFullBody } from "./body-model.js";
 import { Board } from "./board.js";
 import { ArtifactDialog } from "./artifact-dialog.js";
 import { CardDragController } from "./dnd.js";
@@ -135,6 +136,17 @@ function showTask(task, { follow = false } = {}) {
   artifactDialog.subtitle.disabled = board.locked.has(task.id);
   fieldRail.show(task);
   fieldRail.setLocked(board.locked.has(task.id));
+  if (needsFullBody(task)) loadFullBody(task.id); // the list carries a preview only; the dialog reads the whole text
+}
+
+/** The open dialog gets the body with its references filled in (the board's list holds the first words only). */
+async function loadFullBody(id) {
+  try {
+    const full = await getTask(id);
+    if (artifactDialog.editing?.id === id) artifactDialog.refreshView(full);
+  } catch {
+    // the dialog keeps the body as it was written; the next event or opening tries again
+  }
 }
 
 /** The artifact fields (ADR-044): the rail of the dialog and the editor behind the board's menu. */
@@ -390,7 +402,12 @@ connectEvents({
       processing.remove(data.id);
     }
     else if (type === "board.lanes") showLanes(data.lanes);
-    else if (type === "artifact_fields.changed") showFields(data);
+    else if (type === "artifact_fields.changed") {
+      showFields(data);
+      board.load(); // the first words of a card come from its fields
+      const open = artifactDialog.editing;
+      if (open && artifactDialog.mode === "view") loadFullBody(open.id); // a referenced field changed
+    }
     else if (type === "board.resync") board.load(); // lane was renumbered: positions changed
     else {
       board.upsert(data); // task.created / task.updated / task.moved

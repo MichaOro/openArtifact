@@ -117,7 +117,7 @@ these are errors.
 Every artifact is a source of its run (ADR-064). When the execution starts, `card` holds a **copy** of:
 
 - the built-in values `${card.id}`, `${card.number}`, `${card.title}` and `${card.body}`, and `${card.text}`, which is
-  derived (`#<number> <title>`, a blank line, the body); an agent input from the artifact takes its part from the card
+  derived (`#<number> <title>`, a blank line, the body); `${card.body}` holds the body with its own `${card.x}` already filled in; an agent input from the artifact takes its part from the card
   by itself (see [agents](agents.md)), the node maps nothing for it;
 - every artifact field ([concepts](concepts.md#terms), ADR-044) with the artifact's value, else the field's default,
   else nothing.

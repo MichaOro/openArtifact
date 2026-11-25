@@ -134,7 +134,8 @@ def build_mcp(
 
     @mcp.tool()
     async def get_artifact(artifact: str) -> dict[str, Any]:
-        """One artifact by number (``12`` or ``#12``) or id; an unknown one is an error."""
+        """One artifact by number (``12`` or ``#12``) or id; an unknown one is an error. ``body`` is as written, ``fields`` its
+        values and ``body_resolved`` the body with its ``${card.x}`` filled in (null when it has none)."""
         return (await shown(await guarded(service.get(artifact))))[0]
 
     @mcp.tool()

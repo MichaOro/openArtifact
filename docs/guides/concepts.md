@@ -47,7 +47,7 @@ artifacts (a choice is a single or a multi select; the editor lists the fields o
 and shows the chosen one's settings on the right). In the artifact dialog the rail entry *Fields* opens them below it; a change is saved at once and a wrong value
 (a typo in a choice, a number out of range) is refused right there, not when a run fails. The fields are locked while the
 artifact is processed. Removing a field removes its values; a change that stored values no longer fit is refused
-([details](execution-nodes.md#card-parameters-card-the-artifact-fields)). Title, body, number and id are there too (`${card.title}`, ...), and `${card.text}` is all of it as one text (ADR-064).
+([details](execution-nodes.md#card-parameters-card-the-artifact-fields)). Title, body, number and id are there too (`${card.title}`, ...), and `${card.text}` is all of it as one text (ADR-064). A body may use them too (`${card.test}`, `${card.title}`): only the original is stored, the artifact dialog and the board show the finished text (marker *References resolved*, toggle *Show as written*), Edit shows the original, and a run reads the finished text.
 
 **Run context.** The values an execution keeps while it runs: the artifact's parameters as they were when it started
 (`card`), variables a Code node sets and the latest result of

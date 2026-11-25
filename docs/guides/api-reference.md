@@ -51,7 +51,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | PUT | `/api/v1/artifact-fields` | Replace the whole list `{"fields": [...]}`; a removed field takes its values, a change stored values no longer fit is `409` | 409, 422 |
 | GET | `/api/v1/artifacts` | All artifacts in board order | |
 | POST | `/api/v1/artifacts` | Create an artifact (`title`, `body`, `status`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`, `fields`); not started; `201` | 422 |
-| GET | `/api/v1/artifacts/{ref}` | One artifact | 404 |
+| GET | `/api/v1/artifacts/{ref}` | One artifact: `body` as written, `fields`, and `body_resolved` (the body with `${card.title}`, `${card.number}`, `${card.id}` and `${card.<field>}` filled in; `null` when it has none). A create or change also answers `warnings` (a reference that names nothing; saved anyway). The list has `preview` (first words, filled in) instead of `body_resolved` | 404 |
 | PATCH | `/api/v1/artifacts/{ref}` | Change it (partial); `fields` are merged into the stored ones (`null` clears one); lane, order, parent, pipeline, type and parameters are locked while it is processed | 404, 409, 422 |
 | DELETE | `/api/v1/artifacts/{ref}` | Delete it (not while it is processed); `204` | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run` | State of the run: status, where it is, status of every stage | 404 (never processed) |
