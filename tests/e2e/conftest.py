@@ -141,7 +141,13 @@ def api(base_url: str) -> Iterator[httpx.Client]:
     """REST client; the server is emptied before each test: runs stopped, artifacts, pipelines and
     action definitions, guards and artifact fields deleted, the lanes back to the three defaults (the server lives for the whole session)."""
     with httpx.Client(base_url=base_url) as client:
-        for task in client.get("/api/tasks").json():
+        # the card rules (ADR-071) first: they mark cards, and a rule that archives or deletes would act on what is left
+        client.put("/api/board/rules", json={"rules": []}).raise_for_status()
+        for lane in client.get("/api/lanes").json():
+            client.put(f"/api/lanes/{lane['status']}/rules", json={"rules": []}).raise_for_status()
+        for task in client.get("/api/tasks", params={"archived": "include"}).json():
+            if task.get("archived_at"):
+                client.post(f"/api/tasks/{task['id']}/unarchive").raise_for_status()  # an archived card is read-only
             client.post(f"/api/tasks/{task['id']}/run/stop")  # 409 when nothing runs
             assert client.delete(f"/api/tasks/{task['id']}").status_code == 204
         client.put("/api/artifact-fields", json={"fields": []}).raise_for_status()

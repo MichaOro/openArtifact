@@ -267,11 +267,13 @@ export class CardRulesDialog extends ActionDialog {
   #changed() {
     const rules = listModel.kept(this.list.rules);
     const complete = rules.every((r) => model.isComplete(r.when, this.schema));
-    this.submitButton.disabled = !complete;
+    // a rule that deletes must name what it deletes: the server refuses one that holds for every card
+    const open = rules.some((r) => r.action === "delete" && r.enabled && !r.when.items.length);
+    this.submitButton.disabled = !complete || open;
     this.confirmed = false;
     this.warning.hidden = true;
     this.label.textContent = t("common.save");
-    this.setError(complete ? "" : t("cards_rules.complete_every_condition"));
+    this.setError(!complete ? t("cards_rules.complete_every_condition") : open ? t("cards_rules.delete_needs_condition") : "");
   }
 
   async #save() {

@@ -41,7 +41,7 @@
 
 .rs-rule { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--glass-bg); }
 .rs-rule__label { margin: 0; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
-.rs-rule__then { display: flex; align-items: center; gap: var(--space-3); }
+.rs-rule__then { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .rs-rule__then .rb-select { flex: 0 1 18rem; width: auto; }
 
 /* The list of rules in front of the rule builder (components/rule-list.js): a switch, the name with one line about the
@@ -77,8 +77,10 @@
 
 /* The card rules (ADR-071; tasks/card-rules-dialog.js): the settings of an action, the card drawn as the rule draws it, the
    small window that shows it while a rule is hovered, and the board's pass and log. */
-.rs-rule__params { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2); }
-.rs-rule__param { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.rs-rule__params { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-3); flex: 1 1 100%; }
+.rs-rule__params:empty { display: none; }
+.rs-rule__param { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); min-width: 0; }
+.rs-rule__param .field__control { flex: none; width: 12rem; max-width: 100%; }
 .cr-sample { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px dashed var(--glass-border); border-radius: var(--radius-md); }
 .cr-sample__cards { display: flex; flex-direction: column; gap: var(--space-3); list-style: none; margin: 0; padding: 0; }
 .cr-sample .task-card, .cr-popover .task-card { cursor: default; }

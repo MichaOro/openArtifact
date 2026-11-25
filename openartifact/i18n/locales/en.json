@@ -1402,5 +1402,6 @@
  "cards_rules.tone.neutral": "Grey",
  "cards_rules.tone.red": "Red",
  "cards_rules.tone.yellow": "Yellow",
- "components.rule_set.if": "If"
+ "components.rule_set.if": "If",
+ "cards_rules.delete_needs_condition": "A rule that deletes needs at least one condition."
 }

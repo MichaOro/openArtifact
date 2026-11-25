@@ -2069,5 +2069,6 @@
  "cards_rules.tone.neutral": "Grau",
  "cards_rules.tone.red": "Rot",
  "cards_rules.tone.yellow": "Gelb",
- "components.rule_set.if": "Wenn"
+ "components.rule_set.if": "Wenn",
+ "cards_rules.delete_needs_condition": "Eine Regel, die löscht, braucht mindestens eine Bedingung."
 }
