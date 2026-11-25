@@ -1211,5 +1211,7 @@
  "tasks.body.saved_with_notes": "Saved. Not every reference can be filled in:",
  "editor.setting_controls.no_credential": "No credential",
  "editor.setting_controls.create_credential": "Create new credential",
- "editor.setting_controls.edit_credential": "Edit this credential"
+ "editor.setting_controls.edit_credential": "Edit this credential",
+ "credentials.name_help_external": "Nodes find the credential by this name: capitals, digits and underscores, starting with a letter.",
+ "credentials.name_help_internal": "Says who or what the token is for, for example the CI job."
 }

@@ -1,6 +1,7 @@
 /* The window that makes or changes a credential (components/credential_modal.html). It is the one place a credential is edited: the
  * Credentials page opens it, and so does the credential field of a node (a shortcut to the same data). */
 import { ActionDialog } from "../components/action-dialog.js";
+import { infoTip } from "../components/info-tip.js";
 import { request } from "../http.js";
 import { el } from "../agents/view.js";
 import { t } from "../i18n.js";
@@ -55,8 +56,13 @@ export class CredentialDialog extends ActionDialog {
     this.root.querySelector("[data-submit-label]").textContent = credential ? t("common.save") : category === "internal" ? t("credentials.credentials_page.generate_token") : t("credentials.credentials_page.store");
     for (const part of this.root.querySelectorAll("[data-only-new]")) part.hidden = Boolean(credential) || kinds.length === 1; // one accepted type: nothing to choose
     this.root.querySelector("[data-expiry]").hidden = category !== "internal" || Boolean(credential);
-    this.root.querySelector("[data-name-help]").textContent =
-      category === "external" ? "Capitals, digits and underscores, starting with a letter: it is what nodes write as ${secret:NAME}." : "Says who or what the token is for, for example the CI job.";
+    // the explanation of the name is a tooltip after its label, not a line under the field
+    const nameLabel = this.root.querySelector('label[for="cr-name"]');
+    nameLabel.parentElement.querySelector(".info-tip")?.remove();
+    const head = nameLabel.parentElement;
+    const nameTip = infoTip(category === "external" ? t("credentials.name_help_external") : t("credentials.name_help_internal"), { label: t("common.name") });
+    head.append(nameTip.button);
+    this.field("name").setAttribute("aria-describedby", nameTip.id);
     this.#layout();
     this.modal.open();
     this.field("name").focus();
@@ -77,12 +83,16 @@ export class CredentialDialog extends ActionDialog {
       const id = `cr-f-${f.name}`;
       const label = el("label", "field__label", f.label);
       label.htmlFor = id;
+      const head = el("div", "field__head");
+      head.append(label);
+      const tip = f.help ? infoTip(f.help, { label: f.label }) : null;
+      if (tip) head.append(tip.button);
       const input = el("input", "field__control");
       Object.assign(input, { id, name: `f_${f.name}`, type: f.secret ? "password" : "text", autocomplete: f.secret ? "new-password" : "off", spellcheck: false, maxLength: 8192 });
       input.placeholder = this.credential && f.secret ? t("credentials.credentials_page.leave_empty_keep_stored_value") : f.placeholder;
       if (!f.secret) input.value = settings[f.name] ?? "";
-      wrap.append(label, input);
-      if (f.help) wrap.append(el("p", "field__help", f.help));
+      if (tip) input.setAttribute("aria-describedby", tip.id);
+      wrap.append(head, input);
       this.dynamic.append(wrap);
     }
   }

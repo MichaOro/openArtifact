@@ -222,6 +222,13 @@ def test_the_github_dialog_pairs_resource_and_operation_and_draws_only_what_the_
     expect(pair).to_have_count(1)
     r, o = resource.bounding_box(), operation.bounding_box()
     assert r and o and abs(r["y"] - o["y"]) < 2 and o["x"] > r["x"], "side by side on one line"
+    # each is as wide as the text it shows (nothing cut: "Get reposit")
+    for select in (resource, operation):
+        assert select.evaluate(
+            """el => { const c = document.createElement('canvas').getContext('2d'); const s = getComputedStyle(el);
+            c.font = s.font; const text = el.options[el.selectedIndex].text;
+            return el.getBoundingClientRect().width >= c.measureText(text).width + parseFloat(s.paddingLeft) + parseFloat(s.paddingRight); }"""
+        ), "the shown choice fits"
     # Get repository needs only the repository: nothing about issues, files or comments
     for label in ("Number", "File path", "Comment", "State", "Limit"):
         expect(dialog.get_by_label(label, exact=True)).to_have_count(0)

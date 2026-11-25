@@ -68,9 +68,8 @@ export class InspectorBlocks {
     // the icon of the node's kind in its colour, as on the canvas
     const wrap = document.createElement("div");
     wrap.className = "ge-inspector__identity";
-    const card = document.querySelector(`.ge-node[data-node-id="${node.id}"]`);
-    const colour = card ? getComputedStyle(card).getPropertyValue("--node-color").trim() : "";
-    if (colour) wrap.style.setProperty("--node-color", colour);
+    // the colour is the kind's own (its manifest names a token), not read from the card on the canvas
+    if (type.ui?.color) wrap.style.setProperty("--node-color", `var(--node-${type.ui.color})`);
     const mark = document.createElement("span");
     mark.className = "ge-inspector__icon";
     if (type.ui?.hint) mark.title = type.ui.hint; // a hover line, nothing marks that it is there

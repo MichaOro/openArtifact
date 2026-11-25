@@ -117,6 +117,10 @@ def test_the_github_node_chooses_makes_and_edits_its_credential_in_the_credentia
         expect(dialog.locator(".ge-inspector__icon")).to_have_attribute(
             "title", re.compile("GitHub")
         )
+        tint = dialog.locator(".ge-inspector__icon").evaluate(
+            "el => getComputedStyle(el).backgroundColor"
+        )
+        assert tint not in ("rgba(0, 0, 0, 0)", "transparent"), "the icon has its kind's colour"
         # the token is a credential, not a secret name; the timeout is offered through Add setting
         expect(dialog.get_by_label("Token secret")).to_have_count(0)
         expect(dialog.get_by_label("Timeout (seconds)", exact=True)).to_have_count(0)
@@ -134,6 +138,10 @@ def test_the_github_node_chooses_makes_and_edits_its_credential_in_the_credentia
         window = page.locator("#credential-modal")
         expect(window).to_be_visible()
         expect(window.get_by_label("Name")).to_have_value("GH_ONE")
+        # the explanations are tooltips after their labels, not lines under the fields
+        expect(window.locator('.info-tip[data-about="GitHub server"]')).to_have_count(1)
+        expect(window.locator('.info-tip[data-about="Name"]')).to_have_count(1)
+        expect(window.locator(".field__help")).to_have_count(1)  # only the type's own line
         window.get_by_role("button", name="Cancel").click()
         expect(window).to_be_hidden()
         # a new one: only a GitHub access token fits, so no type to choose; it is chosen once stored
