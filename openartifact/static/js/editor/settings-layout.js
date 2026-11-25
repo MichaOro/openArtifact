@@ -47,7 +47,7 @@ const TITLES = { definition: t("editor.node_types.definition"), behaviour: t("ed
 export function buildSettings({ node, editor, suggest, skip = [], extras = [], inheritance = null }) {
   const type = typeOf(node);
   const titles = { ...TITLES, ...(type.layout?.titles ?? {}) };
-  const plan = planSettings(type.settings, node, { skip, sections: type.layout?.sections });
+  const plan = planSettings(type.settings, node, { skip, sections: type.layout?.sections, added: opened.get(node.id) ?? new Set() });
   const order = new Map(type.settings.map((s, i) => [s.key, i]));
   const redraw = () => (inheritance ? inheritance.refresh() : editor.refresh());
   const open = () => {
@@ -188,7 +188,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
   };
 
   /** What no area shows yet, over all areas: one "Add setting" for the dialog (in the last area), not one per area. */
-  const offered = () => plan.sections.flatMap((s) => s.available.filter((a) => !open().has(a.key))).sort((a, b) => order.get(a.key) - order.get(b.key));
+  const offered = () => [...plan.sections.flatMap((s) => s.available), ...plan.hidden].filter((a) => !open().has(a.key)).sort((a, b) => order.get(a.key) - order.get(b.key));
   const lastSection = plan.sections.at(-1);
 
   const column = (section) => {

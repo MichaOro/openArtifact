@@ -497,9 +497,21 @@ def menu_kinds(page: Page) -> dict[str, list[str]]:
 def add_setting(page: Page, label: str) -> None:
     """Add an optional setting to the open settings of a node through its "Add setting" menu."""
     page.locator("#node-modal").get_by_role(
-        "button", name=re.compile("^Add (setting|override)$")
+        "button",
+        name=re.compile(
+            "^(Add (setting|override)|Einstellung hinzufügen|Überschreibung hinzufügen)$"
+        ),
     ).first.click()
     page.get_by_role("menuitem", name=re.compile(f"^{re.escape(label)}")).click()
+
+
+def failure_setting(page: Page, label: str = "If the node fails") -> Locator:
+    """The failure choice of the open node (``label``: how the node words it): an optional setting, added through "Add setting"
+    when it is not shown."""
+    setting = page.locator("#node-modal").get_by_label(label, exact=True)
+    if setting.count() == 0:
+        add_setting(page, label)
+    return setting
 
 
 def tip_of(scope: Locator, label: str) -> Locator:

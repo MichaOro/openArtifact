@@ -117,7 +117,7 @@ def test_the_github_node_offers_read_operations_and_one_write_behind_a_switch(
         settings["limit"]["maximum"],
         settings["limit"]["default"],
     ) == (1, 100, 30)
-    assert settings["api_url"]["default"] == "https://api.github.com"
+    assert "api_url" not in settings, "the address of the server is kept with the credential"
     assert settings["state"]["options"] == ["open", "closed", "all"]
     for key in ("repository", "number", "path", "ref", "comment"):
         assert settings[key]["references"] == "context", key  # earlier results may feed them
@@ -213,8 +213,6 @@ def test_the_postgres_tool_has_the_tool_settings_and_the_same_bounds(client: Tes
         ("github", {"number": "seven"}, "whole number"),
         ("github", {"number": "-3"}, "whole number"),
         ("github", {"secret": "lower"}, "capitals, digits and underscores"),
-        ("github", {"api_url": "ftp://x"}, "http or https"),
-        ("github", {"api_url": "https://u:p@x.example"}, "user name or password"),
         ("github", {"limit": 101}, "1 to 100"),
         ("github", {"path": "a/../b"}, "'..'"),
         ("postgres", {"secret": "lower"}, "capitals, digits and underscores"),
@@ -250,7 +248,6 @@ def test_good_settings_are_saved_and_references_pass_the_checks(client: TestClie
             "comment": "Seen by ${var.who}",
             "secret": "GITHUB_TOKEN",
             "allow_comments": True,
-            "api_url": "https://github.example.com/api/v3",
         },
     )
     assert github["config"]["repository"] == "${node.Trigger.data.repo}"

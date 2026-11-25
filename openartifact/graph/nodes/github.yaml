@@ -33,10 +33,21 @@ ports:
 ui:
   color: github
   icon: github
+  hint: This node is for connecting to and working with GitHub, the remote.
   caption:
     template: '{operation|default:Get repository}{?operation=Create comment&!allow_comments: (off)} · {repository|trim|short|default:no
       repository yet}'
 settings:
+- key: secret
+  label: Credential
+  type: credential
+  credential_types:
+  - github_pat
+  default: ''
+  max_length: 64
+  help: A GitHub access token (classic or fine-grained), kept in the credentials. Empty - no token (public data, a low rate limit).
+  stored_in: config
+  check: secret_name
 - key: resource
   label: Resource
   type: select
@@ -282,25 +293,6 @@ settings:
     setting: operation
     values:
     - Create comment
-- key: secret
-  label: Credential
-  type: credential
-  credential_types:
-  - github_pat
-  default: ''
-  max_length: 64
-  help: A GitHub access token (classic or fine-grained), kept in the credentials. Empty - no token (public data, a low rate limit).
-  stored_in: config
-  check: secret_name
-- key: api_url
-  label: API address
-  type: text
-  default: https://api.github.com
-  max_length: 500
-  help: 'GitHub Enterprise: https://HOST/api/v3. A private address needs OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS.'
-  stored_in: config
-  check: tool_endpoint
-  level: advanced
 - use: timeout_seconds
   level: optional
 - use: on_failure

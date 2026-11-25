@@ -364,7 +364,7 @@ class SelectControl extends SettingControl {
       select.append(option);
     }
     if (value && !choices.some(([id]) => id === value)) select.append(new Option(t("editor.setting_controls.value_not_available", { value }), value));
-    select.value = value ?? "";
+    select.value = value ?? this.setting.default ?? ""; // an added setting nobody chose yet shows what applies: its default
     return select;
   }
 

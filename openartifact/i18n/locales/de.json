@@ -1154,8 +1154,6 @@
  "nodes.github.ports.pass": "Bei Pass",
  "nodes.github.settings.allow_comments.help": "Kommentar erstellen schreibt nach GitHub: Es läuft nur, wenn dies an ist. Jeder andere Vorgang liest.",
  "nodes.github.settings.allow_comments.label": "Kommentare erlauben",
- "nodes.github.settings.api_url.help": "GitHub Enterprise: https://HOST/api/v3. Eine private Adresse braucht OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS.",
- "nodes.github.settings.api_url.label": "API-Adresse",
  "nodes.github.settings.comment.help": "Kommentar erstellen: der Text, darf ${node...} oder ${var...} enthalten; keine Secrets.",
  "nodes.github.settings.comment.label": "Kommentar",
  "nodes.github.settings.limit.help": "Die meisten Einträge, die eine Liste zurückgibt (eine Seite, die neuesten zuerst).",
@@ -1764,5 +1762,6 @@
  "tasks.processing.did_not_work": "Das hat nicht geklappt.",
  "tasks.processing.pipelines_could_not_be_loaded": "Die Pipelines konnten nicht geladen werden.",
  "tasks.processing.stop_processing": "Verarbeitung stoppen",
- "tasks.references.no_artifact_number": "Kein Artefakt #{number}"
+ "tasks.references.no_artifact_number": "Kein Artefakt #{number}",
+ "nodes.github.hint": "Dieser Node dient der Verbindung zu GitHub, dem Remote, und der Arbeit damit."
 }

@@ -381,13 +381,24 @@ async def test_the_api_address_must_be_a_plain_http_address(github: FakeGithub, 
 def _client(make: Make, github: FakeGithub, token: str = TOKEN) -> TestClient:
     client = make(api_token="t" * 40, secret_key="s" * 40, http_allow_private_networks=True)
     client.headers.update({"Authorization": "Bearer " + "t" * 40})
-    assert client.put("/api/secrets/GITHUB_TOKEN", json={"value": token}).status_code in (200, 201)
+    made = client.post(
+        "/api/credentials/external",
+        json={
+            "type": "github_pat",
+            "name": "GITHUB_TOKEN",
+            "fields": {
+                "value": token,
+                "base_url": github.url,
+            },  # the address is kept with the credential
+        },
+    )
+    assert made.status_code == 201, made.text
     return client
 
 
 def _flow(client: TestClient, github: FakeGithub, status: str, **config: Any) -> dict[str, Any]:
     pipeline, task = _pipeline(client, stages=1), _make_task(client)
-    config = {"api_url": github.url, "secret": "GITHUB_TOKEN", "repository": "acme/tool", **config}
+    config = {"secret": "GITHUB_TOKEN", "repository": "acme/tool", **config}
     _use(client, pipeline, _definition(client, "github", **config))
     _start(client, pipeline, task)
     run = _wait(client, task, status)
@@ -449,3 +460,23 @@ def test_a_list_is_in_data_for_a_later_step(make_client: Make, github: FakeGithu
     step = _flow(client, github, "done", operation="List issues", state="all")
     assert [i["number"] for i in step["data"]["items"]] == [1, 2]
     assert step["data"]["count"] == 2
+
+
+def test_the_address_of_the_server_is_a_plain_http_address_kept_with_the_credential(
+    make_client: Make, github: FakeGithub
+) -> None:
+    client = _client(make_client, github)
+    for address, message in (
+        ("ftp://example.org", "http:// or https://"),
+        ("https://user:pw@example.org", "no user name or password"),
+    ):
+        refused = client.post(
+            "/api/credentials/external",
+            json={
+                "type": "github_pat",
+                "name": "OTHER_TOKEN",
+                "fields": {"value": "x", "base_url": address},
+            },
+        )
+        assert refused.status_code == 422 and message in refused.text, address
+        assert "pw" not in refused.text.replace("password", "")

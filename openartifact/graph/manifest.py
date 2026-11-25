@@ -217,6 +217,8 @@ class UiSpec(_Strict):
     size: SizeSpec | None = None
     port_labels: bool | None = None
     caption: CaptionSpec | None = None
+    #: A line of help shown when the pointer rests on the kind's icon in its dialog (nothing marks that it is there).
+    hint: str | None = None
     #: The inspector block that stands in for the plain settings (``agent``).
     block: Literal["agent"] | None = None
     size_fn: str | None = None

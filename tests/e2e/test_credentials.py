@@ -3,6 +3,8 @@ listed without it and deleted."""
 
 from __future__ import annotations
 
+import re
+
 import httpx
 from playwright.sync_api import Page, expect
 
@@ -98,6 +100,23 @@ def test_the_github_node_chooses_makes_and_edits_its_credential_in_the_credentia
         r = dialog.get_by_label("Resource").bounding_box()
         o = dialog.get_by_label("Operation").bounding_box()
         assert r and o and r["x"] + r["width"] <= o["x"] + 1, "side by side, not over each other"
+        # the order: the credential first, then Resource and Operation, then what the operation uses
+        labels = dialog.locator(
+            '.ge-settings__column[data-section="definition"] .field__label'
+        ).all_inner_texts()
+        assert [x.strip() for x in labels][:4] == [
+            "Credential",
+            "Resource",
+            "Operation",
+            "Repository",
+        ]
+        # no Advanced area and no server address in the node: that is kept with the credential
+        expect(dialog.locator(".ge-advanced")).to_have_count(0)
+        expect(dialog.get_by_label("API address")).to_have_count(0)
+        # the icon says what the node is for when the pointer rests on it (nothing marks that it is there)
+        expect(dialog.locator(".ge-inspector__icon")).to_have_attribute(
+            "title", re.compile("GitHub")
+        )
         # the token is a credential, not a secret name; the timeout is offered through Add setting
         expect(dialog.get_by_label("Token secret")).to_have_count(0)
         expect(dialog.get_by_label("Timeout (seconds)", exact=True)).to_have_count(0)
@@ -131,3 +150,5 @@ def test_the_github_node_chooses_makes_and_edits_its_credential_in_the_credentia
         assert "GH_TWO" in names, "the same data as the Credentials page"
         add_setting(page, "Timeout (seconds)")
         expect(dialog.get_by_label("Timeout (seconds)", exact=True)).to_be_visible()
+        add_setting(page, "If the node fails")  # for every node: Stop the run until it is chosen
+        expect(dialog.get_by_label("If the node fails", exact=True)).to_have_value("fail")

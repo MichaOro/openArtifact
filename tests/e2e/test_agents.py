@@ -300,6 +300,8 @@ def test_the_agent_dialog_is_wide_and_draws_its_two_areas_side_by_side(
     inspector = page.locator(".ge-inspector")
     inspector.get_by_label("Agent", exact=True).select_option(agent["id"])
     expect(page.locator("#node-modal [data-node-version]")).to_have_text("v1")
+    # Behaviour is an area only once it has something to show: "If the node fails" is optional, so it is added here
+    add_setting(page, "If the node fails")
     columns = inspector.locator(".ge-settings__column")
     expect(columns).to_have_count(2)
     definition, behaviour = (columns.nth(i).bounding_box() for i in (0, 1))

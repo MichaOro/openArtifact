@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e.helpers import add_setting, eventually, pick_node, tip_of
+from tests.e2e.helpers import add_setting, eventually, failure_setting, pick_node, tip_of
 from tests.e2e.helpers import drag as _drag
 from tests.helpers import graph_url
 
@@ -142,7 +142,10 @@ def test_the_code_field_indents_with_tab_and_escape_then_tab_leaves_it(
     page.keyboard.press("Escape")
     page.keyboard.press("Tab")
     expect(code).not_to_be_focused()
-    # what follows Code in the Definition column is the folded Advanced disclosure (secrets, declared variables)
+    # what follows Code in the Definition column is the one Add setting of the dialog (the Behaviour area has nothing to show,
+    # so the button sits here), then the folded Advanced disclosure (secrets, declared variables)
+    expect(page.locator("#node-modal").get_by_role("button", name="Add setting")).to_be_focused()
+    page.keyboard.press("Tab")
     summary = page.locator("#node-modal .ge-advanced[data-section=definition] summary")
     expect(summary).to_be_focused()
     page.keyboard.press("Enter")  # opens it
@@ -256,9 +259,7 @@ def test_pass_and_fail_connect_to_the_output_and_the_next_node(
         code.locator(".ge-port--fail")
     ).to_be_hidden()  # the error output is there only with "Error output"
     code.dblclick(position={"x": 30, "y": 5})
-    page.locator("#node-modal").get_by_label("If the node fails").select_option(
-        label="Error output"
-    )
+    failure_setting(page).select_option(label="Error output")
     page.keyboard.press("Escape")
     expect(code.locator(".ge-port--fail")).to_have_attribute("data-label", "On Fail")
     _drag(page, code.locator(".ge-port--pass"), output.locator(".ge-port--pass"))

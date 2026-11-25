@@ -68,6 +68,8 @@ class Limits:
     llm_allow_private_networks: bool = False
     #: The comments of artifacts, for the Artifact node (ADR-055); ``None``: the node fails.
     comments: CommentsGateway | None = None
+    #: The settings of a credential that are no secret, by its name (the address of a GitHub server); ``None``: none.
+    credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None
 
     @classmethod
     def from_settings(
@@ -75,6 +77,7 @@ class Limits:
         settings: Settings,
         secrets: SecretResolver | None = None,
         comments: CommentsGateway | None = None,
+        credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None,
     ) -> Limits:
         return cls(
             settings.code_nodes_enabled,
@@ -92,6 +95,7 @@ class Limits:
             and not settings.code_nodes_without_token,
             llm_allow_private_networks=settings.llm_allow_private_networks,
             comments=comments,
+            credential_settings=credential_settings,
         )
 
 
@@ -257,6 +261,14 @@ async def _github(node: dict[str, Any], limits: Limits, view: RunView | None = N
         names = parse_name_lines(secret) if secret else []
     except SecretReferenceError as error:
         return failed(str(error))
+
+    # the address of the GitHub server is kept with the credential, not in the node (a value stored in an older node is not used)
+    base = (
+        (await limits.credential_settings(secret)).get("base_url", "")
+        if secret and limits.credential_settings
+        else ""
+    )
+    config = {**config, "api_url": base}
 
     async def run(values: dict[str, str]) -> NodeResult:
         return await run_github(

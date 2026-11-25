@@ -186,6 +186,16 @@ class CredentialService:
             ),
         )
 
+    async def settings_of(self, name: str) -> dict[str, str]:
+        """The settings of an external credential that are no secret (the address of a GitHub server), by its name; empty when
+        there is none. A node reads them when it runs: the credential is the one place they are kept."""
+        async with self._session() as session:
+            found = (
+                await session.execute(select(Credential).where(Credential.name == name))
+            ).scalar_one_or_none()
+            meta = await session.get(ExternalCredential, found.id) if found else None
+            return dict(json.loads(meta.settings)) if meta else {}
+
     async def _find(self, session: AsyncSession, ref: str) -> Credential:
         found = await session.get(Credential, ref)
         if found is None:
@@ -470,6 +480,8 @@ class CredentialService:
             ("http://", "https://")
         ):
             problems.append("Field base_url: an address starts with http:// or https://")
+        elif "@" in clean.get("base_url", "").split("://", 1)[-1].split("/", 1)[0]:
+            problems.append("Field base_url: an address has no user name or password")
         if problems:
             raise ArtifactError(422, "\n".join(problems))
         return clean

@@ -88,7 +88,16 @@ TYPES: dict[str, CredentialType] = {
             "GitHub access token",
             EXTERNAL,
             "A classic or fine-grained personal access token. For the GitHub node and the GitHub MCP server.",
-            (_value("Token", "ghp_…"),),
+            (
+                _value("Token", "ghp_…"),
+                FieldDef(
+                    "base_url",
+                    "GitHub server",
+                    required=False,
+                    placeholder="https://api.github.com",
+                    help="Empty: github.com. GitHub Enterprise: https://HOST/api/v3",
+                ),
+            ),
             testable=True,
             consumers=("github", "mcp_tool"),
         ),

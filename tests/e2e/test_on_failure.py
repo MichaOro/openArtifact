@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e.helpers import add_action, eventually, pick_node
+from tests.e2e.helpers import add_action, eventually, failure_setting, pick_node
 from tests.helpers import graph_url
 
 FAIL_LABEL = "If the node fails"
@@ -37,8 +37,9 @@ def test_the_error_output_of_a_node_is_there_only_with_the_third_value(
     expect(code.locator(".ge-port--pass")).to_be_visible()
     expect(code.locator(".ge-port--fail")).to_be_hidden()  # the default: stop the run
     code.dblclick(position={"x": 30, "y": 5})
-    dialog = page.locator("#node-modal")
-    setting = dialog.get_by_label(FAIL_LABEL)
+    setting = failure_setting(
+        page
+    )  # optional: offered through Add setting, "Stop the run" is what applies until it is set
     expect(setting.locator("option")).to_have_text(["Stop the run", "Continue", "Error output"])
     expect(setting).to_have_value("fail")
     setting.select_option(label="Continue")
@@ -55,8 +56,7 @@ def test_hiding_the_error_output_disconnects_what_was_connected_there(
 ) -> None:
     definition, code = _action_with_code(page, base_url, api)
     code.dblclick(position={"x": 30, "y": 5})
-    dialog = page.locator("#node-modal")
-    dialog.get_by_label(FAIL_LABEL).select_option(label="Error output")
+    failure_setting(page).select_option(label="Error output")
     eventually(lambda: _stored(api, definition, "code")["config"]["on_failure"], "error_output")
     # a connection from the error output (made as the editor does it: through the API)
     output = _stored(api, definition, "output")
@@ -74,7 +74,7 @@ def test_hiding_the_error_output_disconnects_what_was_connected_there(
     page.reload()
     expect(page.locator(".ge-edge--fail")).to_have_count(1)
     page.locator(".ge-node--code").dblclick(position={"x": 30, "y": 5})
-    setting = page.locator("#node-modal").get_by_label(FAIL_LABEL)
+    setting = failure_setting(page)  # stored as Error output: shown without asking
     setting.select_option(label="Stop the run")
     # the connection goes with the connector, said plainly (it was refused before ADR-061's addendum)
     expect(page.locator("[data-alert]")).to_contain_text("Disconnected 1 connection")
@@ -99,8 +99,7 @@ def test_an_action_has_the_setting_and_its_error_output_follows_it(
     expect(action.locator(".ge-port--error")).to_be_hidden()  # the default: stop the run
     action.click(button="right", position={"x": 30, "y": 5})
     page.get_by_role("menuitem", name="Settings").click()
-    dialog = page.locator("#node-modal")
-    setting = dialog.get_by_label("If the action fails")
+    setting = failure_setting(page, "If the action fails")
     expect(setting.locator("option")).to_have_text(["Stop the run", "Continue", "Error output"])
     setting.select_option(label="Error output")
     expect(action.locator(".ge-port--error")).to_be_visible()
@@ -113,5 +112,5 @@ def test_the_setting_speaks_german(page: Page, base_url: str, api: httpx.Client)
     page.context.add_cookies([{"name": "oa_lang", "value": "de", "url": base_url}])
     _definition, code = _action_with_code(page, base_url, api)
     code.dblclick(position={"x": 30, "y": 5})
-    setting = page.locator("#node-modal").get_by_label("Wenn der Node fehlschlägt")
+    setting = failure_setting(page, "Wenn der Node fehlschlägt")
     expect(setting.locator("option")).to_have_text(["Lauf stoppen", "Fortfahren", "Fehlerausgang"])

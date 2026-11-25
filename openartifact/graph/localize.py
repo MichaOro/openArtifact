@@ -44,6 +44,8 @@ def localize(description: list[dict[str, Any]], language: str) -> list[dict[str,
         caption = ui.get("caption")
         if isinstance(caption, dict) and (text := _own(language, f"nodes.{kind}.caption")):
             caption["template"] = text
+        if ui.get("hint") and (text := _own(language, f"nodes.{kind}.hint")):
+            ui["hint"] = text
         for port in (*entry.get("inputs", []), *entry.get("outputs", [])):
             port["label"] = _own(language, f"nodes.{kind}.ports.{port['name']}") or port["label"]
         for setting in entry.get("settings", []):

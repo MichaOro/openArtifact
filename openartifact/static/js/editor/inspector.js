@@ -73,6 +73,7 @@ export class InspectorBlocks {
     if (colour) wrap.style.setProperty("--node-color", colour);
     const mark = document.createElement("span");
     mark.className = "ge-inspector__icon";
+    if (type.ui?.hint) mark.title = type.ui.hint; // a hover line, nothing marks that it is there
     mark.append(icon(glyph));
     wrap.append(mark, head);
     return wrap;

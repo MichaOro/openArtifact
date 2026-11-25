@@ -145,7 +145,12 @@ def _create_app(settings: Settings) -> FastAPI:
         app.state.event_bus,
         database.new_session,
         max_runs=settings.max_concurrent_runs,
-        limits=Limits.from_settings(settings, app.state.secret_store.resolve, app.state.comments),
+        limits=Limits.from_settings(
+            settings,
+            app.state.secret_store.resolve,
+            app.state.comments,
+            app.state.credentials.settings_of,
+        ),
         history_default_keep=settings.execution_history_default_keep,
         guards=GuardSettings(
             min_interval_seconds=settings.guard_min_interval_seconds,

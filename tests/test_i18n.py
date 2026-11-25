@@ -291,6 +291,11 @@ def test_the_overrides_of_node_texts_name_things_that_exist() -> None:
             rest = parts[2]
             if rest in ("label", "caption"):
                 continue
+            if (
+                rest == "hint"
+            ):  # the line of help at the kind's icon: the kind must have one to translate
+                assert kind["ui"].get("hint"), f"{code}: {key}: the kind has no hint"
+                continue
             if rest.startswith("ports."):
                 assert rest[6:] in {p["name"] for p in (*kind["inputs"], *kind["outputs"])}, (
                     f"{code}: {key}"

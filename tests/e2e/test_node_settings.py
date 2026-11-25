@@ -41,9 +41,11 @@ def test_a_node_with_a_definition_and_a_behaviour_gets_two_columns(
     behaviour = settings.locator('.ge-settings__column[data-section="behaviour"]')
     for label in ("Method", "URL", "Headers", "Body"):
         expect(definition.get_by_label(label, exact=True)).to_be_visible()
-    expect(
-        behaviour.get_by_label("If the node fails")
-    ).to_be_visible()  # the shared failure setting is Behaviour
+    expect(behaviour.get_by_label("If the node fails", exact=True)).to_have_count(
+        0
+    )  # the shared failure setting is optional: offered through Add setting, then in Behaviour
+    add_setting(page, "If the node fails")
+    expect(behaviour.get_by_label("If the node fails", exact=True)).to_be_visible()
     expect(behaviour.get_by_label("Timeout (seconds)", exact=True)).to_have_count(
         0
     )  # optional: not shown yet
@@ -92,6 +94,10 @@ def test_an_optional_setting_is_added_kept_and_taken_away(
     timeout.fill("12")
     timeout.press("Enter")
     eventually(lambda: _config(api, definition, "http")["timeout_seconds"], 12)
+    # "If the node fails" is optional too: both are set before nothing is left to add
+    add_setting(page, "If the node fails")
+    dialog.get_by_label("If the node fails", exact=True).select_option(label="Continue")
+    eventually(lambda: _config(api, definition, "http")["on_failure"], "continue")
 
     page.keyboard.press("Escape")  # reopened: a configured optional setting is there without asking
     page.locator(".ge-node--http").dblclick(position={"x": 30, "y": 5})
@@ -143,12 +149,15 @@ def test_a_code_node_keeps_its_secrets_in_advanced_and_its_timeout_optional(
         "Advanced"
     )
     expect(dialog.get_by_label("Secrets")).to_be_hidden()
+    expect(dialog.get_by_role("button", name="Add setting")).to_have_count(1)
+    add_setting(
+        page, "If the node fails"
+    )  # optional like every other node: Stop the run until it is set
     expect(
         dialog.locator(".ge-settings__column[data-section=behaviour]").get_by_label(
-            "If the node fails"
+            "If the node fails", exact=True
         )
     ).to_be_visible()
-    expect(dialog.get_by_role("button", name="Add setting")).to_have_count(1)
 
 
 def test_a_timer_has_a_single_column_with_its_one_setting(

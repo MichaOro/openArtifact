@@ -70,12 +70,12 @@ export function shaped(settings, node, setting) {
  *   (the saved layout of the kind names Definition, Behaviour and the user's own; a setting's `section` is the area it sits in)
  * @returns {{columns: 1|2, sections: {id: string, core: object[], shown: object[], available: object[], advanced: {settings: object[], open: boolean}}[]}}
  */
-export function planSettings(settings, node, { skip = [], sections: order = SECTIONS } = {}) {
+export function planSettings(settings, node, { skip = [], sections: order = SECTIONS, added = new Set() } = {}) {
   const left = settings.filter((s) => !skip.includes(s.key) && isShown(settings, node, s));
   // the areas in order: the saved layout of the kind (ADR-063) may swap them and add areas of the user's own; a shipped area it
   // does not name comes after them
   const ids = [...order, ...SECTIONS.filter((id) => !order.includes(id))];
-  const sections = ids.map((id) => {
+  const all = ids.map((id) => {
     const own = left.filter((s) => (s.section ?? "definition") === id);
     const optional = own.filter((s) => s.level === "optional");
     const advanced = own.filter((s) => s.level === "advanced");
@@ -86,8 +86,14 @@ export function planSettings(settings, node, { skip = [], sections: order = SECT
       available: optional.filter((s) => !isSet(node, s)),
       advanced: { settings: advanced, open: advanced.some((s) => isSet(node, s)) },
     };
-  }).filter((s) => s.core.length || s.shown.length || s.available.length || s.advanced.settings.length);
-  return { columns: sections.length >= 2 ? 2 : 1, sections };
+  });
+  // an area that only offers settings nobody has set or added is not drawn (no empty column); what it offers is still offered
+  // through the one "Add setting" of the dialog (`hidden`), and the area appears once one of them is added
+  const drawn = (s) => s.core.length || s.shown.length || s.advanced.settings.length || s.available.some((a) => added.has(a.key));
+  let sections = all.filter(drawn);
+  if (!sections.length) sections = all.filter((s) => s.available.length).slice(0, 1);
+  const hidden = all.filter((s) => !sections.includes(s)).flatMap((s) => s.available);
+  return { columns: sections.length >= 2 ? 2 : 1, sections, hidden };
 }
 
 /** Settings of one group together, in the order declared; settings without a group are their own entries. */

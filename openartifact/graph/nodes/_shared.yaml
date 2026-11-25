@@ -16,6 +16,7 @@ settings:
     help: Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error
       output goes on through On Fail, which shows only then.
     stored_in: config
+    level: optional
     section: behaviour
   method:
     key: method

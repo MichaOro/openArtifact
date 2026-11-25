@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e.helpers import arrange, eventually
+from tests.e2e.helpers import arrange, eventually, failure_setting
 from tests.helpers import build_definition, build_pipeline, graph_url, kind_of, link
 
 ACTION_SETTING = "If the action fails"
@@ -75,8 +75,8 @@ def test_the_error_output_of_a_use_gives_the_definition_its_on_fail_without_a_no
     definition = build_definition(api, "Work")
     pipeline, _uses = _pipeline_with_uses(api, definition, 1)
     page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
-    dialog = _open_settings(page, page.locator(".ge-node--action"))
-    dialog.get_by_label(ACTION_SETTING).select_option(label="Error output")
+    _open_settings(page, page.locator(".ge-node--action"))
+    failure_setting(page, ACTION_SETTING).select_option(label="Error output")
     eventually(lambda: _flag(api, definition), True)
     expect(page.locator("[data-alert]")).to_be_hidden()  # nothing else is affected: nothing to say
 
@@ -92,8 +92,8 @@ def test_with_other_uses_the_notice_says_so_and_the_others_get_the_error_output_
     page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
     actions = page.locator(".ge-node--action")
     expect(actions).to_have_count(3)
-    dialog = _open_settings(page, actions.first)
-    dialog.get_by_label(ACTION_SETTING).select_option(label="Error output")
+    _open_settings(page, actions.first)
+    failure_setting(page, ACTION_SETTING).select_option(label="Error output")
     expect(page.locator("[data-alert]")).to_contain_text(
         "Also switched on in the action 'Work'; it applies to 2 other uses."
     )
@@ -164,9 +164,7 @@ def test_a_node_leaving_the_error_output_is_disconnected_instead_of_refused(
     expect(page.locator(".ge-edge--fail")).to_have_count(1)
 
     page.locator(".ge-node--code").dblclick(position={"x": 30, "y": 5})
-    page.locator("#node-modal").get_by_label("If the node fails").select_option(
-        label="Stop the run"
-    )
+    failure_setting(page).select_option(label="Stop the run")
 
     expect(page.locator("[data-alert]")).to_contain_text("Disconnected 1 connection")
     expect(page.locator(".ge-edge--fail")).to_have_count(0)
@@ -197,6 +195,6 @@ def test_the_notice_speaks_german(page: Page, base_url: str, api: httpx.Client) 
     definition = build_definition(api, "Work")
     pipeline, _uses = _pipeline_with_uses(api, definition, 2)
     page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
-    dialog = _open_settings(page, page.locator(".ge-node--action").first, "Einstellungen")
-    dialog.get_by_label("Wenn die Aktion fehlschlägt").select_option(label="Fehlerausgang")
+    _open_settings(page, page.locator(".ge-node--action").first, "Einstellungen")
+    failure_setting(page, "Wenn die Aktion fehlschlägt").select_option(label="Fehlerausgang")
     expect(page.locator("[data-alert]")).to_contain_text("gilt für 1 weitere Verwendung")

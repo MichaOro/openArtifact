@@ -8,7 +8,7 @@ from __future__ import annotations
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e.helpers import drag
+from tests.e2e.helpers import add_setting, drag
 from tests.e2e.test_window_layout import (
     GUARD,
     _guard_window,
@@ -63,6 +63,9 @@ def test_a_setting_is_dragged_into_the_other_area_and_the_node_window_follows(
     window_name = "/api/ui-layouts/nodes/http"
     _reset(api, window_name)
     window = _node_window(page, base_url, api, "http")
+    add_setting(
+        page, "If the node fails"
+    )  # optional: drawn once added, in the area the layout puts it in
     assert _where(window, "url") == "definition" and _where(window, "on_failure") == "behaviour"
     arrange = _arrange(page, window)
     drag(
@@ -209,6 +212,10 @@ def test_the_settings_an_agent_supplies_follow_the_placement_of_their_rows(
     assert api.put(AGENT, json=saved).status_code == 200
     window = _node_window(page, base_url, api, "agent")
     window.locator("select[data-focus-key='agent-agent_id']").select_option(label="Layout agent")
+    add_setting(
+        page, "User prompt"
+    )  # the prompts are drawn once the node overrides them (added here)
+    add_setting(page, "System prompt")
     row = window.locator("[data-setting='user_prompt']")
     expect(row).to_have_count(1)
     expect(
@@ -267,7 +274,8 @@ def test_an_area_of_ones_own_is_added_named_filled_deleted_and_saved(
     saved = api.get(AGENT).json()["layout"]["sections"]
     assert [s["key"] for s in saved][-1] == key
     assert saved[-1]["title"] == "Quick" and saved[-1]["fields"] == ["on_failure"]
-    # the normal view draws the area with its title and the setting in it
+    # the normal view draws the area with its title and, once the optional setting is added, the setting in it
+    add_setting(page, "If the node fails")
     assert _where(window, "on_failure") == key
     expect(
         window.locator(f".ge-settings__column[data-section='{key}'] .ge-settings__title")

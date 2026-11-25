@@ -132,7 +132,7 @@
     },
     "help": "Stop the run ends the run as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Error, which shows only then.",
     "section": "behaviour",
-    "level": "core",
+    "level": "optional",
     "inherits": null
    }
   ],
@@ -475,7 +475,7 @@
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
     "section": "behaviour",
-    "level": "core",
+    "level": "optional",
     "inherits": null
    }
   ],
@@ -648,7 +648,7 @@
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
     "section": "behaviour",
-    "level": "core",
+    "level": "optional",
     "inherits": null
    }
   ],
@@ -1682,7 +1682,7 @@
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
     "section": "behaviour",
-    "level": "core",
+    "level": "optional",
     "inherits": null
    }
   ],
@@ -1798,7 +1798,7 @@
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
     "section": "behaviour",
-    "level": "core",
+    "level": "optional",
     "inherits": null
    }
   ],
@@ -1858,6 +1858,22 @@
    }
   ],
   "settings": [
+   {
+    "key": "secret",
+    "label": "Credential",
+    "type": "credential",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "credential_types": [
+     "github_pat"
+    ],
+    "help": "A GitHub access token (classic or fine-grained), kept in the credentials. Empty - no token (public data, a low rate limit).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
    {
     "key": "resource",
     "label": "Resource",
@@ -2196,36 +2212,6 @@
     "inherits": null
    },
    {
-    "key": "secret",
-    "label": "Credential",
-    "type": "credential",
-    "minimum": null,
-    "maximum": null,
-    "default": "",
-    "stored_in": "config",
-    "credential_types": [
-     "github_pat"
-    ],
-    "help": "A GitHub access token (classic or fine-grained), kept in the credentials. Empty - no token (public data, a low rate limit).",
-    "section": "definition",
-    "level": "core",
-    "inherits": null
-   },
-   {
-    "key": "api_url",
-    "label": "API address",
-    "type": "text",
-    "minimum": null,
-    "maximum": null,
-    "default": "https://api.github.com",
-    "stored_in": "config",
-    "max_length": 500,
-    "help": "GitHub Enterprise: https://HOST/api/v3. A private address needs OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS.",
-    "section": "definition",
-    "level": "advanced",
-    "inherits": null
-   },
-   {
     "key": "timeout_seconds",
     "label": "Timeout (seconds)",
     "type": "integer",
@@ -2257,7 +2243,7 @@
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
     "section": "behaviour",
-    "level": "core",
+    "level": "optional",
     "inherits": null
    }
   ],
@@ -2280,7 +2266,8 @@
    "color": "github",
    "caption": {
     "template": "{operation|default:Get repository}{?operation=Create comment&!allow_comments: (off)} · {repository|trim|short|default:no repository yet}"
-   }
+   },
+   "hint": "This node is for connecting to and working with GitHub, the remote."
   }
  },
  {
@@ -2431,7 +2418,7 @@
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
     "section": "behaviour",
-    "level": "core",
+    "level": "optional",
     "inherits": null
    }
   ],
@@ -3241,7 +3228,7 @@
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
     "section": "behaviour",
-    "level": "core",
+    "level": "optional",
     "inherits": null
    }
   ],

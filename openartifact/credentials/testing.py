@@ -22,7 +22,7 @@ from openartifact.engine.postgres_runner import PostgresError, run_query
 
 TIMEOUT = 15.0
 LIMIT = 64 * 1024
-GITHUB_USER_URL = "https://api.github.com/user"
+GITHUB_API_URL = "https://api.github.com"
 
 Tester = Callable[[str, dict[str, Any], bool], Awaitable[tuple[bool, str]]]
 
@@ -31,7 +31,7 @@ async def _github(value: str, settings: dict[str, Any], allow_private: bool) -> 
     try:
         got = await guarded_exchange(
             "GET",
-            GITHUB_USER_URL,
+            f"{str(settings.get('base_url') or '').strip().rstrip('/') or GITHUB_API_URL}/user",
             {
                 "Authorization": f"Bearer {value}",
                 "Accept": "application/vnd.github+json",
@@ -40,7 +40,8 @@ async def _github(value: str, settings: dict[str, Any], allow_private: bool) -> 
             None,
             timeout=TIMEOUT,
             limit=LIMIT,
-            allow_private=False,
+            allow_private=allow_private
+            and bool(settings.get("base_url")),  # a private address only for the server of its own
         )
     except (AddressRefusedError, ConnectFailedError, ValueError) as error:
         return False, f"GitHub could not be reached: {error}"[:200]
