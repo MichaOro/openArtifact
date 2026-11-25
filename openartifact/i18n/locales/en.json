@@ -7,7 +7,6 @@
  "agent_editor.agents": "Agents",
  "agent_editor.an_inactive_agent_is_not_run": "An inactive agent is not run: its nodes fail in every execution that starts while it is inactive. Executions that are running are not affected.",
  "agent_editor.back_to_the_agents": "Back to the agents",
- "agent_editor.defaults_apply_node_time_limit_600": "Defaults apply: node time limit 600 s, 10 iterations, 3 retries, request timeout 60 s. Add a setting only to override one.",
  "agent_editor.define_the_inputs_this_agent_needs": "Define the inputs this agent needs.",
  "agent_editor.define_what_the_model_is_asked": "Define what the model is asked. Use",
  "agent_editor.discard_draft": "Discard draft",
@@ -1238,5 +1237,6 @@
  "execution.live_rounds.failed_calls": "{count} failed",
  "execution.live_rounds.working": "working",
  "execution.live_rounds.call_ok": "done",
- "execution.live_rounds.call_failed": "failed"
+ "execution.live_rounds.call_failed": "failed",
+ "agent_editor.defaults_apply_node_time_limit": "Defaults apply: node time limit 900 s, 100 iterations, 3 retries, request timeout 60 s, no token budget, 12000 characters of a tool result for the model. Add a setting only to override one."
 }

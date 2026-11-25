@@ -661,7 +661,7 @@ def test_model_and_limit_settings_are_added_removed_and_saved_as_not_set(
     )
     expect(model.locator(".setting")).to_have_count(0)  # nothing set
     expect(limits.locator(".settings-card__lead")).to_contain_text(
-        "Defaults apply: node time limit 600 s"
+        "Defaults apply: node time limit 900 s, 100 iterations"
     )
     # the menu offers only what is not added yet
     model.locator("[data-settings-add]").click()
@@ -687,9 +687,17 @@ def test_model_and_limit_settings_are_added_removed_and_saved_as_not_set(
         "placeholder", "3"
     )  # the default, grey
     limits.get_by_label("Retries", exact=True).fill("1")
-    for label in ("Request timeout", "Node time limit", "Max iterations"):
+    for label in (
+        "Request timeout",
+        "Node time limit",
+        "Max iterations",
+        "Token budget",
+        "Tool result limit",
+    ):
         _add_setting(editor, "limits", label)
-    expect(limits.locator("[data-settings-add]")).to_be_disabled()  # all four are added
+    expect(
+        limits.locator("[data-settings-add]")
+    ).to_be_disabled()  # all six are added (the two of the engine too, card #104)
     limits.get_by_role("button", name="Remove Max iterations").click()
     expect(limits.locator("[data-settings-add]")).to_be_enabled()
     limits.get_by_role("button", name="Remove Request timeout").click()

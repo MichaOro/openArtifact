@@ -8,7 +8,6 @@
  "agent_editor.an_inactive_agent_is_not_run": "Ein inaktiver Agent wird nicht ausgeführt: Seine Nodes schlagen in jeder Ausführung fehl, die startet, solange er inaktiv ist. Laufende Ausführungen sind nicht betroffen.",
  "agent_editor.back_to_the_agents": "Zurück zu den Agenten",
  "agent_editor.comes_from": "Kommt von",
- "agent_editor.defaults_apply_node_time_limit_600": "Es gelten die Standardwerte: Zeitlimit des Nodes 600 s, 10 Iterationen, 3 Wiederholungen, Anfrage-Timeout 60 s. Füge eine Einstellung nur hinzu, um einen Wert zu überschreiben.",
  "agent_editor.define_the_inputs_this_agent_needs": "Lege fest, welche Eingaben dieser Agent braucht.",
  "agent_editor.define_what_the_model_is_asked": "Lege fest, was das Modell gefragt wird. Verwende",
  "agent_editor.discard_draft": "Entwurf verwerfen",
@@ -1832,5 +1831,6 @@
  "execution.live_rounds.failed_calls": "{count} fehlgeschlagen",
  "execution.live_rounds.working": "arbeitet",
  "execution.live_rounds.call_ok": "fertig",
- "execution.live_rounds.call_failed": "fehlgeschlagen"
+ "execution.live_rounds.call_failed": "fehlgeschlagen",
+ "agent_editor.defaults_apply_node_time_limit": "Es gelten die Standardwerte: Zeitlimit des Nodes 900 s, 100 Iterationen, 3 Wiederholungen, Anfrage-Timeout 60 s, kein Token-Budget, 12000 Zeichen eines Werkzeug-Ergebnisses für das Modell. Füge eine Einstellung nur hinzu, um einen Wert zu überschreiben."
 }
