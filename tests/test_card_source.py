@@ -1012,3 +1012,35 @@ def test_the_migration_writes_the_sources_and_takes_the_lines_of_artifact_inputs
         "n": "number",
     }
     assert all("source" not in i for i in back["inputs"])
+
+
+def test_a_prompt_reads_the_fields_of_the_card_of_the_run_without_any_input(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    """${card.NAME} works in every prompt: each card brings its own value, the run takes the one of its card."""
+    _define_fields(api, "test")
+    agent = make_agent(
+        api,
+        user_prompt="Title=${card.title}|F=${card.test}",
+        system_prompt="Card ${card.number}: ${card.test}",
+        system_prompt_enabled=True,
+        inputs=[],
+    )
+    pipeline = _flow(api, agent, "")
+    _run(api, pipeline, _task(api, test="first"))
+    _run(api, pipeline, _task(api, test="second"))
+    first, second = llm.completions()[-2:]
+    assert first["json"]["messages"][-1]["content"] == f"Title={EPIC}|F=first"
+    assert second["json"]["messages"][-1]["content"] == f"Title={EPIC}|F=second"
+    assert first["json"]["messages"][0]["content"].endswith(": first")
+    assert second["json"]["messages"][0]["content"].endswith(": second")
+
+
+def test_a_prompt_that_names_a_field_the_card_does_not_have_fails_the_run_with_the_reason(
+    api: TestClient, llm: FakeLlm
+) -> None:
+    agent = make_agent(api, user_prompt="X=${card.nothing_here}", inputs=[])
+    llm.hits.clear()
+    run = _run(api, _flow(api, agent, ""), _task(api), status="failed")
+    assert llm.completions() == []  # nothing is sent with half a prompt
+    assert 'no field "nothing_here"' in _step(api, run)["reason"]

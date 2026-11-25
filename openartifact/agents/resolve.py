@@ -52,13 +52,22 @@ def overrides_of(node_config: Mapping[str, Any] | None) -> dict[str, Any]:
     return {key: config[key] for key in OVERRIDABLE if config.get(key) is not None}
 
 
+def _implied(own: Mapping[str, Any]) -> dict[str, Any]:
+    """A node that sets a system prompt of its own uses it: switching the system prompt on is part of that override
+    (unless the node says otherwise itself), so the node has no switch to touch."""
+    if "system_prompt_enabled" not in own and str(own.get("system_prompt") or "").strip():
+        return {"system_prompt_enabled": True}
+    return {}
+
+
 def merged(
     agent_config: Mapping[str, Any], node_config: Mapping[str, Any] | None
 ) -> dict[str, Any]:
     """The agent's overridable fields with the node's overrides on top."""
     return {
         **{key: agent_config.get(key) for key in OVERRIDABLE},
-        **overrides_of(node_config),
+        **(own := overrides_of(node_config)),
+        **_implied(own),
     }
 
 
@@ -66,10 +75,11 @@ def setting_states(
     agent_config: Mapping[str, Any], node_config: Mapping[str, Any] | None
 ) -> list[SettingState]:
     own = overrides_of(node_config)
+    shown = {**own, **_implied(own)}
     return [
         SettingState(
             key=key,
-            value=own.get(key, agent_config.get(key)),
+            value=shown.get(key, agent_config.get(key)),
             inherited=agent_config.get(key),
             overridden=key in own,
         )

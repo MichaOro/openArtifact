@@ -17,7 +17,7 @@ import { ConnectMenu } from "./connect-menu.js";
 import { choosePort, connectionFor, placement, replacedEdges } from "./connect-plan.js";
 import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextToolPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
 import { GraphModel } from "./graph-model.js";
-import { InspectorBlocks } from "./inspector.js";
+import { InspectorBlocks, joinFooter } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
 import { flushDirty } from "./persist-policy.js";
 import { rememberPipeline, setupBack, setupBackToAgent, setupBackToGuard } from "./navigation.js";
@@ -240,7 +240,10 @@ export class GraphEditor {
     this.inspector.onDrawn = () => {
       const node = this.selection?.type === "node" ? this.nodes.get(this.selection.id) : null;
       const watchable = node && ["action", "node"].includes(this.guards?.scopeTypeOf(node));
-      if (watchable) this.inspector.element.append(this.guards.section(node));
+      if (watchable) {
+        this.inspector.element.append(this.guards.section(node));
+        joinFooter(this.inspector.element);
+      }
     };
     this.inspector.render(this.selection);
   }
@@ -709,6 +712,7 @@ export class GraphEditor {
       askNew: (node) => this.#askNew(node),
       linkUrl: (node) => this.#linkUrl(node, node.definition_slug),
       remove: (node) => this.requestDelete({ type: "node", id: node.id }),
+      confirm: (options) => this.confirm.open(options),
       addAction: (stage) => this.#addAction(stage),
       listTargets: (kind) => this.#listTargets(kind),
       showError: (message) => this.#showError(message),

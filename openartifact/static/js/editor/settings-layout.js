@@ -177,7 +177,16 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
       el.append(...groupOf(group, rows, section.id, settings));
     }
     const available = section.available.filter((s) => !added.has(s.key));
-    if (available.length) el.append(addMenu(available, section.id));
+    if (available.length) {
+      // "Add override" and "Reset all" share one line
+      const line = make("div", "ge-settings__line");
+      line.append(addMenu(available, section.id));
+      if (reset && !reset.placed) {
+        reset.placed = true;
+        line.append(reset.button);
+      }
+      el.append(line);
+    }
     if (section.advanced.settings.length) {
       const details = make("details", "ge-advanced");
       details.dataset.section = section.id;
@@ -188,6 +197,8 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     return el;
   };
 
+  const overridden = inheritance ? type.settings.filter((s) => s.inherits && inheritance.state(s.key)?.overridden).map((s) => s.key) : [];
+  const reset = overridden.length ? { button: resetAll(overridden, node, editor, redraw, inheritance.source), placed: false } : null;
   const wrap = make("div", "ge-settings-wrap");
   const root = make("div", "ge-settings");
   root.dataset.columns = String(plan.columns);
@@ -200,8 +211,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     root.dataset.columns = String(columns.length);
   }
   root.append(...columns);
-  const overridden = inheritance ? type.settings.filter((s) => s.inherits && inheritance.state(s.key)?.overridden).map((s) => s.key) : [];
-  if (overridden.length) root.append(resetAll(overridden, node, editor, redraw, inheritance.source));
+  if (reset && !reset.placed) root.append(reset.button); // nothing left to add: it sits alone below the areas
   wrap.append(root);
   return wrap;
 }

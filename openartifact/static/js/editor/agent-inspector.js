@@ -95,7 +95,9 @@ class AgentBlock {
       } catch (error) {
         extras.push(el("p", "ge-inspector__note", error.detail ?? error.message));
       }
-      extras.push(this.#status(agent));
+      this.#versionBadge(agent, detail);
+      const status = this.#status(agent);
+      if (status) extras.push(status);
       if (preview) {
         if (preview.problems.length) extras.push(problemList(preview.problems));
         extras.push(this.#inputs(detail.published.inputs));
@@ -110,7 +112,9 @@ class AgentBlock {
         node: this.node,
         editor: this.editor,
         suggest: this.editor.suggestions?.(this.node) ?? null,
-        skip: preview ? ["agent_id", "inputs"] : ["agent_id", "inputs", ...inherits], // without a published agent nothing is inherited
+        // the switch "Use system prompt" is not drawn: setting a system prompt of its own switches it on (the agent's own
+        // editor has the switch); without a published agent nothing is inherited
+        skip: preview ? ["agent_id", "inputs", "system_prompt_enabled"] : ["agent_id", "inputs", "system_prompt_enabled", ...inherits],
         extras,
         inheritance: preview ? this.#inheritance(preview, providers) : null,
       }),
@@ -153,16 +157,41 @@ class AgentBlock {
     return field(t("common.agent"), select);
   }
 
+  /** What is wrong with the agent for this node (nothing published, inactive); nothing when all is well. */
   #status(agent) {
-    const line = el("p", "ag-node__status");
-    const link = el("a", "", t("editor.agent_inspector.open_agent"));
-    link.href = `/agents/${encodeURIComponent(agent.id)}`;
     const state = [
-      agent.published_number == null ? t("editor.agent_inspector.nothing_published_yet_node_will") : t("editor.agent_inspector.runs_version_published_number_version", { published_number: agent.published_number }),
+      agent.published_number == null ? t("editor.agent_inspector.nothing_published_yet_node_will") : null,
       agent.active ? null : t("editor.agent_inspector.agent_inactive_node_will_fail"),
     ].filter(Boolean);
-    line.append(document.createTextNode(`${state.join(" ")} `), link);
-    return line;
+    return state.length ? el("p", "ag-node__status", state.join(" ")) : null;
+  }
+
+  /** The version the node runs, as a small badge next to the close button of the window: the time it was published
+   * on hover, and a click (after a question) opens the agent's own editor. */
+  #versionBadge(agent, detail) {
+    const header = this.element.closest("dialog")?.querySelector(".modal__header");
+    if (!header) return;
+    header.querySelector("[data-node-version]")?.remove();
+    if (agent.published_number == null) return;
+    const published = detail?.versions?.find((v) => v.number === agent.published_number)?.published_at;
+    const when = published ? new Date(published).toLocaleString(document.documentElement.lang || undefined) : null;
+    const badge = el("button", "chip-button", `v${agent.published_number}`);
+    badge.type = "button";
+    badge.dataset.nodeVersion = "";
+    badge.title = when ? t("editor.agent_inspector.version_published_at", { when }) : t("editor.agent_inspector.version_published");
+    badge.setAttribute("aria-label", `${badge.title}. ${t("editor.agent_inspector.open_agent")}`);
+    badge.addEventListener("click", () =>
+      this.editor.confirm({
+        title: t("editor.agent_inspector.open_agent"),
+        message: t("editor.agent_inspector.open_agent_question", { agent: agent.name }),
+        confirmLabel: t("editor.agent_inspector.open_agent"),
+        tone: "primary",
+        onConfirm: async () => {
+          window.location.href = `/agents/${encodeURIComponent(agent.id)}`;
+        },
+      }),
+    );
+    header.prepend(badge);
   }
 
   /**

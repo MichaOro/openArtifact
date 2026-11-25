@@ -160,3 +160,19 @@ export class InspectorBlocks {
     return bar;
   }
 }
+
+/**
+ * Puts *Delete* (the action row of a node that has nothing else in it) and *Add guard* on one line at the end of the settings:
+ * both are short, so they share the width instead of each taking a whole row. Any node with a guard section gets it.
+ * @param {HTMLElement} root the settings of the node (the inspector element)
+ */
+export function joinFooter(root) {
+  const bar = [...root.querySelectorAll(".ge-actionbar")].find((b) => b.children.length === 1 && b.querySelector(".ge-delete"));
+  const add = root.querySelector("[data-guard-section] [data-add-guard]");
+  if (!bar || !add) return;
+  const line = document.createElement("div");
+  line.className = "ge-footer";
+  line.append(bar.firstElementChild, add);
+  bar.remove();
+  root.querySelector("[data-guard-section]").append(line);
+}

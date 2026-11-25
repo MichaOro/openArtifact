@@ -65,6 +65,18 @@ mapped ran with empty inputs and the model answered that "the text is empty". Pr
   text with the marker "References resolved" and the toggle "Show as written"; Edit shows the original; an open
   dialog and the board refresh when the fields change. No migration.
 
+- **`${card.NAME}` in every prompt (2026-11-25, replaces "a prompt takes only `${input.NAME}`").** The fields of the card
+  are there for every agent, so a user prompt and a system prompt, in the agent and in a node's override, may read
+  `${card.title}`, `${card.body}`, `${card.number}`, `${card.id}`, `${card.text}` and any custom field without an input
+  being declared: the value is the one the card of the run has when the node runs (two cards, two values). `node`, `var`
+  and `secret` references stay refused in a prompt. `fill()` (`agents/render.py`) replaces `${input.x}` and
+  `${card.x}` in one pass (a value that looks like a placeholder stays text); a field the card does not have fails the
+  run with the names it has, and a run without a card names that. The Quick test takes example values of card fields
+  (`card` in the preview request); without them a `${card.x}` stays as written. Setting a system prompt of its own in
+  a node switches it on (`resolve.py`): the node has no "Use system prompt" switch, the agent's editor keeps it. The
+  version of the agent a node runs is a `vN` badge next to the close button of the node dialog (published time on hover,
+  a click asks before it opens the agent).
+
 ## 3. Consequences
 
 - A run's inputs no longer depend on the author having defined a field for title and body.

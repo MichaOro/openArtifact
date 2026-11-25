@@ -5,6 +5,7 @@ closes. Real keystrokes at human speed, the PATCH requests watched."""
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -208,7 +209,7 @@ def test_closing_the_dialog_with_unsaved_text_saves_it_first(
 def _open_agent_again(page: Page) -> Locator:
     page.locator(".ge-node--agent").first.dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
-    expect(inspector.locator(".ag-node__status")).to_contain_text("Runs version")
+    expect(page.locator("#node-modal [data-node-version]")).to_have_text(re.compile(r"v\d+"))
     return inspector
 
 

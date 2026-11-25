@@ -320,6 +320,8 @@ class PreviewRequest(_Strict):
     source: Literal["draft", "published"] = "draft"
     version: int | None = Field(default=None, ge=1)
     values: dict[str, str] = Field(default_factory=dict)
+    #: Example values of card fields (name -> text) for the ``${card.NAME}`` of the prompts; without them they stay as written.
+    card: dict[str, str] = Field(default_factory=dict)
     node_id: str | None = None
 
 

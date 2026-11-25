@@ -96,7 +96,7 @@ def _open_agent_node(
     page.locator(".ge-node--agent").last.dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
     inspector.get_by_label("Agent", exact=True).select_option(agent["id"])
-    expect(inspector.locator(".ag-node__status")).to_contain_text("Runs version")
+    expect(page.locator("#node-modal [data-node-version]")).to_have_text(re.compile(r"v\d+"))
     return inspector
 
 
@@ -105,7 +105,7 @@ def _reopen(page: Page, card_url: str, action: dict[str, Any]) -> Any:
     expect(page.locator(".ge-node--output")).to_be_visible()
     page.locator(".ge-node--agent").first.dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
-    expect(inspector.locator(".ag-node__status")).to_contain_text("Runs version")
+    expect(page.locator("#node-modal [data-node-version]")).to_have_text(re.compile(r"v\d+"))
     return inspector
 
 

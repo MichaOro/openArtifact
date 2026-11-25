@@ -30,6 +30,7 @@ export class InspectorPanel {
     const active = document.activeElement;
     const key = this.element.contains(active) ? active.dataset.focusKey : null;
     const caret = key && typeof active.selectionStart === "number" ? [active.selectionStart, active.selectionEnd, active.scrollTop] : null;
+    this.element.closest("dialog")?.querySelector("[data-node-version]")?.remove(); // an agent node brings its own badge
     this.element.replaceChildren(...this.#content(selection));
     // a node with settings for both columns gets the wide dialog
     this.element.closest("dialog")?.classList.toggle("is-wide", Boolean(this.element.querySelector('.ge-settings[data-columns="2"]')));

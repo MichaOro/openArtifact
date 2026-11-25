@@ -53,7 +53,7 @@ from openartifact.agents.schemas import (
 )
 from openartifact.artifact_fields.service import field_specs
 from openartifact.database import SessionOpener
-from openartifact.engine.context import card_problems
+from openartifact.engine.context import RunContext, RunView, card_problems
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import node_type
@@ -464,16 +464,18 @@ class AgentService:
         if not user.strip():
             problems.append("The user prompt is empty")
         problems += prompt_problems(user, declared, "User prompt")
+        problems += card_problems(f"{user}\n{system}", card_fields)
+        card_view = RunView(RunContext.initial(request.card)) if request.card else None
         shown_system = None
         if value["system_prompt_enabled"] and system.strip():
             problems += prompt_problems(system, declared, "System prompt")
-            shown_system = fill(system, states, preview=True)
+            shown_system = fill(system, states, preview=True, view=card_view)
         provider, model, found = pick_provider(data, node_config, providers)
         return PreviewRead(
             agent_id=agent.id,
             version=number,
             system_prompt=shown_system,
-            user_prompt=fill(user, states, preview=True),
+            user_prompt=fill(user, states, preview=True, view=card_view),
             inputs=states,
             settings=settings,
             provider=provider.name if provider else None,

@@ -38,7 +38,9 @@ def test_the_history_detail_shows_the_context_a_two_node_action_built(
     dialog = board.open().open_card("Item").open_history()
     dialog.row(1).locator(".history-row__open").click()
     block = dialog.detail.locator("[data-detail-context] details")
-    expect(block.locator("summary")).to_have_text("Run context (1 variable · 4 parameters · 2 node results)")
+    expect(block.locator("summary")).to_have_text(
+        "Run context (1 variable · 4 parameters · 2 node results)"
+    )
     expect(block.locator("pre")).to_be_hidden()
     block.locator("summary").click()
     text = block.locator("pre")

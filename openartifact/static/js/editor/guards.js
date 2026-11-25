@@ -199,6 +199,7 @@ export class EditorGuards {
     const add = document.createElement("button");
     add.type = "button";
     add.className = "button button--ghost button--sm";
+    add.dataset.addGuard = "";
     add.setAttribute("aria-haspopup", "dialog");
     add.setAttribute("aria-expanded", "false");
     add.append(icon("shield"), document.createTextNode(t("guards.add_guard")));

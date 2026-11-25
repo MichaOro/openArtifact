@@ -299,7 +299,7 @@ def test_the_agent_dialog_is_wide_and_draws_its_two_areas_side_by_side(
     page.locator(".ge-node--agent").dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
     inspector.get_by_label("Agent", exact=True).select_option(agent["id"])
-    expect(inspector.locator(".ag-node__status")).to_contain_text("Runs version 1")
+    expect(page.locator("#node-modal [data-node-version]")).to_have_text("v1")
     columns = inspector.locator(".ge-settings__column")
     expect(columns).to_have_count(2)
     definition, behaviour = (columns.nth(i).bounding_box() for i in (0, 1))
@@ -330,7 +330,7 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
     card.dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
     inspector.get_by_label("Agent", exact=True).select_option(agent["id"])
-    expect(inspector.locator(".ag-node__status")).to_contain_text("Runs version 1")
+    expect(page.locator("#node-modal [data-node-version]")).to_have_text("v1")
     expect(inspector.locator(".ag-problems li")).to_have_text(
         ["required input 'ticket' is not mapped"]
     )
@@ -447,7 +447,7 @@ def test_a_long_prompt_of_the_agent_is_one_line_in_the_inspector(
     page.locator(".ge-node--agent").dblclick(position={"x": 30, "y": 5})
     inspector = page.locator(".ge-inspector")
     inspector.get_by_label("Agent", exact=True).select_option(agent["id"])
-    expect(inspector.locator(".ag-node__status")).to_contain_text("Runs version 1")
+    expect(page.locator("#node-modal [data-node-version]")).to_have_text("v1")
     row = inspector.locator('.ov[data-setting="system_prompt"]')
     value = row.locator(".ov__value")
     expect(value).to_contain_text("Agent: Primary Role You are the Gap Analyzer.")
@@ -1043,3 +1043,76 @@ def test_leaving_with_unsaved_changes_asks_in_the_page_and_can_save_or_leave(
     expect(page).to_have_url(re.compile(r"/agents$"))
     assert api.get(f"/api/agents/{agent['id']}").json()["draft"]["user_prompt"] == "Changed"
     assert native == []  # the browser's own question never came for the page's links
+
+
+def _agent_dialog(page: Page, agents_url: str, api: httpx.Client, agent: dict[str, Any]) -> Locator:
+    action = api.post("/api/actions", json={"name": "Answer"}).json()
+    page.goto(f"{agents_url}/actions/{action['slug']}")
+    expect(page.locator(".ge-node--output")).to_be_visible()
+    page.click("[data-add-menu]")
+    pick_node(page, "agent")
+    page.locator(".ge-node--agent").dblclick(position={"x": 30, "y": 5})
+    inspector = page.locator(".ge-inspector")
+    inspector.get_by_label("Agent", exact=True).select_option(agent["id"])
+    expect(page.locator("#node-modal [data-node-version]")).to_be_visible()
+    return inspector
+
+
+def test_the_version_is_a_badge_next_to_the_close_button_and_opens_the_agent_after_a_question(
+    signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
+) -> None:
+    _provider(api, llm)
+    agent = _agent(api)
+    page = signed_in
+    inspector = _agent_dialog(page, agents_url, api, agent)
+    badge = page.locator("#node-modal [data-node-version]")
+    expect(badge).to_have_text("v1")
+    expect(badge).to_have_attribute("title", re.compile(r"^Version published at .+\d"))
+    close = page.locator("#node-modal [data-modal-close]").bounding_box()
+    box = badge.bounding_box()
+    assert close and box and box["x"] + box["width"] <= close["x"] + 1, "left of the X"
+    assert abs(box["y"] + box["height"] / 2 - (close["y"] + close["height"] / 2)) < 6, "same line"
+    expect(inspector.locator(".ag-node__status")).to_have_count(0)  # the line of text is gone
+    expect(inspector.get_by_role("link", name="Open agent")).to_have_count(0)
+    badge.click()
+    question = page.locator("#confirm-modal")
+    expect(question).to_contain_text("Open the agent")
+    question.get_by_role("button", name="Open agent").click()
+    page.wait_for_url(f"{agents_url}/agents/{agent['id']}")
+
+
+def test_the_node_has_no_switch_for_the_system_prompt_and_delete_and_add_guard_share_a_line(
+    signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
+) -> None:
+    _provider(api, llm)
+    agent = _agent(api)
+    page = signed_in
+    inspector = _agent_dialog(page, agents_url, api, agent)
+    expect(inspector.get_by_text("Use system prompt")).to_have_count(0)
+    # an override of the system prompt is all it takes: Add override, System prompt
+    inspector.locator(
+        '[data-setting="system_prompt"] [data-focus-key="override-system_prompt"]'
+    ).click()
+    prompt = inspector.locator('[data-setting="system_prompt"] textarea')
+    expect(prompt).to_be_visible()
+    # Add override and Reset all stand on one line once an override exists
+    prompt.fill("Be brief.")
+    prompt.press("Control+Enter")
+    reset = inspector.get_by_role("button", name=re.compile("^Reset all"))
+    expect(reset).to_be_visible()
+    add_box = _box(inspector.get_by_role("button", name="Add override"))
+    reset_box = _box(reset)
+    assert abs(add_box["y"] - reset_box["y"]) < 4 and reset_box["x"] > add_box["x"]
+    # Delete and Add guard: two equal buttons on one line
+    delete = _box(inspector.get_by_role("button", name="Delete"))
+    guard = _box(inspector.get_by_role("button", name="Add guard"))
+    assert abs(delete["y"] - guard["y"]) < 2 and guard["x"] > delete["x"], "side by side"
+    assert abs(delete["width"] - guard["width"]) < 2, "equal width"
+    panel = _box(inspector.locator(".ge-settings-wrap"))
+    assert delete["width"] + guard["width"] < panel["width"] + 1
+
+
+def _box(el: Locator) -> dict[str, float]:
+    box = el.bounding_box()
+    assert box is not None
+    return box

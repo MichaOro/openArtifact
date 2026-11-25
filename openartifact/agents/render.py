@@ -1,7 +1,7 @@
 """Prompts and their inputs: the one place that fills ``${input.NAME}`` (pure functions, no database).
 
-An agent declares inputs; its prompts use them as ``${input.NAME}`` and nothing else: a prompt never
-reads the run context itself, so an agent does not depend on the nodes of a pipeline. The agent node
+An agent declares inputs; its prompts use them as ``${input.NAME}`` and may read a field of the card as ``${card.NAME}`` (ADR-064): a prompt
+never reads nodes or variables of a run, so an agent does not depend on the nodes of a pipeline. The agent node
 maps each input to a text that may hold the run context's references (``${node...}``, ``${var...}``,
 ``${card...}``), one ``name = value`` per line. Secrets are no source: ``${secret:...}`` is refused in
 prompts and in mappings.
@@ -25,7 +25,8 @@ from openartifact.engine.context import ContextError, RunView
 
 PLACEHOLDER = re.compile(r"\$\{input\.([a-z][a-z0-9_]{0,31})\}")
 _INPUT_LIKE = re.compile(r"\$\{input\.[^}\r\n]{0,80}\}?")
-_FOREIGN = re.compile(r"\$\{(?:(?:node|var|card)\.|\(|secret:)[^}\r\n]{0,80}\}?")
+_FOREIGN = re.compile(r"\$\{(?:(?:node|var)\.|\(|secret:)[^}\r\n]{0,80}\}?")
+_PROMPT_REFERENCE = re.compile(r"\$\{input\.([a-z][a-z0-9_]{0,31})\}|\$\{card\.[^}\r\n]{0,80}\}")
 _NUMBER = re.compile(r"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?")
 MAPPING_MAX_LINES = 30
 SECRET_IN_MAPPING = (
@@ -55,8 +56,8 @@ def prompt_problems(text: str, declared: Sequence[str] | None, what: str) -> lis
     for match in _FOREIGN.finditer(text):
         shown = match[0][:60]
         found.append(
-            f"{what}: {shown} is not allowed, a prompt takes only ${{input.NAME}}; "
-            "declare an input and map it in the node"
+            f"{what}: {shown} is not allowed, a prompt takes ${{input.NAME}} and "
+            "${{card.NAME}} (a field of the card the run belongs to); for anything else declare an input and map it in the node"
         )
     for match in _INPUT_LIKE.finditer(text):
         name = PLACEHOLDER.fullmatch(match[0])
@@ -233,16 +234,35 @@ def input_problems(states: Sequence[InputState]) -> list[str]:
     return [s.error for s in states if s.state == "error" and s.error]
 
 
-def fill(text: str, states: Sequence[InputState], *, preview: bool = False) -> str:
-    """``text`` with every ``${input.NAME}`` replaced by its value, in one pass.
+def fill(
+    text: str,
+    states: Sequence[InputState],
+    *,
+    preview: bool = False,
+    view: RunView | None = None,
+) -> str:
+    """``text`` with every ``${input.NAME}`` and ``${card.NAME}`` replaced by its value, in one pass.
 
-    A placeholder without a state, or with a failed one, raises :class:`RenderError`: nothing is ever
-    replaced by an empty text silently. A ``preview`` keeps such a placeholder as it is written instead
-    (its problem is reported with the inputs), and so does a ``pending`` input.
+    ``${card.NAME}`` is a field of the card the run belongs to and takes the value that card has at run time (the
+    same for every agent: no input has to be declared for it). A placeholder without a state, or with a failed
+    one, raises :class:`RenderError`: nothing is ever replaced by an empty text silently. A ``preview`` keeps such
+    a placeholder as it is written instead (its problem is reported with the inputs), and so does a ``pending``
+    input and a card reference when the preview has no card (``view`` is ``None``).
     """
     by_name = {s.name: s for s in states if s.state != "stale"}
 
     def put(match: re.Match[str]) -> str:
+        if match[1] is None:  # ${card.NAME}
+            if view is None:
+                if preview:
+                    return match[0]
+                raise RenderError(f"{match[0]} needs a card: this run has none")
+            try:
+                return view.render(match[0])
+            except ContextError as error:
+                if preview:
+                    return match[0]
+                raise RenderError(str(error)) from error
         state = by_name.get(match[1])
         if state is None or state.value is None or state.state == "error":
             if preview or (state is not None and state.state == "pending"):
@@ -252,4 +272,4 @@ def fill(text: str, states: Sequence[InputState], *, preview: bool = False) -> s
             raise RenderError(state.error or f"{match[0]} has no value")
         return state.value
 
-    return PLACEHOLDER.sub(put, text)
+    return _PROMPT_REFERENCE.sub(put, text)

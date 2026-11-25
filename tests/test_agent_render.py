@@ -119,7 +119,7 @@ def test_placeholders_are_found_in_order_without_repeats() -> None:
     assert placeholders("${input.b} and ${input.a}, again ${input.b}") == ["b", "a"]
 
 
-def test_a_prompt_takes_only_declared_input_placeholders() -> None:
+def test_a_prompt_takes_declared_inputs_and_card_fields_and_nothing_else_of_the_run() -> None:
     assert (
         prompt_problems("Do ${input.ticket} now, $HOME and ${other}", ["ticket"], "User prompt")
         == []
@@ -130,8 +130,10 @@ def test_a_prompt_takes_only_declared_input_placeholders() -> None:
         "User prompt",
     )
     text = "\n".join(problems)
-    for reference in ("${node.Fetch.output}", "${var.x}", "${card.kind}", "${secret:KEY}"):
+    for reference in ("${node.Fetch.output}", "${var.x}", "${secret:KEY}"):
         assert f"{reference} is not allowed" in text
+    assert "${card.kind}" not in text  # a field of the card is allowed in every prompt (ADR-064)
+    assert prompt_problems("${card.title} ${card.secret}", [], "User prompt") == []
     assert "${input.missing} is not a declared input" in text
     assert "${input.Bad} is not a valid placeholder" in text
     assert all(p.startswith("User prompt: ") for p in problems)
@@ -527,3 +529,41 @@ def test_overrides_are_validated_merged_and_reset_per_key() -> None:
 def test_a_wrong_override_is_refused(change: dict[str, Any]) -> None:
     with pytest.raises(SettingError):
         node_type("agent").merge_config(None, change)
+
+
+def test_a_prompt_fills_card_fields_from_the_card_of_the_run_in_one_pass() -> None:
+    from openartifact.agents.render import RenderError, fill
+
+    view = RunView(
+        RunContext.initial(
+            {"title": "Hello ${input.x}", "number": 3, "body": "", "id": "t1", "secret": "s3"}
+        )
+    )
+    states = resolve_inputs([{"name": "x", "type": "string"}], {"x": "X"}, view)
+    # a card value that looks like a placeholder stays text (one pass)
+    assert (
+        fill("${card.title} / ${card.secret} / ${input.x}", states, view=view)
+        == "Hello ${input.x} / s3 / X"
+    )
+    with pytest.raises(RenderError, match='no field "nope"'):
+        fill("${card.nope}", states, view=view)
+    with pytest.raises(RenderError, match="needs a card"):
+        fill("${card.title}", states)
+    # a preview keeps what it cannot fill as written
+    assert fill("${card.title}", states, preview=True) == "${card.title}"
+    assert fill("${card.nope} ${card.secret}", states, preview=True, view=view) == "${card.nope} s3"
+
+
+def test_a_node_that_sets_a_system_prompt_uses_it_without_a_switch_of_its_own() -> None:
+    from openartifact.agents.resolve import merged, setting_states
+
+    agent = {"system_prompt": "Agent text", "system_prompt_enabled": False, "user_prompt": "u"}
+    node = {"system_prompt": "Node text"}
+    assert merged(agent, node)["system_prompt_enabled"] is True
+    shown = {s.key: s for s in setting_states(agent, node)}
+    assert shown["system_prompt_enabled"].value is True
+    assert shown["system_prompt_enabled"].overridden is False  # nothing the node stores
+    # an explicit choice of the node wins, and a node without an override inherits the agent's switch
+    assert merged(agent, {**node, "system_prompt_enabled": False})["system_prompt_enabled"] is False
+    assert merged(agent, {})["system_prompt_enabled"] is False
+    assert merged(agent, {"system_prompt": "  "})["system_prompt_enabled"] is False

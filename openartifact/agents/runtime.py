@@ -271,9 +271,9 @@ async def run_node(
     try:
         system = str(merged.get("system_prompt") or "")
         if settings["system_prompt_enabled"] and system.strip():
-            detail["system_prompt"] = fill(system, states)
+            detail["system_prompt"] = fill(system, states, view=view)
             messages.append({"role": "system", "content": detail["system_prompt"]})
-        detail["user_prompt"] = fill(str(merged.get("user_prompt") or ""), states)
+        detail["user_prompt"] = fill(str(merged.get("user_prompt") or ""), states, view=view)
     except RenderError as error:
         return refuse(str(error))
     if not detail["user_prompt"].strip():
