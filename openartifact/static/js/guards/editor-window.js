@@ -11,7 +11,7 @@ import { formStructure } from "../components/layout-model.js";
 import { WindowLayout } from "../components/window-layout.js";
 import * as rules from "../components/rule-model.js";
 import { request } from "../http.js";
-import { t, tn } from "../i18n.js";
+import { t } from "../i18n.js";
 import * as model from "./model.js";
 import "./widgets.js"; // registers the guard form's custom widgets
 
@@ -245,7 +245,7 @@ export class GuardEditor {
     try {
       const result = await send(`${URL}/preview`, "POST", { guard_id: this.guard.id, when: this.state.when });
       if (turn !== this.turn) return;
-      this.previewEl.textContent = result.running_scopes ? tn("guards.preview_fires", result.matching, { running: result.running_scopes }) : t("guards.preview_none_running");
+      this.previewEl.textContent = model.previewText(result);
     } catch {
       if (turn === this.turn) this.previewEl.textContent = "";
     }

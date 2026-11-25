@@ -16,6 +16,7 @@
  *              tabs: (item) => [{key, label, disabled, render: (body, item) => void}] },
  *     onOpen, onEdit, onDelete,                         // each gets the item
  *     deleteBlocked: (item) => "why it cannot be deleted" | null,   // optional: the bin is then disabled and says why
+ *     onBlocked: (item, reason) => void,                // optional: called instead of onDelete when the bin of such an entry is clicked
  *   });
  *   page.setItems(items);  page.select(key);  page.refreshPanel();
  *
@@ -230,7 +231,8 @@ export class ManagementPage {
     if (blocked) del.setAttribute("aria-disabled", "true"); // disabled, not removed: it keeps its tooltip
     del.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (!blocked) c.onDelete?.(item);
+      if (blocked) c.onBlocked?.(item, blocked); // optional: the page may explain on a click (a banner)
+      else c.onDelete?.(item);
     });
     actions.append(edit, del);
     li.append(actions);

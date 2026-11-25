@@ -175,3 +175,25 @@ export function problem(state, schema) {
   if (state.trigger.type === "event" && !state.trigger.events.length) return t("guards.event_needed");
   return "";
 }
+
+/** What a firing-rate step says: "From firing 2 on: every 3 rounds" / "From firing 3 on: every 5 minutes". */
+export function escalationText(step) {
+  return step.every_runs ? tn("guards.panel.step_runs", step.every_runs, { from: step.from_firing }) : t("guards.panel.step_seconds", { from: step.from_firing, every: seconds(step.every_seconds ?? 0) });
+}
+
+/** The sentence under a guard's preview: for how many of the running scopes its condition holds right now. One text for the
+ * guard editor and the detail panel of the library. `result` is `{running_scopes, matching}` of `POST /api/guards/preview`. */
+export function previewText(result) {
+  return result.running_scopes ? tn("guards.preview_fires", result.matching, { running: result.running_scopes }) : t("guards.preview_none_running");
+}
+
+/** Where an attachment sits, for the usage list: the holder (a pipeline or an action definition) as a link target, and what it watches. */
+export function attachmentPlace(attachment) {
+  const action = attachment.holder_kind === "action";
+  const graph = attachment.graph_id ?? attachment.pipeline_id;
+  return {
+    href: `${action ? "/actions" : "/pipelines"}/${encodeURIComponent(graph)}`,
+    holder: `${t(action ? "guards.scope.definition" : "guards.scope.pipeline")} ${attachment.holder_name}`,
+    watches: `${t(`guards.scope.${attachment.scope_type}`)}${attachment.scope_type === "pipeline" || attachment.scope_type === "definition" ? "" : ` ${attachment.scope_name ?? ""}`}`.trim(),
+  };
+}

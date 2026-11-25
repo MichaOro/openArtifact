@@ -70,3 +70,12 @@ The list API (`GET /api/agents`) now says what the page needs without loading ea
 `GET /api/agents/{id}` when an agent is selected. An agent that a node refers to cannot be deleted: the bin is disabled and says why
 (`deleteBlocked` of the frame, optional). The window that makes or changes an agent is the form manifest `ui/forms/agent.yaml` (name,
 description); the handmade `name-modal` of the list is gone (the editor page keeps its own rename window).
+
+## 5. Addendum (2026-11-26): the Guards page
+
+The Guards page (ADR-060) is the third page on the frame: cards or rows, search and order (by name, by use), the detail panel with **Overview**,
+**Usage** and **Preview** (no *Versions*: a guard has none, and no place is held for it). A double click, the pencil and Enter open the guard
+editor; the bin and Delete ask as before and a used guard says why it stays. The sentences are the guard editor's (`guards/model.js`:
+`summaryLine`, `triggerText`, `previewText`, `escalationText`), not a second implementation. A used guard uses the frame's `deleteBlocked(item)`
+(its bin is disabled and says why) and the new optional `onBlocked(item, reason)`: a click on such a bin shows the reason as a banner, as the
+page did before; pages that do not set it behave as before.

@@ -101,3 +101,21 @@ test("a node of an action is offered the guards that are not attached to it, and
   assert.equal(G.shieldCount(1, 2), 3);
   assert.equal(G.shieldText(G.shieldCount(0, 1)), "1 guard configured");
 });
+
+test("a firing-rate step says from which firing on and how often, in rounds or in time", () => {
+  assert.equal(G.escalationText({ from_firing: 2, every_runs: 3 }), "From firing 2 on: every 3 rounds");
+  assert.equal(G.escalationText({ from_firing: 1, every_runs: 1 }), "From firing 1 on: every round");
+  assert.equal(G.escalationText({ from_firing: 4, every_seconds: 300 }), "From firing 4 on: every 5 minutes");
+});
+
+test("the preview says for how many running scopes the condition holds, or that nothing runs", () => {
+  assert.equal(G.previewText({ running_scopes: 3, matching: 1 }), "Its condition holds for 1 of 3 running scopes right now.");
+  assert.equal(G.previewText({ running_scopes: 0, matching: 0 }), "Nothing it watches runs right now.");
+});
+
+test("an attachment links to its holder (a pipeline or an action definition) and says what it watches", () => {
+  const stage = { holder_kind: "pipeline", graph_id: "p1", holder_name: "Flow", scope_type: "stage", scope_name: "Gap" };
+  assert.deepEqual(G.attachmentPlace(stage), { href: "/pipelines/p1", holder: "Pipeline Flow", watches: "Stage Gap" });
+  const whole = { holder_kind: "action", graph_id: "a1", holder_name: "Judge", scope_type: "definition", scope_name: "Judge" };
+  assert.deepEqual(G.attachmentPlace(whole), { href: "/actions/a1", holder: "Action definition Judge", watches: "Action definition" });
+});

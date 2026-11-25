@@ -25,11 +25,6 @@
 .ge-chip--guard { background: var(--chip-guard-bg); }
 .ge-chip[hidden] { display: none; }
 /* the guard library (guards.html): the search sits left of "New guard", a row wraps on a narrow screen */
-.gd-library__bar { flex-wrap: wrap; align-items: center; gap: var(--space-2); justify-content: space-between; }
-.gd-library__bar .button { order: 2; }
-.gd-library__search { flex: 1 1 14rem; max-width: 24rem; height: 2rem; padding-block: 0; }
-.gd-item { flex-wrap: wrap; }
-.gd-item .ge-chip { flex: none; white-space: nowrap; }
 .ge-empty[hidden] { display: none; }
 .ge-empty { padding: var(--space-5); border-radius: var(--radius-md); color: var(--color-text-muted); }
 

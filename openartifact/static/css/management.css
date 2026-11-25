@@ -39,7 +39,7 @@
 .mg__list[data-view="list"] .mg-card__head { padding-right: 0; }
 .mg__list[data-view="list"] .mg-card__actions { position: static; }
 .mg__list[data-view="list"] .mg-card .gp, .mg__list[data-view="list"] .mg-card__text { display: none; }
-.mg-chip { display: inline-flex; align-items: center; gap: var(--space-1); }
+.mg-chip { display: inline-flex; align-items: center; gap: var(--space-1); white-space: nowrap; max-width: 100%; }
 .mg-chip .icon { width: 0.8rem; height: 0.8rem; }
 .mg-tag { padding: 0 var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-pill); font-size: 0.75rem; line-height: 1.4rem; color: var(--color-text-secondary); }
 .mg__pager { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 0.8125rem; color: var(--color-text-muted); }
