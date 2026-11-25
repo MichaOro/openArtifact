@@ -173,7 +173,9 @@
   --color-on-accent: #080519;
   /* highlight for resolved ${card.x} references in the dark theme: a light warm gold like a highlighter, complementary to the
      purple surfaces (a purple highlight on purple does not show), with dark text on it */
-  --color-resolved-ref-bg: #f2d88a;
+  /* half of the light of the primary button (its lavender white) mixed with the warm gold: lighter than the gold alone, not as
+     bright as the button, and still warm */
+  --color-resolved-ref-bg: color-mix(in srgb, var(--button-primary-bg) 50%, #f2d88a);
   --color-resolved-ref-text: #1d1830;
   --color-pulse: #f0ede5; /* sand: dark purple on light purple is an awkward contrast */
   --layout-accent: #5ec8cd;
