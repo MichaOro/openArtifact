@@ -28,9 +28,16 @@ MAX_MODELS_PER_PROVIDER = 2000
 TEMPERATURE_MIN, TEMPERATURE_MAX = 0, 2
 MAX_TOKENS_MIN, MAX_TOKENS_MAX = 1, 8192
 REQUEST_TIMEOUT_MIN, REQUEST_TIMEOUT_MAX, REQUEST_TIMEOUT_DEFAULT = 1, 300, 60
-TOTAL_TIMEOUT_MIN, TOTAL_TIMEOUT_MAX, TOTAL_TIMEOUT_DEFAULT = 1, 1800, 600
+#: The limits of a node run are a loose safety net, not the way an agent is held in check (the guards judge its health, ADR-060): a
+#: long review may take many minutes and many tool calls. A limit that is reached makes the agent write its answer from what it has
+#: (agents/loop.py), it does not fail the node.
+TOTAL_TIMEOUT_MIN, TOTAL_TIMEOUT_MAX, TOTAL_TIMEOUT_DEFAULT = 1, 1800, 900
 RETRIES_MIN, RETRIES_MAX, RETRIES_DEFAULT = 0, 4, 3
-ITERATIONS_MIN, ITERATIONS_MAX, ITERATIONS_DEFAULT = 1, 50, 10
+ITERATIONS_MIN, ITERATIONS_MAX, ITERATIONS_DEFAULT = 1, 500, 100
+#: The most characters of one tool result the model reads (the step keeps the result up to 16 KiB); older results are shortened more.
+TOOL_RESULT_MIN, TOOL_RESULT_MAX, TOOL_RESULT_DEFAULT = 500, 100000, 12000
+#: The most tokens (prompts and answers of all requests) a node run may use; not set: no budget.
+TOKEN_BUDGET_MIN, TOKEN_BUDGET_MAX = 1000, 10_000_000
 
 #: The fields of an agent's configuration a node may set for itself (an override).
 OVERRIDABLE = (
@@ -45,6 +52,8 @@ OVERRIDABLE = (
     "total_timeout_seconds",
     "retries",
     "max_iterations",
+    "token_budget",
+    "tool_result_chars",
 )
 
 
@@ -152,6 +161,10 @@ class AgentConfig(_Strict):
     retries: int | None = Field(default=None, ge=RETRIES_MIN, le=RETRIES_MAX)
     #: How many requests one run of the node may make while the model calls tools (ADR-040).
     max_iterations: int | None = Field(default=None, ge=ITERATIONS_MIN, le=ITERATIONS_MAX)
+    #: How many tokens a run of the node may use in all (not set: no budget); at the budget the agent answers from what it has.
+    token_budget: int | None = Field(default=None, ge=TOKEN_BUDGET_MIN, le=TOKEN_BUDGET_MAX)
+    #: How many characters of one tool result the model reads (not set: the default); the step keeps the result up to 16 KiB.
+    tool_result_chars: int | None = Field(default=None, ge=TOOL_RESULT_MIN, le=TOOL_RESULT_MAX)
     #: Whether the inputs are in effect (ADR-045); switched off they are kept but the agent has none.
     #: ``None`` (agents from before the switch): in effect when any input is declared.
     inputs_enabled: bool | None = None
@@ -218,11 +231,12 @@ class AgentConfig(_Strict):
 
 
 #: What drafts stored for the limits before they could be left unset (ADR-046).
+#: (The values are the defaults of that time, kept as they were: a draft that stored them meant exactly these.)
 LEGACY_LIMIT_DEFAULTS: dict[str, Any] = {
     "request_timeout_seconds": REQUEST_TIMEOUT_DEFAULT,
-    "total_timeout_seconds": TOTAL_TIMEOUT_DEFAULT,
+    "total_timeout_seconds": 600,
     "retries": RETRIES_DEFAULT,
-    "max_iterations": ITERATIONS_DEFAULT,
+    "max_iterations": 10,
 }
 
 #: The settings that "Model & Limits" switches (ADR-045).
@@ -235,6 +249,8 @@ LIMIT_KEYS = (
     "total_timeout_seconds",
     "retries",
     "max_iterations",
+    "token_budget",
+    "tool_result_chars",
 )
 _DEFAULT_CONFIG = AgentConfig()
 

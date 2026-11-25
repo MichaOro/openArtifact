@@ -17,6 +17,8 @@ const LABELS = {
   total_timeout_seconds: t("agents.model.time_limit_node_seconds"),
   retries: t("agents.editor_page.retries"),
   max_iterations: t("agents.editor_page.max_iterations"),
+  token_budget: t("agents.editor_page.token_budget"),
+  tool_result_chars: t("agents.editor_page.tool_result_limit"),
   inputs: t("common.inputs"),
 };
 
@@ -181,7 +183,7 @@ export function toolCallRows(turns) {
 }
 
 /** The settings of "Model & Limits" (agents/schemas.py LIMIT_KEYS); not set is null (ADR-046). */
-export const LIMIT_DEFAULTS = { provider_id: null, model: null, temperature: null, max_tokens: null, request_timeout_seconds: null, total_timeout_seconds: null, retries: null, max_iterations: null };
+export const LIMIT_DEFAULTS = { provider_id: null, model: null, temperature: null, max_tokens: null, request_timeout_seconds: null, total_timeout_seconds: null, retries: null, max_iterations: null, token_budget: null, tool_result_chars: null };
 
 /**
  * Which optional areas of an agent are switched on (ADR-045), as the backend reads them: a stored switch wins;

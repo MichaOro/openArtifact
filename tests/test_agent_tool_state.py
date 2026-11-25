@@ -26,7 +26,7 @@ async def _run(script: Scripted, *tools: Tool) -> tuple[Any, list[dict[str, Any]
         complete=script.complete,
         sleep=script.sleep,
         open_tools=_box(*tools),
-        on_tool=seen.append,
+        on_event=lambda event, data: seen.append(data) if event == "tool_call" else None,
     )
     return result, seen
 

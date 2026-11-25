@@ -47,7 +47,11 @@ def test_a_configuration_sets_nothing_and_the_runtime_has_the_agreed_defaults() 
         None,
         None,
     )  # not set (ADR-046)
-    assert (REQUEST_TIMEOUT_DEFAULT, TOTAL_TIMEOUT_DEFAULT, RETRIES_DEFAULT) == (60, 600, 3)
+    assert (REQUEST_TIMEOUT_DEFAULT, TOTAL_TIMEOUT_DEFAULT, RETRIES_DEFAULT) == (
+        60,
+        900,
+        3,
+    )  # 15 minutes: a loose net (card #104)
     assert config.system_prompt_enabled is False
     assert config.temperature is None and config.max_tokens is None
     assert config.provider_id is None and config.model is None

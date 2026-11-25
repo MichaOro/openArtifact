@@ -12,6 +12,7 @@ servers (their tools listed and filtered) and builds the HTTP Request and Code t
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -141,6 +142,28 @@ class Toolbox:
         """The tool node (id, name) the tool called ``name`` came from; empty when there is no such tool."""
         tool = self._tools.get(name)
         return (tool.node_id, tool.node_name) if tool else ("", "")
+
+    async def call_within(
+        self, call_id: str, name: str, arguments: str, seconds: float
+    ) -> ToolCallRecord:
+        """:meth:`call`, but a call that does not answer within ``seconds`` becomes an error text for the model (the tool is
+        stopped): a tool that hangs does not hold the run until the time limit of the node."""
+        began = time.monotonic()
+        try:
+            async with asyncio.timeout(seconds):
+                return await self.call(call_id, name, arguments)
+        except TimeoutError:
+            node_id, node_name = self.node_of(name)
+            return ToolCallRecord(
+                call_id,
+                name,
+                arguments,
+                f"Error: the tool {name} did not answer within {max(1, round(seconds))} s",
+                True,
+                round((time.monotonic() - began) * 1000),
+                node_id,
+                node_name,
+            )
 
     async def call(self, call_id: str, name: str, arguments: str) -> ToolCallRecord:
         """Run one call of the model; the outcome is always a text for the model."""

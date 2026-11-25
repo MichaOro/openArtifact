@@ -132,7 +132,7 @@ def test_a_stored_agent_from_before_reads_its_old_default_limits_as_unset() -> N
 
 
 def test_the_limits_out_of_range_are_still_refused() -> None:
-    for field, value in (("retries", 5), ("request_timeout_seconds", 0), ("max_iterations", 51)):
+    for field, value in (("retries", 5), ("request_timeout_seconds", 0), ("max_iterations", 501)):
         with pytest.raises(ValueError, match=field):
             AgentConfig(**{field: value})
 
@@ -150,7 +150,7 @@ def test_an_agent_without_provider_model_and_limits_is_published_and_a_run_uses_
     detail = api.get(
         f"/api/tasks/{run['task']['id']}/executions/{run['execution_id']}/steps/{step['id']}"
     ).json()["detail"]
-    assert detail["settings"]["retries"] == 3 and detail["settings"]["max_iterations"] == 10
+    assert detail["settings"]["retries"] == 3 and detail["settings"]["max_iterations"] == 100
 
 
 def test_a_node_override_wins_over_the_agent_and_the_agent_over_the_default(

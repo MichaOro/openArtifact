@@ -152,7 +152,30 @@ settings:
   label: Max iterations
   type: integer
   minimum: 1
-  maximum: 50
+  maximum: 500
+  help: A safety net, not a goal (default 100). At the limit the agent writes its answer from what it has found, without tools.
+  stored_in: config
+  group: Execution limits
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: token_budget
+  label: Token budget
+  type: integer
+  minimum: 1000
+  maximum: 10000000
+  help: The most tokens all requests of one run may use. Not set - no budget; at the budget the agent answers from what it has.
+  stored_in: config
+  group: Execution limits
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: tool_result_chars
+  label: Tool result limit
+  type: integer
+  minimum: 500
+  maximum: 100000
+  help: How many characters of one tool result the model reads (default 12000); older results are shortened more. The step keeps the result.
   stored_in: config
   group: Execution limits
   section: behaviour

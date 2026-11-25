@@ -10,8 +10,10 @@ const LIMITS = [
   ["model", t("agents.editor_page.model"), t("agents.editor_page.provider_s_default_model")],
   ["temperature", t("agents.editor_page.temperature"), t("agents.editor_page.model_s_own")],
   ["max_tokens", t("agents.editor_page.max_tokens"), t("agents.editor_page.model_s_own")],
-  ["total_timeout_seconds", t("agents.editor_page.node_time_limit"), "600 s"],
-  ["max_iterations", t("agents.editor_page.max_iterations"), "10"],
+  ["total_timeout_seconds", t("agents.editor_page.node_time_limit"), "900 s"],
+  ["max_iterations", t("agents.editor_page.max_iterations"), "100"],
+  ["token_budget", t("agents.editor_page.token_budget"), t("agents.editor_page.no_budget")],
+  ["tool_result_chars", t("agents.editor_page.tool_result_limit"), "12000"],
   ["retries", t("agents.editor_page.retries"), "3"],
   ["request_timeout_seconds", t("agents.editor_page.request_timeout"), "60 s"],
 ];

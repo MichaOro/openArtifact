@@ -41,7 +41,7 @@
 | API token | The one secret (`OPENARTIFACT_API_TOKEN`) that protects the whole application; sent as a bearer header or entered once on the sign-in page (ADR-016). |
 | Sign-in, session | The browser's way in: the token is entered once and exchanged for a signed, expiring cookie (30 days); never the token itself (ADR-017). |
 | Integration API | `/api/v1`: the stable REST interface for scripts and other systems, addressed by artifact number or id (ADR-016). |
-| Max iterations | How many requests an Agent node may make while the model calls tools (agent setting, 1 to 50, default 10, overridable per node); reaching it fails the node (ADR-040). |
+| Max iterations | A safety net: how many requests an Agent node may make with tools offered (agent setting, 1 to 500, default 100, overridable per node); reaching it (like the time limit, the token budget or a run without progress) makes the agent answer once more without tools from what it has found, the step passes with a note (ADR-040 addendum, card #104). |
 | MCP server | `/mcp`: the same operations as tools for LLM agents (Model Context Protocol, Streamable HTTP, bearer token). |
 | Request hardening | The middlewares for Host check, body limit, cross-site guard and security headers (ADR-017). |
 | Credential (secret) | A named value stored encrypted in the credential store (AES-256-GCM); nodes use it by name. Managed through the API only; values are never returned (ADR-024, [8.6](08-cross-cutting-concepts/08.06-credential-store.md)). |

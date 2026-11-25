@@ -12,7 +12,7 @@ import { Breadcrumb } from "./breadcrumb.js";
 import { loadContext, loadFlow, loadStep, loadTask } from "./flow-client.js";
 import { FlowPanel } from "./flow-panel.js";
 import { FlowView } from "./flow-view.js";
-import { FlowModel, noteToolCall } from "./visit-model.js";
+import { FlowModel, noteAgentCall, noteAgentTurn, noteToolCall } from "./visit-model.js";
 import { t } from "../i18n.js";
 
 const REFETCH_MS = 300;
@@ -29,6 +29,7 @@ class FlowPage {
     this.timer = null;
     this.gone = false;
     this.toolLive = new Map(); // tool node id -> what its calls came to so far, heard while the agent runs (agent.tool_call)
+    this.agentLive = new Map(); // agent node id -> the rounds so far, heard while it runs (agent.turn and agent.tool_call)
 
     this.alert = new AlertBar(root.querySelector("[data-alert]"));
     this.alert.onRetry(() => this.load());
@@ -75,7 +76,10 @@ class FlowPage {
       const first = this.model === null;
       this.model = new FlowModel(flow);
       this.guards = flow.guards ?? {};
-      if (flow.execution.status !== "running") this.toolLive.clear(); // the finished steps say it all
+      if (flow.execution.status !== "running") {
+        this.toolLive.clear(); // the finished steps say it all
+        this.agentLive.clear();
+      }
 
       root.querySelector("[data-body]").hidden = false;
       this.#renderHead();
@@ -114,6 +118,13 @@ class FlowPage {
       // a tool of an agent of this execution started or ended a call: its node works, then turns green or red
       if (data.task_id === taskId && data.execution_id === this.model.execution.id && this.model.execution.status === "running") {
         noteToolCall(this.toolLive, data);
+        noteAgentCall(this.agentLive, data);
+        this.#show(this.visit);
+      }
+    } else if (type === "agent.turn") {
+      // an agent of this execution asked its model (a round started or ended): the panel shows the rounds as they come
+      if (data.task_id === taskId && data.execution_id === this.model.execution.id && this.model.execution.status === "running") {
+        noteAgentTurn(this.agentLive, data);
         this.#show(this.visit);
       }
     }
@@ -180,7 +191,7 @@ class FlowPage {
   }
 
   #renderPanel() {
-    this.panel.render({ model: this.model, visit: this.visit, walk: this.walk, selected: this.selected });
+    this.panel.render({ model: this.model, visit: this.visit, walk: this.walk, selected: this.selected, agentLive: this.agentLive });
   }
 
   #renderBar() {

@@ -36,7 +36,11 @@ async def stream_events(bus: EventBusDep) -> StreamingResponse:
     ``GET /api/tasks/{ref}/activity``) and ``agent.tool_call`` (``{"task_id", "execution_id", "agent_node_id",
     "tool_node_id", "tool_node_name", "tool", "state", "ok", "duration_ms"}``: a tool call of an agent node of a running
     execution started (``state`` ``started``) or ended (``finished``, with ``ok`` and ``duration_ms``); names and states only,
-    never arguments or results; the flow page shows the tool node working).
+    never arguments or results; the flow page shows the tool node working; ``turn`` is the round of the agent it belongs to) and
+    ``agent.turn`` (``{"task_id", "execution_id", "agent_node_id", "turn", "state", "text", "finish_reason", "tokens",
+    "total_tokens", "tool_calls", "wrap_up", "error"}``: a request of an agent node to its model started (``started``, ``wrap_up``
+    names the limit when it is the final answer without tools) or ended (``finished``: the first 300 characters of the answer, the
+    tokens of the request and in all, the number of tool calls it asked for, or ``error``); the flow page shows the rounds).
 
     Clients that (re)connect should reload ``GET /api/tasks`` to resync, because
     events that happened while disconnected are not replayed.
