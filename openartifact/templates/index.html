@@ -12,13 +12,15 @@
 <link rel="stylesheet" href="/static/css/avatar.css">
 <link rel="stylesheet" href="/static/css/comments.css">
 <link rel="stylesheet" href="/static/css/agents.css">
-<link rel="stylesheet" href="/static/css/artifact-fields.css">{% endblock %}
+<link rel="stylesheet" href="/static/css/artifact-fields.css">
+<link rel="stylesheet" href="/static/css/management.css">{% endblock %}
 {% block content %}
 {{ alert(t('tasks.board.artifacts_could_not_be_loaded')) }}
 <div class="action-row action-row--slim">
     <button type="button" class="button button--primary" data-add-lane aria-haspopup="dialog">{{ icon("plus") }}<span>{{ t('index.add_lane') }}</span></button>
     <button type="button" class="icon-button icon-button--sm board-menu" data-board-menu aria-haspopup="menu" aria-expanded="false" aria-label="{{ t('index.board_options') }}" title="{{ t('index.board_options') }}">{{ icon("more") }}</button>
 </div>
+<div class="archive-view" data-archive-view hidden></div>
 <div class="board" role="group" aria-label="{{ t('index.kanban_board') }}">
     {% for board_lane in lanes %}
     {{ lane(board_lane.title, board_lane.key, board_lane.status, count=board_lane.artifact_count, hue=board_lane.hue, style=board_lane.style) }}

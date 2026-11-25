@@ -206,6 +206,9 @@ middle (two lines, only when there is one), at the bottom one row of chips (neve
 **Draft / published mark of an editor** (ADR-069 §9, ADR-070): `editorChip(graph)` of `editor/versions-tab.js`, in the toolbar beside "All pipelines" /
 "All actions": "Draft" or "v3 published", following the changes of the editor.
 
+A list that only reads (the archive of the board, ADR-071) passes `readOnly: true`: its entries have no pencil and no bin and a double click opens
+nothing. It is `tasks/archive-view.js`, shown by the board's menu entry *Show archive* / *Hide archive*.
+
 ## Dialogs are sized by their content
 
 A dialog is **as large as necessary and as small as possible, but cleanly readable**. This holds for every overlay; the
