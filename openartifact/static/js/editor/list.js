@@ -4,7 +4,7 @@
  * guards (ADR-067); the window that makes or changes one is a form manifest (ui/forms/action.yaml, pipeline.yaml, ADR-065). */
 import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
-import { lazyPreview, GraphPreview } from "../components/graph-preview.js";
+import { GraphPreview } from "../components/graph-preview.js";
 import { ManagementPage, chip, make } from "../components/management-page.js";
 import { ManifestDialog } from "../components/manifest-dialog.js";
 import { Modal } from "../components/modal.js";
@@ -57,8 +57,6 @@ function card(graph) {
   chips.append(...chipsOf(graph));
   head.append(chips);
   if (graph.description) head.append(make("p", "mg-card__text", graph.description));
-  const picture = make("div");
-  lazyPreview(picture, () => structureOf(graph), { typeOf });
   const facts = make("p", "mg-card__facts");
   facts.append(
     ...[
@@ -70,7 +68,7 @@ function card(graph) {
       return part;
     }),
   );
-  box.append(head, picture, facts);
+  box.append(head, facts); // no picture on a card: the graph is in the panel (tab Graph), which keeps the cards calm
   return box;
 }
 

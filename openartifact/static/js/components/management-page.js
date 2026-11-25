@@ -3,7 +3,8 @@
  *
  *   - a click selects an entry and shows its details; a double click opens it in its editor; the pencil opens it too; the bin deletes
  *     it (the page asks first); the keys: arrows select, Home and End, Enter opens, Delete deletes;
- *   - the toolbar: tabs (optional), search, a filter by tag (optional), the order, cards or list; below it the page buttons;
+ *   - the toolbar: row one: search, the order, a filter by tag (optional; with tabs it moves to row two), "Per page" and cards or list; row two
+ *     (only with tabs): the tabs and the filter, so that search and order do not move when the tabs are clicked through; below it the page buttons;
  *   - on a narrow screen the panel is a sheet that rises from the bottom.
  *
  *   const page = new ManagementPage(document.querySelector("[data-management]"), {
@@ -74,7 +75,11 @@ export class ManagementPage {
     const c = this.config;
     this.root.classList.add("mg");
     const main = make("div", "mg__main");
+    // the toolbar: row one is search, order and "Per page [12] [cards][list]" and never changes; a page with tabs puts the tabs and the filter in a
+    // row of their own below it, so search and order stay where they are while the tabs are clicked through
     const bar = make("div", "mg__toolbar");
+    const row = make("div", "mg__row");
+    const tabsRow = make("div", "mg__row mg__row--tabs");
     if (c.tabs) {
       this.tabBar = make("div", "mg-segment");
       this.tabBar.setAttribute("role", "tablist");
@@ -90,7 +95,7 @@ export class ManagementPage {
       });
       this.tabBar.append(...this.tabButtons);
       this.tabBar.addEventListener("keydown", (event) => this.#tabKey(event));
-      bar.append(this.tabBar);
+      tabsRow.append(this.tabBar);
     }
     const searchBox = make("label", "mg-search");
     this.searchInput = make("input", "field__control");
@@ -102,15 +107,7 @@ export class ManagementPage {
       this.render();
     });
     searchBox.append(icon("search"), this.searchInput);
-    bar.append(searchBox);
-    if (c.tagsOf) {
-      this.filterButton = make("button", "button button--ghost button--sm mg-filter");
-      this.filterButton.type = "button";
-      this.filterButton.setAttribute("aria-haspopup", "menu");
-      this.filterButton.append(icon("filter"), make("span", "", t("components.management.filter")));
-      this.filterButton.addEventListener("click", () => this.#filterMenu());
-      bar.append(this.filterButton);
-    }
+    row.append(searchBox);
     this.sortSelect = make("select", "field__control mg-sort");
     this.sortSelect.setAttribute("aria-label", t("components.management.sort"));
     for (const sort of c.sorts) this.sortSelect.append(new Option(sort.label, sort.key));
@@ -120,7 +117,16 @@ export class ManagementPage {
       this.#save();
       this.render();
     });
-    bar.append(this.sortSelect);
+    row.append(this.sortSelect);
+    if (c.tagsOf) {
+      this.filterButton = make("button", "button button--ghost button--sm mg-filter");
+      this.filterButton.type = "button";
+      this.filterButton.setAttribute("aria-haspopup", "menu");
+      this.filterButton.append(icon("filter"), make("span", "", t("components.management.filter")));
+      this.filterButton.addEventListener("click", () => this.#filterMenu());
+      // with tabs the filter sits next to them (row two); without, it follows the order in row one
+      (c.tabs ? tabsRow : row).append(this.filterButton);
+    }
     this.viewToggle = make("div", "mg-view");
     this.viewToggle.setAttribute("role", "group");
     this.viewToggle.setAttribute("aria-label", t("components.management.view"));
@@ -150,7 +156,9 @@ export class ManagementPage {
     // "Per page [12]  [cards][list]": one group at the right end of the toolbar, which wraps as a whole
     const tools = make("div", "mg__tools");
     tools.append(sizeLabel, this.viewToggle);
-    bar.append(tools);
+    row.append(tools);
+    bar.append(row);
+    if (c.tabs) bar.append(tabsRow);
     this.list = make("ul", "mg__list");
     this.list.setAttribute("aria-label", c.label);
     this.empty = make("p", "ge-empty glass mg__empty", c.emptyText ?? "");
