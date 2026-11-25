@@ -260,3 +260,16 @@ the check before a start (§4.4).
   node). *Healthy* stays the author's definition (rules, code, an agent, or a combination).
 - **Not built:** a persisted history of the agent facts (the event log, #100), the consequences "Hint to the agent" and "Wrap up now",
   and the facts in the preview of a guard for lanes (the preview is synchronous and shows the others).
+
+## Addendum (2026-11-25): the shield in the read-only flow of an execution
+
+- The flow page of an execution (Open flow) draws the **shield** of the editor (`components/guard-shield.js`, one component for both: a button
+  in the editor, a plain icon with `readOnly` in the flow) on every stage, action or node a guard watches, in the same place as in the editor
+  and without its "+" or menu. The guards are those of the frozen run (the snapshot's switched-on attachments, `ExecutionFlow.attached_guards`,
+  each with whether it is still switched on now, because the engine checks that live).
+- **Active** means: the execution is running, the guards' bookkeeping says the place is being watched right now (the scope is active) and at
+  least one guard attached there is still switched on. Active is **green and pulsing** (the pulse follows `prefers-reduced-motion`); every other
+  case is **grey**: all guards switched off, the place not running (yet, or any more), the run over. The state is decided without a DOM
+  (`execution/flow-guards.js`). The tooltip says "2 guards, 1 active", names the guards and the ones that fired in this run.
+- A guard that was not switched on at the start is not in the frozen run and leaves no shield.
+

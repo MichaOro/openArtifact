@@ -127,6 +127,20 @@ class FlowStepRead(ExecutionStepRead):
     output_included: bool
 
 
+class FlowAttachedGuard(BaseModel):
+    """A guard attached to a place of the frozen run (the snapshot's switched-on attachments): ``id`` is the attachment's,
+    ``enabled`` whether it is still switched on now (the engine checks that live: a guard switched off during the run does
+    not fire any more)."""
+
+    id: str
+    guard_id: str
+    name: str
+    scope_type: str
+    scope_id: str
+    graph_id: str
+    enabled: bool = True
+
+
 class ExecutionFlow(BaseModel):
     """The flow of one execution: ``graphs`` by id (the frozen snapshot), the ``steps`` and the
     ``visits`` and ``reached`` sets the server derived from them. Never changes when the live
@@ -141,3 +155,5 @@ class ExecutionFlow(BaseModel):
     #: The guards' bookkeeping of the execution (ADR-060): ``scopes`` (counters per scope), ``guards`` (per guard
     #: and scope), ``progress_at``, ``heartbeat`` and ``firings`` (each with its facts); ``{}`` without guards.
     guards: dict[str, Any] = Field(default_factory=dict)
+    #: The guards attached to the places of the frozen run, so the flow can show a shield where one watches (ADR-060).
+    attached_guards: list[FlowAttachedGuard] = Field(default_factory=list)

@@ -669,8 +669,6 @@
  "execution.flow_panel.loading": "Wird geladen...",
  "execution.flow_panel.open_kind": "{kind} öffnen",
  "execution.flow_panel.open_node": "{name} öffnen",
- "execution.flow_panel.open_node_pass": "{name} öffnen, Durchlauf {number}",
- "execution.flow_panel.open_pass": "Durchlauf {number} öffnen",
  "execution.flow_panel.output_could_not_be_loaded": "Die Ausgabe konnte nicht geladen werden. Schließe sie und öffne sie erneut, um es nochmal zu versuchen.",
  "execution.flow_panel.pass_of": "Durchlauf {number} von {total}",
  "execution.flow_panel.ran_no_steps": "Es sind keine Schritte gelaufen.",
@@ -2015,5 +2013,8 @@
  "graph_versions.shown": "Angezeigt",
  "graph_versions.load_error": "Die Versionen konnten nicht geladen werden.",
  "graph_versions.showing": "Zeigt Version {number}, nur lesend.",
- "graph_versions.back_to_draft": "Zurück zum Entwurf"
+ "graph_versions.back_to_draft": "Zurück zum Entwurf",
+ "execution.flow_guards.summary.one": "{count} Wächter, {active} aktiv",
+ "execution.flow_guards.summary.other": "{count} Wächter, {active} aktiv",
+ "execution.flow_guards.fired": "In diesem Lauf gefeuert: {names}"
 }

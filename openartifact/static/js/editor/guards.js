@@ -11,6 +11,7 @@
  * definition, "Attach guard" opens the attach dialog (a combobox of the guards that are not attached here yet). One
  * implementation for every scope: only the scope's type and id differ. */
 import { icon } from "../components/icons.js";
+import { shieldButton, updateShield } from "../components/guard-shield.js";
 import { Modal } from "../components/modal.js";
 import { request } from "../http.js";
 import { t } from "../i18n.js";
@@ -21,28 +22,6 @@ import * as model from "../guards/model.js";
 
 const ATTACHMENTS = "/api/guard-attachments";
 const send = (url, method, data) => request(url, { method, body: data === undefined ? undefined : JSON.stringify(data) });
-
-/** The shield of a scope: an icon button whose tooltip and name say how many guards are configured there. */
-export function shieldButton(count, scopeName) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "icon-button icon-button--quiet icon-button--xs gd-shield";
-  button.dataset.guardShield = "";
-  button.setAttribute("aria-haspopup", "dialog");
-  button.setAttribute("aria-expanded", "false");
-  button.append(icon("shield"));
-  updateShield(button, count, scopeName);
-  button.addEventListener("pointerdown", (event) => event.stopPropagation()); // not the start of dragging a node
-  button.addEventListener("dblclick", (event) => event.stopPropagation()); // not the node's settings
-  return button;
-}
-
-function updateShield(button, count, scopeName) {
-  const text = model.shieldText(count);
-  button.title = text;
-  button.setAttribute("aria-label", scopeName ? `${text}: ${scopeName}` : text);
-  button.dataset.count = String(count);
-}
 
 export class EditorGuards {
   /**

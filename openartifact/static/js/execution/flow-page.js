@@ -12,6 +12,7 @@ import { RunningClock } from "../tasks/history-row.js";
 import { Breadcrumb } from "./breadcrumb.js";
 import { loadContext, loadFlow, loadStep, loadTask } from "./flow-client.js";
 import { FlowPanel } from "./flow-panel.js";
+import { guardPlaces } from "./flow-guards.js";
 import { FlowView } from "./flow-view.js";
 import { FlowModel, noteAgentCall, noteAgentTurn, noteToolCall } from "./visit-model.js";
 import { t } from "../i18n.js";
@@ -79,6 +80,7 @@ class FlowPage {
       const first = this.model === null;
       this.model = new FlowModel(flow);
       this.guards = flow.guards ?? {};
+      this.view.setGuards({ flow, places: guardPlaces(flow) });
       if (flow.execution.status !== "running") {
         this.toolLive.clear(); // the finished steps say it all
         this.agentLive.clear();

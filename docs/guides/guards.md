@@ -262,6 +262,12 @@ execution, 409 when it is not running. The last heartbeat and a count are kept w
 - The activity API (`GET /api/v1/artifacts/{ref}/activity`, MCP `list_activity`) returns them as kind `guard` with the
   facts.
 
+
+**The shield in the flow of an execution.** *Open flow* shows the shield on every stage, action or node a guard watches, in the same place as in
+the editor. It is **green and pulsing** while a guard is watching the place right now (the run is running, the place is being worked on and a
+guard there is switched on) and **grey** otherwise (guards switched off, the place not running, the run over). Hover it: "2 guards, 1 active",
+their names and the guards that fired in this run.
+
 ## API
 
 | Method and path | What |

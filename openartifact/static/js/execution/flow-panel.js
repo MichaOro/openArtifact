@@ -160,13 +160,14 @@ export class FlowPanel {
     main.addEventListener("click", () => this.handlers.onSelect(entry.id));
     li.append(main);
 
-    entry.children.forEach((child, i) => {
-      const open = el("button", "button button--ghost button--sm ef-path__open", entry.children.length > 1 ? t("execution.flow_panel.open_pass", { number: i + 1 }) : t("agents.editor_page.open"));
+    // ONE button however often the step ran: in the opened action the pager ("Pass 1 of 3") leads through the passes
+    if (entry.children.length) {
+      const open = el("button", "button button--ghost button--sm ef-path__open", t("agents.editor_page.open"));
       open.type = "button";
-      open.setAttribute("aria-label", entry.children.length > 1 ? t("execution.flow_panel.open_node_pass", { name: nameOf(node), number: i + 1 }) : t("execution.flow_panel.open_node", { name: nameOf(node) }));
-      open.addEventListener("click", () => this.handlers.onOpen(child));
+      open.setAttribute("aria-label", t("execution.flow_panel.open_node", { name: nameOf(node) }));
+      open.addEventListener("click", () => this.handlers.onOpen(entry.children[0]));
       li.append(open);
-    });
+    }
     return li;
   }
 
@@ -229,10 +230,11 @@ export class FlowPanel {
     if (live) body.push(live);
     for (const entry of entries) {
       if (entry.step) body.push(this.#step(entry.step, open));
-      for (const [i, child] of entry.children.entries()) {
-        const button = el("button", "button button--ghost button--sm", entry.children.length > 1 ? t("execution.flow_panel.open_pass", { number: i + 1 }) : t("execution.flow_panel.open_kind", { kind: typeOf(node).label.toLowerCase() }));
+      if (entry.children.length) {
+        // one button however often it ran: the pager of the opened action leads through the passes
+        const button = el("button", "button button--ghost button--sm", t("execution.flow_panel.open_kind", { kind: typeOf(node).label.toLowerCase() }));
         button.type = "button";
-        button.addEventListener("click", () => this.handlers.onOpen(child));
+        button.addEventListener("click", () => this.handlers.onOpen(entry.children[0]));
         body.push(button);
       }
       if (!entry.step && !entry.children.length && (node.kind === "action" || node.kind === "pipeline")) {

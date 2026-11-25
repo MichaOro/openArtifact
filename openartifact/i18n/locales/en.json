@@ -621,8 +621,6 @@
  "execution.flow_panel.loading": "Loading...",
  "execution.flow_panel.open_kind": "Open {kind}",
  "execution.flow_panel.open_node": "Open {name}",
- "execution.flow_panel.open_node_pass": "Open {name}, pass {number}",
- "execution.flow_panel.open_pass": "Open pass {number}",
  "execution.flow_panel.output_could_not_be_loaded": "The output could not be loaded. Close and open it to try again.",
  "execution.flow_panel.pass_of": "Pass {number} of {total}",
  "execution.flow_panel.ran_no_steps": "It ran no steps.",
@@ -1348,5 +1346,8 @@
  "graph_versions.shown": "Shown",
  "graph_versions.load_error": "The versions could not be loaded.",
  "graph_versions.showing": "Showing version {number}, read-only.",
- "graph_versions.back_to_draft": "Back to the draft"
+ "graph_versions.back_to_draft": "Back to the draft",
+ "execution.flow_guards.summary.one": "{count} guard, {active} active",
+ "execution.flow_guards.summary.other": "{count} guards, {active} active",
+ "execution.flow_guards.fired": "Fired in this run: {names}"
 }

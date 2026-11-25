@@ -193,3 +193,15 @@
 .ef-guards { display: flex; flex-direction: column; gap: var(--space-1); margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: 0.875rem; }
 .ef-guards__item { display: flex; align-items: baseline; gap: var(--space-1); }
 .ef-guards__item .icon { width: 0.875rem; height: 0.875rem; flex: none; align-self: center; color: var(--color-accent); }
+
+/* the shield of the guards in the read-only flow (components/guard-shield.js): green and pulsing while a guard is watching the place
+   now, grey while none is (all switched off, the place is not running, the run is over) */
+.ef-viewport .gd-shield { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: var(--radius-pill); color: var(--color-text-muted); pointer-events: auto; }
+.ef-viewport .gd-shield .icon { width: 0.9rem; height: 0.9rem; }
+.ef-viewport .gd-shield--node { right: auto; left: 2px; } /* the corner badge of the node sits top right */
+.ef-viewport .gd-shield[data-state="idle"] { color: var(--color-text-muted); opacity: 0.7; }
+.ef-viewport .gd-shield[data-state="active"] { color: var(--edge-pass); background: color-mix(in srgb, var(--edge-pass) 18%, transparent); }
+@media (prefers-reduced-motion: no-preference) {
+  .ef-viewport .gd-shield[data-state="active"] { animation: ef-shield-pulse 1.4s ease-in-out infinite; }
+  @keyframes ef-shield-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--edge-pass) 35%, transparent); } }
+}
