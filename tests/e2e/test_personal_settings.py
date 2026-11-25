@@ -1,9 +1,10 @@
 """The Personal settings page and the setting *Mark resolved references* in the browser: the sidebar has the entry and marks it,
 the switch is saved when it is changed, the board's cards and the artifact dialog mark the text a ${card.x} stands for (and the
-dialog shows its legend) while it is on, and both follow the switch live."""
+dialog shows its legend in the rail's foot) while it is on, and both follow the switch live."""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 
 import pytest
@@ -65,12 +66,24 @@ def test_resolved_text_is_marked_with_a_legend_only_while_the_setting_is_on_and_
     card.api.put(URL, json={"mark_resolved_references": True}).raise_for_status()
     expect(view.locator("mark.resolved-ref")).to_have_text(["bye"])
     expect(view).to_have_text("The word is bye.")  # the same words, only marked
-    legend = dialog.root.locator(".resolved-legend")
+    # the legend is a small passive line in the foot of the rail, next to its expand button, and only while the rail is expanded
+    legend = dialog.root.locator(".card-nav__foot .resolved-legend")
+    expect(legend).to_be_hidden()  # the rail is collapsed
+    dialog.root.locator("[data-card-nav-toggle]").click()
     expect(legend).to_be_visible()
-    expect(legend.locator("summary")).to_have_text("Legend")
+    expect(legend).to_have_text("Resolved")
+    expect(legend).to_have_attribute("title", "Resolved reference")
     expect(legend.locator(".resolved-legend__mark")).to_have_css(
         "background-color", pattern_not_transparent()
     )
+    # the dark theme marks with a warm light colour (not purple on purple)
+    light = view.locator("mark.resolved-ref").evaluate("e => getComputedStyle(e).backgroundColor")
+    dialog.root.page.evaluate("document.documentElement.dataset.theme = 'dark'")
+    dark = view.locator("mark.resolved-ref").evaluate("e => getComputedStyle(e).backgroundColor")
+    assert dark != light
+    red, green, blue = (float(x) for x in re.findall(r"[\d.]+", dark.split("/")[0])[:3])
+    assert red > blue and green > blue and red > 0.8, f"a light warm colour in the dark theme: {dark}"
+    dialog.root.page.evaluate("document.documentElement.dataset.theme = 'light'")
     expect(body.locator("mark.resolved-ref")).to_have_text(["bye"])
     # off again: marks and legend go
     card.api.put(URL, json={"mark_resolved_references": False}).raise_for_status()

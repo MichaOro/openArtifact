@@ -473,6 +473,7 @@ body.is-dragging * { cursor: grabbing !important; }
 /* Resolved reference highlight in board preview (A7) */
 .task-card__body .resolved-ref {
   background: var(--color-resolved-ref-bg);
+  color: var(--color-resolved-ref-text);
   border-radius: var(--radius-sm);
   padding: 0 0.125rem;
   box-decoration-break: clone;

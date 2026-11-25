@@ -103,6 +103,7 @@
   --color-on-accent: #ffffff;
   /* highlight for resolved ${card.x} references: 15% opacity accent in light theme */
   --color-resolved-ref-bg: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  --color-resolved-ref-text: inherit;
   /* the highlight that marks where a jump landed: the accent here, the sand tone in the dark theme */
   --color-pulse: var(--color-accent);
   /* the layout handle and the arrange view of the manifest windows (ADR-063): a colour family of their own (teal), used by
@@ -170,8 +171,10 @@
   /* Purple Accent */
   --color-accent: #9665ff;
   --color-on-accent: #080519;
-  /* highlight for resolved ${card.x} references: 25% opacity accent in dark theme */
-  --color-resolved-ref-bg: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  /* highlight for resolved ${card.x} references in the dark theme: a light warm gold like a highlighter, complementary to the
+     purple surfaces (a purple highlight on purple does not show), with dark text on it */
+  --color-resolved-ref-bg: #f2d88a;
+  --color-resolved-ref-text: #1d1830;
   --color-pulse: #f0ede5; /* sand: dark purple on light purple is an awkward contrast */
   --layout-accent: #5ec8cd;
   --layout-accent-hover: #86dade;

@@ -8,19 +8,19 @@ const { ResolvedLegend } = await import("../../openartifact/static/js/components
 beforeEach(() => installDocument());
 afterEach(() => uninstallDocument());
 
-test("the legend is a closed disclosure with the colour swatch and the words, hidden until it is shown", () => {
+test("the legend is one small passive line: the colour swatch and the words, hidden until it is shown", () => {
   const legend = new ResolvedLegend();
   const { element } = legend;
-  assert.equal(element.tagName, "details");
+  assert.equal(element.tagName, "span", "no disclosure: it is read at a glance");
   assert.equal(element.className, "resolved-legend");
   assert.equal(element.hidden, true);
-  const [summary, line] = element.children;
-  assert.equal(summary.tagName, "summary");
-  const [swatch, words] = line.children;
+  assert.ok(element.title, "its name is a tooltip");
+  const [swatch, words] = element.children;
   assert.equal(swatch.className, "resolved-legend__mark", "the colour comes from the token through the class, not from a character");
   assert.equal(swatch.attributes["aria-hidden"], "true");
   assert.ok(!/[\u2580-\u259f]/.test(textOf(element)), "no block glyph in the text");
-  assert.ok(typeof words === "string" && words.length > 0);
+  assert.equal(words.className, "resolved-legend__text");
+  assert.ok(textOf(words).length > 0);
 });
 
 test("show switches the legend on and off", () => {

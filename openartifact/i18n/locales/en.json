@@ -1214,8 +1214,8 @@
  "settings.personal_page.intro": "Personal display preferences. Changes take effect immediately.",
  "settings.personal_page.personal_could_not_be": "The personal settings could not be loaded.",
  "settings.personal_page.saved": "Saved.",
- "artifact_dialog.resolved_legend": "Legend",
- "artifact_dialog.resolved_explanation": "Resolved reference",
+ "artifact_dialog.resolved_legend": "Resolved reference",
+ "artifact_dialog.resolved_explanation": "Resolved",
  "nav.personal.label": "Personal",
  "nav.personal.tooltip": "Personal settings"
 }

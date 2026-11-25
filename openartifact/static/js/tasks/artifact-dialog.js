@@ -262,11 +262,11 @@ export class ArtifactDialog extends FormDialog {
     this.viewWarning.textContent = notes.length ? [t("tasks.body.saved_with_notes"), ...notes].join("\n") : "";
   }
 
-  /** The legend under the read view, made once. */
+  /** The legend in the foot of the rail (next to its expand button), made once. */
   #legend() {
     if (!this.legend) {
       this.legend = new ResolvedLegend();
-      this.viewBody.after(this.legend.element);
+      document.querySelector("#card-nav .card-nav__foot")?.append(this.legend.element);
     }
     return this.legend;
   }

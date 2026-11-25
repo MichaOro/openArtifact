@@ -22,7 +22,8 @@
 /* icon | text: the icon column sits right next to the form and stays put; the labels fade in to
    the right of it while the card grows rightwards. The toggle sits in the icon column
    (nav-link padding + half an icon = 1.375rem; button centre 1rem). */
-.card-nav__toggle { align-self: flex-start; margin-left: calc(var(--space-3) + 0.625rem - 1rem); }
+.card-nav__foot { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.card-nav__toggle { flex: none; margin-left: calc(var(--space-3) + 0.625rem - 1rem); }
 .card-nav__toggle .icon { transition: transform var(--transition-base); }
 .card-nav[data-state="expanded"] .card-nav__toggle .icon { transform: rotate(180deg); }
 .card-nav .nav-link__label {
@@ -61,39 +62,34 @@
 /* Resolved reference highlight (A6) */
 .resolved-ref {
   background: var(--color-resolved-ref-bg);
+  color: var(--color-resolved-ref-text);
   border-radius: var(--radius-sm);
   padding: 0 0.25rem;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
 
-/* Legend for resolved references */
+/* Legend for resolved references: small and passive, in the foot of the rail next to its expand button, only while it is expanded */
 .resolved-legend {
-  margin-top: var(--space-3);
-  padding: var(--space-3);
-  background: var(--color-glass-card);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-}
-.resolved-legend summary {
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-2);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
-.resolved-legend__line { display: flex; align-items: center; gap: var(--space-2); margin: 0; }
+.resolved-legend[hidden] { display: none; }
+.card-nav[data-state="collapsed"] .resolved-legend { display: none; }
 .resolved-legend__mark {
-  display: inline-block;
-  width: 1rem;
-  height: 1rem;
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
   background: var(--color-resolved-ref-bg);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
 }
+.resolved-legend__text { overflow: hidden; text-overflow: ellipsis; }
 
 /* Easter egg: clicking the lane chip unrolls the other lanes as chips *inside* the header.
    The form below slides down to make room: no popup, no edge, just a fade. */
