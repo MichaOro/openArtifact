@@ -38,6 +38,7 @@ const CASES = {
   agent: [{}, { config: { agent_id: "agent-1" } }, { config: { agent_id: "unknown", temperature: 0.5, retries: 0, model: "m" } }, { config: { agent_id: "x" }, agent: { name: "Frozen" } }],
   github: [{}, { config: { operation: "Create comment", repository: "acme/tool" } }, { config: { operation: "Create comment", repository: "acme/tool", allow_comments: true } }, { config: { operation: "List issues", repository: "a/b" } }],
   postgres: [{}, { config: { query: "\n  SELECT 1\nFROM t" } }, { config: { query: "UPDATE t SET a = 1", allow_write: true } }],
+  sqlite: [{}, { config: { query: "\n  SELECT 1\nFROM v_guard_runs" } }],
   mcp_tool: [{}, { config: { url: "https://api.example.org/mcp/?k=1" } }],
   http_tool: [{}, { config: { method: "POST", url: "https://api.example.org/items/{id}?x=1" } }],
   code_tool: [{}, { config: { language: "sh", tool_name: "run_it" } }],

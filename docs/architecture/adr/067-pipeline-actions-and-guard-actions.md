@@ -4,7 +4,7 @@
 **Date:** 2026-11-25  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** [ADR-060](060-guards.md) (the guard's own action), [ADR-054](054-node-kinds-as-manifests.md) (a kind says where it may be used)  
+**Amends:** [ADR-060](060-guards.md) (the guard's own action), [ADR-054](054-node-kinds-as-yaml-manifests.md) (a kind says where it may be used)  
 **Implemented in:** migration `0054`, `models/graphs.py` (`purpose`), `graph/repository.py`, `api/graphs.py`, `guards/service.py`, `graph/nodes/*.yaml` (`purposes`, `requires`), `ui/forms/action.yaml`, `static/js/components/manifest-dialog.js`, `static/js/editor/list.js`, `tests/test_action_purpose.py`  
 **Affected chapters:** guides [guards](../../guides/guards.md), [extending](../../guides/extending.md)
 
