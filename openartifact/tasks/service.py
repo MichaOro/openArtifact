@@ -18,7 +18,19 @@ from sqlalchemy.orm import undefer
 
 from openartifact.activity.recorder import SYSTEM, record, short
 from openartifact.activity.schemas import ActivityRead
-from openartifact.artifact_fields.service import values_of_new, values_of_update
+from openartifact.artifact_fields import rules as field_rules
+from openartifact.artifact_fields.body import (
+    has_references,
+    preview_or_none,
+    resolved_or_none,
+    unknown_references,
+)
+from openartifact.artifact_fields.service import (
+    body_card,
+    field_specs,
+    values_of_new,
+    values_of_update,
+)
 from openartifact.comments.schemas import Author
 from openartifact.database import SessionOpener
 from openartifact.engine import history as history_module
@@ -123,15 +135,45 @@ class ArtifactService:
     # ── reading ───────────────────────────────────────────────────────
 
     async def list_all(self) -> list[TaskRead]:
-        """All artifacts in board order."""
+        """All artifacts in board order; a body with references also carries ``preview``, its first words filled in."""
         async with self._session() as session:
             tasks = await TaskRepository(session).list_all()
-            return [TaskRead.model_validate(t) for t in tasks]
+            specs = await field_specs(session) if any(has_references(t.body) for t in tasks) else []
+            return [self._read(t, specs, preview=True) for t in tasks]
 
     async def get(self, ref: str) -> TaskRead:
-        """One artifact by id, or by its number (``12`` or ``#12``)."""
+        """One artifact by id, or by its number (``12`` or ``#12``); ``body_resolved`` has the references filled in."""
         async with self._session() as session:
-            return TaskRead.model_validate(await self._task(session, ref))
+            task = await self._task(session, ref)
+            specs = await field_specs(session) if has_references(task.body) else []
+            return self._read(task, specs, resolved=True)
+
+    @staticmethod
+    def _read(
+        task: Task,
+        specs: list[field_rules.FieldSpec],
+        *,
+        resolved: bool = False,
+        preview: bool = False,
+    ) -> TaskRead:
+        """The artifact as read, with what a body's ``${card.x}`` stand for filled in where it is asked for."""
+        read = TaskRead.model_validate(task)
+        if has_references(task.body) and (resolved or preview):
+            card = body_card(specs, task)
+            if resolved:
+                read.body_resolved = resolved_or_none(task.body, card)
+            if preview:
+                read.preview = preview_or_none(task.body, card)
+        return read
+
+    async def _read_after_save(self, session: AsyncSession, task: Task) -> TaskRead:
+        """The artifact after a create or an update: resolved body and preview for the open dialog and the board
+        (they travel in the event), and the calm note about a reference that names nothing (never a refusal)."""
+        specs = await field_specs(session) if has_references(task.body) else []
+        read = self._read(task, specs, resolved=True, preview=True)
+        if has_references(task.body):
+            read.warnings = unknown_references(task.body, set(body_card(specs, task)))
+        return read
 
     async def lanes(self) -> list[LaneRead]:
         """The board lanes in order."""
@@ -416,8 +458,8 @@ class ArtifactService:
                 raise ArtifactError(422, str(error)) from error
             except IntegrityError as error:  # the lane was deleted in the meantime
                 raise ArtifactError(409, LANE_GONE) from error
-            created = TaskRead.model_validate(task)
-        self._bus.publish("task.created", created.model_dump(mode="json"))
+            created = await self._read_after_save(session, task)
+        self._bus.publish("task.created", created.model_dump(mode="json", exclude={"warnings"}))
         self._publish_activity(recorded)
         return created
 
@@ -453,18 +495,19 @@ class ArtifactService:
                     task.field_values = values
                     result.changed.add("fields")
                 if not result.changed and not result.renumbered:
-                    return TaskRead.model_validate(task)
+                    return await self._read_after_save(session, task)
                 recorded = await self._record_changes(session, task, before, actor)
                 await session.commit()
             except (PlacementError, ParentError) as error:
                 raise ArtifactError(422, str(error)) from error
             except IntegrityError as error:  # the lane was deleted in the meantime
                 raise ArtifactError(409, LANE_GONE) from error
-            updated = TaskRead.model_validate(task)
+            updated = await self._read_after_save(session, task)
         # lane/position only -> "moved"; anything touching the content -> "updated"
         moved_only = result.changed <= {"status", "position"}
         self._bus.publish(
-            "task.moved" if moved_only else "task.updated", updated.model_dump(mode="json")
+            "task.moved" if moved_only else "task.updated",
+            updated.model_dump(mode="json", exclude={"warnings"}),
         )
         self._publish_activity(recorded)
         if result.renumbered:
@@ -510,8 +553,9 @@ class ArtifactService:
         async with self._session() as session:
             task = await self._task(session, task_id)
             if _target_of(task) != before:
+                read = await self._read_after_save(session, task)
                 self._bus.publish(
-                    "task.updated", TaskRead.model_validate(task).model_dump(mode="json")
+                    "task.updated", read.model_dump(mode="json", exclude={"warnings"})
                 )
         return run
 

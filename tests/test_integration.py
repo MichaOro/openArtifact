@@ -488,3 +488,20 @@ def test_the_event_stream_answers_as_text_event_stream_and_starts_with_a_retry_f
     body = b"".join(m.get("body", b"") for m in sent).decode()
     assert body.startswith("retry:")
     assert f'"id":"{created["id"]}"' in body
+
+
+def test_the_mcp_read_carries_the_original_the_fields_and_the_filled_in_text(
+    api: TestClient,
+) -> None:
+    api.put(
+        "/api/artifact-fields", json={"fields": [{"name": "test", "label": "Test", "kind": "text"}]}
+    ).raise_for_status()
+    made = _create(
+        api,
+        title="Der letzte Leuchtturm",
+        body="${card.test} / ${card.title}",
+        fields={"test": "v"},
+    )
+    got = _content(_tool(api, "get_artifact", artifact=f"#{made['number']}"))
+    assert got["body"] == "${card.test} / ${card.title}" and got["fields"]["test"] == "v"
+    assert got["body_resolved"] == "v / Der letzte Leuchtturm"

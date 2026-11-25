@@ -123,6 +123,16 @@ class TaskRead(BaseModel):
     created_by: str
     created_at: UtcDateTime
     updated_at: UtcDateTime
+    #: The body with its ``${card.x}`` references filled in (title, number, id and the field values); ``null`` when
+    #: the body holds nothing to fill in. A convenience: ``body`` stays the original and ``fields`` the values, so a
+    #: consumer may fill in itself. Set on a single artifact and in the events of a change, not in the list.
+    body_resolved: str | None = None
+    #: The list of the board only: the first words of the resolved body, ``null`` when the body holds no reference
+    #: (the client then shows the original as before).
+    preview: str | None = None
+    #: What was saved but cannot take effect (a reference to a field the artifact has not): a calm note, never a refusal.
+    #: Only in the answer to a create or an update.
+    warnings: list[str] = Field(default_factory=list)
 
     @field_validator("fields", mode="before")
     @classmethod

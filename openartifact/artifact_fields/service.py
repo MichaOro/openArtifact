@@ -15,6 +15,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.artifact_fields import rules
+from openartifact.artifact_fields.body import resolve_body
 from openartifact.artifact_fields.rules import FieldSpec
 from openartifact.artifact_fields.schemas import (
     ArtifactFieldsRead,
@@ -226,16 +227,25 @@ async def values_of_update(session: AsyncSession, task: Task, changes: dict[str,
     return _text(stored)
 
 
+def body_card(specs: list[FieldSpec], task: Task) -> dict[str, Any]:
+    """What a ``${card.x}`` of a body can name (ADR-064): ``id``, ``number``, ``title`` and every field with its value,
+    else its default, else ``None``. ``body`` and ``text`` are not in it: a body cannot contain itself."""
+    card: dict[str, Any] = {"id": task.id, "number": task.number, "title": task.title}
+    fields = rules.card_values(specs, stored_values(task))
+    card.update({name: value for name, value in fields.items() if name not in rules.BUILT_IN_NAMES})
+    return card
+
+
 async def card_of(session: AsyncSession, task: Task) -> dict[str, Any]:
     """The ``card`` a run starts with (ADR-064): what every artifact has (``id``, ``number``, ``title``,
     ``body``; ``${card.text}`` is derived from them when it is read) and then every field with its value,
-    else its default, else ``None``. A copy: it is not refreshed while the run goes on."""
-    card: dict[str, Any] = {
-        "id": task.id,
-        "number": task.number,
-        "title": task.title,
-        "body": task.body or "",
+    else its default, else ``None``. The body is the RESOLVED one: its ``${card.x}`` are filled in, so an agent
+    reads the finished text. A copy: it is not refreshed while the run goes on."""
+    named = body_card(await field_specs(session), task)
+    return {
+        "id": named["id"],
+        "number": named["number"],
+        "title": named["title"],
+        "body": resolve_body(task.body, named),
+        **{name: value for name, value in named.items() if name not in ("id", "number", "title")},
     }
-    fields = rules.card_values(await field_specs(session), stored_values(task))
-    card.update({name: value for name, value in fields.items() if name not in rules.BUILT_IN_NAMES})
-    return card

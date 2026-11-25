@@ -61,7 +61,12 @@ def test_create_task_returns_201_with_all_fields(client: TestClient) -> None:
         "created_at",
         "updated_at",
         "fields",
+        "body_resolved",
+        "preview",
+        "warnings",
     }
+    # a body without a reference has nothing filled in; the three are the references' part of the contract (ADR-064)
+    assert (data["body_resolved"], data["preview"], data["warnings"]) == (None, None, [])
     assert data["fields"] == {}  # no artifact fields are defined yet
     assert data["title"] == "Write docs"
     assert data["body"] == "Details"
