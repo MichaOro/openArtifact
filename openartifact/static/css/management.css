@@ -1,8 +1,9 @@
 /* The management pages (ADR-069): the list of definitions as cards or rows with a toolbar, the detail panel on the right, the picture
  * of a graph. Colours come from tokens.css only. Prefixes: mg- = management page, gp- = graph preview. */
 
-.mg { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
-.mg[data-has-panel="true"] { grid-template-columns: minmax(0, 1fr) minmax(18rem, 26rem); }
+/* two thirds for the entries and one third for the panel, always: the room of the panel is reserved so that the cards stay where they are
+   when one is selected (a narrow screen has a sheet instead, below) */
+.mg { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
 .mg__main { display: grid; gap: var(--space-4); min-width: 0; }
 
 /* ── toolbar ──────────────────────────────────────────────────────── */
@@ -18,7 +19,7 @@
 .modal__panel .mg-search .field__control { min-width: 0; }
 .mg-sort { width: auto; min-width: 0; height: 2rem; padding-block: 0; }
 .mg-filter.is-on, .mg-view__button.is-on { background: color-mix(in srgb, var(--color-accent) 20%, transparent); border-color: var(--color-accent); }
-.mg-view { display: inline-flex; gap: 2px; margin-left: auto; }
+.mg-view { display: inline-flex; gap: 2px; }
 .mg-view__button { border: 1px solid transparent; }
 
 /* ── list ─────────────────────────────────────────────────────────── */
@@ -43,12 +44,15 @@
 .mg-chip .icon { width: 0.8rem; height: 0.8rem; }
 .mg-tag { padding: 0 var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-pill); font-size: 0.75rem; line-height: 1.4rem; color: var(--color-text-secondary); }
 .mg__pager { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 0.8125rem; color: var(--color-text-muted); }
-.mg__size { margin-left: auto; display: inline-flex; align-items: center; gap: var(--space-2); }
+.mg__tools { display: inline-flex; align-items: center; gap: var(--space-3); margin-left: auto; flex: none; }
+.mg__size { display: inline-flex; font-size: 0.8125rem; color: var(--color-text-muted); align-items: center; gap: var(--space-2); }
 .mg__size .field__control { width: auto; min-width: 0; height: 2rem; padding-block: 0; }
 
 /* ── detail panel ─────────────────────────────────────────────────── */
 .mg__panel { display: grid; gap: var(--space-3); align-content: start; padding: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--glass-border); background: var(--color-glass-card); position: sticky; top: var(--space-4); max-height: calc(100vh - 2 * var(--space-4)); overflow: auto; min-width: 0; }
 .mg__panel[hidden] { display: none; }
+.mg__panel[data-empty="true"] { background: none; border-style: dashed; place-content: center; min-height: 10rem; }
+.mg-panel__placeholder { margin: 0; text-align: center; font-size: 0.875rem; color: var(--color-text-muted); }
 .mg__scrim { display: none; } /* only a sheet on a narrow screen has one */
 .mg-panel__head { display: flex; align-items: flex-start; gap: var(--space-3); }
 .mg-panel__icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-accent) 18%, transparent); color: var(--color-accent); }
@@ -72,10 +76,11 @@
 
 /* on a narrow screen the panel is a sheet that rises from the bottom (the mobile web app) */
 @media (max-width: 52rem) {
-  .mg[data-has-panel="true"] { grid-template-columns: minmax(0, 1fr); }
+  .mg { grid-template-columns: minmax(0, 1fr); }
+  .mg__panel[data-empty="true"] { display: none; }
   .mg__scrim:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 30; background: color-mix(in srgb, var(--color-background) 55%, transparent); }
   .mg__panel { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 31; max-height: 82vh; border-radius: var(--radius-lg, var(--radius-md)) var(--radius-lg, var(--radius-md)) 0 0; }
-  .mg-view { margin-left: 0; }
+  .mg__tools { margin-left: 0; }
 }
 
 /* ── picture of a graph ───────────────────────────────────────────── */

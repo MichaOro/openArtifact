@@ -45,8 +45,8 @@ function card(agent) {
   chips.append(...chipsOf(agent));
   head.append(chips);
   box.append(head);
-  const start = agent.user_prompt_start || agent.description;
-  if (start) box.append(make("p", "mg-card__text", start));
+  // the text of a card is the description, when one is kept; without one nothing stands there (the prompt is in the panel)
+  if (agent.description) box.append(make("p", "mg-card__text", agent.description));
   const facts = make("p", "mg-card__facts");
   const engine = engineOf(agent);
   for (const [value, before] of [[engine, ""], [useText(agent.node_count), ""], [when(agent.updated_at), `${t("graph_list.changed")} `]]) {
@@ -168,6 +168,7 @@ const page = new ManagementPage(root, {
   // an agent that a node refers to cannot be deleted (its nodes would lose it): the bin says so
   deleteBlocked: (agent) => (agent.node_count ? tn("agents.list_page.refers", agent.node_count) : null),
   panel: {
+    placeholder: t("agents.page.select"),
     icon: () => "agent",
     title: (agent) => agent.name,
     chips: chipsOf,
