@@ -67,6 +67,7 @@ class NodeKind(enum.StrEnum):
     AGENT = "agent"
     SET = "set"
     MCP_TOOL = "mcp_tool"
+    GITHUB_TOOL = "github_tool"
     HTTP_TOOL = "http_tool"
     CODE_TOOL = "code_tool"
     GITHUB = "github"

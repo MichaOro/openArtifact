@@ -11,29 +11,32 @@ from typing import Any
 
 import uvicorn
 from mcp.server import MCPServer
+from mcp.types import ToolAnnotations
 
 TOKEN = "ghp_test_token_0123456789"
 CALLS: list[tuple[str, dict[str, Any]]] = []
 #: Every HTTP request that reached the server (method and path), listings included.
 REQUESTS: list[tuple[str, str]] = []
+#: The value of the ``X-MCP-Readonly`` header of every request that had one.
+READONLY_HEADERS: list[str] = []
 
 
 def _server() -> Any:
     mcp = MCPServer("Test GitHub")
 
-    @mcp.tool()
+    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
     def get_issue(number: int) -> str:
         """Read one issue by its number."""
         CALLS.append(("get_issue", {"number": number}))
         return f"Issue #{number}: Login is broken"
 
-    @mcp.tool()
+    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
     def list_issues(state: str = "open") -> str:
         """List the issues."""
         CALLS.append(("list_issues", {"state": state}))
         return "#1 Login is broken\n#2 Slow search"
 
-    @mcp.tool()
+    @mcp.tool(annotations=ToolAnnotations(read_only_hint=False))
     def create_issue(title: str) -> str:
         """Create an issue."""
         CALLS.append(("create_issue", {"title": title}))
@@ -50,6 +53,8 @@ def _server() -> Any:
         if scope["type"] == "http":
             REQUESTS.append((scope["method"], scope["path"]))
             headers = dict(scope.get("headers") or [])
+            if b"x-mcp-readonly" in headers:
+                READONLY_HEADERS.append(headers[b"x-mcp-readonly"].decode())
             if headers.get(b"authorization") != f"Bearer {TOKEN}".encode():
                 await send(
                     {

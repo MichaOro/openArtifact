@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from alembic import command
 from tests.helpers import alembic_config, graph_url, kind_of, node, post
 
-TOOL_KINDS = ("mcp_tool", "http_tool", "code_tool")
+TOOL_KINDS = ("mcp_tool", "github_tool", "http_tool", "code_tool")
 
 
 def _edge(
@@ -40,6 +40,7 @@ def test_tool_kinds_are_described_with_one_port_on_top(client: TestClient) -> No
     described = {t["kind"]: t for t in client.get("/api/node-types").json()}
     labels = {
         "mcp_tool": "MCP Client Tool",
+        "github_tool": "GitHub MCP",
         "http_tool": "HTTP Request Tool",
         "code_tool": "Code Tool",
     }
@@ -171,9 +172,15 @@ def _keys(client: TestClient, kind: str) -> dict[str, dict[str, Any]]:
 
 
 def test_every_tool_has_a_name_and_a_description_for_the_model(client: TestClient) -> None:
-    for kind in TOOL_KINDS:
+    # the GitHub MCP node passes on the tools of GitHub's server with their own names and descriptions: its name is only a prefix
+    for kind in (k for k in TOOL_KINDS if k != "github_tool"):
         settings = _keys(client, kind)
         assert list(settings)[:2] == ["tool_name", "description"], kind
+    github = _keys(client, "github_tool")
+    assert list(github) == ["secret", "allow_write", "tool_name", "timeout_seconds"]
+    assert (
+        github["allow_write"]["default"] is False and github["allow_write"]["level"] == "optional"
+    )
     mcp = _keys(client, "mcp_tool")
     assert {"url", "secret", "allow_private", "tools_mode", "tool_names", "timeout_seconds"} <= set(
         mcp

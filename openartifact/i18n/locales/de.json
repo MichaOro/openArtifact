@@ -1765,5 +1765,16 @@
  "tasks.references.no_artifact_number": "Kein Artefakt #{number}",
  "nodes.github.hint": "Dieser Node dient der Verbindung zu GitHub, dem Remote, und der Arbeit damit.",
  "credentials.name_help_external": "Nodes finden die Zugangsdaten über diesen Namen: Großbuchstaben, Ziffern und Unterstriche, mit einem Buchstaben am Anfang.",
- "credentials.name_help_internal": "Sagt, wofür oder für wen das Token ist, zum Beispiel der CI-Job."
+ "credentials.name_help_internal": "Sagt, wofür oder für wen das Token ist, zum Beispiel der CI-Job.",
+ "nodes.github_tool.label": "GitHub MCP",
+ "nodes.github_tool.hint": "Dieser Node lässt einen Agent selbstständig mit GitHub, dem Remote, arbeiten – Issues, Pull Requests, Dateien, Branches – über den MCP-Server von GitHub.",
+ "nodes.github_tool.caption": "{?allow_write:kann ändern}{?!allow_write:nur lesen}",
+ "nodes.github_tool.ports.tool": "Werkzeug",
+ "nodes.github_tool.settings.secret.label": "Zugangsdaten",
+ "nodes.github_tool.settings.secret.help": "Ein GitHub-Zugriffstoken (classic oder fine-grained) aus den Zugangsdaten. Was das Token auf GitHub darf, darf auch der Agent.",
+ "nodes.github_tool.settings.allow_write.label": "Schreiben erlauben",
+ "nodes.github_tool.settings.allow_write.help": "Aus: Der Agent kann nur lesen (die Verbindung ist aufs Lesen beschränkt, Tools die etwas ändern fehlen). An: Er darf auch Issues, Kommentare und mehr anlegen und ändern.",
+ "nodes.github_tool.settings.timeout_seconds.label": "Timeout (Sekunden)",
+ "nodes.github_tool.settings.tool_name.label": "Werkzeugname",
+ "nodes.github_tool.settings.tool_name.help": "Der Name, unter dem das Modell es aufruft (Buchstaben, Ziffern, _ und -). Leer: der Name des Nodes."
 }

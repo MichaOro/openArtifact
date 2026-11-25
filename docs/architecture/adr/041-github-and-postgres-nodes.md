@@ -88,3 +88,17 @@ migration `0036` adds the three kinds to the kind check (its downgrade deletes t
 - Not built: other GitHub writes (create issues, labels, files), paging beyond one page, a query the model writes
   itself, Postgres notifications or transactions over several statements, other databases.
 - The connection is opened per call; no pool.
+
+## 5. Addendum (2026-11-25): the GitHub MCP node, and the token as a credential
+
+- **The GitHub node** names its token by a **credential** (type *GitHub access token*, classic or fine-grained), chosen in the node
+  with a pencil that opens the credentials window and *Create new credential* as the last entry. The address of a GitHub
+  Enterprise server is a field of that credential (*GitHub server*), no longer a setting of the node. Resource and
+  Operation are two choices side by side (what is not built yet is shown greyed and cannot be chosen); a setting is only drawn
+  for the operations that use it (`shown_when`, `options_by`, `disabled_options`, `line` in the node manifests).
+- **The GitHub MCP node** (`github_tool`, migration `0053`) hangs below an Agent node like the other tools and gives the agent
+  every tool of GitHub's MCP server (`https://api.githubcopilot.com/mcp/`) to use on its own ("review issue 277", "summarise the
+  state of the repository", "which points of the card are missing in the repo"). Its settings are the credential, *Allow writes*
+  (off), the name for the model and a timeout. **Read-only until the switch is on**: the connection carries
+  `X-MCP-Readonly: true`, and tools the server announces as changing something (`readOnlyHint` false) are left out as a second
+  line. What the token may do on GitHub is also the limit of what the agent may do with *Allow writes* on.

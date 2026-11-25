@@ -176,7 +176,7 @@ def secret_names(tools: Sequence[Mapping[str, Any]]) -> list[str]:
     names: list[str] = []
     for tool in tools:
         config = tool.get("config") or {}
-        if tool.get("kind") == NodeKind.MCP_TOOL:
+        if tool.get("kind") in (NodeKind.MCP_TOOL, NodeKind.GITHUB_TOOL):
             found = [str(config.get("secret") or "").strip()]
         else:
             found = local_tools.secret_names(str(tool.get("kind")), config)
@@ -198,15 +198,21 @@ async def open_toolbox(
             config = frozen.get("config") or {}
             label, prefix = str(frozen.get("name") or "tool"), str(frozen.get("tool_name") or "")
             kind = str(frozen.get("kind"))
-            if kind == NodeKind.MCP_TOOL:
+            if kind in (NodeKind.MCP_TOOL, NodeKind.GITHUB_TOOL):
                 secret = str(config.get("secret") or "").strip()
+                github = kind == NodeKind.GITHUB_TOOL
                 try:
                     server = await stack.enter_async_context(
                         open_mcp(
-                            config,
+                            _github_mcp_config(config) if github else config,
                             context.secrets.get(secret) if secret else None,
-                            allow_private=bool(config.get("allow_private"))
+                            allow_private=context.allow_private_networks
+                            if github
+                            else bool(config.get("allow_private"))
                             and context.allow_private_networks,
+                            # GitHub's server enforces read-only itself when asked; the tools it marks as changing are also left out
+                            headers=_github_mcp_headers(config) if github else None,
+                            read_only=github and not config.get("allow_write"),
                         )
                     )
                 except McpToolError as error:
@@ -235,6 +241,25 @@ async def open_toolbox(
             built.append(tool)
         values = [v for v in context.secrets.values() if v]
         yield Toolbox(built, mask=(lambda text: mask_text(text, values)) if values else None)
+
+
+#: Where the GitHub MCP node connects: GitHub's own MCP server (the node has no address setting).
+GITHUB_MCP_URL = "https://api.githubcopilot.com/mcp/"
+
+
+def _github_mcp_config(config: Mapping[str, Any]) -> dict[str, Any]:
+    """The settings of an MCP connection for a GitHub MCP node: the fixed address, every tool of the server."""
+    return {
+        "url": GITHUB_MCP_URL,
+        "tools_mode": "all",
+        "tool_names": "",
+        "timeout_seconds": config.get("timeout_seconds") or 60,
+    }
+
+
+def _github_mcp_headers(config: Mapping[str, Any]) -> dict[str, str]:
+    """What GitHub's server needs to hold the connection to reading: it then offers and runs read tools only."""
+    return {} if config.get("allow_write") else {"X-MCP-Readonly": "true"}
 
 
 def _mcp_call(call: Callable[[str, Mapping[str, Any]], Awaitable[str]], name: str) -> Run:

@@ -244,3 +244,25 @@ def test_the_github_dialog_pairs_resource_and_operation_and_draws_only_what_the_
     expect(dialog.get_by_label("Git reference", exact=True)).to_have_count(0)
     add_setting(page, "Git reference")
     expect(dialog.get_by_label("Git reference", exact=True)).to_be_visible()
+
+
+def test_the_github_mcp_node_has_the_credential_first_and_no_resource_or_operation(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _open(page, base_url, api, "github_tool")
+    dialog = page.locator("#node-modal")
+    labels = dialog.locator('.ge-settings__column[data-section="definition"] .field__label')
+    assert [x.strip() for x in labels.all_inner_texts()] == ["Credential"]
+    for label in ("Resource", "Operation", "Repository"):
+        expect(dialog.get_by_label(label, exact=True)).to_have_count(
+            0
+        )  # the agent picks its calls itself
+    expect(dialog.locator(".ge-inspector__icon")).to_have_attribute("title", re.compile("GitHub"))
+    # read only until it is allowed; the switch, the timeout and the name for the model are offered through Add setting
+    add_setting(page, "Allow writes")
+    writes = dialog.get_by_label("Allow writes", exact=True)
+    expect(writes).not_to_be_checked()
+    writes.check()
+    eventually(lambda: _config(api, definition, "github_tool")["allow_write"], True)
+    add_setting(page, "Timeout (seconds)")
+    expect(dialog.get_by_label("Timeout (seconds)", exact=True)).to_be_visible()

@@ -219,9 +219,17 @@ def _included(names: Sequence[str], config: Mapping[str, Any]) -> set[str]:
 
 @asynccontextmanager
 async def open_mcp(
-    config: Mapping[str, Any], token: str | None, *, allow_private: bool
+    config: Mapping[str, Any],
+    token: str | None,
+    *,
+    allow_private: bool,
+    headers: Mapping[str, str] | None = None,
+    read_only: bool = False,
 ) -> AsyncIterator[McpServer]:
-    """Connect to the server of an MCP Client Tool node and list its tools; :class:`McpToolError` if that fails."""
+    """Connect to the server of an MCP Client Tool node and list its tools; :class:`McpToolError` if that fails.
+
+    ``headers`` are sent with every request besides the token. ``read_only`` leaves out every tool the server announces as one
+    that changes something (``readOnlyHint`` false): a second line behind whatever the server enforces itself."""
     url = str(config.get("url") or "").strip()
     try:
         check_endpoint(url)
@@ -230,10 +238,10 @@ async def open_mcp(
     if not url:
         raise McpToolError("The MCP Client Tool has no endpoint")
     timeout = float(config.get("timeout_seconds") or 60)
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    sent = {**(headers or {}), **({"Authorization": f"Bearer {token}"} if token else {})}
     transport = GuardedTransport(allow_private)
     try:
-        async with _connected(url, headers, timeout, transport, config) as server:
+        async with _connected(url, sent, timeout, transport, config, read_only) as server:
             yield server
     except BaseExceptionGroup as group:
         # the SDK's task groups wrap what happens inside them; hand on the error itself
@@ -258,6 +266,7 @@ async def _connected(
     timeout: float,
     transport: GuardedTransport,
     config: Mapping[str, Any],
+    read_only: bool = False,
 ) -> AsyncIterator[McpServer]:
     async with AsyncExitStack() as stack:
         try:
@@ -281,6 +290,10 @@ async def _connected(
             raise
         except Exception as error:  # an ExceptionGroup of the SDK included
             raise _failure(error, transport.last_status) from None
+        if read_only:
+            listed = [
+                t for t in listed if getattr(t.annotations, "read_only_hint", None) is not False
+            ]
         offered = _included([t.name for t in listed], config)
         tools = [
             McpTool(t.name, t.description or "", dict(t.input_schema or {"type": "object"}))

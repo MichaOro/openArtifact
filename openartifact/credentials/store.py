@@ -248,6 +248,7 @@ _SECRET_KINDS = (
     NodeKind.GITHUB,
     NodeKind.POSTGRES,
     NodeKind.MCP_TOOL,
+    NodeKind.GITHUB_TOOL,
     NodeKind.HTTP_TOOL,
     NodeKind.CODE_TOOL,
     NodeKind.POSTGRES_TOOL,
@@ -255,7 +256,13 @@ _SECRET_KINDS = (
 #: Kinds with a list of secret names, and kinds with the name of one secret in ``secret``.
 _NAME_LIST = frozenset({NodeKind.CODE, NodeKind.CODE_TOOL})
 _ONE_NAME = frozenset(
-    {NodeKind.GITHUB, NodeKind.POSTGRES, NodeKind.MCP_TOOL, NodeKind.POSTGRES_TOOL}
+    {
+        NodeKind.GITHUB,
+        NodeKind.POSTGRES,
+        NodeKind.MCP_TOOL,
+        NodeKind.GITHUB_TOOL,
+        NodeKind.POSTGRES_TOOL,
+    }
 )
 
 

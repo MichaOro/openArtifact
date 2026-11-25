@@ -2607,6 +2607,105 @@
   }
  },
  {
+  "kind": "github_tool",
+  "label": "GitHub MCP",
+  "scopes": [
+   "action"
+  ],
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "secret",
+    "label": "Credential",
+    "type": "credential",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "credential_types": [
+     "github_pat"
+    ],
+    "help": "A GitHub access token (classic or fine-grained), kept in the credentials. What the token may do on GitHub is what the agent may do.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "allow_write",
+    "label": "Allow writes",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "Off: the agent can only read (the connection is held to reading and the tools that change something are left out). On: it may also create and change issues, comments and more.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 300,
+    "default": 60,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 2
+  },
+  "menu_icon": "github",
+  "ui": {
+   "icon": "github",
+   "color": "github",
+   "caption": {
+    "template": "{?allow_write:can change}{?!allow_write:read only}"
+   },
+   "hint": "This node lets an agent work with GitHub, the remote, on its own - issues, pull requests, files, branches - through GitHub's MCP server."
+  }
+ },
+ {
   "kind": "http_tool",
   "label": "HTTP Request Tool",
   "scopes": [

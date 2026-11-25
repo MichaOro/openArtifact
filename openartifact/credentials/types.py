@@ -99,7 +99,7 @@ TYPES: dict[str, CredentialType] = {
                 ),
             ),
             testable=True,
-            consumers=("github", "mcp_tool"),
+            consumers=("github", "github_tool", "mcp_tool"),
         ),
         CredentialType(
             "openrouter_api_key",
