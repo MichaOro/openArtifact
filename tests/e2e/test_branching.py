@@ -241,8 +241,8 @@ def test_typing_a_reference_suggests_and_the_keyboard_accepts(
     expect(url).to_have_attribute("aria-expanded", "true")
     # the first step: the groups and the nodes by name, not everything at once
     expect(_options(page).first).to_contain_text(
-        "var."
-    )  # (and card. where the artifact has fields)
+        "card."
+    )  # the card of the run comes first (ADR-064), then the variables
     expect(listbox.get_by_role("option", name="var.")).to_have_count(1)
     page.wait_for_timeout(500)  # the secret names arrive a moment after the field got focus
     url.press("Backspace")
