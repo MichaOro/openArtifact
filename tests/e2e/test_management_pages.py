@@ -210,3 +210,65 @@ def test_the_page_size_is_in_the_toolbar_next_to_the_switch_and_the_pager_keeps_
     assert abs(size_box["y"] - view_box["y"]) < 12, "on the same line"
     size.select_option("24")
     assert page.evaluate("JSON.parse(localStorage.getItem('oa-management-actions')).size") == 24
+
+
+def _box(locator):  # type: ignore[no-untyped-def]
+    box = locator.bounding_box()
+    assert box is not None
+    return box
+
+
+def test_actions_keep_search_and_order_in_place_between_the_tabs_and_the_tabs_and_filter_have_a_row_below(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    post(api, "/api/actions", name="Plain one")
+    post(api, "/api/actions", name="Guarded one", purpose="guard")
+    page.goto(f"{base_url}/actions")
+    expect(page.locator(".mg-card").first).to_be_visible()
+    search, order = page.locator(".mg-search"), page.locator(".mg-sort")
+    tabs, filt = page.locator(".mg-segment"), page.locator(".mg-filter")
+    s0, o0 = _box(search), _box(order)
+    # row two (tabs and filter) is below the row of search and order, not beside it
+    assert _box(tabs)["y"] >= s0["y"] + s0["height"] - 1
+    assert _box(filt)["y"] >= s0["y"] + s0["height"] - 1
+    assert abs(_box(tabs)["y"] - _box(filt)["y"]) < 6, "tabs and filter share the second row"
+    assert abs(s0["y"] - o0["y"]) < 6 and o0["x"] > s0["x"], "search, then order, on row one"
+    page.get_by_role("tab", name=re.compile("Guard actions")).click()
+    expect(_card(page, "Guarded one")).to_be_visible()
+    s1, o1 = _box(search), _box(order)
+    assert (s1["x"], s1["y"], s1["width"]) == (s0["x"], s0["y"], s0["width"]), "search stays"
+    assert (o1["x"], o1["y"]) == (o0["x"], o0["y"]), "order stays"
+    # the page size and the switch are on row one, right of the order
+    size = _box(page.locator(".mg__size"))
+    assert abs(size["y"] - s0["y"]) < 12 and size["x"] > o0["x"]
+
+
+def test_pipelines_have_search_order_and_filter_in_one_row_in_that_order(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    build_pipeline(api, name="Only flow", stages=1)
+    page.goto(f"{base_url}/pipelines")
+    expect(page.locator(".mg-card").first).to_be_visible()
+    s, o, f = (
+        _box(page.locator(".mg-search")),
+        _box(page.locator(".mg-sort")),
+        _box(page.locator(".mg-filter")),
+    )
+    assert s["x"] < o["x"] < f["x"], "search, order, filter"
+    assert abs(s["y"] - o["y"]) < 6 and abs(o["y"] - f["y"]) < 6, "in one row"
+
+
+def test_a_card_has_no_picture_of_the_graph_and_the_graph_is_in_the_panel_tab(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    build_pipeline(api, name="Quiet flow", stages=2)
+    post(api, "/api/actions", name="Quiet action")
+    for path, name in (("pipelines", "Quiet flow"), ("actions", "Quiet action")):
+        page.goto(f"{base_url}/{path}")
+        card = _card(page, name)
+        expect(card).to_be_visible()
+        page.wait_for_timeout(500)  # a picture would be drawn as soon as the card is in view
+        expect(card.locator(".gp__stage, .gp-node")).to_have_count(0)
+        card.click()
+        page.locator(".mg__panel").get_by_role("tab", name="Graph").click()
+        expect(page.locator(".mg__panel .gp__stage").first).to_be_visible()

@@ -7,7 +7,8 @@
 .mg__main { display: grid; gap: var(--space-4); min-width: 0; }
 
 /* ── toolbar ──────────────────────────────────────────────────────── */
-.mg__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.mg__toolbar { display: grid; gap: var(--space-2); }
+.mg__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .mg-segment { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid var(--glass-border); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--color-glass-card) 70%, transparent); }
 .mg-segment__tab { white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-pill); background: none; color: var(--color-text-secondary); font: inherit; font-size: 0.8125rem; cursor: pointer; }
 .mg-segment__tab .icon { width: 1rem; height: 1rem; }
@@ -24,7 +25,7 @@
 
 /* ── list ─────────────────────────────────────────────────────────── */
 .mg__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
-.mg__list[data-view="cards"] { grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
+.mg__list[data-view="cards"] { grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
 .mg-card { position: relative; display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border: 1px solid transparent; cursor: pointer; min-width: 0; }
 .mg-card:hover { border-color: var(--glass-border-hover); }
 .mg-card:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
@@ -39,7 +40,7 @@
 .mg__list[data-view="list"] .mg-card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
 .mg__list[data-view="list"] .mg-card__head { padding-right: 0; }
 .mg__list[data-view="list"] .mg-card__actions { position: static; }
-.mg__list[data-view="list"] .mg-card .gp, .mg__list[data-view="list"] .mg-card__text { display: none; }
+.mg__list[data-view="list"] .mg-card__text { display: none; }
 .mg-chip { display: inline-flex; align-items: center; gap: var(--space-1); white-space: nowrap; max-width: 100%; }
 .mg-chip .icon { width: 0.8rem; height: 0.8rem; }
 .mg-tag { padding: 0 var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-pill); font-size: 0.75rem; line-height: 1.4rem; color: var(--color-text-secondary); }
