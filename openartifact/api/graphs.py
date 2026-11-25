@@ -265,11 +265,13 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         if version is None:
             raise _not_found(f"Version {number}")
         content = json.loads(version.content)
+        nodes, edges = content.get("nodes", []), content.get("edges", [])
         return GraphVersionDetail(
             **_version_read(version, graph).model_dump(),
             name=content.get("name", ""),
-            nodes=content.get("nodes", []),
-            edges=content.get("edges", []),
+            nodes=nodes,
+            edges=edges,
+            stages=pipeline_chain(nodes, edges) if kind == GraphKind.PIPELINE else None,
         )
 
     @router.post(

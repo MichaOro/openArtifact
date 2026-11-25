@@ -2002,5 +2002,18 @@
  "agents.page.select": "Wähle einen Agent, um seine Details zu sehen",
  "guards.select_one": "Wähle einen Guard, um seine Details zu sehen",
  "agents.editor_page.show_more_versions": "Weitere Versionen anzeigen ({count})",
- "agents.editor_page.hide_versions": "{count} Versionen ausblenden"
+ "agents.editor_page.hide_versions": "{count} Versionen ausblenden",
+ "graph_versions.chip_published": "v{number} veröffentlicht",
+ "graph_versions.chip_changed": "Entwurf mit Änderungen",
+ "graph_versions.publish": "Veröffentlichen",
+ "graph_versions.publish_confirm": "Den Entwurf als neue Version veröffentlichen? Ausführungen, die ab jetzt starten, nutzen sie.",
+ "graph_versions.publish_again_confirm": "Version {number} erneut veröffentlichen? Das macht eine neue Version mit ihrem Inhalt; der Verlauf bleibt, der Entwurf wird nicht geändert.",
+ "graph_versions.note_nothing_published": "Nichts ist veröffentlicht: Ausführungen laufen mit dem Entwurf.",
+ "graph_versions.note_equal": "Der Entwurf entspricht der veröffentlichten Version {number}.",
+ "graph_versions.note_changed": "Der Entwurf weicht von der veröffentlichten Version {number} ab: Ausführungen nutzen Version {number}, bis der Entwurf veröffentlicht wird.",
+ "graph_versions.none": "Noch keine Version.",
+ "graph_versions.shown": "Angezeigt",
+ "graph_versions.load_error": "Die Versionen konnten nicht geladen werden.",
+ "graph_versions.showing": "Zeigt Version {number}, nur lesend.",
+ "graph_versions.back_to_draft": "Zurück zum Entwurf"
 }

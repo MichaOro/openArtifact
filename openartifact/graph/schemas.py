@@ -178,6 +178,8 @@ class GraphVersionDetail(GraphVersionRead):
     name: str = ""
     nodes: list[dict[str, Any]]
     edges: list[dict[str, Any]]
+    #: For a pipeline: its stages in the order it runs them with their actions, as ``GET /stages`` says (to draw the picture).
+    stages: list[dict[str, Any]] | None = None
 
 
 class GraphListRead(GraphRead):

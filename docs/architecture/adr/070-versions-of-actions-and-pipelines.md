@@ -4,14 +4,14 @@
 **Date:** 2026-11-25  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** [ADR-015](015-graphs.md) (the graph model), [ADR-067](067-pipeline-actions-and-guard-actions.md) (guard actions), [ADR-069](069-management-pages.md) (the *Versions* tab)  
+**Amends:** [ADR-015](015-vocabulary-and-storage-names.md) (the names of graphs), [ADR-067](067-pipeline-actions-and-guard-actions.md) (guard actions), [ADR-069](069-management-pages.md) (the *Versions* tab)  
 **Implemented in:** `models/graphs.py` (`GraphVersion`, `Graph.published_number`), `graph/content.py`, `graph/versions.py`, `graph/publishing.py`, `engine/snapshot.py`, `api/graphs.py`, migration `0057`, `static/js/editor/versions-tab.js`  
 **Affected chapters:** guides [agents](../../guides/agents.md) (the same words), [UI catalog](../../guides/ui-catalog.md)
 
 ## 1. Context
 
 Pipelines and actions carried a chip *Draft* and nothing else: every change in the editor reached every pipeline that uses the
-definition at once, and the next run. Agents already have a draft and published versions (ADR-034): only publishing changes what
+definition at once, and the next run. Agents already have a draft and published versions ([ADR-037](037-agent-harness.md)): only publishing changes what
 executions use. The owner wants the same for actions and pipelines, handled in the detail panel of the management page (ADR-069), not in
 the graph editor.
 

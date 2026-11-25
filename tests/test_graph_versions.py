@@ -7,9 +7,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from alembic import command
 from fastapi.testclient import TestClient
 
+from alembic import command
 from tests.helpers import (
     alembic_config,
     build_pipeline,
@@ -245,3 +245,14 @@ def test_migration_0057_keeps_the_graphs_and_the_downgrade_drops_the_versions(
         ]
         assert "graph_versions" not in tables
     command.upgrade(alembic_config(), "head")
+
+
+def test_the_version_of_a_pipeline_comes_with_its_stages(client: TestClient) -> None:
+    pipeline = build_pipeline(client, stages=2)
+    _publish(client, pipeline)
+    got = client.get(f"{graph_url(pipeline)}/versions/1").json()
+    assert [s["name"] for s in got["stages"]] == [p[0]["name"] for p in pipeline["stages"]]
+    assert (
+        client.get(f"{graph_url(post(client, '/api/actions', name='A'))}/versions/1").status_code
+        == 404
+    )

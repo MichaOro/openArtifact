@@ -93,3 +93,11 @@ The owner's remarks on the pages as built (cards jumped when an entry was select
 - **The page size is part of the toolbar**: "Per page [12] [cards][list]" is one group at the right end of the toolbar (it wraps as a whole);
   the pager under the entries keeps the range ("1–3 of 3") and the pages.
 - **The card of an agent says its description**, when one is kept, and nothing otherwise (the prompt is in the panel).
+
+## 7. Addendum (2026-11-25): the Versions tab of pipelines and actions is built
+
+Pipelines and actions have versions ([ADR-070](070-versions-of-actions-and-pipelines.md)): the *Versions* tab is no longer greyed. It is
+`static/js/editor/versions-tab.js` (a page's own tab, the frame knows nothing of it): *Publish* on top, the versions newest first with
+*In use*, *Show* (the *Graph* tab shows that version read-only; the page sets `page.panelTab = "graph"` and calls `refreshPanel()`) and
+*Publish again*; the chip of the card and of the panel is `publicationChip` (*Draft*, *v3 published*, *Draft has changes*). A tab that is not
+built is still `disabled: true`.
