@@ -80,9 +80,12 @@ def test_every_kind_declares_valid_metadata_and_the_shared_failure_setting_is_be
         NodeKind.POSTGRES,
     ):
         failure = _by_key(kind)["on_failure"]
-        assert (failure.section, failure.level, failure.inherits) == ("behaviour", "core", None), (
-            kind
-        )
+        # optional since the owner's decision of 2026-11-25: "If the node fails" is added through Add setting, Stop the run until then
+        assert (failure.section, failure.level, failure.inherits) == (
+            "behaviour",
+            "optional",
+            None,
+        ), kind
     for node in NODE_TYPES.values():
         for setting in node.settings:
             assert setting.section in ("definition", "behaviour"), (node.kind, setting.key)
@@ -114,10 +117,15 @@ def test_the_agent_overrides_inherit_from_the_agent_and_sit_in_their_groups() ->
             settings[key].inherits,
             settings[key].group,
         ) == ("behaviour", "optional", "agent", "Execution limits"), key
-    for key in ("system_prompt_enabled", "system_prompt", "user_prompt"):
+    # the switch is always there; the prompts are drawn only when the node overrides one (the owner's decision of 2026-11-25)
+    for key, level in (
+        ("system_prompt_enabled", "core"),
+        ("system_prompt", "optional"),
+        ("user_prompt", "optional"),
+    ):
         assert (settings[key].section, settings[key].level, settings[key].inherits) == (
             "definition",
-            "core",
+            level,
             "agent",
         ), key
     for key in ("agent_id", "inputs"):
@@ -149,7 +157,7 @@ def test_http_and_code_put_how_they_run_in_the_behaviour_section() -> None:
         "behaviour",
         "advanced",
     )
-    assert (http["on_failure"].section, http["on_failure"].level) == ("behaviour", "core")
+    assert (http["on_failure"].section, http["on_failure"].level) == ("behaviour", "optional")
     code = _by_key(NodeKind.CODE)
     assert [code[k].section for k in ("language", "code")] == ["definition"] * 2
     assert [(code[k].section, code[k].level) for k in ("secrets", "sets_variables")] == [
