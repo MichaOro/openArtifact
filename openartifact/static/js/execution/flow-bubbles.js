@@ -20,8 +20,8 @@ export function bubbleSpec(length, clock = 0) {
   return { length, count, duration, delays, begins };
 }
 
-/** Put the bubbles on an edge's group: they follow the path of its line. */
-export function addBubbles(group, line, failing, reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches) {
+/** Put the bubbles on an edge's group: they follow the path of its line (`reverse`: the other way round). */
+export function addBubbles(group, line, failing, { reverse = false, reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches } = {}) {
   if (reduceMotion) return;
   const length = line.getTotalLength();
   if (!(length > 4)) return;
@@ -37,6 +37,12 @@ export function addBubbles(group, line, failing, reduceMotion = matchMedia("(pre
     motion.setAttribute("dur", `${spec.duration}s`);
     motion.setAttribute("begin", `${begin}s`);
     motion.setAttribute("repeatCount", "indefinite");
+    if (reverse) {
+      // along the line backwards: the line of a tool is drawn from the tool, the call goes towards it
+      motion.setAttribute("keyPoints", "1;0");
+      motion.setAttribute("keyTimes", "0;1");
+      motion.setAttribute("calcMode", "linear");
+    }
     bubble.append(motion);
     holder.append(bubble);
   }

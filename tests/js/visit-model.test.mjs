@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-const { FlowModel, nameOf } = await import("../../openartifact/static/js/execution/visit-model.js");
+const { FlowModel, nameOf, noteToolCall, toolState } = await import("../../openartifact/static/js/execution/visit-model.js");
 
 // A pipeline "Release" with one stage "Build" (id s1) holding two actions; the first action runs the
 // definition "Compile" twice (a retry), the second one calls nothing. Visit 0 is the pipeline.
@@ -202,4 +202,90 @@ test("titleOf: the node and its stage for an action, the graph's name for the ro
   assert.deepEqual([root.name, root.stage], ["Release", null]);
   const called = model.titleOf(model.visit(3));
   assert.deepEqual([called.name, called.stage], ["Call", null]);
+});
+
+
+// ── the tool nodes of an agent ───────────────────────────────────────
+
+test("a tool node says green, red or working from what its calls came to, and nothing without a call", () => {
+  assert.equal(toolState(null), null);
+  assert.equal(toolState({ calls: 0, errors: 0, running: 0 }), null, "never asked: it keeps looking unused");
+  assert.deepEqual(toolState({ calls: 9, errors: 0 }), { state: "pass", calls: 9, errors: 0 });
+  assert.deepEqual(toolState({ calls: 9, errors: 1 }), { state: "fail", calls: 9, errors: 1 }, "one failed call is enough");
+  assert.equal(toolState({ calls: 3, errors: 1, running: 1 }).state, "running", "a call in progress wins over what came before");
+  assert.equal(toolState({ calls: 0, errors: 0, running: 1 }).state, "running");
+});
+
+test("events of calls are counted per tool node: started adds a running call, finished turns it into a call that went well or not", () => {
+  const live = new Map();
+  noteToolCall(live, { state: "started", tool_node_id: "t1" });
+  assert.deepEqual(live.get("t1"), { running: 1, calls: 0, errors: 0 });
+  noteToolCall(live, { state: "finished", tool_node_id: "t1", ok: true });
+  noteToolCall(live, { state: "started", tool_node_id: "t1" });
+  noteToolCall(live, { state: "finished", tool_node_id: "t1", ok: false });
+  noteToolCall(live, { state: "started", tool_node_id: "t2" });
+  assert.deepEqual(live.get("t1"), { running: 0, calls: 2, errors: 1 });
+  assert.deepEqual(live.get("t2"), { running: 1, calls: 0, errors: 0 });
+  noteToolCall(live, { state: "finished", tool_node_id: "t9", ok: true }); // a finish without a start never goes below zero
+  assert.equal(live.get("t9").running, 0);
+});
+
+// An action "Ask" of the pipeline "Run": the agent node and three tool nodes below it (one used, one failed, one never asked).
+const askGraph = {
+  id: "d", kind: "action", name: "Ask",
+  nodes: [
+    { id: "trig", kind: "trigger", name: "Trigger" },
+    { id: "ag", kind: "agent", name: "Agent" },
+    { id: "gh", kind: "github_tool", name: "GitHub MCP" },
+    { id: "http", kind: "http_tool", name: "Web" },
+    { id: "idle", kind: "code_tool", name: "Unused" },
+    { id: "out", kind: "output", name: "Output" },
+  ],
+};
+const agentFlow = (data, outcome = "pass") => ({
+  execution: { id: "e1", status: "done" },
+  graphs: { p: { id: "p", kind: "pipeline", name: "Run", nodes: [{ id: "a1", kind: "action", name: "Action", definition_name: "Ask" }] }, d: askGraph },
+  visits: [
+    visit({ index: 0, nodes: ["a1"], edges: [] }),
+    visit({ index: 1, parent: 0, graph_id: "d", entered_via: via("a1"), outcome, nodes: ["trig", "ag", "out"], first_seq: 1, last_seq: 3 }),
+  ],
+  steps: [{ seq: 2, node_id: "ag", kind: "agent", outcome, data }],
+});
+
+test("the tool nodes an agent used get their state from its step; the one it never asked stays not-run", () => {
+  const model = new FlowModel(agentFlow({ tools: [{ node: "gh", name: "GitHub MCP", calls: 9, errors: 0 }, { node: "http", name: "Web", calls: 2, errors: 1 }] }));
+  const { states } = model.describe(model.visit(1));
+  assert.deepEqual(states.get("gh"), { state: "pass", calls: 9, errors: 0, passes: 0, tool: true });
+  assert.deepEqual(states.get("http"), { state: "fail", calls: 2, errors: 1, passes: 0, tool: true });
+  assert.equal(states.get("idle").state, "not-run");
+  assert.equal(states.get("idle").tool, undefined);
+});
+
+test("a step of before (no summary) or one that names a node of no graph changes nothing", () => {
+  for (const data of [undefined, {}, { tools: [{ node: "elsewhere", calls: 1, errors: 0 }] }]) {
+    const model = new FlowModel(agentFlow(data));
+    const { states } = model.describe(model.visit(1));
+    assert.equal(states.get("gh").state, "not-run");
+    assert.equal(states.has("elsewhere"), false);
+  }
+});
+
+test("while the agent still runs the live calls decide, and a call in progress shows the node working", () => {
+  const model = new FlowModel({ ...agentFlow(undefined, "running"), steps: [] });
+  const live = new Map();
+  noteToolCall(live, { state: "started", tool_node_id: "gh" });
+  assert.equal(model.describe(model.visit(1), live).states.get("gh").state, "running");
+  noteToolCall(live, { state: "finished", tool_node_id: "gh", ok: false });
+  const done = model.describe(model.visit(1), live).states.get("gh");
+  assert.deepEqual([done.state, done.calls, done.errors], ["fail", 1, 1]);
+  assert.equal(model.describe(model.visit(1), live).states.get("idle").state, "not-run");
+});
+
+test("an agent asking a tool again (a loop) shows it working while the finished calls stay counted", () => {
+  const model = new FlowModel(agentFlow({ tools: [{ node: "gh", name: "GitHub MCP", calls: 4, errors: 0 }] }));
+  const live = new Map([["gh", { running: 1, calls: 0, errors: 0 }]]);
+  const gh = model.describe(model.visit(1), live).states.get("gh");
+  assert.deepEqual([gh.state, gh.calls], ["running", 4]);
+  const quiet = model.describe(model.visit(1), new Map([["gh", { running: 0, calls: 7, errors: 3 }]])).states.get("gh");
+  assert.deepEqual([quiet.state, quiet.calls, quiet.errors], ["pass", 4, 0], "what a finished step says wins over what was heard live");
 });

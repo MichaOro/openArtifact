@@ -1806,5 +1806,8 @@
  "nav.personal.tooltip": "Persönliche Einstellungen",
  "forms.personal.sections.display.title": "Anzeige",
  "forms.personal.fields.mark_resolved_references.label": "Aufgelöste Referenzen markieren",
- "forms.personal.fields.mark_resolved_references.help": "Hebt den Text, für den eine ${card.X}-Referenz steht, im Artefakt-Dialog und auf den Karten des Boards farbig hervor und zeigt eine Legende."
+ "forms.personal.fields.mark_resolved_references.help": "Hebt den Text, für den eine ${card.X}-Referenz steht, im Artefakt-Dialog und auf den Karten des Boards farbig hervor und zeigt eine Legende.",
+ "execution.flow_view.tool_calls.one": "{count} Aufruf",
+ "execution.flow_view.tool_calls.other": "{count} Aufrufe",
+ "execution.flow_view.tool_calls_failed": "{calls}, {errors} fehlgeschlagen"
 }

@@ -62,3 +62,16 @@ matter of choosing the read tools.
 - A read-only GitHub agent is an MCP Client Tool with only read tools selected.
 - Not built: memory, several agents, approval before a tool call, local MCP servers, tools of the n8n kind "call a
   workflow".
+
+## 5. Addendum (2026-11-25): the state of a tool node in the run
+
+- A tool call carries the **tool node** it belongs to (`node_id`, `node_name`; a node such as an MCP server offers many tools).
+  The step keeps `data.tools`, a summary per tool node (`calls`, `errors`), and the flow of the execution shows it: green (all
+  calls went well), red (at least one failed), dim and dashed (never asked).
+- The agent loop stays independent of the application: it reports through a callback (`on_tool`, `agents/runtime.py`); the
+  engine hands the events to the event bus as **`agent.tool_call`** (`Limits.publish`, `engine/executors.py`) with the artifact,
+  the execution, the agent node, the tool node, the tool, `state` (`started`, `finished`), `ok` and `duration_ms`. The
+  browser subscribes to it (`EVENT_TYPES`); the flow page counts the calls per tool node while the execution runs and the
+  finished step takes over. Events carry names and states only (no arguments, no results, no secrets).
+- Not built: a live protocol of the agent's turns, health figures for guards, the state of a call that began before the page was
+  opened.

@@ -167,6 +167,15 @@ agent takes any number of tools; a tool belongs to one agent.
   off) fails the node before its first request, with the tool's name in the reason.
 - **Results** are cut to 16 KiB for the model and the history, and the values of the run's secrets are masked in them
   before the model reads them.
+- **The tool nodes in the flow.** In the flow of an execution a tool node the agent used is no longer dim and dashed: **green**
+  when every call went well, **red** when at least one failed (the badge counts the calls, the tooltip says "9 calls, 1 failed"),
+  and the line to its agent takes the same colour. While a call is in progress the node pulses like a running node and bubbles run
+  along its line from the agent to the tool. A tool the agent never asked stays dim. Every tool call remembers its tool node
+  (`node_id`, `node_name` in `detail.turns[].tool_calls[]`), and the step keeps a summary per tool node in `data.tools`
+  (`[{"node", "name", "calls", "errors"}]`); older steps have none and show no tool state. The live part is the event
+  `agent.tool_call` (`state` `started` or `finished`, `ok`, `duration_ms`, `agent_node_id`, `tool_node_id`, `tool`, with the
+  artifact and the execution): names and states only, never arguments or results. A page opened while a call is already
+  running shows the node working only from the next call on (events are not replayed); the finished step has the whole state.
 - **Private addresses** for MCP and HTTP tools need the same two permissions as a provider: the operator's
   `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS=true` *and* the tool's *Private network* switch. Cloud metadata addresses are
   always refused and the connection goes to the checked address. An HTTP Request Tool follows no redirect; the MCP

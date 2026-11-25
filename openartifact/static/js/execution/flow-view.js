@@ -7,7 +7,7 @@ import { Canvas } from "../editor/canvas.js";
 import { typeOf } from "../editor/node-types.js";
 import { addBubbles, FAILING_PORTS } from "./flow-bubbles.js";
 import { nameOf } from "./visit-model.js";
-import { t } from "../i18n.js";
+import { plural, t } from "../i18n.js";
 
 /** state -> [word for people, word of the aria label, icon] */
 export const STATES = {
@@ -87,6 +87,7 @@ export class FlowView {
     el.classList.add(`ef-state-${info.state}`);
     el.classList.toggle("is-dim", info.state === "not-run" || info.state === "skipped");
     el.classList.toggle("has-child", info.passes > 0);
+    el.classList.toggle("ef-tool", Boolean(info.tool)); // a tool node an agent used: green, red or working, not dimmed
 
     let badge = el.querySelector(":scope > .ef-badge");
     if (!badge) {
@@ -98,15 +99,18 @@ export class FlowView {
     badge.hidden = !glyph;
     badge.replaceChildren(...(glyph ? [icon(glyph)] : []));
     if (info.passes > 1) badge.append(`×${info.passes}`);
+    if (info.tool && info.calls > 1) badge.append(`×${info.calls}`);
     badge.dataset.state = info.state;
     badge.title = word;
 
-    const facts = [word, info.step?.exit_code != null ? t("execution.flow_panel.exit_code_exit_code", { exit_code: info.step.exit_code }) : null, info.passes > 1 ? `${info.passes} passes` : null, info.passes ? t("execution.flow_panel.enter_opens") : null];
+    const calls = info.tool ? toolCallsText(info) : null;
+    const facts = [word, calls, info.step?.exit_code != null ? t("execution.flow_panel.exit_code_exit_code", { exit_code: info.step.exit_code }) : null, info.passes > 1 ? `${info.passes} passes` : null, info.passes ? t("execution.flow_panel.enter_opens") : null];
     el.setAttribute("aria-label", `${typeOf(node).label}: ${nameOf(node)}, ${facts.filter(Boolean).join(", ")}`);
-    el.title = info.state === "not-run" ? t("execution.flow_view.not_run") : "";
+    el.title = info.state === "not-run" ? t("execution.flow_view.not_run") : calls ?? "";
   }
 
   #decorateEdge(edge, group) {
+    if (edge.target_port === "tools") return this.#decorateToolEdge(edge, group);
     const order = this.walk?.edgeOrder.get(edge.id);
     group.classList.toggle("is-walked", order !== undefined);
     group.classList.toggle("is-idle", order === undefined);
@@ -124,4 +128,23 @@ export class FlowView {
     group.append(mark);
     if (this.live) addBubbles(group, line, FAILING_PORTS.includes(edge.source_port));
   }
+
+  /** The dashed line of a tool: faint while the tool was not used, then in the colour of what its calls came to; while a call is
+   * in progress the bubbles run along it from the agent to the tool. */
+  #decorateToolEdge(edge, group) {
+    const use = this.walk?.states.get(edge.source_id);
+    const state = use?.tool ? use.state : null;
+    for (const name of ["pass", "fail", "running"]) group.classList.toggle(`is-tool-${name}`, state === name);
+    group.classList.toggle("is-walked", state !== null);
+    group.classList.toggle("is-idle", state === null);
+    if (state !== "running" || !this.live) return;
+    const line = group.querySelector(".ge-edge__line");
+    addBubbles(group, line, false, { reverse: true }); // the agent asks the tool: from the agent down to it
+  }
+}
+
+/** "9 calls" or "9 calls, 1 failed": what the node of a tool says about what was asked of it. */
+function toolCallsText(info) {
+  const calls = plural("execution.flow_view.tool_calls", info.calls);
+  return info.errors > 0 ? t("execution.flow_view.tool_calls_failed", { calls, errors: info.errors }) : calls;
 }

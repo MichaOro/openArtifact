@@ -33,7 +33,10 @@ async def stream_events(bus: EventBusDep) -> StreamingResponse:
     and whenever its status changes) and ``execution.deleted`` (``{"task_id", "id"}``: by hand,
     by retention or by the operator's guard; each leaves a trace in the activity) and ``comment.created`` / ``comment.updated`` (the comment)
     and ``comment.deleted`` (``{"id", "task_id"}``) and ``activity.created`` (an entry of the artifact's activity, see
-    ``GET /api/tasks/{ref}/activity``).
+    ``GET /api/tasks/{ref}/activity``) and ``agent.tool_call`` (``{"task_id", "execution_id", "agent_node_id",
+    "tool_node_id", "tool_node_name", "tool", "state", "ok", "duration_ms"}``: a tool call of an agent node of a running
+    execution started (``state`` ``started``) or ended (``finished``, with ``ok`` and ``duration_ms``); names and states only,
+    never arguments or results; the flow page shows the tool node working).
 
     Clients that (re)connect should reload ``GET /api/tasks`` to resync, because
     events that happened while disconnected are not replayed.

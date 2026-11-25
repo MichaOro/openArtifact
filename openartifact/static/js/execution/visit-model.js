@@ -9,6 +9,33 @@
 /** What a node is called (a linked node carries the name of what it links to, as in the editor). */
 export const nameOf = (node) => node.definition_name ?? node.name;
 
+/**
+ * What a tool node did while an agent ran, as a state of the node: `pass` (every call went well), `fail` (at least one call
+ * failed), `running` (a call is in progress) or `null` (no call: the node keeps looking unused). `calls` and `errors` count them.
+ * @param {{calls?: number, errors?: number, running?: number}|null|undefined} use
+ */
+export function toolState(use) {
+  if (!use) return null;
+  const calls = use.calls ?? 0;
+  const errors = use.errors ?? 0;
+  const running = use.running ?? 0;
+  if (!calls && !running) return null;
+  return { state: running > 0 ? "running" : errors > 0 ? "fail" : "pass", calls, errors };
+}
+
+/** Tell the live tool state of an execution (a map of tool node id to `{running, calls, errors}`) about one `agent.tool_call` event. */
+export function noteToolCall(live, event) {
+  const use = live.get(event.tool_node_id) ?? { running: 0, calls: 0, errors: 0 };
+  if (event.state === "started") use.running += 1;
+  else if (event.state === "finished") {
+    use.running = Math.max(0, use.running - 1);
+    use.calls += 1;
+    if (event.ok === false) use.errors += 1;
+  }
+  live.set(event.tool_node_id, use);
+  return live;
+}
+
 const FINISHED = { pass: "pass", fail: "fail", running: "running" };
 const outcomeState = (outcome) => FINISHED[outcome] ?? "stopped";
 
@@ -79,9 +106,11 @@ export class FlowModel {
   /**
    * What was walked in a visit: `entries` (the nodes in the order reached, each with its step or its
    * child visits), `states` (node id -> state, for every node of the graph) and `edgeOrder`
-   * (edge id -> 1, 2, ... in the order gone along).
+   * (edge id -> 1, 2, ... in the order gone along). The tool nodes of an agent that was asked something have their own state
+   * (`tool`: its calls and errors): from what the finished steps say (`data.tools`), and while the agent still runs from
+   * `live` (see {@link noteToolCall}), a node that never worked stays "not-run".
    */
-  describe(visit) {
+  describe(visit, live = null) {
     const graph = this.graph(visit);
     const byId = new Map(graph.nodes.map((n) => [n.id, n]));
     const steps = [...this.stepsOf(visit)];
@@ -108,6 +137,22 @@ export class FlowModel {
     for (const entry of entries) {
       const known = states.get(entry.id);
       states.set(entry.id, { state: entry.state, passes: Math.max(known?.passes ?? 0, entry.children.length), step: entry.step ?? known?.step ?? null });
+    }
+    for (const entry of entries) {
+      for (const used of entry.step?.data?.tools ?? []) {
+        const state = states.has(used.node) ? toolState(used) : null;
+        if (state) states.set(used.node, { ...state, passes: 0, tool: true });
+      }
+    }
+    for (const [id, use] of live ?? []) {
+      const known = states.get(id);
+      if (!known) continue; // not a node of this graph
+      if (!known.tool) {
+        const state = toolState(use);
+        if (state) states.set(id, { ...state, passes: 0, tool: true });
+      } else if (use.running > 0) {
+        states.set(id, { ...known, state: "running" }); // the agent asks it again (a loop): it works, its finished calls stay counted
+      } // otherwise what a finished step says wins over what was heard live
     }
     const edgeOrder = new Map(visit.edges.map((e, i) => [e.id, i + 1]));
     return { entries, states, edgeOrder };
