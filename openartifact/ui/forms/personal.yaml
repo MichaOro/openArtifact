@@ -1,0 +1,16 @@
+# The form of the Personal settings page (ADR-062): display preferences for the single user.
+# The window around it (the title with the name, Save and Cancel) is a component of its own.
+schema: 1
+name: personal
+columns: 2
+width: 50
+sections:
+  - key: display
+    title: Display
+    column: 1
+    fields:
+      - key: mark_resolved_references
+        widget: switch
+        label: Mark resolved references
+        help: Highlight ${card.X} references in artifact dialog and board cards with a coloured background and show a legend.
+        default: false

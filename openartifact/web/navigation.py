@@ -382,6 +382,10 @@ class NavigationRegistry:
             NavLinkEntry(key="run-limits", label_key="nav.run-limits.label", icon="clock", href="/settings/run-limits", order=30),
             parent="settings",
         )
+        self.register(
+            NavLinkEntry(key="personal", label_key="nav.personal.label", icon="user", href="/settings/personal", order=40),
+            parent="settings",
+        )
 
         # Artifact rail entries
 

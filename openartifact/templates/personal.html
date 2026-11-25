@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% block title %}{{ t('page.personal') }} · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/settings.css">{% endblock %}
+{% block content %}
+{{ alert(t('settings.personal_page.personal_could_not_be')) }}
+<div class="st-card glass" data-personal-settings novalidate>
+    <div class="st-intro">{{ t('settings.personal_page.intro') }}</div>
+    <div class="form-view" data-form="personal" data-language="{{ language }}"></div>
+    <div class="st-actions">
+        <span class="st-status" aria-live="polite" data-status></span>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/settings/personal-page.js"></script>{% endblock %}

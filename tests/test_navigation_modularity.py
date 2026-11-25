@@ -65,12 +65,12 @@ def test_navigation_registry_builds_sidebar():
     child_keys = [c.key for c in pipeline.children]
     assert child_keys == ["actions", "guards", "agents"]
 
-    # Settings should have 3 children
+    # Settings should have 4 children (providers, credentials, run-limits, personal)
     settings = next(item for item in sidebar if item.key == "settings")
     assert hasattr(settings, 'children')
-    assert len(settings.children) == 3
+    assert len(settings.children) == 4
     child_keys = [c.key for c in settings.children]
-    assert child_keys == ["providers", "credentials", "run-limits"]
+    assert child_keys == ["providers", "credentials", "run-limits", "personal"]
 
 
 def test_navigation_registry_builds_rail():
@@ -113,18 +113,18 @@ def test_navigation_registry_register_new_entry():
     registry = NavigationRegistry()
     registry.populate_builtin()
 
-    # Register a new entry under settings
+    # Register a new entry under settings (different key to avoid collision with built-in personal)
     registry.register(
-        NavLinkEntry(key="personal", label_key="nav.personal.label", icon="user", href="/settings/personal"),
+        NavLinkEntry(key="myfeature", label_key="nav.myfeature.label", icon="star", href="/myfeature"),
         parent="settings",
-        order=30,
+        order=50,
     )
 
     sidebar = registry.build_sidebar("board", {})
     settings = next(item for item in sidebar if item.key == "settings")
     child_keys = [c.key for c in settings.children]
-    assert "personal" in child_keys
-    assert child_keys.index("run-limits") < child_keys.index("personal")
+    assert "myfeature" in child_keys
+    assert child_keys.index("personal") < child_keys.index("myfeature")
 
 
 def test_navigation_registry_visible_when():

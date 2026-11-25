@@ -229,6 +229,12 @@ async def run_limits(request: Request) -> HTMLResponse:
     return _page(request, "run_limits.html", "page.run_limits", "run-limits")
 
 
+@router.get("/settings/personal", response_class=HTMLResponse, include_in_schema=False)
+async def personal(request: Request) -> HTMLResponse:
+    """Personal display preferences."""
+    return _page(request, "personal.html", "page.personal", "personal")
+
+
 @router.get(
     "/artifacts/{ref}/executions/{execution_id}",
     response_class=HTMLResponse,
