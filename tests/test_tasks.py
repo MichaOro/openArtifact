@@ -46,27 +46,36 @@ def test_create_task_returns_201_with_all_fields(client: TestClient) -> None:
     )
     assert response.status_code == 201
     data = response.json()
-    assert set(data) == {
-        "id",
-        "number",
-        "title",
-        "body",
-        "status",
-        "position",
-        "parent_id",
-        "pipeline_id",
-        "stage_id",
-        "action_id",
-        "created_by",
-        "created_at",
-        "updated_at",
-        "fields",
-        "body_resolved",
-        "preview",
-        "warnings",
-    }
+    assert (
+        set(data)
+        == {
+            "id",
+            "number",
+            "title",
+            "body",
+            "status",
+            "position",
+            "parent_id",
+            "pipeline_id",
+            "stage_id",
+            "action_id",
+            "created_by",
+            "created_at",
+            "updated_at",
+            "fields",
+            "body_resolved",
+            "preview",
+            "body_resolved_segments",  # the marked text, only filled while the personal setting marks resolved references
+            "preview_segments",
+            "warnings",
+        }
+    )
     # a body without a reference has nothing filled in; the three are the references' part of the contract (ADR-064)
     assert (data["body_resolved"], data["preview"], data["warnings"]) == (None, None, [])
+    assert (data["body_resolved_segments"], data["preview_segments"]) == (
+        None,
+        None,
+    )  # the setting is off
     assert data["fields"] == {}  # no artifact fields are defined yet
     assert data["title"] == "Write docs"
     assert data["body"] == "Details"
