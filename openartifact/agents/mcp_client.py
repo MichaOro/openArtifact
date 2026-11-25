@@ -159,14 +159,28 @@ class McpServer:
         except Exception as error:  # the session reports a failed call in many shapes
             return f"Error: the call failed ({_reason(error)})"
         content = getattr(result, "content", None) or []
-        parts = []
-        for item in content:
-            text = getattr(item, "text", None)
-            parts.append(text if isinstance(text, str) else f"[{getattr(item, 'type', 'content')}]")
+        parts = [_content_text(item) for item in content]
         if not parts and getattr(result, "structured_content", None) is not None:
             parts.append(json.dumps(result.structured_content, ensure_ascii=False))
         text = "\n".join(parts)
         return f"Error: {text}" if getattr(result, "is_error", False) else text
+
+
+def _content_text(item: Any) -> str:
+    """The text of one piece of a tool's answer: its text, the text of an embedded resource (GitHub answers a file this way:
+    the model must read the file, not a marker), or a short note for what cannot be read as text (an image, a binary file)."""
+    text = getattr(item, "text", None)
+    if isinstance(text, str):
+        return text
+    resource = getattr(item, "resource", None)
+    if resource is not None:
+        inner = getattr(resource, "text", None)
+        if isinstance(inner, str):
+            return inner
+        mime = getattr(resource, "mime_type", None) or getattr(resource, "mimeType", None)
+        uri = getattr(resource, "uri", None)
+        return f"[binary resource {uri or ''} {mime or ''}]".replace("  ", " ").replace(" ]", "]")
+    return f"[{getattr(item, 'type', 'content')}]"
 
 
 def _leaves(error: BaseException) -> list[BaseException]:

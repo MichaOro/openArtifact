@@ -193,3 +193,28 @@ async def test_the_tool_list_is_read_in_a_bounded_number_of_pages() -> None:
     assert (
         len(await list_all_tools(repeating)) == 2 and repeating.asked == 2
     )  # a cursor seen before ends it
+
+
+async def test_an_embedded_resource_is_read_as_the_text_it_holds() -> None:
+    """GitHub's server answers a file as an embedded resource: the model must get the file's text, not the marker ``[resource]``
+    (it then asked for the same file again and again and never answered)."""
+    from openartifact.agents.mcp_client import McpServer
+
+    file = SimpleNamespace(
+        type="resource", resource=SimpleNamespace(uri="repo://README.md", text="# Title\nBody")
+    )
+    note = SimpleNamespace(type="text", text="successfully downloaded text file")
+    blob = SimpleNamespace(
+        type="resource",
+        resource=SimpleNamespace(uri="repo://logo.png", mime_type="image/png", blob="AAAA"),
+    )
+
+    class Session:
+        async def call_tool(self, name: str, arguments: dict[str, object], **_: object) -> object:
+            return SimpleNamespace(content=[note, file, blob], is_error=False)
+
+    server = McpServer(Session(), [], 5.0, {"get_file_contents"})  # type: ignore[arg-type]
+    text = await server.call("get_file_contents", {})
+    assert text.splitlines()[:3] == ["successfully downloaded text file", "# Title", "Body"]
+    assert "[binary resource repo://logo.png image/png]" in text
+    assert "[resource]" not in text
