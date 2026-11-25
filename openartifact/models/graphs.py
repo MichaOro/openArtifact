@@ -34,6 +34,7 @@ class Graph(Base):
         slug: Readable URL name, unique per kind (follows the name).
         description: What it is for, in a sentence or two (empty when nobody wrote one).
         tags: Short labels to find it by (a JSON list of text).
+        published_number: The version executions use (ADR-070); ``None``: nothing published, the draft runs.
         created_at: Creation timestamp (UTC).
         updated_at: Last modification timestamp (UTC).
     """
@@ -49,11 +50,35 @@ class Graph(Base):
     purpose: Mapped[str] = mapped_column(String(16), default="pipeline", server_default="pipeline")
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    published_number: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+
+
+class GraphVersion(Base):
+    """A published version of a pipeline or an action: a frozen copy of its graph (ADR-070). Rows are written once and never changed.
+
+    ``number`` counts per graph from 1 and is never reused. ``content`` is the JSON of what ``graph_of`` returns (nodes, edges, name,
+    kind). ``fingerprint`` hashes the parts that decide what runs. ``source_number`` is set when the version was made by publishing an
+    earlier one again (a rollback). ``published_via`` is ``user`` (the browser) or ``api``.
+    """
+
+    __tablename__ = "graph_versions"
+    __table_args__ = (UniqueConstraint("graph_id", "number", name="ux_graph_versions_number"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    graph_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("graphs.id", ondelete="CASCADE"), index=True
+    )
+    number: Mapped[int] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    source_number: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    published_via: Mapped[str] = mapped_column(String(16))
+    published_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
 
 class GraphNode(Base):
