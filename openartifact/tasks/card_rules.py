@@ -437,7 +437,8 @@ async def delete_blockers(session: AsyncSession, ids: Sequence[str]) -> dict[str
             select(Task.parent_id).where(Task.parent_id.in_(chunk)).distinct()
         )
         for parent in parents:
-            blocked[parent] = "it has child cards"
+            if parent is not None:
+                blocked[parent] = "it has child cards"
         running = await session.scalars(
             select(PipelineRun.task_id).where(
                 PipelineRun.task_id.in_(chunk), PipelineRun.status == RunStatus.RUNNING

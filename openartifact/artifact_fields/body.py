@@ -160,7 +160,7 @@ def _walk_segments(body: str, card: Mapping[str, Any], words: int | None) -> lis
     current_text: list[str] = []
     current_resolved: bool | None = None
 
-    def flush():
+    def flush() -> None:
         nonlocal current_text, current_resolved
         if current_text:
             segments.append({"text": "".join(current_text), "resolved": current_resolved})

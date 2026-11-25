@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -266,7 +266,8 @@ class NodeManifest(_Strict):
     #: In which kind of action definition the kind may be used (ADR-067): ``pipeline`` (an action of a stage) and/or ``guard``
     #: (an action of a guard). Every kind is in both by default; a kind for guards only says ``[guard]``. Pipelines have no purpose.
     purposes: list[Literal["pipeline", "guard"]] = Field(
-        default_factory=lambda: ["pipeline", "guard"], min_length=1
+        default_factory=lambda: cast(list[Literal["pipeline", "guard"]], ["pipeline", "guard"]),
+        min_length=1,
     )
     #: The right a person needs to use the kind (a hook for the permissions of card #99; nothing evaluates it yet).
     requires: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_.:-]*$")

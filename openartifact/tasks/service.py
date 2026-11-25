@@ -74,6 +74,7 @@ from openartifact.models import (
 )
 from openartifact.tasks import card_rules, card_sweeper
 from openartifact.tasks import lanes as lane_rules
+from openartifact.tasks.card_rules import Rule
 from openartifact.tasks.repository import ParentError, PlacementError, TaskRepository
 from openartifact.tasks.schemas import LaneRead, TaskCreate, TaskRead, TaskUpdate
 
@@ -693,7 +694,7 @@ class ArtifactService:
         async with self._session() as session:
             return await card_rules.load_rules(session)
 
-    async def lane_card_rules(self, lane: str) -> list[card_rules.Rule]:
+    async def lane_card_rules(self, lane: str) -> list[Rule]:
         """The rules of one lane (404 for an unknown lane)."""
         async with self._session() as session:
             try:
@@ -702,9 +703,7 @@ class ArtifactService:
                 raise ArtifactError(404, f"Unknown lane '{lane}'") from error
             return (await card_rules.load_rules(session)).lanes.get(lane, [])
 
-    async def save_lane_rules(
-        self, lane: str, rules: list[card_rules.Rule]
-    ) -> list[card_rules.Rule]:
+    async def save_lane_rules(self, lane: str, rules: list[Rule]) -> list[Rule]:
         """Replace the rules of one lane (404 for an unknown lane, 422 for an action a lane does not offer); a sweep follows."""
         async with self._session() as session:
             try:
@@ -722,7 +721,7 @@ class ArtifactService:
         await self._rules_changed()
         return stored.lanes.get(lane, [])
 
-    async def save_board_rules(self, rules: list[card_rules.Rule]) -> list[card_rules.Rule]:
+    async def save_board_rules(self, rules: list[Rule]) -> list[Rule]:
         """Replace the rules of the board (422 for an action the board does not offer); a sweep follows."""
         async with self._session() as session:
             try:
@@ -738,7 +737,7 @@ class ArtifactService:
         await self.sweep()
         self._bus.publish("board.resync", {})  # the marks of the cards follow the rules
 
-    async def preview_rule(self, rule: card_rules.Rule, lane: str | None) -> card_sweeper.Preview:
+    async def preview_rule(self, rule: Rule, lane: str | None) -> card_sweeper.Preview:
         """How many cards a rule would hit now (``lane``: one lane; ``None``: the board); ``delete``: archived ones only."""
         async with self._session() as session:
             if lane is not None:
