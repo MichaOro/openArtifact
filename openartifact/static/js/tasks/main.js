@@ -185,7 +185,7 @@ const cardNavRoot = document.querySelector("[data-card-nav]");
 const cardNav = new CollapsibleNav(cardNavRoot, cardNavRoot.querySelector("[data-card-nav-toggle]"), KEYS.cardNav, {
   expand: t("create_task.expand_artifact_details"),
   collapse: t("tasks.main.collapse_artifact_details"),
-});
+}, () => artifactDialog.refit()); // expanded, the rail needs the height of its labels: the dialog refits
 const fieldRail = new FieldRail({
   rail: cardNavRoot,
   nav: cardNav,
