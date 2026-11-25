@@ -152,8 +152,7 @@ html:has(.modal[open]) { overflow: hidden; }
 .modal__panel--fit .field:has(textarea) { flex: 1; min-height: 6.5rem; } /* label + the textarea's minimum: when more is needed the body scrolls */
 .modal__panel--fit textarea.field__control { flex: 1; min-height: 4.5rem; }
 .task-view__body { min-height: 9rem; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-text-primary); }
-.task-view__note { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
-.task-view__note[hidden], .task-view__warning[hidden] { display: none; }
+.task-view__warning[hidden] { display: none; }
 .task-view__warning { margin: var(--space-2) 0 0; font-size: 0.8125rem; color: var(--color-text-muted); white-space: pre-line; overflow-wrap: anywhere; }
 .task-view__body:empty::before { content: "No description."; color: var(--color-text-muted); }
 .ref { color: var(--color-accent); text-decoration: none; border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; }

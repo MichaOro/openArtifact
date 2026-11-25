@@ -5,7 +5,7 @@
  * goes is delegated via createTask/updateTask/onSaved, so this module never touches the board. */
 import { FormDialog } from "../components/form-dialog.js";
 import { Tabs } from "../components/tabs.js";
-import { bodyText, hasResolved, rememberWarnings, warningsFor } from "./body-model.js";
+import { bodyText, rememberWarnings, warningsFor } from "./body-model.js";
 import { renderReferences } from "./references.js";
 import { t } from "../i18n.js";
 
@@ -60,7 +60,6 @@ export class ArtifactDialog extends FormDialog {
     this.view = root.querySelector("[data-task-view]");
     this.viewTitle = root.querySelector("[data-view-title]");
     this.viewBody = root.querySelector("[data-view-body]");
-    this.viewNote = root.querySelector("[data-view-note]");
     this.viewWarning = root.querySelector("[data-view-warning]");
     this.warned = null; // the notes of the last save, for the artifact they belong to
     this.backButton = root.querySelector("[data-view-back]");
@@ -253,7 +252,6 @@ export class ArtifactDialog extends FormDialog {
     this.#present(t("executions.artifact"), t("common.save"));
     this.viewTitle.textContent = task.title;
     this.viewBody.replaceChildren(renderReferences(bodyText(task), this.findByNumber));
-    this.viewNote.hidden = !hasResolved(task);
     const notes = warningsFor(this.warned, task);
     this.viewWarning.hidden = notes.length === 0;
     this.viewWarning.textContent = notes.length ? [t("tasks.body.saved_with_notes"), ...notes].join("\n") : "";

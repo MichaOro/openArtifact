@@ -869,8 +869,6 @@
  "guards.new_blank": "Leerer Wächter",
  "guards.new_menu": "Neuer Wächter",
  "guards.no_match": "Kein Wächter passt.",
- "guards.none_on_action": "Kein Wächter überwacht diese Aktion.",
- "guards.none_on_node": "Kein Wächter überwacht diesen Node.",
  "guards.not_loaded": "Die Wächter konnten nicht geladen werden; versuche es gleich noch einmal.",
  "guards.not_yet": "Noch nicht verfügbar: {list}.",
  "guards.nothing_to_attach": "Kein weiterer Wächter zum Anhängen.",
@@ -1729,6 +1727,5 @@
  "index.standard_tag": "Standard",
  "index.standard_title_help": "Jedes Artefakt hat einen.",
  "index.standard_body_help": "Der Text jedes Artefakts.",
- "tasks.body.resolved": "Verweise aufgelöst",
  "tasks.body.saved_with_notes": "Gespeichert. Nicht jeder Verweis lässt sich einsetzen:"
 }

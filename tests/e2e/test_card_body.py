@@ -27,10 +27,10 @@ def test_the_read_view_shows_the_finished_text_and_edit_the_original(board: Boar
     expect(card.locator(".task-card__body")).to_have_text("Elias: erwachte in Leuchtturm")
     dialog = board.open_card("Leuchtturm")
     body = dialog.root.locator("[data-view-body]")
-    marker = dialog.root.locator("[data-view-note]")
     expect(body).to_have_text("Elias: erwachte in Leuchtturm")
-    expect(marker).to_contain_text("References resolved")
-    expect(marker.get_by_role("button")).to_have_count(0)  # no switch: Edit shows what was written
+    expect(dialog.root.locator("[data-view-note]")).to_have_count(
+        0
+    )  # no marker, no switch: Edit shows what was written
     dialog.root.locator("[data-view-edit]").click()
     expect(dialog.root.locator("[name=body]")).to_have_value(BODY)
 
@@ -41,7 +41,6 @@ def test_a_body_without_a_reference_has_no_marker(board: Board) -> None:
     board.open()
     dialog = board.open_card("Plain")
     expect(dialog.root.locator("[data-view-body]")).to_have_text("just words")
-    expect(dialog.root.locator("[data-view-note]")).to_be_hidden()
 
 
 def test_saving_a_reference_to_nothing_saves_and_says_so_calmly(board: Board) -> None:
@@ -55,7 +54,6 @@ def test_saving_a_reference_to_nothing_saves_and_says_so_calmly(board: Board) ->
     warning = dialog.root.locator("[data-view-warning]")
     expect(warning).to_contain_text("the artifact has no field 'nope'")
     expect(dialog.root.locator("[data-view-body]")).to_have_text("see ${card.nope}")
-    expect(dialog.root.locator("[data-view-note]")).to_be_hidden()
 
 
 def test_an_open_dialog_follows_the_field_it_refers_to(board: Board) -> None:

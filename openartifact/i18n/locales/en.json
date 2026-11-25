@@ -839,8 +839,6 @@
  "guards.new_blank": "Blank guard",
  "guards.new_menu": "New guard",
  "guards.no_match": "No guard matches.",
- "guards.none_on_action": "No guard watches this action.",
- "guards.none_on_node": "No guard watches this node.",
  "guards.not_loaded": "The guards could not be loaded; try again in a moment.",
  "guards.not_yet": "Not available yet: {list}.",
  "guards.nothing_to_attach": "No other guard to attach.",
@@ -1210,6 +1208,5 @@
  "index.standard_tag": "Standard",
  "index.standard_title_help": "Every artifact has one.",
  "index.standard_body_help": "The text of every artifact.",
- "tasks.body.resolved": "References resolved",
  "tasks.body.saved_with_notes": "Saved. Not every reference can be filled in:"
 }

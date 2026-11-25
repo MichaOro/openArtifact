@@ -62,7 +62,7 @@ mapped ran with empty inputs and the model answered that "the text is empty". Pr
   names nothing answers with `warnings` (never a refusal; not part of the events). The events carry `body_resolved`
   and `preview`. The card a run starts with holds the RESOLVED body, so `${card.body}`, `${card.text}` and the
   agent's artifact inputs read the finished text; titles are never filled in. The artifact dialog shows the finished
-  text with the marker "References resolved" (no toggle: Edit shows the original); an open
+  text with the no marker and no toggle (Edit shows the original); an open
   dialog and the board refresh when the fields change. No migration.
 
 - **`${card.NAME}` in every prompt (2026-11-25, replaces "a prompt takes only `${input.NAME}`").** The fields of the card
