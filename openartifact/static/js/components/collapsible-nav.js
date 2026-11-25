@@ -10,14 +10,18 @@ export class CollapsibleNav {
    * @param {HTMLElement} toggle button that flips the state
    * @param {string} storageKey key (see storage.js) for persisting the state
    * @param {{expand: string, collapse: string}} labels aria-labels of the toggle
+   * @param {(() => void)|null} onChange called after the user flipped the state (a window around the rail refits itself)
    */
-  constructor(root, toggle, storageKey, labels = { expand: t("components.collapsible_nav.expand"), collapse: t("components.collapsible_nav.collapse") }) {
+  constructor(root, toggle, storageKey, labels = { expand: t("components.collapsible_nav.expand"), collapse: t("components.collapsible_nav.collapse") }, onChange = null) {
     this.root = root;
     this.toggle = toggle;
     this.key = storageKey;
     this.labels = labels;
     this.set(readStorage(this.key) === "expanded" ? "expanded" : "collapsed", false);
-    toggle.addEventListener("click", () => this.set(this.expanded ? "collapsed" : "expanded"));
+    toggle.addEventListener("click", () => {
+      this.set(this.expanded ? "collapsed" : "expanded");
+      onChange?.();
+    });
   }
 
   get expanded() {

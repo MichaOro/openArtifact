@@ -93,3 +93,18 @@ or how long nothing happened to it.
   archived cards it would delete, and only a second click on *Save and delete* saves. The board's window also has *Preview now* (a dry run
   of the pass: `POST /api/board/rules/sweep?dry_run=true`) and the log of what rules deleted.
 - The old `LaneSettingsDialog` stays in the quarantine (`quarantine.json`) for one cycle.
+
+## Addendum 2: the archive in the board page
+
+The archive has a view on the board page (`tasks/archive-view.js`, built on `ManagementPage` with the new option `readOnly`: no pencil, no bin).
+
+- **Entry:** the board's menu (the "more" button next to *Add lane*) has one entry whose text changes: *Show archive* / *Hide archive*. The view
+  takes the place of the lanes; *Add lane* is hidden while it is shown. It reads `GET /api/tasks?archived=only&sort=archived_at&order=desc&limit=500`
+  and follows `board.updated`, `task.updated` and `task.deleted`.
+- **Tiles and panel:** two thirds tiles, one third panel. Order: the time of entry into the archive (newest first by default; oldest first,
+  A–Z and Z–A can be chosen). Panel tabs: *Details* (text, archived and created time), *Comments*, *History*, *Context* (the lane the card came
+  from, the parent, the artifact fields that are set; pipeline, stage and action are left out). Everything is read only.
+- **The one change:** *Remove from archive* (Details tab) calls `POST /api/tasks/{id}/unarchive`; the card goes on top of the lane it came from.
+- **By hand:** the rail of the artifact dialog has an *Archive* action (above *Delete*) that calls `POST /api/tasks/{id}/archive`. Events of an
+  archived card (`task.updated` with `archived_at`) take it off the board and close its open dialog.
+- **History:** the entries `archived` and `unarchived` read "moved it to the archive" and "took it out of the archive, back to {lane}".

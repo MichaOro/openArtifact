@@ -17,6 +17,7 @@
  *              tabs: (item) => [{key, label, disabled, render: (body, item) => void}] },
  *     onOpen, onEdit, onDelete,                         // each gets the item
  *     deleteBlocked: (item) => "why it cannot be deleted" | null,   // optional: the bin is then disabled and says why
+ *     readOnly: true,                                   // optional: no pencil and no bin on the entries (the archive only reads)
  *     onBlocked: (item, reason) => void,                // optional: called instead of onDelete when the bin of such an entry is clicked
  *   });
  *   page.setItems(items);  page.select(key);  page.refreshPanel();
@@ -271,6 +272,11 @@ export class ManagementPage {
     li.tabIndex = focusable ? 0 : -1;
     if (key === this.selectedKey) li.setAttribute("aria-current", "true");
     li.append(c.card(item, this.prefs.view));
+    if (c.readOnly) {
+      // a read-only list (the archive): no pencil, no bin, and a double click opens nothing
+      li.addEventListener("click", () => this.select(key));
+      return li;
+    }
     const actions = make("div", "mg-card__actions");
     const edit = iconButton("pencil", c.editLabel?.(item) ?? t("components.management.edit"), "mg-card__edit");
     edit.dataset.edit = "";

@@ -322,6 +322,7 @@ def build_registry() -> NavigationRegistry:
         ("fields", NavFieldEntry("action", "action", order=60)),
         ("custom", NavDividerEntry("div-custom", order=10)),
         ("custom", NavGroupEntry("fields", "tag", order=20)),
+        ("actions", NavActionEntry("archive", "inbox", order=5)),
         ("actions", NavActionEntry("delete", "trash", danger=True, order=10)),
     ]
     for group, entry in rail:
