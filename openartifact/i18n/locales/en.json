@@ -1328,5 +1328,7 @@
  "agents.page.repeats": "repeats v{number}",
  "agents.page.current": "current",
  "agents.page.manage_versions": "Publish or roll back in the editor",
- "agents.page.edit_agent": "Agent"
+ "agents.page.edit_agent": "Agent",
+ "agents.editor_page.show_more_versions": "Show more versions ({count})",
+ "agents.editor_page.hide_versions": "Hide {count} versions"
 }

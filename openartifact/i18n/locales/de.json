@@ -1995,5 +1995,7 @@
  "forms.agent.sections.general.title": "Agent",
  "forms.agent.fields.name.label": "Name",
  "forms.agent.fields.description.label": "Beschreibung",
- "forms.agent.fields.description.placeholder": "Was dieser Agent tut, in ein, zwei Sätzen"
+ "forms.agent.fields.description.placeholder": "Was dieser Agent tut, in ein, zwei Sätzen",
+ "agents.editor_page.show_more_versions": "Weitere Versionen anzeigen ({count})",
+ "agents.editor_page.hide_versions": "{count} Versionen ausblenden"
 }

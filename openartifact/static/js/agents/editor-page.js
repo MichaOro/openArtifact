@@ -7,9 +7,11 @@ import { ActionMenu } from "../components/action-menu.js";
 import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { FormDialog } from "../components/form-dialog.js";
+import { foldEntries, foldSeparator } from "../components/fold-list.js";
 import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
 import { LeaveGuard } from "../components/leave-guard.js";
+import { fitColumn, fitSelect, refitWhenFontsLoad } from "../components/select-fit.js";
 import { Modal } from "../components/modal.js";
 import { OptionsPanel } from "../components/options-panel.js";
 import { SettingsGroup, numberSetting } from "../components/settings-group.js";
@@ -38,6 +40,7 @@ const ORIGINS = { user: t("agents.editor_page.browser"), api: t("agents.editor_p
 let agent = null;
 let providers = [];
 let dirty = false;
+let versionsExpanded = false; // the folded middle of a long list of versions is shown
 let fieldCount = 0;
 
 // ── tabs and options ───────────────────────────────────────────────────
@@ -142,8 +145,22 @@ function choiceSelect(choices, value, label, key) {
   select.value = value;
   select.setAttribute("aria-label", label);
   select.dataset.input = key;
+  fitSelect(select); // as wide as its longest choice: the text is never cut
   return select;
 }
+
+/** The three choice columns of the inputs table are as wide as their longest choice, whatever the rows hold or may hold later (the
+ * Type column shows the types of a value or the parts of the artifact, whichever the row's source says). */
+function fitInputColumns() {
+  const table = $("[data-inputs-table]");
+  const selects = (key) => table.querySelectorAll(`select[data-input="${key}"]`);
+  const types = [...ARTIFACT_PARTS.map(partText), "string", "number", "boolean", t("agents.editor_page.source_value"), t("agents.editor_page.source_artifact")];
+  fitColumn(table, "--ag-col-source", selects("source"), { extra: types.slice(-2) });
+  fitColumn(table, "--ag-col-type", selects("type"), { extra: types.slice(0, -2) });
+  fitColumn(table, "--ag-col-required", selects("required"));
+}
+new MutationObserver(fitInputColumns).observe($("[data-inputs]"), { childList: true });
+refitWhenFontsLoad(fitInputColumns);
 
 function textInput(value, label, key, extra = {}) {
   const input = Object.assign(el("input", "field__control"), { type: "text", value: value ?? "", autocomplete: "off", ...extra });
@@ -154,7 +171,7 @@ function textInput(value, label, key, extra = {}) {
 
 /** One row of the inputs table: name, type, required or optional, default, the description if it has one, and its menu. */
 function inputRow(input = { name: "", source: "value", type: "string", required: false, default: null, description: "" }) {
-  const row = el("li", "ag-input");
+  const row = el("li", "ag-input field-group__row");
   const name = textInput(input.name, t("common.name"), "name", { maxLength: 32, placeholder: "ticket", spellcheck: false });
   const source = choiceSelect([["value", t("agents.editor_page.source_value")], ["artifact", t("agents.editor_page.source_artifact")]], sourceOf(input), t("agent_editor.comes_from"), "source");
   source.title = t("agents.editor_page.source_help");
@@ -163,8 +180,8 @@ function inputRow(input = { name: "", source: "value", type: "string", required:
   const required = choiceSelect([["required", t("common.required")], ["optional", t("agents.editor_page.optional")]], input.required ? "required" : "optional", t("common.required"), "required");
   required.classList.add("ag-input__required");
   const fallback = textInput(input.default == null ? "" : String(input.default), t("common.default"), "default");
-  const description = el("div", "ag-input__description");
-  const more = el("button", "icon-button icon-button--sm ag-input__more");
+  const description = el("div", "ag-input__description field-group__wide");
+  const more = el("button", "icon-button icon-button--sm ag-input__more field-group__end");
   more.type = "button";
   more.setAttribute("aria-label", t("agents.editor_page.input_actions"));
   more.title = t("agents.editor_page.input_actions");
@@ -240,6 +257,7 @@ function removeInput(row) {
 function showDescriptionColumn() {
   const any = [...$("[data-inputs]").children].some((row) => row.querySelector('[data-input="description"]'));
   $("[data-inputs-table]").classList.toggle("has-description", any);
+  $("[data-inputs-table]").classList.toggle("field-group--long", any); // seven elements in a row: it breaks in pairs earlier
 }
 
 /** The inputs as the form has them; a default is sent in the input's own type. */
@@ -366,8 +384,23 @@ function renderHead() {
 /** Versions: a compact row each, like Status & info; the one executions use is "In use", an older one can be published again. */
 function renderVersions() {
   const list = $("[data-versions]");
+  // a long list folds its middle: the newest two and the very first version stay, the rest is behind "Show more versions (N)"
+  const entries = foldEntries(agent.versions, { head: 2, tail: 1, expanded: versionsExpanded });
   list.replaceChildren(
-    ...agent.versions.map((version) => {
+    ...entries.map((entry) => {
+      if (entry.fold) {
+        return foldSeparator({
+          count: entry.fold,
+          expanded: versionsExpanded,
+          label: versionsExpanded ? t("agents.editor_page.hide_versions", { count: entry.fold }) : t("agents.editor_page.show_more_versions", { count: entry.fold }),
+          onToggle: () => {
+            versionsExpanded = !versionsExpanded;
+            renderVersions();
+            list.querySelector(".fold-separator__button")?.focus();
+          },
+        });
+      }
+      const version = entry.item;
       const row = el("li", "ag-version");
       const head = el("div", "ag-version__head");
       head.append(el("strong", "", t("agents.editor_page.version_number", { number: version.number })));

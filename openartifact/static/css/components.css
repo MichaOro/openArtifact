@@ -914,3 +914,9 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 .ov__value { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov .field__error { margin: 0; }
 .ov .field__status { font-size: 0.75rem; color: var(--color-text-muted); }
+
+/* A folded list (components/fold-list.js): the separator is one button with a vertical line through its middle, like the hidden comments of
+   a long issue */
+.fold-separator { position: relative; display: grid; place-items: center; padding: var(--space-2) 0; list-style: none; }
+.fold-separator::before { content: ""; position: absolute; inset: 0 auto 0 50%; width: 0; border-left: 2px dotted var(--glass-border-hover, var(--glass-border)); transform: translateX(-1px); }
+.fold-separator .fold-separator__button { position: relative; background: var(--color-surface); } /* hides the line behind the words */
