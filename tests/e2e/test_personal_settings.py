@@ -82,7 +82,9 @@ def test_resolved_text_is_marked_with_a_legend_only_while_the_setting_is_on_and_
     dark = view.locator("mark.resolved-ref").evaluate("e => getComputedStyle(e).backgroundColor")
     assert dark != light
     red, green, blue = (float(x) for x in re.findall(r"[\d.]+", dark.split("/")[0])[:3])
-    assert red > blue and green > blue and red > 0.8, f"a light warm colour in the dark theme: {dark}"
+    assert red > blue and green > blue and red > 0.8, (
+        f"a light warm colour in the dark theme: {dark}"
+    )
     dialog.root.page.evaluate("document.documentElement.dataset.theme = 'light'")
     expect(body.locator("mark.resolved-ref")).to_have_text(["bye"])
     # off again: marks and legend go

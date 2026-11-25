@@ -382,3 +382,41 @@ def test_the_order_of_the_fields_is_changed_by_their_grip_and_kept(board: Board)
     expect(editor).to_be_hidden()
     names = [f["name"] for f in board.api.get("/api/artifact-fields").json()["fields"]]
     assert names == ["summary", "estimate", "size"]
+
+
+def test_a_long_text_in_a_field_does_not_widen_the_rail_or_push_its_button_away(
+    board: Board,
+) -> None:
+    """The field's control keeps the width of the rail however long the text is (it is cut with an ellipsis, not a preview of
+    a long text: the user knows what was pasted and sees it in the editor), so the rail stays where it is and its expand
+    button stays in the window."""
+    _define(board, FIELDS)
+    long_text = (
+        "KI: Übergeordnetes Themengebiet.    Kompetenzen: Fachliche Fähigkeiten.    Agentic Development: "
+        "Technischer Schwerpunkt.    KI-Entwicklung: Praktische Umsetzung.    Selbstreflexion: Persönliche Perspektive"
+    )[:190]  # a text field holds 200 characters
+    board.create("Card", fields={"summary": long_text})
+    board.open()
+    dialog = board.open_card("Card")
+    rail = dialog.root.locator("[data-card-nav]")
+    if rail.get_attribute("data-state") != "expanded":
+        rail.locator("[data-card-nav-toggle]").click()
+    rail.locator("[data-nav-group-toggle]").click()
+    control = rail.locator("#card-field-summary")
+    expect(control).to_have_value(long_text)
+    board.page.wait_for_timeout(600)  # the rail has finished growing
+    panel = dialog.root.locator(".modal__panel").bounding_box()
+    box, nav = control.bounding_box(), rail.bounding_box()
+    assert panel and box and nav
+    assert box["x"] + box["width"] <= nav["x"] + nav["width"] + 1, (
+        "the control stays inside the rail"
+    )
+    assert nav["x"] + nav["width"] <= panel["x"] + panel["width"] + 1, (
+        "the rail stays inside the window"
+    )
+    button = rail.locator("[data-card-nav-toggle]").bounding_box()
+    assert button and button["x"] + button["width"] <= panel["x"] + panel["width"], (
+        "its expand button stays visible"
+    )
+    style = control.evaluate("el => getComputedStyle(el).textOverflow")
+    assert style == "ellipsis", "what does not fit is cut with an ellipsis"
