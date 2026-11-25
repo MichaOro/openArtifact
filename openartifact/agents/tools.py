@@ -119,7 +119,14 @@ def _parameters(schema: Mapping[str, Any]) -> dict[str, Any]:
 class Toolbox:
     """The tools of one agent node run, by the names the model calls them."""
 
-    def __init__(self, tools: Sequence[Tool], mask: Callable[[str], str] | None = None) -> None:
+    def __init__(
+        self,
+        tools: Sequence[Tool],
+        mask: Callable[[str], str] | None = None,
+        notes: Sequence[str] = (),
+    ) -> None:
+        #: What the run says about the tools it could not offer as asked (a wanted tool the server does not have); the step shows it.
+        self.notes = list(notes)
         #: Masks the run's secret values in every answer (returned or raised) before the model reads it.
         self._mask = mask or (lambda text: text)
         own = [_valid(t.name) for t in tools]
@@ -252,6 +259,7 @@ async def open_toolbox(
     del local_tools
     async with AsyncExitStack() as stack:
         built: list[Tool] = []
+        notes: list[str] = []
         for frozen in tools:
             config = frozen.get("config") or {}
             label, prefix = str(frozen.get("name") or "tool"), str(frozen.get("tool_name") or "")
@@ -275,6 +283,14 @@ async def open_toolbox(
                     )
                 except McpToolError as error:
                     raise ToolboxError(f"Tool {label}: {error.message}") from None
+                if server.missing:
+                    notes.append(
+                        f"Tool {label}: the server has no tool named {', '.join(server.missing)}"
+                    )
+                if server.held_back:
+                    notes.append(
+                        f"Tool {label}: {', '.join(server.held_back)} not offered (it changes something and Allow writes is off)"
+                    )
                 for offered in server.tools:
                     built.append(
                         Tool(
@@ -301,7 +317,9 @@ async def open_toolbox(
             tool.node_id, tool.node_name = str(frozen.get("node_id") or ""), label
             built.append(tool)
         values = [v for v in context.secrets.values() if v]
-        yield Toolbox(built, mask=(lambda text: mask_text(text, values)) if values else None)
+        yield Toolbox(
+            built, mask=(lambda text: mask_text(text, values)) if values else None, notes=notes
+        )
 
 
 #: Where the GitHub MCP node connects: GitHub's own MCP server (the node has no address setting).
@@ -309,11 +327,11 @@ GITHUB_MCP_URL = "https://api.githubcopilot.com/mcp/"
 
 
 def _github_mcp_config(config: Mapping[str, Any]) -> dict[str, Any]:
-    """The settings of an MCP connection for a GitHub MCP node: the fixed address, every tool of the server."""
+    """The settings of an MCP connection for a GitHub MCP node: the fixed address and the node's *Tools to include*."""
     return {
         "url": GITHUB_MCP_URL,
-        "tools_mode": "all",
-        "tool_names": "",
+        "tools_mode": config.get("tools_mode") or "all",
+        "tool_names": config.get("tool_names") or "",
         "timeout_seconds": config.get("timeout_seconds") or 60,
     }
 

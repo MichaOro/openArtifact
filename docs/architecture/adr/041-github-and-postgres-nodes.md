@@ -102,3 +102,13 @@ migration `0036` adds the three kinds to the kind check (its downgrade deletes t
   (off), the name for the model and a timeout. **Read-only until the switch is on**: the connection carries
   `X-MCP-Readonly: true`, and tools the server announces as changing something (`readOnlyHint` false) are left out as a second
   line. What the token may do on GitHub is also the limit of what the agent may do with *Allow writes* on.
+
+### 5.1 Addendum (2026-11-25): Tools to include for the GitHub MCP node
+
+GitHub's MCP server has about forty tools, and the description of every one goes to the model with each request (roughly 15,000 tokens;
+a run with many turns then sends a very large prompt and can time out). The GitHub MCP node therefore has the optional setting
+**Tools to include** like the MCP Client Tool: *all* (default), *selected* or *all except*, with the list of tool names (one per
+line, shown only for *selected* and *all except*). The selection works **on top of** the read-only hold: a tool the server announces
+as changing something stays out while *Allow writes* is off, even when it is named. A name the server does not have is no error: the
+toolbox keeps a note (`Toolbox.notes`: "the server has no tool named …", "… not offered (it changes something and Allow writes is
+off)") that the step shows (`detail.tool_notes`, and in the reason of a passed step).

@@ -266,3 +266,32 @@ def test_the_github_mcp_node_has_the_credential_first_and_no_resource_or_operati
     eventually(lambda: _config(api, definition, "github_tool")["allow_write"], True)
     add_setting(page, "Timeout (seconds)")
     expect(dialog.get_by_label("Timeout (seconds)", exact=True)).to_be_visible()
+
+
+def test_the_github_mcp_node_shows_its_tool_list_only_for_selected_and_all_except(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _open(page, base_url, api, "github_tool")
+    dialog = page.locator("#node-modal")
+    expect(dialog.get_by_label("Tools to include", exact=True)).to_have_count(
+        0
+    )  # optional: offered through Add setting
+    add_setting(page, "Tools to include")
+    mode = dialog.get_by_label("Tools to include", exact=True)
+    expect(mode).to_have_value("all")  # what applies until it is chosen
+    expect(dialog.get_by_label("Tools", exact=True)).to_have_count(0)  # all tools: no list
+    mode.select_option(label="selected")
+    names = dialog.get_by_label("Tools", exact=True)
+    expect(names).to_be_visible()
+    names.fill("get_file_contents\nlist_commits")
+    names.press("Tab")
+    eventually(
+        lambda: {
+            k: _config(api, definition, "github_tool").get(k) for k in ("tools_mode", "tool_names")
+        },
+        {"tools_mode": "selected", "tool_names": "get_file_contents\nlist_commits"},
+    )
+    mode.select_option(label="all")
+    expect(dialog.get_by_label("Tools", exact=True)).to_have_count(
+        0
+    )  # the list goes, what was written stays stored

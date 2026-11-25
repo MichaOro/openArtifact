@@ -2944,18 +2944,46 @@
     "inherits": null
    },
    {
-    "key": "tool_name",
-    "label": "Tool name",
-    "type": "text",
+    "key": "tools_mode",
+    "label": "Tools to include",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "all",
+    "stored_in": "config",
+    "options": [
+     "all",
+     "selected",
+     "all_except"
+    ],
+    "option_labels": {
+     "all_except": "all except"
+    },
+    "help": "Every tool is described to the model with each request: fewer tools, a smaller prompt. Tools that change something stay out while Allow writes is off.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "tool_names",
+    "label": "Tools",
+    "type": "lines",
     "minimum": null,
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "max_length": 64,
-    "placeholder": "get_weather",
-    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "shown_when": {
+     "setting": "tools_mode",
+     "values": [
+      "selected",
+      "all_except"
+     ]
+    },
+    "max_length": 10000,
+    "placeholder": "get_file_contents",
+    "help": "One tool name per line. A name the server does not have is no error, the step says so.",
     "section": "definition",
-    "level": "optional",
+    "level": "core",
     "inherits": null
    },
    {
@@ -2966,6 +2994,21 @@
     "maximum": 300,
     "default": 60,
     "stored_in": "config",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
     "section": "definition",
     "level": "optional",
     "inherits": null

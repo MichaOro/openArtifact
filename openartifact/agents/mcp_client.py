@@ -147,6 +147,10 @@ class McpServer:
     tools: list[McpTool]
     timeout: float
     offered: set[str] = field(default_factory=set)
+    #: Tools *Tools to include* names that the server does not have, and (with a read-only connection) tools it names that were
+    #: held back because the server announces them as changing something: the run says so instead of leaving them out silently.
+    missing: list[str] = field(default_factory=list)
+    held_back: list[str] = field(default_factory=list)
 
     async def call(self, name: str, arguments: Mapping[str, Any]) -> str:
         """The text of the tool's answer, or ``Error: ...`` (the model reads it and may try otherwise)."""
@@ -221,9 +225,20 @@ def _failure(error: BaseException, status: int | None) -> McpToolError:
     return McpToolError(f"The MCP server could not be reached ({reason})")
 
 
+def _mode(config: Mapping[str, Any]) -> str:
+    return str(config.get("tools_mode") or "all")
+
+
+def _named(config: Mapping[str, Any]) -> list[str]:
+    """The tool names the node lists (only when its mode uses them), in the order written."""
+    if _mode(config) == "all":
+        return []
+    return parse_tool_names(str(config.get("tool_names") or ""))
+
+
 def _included(names: Sequence[str], config: Mapping[str, Any]) -> set[str]:
-    mode = str(config.get("tools_mode") or "all")
-    listed = set(parse_tool_names(str(config.get("tool_names") or "")))
+    mode = _mode(config)
+    listed = set(_named(config))
     if mode == "selected":
         return {n for n in names if n in listed}
     if mode == "all_except":
@@ -304,6 +319,7 @@ async def _connected(
             raise
         except Exception as error:  # an ExceptionGroup of the SDK included
             raise _failure(error, transport.last_status) from None
+        every = {t.name for t in listed}
         if read_only:
             listed = [
                 t for t in listed if getattr(t.annotations, "read_only_hint", None) is not False
@@ -314,4 +330,12 @@ async def _connected(
             for t in listed
             if t.name in offered
         ]
-        yield McpServer(session, tools, timeout, offered)
+        named = _named(config)
+        kept = {t.name for t in listed}
+        missing = [n for n in named if n not in every]
+        held = (
+            [n for n in named if n in every and n not in kept]
+            if _mode(config) == "selected"
+            else []
+        )
+        yield McpServer(session, tools, timeout, offered, missing, held)

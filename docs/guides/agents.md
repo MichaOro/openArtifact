@@ -127,11 +127,17 @@ agent takes any number of tools; a tool belongs to one agent.
 | Tool | What the model gets | Settings |
 |------|---------------------|----------|
 | **MCP Client Tool** | the tools of a remote MCP server, with their own names, descriptions and parameters | endpoint (Streamable HTTP), secret with the token (sent as `Authorization: Bearer`), *Tools to include*: `all`, `selected` or `all_except` with one tool name per line, timeout per call (1 to 300 s, 60) |
+| **GitHub MCP** | the tools of GitHub's MCP server (a fixed address), read-only until *Allow writes* is on | credential (a GitHub access token), *Allow writes*, *Tools to include* (`all`, `selected`, `all except`) with one tool name per line, tool name, timeout |
 | **HTTP Request Tool** | one function with the parameters you declare | tool name and description, method, URL, headers, body, parameters (`name: description` per line), timeout (1 to 120 s, 30), success status |
 | **Code Tool** | one function with the parameters you declare | tool name and description, language (`sh`, `python`), code, secrets, parameters, timeout (1 to 600 s, 30) |
 | **Postgres Tool** | one function: your SQL statement, with the parameters you declare | tool name and description, secret with the connection URL, query, parameters, *Allow changes*, *Private network*, max rows (1 to 1000, 100), timeout (1 to 120 s, 30) |
 
-- **GitHub.** An MCP Client Tool with the endpoint `https://api.githubcopilot.com/mcp/` and a secret holding a personal
+- **Fewer tools, a smaller prompt.** The description of **every** tool the model is offered goes with each request. GitHub's server
+  has about forty tools (roughly 15,000 tokens per request), so a long run sends a very large prompt and can time out. Choose
+  *Tools to include* → *selected* on the GitHub MCP node (or the MCP Client Tool) and name only what the agent needs, for example
+  `get_file_contents`, `list_commits`, `get_issue`, `list_pull_requests`. A name the server does not have is no error; the step says
+  which wanted tool is missing.
+- **GitHub.** The **GitHub MCP** node (credential, no address to enter) or an MCP Client Tool with the endpoint `https://api.githubcopilot.com/mcp/` and a secret holding a personal
   access token. For an agent that only reads, choose *selected* and list the read tools (`get_issue`, `list_issues`,
   ...); the tools the agent is not offered cannot be called. For a fixed step of a flow, without a model, there is the
   [GitHub node](execution-nodes.md).

@@ -177,7 +177,14 @@ def test_every_tool_has_a_name_and_a_description_for_the_model(client: TestClien
         settings = _keys(client, kind)
         assert list(settings)[:2] == ["tool_name", "description"], kind
     github = _keys(client, "github_tool")
-    assert list(github) == ["secret", "allow_write", "tool_name", "timeout_seconds"]
+    assert list(github) == [
+        "secret",
+        "allow_write",
+        "tools_mode",
+        "tool_names",
+        "timeout_seconds",
+        "tool_name",
+    ]  # Tools to include (all by default) comes with its list, shown only for selected / all except
     assert (
         github["allow_write"]["default"] is False and github["allow_write"]["level"] == "optional"
     )
