@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import SessionDep
@@ -17,7 +18,6 @@ from openartifact.engine import retention
 from openartifact.engine.history import Changes
 from openartifact.engine.limits import RunLimitsRead, RunLimitsWrite, load_limits, save_limits
 from openartifact.models.settings import AppSetting
-from sqlalchemy import select
 
 DESCRIPTION = (
     "``max_steps`` (10 to 100000, default 1000): steps one execution may take, the actions and the nodes of "

@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
-
 
 def test_personal_settings_models_exist():
     """Personal settings models exist in the API router."""
     from openartifact.api.settings import build_settings_router
     from openartifact.config import Settings
 
-    settings = Settings(api_token="test-token-12345678901234567890123456789012", secret_key="x" * 32)
+    Settings(api_token="test-token-12345678901234567890123456789012", secret_key="x" * 32)
     router = build_settings_router("/api", ["settings"])
 
     # Find the personal endpoints
@@ -26,7 +24,7 @@ def test_personal_settings_models_exist():
 def test_personal_form_manifest_exists():
     """ui/forms/personal.yaml exists and is valid."""
     from pathlib import Path
-    import yaml
+
     from openartifact.ui.forms import read
 
     path = Path(__file__).parent.parent / "openartifact" / "ui" / "forms" / "personal.yaml"
@@ -47,7 +45,7 @@ def test_personal_form_manifest_exists():
 
 def test_navigation_registers_personal():
     """Navigation registry includes personal under settings."""
-    from openartifact.web.navigation import registry, NavLinkEntry
+    from openartifact.web.navigation import registry
 
     registry2 = type(registry)()
     registry2.populate_builtin()

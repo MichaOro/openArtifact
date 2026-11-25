@@ -4,7 +4,7 @@
 **Date:** 2026-11-25  
 **Supersedes:** —  
 **Superseded by:** —  
-**Affected chapters:** guides [UI catalog](../guides/ui-catalog.md), [Extending](../guides/extending.md), [Development](../guides/development.md); arc42 [building blocks](../arc42/05-building-block-view/05.04-frontend-components.md)
+**Affected chapters:** guides [UI catalog](../../guides/ui-catalog.md), [Extending](../../guides/extending.md), [Development](../../guides/development.md); arc42 [building blocks](../arc42/05-building-block-view/05.04-frontend-components.md)
 
 ## 1. Context
 
