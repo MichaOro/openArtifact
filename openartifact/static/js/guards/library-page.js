@@ -52,12 +52,14 @@ function card(guard) {
   const head = make("div", "mg-card__head");
   head.append(make("h3", "mg-card__name", guard.name));
   const chips = make("div", "mg-card__chips");
-  chips.append(triggerChip(guard), consequenceChip(guard), chip(model.usedText(guard.used_by)));
+  chips.append(triggerChip(guard), consequenceChip(guard));
   head.append(chips);
   if (guard.description) head.append(make("p", "mg-card__text", guard.description));
   const condition = make("p", "mg-card__facts", conditionText(guard));
   condition.title = conditionText(guard);
-  box.append(head, condition);
+  const used = make("p", "mg-card__facts", model.usedText(guard.used_by)); // where it is used: a line, not a third chip that wraps
+  used.dataset.used = "";
+  box.append(head, condition, used);
   return box;
 }
 

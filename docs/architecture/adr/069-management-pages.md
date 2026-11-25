@@ -51,3 +51,12 @@ artifacts start in it and how many runs it had).
   published one) is a decision of its own.
 - The migration number `0055` is reserved for the event log (card #100); `0056` follows `0054` until that one exists, then its
   `down_revision` becomes `0055`.
+
+## 4. Addendum: the Guards page
+
+The Guards page (ADR-060) is the third page on the frame: cards or rows, search and order (by name, by use), the detail panel with **Overview**,
+**Usage** and **Preview** (no *Versions*: a guard has none, and no place is held for it). A double click, the pencil and Enter open the guard
+editor; the bin and Delete ask as before and a used guard says why it stays. The sentences are the guard editor's (`guards/model.js`:
+`summaryLine`, `triggerText`, `previewText`, `escalationText`), not a second implementation. The shared frame gained one optional setting,
+`deleteBlocked(item)`: the bin of an entry that cannot be deleted now is `aria-disabled` and says why in its tooltip (the page's `onDelete`
+explains on click); pages that do not set it behave as before.

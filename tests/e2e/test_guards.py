@@ -165,10 +165,11 @@ def test_a_template_becomes_a_library_guard_in_the_editor_titled_by_its_name_wit
     expect(item.locator(".mg-card__name")).to_have_text("Stall guard")
     # what fires it, its condition in words, its consequence and where it is used: chips and one line (before: one summary line)
     chips = item.locator(".mg-card__chips .ge-chip")
-    expect(chips).to_have_text(["Every 1 minute", "Pause the run", "Not used yet"])
-    expect(item.locator(".mg-card__facts")).to_have_text(
+    expect(chips).to_have_text(["Every 1 minute", "Pause the run"])
+    expect(item.locator(".mg-card__facts").first).to_have_text(
         "Time without progress is at least 15 minutes"
     )
+    expect(item.locator("[data-used]")).to_have_text("Not used yet")
     [stored] = api.get("/api/guards").json()
     assert (stored["name"], stored["trigger"]["every_seconds"]) == ("Stall guard", 60)
 
@@ -270,7 +271,7 @@ def test_a_used_guard_cannot_be_deleted_until_it_is_detached(
     attachment = _attach(api, guard, pipeline, "stage", pipeline["stage"]["id"])
     page.goto(f"{base_url}/guards")
     item = page.locator(".mg-card")
-    expect(item.locator(".mg-card__chips .ge-chip").last).to_have_text("Used in 1 place")
+    expect(item.locator("[data-used]")).to_have_text("Used in 1 place")
     bin = item.locator("[data-delete]")
     expect(bin).to_have_attribute("aria-disabled", "true")
     expect(bin).to_have_attribute("title", "Detach it first: it is used in 1 place")
@@ -467,7 +468,7 @@ def test_the_guards_page_and_the_shield_speak_german(
     expect(page.locator(".sidebar .nav-section .nav-link[aria-current=page]")).to_have_text(
         "Wächter"
     )
-    expect(page.locator(".mg-card .mg-card__chips .ge-chip").nth(2)).to_have_text("Verwendet an 1 Stelle")
+    expect(page.locator(".mg-card [data-used]").first).to_have_text("Verwendet an 1 Stelle")
     _open(page, base_url, f"/pipelines/{pipeline['slug']}")
     shield = page.locator(".ge-stage__header [data-guard-shield]")
     expect(shield).to_have_attribute("title", "2 Wächter eingerichtet")

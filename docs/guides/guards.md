@@ -39,14 +39,21 @@ call. The counters are kept with the execution (`guard_state`) and shown in its 
 
 ## The Guards page (the library)
 
-*Pipeline* → **Guards** lists every guard of the library: its name, one line about what fires it and its condition
-("Every 1 minute · Time without progress is at least 15 minutes"), its consequence and **Used in N places**. The search
-finds a guard by its name, its description or that line.
+*Pipeline* → **Guards** lists every guard of the library as cards or as rows (a switch remembers the choice), like the pages of
+actions and pipelines ([ADR-069](../architecture/adr/069-management-pages.md)). A card shows the name, two chips (what fires it:
+"Every 1 minute", "On entered"; the consequence: "Pause the run"), the condition in words ("Time without progress is at least
+15 minutes") and **Used in N places**. The search finds a guard by its name, its description or its trigger and condition; the
+order is by name or by how often it is used.
 
 - **New guard** opens a menu: **Blank guard** (an empty definition in the guard editor) or **From template: Stall guard /
   Runtime guard / Health guard** (the template becomes a library entry at once, with its own action where it has one,
   and opens in the editor).
-- A click on a guard opens it in the **guard editor**.
+- A **click** selects a guard and shows its details on the right; a **double click**, the **pencil** and **Enter** open it in the
+  **guard editor**. The arrow keys move through the list. On a narrow screen the details rise from the bottom.
+- The **detail panel** has three tabs: **Overview** (what fires it, the condition as a sentence, the consequence, the guard's own
+  action with a link to it, what happens if that action fails, the escalation steps, the description), **Usage** (where it is
+  attached: the pipeline or the action definition as a link, and what it watches there; a detached attachment says *Off*) and
+  **Preview** (for how many running scopes the condition holds right now, the same sentence as under the editor's condition).
 - **Delete** (the bin) is refused while the guard is attached anywhere: the bin says why ("Detach it first: it is used
   in 2 places"). Detach it in the pipelines first. Its own action stays (an action definition like any other).
 - A definition has no on/off of its own: only where it is attached it is switched on or off.
