@@ -41,6 +41,10 @@ def _started_container() -> tuple[str, str]:
             "POSTGRES_USER=oa",
             "-p",
             "127.0.0.1:0:5432",
+            # The image declares VOLUME for its data directory: without this every run leaks an
+            # anonymous volume. tmpfs keeps the data in memory and leaves nothing behind.
+            "--tmpfs",
+            "/var/lib/postgresql/data",
             IMAGE,
         ],
         check=True,
@@ -62,7 +66,7 @@ def _started_container() -> tuple[str, str]:
             return url, name
         except psycopg.OperationalError:
             if time.monotonic() > deadline:
-                subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+                subprocess.run(["docker", "rm", "-fv", name], capture_output=True)
                 raise
             time.sleep(0.5)
 
@@ -80,7 +84,7 @@ def postgres_admin_url() -> Iterator[str]:
     except (subprocess.CalledProcessError, psycopg.OperationalError) as error:
         pytest.skip(f"no Postgres: the docker container did not start ({type(error).__name__})")
     yield url
-    subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+    subprocess.run(["docker", "rm", "-fv", name], capture_output=True)
 
 
 @dataclass
