@@ -53,10 +53,10 @@ from openartifact.engine.schemas import (
     RunContextRead,
     RunRead,
 )
-from openartifact.engine.snapshot import graph_of
 from openartifact.engine.targets import TargetError, resolve_target
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
+from openartifact.graph.publishing import graph_for_run
 from openartifact.models import (
     ArtifactField,
     CreatedBy,
@@ -240,7 +240,9 @@ class ArtifactService:
                 .all()
             )
             for pipeline in pipelines:
-                graph = await graph_of(session, pipeline.id)
+                graph = await graph_for_run(
+                    session, pipeline.id
+                )  # the stages and actions a run would start in (ADR-070)
                 result.append(
                     {
                         "id": pipeline.id,
@@ -604,7 +606,7 @@ class ArtifactService:
         """The name of a pipeline and the labels of some of its nodes (``None`` where unknown)."""
         if pipeline_id is None:
             return None, [None] * len(node_ids)
-        graph = await graph_of(session, pipeline_id)
+        graph = await graph_for_run(session, pipeline_id)
         labels = {n["id"]: n["label"] for n in graph["nodes"]}
         return graph["name"] or None, [labels.get(i) if i else None for i in node_ids]
 

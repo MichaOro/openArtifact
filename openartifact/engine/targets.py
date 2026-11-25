@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.engine.chain import pipeline_chain
-from openartifact.engine.snapshot import graph_of
+from openartifact.graph.publishing import graph_for_run
 from openartifact.models import Graph, GraphKind
 
 
@@ -61,7 +61,9 @@ async def resolve_target(
             raise TargetError("A stage or an action needs a pipeline")
         return None, None, None
     await load_pipeline(session, pipeline_id)
-    graph = await graph_of(session, pipeline_id)
+    graph = await graph_for_run(
+        session, pipeline_id
+    )  # the place is chosen in what the run will read (ADR-070)
     _, entry, action = pick_start(
         pipeline_chain(graph["nodes"], graph["edges"]), stage_id, action_id
     )

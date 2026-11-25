@@ -25,7 +25,12 @@ def upgrade() -> None:
     op.create_table(
         "graph_versions",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("graph_id", sa.String(36), sa.ForeignKey("graphs.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "graph_id",
+            sa.String(36),
+            sa.ForeignKey("graphs.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("number", sa.Integer(), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("fingerprint", sa.String(64), nullable=False),

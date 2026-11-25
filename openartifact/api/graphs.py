@@ -6,6 +6,7 @@ change is saved at once (there is no separate "save"): the editor sends what the
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
@@ -18,7 +19,8 @@ from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import SessionDep
 from openartifact.api.schemas import ChainEntryRead, NodeTypeRead
 from openartifact.engine.chain import pipeline_chain
-from openartifact.engine.snapshot import graph_of
+from openartifact.graph import publishing, versions
+from openartifact.graph.content import graph_of
 from openartifact.graph.localize import localize
 from openartifact.graph.node_types import NODE_TYPES, node_type
 from openartifact.graph.repository import GraphRepository, NodeError, PurposeError
@@ -33,12 +35,15 @@ from openartifact.graph.schemas import (
     GraphRead,
     GraphUpdate,
     GraphUses,
+    GraphVersionDetail,
+    GraphVersionRead,
     NodeCreate,
     NodeRead,
     NodeUpdate,
+    PublishedGraph,
 )
 from openartifact.i18n.web import language_for
-from openartifact.models import Graph, GraphKind, GraphNode, NodeKind
+from openartifact.models import Graph, GraphKind, GraphNode, GraphVersion, NodeKind
 from openartifact.ui import layout as ui_layout
 
 _LABELS: dict[GraphKind, str] = {GraphKind.PIPELINE: "Pipeline", GraphKind.ACTION: "Action"}
@@ -127,7 +132,12 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         graphs = await repo.list_all(kind, purpose, q, tag)
         counts = await repo.node_counts([g.id for g in graphs])
         return [
-            GraphListRead.model_validate(g).model_copy(update={"node_count": counts.get(g.id, 0)})
+            GraphListRead.model_validate(g).model_copy(
+                update={
+                    "node_count": counts.get(g.id, 0),
+                    "draft_changed": await publishing.draft_changed(session, g),
+                }
+            )
             for g in graphs
         ]
 
@@ -149,7 +159,9 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         except PurposeError as error:
             raise _invalid(error) from None
         await session.commit()
-        return GraphRead.model_validate(graph)
+        return GraphRead.model_validate(graph).model_copy(
+            update={"draft_changed": await publishing.draft_changed(session, graph)}
+        )
 
     @router.get(
         "/{graph_id}",
@@ -164,7 +176,9 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         graph = await _graph(repo, graph_id)
         nodes, edges = await repo.graph(graph_id)
         return GraphDetail(
-            graph=GraphRead.model_validate(graph),
+            graph=GraphRead.model_validate(graph).model_copy(
+                update={"draft_changed": await publishing.draft_changed(session, graph)}
+            ),
             nodes=await _node_reads(repo, nodes),
             edges=[EdgeRead.model_validate(e) for e in edges],
         )
@@ -198,6 +212,95 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         had."""
         repo = GraphRepository(session)
         return await repo.uses_of(await _graph(repo, graph_id))
+
+    def _version_read(version: GraphVersion, graph: Graph) -> GraphVersionRead:
+        nodes = json.loads(version.content).get("nodes", [])
+        return GraphVersionRead(
+            number=version.number,
+            published_at=version.published_at,
+            published_via=version.published_via,
+            source_number=version.source_number,
+            current=graph.published_number == version.number,
+            node_count=len(nodes),
+        )
+
+    async def _published(
+        session: AsyncSession, graph: Graph, version: GraphVersion
+    ) -> PublishedGraph:
+        counts = await GraphRepository(session).node_counts([graph.id])
+        return PublishedGraph(
+            graph=GraphListRead.model_validate(graph).model_copy(
+                update={
+                    "node_count": counts.get(graph.id, 0),
+                    "draft_changed": await publishing.draft_changed(session, graph),
+                }
+            ),
+            version=_version_read(version, graph),
+        )
+
+    @router.get(
+        "/{graph_id}/versions",
+        response_model=list[GraphVersionRead],
+        name=f"list_{kind}_versions",
+        summary=f"List the versions of a {kind}",
+        responses=errors(404, 422),
+    )
+    async def list_versions(graph_id: str, session: SessionDep) -> list[GraphVersionRead]:
+        """Every published version, newest first (``current``: the one executions use; ``source_number``: a version made by publishing
+        an earlier one again). A {kind} that was never published has none and its draft runs (ADR-070)."""
+        graph = await _graph(GraphRepository(session), graph_id)
+        return [_version_read(v, graph) for v in await versions.versions_of(session, graph.id)]
+
+    @router.get(
+        "/{graph_id}/versions/{number}",
+        response_model=GraphVersionDetail,
+        name=f"get_{kind}_version",
+        summary=f"One version of a {kind}, with its graph",
+        responses=errors(404, 422),
+    )
+    async def get_version(graph_id: str, number: int, session: SessionDep) -> GraphVersionDetail:
+        """The frozen graph of a version: its nodes and edges as they were published (to show it read-only)."""
+        graph = await _graph(GraphRepository(session), graph_id)
+        version = await versions.get_version(session, graph.id, number)
+        if version is None:
+            raise _not_found(f"Version {number}")
+        content = json.loads(version.content)
+        return GraphVersionDetail(
+            **_version_read(version, graph).model_dump(),
+            name=content.get("name", ""),
+            nodes=content.get("nodes", []),
+            edges=content.get("edges", []),
+        )
+
+    @router.post(
+        "/{graph_id}/publish",
+        response_model=PublishedGraph,
+        name=f"publish_{kind}",
+        summary=f"Publish a {kind}",
+        responses=errors(404, 409, 422, write=True),
+    )
+    async def publish_graph(graph_id: str, session: SessionDep) -> PublishedGraph:
+        """Publish the draft as a new version; executions that start from now on use it. 409 when the draft equals the published
+        version (nothing new to publish)."""
+        graph = await _graph(GraphRepository(session), graph_id)
+        version = await publishing.publish(session, graph, "user")
+        await session.commit()
+        return await _published(session, graph, version)
+
+    @router.post(
+        "/{graph_id}/versions/{number}/republish",
+        response_model=PublishedGraph,
+        name=f"republish_{kind}_version",
+        summary=f"Publish an earlier version of a {kind} again",
+        responses=errors(404, 409, 422, write=True),
+    )
+    async def republish_graph(graph_id: str, number: int, session: SessionDep) -> PublishedGraph:
+        """Publish an earlier version again (a rollback): a new version with that version's content, the history stays and the draft is
+        not touched. 409 when it is the published one already."""
+        graph = await _graph(GraphRepository(session), graph_id)
+        version = await publishing.republish(session, graph, number, "user")
+        await session.commit()
+        return await _published(session, graph, version)
 
     @router.patch(
         "/{graph_id}",
