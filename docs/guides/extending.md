@@ -230,28 +230,25 @@ A new type:
 
 ## Add a navigation entry
 
-Navigation entries are registered in the central `NavigationRegistry` (see [ADR-065](../architecture/adr/065-modular-navigation.md)).
-The registry builds the sidebar and the artifact dialog rail from registered entries.
+Navigation entries are registered in the `NavigationRegistry` (see [ADR-066](../architecture/adr/066-modular-navigation.md)). The
+application holds one at `app.state.navigation` (built by `build_registry()` in `web/navigation.py`); the pages draw it at every
+request, so the sidebar, the rail of the artifact dialog and the active entry all come from it.
 
-1. **Register the entry** via `registry.register(entry, parent, order)`:
-   - Page link: `NavLinkEntry(key, label_key, icon, href=..., children_keys=(...))`
-   - Runtime group: `NavGroupEntry(key, label_key, icon)`
-   - Artifact field: `NavFieldEntry(key, label_key, icon, dot=True)`
-   - Action button: `NavActionEntry(key, label_key, icon, danger=False)`
-   - Divider: `NavDividerEntry(key, "", "")`
-   - `parent`: `"sidebar"` (top-level), `"pipeline"`, `"settings"`, `"artifact:fields"`, `"artifact:custom"`, `"artifact:actions"`
-   - `order`: integer, lower = earlier
-2. **Icon.** Use an existing icon name, or add the SVG to `templates/components/icons.html` and its name to
-   `icon_names` (see above).
-3. **Page.** A `NavLinkEntry` needs a route in `web/routes.py` that renders a template. The `active_nav`
-   is derived automatically from the request path via `_active_nav_from_path()` — no manual `active_nav`
-   string needed.
-4. **Visibility.** Optional `visible_when=lambda ctx: ctx.get("features", {}).get("beta", False)` on the entry.
-4. **Markup.** If the entry needs a new kind of markup, add it to `components/nav.html`; the `kind` of the
-   entry picks the branch.
-5. **Test it.** `tests/test_web.py` for the route and the rendered entry; `tests/e2e/` for behaviour in the
-   dialog or sidebar.
-6. **Third-party.** In your package's `__init__.py`: `from openartifact.web.navigation import registry, NavLinkEntry; registry.register(...)`
+1. **Register the entry** with `registry.register(entry, parent=..., order=...)` (lower order = earlier):
+   - Page: `NavLinkEntry(key, icon, href, paths=(), visible_when=None)`; `paths` are further path prefixes that belong to it
+   - Runtime group: `NavGroupEntry(key, icon)`; artifact field: `NavFieldEntry(key, icon, dot=True)`; command:
+     `NavActionEntry(key, icon, danger=False)`; line: `NavDividerEntry(key)`
+   - `parent`: `SIDEBAR` (top level), the key of a link (`"pipeline"`, `"settings"`) or `"rail:fields"`, `"rail:custom"`, `"rail:actions"`
+   - A key is registered once in the sidebar (and once per rail group): a duplicate raises. For a shipped entry add it to `build_registry()`.
+2. **Texts.** `nav.<key>.label` and `nav.<key>.tooltip` in `i18n/locales/en.json` and `de.json`; the registry holds no texts.
+3. **Icon.** An existing icon name, or add the SVG to `templates/components/icons.html` and its name to `icon_names`.
+4. **Page.** A `NavLinkEntry` needs a route in `web/routes.py` that renders a template. Do **not** pass `active_nav`: the entry
+   whose `href`/`paths` is the longest prefix of the path is active, derived by the registry. A page that has no entry fails
+   `tests/test_navigation_modularity.py` unless it is listed there with a reason.
+5. **Visibility.** Optional `visible_when=lambda context: ...` (a plain function of `{"path": ...}`; no expression string, no
+   user, no rights). A predicate that raises hides the entry and is logged.
+6. **Markup.** If the entry needs a new kind of markup, add it to `components/nav.html`; the `kind` of the entry picks the branch.
+7. **Test it.** Register a fresh registry in a test (`build_registry()`), see `tests/test_navigation_modularity.py`; `tests/e2e/` for behaviour.
 
 ## Add an event type
 

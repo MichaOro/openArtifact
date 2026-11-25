@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { bodyText, cardPreview, hasResolved, needsFullBody, rememberWarnings, warningsFor } from "../../openartifact/static/js/tasks/body-model.js";
+import { bodySegments, bodyText, cardPreview, hasResolved, needsFullBody, previewSegments, rememberWarnings, warningsFor } from "../../openartifact/static/js/tasks/body-model.js";
 
 const WRITTEN = "Elias: ${card.test}";
 
@@ -46,4 +46,15 @@ test("the notes of a save belong to the artifact that was saved and are not part
   assert.deepEqual(warningsFor(warned, { id: "b" }), []);
   assert.deepEqual(warningsFor(null, { id: "a" }), []);
   assert.deepEqual(rememberWarnings({ id: "c" }).warned, { id: "c", warnings: [] });
+});
+
+test("marked segments are used only when the server sent them (the personal setting is on and something was filled in)", () => {
+  const segments = [{ text: "Elias: ", resolved: false }, { text: "bye", resolved: true }];
+  assert.deepEqual(bodySegments({ body_resolved_segments: segments }), segments);
+  assert.deepEqual(previewSegments({ preview_segments: segments }), segments);
+  for (const task of [{}, { body_resolved_segments: null }, { preview_segments: null }, null, undefined]) {
+    assert.equal(bodySegments(task), null, JSON.stringify(task));
+    assert.equal(previewSegments(task), null, JSON.stringify(task));
+  }
+  assert.equal(bodySegments({ preview_segments: segments }), null, "the preview is not the body");
 });

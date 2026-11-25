@@ -302,7 +302,7 @@ registry.register(
 #### 3.2.3 Mandatory Documentation & Enforcement
 
 **Where to bind:**
-1. **ADR** — New ADR (e.g., ADR-065) "Modular Navigation System" documenting base class, registry, registration API, visibility, ordering.
+1. **ADR** — New ADR (e.g., ADR-066) "Modular Navigation System" documenting base class, registry, registration API, visibility, ordering.
 2. **`docs/guides/ui-catalog.md`** — Add navigation as a catalog component (like `ge-switch`, `form-view`); binding rules §1–5 apply.
 3. **`docs/guides/extending.md`** — Document how a third party adds a nav entry (registration pattern).
 4. **`.github/CONTRIBUTING.md`** — Add checklist item: "Navigation entries go through `NavigationRegistry`; no hardcoded links in templates/routes."
@@ -371,7 +371,7 @@ Run in CI; fails if new page added without nav registration.
 | **B4** | Replace Settings hardcoded children with dynamic `NavGroup("settings")` from registry | Small | E2E: Settings dropdown works |
 | **B5** | Derive `active_nav` from registry in `web/routes.py` (remove manual `active_nav` args) | Small | E2E: Active highlight on all pages |
 | **B6** | Add enforcement tests: `test_no_hardcoded_nav_links_in_templates.py`, `test_all_routes_have_nav_entries.py` | Small | CI passes |
-| **B7** | Document in ADR-065, `extending.md`, `CONTRIBUTING.md` | Small | Docs review |
+| **B7** | Document in ADR-066, `extending.md`, `CONTRIBUTING.md` | Small | Docs review |
 | **B8** | (Future) third-party registration API | Medium | Integration test |
 
 ---

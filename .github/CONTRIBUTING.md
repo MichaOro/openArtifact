@@ -67,7 +67,7 @@ where there is room instead of an endless column); a window that saves carries i
 tokens; **a change is saved on the user's act** (text on leaving the field or Enter, a choice when it changes, no autosave
 by keystroke or timer, nothing drawn again under a focused field: `static/js/editor/persist-policy.js`). **Navigation
 entries go through `NavigationRegistry`** (no hardcoded links in templates, no manual `active_nav` in routes; see
-[ADR-065](../docs/architecture/adr/065-modular-navigation.md)). The rules, their reasons and the checklist are in the
+[ADR-066](../docs/architecture/adr/066-modular-navigation.md)). The rules, their reasons and the checklist are in the
 [UI catalog](../docs/guides/ui-catalog.md) (*Binding rules for every contributor*) and
 [ADR-059](../docs/architecture/adr/059-one-catalog-of-ui-building-blocks.md).
 

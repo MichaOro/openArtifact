@@ -64,6 +64,7 @@ export function installDocument(iconNames = []) {
   globalThis.document = {
     createElement: (tag) => new FakeNode(tag),
     createDocumentFragment: () => new FakeNode("#fragment"),
+    createTextNode: (text) => String(text),
     getElementById: (id) =>
       id === "icons" ? { content: { querySelector: (selector) => icons.get(/data-icon="([^"]+)"/.exec(selector)[1]) ?? null } } : null,
   };
