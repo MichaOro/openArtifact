@@ -103,12 +103,11 @@ def snapshot_agent(client: TestClient, task: dict[str, Any]) -> dict[str, Any]:
 # ── the snapshot ─────────────────────────────────────────────────────
 
 
-def test_max_iterations_is_an_agent_setting_from_1_to_50() -> None:
-    assert (
-        AgentConfig().max_iterations is None and ITERATIONS_DEFAULT == 10
-    )  # not set: the runtime's 10
-    assert AgentConfig(max_iterations=50).max_iterations == 50
-    for wrong in (0, 51):
+def test_max_iterations_is_an_agent_setting_from_1_to_500() -> None:
+    """A loose safety net (card #104): 100 unless set, up to 500 (it was 10 and 1 to 50: a review makes many more calls)."""
+    assert AgentConfig().max_iterations is None and ITERATIONS_DEFAULT == 100
+    assert AgentConfig(max_iterations=500).max_iterations == 500
+    for wrong in (0, 501):
         with pytest.raises(ValueError):
             AgentConfig(max_iterations=wrong)
 
@@ -350,3 +349,40 @@ def test_the_run_tells_the_event_bus_which_tool_node_works_and_the_step_and_flow
     flow = api.get(f"{base}/flow").json()
     (flow_step,) = [s for s in flow["steps"] if s["kind"] == "agent"]
     assert flow_step["data"]["tools"] == expected
+
+
+def test_the_run_tells_the_event_bus_every_round_of_the_agent_and_the_calls_know_their_round(
+    api: TestClient, llm: FakeLlm, github: str
+) -> None:
+    """``agent.turn`` (started, finished) carries the number of the round, the start of the answer and the tokens; ``agent.tool_call``
+    carries the round it belongs to. Nothing of the arguments or the tool's answer is in them."""
+    make_provider(api, llm)
+    put_secret(api, "GITHUB_TOKEN", MCP_TOKEN)
+    agent = make_agent(api)
+    pipeline = tool_flow(api, agent, [_github_tool(github)])
+    llm.script = [
+        (200, tool_answer(("c1", "get_issue", {"number": 7}))),
+        (200, completion("Issue 7: the login is broken")),
+    ]
+    bus = api.app.state.event_bus  # type: ignore[attr-defined]
+    queue = bus.subscribe()
+    task = make_task(api)
+    post(api, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    wait_for_run(api, task, "done", timeout=30)
+    seen = []
+    while not queue.empty():
+        event = queue.get_nowait()
+        if getattr(event, "type", "") in ("agent.turn", "agent.tool_call"):
+            seen.append((event.type, event.data))
+    kinds = [(t, d["state"], d["turn"]) for t, d in seen]
+    assert kinds == [
+        ("agent.turn", "started", 1),
+        ("agent.turn", "finished", 1),
+        ("agent.tool_call", "started", 1),
+        ("agent.tool_call", "finished", 1),
+        ("agent.turn", "started", 2),
+        ("agent.turn", "finished", 2),
+    ]
+    assert all(d["agent_node_id"] == pipeline["ask"]["id"] for _, d in seen)
+    assert seen[-1][1]["text"] == "Issue 7: the login is broken" and seen[-1][1]["tool_calls"] == 0
+    assert "number" not in json.dumps([d for t, d in seen if t == "agent.tool_call"])

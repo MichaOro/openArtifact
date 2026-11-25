@@ -167,7 +167,8 @@ arguments and results (cut to 16 KiB). Lists carry `detail: null`.
 
 An agent node's settings are keys of its `config` (`PATCH /api/actions/{id}/nodes/{node_id}`): `agent_id`, `inputs`
 (`name = value` per line) and the overrides `system_prompt_enabled`, `system_prompt`, `user_prompt`, `provider_id`,
-`model`, `temperature`, `max_tokens`, `request_timeout_seconds`, `total_timeout_seconds`, `retries`, `max_iterations`;
+`model`, `temperature`, `max_tokens`, `request_timeout_seconds`, `total_timeout_seconds`, `retries`, `max_iterations`,
+`token_budget`, `tool_result_chars`;
 `null` resets one. `warnings` in the answer says what would make the node fail.
 
 Tools (ADR-040, ADR-041) are nodes of the kinds `mcp_tool`, `http_tool`, `code_tool` and `postgres_tool` with their settings in `config`

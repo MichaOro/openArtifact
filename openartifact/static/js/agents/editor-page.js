@@ -32,7 +32,7 @@ const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-mod
 const $ = (selector) => root.querySelector(selector);
 const control = (key) => root.querySelector(`[data-field="${key}"]`);
 
-const NUMBERS = ["temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations"];
+const NUMBERS = ["temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations", "token_budget", "tool_result_chars"];
 const ORIGINS = { user: t("agents.editor_page.browser"), api: t("agents.editor_page.through_api") };
 
 let agent = null;
@@ -118,8 +118,10 @@ const limitsGroup = new SettingsGroup(
   $('[data-settings="limits"]'),
   [
     // by importance: the time limit guards every run, the iterations only matter with tools
-    numberSetting("total_timeout_seconds", t("agents.editor_page.node_time_limit"), { min: 1, max: 1800, hint: t("agents.editor_page.seconds_1_1800_covers_all"), fallback: 600, unit: " s" }),
-    numberSetting("max_iterations", t("agents.editor_page.max_iterations"), { min: 1, max: 50, hint: t("agents.editor_page.1_50_how_many_requests"), fallback: 10, unit: t("agents.editor_page.only_with_tools") }),
+    numberSetting("total_timeout_seconds", t("agents.editor_page.node_time_limit"), { min: 1, max: 1800, hint: t("agents.editor_page.seconds_1_1800_covers_all"), fallback: 900, unit: " s" }),
+    numberSetting("max_iterations", t("agents.editor_page.max_iterations"), { min: 1, max: 500, hint: t("agents.editor_page.1_50_how_many_requests"), fallback: 100, unit: t("agents.editor_page.only_with_tools") }),
+    numberSetting("token_budget", t("agents.editor_page.token_budget"), { min: 1000, max: 10000000, hint: t("agents.editor_page.token_budget_hint"), fallback: t("agents.editor_page.no_budget") }),
+    numberSetting("tool_result_chars", t("agents.editor_page.tool_result_limit"), { min: 500, max: 100000, hint: t("agents.editor_page.tool_result_limit_hint"), fallback: 12000, unit: t("agents.editor_page.only_with_tools") }),
     numberSetting("retries", t("agents.editor_page.retries"), { min: 0, max: 4, hint: t("agents.editor_page.0_4_request_tried_again"), fallback: 3 }),
     numberSetting("request_timeout_seconds", t("agents.editor_page.request_timeout"), { min: 1, max: 300, hint: t("agents.editor_page.seconds_1_300_one_attempt"), fallback: 60, unit: " s" }),
   ],

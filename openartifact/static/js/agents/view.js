@@ -134,6 +134,7 @@ export function detailView(detail) {
     t("agents.view.time_limit_total_timeout_seconds", { total_timeout_seconds: settings.total_timeout_seconds }),
     t("agents.view.retries_retries", { retries: settings.retries }),
     settings.max_iterations != null ? t("agents.view.max_iterations_max_iterations", { max_iterations: settings.max_iterations }) : null,
+    settings.token_budget != null ? t("agents.view.token_budget_value", { value: settings.token_budget }) : null,
   ].filter(Boolean);
   wrap.append(el("p", "ag-facts", limits.join(" · ")));
   const overrides = Object.keys(detail.overrides ?? {});
