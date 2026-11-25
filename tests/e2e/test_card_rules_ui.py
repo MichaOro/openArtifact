@@ -90,9 +90,13 @@ def test_the_board_settings_have_no_set_as_done_and_a_delete_rule_starts_off_and
     switch.check()
     dialog.get_by_role("button", name="Save").click()
     expect(dialog.locator("[data-delete-warning]")).to_contain_text("delete 1 archived card")
-    assert board.api.get("/api/board/rules").json()["rules"][0]["enabled"] is False  # nothing changes until it is confirmed
+    assert (
+        board.api.get("/api/board/rules").json()["rules"][0]["enabled"] is False
+    )  # nothing changes until it is confirmed
     dialog.get_by_role("button", name="Save and delete").click()
     expect(dialog).not_to_be_visible()
     assert board.api.get("/api/board/rules").json()["rules"][0]["enabled"] is True
     assert kept["title"] in board.stored()
-    eventually(lambda: board.api.get("/api/tasks", params={"archived": "only"}).json(), [])  # the archived card is gone
+    eventually(
+        lambda: board.api.get("/api/tasks", params={"archived": "only"}).json(), []
+    )  # the archived card is gone
