@@ -58,6 +58,26 @@ assert len(BACKOFF_SECONDS) == RETRIES_MAX
 Complete = Callable[..., Awaitable[Completion]]
 Sleep = Callable[[float], Awaitable[None]]
 OpenTools = Callable[[], AbstractAsyncContextManager[Toolbox]]
+#: Told while a node runs what its tools do (``agent.tool_call``: started and finished, by tool node; names and states only, never
+#: arguments or results). The engine hands the events on to the event bus; the runtime knows nothing of the bus.
+ToolSignal = Callable[[dict[str, Any]], None]
+
+
+def tools_used(turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """What each tool node was asked, from the turns of a run: ``[{"node": id, "name": ..., "calls": n, "errors": m}]`` in the order
+    the nodes were first used. Calls of records without a tool node (before this was kept) are left out."""
+    found: dict[str, dict[str, Any]] = {}
+    for turn in turns:
+        for call in turn.get("tool_calls") or []:
+            node = str(call.get("node_id") or "")
+            if not node:
+                continue
+            entry = found.setdefault(
+                node, {"node": node, "name": call.get("node_name") or "", "calls": 0, "errors": 0}
+            )
+            entry["calls"] += 1
+            entry["errors"] += 1 if call.get("error") else 0
+    return list(found.values())
 
 
 @dataclass
@@ -215,9 +235,11 @@ async def run_node(
     sleep: Sleep = asyncio.sleep,
     open_tools: OpenTools | None = None,
     comments: CommentsGateway | None = None,
+    on_tool: ToolSignal | None = None,
 ) -> NodeResult:
     """Run an agent node of a frozen pipeline: ``node["agent"]`` is what the snapshot resolved.
-    ``open_tools`` opens the toolbox of the tools frozen with it (none: the agent has no tools)."""
+    ``open_tools`` opens the toolbox of the tools frozen with it (none: the agent has no tools); ``on_tool`` is told when a
+    tool call starts and ends (see :data:`ToolSignal`)."""
     frozen = node.get("agent")
     if not isinstance(frozen, dict):
         return failed(NO_AGENT)
@@ -308,6 +330,9 @@ async def run_node(
             detail,
             complete=complete,
             sleep=sleep,
+            signal=(lambda event: on_tool({"agent_node_id": node.get("id"), **event}))
+            if on_tool
+            else None,
         )
 
 
@@ -337,6 +362,7 @@ async def _loop(
     *,
     complete: Complete,
     sleep: Sleep,
+    signal: Callable[[dict[str, Any]], None] | None = None,
 ) -> NodeResult:
     """The turns of the node: ask, run the tools the answer calls, send their results, ask again."""
     total = float(settings["total_timeout_seconds"])
@@ -349,6 +375,10 @@ async def _loop(
         detail["duration_ms"] = round((time.monotonic() - started) * 1000)
         data["attempts"] = len(attempts)
         data["iterations"] = len(detail["turns"])
+        if used := tools_used(detail["turns"]):
+            data["tools"] = (
+                used  # the step says which tool nodes were used and how often (the flow shows their state)
+            )
         result.duration = time.monotonic() - started
         return result
 
@@ -407,12 +437,44 @@ async def _loop(
         )
         for call in done.tool_calls:
             left = total - (time.monotonic() - started)
+            node_id, node_name = box.node_of(call.name)
+            if signal and node_id:
+                signal(
+                    {
+                        "state": "started",
+                        "tool_node_id": node_id,
+                        "tool_node_name": node_name,
+                        "tool": call.name,
+                    }
+                )
             try:
                 async with asyncio.timeout(max(left, 0.0)):
                     record = await box.call(call.id, call.name, call.arguments)
             except TimeoutError:
+                if signal and node_id:
+                    signal(
+                        {
+                            "state": "finished",
+                            "tool_node_id": node_id,
+                            "tool_node_name": node_name,
+                            "tool": call.name,
+                            "ok": False,
+                            "duration_ms": round(max(left, 0.0) * 1000),
+                        }
+                    )
                 return fail(
                     f"The tool {call.name} did not finish within the time limit of {total:g} s"
+                )
+            if signal and node_id:
+                signal(
+                    {
+                        "state": "finished",
+                        "tool_node_id": node_id,
+                        "tool_node_name": node_name,
+                        "tool": call.name,
+                        "ok": not record.error,
+                        "duration_ms": record.duration_ms,
+                    }
                 )
             turn["tool_calls"].append(record.to_data())
             messages.append({"role": "tool", "tool_call_id": call.id, "content": record.result})

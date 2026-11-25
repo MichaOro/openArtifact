@@ -70,6 +70,9 @@ class Limits:
     comments: CommentsGateway | None = None
     #: The settings of a credential that are no secret, by its name (the address of a GitHub server); ``None``: none.
     credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None
+    #: Told what a running node does that others may want to see (``agent.tool_call``: the event type and its data); the
+    #: application hands it to the event bus. ``None``: nobody listens.
+    publish: Callable[[str, dict[str, Any]], object] | None = None
 
     @classmethod
     def from_settings(
@@ -78,6 +81,7 @@ class Limits:
         secrets: SecretResolver | None = None,
         comments: CommentsGateway | None = None,
         credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None,
+        publish: Callable[[str, dict[str, Any]], object] | None = None,
     ) -> Limits:
         return cls(
             settings.code_nodes_enabled,
@@ -96,6 +100,7 @@ class Limits:
             llm_allow_private_networks=settings.llm_allow_private_networks,
             comments=comments,
             credential_settings=credential_settings,
+            publish=publish,
         )
 
 
@@ -314,6 +319,21 @@ async def _set(node: dict[str, Any], limits: Limits, view: RunView | None = None
     return run_set(node["config"], view or RunView())
 
 
+def _tool_events(limits: Limits, view: RunView) -> Callable[[dict[str, Any]], None] | None:
+    """What the agent node's tool calls tell the application while they run: ``agent.tool_call`` with the artifact and the execution
+    (the flow page shows the tool node working)."""
+    if limits.publish is None or view.execution_id is None:
+        return None
+    publish = limits.publish
+
+    def tell(event: dict[str, Any]) -> None:
+        publish(
+            "agent.tool_call", {"task_id": view.task_id, "execution_id": view.execution_id, **event}
+        )
+
+    return tell
+
+
 async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     """The node's agent asks its model, with the attached tools (see ``agents/runtime.py``). The key of
     the provider and the secrets of the tools are resolved here, like every secret, so the answer, the
@@ -342,6 +362,7 @@ async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = No
             values.get(name) if name else None,
             open_tools=lambda: agent_tools.open_toolbox(tools, context),
             comments=limits.comments,
+            on_tool=_tool_events(limits, run_view),
         )
 
     return await _with_secrets(list(dict.fromkeys(names)), limits, run)

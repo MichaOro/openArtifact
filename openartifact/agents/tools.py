@@ -46,6 +46,10 @@ class Tool:
     parameters: dict[str, Any]
     run: Run
     prefix: str = ""
+    #: The tool node it came from (id and name): a node can offer many tools (an MCP server), and the run shows the state
+    #: of the node, so every call says whose it is.
+    node_id: str = ""
+    node_name: str = ""
     #: The name the model calls it by, set by the toolbox.
     called: str = field(default="", init=False)
 
@@ -60,6 +64,9 @@ class ToolCallRecord:
     result: str
     error: bool
     duration_ms: int
+    #: The tool node the call belongs to (empty for a call of a tool that does not exist, and in records of before).
+    node_id: str = ""
+    node_name: str = ""
 
     def to_data(self) -> dict[str, Any]:
         return {
@@ -69,6 +76,8 @@ class ToolCallRecord:
             "result": self.result,
             "error": self.error,
             "duration_ms": self.duration_ms,
+            "node_id": self.node_id,
+            "node_name": self.node_name,
         }
 
 
@@ -128,14 +137,27 @@ class Toolbox:
             for name, tool in self._tools.items()
         ]
 
+    def node_of(self, name: str) -> tuple[str, str]:
+        """The tool node (id, name) the tool called ``name`` came from; empty when there is no such tool."""
+        tool = self._tools.get(name)
+        return (tool.node_id, tool.node_name) if tool else ("", "")
+
     async def call(self, call_id: str, name: str, arguments: str) -> ToolCallRecord:
         """Run one call of the model; the outcome is always a text for the model."""
         began = time.monotonic()
+        node_id, node_name = self.node_of(name)
 
         def record(result: str, error: bool) -> ToolCallRecord:
             duration = round((time.monotonic() - began) * 1000)
             return ToolCallRecord(
-                call_id, name, arguments, cut(self._mask(result)), error, duration
+                call_id,
+                name,
+                arguments,
+                cut(self._mask(result)),
+                error,
+                duration,
+                node_id,
+                node_name,
             )
 
         tool = self._tools.get(name)
@@ -225,6 +247,8 @@ async def open_toolbox(
                             offered.input_schema,
                             _mcp_call(server.call, offered.name),
                             prefix=prefix,
+                            node_id=str(frozen.get("node_id") or ""),
+                            node_name=label,
                         )
                     )
                 continue
@@ -238,6 +262,7 @@ async def open_toolbox(
             tool.prefix = default_tool_name(
                 label
             )  # its own name is the Tool name; on a clash the node's goes in front
+            tool.node_id, tool.node_name = str(frozen.get("node_id") or ""), label
             built.append(tool)
         values = [v for v in context.secrets.values() if v]
         yield Toolbox(built, mask=(lambda text: mask_text(text, values)) if values else None)

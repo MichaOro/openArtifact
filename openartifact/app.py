@@ -154,6 +154,7 @@ def _create_app(settings: Settings) -> FastAPI:
             app.state.secret_store.resolve,
             app.state.comments,
             app.state.credentials.settings_of,
+            app.state.event_bus.publish,
         ),
         history_default_keep=settings.execution_history_default_keep,
         guards=GuardSettings(

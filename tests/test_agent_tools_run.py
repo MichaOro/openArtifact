@@ -306,3 +306,47 @@ def test_a_secret_a_tool_sends_is_masked_in_the_history(
         llm.completions()[1]["json"]["messages"][-1]["content"] == call["result"]
     )  # the model gets it masked too
     assert "svc-very-secret-value" not in json.dumps(read)
+
+
+def test_the_run_tells_the_event_bus_which_tool_node_works_and_the_step_and_flow_keep_its_state(
+    api: TestClient, llm: FakeLlm, github: str
+) -> None:
+    """``agent.tool_call`` (started, finished) names the tool node, never the arguments or the answer; the step keeps a summary per
+    tool node (``data.tools``), and the flow of the execution carries it, so the page can show the node as used (green or red)."""
+    make_provider(api, llm)
+    put_secret(api, "GITHUB_TOKEN", MCP_TOKEN)
+    agent = make_agent(api)
+    pipeline = tool_flow(api, agent, [_github_tool(github)])
+    llm.script = [
+        (200, tool_answer(("c1", "get_issue", {"number": 7}))),
+        (200, completion("Issue 7: the login is broken")),
+    ]
+    bus = api.app.state.event_bus  # type: ignore[attr-defined]
+    queue = bus.subscribe()
+    task = make_task(api)
+    post(api, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
+    run = wait_for_run(api, task, "done", timeout=30)
+    step = next(r for r in run["node_results"] if r["kind"] == "agent")
+    base = f"/api/tasks/{task['id']}/executions/{run['execution_id']}"
+    read = api.get(f"{base}/steps/{step['id']}").json()
+    events = []
+    while not queue.empty():
+        event = queue.get_nowait()
+        if getattr(event, "type", "") == "agent.tool_call":
+            events.append(event.data)
+    tool_node = pipeline["tools"][0]["id"]
+    assert [(e["state"], e["tool_node_id"], e["tool"]) for e in events] == [
+        ("started", tool_node, "get_issue"),
+        ("finished", tool_node, "get_issue"),
+    ]
+    assert events[0]["agent_node_id"] == pipeline["ask"]["id"]
+    assert events[0]["execution_id"] == run["execution_id"] and events[0]["task_id"] == task["id"]
+    assert events[1]["ok"] is True
+    assert "number" not in json.dumps(events) and "Login is broken" not in json.dumps(events)
+    expected = [{"node": tool_node, "name": "GitHub", "calls": 1, "errors": 0}]
+    assert step["data"]["tools"] == expected
+    (call,) = read["detail"]["turns"][0]["tool_calls"]
+    assert (call["node_id"], call["node_name"]) == (tool_node, "GitHub")
+    flow = api.get(f"{base}/flow").json()
+    (flow_step,) = [s for s in flow["steps"] if s["kind"] == "agent"]
+    assert flow_step["data"]["tools"] == expected
