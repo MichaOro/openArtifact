@@ -12,6 +12,7 @@ An agent cannot be deleted while an agent node refers to it (409, with the nodes
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -60,6 +61,14 @@ from openartifact.graph.node_types import node_type
 from openartifact.models import Agent, AgentVersion, Graph, GraphNode, NodeKind
 
 _AGENT_OF_NODE = func.json_extract(GraphNode.config, "$.agent_id")
+
+
+def beginning_of(prompt: str, limit: int = 160) -> str:
+    """The first sentence of a prompt as one short line for a list (markup marks gone, line breaks a space), cut at ``limit``."""
+    flat = re.sub(r"\s+", " ", re.sub(r"[*_`#>]+", "", prompt)).strip()
+    stop = re.search(r"[.!?](?=\s)", flat)
+    text = flat[: stop.end()] if stop else flat
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
 def publish_problems(config: AgentConfig, providers: Mapping[str, ProviderInfo]) -> list[str]:
@@ -134,6 +143,7 @@ class AgentService:
     @staticmethod
     def _read(agent: Agent, published: AgentConfig | None, count: int) -> AgentRead:
         draft = AgentConfig.loads(agent.draft)
+        shown = published or draft
         return AgentRead(
             id=agent.id,
             name=agent.name,
@@ -142,6 +152,11 @@ class AgentService:
             published_number=agent.published_number,
             draft_changed=published is None or draft.dumps() != published.dumps(),
             node_count=count,
+            user_prompt_start=beginning_of(shown.user_prompt),
+            system_prompt_enabled=shown.system_prompt_enabled,
+            provider_id=shown.provider_id if shown.limits_on else None,
+            model=shown.model if shown.limits_on else None,
+            shown_from="published" if published else "draft",
             created_at=agent.created_at,
             updated_at=agent.updated_at,
         )

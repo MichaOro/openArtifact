@@ -555,3 +555,24 @@ def test_at_most_500_agents(api: TestClient, monkeypatch: pytest.MonkeyPatch) ->
     make_agent(api, "One", publish=False)
     refused = api.post("/api/agents", json={"name": "Two"})
     assert refused.status_code == 409 and refused.json()["detail"] == "At most 1 agents"
+
+
+def test_the_list_says_what_the_page_needs_without_loading_each_agent(api: TestClient) -> None:
+    """The management page (ADR-069) shows the beginning of the user prompt, whether the system prompt is in effect and the provider and
+    model the agent sets itself, from the published version (the draft while nothing is published)."""
+    made = api.post("/api/agents", json={"name": "Lister"}).json()
+    draft = {
+        "user_prompt": "## Summarise the card. Then list what is missing.\nSecond line.",
+        "system_prompt_enabled": True,
+        "system_prompt": "You are brief.",
+        "limits_enabled": True,
+        "model": "free-pool",
+    }
+    assert api.put(f"/api/agents/{made['id']}/draft", json=draft).status_code == 200
+    (row,) = [a for a in api.get("/api/agents").json() if a["id"] == made["id"]]
+    assert row["shown_from"] == "draft"
+    assert row["user_prompt_start"] == "Summarise the card."
+    assert row["system_prompt_enabled"] is True and row["model"] == "free-pool"
+    api.put(f"/api/agents/{made['id']}/draft", json={**draft, "limits_enabled": False})
+    (row,) = [a for a in api.get("/api/agents").json() if a["id"] == made["id"]]
+    assert row["model"] is None, "limits off: the agent's own model is not in effect"

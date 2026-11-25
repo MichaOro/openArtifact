@@ -294,6 +294,14 @@ class AgentRead(BaseModel):
     draft_changed: bool
     #: How many agent nodes refer to it.
     node_count: int
+    #: What a list says of the agent without loading it (ADR-069): the beginning of the user prompt, whether the system prompt is
+    #: in effect, and the agent's own provider and model when its limits are in effect. They come from the published version, or
+    #: from the draft while nothing is published (``shown_from``).
+    user_prompt_start: str = ""
+    system_prompt_enabled: bool = False
+    provider_id: str | None = None
+    model: str | None = None
+    shown_from: Literal["published", "draft"] = "draft"
     created_at: UtcDateTime
     updated_at: UtcDateTime
 
