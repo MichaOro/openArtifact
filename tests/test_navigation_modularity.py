@@ -174,3 +174,20 @@ def test_the_sidebar_of_a_page_is_the_registry_of_the_application(client: TestCl
         NavLinkEntry("reports", "key", "/reports"), parent=SIDEBAR, order=50
     )
     assert 'href="/reports"' in client.get("/settings/personal").text
+
+
+def test_every_page_without_a_parameter_renders_with_its_sidebar(client: TestClient) -> None:
+    pages = [
+        route.path
+        for route in routes.router.routes
+        if isinstance(route, APIRoute)
+        and "GET" in route.methods
+        and not route.include_in_schema
+        and "{" not in route.path
+        and route.path not in NO_ENTRY
+    ]
+    assert "/executions" in pages and "/settings/personal" in pages
+    for path in pages:
+        response = client.get(path)
+        assert response.status_code == 200, (path, response.status_code)
+        assert 'class="sidebar__nav"' in response.text, f"{path} has no sidebar"

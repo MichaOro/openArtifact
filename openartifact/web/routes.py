@@ -171,7 +171,7 @@ async def executions(request: Request, page_size: int = 50) -> HTMLResponse:
     query string and are read by the page.
     """
     return _page(
-        request, "executions.html", "page.executions", "", page_size=max(1, min(page_size, 200))
+        request, "executions.html", "page.executions", page_size=max(1, min(page_size, 200))
     )
 
 
