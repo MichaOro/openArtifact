@@ -243,6 +243,18 @@ A new type:
 3. Test the validation in `tests/test_execution_nodes.py` (or `tests/test_graphs.py`) and, if the control has
    behaviour, in an e2e flow.
 
+## Add a management page
+
+A page that lists definitions (pipelines, actions, agents, guards) is a page script and a manifest, not a new layout (ADR-069):
+
+1. The template has one `<div data-management>` and the stylesheet `management.css` (see `graph_list.html`).
+2. The script builds a `ManagementPage` (see the UI catalog, *Management pages*): what an entry is (`itemKey`, `search`, `tagsOf`, `sorts`), what
+   a card shows, the chips and the tabs of the panel, and what open, edit and delete do. Selecting, the keys, cards or list, paging and
+   the sheet on a narrow screen come from the component.
+3. A tab that is not built is `disabled: true` (greyed). The window that makes or changes an entry is a form manifest (`ui/forms/<name>.yaml`, ADR-065).
+4. Show the picture of a graph with `lazyPreview` and a structure from `structureOfGraph` or `structureOfChain`; give a new kind of picture a
+   function that returns `{columns, links}` rather than a layout of its own.
+
 ## Add a navigation entry
 
 Navigation entries are registered in the `NavigationRegistry` (see [ADR-066](../architecture/adr/066-modular-navigation.md)). The
