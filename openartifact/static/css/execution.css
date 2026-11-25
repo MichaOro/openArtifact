@@ -148,13 +148,13 @@
 .ef-passes__text { min-width: 6rem; text-align: center; font-size: 0.8125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .ef-path { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.ef-path__item { display: flex; align-items: center; gap: var(--space-1); border: 1px solid transparent; border-left: 3px solid var(--lane-hue-3); border-radius: var(--radius-sm); }
+.ef-path__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); border: 1px solid transparent; border-left: 3px solid var(--lane-hue-3); border-radius: var(--radius-sm); }
 .ef-path__item[data-state="fail"] { border-left-color: var(--color-danger); }
 .ef-path__item[data-state="running"] { border-left-color: var(--color-accent); }
 .ef-path__item[data-state="stopped"] { border-left-color: var(--lane-hue-2); }
 .ef-path__item.is-selected { border-color: var(--color-accent); background: var(--accent-soft); }
 .ef-path__main {
-  flex: 1;
+  flex: 1 1 12rem; /* never narrower than its name needs: the "Open pass" buttons of a step that ran several times wrap below it */
   display: grid;
   grid-template-columns: 1.25rem minmax(0, 1fr) auto;
   align-items: center;
@@ -173,11 +173,12 @@
 .ef-path__main:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 .ef-path__seq { font-size: 0.75rem; font-variant-numeric: tabular-nums; color: var(--color-text-muted); }
 .ef-path__name { display: flex; flex-direction: column; min-width: 0; }
-.ef-path__label { font-weight: 500; font-size: 0.8125rem; overflow-wrap: anywhere; }
+.ef-path__label { font-weight: 500; font-size: 0.8125rem; overflow-wrap: break-word; }
 .ef-path__kind { font-size: 0.6875rem; color: var(--color-text-muted); }
 .ef-path__facts { grid-column: 2 / -1; font-size: 0.6875rem; color: var(--color-text-secondary); }
 .ef-path__state { line-height: 1.25rem; }
 .ef-path__open { flex: none; margin-right: var(--space-1); }
+.ef-path__main + .ef-path__open { margin-left: calc(1.25rem + var(--space-2) + var(--space-2)); } /* under the name, not under the number */
 
 @media (max-width: 900px) {
   .ef-main { grid-template-columns: minmax(0, 1fr); min-height: 0; }

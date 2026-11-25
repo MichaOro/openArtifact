@@ -444,3 +444,36 @@ def test_on_a_phone_the_panel_is_below_the_canvas(
     expect(page.locator(".ge-node").first).to_be_visible()
     _item(page, "Compile").locator("button", has_text="Open").click()
     expect(_crumbs(page)).to_have_count(2)
+
+
+def test_a_step_that_ran_several_times_keeps_its_name_readable_beside_its_pass_buttons(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """The panel's path lists "Open pass 1", "Open pass 2" for a step that ran twice. They used to sit in the row beside the name
+    and squeezed it into one letter per line, over the status chip: now they wrap below the name."""
+    _open(page, base_url, api, echo_pipeline(api))
+    item = page.locator(".ef-path__item").first
+    item.evaluate(
+        """el => {
+          for (const n of [1, 2]) {
+            const b = document.createElement('button');
+            b.className = 'button button--ghost button--sm ef-path__open';
+            b.textContent = 'Open pass ' + n;
+            el.append(b);
+          }
+          el.querySelector('.ef-path__label').textContent = 'Test: Code und HTTP';
+        }"""
+    )
+    label = item.locator(".ef-path__label").bounding_box()
+    main = item.locator(".ef-path__main").bounding_box()
+    buttons = item.locator(".ef-path__open")
+    first, second = buttons.nth(0).bounding_box(), buttons.nth(1).bounding_box()
+    assert label and main and first and second
+    assert label["height"] < 40, (
+        f"the name stays on one or two lines, not a letter per line ({label['height']} px)"
+    )
+    assert main["width"] >= 150, f"the name's row keeps its room ({main['width']} px)"
+    assert first["y"] >= main["y"] + main["height"] - 1, "the pass buttons sit below the name"
+    assert abs(first["y"] - second["y"]) < 2 or second["y"] > first["y"], (
+        "and do not overlap each other"
+    )
