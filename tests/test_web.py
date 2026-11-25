@@ -445,16 +445,15 @@ def test_stage_pages_use_the_name_of_the_stage(db_client: TestClient) -> None:
     assert db_client.get("/workflows").status_code == 404  # the earlier URL is gone
 
 
-def test_name_dialogs_are_the_shared_form_dialog(client: TestClient) -> None:
-    """The pipeline list and the editor render the same form_modal with one Name field. The window that makes or changes an
-    action asks for more than a name (what it is for), so it is a form manifest window (ADR-065, ADR-067)."""
-    actions = client.get("/actions").text
-    assert 'id="action-modal"' in actions and 'id="name-modal-field-name"' not in actions
-    for path in ("/pipelines",):
+def test_the_windows_of_the_lists_are_form_manifest_windows(client: TestClient) -> None:
+    """The window that makes or changes a pipeline or an action asks for more than a name (description, tags, what an action is
+    for), so it is a form manifest window on both pages (ADR-065, ADR-067, ADR-069)."""
+    for path in ("/actions", "/pipelines"):
         html = client.get(path).text
-        assert 'id="name-modal-field-name"' in html
-        assert 'id="name-modal-field-name-error"' in html
-        assert "<span data-submit-label>Create</span>" in html
+        assert 'id="graph-modal"' in html and 'id="name-modal-field-name"' not in html
+        assert "data-management" in html, (
+            "the list, its toolbar and the panel are drawn by the management page component"
+        )
         assert "data-cancel" in html
 
 

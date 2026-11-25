@@ -52,32 +52,33 @@ def test_create_rename_and_delete_a_pipeline_from_the_list(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     page.goto(f"{base_url}/pipelines")
-    expect(page.locator("[data-ge-empty]")).to_be_visible()
+    expect(page.locator(".mg__empty")).to_be_visible()
     page.click("[data-new-graph]")
-    page.fill("#name-modal-field-name", "Agentic Coding")
-    page.click("#name-modal [data-submit]")
+    page.locator("#graph-modal").get_by_label("Name").fill("Agentic Coding")
+    page.click("#graph-modal [data-submit]")
     expect(page).to_have_url(f"{base_url}/pipelines/agentic-coding")  # the name, not an id
     expect(page.locator(".ge-node--trigger")).to_have_count(1)
     expect(page.locator(".ge-node--complete")).to_have_count(1)
     expect(page.locator(".ge-edge")).to_have_count(1)  # connected by default
 
     page.goto(f"{base_url}/pipelines")
-    page.locator("[data-rename]").click()
-    page.fill("#name-modal-field-name", "Renamed")
-    page.click("#name-modal [data-submit]")
-    expect(page.locator(".ge-item__name")).to_have_text("Renamed")
+    page.locator(".mg-card").click()  # a click selects: the panel's Properties change the name
+    page.locator("[data-properties]").click()
+    page.locator("#graph-modal").get_by_label("Name").fill("Renamed")
+    page.click("#graph-modal [data-submit]")
+    expect(page.locator(".mg-card__name")).to_have_text("Renamed")
 
-    page.locator("[data-delete]").click()
+    page.locator(".mg-card [data-delete]").click()
     page.click("#confirm-modal [data-confirm]")
-    expect(page.locator(".ge-item")).to_have_count(0)
+    expect(page.locator(".mg-card")).to_have_count(0)
     assert api.get("/api/pipelines").json() == []
 
 
 def test_pipeline_name_is_required(page: Page, base_url: str, api: httpx.Client) -> None:
     page.goto(f"{base_url}/pipelines")
     page.click("[data-new-graph]")
-    page.click("#name-modal [data-submit]")
-    expect(page.locator("#name-modal-field-name-error")).to_be_visible()
+    page.click("#graph-modal [data-submit]")
+    expect(page.locator("#graph-modal [data-error-for='name']")).to_be_visible()
     assert api.get("/api/pipelines").json() == []
 
 
@@ -509,12 +510,12 @@ def test_create_an_action_definition_from_the_navigation(
     page.goto(f"{base_url}/pipelines")
     page.click(".nav-link[href='/actions']")
     expect(page).to_have_url(re.compile(r"/actions$"))
-    expect(page.locator('[data-ge-empty][data-purpose="pipeline"]')).to_be_visible()
+    expect(page.locator(".mg__empty")).to_be_visible()
     page.click("[data-new-graph]")
-    page.locator("#action-modal").get_by_label("Name").fill(
+    page.locator("#graph-modal").get_by_label("Name").fill(
         "Gap analysis"
     )  # a window of the form manifest (ADR-065, ADR-067)
-    page.click("#action-modal [data-submit]")
+    page.click("#graph-modal [data-submit]")
     expect(page).to_have_url(f"{base_url}/actions/gap-analysis")
     expect(page.locator(".ge-node--trigger")).to_have_count(1)
     expect(page.locator(".ge-node--output")).to_have_count(1)

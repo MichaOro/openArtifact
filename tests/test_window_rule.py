@@ -15,7 +15,7 @@ TEMPLATES = Path(__file__).resolve().parent.parent / "openartifact" / "templates
 #: node kind, ``graph/nodes/*.yaml``, ADR-053/054).
 MANIFEST_WINDOWS = {
     "credential-modal": "credential",
-    "action-modal": "action",
+    "graph-modal": "action",  # the window of the pipeline list and of the action list (form: pipeline or action)
     "guard-modal": "guard",
     "node-modal": "nodes",
 }

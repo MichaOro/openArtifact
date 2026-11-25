@@ -231,8 +231,8 @@ def test_every_delete_control_uses_the_one_destructive_style(board: Board, base_
     trash.hover()
     expect(trash).to_have_css("color", danger)
     for path, selector in (
-        ("/actions", "[data-ge-list] [data-delete]"),
-        ("/pipelines", "[data-ge-list] [data-delete]"),
+        ("/actions", ".mg-card [data-delete]"),
+        ("/pipelines", ".mg-card [data-delete]"),
     ):
         page.goto(f"{base_url}{path}")
         control = page.locator(selector).first

@@ -30,6 +30,7 @@ from openartifact.graph.rules import Endpoint, validate_edge
 from openartifact.graph.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
 from openartifact.graph.slug import slugify
 from openartifact.models import (
+    Execution,
     Graph,
     GraphEdge,
     GraphKind,
@@ -37,6 +38,7 @@ from openartifact.models import (
     GuardAttachment,
     GuardDefinition,
     NodeKind,
+    Task,
 )
 
 
@@ -118,7 +120,12 @@ class GraphRepository:
     # ── graphs ─────────────────────────────────────────────────────
 
     async def create(
-        self, name: str, kind: GraphKind = GraphKind.PIPELINE, purpose: str = "pipeline"
+        self,
+        name: str,
+        kind: GraphKind = GraphKind.PIPELINE,
+        purpose: str = "pipeline",
+        description: str = "",
+        tags: Sequence[str] = (),
     ) -> Graph:
         """Create a graph with its fixed nodes, connected with each other.
 
@@ -129,7 +136,14 @@ class GraphRepository:
             raise PurposeError("The purpose of an action is pipeline or guard")
         if purpose == "guard" and kind != GraphKind.ACTION:
             raise PurposeError("Only an action can be for guards")
-        graph = Graph(id=str(uuid.uuid4()), name=name, kind=kind, purpose=purpose)
+        graph = Graph(
+            id=str(uuid.uuid4()),
+            name=name,
+            kind=kind,
+            purpose=purpose,
+            description=description,
+            tags=list(tags),
+        )
         graph.slug = await self._unique_slug(name, kind, None)
         self._session.add(graph)
         fixed = fixed_in(kind)
@@ -163,14 +177,105 @@ class GraphRepository:
         return graph
 
     async def list_all(
-        self, kind: GraphKind = GraphKind.PIPELINE, purpose: str | None = None
+        self,
+        kind: GraphKind = GraphKind.PIPELINE,
+        purpose: str | None = None,
+        q: str | None = None,
+        tag: str | None = None,
     ) -> Sequence[Graph]:
-        """All graphs (or action definitions, of one ``purpose`` when given), most recently changed first."""
+        """All graphs (or action definitions, of one ``purpose`` when given), most recently changed first. ``q`` keeps the ones whose
+        name, description or a tag contains the text (any case); ``tag`` the ones that carry exactly this tag (any case)."""
         query = select(Graph).where(Graph.kind == kind)
         if purpose is not None:
             query = query.where(Graph.purpose == purpose)
         result = await self._session.execute(query.order_by(Graph.updated_at.desc(), Graph.id))
-        return result.scalars().all()
+        graphs = result.scalars().all()
+        if q and q.strip():
+            needle = q.strip().lower()
+            graphs = [
+                g
+                for g in graphs
+                if needle in g.name.lower()
+                or needle in (g.description or "").lower()
+                or any(needle in t.lower() for t in g.tags or [])
+            ]
+        if tag and tag.strip():
+            wanted = tag.strip().lower()
+            graphs = [g for g in graphs if wanted in [t.lower() for t in g.tags or []]]
+        return graphs
+
+    async def node_counts(self, graph_ids: Sequence[str]) -> dict[str, int]:
+        """How many nodes each graph holds (the card of the management page says it)."""
+        if not graph_ids:
+            return {}
+        rows = await self._session.execute(
+            select(GraphNode.graph_id, func.count())
+            .where(GraphNode.graph_id.in_(graph_ids))
+            .group_by(GraphNode.graph_id)
+        )
+        return {graph_id: count for graph_id, count in rows.all()}
+
+    async def uses_of(self, graph: Graph) -> dict[str, Any]:
+        """Where a definition is used, for the Usage tab: an action definition by the stages of pipelines and by guards; a pipeline
+        by pipelines that call it, by guards attached to it and by the artifacts that start in it (with how many runs it had)."""
+        uses: list[dict[str, str]] = []
+        if graph.kind == GraphKind.ACTION:
+            rows = await self._session.execute(
+                select(Graph.name, Graph.slug, GraphNode.stage_id)
+                .join(GraphNode, GraphNode.graph_id == Graph.id)
+                .where(GraphNode.kind == NodeKind.ACTION.value, GraphNode.definition_id == graph.id)
+                .order_by(Graph.name)
+            )
+            for name, slug, stage_id in rows.all():
+                stage = await self._session.get(GraphNode, stage_id) if stage_id else None
+                uses.append(
+                    {
+                        "kind": "stage",
+                        "name": name,
+                        "href": f"/pipelines/{slug}",
+                        "detail": stage.name if stage else "",
+                    }
+                )
+            for (guard_name,) in (
+                await self._session.execute(
+                    select(GuardDefinition.name)
+                    .where(GuardDefinition.action_id == graph.id)
+                    .order_by(GuardDefinition.name)
+                )
+            ).all():
+                uses.append({"kind": "guard", "name": guard_name, "href": "/guards", "detail": ""})
+            return {"uses": uses, "artifacts": None, "executions": None}
+        for name, slug in (
+            await self._session.execute(
+                select(Graph.name, Graph.slug)
+                .join(GraphNode, GraphNode.graph_id == Graph.id)
+                .where(
+                    GraphNode.kind == NodeKind.PIPELINE.value, GraphNode.definition_id == graph.id
+                )
+                .distinct()
+                .order_by(Graph.name)
+            )
+        ).all():
+            uses.append(
+                {"kind": "pipeline", "name": name, "href": f"/pipelines/{slug}", "detail": ""}
+            )
+        for (guard_name,) in (
+            await self._session.execute(
+                select(GuardDefinition.name)
+                .join(GuardAttachment, GuardAttachment.guard_id == GuardDefinition.id)
+                .where(GuardAttachment.graph_id == graph.id)
+                .distinct()
+                .order_by(GuardDefinition.name)
+            )
+        ).all():
+            uses.append({"kind": "guard", "name": guard_name, "href": "/guards", "detail": ""})
+        artifacts = await self._session.scalar(
+            select(func.count()).select_from(Task).where(Task.pipeline_id == graph.id)
+        )
+        executions = await self._session.scalar(
+            select(func.count()).select_from(Execution).where(Execution.pipeline_id == graph.id)
+        )
+        return {"uses": uses, "artifacts": artifacts or 0, "executions": executions or 0}
 
     async def places_of(self, graph: Graph) -> tuple[list[str], list[str]]:
         """Where an action definition is used: the names of the pipelines whose stages use it and of the guards that run it."""

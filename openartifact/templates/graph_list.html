@@ -1,51 +1,20 @@
 {% extends "base.html" %}
 {% from "components/alert.html" import alert %}
 {% from "components/confirm_modal.html" import confirm_modal %}
-{% from "components/form_modal.html" import form_modal, NAME_FIELDS %}
 {% from "components/manifest_modal.html" import manifest_modal %}
 {% from "components/icons.html" import icon %}
 {% block title %}{{ t('page.' ~ section.key ~ 's') }} · OpenArtifact{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
+<link rel="stylesheet" href="/static/css/management.css">{% endblock %}
 {% block content %}
 {{ alert(t('graph.' ~ section.key ~ '.load_error')) }}
 <div class="action-row">
     <button type="button" class="button button--primary" data-new-graph>{{ icon("plus") }} {{ t('graph.' ~ section.key ~ '.new') }}</button>
 </div>
-{% if section.kind == "action" %}
-{# An action is for pipelines or for guards (ADR-067): two lists, one for each, the two never mix. #}
-<div class="tab-bar" role="tablist" aria-label="{{ t('page.actions') }}" data-ge-tabs>
-    <button type="button" class="task-tab" role="tab" id="ge-tab-pipeline" data-tab="pipeline" aria-controls="ge-panel-pipeline" aria-selected="true">{{ icon("action") }}<span>{{ t('graph.action.tab_pipeline') }}</span></button>
-    <button type="button" class="task-tab" role="tab" id="ge-tab-guard" data-tab="guard" aria-controls="ge-panel-guard" aria-selected="false">{{ icon("shield") }}<span>{{ t('graph.action.tab_guard') }}</span></button>
-</div>
-{% for purpose in ("pipeline", "guard") %}
-<div role="tabpanel" id="ge-panel-{{ purpose }}" aria-labelledby="ge-tab-{{ purpose }}"{% if purpose == "guard" %} hidden{% endif %}>
-    <ul class="ge-list" data-ge-list data-purpose="{{ purpose }}" data-kind="{{ section.kind }}" data-path="{{ section.path }}" aria-label="{{ t('graph.action.tab_guard') if purpose == 'guard' else t('graph.action.tab_pipeline') }}"></ul>
-    <p class="ge-empty glass" data-ge-empty data-purpose="{{ purpose }}" hidden>{{ t('graph.action.empty_guard') if purpose == 'guard' else t('graph.action.empty_pipeline') }}</p>
-</div>
-{% endfor %}
-{% else %}
-<ul class="ge-list" data-ge-list data-kind="{{ section.kind }}" data-path="{{ section.path }}" aria-label="{{ t('page.' ~ section.key ~ 's') }}"></ul>
-<p class="ge-empty glass" data-ge-empty hidden>{{ t('graph.' ~ section.key ~ '.empty') }}</p>
-{% endif %}
+{# The list, its toolbar and the detail panel are drawn by components/management-page.js (ADR-069); this page says what an entry is. #}
+<div data-management data-kind="{{ section.kind }}" data-path="{{ section.path }}"></div>
 
-<template id="ge-item-template">
-    <li class="ge-item glass">
-        <a class="ge-item__link" href="#">
-            <h3 class="ge-item__name"></h3>
-            <p class="ge-item__meta"></p>
-        </a>
-        <span class="ge-chip">{{ t('common.draft') }}</span>
-        <span class="ge-chip ge-chip--guard" data-guard-chip hidden>{{ t('graph.action.chip_guard') }}</span>
-        <button type="button" class="icon-button icon-button--sm" data-rename aria-label="{{ t('graph.' ~ section.key ~ '.rename') }}" title="{{ t('graph_list.rename') }}">{{ icon("pencil") }}</button>
-        <button type="button" class="icon-button icon-button--sm is-danger" data-delete aria-label="{{ t('graph.' ~ section.key ~ '.delete') }}" title="{{ t('common.delete') }}">{{ icon("trash") }}</button>
-    </li>
-</template>
-
-{% if section.kind == "action" %}
-{{ manifest_modal("action-modal", t('page.actions')) }}
-{% else %}
-{{ form_modal("name-modal", t('page.' ~ section.key), NAME_FIELDS) }}
-{% endif %}
+{{ manifest_modal("graph-modal", t('page.' ~ section.key ~ 's')) }}
 {{ confirm_modal("confirm-modal", t('graph.' ~ section.key ~ '.delete')) }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/editor/list.js"></script>{% endblock %}

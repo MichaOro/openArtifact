@@ -135,7 +135,10 @@ Use these instead of building a new one. They live in `static/js/components/` un
 |---|---|
 | The card of a node in the graph editor | `.ge-node` keyed by `data-behaviour`, coloured by the manifest's `ui.color` (a `--node-<color>` token), icon inline before the text column: no rule per kind, see [extending](extending.md#the-card-the-colour-and-what-a-node-leaves-behind) |
 | A dialog | `modal.js` with `templates/components/modal.html`; a question: `confirm-dialog.js`; input fields: `form-dialog.js`; a dialog that runs a request: `action-dialog.js` |
-| A tab list | `tabs.js` (`.task-tabs` / `.task-tab`) |
+| A tab list | `tabs.js` (`.task-tabs` / `.task-tab`); a tab with `disabled` is a place held for what is not built (greyed, skipped by the keys) |
+| A page that manages definitions (list of cards or rows, toolbar, detail panel with tabs) | `management-page.js` (`ManagementPage`, `chip`, `make`), styled by `management.css` (`.mg-*`); see "Management pages" below |
+| The small picture of a pipeline or an action | `graph-preview.js` (`GraphPreview`, `lazyPreview`) with the layout in `preview-layout.js` (`structureOfGraph`, `structureOfChain`, `layoutPreview`) |
+| Short labels typed as one line | the form widget `tags` (`form-widgets.js`): a list in the values |
 | A menu of commands | `action-menu.js` (`menu__item`) |
 | A list to pick from, placed next to its trigger | `lane-picker.js` and `popover.js` (`popover__option`) |
 | A short message above a page | `alert-bar.js` with `templates/components/alert.html`; `show(message, { tone: "info" })` is the calm look for news that is not an error (what a change did beyond the node); it floats above an open window (popover layer), because a window's backdrop would cover the bar |
@@ -161,6 +164,30 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A `#` reference in a text | `reference-picker.js` |
 | The guards of a scope: one shield and its popup (names, switch, Detach; "Add a guard"; a group *In the action* on an action card); the popup has two layouts: its two buttons sit side by side, and **stacked** when it opens from a stage header or a card (`what.stack`, class `gd-popover--stack`) | `editor/guards.js` (`shieldButton`), `guards/guard-popover.js` (a `popover` with `popover__option`, `ge-switch` and catalog buttons) |
 | An icon | `icons.js` (`icon("name")`), the paths in `templates/components/icons.html`; a node kind's glyph in the menus is its manifest's `menu_icon` (else `ui.icon`) |
+
+## Management pages
+
+The pages of pipelines, actions, agents and guards use ONE frame (ADR-069), so they behave alike: a click selects and shows the panel, a
+double click and the pencil open the editor, the bin asks first, the arrows, Home, End, Enter and Delete work on the list.
+
+```js
+const page = new ManagementPage(document.querySelector("[data-management]"), {
+  name: "actions", label: "Actions", itemKey: (item) => item.id,
+  tabs: [{ key: "pipeline", label, icon: "action", match: (item) => item.purpose === "pipeline" }],   // optional
+  search: (item) => `${item.name} ${item.description}`, tagsOf: (item) => item.tags,                // both optional
+  sorts: [{ key: "name", label: "Name (A-Z)", compare: (a, b) => a.name.localeCompare(b.name) }],
+  card: (item, view) => element,           // the content of a card (view "cards") or of a row ("list")
+  panel: { icon: (item) => "action", title: (item) => item.name, chips: (item) => [chip("Draft")],
+           tabs: (item) => [{ key: "overview", label, render: (body, item) => {} }, { key: "versions", label, disabled: true, render() {} }] },
+  onOpen, onEdit, onDelete,                // each gets the item; the page asks before it deletes
+});
+page.setItems(items);  page.refreshPanel();
+```
+
+The page markup is one `<div data-management>`; the stylesheet is `management.css`. A card shows the picture of its graph with
+`lazyPreview(host, () => loadStructure(item))` (drawn when it comes into view); the Graph tab uses `new GraphPreview(host, {structure, typeOf, node: 44})`.
+Put the page's own facts in `mg-facts` (a `<dl>`), sections in `mg-section`, chips with `chip(text, {glyph, tone})`. The window that makes or changes an
+entry is a form manifest drawn by `ManifestDialog` (ADR-065), opened from the *Properties* button of the panel and from the page's *New* button.
 
 ## Dialogs are sized by their content
 

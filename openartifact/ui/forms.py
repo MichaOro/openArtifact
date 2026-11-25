@@ -31,6 +31,7 @@ BUILT_IN_WIDGETS: tuple[str, ...] = (
     "text",
     "number",
     "textarea",
+    "tags",
     "select",
     "choice",
     "chips",

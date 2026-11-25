@@ -510,6 +510,8 @@ def test_node_types_are_served_under_their_own_path(client: TestClient) -> None:
         "github",
         "postgres",
         "postgres_tool",
+        "sqlite",
+        "sqlite_tool",
         "artifact",
     }
     timer = by_kind["timer"]

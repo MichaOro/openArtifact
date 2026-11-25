@@ -7,7 +7,10 @@ const send = (method, url, body) => request(url, { method, body: body === undefi
 
 /** `purpose` ("pipeline" | "guard", actions only, ADR-067) narrows the list to the actions for pipelines or for guards. */
 export const listGraphs = (kind, purpose = null) => request(purpose ? `${root(kind)}?purpose=${encodeURIComponent(purpose)}` : root(kind));
-export const createGraph = (kind, name, purpose = null) => send("POST", root(kind), purpose ? { name, purpose } : { name });
+/** `extra`: the description and tags the new definition starts with. */
+export const createGraph = (kind, name, purpose = null, extra = {}) => send("POST", root(kind), { name, ...(purpose ? { purpose } : {}), ...extra });
+export const usesOf = (kind, id) => request(`${base(kind, id)}/uses`);
+export const stagesOf = (id) => request(`${base("pipeline", id)}/stages`);
 export const renameGraph = (kind, id, name) => send("PATCH", base(kind, id), { name });
 /** Change the name and/or, for an action, its purpose (a purpose in use on the other side is refused with the places named). */
 export const updateGraph = (kind, id, fields) => send("PATCH", base(kind, id), fields);

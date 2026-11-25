@@ -29,8 +29,10 @@ from openartifact.graph.schemas import (
     EdgeUpdate,
     GraphCreate,
     GraphDetail,
+    GraphListRead,
     GraphRead,
     GraphUpdate,
+    GraphUses,
     NodeCreate,
     NodeRead,
     NodeUpdate,
@@ -91,7 +93,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
 
     @router.get(
         "",
-        response_model=list[GraphRead],
+        response_model=list[GraphListRead],
         name=f"list_{kind}s",
         summary=f"List {kind}s",
         responses=errors(422),
@@ -105,10 +107,29 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
                 "``pipeline``."
             ),
         ] = None,
-    ) -> list[GraphRead]:
-        """List all of this kind, most recently changed first; ``purpose`` narrows the actions to the ones for pipelines or guards."""
-        graphs = await GraphRepository(session).list_all(kind, purpose)
-        return [GraphRead.model_validate(g) for g in graphs]
+        q: Annotated[
+            str | None,
+            Query(
+                max_length=100,
+                description="Only the ones whose name, description or a tag contains this text (any case).",
+            ),
+        ] = None,
+        tag: Annotated[
+            str | None,
+            Query(
+                max_length=32, description="Only the ones that carry exactly this tag (any case)."
+            ),
+        ] = None,
+    ) -> list[GraphListRead]:
+        """List all of this kind, most recently changed first, each with its description, tags and number of nodes; ``purpose``
+        narrows the actions to the ones for pipelines or guards, ``q`` and ``tag`` search (management pages, ADR-069)."""
+        repo = GraphRepository(session)
+        graphs = await repo.list_all(kind, purpose, q, tag)
+        counts = await repo.node_counts([g.id for g in graphs])
+        return [
+            GraphListRead.model_validate(g).model_copy(update={"node_count": counts.get(g.id, 0)})
+            for g in graphs
+        ]
 
     @router.post(
         "",
@@ -122,7 +143,9 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         """Create one; it starts with a trigger (an action definition also with its output). An action is for pipelines or, with
         ``purpose`` ``guard``, only for guards (ADR-067)."""
         try:
-            graph = await GraphRepository(session).create(payload.name, kind, payload.purpose)
+            graph = await GraphRepository(session).create(
+                payload.name, kind, payload.purpose, payload.description, payload.tags
+            )
         except PurposeError as error:
             raise _invalid(error) from None
         await session.commit()
@@ -162,11 +185,25 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             graph = await graph_of(session, graph_id)
             return pipeline_chain(graph["nodes"], graph["edges"])
 
+    @router.get(
+        "/{graph_id}/uses",
+        response_model=GraphUses,
+        name=f"get_{kind}_uses",
+        summary=f"Where a {kind} is used",
+        responses=errors(404, 422),
+    )
+    async def get_uses(graph_id: str, session: SessionDep) -> dict[str, Any]:
+        """The places that use it (an action: the stages of pipelines and the guards that run it; a pipeline: pipelines that call
+        it and guards attached to it) with a link to each, and for a pipeline how many artifacts start in it and how many runs it
+        had."""
+        repo = GraphRepository(session)
+        return await repo.uses_of(await _graph(repo, graph_id))
+
     @router.patch(
         "/{graph_id}",
         response_model=GraphRead,
         name=f"rename_{kind}",
-        summary=f"Change a {kind}: its name or purpose",
+        summary=f"Change a {kind}: its name, purpose, description or tags",
         responses=errors(404, 409, 422, write=True, body=True),
     )
     async def rename_graph(graph_id: str, payload: GraphUpdate, session: SessionDep) -> GraphRead:
@@ -186,6 +223,10 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
                 ) from None
         if payload.name is not None:
             await repo.rename(graph, payload.name)
+        if payload.description is not None:
+            graph.description = payload.description
+        if payload.tags is not None:
+            graph.tags = list(payload.tags)
         await session.commit()
         return GraphRead.model_validate(graph)
 

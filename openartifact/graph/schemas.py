@@ -23,6 +23,29 @@ class _Strict(BaseModel):
 
 Purpose = Literal["pipeline", "guard"]
 
+#: At most this many tags on a definition, each this long.
+MAX_TAGS, MAX_TAG_LENGTH, MAX_DESCRIPTION = 20, 32, 1000
+Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=MAX_DESCRIPTION)]
+
+
+def _clean_tags(tags: list[str]) -> list[str]:
+    """The tags trimmed and without empty ones or repeats (the first spelling stays; case does not make a tag a new one)."""
+    clean: list[str] = []
+    for tag in tags:
+        text = " ".join(str(tag).split())
+        if not text:
+            continue
+        if len(text) > MAX_TAG_LENGTH:
+            raise ValueError(f"a tag has at most {MAX_TAG_LENGTH} characters")
+        if text.lower() not in (c.lower() for c in clean):
+            clean.append(text)
+    if len(clean) > MAX_TAGS:
+        raise ValueError(f"at most {MAX_TAGS} tags")
+    return clean
+
+
+Tags = Annotated[list[str], Field(max_length=100)]
+
 
 class GraphCreate(_Strict):
     """Body of ``POST /api/pipelines`` and ``POST /api/actions``. ``purpose`` (actions only, ADR-067): ``pipeline`` (used by the
@@ -30,6 +53,13 @@ class GraphCreate(_Strict):
 
     name: Name
     purpose: Purpose = "pipeline"
+    description: Description = ""
+    tags: Tags = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _tidy(self) -> GraphCreate:
+        self.tags = _clean_tags(self.tags)
+        return self
 
 
 class GraphUpdate(_Strict):
@@ -39,11 +69,20 @@ class GraphUpdate(_Strict):
 
     name: Name | None = None
     purpose: Purpose | None = None
+    description: Description | None = None
+    tags: Tags | None = None
 
     @model_validator(mode="after")
     def _something(self) -> GraphUpdate:
-        if self.name is None and self.purpose is None:
-            raise ValueError("send a name or a purpose")
+        if self.tags is not None:
+            self.tags = _clean_tags(self.tags)
+        if (
+            self.name is None
+            and self.purpose is None
+            and self.description is None
+            and self.tags is None
+        ):
+            raise ValueError("send a name, a purpose, a description or tags")
         return self
 
 
@@ -114,6 +153,34 @@ class GraphRead(_Timestamps):
     slug: str
     #: What an action definition is for (``pipeline`` or ``guard``, ADR-067); every pipeline is ``pipeline``.
     purpose: Purpose = "pipeline"
+    #: What it is for, in a sentence or two, and the short labels to find it by (the management pages, ADR-069).
+    description: str = ""
+    tags: list[str] = Field(default_factory=list)
+
+
+class GraphListRead(GraphRead):
+    """A pipeline or action in the list: with the number of its nodes (the management pages draw it on the card)."""
+
+    node_count: int = 0
+
+
+class GraphUse(BaseModel):
+    """One place a definition is used: ``kind`` says what the place is (``pipeline``, ``stage``, ``guard``, ``artifact``,
+    ``execution``), ``name`` names it and ``href`` is where to go (empty when there is no page for it)."""
+
+    kind: str
+    name: str
+    href: str = ""
+    detail: str = ""
+
+
+class GraphUses(BaseModel):
+    """Where a pipeline or an action definition is used (the Usage tab of the management pages)."""
+
+    uses: list[GraphUse]
+    #: How many artifacts start in a pipeline and how many runs it has had (pipelines only; ``None`` for an action).
+    artifacts: int | None = None
+    executions: int | None = None
 
 
 class NodeRead(BaseModel):

@@ -1,7 +1,7 @@
 /* A tab list following the ARIA tabs pattern: role=tablist / tab / tabpanel, aria-selected, roving
  * tabindex, Left/Right/Home/End, automatic activation. The markup carries the tabs
  * ([role=tab][data-tab=name][aria-controls=panel id]); this class only switches them. A tab can be hidden
- * (`setVisible`): it and its panel are gone, the keys skip it, and if it was selected the first visible tab is. */
+ * (`setVisible`): it and its panel are gone, a `disabled` tab (a place held for what is not built) cannot be chosen and the keys skip it, the keys skip it, and if it was selected the first visible tab is. */
 
 export class Tabs {
   /**
@@ -20,7 +20,7 @@ export class Tabs {
 
   /** Show the tab and its panel; `focus` moves the focus to the tab. */
   select(name, { notify = true, focus = false } = {}) {
-    const chosen = this.tabs.find((tab) => tab.dataset.tab === name && !tab.hidden);
+    const chosen = this.tabs.find((tab) => tab.dataset.tab === name && !tab.hidden && !tab.disabled);
     if (!chosen) return;
     for (const tab of this.tabs) {
       const on = tab === chosen;
@@ -50,7 +50,7 @@ export class Tabs {
   }
 
   #key(event) {
-    const shown = this.tabs.filter((tab) => !tab.hidden);
+    const shown = this.tabs.filter((tab) => !tab.hidden && !tab.disabled); // a greyed tab is skipped
     const index = shown.findIndex((tab) => tab === document.activeElement);
     if (index < 0) return;
     const last = shown.length - 1;
