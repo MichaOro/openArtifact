@@ -1,4 +1,4 @@
-"""The agents page as a management page (ADR-069): cards or rows with the beginning of the user prompt, a click selects and shows the
+"""The agents page as a management page (ADR-069): cards or rows with the description (when one is kept), a click selects and shows the
 panel (user prompt, the system prompt only while it is in effect, the model the agent sets itself, the versions), a double click and the
 pencil open the editor, the bin deletes after a question (and is disabled while a node refers to the agent), the window that makes or
 changes an agent is a form manifest."""
@@ -39,6 +39,10 @@ def test_a_click_shows_the_prompts_and_the_system_prompt_only_while_it_is_in_eff
         limits_enabled=True,
         model="free-pool",
     )
+    api.patch(
+        f"/api/agents/{next(a['id'] for a in api.get('/api/agents').json() if a['name'] == 'Triage')}",
+        json={"description": "Sorts the incoming cards."},
+    ).raise_for_status()
     _agent(
         api,
         "Plain",
@@ -47,9 +51,10 @@ def test_a_click_shows_the_prompts_and_the_system_prompt_only_while_it_is_in_eff
         system_prompt_enabled=False,
     )
     _open(page, base_url)
-    # the card says the first sentence and the model
+    # the card says the description (when one is kept: the prompt is in the panel) and the model
     triage = page.locator(".mg-card", has_text="Triage")
-    expect(triage.locator(".mg-card__text")).to_have_text("Summarise the card.")
+    expect(triage.locator(".mg-card__text")).to_have_text("Sorts the incoming cards.")
+    expect(page.locator(".mg-card", has_text="Plain").locator(".mg-card__text")).to_have_count(0)
     expect(triage).to_contain_text("free-pool")
     triage.click()
     panel = page.locator(".mg__panel")

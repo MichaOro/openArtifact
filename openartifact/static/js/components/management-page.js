@@ -136,7 +136,21 @@ export class ManagementPage {
       }),
     );
     this.viewToggle.append(...Object.values(this.viewButtons));
-    bar.append(this.viewToggle);
+    // the page size sits in the toolbar next to the switch between cards and list (the pager below keeps the range and the pages)
+    const sizeLabel = make("label", "mg__size");
+    this.sizeSelect = make("select", "field__control");
+    for (const n of this.config.pageSizes) this.sizeSelect.append(new Option(String(n), String(n)));
+    this.sizeSelect.addEventListener("change", () => {
+      this.prefs.size = Number(this.sizeSelect.value);
+      this.page = 0;
+      this.#save();
+      this.render();
+    });
+    sizeLabel.append(document.createTextNode(t("components.management.per_page")), this.sizeSelect);
+    // "Per page [12]  [cards][list]": one group at the right end of the toolbar, which wraps as a whole
+    const tools = make("div", "mg__tools");
+    tools.append(sizeLabel, this.viewToggle);
+    bar.append(tools);
     this.list = make("ul", "mg__list");
     this.list.setAttribute("aria-label", c.label);
     this.empty = make("p", "ge-empty glass mg__empty", c.emptyText ?? "");
@@ -144,7 +158,7 @@ export class ManagementPage {
     this.pager = make("div", "mg__pager");
     main.append(bar, this.list, this.empty, this.pager);
     this.panel = make("aside", "mg__panel");
-    this.panel.hidden = true;
+    this.panel.hidden = false;
     this.scrim = make("div", "mg__scrim");
     this.scrim.hidden = true;
     this.scrim.addEventListener("click", () => this.select(null));
@@ -252,18 +266,8 @@ export class ManagementPage {
     next.disabled = this.page >= pages - 1;
     prev.addEventListener("click", () => this.#go(this.page - 1));
     next.addEventListener("click", () => this.#go(this.page + 1));
-    const label = make("label", "mg__size");
-    const select = make("select", "field__control");
-    for (const n of this.config.pageSizes) select.append(new Option(String(n), String(n)));
-    select.value = String(size);
-    select.addEventListener("change", () => {
-      this.prefs.size = Number(select.value);
-      this.page = 0;
-      this.#save();
-      this.render();
-    });
-    label.append(document.createTextNode(t("components.management.per_page")), select);
-    this.pager.replaceChildren(info, ...(pages > 1 ? [prev, make("span", "mg__page", `${this.page + 1} / ${pages}`), next] : []), label);
+    this.sizeSelect.value = String(size);
+    this.pager.replaceChildren(info, ...(pages > 1 ? [prev, make("span", "mg__page", `${this.page + 1} / ${pages}`), next] : []));
   }
 
   #go(page) {
@@ -338,11 +342,14 @@ export class ManagementPage {
   refreshPanel() {
     const item = this.selected;
     const open = this.panelTab;
-    this.panel.hidden = !item;
+    // the room for the panel is always reserved (two thirds list, one third panel): without a selection it holds a quiet line
+    this.panel.hidden = false;
+    this.panel.dataset.empty = String(!item);
     this.scrim.hidden = !item;
     this.root.dataset.hasPanel = String(Boolean(item));
     if (!item) {
-      this.panel.replaceChildren();
+      const note = make("p", "mg-panel__placeholder", this.config.panel?.placeholder ?? t("components.management.select_one"));
+      this.panel.replaceChildren(note);
       return;
     }
     const p = this.config.panel;

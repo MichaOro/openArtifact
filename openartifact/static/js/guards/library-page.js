@@ -154,6 +154,7 @@ const page = new ManagementPage(root, {
   deleteBlocked: (guard) => model.deleteBlocked(guard) || null, // the bin of a used guard is disabled and says why (a click shows it as a banner too)
   onBlocked: (_guard, reason) => banner.show(reason, { autoHide: 6000 }),
   panel: {
+    placeholder: t("guards.select_one"),
     icon: () => "shield",
     title: (guard) => guard.name,
     chips: (guard) => [triggerChip(guard), consequenceChip(guard)],

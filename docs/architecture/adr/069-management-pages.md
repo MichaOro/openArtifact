@@ -79,3 +79,17 @@ editor; the bin and Delete ask as before and a used guard says why it stays. The
 `summaryLine`, `triggerText`, `previewText`, `escalationText`), not a second implementation. A used guard uses the frame's `deleteBlocked(item)`
 (its bin is disabled and says why) and the new optional `onBlocked(item, reason)`: a click on such a bin shows the reason as a banner, as the
 page did before; pages that do not set it behave as before.
+
+## 6. Addendum (2026-11-26): the room of the panel, the page size in the toolbar
+
+The owner's remarks on the pages as built (cards jumped when an entry was selected; the page size sat under the entries):
+
+- **The room of the panel is always reserved** on a screen wide enough for it to stand beside the entries: two thirds of the width for the entries,
+  one third for the panel (`grid-template-columns: 2fr 1fr`), whether or not an entry is selected. Without a selection the panel holds
+  one quiet line that names the page (`panel.placeholder`, "Select an agent to see its details"; a dashed outline, no heavy box). The
+  first card keeps its position and width when one is selected and when the panel is closed (an e2e test measures it on all four pages).
+  The close button of the panel empties the selection; the room stays. A narrow screen is unchanged: the panel is a sheet from the bottom
+  and there is no reserved room.
+- **The page size is part of the toolbar**: "Per page [12] [cards][list]" is one group at the right end of the toolbar (it wraps as a whole);
+  the pager under the entries keeps the range ("1–3 of 3") and the pages.
+- **The card of an agent says its description**, when one is kept, and nothing otherwise (the prompt is in the panel).

@@ -1995,5 +1995,10 @@
  "forms.agent.sections.general.title": "Agent",
  "forms.agent.fields.name.label": "Name",
  "forms.agent.fields.description.label": "Beschreibung",
- "forms.agent.fields.description.placeholder": "Was dieser Agent tut, in ein, zwei Sätzen"
+ "forms.agent.fields.description.placeholder": "Was dieser Agent tut, in ein, zwei Sätzen",
+ "components.management.select_one": "Wähle einen Eintrag, um seine Details zu sehen",
+ "graph.action.select": "Wähle eine Aktion, um ihre Details zu sehen",
+ "graph.pipeline.select": "Wähle eine Pipeline, um ihre Details zu sehen",
+ "agents.page.select": "Wähle einen Agent, um seine Details zu sehen",
+ "guards.select_one": "Wähle einen Guard, um seine Details zu sehen"
 }

@@ -191,6 +191,9 @@ The page markup is one `<div data-management>`; the stylesheet is `management.cs
 Put the page's own facts in `mg-facts` (a `<dl>`), sections in `mg-section`, chips with `chip(text, {glyph, tone})`. The window that makes or changes an
 entry is a form manifest drawn by `ManifestDialog` (ADR-065), opened from the *Properties* button of the panel and from the page's *New* button.
 
+The room of the detail panel is reserved (two thirds entries, one third panel, a quiet `panel.placeholder` line without a selection) so that
+the entries do not move when one is selected; the page size ("Per page") is part of the toolbar next to the switch between cards and rows (ADR-069 §6).
+
 ## Dialogs are sized by their content
 
 A dialog is **as large as necessary and as small as possible, but cleanly readable**. This holds for every overlay; the

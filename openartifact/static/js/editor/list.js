@@ -161,6 +161,7 @@ const page = new ManagementPage(root, {
   editLabel: (graph) => t(`graph_list.open_noun`, { name: graph.name }),
   deleteLabel: () => t(`graph.${noun}.delete`),
   panel: {
+    placeholder: t(`graph.${noun}.select`),
     icon: (graph) => (kind === "action" ? (graph.purpose === "guard" ? "shield" : "action") : "pipeline"),
     title: (graph) => graph.name,
     chips: chipsOf,
