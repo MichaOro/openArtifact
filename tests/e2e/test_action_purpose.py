@@ -17,7 +17,7 @@ _PURPOSES = {"pipeline": "For pipelines", "guard": "For guards"}
 
 def _make(page: Page, name: str, purpose: str) -> None:
     page.click("[data-new-graph]")
-    dialog = page.locator("#action-modal")
+    dialog = page.locator("#graph-modal")
     expect(dialog).to_be_visible()
     dialog.get_by_label("Name").fill(name)
     dialog.locator(f'[data-choice="{purpose}"]').click()
@@ -30,7 +30,7 @@ def test_an_action_is_made_for_guards_listed_apart_and_changed_with_protection(
 ) -> None:
     page.goto(f"{base_url}/actions")
     page.click("[data-new-graph]")
-    dialog = page.locator("#action-modal")
+    dialog = page.locator("#graph-modal")
     expect(dialog.locator('[data-choice="pipeline"]')).to_have_attribute(
         "aria-pressed", "true"
     )  # the default
@@ -40,28 +40,30 @@ def test_an_action_is_made_for_guards_listed_apart_and_changed_with_protection(
     _make(page, "Judge", "guard")
     assert [a["purpose"] for a in api.get("/api/actions").json()] == ["guard"]
     page.goto(f"{base_url}/actions")
-    # two lists: the one for pipelines is open and empty, the guard actions are in the other tab with the Guard chip next to Draft
-    expect(page.locator('[data-ge-empty][data-purpose="pipeline"]')).to_be_visible()
-    page.get_by_role("tab", name="Guard actions").click()
-    item = page.locator('[data-ge-list][data-purpose="guard"] .ge-item')
+    # two tabs: the one for pipelines is open and empty, the guard actions are in the other with the Guard chip next to Draft
+    expect(page.locator(".mg__empty")).to_be_visible()
+    page.get_by_role("tab", name=re.compile("Guard actions")).click()
+    item = page.locator(".mg-card")
     expect(item).to_have_count(1)
-    expect(item.locator(".ge-chip:visible")).to_have_text(["Draft", "Guard"])
-    # the pencil changes name and type in the same window
-    item.locator("[data-rename]").click()
-    expect(dialog.locator("#action-modal-title, .modal__title")).to_have_text("Edit action")
+    expect(item.locator(".mg-chip")).to_have_text(["Guard", "Draft"])
+    # Properties (in the panel of the selected entry) change name and type in the same window
+    item.click()
+    page.locator("[data-properties]").click()
+    expect(dialog.locator("#graph-modal-title, .modal__title")).to_have_text("Edit action")
     dialog.locator('[data-choice="pipeline"]').click()
     dialog.locator("[data-submit]").click()
     eventually(lambda: api.get("/api/actions").json()[0]["purpose"], "pipeline", page=page)
-    page.get_by_role("tab", name="Pipeline actions").click()
-    pipeline_item = page.locator('[data-ge-list][data-purpose="pipeline"] .ge-item')
+    page.get_by_role("tab", name=re.compile("Pipeline actions")).click()
+    pipeline_item = page.locator(".mg-card")
     expect(pipeline_item).to_have_count(1)
-    expect(pipeline_item.locator(".ge-chip:visible")).to_have_text(["Draft"])
+    expect(pipeline_item.locator(".mg-chip")).to_have_text(["Pipeline", "Draft"])
     # an action a stage uses cannot become a guard action: the window says where
     flow = build_pipeline(api, name="Uses Judge", stages=1)
     (action,) = api.get("/api/actions").json()
     link(api, flow, flow["stages"][0][1], action)
     page.reload()
-    page.locator('[data-ge-list][data-purpose="pipeline"] [data-rename]').click()
+    page.locator(".mg-card").click()
+    page.locator("[data-properties]").click()
     dialog.locator('[data-choice="guard"]').click()
     dialog.locator("[data-submit]").click()
     expect(dialog.locator("[data-form-error]")).to_contain_text(
@@ -162,7 +164,7 @@ def test_the_chosen_type_is_marked_with_a_tint_and_a_frame_and_it_is_the_type_th
 ) -> None:
     page.goto(f"{base_url}/actions")
     page.click("[data-new-graph]")
-    dialog = page.locator("#action-modal")
+    dialog = page.locator("#graph-modal")
     expect(dialog).to_be_visible()
     chips = _chips(dialog)
     for chosen, other in (("guard", "pipeline"), ("pipeline", "guard"), ("guard", "pipeline")):

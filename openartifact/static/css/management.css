@@ -8,11 +8,11 @@
 /* ── toolbar ──────────────────────────────────────────────────────── */
 .mg__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .mg-segment { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid var(--glass-border); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--color-glass-card) 70%, transparent); }
-.mg-segment__tab { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-pill); background: none; color: var(--color-text-secondary); font: inherit; font-size: 0.8125rem; cursor: pointer; }
+.mg-segment__tab { white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-pill); background: none; color: var(--color-text-secondary); font: inherit; font-size: 0.8125rem; cursor: pointer; }
 .mg-segment__tab .icon { width: 1rem; height: 1rem; }
 .mg-segment__tab[aria-selected="true"] { background: color-mix(in srgb, var(--color-accent) 20%, transparent); border-color: var(--color-accent); color: var(--color-text-primary); }
 .mg-segment__count { color: var(--color-text-muted); }
-.mg-search { flex: 1 1 12rem; max-width: 22rem; position: relative; display: flex; align-items: center; }
+.mg-search { flex: 1 1 9rem; max-width: 22rem; position: relative; display: flex; align-items: center; }
 .mg-search .icon { position: absolute; left: var(--space-3); width: 1rem; height: 1rem; color: var(--color-text-muted); pointer-events: none; }
 .mg-search .field__control { min-width: 0; width: 100%; height: 2rem; padding-block: 0; padding-left: 2.1rem; }
 .modal__panel .mg-search .field__control { min-width: 0; }
@@ -48,7 +48,8 @@
 
 /* ── detail panel ─────────────────────────────────────────────────── */
 .mg__panel { display: grid; gap: var(--space-3); align-content: start; padding: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--glass-border); background: var(--color-glass-card); position: sticky; top: var(--space-4); max-height: calc(100vh - 2 * var(--space-4)); overflow: auto; min-width: 0; }
-.mg__panel[hidden], .mg__scrim[hidden] { display: none; }
+.mg__panel[hidden] { display: none; }
+.mg__scrim { display: none; } /* only a sheet on a narrow screen has one */
 .mg-panel__head { display: flex; align-items: flex-start; gap: var(--space-3); }
 .mg-panel__icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-accent) 18%, transparent); color: var(--color-accent); }
 .mg-panel__title { flex: 1; min-width: 0; display: grid; gap: var(--space-1); }
@@ -72,7 +73,7 @@
 /* on a narrow screen the panel is a sheet that rises from the bottom (the mobile web app) */
 @media (max-width: 52rem) {
   .mg[data-has-panel="true"] { grid-template-columns: minmax(0, 1fr); }
-  .mg__scrim:not([hidden]) { position: fixed; inset: 0; z-index: 30; background: color-mix(in srgb, var(--color-background) 55%, transparent); }
+  .mg__scrim:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 30; background: color-mix(in srgb, var(--color-background) 55%, transparent); }
   .mg__panel { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 31; max-height: 82vh; border-radius: var(--radius-lg, var(--radius-md)) var(--radius-lg, var(--radius-md)) 0 0; }
   .mg-view { margin-left: 0; }
 }
