@@ -8,6 +8,7 @@ import { sentenceOf } from "../tasks/activity-model.js";
 import { loadNodeTypes } from "../editor/node-types.js";
 import { connectEvents } from "../tasks/events.js";
 import { executionSeconds, formatDuration, formatTime, originLabel, setChip } from "../tasks/history-format.js";
+import { RunningClock } from "../tasks/history-row.js";
 import { Breadcrumb } from "./breadcrumb.js";
 import { loadContext, loadFlow, loadStep, loadTask } from "./flow-client.js";
 import { FlowPanel } from "./flow-panel.js";
@@ -27,6 +28,8 @@ class FlowPage {
     this.visit = null; // the visit shown
     this.selected = null; // node id
     this.timer = null;
+    // the whole run time counts up in the header while the execution runs (from its start time, once a second)
+    this.clock = new RunningClock(() => this.#tickDuration());
     this.gone = false;
     this.toolLive = new Map(); // tool node id -> what its calls came to so far, heard while the agent runs (agent.tool_call)
     this.agentLive = new Map(); // agent node id -> the rounds so far, heard while it runs (agent.turn and agent.tool_call)
@@ -219,6 +222,13 @@ class FlowPage {
 
   // ── the header ──────────────────────────────────────────────────────
 
+  /** The run time of a running execution, counted from its start time. */
+  #tickDuration() {
+    const cell = root.querySelector("[data-head-facts] [data-live-duration]");
+    const execution = this.model?.execution;
+    if (cell && execution?.status === "running") cell.textContent = formatDuration(executionSeconds(execution));
+  }
+
   #renderHead() {
     const { execution } = this.model;
     const artifact = this.task ? `#${this.task.number} ${this.task.title}` : null;
@@ -243,10 +253,12 @@ class FlowPage {
         dt.textContent = term;
         const dd = document.createElement("dd");
         dd.textContent = value;
+        if (term === t("executions.duration")) dd.dataset.liveDuration = "";
         fact.append(dt, dd);
         return fact;
       }),
     );
+    this.clock.update(execution.status === "running");
     this.#renderGuards();
   }
 

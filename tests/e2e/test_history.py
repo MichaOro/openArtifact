@@ -389,3 +389,38 @@ def test_the_history_runs_without_a_console_or_policy_error(
     expect(dialog.detail.locator(".history-step").first).to_be_visible()
     page.wait_for_load_state("networkidle")
     assert problems == []
+
+
+def test_the_whole_run_time_counts_up_while_an_execution_runs(
+    board: Board, api: httpx.Client
+) -> None:
+    """The detail of a running execution and the header of its flow page show the time since it started, counting up each second
+    (before, only a finished execution had a total)."""
+    pipeline = slow_pipeline(api)
+    task = board.create("Item")
+    start(api, task, pipeline)
+    dialog = _open(board)
+    dialog.row(1).locator(".history-row__open").click()
+    expect(dialog.detail).to_be_visible()
+    cell = dialog.detail.locator("[data-detail-facts] [data-live-duration]")
+    expect(cell).to_have_count(1)
+    first = cell.inner_text()
+    board.page.wait_for_function(
+        "([sel, old]) => document.querySelector(sel).textContent !== old",
+        arg=["[data-detail-facts] [data-live-duration]", first],
+        timeout=5000,
+    )
+    # the flow page: the same counter in its header
+    link = dialog.detail.locator("[data-detail-flow]").get_attribute("href")
+    flow = board.page.context.new_page()
+    flow.goto(f"{board.base_url}{link}")
+    head = flow.locator("[data-head-facts] [data-live-duration]")
+    expect(head).to_have_count(1)
+    shown = head.inner_text()
+    flow.wait_for_function(
+        "([sel, old]) => document.querySelector(sel).textContent !== old",
+        arg=["[data-head-facts] [data-live-duration]", shown],
+        timeout=5000,
+    )
+    flow.close()
+    api.post(f"/api/tasks/{task['id']}/run/stop")
