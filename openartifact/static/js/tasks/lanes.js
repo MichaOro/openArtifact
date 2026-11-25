@@ -23,7 +23,7 @@ export class LaneControls {
    * @param {import("./board.js").Board} options.board
    * @param {import("../components/form-dialog.js").FormDialog} options.addDialog one field: the title
    * @param {import("../components/confirm-dialog.js").ConfirmDialog} options.confirm
-   * @param {import("./lane-settings.js").LaneSettingsDialog} options.settings
+   * @param {import("./card-rules-dialog.js").CardRulesDialog} options.settings
    * @param {(lanes: object[]) => void} options.onLanes shows the lanes the server answered with
    */
   constructor({ board, addDialog, confirm, settings, onLanes }) {
@@ -65,15 +65,7 @@ export class LaneControls {
   }
 
   #openSettings(status) {
-    this.settings.open({
-      title: this.board.laneTitle(status),
-      hue: this.board.laneHue(status),
-      style: this.board.laneStyle(status),
-      onSave: async (style) => {
-        this.onLanes(await updateLane(status, { style }));
-        this.board.announce(t("tasks.lanes.settings_lane_lanetitle_saved", { laneTitle: this.board.laneTitle(status) }));
-      },
-    });
+    this.settings.open({ kind: "lane", status, title: this.board.laneTitle(status), hue: this.board.laneHue(status) }, this.board.laneChoices());
   }
 
   #openAdd() {

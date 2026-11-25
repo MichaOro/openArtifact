@@ -41,9 +41,48 @@ export class RuleEditor {
     label.htmlFor = choice.id;
     for (const action of this.schema.actions) choice.append(new Option(action.label, action.key));
     choice.value = rule.action;
-    choice.addEventListener("change", () => this.onChange({ action: choice.value }));
-    then.append(label, choice);
+    const params = make("div", "rs-rule__params");
+    choice.addEventListener("change", () => {
+      const action = this.schema.actions.find((a) => a.key === choice.value);
+      // an action with settings starts with its defaults; one without has none
+      const change = { action: choice.value, params: action?.defaults ? { ...action.defaults } : undefined };
+      this.onChange(action?.startsOff ? { ...change, enabled: false } : change);
+      this.#drawParams(params, choice.value, change.params ?? {});
+    });
+    this.#drawParams(params, rule.action, rule.params ?? {});
+    then.append(label, choice, params);
 
-    this.root.replaceChildren(make("p", "rs-rule__label", "If"), when, then);
+    this.root.replaceChildren(make("p", "rs-rule__label", t("components.rule_set.if")), when, then);
+  }
+
+  /** The settings of the chosen action (`action.params`: text, tone or mode), each a control that says `{params}`. */
+  #drawParams(box, key, values) {
+    const definitions = this.schema.actions.find((a) => a.key === key)?.params ?? [];
+    let current = { ...values };
+    const say = (name, value) => {
+      current = { ...current, [name]: value };
+      this.onChange({ params: current });
+    };
+    box.replaceChildren(
+      ...definitions.map((def) => {
+        const id = `rs-param-${Math.random().toString(36).slice(2, 7)}`;
+        const wrap = make("div", "rs-rule__param");
+        const label = make("label", "rs-rule__label", def.label);
+        label.htmlFor = id;
+        let control;
+        if (def.kind === "text") {
+          control = Object.assign(make("input", "field__control rb-text"), { type: "text", maxLength: def.max ?? 24, value: current[def.key] ?? "", autocomplete: "off" });
+          control.addEventListener("input", () => say(def.key, control.value));
+        } else {
+          control = make("select", "field__control rb-select");
+          for (const option of def.options) control.append(new Option(option.label, option.value));
+          control.value = current[def.key] ?? def.options[0].value;
+          control.addEventListener("change", () => say(def.key, control.value));
+        }
+        control.id = id;
+        wrap.append(label, control);
+        return wrap;
+      }),
+    );
   }
 }

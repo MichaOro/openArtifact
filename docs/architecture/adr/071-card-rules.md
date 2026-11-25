@@ -71,7 +71,30 @@ or how long nothing happened to it.
 - Time in the lane is as good as the history: cards moved before the history existed (ADR-058) count from their creation.
 - Delete cannot be undone; the safeguards above are the only protection, so the owner has to switch it on.
 
-## Addendum 1: the archive in the board page
+## Addendum 1 (2026-11-26): the rules editor (card #119)
+
+- **One window for both places.** `card-rules-modal` (`tasks/card-rules-dialog.js`) replaces the old lane settings window. It has the frame
+  of the retention rules: the rule list (switch, sentence, chevron, bin, *Add rule*) and, after a click, one rule with *If* (rule builder)
+  and *Then* (the action with its settings). The lane menu's *Settings* opens it for the lane (title `Lane settings`, the lane as a chip),
+  the board menu gets a new *Settings* entry for the board's rules (title `Board settings`). The components are the shared ones
+  (`RuleList`, `RuleEditor`, `RuleBuilder`); the editor learned the settings of an action (`schema.actions[].params`, `defaults`,
+  `startsOff`) and the list keeps a rule's `params`.
+- **The schema comes from the server** (`GET /api/rules/schemas/lane|board`); `tasks/card-rules-schema.js` adds the texts and, for the
+  board, the lanes as the choices of the field *Lane* (a list value, which the server's `is` accepts). *Set card as done* exists for a lane
+  only; the board offers archive, delete, label and colour.
+- **The preview is the card itself.** `tasks/card-sample.js` copies the board's card template and `card-marks.js` draws on it what the rule
+  would do (strikethrough and dimming, label chip, colour as fill or border, a dashed outline for archive). It is shown beside the open
+  rule, and in a small window while a rule of the list is hovered or focused, with the number of cards the rule touches now
+  (`POST …/rules/preview`, asked once per rule).
+- **Marks replace `lanes.style` in the browser.** The board's cards and the card dialog (title, label chips, colour frame) draw the
+  server's `marks`; the CSS of `.lane--finished` is gone (the server still sends `style` for the old API). The board reloads on
+  `cards.rules.changed`, `board.updated` and `board.resync`.
+- **A rule that deletes** starts switched off, must name at least one condition, and asks before it is saved on: Save shows how many
+  archived cards it would delete, and only a second click on *Save and delete* saves. The board's window also has *Preview now* (a dry run
+  of the pass: `POST /api/board/rules/sweep?dry_run=true`) and the log of what rules deleted.
+- The old `LaneSettingsDialog` stays in the quarantine (`quarantine.json`) for one cycle.
+
+## Addendum 2: the archive in the board page
 
 The archive has a view on the board page (`tasks/archive-view.js`, built on `ManagementPage` with the new option `readOnly`: no pencil, no bin).
 

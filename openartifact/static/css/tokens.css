@@ -121,6 +121,12 @@
   --button-primary-hover-bg: color-mix(in srgb, var(--color-accent) 86%, var(--color-text-primary));
   --button-primary-text: var(--color-on-accent);
   --color-danger: #b3261e; /* error text/borders only */
+  /* the tones of a card rule's label and colour (ADR-071): a strong colour for borders and the label's text, a soft one for fills */
+  --card-tone-green: #1f7a45;
+  --card-tone-red: #b3261e;
+  --card-tone-yellow: #8a6500;
+  --card-tone-blue: #1e5fb4;
+  --card-tone-neutral: #5b564e;
   --color-highlight: var(--color-glass-card); /* light reflections = pearl white */
   --scrollbar-thumb: #c1c1c1;
 
@@ -189,6 +195,11 @@
   --button-primary-hover-bg: #eee7ff;
   --button-primary-text: #110d29;
   --color-danger: #ff8fa3;
+  --card-tone-green: #7fd9a2;
+  --card-tone-red: #ff8fa3;
+  --card-tone-yellow: #f2d88a;
+  --card-tone-blue: #8cc0ff;
+  --card-tone-neutral: #b4aec2;
   --color-highlight: var(--color-text-primary); /* light reflections = white */
   --scrollbar-thumb: #6b6b6b;
 

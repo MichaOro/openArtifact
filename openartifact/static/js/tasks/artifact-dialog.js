@@ -5,6 +5,7 @@
  * goes is delegated via createTask/updateTask/onSaved, so this module never touches the board. */
 import { FormDialog } from "../components/form-dialog.js";
 import { Tabs } from "../components/tabs.js";
+import { drawLabels } from "./card-marks.js";
 import { ResolvedLegend } from "../components/resolved-legend.js";
 import { bodySegments, bodyText, rememberWarnings, warningsFor } from "./body-model.js";
 import { renderReferences, renderResolvedBody } from "./references.js";
@@ -61,6 +62,7 @@ export class ArtifactDialog extends FormDialog {
     this.view = root.querySelector("[data-task-view]");
     this.viewTitle = root.querySelector("[data-view-title]");
     this.viewBody = root.querySelector("[data-view-body]");
+    this.viewLabels = root.querySelector("[data-view-labels]");
     this.viewWarning = root.querySelector("[data-view-warning]");
     this.warned = null; // the notes of the last save, for the artifact they belong to
     this.backButton = root.querySelector("[data-view-back]");
@@ -252,6 +254,11 @@ export class ArtifactDialog extends FormDialog {
     this.mode = "view";
     this.#present(t("executions.artifact"), t("common.save"));
     this.viewTitle.textContent = task.title;
+    this.viewTitle.classList.toggle("task-view__title--done", Boolean(task.marks?.done)); // the rules of the lane and the board (ADR-071)
+    drawLabels(this.viewLabels, task.marks?.labels ?? []);
+    const panel = this.viewTitle.parentElement; // the colour of the rules frames the details, as it does the card on the board
+    if (task.marks?.colour) Object.assign(panel.dataset, { colourTone: task.marks.colour.tone, colourMode: task.marks.colour.mode });
+    else delete panel.dataset.colourTone, delete panel.dataset.colourMode;
 
     const segments = bodySegments(task); // only while the personal setting marks resolved references
     this.viewBody.replaceChildren(segments ? renderResolvedBody(segments, this.findByNumber) : renderReferences(bodyText(task), this.findByNumber));

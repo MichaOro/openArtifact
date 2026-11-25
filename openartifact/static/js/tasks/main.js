@@ -16,7 +16,7 @@ import { CommentsTab } from "./comments-tab.js";
 import { HistoryTab } from "./history-tab.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { LaneControls, listLanes } from "./lanes.js";
-import { LaneSettingsDialog } from "./lane-settings.js";
+import { CardRulesDialog } from "./card-rules-dialog.js";
 import { listFields, replaceFields } from "../artifact-fields/api.js";
 import { FieldsEditor } from "../artifact-fields/fields-editor.js";
 import { ActionMenu } from "../components/action-menu.js";
@@ -66,7 +66,7 @@ const laneControls = new LaneControls({
   board,
   addDialog: new FormDialog(new Modal(document.getElementById("add-lane-modal"))),
   confirm: new ConfirmDialog(new Modal(document.getElementById("delete-lane-modal"))),
-  settings: new LaneSettingsDialog(new Modal(document.getElementById("lane-settings-modal"))),
+  settings: new CardRulesDialog(new Modal(document.getElementById("card-rules-modal")), { onSaved: () => board.load() }),
   onLanes: (lanes) => showLanes(lanes),
 });
 
@@ -221,6 +221,7 @@ document.querySelector("[data-board-menu]")?.addEventListener("click", (event) =
     event.currentTarget,
     [
       { label: t("index.artifact_fields"), icon: "tag", onSelect: () => fieldsEditor.open(artifactFields) },
+      { label: t("common.settings"), icon: "settings", onSelect: () => laneControls.settings.open({ kind: "board" }, board.laneChoices()) },
       { label: archive.visible ? t("index.hide_archive") : t("index.show_archive"), icon: "inbox", onSelect: () => showArchive(!archive.visible) },
     ],
     t("tasks.main.board"),
@@ -453,7 +454,7 @@ connectEvents({
       const open = artifactDialog.editing;
       if (open && artifactDialog.mode === "view") loadFullBody(open.id); // a referenced field changed
     }
-    else if (type === "board.resync") board.load(); // lane was renumbered: positions changed
+    else if (type === "board.resync" || type === "board.updated" || type === "cards.rules.changed") board.load(); // positions changed, or the rules: marks, archived and deleted cards
     else if (type === "settings.changed") {
       if (data.personal) {
         board.load(); // marked or not: the server sends the cards the other way now

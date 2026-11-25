@@ -136,7 +136,7 @@ export function describe(group, schema, nested = false) {
 }
 
 /** A new rule: no conditions yet, the first action of the schema. */
-export const emptyRule = (schema) => ({ when: emptyGroup(), action: schema.actions[0].key });
+export const emptyRule = (schema) => ({ when: emptyGroup(), action: schema.actions[0].key, ...(schema.actions[0].defaults ? { params: { ...schema.actions[0].defaults } } : {}) });
 
 /** A rule in a sentence: its action's phrase and its conditions ("Delete finished executions where Status is Failed."). */
 export function describeRule(rule, schema) {
