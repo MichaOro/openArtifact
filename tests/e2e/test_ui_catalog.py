@@ -318,7 +318,7 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
             page.keyboard.press("Escape")
             expect(dialog).to_be_hidden()
         if path == "/guards":  # the guard editor: Settings and Logic, the title renamed in place
-            page.locator(".gd-item .ge-item__link").first.click()
+            page.locator(".mg-card [data-edit]").first.click()
             expect(page.locator("#guard-modal")).to_be_visible()
             check("guard editor")
             page.keyboard.press("Escape")

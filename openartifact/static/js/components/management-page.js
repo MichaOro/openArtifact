@@ -15,6 +15,7 @@
  *     panel: { icon: (item) => "action", title: (item) => item.name, chips: (item) => [element],
  *              tabs: (item) => [{key, label, disabled, render: (body, item) => void}] },
  *     onOpen, onEdit, onDelete,                         // each gets the item
+ *     deleteBlocked: (item) => "reason" | "",           // optional: the bin of an entry that cannot be deleted is aria-disabled with the reason as its tooltip
  *   });
  *   page.setItems(items);  page.select(key);  page.refreshPanel();
  *
@@ -225,6 +226,11 @@ export class ManagementPage {
     });
     const del = iconButton("trash", c.deleteLabel?.(item) ?? t("common.delete"), "is-danger");
     del.dataset.delete = "";
+    const blocked = c.deleteBlocked?.(item) ?? ""; // optional: why this entry cannot be deleted now (the bin stays focusable and says why; the page's onDelete explains)
+    if (blocked) {
+      del.setAttribute("aria-disabled", "true");
+      del.title = blocked;
+    }
     del.addEventListener("click", (event) => {
       event.stopPropagation();
       c.onDelete?.(item);

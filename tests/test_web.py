@@ -137,7 +137,8 @@ def test_the_guards_page_renders_with_the_guard_editor_and_marks_its_entry(
     assert (
         'aria-current="page"' in response.text and response.text.count('aria-current="page"') == 1
     )
-    assert 'id="guard-modal"' in response.text and "data-guard-list" in response.text
+    # the list and its panel are drawn by the management page component (ADR-069): the page holds its mount point
+    assert 'id="guard-modal"' in response.text and "data-management data-guards" in response.text
     assert "/static/js/guards/library-page.js" in response.text
 
 

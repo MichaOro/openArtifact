@@ -120,7 +120,7 @@ def test_actions_and_guards_are_two_sub_entries_of_the_pipeline_section(
     expect(page.locator(".sidebar .nav-section .nav-link[aria-current=page]")).to_have_text(
         "Guards"
     )
-    expect(page.locator("[data-guard-empty]")).to_contain_text("No guards yet.")
+    expect(page.locator(".mg__empty")).to_contain_text("No guards yet.")
     page.locator(".sidebar .nav-section .nav-list .nav-link", has_text="Actions").click()
     expect(page).to_have_url(f"{base_url}/actions")  # the existing route stays
 
@@ -161,13 +161,14 @@ def test_a_template_becomes_a_library_guard_in_the_editor_titled_by_its_name_wit
     }.items():
         expect(window.locator(f"[data-section={key}] .fv-section__title")).to_contain_text(title)
     window.get_by_role("button", name="Cancel").click()
-    item = page.locator(".gd-item")
-    expect(item.locator(".ge-item__name")).to_have_text("Stall guard")
-    expect(item.locator("[data-summary]")).to_have_text(
-        "Every 1 minute · Time without progress is at least 15 minutes"
+    item = page.locator(".mg-card")
+    expect(item.locator(".mg-card__name")).to_have_text("Stall guard")
+    # what fires it, its condition in words, its consequence and where it is used: chips and one line (before: one summary line)
+    chips = item.locator(".mg-card__chips .ge-chip")
+    expect(chips).to_have_text(["Every 1 minute", "Pause the run", "Not used yet"])
+    expect(item.locator(".mg-card__facts")).to_have_text(
+        "Time without progress is at least 15 minutes"
     )
-    expect(item.locator("[data-consequence]")).to_have_text("Pause the run")
-    expect(item.locator("[data-used]")).to_have_text("Not used yet")
     [stored] = api.get("/api/guards").json()
     assert (stored["name"], stored["trigger"]["every_seconds"]) == ("Stall guard", 60)
 
@@ -177,7 +178,7 @@ def test_the_title_renames_the_guard_in_place_and_refuses_an_empty_name(
 ) -> None:
     _guard(api, "Loop watch")
     page.goto(f"{base_url}/guards")
-    page.locator(".gd-item .ge-item__link").click()
+    page.locator(".mg-card [data-edit]").click()  # the pencil opens the guard editor
     window = _window(page)
     name = window.locator("[data-guard-name]")
     expect(name).to_have_accessible_name("Guard name: Loop watch. Click to edit")
@@ -198,7 +199,7 @@ def test_the_title_renames_the_guard_in_place_and_refuses_an_empty_name(
     expect(window.locator(".modal__title")).to_have_text(f"Guard {DASH} Stall watch")
     window.get_by_role("button", name="Save").click()
     expect(window).to_be_hidden()
-    expect(page.locator(".gd-item .ge-item__name")).to_have_text("Stall watch")
+    expect(page.locator(".mg-card .mg-card__name")).to_have_text("Stall watch")
     assert [g["name"] for g in api.get("/api/guards").json()] == ["Stall watch"]
 
 
@@ -207,7 +208,7 @@ def test_the_field_select_of_a_condition_shows_its_whole_name(
 ) -> None:
     _guard(api, "Idle", when={"type": "group", "mode": "all", "items": []})
     page.goto(f"{base_url}/guards")
-    page.locator(".gd-item .ge-item__link").click()
+    page.locator(".mg-card [data-edit]").click()  # the pencil opens the guard editor
     window = _window(page)
     window.get_by_role("button", name="Add condition").click()
     field = window.locator(".rb-row .rb-select").first
@@ -238,7 +239,7 @@ def test_the_logic_part_makes_the_guards_action_and_opens_it_with_the_way_back(
 ) -> None:
     _guard(api, "Judge rounds")
     page.goto(f"{base_url}/guards")
-    page.locator(".gd-item .ge-item__link").click()
+    page.locator(".mg-card [data-edit]").click()  # the pencil opens the guard editor
     window = _window(page)
     logic = window.locator("[data-section=logic]")
     expect(logic).to_contain_text("the guard runs no action of its own")
@@ -268,15 +269,15 @@ def test_a_used_guard_cannot_be_deleted_until_it_is_detached(
     guard = _guard(api)
     attachment = _attach(api, guard, pipeline, "stage", pipeline["stage"]["id"])
     page.goto(f"{base_url}/guards")
-    item = page.locator(".gd-item")
-    expect(item.locator("[data-used]")).to_have_text("Used in 1 place")
+    item = page.locator(".mg-card")
+    expect(item.locator(".mg-card__chips .ge-chip").last).to_have_text("Used in 1 place")
     bin = item.locator("[data-delete]")
     expect(bin).to_have_attribute("aria-disabled", "true")
     expect(bin).to_have_attribute("title", "Detach it first: it is used in 1 place")
     bin.click(force=True)  # aria-disabled: it stays focusable and says why
     expect(page.locator("[data-alert]")).to_contain_text("Detach it first")
     expect(page.locator("#confirm-modal")).to_be_hidden()
-    item.locator(".ge-item__link").click()
+    item.locator("[data-edit]").click()
     window = _window(page)
     expect(window.locator("[data-guard-used]")).to_have_text(
         "Used in 1 place. A change affects all of them."
@@ -288,9 +289,9 @@ def test_a_used_guard_cannot_be_deleted_until_it_is_detached(
     window.get_by_role("button", name="Cancel").click()
     api.delete(f"/api/guard-attachments/{attachment['id']}").raise_for_status()
     page.reload()
-    page.locator(".gd-item [data-delete]").click()
+    page.locator(".mg-card [data-delete]").click()
     page.locator("#confirm-modal [data-confirm], #confirm-modal [data-submit]").first.click()
-    expect(page.locator(".gd-item")).to_have_count(0)
+    expect(page.locator(".mg-card")).to_have_count(0)
     assert api.get("/api/guards").json() == []
 
 
@@ -466,7 +467,7 @@ def test_the_guards_page_and_the_shield_speak_german(
     expect(page.locator(".sidebar .nav-section .nav-link[aria-current=page]")).to_have_text(
         "Wächter"
     )
-    expect(page.locator(".gd-item [data-used]").first).to_have_text("Verwendet an 1 Stelle")
+    expect(page.locator(".mg-card .mg-card__chips .ge-chip").nth(2)).to_have_text("Verwendet an 1 Stelle")
     _open(page, base_url, f"/pipelines/{pipeline['slug']}")
     shield = page.locator(".ge-stage__header [data-guard-shield]")
     expect(shield).to_have_attribute("title", "2 Wächter eingerichtet")
