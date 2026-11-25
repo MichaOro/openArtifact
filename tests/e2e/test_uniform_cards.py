@@ -91,7 +91,30 @@ def test_every_card_has_the_same_size_whatever_it_holds_and_a_long_title_is_cut_
     assert abs(boxes[0]["width"] - 19 * rem) <= 2, (
         "the standard width (19 rem), not stretched by the grid"
     )
+    assert abs(boxes[0]["height"] - 11 * rem) <= 2, (
+        f"the standard height (11 rem, measured on the owner's draft): {boxes[0]['height'] / rem} rem"
+    )
     for card in cards.all():
+        # the content of even the fullest card (two lines of title and of text, the chips, the facts, the date) stays inside it:
+        # nothing is cut off at the bottom and the row of chips is one row, not wrapped
+        assert card.evaluate("el => el.scrollHeight <= el.clientHeight + 1"), (
+            "nothing runs out of the card"
+        )
+        chips = card.locator(".mg-card__chips")
+        if chips.count():
+            assert chips.evaluate(
+                "el => el.scrollWidth <= el.clientWidth + 1 && el.getBoundingClientRect().height < 2.2 * parseFloat(getComputedStyle(el).fontSize)"
+            ), "the chips stand in ONE row"
+        last = card.locator(".mg-card__date, .mg-card__facts").last
+        if last.count():
+            box = last.bounding_box()
+            assert (
+                box
+                and box["y"] + box["height"]
+                <= card.bounding_box()["y"] + card.bounding_box()["height"] + 1
+            ), (  # type: ignore[index]
+                "the last line (the date) is not cut off"
+            )
         text_right = card.locator(".mg-card__name").evaluate(
             "el => el.getBoundingClientRect().right - parseFloat(getComputedStyle(el).paddingRight)"
         )

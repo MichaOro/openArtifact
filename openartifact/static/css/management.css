@@ -26,8 +26,8 @@
 /* ── list ─────────────────────────────────────────────────────────── */
 .mg__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
 /* a card has a fixed size, the same on all four pages: the grid never stretches them, it only starts a new row when the room beside
-   the panel no longer holds another one. 19rem by 13rem holds a title of two lines, a text of two lines, two rows of chips and two lines of facts */
-.mg { --mg-card-w: 19rem; --mg-card-h: 13rem; }
+   the panel no longer holds another one. 19rem by 11rem holds a title of two lines, a text of two lines, one row of chips, one line of facts and the date */
+.mg { --mg-card-w: 19rem; --mg-card-h: 11rem; }
 .mg__list[data-view="cards"] { grid-template-columns: repeat(auto-fill, var(--mg-card-w)); justify-content: start; }
 .mg-card { position: relative; display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border: 1px solid transparent; cursor: pointer; min-width: 0; }
 .mg-card:hover { border-color: var(--glass-border-hover); }
@@ -36,14 +36,16 @@
 .mg-card__actions { position: absolute; top: var(--space-2); right: var(--space-2); display: flex; gap: 2px; }
 .mg__list[data-view="cards"] .mg-card { height: var(--mg-card-h); overflow: hidden; }
 .mg-card__body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; min-height: 0; height: 100%; }
-.mg-card__name { margin: 0; padding-right: 4.5rem; min-width: 0; font-size: 1rem; line-height: 1.3; font-weight: 600; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.mg-card__text { flex: 0 1 auto; margin: 0; min-height: 0; font-size: 0.8125rem; line-height: 1.4; color: var(--color-text-secondary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.mg-card__name { margin: 0; padding-right: 4.5rem; min-width: 0; font-size: 0.9375rem; line-height: 1.25; font-weight: 600; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mg-card__text { flex: 0 1 auto; margin: 0; min-height: 0; font-size: 0.8125rem; line-height: 1.35; color: var(--color-text-secondary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .mg-card__foot { display: grid; gap: var(--space-1); margin-top: auto; min-width: 0; } /* flush to the bottom edge */
 .mg-card__chips, .mg-panel__chips, .mg-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
-.mg-card__chips { max-height: 3.2rem; overflow: hidden; } /* at most two rows: the foot never grows beyond its place */
+.mg-card__chips { flex-wrap: nowrap; overflow: hidden; } /* ONE row: what does not fit is cut with an ellipsis, never wrapped */
+.mg-card__chips .mg-chip { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mg-card__chips:empty { display: none; }
-.mg-card__facts { display: flex; flex-wrap: wrap; gap: 0 var(--space-4); margin: 0; font-size: 0.75rem; line-height: 1.4; color: var(--color-text-muted); max-height: 2.15rem; overflow: hidden; }
-.mg-card__facts b { color: var(--color-text-secondary); font-weight: 600; }
+.mg-card__facts, .mg-card__date { display: flex; flex-wrap: nowrap; gap: 0 var(--space-4); margin: 0; font-size: 0.75rem; line-height: 1.3; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.mg-card__facts:empty, .mg-card__date:empty { display: none; }
+.mg-card__facts b, .mg-card__date b { color: var(--color-text-secondary); font-weight: 600; }
 .mg__list[data-view="list"] .mg-card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
 .mg__list[data-view="list"] .mg-card__body { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); height: auto; }
 .mg__list[data-view="list"] .mg-card__name { padding-right: 0; -webkit-line-clamp: 1; }

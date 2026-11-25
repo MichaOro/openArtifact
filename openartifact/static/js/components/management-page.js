@@ -42,10 +42,10 @@ export function make(tag, className = "", text = null) {
 /**
  * The content of a card, the same on all four pages (a fixed size, ADR-069 addendum): the title on top (up to two lines, then "…",
  * and never under the pencil and the bin), a short text in the middle (up to two lines, only when there is one), and at the bottom the
- * chips and one line of facts, flush to the bottom edge. In rows ("list") the same parts stand in one line.
- * @param {{title: string, text?: string|null, textTitle?: string, chips?: HTMLElement[], facts?: (HTMLElement|string)[]}} parts
+ * chips (one row), one line of additional facts and the date on the last line, flush to the bottom edge. In rows ("list") the same parts stand in one line.
+ * @param {{title: string, text?: string|null, textTitle?: string, chips?: HTMLElement[], facts?: (HTMLElement|string)[], date?: HTMLElement|string|null}} parts
  */
-export function cardBody({ title, text = null, textTitle = "", chips = [], facts = [] }) {
+export function cardBody({ title, text = null, textTitle = "", chips = [], facts = [], date = null }) {
   const box = make("div", "mg-card__body");
   const name = make("h3", "mg-card__name", title);
   name.title = title;
@@ -61,6 +61,11 @@ export function cardBody({ title, text = null, textTitle = "", chips = [], facts
   const line = make("p", "mg-card__facts");
   line.append(...facts);
   foot.append(row, line);
+  if (date) {
+    const when = make("p", "mg-card__date"); // the day of the change, alone on the last line
+    when.append(date);
+    foot.append(when);
+  }
   box.append(foot);
   return box;
 }

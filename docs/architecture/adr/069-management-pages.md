@@ -114,7 +114,7 @@ built is still `disabled: true`.
 
 ## 9. Addendum (2026-11-26): one size for every card, the mark of the editor
 
-- **A card has one size** on all four pages (Actions, Pipelines, Agents, Guards): **19 rem wide and 13 rem high** (`--mg-card-w`, `--mg-card-h` on
+- **A card has one size** on all four pages (Actions, Pipelines, Agents, Guards): **19 rem wide and 13 rem high (11 rem since §10)** (`--mg-card-w`, `--mg-card-h` on
   `.mg`). The grid is `repeat(auto-fill, 19rem)` and never stretches a card: it starts a new row only when the room beside the panel no longer holds
   another card. 19 rem is the width in which a title, the chips of a guard ("On entered", "Run the guard's action") and a line of facts stand without
   being squeezed, and two cards stand beside each other in the two thirds that remain next to the panel on a 1440 px screen; 13 rem is the height
@@ -129,3 +129,14 @@ built is still `disabled: true`.
   pages: **Draft** while nothing is published or the draft differs from the published version, **v3 published** while they are equal (`editorChip` in
   `versions-tab.js`; its tooltip says what executions run). It follows every change the server accepts (`GraphModel.onChange`, asked again 250 ms later)
   and asks again when the tab gets the focus back, because a publication happens on the management page. Guards have no versions and no mark.
+
+## 10. Addendum (2026-11-26): the card is 19 rem by 11 rem
+
+- **The height of the card is 11 rem** (`--mg-card-h`), not 13 rem. The owner drew his wish into a screenshot of the Agents page; measured at the first card
+  (width 273 px in both pictures = 19 rem at a browser zoom of about 90 %, height 185 px = 13 rem before and 157 px = 11 rem in his draft) the height of the draft is
+  11 rem. The width stays 19 rem.
+- **The arrangement under the title is tighter** and the big empty block between the text and the chips is gone: title (two lines, then "…"), text (two lines, then
+  "…"), a short space, **one row of chips** (it never wraps: a chip that does not fit is cut with an ellipsis), a short space, **one line of additional facts**
+  where there are some (the engine and the use of an agent, the nodes of an action or a pipeline, where a guard is used) and, alone on the last line, **the date**
+  (`cardBody({title, text, chips, facts, date})`; a guard has no date). Title 0.9375 rem, text 0.8125 rem, facts and date 0.75 rem; the free room of a card that
+  holds less is between the text and the chips. All four pages measure 19 rem by 11 rem (`tests/e2e/test_uniform_cards.py`) and nothing runs out of a card.
