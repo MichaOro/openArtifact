@@ -52,8 +52,9 @@ DELETE /api/v1/providers/{ref} -> -
 DELETE /api/v1/providers/{ref}/models/{model_id} -> -
 DELETE /api/v1/secrets/{name} -> -
 DELETE /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
-GET /api/actions -> GraphRead[]
+GET /api/actions -> GraphListRead[]
 GET /api/actions/{graph_id} -> GraphDetail
+GET /api/actions/{graph_id}/uses -> GraphUses
 GET /api/agents -> AgentRead[]
 GET /api/agents/{ref} -> AgentDetail
 GET /api/agents/{ref}/uses -> AgentUse[]
@@ -77,9 +78,10 @@ GET /api/guards/{guard_id} -> GuardDefinitionRead
 GET /api/info -> InfoRead
 GET /api/lanes -> LaneRead[]
 GET /api/node-types -> NodeTypeRead[]
-GET /api/pipelines -> GraphRead[]
+GET /api/pipelines -> GraphListRead[]
 GET /api/pipelines/{graph_id} -> GraphDetail
 GET /api/pipelines/{graph_id}/stages -> ChainEntryRead[]
+GET /api/pipelines/{graph_id}/uses -> GraphUses
 GET /api/providers -> ProviderRead[]
 GET /api/providers/{ref} -> ProviderRead
 GET /api/rules/schemas -> RuleSchemaRead[]

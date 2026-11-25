@@ -13,6 +13,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     false,
 )
@@ -31,6 +32,8 @@ class Graph(Base):
         kind: ``pipeline``, or ``action`` for the definition of what an action does.
         purpose: What an action definition is for: ``pipeline`` (a stage uses it) or ``guard`` (only a guard uses it, ADR-067).
         slug: Readable URL name, unique per kind (follows the name).
+        description: What it is for, in a sentence or two (empty when nobody wrote one).
+        tags: Short labels to find it by (a JSON list of text).
         created_at: Creation timestamp (UTC).
         updated_at: Last modification timestamp (UTC).
     """
@@ -44,6 +47,8 @@ class Graph(Base):
     kind: Mapped[str] = mapped_column(String(16), default="pipeline", server_default="pipeline")
     slug: Mapped[str] = mapped_column(String(100))
     purpose: Mapped[str] = mapped_column(String(16), default="pipeline", server_default="pipeline")
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),
