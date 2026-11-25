@@ -283,12 +283,13 @@ settings:
     values:
     - Create comment
 - key: secret
-  label: Token secret
-  type: text
+  label: Credential
+  type: credential
+  credential_types:
+  - github_pat
   default: ''
   max_length: 64
-  placeholder: GITHUB_TOKEN
-  help: 'The name of a stored secret with a personal access token. Empty: no token (public data, a low rate limit).'
+  help: A GitHub access token (classic or fine-grained), kept in the credentials. Empty - no token (public data, a low rate limit).
   stored_in: config
   check: secret_name
 - key: api_url
@@ -301,4 +302,5 @@ settings:
   check: tool_endpoint
   level: advanced
 - use: timeout_seconds
+  level: optional
 - use: on_failure

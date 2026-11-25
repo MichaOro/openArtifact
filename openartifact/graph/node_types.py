@@ -175,6 +175,8 @@ class Setting:
     options_by: dict[str, Any] | None = field(default=None, hash=False, compare=False)
     shown_when: dict[str, Any] | None = field(default=None, hash=False, compare=False)
     line: str | None = None
+    #: The credential types a ``credential`` setting accepts; the stored value is the name of a credential.
+    credential_types: tuple[str, ...] | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None
@@ -209,7 +211,7 @@ class Setting:
         fields = dict(data)
         if (name := fields.pop("check", None)) is not None:
             fields["check"] = VALIDATORS[name]
-        for name in ("options", "disabled_options"):
+        for name in ("options", "disabled_options", "credential_types"):
             if name in fields:
                 fields[name] = tuple(fields[name])
         return cls(**fields)
@@ -229,7 +231,7 @@ class Setting:
             data["options"] = list(self.options)
         if self.option_labels is not None:
             data["option_labels"] = dict(self.option_labels)
-        for name in ("disabled_options", "options_by", "shown_when", "line"):
+        for name in ("disabled_options", "options_by", "shown_when", "line", "credential_types"):
             if (value := getattr(self, name)) is not None:
                 data[name] = list(value) if isinstance(value, tuple) else value
         if self.type in _DEFAULT_MAX_LENGTH:

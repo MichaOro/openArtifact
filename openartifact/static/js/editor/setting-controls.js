@@ -4,6 +4,10 @@
  * keeps what the user typed when the save is refused. When a control saves is the policy of persist-policy.js (a text
  * on leaving the field or Enter, a choice when it changes, never on a keystroke). Add a type by subclassing
  * SettingControl and listing it in CONTROLS. */
+import { CredentialDialog } from "../components/credential-dialog.js";
+import { icon } from "../components/icons.js";
+import { Modal } from "../components/modal.js";
+import { request } from "../http.js";
 import { field } from "./field.js";
 import { bindPersist, registerDirty, trackSave } from "./persist-policy.js";
 import { suggestReferences } from "./reference-suggest.js";
@@ -370,7 +374,95 @@ class SelectControl extends SettingControl {
   }
 }
 
+/** The one window that edits credentials, made when first needed (its markup is on the editor page). */
+let credentialWindow = null;
+let credentialTypes = [];
+function credentialDialog() {
+  credentialWindow ??= new CredentialDialog(new Modal(document.getElementById("credential-modal")), { types: () => credentialTypes });
+  return credentialWindow;
+}
+
+const CREATE = "\u0000create"; // the entry that makes a new credential (no credential can have this name)
+
+/** A credential of the credential store: a list of the ones the node accepts, a pencil to change the chosen one and an entry
+ * that makes a new one. The window is the one of the Credentials page: both work on the same data. */
+class CredentialControl extends SelectControl {
+  createInput(value) {
+    const select = element("select", "field__control");
+    select.append(new Option(t("editor.setting_controls.no_credential"), ""));
+    this.last = value ?? ""; // the choice before "create new" was picked
+    this.fill(select, value ?? "");
+    return select;
+  }
+
+  /** The credentials that fit (enabled, of an accepted type), and the stored one even when it is not among them. */
+  async fill(select, value) {
+    let found = [];
+    try {
+      [credentialTypes, found] = await Promise.all([credentialTypes.length ? credentialTypes : request("/api/credentials/types"), request("/api/credentials?category=external")]);
+    } catch {
+      /* the list stays empty: the stored name is still shown */
+    }
+    const accepted = this.setting.credential_types ?? [];
+    const names = found.filter((c) => c.status === "active" && (!accepted.length || accepted.includes(c.type))).map((c) => c.name);
+    select.replaceChildren(new Option(t("editor.setting_controls.no_credential"), ""));
+    for (const name of names) select.append(new Option(name, name));
+    if (value && !names.includes(value)) select.append(new Option(t("editor.setting_controls.value_not_available", { value }), value));
+    select.append(new Option(`+ ${t("editor.setting_controls.create_credential")}`, CREATE));
+    select.value = value;
+    if (this.edit) this.edit.hidden = !value;
+  }
+
+  build() {
+    const box = super.build();
+    this.edit = element("button", "icon-button icon-button--sm ge-credential__edit");
+    this.edit.type = "button";
+    this.edit.title = t("editor.setting_controls.edit_credential");
+    this.edit.setAttribute("aria-label", this.edit.title);
+    this.edit.append(icon("pencil"));
+    this.edit.hidden = !this.input.value;
+    this.edit.addEventListener("click", () => this.change());
+    this.input.addEventListener("change", () => {
+      if (this.input.value === CREATE) this.make();
+      else {
+        this.last = this.input.value;
+        this.edit.hidden = !this.input.value;
+      }
+    });
+    const wrap = element("div", "ge-credential");
+    this.input.replaceWith(wrap);
+    wrap.append(this.input, this.edit);
+    return box;
+  }
+
+  /** Choosing "create new" saves nothing: the window opens and the new credential is chosen once it is stored. */
+  commit() {
+    return this.input.value === CREATE ? Promise.resolve() : super.commit();
+  }
+
+  /** A new credential of an accepted type; it is chosen once it is saved. */
+  make() {
+    const back = this.last;
+    const dialog = credentialDialog();
+    dialog.modal.dialog.addEventListener("close", () => { if (this.input.value === CREATE) this.input.value = back; }, { once: true });
+    dialog.open("external", null, {
+      only: this.setting.credential_types ?? null,
+      onSaved: async (name) => {
+        await this.fill(this.input, name);
+        this.last = name;
+        this.commit();
+      },
+    });
+  }
+
+  async change() {
+    const found = await request(`/api/credentials/${encodeURIComponent(this.input.value)}`).catch(() => null);
+    if (found) credentialDialog().open("external", found, { onSaved: () => this.fill(this.input, this.input.value) });
+  }
+}
+
 const CONTROLS = {
+  credential: CredentialControl,
   integer: IntegerControl,
   number: NumberControl,
   switch: SwitchControl,

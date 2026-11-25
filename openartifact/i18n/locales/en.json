@@ -1208,5 +1208,8 @@
  "index.standard_tag": "Standard",
  "index.standard_title_help": "Every artifact has one.",
  "index.standard_body_help": "The text of every artifact.",
- "tasks.body.saved_with_notes": "Saved. Not every reference can be filled in:"
+ "tasks.body.saved_with_notes": "Saved. Not every reference can be filled in:",
+ "editor.setting_controls.no_credential": "No credential",
+ "editor.setting_controls.create_credential": "Create new credential",
+ "editor.setting_controls.edit_credential": "Edit this credential"
 }

@@ -117,7 +117,7 @@ them again.
   stays the administrator's token and the session cookie and SSO are unchanged; managed tokens are an addition for
   people and programs that should be cut off independently. Internal credentials are never in the secret store and can
   never be used as `${secret:NAME}`.
-- **External**: values for other systems, of the types *GitHub personal access token*, *OpenRouter API key*,
+- **External**: values for other systems, of the types *GitHub access token*, *OpenRouter API key*,
   *OpenAI-compatible API key*, *PostgreSQL connection*, *Bearer token*, *MCP authentication* and *Generic API key*. The
   value is stored by the credential store exactly as before (the credential's name is the secret's name), so every
   `${secret:NAME}`, Code node setting and provider keeps working; secrets made with the older API appear as *Generic

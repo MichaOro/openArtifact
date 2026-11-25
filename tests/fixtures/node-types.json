@@ -2197,15 +2197,16 @@
    },
    {
     "key": "secret",
-    "label": "Token secret",
-    "type": "text",
+    "label": "Credential",
+    "type": "credential",
     "minimum": null,
     "maximum": null,
     "default": "",
     "stored_in": "config",
-    "max_length": 64,
-    "placeholder": "GITHUB_TOKEN",
-    "help": "The name of a stored secret with a personal access token. Empty: no token (public data, a low rate limit).",
+    "credential_types": [
+     "github_pat"
+    ],
+    "help": "A GitHub access token (classic or fine-grained), kept in the credentials. Empty - no token (public data, a low rate limit).",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -2233,7 +2234,7 @@
     "default": 30,
     "stored_in": "config",
     "section": "definition",
-    "level": "core",
+    "level": "optional",
     "inherits": null
    },
    {

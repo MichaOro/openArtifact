@@ -5,6 +5,7 @@
 {% from "components/icons.html" import icon %}
 {% from "components/modal.html" import modal %}
 {% from "components/guard_modal.html" import guard_modal %}
+{% from "components/credential_modal.html" import credential_modal %}
 {% from "components/guard_attach_modal.html" import guard_attach_modal %}
 {% block title %}{{ t('page.' ~ section.key) }} · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
@@ -50,6 +51,7 @@
 {{ form_modal("new-modal", t('common.new'), NAME_FIELDS) }}
 {# the guard editor (ADR-060): a definition of the library, opened from a shield popup or "New guard"; in a pipeline and in an action #}
 {{ guard_modal() }}
+{{ credential_modal() }}
 {{ guard_attach_modal() }}
 {{ confirm_modal("confirm-modal", t('common.delete')) }}
 {% endblock %}

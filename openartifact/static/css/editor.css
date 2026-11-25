@@ -397,6 +397,9 @@
 .ge-settings__add { align-self: flex-start; }
 .ge-settings__add .icon { width: 1rem; height: 1rem; }
 .ge-settings__reset { grid-column: 1 / -1; justify-self: start; }
+.ge-settings__pair .field__control { min-width: 0; width: 100%; }
+.ge-credential { display: flex; align-items: center; gap: var(--space-2); }
+.ge-credential .field__control { flex: 1 1 auto; min-width: 0; }
 .ge-settings__pair { display: flex; gap: var(--space-3); align-items: flex-start; }
 .ge-settings__pair > * { flex: 1 1 0; min-width: 0; }
 .ge-settings__line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }

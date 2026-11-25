@@ -7,6 +7,8 @@ import httpx
 from playwright.sync_api import Page, expect
 
 from tests.e2e.conftest import SECURED_TOKEN
+from tests.e2e.helpers import add_setting, eventually, pick_node
+from tests.helpers import graph_url
 
 
 def _open(page: Page, secured_url: str) -> None:
@@ -66,3 +68,66 @@ def test_an_external_credential_is_stored_listed_without_its_value_and_deleted(
     expect(page.locator("#confirm-modal")).to_contain_text("No node or provider refers to it")
     page.get_by_role("button", name="Delete", exact=True).click()
     expect(row).to_have_count(0)
+
+
+def test_the_github_node_chooses_makes_and_edits_its_credential_in_the_credentials_window(
+    page: Page, secured_url: str
+) -> None:
+    headers = {"Authorization": f"Bearer {SECURED_TOKEN}"}
+    with httpx.Client(base_url=secured_url, headers=headers) as api:
+        api.post(
+            "/api/credentials/external",
+            json={"type": "github_pat", "name": "GH_ONE", "fields": {"value": "ghp_test_one"}},
+        ).raise_for_status()
+        definition = api.post("/api/actions", json={"name": "Hub"}).json()
+        page.goto(f"{secured_url}/actions/{definition['slug']}")
+        page.fill("#token", SECURED_TOKEN)
+        page.click("button[type=submit]")
+        expect(page.locator(".ge-node--output")).to_be_visible()
+        page.click("[data-add-menu]")
+        pick_node(page, "github")
+        page.locator(".ge-node--github").dblclick(position={"x": 30, "y": 5})
+        dialog = page.locator("#node-modal")
+        expect(dialog).to_be_visible()
+
+        def stored() -> object:
+            nodes = api.get(graph_url(definition)).json()["nodes"]
+            return next(n["config"].get("secret") for n in nodes if n["kind"] == "github")
+
+        # Resource and Operation share a line without covering each other
+        r = dialog.get_by_label("Resource").bounding_box()
+        o = dialog.get_by_label("Operation").bounding_box()
+        assert r and o and r["x"] + r["width"] <= o["x"] + 1, "side by side, not over each other"
+        # the token is a credential, not a secret name; the timeout is offered through Add setting
+        expect(dialog.get_by_label("Token secret")).to_have_count(0)
+        expect(dialog.get_by_label("Timeout (seconds)", exact=True)).to_have_count(0)
+        credential = dialog.get_by_label("Credential", exact=True)
+        expect(credential.locator("option")).to_have_text(
+            ["No credential", "GH_ONE", "+ Create new credential"]
+        )
+        edit = dialog.get_by_role("button", name="Edit this credential")
+        expect(edit).to_be_hidden()
+        credential.select_option("GH_ONE")
+        eventually(stored, "GH_ONE")
+        expect(edit).to_be_visible()
+        # the pencil opens the window of the Credentials page on the same credential
+        edit.click()
+        window = page.locator("#credential-modal")
+        expect(window).to_be_visible()
+        expect(window.get_by_label("Name")).to_have_value("GH_ONE")
+        window.get_by_role("button", name="Cancel").click()
+        expect(window).to_be_hidden()
+        # a new one: only a GitHub access token fits, so no type to choose; it is chosen once stored
+        credential.select_option("+ Create new credential")
+        expect(window).to_be_visible()
+        expect(window.get_by_label("Type")).to_be_hidden()
+        window.get_by_label("Name").fill("GH_TWO")
+        window.get_by_label("Token").fill("ghp_test_two")
+        window.locator("[data-submit]").click()
+        expect(window).to_be_hidden()
+        expect(credential).to_have_value("GH_TWO")
+        eventually(stored, "GH_TWO")
+        names = [c["name"] for c in api.get("/api/credentials?category=external").json()]
+        assert "GH_TWO" in names, "the same data as the Credentials page"
+        add_setting(page, "Timeout (seconds)")
+        expect(dialog.get_by_label("Timeout (seconds)", exact=True)).to_be_visible()

@@ -58,6 +58,7 @@ class SettingRead(BaseModel):
     options_by: dict[str, Any] | None = None
     shown_when: dict[str, Any] | None = None
     line: str | None = None
+    credential_types: list[str] | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None

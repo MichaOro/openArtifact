@@ -113,7 +113,10 @@ class SettingSpec(_Strict):
     use: str | None = None
     key: str | None = None
     label: str | None = None
-    type: Literal["integer", "number", "switch", "text", "lines", "code", "select"] | None = None
+    type: (
+        Literal["integer", "number", "switch", "text", "lines", "code", "select", "credential"]
+        | None
+    ) = None
     minimum: int | float | None = None
     maximum: int | float | None = None
     default: Any = None
@@ -124,6 +127,8 @@ class SettingSpec(_Strict):
     disabled_options: list[str] | None = None
     options_by: OptionsBy | None = None
     shown_when: ShownWhen | None = None
+    #: The credential types a ``credential`` setting accepts (ids of ``credentials/types.py``).
+    credential_types: list[str] | None = None
     #: Settings with the same line name are drawn side by side.
     line: str | None = None
     max_length: int | None = None

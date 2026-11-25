@@ -85,9 +85,9 @@ TYPES: dict[str, CredentialType] = {
         ),
         CredentialType(
             "github_pat",
-            "GitHub personal access token",
+            "GitHub access token",
             EXTERNAL,
-            "For the GitHub node and the GitHub MCP server.",
+            "A classic or fine-grained personal access token. For the GitHub node and the GitHub MCP server.",
             (_value("Token", "ghp_…"),),
             testable=True,
             consumers=("github", "mcp_tool"),
