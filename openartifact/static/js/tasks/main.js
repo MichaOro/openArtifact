@@ -5,7 +5,7 @@ import { Modal } from "../components/modal.js";
 import { ReferencePicker } from "../components/reference-picker.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { KEYS } from "../storage.js";
-import { createTask, deleteTask, getTask, listRuns, listTasks, placeTask, updateTask } from "./api.js";
+import { archiveTask, createTask, deleteTask, getTask, listRuns, listTasks, placeTask, updateTask } from "./api.js";
 import { needsFullBody } from "./body-model.js";
 import { Board } from "./board.js";
 import { ArtifactDialog } from "./artifact-dialog.js";
@@ -21,6 +21,7 @@ import { listFields, replaceFields } from "../artifact-fields/api.js";
 import { FieldsEditor } from "../artifact-fields/fields-editor.js";
 import { ActionMenu } from "../components/action-menu.js";
 import { FieldRail } from "./field-rail.js";
+import { ArchiveView } from "./archive-view.js";
 import { t, tn } from "../i18n.js";
 
 const board = new Board({ loadTasks: listTasks, renameLane: (status, title) => laneControls.rename(status, title) });
@@ -196,8 +197,34 @@ const fieldRail = new FieldRail({
 // The board's menu next to "Add lane": the artifact fields every artifact has.
 const fieldsEditor = new FieldsEditor(new Modal(document.getElementById("fields-modal")), replaceFields, (saved) => showFields(saved));
 const boardMenu = new ActionMenu();
+
+// The archive (ADR-071): a view of its own that takes the place of the lanes; the board's menu shows and hides it.
+const boardElement = board.element;
+const addLaneButton = document.querySelector("[data-add-lane]");
+const archive = new ArchiveView({
+  root: document.querySelector("[data-archive-view]"),
+  fields: () => artifactFields,
+  parentTitle: (id) => board.tasks.get(id)?.title ?? null,
+  onRestored: (task) => {
+    board.upsert(task);
+    board.announce(t("archive.restored", { title: task.title }));
+  },
+  onError: (message) => board.showError(message),
+});
+function showArchive(on) {
+  boardElement.hidden = on;
+  if (addLaneButton) addLaneButton.hidden = on;
+  archive.show(on);
+}
 document.querySelector("[data-board-menu]")?.addEventListener("click", (event) => {
-  boardMenu.toggle(event.currentTarget, [{ label: t("index.artifact_fields"), icon: "tag", onSelect: () => fieldsEditor.open(artifactFields) }], t("tasks.main.board"));
+  boardMenu.toggle(
+    event.currentTarget,
+    [
+      { label: t("index.artifact_fields"), icon: "tag", onSelect: () => fieldsEditor.open(artifactFields) },
+      { label: archive.visible ? t("index.hide_archive") : t("index.show_archive"), icon: "inbox", onSelect: () => showArchive(!archive.visible) },
+    ],
+    t("tasks.main.board"),
+  );
 });
 
 // Lane switch inside the task dialog. Two entry points: the lane chip under the title (a
@@ -304,6 +331,20 @@ artifactDialog.subtitle.addEventListener("click", (event) => {
 cardNavRoot.querySelector('[data-card-field="lane"]').addEventListener("click", (event) => {
   if (!board.locked.has(artifactDialog.editing?.id)) pickLane(event.currentTarget, "left");
 });
+cardNavRoot.querySelector('[data-card-action="archive"]').addEventListener("click", async () => {
+  const task = artifactDialog.editing;
+  if (!task || artifactDialog.busy || board.locked.has(task.id)) return;
+  try {
+    await archiveTask(task.id);
+    artifactDialog.modal.close();
+    board.remove(task.id);
+    board.announce(t("tasks.main.archived_title", { title: task.title }));
+    if (archive.visible) archive.load();
+  } catch (error) {
+    if (error.status === 404) board.remove(task.id);
+    else board.showError(t("tasks.main.archive_failed", { title: task.title }));
+  }
+});
 cardNavRoot.querySelector('[data-card-action="delete"]').addEventListener("click", () => {
   const task = artifactDialog.editing;
   if (!task || artifactDialog.busy || board.locked.has(task.id)) return;
@@ -392,7 +433,11 @@ connectEvents({
     comments.load();
   },
   onEvent: (type, data) => {
-    if (type === "run.updated") processing.upsert(data);
+    archive.handleEvent(type);
+    if ((type === "task.updated" || type === "task.moved" || type === "task.created") && data.archived_at) {
+      board.remove(data.id); // an archived card is not on the board
+      if (artifactDialog.editing?.id === data.id) artifactDialog.modal.close();
+    } else if (type === "run.updated") processing.upsert(data);
     else if (type.startsWith("execution.") || type === "activity.created") history.handleEvent(type, data);
     else if (type.startsWith("comment.")) {
       comments.handleEvent(type, data);

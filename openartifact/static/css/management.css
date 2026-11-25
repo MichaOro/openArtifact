@@ -133,3 +133,8 @@
 .mg-version__buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .mg-showing { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-accent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-accent) 10%, transparent); font-size: 0.8125rem; }
 .ge-chip--use { background: color-mix(in srgb, var(--edge-pass) 18%, transparent); }
+
+/* The archive of the board (ADR-071): the view takes the place of the lanes; the text of a comment keeps its line breaks. */
+.archive-view[hidden] { display: none; }
+.archive-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.board[hidden] { display: none; }

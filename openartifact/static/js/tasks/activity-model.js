@@ -91,6 +91,10 @@ export function sentenceOf(entry) {
       return t("tasks.activity.action_set", { to: d.to ?? "?" });
     case "guard":
       return guardSentence(d);
+    case "archived":
+      return t("tasks.activity.archived");
+    case "unarchived":
+      return d.to ? t("tasks.activity.unarchived_to", { to: d.to }) : t("tasks.activity.unarchived");
     default:
       return entry.kind;
   }

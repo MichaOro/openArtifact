@@ -89,7 +89,10 @@ def test_the_shipped_sidebar_and_rail() -> None:
         "stage",
         "action",
     ]
-    assert [i.key for i in rail["actions"]] == ["delete"]
+    assert [i.key for i in rail["actions"]] == [
+        "archive",
+        "delete",
+    ]  # the archive action was added (ADR-071 UI)
 
 
 @pytest.mark.parametrize(
