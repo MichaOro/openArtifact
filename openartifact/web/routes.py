@@ -34,7 +34,6 @@ from openartifact.security import (
 )
 from openartifact.version import __version__ as APP_VERSION  # noqa: N812
 from openartifact.web import navigation
-from openartifact.web.navigation import registry
 
 logger = logging.getLogger(__name__)
 

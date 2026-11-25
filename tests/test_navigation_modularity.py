@@ -47,7 +47,7 @@ def test_all_routes_have_nav_entries():
 
 def test_navigation_registry_builds_sidebar():
     """NavigationRegistry produces the same sidebar structure as SIDEBAR constant."""
-    from openartifact.web.navigation import NavigationRegistry, SIDEBAR
+    from openartifact.web.navigation import NavigationRegistry
 
     registry = NavigationRegistry()
     registry.populate_builtin()
@@ -75,7 +75,7 @@ def test_navigation_registry_builds_sidebar():
 
 def test_navigation_registry_builds_rail():
     """NavigationRegistry produces the same artifact rail as ARTIFACT_RAIL constant."""
-    from openartifact.web.navigation import NavigationRegistry, ARTIFACT_RAIL
+    from openartifact.web.navigation import NavigationRegistry
 
     registry = NavigationRegistry()
     registry.populate_builtin()

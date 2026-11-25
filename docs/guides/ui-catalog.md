@@ -37,6 +37,10 @@ not suggestions, and a change that breaks one is sent back.
    artifact field rail of the task window (`tasks/field-rail.js`, saves on `change`, has no "Not saved" marker and no
    flush on closing), and the forms with their own Save button (providers, credentials, run limits, the agent editor)
    which keep their form state until Save and are outside this rule.
+6. **Navigation entries go through `NavigationRegistry`.** No hardcoded `<a href="/settings/...">` in templates,
+   no manual `active_nav` strings in routes. Every page registers its entry via
+   `registry.register(NavLinkEntry(...))` (see [ADR-065](../architecture/adr/065-modular-navigation.md)).
+   A test enforces this (`tests/test_navigation_modularity.py`).
 
 ## Rules
 

@@ -13,8 +13,9 @@ the sidebar and rail structures with visibility filtering via ``visible_when`` c
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Any
+from typing import Any, Union
 
 
 @dataclass(frozen=True)
@@ -119,7 +120,7 @@ class NavEntry(ABC):
         self.visible_when = visible_when or (lambda ctx: True)
 
     @abstractmethod
-    def to_nav_item(self) -> NavItem:
+    def to_nav_item(self) -> NavItem | NavDivider:
         """Convert this registry entry to a template-ready NavItem."""
         ...
 
@@ -383,7 +384,6 @@ class NavigationRegistry:
         )
 
         # Artifact rail entries
-        NOTHING = "–"  # en dash
 
         # Fields group - use artifact: prefix to avoid key collisions with sidebar
         self.register(
@@ -520,7 +520,7 @@ def _ensure_populated() -> None:
 
 # ── Legacy constants for backward compatibility ───────────────────────────
 
-NOTHING = "–"  # an en dash: nothing chosen yet
+NOTHING = "-"  # an en dash: nothing chosen yet
 
 def _build_legacy_sidebar() -> Navigation:
     """Build the legacy SIDEBAR constant from the registry."""

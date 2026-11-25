@@ -230,22 +230,28 @@ A new type:
 
 ## Add a navigation entry
 
-Entries are objects in `web/navigation.py`; two navigations exist, `SIDEBAR` and `ARTIFACT_RAIL` (the rail of
-the artifact dialog), and `components/nav.html` renders both.
+Navigation entries are registered in the central `NavigationRegistry` (see [ADR-065](../architecture/adr/065-modular-navigation.md)).
+The registry builds the sidebar and the artifact dialog rail from registered entries.
 
-1. **Add the object** to the navigation: `NavLink(key, label, icon, href=...)` (a page; `children=(...)`
-   makes a section), `NavField` (a value of the open artifact chosen from a list), `NavAction` (a command),
-   or a `NavDivider`. Entries are added with `.add(item, group)`.
+1. **Register the entry** via `registry.register(entry, parent, order)`:
+   - Page link: `NavLinkEntry(key, label_key, icon, href=..., children_keys=(...))`
+   - Runtime group: `NavGroupEntry(key, label_key, icon)`
+   - Artifact field: `NavFieldEntry(key, label_key, icon, dot=True)`
+   - Action button: `NavActionEntry(key, label_key, icon, danger=False)`
+   - Divider: `NavDividerEntry(key, "", "")`
+   - `parent`: `"sidebar"` (top-level), `"pipeline"`, `"settings"`, `"artifact:fields"`, `"artifact:custom"`, `"artifact:actions"`
+   - `order`: integer, lower = earlier
 2. **Icon.** Use an existing icon name, or add the SVG to `templates/components/icons.html` and its name to
    `icon_names` (see above).
-3. **Page.** A `NavLink` needs a route in `web/routes.py` that renders a template and passes
-   `active_nav=<key>` (the Executions page is an example: `/executions`, key `executions`). A `NavField` or
-   `NavAction` of the rail needs its handler in the dialog script (`static/js/tasks/`), selected by
-   `data-card-field` / `data-card-action`.
+3. **Page.** A `NavLinkEntry` needs a route in `web/routes.py` that renders a template. The `active_nav`
+   is derived automatically from the request path via `_active_nav_from_path()` — no manual `active_nav`
+   string needed.
+4. **Visibility.** Optional `visible_when=lambda ctx: ctx.get("features", {}).get("beta", False)` on the entry.
 4. **Markup.** If the entry needs a new kind of markup, add it to `components/nav.html`; the `kind` of the
    entry picks the branch.
 5. **Test it.** `tests/test_web.py` for the route and the rendered entry; `tests/e2e/` for behaviour in the
    dialog or sidebar.
+6. **Third-party.** In your package's `__init__.py`: `from openartifact.web.navigation import registry, NavLinkEntry; registry.register(...)`
 
 ## Add an event type
 

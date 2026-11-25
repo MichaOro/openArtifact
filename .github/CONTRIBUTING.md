@@ -65,9 +65,11 @@ section of a window or page is a reusable component** from the catalog (add a mi
 feature-specific copy); **windows are sized by their content** (as wide as necessary, as narrow as possible, two columns
 where there is room instead of an endless column); a window that saves carries its name in its title; colours only as
 tokens; **a change is saved on the user's act** (text on leaving the field or Enter, a choice when it changes, no autosave
-by keystroke or timer, nothing drawn again under a focused field: `static/js/editor/persist-policy.js`). The rules, their
-reasons and the checklist are in the [UI catalog](../docs/guides/ui-catalog.md) (*Binding rules
-for every contributor*) and [ADR-059](../docs/architecture/adr/059-one-catalog-of-ui-building-blocks.md).
+by keystroke or timer, nothing drawn again under a focused field: `static/js/editor/persist-policy.js`). **Navigation
+entries go through `NavigationRegistry`** (no hardcoded links in templates, no manual `active_nav` in routes; see
+[ADR-065](../docs/architecture/adr/065-modular-navigation.md)). The rules, their reasons and the checklist are in the
+[UI catalog](../docs/guides/ui-catalog.md) (*Binding rules for every contributor*) and
+[ADR-059](../docs/architecture/adr/059-one-catalog-of-ui-building-blocks.md).
 
 ## Code and comments
 
