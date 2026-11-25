@@ -141,6 +141,8 @@ select.field__control {
   cursor: pointer;
 }
 select.field__control:disabled { cursor: not-allowed; }
+/* a select that is as wide as its longest choice (components/select-fit.js): its text is never cut */
+select.field__control[data-fit] { min-width: var(--select-min, 0); }
 .field__control:hover { border-color: var(--glass-border-hover); }
 .field__control:focus-visible {
   outline: none;
@@ -268,3 +270,29 @@ textarea.field__control--lines { resize: vertical; }
 /* text typed in a field of a node's settings and not saved yet (persist-policy.js): saved when the field is left */
 .field.is-dirty .field__control { border-color: var(--accent-ring); }
 .field.is-dirty .field__label::after { content: " · " attr(data-unsaved); font-weight: 400; color: var(--color-text-secondary); }
+
+/* ── Field group: controls in one row that know their group (docs/guides/ui-catalog.md) ──────────────────────────────────────────
+   A table of rows (the inputs of an agent, the fields of a mapping): the rows break by the width of the TABLE, not of the window. Wide,
+   a row is one line of `--fg-cols`; when one control would be cut it breaks in pairs (2, 2, 2: a grid of two columns, the head row goes
+   and `.field-group__wide` takes a whole line), and into one column when even a pair does not fit. A row with many elements
+   (`.field-group--long`, seven and more) breaks earlier. The choices (select-fit.js) are never narrower than their longest text. */
+.field-group { container-type: inline-size; display: grid; gap: var(--space-2); }
+.field-group__head,
+.field-group__row { display: grid; grid-template-columns: var(--fg-cols); gap: var(--space-2); align-items: center; }
+@container (max-width: 42rem) {
+  .field-group__head { display: none; }
+  .field-group__row { grid-template-columns: repeat(2, minmax(min-content, 1fr)); padding: var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+  .field-group__wide { grid-column: 1 / -1; }
+  .field-group__end { justify-self: end; }
+}
+@container (max-width: 48rem) {
+  .field-group--long .field-group__head { display: none; }
+  .field-group--long .field-group__row { grid-template-columns: repeat(2, minmax(min-content, 1fr)); padding: var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+  .field-group--long .field-group__wide { grid-column: 1 / -1; }
+  .field-group--long .field-group__end { justify-self: end; }
+}
+@container (max-width: 24rem) {
+  .field-group__row,
+  .field-group--long .field-group__row { grid-template-columns: minmax(0, 1fr); }
+  .field-group__end { justify-self: start; }
+}

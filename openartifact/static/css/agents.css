@@ -123,13 +123,15 @@
 .ag-problems:empty { display: none; }
 /* the inputs table: one grid for the head and the rows; the Description column only with .has-description */
 .ag-inputs-table {
-  --ag-input-cols: minmax(5rem, 1.2fr) 6.5rem minmax(7rem, 8.5rem) 6.5rem minmax(4rem, 1fr) 2rem;
+  /* the three choice columns are as wide as their longest choice (components/select-fit.js sets --ag-col-*): their text is never cut */
+  --ag-input-cols: minmax(5rem, 1.2fr) var(--ag-col-source, 6.5rem) var(--ag-col-type, 8.5rem) var(--ag-col-required, 6.5rem) minmax(4rem, 1fr) 2rem;
   display: grid;
   gap: var(--space-2);
+  --fg-cols: var(--ag-input-cols);
 }
-.ag-inputs-table.has-description { --ag-input-cols: minmax(5rem, 1.1fr) 6.5rem minmax(7rem, 8.5rem) 6.5rem minmax(4rem, 1fr) minmax(5rem, 1.3fr) 2rem; }
+.ag-inputs-table.has-description { --ag-input-cols: minmax(5rem, 1.1fr) var(--ag-col-source, 6.5rem) var(--ag-col-type, 8.5rem) var(--ag-col-required, 6.5rem) minmax(4rem, 1fr) minmax(5rem, 1.3fr) 2rem; }
 .ag-inputs-head,
-.ag-input { display: grid; grid-template-columns: var(--ag-input-cols); gap: var(--space-2); align-items: center; }
+.ag-input { align-items: center; }
 .ag-inputs-head { padding: 0 var(--space-1); font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); }
 .ag-inputs-table:not(.has-description) .ag-inputs-head__description,
 .ag-inputs-table:not(.has-description) .ag-input__description { display: none; }
@@ -244,22 +246,7 @@
 /* a name that explains itself on hover (Quick test) */
 .ag-hint { cursor: help; border-bottom: 1px dotted var(--color-text-muted); }
 .ag-hint:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
-/* the panel is narrow beside the side column: an input takes two rows (name, comes from, type, required / default, description, menu) */
-.ag-panel { container-type: inline-size; }
-@container (max-width: 52rem) {
-  .ag-inputs-head { display: none; }
-  .ag-inputs-table,
-  .ag-inputs-table.has-description { --ag-input-cols: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.15fr); }
-  .ag-input { padding: var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
-  .ag-input__description { grid-column: span 2; }
-  .ag-input__more { justify-self: end; }
-}
-@media (max-width: 760px) {
-  .ag-inputs-head { display: none; }
-  .ag-inputs-table,
-  .ag-inputs-table.has-description { --ag-input-cols: 1fr 1fr; }
-  .ag-input { padding: var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
-}
+/* the inputs table is a field group (css/forms.css .field-group): it breaks in pairs by its own width */
 .ag-panel__heading--next { margin-top: var(--space-3); }
 
 /* ── Versions & use (ADR-047): Used by on the left, the versions on the right ── */

@@ -97,7 +97,8 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
 - An agent cannot be deleted while agent nodes refer to it. *Versions & use* lists them (*Used by*) with the settings
   each overrides: *Open* shows the node in its action, *Remove reference* (after asking) takes the agent out of that one
   node; its next execution then fails until it is given an agent again. The versions stand next to it; *Publish again*
-  is the rollback.
+  is the rollback. With more than three versions the list shows the newest two and the first one; the others are behind
+  *Show more versions (N)* (a click or Enter opens them, they are used like the others).
 
 The **Agents** page lists the agents as cards or rows (search, order, cards or list). A click selects one and shows its **user prompt**
 and, while it is switched on, its **system prompt** on the right, with the provider and model it sets itself, its limits and its versions; a

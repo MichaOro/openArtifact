@@ -2000,5 +2000,7 @@
  "graph.action.select": "Wähle eine Aktion, um ihre Details zu sehen",
  "graph.pipeline.select": "Wähle eine Pipeline, um ihre Details zu sehen",
  "agents.page.select": "Wähle einen Agent, um seine Details zu sehen",
- "guards.select_one": "Wähle einen Guard, um seine Details zu sehen"
+ "guards.select_one": "Wähle einen Guard, um seine Details zu sehen",
+ "agents.editor_page.show_more_versions": "Weitere Versionen anzeigen ({count})",
+ "agents.editor_page.hide_versions": "{count} Versionen ausblenden"
 }
