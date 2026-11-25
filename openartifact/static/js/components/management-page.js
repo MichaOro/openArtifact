@@ -15,7 +15,8 @@
  *     panel: { icon: (item) => "action", title: (item) => item.name, chips: (item) => [element],
  *              tabs: (item) => [{key, label, disabled, render: (body, item) => void}] },
  *     onOpen, onEdit, onDelete,                         // each gets the item
- *     deleteBlocked: (item) => "reason" | "",           // optional: the bin of an entry that cannot be deleted is aria-disabled with the reason as its tooltip
+ *     deleteBlocked: (item) => "why it cannot be deleted" | null,   // optional: the bin is then disabled and says why
+ *     onBlocked: (item, reason) => void,                // optional: called instead of onDelete when the bin of such an entry is clicked
  *   });
  *   page.setItems(items);  page.select(key);  page.refreshPanel();
  *
@@ -224,16 +225,14 @@ export class ManagementPage {
       event.stopPropagation();
       c.onEdit?.(item);
     });
-    const del = iconButton("trash", c.deleteLabel?.(item) ?? t("common.delete"), "is-danger");
+    const blocked = c.deleteBlocked?.(item) ?? null;
+    const del = iconButton("trash", blocked ?? c.deleteLabel?.(item) ?? t("common.delete"), "is-danger");
     del.dataset.delete = "";
-    const blocked = c.deleteBlocked?.(item) ?? ""; // optional: why this entry cannot be deleted now (the bin stays focusable and says why; the page's onDelete explains)
-    if (blocked) {
-      del.setAttribute("aria-disabled", "true");
-      del.title = blocked;
-    }
+    if (blocked) del.setAttribute("aria-disabled", "true"); // disabled, not removed: it keeps its tooltip
     del.addEventListener("click", (event) => {
       event.stopPropagation();
-      c.onDelete?.(item);
+      if (blocked) c.onBlocked?.(item, blocked); // optional: the page may explain on a click (a banner)
+      else c.onDelete?.(item);
     });
     actions.append(edit, del);
     li.append(actions);
@@ -329,7 +328,7 @@ export class ManagementPage {
       this.config.onOpen?.(item);
     } else if (event.key === "Delete") {
       event.preventDefault();
-      this.config.onDelete?.(item);
+      if (!this.config.deleteBlocked?.(item)) this.config.onDelete?.(item);
     }
   }
 

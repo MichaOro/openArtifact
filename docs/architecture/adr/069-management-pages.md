@@ -52,11 +52,30 @@ artifacts start in it and how many runs it had).
 - The migration number `0055` is reserved for the event log (card #100); `0056` follows `0054` until that one exists, then its
   `down_revision` becomes `0055`.
 
-## 4. Addendum: the Guards page
+## 4. Addendum (2026-11-26): the agents page
+
+The agents page (`static/js/agents/list-page.js`, `templates/agents.html`) is a `ManagementPage`. It is about the *definition* of an agent, not
+about where it is used. The card says the name, the chips (active, published version, "Draft has changes"), the first sentence of the user
+prompt, the provider and model the agent sets itself and how many nodes use it. The panel has two tabs:
+
+- **Overview**: the **user prompt** and, only while it is in effect, the **system prompt** (a `ClampedText`: its first lines, *Show more*,
+  *Copy*; `textContent` only), the status, the provider and the model (when the agent's own limits are in effect), the limits it sets
+  (`limitRows` in `agents/model.js`), the description, *Open* and *Properties*. The published configuration is what runs and what the panel
+  shows; when the draft differs a *Published | Draft* switch shows the draft's prompts.
+- **Versions**: the published versions (number, date, "repeats vN" for a rollback, which one is current). Publishing and rolling back stay
+  in the editor (one button leads there), so nothing about versions changed.
+
+The list API (`GET /api/agents`) now says what the page needs without loading each agent: `user_prompt_start`, `system_prompt_enabled`,
+`provider_id`, `model` and `shown_from` (``published`` or ``draft`` while nothing is published). The prompts themselves come from
+`GET /api/agents/{id}` when an agent is selected. An agent that a node refers to cannot be deleted: the bin is disabled and says why
+(`deleteBlocked` of the frame, optional). The window that makes or changes an agent is the form manifest `ui/forms/agent.yaml` (name,
+description); the handmade `name-modal` of the list is gone (the editor page keeps its own rename window).
+
+## 5. Addendum (2026-11-26): the Guards page
 
 The Guards page (ADR-060) is the third page on the frame: cards or rows, search and order (by name, by use), the detail panel with **Overview**,
 **Usage** and **Preview** (no *Versions*: a guard has none, and no place is held for it). A double click, the pencil and Enter open the guard
 editor; the bin and Delete ask as before and a used guard says why it stays. The sentences are the guard editor's (`guards/model.js`:
-`summaryLine`, `triggerText`, `previewText`, `escalationText`), not a second implementation. The shared frame gained one optional setting,
-`deleteBlocked(item)`: the bin of an entry that cannot be deleted now is `aria-disabled` and says why in its tooltip (the page's `onDelete`
-explains on click); pages that do not set it behave as before.
+`summaryLine`, `triggerText`, `previewText`, `escalationText`), not a second implementation. A used guard uses the frame's `deleteBlocked(item)`
+(its bin is disabled and says why) and the new optional `onBlocked(item, reason)`: a click on such a bin shows the reason as a banner, as the
+page did before; pages that do not set it behave as before.

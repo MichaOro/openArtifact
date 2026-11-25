@@ -151,7 +151,8 @@ const page = new ManagementPage(root, {
   card,
   editLabel: (guard) => t("graph_list.open_noun", { name: guard.name }),
   deleteLabel: (guard) => t("guards.delete_name", { name: guard.name }),
-  deleteBlocked: model.deleteBlocked,
+  deleteBlocked: (guard) => model.deleteBlocked(guard) || null, // the bin of a used guard is disabled and says why (a click shows it as a banner too)
+  onBlocked: (_guard, reason) => banner.show(reason, { autoHide: 6000 }),
   panel: {
     icon: () => "shield",
     title: (guard) => guard.name,
@@ -164,17 +165,14 @@ const page = new ManagementPage(root, {
   },
   onOpen: open,
   onEdit: open,
-  onDelete: (guard) => {
-    const blocked = model.deleteBlocked(guard);
-    if (blocked) return banner.show(blocked, { autoHide: 6000 });
+  onDelete: (guard) =>
     confirm.open({
       message: t("guards.delete_question", { name: guard.name }),
       onConfirm: async () => {
         await request(`/api/guards/${encodeURIComponent(guard.id)}`, { method: "DELETE" });
         await load();
       },
-    });
-  },
+    }),
 });
 
 async function load() {

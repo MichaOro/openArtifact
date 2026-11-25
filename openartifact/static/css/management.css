@@ -89,3 +89,13 @@
 .gp-node .icon { width: 55%; height: 55%; }
 .gp-node.is-tool { border-style: dashed; opacity: 0.85; }
 .gp.is-failed { opacity: 0.4; }
+
+/* A long text in a panel (components/clamped-text.js): its first lines, "Show more", "Copy" */
+.ct { display: grid; gap: var(--space-2); min-width: 0; }
+.ct__box { padding: var(--space-2) var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-glass-card) 60%, transparent); min-width: 0; }
+.ct__text { margin: 0; color: var(--color-text-primary); font: inherit; font-size: 0.8125rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ct__text[data-clamped="true"] { display: -webkit-box; -webkit-line-clamp: var(--ct-lines, 6); -webkit-box-orient: vertical; overflow: hidden; }
+.ct__bar { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ct__empty { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); }
+.mg-prompt-switch { display: flex; gap: var(--space-1); }
+.mg-prompts { display: grid; gap: var(--space-3); }

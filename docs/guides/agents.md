@@ -99,6 +99,10 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
   node; its next execution then fails until it is given an agent again. The versions stand next to it; *Publish again*
   is the rollback.
 
+The **Agents** page lists the agents as cards or rows (search, order, cards or list). A click selects one and shows its **user prompt**
+and, while it is switched on, its **system prompt** on the right, with the provider and model it sets itself, its limits and its versions; a
+double click or the pencil opens the editor, the bin deletes an agent no node refers to. *Properties* changes the name and the description.
+
 ## 3. Use it in an action
 
 Add an **Agent** node to an action definition and choose the agent.

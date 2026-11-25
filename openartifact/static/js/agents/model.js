@@ -196,6 +196,13 @@ export function optionsOf(config) {
   return { system_prompt: Boolean(config.system_prompt_enabled), inputs, limits };
 }
 
+/** The limits of an agent a list shows (`[key, value]`, in this order), only those it sets and only while its own limits are in effect. */
+export const PAGE_LIMITS = ["max_iterations", "total_timeout_seconds", "request_timeout_seconds", "retries", "token_budget", "tool_result_chars"];
+export function limitRows(config) {
+  if (!optionsOf(config).limits) return [];
+  return PAGE_LIMITS.filter((key) => config[key] !== null && config[key] !== undefined).map((key) => [key, config[key]]);
+}
+
 /** The grey example in a Quick test field of a value input: its default, else its description, else a value of its type. */
 export function sampleHint(input) {
   if (input.default !== null && input.default !== undefined && input.default !== "") return `e.g. ${input.default}`;

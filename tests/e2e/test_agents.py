@@ -195,8 +195,8 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
     page = signed_in
     page.goto(f"{agents_url}/agents")
     page.click("[data-new-agent]")
-    page.locator("#name-modal-field-name").fill("Triage")
-    page.locator("#name-modal [data-submit]").click()
+    page.locator("#agent-modal").get_by_label("Name", exact=True).fill("Triage")
+    page.locator("#agent-modal [data-submit]").click()
     expect(page).to_have_url(re.compile(r"/agents/[0-9a-f-]{36}$"))
     editor = page.locator("[data-agent-editor]")
     expect(editor.locator("[data-agent-name]")).to_have_text("Triage")
@@ -271,10 +271,10 @@ def test_an_agent_is_written_published_previewed_and_rolled_back(
     editor.locator("[data-active]").click()
     expect(editor.locator("[data-chips]")).to_contain_text("Inactive")
     page.goto(f"{agents_url}/agents")
-    item = page.locator(".ag-item")
-    expect(item.locator(".ge-item__name")).to_have_text("Triage")
-    expect(item.locator("[data-chips]")).to_contain_text("Inactive")
-    expect(item.locator("[data-chips]")).to_contain_text("v3 published")
+    item = page.locator(".mg-card")
+    expect(item.locator(".mg-card__name")).to_have_text("Triage")
+    expect(item.locator(".mg-card__chips")).to_contain_text("Inactive")
+    expect(item.locator(".mg-card__chips")).to_contain_text("v3 published")
 
 
 # ── the node ─────────────────────────────────────────────────────────
