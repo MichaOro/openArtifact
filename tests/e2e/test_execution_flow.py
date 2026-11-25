@@ -446,34 +446,74 @@ def test_on_a_phone_the_panel_is_below_the_canvas(
     expect(_crumbs(page)).to_have_count(2)
 
 
-def test_a_step_that_ran_several_times_keeps_its_name_readable_beside_its_pass_buttons(
+def test_a_step_that_ran_several_times_has_one_open_button_and_the_pager_leads_through_the_passes(
+    page: Page, base_url: str, api: httpx.Client, tmp_path: Path
+) -> None:
+    """The path of the panel used to list "Open pass 1", "Open pass 2", ... for a step that ran several times (and squeezed the
+    name beside them). One "Open" is enough: the opened action pages through its passes."""
+    _open(page, base_url, api, retry_pipeline(api, str(tmp_path / "marker")))
+    page.get_by_role("button", name=re.compile("Flaky", re.I)).first.wait_for(state="attached")
+    item = (
+        page.locator('.ef-path__item[data-state="pass"], .ef-path__item[data-state="fail"]')
+        .filter(has=page.locator(".ef-path__open"))
+        .first
+    )
+    opens = item.locator(".ef-path__open")
+    expect(opens).to_have_count(1)
+    expect(opens).to_have_text("Open")
+    expect(page.get_by_text(re.compile(r"^Open pass \d+$"))).to_have_count(0)
+    label = item.locator(".ef-path__label").bounding_box()
+    assert label and label["height"] < 40, "the name stays readable"
+    opens.click()
+    expect(page.locator("[data-pass-text]")).to_have_text("Pass 1 of 2")
+
+
+def _guarded(api: httpx.Client, pipeline: dict[str, Any], enabled: bool = True) -> dict[str, Any]:
+    from tests.e2e.test_guards import _attach, _guard
+
+    attachment = _attach(
+        api, _guard(api, "Watcher"), pipeline, "stage", pipeline["stages"][0][0]["id"]
+    )
+    if not enabled:
+        api.put(
+            f"/api/guard-attachments/{attachment['id']}/enabled", json={"enabled": False}
+        ).raise_for_status()
+    return attachment
+
+
+def test_the_flow_shows_the_shield_of_a_guard_on_its_stage_grey_when_the_run_is_over(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    """The panel's path lists "Open pass 1", "Open pass 2" for a step that ran twice. They used to sit in the row beside the name
-    and squeezed it into one letter per line, over the status chip: now they wrap below the name."""
-    _open(page, base_url, api, echo_pipeline(api))
-    item = page.locator(".ef-path__item").first
-    item.evaluate(
-        """el => {
-          for (const n of [1, 2]) {
-            const b = document.createElement('button');
-            b.className = 'button button--ghost button--sm ef-path__open';
-            b.textContent = 'Open pass ' + n;
-            el.append(b);
-          }
-          el.querySelector('.ef-path__label').textContent = 'Test: Code und HTTP';
-        }"""
-    )
-    label = item.locator(".ef-path__label").bounding_box()
-    main = item.locator(".ef-path__main").bounding_box()
-    buttons = item.locator(".ef-path__open")
-    first, second = buttons.nth(0).bounding_box(), buttons.nth(1).bounding_box()
-    assert label and main and first and second
-    assert label["height"] < 40, (
-        f"the name stays on one or two lines, not a letter per line ({label['height']} px)"
-    )
-    assert main["width"] >= 150, f"the name's row keeps its room ({main['width']} px)"
-    assert first["y"] >= main["y"] + main["height"] - 1, "the pass buttons sit below the name"
-    assert abs(first["y"] - second["y"]) < 2 or second["y"] > first["y"], (
-        "and do not overlap each other"
-    )
+    pipeline = echo_pipeline(api)
+    _guarded(api, pipeline)
+    _open(page, base_url, api, pipeline)
+    shield = page.locator(".ge-node--stage [data-guard-shield]")
+    expect(shield).to_have_count(1)
+    expect(shield).to_have_attribute("data-state", "idle")  # nothing is watching any more
+    expect(shield).to_have_attribute("title", re.compile(r"1 guard, 0 active\nWatcher"))
+    assert shield.evaluate("el => el.tagName") == "SPAN", "read-only: an icon, not a button"
+
+
+def test_a_guard_that_is_not_switched_on_leaves_no_shield(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = echo_pipeline(api)
+    _guarded(api, pipeline, enabled=False)
+    _open(page, base_url, api, pipeline)
+    expect(page.locator("[data-guard-shield]")).to_have_count(0)
+
+
+def test_the_shield_is_green_and_pulses_while_the_stage_runs_and_turns_grey_when_it_ends(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = slow_flow(api, seconds=6)
+    _guarded(api, pipeline)
+    task: dict[str, Any] = api.post("/api/tasks", json={"title": "Item"}).json()
+    start(api, task, pipeline)
+    wait_executions(api, task, ["running"])
+    page.goto(flow_url(base_url, task, execution_of(api, task)))
+    shield = page.locator(".ge-node--stage [data-guard-shield]")
+    expect(shield).to_have_attribute("data-state", "active", timeout=10000)
+    assert shield.evaluate("el => getComputedStyle(el).animationName") != "none", "it pulses"
+    expect(shield).to_have_attribute("title", re.compile(r"1 guard, 1 active"))
+    expect(shield).to_have_attribute("data-state", "idle", timeout=20000)  # the stage is done

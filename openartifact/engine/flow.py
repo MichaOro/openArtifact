@@ -25,6 +25,7 @@ from openartifact.engine.chain import edge_from, pipeline_chain
 from openartifact.engine.flow_schemas import (
     EnteredVia,
     ExecutionFlow,
+    FlowAttachedGuard,
     FlowEdge,
     FlowGraph,
     FlowNode,
@@ -350,6 +351,7 @@ def build_flow(
     outputs: bool,
     start: tuple[str | None, str | None],
     guard_state: str | None = None,
+    enabled_now: dict[str, bool] | None = None,
 ) -> ExecutionFlow:
     """The flow of an execution from its snapshot, its steps and where it started (stage id, action id)."""
     try:
@@ -372,7 +374,21 @@ def build_flow(
         guards = json.loads(guard_state or "{}")
     except ValueError:
         guards = {}
+    attached = [
+        FlowAttachedGuard(
+            id=str(g["id"]),
+            guard_id=str(g.get("guard_id") or ""),
+            name=str(g.get("name") or ""),
+            scope_type=str(g.get("scope_type") or ""),
+            scope_id=str(g.get("scope_id") or ""),
+            graph_id=str(g.get("graph_id") or ""),
+            enabled=(enabled_now or {}).get(str(g["id"]), bool(g.get("enabled", True))),
+        )
+        for g in snapshot.get("guards", [])
+        if isinstance(g, dict) and g.get("id") and g.get("scope_id")
+    ]
     return ExecutionFlow(
+        attached_guards=attached,
         guards=guards if isinstance(guards, dict) else {},
         execution=execution,
         root_graph_id=root_id,

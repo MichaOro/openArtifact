@@ -63,6 +63,7 @@ from openartifact.models import (
     Execution,
     Graph,
     GraphKind,
+    GuardAttachment,
     PipelineRun,
     RunNodeResult,
     RunStatus,
@@ -369,7 +370,22 @@ class ArtifactService:
                 outputs,
                 (row.started_stage_id, row.started_action_id),
                 guard_state,
+                await self._attachments_enabled(session, row.snapshot),
             )
+
+    @staticmethod
+    async def _attachments_enabled(session: AsyncSession, snapshot_json: str) -> dict[str, bool]:
+        """Whether each guard attachment of a frozen run is switched on now (the engine checks that live), by attachment id."""
+        try:
+            ids = [g["id"] for g in json.loads(snapshot_json).get("guards", []) if g.get("id")]
+        except (ValueError, AttributeError, TypeError):
+            return {}
+        if not ids:
+            return {}
+        rows = await session.execute(
+            select(GuardAttachment.id, GuardAttachment.enabled).where(GuardAttachment.id.in_(ids))
+        )
+        return {i: bool(e) for i, e in rows.all()}
 
     async def execution_step(self, ref: str, execution_id: str, step_id: str) -> ExecutionStepRead:
         """One step of the execution with its complete output; 404 if it is not a step of this execution."""
