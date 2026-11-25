@@ -5,6 +5,7 @@
 import { executionSeconds, formatDuration, formatTime, originLabel, setChip } from "./history-format.js";
 import { contextBlock } from "./context-block.js";
 import { getStep } from "./history-api.js";
+import { RunningClock } from "./history-row.js";
 import { fillStep } from "./history-step.js";
 import { t } from "../i18n.js";
 
@@ -29,6 +30,8 @@ export class HistoryDetail {
     this.taskNumber = null; // set by the tab: the flow page's URL names the artifact by its number
     this.execution = null;
     this.loaded = false;
+    // the whole run time counts up while the execution runs (from its start time, once a second)
+    this.clock = new RunningClock(() => this.#tickDuration());
     root.querySelector("[data-detail-back]").addEventListener("click", () => onBack());
     this.deleteButton.addEventListener("click", () => {
       if (this.deleteButton.getAttribute("aria-disabled") !== "true") onDelete(this.execution);
@@ -115,9 +118,17 @@ export class HistoryDetail {
         dt.textContent = term;
         const dd = document.createElement("dd");
         dd.append(value);
+        if (term === t("executions.duration")) dd.dataset.liveDuration = "";
         return [dt, dd];
       }),
     );
+    this.clock.update(execution.status === "running");
+  }
+
+  /** The run time of a running execution, counted from its start time. */
+  #tickDuration() {
+    const cell = this.facts.querySelector("[data-live-duration]");
+    if (cell && this.execution?.status === "running") cell.textContent = formatDuration(executionSeconds(this.execution));
   }
 
   #time(iso) {
