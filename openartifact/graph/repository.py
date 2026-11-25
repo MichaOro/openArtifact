@@ -123,7 +123,7 @@ class GraphRepository:
         """Create a graph with its fixed nodes, connected with each other.
 
         A pipeline gets a trigger and a complete, an action definition a trigger and an output. An action definition is for
-        pipelines or for guards (``purpose``, ADR-066); a pipeline has no other purpose than ``pipeline``.
+        pipelines or for guards (``purpose``, ADR-067); a pipeline has no other purpose than ``pipeline``.
         """
         if purpose not in ("pipeline", "guard"):
             raise PurposeError("The purpose of an action is pipeline or guard")
@@ -189,7 +189,7 @@ class GraphRepository:
         return list(pipelines), list(guards)
 
     async def change_purpose(self, graph: Graph, purpose: str) -> None:
-        """Make an action definition for pipelines or for guards (ADR-066). It must not be used on the other side and must not
+        """Make an action definition for pipelines or for guards (ADR-067). It must not be used on the other side and must not
         hold a node of a kind that is not for the new purpose; the error names where."""
         if graph.kind != GraphKind.ACTION:
             raise PurposeError("Only an action has a purpose")

@@ -25,7 +25,7 @@ Purpose = Literal["pipeline", "guard"]
 
 
 class GraphCreate(_Strict):
-    """Body of ``POST /api/pipelines`` and ``POST /api/actions``. ``purpose`` (actions only, ADR-066): ``pipeline`` (used by the
+    """Body of ``POST /api/pipelines`` and ``POST /api/actions``. ``purpose`` (actions only, ADR-067): ``pipeline`` (used by the
     stages of a pipeline, the default) or ``guard`` (used only by guards)."""
 
     name: Name
@@ -112,7 +112,7 @@ class GraphRead(_Timestamps):
     status: str
     kind: GraphKind
     slug: str
-    #: What an action definition is for (``pipeline`` or ``guard``, ADR-066); every pipeline is ``pipeline``.
+    #: What an action definition is for (``pipeline`` or ``guard``, ADR-067); every pipeline is ``pipeline``.
     purpose: Purpose = "pipeline"
 
 

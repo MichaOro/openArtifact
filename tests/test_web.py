@@ -446,8 +446,11 @@ def test_stage_pages_use_the_name_of_the_stage(db_client: TestClient) -> None:
 
 
 def test_name_dialogs_are_the_shared_form_dialog(client: TestClient) -> None:
-    """Pipeline/action lists and the editor render the same form_modal with one Name field."""
-    for path in ("/pipelines", "/actions"):
+    """The pipeline list and the editor render the same form_modal with one Name field. The window that makes or changes an
+    action asks for more than a name (what it is for), so it is a form manifest window (ADR-065, ADR-067)."""
+    actions = client.get("/actions").text
+    assert 'id="action-modal"' in actions and 'id="name-modal-field-name"' not in actions
+    for path in ("/pipelines",):
         html = client.get(path).text
         assert 'id="name-modal-field-name"' in html
         assert 'id="name-modal-field-name-error"' in html

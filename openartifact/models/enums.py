@@ -51,7 +51,7 @@ class GraphKind(enum.StrEnum):
 
 
 class GraphPurpose(enum.StrEnum):
-    """What an action definition is for (ADR-066): a ``pipeline`` action is used by the stages of a pipeline, a ``guard`` action
+    """What an action definition is for (ADR-067): a ``pipeline`` action is used by the stages of a pipeline, a ``guard`` action
     only by guards. Every pipeline is ``pipeline``. The two never mix."""
 
     PIPELINE = "pipeline"

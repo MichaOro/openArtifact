@@ -101,7 +101,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         purpose: Annotated[
             Literal["pipeline", "guard"] | None,
             Query(
-                description="Only the actions for pipelines or only the actions for guards (ADR-066); every pipeline is "
+                description="Only the actions for pipelines or only the actions for guards (ADR-067); every pipeline is "
                 "``pipeline``."
             ),
         ] = None,
@@ -120,7 +120,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
     )
     async def create_graph(payload: GraphCreate, session: SessionDep) -> GraphRead:
         """Create one; it starts with a trigger (an action definition also with its output). An action is for pipelines or, with
-        ``purpose`` ``guard``, only for guards (ADR-066)."""
+        ``purpose`` ``guard``, only for guards (ADR-067)."""
         try:
             graph = await GraphRepository(session).create(payload.name, kind, payload.purpose)
         except PurposeError as error:
@@ -170,7 +170,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         responses=errors(404, 409, 422, write=True, body=True),
     )
     async def rename_graph(graph_id: str, payload: GraphUpdate, session: SessionDep) -> GraphRead:
-        """Rename it, and for an action change its purpose (ADR-066): a definition used by a stage cannot become a guard action, one
+        """Rename it, and for an action change its purpose (ADR-067): a definition used by a stage cannot become a guard action, one
         run by a guard cannot become a pipeline action, and neither can one that holds a node only the other kind may use; the 409
         answer says where."""
         repo = GraphRepository(session)

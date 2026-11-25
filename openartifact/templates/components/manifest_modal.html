@@ -1,0 +1,18 @@
+{% from "components/modal.html" import modal %}
+{# A window whose fields are a form manifest (ui/forms/<name>.yaml, ADR-062/065), drawn by static/js/components/manifest-dialog.js: the
+   frame is the same for all of them (a body for the form, an error line, Cancel and a submit button). #}
+{% macro manifest_modal(id, title) -%}
+{% call modal(id, title) %}
+<form class="task-form" id="{{ id }}-form" novalidate>
+    <div class="modal__body" data-manifest-body></div>
+    <p class="form-error" role="alert" hidden data-form-error></p>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-cancel>{{ t('common.cancel') }}</button>
+        <button type="submit" class="button button--primary" data-submit>
+            <span class="spinner" aria-hidden="true"></span>
+            <span data-submit-label>{{ t('common.save') }}</span>
+        </button>
+    </footer>
+</form>
+{% endcall %}
+{%- endmacro %}

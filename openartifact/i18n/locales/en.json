@@ -1220,5 +1220,14 @@
  "nav.personal.tooltip": "Personal settings",
  "execution.flow_view.tool_calls.one": "{count} call",
  "execution.flow_view.tool_calls.other": "{count} calls",
- "execution.flow_view.tool_calls_failed": "{calls}, {errors} failed"
+ "execution.flow_view.tool_calls_failed": "{calls}, {errors} failed",
+ "graph.action.tab_pipeline": "Pipeline actions",
+ "graph.action.tab_guard": "Guard actions",
+ "graph.action.empty_pipeline": "No pipeline actions yet. Create the first one to define what it does.",
+ "graph.action.empty_guard": "No guard actions yet. A guard runs a guard action, for example to judge the health of a run.",
+ "graph.action.chip_guard": "Guard",
+ "editor.list.edit_action": "Edit action",
+ "editor.list.new_guard_action": "New guard action",
+ "components.manifest_dialog.could_not_be_loaded": "The window could not be loaded. Please try again.",
+ "components.manifest_dialog.fix_marked": "Fix what is marked."
 }

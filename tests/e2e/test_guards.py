@@ -534,6 +534,7 @@ def test_a_round_guard_fires_at_round_5_and_8_and_pauses_the_run_and_the_history
         guard_api,
         "Judge",
         'import json, sys\nsys.exit(0 if json.load(open("context.json"))["vars"]["guard_firing"] < 2 else 1)',
+        purpose="guard",
     )
     health = _guard(
         guard_api,

@@ -333,7 +333,7 @@ class NodeType:
         self.result_data = result_data  # keys of `data` it always leaves
         self.variables = variables  # the setting it sets run variables from
         self.scopes = scopes
-        #: The kinds of action definition it may be used in (``pipeline`` and/or ``guard``, ADR-066) and the right it needs
+        #: The kinds of action definition it may be used in (``pipeline`` and/or ``guard``, ADR-067) and the right it needs
         #: (a hook for the permissions of card #99, not evaluated yet).
         self.purposes = purposes
         self.requires = requires
@@ -557,7 +557,7 @@ def step_icon(kind: str) -> str | None:
 
 def kinds_in(scope: GraphKind, purpose: str | None = None) -> set[NodeKind]:
     """The kinds a pipeline (``pipeline``) or an action definition (``action``) may contain; for an action definition of a
-    ``purpose`` (``pipeline`` or ``guard``, ADR-066) only the kinds that may be used there."""
+    ``purpose`` (``pipeline`` or ``guard``, ADR-067) only the kinds that may be used there."""
     return {
         t.kind
         for t in NODE_TYPES.values()

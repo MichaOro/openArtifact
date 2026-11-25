@@ -102,7 +102,7 @@ def _guard_on(
 def _code_definition(
     client: TestClient, name: str, code: str, language: str = "sh", purpose: str = "pipeline"
 ) -> dict[str, Any]:
-    """trigger -> code -> On Pass / On Fail. ``purpose``: ``guard`` for the action a guard runs (ADR-066)."""
+    """trigger -> code -> On Pass / On Fail. ``purpose``: ``guard`` for the action a guard runs (ADR-067)."""
     definition = post(client, "/api/actions", name=name, purpose=purpose)
     trigger, out = kind_of(client, definition, "trigger"), kind_of(client, definition, "output")
     for edge in client.get(graph_url(definition)).json()["edges"]:

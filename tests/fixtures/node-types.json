@@ -6,6 +6,11 @@
    "action",
    "pipeline"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": true,
   "addable": false,
   "chain": true,
@@ -38,6 +43,11 @@
   "scopes": [
    "pipeline"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -87,6 +97,11 @@
   "scopes": [
    "pipeline"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": false,
   "chain": false,
@@ -161,6 +176,11 @@
   "scopes": [
    "pipeline"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -206,6 +226,11 @@
   "scopes": [
    "pipeline"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": true,
   "addable": false,
   "chain": false,
@@ -242,6 +267,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -299,6 +329,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": true,
   "addable": false,
   "chain": false,
@@ -357,6 +392,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -510,6 +550,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -682,6 +727,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -1068,6 +1118,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -1458,6 +1513,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -1720,6 +1780,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -1833,6 +1898,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -2276,6 +2346,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,
@@ -2453,6 +2528,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": false,
@@ -2612,6 +2692,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": false,
@@ -2711,6 +2796,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": false,
@@ -2901,6 +2991,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": false,
@@ -3044,6 +3139,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": false,
@@ -3211,6 +3311,11 @@
   "scopes": [
    "action"
   ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
   "fixed": false,
   "addable": true,
   "chain": true,

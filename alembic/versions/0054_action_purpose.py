@@ -1,4 +1,4 @@
-"""The purpose of an action definition: for pipelines or for guards (ADR-066).
+"""The purpose of an action definition: for pipelines or for guards (ADR-067).
 
 Revision ID: 0054
 Revises: 0053

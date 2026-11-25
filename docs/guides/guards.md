@@ -97,6 +97,21 @@ the ones in the action), so a stall guard on an Agent node shows up in the pipel
 Arrow keys move between the controls of the popup, Escape closes it and returns to the shield. A guard is never a node
 of the canvas; deleting a stage or an action detaches the guards attached to it (their definitions stay).
 
+## Guard actions
+
+A guard that *runs its action* (consequence *Run the guard's action*) runs a **guard action**. An action is made for pipelines or for
+guards when it is created (the window of the Actions page asks for the type; ADR-067), and the two never mix:
+
+- the **Actions** page has two tabs, *Pipeline actions* and *Guard actions*; a guard action shows a **Guard** chip next to *Draft*;
+- a stage offers only pipeline actions, the guard editor only guard actions (*New* there makes a guard action);
+- the type changes in the same window as the name (the pencil), unless the action is used on the other side: a pipeline action that a
+  stage uses cannot become a guard action and the other way round, and neither can one that holds a node of a kind the other type may
+  not use. The window says where it is used;
+- a node kind can be for guards only (the SQLite node, card #102): it appears only in the "+" menu of a guard action and the server
+  refuses it in a pipeline action.
+
+Everything else is the same: a guard action is edited in the action editor like any action.
+
 ## The guard editor
 
 The window's title is **Guard – NAME**: the name is renamed in place (click it, or Enter or Space on it; Enter keeps,

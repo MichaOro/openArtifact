@@ -29,7 +29,7 @@ class Graph(Base):
         name: Display name.
         status: Lifecycle of the definition (only ``draft`` exists so far).
         kind: ``pipeline``, or ``action`` for the definition of what an action does.
-        purpose: What an action definition is for: ``pipeline`` (a stage uses it) or ``guard`` (only a guard uses it, ADR-066).
+        purpose: What an action definition is for: ``pipeline`` (a stage uses it) or ``guard`` (only a guard uses it, ADR-067).
         slug: Readable URL name, unique per kind (follows the name).
         created_at: Creation timestamp (UTC).
         updated_at: Last modification timestamp (UTC).

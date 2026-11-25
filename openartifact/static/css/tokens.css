@@ -110,6 +110,7 @@
      nothing else, so the handle is never taken for one of the "..." menus; 4.8:1 with its icon */
   --layout-accent: #0f7f86;
   --layout-accent-hover: #0b6a70;
+  --chip-guard-bg: color-mix(in srgb, var(--layout-accent) 22%, transparent); /* the chip of an action for guards (ADR-067) */
   --layout-on-accent: #ffffff;
   /* the chevron of a select (an image cannot read a token, so each theme has its own) */
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23514b43' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -179,6 +180,7 @@
   --color-resolved-ref-text: #1d1830;
   --color-pulse: #f0ede5; /* sand: dark purple on light purple is an awkward contrast */
   --layout-accent: #5ec8cd;
+  --chip-guard-bg: color-mix(in srgb, var(--layout-accent) 30%, transparent);
   --layout-accent-hover: #86dade;
   --layout-on-accent: #0d2a2c;
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9c2dd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");

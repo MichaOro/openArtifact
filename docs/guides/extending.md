@@ -108,6 +108,14 @@ model for anything new.
 - A new node that needs the API token or a secret key must state so in its `help` text and refuse to run
   without it.
 
+## Where a kind may be used: pipeline actions and guard actions
+
+An action definition is for pipelines or for guards (ADR-067). A node manifest says in which: `purposes: [pipeline, guard]` (the
+default, both), or `purposes: [guard]` for a kind that only a guard action may hold (a kind with access to internal data). The "+"
+menu offers a kind only where it may be used, and the server refuses it anywhere else, so the manifest alone decides. `requires:
+<right>` names the right a person needs to use the kind: a hook for the permissions of card #99 that nothing evaluates yet; set it when
+a kind should be limited later, so the manifest does not have to change then.
+
 ## Where a setting goes in the node's dialog
 
 Every setting says where it is shown (ADR-053); the dialog is drawn from that, so a new kind needs no layout code:

@@ -137,7 +137,7 @@ export class GuardEditor {
     this.state = state;
     this.#setError("");
     try {
-      const [schema, actions, manifest] = await Promise.all([loadSchema(), request("/api/actions"), loadForm()]);
+      const [schema, actions, manifest] = await Promise.all([loadSchema(), request("/api/actions?purpose=guard"), loadForm()]);
       this.manifest = manifest;
       this.serverSchema = schema;
       this.schema = model.builderSchema(schema);
@@ -214,7 +214,7 @@ export class GuardEditor {
   async #newAction() {
     const name = t("guards.new_action_name", { name: this.state.name.trim() || t("guards.guard") });
     try {
-      const created = await send("/api/actions", "POST", { name });
+      const created = await send("/api/actions", "POST", { name, purpose: "guard" });
       this.actions.push(created);
       this.actions.sort((a, b) => a.name.localeCompare(b.name));
       this.form.set("action_id", created.id);

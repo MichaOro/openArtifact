@@ -15,6 +15,7 @@ export class AddMenu {
    * @param {(key: string) => void} [onPlaceholder] a place held for something that is coming was chosen (nothing is added)
    */
   constructor(root, scope, onPick, onPlaceholder = () => {}) {
+    this.scope = scope;
     this.toggle = root.querySelector("[data-add-menu]");
     this.list = root.querySelector("[data-add-list]");
     this.types = [...addableIn(scope), ...placeholdersIn(scope)];
@@ -29,7 +30,6 @@ export class AddMenu {
     this.from = Object.assign(document.createElement("p"), { className: "ge-add__from", hidden: true });
     this.list.append(this.from, this.search, this.items, this.empty);
     this.#fill();
-
     this.search.addEventListener("input", () => this.#fill());
     this.toggle.addEventListener("click", () => {
       this.#setOpen(this.list.hidden);
@@ -106,6 +106,14 @@ export class AddMenu {
     this.#setOpen(true);
     placePopover(this.list, (size) => ({ left: x, top: y, flipTop: y - size.height }));
     this.search.focus();
+  }
+
+  /** The action this menu adds to is for pipelines or for guards (known once the graph is loaded, ADR-067): only the kinds that
+   * may be used there are offered. */
+  setPurpose(purpose) {
+    this.types = [...addableIn(this.scope, purpose), ...placeholdersIn(this.scope)];
+    this.baseTypes = this.types;
+    this.#fill();
   }
 
   /** Draw what the search says: the clusters (one open), or the matching kinds as one list. */
