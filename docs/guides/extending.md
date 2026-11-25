@@ -116,6 +116,13 @@ menu offers a kind only where it may be used, and the server refuses it anywhere
 <right>` names the right a person needs to use the kind: a hook for the permissions of card #99 that nothing evaluates yet; set it when
 a kind should be limited later, so the manifest does not have to change then.
 
+### A data source for the SQLite node
+
+The SQLite node reads **data sources** that the application registers by name (`Limits.data_sources`, `engine/sqlite_runner.py`
+`DataSource`): a path, the **views a statement may read** (`readable`) and tables or columns it may never read (`denied`). There is no
+field for a path in the node. An extension adds a source with its own views; a fixed floor (secrets, credentials, tokens, providers,
+settings) holds for every source. List the choice in the manifest's `options` of the setting *Data source* (ADR-068).
+
 ## Where a setting goes in the node's dialog
 
 Every setting says where it is shown (ADR-053); the dialog is drawn from that, so a new kind needs no layout code:

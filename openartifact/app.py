@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import sqlite3
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -44,6 +46,7 @@ from openartifact.comments.service import CommentService
 from openartifact.config import DEFAULT_SECRET_KEY, Settings, get_settings
 from openartifact.credentials.service import CredentialService
 from openartifact.credentials.store import SecretStore
+from openartifact.engine import guard_views
 from openartifact.engine.executors import Limits
 from openartifact.engine.runner import RunEngine
 from openartifact.events import EventBus
@@ -113,6 +116,16 @@ def _create_app(settings: Settings) -> FastAPI:
             await app.state.engine.recover()  # no run survives a restart as "running"
         except OperationalError:
             logger.warning("Run recovery skipped: the database is not migrated yet")
+
+        try:
+            # the views a guard action reads the application's data through, made again so they follow the tables (ADR-068)
+            await asyncio.to_thread(
+                guard_views.install, settings.data_dir / settings.database_filename
+            )
+        except sqlite3.Error:
+            logger.warning(
+                "The views for guard actions could not be made: the database is not migrated yet"
+            )
 
         async with app.state.mcp_app.router.lifespan_context(app.state.mcp_app):
             yield

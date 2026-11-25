@@ -371,6 +371,7 @@ RESULT_KINDS = {
     "http",
     "github",
     "postgres",
+    "sqlite",
     "artifact",
     "set",
     "agent",
@@ -427,7 +428,7 @@ def test_result_data_and_variables_are_declared_by_the_kind_not_by_the_editor() 
 
 def test_a_timed_kind_shows_its_duration_in_the_flow_panel() -> None:
     timed = {k.value for k, n in NODE_TYPES.items() if n.describe()["timed"]}
-    assert timed == {"code", "http", "github", "postgres", "artifact", "agent", "timer"}
+    assert timed == {"code", "http", "github", "postgres", "sqlite", "artifact", "agent", "timer"}
 
 
 def test_a_colour_must_be_a_plain_token_name(tmp_path: Path) -> None:

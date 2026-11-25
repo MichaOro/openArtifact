@@ -95,3 +95,47 @@ def test_the_plus_menu_of_a_guard_action_and_a_pipeline_action_offers_what_their
         expect(page.locator(".ge-node--code")).to_have_count(
             1
         )  # a kind that is for both is in both
+
+
+def test_the_sqlite_node_is_offered_only_in_a_guard_action_and_is_set_up_like_the_postgres_node(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    judge = api.post("/api/actions", json={"name": "Judge", "purpose": "guard"}).json()
+    plain = api.post("/api/actions", json={"name": "Plain"}).json()
+    page.goto(f"{base_url}/actions/{plain['slug']}")
+    expect(page.locator(".ge-node--output")).to_be_visible()
+    page.click("[data-add-menu]")
+    page.fill(".ge-add__search", "sqlite")
+    expect(page.locator("[data-add=sqlite]")).to_have_count(
+        0
+    )  # a pipeline action does not offer it
+    expect(page.locator("[data-add=sqlite_tool]")).to_have_count(0)
+    page.goto(f"{base_url}/actions/{judge['slug']}")
+    expect(page.locator(".ge-node--output")).to_be_visible()
+    page.click("[data-add-menu]")
+    page.fill(".ge-add__search", "sqlite")
+    expect(page.locator("[data-add=sqlite_tool]")).to_have_count(1)
+    page.click("[data-add=sqlite]")
+    card = page.locator(".ge-node--sqlite")
+    expect(card).to_have_count(1)
+    card.dblclick(position={"x": 30, "y": 5})
+    dialog = page.locator("#node-modal")
+    expect(dialog).to_be_visible()
+    expect(dialog.get_by_label("Data source")).to_have_value("app")
+    query = dialog.get_by_label("Query", exact=True)
+    query.fill("SELECT lane, count(*) FROM v_guard_artifacts GROUP BY lane")
+    dialog.get_by_label("Data source").focus()  # leaving the field saves it (a code field keeps Tab for indenting)
+    eventually(
+        lambda: next(
+            n["config"].get("query")
+            for n in api.get(graph_url(judge)).json()["nodes"]
+            if n["kind"] == "sqlite"
+        ),
+        "SELECT lane, count(*) FROM v_guard_artifacts GROUP BY lane",
+        page=page,
+    )
+    # the same menu group as Postgres, and the blocked tables are an optional setting
+    page.keyboard.press("Escape")
+    page.click("[data-add-menu]")
+    page.fill(".ge-add__search", "postgres")
+    expect(page.locator("[data-add=postgres]")).to_have_count(1)

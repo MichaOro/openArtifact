@@ -505,6 +505,41 @@ user or the password was refused", or an SQL error with its code (`42P01: relati
 Secret `TICKETS_DB`; *Query* `SELECT id, title FROM tickets WHERE status = $1 ORDER BY id LIMIT 20`, *Values* `open`,
 *Private network* on if the database is internal. A following node reads `${node.Postgres.data.rows}`.
 
+## SQLite node (guard actions only)
+
+The **SQLite** node (and the **SQLite Tool** for an agent) reads data of the application with one **read-only** SQL statement. It exists
+only in a **guard action** (ADR-067); a pipeline action does not offer it and the server refuses it there. It is in the menu group
+*Apps and data* next to Postgres, and the Tool is among the *Agent tools*. It is for everyone, never for writing (for that there are the
+API, MCP and the interface). Safe by construction (ADR-068):
+
+- the file is opened read-only and the database itself refuses every change, `ATTACH`, `PRAGMA` and transaction; one statement only;
+- a table is read **through the views** of the data source, never directly. The data source *Application data* has:
+
+| View | One row per | Columns |
+|---|---|---|
+| `v_guard_runs` | execution | `id`, `task_id`, `number`, `pipeline_name`, `started_stage_name`, `started_action_name`, `final_stage_name`, `final_action_name`, `status`, `started_by`, `step_count`, `created_at`, `started_at`, `finished_at` |
+| `v_guard_steps` | step (a node that ran) | `id`, `execution_id`, `seq`, `node_id`, `node_name`, `kind`, `outcome`, `port`, `exit_code`, `reason`, `started_at`, `finished_at` |
+| `v_guard_tool_calls` | tool call of a *finished* Agent step | `execution_id`, `step_id`, `step_name`, `step_seq`, `turn`, `tool`, `tool_node`, `arguments` (first 200 characters), `is_error`, `duration_ms` |
+| `v_guard_artifacts` | artifact (card) | `id`, `number`, `title`, `lane`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`, `created_by`, `created_at`, `updated_at` |
+| `v_guard_lanes` | lane | `key`, `title`, `position` |
+
+- what holds content or a secret is not in the views, and a fixed **floor** blocks secrets, credentials, tokens, providers and settings even
+  through a view. *Blocked tables* (optional) adds more: `table` or `table.column` per line; a view that reads a blocked column is blocked.
+
+Values go in as `?1`, `?2` (the *Values* list; `${node...}` and `${var...}` are resolved first), never as text of the statement. The result
+is JSON: `rows`, `columns`, `row_count`, `truncated`, and the rows as the output. *Max rows* and *Timeout* are optional settings.
+
+Examples:
+
+```sql
+-- how many artifacts a lane holds (an empty backlog while a pipeline runs is a sign the pipeline has nothing to do)
+SELECT count(*) AS n FROM v_guard_artifacts WHERE lane = ?1
+-- the same call made again and again: more than 3 times in a row with the same arguments is a storm
+SELECT tool, arguments, count(*) AS calls FROM v_guard_tool_calls WHERE execution_id = ?1 GROUP BY tool, arguments HAVING calls > 3
+-- how long ago the last step of an execution ended
+SELECT max(finished_at) AS last_step FROM v_guard_steps WHERE execution_id = ?1
+```
+
 ## If and Switch nodes
 
 Two nodes that choose the way on by a value of the [run context](#the-run-context-and-references). They do no work

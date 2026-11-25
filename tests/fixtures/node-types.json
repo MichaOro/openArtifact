@@ -2523,6 +2523,181 @@
   }
  },
  {
+  "kind": "sqlite",
+  "label": "SQLite",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "source",
+    "label": "Data source",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "app",
+    "stored_in": "config",
+    "options": [
+     "app"
+    ],
+    "option_labels": {
+     "app": "Application data"
+    },
+    "help": "Where the query reads. Application data is this application's own database, through the views v_guard_*.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "query",
+    "label": "Query",
+    "type": "code",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "SELECT lane, count(*) FROM v_guard_artifacts GROUP BY lane",
+    "help": "One read-only SQL statement on the views of the data source; values go in as ?1, ?2, ... (never ${...}). Anything that changes data is refused by the database itself.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "values",
+    "label": "Values",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "backlog",
+    "help": "One value per line (the first is ?1, the second ?2). ${node...} and ${var...} insert earlier results, no secrets.",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "blocked",
+    "label": "Blocked tables",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 2000,
+    "placeholder": "tasks.title",
+    "help": "Tables or columns this query may not read, one per line. Secrets, credentials, tokens, providers and settings are always blocked.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "max_rows",
+    "label": "Max rows",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 1000,
+    "default": 100,
+    "stored_in": "config",
+    "help": "More rows are left out and the result says it is truncated.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 120,
+    "default": 30,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "rows",
+   "truncated"
+  ],
+  "variables": null,
+  "behaviour": "flow",
+  "menu": {
+   "group": "Apps and data",
+   "group_index": 3,
+   "order": 3
+  },
+  "menu_icon": "database",
+  "ui": {
+   "icon": "database",
+   "color": "sqlite",
+   "caption": {
+    "template": "{query|first_line|short|default:no query yet}"
+   },
+   "hint": "This node only reads data of the application (runs, steps, tool calls, artifacts, lanes) through the views v_guard_*. It never writes."
+  }
+ },
+ {
   "kind": "mcp_tool",
   "label": "MCP Client Tool",
   "scopes": [
@@ -3303,6 +3478,171 @@
    "caption": {
     "template": "{tool_name|default:@name} · {?allow_write:changes · }{query|first_line|short|default:no query yet}"
    }
+  }
+ },
+ {
+  "kind": "sqlite_tool",
+  "label": "SQLite Tool",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "description",
+    "label": "Description",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 1000,
+    "help": "Tells the model what the tool does and when to use it. Name the parameters the query takes below: the first is ?1.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "source",
+    "label": "Data source",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "app",
+    "stored_in": "config",
+    "options": [
+     "app"
+    ],
+    "option_labels": {
+     "app": "Application data"
+    },
+    "help": "Where the query reads (the views v_guard_*).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "query",
+    "label": "Query",
+    "type": "code",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "SELECT status, step_count FROM v_guard_runs WHERE id = ?1",
+    "help": "One read-only SQL statement on the views of the data source; the parameters go in as ?1, ?2, ... in the order they are declared below.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "parameters",
+    "label": "Parameters",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 5000,
+    "placeholder": "city: The city to look up",
+    "help": "One 'name: description' per line; the model fills them. Names: lowercase letters, digits and _.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "blocked",
+    "label": "Blocked tables",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 2000,
+    "placeholder": "tasks.title",
+    "help": "Tables or columns this query may not read, one per line. Secrets, credentials, tokens, providers and settings are always blocked.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "max_rows",
+    "label": "Max rows",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 1000,
+    "default": 100,
+    "stored_in": "config",
+    "help": "More rows are left out and the result says it is truncated.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 120,
+    "default": 30,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 5
+  },
+  "menu_icon": "database",
+  "ui": {
+   "icon": "database",
+   "color": "sqlite",
+   "caption": {
+    "template": "{tool_name|default:@name} · {query|first_line|short|default:no query yet}"
+   },
+   "hint": "This tool lets an agent read data of the application (runs, steps, tool calls, artifacts, lanes) through the views v_guard_*. It never writes."
   }
  },
  {

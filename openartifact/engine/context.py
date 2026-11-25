@@ -77,6 +77,7 @@ _NO_RESULT = frozenset(
         "http_tool",
         "code_tool",
         "postgres_tool",
+        "sqlite_tool",
     }
 )
 

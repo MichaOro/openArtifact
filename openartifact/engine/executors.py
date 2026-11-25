@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -38,6 +38,7 @@ from openartifact.engine.github_runner import run_github
 from openartifact.engine.http_runner import run_http
 from openartifact.engine.postgres_runner import run_postgres
 from openartifact.engine.results import NodeResult, failed
+from openartifact.engine.sqlite_runner import APP_SOURCE, DataSource, application_source, run_sqlite
 from openartifact.logging_config import masked_in_logs
 from openartifact.models import NodeKind
 
@@ -70,6 +71,9 @@ class Limits:
     comments: CommentsGateway | None = None
     #: The settings of a credential that are no secret, by its name (the address of a GitHub server); ``None``: none.
     credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None
+    #: The SQLite databases a SQLite node may read, by name (``engine/sqlite_runner.py``, ADR-068): the application's own
+    #: (``app``, through the ``v_guard_*`` views); an extension adds more.
+    data_sources: Mapping[str, DataSource] = field(default_factory=dict)
     #: Told what a running node does that others may want to see (``agent.tool_call``: the event type and its data); the
     #: application hands it to the event bus. ``None``: nobody listens.
     publish: Callable[[str, dict[str, Any]], object] | None = None
@@ -100,6 +104,9 @@ class Limits:
             llm_allow_private_networks=settings.llm_allow_private_networks,
             comments=comments,
             credential_settings=credential_settings,
+            data_sources={
+                APP_SOURCE: application_source(settings.data_dir / settings.database_filename)
+            },
             publish=publish,
         )
 
@@ -257,6 +264,12 @@ async def _postgres(
     return await _with_secrets(names, limits, run)
 
 
+async def _sqlite(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
+    """One read-only SQL statement on a data source of the application (``engine/sqlite_runner.py``, ADR-068): only through the
+    listed views, never a change."""
+    return await run_sqlite(node["config"], limits.data_sources, view=view)
+
+
 async def _github(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     """One call of GitHub's API (``engine/github_runner.py``, ADR-041). The token is the value of the secret the
     node names (none: public data); it is resolved here, like every secret."""
@@ -376,5 +389,6 @@ register_executor(NodeKind.SWITCH, _switch, by_outcome=False)
 register_executor(NodeKind.AGENT, _agent)
 register_executor(NodeKind.SET, _set)
 register_executor(NodeKind.POSTGRES, _postgres)
+register_executor(NodeKind.SQLITE, _sqlite)
 register_executor(NodeKind.GITHUB, _github)
 register_executor(NodeKind.ARTIFACT, _artifact)

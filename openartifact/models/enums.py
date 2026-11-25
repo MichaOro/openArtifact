@@ -81,6 +81,8 @@ class NodeKind(enum.StrEnum):
     GITHUB = "github"
     POSTGRES = "postgres"
     POSTGRES_TOOL = "postgres_tool"
+    SQLITE = "sqlite"
+    SQLITE_TOOL = "sqlite_tool"
     ARTIFACT = "artifact"
 
 

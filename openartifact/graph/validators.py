@@ -178,6 +178,16 @@ def _sql_query(value: str) -> None:
         )
 
 
+def _blocked_list(value: str) -> None:
+    """``table`` or ``table.column`` per line: what the author blocks for the SQLite node (it can add to the fixed floor, never lift it)."""
+    from openartifact.engine.sqlite_runner import SqliteError, blocked_names
+
+    try:
+        blocked_names(value)
+    except SqliteError as error:
+        raise SettingError(str(error)) from None
+
+
 def _query_values(value: str) -> None:
     _not_secret(value)
     if len(value.splitlines()) > MAX_QUERY_VALUES:
@@ -202,6 +212,7 @@ VALIDATORS: dict[str, Callable[[str], None]] = {
     "file_path": _file_path,
     "sql_query": _sql_query,
     "query_values": _query_values,
+    "blocked_list": _blocked_list,
     "tool_endpoint": _tool_rule(tool_config.check_endpoint),
     "tool_names": _tool_rule(tool_config.parse_tool_names),
     "tool_parameters": _tool_rule(tool_config.parse_parameters),

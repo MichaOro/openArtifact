@@ -40,6 +40,7 @@
      both themes follow; a new kind picks one of these or adds its own here (docs/guides/extending.md) */
   --node-github: var(--lane-hue-8);
   --node-postgres: color-mix(in srgb, var(--lane-hue-4) 55%, var(--lane-hue-6));
+  --node-sqlite: color-mix(in srgb, var(--lane-hue-6) 60%, var(--lane-hue-2));
   --node-set: var(--lane-hue-2);
   --node-artifact: color-mix(in srgb, var(--lane-hue-6) 55%, var(--lane-hue-3));
   --node-mcp: color-mix(in srgb, var(--lane-hue-1) 55%, var(--lane-hue-4));

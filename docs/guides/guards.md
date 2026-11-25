@@ -112,6 +112,12 @@ guards when it is created (the window of the Actions page asks for the type; ADR
 
 Everything else is the same: a guard action is edited in the action editor like any action.
 
+## Reading data in a guard action
+
+A guard action can read data of the application: the **SQLite** node (a plain query) and the **SQLite Tool** (an agent asks) read the
+views `v_guard_runs`, `v_guard_steps`, `v_guard_tool_calls`, `v_guard_artifacts` and `v_guard_lanes`, read-only (ADR-068; the views and
+examples are in [execution-nodes](execution-nodes.md#sqlite-node-guard-actions-only)). Both exist only in guard actions.
+
 ## The guard editor
 
 The window's title is **Guard – NAME**: the name is renamed in place (click it, or Enter or Space on it; Enter keeps,
