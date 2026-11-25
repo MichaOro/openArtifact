@@ -60,6 +60,14 @@ registerWidget("textarea", (ctx) => {
   return controlOf(ctx, area);
 });
 
+/** Short labels: typed as one line separated by commas, kept as a list (a definition's tags); empty ones and repeats are dropped. */
+registerWidget("tags", (ctx) => {
+  const input = Object.assign(make("input", "field__control"), { type: "text", value: Array.isArray(ctx.value) ? ctx.value.join(", ") : "" });
+  if (ctx.field.placeholder) input.placeholder = ctx.field.placeholder;
+  input.addEventListener("input", () => ctx.set(input.value.split(",").map((x) => x.trim()).filter(Boolean)));
+  return controlOf(ctx, input);
+});
+
 registerWidget("number", (ctx) => {
   const input = Object.assign(make("input", "field__control fv-number"), { type: "number", step: ctx.field.step ?? 1 });
   if (ctx.field.min !== undefined) input.min = String(ctx.field.min);

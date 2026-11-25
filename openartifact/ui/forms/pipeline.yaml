@@ -1,0 +1,24 @@
+# The form of the window that makes or changes a pipeline (ADR-062, ADR-065, ADR-069): its name, what it is for and its tags.
+schema: 1
+name: pipeline
+columns: 1
+width: 28
+sections:
+  - key: general
+    title: Pipeline
+    fields:
+      - key: name
+        widget: text
+        label: Name
+        required: true
+        config: {max_length: 255}
+      - key: description
+        widget: textarea
+        label: Description
+        placeholder: What this pipeline does, in a sentence or two
+        config: {max_length: 1000}
+      - key: tags
+        widget: tags
+        label: Tags
+        placeholder: epic, analysis
+        help: Short labels to find it by, separated by commas.

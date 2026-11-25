@@ -13,6 +13,16 @@ sections:
         label: Name
         required: true
         config: {max_length: 255}
+      - key: description
+        widget: textarea
+        label: Description
+        placeholder: What this action does, in a sentence or two
+        config: {max_length: 1000}
+      - key: tags
+        widget: tags
+        label: Tags
+        placeholder: epic, analysis
+        help: Short labels to find it by, separated by commas.
       - key: purpose
         widget: choice
         label: Type
