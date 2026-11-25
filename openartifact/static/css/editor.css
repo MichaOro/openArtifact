@@ -399,9 +399,9 @@
 .ge-settings__reset { grid-column: 1 / -1; justify-self: start; }
 .ge-settings__line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .ge-settings__line .ge-settings__reset { grid-column: auto; }
-/* Delete and Add guard side by side, sharing the line */
-.ge-footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
-.ge-footer .button { width: 100%; justify-content: center; gap: var(--space-1); padding: 0 var(--space-2); }
+/* Add guard and Delete on one line at the right, as wide as their text, Delete last */
+.ge-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.ge-footer .button { gap: var(--space-1); }
 .ge-footer .icon { width: 1rem; height: 1rem; }
 .ge-advanced { border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
 .ge-advanced > summary { cursor: pointer; font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); }
@@ -476,6 +476,4 @@
 
 
 /* an input the agent fixes to the artifact, shown in the action's settings (agent-inspector.js) and the heading with its (i) */
-.ag-node__fixed { margin: 0 0 var(--space-2); font-size: 0.8125rem; color: var(--color-text-secondary); }
-.ag-node__fixed strong { color: var(--color-text); font-weight: 600; }
 .ge-inspector__heading-tip { display: flex; align-items: center; gap: var(--space-2); }

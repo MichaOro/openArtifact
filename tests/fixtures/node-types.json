@@ -1540,7 +1540,7 @@
     "stored_in": "config",
     "max_length": 20000,
     "section": "definition",
-    "level": "core",
+    "level": "optional",
     "inherits": "agent"
    },
    {
@@ -1553,7 +1553,7 @@
     "stored_in": "config",
     "max_length": 20000,
     "section": "definition",
-    "level": "core",
+    "level": "optional",
     "inherits": "agent"
    },
    {

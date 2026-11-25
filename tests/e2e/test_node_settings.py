@@ -199,5 +199,5 @@ def test_the_footer_has_only_the_actions_that_apply_to_the_node(
 ) -> None:
     _open(page, base_url, api, "postgres")
     # nothing to create or open: Delete shares its line with Add guard (a postgres node can be watched)
-    expect(page.locator("#node-modal .ge-footer .button")).to_have_text(["Delete", "Add guard"])
+    expect(page.locator("#node-modal .ge-footer .button")).to_have_text(["Add guard", "Delete"])
     expect(page.locator("#node-modal .ge-actionbar")).to_have_count(0)

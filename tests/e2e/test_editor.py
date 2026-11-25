@@ -221,17 +221,32 @@ def test_error_may_loop_back_to_its_own_input(page: Page, base_url: str, api: ht
 
 
 def _edge_point(page: Page, fraction: float = 0.3) -> tuple[float, float]:
-    """A point on the line of the first connection, not in its middle where the bar sits."""
+    """A point on the line of the first connection, not in its middle where the bar sits.
+
+    The line is measured once it has stopped moving (two animation frames give the same point): right after a
+    connection is made the canvas may still be settling the nodes, and a point taken from a moving line misses it."""
     page.locator(".ge-edge .ge-edge__line").first.wait_for(state="attached")
-    x, y = page.evaluate(
-        """(fraction) => {
-          const path = document.querySelector(".ge-edge .ge-edge__line");
-          const at = path.getPointAtLength(path.getTotalLength() * fraction);
-          const m = path.getScreenCTM();
-          return [at.x * m.a + at.y * m.c + m.e, at.x * m.b + at.y * m.d + m.f];
-        }""",
+    point = page.evaluate_handle(
+        """(fraction) => new Promise((resolve) => {
+          const measure = () => {
+            const path = document.querySelector(".ge-edge .ge-edge__line");
+            const at = path.getPointAtLength(path.getTotalLength() * fraction);
+            const m = path.getScreenCTM();
+            return [at.x * m.a + at.y * m.c + m.e, at.x * m.b + at.y * m.d + m.f];
+          };
+          let last = measure(), still = 0;
+          const frame = () => {
+            const now = measure();
+            still = Math.hypot(now[0] - last[0], now[1] - last[1]) < 0.5 ? still + 1 : 0;
+            last = now;
+            if (still >= 3) resolve(now);
+            else requestAnimationFrame(frame);
+          };
+          requestAnimationFrame(frame);
+        })""",
         fraction,
     )
+    x, y = point.json_value()
     return x, y
 
 

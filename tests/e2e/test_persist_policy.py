@@ -15,7 +15,7 @@ from playwright.sync_api import ElementHandle, Locator, Page, expect
 
 from tests.agent_support import HEADERS, TOKEN, FakeLlm, fake_llm
 from tests.e2e.conftest import _serve
-from tests.e2e.helpers import eventually
+from tests.e2e.helpers import add_setting, eventually
 from tests.e2e.test_card_source import _agent, _open_agent_node, _provider
 from tests.helpers import graph_url, node
 
@@ -186,7 +186,7 @@ def test_closing_the_dialog_with_unsaved_text_saves_it_first(
     action = api.post("/api/actions", json={"name": "Answer"}).json()
     page = signed_in
     inspector = _open_agent_node(page, card_url, action, agent)
-    inspector.get_by_role("button", name="Override User prompt in this node").click()
+    add_setting(page, "User prompt")
     prompt = inspector.get_by_label("User prompt", exact=True)
     prompt.click()
     page.keyboard.press("Control+End")
@@ -221,7 +221,7 @@ def test_the_user_prompt_override_of_an_agent_node_keeps_focus_and_caret_while_t
     action = api.post("/api/actions", json={"name": "Answer"}).json()
     page = signed_in
     inspector = _open_agent_node(page, card_url, action, agent)
-    inspector.get_by_role("button", name="Override User prompt in this node").click()
+    add_setting(page, "User prompt")
     prompt = inspector.get_by_label("User prompt", exact=True)
     handle = prompt.element_handle()
     assert handle is not None

@@ -346,13 +346,16 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
 
     eventually(lambda: stored()["inputs"], "ticket = ${var.ticket}")
 
-    # the prompts are always shown: inherited until the node sets its own; nothing is stored for them
+    # the prompts are not drawn while they are the agent's own; the node offers them in "Add setting" with the agent's text
     prompt = inspector.locator('.ov[data-setting="user_prompt"]')
-    expect(prompt).to_have_attribute("data-state", "inherited")
-    expect(prompt.locator(".ag-chip")).to_have_text("Inherited")
-    expect(prompt.locator(".ov__value")).to_contain_text("Agent: ")
+    expect(prompt).to_have_count(0)
+    add_setting(page, "User prompt · Agent: ")
+    expect(prompt).to_have_attribute("data-state", "editing")
+    expect(prompt.locator(".ag-chip")).to_have_text("New override")
+    prompt.get_by_label("Cancel overriding User prompt").click()
+    expect(prompt).to_have_count(0)  # nothing was stored
 
-    # the model and the limits are only shown once the node overrides them; the rest waits in "Add override"
+    # the model and the limits are only shown once the node overrides them; the rest waits in "Add setting"
     expect(inspector.locator('.ov[data-setting="temperature"]')).to_have_count(0)
     add_setting(page, "Temperature · Agent: 0.2")  # the menu names the value the agent supplies
     temperature = inspector.locator('.ov[data-setting="temperature"]')
@@ -411,7 +414,7 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
     expect(temperature.get_by_label("Temperature", exact=True)).to_have_value("1.5")
     expect(temperature.locator(".ov__value")).to_have_text("Agent: 0.9")
     expect(inspector.locator('.ov[data-setting="retries"]')).to_have_count(0)
-    inspector.get_by_role("button", name="Add override").click()
+    inspector.get_by_role("button", name="Add setting").click()
     expect(
         page.get_by_role("menuitem", name="Retries · Agent: 1")
     ).to_be_visible()  # the new value reaches it
@@ -430,8 +433,8 @@ def test_the_inspector_shows_what_is_inherited_and_what_the_node_overrides(
 def test_a_long_prompt_of_the_agent_is_one_line_in_the_inspector(
     signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
 ) -> None:
-    """The prompts are inherited from the agent; a prompt of thousands of characters is a preview of one line (the whole of
-    it in the tooltip), in the row and in the "Add override" menu, and the labels of a row stay on one line."""
+    """The prompts are inherited from the agent and not drawn until the node overrides one; a prompt of thousands of
+    characters is a preview of one line in the "Add setting" menu."""
     _provider(api, llm)
     long_prompt = (
         "**Primary Role**\n\nYou are the Gap Analyzer.\n\n"
@@ -448,24 +451,16 @@ def test_a_long_prompt_of_the_agent_is_one_line_in_the_inspector(
     inspector = page.locator(".ge-inspector")
     inspector.get_by_label("Agent", exact=True).select_option(agent["id"])
     expect(page.locator("#node-modal [data-node-version]")).to_have_text("v1")
-    row = inspector.locator('.ov[data-setting="system_prompt"]')
-    value = row.locator(".ov__value")
-    expect(value).to_contain_text("Agent: Primary Role You are the Gap Analyzer.")
-    expect(value).to_contain_text("…")
-    box = value.bounding_box()
-    assert box is not None and box["height"] < 24, f"one line, not {box}"
-    assert len(value.inner_text()) < 100  # not the 8000 characters of the prompt
-    expect(value).to_have_attribute("title", re.compile(r"^Agent: Primary Role"))
-    label = row.locator(".ov__label")
-    label_box = label.bounding_box()
-    assert label_box is not None and label_box["height"] < 24, (
-        "the name of the row stays on one line"
-    )
+    # a prompt the node does not override is not drawn at all (nothing to see, nothing to scroll past)
+    expect(inspector.locator('.ov[data-setting="system_prompt"]')).to_have_count(0)
+    expect(inspector.locator('.ov[data-setting="user_prompt"]')).to_have_count(0)
     # the same in the menu that offers a setting to override
-    page.locator(".ge-inspector").get_by_role("button", name="Add override").click()
+    page.locator(".ge-inspector").get_by_role("button", name="Add setting").click()
     options = page.locator("[role=menuitem], [role=option]")
     texts = [options.nth(i).inner_text() for i in range(options.count())]
     assert texts and all(len(text) < 120 for text in texts), texts
+    shown = next(text for text in texts if text.startswith("System prompt"))
+    assert "Agent: Primary Role" in shown and "…" in shown, shown
 
 
 def test_the_request_of_an_agent_step_is_shown_with_its_attempts(
@@ -1089,27 +1084,33 @@ def test_the_node_has_no_switch_for_the_system_prompt_and_delete_and_add_guard_s
     page = signed_in
     inspector = _agent_dialog(page, agents_url, api, agent)
     expect(inspector.get_by_text("Use system prompt")).to_have_count(0)
-    # an override of the system prompt is all it takes: Add override, System prompt
-    inspector.locator(
-        '[data-setting="system_prompt"] [data-focus-key="override-system_prompt"]'
-    ).click()
+    # an override of the system prompt is all it takes: Add setting, System prompt
+    expect(inspector.locator('[data-setting="system_prompt"]')).to_have_count(
+        0
+    )  # not set: not shown
+    expect(inspector.get_by_text("Not set")).to_have_count(0)
+    expect(inspector.get_by_text("comes from the artifact")).to_have_count(0)
+    inspector.get_by_role("button", name="Add setting").click()
+    page.get_by_role("menuitem", name=re.compile("^System prompt")).click()
     prompt = inspector.locator('[data-setting="system_prompt"] textarea')
     expect(prompt).to_be_visible()
-    # Add override and Reset all stand on one line once an override exists
+    # Add setting and Reset all stand on one line once an override exists
     prompt.fill("Be brief.")
     prompt.press("Control+Enter")
     reset = inspector.get_by_role("button", name=re.compile("^Reset all"))
     expect(reset).to_be_visible()
-    add_box = _box(inspector.get_by_role("button", name="Add override"))
+    add_box = _box(inspector.get_by_role("button", name="Add setting"))
     reset_box = _box(reset)
     assert abs(add_box["y"] - reset_box["y"]) < 4 and reset_box["x"] > add_box["x"]
-    # Delete and Add guard: two equal buttons on one line
+    # Add guard and Delete: one line at the right, as wide as their text, Delete last; no empty Guards area
     delete = _box(inspector.get_by_role("button", name="Delete"))
     guard = _box(inspector.get_by_role("button", name="Add guard"))
-    assert abs(delete["y"] - guard["y"]) < 2 and guard["x"] > delete["x"], "side by side"
-    assert abs(delete["width"] - guard["width"]) < 2, "equal width"
+    assert abs(delete["y"] - guard["y"]) < 2 and guard["x"] < delete["x"], "one line, Delete last"
     panel = _box(inspector.locator(".ge-settings-wrap"))
-    assert delete["width"] + guard["width"] < panel["width"] + 1
+    assert delete["x"] + delete["width"] >= panel["x"] + panel["width"] - 2, "flush right"
+    assert delete["width"] + guard["width"] < panel["width"] / 2, "as wide as the text"
+    expect(inspector.get_by_text("No guard watches")).to_have_count(0)
+    expect(inspector.locator("[data-guard-section] h3")).to_be_hidden()
 
 
 def _box(el: Locator) -> dict[str, float]:

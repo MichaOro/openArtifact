@@ -157,9 +157,9 @@ def test_an_input_from_the_artifact_is_a_fixed_row_and_every_warning_follows_the
     inspector = _open_agent_node(page, card_url, action, agent)
     ticket = inspector.get_by_label("Value for ${input.ticket}")
     problems = inspector.locator(".ag-problems li")
-    fixed = inspector.locator(".ag-node__fixed")
-    expect(fixed).to_have_count(1)
-    expect(fixed).to_contain_text("epic comes from the artifact: Title and body")
+    expect(inspector.locator(".ag-node__fixed")).to_have_count(
+        0
+    )  # the node does not list what the agent fixes
     expect(inspector.get_by_label("Value for ${input.epic}")).to_have_count(
         0
     )  # nothing to type: the agent fixes it
@@ -186,7 +186,7 @@ def test_an_input_from_the_artifact_is_a_fixed_row_and_every_warning_follows_the
     expect(inspector.get_by_label("Value for ${input.ticket}")).to_have_value(
         "Epic: ${card.title} / ${card.body}"
     )
-    expect(inspector.locator(".ag-node__fixed")).to_have_count(1)
+    expect(inspector.locator(".ag-node__fixed")).to_have_count(0)
 
 
 def test_a_line_left_for_an_input_that_now_comes_from_the_artifact_is_shown_as_ignored_and_removable(
@@ -230,6 +230,8 @@ def test_a_mapping_key_the_agent_no_longer_declares_is_shown_with_a_remove_butto
     field = inspector.get_by_label("Value for ${input.t}")
     field.fill("${card.title}")
     field.press("Enter")
+    # the save of the field must have landed before the second writer comes, else it overwrites it (a wrong order)
+    eventually(lambda: _mapping(api, action), "t = ${card.title}")
     nodes = api.get(graph_url(action)).json()["nodes"]
     node = next(n for n in nodes if n["kind"] == "agent")
     api.patch(
@@ -265,7 +267,7 @@ def test_the_mapping_made_in_the_dialog_reaches_the_model_in_a_run_from_a_card(
     _open_agent_node(
         page, card_url, action, agent
     )  # the agent fixes the input: the node maps nothing
-    expect(page.locator(".ge-inspector .ag-node__fixed")).to_have_count(1)
+    expect(page.locator(".ge-inspector .ag-node__fixed")).to_have_count(0)
     nodes = api.get(graph_url(action)).json()
     trigger = next(n for n in nodes["nodes"] if n["kind"] == "trigger")
     output = next(n for n in nodes["nodes"] if n["kind"] == "output")

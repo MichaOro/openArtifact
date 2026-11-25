@@ -4,7 +4,7 @@
  * What is in effect is asked from the server (POST /api/agents/{id}/preview with the node), which resolves it the
  * same way a run does, so the panel never computes inheritance itself. */
 import { getAgent, listAgents, listProviders, previewAgent } from "../agents/api.js";
-import { formatMapping, mappingRows, partText, preview as oneLine, showValue, usableModels } from "../agents/model.js"; // `oneLine`: `preview` is also a name of the server's answer here
+import { formatMapping, mappingRows, preview as oneLine, showValue, usableModels } from "../agents/model.js"; // `oneLine`: `preview` is also a name of the server's answer here
 import { el, problemList } from "../agents/view.js";
 import { icon } from "../components/icons.js";
 import { infoTip } from "../components/info-tip.js";
@@ -100,7 +100,8 @@ class AgentBlock {
       if (status) extras.push(status);
       if (preview) {
         if (preview.problems.length) extras.push(problemList(preview.problems));
-        extras.push(this.#inputs(detail.published.inputs));
+        const inputs = this.#inputs(detail.published.inputs);
+        if (inputs) extras.push(inputs);
       }
     } else if (agentId) {
       extras.push(problemList([t("editor.agent_inspector.chosen_agent_does_not_exist")]));
@@ -200,11 +201,13 @@ class AgentBlock {
    * over for an input that now comes from the artifact is shown as ignored, and a name the agent no longer declares can be removed.
    */
   #inputs(declared) {
+    const rows = mappingRows(declared, this.config.inputs ?? "");
+    // what the agent fixes (inputs of the artifact) is not listed: with nothing else to map the section is not there
+    if (declared.length && !rows.value.length && !rows.stale.length && !rows.undeclared.length) return null;
     const wrap = el("div", "ge-inspector__section");
     const head = el("h3", "ge-inspector__heading-tip");
     head.append(document.createTextNode(t("common.inputs")), infoTip(t("editor.agent_inspector.inputs_help"), { label: t("common.inputs") }).button);
     wrap.append(head);
-    const rows = mappingRows(declared, this.config.inputs ?? "");
     if (!declared.length) wrap.append(el("p", "ge-inspector__note", t("editor.agent_inspector.agent_declares_no_inputs")));
     const fields = new Map();
     const error = el("p", "field__error");
@@ -228,12 +231,6 @@ class AgentBlock {
       fields.set(focusName, input);
       return input;
     };
-    for (const row of rows.artifact) {
-      const line = el("p", "ag-node__fixed");
-      line.append(el("strong", "", row.name), document.createTextNode(` ${t("editor.agent_inspector.from_artifact", { part: partText(row.part) })}`));
-      line.title = t("editor.agent_inspector.fixed_by_agent");
-      wrap.append(line);
-    }
     for (const row of rows.value) {
       const input = mapped(row.value, row.name);
       input.placeholder = row.required ? t("editor.agent_inspector.type_value_or_reference") : row.default != null ? t("editor.agent_inspector.default_value", { value: row.default }) : t("common.empty");

@@ -109,6 +109,7 @@ export class EditorGuards {
     this.popover.refresh(this.guards, this.schema);
     for (const section of document.querySelectorAll("[data-guard-section]")) {
       section.querySelector(".gd-names")?.replaceWith(this.#names(section.dataset.scopeType ?? "action", section.dataset.nodeId));
+      section.querySelector("h3").hidden = !section.querySelector(".gd-names:not([hidden])");
     }
   }
 
@@ -196,6 +197,7 @@ export class EditorGuards {
     section.dataset.nodeId = node.id;
     section.dataset.scopeType = type;
     section.append(this.#names(type, node.id));
+    heading.hidden = Boolean(section.querySelector(".gd-names[hidden]")); // nothing to say, nothing shown: no empty area
     const add = document.createElement("button");
     add.type = "button";
     add.className = "button button--ghost button--sm";
@@ -211,7 +213,7 @@ export class EditorGuards {
   /** The names of a scope's guards (muted while off), or the note that none watches it. */
   #names(type, id) {
     const attached = model.attachedTo(this.guards, type, id);
-    if (!attached.length) return Object.assign(document.createElement("p"), { className: "field__help gd-names", textContent: type === "node" ? t("guards.none_on_node") : t("guards.none_on_action") });
+    if (!attached.length) return Object.assign(document.createElement("ul"), { className: "gd-names", hidden: true });
     const list = document.createElement("ul");
     list.className = "gd-names";
     for (const { attachment, guard } of attached) {

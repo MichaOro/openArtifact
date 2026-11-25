@@ -70,6 +70,7 @@ settings:
   max_length: 20000
   stored_in: config
   check: agent_prompt
+  level: optional
   inherits: agent
 - key: user_prompt
   label: User prompt
@@ -77,6 +78,7 @@ settings:
   max_length: 20000
   stored_in: config
   check: agent_prompt
+  level: optional
   inherits: agent
 - key: provider_id
   label: Provider

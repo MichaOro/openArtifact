@@ -172,7 +172,7 @@ export function joinFooter(root) {
   if (!bar || !add) return;
   const line = document.createElement("div");
   line.className = "ge-footer";
-  line.append(bar.firstElementChild, add);
+  line.append(add, bar.firstElementChild); // Delete is always the last, on the right
   bar.remove();
   root.querySelector("[data-guard-section]").append(line);
 }

@@ -149,7 +149,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     button.type = "button";
     button.dataset.focusKey = `add-${section}`;
     button.setAttribute("aria-haspopup", "menu");
-    button.append(icon("plus"), document.createTextNode(available.every((s) => s.inherits) ? t("editor.settings_layout.add_override") : t("editor.settings_layout.add_setting")));
+    button.append(icon("plus"), document.createTextNode(t("editor.settings_layout.add_setting")));
     button.addEventListener("click", () => {
       const items = available.map((setting) => {
         const state = inheritance?.state(setting.key);
@@ -164,6 +164,10 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     return button;
   };
 
+  /** What no area shows yet, over all areas: one "Add setting" for the dialog (in the last area), not one per area. */
+  const offered = () => plan.sections.flatMap((s) => s.available.filter((a) => !open().has(a.key))).sort((a, b) => order.get(a.key) - order.get(b.key));
+  const lastSection = plan.sections.at(-1);
+
   const column = (section) => {
     const el = make("div", "ge-settings__column");
     el.dataset.section = section.id;
@@ -176,9 +180,9 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
       const rows = settings.map((s) => rowOf(s, section.available.includes(s) ? "added" : "shown"));
       el.append(...groupOf(group, rows, section.id, settings));
     }
-    const available = section.available.filter((s) => !added.has(s.key));
+    const available = section === lastSection ? offered() : [];
     if (available.length) {
-      // "Add override" and "Reset all" share one line
+      // "Add setting" and "Reset all" share one line
       const line = make("div", "ge-settings__line");
       line.append(addMenu(available, section.id));
       if (reset && !reset.placed) {
