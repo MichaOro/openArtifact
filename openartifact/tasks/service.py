@@ -8,8 +8,11 @@ artifact came from) exist in one place. Every method opens its own session and c
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
+
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -70,6 +73,7 @@ from openartifact.models import (
     StartedBy,
     Task,
 )
+from openartifact.tasks import card_rules, card_sweeper
 from openartifact.tasks import lanes as lane_rules
 from openartifact.tasks.repository import ParentError, PlacementError, TaskRepository
 from openartifact.tasks.schemas import LaneRead, TaskCreate, TaskRead, TaskUpdate
@@ -138,14 +142,23 @@ class ArtifactService:
 
     # ── reading ───────────────────────────────────────────────────────
 
-    async def list_all(self) -> list[TaskRead]:
-        """All artifacts in board order; a body with references also carries ``preview``, its first words filled in."""
+    async def list_all(self, include_archived: bool = False) -> list[TaskRead]:
+        """All artifacts in board order (archived ones only with ``include_archived``, ADR-071), each with its ``marks``;
+        a body with references also carries ``preview``, its first words filled in."""
         async with self._session() as session:
-            tasks = await TaskRepository(session).list_all()
+            tasks = [
+                t
+                for t in await TaskRepository(session).list_all()
+                if include_archived or t.archived_at is None
+            ]
+            card_marks = await card_rules.marks_for(session, tasks)
             refs = any(has_references(t.body) for t in tasks)
             specs = await field_specs(session) if refs else []
             marks = refs and await personal_settings.marks_resolved_references(session)
-            return [self._read(t, specs, preview=True, marks=marks) for t in tasks]
+            reads = [self._read(t, specs, preview=True, marks=marks) for t in tasks]
+            for read in reads:
+                read.marks = card_marks.get(read.id)
+            return reads
 
     async def get(self, ref: str) -> TaskRead:
         """One artifact by id, or by its number (``12`` or ``#12``); ``body_resolved`` has the references filled in."""
@@ -155,7 +168,9 @@ class ArtifactService:
             marks = has_references(task.body) and await personal_settings.marks_resolved_references(
                 session
             )
-            return self._read(task, specs, resolved=True, marks=marks)
+            read = self._read(task, specs, resolved=True, marks=marks)
+            read.marks = (await card_rules.marks_for(session, [task])).get(task.id)
+            return read
 
     @staticmethod
     def _read(
@@ -189,6 +204,7 @@ class ArtifactService:
             session
         )
         read = self._read(task, specs, resolved=True, preview=True, marks=marks)
+        read.marks = (await card_rules.marks_for(session, [task])).get(task.id)
         if has_references(task.body):
             read.warnings = unknown_references(task.body, set(body_card(specs, task)))
         return read
@@ -206,9 +222,14 @@ class ArtifactService:
         self, status: str, title: str | None = None, style: str | None = None
     ) -> list[LaneRead]:
         """Change a lane's title and/or style; publishes ``board.lanes``."""
-        return await self._change_lanes(
-            lambda session: lane_rules.update_lane(session, status, title, style)
-        )
+        async def change(session: AsyncSession) -> list[LaneRead]:
+            lanes = await lane_rules.update_lane(session, status, title, style)
+            if style is not None:  # the old switch is the rule *Set card as done* without a condition (ADR-071)
+                await card_rules.set_lane_finished(session, status, style == "finished")
+                await session.commit()
+            return lanes
+
+        return await self._change_lanes(change)
 
     async def delete_lane(self, status: str) -> list[LaneRead]:
         """Delete a lane that holds no artifacts; publishes ``board.lanes``."""
@@ -561,6 +582,101 @@ class ArtifactService:
         if detached:
             self._bus.publish("board.resync", {})  # the children lost their parent
         return task_id
+
+    # ── card rules (ADR-071) ──────────────────────────────────────────
+
+    async def card_rules(self) -> card_rules.CardRules:
+        """Every card rule: per lane and for the board."""
+        async with self._session() as session:
+            return await card_rules.load_rules(session)
+
+    async def lane_card_rules(self, lane: str) -> list[card_rules.Rule]:
+        """The rules of one lane (404 for an unknown lane)."""
+        async with self._session() as session:
+            try:
+                await lane_rules.require_lane(session, lane)
+            except lane_rules.LaneError as error:
+                raise ArtifactError(404, f"Unknown lane '{lane}'") from error
+            return (await card_rules.load_rules(session)).lanes.get(lane, [])
+
+    async def save_lane_rules(
+        self, lane: str, rules: list[card_rules.Rule]
+    ) -> list[card_rules.Rule]:
+        """Replace the rules of one lane (404 for an unknown lane, 422 for an action a lane does not offer); a sweep follows."""
+        async with self._session() as session:
+            try:
+                await lane_rules.require_lane(session, lane)
+                stored = await card_rules.save_lane_rules(session, lane, rules)
+            except lane_rules.LaneError as error:
+                raise ArtifactError(404 if error.code == 422 else error.code, f"Unknown lane '{lane}'") from error
+            except ValueError as error:
+                raise ArtifactError(422, str(error)) from error
+            await session.commit()
+            lanes = await lane_rules.effective_lanes(session)
+        self._bus.publish("board.lanes", {"lanes": [x.model_dump(mode="json") for x in lanes]})
+        await self._rules_changed()
+        return stored.lanes.get(lane, [])
+
+    async def save_board_rules(self, rules: list[card_rules.Rule]) -> list[card_rules.Rule]:
+        """Replace the rules of the board (422 for an action the board does not offer); a sweep follows."""
+        async with self._session() as session:
+            try:
+                stored = await card_rules.save_board_rules(session, rules)
+            except ValueError as error:
+                raise ArtifactError(422, str(error)) from error
+            await session.commit()
+        await self._rules_changed()
+        return stored.board
+
+    async def _rules_changed(self) -> None:
+        self._bus.publish("cards.rules.changed", {})
+        await self.sweep()
+        self._bus.publish("board.resync", {})  # the marks of the cards follow the rules
+
+    async def preview_rule(self, rule: card_rules.Rule, lane: str | None) -> card_sweeper.Preview:
+        """How many cards a rule would hit now (``lane``: one lane; ``None``: the board); ``delete``: archived ones only."""
+        async with self._session() as session:
+            if lane is not None:
+                try:
+                    await lane_rules.require_lane(session, lane)
+                except lane_rules.LaneError as error:
+                    raise ArtifactError(404, f"Unknown lane '{lane}'") from error
+            return await card_sweeper.preview(session, rule, lane)
+
+    async def sweep(self, dry_run: bool = False) -> card_sweeper.Plan:
+        """Do what the rules say to the data: archive cards, delete archived ones (never one with children or a run that is
+        running; every deletion is logged). ``dry_run`` only reports. Publishes ``board.updated`` when something changed."""
+        now = datetime.now(UTC)
+        async with self._session() as session:
+            rules = await card_rules.load_rules(session)
+            todo = await card_sweeper.plan(session, rules, now)
+            if dry_run or not (todo.archive or todo.delete):
+                return todo
+            entries = await card_sweeper.archive(session, todo.archive, now)
+            await session.commit()
+        self._publish_activity(entries)
+        for task in todo.delete:
+            try:
+                await self.delete(task.id)
+            except ArtifactError:  # it started to run in the meantime: not now
+                continue
+            async with self._session() as session:
+                await card_rules.append_log(
+                    session, [card_sweeper.log_entry(task, todo.rule_of.get(task.id, "delete"), now)]
+                )
+                await session.commit()
+            logging.getLogger(__name__).info(
+                "Card rule deleted #%s %r (%s)", task.number, task.title[:80], todo.rule_of.get(task.id)
+            )
+        if todo.archive or todo.delete:
+            self._bus.publish("board.updated", {"archived": len(todo.archive), "deleted": len(todo.delete)})
+            self._bus.publish("board.resync", {})
+        return todo
+
+    async def deletion_log(self) -> list[dict[str, Any]]:
+        """What the card rules deleted lately (the last 100): number, title, lane, rule and time."""
+        async with self._session() as session:
+            return await card_rules.read_log(session)
 
     # ── processing ────────────────────────────────────────────────────
 

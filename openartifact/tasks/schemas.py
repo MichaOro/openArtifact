@@ -17,6 +17,7 @@ from pydantic import (
 )
 
 from openartifact.schemas_common import UtcDateTime
+from openartifact.tasks.card_rules import CardMarks
 
 TITLE_MAX_LENGTH = 255
 BODY_MAX_LENGTH = 10_000
@@ -123,6 +124,12 @@ class TaskRead(BaseModel):
     created_by: str
     created_at: UtcDateTime
     updated_at: UtcDateTime
+    #: When a card rule archived the card (ADR-071); ``null`` while it is visible. An archived card is not in the board's list
+    #: unless asked for (``include_archived``), but is read by its id or number.
+    archived_at: UtcDateTime | None = None
+    #: What the card rules say about the card right now (derived when it is read, never stored): ``{"done": bool, "labels":
+    #: [{"text", "tone"}], "colour": {"tone", "mode"} | null}``; ``null`` when no rule says anything.
+    marks: CardMarks | None = None
     #: The body with its ``${card.x}`` references filled in (title, number, id and the field values); ``null`` when
     #: the body holds nothing to fill in. A convenience: ``body`` stays the original and ``fields`` the values, so a
     #: consumer may fill in itself. Set on a single artifact and in the events of a change, not in the list.

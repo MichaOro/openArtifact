@@ -8,8 +8,8 @@ labels from the dictionary (``rules.<purpose>.<field>``); the server checks ever
 - ``retention``: the rules over finished executions (ADR-052). Triggered when an execution is added or finishes and
   when the rules are saved; consequence ``delete``. Its checks keep their own wording (``_check_retention``).
 - ``guard``: the condition of a guard (ADR-060) over the facts of a running scope.
-- ``lane``: planned (lane rules: hide after N days, colour by time in the lane); documented here so the format is
-  settled, not used by anything yet.
+- ``lane`` and ``board``: the rules over cards (ADR-071): set a card as done, hide (archive) it, delete an archived one, give it
+  a label or a colour, by how long it has been in its lane, how long nothing happened to it, its age and what it says.
 """
 
 from __future__ import annotations
@@ -361,28 +361,51 @@ GUARD = RuleSchema(
     ),
 )
 
-# ── lanes (planned) ───────────────────────────────────────────────────
+# ── cards: the rules of a lane and of the board (ADR-071) ─────────────
+
+_AT = ("at_least", "below")
+_CARD_SPAN = dict(minimum=0, maximum=3650 * DAY, units=("days", "hours", "minutes"))
+_TEXT = ("is", "is_not", "contains")
+#: What a condition over cards may test; the value of a duration is in seconds. A rule over a lane does not need ``lane``.
+CARD_FIELDS: tuple[FieldSpec, ...] = (
+    FieldSpec("lane", "text", ("is", "is_not"), "Lane"),
+    FieldSpec("in_lane", "duration", _AT, "Time in the lane", **_CARD_SPAN),
+    FieldSpec("idle", "duration", _AT, "Time since the last activity", **_CARD_SPAN),
+    FieldSpec("age", "duration", _AT, "Age of the card", **_CARD_SPAN),
+    FieldSpec("archived_for", "duration", _AT, "Time since archived", **_CARD_SPAN),
+    FieldSpec("title", "text", _TEXT, "Title"),
+    FieldSpec("body", "text", ("contains",), "Text"),
+    FieldSpec("has_parent", "choice", ("is", "is_not"), "Has a parent", ("yes", "no")),
+    FieldSpec("field.", "text", _TEXT, "Artifact field", prefix="field."),
+)
+CARD_TONES = ("green", "red", "yellow", "blue", "neutral")
+CARD_TRIGGERS = (
+    "The rules are looked at whenever a card is read (marks: done, labels, colour: derived, not stored) and by a "
+    "sweeper every few minutes and when the rules are saved (archive and delete)."
+)
 
 LANE = RuleSchema(
     purpose="lane",
-    fields=(
-        FieldSpec(
-            "time_in_lane",
-            "duration",
-            _DURATION,
-            "Time in the lane",
-            minimum=60,
-            maximum=3650 * DAY,
-            units=("days", "hours", "minutes"),
-        ),
-        FieldSpec("lane", "text", ("is", "is_not", "contains"), "Lane"),
-    ),
+    fields=tuple(f for f in CARD_FIELDS if f.key != "lane"),
     consequences=(
-        ConsequenceSpec("hide", "Hide the card", available=False, needs="lane rules (planned)"),
-        ConsequenceSpec("colour", "Colour the card", available=False, needs="lane rules (planned)"),
+        ConsequenceSpec("set_done", "Set card as done"),
+        ConsequenceSpec("archive", "Hide the card (archive it)"),
+        ConsequenceSpec("label", "Add a label"),
+        ConsequenceSpec("colour", "Colour the card"),
     ),
-    triggers="Planned: a card enters a lane, or time passes (needs the lane-since date).",
-    planned=True,
+    triggers=CARD_TRIGGERS,
 )
 
-SCHEMAS: dict[str, RuleSchema] = {s.purpose: s for s in (RETENTION, GUARD, LANE)}
+BOARD = RuleSchema(
+    purpose="board",
+    fields=CARD_FIELDS,
+    consequences=(
+        ConsequenceSpec("archive", "Hide the card (archive it)"),
+        ConsequenceSpec("delete", "Delete the archived card"),
+        ConsequenceSpec("label", "Add a label"),
+        ConsequenceSpec("colour", "Colour the card"),
+    ),
+    triggers=CARD_TRIGGERS,
+)
+
+SCHEMAS: dict[str, RuleSchema] = {s.purpose: s for s in (RETENTION, GUARD, LANE, BOARD)}

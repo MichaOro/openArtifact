@@ -144,10 +144,15 @@ async def replace_artifact_fields(
     return await fields.replace(payload)
 
 
-@router.get("/artifacts", response_model=list[TaskRead], summary="List artifacts")
-async def list_artifacts(service: ServiceDep) -> list[TaskRead]:
-    """All artifacts in board order."""
-    return await service.list_all()
+@router.get(
+    "/artifacts", response_model=list[TaskRead], summary="List artifacts", responses=errors(422)
+)
+async def list_artifacts(
+    service: ServiceDep, include_archived: bool = Query(default=False)
+) -> list[TaskRead]:
+    """All artifacts in board order, each with its ``marks`` (card rules). Archived ones (hidden by a rule) only with
+    ``include_archived``; one is still read by its id or number."""
+    return await service.list_all(include_archived)
 
 
 @router.post(

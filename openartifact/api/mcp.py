@@ -127,9 +127,12 @@ def build_mcp(
         return [f.model_dump(mode="json") for f in (await artifact_fields.list_fields()).fields]
 
     @mcp.tool()
-    async def list_artifacts(lane: str | None = None) -> list[dict[str, Any]]:
-        """All artifacts (cards) in board order, not paged; ``lane`` (a key from list_lanes) filters."""
-        artifacts = await service.list_all()
+    async def list_artifacts(
+        lane: str | None = None, include_archived: bool = False
+    ) -> list[dict[str, Any]]:
+        """All artifacts (cards) in board order, not paged; ``lane`` (a key from list_lanes) filters. Cards hidden by a card
+        rule (archived) are left out unless ``include_archived``."""
+        artifacts = await service.list_all(include_archived)
         return await shown(*(a for a in artifacts if lane is None or a.status == lane))
 
     @mcp.tool()

@@ -37,10 +37,13 @@ router.include_router(build_comments_router("", "user", ["tasks"]))
 router.include_router(build_activity_router("", ["tasks"]))
 
 
-@router.get("", response_model=list[TaskRead], summary="List tasks")
-async def list_tasks(service: ServiceDep) -> list[TaskRead]:
-    """List all tasks in board order (lane, then position)."""
-    return await service.list_all()
+@router.get("", response_model=list[TaskRead], summary="List tasks", responses=errors(422))
+async def list_tasks(
+    service: ServiceDep, include_archived: bool = Query(default=False)
+) -> list[TaskRead]:
+    """List all tasks in board order (lane, then position), each with its ``marks`` (card rules). Archived cards (hidden by a
+    rule) are left out unless ``include_archived``; one is still read by its id or number."""
+    return await service.list_all(include_archived)
 
 
 @router.get("/{task_id}", response_model=TaskRead, summary="Get a task", responses=errors(404, 422))
