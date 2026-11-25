@@ -12,7 +12,7 @@ import { ActionMenu } from "../components/action-menu.js";
 import { icon } from "../components/icons.js";
 import { overrideRow } from "../components/override-row.js";
 import { createControl, settingValue } from "./setting-controls.js";
-import { groupsOf, optionLabel, planSettings } from "./settings-plan.js";
+import { controllerValue, groupsOf, optionLabel, planSettings, shaped } from "./settings-plan.js";
 import { typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
 
@@ -54,7 +54,30 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     if (!opened.has(node.id)) opened.set(node.id, new Set());
     return opened.get(node.id);
   };
-  const save = (setting) => (value) => editor.saveSetting(node, setting, value);
+  /** The settings that look at this one (the options of a select, whether a setting is drawn): a change draws the dialog again. */
+  const watchers = (setting) => type.settings.filter((s) => s.options_by?.setting === setting.key || s.shown_when?.setting === setting.key);
+  /** A select that takes its options from another one keeps a value that fits: when the other changes, it moves to the first
+   * choice that can be chosen if its own value no longer belongs. */
+  const follow = async (setting, value) => {
+    for (const dependent of type.settings.filter((s) => s.options_by?.setting === setting.key)) {
+      const list = dependent.options_by.map[value] ?? [];
+      if (list.includes(settingValue(node, dependent))) continue;
+      const first = list.find((o) => !(dependent.disabled_options ?? []).includes(o));
+      if (first) await editor.saveSetting(node, dependent, first);
+    }
+  };
+  const save = (setting) => async (value) => {
+    const message = await editor.saveSetting(node, setting, value);
+    if (!message && watchers(setting).length) {
+      await follow(setting, value);
+      window.setTimeout(redraw);
+    }
+    return message;
+  };
+  /** The control's own setting (options by the value of another) and its value (a resource follows its operation). */
+  const shape = (setting) => shaped(type.settings, node, setting);
+  const valueFor = (setting) =>
+    type.settings.some((s) => s.options_by?.setting === setting.key) ? controllerValue(type.settings, node, setting) : settingValue(node, setting);
 
   /** An unset optional setting just added: an empty control that shows the default, with a bin to take it away. */
   const addedRow = (setting) => {
@@ -123,7 +146,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
   const rowOf = (setting, listed) => {
     if (setting.inherits && inheritance) return overrideOf(setting);
     if (setting.level === "optional") return listed === "added" ? addedRow(setting) : shownRow(setting);
-    return createControl(setting, settingValue(node, setting), save(setting), suggest).element;
+    return createControl(shape(setting), valueFor(setting), save(setting), suggest).element;
   };
 
   /** A group in Definition folds while unused; a group in any other area is a titled block. */
@@ -176,9 +199,21 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     if (section.id === "definition") el.append(...extras);
     const added = open();
     const visible = [...section.core, ...section.shown, ...section.available.filter((s) => added.has(s.key))].sort((a, b) => order.get(a.key) - order.get(b.key));
+    let pair = null; // the line being filled: settings with the same `line` that follow each other sit side by side (Resource and Operation)
     for (const { group, settings } of groupsOf(visible)) {
       const rows = settings.map((s) => rowOf(s, section.available.includes(s) ? "added" : "shown"));
-      el.append(...groupOf(group, rows, section.id, settings));
+      const line = group === null ? settings[0].line : null;
+      if (!line) {
+        pair = null;
+        el.append(...groupOf(group, rows, section.id, settings));
+        continue;
+      }
+      if (pair?.dataset.line !== line) {
+        pair = make("div", "ge-settings__pair");
+        pair.dataset.line = line;
+        el.append(pair);
+      }
+      pair.append(...rows);
     }
     const available = section === lastSection ? offered() : [];
     if (available.length) {

@@ -52,6 +52,12 @@ class SettingRead(BaseModel):
     options: list[str] | None = None
     #: The shown text of options whose text is translated (the stored value is the option itself).
     option_labels: dict[str, str] | None = None
+    #: Options shown greyed that cannot be chosen yet; options by the value of another setting; when the setting is drawn;
+    #: the line it shares with its neighbours.
+    disabled_options: list[str] | None = None
+    options_by: dict[str, Any] | None = None
+    shown_when: dict[str, Any] | None = None
+    line: str | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None

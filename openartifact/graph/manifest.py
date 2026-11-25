@@ -93,6 +93,20 @@ class PortsSpec(_Strict):
     outputs: list[PortSpec] = Field(default_factory=list)
 
 
+class ShownWhen(_Strict):
+    """A setting that is only drawn while another setting of the node has one of these values (the rest are no use then)."""
+
+    setting: str
+    values: list[str] = Field(min_length=1)
+
+
+class OptionsBy(_Strict):
+    """The options of a select depend on another select of the node: ``map`` names the options for each of its values."""
+
+    setting: str
+    map: dict[str, list[str]]
+
+
 class SettingSpec(_Strict):
     """One setting; ``use`` takes the rest from a snippet of ``_shared.yaml`` and the fields given here win."""
 
@@ -106,6 +120,12 @@ class SettingSpec(_Strict):
     options: list[str] | None = None
     #: The shown text of an option (the stored value stays what ``options`` says); an option without one is shown as it is.
     option_labels: dict[str, str] | None = None
+    #: Options that are shown greyed and cannot be chosen (a reminder of what the kind will offer later).
+    disabled_options: list[str] | None = None
+    options_by: OptionsBy | None = None
+    shown_when: ShownWhen | None = None
+    #: Settings with the same line name are drawn side by side.
+    line: str | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None
@@ -130,6 +150,19 @@ class SettingSpec(_Strict):
             if unknown:
                 raise ValueError(
                     f"option_labels names options that do not exist: {', '.join(unknown)}"
+                )
+        if self.disabled_options is not None and self.options is not None:
+            unknown = sorted(set(self.disabled_options) - set(self.options))
+            if unknown:
+                raise ValueError(
+                    f"disabled_options names options that do not exist: {', '.join(unknown)}"
+                )
+        if self.options_by is not None and self.options is not None:
+            named = {o for names in self.options_by.map.values() for o in names}
+            unknown = sorted(named - set(self.options))
+            if unknown:
+                raise ValueError(
+                    f"options_by names options that do not exist: {', '.join(unknown)}"
                 )
         return self
 

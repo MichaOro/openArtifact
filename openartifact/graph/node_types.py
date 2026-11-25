@@ -168,6 +168,13 @@ class Setting:
     options: tuple[str, ...] | None = None
     #: The shown text of an option (the stored value stays the option); not part of equality or the hash.
     option_labels: dict[str, str] | None = field(default=None, hash=False, compare=False)
+    #: Options shown greyed that cannot be chosen yet; the options of this select by the value of another setting
+    #: (``{"setting": key, "map": {value: [options]}}``); the setting is only drawn while another has one of
+    #: these values (``{"setting": key, "values": [...]}``); the name of the line it shares with its neighbours.
+    disabled_options: tuple[str, ...] | None = None
+    options_by: dict[str, Any] | None = field(default=None, hash=False, compare=False)
+    shown_when: dict[str, Any] | None = field(default=None, hash=False, compare=False)
+    line: str | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None
@@ -202,8 +209,9 @@ class Setting:
         fields = dict(data)
         if (name := fields.pop("check", None)) is not None:
             fields["check"] = VALIDATORS[name]
-        if "options" in fields:
-            fields["options"] = tuple(fields["options"])
+        for name in ("options", "disabled_options"):
+            if name in fields:
+                fields[name] = tuple(fields[name])
         return cls(**fields)
 
     def describe(self) -> dict[str, Any]:
@@ -221,6 +229,9 @@ class Setting:
             data["options"] = list(self.options)
         if self.option_labels is not None:
             data["option_labels"] = dict(self.option_labels)
+        for name in ("disabled_options", "options_by", "shown_when", "line"):
+            if (value := getattr(self, name)) is not None:
+                data[name] = list(value) if isinstance(value, tuple) else value
         if self.type in _DEFAULT_MAX_LENGTH:
             data["max_length"] = self.max_length or _DEFAULT_MAX_LENGTH[self.type]
         if self.placeholder is not None:
@@ -263,6 +274,8 @@ class Setting:
         if self.type == "select":
             if value not in (self.options or ()):
                 raise SettingError(f"'{self.key}' must be one of: {', '.join(self.options or ())}")
+            if value in (self.disabled_options or ()):
+                raise SettingError(f"'{self.key}': '{value}' is not available yet")
             return value
         if "\x00" in value:
             raise SettingError(f"'{self.key}' must not contain NUL characters")

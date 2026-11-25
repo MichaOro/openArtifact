@@ -55,3 +55,34 @@ test("a Postgres Tool hangs below an agent like the other tools", () => {
   assert.equal(type.caption(node("postgres_tool")), "Tickets · no query yet");
   assert.equal(type.constructor.icon, "database");
 });
+
+const { planSettings, controllerValue, shaped, isShown } = await import(`${JS}settings-plan.js`);
+
+const github = () => typeOf("github").settings;
+const shown = (config) => planSettings(github(), node("github", config)).sections.flatMap((s) => [...s.core, ...s.shown, ...s.available]).map((s) => s.key);
+
+test("the GitHub dialog draws only what the operation uses", () => {
+  const repository = shown({});
+  assert.ok(["resource", "operation", "repository"].every((k) => repository.includes(k)));
+  assert.ok(!["number", "path", "ref", "comment", "state", "limit"].some((k) => repository.includes(k)), "Get repository needs none of them");
+  assert.ok(shown({ resource: "Issue", operation: "Get issue" }).includes("number"));
+  assert.ok(shown({ resource: "Repository", operation: "List issues" }).includes("state"));
+  const file = shown({ resource: "File", operation: "Get file" });
+  assert.ok(file.includes("path") && file.includes("ref"), "the branch is offered for a file (optional: Add setting)");
+  const written = shown({ resource: "Issue", operation: "Create comment" });
+  assert.ok(written.includes("comment") && written.includes("allow_comments"));
+});
+
+test("the operations offered follow the resource, and a stored operation says the resource of an old node", () => {
+  const settings = github();
+  const operation = settings.find((s) => s.key === "operation");
+  const resource = settings.find((s) => s.key === "resource");
+  const names = (config) => shaped(settings, node("github", config), operation).options;
+  const file = names({ resource: "File", operation: "Get file" });
+  assert.ok(file.includes("Get file") && !file.includes("Get issue"));
+  assert.ok(names({ resource: "Issue", operation: "Get issue" }).includes("Create comment"));
+  // a node saved before there was a resource: its operation decides
+  assert.equal(controllerValue(settings, node("github", { operation: "Get pull request" }), resource), "Pull request");
+  assert.equal(controllerValue(settings, node("github", { resource: "Issue", operation: "Get issue" }), resource), "Issue");
+  assert.equal(isShown(settings, node("github", {}), settings.find((s) => s.key === "number")), false);
+});

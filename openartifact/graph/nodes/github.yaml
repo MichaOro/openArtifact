@@ -37,6 +37,27 @@ ui:
     template: '{operation|default:Get repository}{?operation=Create comment&!allow_comments: (off)} · {repository|trim|short|default:no
       repository yet}'
 settings:
+- key: resource
+  label: Resource
+  type: select
+  default: Repository
+  options:
+  - Repository
+  - Issue
+  - Pull request
+  - File
+  - Organization
+  - Release
+  - Review
+  - User
+  disabled_options:
+  - Organization
+  - Release
+  - Review
+  - User
+  line: kind
+  help: What the node works on. A greyed entry is not built yet.
+  stored_in: config
 - key: operation
   label: Operation
   type: select
@@ -44,18 +65,113 @@ settings:
   options:
   - Get repository
   - List issues
-  - Get issue
   - List pull requests
+  - Get license
+  - Get profile
+  - List popular paths
+  - List referrers
+  - Get issue
+  - List comments
+  - Create comment
+  - Create issue
+  - Edit issue
+  - Lock issue
   - Get pull request
   - Get pull request diff
   - List pull request files
+  - Create pull request
+  - Update pull request
   - Get file
-  - List comments
-  - Create comment
+  - Create file
+  - Edit file
+  - Delete file
+  - List organization repositories
+  - Create release
+  - Get release
+  - List releases
+  - Update release
+  - Delete release
+  - Create review
+  - Get review
+  - List reviews
+  - Update review
+  - List user repositories
+  - Invite user
+  disabled_options:
+  - Get license
+  - Get profile
+  - List popular paths
+  - List referrers
+  - Create issue
+  - Edit issue
+  - Lock issue
+  - Create pull request
+  - Update pull request
+  - Create file
+  - Edit file
+  - Delete file
+  - List organization repositories
+  - Create release
+  - Get release
+  - List releases
+  - Update release
+  - Delete release
+  - Create review
+  - Get review
+  - List reviews
+  - Update review
+  - List user repositories
+  - Invite user
+  options_by:
+    setting: resource
+    map:
+      Repository:
+        - Get repository
+        - List issues
+        - List pull requests
+        - Get license
+        - Get profile
+        - List popular paths
+        - List referrers
+      Issue:
+        - Get issue
+        - List comments
+        - Create comment
+        - Create issue
+        - Edit issue
+        - Lock issue
+      Pull request:
+        - Get pull request
+        - Get pull request diff
+        - List pull request files
+        - Create pull request
+        - Update pull request
+      File:
+        - Get file
+        - Create file
+        - Edit file
+        - Delete file
+      Organization:
+        - List organization repositories
+      Release:
+        - Create release
+        - Get release
+        - List releases
+        - Update release
+        - Delete release
+      Review:
+        - Create review
+        - Get review
+        - List reviews
+        - Update review
+      User:
+        - List user repositories
+        - Invite user
   option_labels:
     Get pull request diff: Get PR diff
     List pull request files: List PR files
-  help: What the node does. Settings the operation does not use are ignored.
+  line: kind
+  help: What the node does with the resource. A greyed entry is not built yet.
   stored_in: config
 - key: repository
   label: Repository
@@ -76,6 +192,15 @@ settings:
   stored_in: config
   check: github_number
   references: context
+  shown_when:
+    setting: operation
+    values:
+    - Get issue
+    - List comments
+    - Create comment
+    - Get pull request
+    - Get pull request diff
+    - List pull request files
 - key: path
   label: File path
   type: text
@@ -86,6 +211,10 @@ settings:
   stored_in: config
   check: file_path
   references: context
+  shown_when:
+    setting: operation
+    values:
+    - Get file
 - key: ref
   label: Git reference
   type: text
@@ -93,6 +222,11 @@ settings:
   max_length: 200
   help: 'Get file: empty is the default branch.'
   stored_in: config
+  level: optional
+  shown_when:
+    setting: operation
+    values:
+    - Get file
   check: not_secret
   references: context
 - key: state
@@ -105,6 +239,11 @@ settings:
   - all
   help: List issues and List pull requests.
   stored_in: config
+  shown_when:
+    setting: operation
+    values:
+    - List issues
+    - List pull requests
 - key: limit
   label: Limit
   type: integer
@@ -113,6 +252,13 @@ settings:
   default: 30
   help: The most items a list returns (one page, the newest first).
   stored_in: config
+  shown_when:
+    setting: operation
+    values:
+    - List issues
+    - List pull requests
+    - List pull request files
+    - List comments
 - key: comment
   label: Comment
   type: lines
@@ -122,12 +268,20 @@ settings:
   stored_in: config
   check: not_secret
   references: context
+  shown_when:
+    setting: operation
+    values:
+    - Create comment
 - key: allow_comments
   label: Allow comments
   type: switch
   default: false
   help: 'Create comment writes to GitHub: it only runs when this is on. Every other operation reads.'
   stored_in: config
+  shown_when:
+    setting: operation
+    values:
+    - Create comment
 - key: secret
   label: Token secret
   type: text

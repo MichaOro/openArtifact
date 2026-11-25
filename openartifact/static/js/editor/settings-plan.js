@@ -23,6 +23,46 @@ export function isSet(node, setting) {
   return stored !== "" && stored !== (setting.default ?? null);
 }
 
+/** What the node has for a setting, or the setting's default. */
+function valueOf(node, setting) {
+  const stored = setting.stored_in === "config" ? node.config?.[setting.key] : node[setting.key];
+  return stored ?? setting.default ?? null;
+}
+
+/**
+ * The value of a select that other selects take their options from (a resource): what is stored, unless the node's
+ * dependent select (the operation) holds a value that belongs to another one, which then says what the node works on.
+ */
+export function controllerValue(settings, node, setting) {
+  const current = valueOf(node, setting);
+  for (const dependent of settings.filter((s) => s.options_by?.setting === setting.key)) {
+    const held = valueOf(node, dependent);
+    const map = dependent.options_by.map;
+    if (held && !(map[current] ?? []).includes(held)) {
+      const owner = Object.keys(map).find((value) => map[value].includes(held));
+      if (owner) return owner;
+    }
+  }
+  return current;
+}
+
+/** Whether a setting is drawn for the node: it has no `shown_when`, or the other setting has one of the values. */
+export function isShown(settings, node, setting) {
+  const when = setting.shown_when;
+  if (!when) return true;
+  const other = settings.find((s) => s.key === when.setting);
+  return other ? when.values.includes(valueOf(node, other)) : true;
+}
+
+/** The setting as a control draws it: a select whose options depend on another select shows the options of its value. */
+export function shaped(settings, node, setting) {
+  const by = setting.options_by;
+  if (!by) return setting;
+  const other = settings.find((s) => s.key === by.setting);
+  const options = (other && by.map[controllerValue(settings, node, other)]) || setting.options;
+  return { ...setting, options };
+}
+
 /**
  * @param {object[]} settings the kind's settings as the server describes them
  * @param {object} node the node (its config holds the values)
@@ -31,7 +71,7 @@ export function isSet(node, setting) {
  * @returns {{columns: 1|2, sections: {id: string, core: object[], shown: object[], available: object[], advanced: {settings: object[], open: boolean}}[]}}
  */
 export function planSettings(settings, node, { skip = [], sections: order = SECTIONS } = {}) {
-  const left = settings.filter((s) => !skip.includes(s.key));
+  const left = settings.filter((s) => !skip.includes(s.key) && isShown(settings, node, s));
   // the areas in order: the saved layout of the kind (ADR-063) may swap them and add areas of the user's own; a shipped area it
   // does not name comes after them
   const ids = [...order, ...SECTIONS.filter((id) => !order.includes(id))];

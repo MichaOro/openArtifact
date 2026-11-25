@@ -1859,6 +1859,36 @@
   ],
   "settings": [
    {
+    "key": "resource",
+    "label": "Resource",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "Repository",
+    "stored_in": "config",
+    "options": [
+     "Repository",
+     "Issue",
+     "Pull request",
+     "File",
+     "Organization",
+     "Release",
+     "Review",
+     "User"
+    ],
+    "disabled_options": [
+     "Organization",
+     "Release",
+     "Review",
+     "User"
+    ],
+    "line": "kind",
+    "help": "What the node works on. A greyed entry is not built yet.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
     "key": "operation",
     "label": "Operation",
     "type": "select",
@@ -1869,20 +1899,126 @@
     "options": [
      "Get repository",
      "List issues",
-     "Get issue",
      "List pull requests",
+     "Get license",
+     "Get profile",
+     "List popular paths",
+     "List referrers",
+     "Get issue",
+     "List comments",
+     "Create comment",
+     "Create issue",
+     "Edit issue",
+     "Lock issue",
      "Get pull request",
      "Get pull request diff",
      "List pull request files",
+     "Create pull request",
+     "Update pull request",
      "Get file",
-     "List comments",
-     "Create comment"
+     "Create file",
+     "Edit file",
+     "Delete file",
+     "List organization repositories",
+     "Create release",
+     "Get release",
+     "List releases",
+     "Update release",
+     "Delete release",
+     "Create review",
+     "Get review",
+     "List reviews",
+     "Update review",
+     "List user repositories",
+     "Invite user"
     ],
     "option_labels": {
      "Get pull request diff": "Get PR diff",
      "List pull request files": "List PR files"
     },
-    "help": "What the node does. Settings the operation does not use are ignored.",
+    "disabled_options": [
+     "Get license",
+     "Get profile",
+     "List popular paths",
+     "List referrers",
+     "Create issue",
+     "Edit issue",
+     "Lock issue",
+     "Create pull request",
+     "Update pull request",
+     "Create file",
+     "Edit file",
+     "Delete file",
+     "List organization repositories",
+     "Create release",
+     "Get release",
+     "List releases",
+     "Update release",
+     "Delete release",
+     "Create review",
+     "Get review",
+     "List reviews",
+     "Update review",
+     "List user repositories",
+     "Invite user"
+    ],
+    "options_by": {
+     "setting": "resource",
+     "map": {
+      "Repository": [
+       "Get repository",
+       "List issues",
+       "List pull requests",
+       "Get license",
+       "Get profile",
+       "List popular paths",
+       "List referrers"
+      ],
+      "Issue": [
+       "Get issue",
+       "List comments",
+       "Create comment",
+       "Create issue",
+       "Edit issue",
+       "Lock issue"
+      ],
+      "Pull request": [
+       "Get pull request",
+       "Get pull request diff",
+       "List pull request files",
+       "Create pull request",
+       "Update pull request"
+      ],
+      "File": [
+       "Get file",
+       "Create file",
+       "Edit file",
+       "Delete file"
+      ],
+      "Organization": [
+       "List organization repositories"
+      ],
+      "Release": [
+       "Create release",
+       "Get release",
+       "List releases",
+       "Update release",
+       "Delete release"
+      ],
+      "Review": [
+       "Create review",
+       "Get review",
+       "List reviews",
+       "Update review"
+      ],
+      "User": [
+       "List user repositories",
+       "Invite user"
+      ]
+     }
+    },
+    "line": "kind",
+    "help": "What the node does with the resource. A greyed entry is not built yet.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -1911,6 +2047,17 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "Get issue",
+      "List comments",
+      "Create comment",
+      "Get pull request",
+      "Get pull request diff",
+      "List pull request files"
+     ]
+    },
     "max_length": 40,
     "help": "The number of the issue or pull request (get, comments, files, diff).",
     "references": "context",
@@ -1926,6 +2073,12 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "Get file"
+     ]
+    },
     "max_length": 500,
     "placeholder": "docs/README.md",
     "help": "Get file: the path in the repository (a folder lists its files).",
@@ -1942,11 +2095,17 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "Get file"
+     ]
+    },
     "max_length": 200,
     "help": "Get file: empty is the default branch.",
     "references": "context",
     "section": "definition",
-    "level": "core",
+    "level": "optional",
     "inherits": null
    },
    {
@@ -1962,6 +2121,13 @@
      "closed",
      "all"
     ],
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "List issues",
+      "List pull requests"
+     ]
+    },
     "help": "List issues and List pull requests.",
     "section": "definition",
     "level": "core",
@@ -1975,6 +2141,15 @@
     "maximum": 100,
     "default": 30,
     "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "List issues",
+      "List pull requests",
+      "List pull request files",
+      "List comments"
+     ]
+    },
     "help": "The most items a list returns (one page, the newest first).",
     "section": "definition",
     "level": "core",
@@ -1988,6 +2163,12 @@
     "maximum": null,
     "default": "",
     "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "Create comment"
+     ]
+    },
     "max_length": 20000,
     "help": "Create comment: the text, may hold ${node...} or ${var...}; no secrets.",
     "references": "context",
@@ -2003,6 +2184,12 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "Create comment"
+     ]
+    },
     "help": "Create comment writes to GitHub: it only runs when this is on. Every other operation reads.",
     "section": "definition",
     "level": "core",

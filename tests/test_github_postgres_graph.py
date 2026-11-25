@@ -93,17 +93,20 @@ def test_the_github_node_offers_read_operations_and_one_write_behind_a_switch(
     client: TestClient,
 ) -> None:
     settings = _keys(client, "github")
-    assert settings["operation"]["options"] == [
+    operation = settings["operation"]
+    # the operations that can be chosen: the read ones and the one write (the rest are greyed reminders)
+    chosen = [o for o in operation["options"] if o not in operation["disabled_options"]]
+    assert chosen == [
         "Get repository",
         "List issues",
-        "Get issue",
         "List pull requests",
+        "Get issue",
+        "List comments",
+        "Create comment",
         "Get pull request",
         "Get pull request diff",
         "List pull request files",
         "Get file",
-        "List comments",
-        "Create comment",
     ]
     assert (settings["allow_comments"]["type"], settings["allow_comments"]["default"]) == (
         "switch",
@@ -119,6 +122,61 @@ def test_the_github_node_offers_read_operations_and_one_write_behind_a_switch(
     for key in ("repository", "number", "path", "ref", "comment"):
         assert settings[key]["references"] == "context", key  # earlier results may feed them
     assert {"secret", "timeout_seconds", "on_failure"} <= set(settings)
+
+
+def test_the_github_node_groups_operations_by_resource_and_greys_what_is_not_built(
+    client: TestClient,
+) -> None:
+    settings = _keys(client, "github")
+    resource, operation = settings["resource"], settings["operation"]
+    assert (resource["default"], resource["line"], operation["line"]) == (
+        "Repository",
+        "kind",
+        "kind",
+    )
+    assert resource["disabled_options"] == ["Organization", "Release", "Review", "User"]
+    by = operation["options_by"]
+    assert by["setting"] == "resource" and set(by["map"]) == set(resource["options"])
+    listed = [o for names in by["map"].values() for o in names]
+    assert sorted(listed) == sorted(operation["options"]), "every operation belongs to one resource"
+    # a resource that cannot be chosen yet has nothing that can be chosen
+    for name in resource["disabled_options"]:
+        assert set(by["map"][name]) <= set(operation["disabled_options"]), name
+    # a setting is only drawn for the operations that use it
+    assert settings["number"]["shown_when"] == {
+        "setting": "operation",
+        "values": [
+            "Get issue",
+            "List comments",
+            "Create comment",
+            "Get pull request",
+            "Get pull request diff",
+            "List pull request files",
+        ],
+    }
+    assert settings["path"]["shown_when"]["values"] == ["Get file"]
+    assert (settings["ref"]["level"], settings["ref"]["shown_when"]["values"]) == (
+        "optional",
+        ["Get file"],
+    )
+    assert "shown_when" not in settings["repository"], "the repository is for every operation"
+
+
+def test_a_greyed_operation_or_resource_cannot_be_stored(client: TestClient) -> None:
+    action = post(client, "/api/actions", name="A")
+    node = client.post(f"{graph_url(action)}/nodes", json={"kind": "github"})
+    assert node.status_code == 201, node.text
+    for key, value in (("operation", "Create issue"), ("resource", "Release")):
+        refused = client.patch(
+            f"{graph_url(action)}/nodes/{node.json()['id']}", json={"config": {key: value}}
+        )
+        assert refused.status_code == 422, (key, refused.text)
+        assert "is not available yet" in refused.text
+    chosen = client.patch(
+        f"{graph_url(action)}/nodes/{node.json()['id']}",
+        json={"config": {"resource": "Issue", "operation": "Get issue"}},
+    )
+    assert chosen.status_code == 200, chosen.text
 
 
 def test_the_postgres_node_is_read_only_and_bounded_by_default(client: TestClient) -> None:

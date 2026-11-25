@@ -201,3 +201,37 @@ def test_the_footer_has_only_the_actions_that_apply_to_the_node(
     # nothing to create or open: Delete shares its line with Add guard (a postgres node can be watched)
     expect(page.locator("#node-modal .ge-footer .button")).to_have_text(["Add guard", "Delete"])
     expect(page.locator("#node-modal .ge-actionbar")).to_have_count(0)
+
+
+def test_the_github_dialog_pairs_resource_and_operation_and_draws_only_what_the_operation_uses(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _open(page, base_url, api, "github")
+    dialog = page.locator("#node-modal")
+    resource, operation = dialog.get_by_label("Resource"), dialog.get_by_label("Operation")
+    pair = dialog.locator(".ge-settings__pair")
+    expect(pair).to_have_count(1)
+    r, o = resource.bounding_box(), operation.bounding_box()
+    assert r and o and abs(r["y"] - o["y"]) < 2 and o["x"] > r["x"], "side by side on one line"
+    # Get repository needs only the repository: nothing about issues, files or comments
+    for label in ("Number", "File path", "Comment", "State", "Limit"):
+        expect(dialog.get_by_label(label, exact=True)).to_have_count(0)
+    # what is not built yet is shown greyed and cannot be chosen
+    expect(resource.locator("option", has_text="Release")).to_be_disabled()
+    expect(operation.locator("option", has_text="Get license")).to_be_disabled()
+    # choosing a resource moves the operation to one that fits, and draws that operation's settings
+    resource.select_option("Issue")
+    expect(operation).to_have_value("Get issue")
+    expect(dialog.get_by_label("Number", exact=True)).to_be_visible()
+    eventually(
+        lambda: {k: _config(api, definition, "github").get(k) for k in ("resource", "operation")},
+        {"resource": "Issue", "operation": "Get issue"},
+    )
+    resource.select_option("File")
+    expect(operation).to_have_value("Get file")
+    expect(dialog.get_by_label("File path", exact=True)).to_be_visible()
+    expect(dialog.get_by_label("Number", exact=True)).to_have_count(0)
+    # the branch is an optional setting: offered through Add setting, not drawn until then
+    expect(dialog.get_by_label("Git reference", exact=True)).to_have_count(0)
+    add_setting(page, "Git reference")
+    expect(dialog.get_by_label("Git reference", exact=True)).to_be_visible()
