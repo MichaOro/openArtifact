@@ -81,9 +81,10 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
 
 - **Model and limits** (ADR-046). Every setting is optional and is added with *Add setting* in its card: *Model
   configuration* (provider, model, temperature 0 to 2, max tokens 1 to 8192) and *Execution limits* (request timeout 1 to
-  300 s, node time limit 1 to 1800 s, retries 0 to 4, max iterations 1 to 50, counting only with tools, see section 4).
-  The bin removes a setting: it is then **not set**, and at the node its override, else the default applies (default
-  provider and its default model; 60 s, 600 s, 3 retries, 10 iterations). An agent without provider and model can be
+  300 s, node time limit 1 to 1800 s, retries 0 to 4, max iterations 1 to 500, counting only with tools, token budget,
+  tool result limit; see section 4). The bin removes a setting: it is then **not set**, and at the node its override, else
+  the default applies (default provider and its default model; 60 s, 900 s, 3 retries, 100 iterations, no token budget,
+  12000 characters of a tool result for the model). An agent without provider and model can be
   published; whether one can be resolved is checked at the node.
 - **Draft and versions.** You edit the *draft*. Nothing an execution uses changes until you **publish**: that makes a
   new version (numbers count up, a version is never changed) and executions that start from then on use it. *Discard
@@ -158,9 +159,33 @@ agent takes any number of tools; a tool belongs to one agent.
   token, can be switched off, has its limits and no sandbox. The model's arguments are the object `input` in
   `context.json`; what the code prints (or the result protocol's output) is the answer.
 - **The loop.** The node asks the model with the tools offered, runs every tool call of the answer, sends the results
-  back and asks again, until an answer calls no tool. *Max iterations* is the number of requests; when the model still
-  calls tools in the last one, the node fails: `Stopped after N iterations without a final answer`. The time limit of
-  the node covers every request and every tool call; each request keeps its retries (section 6).
+  back and asks again, until an answer calls no tool. The engine is its own module (`agents/loop.py`; the single request
+  with its retries is `agents/completion.py`, what the model reads is `agents/context_window.py`).
+- **The limits are a safety net, not a way to hold an agent in check** (the guards judge its health, [guards](guards.md)).
+  *Max iterations* (default 100, up to 500), the *time limit* of the node (default 15 minutes, up to 30) and the *token
+  budget* (not set: none) do not fail the node. When one is reached, or a run **makes no progress** (the same call with the
+  same result 8 times in a row), or a request **fails for good after tools ran** (a model that did not answer a large
+  prompt in time), the agent gets **one more request without tools** from a much shorter conversation: *"Answer with what
+  you have found so far, and say clearly what is still missing."* The step passes with a note, for example `the limit of
+  100 iterations was reached: this answer was written without tools from what the agent had found by then and may be
+  incomplete`. Only when that last request fails too the node fails, and the reason says both. It may take up to two
+  minutes beyond the node's time limit.
+- **What the model reads.** The node keeps the whole conversation, each request is made from a *view* of it: a tool result
+  is cut at the *tool result limit* (12000 characters; a note says how much was cut), and the results of the rounds before the
+  last two are shortened to 1500 characters, so the prompt does not grow by everything every tool ever returned. **The step
+  keeps the result** as the tool returned it, up to 16 KiB: the view is what the model read, the step is what the tool
+  answered. A call that is made again and again (the same tool with the same arguments, 3 times in a row) gets a note on its
+  result for the model (`this is the same call ... use what you have, or try something else`); the note is not kept in the
+  step. Whether such repetition is healthy is the guard's to judge.
+- **A tool that does not answer** is stopped after 5 minutes (or the time that is left): it becomes an error text for the
+  model (`Error: the tool X did not answer within N s`) and the run goes on.
+- **After a timeout the next attempt gets more time** (1.5 times the one before, at most 300 s): a model that did not answer
+  a large prompt in 60 s will not in the same time again. The time limit of the node covers every request and every tool
+  call; each request keeps its retries (section 6).
+- **Live.** While the agent runs the flow page shows its **rounds** in the panel of the selected agent node (*Rounds so far*:
+  each request with the start of its answer, the tokens and the calls it made, working, done or failed; a final answer
+  after a limit is marked). The events behind it (`agent.turn`, `agent.tool_call` with the round) carry names, counts and
+  states only. A page opened in the middle of a run shows the rounds from then on; the finished step has the whole story.
 - **A failing tool does not fail the node.** An unknown tool, arguments that are not a JSON object, an HTTP error or a
   failing script go back to the model as a text starting with `Error:`, and the model may try something else. A tool
   that cannot be used at all (the MCP server refuses the token or cannot be reached, a Code Tool while Code nodes are
@@ -173,7 +198,7 @@ agent takes any number of tools; a tool belongs to one agent.
   along its line from the agent to the tool. A tool the agent never asked stays dim. Every tool call remembers its tool node
   (`node_id`, `node_name` in `detail.turns[].tool_calls[]`), and the step keeps a summary per tool node in `data.tools`
   (`[{"node", "name", "calls", "errors"}]`); older steps have none and show no tool state. The live part is the event
-  `agent.tool_call` (`state` `started` or `finished`, `ok`, `duration_ms`, `agent_node_id`, `tool_node_id`, `tool`, with the
+  `agent.tool_call` (`state` `started` or `finished`, `ok`, `duration_ms`, `agent_node_id`, `tool_node_id`, `tool`, `turn`, with the
   artifact and the execution): names and states only, never arguments or results. A page opened while a call is already
   running shows the node working only from the next call on (events are not replayed); the finished step has the whole state.
 - **Private addresses** for MCP and HTTP tools need the same two permissions as a provider: the operator's
@@ -222,8 +247,9 @@ turns. In the API this is `detail` of one step
 - **A tool's answer is text from outside too**, and so is what an MCP server says about its tools. A page or an issue
   can tell the model to call another tool; offer an agent only the tools it needs (*selected*), and only read tools
   where reading is enough.
-- **There is no budget.** A node sends up to `retries + 1` requests per iteration and up to *Max iterations*
-  iterations, each bounded by max tokens.
+- **There is a budget only when you set one.** A node sends up to `retries + 1` requests per iteration and up to *Max
+  iterations* iterations, each bounded by max tokens; the *token budget* bounds all of them together (the agent then
+  answers from what it has).
 - Changing or deleting the key takes effect at once, also for running executions.
 
 ## 9. API and MCP

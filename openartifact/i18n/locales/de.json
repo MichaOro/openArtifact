@@ -1820,5 +1820,17 @@
  "nodes.agent.settings.token_budget.label": "Token-Budget",
  "nodes.agent.settings.token_budget.help": "So viele Tokens dürfen alle Anfragen eines Laufs höchstens verbrauchen. Nicht gesetzt - kein Budget; am Budget antwortet der Agent aus dem, was er hat.",
  "nodes.agent.settings.tool_result_chars.label": "Grenze für Werkzeug-Ergebnisse",
- "nodes.agent.settings.tool_result_chars.help": "Wie viele Zeichen eines Werkzeug-Ergebnisses das Modell liest (Standard 12000); ältere Ergebnisse werden stärker gekürzt. Der Schritt behält das Ergebnis."
+ "nodes.agent.settings.tool_result_chars.help": "Wie viele Zeichen eines Werkzeug-Ergebnisses das Modell liest (Standard 12000); ältere Ergebnisse werden stärker gekürzt. Der Schritt behält das Ergebnis.",
+ "execution.live_rounds.title": "Bisherige Runden",
+ "execution.live_rounds.round": "Runde {number}",
+ "execution.live_rounds.final_answer": "Abschlussantwort ({reason})",
+ "execution.live_rounds.asking": "fragt das Modell …",
+ "execution.live_rounds.request_failed": "Anfrage fehlgeschlagen",
+ "execution.live_rounds.tokens": "{count} Tokens",
+ "execution.live_rounds.rounds": "{count} Runden",
+ "execution.live_rounds.calls": "{count} Aufrufe",
+ "execution.live_rounds.failed_calls": "{count} fehlgeschlagen",
+ "execution.live_rounds.working": "arbeitet",
+ "execution.live_rounds.call_ok": "fertig",
+ "execution.live_rounds.call_failed": "fehlgeschlagen"
 }

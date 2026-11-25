@@ -36,6 +36,61 @@ export function noteToolCall(live, event) {
   return live;
 }
 
+/**
+ * What an agent node does right now, from its events (`agent.turn`, and `agent.tool_call` with the round it belongs to): the rounds so
+ * far, each with the start of the answer, the tokens and its calls. `live` is a map of agent node id to `{rounds, tokens}`; the
+ * functions keep it up to date and return it. Names, counts and states only (the events carry nothing else).
+ * @param {Map<string, {rounds: object[], tokens: number|null}>} live
+ */
+function roundOf(live, event) {
+  const agent = live.get(event.agent_node_id) ?? { rounds: [], tokens: null };
+  live.set(event.agent_node_id, agent);
+  let round = agent.rounds.find((r) => r.turn === event.turn);
+  if (!round) {
+    round = { turn: event.turn, state: "running", text: "", tokens: null, error: null, wrapUp: null, calls: [] };
+    agent.rounds.push(round);
+    agent.rounds.sort((a, b) => a.turn - b.turn);
+  }
+  return { agent, round };
+}
+
+/** Tell the live rounds about one `agent.turn` event (a request started or ended). */
+export function noteAgentTurn(live, event) {
+  const { agent, round } = roundOf(live, event);
+  if (event.state === "started") {
+    round.wrapUp = event.wrap_up ?? null;
+  } else {
+    round.state = event.error ? "failed" : "done";
+    round.error = event.error ?? null;
+    round.text = event.text ?? "";
+    round.tokens = event.tokens ?? null;
+    round.finishReason = event.finish_reason ?? null;
+    if (event.total_tokens != null) agent.tokens = event.total_tokens;
+  }
+  return live;
+}
+
+/** Tell the live rounds about one `agent.tool_call` event (a call of the round started or ended). */
+export function noteAgentCall(live, event) {
+  if (event.agent_node_id == null || event.turn == null) return live;
+  const { round } = roundOf(live, event);
+  if (event.state === "started") {
+    round.calls.push({ tool: event.tool, node: event.tool_node_name ?? "", state: "running", ms: null });
+  } else {
+    const call = round.calls.find((c) => c.tool === event.tool && c.state === "running") ?? round.calls[round.calls.push({ tool: event.tool, node: event.tool_node_name ?? "", state: "running", ms: null }) - 1];
+    call.state = event.ok === false ? "failed" : "ok";
+    call.ms = event.duration_ms ?? null;
+  }
+  return live;
+}
+
+/** The numbers over the live rounds of one agent: rounds, calls (done, failed) and tokens. `null` when nothing was heard. */
+export function liveSummary(agent) {
+  if (!agent?.rounds.length) return null;
+  const calls = agent.rounds.flatMap((r) => r.calls);
+  return { rounds: agent.rounds.length, calls: calls.length, failed: calls.filter((c) => c.state === "failed").length, running: calls.filter((c) => c.state === "running").length, tokens: agent.tokens };
+}
+
 const FINISHED = { pass: "pass", fail: "fail", running: "running" };
 const outcomeState = (outcome) => FINISHED[outcome] ?? "stopped";
 

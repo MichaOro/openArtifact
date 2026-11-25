@@ -75,3 +75,39 @@ matter of choosing the read tools.
   finished step takes over. Events carry names and states only (no arguments, no results, no secrets).
 - Not built: a live protocol of the agent's turns, health figures for guards, the state of a call that began before the page was
   opened.
+
+## 6. Addendum (2026-11-25, card #104): the engine of the agent node
+
+**Context.** A review run with the GitHub MCP node showed three problems at once: *Stopped after 10 iterations without a final answer*
+(the tools had worked, nothing was lost but the answer), a request that did not answer in time four times with the same large prompt
+(156,000 prompt tokens after seven rounds: the whole conversation was sent again each round), and no sight of what the agent was
+doing. The owner does not want the agent node held in check by hard limits: the guards judge the health of a run ([guards](../../guides/guards.md));
+the node gets a protection of its own that never loses the work.
+
+- **The engine is its own module** (`agents/loop.py`; `completion.py` is the single request, `context_window.py` what the model
+  reads). `runtime.py` stays the node: inputs, prompts, tools, `NodeResult`. The engine is driven by `complete`, `sleep` and a
+  `Budget`; it knows neither the event bus nor the database.
+- **A limit ends in an answer.** The iterations (default 100, up to 500), the time of the node (default 900 s, up to 1800) and the new
+  token budget (not set: none), a run that makes **no progress** (the same call with the same result 8 times in a row) and a request that
+  **fails for good after tools ran** do not fail the node: the agent gets **one more request without tools** from a shorter conversation
+  (results to 3000 characters, older ones to 600) and is asked to answer from what it has. The step **passes with a note** (as with the token limit
+  of the model). The final request may take up to 120 s beyond the time limit of the node. Only when it fails too the node fails.
+- **The model reads a view.** The conversation is kept whole; each request is made from a view: a tool result is cut at the setting
+  *Tool result limit* (default 12000 characters), results of the rounds before the last two are shortened to 1500. The step keeps the
+  result as the tool returned it (up to 16 KiB, unchanged), so what the model read and what the tool answered are both known.
+- **Calls that repeat** (the same tool, the same arguments, 3 times in a row) get a note on the result for the model, which the step
+  does not keep. The judgement whether that is healthy stays with the guards.
+- **A tool that hangs** is stopped after 300 s (or the time left) and becomes an error text for the model; it no longer holds the run
+  until the time limit of the node and no longer fails the node.
+- **Retry policy.** The attempt after a *timeout* gets 1.5 times the time of the one before (at most 300 s); other failures keep the
+  limit. The waits (3, 10, 30, 60 s, `Retry-After`) are unchanged.
+- **Events.** The engine reports through `signal(event, data)` (it replaces `on_tool`): `tool_call` (now with the round, `turn`) and
+  `turn` (a request started or ended: the round, the first 300 characters of the answer, the tokens of the request and in all, the number of tool
+  calls it asked for, the limit when it is the final answer, or the error). The engine hands them to the event bus as `agent.tool_call` and **`agent.turn`**.
+  The flow page shows the rounds of the selected running agent (*Rounds so far*, `components/live-rounds.js`); the step is the record after the run.
+- **New settings** of the agent and of its node (overridable): `token_budget` and `tool_result_chars` (`agents/schemas.py`, `graph/nodes/agent.yaml`).
+  No migration: agents, versions and nodes keep them in JSON. Stored values of before (10 iterations, 600 s) that were written as the old
+  defaults are still read as *not set*.
+- Not built: persistence of the events and their retention (card #100), the guard figures built from them (card #103), shortening of
+  the tool *definitions* sent with every request (the GitHub MCP server offers about forty; they are most of the 15,000 tokens of each
+  request), a summary instead of a cut for older results.

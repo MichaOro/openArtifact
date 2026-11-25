@@ -289,3 +289,51 @@ test("an agent asking a tool again (a loop) shows it working while the finished 
   const quiet = model.describe(model.visit(1), new Map([["gh", { running: 0, calls: 7, errors: 3 }]])).states.get("gh");
   assert.deepEqual([quiet.state, quiet.calls, quiet.errors], ["pass", 4, 0], "what a finished step says wins over what was heard live");
 });
+
+// ── the rounds of a running agent (agent.turn and agent.tool_call) ──────
+
+const { noteAgentTurn, noteAgentCall, liveSummary } = await import("../../openartifact/static/js/execution/visit-model.js");
+
+test("the rounds grow from the events: a round, its calls, the tokens", () => {
+  const live = new Map();
+  const base = { agent_node_id: "a1" };
+  noteAgentTurn(live, { ...base, turn: 1, state: "started" });
+  assert.equal(live.get("a1").rounds[0].state, "running");
+  noteAgentTurn(live, { ...base, turn: 1, state: "finished", text: "I look at the repo.", tokens: 120, total_tokens: 120, tool_calls: 2 });
+  noteAgentCall(live, { ...base, turn: 1, state: "started", tool: "get_file", tool_node_name: "GitHub" });
+  noteAgentCall(live, { ...base, turn: 1, state: "started", tool: "list_commits", tool_node_name: "GitHub" });
+  assert.deepEqual(liveSummary(live.get("a1")), { rounds: 1, calls: 2, failed: 0, running: 2, tokens: 120 });
+  noteAgentCall(live, { ...base, turn: 1, state: "finished", tool: "get_file", ok: true, duration_ms: 1500 });
+  noteAgentCall(live, { ...base, turn: 1, state: "finished", tool: "list_commits", ok: false, duration_ms: 800 });
+  noteAgentTurn(live, { ...base, turn: 2, state: "started" });
+  const [one, two] = live.get("a1").rounds;
+  assert.deepEqual(one.calls.map((c) => [c.tool, c.state, c.ms]), [["get_file", "ok", 1500], ["list_commits", "failed", 800]]);
+  assert.equal(one.text, "I look at the repo.");
+  assert.deepEqual([two.turn, two.state], [2, "running"]);
+  assert.deepEqual(liveSummary(live.get("a1")), { rounds: 2, calls: 2, failed: 1, running: 0, tokens: 120 });
+});
+
+test("a failed request and the final answer are shown as such", () => {
+  const live = new Map();
+  noteAgentTurn(live, { agent_node_id: "a1", turn: 1, state: "started" });
+  noteAgentTurn(live, { agent_node_id: "a1", turn: 1, state: "finished", error: "Timeout after 60 s" });
+  noteAgentTurn(live, { agent_node_id: "a1", turn: 2, state: "started", wrap_up: "a failed request" });
+  const [one, two] = live.get("a1").rounds;
+  assert.deepEqual([one.state, one.error], ["failed", "Timeout after 60 s"]);
+  assert.equal(two.wrapUp, "a failed request");
+});
+
+test("calls of an event without a round, and an agent nobody heard of, add nothing", () => {
+  const live = new Map();
+  noteAgentCall(live, { state: "started", tool: "x", tool_node_name: "T" });
+  assert.equal(live.size, 0);
+  assert.equal(liveSummary(undefined), null);
+  assert.equal(liveSummary({ rounds: [], tokens: null }), null);
+});
+
+test("rounds come in order even when their events arrive late", () => {
+  const live = new Map();
+  noteAgentTurn(live, { agent_node_id: "a1", turn: 2, state: "started" });
+  noteAgentTurn(live, { agent_node_id: "a1", turn: 1, state: "started" });
+  assert.deepEqual(live.get("a1").rounds.map((r) => r.turn), [1, 2]);
+});

@@ -2,12 +2,13 @@
  * primary alternative to the canvas: focusable, readable by a screen reader) and the details of the
  * selected one. Everything shown is text (textContent): names, outputs and reasons come from what ran. */
 import { icon } from "../components/icons.js";
+import { liveRounds } from "../components/live-rounds.js";
 import { typeOf } from "../editor/node-types.js";
 import { contextBlock } from "../tasks/context-block.js";
 import { formatDuration, formatTime, secondsBetween, setChip } from "../tasks/history-format.js";
 import { fillStep, stepDuration } from "../tasks/history-step.js";
 import { STATES } from "./flow-view.js";
-import { nameOf } from "./visit-model.js";
+import { liveSummary, nameOf } from "./visit-model.js";
 import { t } from "../i18n.js";
 
 const el = (tag, className, text) => {
@@ -211,7 +212,7 @@ export class FlowPanel {
 
   #details(view) {
     const open = new Set([...this.detail.querySelectorAll("details[open]")].map((block) => block.dataset.key));
-    const { model, visit, walk, selected } = view;
+    const { model, visit, walk, selected, agentLive } = view;
     const node = selected ? model.graph(visit).nodes.find((n) => n.id === selected) : null;
     if (!node) {
       this.detail.replaceChildren(el("p", "ef-panel__note", t("execution.flow_panel.select_node_path_canvas_see")));
@@ -223,6 +224,9 @@ export class FlowPanel {
     if (info.state === "not-run" || info.state === "skipped") {
       body.push(el("p", "ef-panel__note", info.state === "skipped" ? "The execution started after this node, so it was skipped." : "This node did not run in this pass."));
     }
+    // an agent that is working: its rounds so far, from the events (the step is kept when it has finished)
+    const live = node.kind === "agent" && info.state === "running" ? liveRounds(agentLive?.get(node.id), liveSummary(agentLive?.get(node.id))) : null;
+    if (live) body.push(live);
     for (const entry of entries) {
       if (entry.step) body.push(this.#step(entry.step, open));
       for (const [i, child] of entry.children.entries()) {
