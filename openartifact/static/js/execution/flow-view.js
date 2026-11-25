@@ -3,9 +3,11 @@
  * badges on the nodes and edges; never by colour alone (every state has its own icon and word, a node
  * that did not run is dashed as well as dimmed, a walked edge is thicker and numbered). */
 import { icon } from "../components/icons.js";
+import { shieldButton, updateShield } from "../components/guard-shield.js";
 import { Canvas } from "../editor/canvas.js";
 import { typeOf } from "../editor/node-types.js";
 import { addBubbles, FAILING_PORTS } from "./flow-bubbles.js";
+import { placeState, shieldTitle } from "./flow-guards.js";
 import { nameOf } from "./visit-model.js";
 import { plural, t } from "../i18n.js";
 
@@ -35,6 +37,8 @@ export class FlowView {
     this.edges = new Map();
     this.walk = null;
     this.live = false;
+    this.guards = null; // {flow, places}: the guards of the run, so a place that guards watch carries the shield
+    this.graphId = null;
     this.canvas = new Canvas({
       viewport,
       nodes: this.nodes,
@@ -62,6 +66,7 @@ export class FlowView {
   show(graph, walk, { fit = false, live = false } = {}) {
     this.walk = walk;
     this.live = live;
+    this.graphId = graph.id;
     this.nodes.clear();
     this.edges.clear();
     // left to right: this is the order the nodes are reached with the keyboard
@@ -70,6 +75,11 @@ export class FlowView {
     this.canvas.selection = this.canvas.selection && this.nodes.has(this.canvas.selection.id) ? this.canvas.selection : null;
     this.canvas.sync();
     if (fit) this.fit();
+  }
+
+  /** The guards of the run (see flow-guards.js); the next draw puts the shields on the places they watch. */
+  setGuards(guards) {
+    this.guards = guards;
   }
 
   select(nodeId) {
@@ -107,6 +117,27 @@ export class FlowView {
     const facts = [word, calls, info.step?.exit_code != null ? t("execution.flow_panel.exit_code_exit_code", { exit_code: info.step.exit_code }) : null, info.passes > 1 ? `${info.passes} passes` : null, info.passes ? t("execution.flow_panel.enter_opens") : null];
     el.setAttribute("aria-label", `${typeOf(node).label}: ${nameOf(node)}, ${facts.filter(Boolean).join(", ")}`);
     el.title = info.state === "not-run" ? t("execution.flow_view.not_run") : calls ?? "";
+    this.#decorateGuard(node, el);
+  }
+
+  /** The shield of the editor, read-only, where a guard watches: green and pulsing while one is watching now, else grey. */
+  #decorateGuard(node, el) {
+    const host = node.kind === "stage" ? el.querySelector(".ge-stage__header") : el;
+    if (!host) return;
+    let shield = host.querySelector(":scope > [data-guard-shield]");
+    const state = this.guards ? placeState(this.guards.places, this.guards.flow, this.graphId, node.kind === "stage" || node.kind === "action" ? [node.kind, "node"] : ["node"], node.id) : null;
+    if (!state) {
+      shield?.remove();
+      return;
+    }
+    if (!shield) {
+      shield = shieldButton(state.count, nameOf(node), { readOnly: true });
+      if (node.kind !== "stage") shield.classList.add("gd-shield--node");
+      host.append(shield);
+    }
+    updateShield(shield, state.count, nameOf(node));
+    shield.title = shieldTitle(state);
+    shield.dataset.state = state.state;
   }
 
   #decorateEdge(edge, group) {
