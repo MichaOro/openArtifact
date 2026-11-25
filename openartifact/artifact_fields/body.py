@@ -128,6 +128,99 @@ def resolve_body(body: str | None, card: Mapping[str, Any], max_words: int | Non
         return body
 
 
+def resolve_body_segments(
+    body: str | None, card: Mapping[str, Any], max_words: int | None = None
+) -> list[dict[str, Any]]:
+    """The body as a list of segments: each is ``{"text": str, "resolved": bool}``.
+
+    A segment with ``resolved=True`` came from a ``${card.x}`` reference; ``resolved=False`` is original text.
+    ``max_words`` limits output (for preview); stops at word boundary with ellipsis on the last segment.
+
+    Never raises; on error returns a single segment with the original body and ``resolved=False``.
+    """
+    if not body:
+        return [{"text": "", "resolved": False}]
+    try:
+        if _MARK not in body and max_words is None:
+            return [{"text": body, "resolved": False}]
+        return _walk_segments(body, card, max_words)
+    except Exception:
+        return [{"text": body, "resolved": False}]
+
+
+def _walk_segments(body: str, card: Mapping[str, Any], words: int | None) -> list[dict[str, Any]]:
+    """``(segments, substitutions, cut)`` of ``body``; segments are ``{"text": str, "resolved": bool}``.
+
+    Uses the same word budget logic as _walk: stops when budget is spent.
+    """
+    segments: list[dict[str, Any]] = []
+    budget = _Budget(words)
+    done = 0
+
+    current_text: list[str] = []
+    current_resolved: bool | None = None
+
+    def flush():
+        nonlocal current_text, current_resolved
+        if current_text:
+            segments.append({"text": "".join(current_text), "resolved": current_resolved})
+            current_text = []
+            current_resolved = None
+
+    def add_text(text: str, resolved: bool) -> bool:
+        """Add text through budget.write() to track word count correctly (same as _walk).
+        Returns True if budget was spent and processing should stop.
+        """
+        nonlocal current_text, current_resolved
+        if current_resolved is not None and current_resolved != resolved:
+            flush()
+        current_resolved = resolved
+
+        dummy_out: list[str] = []
+        # Always call budget.write - it handles unlimited budget (left is None) correctly
+        if budget.left is not None:
+            budget.write(dummy_out, text)
+        else:
+            # No budget limit - everything passes through
+            dummy_out.append(text)
+
+        if dummy_out:
+            current_text.append("".join(dummy_out))
+
+        return budget.spent
+
+    try:
+        for match in _TOKEN.finditer(body):
+            name = match[1]
+            token = match[0]
+            if name is None:
+                # Plain text (word, whitespace, or lone $)
+                if add_text(token, False):
+                    break
+            else:
+                # Card reference
+                known, text = _value_of(name, card)
+                if known:
+                    done += 1
+                    if add_text(text, True):
+                        break
+                else:
+                    # Unknown reference - treat as plain text
+                    if add_text(token, False):
+                        break
+    except StopIteration:
+        pass
+
+    flush()
+
+    if budget.cut and segments:
+        # Add ellipsis to the last segment
+        last = segments[-1]
+        last["text"] = last["text"].rstrip() + ELLIPSIS
+
+    return segments
+
+
 def resolved_or_none(body: str | None, card: Mapping[str, Any]) -> str | None:
     """The full resolved body, or ``None`` when nothing in it was filled in (the reader then shows the body)."""
     if not has_references(body):
