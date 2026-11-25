@@ -22,6 +22,7 @@ from openartifact.artifact_fields import rules as field_rules
 from openartifact.artifact_fields.body import (
     has_references,
     preview_or_none,
+    resolve_body_segments,
     resolved_or_none,
     unknown_references,
 )
@@ -155,15 +156,18 @@ class ArtifactService:
         *,
         resolved: bool = False,
         preview: bool = False,
+        include_segments: bool = False,
     ) -> TaskRead:
         """The artifact as read, with what a body's ``${card.x}`` stand for filled in where it is asked for."""
         read = TaskRead.model_validate(task)
-        if has_references(task.body) and (resolved or preview):
+        if has_references(task.body) and (resolved or preview or include_segments):
             card = body_card(specs, task)
             if resolved:
                 read.body_resolved = resolved_or_none(task.body, card)
             if preview:
                 read.preview = preview_or_none(task.body, card)
+            if include_segments:
+                read.body_resolved_segments = resolve_body_segments(task.body, card)
         return read
 
     async def _read_after_save(self, session: AsyncSession, task: Task) -> TaskRead:
