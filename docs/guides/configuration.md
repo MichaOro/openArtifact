@@ -56,6 +56,7 @@ The database is SQLite in WAL mode and stays so ([ADR-020](../architecture/adr/0
 | `OPENARTIFACT_GUARD_MAX_FIRINGS` | integer | `20` | 1 to 10000 | Firings of one guard on one scope in one run; the next one is skipped and the cap is recorded once. |
 | `OPENARTIFACT_GUARD_TIMEOUT_SECONDS` | number | `600` | 0.1 to 86400 | How long a guard (its condition and its own action) may take; then it is recorded as failed and the flow goes on. |
 | `OPENARTIFACT_HEARTBEAT_MIN_SPACING_SECONDS` | number | `1` | 0 to 3600 | The shortest spacing of two heartbeats of one execution; a closer one gets `429`. |
+| `OPENARTIFACT_CARD_SWEEP_INTERVAL_SECONDS` | number | `900` | 0 to 86400 | How often the card rules archive and delete cards (also whenever rules are saved); `0`: only then. |
 
 The limits of a single execution (how many steps, how much time) are not environment variables: they are set on
 *Settings > Run limits* in the web interface or with `PUT /api/v1/settings/run-limits`, take effect for the executions

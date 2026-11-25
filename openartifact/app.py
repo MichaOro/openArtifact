@@ -23,6 +23,7 @@ from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.api.agents import routers as agent_routers
 from openartifact.api.artifact_fields import router as artifact_fields_router
+from openartifact.api.card_rules import router as card_rules_router
 from openartifact.api.contract import GATED
 from openartifact.api.credentials import router as credentials_router
 from openartifact.api.events import router as events_router
@@ -129,8 +130,21 @@ def _create_app(settings: Settings) -> FastAPI:
                 "The views for guard actions could not be made: the database is not migrated yet"
             )
 
+        async def sweeper() -> None:
+            while True:
+                await asyncio.sleep(settings.card_sweep_interval_seconds)
+                try:
+                    await app.state.artifacts.sweep()
+                except Exception:  # a failed pass must not end the loop
+                    logger.exception("The card rules could not be applied")
+
+        sweeping = (
+            asyncio.create_task(sweeper()) if settings.card_sweep_interval_seconds > 0 else None
+        )
         async with app.state.mcp_app.router.lifespan_context(app.state.mcp_app):
             yield
+        if sweeping is not None:
+            sweeping.cancel()
 
         # ── Shutdown ─────────────────────────────────────────
         await app.state.engine.shutdown()
@@ -262,6 +276,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(api_router)
     app.include_router(tasks_router)
     app.include_router(lanes_router)
+    app.include_router(card_rules_router)
     app.include_router(artifact_fields_router)
     app.include_router(executions_router)
     app.include_router(node_types_router)

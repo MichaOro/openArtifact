@@ -63,6 +63,8 @@ GET /api/agents/{ref}/uses -> AgentUse[]
 GET /api/agents/{ref}/versions -> VersionRead[]
 GET /api/agents/{ref}/versions/{number} -> VersionRead
 GET /api/artifact-fields -> ArtifactFieldsRead
+GET /api/board/rules -> RulesAnswer
+GET /api/board/rules/deletions -> DeletionRead[]
 GET /api/credentials -> CredentialRead[]
 GET /api/credentials/types -> inline {'items': {'additionalProperties': True, 'type': 'object'}, 'type': 'array', 'title': 'Response Credential Types Api Credentials Types Get'}
 GET /api/credentials/{ref} -> CredentialRead
@@ -79,6 +81,7 @@ GET /api/guards/templates -> TemplateRead[]
 GET /api/guards/{guard_id} -> GuardDefinitionRead
 GET /api/info -> InfoRead
 GET /api/lanes -> LaneRead[]
+GET /api/lanes/{status}/rules -> RulesAnswer
 GET /api/node-types -> NodeTypeRead[]
 GET /api/pipelines -> GraphListRead[]
 GET /api/pipelines/{graph_id} -> GraphDetail
@@ -171,6 +174,8 @@ POST /api/agents/{ref}/draft/discard -> AgentDetail
 POST /api/agents/{ref}/preview -> PreviewRead
 POST /api/agents/{ref}/publish -> PublishResult
 POST /api/agents/{ref}/versions/{number}/republish -> PublishResult
+POST /api/board/rules/preview -> CardPreviewRead
+POST /api/board/rules/sweep -> SweepRead
 POST /api/credentials/external -> CredentialRead
 POST /api/credentials/internal -> CredentialCreated
 POST /api/credentials/{ref}/revoke -> CredentialRead
@@ -182,6 +187,7 @@ POST /api/guards -> GuardDefinitionRead
 POST /api/guards/from-template -> GuardDefinitionRead
 POST /api/guards/preview -> GuardPreview
 POST /api/lanes -> LaneRead[]
+POST /api/lanes/{status}/rules/preview -> CardPreviewRead
 POST /api/pipelines -> GraphRead
 POST /api/pipelines/{graph_id}/edges -> EdgeRead
 POST /api/pipelines/{graph_id}/nodes -> NodeRead
@@ -195,17 +201,21 @@ POST /api/providers/{ref}/test -> CheckResult
 POST /api/settings/retention/preview -> RulesPreview
 POST /api/tasks -> TaskRead
 POST /api/tasks/{ref}/comments -> CommentRead
+POST /api/tasks/{task_id}/archive -> TaskRead
 POST /api/tasks/{task_id}/run -> RunRead
 POST /api/tasks/{task_id}/run/stop -> RunRead
+POST /api/tasks/{task_id}/unarchive -> TaskRead
 POST /api/v1/agents -> AgentDetail
 POST /api/v1/agents/{ref}/draft/discard -> AgentDetail
 POST /api/v1/agents/{ref}/preview -> PreviewRead
 POST /api/v1/agents/{ref}/publish -> PublishResult
 POST /api/v1/agents/{ref}/versions/{number}/republish -> PublishResult
 POST /api/v1/artifacts -> TaskRead
+POST /api/v1/artifacts/{ref}/archive -> TaskRead
 POST /api/v1/artifacts/{ref}/comments -> CommentRead
 POST /api/v1/artifacts/{ref}/run -> RunRead
 POST /api/v1/artifacts/{ref}/run/stop -> RunRead
+POST /api/v1/artifacts/{ref}/unarchive -> TaskRead
 POST /api/v1/executions/{execution_id}/heartbeat -> HeartbeatRead
 POST /api/v1/guard-attachments -> AttachmentRead
 POST /api/v1/guards -> GuardDefinitionRead
@@ -219,9 +229,11 @@ POST /api/v1/providers/{ref}/test -> CheckResult
 POST /api/v1/settings/retention/preview -> RulesPreview
 PUT /api/agents/{ref}/draft -> AgentDetail
 PUT /api/artifact-fields -> ArtifactFieldsRead
+PUT /api/board/rules -> RulesAnswer
 PUT /api/credentials/{ref}/enabled -> CredentialRead
 PUT /api/guard-attachments/{attachment_id}/enabled -> AttachmentRead
 PUT /api/lanes/{status} -> LaneRead[]
+PUT /api/lanes/{status}/rules -> RulesAnswer
 PUT /api/secrets/{name} -> SecretRead
 PUT /api/settings/personal -> PersonalSettingsRead
 PUT /api/settings/retention -> RulesSaved

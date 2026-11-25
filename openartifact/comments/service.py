@@ -67,6 +67,7 @@ class CommentService:
         """Add a comment to the artifact."""
         async with self._session() as session:
             task = await ArtifactService._task(session, ref)
+            ArtifactService.forbid_archived(task)
             now = datetime.now(UTC)
             row = TaskComment(
                 id=str(uuid.uuid4()),
@@ -122,6 +123,7 @@ class CommentService:
     @staticmethod
     async def _row(session: AsyncSession, ref: str, comment_id: str) -> TaskComment:
         task: Task = await ArtifactService._task(session, ref)
+        ArtifactService.forbid_archived(task)
         row = await session.get(TaskComment, comment_id)
         if row is None or row.task_id != task.id:
             raise ArtifactError(404, NOT_FOUND)

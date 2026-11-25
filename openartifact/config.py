@@ -110,6 +110,10 @@ class Settings(BaseSettings):
     #: grows with every run (outputs of up to 1 MiB each), so use it only with a policy per artifact.
     execution_history_default_keep: int = Field(default=50, ge=0, le=100000)
 
+    # ── Card rules ──────────────────────────────────────────────────
+    #: How often the card rules archive and delete cards (seconds; also when the rules are saved). ``0``: only then.
+    card_sweep_interval_seconds: float = Field(default=900, ge=0, le=86400)
+
     # ── Code and HTTP nodes ─────────────────────────────────────────
     #: Whether Code nodes run. Code runs as a child of the application with the application's own
     #: rights (no sandbox); off: a Code node fails with "Code nodes are disabled".
