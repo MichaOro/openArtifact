@@ -97,6 +97,7 @@ class Navigation:
 
 # ── Abstract base for registry entries ───────────────────────────────────
 
+
 class NavEntry(ABC):
     """Abstract base for all navigation entries registered in the NavigationRegistry.
 
@@ -267,6 +268,7 @@ class NavDividerEntry(NavEntry):
 
 # ── Registry ──────────────────────────────────────────────────────────────
 
+
 class NavigationRegistry:
     """Central registry for all navigation entries.
 
@@ -325,7 +327,9 @@ class NavigationRegistry:
         """
         # Main sidebar entries
         self.register(
-            NavLinkEntry(key="board", label_key="nav.board.label", icon="board", href="/", order=10),
+            NavLinkEntry(
+                key="board", label_key="nav.board.label", icon="board", href="/", order=10
+            ),
             parent="sidebar",
         )
         self.register(
@@ -340,7 +344,13 @@ class NavigationRegistry:
             parent="sidebar",
         )
         self.register(
-            NavLinkEntry(key="executions", label_key="nav.executions.label", icon="list", href="/executions", order=30),
+            NavLinkEntry(
+                key="executions",
+                label_key="nav.executions.label",
+                icon="list",
+                href="/executions",
+                order=30,
+            ),
             parent="sidebar",
         )
         self.register(
@@ -357,33 +367,67 @@ class NavigationRegistry:
 
         # Pipeline children
         self.register(
-            NavLinkEntry(key="actions", label_key="nav.actions.label", icon="action", href="/actions", order=10),
+            NavLinkEntry(
+                key="actions",
+                label_key="nav.actions.label",
+                icon="action",
+                href="/actions",
+                order=10,
+            ),
             parent="pipeline",
         )
         self.register(
-            NavLinkEntry(key="guards", label_key="nav.guards.label", icon="shield", href="/guards", order=20),
+            NavLinkEntry(
+                key="guards", label_key="nav.guards.label", icon="shield", href="/guards", order=20
+            ),
             parent="pipeline",
         )
         self.register(
-            NavLinkEntry(key="agents", label_key="nav.agents.label", icon="agent", href="/agents", order=30),
+            NavLinkEntry(
+                key="agents", label_key="nav.agents.label", icon="agent", href="/agents", order=30
+            ),
             parent="pipeline",
         )
 
         # Settings children
         self.register(
-            NavLinkEntry(key="providers", label_key="nav.providers.label", icon="plug", href="/settings/providers", order=10),
+            NavLinkEntry(
+                key="providers",
+                label_key="nav.providers.label",
+                icon="plug",
+                href="/settings/providers",
+                order=10,
+            ),
             parent="settings",
         )
         self.register(
-            NavLinkEntry(key="credentials", label_key="nav.credentials.label", icon="key", href="/settings/credentials", order=20),
+            NavLinkEntry(
+                key="credentials",
+                label_key="nav.credentials.label",
+                icon="key",
+                href="/settings/credentials",
+                order=20,
+            ),
             parent="settings",
         )
         self.register(
-            NavLinkEntry(key="run-limits", label_key="nav.run-limits.label", icon="clock", href="/settings/run-limits", order=30),
+            NavLinkEntry(
+                key="run-limits",
+                label_key="nav.run-limits.label",
+                icon="clock",
+                href="/settings/run-limits",
+                order=30,
+            ),
             parent="settings",
         )
         self.register(
-            NavLinkEntry(key="personal", label_key="nav.personal.label", icon="user", href="/settings/personal", order=40),
+            NavLinkEntry(
+                key="personal",
+                label_key="nav.personal.label",
+                icon="user",
+                href="/settings/personal",
+                order=40,
+            ),
             parent="settings",
         )
 
@@ -391,11 +435,19 @@ class NavigationRegistry:
 
         # Fields group - use artifact: prefix to avoid key collisions with sidebar
         self.register(
-            NavFieldEntry(key="artifact:lane", label_key="nav.lane.label", icon="columns", order=10),
+            NavFieldEntry(
+                key="artifact:lane", label_key="nav.lane.label", icon="columns", order=10
+            ),
             parent="artifact:fields",
         )
         self.register(
-            NavFieldEntry(key="artifact:parent", label_key="nav.parent.label", icon="parent", dot=False, order=20),
+            NavFieldEntry(
+                key="artifact:parent",
+                label_key="nav.parent.label",
+                icon="parent",
+                dot=False,
+                order=20,
+            ),
             parent="artifact:fields",
         )
         self.register(
@@ -403,15 +455,21 @@ class NavigationRegistry:
             parent="artifact:fields",
         )
         self.register(
-            NavFieldEntry(key="artifact:pipeline", label_key="nav.pipeline.label", icon="pipeline", order=40),
+            NavFieldEntry(
+                key="artifact:pipeline", label_key="nav.pipeline.label", icon="pipeline", order=40
+            ),
             parent="artifact:fields",
         )
         self.register(
-            NavFieldEntry(key="artifact:stage", label_key="nav.stage.label", icon="layers", order=50),
+            NavFieldEntry(
+                key="artifact:stage", label_key="nav.stage.label", icon="layers", order=50
+            ),
             parent="artifact:fields",
         )
         self.register(
-            NavFieldEntry(key="artifact:action", label_key="nav.action.label", icon="action", order=60),
+            NavFieldEntry(
+                key="artifact:action", label_key="nav.action.label", icon="action", order=60
+            ),
             parent="artifact:fields",
         )
 
@@ -421,19 +479,29 @@ class NavigationRegistry:
             parent="artifact:custom",
         )
         self.register(
-            NavGroupEntry(key="artifact:fields", label_key="nav.fields.label", icon="tag", order=20),
+            NavGroupEntry(
+                key="artifact:fields", label_key="nav.fields.label", icon="tag", order=20
+            ),
             parent="artifact:custom",
         )
 
         # Actions group
         self.register(
-            NavActionEntry(key="artifact:delete", label_key="nav.delete.label", icon="trash", danger=True, order=10),
+            NavActionEntry(
+                key="artifact:delete",
+                label_key="nav.delete.label",
+                icon="trash",
+                danger=True,
+                order=10,
+            ),
             parent="artifact:actions",
         )
 
     # ── Internal build helpers ────────────────────────────────────────────
 
-    def _build_navigation(self, root: str, active_nav: str, context: dict[str, Any]) -> list[NavLink]:
+    def _build_navigation(
+        self, root: str, active_nav: str, context: dict[str, Any]
+    ) -> list[NavLink]:
         """Build navigation tree from a root parent."""
         child_keys = self._children.get(root, [])
         result: list[NavLink] = []
@@ -461,7 +529,9 @@ class NavigationRegistry:
 
         return result
 
-    def _build_children(self, parent_key: str, active_nav: str, context: dict[str, Any]) -> list[NavLink]:
+    def _build_children(
+        self, parent_key: str, active_nav: str, context: dict[str, Any]
+    ) -> list[NavLink]:
         """Build children for a NavLinkEntry."""
         child_keys = self._children.get(parent_key, [])
         result: list[NavLink] = []
@@ -487,7 +557,9 @@ class NavigationRegistry:
 
         return result
 
-    def _build_rail_groups(self, root: str, context: dict[str, Any]) -> dict[str, list[NavItem | NavDivider]]:
+    def _build_rail_groups(
+        self, root: str, context: dict[str, Any]
+    ) -> dict[str, list[NavItem | NavDivider]]:
         """Build rail groups from artifact:* parents."""
         groups: dict[str, list[NavItem | NavDivider]] = {}
 
@@ -525,6 +597,7 @@ def _ensure_populated() -> None:
 # ── Legacy constants for backward compatibility ───────────────────────────
 
 NOTHING = "-"  # an en dash: nothing chosen yet
+
 
 def _build_legacy_sidebar() -> Navigation:
     """Build the legacy SIDEBAR constant from the registry."""

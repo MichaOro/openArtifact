@@ -8,16 +8,15 @@ from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
-from sqlalchemy import select
+from pydantic import BaseModel, ConfigDict
 
+from openartifact import personal_settings
 from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import SessionDep
 from openartifact.engine import history as history_module
 from openartifact.engine import retention
 from openartifact.engine.history import Changes
 from openartifact.engine.limits import RunLimitsRead, RunLimitsWrite, load_limits, save_limits
-from openartifact.models.settings import AppSetting
 
 DESCRIPTION = (
     "``max_steps`` (10 to 100000, default 1000): steps one execution may take, the actions and the nodes of "
@@ -28,10 +27,30 @@ DESCRIPTION = (
 )
 
 PERSONAL = (
-    "Personal preferences of the signed-in user (single-user system). Each setting is a switch or a choice; "
-    "changes take effect immediately and publish ``settings.changed``. Unknown keys are ignored for forward "
-    "compatibility. Default values are defined in the form manifest (``ui/forms/personal.yaml``)."
+    "Personal preferences of the user (a single-user system): ``mark_resolved_references`` (default off) marks the text "
+    "a ``${card.x}`` reference stands for, in the artifact dialog and on the board's cards. Which settings exist and "
+    "their defaults are declared in the form manifest ``ui/forms/personal.yaml``. A change takes effect at once."
 )
+
+
+def _default(name: str) -> Any:
+    """The default of a personal setting: the form manifest is the one place that declares it."""
+    return personal_settings.defaults()[name]
+
+
+class PersonalSettingsRead(BaseModel):
+    """The personal settings; what was never set has the default of the manifest."""
+
+    mark_resolved_references: bool = _default("mark_resolved_references")
+
+
+class PersonalSettingsWrite(BaseModel):
+    """A change of personal settings; a field that is left out keeps its value, a name nobody declared is refused."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    mark_resolved_references: bool | None = None
+
 
 RETENTION = (
     "What happens to finished executions, for all artifacts: a list of rules, each ``when`` a tree of groups "
@@ -153,19 +172,7 @@ def build_settings_router(
             matching=len(found), per_rule=await retention.count_per_rule(session, payload, now)
         )
 
-    # ── Personal Settings ────────────────────────────────────────────────
-
-    class PersonalSettingsRead(BaseModel):
-        """Personal settings as read by the client."""
-
-        mark_resolved_references: bool = False
-        # future settings will be added here
-
-    class PersonalSettingsWrite(BaseModel):
-        """Personal settings write payload (partial updates allowed)."""
-
-        mark_resolved_references: bool | None = None
-        # future settings will be added here
+    # ── Personal settings ────────────────────────────────────────────────
 
     @router.get(
         "/personal",
@@ -175,11 +182,7 @@ def build_settings_router(
         description=PERSONAL,
     )
     async def get_personal(session: SessionDep) -> PersonalSettingsRead:
-        result = await session.execute(select(AppSetting).where(AppSetting.key.like("personal.%")))
-        settings = {row.key: row.value for row in result.scalars().all()}
-        return PersonalSettingsRead(
-            mark_resolved_references=settings.get("personal.mark_resolved_references") == "true",
-        )
+        return PersonalSettingsRead(**await personal_settings.load(session))
 
     @router.put(
         "/personal",
@@ -190,18 +193,12 @@ def build_settings_router(
         + " A field that is left out keeps its value. Publishes ``settings.changed``.",
         responses=errors(422, write=True, body=True),
     )
-    async def put_personal(payload: PersonalSettingsWrite, request: Request, session: SessionDep) -> PersonalSettingsRead:
-        data = payload.model_dump(exclude_unset=True)
-        for key, value in data.items():
-            setting_key = f"personal.{key}"
-            setting_value = "true" if value is True else "false" if value is False else str(value)
-            existing = await session.get(AppSetting, setting_key)
-            if existing:
-                existing.value = setting_value
-            else:
-                session.add(AppSetting(key=setting_key, value=setting_value))
+    async def put_personal(
+        payload: PersonalSettingsWrite, request: Request, session: SessionDep
+    ) -> PersonalSettingsRead:
+        await personal_settings.save(session, payload.model_dump(exclude_unset=True))
         await session.commit()
-        result = await get_personal(session)
+        result = PersonalSettingsRead(**await personal_settings.load(session))
         request.app.state.event_bus.publish(
             "settings.changed", {"personal": result.model_dump(mode="json")}
         )

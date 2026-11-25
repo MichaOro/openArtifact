@@ -221,6 +221,17 @@ def _walk_segments(body: str, card: Mapping[str, Any], words: int | None) -> lis
     return segments
 
 
+def marked_or_none(
+    body: str | None, card: Mapping[str, Any], words: int | None = None
+) -> list[dict[str, Any]] | None:
+    """The body as marked segments (see :func:`resolve_body_segments`), or ``None`` when nothing in it was filled in:
+    the reader then has nothing to mark and shows the body as it is."""
+    if not has_references(body):
+        return None
+    segments = resolve_body_segments(body, card, words)
+    return segments if any(segment["resolved"] for segment in segments) else None
+
+
 def resolved_or_none(body: str | None, card: Mapping[str, Any]) -> str | None:
     """The full resolved body, or ``None`` when nothing in it was filled in (the reader then shows the body)."""
     if not has_references(body):

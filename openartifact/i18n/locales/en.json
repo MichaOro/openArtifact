@@ -1214,5 +1214,7 @@
  "index.standard_body_help": "The text of every artifact.",
  "tasks.body.saved_with_notes": "Saved. Not every reference can be filled in:",
  "artifact_dialog.resolved_legend": "Legend",
- "artifact_dialog.resolved_explanation": "▉ Resolved reference"
+ "artifact_dialog.resolved_explanation": "Resolved reference",
+ "nav.personal.label": "Personal",
+ "nav.personal.tooltip": "Personal settings"
 }

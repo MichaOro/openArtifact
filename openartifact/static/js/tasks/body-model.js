@@ -35,7 +35,13 @@ export function warningsFor(warned, task) {
   return warned && task && warned.id === task.id ? warned.warnings : [];
 }
 
-/** Whether the mark_resolved_references setting is enabled for this task. */
-export function shouldMarkResolved(task) {
-  return task?.mark_resolved_references === true;
+/** The body as marked segments (`[{text, resolved}]`): the server sends them only while the personal setting *Mark resolved
+ * references* is on and something was filled in; null means: show the text as it is. */
+export function bodySegments(task) {
+  return Array.isArray(task?.body_resolved_segments) ? task.body_resolved_segments : null;
+}
+
+/** The same for the first words of the board's card. */
+export function previewSegments(task) {
+  return Array.isArray(task?.preview_segments) ? task.preview_segments : null;
 }

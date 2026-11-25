@@ -60,14 +60,14 @@ def test_navigation_registry_builds_sidebar():
 
     # Pipeline should have 3 children
     pipeline = next(item for item in sidebar if item.key == "pipeline")
-    assert hasattr(pipeline, 'children')
+    assert hasattr(pipeline, "children")
     assert len(pipeline.children) == 3
     child_keys = [c.key for c in pipeline.children]
     assert child_keys == ["actions", "guards", "agents"]
 
     # Settings should have 4 children (providers, credentials, run-limits, personal)
     settings = next(item for item in sidebar if item.key == "settings")
-    assert hasattr(settings, 'children')
+    assert hasattr(settings, "children")
     assert len(settings.children) == 4
     child_keys = [c.key for c in settings.children]
     assert child_keys == ["providers", "credentials", "run-limits", "personal"]
@@ -88,7 +88,7 @@ def test_navigation_registry_builds_rail():
 
     # Fields group should have lane, parent, divider, pipeline, stage, action (without prefix - stripped for template)
     fields = rail["fields"]
-    field_keys = [item.key for item in fields if hasattr(item, 'key') and item.key]
+    field_keys = [item.key for item in fields if hasattr(item, "key") and item.key]
     assert "lane" in field_keys
     assert "parent" in field_keys
     assert "pipeline" in field_keys
@@ -97,12 +97,12 @@ def test_navigation_registry_builds_rail():
 
     # Custom group should have fields NavGroup
     custom = rail["custom"]
-    group_keys = [item.key for item in custom if hasattr(item, 'key')]
+    group_keys = [item.key for item in custom if hasattr(item, "key")]
     assert "fields" in group_keys
 
     # Actions should have delete
     actions = rail["actions"]
-    action_keys = [item.key for item in actions if hasattr(item, 'key')]
+    action_keys = [item.key for item in actions if hasattr(item, "key")]
     assert "delete" in action_keys
 
 
@@ -115,7 +115,9 @@ def test_navigation_registry_register_new_entry():
 
     # Register a new entry under settings (different key to avoid collision with built-in personal)
     registry.register(
-        NavLinkEntry(key="myfeature", label_key="nav.myfeature.label", icon="star", href="/myfeature"),
+        NavLinkEntry(
+            key="myfeature", label_key="nav.myfeature.label", icon="star", href="/myfeature"
+        ),
         parent="settings",
         order=50,
     )

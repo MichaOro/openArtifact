@@ -86,6 +86,7 @@
   align-items: center;
   gap: var(--space-2);
 }
+.resolved-legend__line { display: flex; align-items: center; gap: var(--space-2); margin: 0; }
 .resolved-legend__mark {
   display: inline-block;
   width: 1rem;

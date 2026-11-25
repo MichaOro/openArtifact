@@ -409,6 +409,13 @@ connectEvents({
       if (open && artifactDialog.mode === "view") loadFullBody(open.id); // a referenced field changed
     }
     else if (type === "board.resync") board.load(); // lane was renumbered: positions changed
+    else if (type === "settings.changed") {
+      if (data.personal) {
+        board.load(); // marked or not: the server sends the cards the other way now
+        const open = artifactDialog.editing;
+        if (open && artifactDialog.mode === "view") loadFullBody(open.id);
+      }
+    }
     else {
       board.upsert(data); // task.created / task.updated / task.moved
       artifactDialog.refreshView(data);

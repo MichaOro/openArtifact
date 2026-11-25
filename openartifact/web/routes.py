@@ -163,14 +163,21 @@ async def executions(request: Request, page_size: int = 50) -> HTMLResponse:
     ``page_size`` (1 to 200, default 50) is how many rows one request fetches; the filters live in the
     query string and are read by the page.
     """
-    return _page(request, "executions.html", "page.executions", "", page_size=max(1, min(page_size, 200)))
+    return _page(
+        request, "executions.html", "page.executions", "", page_size=max(1, min(page_size, 200))
+    )
 
 
 def _page(request: Request, name: str, title: str, nav: str, **more: str) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name=name,
-        context={"page_title": title, "active_nav": _active_nav_from_path(request.url.path), "app_version": APP_VERSION, **more},
+        context={
+            "page_title": title,
+            "active_nav": _active_nav_from_path(request.url.path),
+            "app_version": APP_VERSION,
+            **more,
+        },
     )
 
 

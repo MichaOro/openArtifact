@@ -1733,5 +1733,10 @@
  "index.standard_body_help": "Der Text jedes Artefakts.",
  "tasks.body.saved_with_notes": "Gespeichert. Nicht jeder Verweis lässt sich einsetzen:",
  "artifact_dialog.resolved_legend": "Legende",
- "artifact_dialog.resolved_explanation": "▉ Aufgelöste Referenz"
+ "artifact_dialog.resolved_explanation": "Aufgelöste Referenz",
+ "nav.personal.label": "Persönlich",
+ "nav.personal.tooltip": "Persönliche Einstellungen",
+ "forms.personal.sections.display.title": "Anzeige",
+ "forms.personal.fields.mark_resolved_references.label": "Aufgelöste Referenzen markieren",
+ "forms.personal.fields.mark_resolved_references.help": "Hebt den Text, für den eine ${card.X}-Referenz steht, im Artefakt-Dialog und auf den Karten des Boards farbig hervor und zeigt eine Legende."
 }

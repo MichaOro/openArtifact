@@ -12,8 +12,12 @@ def test_personal_settings_models_exist():
     router = build_settings_router("/api", ["settings"])
 
     # Find the personal endpoints
-    personal_get = next((r for r in router.routes if getattr(r, "name", "").endswith("get_personal")), None)
-    personal_put = next((r for r in router.routes if getattr(r, "name", "").endswith("put_personal")), None)
+    personal_get = next(
+        (r for r in router.routes if getattr(r, "name", "").endswith("get_personal")), None
+    )
+    personal_put = next(
+        (r for r in router.routes if getattr(r, "name", "").endswith("put_personal")), None
+    )
 
     assert personal_get is not None, "GET /api/settings/personal not found"
     assert personal_put is not None, "PUT /api/settings/personal not found"
@@ -59,4 +63,5 @@ def test_navigation_registers_personal():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v"])

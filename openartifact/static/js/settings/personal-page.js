@@ -1,62 +1,59 @@
-/* Settings > Personal: rendered from form manifest via FormView. Switches persist on change (catalog rule 5). */
+/* Settings > Personal (ADR-062): the form is the manifest `ui/forms/personal.yaml`, drawn by components/form-view.js. A switch
+ * is saved when it is changed (persist policy of the catalog), one request at a time; another tab's change arrives as
+ * `settings.changed` and is shown unless a save of this one is still on its way. */
 import { AlertBar } from "../components/alert-bar.js";
-import { request } from "../http.js";
-import { connectEvents } from "../tasks/events.js";
 import { FormView } from "../components/form-view.js";
+import { request } from "../http.js";
 import { t } from "../i18n.js";
+import { connectEvents } from "../tasks/events.js";
 
-const host = document.querySelector("[data-personal-settings]");
-const status = host.querySelector("[data-status]");
+const URL = "/api/settings/personal";
+const root = document.querySelector("[data-personal-settings]");
+const status = root.querySelector("[data-status]");
+const errorLine = root.querySelector("[data-form-error]");
 const banner = new AlertBar();
-let formView = null;
-let saved = null;
+let form = null;
+let saving = 0;
 
+function showError(message) {
+  errorLine.textContent = message;
+  errorLine.hidden = !message;
+}
+
+/** The values the form shows: what the server holds. */
 function show(settings) {
-  saved = settings;
-  if (formView) {
-    formView.values = { ...settings };
-    formView.render();
-  }
+  if (!form) return;
+  form.values = { ...settings };
+  form.render();
 }
 
 async function load() {
   try {
-    const settings = await request("/api/settings/personal");
-    show(settings);
-    banner.hide();
-    // Initialize FormView after first load
-    if (!formView) {
-      const manifest = await request("/api/forms/personal");
-      formView = new FormView(host.querySelector("[data-form]"), {
-        manifest,
-        values: settings,
-        onChange: (values, key) => {
-          // Switch persists on change (catalog rule 5)
-          if (key in saved && saved[key] !== values[key]) {
-            persist(key, values[key]);
-          }
-        },
-      });
+    const [settings, manifest] = await Promise.all([request(URL), form ? null : request("/api/forms/personal")]);
+    if (!form) {
+      form = new FormView(root.querySelector("[data-form]"), { manifest, values: { ...settings }, onChange: (values, key) => persist(key, values[key]) });
+    } else {
+      show(settings);
     }
+    banner.hide();
   } catch {
     banner.show(t("settings.personal_page.personal_could_not_be"), { retry: true });
   }
 }
 
 async function persist(key, value) {
+  saving += 1;
   status.textContent = t("editor.setting_controls.saving");
+  showError("");
   try {
-    await request("/api/settings/personal", {
-      method: "PUT",
-      body: JSON.stringify({ [key]: value }),
-    });
-    show(await request("/api/settings/personal"));
+    show(await request(URL, { method: "PUT", body: JSON.stringify({ [key]: value }) }));
     status.textContent = t("settings.personal_page.saved");
   } catch (problem) {
     status.textContent = "";
-    const msg = Object.values(problem.fieldErrors ?? {})[0] ?? problem.detail ?? problem.message;
-    host.querySelector("[data-form-error]")?.textContent = msg;
-    host.querySelector("[data-form-error]")?.hidden = false;
+    showError(Object.values(problem.fieldErrors ?? {})[0] ?? problem.detail ?? problem.message);
+    await load(); // the form shows what the server holds again
+  } finally {
+    saving -= 1;
   }
 }
 
@@ -65,12 +62,8 @@ load();
 
 connectEvents({
   onClosed: () => {},
-  onOpen: () => {},
+  onOpen: () => form && load(), // a reconnect: events may have been missed (the first load is already on its way)
   onEvent: (type, data) => {
-    // another tab changed them: show the new values unless this form has changes of its own
-    if (type === "settings.changed" && data.personal) {
-      const hasLocalChanges = formView && Object.keys(formView.values).some(k => formView.values[k] !== saved[k]);
-      if (!hasLocalChanges) show(data.personal);
-    }
+    if (type === "settings.changed" && data.personal && !saving) show(data.personal);
   },
 });

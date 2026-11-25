@@ -154,7 +154,10 @@ def test_the_forms_endpoint_serves_the_manifest_in_english_and_404s_for_an_unkno
     client: TestClient,
 ) -> None:
     listed = client.get("/api/forms").json()
-    assert [f["name"] for f in listed] == ["guard"]
+    assert [f["name"] for f in listed] == [
+        "guard",
+        "personal",
+    ]  # the shipped manifests: ui/forms/*.yaml
     guard = client.get("/api/forms/guard").json()
     assert guard["schema"] == 1 and guard["columns"] == 2 and guard["width"] == 50
     trigger = guard["sections"][0]
