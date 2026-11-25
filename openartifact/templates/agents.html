@@ -1,36 +1,22 @@
 {% extends "base.html" %}
 {% from "components/alert.html" import alert %}
 {% from "components/confirm_modal.html" import confirm_modal %}
-{% from "components/form_modal.html" import form_modal %}
+{% from "components/manifest_modal.html" import manifest_modal %}
 {% from "components/icons.html" import icon %}
 {% block title %}{{ t('page.agents') }} · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
-<link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
+<link rel="stylesheet" href="/static/css/agents.css">
+<link rel="stylesheet" href="/static/css/management.css">{% endblock %}
 {% block content %}
 {{ alert(t('agents.list_page.agents_could_not_be_loaded')) }}
 <div class="action-row">
     <button type="button" class="button button--primary" data-new-agent>{{ icon("plus") }} {{ t('agents.new_agent') }}</button>
 </div>
 <p class="ag-intro">{{ t('agents.an_agent_is_a_reusable_prompt') }} <strong>{{ t('common.agent') }}</strong> {{ t('agents.node_of_an_action_runs_it') }}</p>
-<ul class="ge-list" data-agent-list aria-label="{{ t('agent_editor.agents') }}"></ul>
-<p class="ge-empty glass" data-agent-empty hidden>{{ t('agents.no_agents_yet_create_the_first') }}</p>
+{# The list, its toolbar and the detail panel are drawn by components/management-page.js (ADR-069); static/js/agents/list-page.js says what an entry is. #}
+<div data-management data-kind="agent"></div>
 
-<template id="agent-item-template">
-    <li class="ge-item glass ag-item">
-        <a class="ge-item__link" href="#">
-            <h3 class="ge-item__name"></h3>
-            <p class="ge-item__meta"></p>
-            <p class="ag-item__hint" hidden></p>
-        </a>
-        <span class="ag-chips" data-chips></span>
-        <button type="button" class="icon-button icon-button--sm is-danger" data-delete aria-label="{{ t('agents.delete_agent') }}" title="{{ t('common.delete') }}">{{ icon("trash") }}</button>
-    </li>
-</template>
-
-{{ form_modal("name-modal", t('agents.new_agent'), [
-    {"name": "name", "label": t('common.name'), "kind": "text", "required": True, "maxlength": 100},
-    {"name": "description", "label": t('common.description'), "kind": "textarea", "rows": 3, "maxlength": 2000, "hint": t('common.optional')},
-]) }}
+{{ manifest_modal("agent-modal", t('page.agents')) }}
 {{ confirm_modal("confirm-modal", t('dialog.delete_agent')) }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/agents/list-page.js"></script>{% endblock %}

@@ -121,7 +121,6 @@
  "agents.list_page.delete_agent_subject_with_all": "Delete the agent {subject} with all its versions? This cannot be undone.",
  "agents.list_page.refers.one": "{count} agent node refers to this agent: remove it to delete the agent.",
  "agents.list_page.refers.other": "{count} agent nodes refer to this agent: remove them to delete the agent.",
- "agents.list_page.use_cannot_be_deleted": "In use: cannot be deleted",
  "agents.model.agent_version_agent_version": "Agent version {agent_version}",
  "agents.model.draft_has_changes": "Draft has changes",
  "agents.model.e_g_login_fails_after": "e.g. Login fails after the update",
@@ -1301,5 +1300,19 @@
  "graph_list.tab_versions": "Versions",
  "graph_list.tab_usage": "Usage",
  "graph.action.chip_pipeline": "Pipeline",
- "editor.list.edit_pipeline": "Edit pipeline"
+ "editor.list.edit_pipeline": "Edit pipeline",
+ "components.clamped_text.show_more": "Show more",
+ "components.clamped_text.show_less": "Show less",
+ "components.clamped_text.copy": "Copy",
+ "components.clamped_text.copied": "Copied",
+ "components.clamped_text.select_by_hand": "Copy by hand",
+ "agents.page.search": "Search agents",
+ "agents.page.published": "Published",
+ "agents.page.draft": "Draft",
+ "agents.page.no_prompt": "No text yet",
+ "agents.page.settings": "Settings",
+ "agents.page.repeats": "repeats v{number}",
+ "agents.page.current": "current",
+ "agents.page.manage_versions": "Publish or roll back in the editor",
+ "agents.page.edit_agent": "Agent"
 }
