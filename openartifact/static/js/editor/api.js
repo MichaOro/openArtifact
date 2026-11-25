@@ -16,6 +16,12 @@ export const renameGraph = (kind, id, name) => send("PATCH", base(kind, id), { n
 export const updateGraph = (kind, id, fields) => send("PATCH", base(kind, id), fields);
 export const deleteGraph = (kind, id) => send("DELETE", base(kind, id));
 
+// versions (ADR-070): the list, one version with its frozen graph, publish the draft, publish an earlier version again
+export const versionsOf = (kind, id) => request(`${base(kind, id)}/versions`);
+export const versionOf = (kind, id, number) => request(`${base(kind, id)}/versions/${number}`);
+export const publishGraph = (kind, id) => send("POST", `${base(kind, id)}/publish`);
+export const republishGraph = (kind, id, number) => send("POST", `${base(kind, id)}/versions/${number}/republish`);
+
 export const loadGraph = (kind, id) => request(base(kind, id));
 export const addNode = (kind, id, node) => send("POST", `${base(kind, id)}/nodes`, node);
 export const updateNode = (kind, id, nodeId, fields) => send("PATCH", `${base(kind, id)}/nodes/${encodeURIComponent(nodeId)}`, fields);

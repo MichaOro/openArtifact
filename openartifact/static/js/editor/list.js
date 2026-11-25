@@ -10,8 +10,9 @@ import { ManifestDialog } from "../components/manifest-dialog.js";
 import { Modal } from "../components/modal.js";
 import { structureOfChain, structureOfGraph } from "../components/preview-layout.js";
 import { KEYS, readJson, removeStorage } from "../storage.js";
-import { createGraph, deleteGraph, listGraphs, loadGraph, stagesOf, updateGraph, usesOf } from "./api.js";
+import { createGraph, deleteGraph, listGraphs, loadGraph, stagesOf, updateGraph, usesOf, versionOf } from "./api.js";
 import { loadNodeTypes, typeOf } from "./node-types.js";
+import { publicationChip, publicationOf, publicationText, renderVersions } from "./versions-tab.js";
 import { t } from "../i18n.js";
 
 const root = document.querySelector("[data-management]");
@@ -46,8 +47,7 @@ function structureOf(graph) {
 }
 
 const purposeChip = (graph) => (kind === "action" ? (graph.purpose === "guard" ? chip(t("graph.action.chip_guard"), { glyph: "shield", tone: "guard" }) : chip(t("graph.action.chip_pipeline"), { glyph: "action" })) : null);
-const statusChip = () => chip(t("common.draft"), { glyph: "undo" });
-const chipsOf = (graph) => [purposeChip(graph), statusChip()].filter(Boolean);
+const chipsOf = (graph) => [purposeChip(graph), publicationChip(graph)].filter(Boolean);
 
 function card(graph) {
   const box = make("div", "mg-card__body");
@@ -80,7 +80,7 @@ function fact(list, label, value) {
 function overview(body, graph) {
   const list = make("dl", "mg-facts");
   if (kind === "action") fact(list, t("graph_list.type"), graph.purpose === "guard" ? t("graph.action.chip_guard") : t("graph.action.chip_pipeline"));
-  fact(list, t("graph_list.status"), t("common.draft"));
+  fact(list, t("graph_list.status"), publicationText(publicationOf(graph)));
   fact(list, t("graph_list.nodes"), String(graph.node_count));
   fact(list, t("graph_list.changed"), when(graph.updated_at));
   fact(list, t("graph_list.description"), graph.description || "–");
@@ -100,10 +100,49 @@ function overview(body, graph) {
   body.append(list, tags, actions);
 }
 
+// the version the Graph tab shows instead of the draft, by graph (the Versions tab's "Show", ADR-070)
+const shownVersion = new Map();
+
 function graphTab(body, graph) {
   const picture = make("div");
-  body.append(picture);
-  structureOf(graph).then((structure) => new GraphPreview(picture, { structure, typeOf, node: 44 }));
+  const number = shownVersion.get(graph.id) ?? null;
+  if (number === null) {
+    body.append(picture);
+    structureOf(graph).then((structure) => new GraphPreview(picture, { structure, typeOf, node: 44 }));
+    return;
+  }
+  // a published version, read-only: the note says which one it is and a way back to the draft
+  const note = make("p", "mg-showing");
+  note.append(document.createTextNode(t("graph_versions.showing", { number })));
+  const back = make("button", "button button--ghost button--sm", t("graph_versions.back_to_draft"));
+  back.type = "button";
+  back.addEventListener("click", () => {
+    shownVersion.delete(graph.id);
+    page.refreshPanel();
+  });
+  note.append(back);
+  body.append(note, picture);
+  versionOf(kind, graph.id, number)
+    .then((found) => (kind === "action" ? structureOfGraph(found, (k) => Boolean(typeOf(k)?.tool)) : structureOfChain(found.stages)))
+    .then((structure) => new GraphPreview(picture, { structure, typeOf, node: 44 }))
+    .catch(() => picture.replaceChildren(make("p", "mg-card__facts", t(`graph.${noun}.load_error`))));
+}
+
+function versionsTab(body, graph) {
+  renderVersions(body, graph, {
+    kind,
+    confirm: (options) => confirm.open(options),
+    shown: shownVersion.get(graph.id) ?? null,
+    onShow: (number) => {
+      shownVersion.set(graph.id, number);
+      page.panelTab = "graph";
+      page.refreshPanel();
+    },
+    onChanged: async () => {
+      shownVersion.delete(graph.id);
+      await load();
+    },
+  });
 }
 
 async function usageTab(body, graph) {
@@ -166,7 +205,7 @@ const page = new ManagementPage(root, {
     tabs: () => [
       { key: "overview", label: t("graph_list.tab_overview"), render: overview },
       { key: "graph", label: t("graph_list.tab_graph"), render: graphTab },
-      { key: "versions", label: t("graph_list.tab_versions"), disabled: true, render: () => {} }, // a place held for versions (not built)
+      { key: "versions", label: t("graph_list.tab_versions"), render: versionsTab },
       { key: "usage", label: t("graph_list.tab_usage"), render: usageTab },
     ],
   },

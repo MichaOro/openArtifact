@@ -156,6 +156,30 @@ class GraphRead(_Timestamps):
     #: What it is for, in a sentence or two, and the short labels to find it by (the management pages, ADR-069).
     description: str = ""
     tags: list[str] = Field(default_factory=list)
+    #: The version executions use (ADR-070; ``None``: nothing published, the draft runs) and whether the draft differs from it.
+    published_version: int | None = Field(default=None, validation_alias="published_number")
+    draft_changed: bool = False
+
+
+class GraphVersionRead(BaseModel):
+    """A published version. ``source_number``: the version it repeats (a rollback), else ``None``; ``current``: executions use it."""
+
+    number: int
+    published_at: UtcDateTime
+    published_via: str
+    source_number: int | None
+    current: bool
+    node_count: int = 0
+
+
+class GraphVersionDetail(GraphVersionRead):
+    """A published version with the frozen graph (``nodes`` and ``edges`` as the graph had them), for showing it read-only."""
+
+    name: str = ""
+    nodes: list[dict[str, Any]]
+    edges: list[dict[str, Any]]
+    #: For a pipeline: its stages in the order it runs them with their actions, as ``GET /stages`` says (to draw the picture).
+    stages: list[dict[str, Any]] | None = None
 
 
 class GraphListRead(GraphRead):
@@ -228,6 +252,13 @@ class EdgeRead(BaseModel):
     style: str
     source_slot: int
     target_slot: int
+
+
+class PublishedGraph(BaseModel):
+    """What publishing answers: the graph as it is now and the version that was made."""
+
+    graph: GraphListRead
+    version: GraphVersionRead
 
 
 class GraphDetail(BaseModel):

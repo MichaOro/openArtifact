@@ -142,6 +142,14 @@ that reaches On Pass makes the action pass, the one that reaches On Fail makes i
 path that ends nowhere (a node with an unconnected outcome) fails the action. One definition can be used by
 many actions.
 
+**Versions of pipelines and actions.** What you edit in the editor is the **draft**. *Publish* (in the **Versions** tab of the panel on
+*Pipelines* and *Actions*, not in the editor) makes the draft a numbered **version**; from then on an execution uses the **published
+version** and an edit of the draft reaches no run before it is published. Until something is published the draft runs, as it always did.
+The card and the panel say where it stands: *Draft* (nothing published), *v3 published* (the draft equals it) or *Draft has changes*. Each
+version can be shown read-only (the *Graph* tab draws it) and published again (a rollback: a new version with that content, the history
+stays, the draft is not touched). A pipeline follows the published versions of its actions. See
+[ADR-070](../architecture/adr/070-versions-of-actions-and-pipelines.md).
+
 **Execution nodes.** The nodes of an action definition that do work:
 
 | Node | What it does | Leaves by |

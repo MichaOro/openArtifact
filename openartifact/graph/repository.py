@@ -29,6 +29,7 @@ from openartifact.graph.node_types import (
 from openartifact.graph.rules import Endpoint, validate_edge
 from openartifact.graph.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
 from openartifact.graph.slug import slugify
+from openartifact.graph.versions import published_node_kinds, published_users
 from openartifact.models import (
     Execution,
     Graph,
@@ -236,6 +237,19 @@ class GraphRepository:
                         "detail": stage.name if stage else "",
                     }
                 )
+            listed = {u["name"] for u in uses}
+            for user, number in await published_users(self._session, NodeKind.ACTION, graph.id):
+                if (
+                    user.name not in listed
+                ):  # its draft no longer uses it, its published version still does
+                    uses.append(
+                        {
+                            "kind": "stage",
+                            "name": user.name,
+                            "href": f"/pipelines/{user.slug}",
+                            "detail": f"v{number} published",
+                        }
+                    )
             for (guard_name,) in (
                 await self._session.execute(
                     select(GuardDefinition.name)
@@ -259,6 +273,17 @@ class GraphRepository:
             uses.append(
                 {"kind": "pipeline", "name": name, "href": f"/pipelines/{slug}", "detail": ""}
             )
+        listed = {u["name"] for u in uses}
+        for user, number in await published_users(self._session, NodeKind.PIPELINE, graph.id):
+            if user.name not in listed:
+                uses.append(
+                    {
+                        "kind": "pipeline",
+                        "name": user.name,
+                        "href": f"/pipelines/{user.slug}",
+                        "detail": f"v{number} published",
+                    }
+                )
         for (guard_name,) in (
             await self._session.execute(
                 select(GuardDefinition.name)
@@ -291,7 +316,12 @@ class GraphRepository:
             .where(GuardDefinition.action_id == graph.id)
             .order_by(GuardDefinition.name)
         )
-        return list(pipelines), list(guards)
+        names = list(pipelines)
+        # a pipeline whose published version still uses it runs it, whatever its draft says (ADR-070)
+        for user, _number in await published_users(self._session, NodeKind.ACTION, graph.id):
+            if user.name not in names:
+                names.append(user.name)
+        return sorted(names), list(guards)
 
     async def change_purpose(self, graph: Graph, purpose: str) -> None:
         """Make an action definition for pipelines or for guards (ADR-067). It must not be used on the other side and must not
@@ -312,9 +342,10 @@ class GraphRepository:
                 f"'{graph.name}' is run by the {'guard' if len(guards) == 1 else 'guards'} {_names(guards)}: choose another action there before it becomes a pipeline action"
             )
         nodes, _ = await self.graph(graph.id)
-        unfit = sorted(
-            {node_type(n.kind).label for n in nodes if purpose not in node_type(n.kind).purposes}
-        )
+        kinds = {n.kind for n in nodes} | await published_node_kinds(
+            self._session, graph
+        )  # the published version runs too
+        unfit = sorted({node_type(k).label for k in kinds if purpose not in node_type(k).purposes})
         if unfit:
             raise PurposeError(
                 f"'{graph.name}' holds {_names(unfit)}, which can only be used in a {'pipeline' if purpose == 'guard' else 'guard'} action: take "

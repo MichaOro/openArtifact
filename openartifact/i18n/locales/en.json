@@ -1335,5 +1335,18 @@
  "agents.page.select": "Select an agent to see its details",
  "guards.select_one": "Select a guard to see its details",
  "agents.editor_page.show_more_versions": "Show more versions ({count})",
- "agents.editor_page.hide_versions": "Hide {count} versions"
+ "agents.editor_page.hide_versions": "Hide {count} versions",
+ "graph_versions.chip_published": "v{number} published",
+ "graph_versions.chip_changed": "Draft has changes",
+ "graph_versions.publish": "Publish",
+ "graph_versions.publish_confirm": "Publish the draft as a new version? Executions that start from now on use it.",
+ "graph_versions.publish_again_confirm": "Publish version {number} again? This makes a new version with its content; the history stays as it is, the draft is not changed.",
+ "graph_versions.note_nothing_published": "Nothing is published: executions run the draft.",
+ "graph_versions.note_equal": "The draft equals the published version {number}.",
+ "graph_versions.note_changed": "The draft differs from the published version {number}: executions use version {number} until the draft is published.",
+ "graph_versions.none": "No version yet.",
+ "graph_versions.shown": "Shown",
+ "graph_versions.load_error": "The versions could not be loaded.",
+ "graph_versions.showing": "Showing version {number}, read-only.",
+ "graph_versions.back_to_draft": "Back to the draft"
 }

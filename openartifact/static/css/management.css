@@ -105,3 +105,14 @@
 .ct__empty { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); }
 .mg-prompt-switch { display: flex; gap: var(--space-1); }
 .mg-prompts { display: grid; gap: var(--space-3); }
+
+/* The Versions tab of the panel of pipelines and actions (ADR-070): a compact row per version, like the versions of an agent */
+.mg-versions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.mg-versions__top { display: grid; gap: var(--space-2); justify-items: start; }
+.mg-versions__note { margin: 0; }
+.mg-version { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-glass-card) 90%, transparent); }
+.mg-version__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.mg-version__meta { font-size: 0.75rem; color: var(--color-text-muted); }
+.mg-version__buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.mg-showing { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-accent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-accent) 10%, transparent); font-size: 0.8125rem; }
+.ge-chip--use { background: color-mix(in srgb, var(--edge-pass) 18%, transparent); }

@@ -1,6 +1,6 @@
 """The management pages of pipelines and actions (ADR-069): a click selects and shows the details in the panel, a double click and the
-pencil open the editor, the bin deletes after a question, the keys move and open, cards or list, search and tags, the usage tab, the
-greyed versions tab, and the sheet on a narrow screen."""
+pencil open the editor, the bin deletes after a question, the keys move and open, cards or list, search and tags, the usage tab,
+the versions tab, and the sheet on a narrow screen."""
 
 from __future__ import annotations
 
@@ -32,7 +32,9 @@ def test_a_click_selects_and_shows_the_panel_a_double_click_and_the_pencil_open_
     expect(panel.locator("h2")).to_have_text("Gap analysis")
     expect(_card(page, "Gap analysis")).to_have_attribute("aria-current", "true")
     expect(panel.get_by_role("tab")).to_have_text(["Overview", "Graph", "Versions", "Usage"])
-    expect(panel.get_by_role("tab", name="Versions")).to_be_disabled()  # a place held, not built
+    expect(
+        panel.get_by_role("tab", name="Versions")
+    ).to_be_enabled()  # pipelines and actions have versions now (ADR-070)
     expect(panel.locator(".mg-tag")).to_have_text(["epic"])
     _card(page, "Gap analysis").dblclick()
     expect(page).to_have_url(f"{base_url}/actions/gap-analysis")

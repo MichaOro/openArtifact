@@ -42,7 +42,7 @@ from openartifact.models.enums import (
     StageStatus,
     StartedBy,
 )
-from openartifact.models.graphs import Graph, GraphEdge, GraphNode
+from openartifact.models.graphs import Graph, GraphEdge, GraphNode, GraphVersion
 from openartifact.models.guards import GuardAttachment, GuardDefinition
 from openartifact.models.runs import Execution, PipelineRun, RunNodeResult, RunStage
 from openartifact.models.settings import AppSetting
@@ -62,6 +62,7 @@ __all__ = [
     "GraphKind",
     "GraphNode",
     "GraphPurpose",
+    "GraphVersion",
     "GuardAttachment",
     "GuardDefinition",
     "InternalCredential",

@@ -103,3 +103,11 @@ The owner's remarks on the pages as built (cards jumped when an entry was select
   odd. The graph is shown in the panel only (tab *Graph*, `GraphPreview`, horizontal or vertical by the room it has). A card shows the name, the
   chips, the description when one is kept, the number of nodes and the date of the change; the grid is denser (cards from 15 rem).
   `lazyPreview` is not used any more and is in `quarantine.json` (14 days) in case a page wants a picture again.
+
+## 8. Addendum (2026-11-26): the Versions tab of pipelines and actions is built
+
+Pipelines and actions have versions ([ADR-070](070-versions-of-actions-and-pipelines.md)): the *Versions* tab is no longer greyed. It is
+`static/js/editor/versions-tab.js` (a page's own tab, the frame knows nothing of it): *Publish* on top, the versions newest first with
+*In use*, *Show* (the *Graph* tab shows that version read-only; the page sets `page.panelTab = "graph"` and calls `refreshPanel()`) and
+*Publish again*; the chip of the card and of the panel is `publicationChip` (*Draft*, *v3 published*, *Draft has changes*). A tab that is not
+built is still `disabled: true`.

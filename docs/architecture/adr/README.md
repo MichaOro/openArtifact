@@ -79,6 +79,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [067](067-pipeline-actions-and-guard-actions.md) | Pipeline actions and guard actions: an action definition is for pipelines or for guards (chosen when made, exclusive, changed with protection); a node kind says in which it may be used, with a hook for permissions | Accepted | 2026-11-25 | amends ADR-060, ADR-054 |
 | [068](068-sqlite-node-for-guard-actions.md) | The SQLite node and tool: read-only SQL on the application's own data for guard actions, enforced by the database (read-only file, authorizer, listed `v_guard_*` views, a fixed floor of secrets), data sources registered by name | Accepted | 2026-11-25 | amends ADR-041, ADR-060 |
 | [069](069-management-pages.md) | Management pages: one way to use the pages of pipelines, actions, agents and guards (click selects and shows the panel, double click and the pencil open, the bin asks first, keys), one frame component, a picture of the graph laid out from its structure (a row or a column), description and tags for pipelines and actions | Accepted | 2026-11-25 | amends ADR-059, ADR-065 |
+| [070](070-versions-of-actions-and-pipelines.md) | Versions of pipelines and actions: a draft and published versions (frozen copies of the graph), publish and publish again in the panel, executions read the published version and fall back to the draft | Accepted | 2026-11-25 | amends ADR-015, ADR-067, ADR-069 |
 
 ## Notes
 

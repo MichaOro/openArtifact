@@ -55,6 +55,8 @@ DELETE /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/actions -> GraphListRead[]
 GET /api/actions/{graph_id} -> GraphDetail
 GET /api/actions/{graph_id}/uses -> GraphUses
+GET /api/actions/{graph_id}/versions -> GraphVersionRead[]
+GET /api/actions/{graph_id}/versions/{number} -> GraphVersionDetail
 GET /api/agents -> AgentRead[]
 GET /api/agents/{ref} -> AgentDetail
 GET /api/agents/{ref}/uses -> AgentUse[]
@@ -82,6 +84,8 @@ GET /api/pipelines -> GraphListRead[]
 GET /api/pipelines/{graph_id} -> GraphDetail
 GET /api/pipelines/{graph_id}/stages -> ChainEntryRead[]
 GET /api/pipelines/{graph_id}/uses -> GraphUses
+GET /api/pipelines/{graph_id}/versions -> GraphVersionRead[]
+GET /api/pipelines/{graph_id}/versions/{number} -> GraphVersionDetail
 GET /api/providers -> ProviderRead[]
 GET /api/providers/{ref} -> ProviderRead
 GET /api/rules/schemas -> RuleSchemaRead[]
@@ -160,6 +164,8 @@ PATCH /api/v1/providers/{ref}/models/{model_id} -> ProviderRead
 POST /api/actions -> GraphRead
 POST /api/actions/{graph_id}/edges -> EdgeRead
 POST /api/actions/{graph_id}/nodes -> NodeRead
+POST /api/actions/{graph_id}/publish -> PublishedGraph
+POST /api/actions/{graph_id}/versions/{number}/republish -> PublishedGraph
 POST /api/agents -> AgentDetail
 POST /api/agents/{ref}/draft/discard -> AgentDetail
 POST /api/agents/{ref}/preview -> PreviewRead
@@ -179,6 +185,8 @@ POST /api/lanes -> LaneRead[]
 POST /api/pipelines -> GraphRead
 POST /api/pipelines/{graph_id}/edges -> EdgeRead
 POST /api/pipelines/{graph_id}/nodes -> NodeRead
+POST /api/pipelines/{graph_id}/publish -> PublishedGraph
+POST /api/pipelines/{graph_id}/versions/{number}/republish -> PublishedGraph
 POST /api/providers -> ProviderRead
 POST /api/providers/test -> CheckResult
 POST /api/providers/{ref}/models -> ProviderRead
