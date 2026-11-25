@@ -140,3 +140,19 @@ built is still `disabled: true`.
   where there are some (the engine and the use of an agent, the nodes of an action or a pipeline, where a guard is used) and, alone on the last line, **the date**
   (`cardBody({title, text, chips, facts, date})`; a guard has no date). Title 0.9375 rem, text 0.8125 rem, facts and date 0.75 rem; the free room of a card that
   holds less is between the text and the chips. All four pages measure 19 rem by 11 rem (`tests/e2e/test_uniform_cards.py`) and nothing runs out of a card.
+
+## 11. Addendum (2026-11-26): the picture of the Graph tab draws every connection and the stages
+The first picture (§1) laid the nodes in a grid and drew one line from the middle of a column to the next: the connections of a pipeline were
+wrong and its stages were not there. It is now drawn from the graph as the API gives it (`GET /api/pipelines|actions/{id}` or one version):
+- **Layers from the connections** (`preview-layout.js`, `sceneOfGraph` and `layoutScene`, no DOM): the longest way to a node, connections that lead
+  back (a retry, a loop; found by a walk from the nodes nothing leads to) left out; the order inside a layer follows the editor's y.
+- **Every connection once**, in the colours of the editor's lines: a pass green, an error red and dashed, a tool dashed grey, the others neutral.
+  A connection to the next layer is a curve in the gap; one that skips layers runs in a channel above the nodes, one that leads back in a channel
+  below them; the channels use the gaps between the layers, so a line crosses no node it does not belong to (a unit test and a browser test
+  measure it on the owner's pipeline: trigger, three stages of three actions with retries, the end).
+- **A stage is a frame** around its actions (small symbol, the name as tooltip and in the description of the picture), laid out by the stage's own
+  connections; the lines to the stage start and end at the middle of its two sides, the lines to the first and from the last actions start there.
+- **Too narrow for a row:** the whole picture turns (layers one below the other), frames and channels with it.
+- `structureOfGraph`, `structureOfChain` and `layoutPreview` are replaced by `sceneOfGraph` and `layoutScene`; the panel loads the graph itself
+  (the stage chain `/stages` is no longer needed for the picture, the versions' `nodes` and `edges` serve the same way).
+

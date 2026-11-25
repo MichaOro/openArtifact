@@ -8,9 +8,9 @@ import { GraphPreview } from "../components/graph-preview.js";
 import { ManagementPage, cardBody, chip, make } from "../components/management-page.js";
 import { ManifestDialog } from "../components/manifest-dialog.js";
 import { Modal } from "../components/modal.js";
-import { structureOfChain, structureOfGraph } from "../components/preview-layout.js";
+import { sceneOfGraph } from "../components/preview-layout.js";
 import { KEYS, readJson, removeStorage } from "../storage.js";
-import { createGraph, deleteGraph, listGraphs, loadGraph, stagesOf, updateGraph, usesOf, versionOf } from "./api.js";
+import { createGraph, deleteGraph, listGraphs, loadGraph, updateGraph, usesOf, versionOf } from "./api.js";
 import { loadNodeTypes, typeOf } from "./node-types.js";
 import { publicationChip, publicationOf, publicationText, renderVersions } from "./versions-tab.js";
 import { t } from "../i18n.js";
@@ -33,19 +33,13 @@ function forget(slug) {
   if (readJson(KEYS.lastPipeline)?.slug === slug) removeStorage(KEYS.lastPipeline);
 }
 
-// ── the picture of a graph: loaded when its card comes into view, kept while the graph has not changed ──
-const structures = new Map();
-function structureOf(graph) {
+// ── the picture of a graph: loaded when the panel shows it, kept while the graph has not changed ──
+const isTool = (k) => Boolean(typeOf(k)?.tool);
+const scenes = new Map();
+function sceneOf(graph) {
   const key = `${graph.id}@${graph.updated_at}`;
-  if (!structures.has(key)) {
-    structures.set(
-      key,
-      kind === "action"
-        ? loadGraph(kind, graph.id).then((detail) => structureOfGraph(detail, (k) => Boolean(typeOf(k)?.tool)))
-        : stagesOf(graph.id).then(structureOfChain),
-    );
-  }
-  return structures.get(key);
+  if (!scenes.has(key)) scenes.set(key, loadGraph(kind, graph.id).then((detail) => sceneOfGraph(detail, isTool)));
+  return scenes.get(key);
 }
 
 const purposeChip = (graph) => (kind === "action" ? (graph.purpose === "guard" ? chip(t("graph.action.chip_guard"), { glyph: "shield", tone: "guard" }) : chip(t("graph.action.chip_pipeline"), { glyph: "action" })) : null);
@@ -104,7 +98,7 @@ function graphTab(body, graph) {
   const number = shownVersion.get(graph.id) ?? null;
   if (number === null) {
     body.append(picture);
-    structureOf(graph).then((structure) => new GraphPreview(picture, { structure, typeOf, node: 44 }));
+    sceneOf(graph).then((scene) => new GraphPreview(picture, { scene, typeOf, node: 44 }));
     return;
   }
   // a published version, read-only: the note says which one it is and a way back to the draft
@@ -119,8 +113,7 @@ function graphTab(body, graph) {
   note.append(back);
   body.append(note, picture);
   versionOf(kind, graph.id, number)
-    .then((found) => (kind === "action" ? structureOfGraph(found, (k) => Boolean(typeOf(k)?.tool)) : structureOfChain(found.stages)))
-    .then((structure) => new GraphPreview(picture, { structure, typeOf, node: 44 }))
+    .then((found) => new GraphPreview(picture, { scene: sceneOfGraph(found, isTool), typeOf, node: 44 }))
     .catch(() => picture.replaceChildren(make("p", "mg-card__facts", t(`graph.${noun}.load_error`))));
 }
 

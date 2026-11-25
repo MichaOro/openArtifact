@@ -140,7 +140,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A long list that hides its middle (the versions of an agent: the newest two and the first stay behind "Show more versions (N)", a dotted vertical line through the button; the hidden ones open and close, `aria-expanded`) | `fold-list.js` (`foldEntries` for the entries, `foldSeparator` for the button), styled by `.fold-separator` in `components.css` |
 | A select whose text is never cut (as wide as its longest choice, also in a grid column or a narrow window) | `select-fit.js` (`fitSelect(select, {extra})` sets `--select-min` for `select.field__control[data-fit]`; `fitColumn(table, "--name", selects)` makes a column of selects as wide as the widest) |
 | A row of controls in a table that must stay readable when the table is narrow (the inputs of an agent) | **Field group**: `.field-group` on the table (it is its own container: the rows break by the width of the table, not of the window), `.field-group__head` and `.field-group__row` (columns in `--fg-cols`), `.field-group__wide` (takes a whole line when paired: a description), `.field-group__end` (a menu), `.field-group--long` for seven or more elements (breaks earlier). Wide: one line; narrower: pairs (2, 2, 2: two columns, the head goes); narrowest: one column. Defined in `forms.css`; use it for any table of rows with several controls |
-| The small picture of a pipeline or an action | `graph-preview.js` (`GraphPreview`; `lazyPreview` is in quarantine) with the layout in `preview-layout.js` (`structureOfGraph`, `structureOfChain`, `layoutPreview`) |
+| The small picture of a pipeline or an action | `graph-preview.js` (`GraphPreview`; `lazyPreview` is in quarantine) with the layout in `preview-layout.js` (`sceneOfGraph`, `layoutScene`: layers from the connections, a frame per stage, every connection drawn once) |
 | A long text in a panel (a prompt): its first lines, "Show more", "Copy" | `clamped-text.js` (`new ClampedText({ text, lines, label, empty })`, `.element`); `textContent` only, the frame is `.ct__box`, tokens only |
 | Short labels typed as one line | the form widget `tags` (`form-widgets.js`): a list in the values |
 | A menu of commands | `action-menu.js` (`menu__item`) |
@@ -190,7 +190,7 @@ page.setItems(items);  page.refreshPanel();
 ```
 
 The page markup is one `<div data-management>`; the stylesheet is `management.css`. A card shows no picture of its graph (too much unrest, ADR-069 §7): the Graph tab of the panel draws it with
-`new GraphPreview(host, {structure, typeOf, node: 44})`. `lazyPreview(host, () => loadStructure(item))` (drawn when it comes into view) is not used any more and is in quarantine.
+`new GraphPreview(host, {scene: sceneOfGraph(detail, isTool), typeOf, node: 44})` (the graph as `GET /api/pipelines|actions/{id}` or one version gives it: nodes with `stage_id`, edges with ports). `lazyPreview(host, () => loadScene(item))` (drawn when it comes into view) is not used any more and is in quarantine.
 The toolbar has two rows when the page has tabs: search, order, "Per page" and cards or list on row one, the tabs and the filter on row two; without tabs the filter follows the order on row one.
 Put the page's own facts in `mg-facts` (a `<dl>`), sections in `mg-section`, chips with `chip(text, {glyph, tone})`. The window that makes or changes an
 entry is a form manifest drawn by `ManifestDialog` (ADR-065), opened from the *Properties* button of the panel and from the page's *New* button.

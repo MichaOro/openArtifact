@@ -10,7 +10,7 @@ import httpx
 from playwright.sync_api import Page, expect
 
 from tests.e2e.helpers import eventually
-from tests.helpers import build_pipeline, link, post
+from tests.helpers import build_pipeline, connect, graph_url, link, node, post
 
 
 def _card(page: Page, name: str):  # type: ignore[no-untyped-def]
@@ -274,3 +274,80 @@ def test_a_card_has_no_picture_of_the_graph_and_the_graph_is_in_the_panel_tab(
         card.click()
         page.locator(".mg__panel").get_by_role("tab", name="Graph").click()
         expect(page.locator(".mg__panel .gp__stage").first).to_be_visible()
+
+
+def _like_the_owners(api: httpx.Client) -> dict[str, object]:
+    """Trigger, three stages of three actions each (pass, error and retry connections inside), the end."""
+    pipeline = build_pipeline(api, stages=3, name="Owner flow", stage_name="Stage {}")
+    for stage, first in pipeline["stages"]:
+        second = node(api, pipeline, "action", stage_id=stage["id"], x=200, y=20)
+        third = node(api, pipeline, "action", stage_id=stage["id"], x=400, y=120)
+        connect(api, pipeline, first, "pass", second, "in")
+        connect(api, pipeline, second, "pass", third, "in")
+        connect(api, pipeline, third, "pass", stage, "end")
+        connect(api, pipeline, first, "error", third, "in")
+        connect(api, pipeline, third, "error", first, "in")
+        connect(api, pipeline, second, "error", first, "in")
+    return pipeline
+
+
+CROSSINGS = """() => {
+  const stage = document.querySelector('.mg__panel .gp__stage');
+  const nodes = [...stage.querySelectorAll('.gp-node')].map((n) => ({
+    id: n.dataset.nodeId, x: parseFloat(n.style.left), y: parseFloat(n.style.top), w: parseFloat(n.style.width), h: parseFloat(n.style.height) }));
+  const found = [];
+  for (const path of stage.querySelectorAll('.gp__link')) {
+    const length = path.getTotalLength();
+    for (let at = 0; at <= length; at += 3) {
+      const p = path.getPointAtLength(at);
+      for (const n of nodes) {
+        if (n.id === path.dataset.from || n.id === path.dataset.to) continue;
+        if (p.x > n.x + 1 && p.x < n.x + n.w - 1 && p.y > n.y + 1 && p.y < n.y + n.h - 1) found.push(path.dataset.edge + ' crosses ' + n.id);
+      }
+    }
+  }
+  return [...new Set(found)];
+}"""
+
+
+def test_the_graph_tab_draws_every_connection_and_the_stages_as_frames_around_their_actions(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline = _like_the_owners(api)
+    wanted = len(api.get(graph_url(pipeline)).json()["edges"])
+    page.goto(f"{base_url}/pipelines")
+    _card(page, "Owner flow").click()
+    panel = page.locator(".mg__panel")
+    panel.get_by_role("tab", name="Graph").click()
+    expect(panel.locator(".gp__link")).to_have_count(wanted)  # every connection of the graph, once
+    frames = panel.locator(".gp-cluster")
+    expect(frames).to_have_count(3)
+    for frame in frames.all():
+        box = frame.bounding_box()
+        assert box
+        held = [n.bounding_box() for n in panel.locator(".gp-node[data-cluster]").all()]
+        inside = [
+            b
+            for b in held
+            if b
+            and b["x"] >= box["x"] - 1
+            and b["x"] + b["width"] <= box["x"] + box["width"] + 1
+            and b["y"] >= box["y"] - 1
+            and b["y"] + b["height"] <= box["y"] + box["height"] + 1
+        ]
+        assert len(inside) == 3, "a frame holds the three actions of its stage"
+    # an error is a dashed red line, a pass is not dashed
+    failing = panel.locator(".gp__link.is-failing")
+    assert failing.count() == 9
+    assert failing.first.evaluate("e => getComputedStyle(e).strokeDasharray") != "none"
+    passing = panel.locator(".gp__link.is-passing").first
+    assert passing.evaluate("e => getComputedStyle(e).strokeDasharray") == "none"
+    assert page.evaluate(CROSSINGS) == [], "no line crosses a node it does not belong to"
+    # the picture is one image with the names of the stages and their actions as its description
+    assert "Stage 1 (" in (panel.locator(".gp").get_attribute("aria-label") or "")
+    # a narrow place turns the picture; the frames and all connections stay and still no line crosses a node
+    page.set_viewport_size({"width": 700, "height": 900})
+    page.wait_for_timeout(300)
+    expect(panel.locator(".gp__link")).to_have_count(wanted)
+    expect(panel.locator(".gp-cluster")).to_have_count(3)
+    assert page.evaluate(CROSSINGS) == []
