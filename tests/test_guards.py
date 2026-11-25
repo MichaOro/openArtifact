@@ -100,10 +100,10 @@ def _guard_on(
 
 
 def _code_definition(
-    client: TestClient, name: str, code: str, language: str = "sh"
+    client: TestClient, name: str, code: str, language: str = "sh", purpose: str = "pipeline"
 ) -> dict[str, Any]:
-    """trigger -> code -> On Pass / On Fail."""
-    definition = post(client, "/api/actions", name=name)
+    """trigger -> code -> On Pass / On Fail. ``purpose``: ``guard`` for the action a guard runs (ADR-066)."""
+    definition = post(client, "/api/actions", name=name, purpose=purpose)
     trigger, out = kind_of(client, definition, "trigger"), kind_of(client, definition, "output")
     for edge in client.get(graph_url(definition)).json()["edges"]:
         client.delete(f"{graph_url(definition)}/edges/{edge['id']}")
@@ -306,7 +306,7 @@ def test_a_round_guard_fires_at_round_5_and_8_by_its_escalation_table_and_pauses
     pipeline, stage = _looping_pipeline(client)
     # its own action passes at the first firing and fails at the second: the fallback pauses
     judge = 'import json, sys\nsys.exit(0 if json.load(open("context.json"))["vars"]["guard_firing"] < 2 else 1)'
-    body = _code_definition(client, "Judge", judge, "python")
+    body = _code_definition(client, "Judge", judge, "python", purpose="guard")
     _guard_on(
         client,
         pipeline,

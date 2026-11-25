@@ -35,6 +35,7 @@ from openartifact.models.credentials import (
 from openartifact.models.enums import (
     CreatedBy,
     GraphKind,
+    GraphPurpose,
     NodeKind,
     ProviderKind,
     RunStatus,
@@ -60,6 +61,7 @@ __all__ = [
     "GraphEdge",
     "GraphKind",
     "GraphNode",
+    "GraphPurpose",
     "GuardAttachment",
     "GuardDefinition",
     "InternalCredential",

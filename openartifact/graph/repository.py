@@ -29,11 +29,23 @@ from openartifact.graph.node_types import (
 from openartifact.graph.rules import Endpoint, validate_edge
 from openartifact.graph.schemas import EdgeCreate, EdgeUpdate, NodeCreate, NodeUpdate
 from openartifact.graph.slug import slugify
-from openartifact.models import Graph, GraphEdge, GraphKind, GraphNode, GuardAttachment, NodeKind
+from openartifact.models import (
+    Graph,
+    GraphEdge,
+    GraphKind,
+    GraphNode,
+    GuardAttachment,
+    GuardDefinition,
+    NodeKind,
+)
 
 
 class NodeError(ValueError):
     """The requested node (or change of it) is not valid."""
+
+
+class PurposeError(ValueError):
+    """The purpose of an action definition cannot change, or does not fit where it is used; the message says where."""
 
 
 class LinkInfo(NamedTuple):
@@ -105,12 +117,19 @@ class GraphRepository:
 
     # ── graphs ─────────────────────────────────────────────────────
 
-    async def create(self, name: str, kind: GraphKind = GraphKind.PIPELINE) -> Graph:
+    async def create(
+        self, name: str, kind: GraphKind = GraphKind.PIPELINE, purpose: str = "pipeline"
+    ) -> Graph:
         """Create a graph with its fixed nodes, connected with each other.
 
-        A pipeline gets a trigger and a complete, an action definition a trigger and an output.
+        A pipeline gets a trigger and a complete, an action definition a trigger and an output. An action definition is for
+        pipelines or for guards (``purpose``, ADR-066); a pipeline has no other purpose than ``pipeline``.
         """
-        graph = Graph(id=str(uuid.uuid4()), name=name, kind=kind)
+        if purpose not in ("pipeline", "guard"):
+            raise PurposeError("The purpose of an action is pipeline or guard")
+        if purpose == "guard" and kind != GraphKind.ACTION:
+            raise PurposeError("Only an action can be for guards")
+        graph = Graph(id=str(uuid.uuid4()), name=name, kind=kind, purpose=purpose)
         graph.slug = await self._unique_slug(name, kind, None)
         self._session.add(graph)
         fixed = fixed_in(kind)
@@ -143,12 +162,61 @@ class GraphRepository:
         await self._session.flush()
         return graph
 
-    async def list_all(self, kind: GraphKind = GraphKind.PIPELINE) -> Sequence[Graph]:
-        """All graphs (or action definitions), most recently changed first."""
-        result = await self._session.execute(
-            select(Graph).where(Graph.kind == kind).order_by(Graph.updated_at.desc(), Graph.id)
-        )
+    async def list_all(
+        self, kind: GraphKind = GraphKind.PIPELINE, purpose: str | None = None
+    ) -> Sequence[Graph]:
+        """All graphs (or action definitions, of one ``purpose`` when given), most recently changed first."""
+        query = select(Graph).where(Graph.kind == kind)
+        if purpose is not None:
+            query = query.where(Graph.purpose == purpose)
+        result = await self._session.execute(query.order_by(Graph.updated_at.desc(), Graph.id))
         return result.scalars().all()
+
+    async def places_of(self, graph: Graph) -> tuple[list[str], list[str]]:
+        """Where an action definition is used: the names of the pipelines whose stages use it and of the guards that run it."""
+        pipelines = await self._session.scalars(
+            select(Graph.name)
+            .join(GraphNode, GraphNode.graph_id == Graph.id)
+            .where(GraphNode.kind == NodeKind.ACTION.value, GraphNode.definition_id == graph.id)
+            .distinct()
+            .order_by(Graph.name)
+        )
+        guards = await self._session.scalars(
+            select(GuardDefinition.name)
+            .where(GuardDefinition.action_id == graph.id)
+            .order_by(GuardDefinition.name)
+        )
+        return list(pipelines), list(guards)
+
+    async def change_purpose(self, graph: Graph, purpose: str) -> None:
+        """Make an action definition for pipelines or for guards (ADR-066). It must not be used on the other side and must not
+        hold a node of a kind that is not for the new purpose; the error names where."""
+        if graph.kind != GraphKind.ACTION:
+            raise PurposeError("Only an action has a purpose")
+        if purpose not in ("pipeline", "guard"):
+            raise PurposeError("The purpose of an action is pipeline or guard")
+        if graph.purpose == purpose:
+            return
+        pipelines, guards = await self.places_of(graph)
+        if purpose == "guard" and pipelines:
+            raise PurposeError(
+                f"'{graph.name}' is used by the stages of {_names(pipelines)}: take it out there before it becomes a guard action"
+            )
+        if purpose == "pipeline" and guards:
+            raise PurposeError(
+                f"'{graph.name}' is run by the {'guard' if len(guards) == 1 else 'guards'} {_names(guards)}: choose another action there before it becomes a pipeline action"
+            )
+        nodes, _ = await self.graph(graph.id)
+        unfit = sorted(
+            {node_type(n.kind).label for n in nodes if purpose not in node_type(n.kind).purposes}
+        )
+        if unfit:
+            raise PurposeError(
+                f"'{graph.name}' holds {_names(unfit)}, which can only be used in a {'pipeline' if purpose == 'guard' else 'guard'} action: take "
+                f"{'it' if len(unfit) == 1 else 'them'} out first"
+            )
+        graph.purpose = purpose
+        await self._session.flush()
 
     async def get(self, graph_id: str) -> Graph | None:
         """The graph or ``None``."""
@@ -246,6 +314,10 @@ class GraphRepository:
         kind_type = node_type(data.kind)
         if data.kind not in kinds_in(GraphKind(graph.kind)):
             raise NodeError(f"A {graph.kind} cannot contain a {data.kind.value}")
+        if graph.kind == GraphKind.ACTION and graph.purpose not in kind_type.purposes:
+            raise NodeError(
+                f"A {kind_type.label} can only be used in a {'guard' if graph.purpose == 'pipeline' else 'pipeline'} action"
+            )
         if kind_type.fixed:
             raise NodeError(f"A {graph.kind} comes with its {data.kind.value}; it cannot be added")
         if data.kind is NodeKind.ACTION:
@@ -522,6 +594,10 @@ class GraphRepository:
                 raise NodeError(
                     "That pipeline does not exist" if calls else "That action does not exist"
                 )
+            if not calls and target.purpose != "pipeline":
+                raise NodeError(
+                    f"'{target.name}' is a guard action: only a guard can run it, a stage takes a pipeline action"
+                )
             if calls and await self._calls(definition_id, graph.id):
                 raise NodeError("A pipeline cannot call itself, not even through other pipelines")
         node.definition_id = definition_id
@@ -651,6 +727,14 @@ class GraphRepository:
         """Remove an edge."""
         await self._session.delete(edge)
         await self._session.flush()
+
+
+def _names(names: Sequence[str]) -> str:
+    """Names for a sentence: 'A', 'A and B', 'A, B and C' (at most five, then the rest is counted)."""
+    shown = [f"'{n}'" for n in names[:5]]
+    if len(names) > 5:
+        shown.append(f"{len(names) - 5} more")
+    return shown[0] if len(shown) == 1 else ", ".join(shown[:-1]) + f" and {shown[-1]}"
 
 
 def _endpoint(node: GraphNode) -> Endpoint:

@@ -76,6 +76,10 @@ class NodeTypeRead(BaseModel):
     kind: str
     label: str
     scopes: list[str]
+    #: In which kind of action definition it may be used (``pipeline``, ``guard``; ADR-066) and the right it needs (card #99; not
+    #: evaluated yet).
+    purposes: list[str] = ["pipeline", "guard"]
+    requires: str | None = None
     fixed: bool
     addable: bool
     chain: bool

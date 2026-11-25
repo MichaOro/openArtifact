@@ -431,6 +431,11 @@ class GuardService:
             graph = await session.get(Graph, row.action_id)
             if graph is None or graph.kind != GraphKind.ACTION:
                 raise ArtifactError(422, "The guard's action must be an action definition")
+            if graph.purpose != "guard":
+                raise ArtifactError(
+                    422,
+                    f"'{graph.name}' is an action for pipelines: a guard runs a guard action (make one in the actions, or change its type there)",
+                )
         allowed = set(json.loads(row.scope_types or "[]"))
         used = sorted({a.scope_type for a in attachments} - allowed)
         if used:
@@ -472,12 +477,12 @@ class GuardService:
 
     @staticmethod
     async def _new_action(session: AsyncSession, name: str) -> Graph:
-        return await GraphRepository(session).create(name[:255], GraphKind.ACTION)
+        return await GraphRepository(session).create(name[:255], GraphKind.ACTION, "guard")
 
     async def _build_action(self, session: AsyncSession, spec: dict[str, Any]) -> Graph:
         """An action definition from a template: its nodes, connected as the template says."""
         repo = GraphRepository(session)
-        graph = await repo.create(spec["name"], GraphKind.ACTION)
+        graph = await repo.create(spec["name"], GraphKind.ACTION, "guard")
         nodes, edges = await repo.graph(graph.id)
         for edge in edges:  # the default trigger -> output connection is replaced by the template's
             await repo.disconnect(edge)

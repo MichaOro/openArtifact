@@ -7,9 +7,9 @@ change is saved at once (there is no separate "save"): the editor sends what the
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.agents.service import artifact_inputs_mapped
@@ -21,7 +21,7 @@ from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.snapshot import graph_of
 from openartifact.graph.localize import localize
 from openartifact.graph.node_types import NODE_TYPES, node_type
-from openartifact.graph.repository import GraphRepository, NodeError
+from openartifact.graph.repository import GraphRepository, NodeError, PurposeError
 from openartifact.graph.rules import EdgeError
 from openartifact.graph.schemas import (
     EdgeCreate,
@@ -89,10 +89,25 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             raise _not_found(label)
         return graph
 
-    @router.get("", response_model=list[GraphRead], name=f"list_{kind}s", summary=f"List {kind}s")
-    async def list_graphs(session: SessionDep) -> list[GraphRead]:
-        """List all of this kind, most recently changed first."""
-        graphs = await GraphRepository(session).list_all(kind)
+    @router.get(
+        "",
+        response_model=list[GraphRead],
+        name=f"list_{kind}s",
+        summary=f"List {kind}s",
+        responses=errors(422),
+    )
+    async def list_graphs(
+        session: SessionDep,
+        purpose: Annotated[
+            Literal["pipeline", "guard"] | None,
+            Query(
+                description="Only the actions for pipelines or only the actions for guards (ADR-066); every pipeline is "
+                "``pipeline``."
+            ),
+        ] = None,
+    ) -> list[GraphRead]:
+        """List all of this kind, most recently changed first; ``purpose`` narrows the actions to the ones for pipelines or guards."""
+        graphs = await GraphRepository(session).list_all(kind, purpose)
         return [GraphRead.model_validate(g) for g in graphs]
 
     @router.post(
@@ -104,8 +119,12 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         responses=errors(422, write=True, body=True),
     )
     async def create_graph(payload: GraphCreate, session: SessionDep) -> GraphRead:
-        """Create one; it starts with a trigger (an action definition also with its output)."""
-        graph = await GraphRepository(session).create(payload.name, kind)
+        """Create one; it starts with a trigger (an action definition also with its output). An action is for pipelines or, with
+        ``purpose`` ``guard``, only for guards (ADR-066)."""
+        try:
+            graph = await GraphRepository(session).create(payload.name, kind, payload.purpose)
+        except PurposeError as error:
+            raise _invalid(error) from None
         await session.commit()
         return GraphRead.model_validate(graph)
 
@@ -147,14 +166,26 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         "/{graph_id}",
         response_model=GraphRead,
         name=f"rename_{kind}",
-        summary=f"Rename a {kind}",
-        responses=errors(404, 422, write=True, body=True),
+        summary=f"Change a {kind}: its name or purpose",
+        responses=errors(404, 409, 422, write=True, body=True),
     )
     async def rename_graph(graph_id: str, payload: GraphUpdate, session: SessionDep) -> GraphRead:
-        """Rename it."""
+        """Rename it, and for an action change its purpose (ADR-066): a definition used by a stage cannot become a guard action, one
+        run by a guard cannot become a pipeline action, and neither can one that holds a node only the other kind may use; the 409
+        answer says where."""
         repo = GraphRepository(session)
         graph = await _graph(repo, graph_id)
-        await repo.rename(graph, payload.name)
+        if payload.purpose is not None:
+            if kind != GraphKind.ACTION:
+                raise _invalid(ValueError("Only an action has a purpose"))
+            try:
+                await repo.change_purpose(graph, payload.purpose)
+            except PurposeError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT, detail=str(error)
+                ) from None
+        if payload.name is not None:
+            await repo.rename(graph, payload.name)
         await session.commit()
         return GraphRead.model_validate(graph)
 

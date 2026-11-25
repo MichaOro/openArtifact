@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from openartifact.graph.node_types import TIMER_MAX_SECONDS, TIMER_MIN_SECONDS
 from openartifact.models import GraphKind, NodeKind
@@ -21,16 +21,30 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+Purpose = Literal["pipeline", "guard"]
+
+
 class GraphCreate(_Strict):
-    """Body of ``POST /api/pipelines`` and ``POST /api/actions``."""
+    """Body of ``POST /api/pipelines`` and ``POST /api/actions``. ``purpose`` (actions only, ADR-066): ``pipeline`` (used by the
+    stages of a pipeline, the default) or ``guard`` (used only by guards)."""
 
     name: Name
+    purpose: Purpose = "pipeline"
 
 
 class GraphUpdate(_Strict):
-    """Body of ``PATCH /api/pipelines/{id}`` (or ``/api/actions/{id}``)."""
+    """Body of ``PATCH /api/pipelines/{id}`` (or ``/api/actions/{id}``): the new ``name`` and/or, for an action definition, its
+    ``purpose``. A purpose cannot change while the definition is used on the other side (a stage or a guard) or holds a node of a
+    kind that is not for the new purpose: the answer says where."""
 
-    name: Name
+    name: Name | None = None
+    purpose: Purpose | None = None
+
+    @model_validator(mode="after")
+    def _something(self) -> GraphUpdate:
+        if self.name is None and self.purpose is None:
+            raise ValueError("send a name or a purpose")
+        return self
 
 
 class NodeCreate(_Strict):
@@ -98,6 +112,8 @@ class GraphRead(_Timestamps):
     status: str
     kind: GraphKind
     slug: str
+    #: What an action definition is for (``pipeline`` or ``guard``, ADR-066); every pipeline is ``pipeline``.
+    purpose: Purpose = "pipeline"
 
 
 class NodeRead(BaseModel):
