@@ -57,10 +57,8 @@ function card(graph) {
     title: graph.name,
     text: graph.description,
     chips: chipsOf(graph),
-    facts: [
-      factOf(String(graph.node_count), ` ${t("graph_list.nodes")}`, ""),
-      factOf(day(graph.updated_at), "", `${t("graph_list.changed")} `),
-    ],
+    facts: [factOf(String(graph.node_count), ` ${t("graph_list.nodes")}`, "")],
+    date: factOf(day(graph.updated_at), "", `${t("graph_list.changed")} `),
   });
 }
 

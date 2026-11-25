@@ -41,14 +41,14 @@ function detailOf(agent) {
 
 function card(agent) {
   // the text of a card is the description, when one is kept; without one nothing stands there (the prompt is in the panel)
-  const facts = [];
-  for (const [value, before] of [[engineOf(agent), ""], [useText(agent.node_count), ""], [day(agent.updated_at), `${t("graph_list.changed")} `]]) {
-    if (!value) continue;
-    const part = make("span");
-    part.append(document.createTextNode(before), make("b", "", value));
-    facts.push(part);
-  }
-  return cardBody({ title: agent.name, text: agent.description, chips: chipsOf(agent), facts });
+  const part = (value, before = "") => {
+    const span = make("span");
+    span.append(document.createTextNode(before), make("b", "", value));
+    return span;
+  };
+  const facts = [engineOf(agent), useText(agent.node_count)].filter(Boolean).map((value) => part(value));
+  const date = agent.updated_at ? part(day(agent.updated_at), `${t("graph_list.changed")} `) : null;
+  return cardBody({ title: agent.name, text: agent.description, chips: chipsOf(agent), facts, date });
 }
 
 // ── the panel ────────────────────────────────────────────────────────
