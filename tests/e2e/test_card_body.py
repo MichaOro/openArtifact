@@ -30,11 +30,7 @@ def test_the_read_view_shows_the_finished_text_and_edit_the_original(board: Boar
     marker = dialog.root.locator("[data-view-note]")
     expect(body).to_have_text("Elias: erwachte in Leuchtturm")
     expect(marker).to_contain_text("References resolved")
-    toggle = marker.get_by_role("button", name="Show as written")
-    toggle.click()
-    expect(body).to_have_text(BODY)
-    marker.get_by_role("button", name="Show resolved").click()
-    expect(body).to_have_text("Elias: erwachte in Leuchtturm")
+    expect(marker.get_by_role("button")).to_have_count(0)  # no switch: Edit shows what was written
     dialog.root.locator("[data-view-edit]").click()
     expect(dialog.root.locator("[name=body]")).to_have_value(BODY)
 

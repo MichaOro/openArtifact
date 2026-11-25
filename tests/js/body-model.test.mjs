@@ -6,10 +6,9 @@ import { bodyText, cardPreview, hasResolved, needsFullBody, rememberWarnings, wa
 
 const WRITTEN = "Elias: ${card.test}";
 
-test("the read view shows the filled in text, and the original when the reader asks for it as written", () => {
+test("the read view shows the filled in text", () => {
   const task = { body: WRITTEN, body_resolved: "Elias: Als er erwachte" };
   assert.equal(bodyText(task), "Elias: Als er erwachte");
-  assert.equal(bodyText(task, true), WRITTEN);
   assert.ok(hasResolved(task));
 });
 

@@ -7,10 +7,9 @@ export function hasResolved(task) {
   return typeof task?.body_resolved === "string";
 }
 
-/** The text of the read view: the filled in one, or the original when the reader wants it as written. */
-export function bodyText(task, asWritten = false) {
+/** The text of the read view: the filled in one, or the original when nothing was filled in (Edit shows what was written). */
+export function bodyText(task) {
   const original = task?.body ?? "";
-  if (asWritten) return original;
   return hasResolved(task) ? task.body_resolved : original;
 }
 

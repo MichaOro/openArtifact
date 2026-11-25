@@ -61,14 +61,8 @@ export class ArtifactDialog extends FormDialog {
     this.viewTitle = root.querySelector("[data-view-title]");
     this.viewBody = root.querySelector("[data-view-body]");
     this.viewNote = root.querySelector("[data-view-note]");
-    this.viewToggle = root.querySelector("[data-view-toggle]");
     this.viewWarning = root.querySelector("[data-view-warning]");
-    this.asWritten = false; // the reader asked for the body as it was written (not stored: each opening starts filled in)
     this.warned = null; // the notes of the last save, for the artifact they belong to
-    this.viewToggle.addEventListener("click", () => {
-      this.asWritten = !this.asWritten;
-      this.#showView();
-    });
     this.backButton = root.querySelector("[data-view-back]");
     this.history = history;
     this.comments = comments;
@@ -105,7 +99,6 @@ export class ArtifactDialog extends FormDialog {
 
   /** Open an existing artifact read-only; `canGoBack` shows the Back button. */
   openView(task, laneTitle, hue, parentTitle = null, canGoBack = false) {
-    if (this.editing?.id !== task.id) this.asWritten = false;
     this.editing = task;
     this.backButton.hidden = !canGoBack;
     this.setLane(task.status, laneTitle, hue);
@@ -259,9 +252,8 @@ export class ArtifactDialog extends FormDialog {
     this.mode = "view";
     this.#present(t("executions.artifact"), t("common.save"));
     this.viewTitle.textContent = task.title;
-    this.viewBody.replaceChildren(renderReferences(bodyText(task, this.asWritten), this.findByNumber));
+    this.viewBody.replaceChildren(renderReferences(bodyText(task), this.findByNumber));
     this.viewNote.hidden = !hasResolved(task);
-    this.viewToggle.textContent = this.asWritten ? t("tasks.body.show_resolved") : t("tasks.body.show_written");
     const notes = warningsFor(this.warned, task);
     this.viewWarning.hidden = notes.length === 0;
     this.viewWarning.textContent = notes.length ? [t("tasks.body.saved_with_notes"), ...notes].join("\n") : "";
