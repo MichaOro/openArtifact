@@ -94,7 +94,17 @@ The owner's remarks on the pages as built (cards jumped when an entry was select
   the pager under the entries keeps the range ("1–3 of 3") and the pages.
 - **The card of an agent says its description**, when one is kept, and nothing otherwise (the prompt is in the panel).
 
-## 7. Addendum (2026-11-25): the Versions tab of pipelines and actions is built
+## 7. Addendum (2026-11-26): two toolbar rows with tabs, no picture on the cards
+
+- **The toolbar of a page with tabs has two rows.** Row one is search, order, "Per page" and cards or list and never changes; row two (only with
+  tabs) holds the tabs and the filter, so that search and order stay where they are while the tabs are clicked through (Actions: Pipeline
+  actions, Guard actions). A page without tabs has one row: search, order, filter (Pipelines), then the group at the right end.
+- **A card has no picture of its graph.** The picture made the grid restless and turned vertical on a small screen for a long graph, which looked
+  odd. The graph is shown in the panel only (tab *Graph*, `GraphPreview`, horizontal or vertical by the room it has). A card shows the name, the
+  chips, the description when one is kept, the number of nodes and the date of the change; the grid is denser (cards from 15 rem).
+  `lazyPreview` is not used any more and is in `quarantine.json` (14 days) in case a page wants a picture again.
+
+## 8. Addendum (2026-11-26): the Versions tab of pipelines and actions is built
 
 Pipelines and actions have versions ([ADR-070](070-versions-of-actions-and-pipelines.md)): the *Versions* tab is no longer greyed. It is
 `static/js/editor/versions-tab.js` (a page's own tab, the frame knows nothing of it): *Publish* on top, the versions newest first with

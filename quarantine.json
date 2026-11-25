@@ -20,6 +20,17 @@
         "tests/*"
       ],
       "why": "The owner hid the \"Can watch\" chips on 2026-11-24 (every guard may watch every scope for now) but may want them back in a day or two; the data (scope_types), the API and the checks stay. He decides in one or two weeks whether to drop the control for good."
+    },
+    {
+      "name": "Lazy picture of a graph on a card of a management page (hidden on purpose, may come back)",
+      "file": "openartifact/static/js/components/graph-preview.js",
+      "symbol": "export function lazyPreview",
+      "since": "2026-11-25",
+      "usage": "\\blazyPreview\\(",
+      "ignore": [
+        "openartifact/static/js/components/graph-preview.js"
+      ],
+      "why": "The owner took the picture of the graph off the cards of Actions and Pipelines on 2026-11-25 (too much unrest; a long graph turns vertical and looks odd on a small screen): the graph is shown in the panel only (tab Graph, GraphPreview). lazyPreview (draw when the card comes into view) stays in case a page wants a picture again; he decides in one or two weeks whether it goes for good."
     }
   ]
 }
