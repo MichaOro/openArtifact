@@ -59,6 +59,8 @@ class SettingRead(BaseModel):
     shown_when: dict[str, Any] | None = None
     line: str | None = None
     credential_types: list[str] | None = None
+    #: The bounds of a ``retry`` setting (ADR-073): ``max_tries`` and ``wait_ms`` as ``[min, max, default]``, ``total_wait_ms``.
+    limits: dict[str, Any] | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None

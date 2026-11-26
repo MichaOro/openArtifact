@@ -75,3 +75,6 @@ That is a per-kind code path, which this ADR set out to remove.
   action and pipeline connections and the tool-to-agent rule in `node-types.js`, which kind needs which credential setting
   (`credentials/store.py`), the executors, and the Agent's own settings block.
 
+## Addendum (2026-11-26): `retry` and the result
+
+`_shared.yaml` has the optional setting `retry` (setting type `retry`, stored in `config.retry`, checked by `retry_error`; the description carries its `limits`): [ADR-073](073-retry-on-fail.md). A kind that says `produces_result` must have an executor, and its result has the core of [ADR-072](072-result-contract.md); `tests/test_result_contract.py` keeps both.

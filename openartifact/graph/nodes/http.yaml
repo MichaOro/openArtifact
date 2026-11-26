@@ -87,3 +87,4 @@ settings:
   section: behaviour
   level: advanced
 - use: on_failure
+- use: retry

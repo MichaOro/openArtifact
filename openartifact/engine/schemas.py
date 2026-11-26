@@ -54,6 +54,8 @@ class NodeResultRead(BaseModel):
     #: What only one step shows (an agent's prompts as sent, its inputs and every attempt). Filled
     #: when a single step is read, ``None`` in every list.
     detail: dict[str, Any] | None = None
+    #: How many tries the node took (*Retry on fail*, ADR-073): 1 for a node that ran once.
+    attempts: int = 1
     started_at: UtcDateTime
     finished_at: UtcDateTime
 
@@ -88,6 +90,7 @@ class NodeResultRead(BaseModel):
             reason=row.reason,
             data=row.data,
             detail=detail,
+            attempts=row.attempts,
             started_at=row.started_at,
             finished_at=row.finished_at,
         )

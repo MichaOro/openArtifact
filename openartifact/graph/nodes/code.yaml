@@ -82,3 +82,4 @@ settings:
   section: behaviour
   level: optional
 - use: on_failure
+- use: retry

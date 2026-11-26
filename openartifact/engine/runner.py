@@ -20,6 +20,7 @@ import uuid
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any, cast
 
 from sqlalchemy import CursorResult, delete, func, select, update
@@ -37,6 +38,7 @@ from openartifact.engine.executors import EXECUTORS, Limits
 from openartifact.engine.history import Changes, ExecutionHistory, utcnow
 from openartifact.engine.limits import RunLimits, load_limits
 from openartifact.engine.results import NodeResult
+from openartifact.engine.retry import retry_of, tried
 from openartifact.engine.schemas import ExecutionRead, NodeResultRead, RunRead, RunStageRead
 from openartifact.engine.snapshot import NestingError, build_snapshot
 from openartifact.engine.targets import TargetError, load_pipeline, pick_start
@@ -904,7 +906,17 @@ class RunEngine:
                 await self._guarded(
                     monitor.enter("definition", str(definition_id), node["label"], inside)
                 )
-            passed, reason = await self._run_action(node, walk)
+            (passed, reason), earlier = await tried(
+                partial(self._run_action, node, walk),
+                lambda r: None if r[0] else (r[1] or "The action failed"),
+                retry_of(node) if node.get("definition_id") else None,  # Retry on fail (ADR-073)
+            )
+            if earlier and not passed:
+                reason = (
+                    f"{reason} (after {len(earlier) + 1} tries)"
+                    if reason
+                    else f"after {len(earlier) + 1} tries"
+                )
             await self._guarded(
                 monitor.ended(action, passed, str(definition_id) if watched else None)
             )
@@ -1018,7 +1030,14 @@ class RunEngine:
                     )
                 )
             timer = time.monotonic()
-            result = await executor.run(current, self._limits, run_view)
+            result, earlier = await tried(
+                partial(executor.run, current, self._limits, run_view),
+                lambda r: (r.reason or "The node failed") if r.outcome == "fail" else None,
+                retry_of(current) if executor.by_outcome else None,  # Retry on fail (ADR-073)
+            )
+            result.attempts = len(earlier) + 1
+            if earlier:  # the failed tries before the last: what only the step shows
+                result.detail = {**(result.detail or {}), "tries": earlier}
             result.duration_ms = int(
                 (time.monotonic() - timer) * 1000
             )  # the result contract (ADR-072)
@@ -1101,6 +1120,7 @@ class RunEngine:
                     reason=result.reason if result else None,
                     data=result.data if result else None,
                     detail=result.detail if result else None,
+                    attempts=result.attempts if result else 1,
                     started_at=started,
                     finished_at=datetime.now(UTC),
                 )

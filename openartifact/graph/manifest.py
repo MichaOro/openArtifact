@@ -114,7 +114,9 @@ class SettingSpec(_Strict):
     key: str | None = None
     label: str | None = None
     type: (
-        Literal["integer", "number", "switch", "text", "lines", "code", "select", "credential"]
+        Literal[
+            "integer", "number", "switch", "text", "lines", "code", "select", "credential", "retry"
+        ]
         | None
     ) = None
     minimum: int | float | None = None

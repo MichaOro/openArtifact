@@ -56,7 +56,7 @@ execution) and, in the run context, one entry with the same **core**, whatever i
 | `reason` | text or `null` | why it failed (or a note on a pass); a sentence for people, cut at 1000 characters |
 | `output` | text | what the node produced as text; at most 4 KiB in the context, the step has all |
 | `data` | object or `null` | the extras of the kind (the table below) |
-| `attempts` | whole number | how many tries it took: 1, or more with *Retry on fail* (see Retry on fail) |
+| `attempts` | whole number | how many tries it took: 1, or more with *Retry on fail* ([below](#retry-on-fail)) |
 | `duration_ms` | whole number | wall time of the step in milliseconds, all tries and the waits between them |
 | `exit_code` | number or `null` | only where a kind has one (Code) |
 
@@ -540,7 +540,7 @@ API, MCP and the interface). Safe by construction (ADR-068):
 | View | One row per | Columns |
 |---|---|---|
 | `v_guard_runs` | execution | `id`, `task_id`, `number`, `pipeline_name`, `started_stage_name`, `started_action_name`, `final_stage_name`, `final_action_name`, `status`, `started_by`, `step_count`, `created_at`, `started_at`, `finished_at` |
-| `v_guard_steps` | step (a node that ran) | `id`, `execution_id`, `seq`, `node_id`, `node_name`, `kind`, `outcome`, `success` (1 or 0), `port`, `exit_code`, `reason`, `started_at`, `finished_at` |
+| `v_guard_steps` | step (a node that ran) | `id`, `execution_id`, `seq`, `node_id`, `node_name`, `kind`, `outcome`, `success` (1 or 0), `attempts`, `port`, `exit_code`, `reason`, `started_at`, `finished_at` |
 | `v_guard_tool_calls` | tool call of a *finished* Agent step | `execution_id`, `step_id`, `step_name`, `step_seq`, `turn`, `tool`, `tool_node`, `arguments` (first 200 characters), `is_error`, `duration_ms` |
 | `v_guard_artifacts` | artifact (card) | `id`, `number`, `title`, `lane`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`, `created_by`, `created_at`, `updated_at` |
 | `v_guard_lanes` | lane | `key`, `title`, `position` |
@@ -658,6 +658,39 @@ chosen, what is behind it: the fields of the artifact, the variables, the secret
 `reason` and `data.` of the node. Typing a part of a name finds the node at once. Arrow keys move, Enter or
 Tab insert (the closing `}` is added), Escape closes the list and keeps the text, typing narrows it. Suggestions are
 hints; nothing is checked in the browser and the Code text gets none (it is never interpolated).
+
+## Retry on fail
+
+A node that fails can be tried again before the failure counts: the optional setting **Retry on fail** (`retry`), added through
+*Add setting* in the *Behaviour* part of the node's window and taken away again with its bin ([ADR-073](../architecture/adr/073-retry-on-fail.md)).
+It is offered by every node that runs something, read or write: Code, HTTP, Agent, Postgres, SQLite, GitHub and Artifact, and by an
+**action** in a stage (an action can fail, a stage does not). It is not offered by the Timer, the Trigger and the Output, nor by If,
+Switch and Edit Fields, which only look at the run context and would answer the same again.
+
+| Setting | Values | Default |
+|---------|--------|---------|
+| the switch | *On* / *Off* (Off keeps the numbers) | On when added |
+| Max. tries | a whole number from 2 to 10; **the first try counts** (3 is one try and two more) | 3 |
+| Wait between tries | a number and a unit (**ms**, **sec**, **min**), stored as milliseconds: 0 to 10 minutes | 1 sec |
+
+The form shows the largest unit that divides the stored value evenly (3467 ms stays 3467 ms, 90000 ms is 90 sec, 120000 ms is 2 min),
+so nobody converts by hand. All the waits of one node together are at most 30 minutes (`(max tries - 1) x wait`); a value outside the
+bounds is refused with the reason (`422`, and under the field in the editor).
+
+- **Only the failing node is tried again, not the run.** After the last failed try the node leaves as it does today: by On Fail or as
+  *If the node fails* says (*Continue* too: it comes after the last try). A node that passes on a later try passes.
+- **An action** is run again as a whole (every node of its definition, each run with its own steps) and, after the last try, fails with
+  "(after N tries)" in its reason.
+- **The history shows it:** one step per node, with `attempts` (the tries) and, in the step's `detail`, the failed tries before the
+  last one (`tries`: number, reason, milliseconds). The History tab and the flow page say "3 tries" and list them under *Tried 3 times*.
+  In the context, `${(Node).attempts}` is the number of tries and `${(Node).duration_ms}` includes the waits.
+- **Stop works during a wait:** the wait is a pause of the node's task, so stopping the run (the Stop button of the executions list too)
+  ends it at once, with no further try. A user's Stop and a guard that stops the node are never retried. A node that runs into its own
+  timeout has failed that try like any other.
+- **Take care with writes.** A try that repeats an HTTP write, a Postgres change, a GitHub comment or issue, or an Artifact comment can
+  do it twice; that is why the setting is off until it is added, and its help says so.
+- **The Agent node** keeps its own retry for the model request (network errors, 408, 429, 5xx after 3, 10, 30 and 60 seconds,
+  [ADR-037](../architecture/adr/037-agent-harness.md)); *Retry on fail* is independent of it and tries the whole node again.
 
 ## What a failure does to the way on
 

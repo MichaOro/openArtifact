@@ -163,7 +163,9 @@ same routes under `/api/ui-layouts`.
 
 A step read alone (`GET /api/v1/artifacts/{ref}/executions/{id}/steps/{step_id}`) carries `detail` for an agent step:
 the prompts as sent, the inputs, the overrides, every attempt and, per request (`turns`), the tool calls with their
-arguments and results (cut to 16 KiB). Lists carry `detail: null`.
+arguments and results (cut to 16 KiB). A step of a node that was tried again (*Retry on fail*, [ADR-073](../architecture/adr/073-retry-on-fail.md)) has `attempts` (the tries; 1 otherwise, in lists too) and, read alone, `detail.tries`: the failed tries before the last one as `{try, reason, duration_ms}`. Lists carry `detail: null`.
+
+Every step and every node in the run `context` has the result contract ([ADR-072](../architecture/adr/072-result-contract.md)): `success`, `outcome`, `reason`, `output`, `data`, `attempts` and, in the context, `duration_ms`.
 
 An agent node's settings are keys of its `config` (`PATCH /api/actions/{id}/nodes/{node_id}`): `agent_id`, `inputs`
 (`name = value` per line) and the overrides `system_prompt_enabled`, `system_prompt`, `user_prompt`, `provider_id`,
@@ -311,7 +313,7 @@ is saved at once.
 | PATCH | `/api/{kind}/{graph_id}` | Rename | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}` | Delete with everything in it; `204` | 404 |
 | POST | `/api/{kind}/{graph_id}/nodes` | Add a stage, an action, a node or an execution node; `201` | 404, 422 |
-| PATCH | `/api/{kind}/{graph_id}/nodes/{node_id}` | Rename, move, resize, change settings (`config`). The answer carries `notices` (`definition_on`: the action definition got On Fail too, with `definition` and `uses`; `definition_stays_on`: other uses still need it; `disconnected`: `count`, `inner` and `places` (`graph`, `stage`, `node`, `count`) of the connections that went with a connector) and `reload` (other nodes of this graph changed too). Setting `on_failure` away from `error_output`, or switching an Output's `fail_enabled` off, **disconnects** what was connected at that connector and reports it (ADR-061 §4); the error output of an action and its definition's On Fail are one state, so a change on one side reaches every use | 404, 422 |
+| PATCH | `/api/{kind}/{graph_id}/nodes/{node_id}` | Rename, move, resize, change settings (`config`). The answer carries `notices` (`definition_on`: the action definition got On Fail too, with `definition` and `uses`; `definition_stays_on`: other uses still need it; `disconnected`: `count`, `inner` and `places` (`graph`, `stage`, `node`, `count`) of the connections that went with a connector) and `reload` (other nodes of this graph changed too). `config.retry` is *Retry on fail* (`{"enabled", "max_tries" 2 to 10, "wait_ms" 0 to 600000}`, all the waits of a node at most 30 minutes; `null` takes it away; [ADR-073](../architecture/adr/073-retry-on-fail.md)), offered by `code`, `http`, `agent`, `postgres`, `sqlite`, `github`, `artifact` and `action`; a value outside the bounds is `422` with the reason. Setting `on_failure` away from `error_output`, or switching an Output's `fail_enabled` off, **disconnects** what was connected at that connector and reports it (ADR-061 §4); the error output of an action and its definition's On Fail are one state, so a change on one side reaches every use | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}/nodes/{node_id}` | Delete with its edges; `204` | 404 |
 | POST | `/api/{kind}/{graph_id}/edges` | Connect an output port to an input port (the output's previous edge is replaced); `201`. A connection at a port that is not there is `422`: the error output (On Fail of a node, On Error of an action) exists only with the config value `on_failure: error_output` ([ADR-061](../architecture/adr/061-what-a-failure-does.md)) | 404, 422 |
 | PATCH | `/api/{kind}/{graph_id}/edges/{edge_id}` | Change how a connection is drawn | 404, 422 |

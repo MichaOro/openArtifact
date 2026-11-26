@@ -18,6 +18,16 @@ settings:
     stored_in: config
     level: optional
     section: behaviour
+  retry:
+    key: retry
+    label: Retry on fail
+    type: retry
+    default: null
+    help: Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres,
+      GitHub) can happen twice.
+    stored_in: config
+    level: optional
+    section: behaviour
   method:
     key: method
     label: Method

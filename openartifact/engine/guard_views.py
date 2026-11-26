@@ -6,7 +6,7 @@ a table behind a view only has to keep the view working, and the views are made 
 View                    What it holds
 ======================  =========================================================================================================
 ``v_guard_runs``        One row per execution: its artifact, pipeline, status, who started it, step count, the times.
-``v_guard_steps``       One row per step of an execution (a node that ran): node, kind, outcome, port, reason, the times.
+``v_guard_steps``       One row per step of an execution (a node that ran): node, kind, outcome, success, tries, port, reason, the times.
 ``v_guard_tool_calls``  One row per tool call of an Agent step: the tool, its node, the first 200 characters of the arguments,
                         whether it failed, its duration (only for finished steps).
 ``v_guard_artifacts``   One row per artifact (card): number, title, lane, parent, where it sits in a pipeline, the times.
@@ -25,7 +25,7 @@ VIEWS: dict[str, str] = {
         "final_action_name, status, started_by, step_count, created_at, started_at, finished_at FROM executions"
     ),
     "v_guard_steps": (
-        "SELECT id, execution_id, seq, node_id, node_name, kind, outcome, (outcome = 'pass') AS success, port, exit_code, reason, started_at, finished_at "
+        "SELECT id, execution_id, seq, node_id, node_name, kind, outcome, (outcome = 'pass') AS success, attempts, port, exit_code, reason, started_at, finished_at "
         "FROM run_node_results"
     ),
     "v_guard_tool_calls": (

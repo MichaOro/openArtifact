@@ -41,6 +41,12 @@ __all__ = [
     "IF_ROWS",
     "NODE_TYPES",
     "OPERATORS",
+    "RETRY_DEFAULT_TRIES",
+    "RETRY_DEFAULT_WAIT_MS",
+    "RETRY_MAX_TOTAL_WAIT_MS",
+    "RETRY_MAX_TRIES",
+    "RETRY_MAX_WAIT_MS",
+    "RETRY_MIN_TRIES",
     "SWITCH_CASES",
     "TIMER_MAX_SECONDS",
     "TIMER_MIN_SECONDS",
@@ -55,6 +61,7 @@ __all__ = [
     "node_type",
     "parse_status_spec",
     "register",
+    "retry_error",
     "switch_case_used",
 ]
 
@@ -85,6 +92,14 @@ OPERATORS = (
 #: Operators that look at the left side only (the right side is ignored).
 UNARY_OPERATORS = frozenset({"is empty", "is not empty", "is true", "is false"})
 _DEFAULT_MAX_LENGTH = {"text": 2000, "lines": 20000, "code": 20000}
+#: *Retry on fail* (ADR-073): how many tries in all (the first one included), how long to wait between two, and how long all the waits of
+#: one node may add up to. A node tries again only itself, never the run; the bounds keep a node from holding a run for hours.
+RETRY_MIN_TRIES = 2
+RETRY_MAX_TRIES = 10
+RETRY_DEFAULT_TRIES = 3
+RETRY_MAX_WAIT_MS = 10 * 60 * 1000
+RETRY_DEFAULT_WAIT_MS = 1000
+RETRY_MAX_TOTAL_WAIT_MS = 30 * 60 * 1000
 #: The parts of a node's dialog and the ways a setting may be disclosed (``Setting.section`` / ``Setting.level``).
 SECTIONS = ("definition", "behaviour")
 LEVELS = ("core", "optional", "advanced")
@@ -234,6 +249,12 @@ class Setting:
         for name in ("disabled_options", "options_by", "shown_when", "line", "credential_types"):
             if (value := getattr(self, name)) is not None:
                 data[name] = list(value) if isinstance(value, tuple) else value
+        if self.type == "retry":
+            data["limits"] = {
+                "max_tries": [RETRY_MIN_TRIES, RETRY_MAX_TRIES, RETRY_DEFAULT_TRIES],
+                "wait_ms": [0, RETRY_MAX_WAIT_MS, RETRY_DEFAULT_WAIT_MS],
+                "total_wait_ms": RETRY_MAX_TOTAL_WAIT_MS,
+            }
         if self.type in _DEFAULT_MAX_LENGTH:
             data["max_length"] = self.max_length or _DEFAULT_MAX_LENGTH[self.type]
         if self.placeholder is not None:
@@ -248,6 +269,16 @@ class Setting:
         data["level"] = self.level
         data["inherits"] = self.inherits
         return data
+
+    def _retry(self, value: Any) -> dict[str, Any]:
+        problem = retry_error(value)
+        if problem:
+            raise SettingError(problem)
+        return {
+            "enabled": value.get("enabled", True),
+            "max_tries": value.get("max_tries", RETRY_DEFAULT_TRIES),
+            "wait_ms": value.get("wait_ms", RETRY_DEFAULT_WAIT_MS),
+        }
 
     def validate(self, value: Any) -> Any:
         """The value as it is stored, or :class:`SettingError`."""
@@ -271,6 +302,8 @@ class Setting:
             if not isinstance(value, bool):
                 raise SettingError(f"'{self.key}' must be true or false")
             return value
+        if self.type == "retry":
+            return self._retry(value)
         if not isinstance(value, str):
             raise SettingError(f"'{self.key}' must be text")
         if self.type == "select":
@@ -288,6 +321,35 @@ class Setting:
         if self.check is not None:
             self.check(value)
         return value
+
+
+def _whole(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def retry_error(value: Any) -> str | None:
+    """Why ``value`` is no *Retry on fail* setting (``None``: it is one): ``{"enabled", "max_tries", "wait_ms"}``, in plain words."""
+    if not isinstance(value, dict):
+        return "Retry on fail must be an object with enabled, max_tries and wait_ms"
+    unknown = sorted(set(value) - {"enabled", "max_tries", "wait_ms"})
+    if unknown:
+        return f"Retry on fail has no '{unknown[0][:40]}': use enabled, max_tries and wait_ms"
+    if not isinstance(value.get("enabled", True), bool):
+        return "Retry on fail: enabled must be true or false"
+    tries, wait = (
+        value.get("max_tries", RETRY_DEFAULT_TRIES),
+        value.get("wait_ms", RETRY_DEFAULT_WAIT_MS),
+    )
+    if not _whole(tries) or not RETRY_MIN_TRIES <= tries <= RETRY_MAX_TRIES:
+        return f"Max. tries must be a whole number from {RETRY_MIN_TRIES} to {RETRY_MAX_TRIES} (the first try counts)"
+    if not _whole(wait) or not 0 <= wait <= RETRY_MAX_WAIT_MS:
+        return f"The wait between tries must be from 0 to {RETRY_MAX_WAIT_MS // 60000} minutes"
+    if (tries - 1) * wait > RETRY_MAX_TOTAL_WAIT_MS:
+        return (
+            f"{tries} tries with {wait} ms between them wait {(tries - 1) * wait // 60000} minutes in all, "
+            f"more than the {RETRY_MAX_TOTAL_WAIT_MS // 60000} minutes allowed: use fewer tries or a shorter wait"
+        )
+    return None
 
 
 class NodeType:
