@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
 {% block title %}{{ t('page.personal') }} · OpenArtifact{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="/static/css/settings.css">{% endblock %}
 {% block content %}
@@ -12,5 +13,20 @@
         <span class="st-status" aria-live="polite" data-status></span>
     </div>
 </div>
+<div class="st-card glass" data-storage-panel>
+    <h2 class="st-heading">{{ t('storage.title') }}</h2>
+    <p class="st-intro">{{ t('storage.intro') }}</p>
+    <p class="st-warning" role="status" hidden data-storage-warning></p>
+    <dl class="st-facts" data-storage-facts></dl>
+    <div class="st-tables" data-storage-tables></div>
+    <div class="st-buttons">
+        <button type="button" class="button button--ghost" data-storage-preview>{{ t('storage.preview') }}</button>
+        <button type="button" class="button button--primary" data-storage-clean>{{ t('storage.clean_now') }}</button>
+        <button type="button" class="button button--ghost" data-storage-shrink>{{ t('storage.shrink') }}</button>
+    </div>
+    <div class="st-preview" data-storage-result hidden></div>
+    <p class="form-error" role="alert" hidden data-storage-error></p>
+</div>
+{{ confirm_modal("storage-confirm", t('storage.confirm_title'), note="data-storage-note") }}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/settings/personal-page.js"></script>{% endblock %}

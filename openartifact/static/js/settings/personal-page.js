@@ -7,6 +7,7 @@ import { FormView } from "../components/form-view.js";
 import { request } from "../http.js";
 import { t } from "../i18n.js";
 import { connectEvents } from "../tasks/events.js";
+import { StoragePanel } from "./storage-panel.js";
 
 const URL = "/api/settings/personal";
 const root = document.querySelector("[data-personal-settings]");
@@ -14,6 +15,7 @@ const status = root.querySelector("[data-status]");
 const errorLine = root.querySelector("[data-form-error]");
 const banner = new AlertBar();
 const NUMBER_PAUSE_MS = 700;
+const storage = new StoragePanel(document.querySelector("[data-storage-panel]"));
 let form = null;
 let saving = 0;
 const timers = new Map();
@@ -61,6 +63,7 @@ async function persist(key, value, typing = false) {
     if (typing && saved[key] === value) form.values = { ...saved }; // what the user typed is what the server holds: no redraw
     else show(saved);
     status.textContent = t("settings.personal_page.saved");
+    if (key.startsWith("storage_")) storage.refresh(); // the warning and the cleaner's interval follow the setting
   } catch (problem) {
     status.textContent = "";
     showError(Object.values(problem.fieldErrors ?? {})[0] ?? problem.detail ?? problem.message);
@@ -78,5 +81,6 @@ connectEvents({
   onOpen: () => form && load(), // a reconnect: events may have been missed (the first load is already on its way)
   onEvent: (type, data) => {
     if (type === "settings.changed" && data.personal && !saving) show(data.personal);
+    if (type === "storage.cleaned") storage.refresh(); // a pass of the background cleaner
   },
 });
