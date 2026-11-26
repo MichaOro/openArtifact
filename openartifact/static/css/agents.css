@@ -124,12 +124,12 @@
 /* the inputs table: one grid for the head and the rows; the Description column only with .has-description */
 .ag-inputs-table {
   /* the three choice columns are as wide as their longest choice (components/select-fit.js sets --ag-col-*): their text is never cut */
-  --ag-input-cols: minmax(5rem, 1.2fr) var(--ag-col-source, 6.5rem) var(--ag-col-type, 8.5rem) var(--ag-col-required, 6.5rem) minmax(4rem, 1fr) 2rem;
+  --ag-input-cols: 2rem minmax(5rem, 1.2fr) var(--ag-col-source, 6.5rem) var(--ag-col-type, 8.5rem) var(--ag-col-required, 6.5rem) minmax(4rem, 1fr) 2rem;
   display: grid;
   gap: var(--space-2);
   --fg-cols: var(--ag-input-cols);
 }
-.ag-inputs-table.has-description { --ag-input-cols: minmax(5rem, 1.1fr) var(--ag-col-source, 6.5rem) var(--ag-col-type, 8.5rem) var(--ag-col-required, 6.5rem) minmax(4rem, 1fr) minmax(5rem, 1.3fr) 2rem; }
+.ag-inputs-table.has-description { --ag-input-cols: 2rem minmax(5rem, 1.1fr) var(--ag-col-source, 6.5rem) var(--ag-col-type, 8.5rem) var(--ag-col-required, 6.5rem) minmax(4rem, 1fr) minmax(5rem, 1.3fr) 2rem; }
 .ag-inputs-head,
 .ag-input { align-items: center; }
 .ag-inputs-head { padding: 0 var(--space-1); font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); }
@@ -137,6 +137,19 @@
 .ag-inputs-table:not(.has-description) .ag-input__description { display: none; }
 .ag-inputs-table:not(:has(.ag-input)) .ag-inputs-head { display: none; }
 .ag-input { padding: var(--space-1); }
+/* the handle of a row (components/sortable.js): only it starts a move; the row follows the pointer between its neighbours */
+.ag-input__grip { color: var(--color-text-muted); cursor: grab; touch-action: none; }
+.ag-input__grip:active { cursor: grabbing; }
+.ag-input.is-dragging { opacity: 0.75; box-shadow: var(--shadow-card-hover); background: var(--color-glass-card); }
+/* where a row breaks into pairs (css/forms.css .field-group) the handle leaves the grid and sits at the row's left edge, so the pairs stay as they were */
+@container (max-width: 42rem) {
+  .ag-input { position: relative; padding-left: 2.25rem; }
+  .ag-input__grip { position: absolute; left: var(--space-1); top: var(--space-2); }
+}
+@container (max-width: 48rem) {
+  .ag-inputs-table.field-group--long .ag-input { position: relative; padding-left: 2.25rem; }
+  .ag-inputs-table.field-group--long .ag-input__grip { position: absolute; left: var(--space-1); top: var(--space-2); }
+}
 .ag-input__required option[value="required"] { color: var(--color-accent); }
 .ag-input__required:has(option[value="required"]:checked) { color: var(--color-accent); border-color: var(--accent-ring); background: var(--accent-soft); }
 .ag-check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; font-size: 0.875rem; }

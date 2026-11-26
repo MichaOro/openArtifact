@@ -809,6 +809,80 @@ def test_the_inputs_table_has_a_required_column_and_a_description_only_when_one_
     expect(rows).to_have_count(1)
 
 
+def _input_names(rows: Locator) -> list[str]:
+    return [rows.nth(i).get_by_label("Name", exact=True).input_value() for i in range(rows.count())]
+
+
+def test_the_inputs_are_reordered_by_their_handle_and_the_order_is_saved(
+    signed_in: Page, agents_url: str, api: httpx.Client
+) -> None:
+    """The handle at the left of a row is the only thing that moves it (a drag, or Arrow Up / Down on the focused handle);
+    the order is a change of the draft and is what the agent stores."""
+    agent = api.post(
+        "/api/agents",
+        json={
+            "name": "Order",
+            "draft": {
+                "user_prompt": "${input.a} ${input.b} ${input.c}",
+                "inputs": [{"name": "a"}, {"name": "b"}, {"name": "c"}],
+            },
+        },
+    ).json()
+    page = signed_in
+    page.set_viewport_size({"width": 1700, "height": 900})
+    page.goto(f"{agents_url}/agents/{agent['id']}")
+    editor = page.locator("[data-agent-editor]")
+    _tab(editor, "Inputs")
+    rows = editor.locator("[data-inputs-table] .ag-input")
+    grips = editor.locator(".ag-input__grip")
+    expect(grips).to_have_count(3)
+    expect(grips.first).to_have_attribute("aria-label", "Drag to reorder")
+    first = rows.first.bounding_box()
+    handle = grips.first.bounding_box()
+    name = rows.first.get_by_label("Name", exact=True).bounding_box()
+    assert first and handle and name
+    assert handle["x"] < name["x"], "the handle is the first thing in the row, left of the name"
+    assert _input_names(rows) == ["a", "b", "c"]
+    expect(editor.locator("[data-save]")).to_be_disabled()  # nothing changed yet
+    # the keyboard: the handle of "a" down one place
+    grips.nth(0).focus()
+    page.keyboard.press("ArrowDown")
+    assert _input_names(rows) == ["b", "a", "c"]
+    expect(grips.nth(1)).to_be_focused()  # the focus stays on the handle of the moved row
+    expect(editor.locator("[data-inputs-live]")).to_have_text("a is now input 2 of 3")
+    expect(editor.locator("[data-save]")).to_be_enabled()  # the order is a change of the draft
+    # a text field of a row is still a text field: typing in it moves nothing
+    rows.nth(2).get_by_label("Name", exact=True).click()
+    page.keyboard.press("ArrowDown")
+    assert _input_names(rows) == ["b", "a", "c"]
+    # the pointer: "c" to the top
+    grip = grips.nth(2).bounding_box()
+    top = rows.first.bounding_box()
+    assert grip and top
+    mouse = page.mouse
+    mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
+    mouse.down()
+    mouse.move(grip["x"] + grip["width"] / 2, top["y"] + 2, steps=12)
+    mouse.up()
+    assert _input_names(rows) == ["c", "b", "a"]
+    editor.locator("[data-save]").click()
+    expect(editor.locator("[data-draft-state]")).to_contain_text("The draft is saved")
+    stored = api.get(f"/api/agents/{agent['id']}").json()["draft"]["inputs"]
+    assert [i["name"] for i in stored] == ["c", "b", "a"]
+    page.reload()
+    editor = page.locator("[data-agent-editor]")
+    _tab(editor, "Inputs")
+    assert _input_names(editor.locator("[data-inputs-table] .ag-input")) == ["c", "b", "a"]
+    # a narrow window breaks a row into pairs: the handle stays visible inside its row and does not overlap the name
+    page.set_viewport_size({"width": 700, "height": 900})
+    row = editor.locator("[data-inputs-table] .ag-input").first
+    expect(row.locator(".ag-input__grip")).to_be_visible()
+    box, grip_box = row.bounding_box(), row.locator(".ag-input__grip").bounding_box()
+    name_box = row.get_by_label("Name", exact=True).bounding_box()
+    assert box and grip_box and name_box
+    assert box["x"] <= grip_box["x"] and grip_box["x"] + grip_box["width"] <= name_box["x"]
+
+
 # ── Versions & use (ADR-047) ─────────────────────────────────────────
 
 
