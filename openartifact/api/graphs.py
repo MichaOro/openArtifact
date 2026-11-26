@@ -290,6 +290,27 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         return await _published(session, graph, version)
 
     @router.post(
+        "/{graph_id}/draft/discard",
+        response_model=GraphDetail,
+        name=f"discard_{kind}_draft",
+        summary=f"Discard the draft of a {kind}",
+        responses=errors(404, 409, 422, write=True),
+    )
+    async def discard_draft(graph_id: str, request: Request, session: SessionDep) -> GraphDetail:
+        """Throw the changes since the published version away: the draft becomes that version again (nodes, connections, settings).
+        What an execution runs does not change. 409 while nothing is published and when the draft equals the published version.
+        Answers the graph as it is now."""
+        repo = GraphRepository(session)
+        graph = await _graph(repo, graph_id)
+        report = await publishing.discard_draft(session, graph)
+        await session.commit()
+        if report.graphs:
+            request.app.state.event_bus.publish(
+                "graph.changed", {"graph_ids": sorted(report.graphs)}
+            )
+        return await get_graph(graph_id, session)
+
+    @router.post(
         "/{graph_id}/versions/{number}/republish",
         response_model=PublishedGraph,
         name=f"republish_{kind}_version",

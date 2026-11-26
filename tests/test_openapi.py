@@ -165,6 +165,7 @@ PATCH /api/v1/guards/{guard_id} -> GuardDefinitionRead
 PATCH /api/v1/providers/{ref} -> ProviderRead
 PATCH /api/v1/providers/{ref}/models/{model_id} -> ProviderRead
 POST /api/actions -> GraphRead
+POST /api/actions/{graph_id}/draft/discard -> GraphDetail
 POST /api/actions/{graph_id}/edges -> EdgeRead
 POST /api/actions/{graph_id}/nodes -> NodeRead
 POST /api/actions/{graph_id}/publish -> PublishedGraph
@@ -189,6 +190,7 @@ POST /api/guards/preview -> GuardPreview
 POST /api/lanes -> LaneRead[]
 POST /api/lanes/{status}/rules/preview -> CardPreviewRead
 POST /api/pipelines -> GraphRead
+POST /api/pipelines/{graph_id}/draft/discard -> GraphDetail
 POST /api/pipelines/{graph_id}/edges -> EdgeRead
 POST /api/pipelines/{graph_id}/nodes -> NodeRead
 POST /api/pipelines/{graph_id}/publish -> PublishedGraph

@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from alembic import command
 from tests.helpers import (
     alembic_config,
+    build_definition,
     build_pipeline,
     graph_url,
     make_task,
@@ -255,4 +256,93 @@ def test_the_version_of_a_pipeline_comes_with_its_stages(client: TestClient) -> 
     assert (
         client.get(f"{graph_url(post(client, '/api/actions', name='A'))}/versions/1").status_code
         == 404
+    )
+
+
+# ── discarding the draft (ADR-070 addendum) ──────────────────────────
+
+
+def test_discarding_the_draft_of_an_action_brings_the_published_settings_back(
+    client: TestClient,
+) -> None:
+    action = _definition(client, "code", code="echo one")
+    _publish(client, action)
+    _set_code(client, action, "echo two")
+    assert _read(client, action)["draft_changed"] is True
+    done = client.post(f"{graph_url(action)}/draft/discard")
+    assert done.status_code == 200, done.text
+    assert done.json()["graph"]["draft_changed"] is False, "the draft equals version 1 again"
+    shown = {n["id"]: n for n in done.json()["nodes"]}[action["node"]["id"]]
+    assert shown["config"]["code"] == "echo one"
+    assert [v["number"] for v in _versions(client, action)] == [1], "no version is made or lost"
+
+
+def test_discarding_the_draft_takes_a_stage_and_its_connections_away_that_the_version_does_not_have(
+    client: TestClient,
+) -> None:
+    pipeline = build_pipeline(client, stages=1)
+    _publish(client, pipeline)
+    before = client.get(graph_url(pipeline)).json()
+    extra = node(client, pipeline, "stage", name="Extra")
+    assert _read(client, pipeline)["draft_changed"] is True
+    done = client.post(f"{graph_url(pipeline)}/draft/discard")
+    assert done.status_code == 200, done.text
+    after = done.json()
+    assert extra["id"] not in {n["id"] for n in after["nodes"]}
+    assert {n["id"] for n in after["nodes"]} == {n["id"] for n in before["nodes"]}
+    assert {e["id"] for e in after["edges"]} == {e["id"] for e in before["edges"]}
+    assert after["graph"]["draft_changed"] is False
+
+
+def test_discarding_brings_back_a_node_the_draft_deleted_with_its_connections(
+    client: TestClient,
+) -> None:
+    pipeline = build_pipeline(client, stages=2)
+    _publish(client, pipeline)
+    before = client.get(graph_url(pipeline)).json()
+    stage, _action = pipeline["stages"][1]
+    assert client.delete(f"{graph_url(pipeline)}/nodes/{stage['id']}").status_code == 204
+    done = client.post(f"{graph_url(pipeline)}/draft/discard")
+    assert done.status_code == 200, done.text
+    assert {n["id"] for n in done.json()["nodes"]} == {n["id"] for n in before["nodes"]}, (
+        "the second stage and its action are back, as they were"
+    )
+    assert {e["id"] for e in done.json()["edges"]} == {e["id"] for e in before["edges"]}
+
+
+def test_nothing_is_discarded_while_nothing_is_published_or_the_draft_is_unchanged(
+    client: TestClient,
+) -> None:
+    action = post(client, "/api/actions", name="Fresh")
+    never = client.post(f"{graph_url(action)}/draft/discard")
+    assert never.status_code == 409
+    assert "no version to go back to" in never.json()["detail"]
+    _publish(client, action)
+    same = client.post(f"{graph_url(action)}/draft/discard")
+    assert same.status_code == 409
+    assert "nothing to discard" in same.json()["detail"]
+    assert client.post("/api/actions/none/draft/discard").status_code == 404
+
+
+def test_discarding_the_draft_of_a_definition_carries_its_error_output_to_the_uses(
+    client: TestClient,
+) -> None:
+    definition = build_definition(client, "Checked")
+    _publish(client, definition)
+    pipeline = build_pipeline(client, stages=1)
+    use = _use(client, pipeline, definition)
+    client.patch(
+        f"{graph_url(pipeline)}/nodes/{use['id']}", json={"config": {"on_failure": "error_output"}}
+    )
+    outputs = [
+        n for n in client.get(graph_url(definition)).json()["nodes"] if n["kind"] == "output"
+    ]
+    assert outputs[0]["fail_enabled"] is True, "the use switched the definition's On Fail on"
+    assert _read(client, definition)["draft_changed"] is True
+    done = client.post(f"{graph_url(definition)}/draft/discard")
+    assert done.status_code == 200, done.text
+    assert [n["fail_enabled"] for n in done.json()["nodes"] if n["kind"] == "output"] == [False]
+    seen = {n["id"]: n for n in client.get(graph_url(pipeline)).json()["nodes"]}[use["id"]]
+    assert seen["config"]["on_failure"] == "fail", (
+        "the use follows its definition, which has no error output again, as an edit of it would do"
     )
