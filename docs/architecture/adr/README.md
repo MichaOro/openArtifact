@@ -86,6 +86,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [074](074-setting-row-and-durations.md) | The setting row (label, control, end action, no overlap) and durations as a number with a unit (ms, sec, min) | Accepted | 2026-11-26 | amends ADR-053, ADR-059 |
 | [075](075-execute-command-node.md) | The Code node is called Execute Command, is off by default and has an output limit of its own | Accepted | 2026-11-26 | amends ADR-021, ADR-023, ADR-053, ADR-059, ADR-074 |
 | [076](076-stop-switch.md) | The emergency stop: one global switch that blocks every execution | Accepted | 2026-11-26 | amends ADR-062, ADR-028 |
+| [077](077-markdown-in-long-texts.md) | Markdown in the long texts: stored as written, a small subset (bold, italic, strikethrough, bullet lists) drawn by one safe renderer, a bar under the field | Accepted | 2026-11-26 | amends ADR-055, ADR-059, ADR-064 |
 | [078](078-build-context-node.md) | The Build Context node: one package for an agent from the card, its neighbours and earlier results, within a size limit, with a list of what went in and what was left out | Accepted | 2026-11-26 | amends ADR-054, ADR-053, ADR-072 |
 
 ## Notes

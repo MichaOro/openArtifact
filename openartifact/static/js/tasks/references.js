@@ -2,6 +2,7 @@
  * number exists is only known at display time, so unknown numbers stay plain text. */
 
 import { t } from "../i18n.js";
+import { renderMarkdown } from "../components/markdown.js";
 const REFERENCE = /(^|[^\w#&])#(\d{1,9})\b/g;
 
 /**
@@ -57,4 +58,44 @@ export function renderResolvedBody(segments, find) {
     }
   }
   return fragment;
+}
+
+/** The part [from, to) of a text that is given as marked segments: the pieces of it, filled in ones wrapped in a mark. */
+function renderSlice(segments, from, to, find) {
+  const fragment = document.createDocumentFragment();
+  let offset = 0;
+  for (const segment of segments) {
+    const begin = Math.max(from, offset);
+    const stop = Math.min(to, offset + segment.text.length);
+    if (stop > begin) {
+      const piece = renderReferences(segment.text.slice(begin - offset, stop - offset), find);
+      if (segment.resolved) {
+        const mark = document.createElement("mark");
+        mark.className = "resolved-ref";
+        mark.append(piece);
+        fragment.append(mark);
+      } else fragment.append(piece);
+    }
+    offset += segment.text.length;
+  }
+  return fragment;
+}
+
+/**
+ * A body as it is read (ADR-077): the Markdown of the text (bold, italic, strikethrough, lists) with "#12" turned into links and, when
+ * `segments` are given, the filled in references marked. The marks and links sit inside the formatting, wherever the text is cut.
+ * @param {string} text the text as it is shown; with `segments` their texts joined
+ * @param {(number: number) => {title: string}|undefined} find the artifact with that number
+ * @param {{segments?: Array<{text: string, resolved: boolean}>|null, lists?: boolean, links?: boolean}} [options]
+ *   `links` false leaves "#12" as text (a card on the board draws no links unless its references are marked)
+ * @returns {DocumentFragment}
+ */
+export function renderBody(text, find, { segments = null, lists = true, links = true } = {}) {
+  const source = segments ? segments.map((segment) => segment.text).join("") : text;
+  const renderText = segments
+    ? (piece, start) => renderSlice(segments, start, start + piece.length, find)
+    : links
+      ? (piece) => renderReferences(piece, find)
+      : undefined;
+  return renderMarkdown(source, { renderText, lists });
 }

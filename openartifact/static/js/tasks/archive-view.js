@@ -121,7 +121,7 @@ export class ArchiveView {
         const actions = make("div", "action-row");
         actions.append(remove);
         const section = make("section", "mg-section");
-        section.append(make("h3", "", t("archive.text")), new ClampedText({ text, label: t("archive.text"), empty: t("archive.no_text"), onMore: () => this.onOpen(full) }).element);
+        section.append(make("h3", "", t("archive.text")), new ClampedText({ text, label: t("archive.text"), empty: t("archive.no_text"), markdown: true, onMore: () => this.onOpen(full) }).element);
         body.replaceChildren(section, list, actions);
       })
       .catch(() => this.#failed(body));

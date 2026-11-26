@@ -67,7 +67,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/position` | Where the execution is: `at`, `next`, `afterwards`, `path` (see [Neighbours and position](#neighbours-and-position)) | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id}` | One step with its complete output | 404 |
 | GET | `/api/v1/artifacts/{ref}/activity` | What changed on the artifact and who did it, newest first, in pages: `limit` 1 to 200 (default 50), `before` = the `next` cursor of the previous page; a delete action on executions is one `run` entry, a comment is a `comment` entry (its id, never its text); executions that still exist are not repeated | 404, 422 |
-| GET | `/api/v1/artifacts/{ref}/comments` | The artifact's comments, oldest first (plain text; `author`, `author_kind`, `execution_id`) | 404 |
+| GET | `/api/v1/artifacts/{ref}/comments` | The artifact's comments, oldest first (Markdown text, stored as written; `author`, `author_kind`, `execution_id`) | 404 |
 | POST | `/api/v1/artifacts/{ref}/comments` | Add a comment `{"body", "author"?}` (1 to 65536 characters); `201`. The author is the managed token's name; only the environment token may pass `author`. Publishes `comment.created` | 404, 422 |
 | PATCH | `/api/v1/artifacts/{ref}/comments/{comment_id}` | Change the text `{"body"}`; publishes `comment.updated` | 404, 422 |
 | DELETE | `/api/v1/artifacts/{ref}/comments/{comment_id}` | Delete a comment; `204`; publishes `comment.deleted` | 404 |

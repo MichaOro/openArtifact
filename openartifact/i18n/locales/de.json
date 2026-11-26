@@ -259,7 +259,7 @@
  "comments.loading_comments": "Kommentare werden geladen...",
  "comments.no_comments_yet_write_the_first": "Noch keine Kommentare. Schreibe unten den ersten.",
  "comments.open_the_execution": "Ausführung öffnen",
- "comments.plain_text_ctrl_enter_sends": "Nur Text. Strg+Enter sendet.",
+ "comments.markdown_ctrl_enter_sends": "Markdown: fett, kursiv, durchgestrichen, Listen. Strg+Enter sendet.",
  "comments.write_a_comment": "Kommentar schreiben...",
  "common.actions": "Aktionen",
  "common.active": "Aktiv",
@@ -2229,5 +2229,12 @@
  "nodes.context.settings.on_failure.label": "Wenn der Node fehlschlägt",
  "nodes.context.settings.on_failure.options.continue": "Fortfahren",
  "nodes.context.settings.on_failure.options.error_output": "Fehlerausgang",
- "nodes.context.settings.on_failure.options.fail": "Lauf stoppen"
+ "nodes.context.settings.on_failure.options.fail": "Lauf stoppen",
+ "components.markdown_bar.formatting": "Formatierung",
+ "components.markdown_bar.bold": "Fett",
+ "components.markdown_bar.italic": "Kursiv",
+ "components.markdown_bar.strikethrough": "Durchgestrichen",
+ "components.markdown_bar.list": "Aufzählung",
+ "components.markdown_bar.hint": "Markdown: fett, kursiv, durchgestrichen, Listen",
+ "components.markdown_bar.preview": "Vorschau"
 }

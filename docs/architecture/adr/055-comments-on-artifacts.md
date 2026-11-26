@@ -52,3 +52,7 @@ agent to another need exactly such a place.
 - **The caller names itself:** simplest, but any script could write as "You" or as another agent. Refused: the name must come from the credential.
 - **A foreign key to the credential:** would break when a token is deleted; the name is copied instead.
 - **Comments as an artifact field:** a field is one value; comments are a list with authors and times.
+
+## Update (2026-11-26): Markdown in the long texts
+
+A comment is Markdown by convention from now on: bold, italic, strikethrough and bullet lists are drawn, the rest stays literal, and the comment box has the Markdown bar. The stored text is unchanged ([ADR-077](077-markdown-in-long-texts.md)).
