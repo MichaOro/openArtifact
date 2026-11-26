@@ -159,7 +159,9 @@ def test_the_add_menu_has_closed_clusters_to_find_your_way_and_a_search_over_the
 
     groups.nth(2).click()  # a cluster opens...
     expect(groups.nth(2)).to_have_attribute("aria-expanded", "true")
-    expect(menu.locator("[data-add]")).to_have_count(7)  # GitHub MCP, the OpenArtifact MCP Tool (ADR-079) and the Hand Over Tool (ADR-080) joined the agent tools
+    expect(menu.locator("[data-add]")).to_have_count(
+        7
+    )  # GitHub MCP, the OpenArtifact MCP Tool (ADR-079) and the Hand Over Tool (ADR-080) joined the agent tools
     groups.nth(6).click()  # ...and the one before closes: one at a time
     expect(groups.nth(2)).to_have_attribute("aria-expanded", "false")
     expect(menu.locator("[data-add]")).to_have_text(["If", "Switch", "Timer"])
@@ -174,7 +176,9 @@ def test_the_add_menu_has_closed_clusters_to_find_your_way_and_a_search_over_the
     )  # the search reaches the new GitHub MCP tool too
     expect(groups).to_have_count(0)
     page.locator(".ge-add__search").fill("tool")
-    expect(menu.locator("[data-add]")).to_have_count(7)  # by their names (GitHub MCP is a tool too; so are the OpenArtifact MCP Tool and the Hand Over Tool)
+    expect(menu.locator("[data-add]")).to_have_count(
+        7
+    )  # by their names (GitHub MCP is a tool too; so are the OpenArtifact MCP Tool and the Hand Over Tool)
     page.locator(".ge-add__search").fill("flow")  # a cluster's name is no search term
     expect(menu.locator(".ge-add__empty")).to_be_visible()
     page.locator(".ge-add__search").fill("nothing like this")
