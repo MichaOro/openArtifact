@@ -83,6 +83,15 @@ test("the schema offers the available actions, with the settings of the ones tha
   assert.equal(byKey.archive.params, undefined);
 });
 
+test("the choice Always / Only when is there for card rules only, and a rule that deletes cannot be always", () => {
+  assert.equal(buildSchema(SERVER).always, undefined, "no scope, no choice (the retention rules and guards keep their meaning)");
+  assert.ok(buildSchema(SERVER, { scope: "lane" }).always.label.length > 0);
+  assert.notEqual(buildSchema(SERVER, { scope: "lane" }).always.label, buildSchema(SERVER, { scope: "board" }).always.label, "each place names its cards");
+  const byKey = Object.fromEntries(buildSchema(SERVER, { scope: "board" }).actions.map((a) => [a.key, a]));
+  assert.equal(byKey.delete.needsCondition, true);
+  assert.equal(byKey.archive.needsCondition, false);
+});
+
 test("the board's lanes are the choices of the field Lane", () => {
   const schema = buildSchema(SERVER, { lanes: [{ status: "backlog", title: "Optional" }, { status: "done_2", title: "Done" }] });
   const lane = schema.fields.find((f) => f.key === "lane");

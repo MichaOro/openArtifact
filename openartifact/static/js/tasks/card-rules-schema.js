@@ -36,10 +36,12 @@ const PARAMS = {
 
 /**
  * @param {{fields: object[], consequences: {key: string, available: boolean}[]}} server the schema of the purpose
- * @param {{lanes?: {status: string, title: string}[]}} [options] the board's lanes (for the field "Lane" of the board's rules)
+ * @param {{lanes?: {status: string, title: string}[], scope?: "lane" | "board"}} [options] the board's lanes (for the field "Lane" of
+ *   the board's rules); `scope` turns on the choice "Always" / "Only when…" (a rule without a condition holds for every card)
  */
-export function buildSchema(server, { lanes = [] } = {}) {
+export function buildSchema(server, { lanes = [], scope = null } = {}) {
   return {
+    ...(scope ? { always: { label: t(`cards_rules.always_${scope}`) } } : {}),
     actions: server.consequences
       .filter((c) => c.available)
       .map((c) => ({
@@ -48,6 +50,7 @@ export function buildSchema(server, { lanes = [] } = {}) {
         phrase: t(`cards_rules.phrase.${c.key}`),
         effect: c.key === "delete" ? "deletes" : c.key === "archive" ? "hides" : "",
         startsOff: c.key === "delete", // a rule that deletes starts switched off (ADR-071)
+        needsCondition: c.key === "delete", // ... and names what it deletes: it is never "always"
         defaults: PARAMS[c.key]?.defaults,
         params: PARAMS[c.key]?.params(),
       })),

@@ -93,7 +93,7 @@ export class CardRulesDialog extends ActionDialog {
     this.modal.open();
     try {
       const [server, stored] = await Promise.all([request(urls(scope).schema), request(urls(scope).rules)]);
-      this.schema = buildSchema(server, { lanes });
+      this.schema = buildSchema(server, { lanes, scope: scope.kind });
       this.#mount();
       this.list.load(stored.rules);
       this.#changed();
@@ -269,11 +269,13 @@ export class CardRulesDialog extends ActionDialog {
     const complete = rules.every((r) => model.isComplete(r.when, this.schema));
     // a rule that deletes must name what it deletes: the server refuses one that holds for every card
     const open = rules.some((r) => r.action === "delete" && r.enabled && !r.when.items.length);
-    this.submitButton.disabled = !complete || open;
+    // "Only when…" chosen but no condition named yet: it would be saved as "always", which is not what was asked
+    const unnamed = this.list.rules.some((r) => !r.removed && r.conditional && !r.when.items.length);
+    this.submitButton.disabled = !complete || open || unnamed;
     this.confirmed = false;
     this.warning.hidden = true;
     this.label.textContent = t("common.save");
-    this.setError(!complete ? t("cards_rules.complete_every_condition") : open ? t("cards_rules.delete_needs_condition") : "");
+    this.setError(!complete ? t("cards_rules.complete_every_condition") : open ? t("cards_rules.delete_needs_condition") : unnamed ? t("cards_rules.only_when_needs_condition") : "");
   }
 
   async #save() {

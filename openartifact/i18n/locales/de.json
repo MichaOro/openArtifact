@@ -2035,8 +2035,8 @@
  "cards_rules.field.lane": "Spalte",
  "cards_rules.field.title": "Titel",
  "cards_rules.field_name": "Feldname",
- "cards_rules.intro_board": "Jede Regel sagt: Wenn Bedingungen für eine Karte in irgendeiner Spalte gelten, wird sie ausgeblendet, gelöscht oder anders gezeichnet. Gelöscht werden nur archivierte Karten, und eine Regel, die löscht, startet ausgeschaltet.",
- "cards_rules.intro_lane": "Jede Regel sagt: Wenn Bedingungen für eine Karte dieser Spalte gelten, passiert etwas mit ihr oder mit ihrem Aussehen.",
+ "cards_rules.intro_board": "Jede Regel sagt: immer, oder nur wenn Bedingungen für eine Karte in irgendeiner Spalte gelten, wird sie ausgeblendet, gelöscht oder anders gezeichnet. Gelöscht werden nur archivierte Karten, und eine Regel, die löscht, startet ausgeschaltet.",
+ "cards_rules.intro_lane": "Jede Regel sagt: immer, oder nur wenn Bedingungen für eine Karte dieser Spalte gelten, passiert etwas mit ihr oder mit ihrem Aussehen.",
  "cards_rules.log_empty": "Bisher hat keine Regel etwas gelöscht.",
  "cards_rules.log_row": "#{number} {title} ({lane}) durch Regel {rule}, {at}",
  "cards_rules.mode.border": "Rahmen",
@@ -2107,5 +2107,11 @@
  "archive.remove_failed": "Die Karte konnte nicht aus dem Archiv genommen werden.",
  "archive.restored": "{title} ist wieder in seiner Spalte",
  "archive.yes": "Ja",
- "archive.no": "Nein"
+ "archive.no": "Nein",
+ "components.rule_set.condition_mode": "Wann die Regel gilt",
+ "components.rule_list.always": "Immer: {action}",
+ "components.rule_set.only_when": "Nur wenn…",
+ "cards_rules.always_lane": "Immer (jede Karte in dieser Spalte)",
+ "cards_rules.always_board": "Immer (jede Karte auf dem Board)",
+ "cards_rules.only_when_needs_condition": "„Nur wenn…“ braucht mindestens eine Bedingung. Nenne eine oder wähle „Immer“."
 }

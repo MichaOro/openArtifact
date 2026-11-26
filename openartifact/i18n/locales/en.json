@@ -1368,8 +1368,8 @@
  "cards_rules.field.lane": "Lane",
  "cards_rules.field.title": "Title",
  "cards_rules.field_name": "Field name",
- "cards_rules.intro_board": "Each rule says: if conditions hold for a card of any lane, then it is hidden, deleted or drawn differently. Only archived cards are ever deleted, and a rule that deletes starts switched off.",
- "cards_rules.intro_lane": "Each rule says: if conditions hold for a card of this lane, then something happens to it or to how it looks.",
+ "cards_rules.intro_board": "Each rule says: always, or only if conditions hold for a card of any lane, then it is hidden, deleted or drawn differently. Only archived cards are ever deleted, and a rule that deletes starts switched off.",
+ "cards_rules.intro_lane": "Each rule says: always, or only if conditions hold for a card of this lane, then something happens to it or to how it looks.",
  "cards_rules.log_empty": "Nothing was deleted by a rule yet.",
  "cards_rules.log_row": "#{number} {title} ({lane}) by rule {rule}, {at}",
  "cards_rules.mode.border": "Border",
@@ -1440,5 +1440,11 @@
  "archive.remove_failed": "The card could not be taken out of the archive.",
  "archive.restored": "{title} is back in its lane",
  "archive.yes": "Yes",
- "archive.no": "No"
+ "archive.no": "No",
+ "components.rule_set.condition_mode": "When the rule applies",
+ "components.rule_set.only_when": "Only when…",
+ "components.rule_list.always": "Always: {action}",
+ "cards_rules.always_lane": "Always (every card in this lane)",
+ "cards_rules.always_board": "Always (every card on the board)",
+ "cards_rules.only_when_needs_condition": "“Only when…” needs at least one condition. Name one, or choose “Always”."
 }

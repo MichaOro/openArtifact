@@ -73,6 +73,25 @@ test("a row says what its rule does, or that it is empty or unfinished", () => {
   assert.equal(L.summaryOf(unfinished, SCHEMA).state, "incomplete");
 });
 
+test("a card rule without a condition is told as always, a retention rule without one as empty", () => {
+  const cards = {
+    always: { label: "Always" },
+    actions: [
+      { key: "set_done", label: "Set card as done", phrase: "Set cards as done where" },
+      { key: "delete", label: "Delete the archived card", phrase: "Delete archived cards where", needsCondition: true },
+    ],
+    fields: SCHEMA.fields,
+  };
+  const none = { type: "group", mode: "all", items: [] };
+  const always = L.summaryOf({ when: none, action: "set_done" }, cards);
+  assert.equal(always.state, "ok", "no condition holds for every card");
+  assert.match(always.text, /Set card as done/, "the sentence names the action it applies always");
+  assert.equal(L.summaryOf({ when: none, action: "set_done", conditional: true }, cards).state, "empty", "'only when' without a condition is not finished");
+  assert.equal(L.summaryOf({ when: none, action: "delete" }, cards).state, "empty", "a rule that deletes is never always");
+  assert.equal(L.summaryOf({ when: failed, action: "set_done" }, cards).state, "ok");
+  assert.equal(L.summaryOf({ when: none, action: "delete" }, SCHEMA).state, "empty", "without schema.always an empty rule does nothing, as before");
+});
+
 test("only rules that are on and not removed are told in the footer line, in the order of the list", () => {
   const rules = L.removeStaged(L.setEnabled(L.normalize([{ when: failed, action: "delete" }, { when: old, action: "delete", name: "Old ones" }, { when: failed, action: "delete" }]), 2, false), 0);
   assert.deepEqual(L.activeSentences(rules, SCHEMA), [{ label: "Old ones", text: "Delete finished executions where Age is older than 7 days." }]);
