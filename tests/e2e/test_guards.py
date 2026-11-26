@@ -166,7 +166,8 @@ def test_a_template_becomes_a_library_guard_in_the_editor_titled_by_its_name_wit
     # what fires it, its condition in words, its consequence and where it is used: chips and one line (before: one summary line)
     chips = item.locator(".mg-card__chips .ge-chip")
     expect(chips).to_have_text(["Every 1 minute", "Pause the run"])
-    expect(item.locator(".mg-card__facts").first).to_have_text(
+    # the condition in words is the card's middle text (the uniform cards of ADR-069), the facts line holds where it is used
+    expect(item.locator(".mg-card__text")).to_have_text(
         "Time without progress is at least 15 minutes"
     )
     expect(item.locator("[data-used]")).to_have_text("Not used yet")

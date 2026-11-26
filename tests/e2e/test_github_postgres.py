@@ -40,7 +40,19 @@ def test_a_github_node_is_set_in_the_inspector_and_says_when_its_comment_is_off(
     card.dblclick(position={"x": 30, "y": 5})
 
     inspector = page.locator(".ge-inspector")
+    inspector.get_by_label("Resource").select_option(
+        "Issue"
+    )  # the operations follow the resource (n8n style)
+    expect(inspector.get_by_label("Operation")).to_have_value(
+        "Get issue"
+    )  # the operation follows the resource first
+    expect(
+        inspector.get_by_label("Number", exact=True)
+    ).to_be_visible()  # the dialog is drawn again for the resource
     inspector.get_by_label("Operation").select_option("Create comment")
+    expect(
+        inspector.get_by_label("Comment", exact=True)
+    ).to_be_visible()  # ...and again for the operation
     inspector.get_by_label("Repository").fill("acme/tool")
     inspector.get_by_label("Repository").press("Enter")
     expect(card.locator(".ge-node__kind")).to_have_text("Create comment (off) · acme/tool")

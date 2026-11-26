@@ -310,7 +310,7 @@ def test_task_modal_supports_create_and_edit_modes(client: TestClient) -> None:
 
 
 def test_task_dialog_has_collapsed_card_navigation_with_delete(client: TestClient) -> None:
-    """Right-hand rail in the task dialog: collapsed by default, only action is Delete."""
+    """Right-hand rail in the task dialog: collapsed by default; its commands are Archive and Delete (ADR-071 addendum 2)."""
     html = client.get("/").text
     assert 'data-card-nav data-state="collapsed"' in html
     assert "data-card-nav-toggle" in html
@@ -318,7 +318,8 @@ def test_task_dialog_has_collapsed_card_navigation_with_delete(client: TestClien
     assert (
         html.count('data-card-action="delete"') == 1
     )  # the rail's only command (Start/Stop is in the footer)
-    assert html.count("data-card-action=") == 2
+    assert html.count('data-card-action="archive"') == 1
+    assert html.count("data-card-action=") == 3  # run (footer), archive, delete
     assert "collapsible-nav.js" in client.get("/static/js/tasks/main.js").text
     assert client.get("/static/js/components/collapsible-nav.js").status_code == 200
 

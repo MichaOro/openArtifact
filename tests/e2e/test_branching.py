@@ -58,7 +58,13 @@ def test_the_menu_offers_if_and_switch_after_http(
     page.click("[data-add-menu]")
     assert menu_kinds(page) == {
         "AI": ["Agent"],
-        "Agent tools": ["MCP Client Tool", "HTTP Request Tool", "Code Tool", "Postgres Tool"],
+        "Agent tools": [
+            "MCP Client Tool",
+            "GitHub MCP",
+            "HTTP Request Tool",
+            "Code Tool",
+            "Postgres Tool",
+        ],
         "Apps and data": ["GitHub", "Postgres"],
         "Core": ["Code", "HTTP request"],
         "Data": ["Edit Fields", "Artifact"],
