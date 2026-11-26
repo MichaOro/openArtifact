@@ -4,9 +4,11 @@ A **definition** is what a guard is: its trigger, condition, escalation, consequ
 ``run_action``, an ordinary action definition edited in the action editor; a definition saved with ``run_action`` and
 no action gets an empty one). It may be attached to the scope types it lists. An **attachment** puts a definition on a
 pipeline, one of its stages or one of its actions, or on an action definition (the whole action, or one execution node
-of it), and is switched on or off there; the graph that holds the scope is the attachment's ``graph_id``. A change to a definition acts on
-every place it is attached to (at the next start: a running execution keeps what it froze); switching an attachment
-off acts on running executions at once. A definition cannot be deleted while it is attached anywhere (409).
+of it), and is switched on or off there; the graph that holds the scope is the attachment's ``graph_id``. A definition has a draft (its own
+columns, what the editor saves) and published versions (``guards/versions.py``, ADR-081): only a published version is in effect, and an
+execution freezes it when it starts, so a later change or publication does not reach a running execution. A definition that was never
+published watches nothing. Switching an attachment on or off is not part of a version: off acts on running executions at once. A
+definition cannot be deleted while it is attached anywhere (409).
 Every change publishes ``guards.changed`` (``{"guard_id"}`` and, for an attachment, ``{"graph_id"}``).
 """
 
@@ -32,6 +34,7 @@ from openartifact.graph.node_types import node_type
 from openartifact.graph.repository import GraphRepository, NodeError
 from openartifact.graph.rules import EdgeError
 from openartifact.graph.schemas import EdgeCreate, NodeCreate, NodeUpdate
+from openartifact.guards import versions as guard_versions
 from openartifact.guards.schemas import (
     DEFINITION_SCOPES,
     PIPELINE_SCOPES,
@@ -41,6 +44,9 @@ from openartifact.guards.schemas import (
     GuardDefinitionCreate,
     GuardDefinitionRead,
     GuardDefinitionWrite,
+    GuardVersionDetail,
+    GuardVersionRead,
+    PublishedGuard,
 )
 from openartifact.models import (
     Graph,
@@ -48,6 +54,7 @@ from openartifact.models import (
     GraphNode,
     GuardAttachment,
     GuardDefinition,
+    GuardVersion,
     NodeKind,
 )
 
@@ -66,13 +73,13 @@ def templates() -> dict[str, dict[str, Any]]:
     return found
 
 
-#: What names a graph or a node: ``(holder id) -> (name, kind)`` and ``(node id) -> name``.
-Names = tuple[dict[str, tuple[str, str]], dict[str, str]]
-NO_NAMES: Names = ({}, {})
+#: What names a graph or a node: ``(holder id) -> (name, kind)``, ``(node id) -> name`` and ``(guard id) -> published number``.
+Names = tuple[dict[str, tuple[str, str]], dict[str, str], dict[str, int | None]]
+NO_NAMES: Names = ({}, {}, {})
 
 
 def read_attachment(row: GuardAttachment, name: str, names: Names = NO_NAMES) -> AttachmentRead:
-    graphs, nodes = names
+    graphs, nodes, published = names
     holder_name, holder_kind = graphs.get(row.graph_id, ("", "action"))
     if row.scope_type in ("pipeline", "definition"):
         scope_name = holder_name
@@ -90,6 +97,7 @@ def read_attachment(row: GuardAttachment, name: str, names: Names = NO_NAMES) ->
         scope_id=row.scope_id,
         scope_name=scope_name,
         enabled=row.enabled,
+        guard_published=published.get(row.guard_id, 1) is not None,
         created_at=row.created_at,
     )
 
@@ -114,17 +122,53 @@ async def names_of(session: AsyncSession, rows: Sequence[GuardAttachment]) -> Na
         if node_ids
         else {}
     )
-    return graphs, nodes
+    guard_ids = {r.guard_id for r in rows}
+    published: dict[str, int | None] = (
+        {
+            gid: number
+            for gid, number in (
+                await session.execute(
+                    select(GuardDefinition.id, GuardDefinition.published_number).where(
+                        GuardDefinition.id.in_(guard_ids)
+                    )
+                )
+            ).all()
+        }
+        if guard_ids
+        else {}
+    )
+    return graphs, nodes, published
+
+
+async def fingerprints(session: AsyncSession) -> dict[tuple[str, int], str]:
+    """The fingerprint of every published version, ``{(guard id, number): hash}`` (one query, for ``draft_changed`` of a list)."""
+    found = await session.execute(
+        select(GuardVersion.guard_id, GuardVersion.number, GuardVersion.fingerprint)
+    )
+    return {(gid, number): digest for gid, number, digest in found.all()}
 
 
 def read(
-    row: GuardDefinition, attachments: Sequence[GuardAttachment], names: Names = NO_NAMES
+    row: GuardDefinition,
+    attachments: Sequence[GuardAttachment],
+    names: Names = NO_NAMES,
+    stored: dict[tuple[str, int], str] | None = None,
 ) -> GuardDefinitionRead:
+    """The definition as the editor sees it (its draft) with where it is attached; ``stored`` (``fingerprints``) tells whether the
+    draft differs from the published version."""
+    changed = False
+    if row.published_number is not None and stored is not None:
+        digest = stored.get((row.id, row.published_number))
+        changed = digest is not None and digest != guard_versions.fingerprint(
+            guard_versions.content_of(row)
+        )
     return GuardDefinitionRead.model_validate(
         {
             **definition_data(row),
             "used_by": len(attachments),
             "attachments": [read_attachment(a, row.name, names) for a in attachments],
+            "published_version": row.published_number,
+            "draft_changed": changed,
             "created_at": row.created_at,
             "updated_at": row.updated_at,
         }
@@ -178,8 +222,9 @@ class GuardService:
             rows = await session.scalars(
                 select(GuardDefinition).order_by(GuardDefinition.name, GuardDefinition.id)
             )
+            stored = await fingerprints(session)
             return [
-                read(row, by_guard.get(row.id, []), names)
+                read(row, by_guard.get(row.id, []), names, stored)
                 for row in rows
                 if holders is None or row.id in by_guard
             ]
@@ -188,9 +233,12 @@ class GuardService:
         async with self._session() as session:
             row = await self._row(session, guard_id)
             attachments = await self._attachments_of(session, row.id)
-            return read(row, attachments, await names_of(session, attachments))
+            return read(
+                row, attachments, await names_of(session, attachments), await fingerprints(session)
+            )
 
     async def create(self, data: GuardDefinitionCreate) -> GuardDefinitionRead:
+        """A new definition: a draft that watches nothing until it is published (ADR-081)."""
         async with self._session() as session:
             count = await session.scalar(select(func.count()).select_from(GuardDefinition))
             if (count or 0) >= MAX_DEFINITIONS:
@@ -207,6 +255,7 @@ class GuardService:
         return result
 
     async def update(self, guard_id: str, data: GuardDefinitionWrite) -> GuardDefinitionRead:
+        """Save the draft. Executions use the published version, so nothing changes for them until it is published."""
         async with self._session() as session:
             row = await self._row(session, guard_id)
             attachments = await self._attachments_of(session, row.id)
@@ -215,7 +264,9 @@ class GuardService:
             if row.consequence == "run_action" and row.action_id is None:
                 row.action_id = (await self._new_action(session, f"{row.name} (guard)")).id
             await session.commit()
-            result = read(row, attachments, await names_of(session, attachments))
+            result = read(
+                row, attachments, await names_of(session, attachments), await fingerprints(session)
+            )
         self._changed(guard_id=result.id)
         return result
 
@@ -236,9 +287,14 @@ class GuardService:
         self._changed(guard_id=guard_id)
 
     async def from_template(
-        self, key: str, name: str | None = None, description: str | None = None
+        self,
+        key: str,
+        name: str | None = None,
+        description: str | None = None,
+        via: str = "user",
     ) -> GuardDefinitionRead:
-        """A definition made from a template, with its own action when the template has one."""
+        """A definition made from a template, with its own action when the template has one. It is published as version 1 at once:
+        a template is a finished guard, not a draft."""
         template = templates().get(key)
         if template is None:
             raise ArtifactError(404, "Guard template not found")
@@ -256,7 +312,99 @@ class GuardService:
                 "action_id": action_id,
             }
         )
-        return await self.create(data)
+        created = await self.create(data)
+        return (await self.publish(created.id, via)).guard
+
+    # ── versions (ADR-081) ───────────────────────────────────────────
+
+    async def publish(self, guard_id: str, via: str = "user") -> PublishedGuard:
+        """Publish the draft as a new version; executions that start from now on use it. 409 when the draft equals the published
+        version; 422 when the draft cannot work (a guard that runs an action without one)."""
+        async with self._session() as session:
+            row = await self._row(session, guard_id)
+            attachments = await self._attachments_of(session, row.id)
+            await self._check(session, row, attachments)
+            if row.consequence == "run_action" and row.action_id is None:
+                raise ArtifactError(422, "A guard that runs an action needs that action")
+            version = await guard_versions.publish(session, row, via)
+            await session.commit()
+            result = PublishedGuard(
+                guard=read(
+                    row,
+                    attachments,
+                    await names_of(session, attachments),
+                    await fingerprints(session),
+                ),
+                version=self._version_read(version, row),
+            )
+        self._changed(guard_id=guard_id)
+        return result
+
+    async def republish(self, guard_id: str, number: int, via: str = "user") -> PublishedGuard:
+        """Publish an earlier version again (a rollback); the history stays and the draft is not touched."""
+        async with self._session() as session:
+            row = await self._row(session, guard_id)
+            attachments = await self._attachments_of(session, row.id)
+            version = await guard_versions.republish(session, row, number, via)
+            await session.commit()
+            result = PublishedGuard(
+                guard=read(
+                    row,
+                    attachments,
+                    await names_of(session, attachments),
+                    await fingerprints(session),
+                ),
+                version=self._version_read(version, row),
+            )
+        self._changed(guard_id=guard_id)
+        return result
+
+    async def discard_draft(self, guard_id: str) -> GuardDefinitionRead:
+        """The draft becomes the published version again. 409 while nothing is published and while they are equal; 422 when the
+        scope types of that version no longer cover where the guard is attached."""
+        async with self._session() as session:
+            row = await self._row(session, guard_id)
+            attachments = await self._attachments_of(session, row.id)
+            await guard_versions.discard_draft(session, row)
+            await self._check(session, row, attachments)
+            await session.commit()
+            result = read(
+                row, attachments, await names_of(session, attachments), await fingerprints(session)
+            )
+        self._changed(guard_id=guard_id)
+        return result
+
+    async def versions(self, guard_id: str) -> builtins.list[GuardVersionRead]:
+        """Every published version, newest first (``current``: the one executions use)."""
+        async with self._session() as session:
+            row = await self._row(session, guard_id)
+            return [
+                self._version_read(v, row)
+                for v in await guard_versions.versions_of(session, row.id)
+            ]
+
+    async def version(self, guard_id: str, number: int) -> GuardVersionDetail:
+        """One published version with what it held, to show it read-only (404 for an unknown number)."""
+        async with self._session() as session:
+            row = await self._row(session, guard_id)
+            found = await guard_versions.get_version(session, row.id, number)
+            if found is None:
+                raise ArtifactError(404, f"Version {number} does not exist")
+            return GuardVersionDetail(
+                **self._version_read(found, row).model_dump(), guard=json.loads(found.content)
+            )
+
+    @staticmethod
+    def _version_read(version: GuardVersion, row: GuardDefinition) -> GuardVersionRead:
+        content = json.loads(version.content)
+        return GuardVersionRead(
+            number=version.number,
+            name=str(content.get("name") or ""),
+            published_at=version.published_at,
+            published_via=version.published_via,
+            source_number=version.source_number,
+            current=row.published_number == version.number,
+        )
 
     # ── attachments ──────────────────────────────────────────────────
 

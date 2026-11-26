@@ -22,9 +22,12 @@ from openartifact.guards.schemas import (
     GuardDefinitionWrite,
     GuardEnabled,
     GuardPreview,
+    GuardVersionDetail,
+    GuardVersionRead,
     HeartbeatRead,
     HeartbeatWrite,
     PreviewRequest,
+    PublishedGuard,
 )
 from openartifact.guards.service import GuardService, templates
 
@@ -38,8 +41,11 @@ DESCRIPTION = (
     "``guard.runs``, ``last_status``, ``cost``, ``var.NAME``). ``consequence``: ``pause``, ``abort``, ``continue`` or "
     "``run_action`` (the guard's own action, ``action_id``; On Error does the ``fallback``); ``notify`` and "
     "``handover`` are not available yet (422). ``escalation``: steps ``from_firing`` k on, every ``every_runs`` rounds "
-    "or ``every_seconds``. A guard cannot watch a guard (422). A change acts on every place it is attached to "
-    "(``used_by``) at the next start of a run."
+    "or ``every_seconds``. A guard cannot watch a guard (422). A definition has a draft (the fields here, what a change "
+    "saves) and published versions (``published_version``; ``draft_changed``: the draft differs): only the published "
+    "version is in effect, on every place it is attached to (``used_by``), for runs that start after the publication; "
+    "a run keeps the version it started with. A definition that was never published watches nothing. Switching an "
+    "attachment on or off is not part of a version and acts at once."
 )
 ATTACH_DESCRIPTION = (
     "An attachment puts a guard definition on a scope and switches it on or off there. The graph that holds the scope "
@@ -76,6 +82,7 @@ def build_guards_router(prefix: str, tags: list[str | Enum], *, editor: bool) ->
     """The guard routes under ``{prefix}/guards`` and ``{prefix}/guard-attachments``; ``editor`` adds the preview."""
     router = APIRouter(prefix=prefix, tags=tags)
     name = "" if editor else "v1_"
+    via = "user" if editor else "api"
 
     @router.get(
         "/guards",
@@ -136,7 +143,7 @@ def build_guards_router(prefix: str, tags: list[str | Enum], *, editor: bool) ->
     async def create_from_template(
         payload: FromTemplate, service: GuardsDep
     ) -> GuardDefinitionRead:
-        return await service.from_template(payload.template, payload.name, payload.description)
+        return await service.from_template(payload.template, payload.name, payload.description, via)
 
     if editor:
 
@@ -194,6 +201,68 @@ def build_guards_router(prefix: str, tags: list[str | Enum], *, editor: bool) ->
         guard_id: str, payload: GuardDefinitionWrite, service: GuardsDep
     ) -> GuardDefinitionRead:
         return await service.update(guard_id, payload)
+
+    @router.get(
+        "/guards/{guard_id}/versions",
+        response_model=list[GuardVersionRead],
+        name=f"{name}list_guard_versions",
+        summary="List the published versions of a guard definition",
+        description="Newest first (``current``: the one executions use; ``source_number``: a version made by publishing an "
+        "earlier one again). A definition that was never published has none and watches nothing.",
+        responses=errors(404, 422),
+    )
+    async def list_guard_versions(guard_id: str, service: GuardsDep) -> list[GuardVersionRead]:
+        return await service.versions(guard_id)
+
+    @router.get(
+        "/guards/{guard_id}/versions/{number}",
+        response_model=GuardVersionDetail,
+        name=f"{name}get_guard_version",
+        summary="Get one published version of a guard definition",
+        description="What the version held (``guard``: name, description, scope types, trigger, ``when``, consequence, "
+        "fallback, escalation, ``action_id``), to show it read-only.",
+        responses=errors(404, 422),
+    )
+    async def get_guard_version(
+        guard_id: str, number: int, service: GuardsDep
+    ) -> GuardVersionDetail:
+        return await service.version(guard_id, number)
+
+    @router.post(
+        "/guards/{guard_id}/publish",
+        response_model=PublishedGuard,
+        name=f"{name}publish_guard",
+        summary="Publish the draft of a guard definition",
+        description="Makes the draft a new version; runs that start from now on use it. 409 when the draft equals the "
+        "published version; 422 when a guard that runs an action has none.",
+        responses=errors(404, 409, 422, write=True),
+    )
+    async def publish_guard(guard_id: str, service: GuardsDep) -> PublishedGuard:
+        return await service.publish(guard_id, via)
+
+    @router.post(
+        "/guards/{guard_id}/versions/{number}/republish",
+        response_model=PublishedGuard,
+        name=f"{name}republish_guard",
+        summary="Publish an earlier version of a guard definition again",
+        description="A new version with the content of that one (a rollback); the history stays and the draft is not touched. "
+        "409 when it is the published one already.",
+        responses=errors(404, 409, 422, write=True),
+    )
+    async def republish_guard(guard_id: str, number: int, service: GuardsDep) -> PublishedGuard:
+        return await service.republish(guard_id, number, via)
+
+    @router.post(
+        "/guards/{guard_id}/draft/discard",
+        response_model=GuardDefinitionRead,
+        name=f"{name}discard_guard_draft",
+        summary="Throw the changes of a guard's draft away",
+        description="The draft becomes the published version again. 409 while nothing is published and while the draft equals "
+        "the published version; 422 when that version's scope types no longer cover where the guard is attached.",
+        responses=errors(404, 409, 422, write=True),
+    )
+    async def discard_guard_draft(guard_id: str, service: GuardsDep) -> GuardDefinitionRead:
+        return await service.discard_draft(guard_id)
 
     @router.delete(
         "/guards/{guard_id}",

@@ -80,6 +80,8 @@ GET /api/guard-attachments/{attachment_id} -> AttachmentRead
 GET /api/guards -> GuardDefinitionRead[]
 GET /api/guards/templates -> TemplateRead[]
 GET /api/guards/{guard_id} -> GuardDefinitionRead
+GET /api/guards/{guard_id}/versions -> GuardVersionRead[]
+GET /api/guards/{guard_id}/versions/{number} -> GuardVersionDetail
 GET /api/info -> InfoRead
 GET /api/lanes -> LaneRead[]
 GET /api/lanes/{status}/rules -> RulesAnswer
@@ -140,6 +142,8 @@ GET /api/v1/guard-attachments/{attachment_id} -> AttachmentRead
 GET /api/v1/guards -> GuardDefinitionRead[]
 GET /api/v1/guards/templates -> TemplateRead[]
 GET /api/v1/guards/{guard_id} -> GuardDefinitionRead
+GET /api/v1/guards/{guard_id}/versions -> GuardVersionRead[]
+GET /api/v1/guards/{guard_id}/versions/{number} -> GuardVersionDetail
 GET /api/v1/lanes -> LaneRead[]
 GET /api/v1/pipelines -> PipelineChainRead[]
 GET /api/v1/pipelines/{ref}/neighbours -> GraphNeighbours
@@ -195,6 +199,9 @@ POST /api/guard-attachments -> AttachmentRead
 POST /api/guards -> GuardDefinitionRead
 POST /api/guards/from-template -> GuardDefinitionRead
 POST /api/guards/preview -> GuardPreview
+POST /api/guards/{guard_id}/draft/discard -> GuardDefinitionRead
+POST /api/guards/{guard_id}/publish -> PublishedGuard
+POST /api/guards/{guard_id}/versions/{number}/republish -> PublishedGuard
 POST /api/lanes -> LaneRead[]
 POST /api/lanes/{status}/rules/preview -> CardPreviewRead
 POST /api/pipelines -> GraphRead
@@ -230,6 +237,9 @@ POST /api/v1/executions/{execution_id}/heartbeat -> HeartbeatRead
 POST /api/v1/guard-attachments -> AttachmentRead
 POST /api/v1/guards -> GuardDefinitionRead
 POST /api/v1/guards/from-template -> GuardDefinitionRead
+POST /api/v1/guards/{guard_id}/draft/discard -> GuardDefinitionRead
+POST /api/v1/guards/{guard_id}/publish -> PublishedGuard
+POST /api/v1/guards/{guard_id}/versions/{number}/republish -> PublishedGuard
 POST /api/v1/lanes -> LaneRead[]
 POST /api/v1/providers -> ProviderRead
 POST /api/v1/providers/test -> CheckResult
