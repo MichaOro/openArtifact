@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from alembic import command
 from tests.helpers import alembic_config, graph_url, kind_of, node, post
 
-TOOL_KINDS = ("mcp_tool", "github_tool", "http_tool", "code_tool")
+TOOL_KINDS = ("mcp_tool", "github_tool", "openartifact_tool", "http_tool", "code_tool")
 
 
 def _edge(
@@ -41,6 +41,7 @@ def test_tool_kinds_are_described_with_one_port_on_top(client: TestClient) -> No
     labels = {
         "mcp_tool": "MCP Client Tool",
         "github_tool": "GitHub MCP",
+        "openartifact_tool": "OpenArtifact MCP Tool",
         "http_tool": "HTTP Request Tool",
         "code_tool": "Execute Command Tool",
     }
@@ -172,8 +173,9 @@ def _keys(client: TestClient, kind: str) -> dict[str, dict[str, Any]]:
 
 
 def test_every_tool_has_a_name_and_a_description_for_the_model(client: TestClient) -> None:
-    # the GitHub MCP node passes on the tools of GitHub's server with their own names and descriptions: its name is only a prefix
-    for kind in (k for k in TOOL_KINDS if k != "github_tool"):
+    # the GitHub MCP node and the OpenArtifact MCP Tool pass on a whole set of tools with their own names and descriptions: the
+    # node's name is only a prefix
+    for kind in (k for k in TOOL_KINDS if k not in ("github_tool", "openartifact_tool")):
         settings = _keys(client, kind)
         assert list(settings)[:2] == ["tool_name", "description"], kind
     github = _keys(client, "github_tool")
@@ -188,6 +190,14 @@ def test_every_tool_has_a_name_and_a_description_for_the_model(client: TestClien
     assert (
         github["allow_write"]["default"] is False and github["allow_write"]["level"] == "optional"
     )
+    board = _keys(client, "openartifact_tool")
+    assert list(board) == [
+        "allow_write",
+        "tools_mode",
+        "tool_names",
+        "tool_name",
+    ]  # no credential and no address: it calls the application's own tools, in this process
+    assert board["allow_write"]["default"] is False and board["allow_write"]["level"] == "optional"
     mcp = _keys(client, "mcp_tool")
     assert {"url", "secret", "allow_private", "tools_mode", "tool_names", "timeout_seconds"} <= set(
         mcp

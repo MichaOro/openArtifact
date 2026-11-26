@@ -79,6 +79,7 @@ _NO_RESULT = frozenset(
         "pipeline",
         "mcp_tool",
         "github_tool",
+        "openartifact_tool",
         "http_tool",
         "code_tool",
         "postgres_tool",

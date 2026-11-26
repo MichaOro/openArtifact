@@ -158,6 +158,7 @@ def test_from_an_agents_tools_port_only_tools_are_offered_and_one_hangs_below_it
         "github_tool",
         "http_tool",
         "mcp_tool",
+        "openartifact_tool",
         "postgres_tool",
     ]
     assert _offered(page, "code") == ["code_tool"], "the Code node cannot be a tool"

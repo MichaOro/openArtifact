@@ -2,13 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from openartifact.api.board_tools import BOARD_TOOLS, BULK_MAX, READ_TOOLS, WRITE_TOOLS
+from openartifact.app import _create_app
+from openartifact.config import Settings
 from tests.helpers import slow_pipeline
-from tests.test_integration import _content, _create, _mcp, _text, _tool, api  # noqa: F401
+from tests.test_integration import HEADERS, TOKEN, _content, _create, _mcp, _text, _tool
+
+
+@pytest.fixture
+def api(migrated_settings: Settings) -> Generator[TestClient, None, None]:
+    """The application with a token; the client sends it with every request."""
+    settings = migrated_settings.model_copy(update={"api_token": TOKEN, "secret_key": "k" * 40})
+    with TestClient(_create_app(settings), headers=HEADERS) as client:
+        yield client
 
 
 def _lane(client: TestClient, number: int) -> str:
@@ -28,7 +40,7 @@ def _by_number(answer: dict[str, Any]) -> dict[int, dict[str, Any]]:
     return {r["artifact"]: r for r in answer["results"]}
 
 
-def test_the_server_offers_every_board_tool_and_none_that_deletes(api: TestClient) -> None:  # noqa: F811
+def test_the_server_offers_every_board_tool_and_none_that_deletes(api: TestClient) -> None:
     names = {t["name"] for t in _mcp(api, "tools/list")["result"]["tools"]}
     assert set(BOARD_TOOLS) <= names
     assert set(READ_TOOLS).isdisjoint(WRITE_TOOLS)
@@ -36,7 +48,7 @@ def test_the_server_offers_every_board_tool_and_none_that_deletes(api: TestClien
 
 
 def test_a_card_is_archived_and_taken_out_again_with_the_reason_of_a_refusal(
-    api: TestClient,  # noqa: F811
+    api: TestClient,
 ) -> None:
     _create(api, title="Old", status="in_progress")
     archived = _ok(_tool(api, "archive_artifact", artifact="#1"))
@@ -53,7 +65,7 @@ def test_a_card_is_archived_and_taken_out_again_with_the_reason_of_a_refusal(
     assert again["isError"] and "not archived" in _text(again)
 
 
-def test_a_card_that_is_processed_is_not_archived(api: TestClient) -> None:  # noqa: F811
+def test_a_card_that_is_processed_is_not_archived(api: TestClient) -> None:
     slow_pipeline(api)
     _tool(api, "create_artifact", title="Item", pipeline="Flow")
     _tool(api, "start_processing", artifact="1")
@@ -63,7 +75,7 @@ def test_a_card_that_is_processed_is_not_archived(api: TestClient) -> None:  # n
 
 
 def test_cards_are_moved_in_one_call_and_each_says_why_it_was_refused(
-    api: TestClient,  # noqa: F811
+    api: TestClient,
 ) -> None:
     slow_pipeline(api)
     for title in ("A", "B", "C"):
@@ -89,7 +101,7 @@ def test_cards_are_moved_in_one_call_and_each_says_why_it_was_refused(
     assert (_lane(api, 1), _lane(api, 3), _lane(api, 4)) == ("done", "done", "backlog")
 
 
-def test_a_dry_run_says_what_would_happen_and_changes_nothing(api: TestClient) -> None:  # noqa: F811
+def test_a_dry_run_says_what_would_happen_and_changes_nothing(api: TestClient) -> None:
     _create(api, title="A", status="backlog")
     _create(api, title="B", status="backlog")
     _tool(api, "archive_artifact", artifact="2")
@@ -101,7 +113,7 @@ def test_a_dry_run_says_what_would_happen_and_changes_nothing(api: TestClient) -
     assert _content(_tool(api, "list_artifacts", brief=True))[0]["archived"] is False
 
 
-def test_a_bulk_call_has_a_cap_and_a_known_lane(api: TestClient) -> None:  # noqa: F811
+def test_a_bulk_call_has_a_cap_and_a_known_lane(api: TestClient) -> None:
     _create(api, title="A")
     too_many = _tool(api, "archive_artifacts", artifacts=[str(n) for n in range(BULK_MAX + 1)])
     assert too_many["isError"] and f"At most {BULK_MAX} cards" in _text(too_many)
@@ -112,7 +124,7 @@ def test_a_bulk_call_has_a_cap_and_a_known_lane(api: TestClient) -> None:  # noq
     assert _lane(api, 1) == "backlog"
 
 
-def test_cards_are_archived_in_one_call(api: TestClient) -> None:  # noqa: F811
+def test_cards_are_archived_in_one_call(api: TestClient) -> None:
     for title in ("A", "B"):
         _create(api, title=title)
     answer = _ok(_tool(api, "archive_artifacts", artifacts=["1", "2", "7"]))
@@ -125,7 +137,7 @@ def test_cards_are_archived_in_one_call(api: TestClient) -> None:  # noqa: F811
     )
 
 
-def test_the_list_pages_filters_and_can_be_brief(api: TestClient) -> None:  # noqa: F811
+def test_the_list_pages_filters_and_can_be_brief(api: TestClient) -> None:
     parent = _create(api, title="Epic", status="backlog")
     for index in range(3):
         _create(api, title=f"Story {index}", status="in_progress", parent_id=parent["id"])
@@ -172,7 +184,7 @@ def test_the_list_pages_filters_and_can_be_brief(api: TestClient) -> None:  # no
     assert bad["isError"] and "limit must be 1 to 500" in _text(bad)
 
 
-def test_cards_are_found_by_title_text_and_number(api: TestClient) -> None:  # noqa: F811
+def test_cards_are_found_by_title_text_and_number(api: TestClient) -> None:
     _create(api, title="Notaus", body="a switch for everything")
     _create(api, title="Other", body="the NOTAUS is described elsewhere in this long text")
     _create(api, title="Unrelated")
@@ -190,7 +202,7 @@ def test_cards_are_found_by_title_text_and_number(api: TestClient) -> None:  # n
     ] == [1, 2]
 
 
-def test_several_cards_are_read_at_once_with_their_comments(api: TestClient) -> None:  # noqa: F811
+def test_several_cards_are_read_at_once_with_their_comments(api: TestClient) -> None:
     _create(api, title="Long", body="x" * 500)
     parent = _create(api, title="Epic")
     _create(api, title="Child", parent_id=parent["id"])
@@ -218,7 +230,7 @@ def test_several_cards_are_read_at_once_with_their_comments(api: TestClient) -> 
     assert too_many["isError"] and "At most 20 cards" in _text(too_many)
 
 
-def test_parents_are_set_and_taken_away_for_many_cards(api: TestClient) -> None:  # noqa: F811
+def test_parents_are_set_and_taken_away_for_many_cards(api: TestClient) -> None:
     for title in ("Epic", "A", "B"):
         _create(api, title=title)
     done = _ok(_tool(api, "set_parent", artifacts=["2", "3"], parent="#1"))
@@ -241,7 +253,7 @@ def test_parents_are_set_and_taken_away_for_many_cards(api: TestClient) -> None:
 
 
 def test_field_values_are_set_on_many_cards_and_a_value_that_does_not_fit_is_named(
-    api: TestClient,  # noqa: F811
+    api: TestClient,
 ) -> None:
     api.put(
         "/api/artifact-fields",
@@ -261,7 +273,7 @@ def test_field_values_are_set_on_many_cards_and_a_value_that_does_not_fit_is_nam
     assert nothing["isError"] and "Give the fields to set" in _text(nothing)
 
 
-def test_one_comment_goes_to_many_cards_but_not_to_an_archived_one(api: TestClient) -> None:  # noqa: F811
+def test_one_comment_goes_to_many_cards_but_not_to_an_archived_one(api: TestClient) -> None:
     for title in ("A", "B", "C"):
         _create(api, title=title)
     _tool(api, "archive_artifact", artifact="3")

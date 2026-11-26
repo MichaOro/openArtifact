@@ -76,6 +76,7 @@ class NodeKind(enum.StrEnum):
     SET = "set"
     MCP_TOOL = "mcp_tool"
     GITHUB_TOOL = "github_tool"
+    OPENARTIFACT_TOOL = "openartifact_tool"
     HTTP_TOOL = "http_tool"
     CODE_TOOL = "code_tool"
     GITHUB = "github"

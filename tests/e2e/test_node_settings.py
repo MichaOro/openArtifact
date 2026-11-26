@@ -299,3 +299,39 @@ def test_the_github_mcp_node_shows_its_tool_list_only_for_selected_and_all_excep
     expect(dialog.get_by_label("Tools", exact=True)).to_have_count(
         0
     )  # the list goes, what was written stays stored
+
+
+def test_the_openartifact_mcp_tool_has_no_credential_and_no_address_and_keeps_its_settings(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _open(page, base_url, api, "openartifact_tool")
+    dialog = page.locator("#node-modal")
+    for label in ("Credential", "URL", "Timeout (seconds)"):
+        expect(dialog.get_by_label(label, exact=True)).to_have_count(
+            0
+        )  # it calls the application's own tools, in this process
+    expect(dialog.locator(".ge-inspector__icon")).to_have_attribute(
+        "title", re.compile("OpenArtifact")
+    )
+    # read only until it is allowed
+    add_setting(page, "Allow writes")
+    writes = dialog.get_by_label("Allow writes", exact=True)
+    expect(writes).not_to_be_checked()
+    writes.check()
+    eventually(lambda: _config(api, definition, "openartifact_tool")["allow_write"], True)
+    # the tool list is there only for selected and all except
+    add_setting(page, "Tools to include")
+    mode = dialog.get_by_label("Tools to include", exact=True)
+    expect(mode).to_have_value("all")
+    expect(dialog.get_by_label("Tools", exact=True)).to_have_count(0)
+    mode.select_option(label="selected")
+    names = dialog.get_by_label("Tools", exact=True)
+    names.fill("list_artifacts\nmove_artifacts")
+    names.press("Tab")
+    eventually(
+        lambda: {
+            k: _config(api, definition, "openartifact_tool").get(k)
+            for k in ("tools_mode", "tool_names")
+        },
+        {"tools_mode": "selected", "tool_names": "list_artifacts\nmove_artifacts"},
+    )

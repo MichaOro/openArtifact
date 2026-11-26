@@ -505,6 +505,7 @@ def test_node_types_are_served_under_their_own_path(client: TestClient) -> None:
         "set",
         "mcp_tool",
         "github_tool",
+        "openartifact_tool",
         "http_tool",
         "code_tool",
         "github",

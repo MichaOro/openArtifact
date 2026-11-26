@@ -3233,6 +3233,125 @@
   }
  },
  {
+  "kind": "openartifact_tool",
+  "label": "OpenArtifact MCP Tool",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "allow_write",
+    "label": "Allow writes",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "Off: the agent can only read; the tools that change something are left out. On: it may also create, change, move, archive and comment cards and start or stop their processing. Nothing is ever deleted.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "tools_mode",
+    "label": "Tools to include",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "all",
+    "stored_in": "config",
+    "options": [
+     "all",
+     "selected",
+     "all_except"
+    ],
+    "option_labels": {
+     "all_except": "all except"
+    },
+    "help": "Every tool is described to the model with each request: fewer tools, a smaller prompt. Tools that change something stay out while Allow writes is off.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "tool_names",
+    "label": "Tools",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "shown_when": {
+     "setting": "tools_mode",
+     "values": [
+      "selected",
+      "all_except"
+     ]
+    },
+    "max_length": 10000,
+    "placeholder": "list_artifacts",
+    "help": "One tool name per line, for example list_artifacts, get_artifacts, move_artifacts. A name that is not a tool is refused with the list of the tools.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 6
+  },
+  "menu_icon": "board",
+  "ui": {
+   "icon": "board",
+   "color": "artifact",
+   "caption": {
+    "template": "{?allow_write:can change}{?!allow_write:read only}"
+   },
+   "hint": "This node lets an agent work with the OpenArtifact board itself - read cards, comments and executions, tidy up (move, archive, bundle) and, when allowed, create and change cards. It runs inside the application, with no address and no token."
+  }
+ },
+ {
   "kind": "http_tool",
   "label": "HTTP Request Tool",
   "scopes": [

@@ -304,6 +304,19 @@ async def open_toolbox(
                         )
                     )
                 continue
+            if kind == NodeKind.OPENARTIFACT_TOOL:
+                from openartifact.agents.board_toolbox import board_tools
+
+                gateway = getattr(context.limits, "board", None)
+                board = gateway() if callable(gateway) else None
+                if board is None:
+                    raise ToolboxError(f"Tool {label}: the board tools are not available here")
+                found, found_notes = board_tools(
+                    frozen, board, prefix=default_tool_name(label), label=label
+                )
+                built.extend(found)
+                notes.extend(found_notes)
+                continue
             builder = LOCAL_TOOLS.get(kind)
             if builder is None:
                 raise ToolboxError(f"Tool {label}: a {kind} cannot be used by an agent")

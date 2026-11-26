@@ -21,6 +21,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from openartifact.activity.schemas import PAGE_MAX
 from openartifact.activity.service import ActivityService
+from openartifact.api.board_tool_names import BOARD_TOOLS, READ_TOOLS, WRITE_TOOLS
 from openartifact.api.contract import ARTIFACT_EXECUTIONS_MAX_LIMIT
 from openartifact.artifact_fields.service import ArtifactFieldService
 from openartifact.comments.schemas import AUTHOR_MAX_LENGTH, BODY_MAX_LENGTH, Author
@@ -31,6 +32,8 @@ from openartifact.models import CreatedBy, GraphKind, StartedBy
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 from openartifact.tasks.service import ArtifactService
 
+__all__ = ["BOARD_TOOLS", "BULK_MAX", "READ_TOOLS", "WRITE_TOOLS", "BoardTools", "McpError"]
+
 #: The most cards one bulk call takes (``move_artifacts``, ``archive_artifacts``).
 BULK_MAX = 50
 #: The most cards a list answers at once.
@@ -39,44 +42,6 @@ LIST_MAX = 500
 READ_MAX = 20
 #: How much of a text ``search_artifacts`` shows around the match.
 SNIPPET = 120
-
-#: The tools that only read. The node offers them always.
-READ_TOOLS = (
-    "list_pipelines",
-    "list_lanes",
-    "list_artifact_fields",
-    "list_artifacts",
-    "count_artifacts",
-    "search_artifacts",
-    "get_artifact",
-    "get_artifacts",
-    "get_processing_status",
-    "get_processing_results",
-    "list_comments",
-    "list_activity",
-    "list_executions",
-    "list_all_executions",
-    "get_execution",
-    "get_execution_flow",
-    "get_execution_position",
-    "get_graph_neighbours",
-)
-#: The tools that change something: the node holds them back while *Allow writes* is off.
-WRITE_TOOLS = (
-    "create_artifact",
-    "update_artifact",
-    "start_processing",
-    "stop_processing",
-    "add_comment",
-    "archive_artifact",
-    "unarchive_artifact",
-    "move_artifacts",
-    "archive_artifacts",
-    "set_parent",
-    "set_fields",
-    "add_comments",
-)
-BOARD_TOOLS = READ_TOOLS + WRITE_TOOLS
 
 
 class McpError(ToolError):

@@ -84,6 +84,9 @@ class Limits:
     #: Told what a running node does that others may want to see (``agent.tool_call``: the event type and its data); the
     #: application hands it to the event bus. ``None``: nobody listens.
     publish: Callable[[str, dict[str, Any]], object] | None = None
+    #: The board tools an agent's OpenArtifact MCP Tool node calls (``api/board_tools.py``, ADR-079): gives the tools when a run
+    #: needs them (the services do not exist yet when the engine is made); ``None``: such a node fails before its first request.
+    board: Callable[[], Any] | None = None
 
     @classmethod
     def from_settings(
@@ -93,6 +96,7 @@ class Limits:
         comments: CommentsGateway | None = None,
         credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None,
         publish: Callable[[str, dict[str, Any]], object] | None = None,
+        board: Callable[[], Any] | None = None,
     ) -> Limits:
         return cls(
             settings.code_nodes_enabled,
@@ -115,6 +119,7 @@ class Limits:
                 APP_SOURCE: application_source(settings.data_dir / settings.database_filename)
             },
             publish=publish,
+            board=board,
         )
 
 

@@ -23,6 +23,7 @@ from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.api.agents import routers as agent_routers
 from openartifact.api.artifact_fields import router as artifact_fields_router
+from openartifact.api.board_tools import BoardTools
 from openartifact.api.card_rules import router as card_rules_router
 from openartifact.api.contract import GATED
 from openartifact.api.credentials import router as credentials_router
@@ -191,6 +192,14 @@ def _create_app(settings: Settings) -> FastAPI:
             app.state.comments,
             app.state.credentials.settings_of,
             publish,
+            # the board tools of an agent node (ADR-079): made when a run asks, the services come after the engine
+            lambda: BoardTools(
+                app.state.artifacts,
+                app.state.artifact_fields,
+                app.state.comments,
+                app.state.activity,
+                channel="run",
+            ),
         ),
         history_default_keep=settings.execution_history_default_keep,
         guards=GuardSettings(
