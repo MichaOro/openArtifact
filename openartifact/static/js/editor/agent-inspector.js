@@ -120,7 +120,10 @@ class AgentBlock {
         inheritance: preview ? this.#inheritance(preview, providers) : null,
       }),
     ));
-    if (focusKey) this.element.querySelector(`[data-focus-key="agent-${focusKey}"]`)?.focus();
+    const panel = this.element.closest("[data-refocus]");
+    const wanted = focusKey ? `agent-${focusKey}` : panel?.dataset.refocus; // the panel drew while this block was still on its way
+    if (wanted) this.element.querySelector(`[data-focus-key="${wanted}"]`)?.focus();
+    if (panel) delete panel.dataset.refocus;
   }
 
   /** The agent's side of the settings: what is in effect, as the server resolves it. */

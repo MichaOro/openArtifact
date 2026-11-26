@@ -35,6 +35,9 @@ export class InspectorPanel {
     // a node with settings for both columns gets the wide dialog
     this.element.closest("dialog")?.classList.toggle("is-wide", Boolean(this.element.querySelector('.ge-settings[data-columns="2"]')));
     const control = key ? this.element.querySelector(`[data-focus-key="${key}"]`) : null;
+    // a block that draws itself later (the agent's settings) puts the focus back when it is there: remember where it was
+    if (key && !control) this.element.dataset.refocus = key;
+    else delete this.element.dataset.refocus;
     if (!control) return this.onDrawn?.();
     control.focus();
     if (caret && typeof control.setSelectionRange === "function") {
