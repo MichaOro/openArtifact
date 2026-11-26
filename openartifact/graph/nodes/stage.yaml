@@ -13,6 +13,8 @@ menu:
   group: Structure
   order: 1
 menu_icon: layers
+effect:
+  default: none
 ports:
   inputs:
   - name: start

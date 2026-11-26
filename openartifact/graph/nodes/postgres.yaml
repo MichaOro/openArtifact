@@ -17,6 +17,10 @@ reference_keys:
 menu:
   group: Apps and data
   order: 2
+effect:
+  default: read
+  flag: allow_write
+  flag_true: write
 ports:
   inputs:
   - name: in

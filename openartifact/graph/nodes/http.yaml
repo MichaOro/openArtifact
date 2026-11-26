@@ -18,6 +18,13 @@ reference_keys:
 menu:
   group: Core
   order: 2
+effect:
+  default: write
+  setting: method
+  reading:
+  - GET
+  - HEAD
+  - OPTIONS
 ports:
   inputs:
   - name: in

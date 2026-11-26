@@ -449,11 +449,14 @@ class NodeType:
         menu: dict[str, Any] | None = None,
         menu_icon: str | None = None,
         ui: dict[str, Any] | None = None,
+        effect: dict[str, Any] | None = None,
     ) -> None:
         self.kind = kind
         self.label = label
         self.behaviour = behaviour
         self.guardable = guardable  # a guard may watch a node of this kind in an action (ADR-060)
+        #: What it does outside the run (``graph/effects.py``, ADR-086); ``None``: not declared, counts as writing.
+        self.effect = effect
         self.produces_result = (
             produces_result  # leaves output/data for later nodes (the reference suggestions)
         )
@@ -751,6 +754,7 @@ def load(directory: Any = NODES_DIR) -> list[NodeType]:
             menu=menu,
             menu_icon=manifest.menu_icon or manifest.ui.icon,
             ui=ui,
+            effect=manifest.effect.model_dump(exclude_none=True) if manifest.effect else None,
         )
         loaded.append(register(node))
     return loaded

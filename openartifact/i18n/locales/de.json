@@ -2414,5 +2414,9 @@
  "agents.view.answer_accepted": "Aufruf {n}: angenommen",
  "agents.view.answer_repaired": "Die Antwort wurde einmal korrigiert.",
  "tasks.history_step.answer_reported": "Antwort gemeldet",
- "tasks.history_step.answer_repaired": "Antwort gemeldet, einmal korrigiert"
+ "tasks.history_step.answer_repaired": "Antwort gemeldet, einmal korrigiert",
+ "nodes.code.settings.read_only.label": "Nur lesend",
+ "nodes.code.settings.read_only.help": "Setze es, wenn dieser Code nur liest und nichts ändert. Ein Dry run führt ihn dann aus, sonst wird er als Änderung übersprungen.",
+ "nodes.code_tool.settings.read_only.label": "Nur lesend",
+ "nodes.code_tool.settings.read_only.help": "Setze es, wenn dieser Code nur liest und nichts ändert. Ein Dry run führt ihn dann aus, sonst wird er als Änderung übersprungen."
 }

@@ -11,6 +11,8 @@ menu:
   group: Structure
   order: 2
 menu_icon: pipeline
+effect:
+  default: none
 ports:
   inputs:
   - name: in

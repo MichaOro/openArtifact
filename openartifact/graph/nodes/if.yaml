@@ -22,6 +22,8 @@ reference_keys:
 menu:
   group: Flow
   order: 1
+effect:
+  default: none
 ports:
   inputs:
   - name: in

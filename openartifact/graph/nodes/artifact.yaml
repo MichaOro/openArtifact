@@ -17,6 +17,11 @@ reference_keys:
 menu:
   group: Data
   order: 2
+effect:
+  default: write
+  setting: operation
+  reading:
+  - Get comments
 ports:
   inputs:
   - name: in

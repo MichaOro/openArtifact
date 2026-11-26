@@ -18,6 +18,8 @@ chain: true
 menu:
   group: Data
   order: 3
+effect:
+  default: read
 ports:
   inputs:
   - name: in

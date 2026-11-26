@@ -18,6 +18,29 @@ reference_keys:
 menu:
   group: Apps and data
   order: 1
+effect:
+  default: write
+  setting: operation
+  reading:
+  - Get repository
+  - List issues
+  - List pull requests
+  - Get license
+  - Get profile
+  - List popular paths
+  - List referrers
+  - Get issue
+  - List comments
+  - Get pull request
+  - Get pull request diff
+  - List pull request files
+  - Get file
+  - List organization repositories
+  - Get release
+  - List releases
+  - Get review
+  - List reviews
+  - List user repositories
 ports:
   inputs:
   - name: in

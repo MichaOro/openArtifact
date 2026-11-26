@@ -19,6 +19,8 @@ reference_keys:
 menu:
   group: AI
   order: 1
+effect:
+  default: mixed
 ports:
   inputs:
   - name: in
