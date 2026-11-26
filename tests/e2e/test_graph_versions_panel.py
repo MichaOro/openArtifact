@@ -96,3 +96,23 @@ def test_a_pipeline_has_the_same_tab_and_a_long_list_folds_its_middle(
         "button", name="Show version 3"
     ).click()
     expect(panel.locator(".mg-showing")).to_contain_text("Showing version 3, read-only.")
+
+
+def test_publishing_in_the_panel_over_findings_lists_them_and_says_publish_anyway(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    action = post(api, "/api/actions", name="Gap findings")
+    node(api, action, "http", name="Reader", config={"url": "http://example.test/${card.nothing}"})
+    panel = _open_versions(page, base_url, "action", "Gap findings")
+    panel.get_by_role("button", name="Publish", exact=True).click()
+    dialog = page.locator("#confirm-modal")
+    expect(dialog).to_contain_text("The check found 1 error(s) and 0 warning(s) in the draft")
+    expect(dialog.locator("[data-confirm-items] li")).to_have_count(1)
+    expect(dialog.locator("[data-confirm-items] li")).to_contain_text(
+        "Error Reader: ${card.nothing}: the artifact has no field 'nothing'"
+    )
+    dialog.get_by_role("button", name="Cancel").click()
+    assert _current(api, action) is None  # nothing was published
+    panel.get_by_role("button", name="Publish", exact=True).click()
+    dialog.get_by_role("button", name="Publish anyway").click()
+    eventually(lambda: _current(api, action), 1)

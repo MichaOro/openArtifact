@@ -14,7 +14,8 @@
  */
 import { foldEntries, foldSeparator } from "../components/fold-list.js";
 import { chip, make } from "../components/management-page.js";
-import { publishGraph, republishGraph, versionsOf } from "./api.js";
+import { checkGraph, publishGraph, republishGraph, versionsOf } from "./api.js";
+import { findingsConfirm } from "./findings.js";
 import { canPublish, publicationOf } from "./versions-model.js";
 import { t } from "../i18n.js";
 
@@ -56,7 +57,8 @@ const words = (texts) => (key, params) => texts?.(key, params) ?? t(`graph_versi
 /** The calls of a pipeline or an action (`kind`), in the shape `hooks.api` has. */
 const graphCalls = (kind) => ({
   versions: (id) => versionsOf(kind, id),
-  publish: (id) => publishGraph(kind, id),
+  check: (id) => checkGraph(kind, id),
+  publish: (id, acknowledge = false) => publishGraph(kind, id, acknowledge),
   republish: (id, number) => republishGraph(kind, id, number),
 });
 
@@ -86,17 +88,17 @@ function draw(body, graph, versions, hooks) {
   publish.dataset.publish = "";
   const equal = where.state === "published";
   publish.disabled = !canPublish(graph);
-  publish.addEventListener("click", () =>
+  publish.addEventListener("click", async () => {
+    // the check before publishing (ADR-082): with findings the window lists them and says "Publish anyway"
+    const found = hooks.calls.check ? ((await hooks.calls.check(graph.id).catch(() => null))?.findings ?? []) : [];
     hooks.confirm({
-      message: hooks.tr("publish_confirm"),
-      confirmLabel: hooks.tr("publish"),
-      tone: "primary",
+      ...(found.length ? findingsConfirm(found) : { message: hooks.tr("publish_confirm"), confirmLabel: hooks.tr("publish"), tone: "primary" }),
       onConfirm: async () => {
-        await hooks.calls.publish(graph.id);
+        await hooks.calls.publish(graph.id, found.length > 0);
         await hooks.onChanged();
       },
-    }),
-  );
+    });
+  });
   const note = make("p", "mg-card__facts mg-versions__note");
   note.textContent = where.state === "draft" ? hooks.tr("note_nothing_published") : equal ? hooks.tr("note_equal", { number: where.number }) : hooks.tr("note_changed", { number: where.number });
   top.append(publish, note);

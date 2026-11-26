@@ -6,6 +6,7 @@ from __future__ import annotations
 import httpx
 from playwright.sync_api import Page, expect
 
+from tests.e2e.helpers import eventually, pick_node
 from tests.helpers import node, post
 
 MARK = ".ge-bar__state"
@@ -126,3 +127,81 @@ def test_the_pipeline_editor_has_the_same_popup(
     popup.get_by_role("button", name="Discard draft").click()
     popup.get_by_role("button", name="Discard draft").click()
     expect(page.locator(MARK)).to_have_text("v1 published")
+
+
+# ── the check before publishing (ADR-082) ────────────────────────────
+
+CONFIRM = "#confirm-modal"
+
+
+def _action_with_findings(api: httpx.Client, name: str) -> dict[str, object]:
+    """An action whose draft has an error (a card field that does not exist) and a warning (a variable nobody sets)."""
+    action = post(api, "/api/actions", name=name)
+    node(
+        api,
+        action,
+        "http",
+        name="Reader",
+        config={"url": "http://example.test/${card.nothing}/${var.token}"},
+    )
+    return action
+
+
+def test_publishing_over_findings_asks_with_the_findings_and_cancel_publishes_nothing(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    action = _action_with_findings(api, "Findings cancel")
+    page.goto(f"{base_url}/actions/{action['slug']}")
+    page.locator(TRIGGER).click()
+    page.locator(POPUP).get_by_role("button", name="Publish").click()
+    dialog = page.locator(CONFIRM)
+    expect(dialog).to_be_visible()
+    expect(dialog).to_contain_text("The check found 1 error(s) and 1 warning(s) in the draft")
+    items = dialog.locator("[data-confirm-items] li")
+    expect(items).to_have_count(2)
+    expect(items.nth(0)).to_contain_text("Error Reader: ")  # errors first, by the node's name
+    expect(items.nth(0)).to_contain_text("the artifact has no field 'nothing'")
+    expect(items.nth(1)).to_contain_text("Warning Reader: ")
+    expect(dialog.get_by_role("button", name="Publish anyway")).to_have_class(
+        "button button--danger"
+    )  # an error: asked in red
+    dialog.get_by_role("button", name="Cancel").click()
+    expect(dialog).to_be_hidden()
+    expect(page.locator(MARK)).to_have_text("Draft")
+    assert api.get(f"/api/actions/{action['id']}/versions").json() == []  # nothing was published
+
+
+def test_publish_anyway_publishes_the_draft_with_the_findings(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    action = _action_with_findings(api, "Findings publish")
+    page.goto(f"{base_url}/actions/{action['slug']}")
+    page.locator(TRIGGER).click()
+    page.locator(POPUP).get_by_role("button", name="Publish").click()
+    page.locator(CONFIRM).get_by_role("button", name="Publish anyway").click()
+    expect(page.locator(MARK)).to_have_text("v1 published")
+    assert [v["number"] for v in api.get(f"/api/actions/{action['id']}/versions").json()] == [1]
+
+
+def test_a_draft_with_findings_is_saved_without_any_question(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    action = post(api, "/api/actions", name="Findings save")
+    page.goto(f"{base_url}/actions/{action['slug']}")
+    expect(page.locator(".ge-node--output")).to_be_visible()
+    page.click("[data-add-menu]")
+    pick_node(page, "http")
+    page.locator(".ge-node--http").dblclick(position={"x": 30, "y": 5})
+    field = page.locator("#node-modal").get_by_label("URL")
+    wrong = "http://example.test/${secret:NOPE}/${(Nobody).output}"
+    field.fill(wrong)
+    field.press("Enter")
+    eventually(
+        lambda: [
+            n["config"]["url"]
+            for n in api.get(f"/api/actions/{action['id']}").json()["nodes"]
+            if n["kind"] == "http"
+        ],
+        [wrong],
+    )  # saved at once: the draft may be wrong, only what is published runs
+    expect(page.locator(CONFIRM)).to_be_hidden()

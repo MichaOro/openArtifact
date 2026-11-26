@@ -378,7 +378,7 @@ export class GraphEditor {
     const mark = this.root.querySelector("[data-publication]");
     if (!mark) return;
     mark.hidden = false;
-    this.publication ??= new PublicationControl(mark, { kind: this.model.kind, id: this.model.id, beforeAct: () => flushDirty(), onChanged: () => this.load() });
+    this.publication ??= new PublicationControl(mark, { kind: this.model.kind, id: this.model.id, beforeAct: () => flushDirty(), onChanged: () => this.load(), confirmFindings: (options) => this.#askFindings(options) });
     this.publication.update(this.model.graph);
     if (!this.model.onChange) {
       this.model.onChange = () => this.#refreshPublication();
@@ -518,6 +518,15 @@ export class GraphEditor {
       onClose: () => this.canvas.viewport.focus({ preventScroll: true }), // the node that had focus is gone
     });
     return undefined;
+  }
+
+  /** The window before a publish over findings (ADR-082): resolves true when the user publishes anyway, false when the window is closed. */
+  #askFindings(options) {
+    return new Promise((resolve) => {
+      let confirmed = false;
+      this.confirm.open({ ...options, onConfirm: async () => (confirmed = true) });
+      this.confirm.modal.dialog.addEventListener("close", () => resolve(confirmed), { once: true });
+    });
   }
 
   // ── the bar, the menu and the keys of a node ───────────────────────

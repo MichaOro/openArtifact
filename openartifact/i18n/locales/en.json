@@ -1600,5 +1600,10 @@
  "guards.save_draft": "Save draft",
  "guards.not_published_note": "Not published yet: it watches nothing until it is published.",
  "guards.not_published_hint": "not published, it watches nothing yet",
- "guards.panel.not_published": "Not published"
+ "guards.panel.not_published": "Not published",
+ "graph_versions.findings_title": "Publish with findings?",
+ "graph_versions.findings_message": "The check found {errors} error(s) and {warnings} warning(s) in the draft. An error cannot work and fails a run where it is; a warning may not work. Publish anyway, or cancel and keep editing?",
+ "graph_versions.publish_anyway": "Publish anyway",
+ "graph_versions.finding_error": "Error",
+ "graph_versions.finding_warning": "Warning"
 }

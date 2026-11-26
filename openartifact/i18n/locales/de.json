@@ -2315,5 +2315,10 @@
  "guards.save_draft": "Entwurf speichern",
  "guards.not_published_note": "Noch nicht veröffentlicht: er überwacht nichts, bis er veröffentlicht ist.",
  "guards.not_published_hint": "nicht veröffentlicht, überwacht noch nichts",
- "guards.panel.not_published": "Nicht veröffentlicht"
+ "guards.panel.not_published": "Nicht veröffentlicht",
+ "graph_versions.findings_title": "Mit Befunden veröffentlichen?",
+ "graph_versions.findings_message": "Die Prüfung hat {errors} Fehler und {warnings} Warnung(en) im Entwurf gefunden. Ein Fehler kann nicht funktionieren und lässt einen Lauf dort scheitern; eine Warnung funktioniert vielleicht nicht. Trotzdem veröffentlichen oder abbrechen und weiter bearbeiten?",
+ "graph_versions.publish_anyway": "Trotzdem veröffentlichen",
+ "graph_versions.finding_error": "Fehler",
+ "graph_versions.finding_warning": "Warnung"
 }

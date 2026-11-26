@@ -2,11 +2,12 @@
  * something to do, it is a button with a small arrow that opens a popup next to it with
  *   Publish         makes the draft a new version (the same call as the Versions tab),
  *   Discard draft   after one question in the popup: the draft becomes the published version again.
- * Once the draft equals the published version there is nothing to do and the mark is a plain chip. A refusal of the server is shown in
+ * Publish first asks the server's check (ADR-082); with findings it opens the confirmation window (`confirmFindings`) and publishes
+ * only after "Publish anyway". Once the draft equals the published version there is nothing to do and the mark is a plain chip. A refusal of the server is shown in
  * the popup (role alert), the buttons wait while a call runs, and a click elsewhere or Escape closes it. The editor saves every
  * change at once, so there is no unsaved graph; text typed into a field and not left yet is saved first (`beforeAct`).
  *
- *   new PublicationControl(host, {kind, id, beforeAct, onChanged})   host: the element of the mark
+ *   new PublicationControl(host, {kind, id, beforeAct, onChanged, confirmFindings})   host: the element of the mark
  *   control.update(graph)                                            the graph with `published_version` and `draft_changed`
  *
  * The guard editor uses it too (ADR-081): `calls` ({publish, discard}) replace the calls of a graph, `texts` the words that differ
@@ -15,11 +16,14 @@
  */
 import { icon } from "../components/icons.js";
 import { t } from "../i18n.js";
-import { discardGraphDraft, publishGraph } from "./api.js";
+import { checkGraph, discardGraphDraft, publishGraph } from "./api.js";
+import { findingsConfirm } from "./findings.js";
 import { publicationOffer, publicationOf } from "./versions-model.js";
 import { editorChip } from "./versions-tab.js";
 
 let nextId = 0;
+/** What a call answers when the user chose not to go on (the question before a publish over findings): nothing changed. */
+const CANCELLED = Symbol("cancelled");
 
 function make(tag, className = "", text = null) {
   const el = document.createElement(tag);
@@ -36,11 +40,13 @@ export class PublicationControl {
    * @param {{kind: string, id: string, beforeAct?: () => void, onChanged: () => Promise<void>|void}} options `onChanged` is called after
    *   a publication or a discard (the editor reads the graph again, which draws the mark anew)
    */
-  constructor(host, { kind, id, beforeAct = () => {}, onChanged, calls = null, texts = null, popupParent = null }) {
+  constructor(host, { kind, id, beforeAct = () => {}, onChanged, calls = null, texts = null, popupParent = null, confirmFindings = null }) {
     this.host = host;
     this.kind = kind;
     this.id = id;
-    this.calls = calls ?? { publish: () => publishGraph(kind, id), discard: () => discardGraphDraft(kind, id) };
+    this.calls = calls ?? { check: () => checkGraph(kind, id), publish: (acknowledge) => publishGraph(kind, id, acknowledge === true), discard: () => discardGraphDraft(kind, id) };
+    // the question before a publish over findings (ADR-082): `(options) => Promise<boolean>`, true when the user publishes anyway
+    this.confirmFindings = confirmFindings;
     this.texts = texts;
     this.popupParent = popupParent;
     this.beforeAct = beforeAct;
@@ -189,7 +195,14 @@ export class PublicationControl {
   }
 
   async #publish() {
-    await this.#run(() => this.calls.publish());
+    await this.#run(async () => {
+      const found = this.calls.check && this.confirmFindings ? await this.calls.check() : null;
+      if (found?.findings?.length) {
+        if (!(await this.confirmFindings(findingsConfirm(found.findings)))) return CANCELLED; // back to editing: nothing is published
+        return this.calls.publish(true);
+      }
+      return this.calls.publish(false);
+    });
   }
 
   async #discard() {
@@ -203,7 +216,13 @@ export class PublicationControl {
     for (const button of this.el.querySelectorAll("button")) button.disabled = true;
     try {
       await this.beforeAct();
-      await call();
+      if ((await call()) === CANCELLED) {
+        this.busy = false;
+        this.#render();
+        this.#place();
+        (this.el.querySelector(FOCUSABLE) ?? this.el).focus({ preventScroll: true });
+        return;
+      }
     } catch (error) {
       this.busy = false;
       this.#render(error?.message || this.#tr("action_failed"));

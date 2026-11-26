@@ -19,7 +19,10 @@ export const deleteGraph = (kind, id) => send("DELETE", base(kind, id));
 // versions (ADR-070): the list, one version with its frozen graph, publish the draft, publish an earlier version again
 export const versionsOf = (kind, id) => request(`${base(kind, id)}/versions`);
 export const versionOf = (kind, id, number) => request(`${base(kind, id)}/versions/${number}`);
-export const publishGraph = (kind, id) => send("POST", `${base(kind, id)}/publish`);
+/** `acknowledge`: publish although the check found something (the caller has seen the findings, ADR-082); without it the server refuses. */
+export const publishGraph = (kind, id, acknowledge = false) => send("POST", `${base(kind, id)}/publish`, acknowledge ? { acknowledge: true } : undefined);
+/** What publishing the draft would run into (ADR-082): `{findings: [{level, code, node_id, node_name, message}], errors, warnings}`. */
+export const checkGraph = (kind, id) => request(`${base(kind, id)}/check`);
 /** Throw the changes of the draft away: it is the published version again (answers the graph as it is now). */
 export const discardGraphDraft = (kind, id) => send("POST", `${base(kind, id)}/draft/discard`);
 export const republishGraph = (kind, id, number) => send("POST", `${base(kind, id)}/versions/${number}/republish`);
