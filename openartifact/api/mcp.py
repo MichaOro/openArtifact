@@ -43,7 +43,7 @@ INSTRUCTIONS = (
     "artifact; runs read them as ${card.NAME}. Actions can contain agent nodes that send one request to a language model; "
     "list_agents, get_agent and list_providers show (read-only) which agents and models exist. "
     "Artifacts carry comments (plain text): list_comments reads them, add_comment writes one under your token's name. "
-    "get_stop_switch / set_stop_switch read and set the global STOP switch (no execution starts while it is on); "
+    "get_stop_switch / set_stop_switch read and set the global emergency stop (no execution starts while it is on); "
     "get_graph_neighbours shows what leads to and from every node of a pipeline or action; get_execution_position says where an "
     "execution is and what comes next."
 )
@@ -234,13 +234,13 @@ def build_mcp(
 
     @mcp.tool()
     async def get_stop_switch() -> dict[str, Any]:
-        """The STOP switch: ``active`` (while on, no execution starts and none runs), ``since``, ``available`` (whether the
-        switch is offered: the personal setting *Show the STOP switch*) and how many executions ``running``."""
+        """The emergency stop: ``active`` (while on, no execution starts and none runs), ``since``, ``available`` (whether the
+        switch is offered: the personal setting *Show the emergency stop*) and how many executions ``running``."""
         return (await guarded(service.stop_switch_state())).model_dump(mode="json")
 
     @mcp.tool()
     async def set_stop_switch(active: bool) -> dict[str, Any]:
-        """Switch STOP on (``true``) or off (``false``). On aborts every running execution at once and refuses every start,
+        """Switch the emergency stop on (``true``) or off (``false``). On aborts every running execution at once and refuses every start,
         from any source, until it is switched off; ``aborted`` says how many it aborted. Cards, pipelines and the history keep
         working. Switching on is refused (``stop_unavailable``) unless the user offers the switch in the personal settings."""
         return (await guarded(service.set_stop_switch(active))).model_dump(mode="json")

@@ -252,7 +252,7 @@ class RunEngine:
         # artifacts whose start has not reached its background task
         self._starting: set[str] = set()
         self._jobs: dict[str, asyncio.Task[None]] = {}
-        #: The STOP switch (ADR-076) as this process last saw it: no execution starts while it is on.
+        #: The emergency stop (ADR-076) as this process last saw it: no execution starts while it is on.
         self._stopped = False
         self.guard_settings = guards or GuardSettings()
         #: The guard monitor of every execution that runs, by execution id (heartbeats, previews).
@@ -529,7 +529,7 @@ class RunEngine:
     async def stop(self, task_id: str, note: str = "stopped") -> RunRead:
         """Stop a running artifact; it stays at its stage and action and can be started again.
 
-        ``note`` is what the run and its execution say about the end (the STOP switch gives its own).
+        ``note`` is what the run and its execution say about the end (the emergency stop gives its own).
         """
         if task_id in self._starting:
             raise ArtifactError(409, "The artifact is just being started")
@@ -551,10 +551,10 @@ class RunEngine:
         self.history.publish(changes)
         return result
 
-    # ── the STOP switch (ADR-076) ─────────────────────────────────────
+    # ── the emergency stop (ADR-076) ─────────────────────────────────────
 
     async def stop_active(self) -> bool:
-        """Whether STOP is on (read from the database; this also refreshes what the process remembers)."""
+        """Whether the emergency stop is on (read from the database; this also refreshes what the process remembers)."""
         async with self._session() as session:
             self._stopped = (await stop_switch.load(session))[0]
         return self._stopped
@@ -572,7 +572,7 @@ class RunEngine:
             )
 
     async def set_stop(self, active: bool) -> int:
-        """Switch STOP on or off; on: abort every execution that runs. Returns how many were aborted.
+        """Switch the emergency stop on or off; on: abort every execution that runs. Returns how many were aborted.
 
         Order matters for the race with a start that is on its way: the state is written first, then the process
         remembers it, then the starts that have not finished are waited for (each of them either refuses itself or

@@ -858,10 +858,10 @@ class ArtifactService:
             task_id = (await self._task(session, ref)).id
         return await self._engine.stop(task_id)
 
-    # ── the STOP switch (ADR-076) ─────────────────────────────────────
+    # ── the emergency stop (ADR-076) ─────────────────────────────────────
 
     async def stop_switch_state(self) -> stop_switch.StopState:
-        """Whether STOP is on, since when, whether the switch is offered and how many executions run."""
+        """Whether the emergency stop is on, since when, whether the switch is offered and how many executions run."""
         async with self._session() as session:
             active, since = await stop_switch.load(session)
             available = await personal_settings.stop_switch_available(session)
@@ -873,7 +873,7 @@ class ArtifactService:
         )
 
     async def set_stop_switch(self, active: bool) -> stop_switch.StopState:
-        """Switch STOP on (aborts every running execution) or off. On needs the personal setting *Show the STOP switch*.
+        """Switch the emergency stop on (aborts every running execution) or off. On needs the personal setting *Show the emergency stop*.
 
         Off is always allowed, so a stop can never get stuck behind a hidden switch. Publishes ``settings.changed``
         with ``stop``.
@@ -882,7 +882,7 @@ class ArtifactService:
         if active and not state.available:
             raise ArtifactError(
                 409,
-                'The STOP switch is switched off: switch on "Show the STOP switch" in the personal settings first',
+                'The emergency stop is switched off: switch on "Show the emergency stop" in the personal settings first',
                 "stop_unavailable",
             )
         if active == state.active:
@@ -893,11 +893,11 @@ class ArtifactService:
         return state
 
     async def refuse_hiding_active_stop(self) -> None:
-        """409 while STOP is on: the switch cannot be hidden then, a stop is never cleared by a settings change."""
+        """409 while the emergency stop is on: the switch cannot be hidden then, a stop is never cleared by a settings change."""
         if await self._engine.stop_active():
             raise ArtifactError(
                 409,
-                "STOP is on: switch STOP off before you hide the switch",
+                "The emergency stop is on: switch it off before you hide it",
                 "stop_active",
             )
 

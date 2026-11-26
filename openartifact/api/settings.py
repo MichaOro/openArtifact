@@ -30,7 +30,7 @@ DESCRIPTION = (
 PERSONAL = (
     "Personal preferences of the user (a single-user system): ``mark_resolved_references`` (default off) marks the text "
     "a ``${card.x}`` reference stands for, in the artifact dialog and on the board's cards; ``show_stop_switch`` (default off) "
-    "offers the STOP switch (``/settings/stop``), and cannot be switched off while STOP is on. Which settings exist and "
+    "offers the emergency stop (``/settings/stop``), and cannot be switched off while the emergency stop is on. Which settings exist and "
     "their defaults are declared in the form manifest ``ui/forms/personal.yaml``. A change takes effect at once."
 )
 
@@ -57,7 +57,7 @@ class PersonalSettingsWrite(BaseModel):
 
 
 class StopWrite(BaseModel):
-    """Switch STOP on (``true``) or off (``false``)."""
+    """Switch the emergency stop on (``true``) or off (``false``)."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -65,7 +65,7 @@ class StopWrite(BaseModel):
 
 
 STOP = (
-    "The STOP switch (ADR-076): while ``active`` no execution starts from any source (browser, API, MCP) and every execution "
+    "The emergency stop (ADR-076): while ``active`` no execution starts from any source (browser, API, MCP) and every execution "
     "that runs is aborted when the switch goes on (``aborted`` counts them). A refused start is ``409`` with ``code`` "
     "``stopped``. The state is kept across restarts; a new system has it off. Switching on needs the personal setting "
     "``show_stop_switch`` (``available``), else ``409`` ``stop_unavailable``; switching off is always allowed. Cards, pipelines, "
@@ -193,13 +193,13 @@ def build_settings_router(
             matching=len(found), per_rule=await retention.count_per_rule(session, payload, now)
         )
 
-    # ── The STOP switch ──────────────────────────────────────────────────
+    # ── The emergency stop ──────────────────────────────────────────────────
 
     @router.get(
         "/stop",
         response_model=StopState,
         name=f"{tag}get_stop",
-        summary="Get the STOP switch",
+        summary="Get the emergency stop",
         description=STOP,
     )
     async def get_stop(service: ServiceDep) -> StopState:
@@ -209,7 +209,7 @@ def build_settings_router(
         "/stop",
         response_model=StopState,
         name=f"{tag}put_stop",
-        summary="Switch STOP on or off",
+        summary="Switch the emergency stop on or off",
         description=STOP + " Publishes ``settings.changed`` with ``stop``.",
         responses=errors(409, 422, write=True, body=True),
     )
@@ -248,7 +248,7 @@ def build_settings_router(
         bus = request.app.state.event_bus
         bus.publish("settings.changed", {"personal": result.model_dump(mode="json")})
         if payload.show_stop_switch is not None:
-            # whether the STOP switch is offered changed with the setting: the pages that show it hear it
+            # whether the emergency stop is offered changed with the setting: the pages that show it hear it
             state = await service.stop_switch_state()
             bus.publish("settings.changed", {"stop": state.model_dump(mode="json")})
         return result

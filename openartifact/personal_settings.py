@@ -63,5 +63,5 @@ async def marks_resolved_references(session: AsyncSession) -> bool:
 
 
 async def stop_switch_available(session: AsyncSession) -> bool:
-    """Whether the STOP switch is offered (the button, the API and MCP set it only then; ADR-076)."""
+    """Whether the emergency stop is offered (the button, the API and MCP set it only then; ADR-076)."""
     return bool((await load(session))["show_stop_switch"])
