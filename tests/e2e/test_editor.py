@@ -528,10 +528,12 @@ def test_create_an_action_definition_from_the_navigation(
             "HTTP Request Tool",
             "Execute Command Tool",
             "Postgres Tool",
+            "OpenArtifact MCP Tool",  # ADR-079
+            "Hand Over Tool",  # ADR-080
         ],
         "Apps and data": ["GitHub", "Postgres"],
         "Core": ["Execute Command", "HTTP request"],
-        "Data": ["Edit Fields", "Artifact"],
+        "Data": ["Edit Fields", "Artifact", "Build Context"],  # ADR-078
         "Flow": ["If", "Switch", "Timer"],
     }
 
