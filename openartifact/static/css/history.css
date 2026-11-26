@@ -221,3 +221,10 @@
 
 /* the tries of a node that was tried again (Retry on fail): one line each under the block's title */
 .history-step__tries { margin: var(--space-2) 0 0; padding-left: 1.25rem; font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+
+/* what a Build Context step put in its package and what it left out (static/js/tasks/history-step.js, ADR-078): always shown, not folded */
+.history-step__context { margin: var(--space-2) 0 0; font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.history-step__context-title { margin: 0; font-weight: 600; color: var(--color-text); }
+.history-step__context-title:empty { display: none; }
+.history-step__context-list { margin: var(--space-1) 0 var(--space-2); padding-left: 1.25rem; }
+.history-step__context-list--omitted li::marker { color: var(--lane-hue-2); }

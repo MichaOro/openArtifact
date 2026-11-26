@@ -518,3 +518,24 @@
   font-size: 0.8125rem;
   overflow-wrap: anywhere;
 }
+
+/* The sources of a Build Context node (editor/setting-controls.js SourcesControl, ADR-078): one row each, in the order of their priority:
+   handle (a grip, not a button: the icon alone), the name, the options of the source, the bin at the end; the options take what is left
+   and give way (min-width 0), so nothing lies over the bin (ADR-074) */
+.ge-sources { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.ge-sources__list { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.ge-source { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); min-width: 0; padding: var(--space-1) 0; border-radius: var(--radius-sm); }
+.ge-source__grip { flex: 0 0 auto; border-color: transparent; background: transparent; box-shadow: none; color: var(--color-text-muted); cursor: grab; touch-action: none; }
+.ge-source__grip:hover:not(:disabled) { border-color: transparent; background: transparent; box-shadow: none; color: var(--color-text-secondary); }
+.ge-source__grip:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; color: var(--color-text-secondary); }
+.ge-source__grip:active, .ge-source.is-dragging .ge-source__grip { cursor: grabbing; }
+.ge-source.is-dragging { opacity: 0.75; box-shadow: var(--shadow-card-hover); background: var(--color-glass-card); }
+.ge-source__name { flex: 1 1 8rem; min-width: 0; font-size: 0.875rem; overflow-wrap: anywhere; }
+.ge-source__options { display: flex; flex: 1 1 100%; order: 3; align-items: center; gap: var(--space-2); min-width: 0; padding-left: 2.25rem; }
+.ge-source__options:empty { display: none; }
+.ge-source__options > .field__control { width: auto; min-width: 0; }
+.ge-source__count { flex: 0 0 5rem; }
+.ge-source__detail { flex: 1 1 10rem; }
+.ge-source__names { flex: 1 1 auto; min-height: 0; height: 4.5rem; resize: vertical; }
+.ge-source__bin { flex: 0 0 auto; order: 2; }
+.ge-sources__add { align-self: flex-start; width: auto; min-width: 12rem; }

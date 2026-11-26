@@ -12,8 +12,10 @@ import { SizeInput } from "../components/size-input.js";
 import { icon } from "../components/icons.js";
 import { Modal } from "../components/modal.js";
 import { request } from "../http.js";
+import { Sortable } from "../components/sortable.js";
 import { field } from "./field.js";
 import { bindPersist, registerDirty, trackSave } from "./persist-policy.js";
+import { addSource, listProblem, moveSource, parseNames, removeSource, setOption, specOf, unused } from "./sources-model.js";
 import { suggestReferences } from "./reference-suggest.js";
 import { t, tn } from "../i18n.js";
 
@@ -630,6 +632,181 @@ class CredentialControl extends SelectControl {
   }
 }
 
+/** The words for what is wrong with a source (sources-model.js `entryProblem`). */
+function problemText({ code, params }) {
+  if (code === "count_bounds") return t("editor.sources.count_bounds", params);
+  if (code === "names_many") return t("editor.sources.names_many", params);
+  if (code === "names_long") return t("editor.sources.names_long", params);
+  return t("editor.sources.names_twice", params);
+}
+
+/** The sources of a Build Context node (ADR-078): an ordered list, the order being the priority when the size limit runs out. Each row has
+ * a handle to reorder it (components/sortable.js: drag, or ArrowUp / ArrowDown on the handle), the source's name, the options that source takes
+ * (a number of items, title or text of related cards, the names of nodes) and a bin; the list ends with a select that adds a source not used
+ * yet. One setting, one value (the list): a choice (add, remove, move, a select) saves at once, a typed number or name list when it is
+ * left; a value that does not fit says why in plain words and is not sent (the rules are sources-model.js, the server's the same). */
+class SourcesControl extends SettingControl {
+  static kind = "toggle"; // the rows bind their own events (a composite), not the wrapper
+  static row = false;
+
+  createInput(value) {
+    this.specs = this.setting.sources ?? [];
+    this.max = this.setting.max_sources ?? 8;
+    this.list = Array.isArray(value) ? value.map((entry) => ({ ...entry })) : [];
+    const box = element("div", "ge-sources");
+    box.dataset.focusKey = `setting-${this.setting.key}`;
+    this.rows = element("ul", "ge-sources__list");
+    this.rows.setAttribute("aria-label", this.setting.label);
+    this.add = element("select", "field__control ge-sources__add");
+    this.add.dataset.focusKey = `setting-${this.setting.key}-add`;
+    this.add.addEventListener("change", () => this.addChosen());
+    this.live = element("p", "visually-hidden");
+    this.live.setAttribute("aria-live", "polite");
+    box.append(this.rows, this.add, this.live);
+    new Sortable(this.rows, { handle: ".ge-source__grip", onMove: (from, to, by) => this.moveRow(from, to, by) });
+    this.draw();
+    return box;
+  }
+
+  labelTarget() {
+    return this.add;
+  }
+
+  read() {
+    return JSON.stringify(this.list);
+  }
+
+  parse(raw) {
+    const list = JSON.parse(raw);
+    const problem = listProblem(list, this.specs);
+    if (problem) throw new Error(problemText(problem));
+    const saved = Array.isArray(this.saved) ? this.saved : null;
+    return saved && JSON.stringify(saved) === raw ? saved : list; // the stored list itself when nothing changed
+  }
+
+  isDirty() {
+    return this.read() !== this.baseline;
+  }
+
+  sourceLabel(key) {
+    return t(`editor.sources.source.${key}.label`);
+  }
+
+  draw() {
+    this.rows.replaceChildren(...this.list.map((entry, index) => this.row(entry, index)));
+    const free = unused(this.list, this.specs);
+    this.add.replaceChildren(new Option(t("editor.sources.add"), ""), ...free.map((spec) => new Option(this.sourceLabel(spec.key), spec.key)));
+    this.add.disabled = !free.length || this.list.length >= this.max;
+  }
+
+  row(entry, index) {
+    const spec = specOf(this.specs, entry.source) ?? { key: entry.source };
+    const item = element("li", "ge-source");
+    const grip = element("button", "icon-button icon-button--sm ge-source__grip");
+    grip.type = "button";
+    grip.setAttribute("aria-label", t("editor.sources.drag", { label: this.sourceLabel(spec.key) }));
+    grip.title = t("editor.sources.drag_help");
+    grip.append(icon("grip"));
+    const name = element("span", "ge-source__name", this.sourceLabel(spec.key));
+    name.title = t(`editor.sources.source.${spec.key}.help`);
+    const options = element("span", "ge-source__options");
+    if (spec.count) options.append(this.countInput(entry, index, spec));
+    if (spec.detail) options.append(this.detailSelect(entry, index, spec));
+    if (spec.names) options.append(this.namesInput(entry, index, spec));
+    const bin = element("button", "icon-button icon-button--sm ge-source__bin");
+    bin.type = "button";
+    bin.title = t("editor.sources.remove", { label: this.sourceLabel(spec.key) });
+    bin.setAttribute("aria-label", bin.title);
+    bin.append(icon("trash"));
+    bin.addEventListener("click", () => this.removeRow(index));
+    item.append(grip, name, options, bin);
+    return item;
+  }
+
+  /** A typed value is kept in the list as it is typed; it is saved when the field is left (the policy of persist-policy.js). */
+  typed(input, kind) {
+    const element = input;
+    element.addEventListener("input", () => this.markDirty());
+    bindPersist(element, kind, (event) => {
+      if (event.type === "focusout" && !this.isDirty()) return;
+      this.commit();
+    });
+    registerDirty({ isDirty: () => this.isDirty(), commit: () => this.commit(), element });
+  }
+
+  countInput(entry, index, spec) {
+    const input = element("input", "field__control ge-source__count");
+    input.type = "number";
+    input.step = "1";
+    input.min = String(spec.count[0]);
+    input.max = String(spec.count[1]);
+    input.value = String(entry.count ?? spec.count[2]);
+    input.setAttribute("aria-label", t("editor.sources.count_label", { label: this.sourceLabel(spec.key) }));
+    input.title = t("editor.sources.count_help");
+    input.addEventListener("input", () => {
+      this.list = setOption(this.list, index, "count", input.value.trim() === "" ? null : Number(input.value));
+    });
+    this.typed(input, "text");
+    return input;
+  }
+
+  detailSelect(entry, index, spec) {
+    const select = element("select", "field__control ge-source__detail");
+    for (const value of spec.detail) select.append(new Option(t(`editor.sources.detail.${value}`), value));
+    select.value = entry.detail ?? spec.detail[0];
+    select.setAttribute("aria-label", t("editor.sources.detail_label", { label: this.sourceLabel(spec.key) }));
+    select.addEventListener("change", () => {
+      this.list = setOption(this.list, index, "detail", select.value);
+      this.commit();
+    });
+    return select;
+  }
+
+  namesInput(entry, index, spec) {
+    const area = element("textarea", "field__control ge-source__names");
+    area.rows = 2;
+    area.spellcheck = false;
+    area.value = (entry.names ?? []).join("\n");
+    area.placeholder = t("editor.sources.names_placeholder");
+    area.setAttribute("aria-label", t("editor.sources.names_label", { label: this.sourceLabel(spec.key) }));
+    area.title = t("editor.sources.names_help", { max: spec.names.max });
+    area.addEventListener("input", () => {
+      this.list = setOption(this.list, index, "names", parseNames(area.value));
+    });
+    this.typed(area, "multiline");
+    return area;
+  }
+
+  addChosen() {
+    const spec = specOf(this.specs, this.add.value);
+    if (!spec || this.list.length >= this.max) return;
+    this.list = addSource(this.list, spec);
+    this.draw();
+    this.live.textContent = t("editor.sources.added", { label: this.sourceLabel(spec.key), n: this.list.length });
+    this.commit();
+    this.rows.lastElementChild?.querySelector(".ge-source__grip")?.focus();
+  }
+
+  removeRow(index) {
+    const label = this.sourceLabel(this.list[index].source);
+    this.list = removeSource(this.list, index);
+    this.draw();
+    this.live.textContent = t("editor.sources.removed", { label });
+    this.commit();
+    this.add.focus();
+  }
+
+  /** A drag has moved the row in the document already, a key asks for the move; both change the list, which is drawn anew. */
+  moveRow(from, to, by) {
+    this.list = moveSource(this.list, from, to);
+    this.draw();
+    const grip = this.rows.children[to]?.querySelector(".ge-source__grip");
+    if (by === "key") grip?.focus();
+    this.live.textContent = t("editor.sources.moved", { label: this.sourceLabel(this.list[to].source), n: to + 1, total: this.list.length });
+    this.commit();
+  }
+}
+
 const CONTROLS = {
   credential: CredentialControl,
   integer: IntegerControl,
@@ -641,6 +818,7 @@ const CONTROLS = {
   select: SelectControl,
   retry: RetryControl,
   size: SizeControl,
+  sources: SourcesControl,
 };
 
 /** The control for a setting; a type this editor does not know is shown as plain text. */
