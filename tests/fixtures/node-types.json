@@ -50,7 +50,7 @@
     },
     "field_extra": "default",
     "field_required": true,
-    "help": "What this graph takes from the one that runs it: a name, a type, whether it must be given, and a default. Inside, a node reads an input as ${input.name}. The one that runs it gives each input a value; a required input without a value fails the run with a message that names it. Without inputs nothing changes: the nodes read the run context as before.",
+    "help": "What this graph takes from the one that runs it: name, type, required, default. A node inside reads one as ${input.name}; a required input without a value fails the run.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -218,7 +218,7 @@
     "default": {},
     "stored_in": "config",
     "max_mapping": 30,
-    "help": "The value of each input of what this node runs: a text, a card field (${card.name}) or a reference to the outputs of an earlier node (${node:ID.data.name}). An input left empty uses its default; a required one without a value fails.",
+    "help": "A value for each input of what this node runs: text, a card field (${card.name}) or the output of an earlier node. Empty uses the default; a required input without one fails.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -280,7 +280,7 @@
     "default": {},
     "stored_in": "config",
     "max_mapping": 30,
-    "help": "The value of each input of what this node runs: a text, a card field (${card.name}) or a reference to the outputs of an earlier node (${node:ID.data.name}). An input left empty uses its default; a required one without a value fails.",
+    "help": "A value for each input of what this node runs: text, a card field (${card.name}) or the output of an earlier node. Empty uses the default; a required input without one fails.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -357,7 +357,7 @@
     },
     "field_extra": "value",
     "field_required": false,
-    "help": "What this pipeline hands back to the one that ran it: a name, a type and a value (a text, or references such as ${(Node name).output} or ${input.name}). When it ends On Pass the values are worked out and become the data of the node that ran it, where later nodes read them by that node. Without outputs nothing changes.",
+    "help": "What this pipeline hands back: a name, a type and a value (text or references like ${input.who}). Worked out where it ends, it becomes the data of the node that called it.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -511,7 +511,7 @@
     },
     "field_extra": "value",
     "field_required": false,
-    "help": "What this action hands back to the one that ran it: a name, a type and a value (a text, or references such as ${(Node name).output} or ${input.name}). When it ends On Pass the values are worked out and become the data of the node that ran it, where later nodes read them by that node. Without outputs nothing changes.",
+    "help": "What this action hands back: a name, a type and a value (text or references like ${input.who}). Worked out when it ends On Pass, it becomes the data of the node that ran it.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3389,7 +3389,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "help": "Off: the agent can only read; the tools that change something are left out. On: it may also create, change, move, archive and comment cards and start or stop their processing. Nothing is ever deleted.",
+    "help": "Off: the agent only reads. On: it may also create, change, move, archive and comment cards and start or stop processing; nothing is ever deleted.",
     "section": "definition",
     "level": "optional",
     "inherits": null
@@ -4235,7 +4235,7 @@
      "choice_chars": 60
     },
     "field_required": true,
-    "help": "The fields of the document, flat (no field holds another object). The model hands over exactly these. A document with a missing required field, a wrong type, a value outside a choice or a field that is not listed is refused, and the answer says why. The last accepted document counts; every call stays in the step.",
+    "help": "The fields of the document, flat (no field holds an object). The model hands over exactly these; a document with a missing, mistyped or unlisted field is refused with the reason.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -4599,7 +4599,7 @@
      }
     ],
     "max_sources": 9,
-    "help": "What the package is made of, in the order of its importance. When the size limit runs out, the sources further down give way first (the card's own title and text are cut last). The step shows what went in and what was left out. Card text, comments and results are pasted as they are and never read for ${...} references.",
+    "help": "What the package is made of, in order of importance: when the limit runs out, the sources further down give way first. The step shows what went in and what was left out.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -4612,7 +4612,7 @@
     "maximum": 32768,
     "default": 8192,
     "stored_in": "config",
-    "help": "The most the whole package takes, headings included (bytes of UTF-8 text). Roughly four bytes make a token of English text, so 8 KiB is about 2,000 tokens. A bigger package gives the agent more to read and costs more; a smaller one costs less and may leave out what it needs.",
+    "help": "The most the whole package takes, headings included (bytes of UTF-8 text); about 4 bytes make a token. A bigger package gives the agent more to read and costs more.",
     "section": "behaviour",
     "level": "core",
     "inherits": null
@@ -4625,7 +4625,7 @@
     "maximum": 16384,
     "default": 2048,
     "stored_in": "config",
-    "help": "One comment, card or result is cut to this size (with the mark \"…[cut]\") before it is weighed, so a single long item does not fill the package. The card's own text is not an item; it is cut last, only when the whole limit is reached.",
+    "help": "One comment, card or result is cut to this size (marked …[cut]) before it is weighed, so one long item cannot fill the package. The card's own text is cut last.",
     "section": "behaviour",
     "level": "optional",
     "inherits": null

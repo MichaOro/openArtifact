@@ -32,5 +32,5 @@ settings:
   type: fields
   field_extra: value
   default: []
-  help: 'What this action hands back to the one that ran it: a name, a type and a value (a text, or references such as ${(Node name).output} or ${input.name}). When it ends On Pass the values are worked out and become the data of the node that ran it, where later nodes read them by that node. Without outputs nothing changes.'
+  help: "What this action hands back: a name, a type and a value (text or references like ${input.who}). Worked out when it ends On Pass, it becomes the data of the node that ran it."
   stored_in: config
