@@ -234,11 +234,13 @@ output (up to 256 KiB each, 1 MiB per execution), the details of agent steps and
 executions per artifact are kept (`OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP`; `0` keeps everything and lets the file grow
 with every run); the retention rules (*Executions → Retention*) decide the rest ([Execution history](execution-history.md)).
 
-**The limits are the user's.** *Settings → Personal → Data storage* (ADR-084) holds seven limits, **all empty by default, and empty
-changes nothing**: the number of executions kept per artifact (empty: the operator's value above), step outputs and details emptied after
-N days, a size limit for the data of all executions (MiB), the longest stored output of a step and of an execution (lower than today's
-256 KiB and 1 MiB), the interval of the background cleaner, and a warning size for the file. Below the form the page shows the size of the
-database file and its write-ahead log, the free pages, the biggest tables, the data of all executions and the last pass.
+**The limits are the user's.** *Settings → Personal* has three tabs (ADR-084, addendum 1): *General*, *Data storage* and *Database*. The *Data
+storage* tab holds seven limits. **Nothing changes until the user changes a field:** a field nobody set shows its default (the operator's value above
+for the executions kept per artifact, 256 KiB and 1024 KiB for the longest stored output of a step and of an execution) and is stored as *not set*;
+step outputs and details emptied after N days, a size limit for the data of all executions (MiB), the background cleaner (every N hours) and a warning
+size for the file are **switches, off by default**. The *Database* tab shows the size of the database file and its write-ahead log, the free pages,
+the biggest tables, the data of all executions, whether the cleaner is on and when it runs next, and the last pass, with *Preview*, *Clean now* and
+*Shrink database*.
 
 - **Preview** shows what a pass would delete or empty, per kind, in entries and bytes; nothing changes. **Clean now** asks first and
   does exactly that, then truncates the write-ahead log. The background cleaner does the same when its interval has passed. A pass

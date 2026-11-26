@@ -62,3 +62,25 @@ set; only purely technical data, which nobody can reach, may be cleaned without 
 ## 4. Not in this decision
 
 The event log written *during* a run (its own card), a separate SQLite file (not needed), deleting cards, comments or their history, and any MCP tool that deletes.
+
+## Addendum 1: the page in tabs, defaults as values, switches (card #100)
+
+The first page was one long form, a card with seven empty number fields, and the panel of the database below it; its fieldset was wider than its card and lay over the edge.
+The owner asked for sub-navigation like the agent page, default values instead of empty fields, and a way to switch the cleaner on. The data, the API and the engine of this ADR are unchanged.
+
+- **Tabs:** *Settings → Personal* has *General* (display, the emergency stop), *Data storage* (the limits) and *Database* (the facts and the three actions). The shared `Tabs`
+  component switches them; the tab is kept in the address (`#general`, `#storage`, `#database`), so a reload and a link open the same one. The form manifest `personal.yaml` names the
+  tab of each section (`tab:` on a section, a new optional key); the page draws one `FormView` per tab over the same values. The cards are content-sized, one column, and the form
+  fills its card (nothing lies over another element or leaves the card: a browser test measures the boxes at 1280 and 390 px).
+- **Defaults are values:** a field nobody set shows what the engine does anyway: the operator's number of executions per artifact (`context.defaults` from `GET /api/settings/storage`),
+  256 KiB and 1024 KiB for the longest stored output of a step and of an execution. Typing the default back stores `null` ("not set"), not the number, so a later change of the default
+  (the operator's number, today's limits) still applies; "Reset to default" appears while another number is stored. The widget is `limit`.
+- **A limit that is off by default is a switch:** *Empty step outputs after*, *Limit for the data of all executions*, *Clean automatically* and *Warn when the database is larger than* are
+  `optional-number` widgets: a switch (off by default) and, once it is on, the number with its unit, starting with a suggestion (`on_values`: 30 days, 1024 MiB, every 24 hours, 1024 MiB).
+  Switching on stores the suggestion, switching off stores `null`; both are saved at once, a typed number when the typing has paused. Storage stays what it was: `null` is "not set"
+  (the operator's value, today's limit, or off).
+- **The cleaner has its switch:** *Clean automatically* with *every N hours* (24 on first switching on). The *Database* tab says whether it is on, the interval and when it runs next
+  (`next_clean_at`: the last pass, or the start of the application, plus the interval) and links to the setting.
+- **The *Database* tab:** the facts as a two-column list, the biggest tables with their sizes on the right, and *Preview*, *Clean now* and *Shrink database* in a row with a line under each
+  saying what it does. The messages (nothing to clean, what a pass did) and the questions before cleaning and shrinking are as before.
+- **API:** `GET /api/settings/storage` gains `next_clean_at`, `defaults` and `on_values`. Nothing else changes.

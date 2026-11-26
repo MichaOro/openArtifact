@@ -163,7 +163,7 @@ needs the personal setting `show_stop_switch` (`GET`/`PUT /api/settings/personal
 
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
-| GET | `/api/v1/settings/storage` | The database file and its write-ahead log in bytes, pages, free pages, the biggest tables (`dbstat`, else row counts), `run_data_bytes`, `last_clean` and `interval_hours` of the cleaner, `warn_bytes` and `over_warning` | |
+| GET | `/api/v1/settings/storage` | The database file and its write-ahead log in bytes, pages, free pages, the biggest tables (`dbstat`, else row counts), `run_data_bytes`, `last_clean`, `interval_hours` and `next_clean_at` of the cleaner, `warn_bytes` and `over_warning`; `defaults` (what a field nobody set stands for: the operator's executions kept, 256 and 1024 KiB) and `on_values` (the number a limit that is off starts with when it is switched on) | |
 | POST | `/api/v1/settings/storage/preview` | What a pass would delete or empty now, per kind (`executions_keep`, `executions_rules`, `step_data_age`, `step_data_size`) with `entries` and `bytes`; changes nothing | |
 | POST | `/api/v1/settings/storage/clean` | Carries out exactly that plan, then truncates the write-ahead log; answers the plan, `before` and `after` sizes and `wal` | 409 `busy` |
 | POST | `/api/v1/settings/storage/shrink` | `VACUUM`: rewrites the file; answers `before`, `after` and `wal` | 409 `not_enough_space`, 409 `busy` |
