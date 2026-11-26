@@ -308,6 +308,9 @@ def test_the_fields_dialog_shows_title_and_body_as_standard_rows_and_names_a_cla
     signed_in: Page, api: httpx.Client
 ) -> None:
     page = signed_in
+    page.wait_for_load_state(
+        "networkidle"
+    )  # the board is drawn and wired before its menu is clicked
     page.locator("[data-board-menu]").click()
     page.get_by_role("menuitem", name="Artifact fields").click()
     editor = page.locator("#fields-modal")
