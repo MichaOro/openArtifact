@@ -138,8 +138,12 @@
 .ag-inputs-table:not(:has(.ag-input)) .ag-inputs-head { display: none; }
 .ag-input { padding: var(--space-1); }
 /* the handle of a row (components/sortable.js): only it starts a move; the row follows the pointer between its neighbours */
-.ag-input__grip { color: var(--color-text-muted); cursor: grab; touch-action: none; }
-.ag-input__grip:active { cursor: grabbing; }
+/* a grip, not a button: no border, no fill; the icon alone, stronger on hover, a ring only for the keyboard */
+.ag-input .ag-input__grip { border-color: transparent; background: transparent; box-shadow: none; color: var(--color-text-muted); cursor: grab; touch-action: none; }
+.ag-input .ag-input__grip:hover:not(:disabled) { border-color: transparent; background: transparent; box-shadow: none; color: var(--color-text-secondary); }
+.ag-input .ag-input__grip:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; color: var(--color-text-secondary); }
+.ag-input .ag-input__grip:active,
+.ag-input.is-dragging .ag-input__grip { cursor: grabbing; }
 .ag-input.is-dragging { opacity: 0.75; box-shadow: var(--shadow-card-hover); background: var(--color-glass-card); }
 /* where a row breaks into pairs (css/forms.css .field-group) the handle leaves the grid and sits at the row's left edge, so the pairs stay as they were */
 @container (max-width: 42rem) {

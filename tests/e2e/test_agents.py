@@ -842,6 +842,11 @@ def test_the_inputs_are_reordered_by_their_handle_and_the_order_is_saved(
     name = rows.first.get_by_label("Name", exact=True).bounding_box()
     assert first and handle and name
     assert handle["x"] < name["x"], "the handle is the first thing in the row, left of the name"
+    # a grip, not a button: no frame and no fill while it rests
+    chrome = grips.first.evaluate(
+        "e => { const s = getComputedStyle(e); return [s.borderTopColor, s.backgroundColor, s.boxShadow]; }"
+    )
+    assert chrome[0] == "rgba(0, 0, 0, 0)" and chrome[1] == "rgba(0, 0, 0, 0)" and chrome[2] == "none", chrome
     assert _input_names(rows) == ["a", "b", "c"]
     expect(editor.locator("[data-save]")).to_be_disabled()  # nothing changed yet
     # the keyboard: the handle of "a" down one place
