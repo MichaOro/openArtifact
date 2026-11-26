@@ -18,7 +18,7 @@ DIALOG = "#node-modal"
 
 def _config(api: httpx.Client, graph: dict[str, Any], kind: str) -> dict[str, Any]:
     nodes = api.get(graph_url(graph)).json()["nodes"]
-    return next(n["config"] for n in nodes if n["kind"] == kind)  # type: ignore[no-any-return]
+    return next(n["config"] for n in nodes if n["kind"] == kind)
 
 
 def _open_settings(page: Page, action: dict[str, Any]) -> None:
