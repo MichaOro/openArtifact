@@ -53,6 +53,7 @@ DELETE /api/v1/providers/{ref}/models/{model_id} -> -
 DELETE /api/v1/secrets/{name} -> -
 DELETE /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/actions -> GraphListRead[]
+GET /api/actions/{action_id}/placements -> DryRunTarget[]
 GET /api/actions/{graph_id} -> GraphDetail
 GET /api/actions/{graph_id}/check -> PublishCheck
 GET /api/actions/{graph_id}/contract -> GraphContract
@@ -228,6 +229,7 @@ POST /api/settings/storage/shrink -> ShrinkRead
 POST /api/tasks -> TaskRead
 POST /api/tasks/{ref}/comments -> CommentRead
 POST /api/tasks/{task_id}/archive -> TaskRead
+POST /api/tasks/{task_id}/dry-run/check -> DryRunProblems
 POST /api/tasks/{task_id}/run -> RunRead
 POST /api/tasks/{task_id}/run/stop -> RunRead
 POST /api/tasks/{task_id}/unarchive -> TaskRead

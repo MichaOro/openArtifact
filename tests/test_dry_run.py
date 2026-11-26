@@ -587,3 +587,95 @@ def test_migration_0066_marks_every_row_that_exists_as_a_real_run_and_goes_down_
         assert "dry_run" not in columns
         assert conn.execute("SELECT id FROM executions").fetchall() == [("e1",)]
     command.upgrade(alembic_config(), "head")
+
+
+# ── the check before the start and the places of an action (the Dry run tab, ADR-086) ──────────
+
+
+def _check(client: TestClient, task: dict[str, Any], **body: Any) -> Any:
+    return client.post(f"/api/tasks/{task['id']}/dry-run/check", json=body)
+
+
+def test_the_check_names_a_missing_required_input_and_starts_nothing(api: TestClient) -> None:
+    from tests.test_action_contract import INPUTS
+
+    definition = _greeting_action(api, inputs=INPUTS)
+    pipeline, task = build_pipeline(api, stages=1), make_task(api)
+    link(api, pipeline, pipeline["stages"][0][1], definition)
+    where = {
+        "pipeline_id": pipeline["id"],
+        "stage_id": pipeline["stages"][0][0]["id"],
+        "action_id": pipeline["stages"][0][1]["id"],
+    }
+    found = _check(api, task, **where, inputs={}).json()["problems"]
+    assert any("input 'who' is required" in text for text in found)
+    assert _check(api, task, **where, inputs={"who": "Ann"}).json() == {"problems": []}
+    assert api.get("/api/runs").json() == [], "a check starts nothing"
+    assert api.get(f"/api/tasks/{task['id']}/executions").json()["items"] == []
+
+
+def test_the_check_of_the_draft_reports_what_publishing_would_refuse(api: TestClient) -> None:
+    pipeline, task = build_pipeline(api, stages=1), make_task(api)
+    _use(api, pipeline, _comment_then_read(api, "${(Nowhere).output}"))
+    problems = _check(api, task, pipeline_id=pipeline["id"], version="draft").json()["problems"]
+    assert any("Nowhere" in text for text in problems), problems
+    published = _check(api, task, pipeline_id=pipeline["id"], version="published").json()
+    assert published == {"problems": []}, "the check of references is about the draft"
+
+
+def test_the_check_says_a_start_that_does_not_exist_and_a_card_that_does_not_exist(
+    api: TestClient,
+) -> None:
+    pipeline, task = build_pipeline(api, stages=1), make_task(api)
+    unknown = _check(api, task, pipeline_id=pipeline["id"], stage_id="nowhere").json()["problems"]
+    assert len(unknown) == 1 and unknown[0]
+    gone = api.post("/api/tasks/does-not-exist/dry-run/check", json={"pipeline_id": pipeline["id"]})
+    assert gone.status_code == 404
+
+
+def test_the_places_of_an_action_are_the_stages_of_the_pipelines_that_put_it(
+    api: TestClient,
+) -> None:
+    definition = _greeting_action(api)
+    assert api.get(f"/api/actions/{definition['id']}/placements").json() == []
+    pipeline = build_pipeline(api, stages=2, name="Greeting flow")
+    shell = pipeline["stages"][1][1]
+    link(api, pipeline, shell, definition)
+    (place,) = api.get(f"/api/actions/{definition['id']}/placements").json()
+    assert place == {
+        "pipeline_id": pipeline["id"],
+        "pipeline_name": "Greeting flow",
+        "stage_id": pipeline["stages"][1][0]["id"],
+        "stage_name": pipeline["stages"][1][0]["name"],
+        "action_id": shell["id"],
+    }
+
+
+def test_a_test_card_that_does_not_fit_fails_in_a_dry_run_as_it_does_in_a_real_run(
+    api: TestClient,
+) -> None:
+    """A mapping that names a field the card does not have, and a required input nobody gives: the same refusal, with the same words."""
+    definition = _greeting_action(
+        api,
+        inputs=[{"name": "who", "type": "text", "required": True}],
+        fields="greeting = Hello ${input.who}",
+    )
+    pipeline, task = build_pipeline(api, stages=1), make_task(api)
+    shell = pipeline["stages"][0][1]
+    link(api, pipeline, shell, definition)
+    for mapped, expected in (("${card.ghost}", "ghost"), ("", "'who' is required")):
+        api.patch(
+            f"{graph_url(pipeline)}/nodes/{shell['id']}",
+            json={"config": {"input_values": {"who": mapped} if mapped else {}}},
+        ).raise_for_status()
+        notes = []
+        for dry in (False, True):
+            response = api.post(
+                f"/api/tasks/{task['id']}/run",
+                json={"pipeline_id": pipeline["id"], **({"dry_run": True} if dry else {})},
+            )
+            assert response.status_code == 201, response.text
+            run = wait_for_run(api, task, "failed")
+            assert run["dry_run"] is dry
+            notes.append(run["note"])
+        assert expected in notes[0] and notes[0] == notes[1], notes

@@ -14,9 +14,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.context import ContextError, RunView, check_url_placement
 from openartifact.engine.results import NodeResult, failed
-from openartifact.models import NodeKind
+from openartifact.graph.publishing import graph_for_run
+from openartifact.models import Graph, GraphKind, NodeKind
 
 SHOWN_CHARS = 300
 
@@ -62,6 +67,39 @@ def would_have(node: dict[str, Any], view: RunView) -> str:
         lines = len([line for line in code.splitlines() if line.strip()])
         return f"run the {config.get('language') or 'sh'} script of {lines} line(s)"
     return f"run the node '{node.get('name') or node.get('label') or kind}'"
+
+
+async def placements_of_action(session: AsyncSession, definition_id: str) -> list[dict[str, str]]:
+    """Where an action definition is placed in a pipeline (by the version that runs): ``{pipeline_id, pipeline_name, stage_id, stage_name,
+    action_id}`` for each placement. A dry run of an action starts at one of them; an action in no pipeline has no way to run (ADR-086)."""
+    found: list[dict[str, str]] = []
+    pipelines = (
+        await session.execute(
+            select(Graph.id, Graph.name)
+            .where(Graph.kind == GraphKind.PIPELINE)
+            .order_by(Graph.name)
+        )
+    ).all()
+    for pipeline_id, name in pipelines:
+        content = await graph_for_run(session, pipeline_id)
+        stages = {s["id"]: s for s in pipeline_chain(content["nodes"], content["edges"])}
+        for node in content["nodes"]:
+            stage = stages.get(node.get("stage_id") or "")
+            if (
+                node["kind"] == NodeKind.ACTION
+                and node.get("definition_id") == definition_id
+                and stage
+            ):
+                found.append(
+                    {
+                        "pipeline_id": pipeline_id,
+                        "pipeline_name": str(name),
+                        "stage_id": stage["id"],
+                        "stage_name": str(stage.get("name") or ""),
+                        "action_id": node["id"],
+                    }
+                )
+    return found
 
 
 async def skipped(node: dict[str, Any], limits: Any, view: RunView | None = None) -> NodeResult:
