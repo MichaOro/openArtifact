@@ -18,7 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from openartifact.graph import context_sources
+from openartifact.graph import context_sources, field_schema
 from openartifact.graph.manifest import (
     NODES_DIR,
     PortSpec,
@@ -258,6 +258,8 @@ class Setting:
             }
         if self.type == "sources":
             data.update(context_sources.describe())
+        if self.type == "fields":
+            data.update(field_schema.describe())
         if self.type in _DEFAULT_MAX_LENGTH:
             data["max_length"] = self.max_length or _DEFAULT_MAX_LENGTH[self.type]
         if self.placeholder is not None:
@@ -310,6 +312,11 @@ class Setting:
         if self.type == "sources":
             try:
                 return context_sources.normalise(value)
+            except ValueError as error:
+                raise SettingError(str(error)) from error
+        if self.type == "fields":
+            try:
+                return field_schema.normalise(value)
             except ValueError as error:
                 raise SettingError(str(error)) from error
         if self.type == "size":

@@ -291,6 +291,13 @@ def _card_value(value: Any) -> str:
     return str(value)
 
 
+def _handover_block(entry: Mapping[str, Any]) -> str:
+    """A handed-over document as text: the name of its tool node, then one ``field: value`` line per field (pasted as it is)."""
+    data = entry.get("data") if isinstance(entry.get("data"), Mapping) else {}
+    lines = [f"{name}: {_card_value(value)}" for name, value in (data or {}).items()]
+    return f"### {entry.get('name')}\n" + ("\n".join(lines) if lines else "(empty)")
+
+
 def _blocks(
     section: Section, made: Sequence[tuple[str, bool]], available: int | None = None
 ) -> Section:
@@ -317,7 +324,7 @@ async def read_sources(
         spec = sources.SOURCES[key]
         section = Section(key, spec.label, [], 0)
         found[key] = section
-        if key != "nodes" and not card and not task:
+        if key not in {"nodes", "handovers"} and not card and not task:
             section.empty = "the run has no card"
             continue
         if key in {"comments", "parent", "children", "siblings", "executions"} and not task:
@@ -387,6 +394,22 @@ async def read_sources(
                 if not entry["names"]
                 else "none of the named nodes has run in this execution"
             )
+        elif key == "handovers":
+            wanted = {node_key(n) for n in entry["names"]}
+            documents = [
+                (found_key, found_entry)
+                for found_key, found_entry in view.context.nodes.items()
+                if found_entry.get("kind") == "handover_tool"
+                and (not wanted or found_key in wanted)
+            ]
+            for name in entry["names"]:
+                if node_key(name) not in {k for k, _ in documents}:
+                    section.skipped.append(
+                        f'nothing was handed over under the name "{name}" in this execution'
+                    )
+            _blocks(section, [cut_to(_handover_block(e), item_limit) for _, e in documents])
+            section.noun = "document"
+            section.empty = "no document was handed over in this execution"
         elif key == "executions":
             gateway = _need(cards)
             past, total = await gateway.executions(

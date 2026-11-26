@@ -227,6 +227,8 @@ class ToolContext:
     allow_private_networks: bool
     limits: Any = None
     view: Any = None
+    #: Where the Hand Over Tools of the node put the documents they accepted (``agents/handover.py``); ``None`` outside a run.
+    handovers: Any = None
 
 
 #: Builders of tools that run here (HTTP Request Tool, Code Tool), by kind: see ``agents/local_tools.py``.

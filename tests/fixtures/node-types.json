@@ -3913,6 +3913,126 @@
   }
  },
  {
+  "kind": "handover_tool",
+  "label": "Hand Over Tool",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "description",
+    "label": "Description",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "Hand over the result as a document. Call it when you are done, with every required field filled in; if the answer says what is wrong, call it again with a corrected document.",
+    "stored_in": "config",
+    "max_length": 1000,
+    "help": "Tells the model what the tool is for and when to use it. The fields below, with their descriptions, are what the model fills in.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "fields",
+    "label": "Fields",
+    "type": "fields",
+    "minimum": null,
+    "maximum": null,
+    "default": [],
+    "stored_in": "config",
+    "field_types": [
+     "text",
+     "number",
+     "boolean",
+     "choice",
+     "list"
+    ],
+    "max_fields": 30,
+    "field_limits": {
+     "name_chars": 32,
+     "description_chars": 300,
+     "choices": [
+      2,
+      20
+     ],
+     "choice_chars": 60
+    },
+    "help": "The fields of the document, flat (no field holds another object). The model hands over exactly these. A document with a missing required field, a wrong type, a value outside a choice or a field that is not listed is refused, and the answer says why. The last accepted document counts; every call stays in the step.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "max_bytes",
+    "label": "Size limit",
+    "type": "size",
+    "minimum": 1024,
+    "maximum": 65536,
+    "default": 16384,
+    "stored_in": "config",
+    "help": "The most one document takes (bytes of UTF-8 JSON). A bigger one is refused with a message that says so.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": true,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 6
+  },
+  "menu_icon": "layers",
+  "ui": {
+   "icon": "layers",
+   "color": "context",
+   "caption": {
+    "template": "{tool_name|default:@name}"
+   },
+   "hint": "This tool lets an agent hand over a result as a document with the fields you define. The server checks every call; a document that does not fit goes back to the agent with the exact reason, and it may try again. A later node reads the accepted document as ${(Name of this node).data.field}."
+  }
+ },
+ {
   "kind": "artifact",
   "label": "Artifact",
   "scopes": [
@@ -4214,6 +4334,15 @@
       }
      },
      {
+      "key": "handovers",
+      "label": "Handover documents",
+      "help": "The documents agents handed over in this run through a Hand Over Tool, as fields and values. Name the tool nodes to use only those; none named means all of them, oldest first.",
+      "names": {
+       "max": 10,
+       "max_chars": 200
+      }
+     },
+     {
       "key": "executions",
       "label": "Earlier executions",
       "help": "The last finished executions of this card (not the running one): how each ended, why, and the output of its last step that produced text. Older ones are left out first.",
@@ -4224,7 +4353,7 @@
       ]
      }
     ],
-    "max_sources": 8,
+    "max_sources": 9,
     "help": "What the package is made of, in the order of its importance. When the size limit runs out, the sources further down give way first (the card's own title and text are cut last). The step shows what went in and what was left out. Card text, comments and results are pasted as they are and never read for ${...} references.",
     "section": "definition",
     "level": "core",

@@ -126,6 +126,7 @@ class SettingSpec(_Strict):
             "credential",
             "retry",
             "sources",
+            "fields",
         ]
         | None
     ) = None

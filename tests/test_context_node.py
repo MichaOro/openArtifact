@@ -131,7 +131,7 @@ def test_a_stored_list_gets_every_option_of_its_sources_and_keeps_the_order() ->
         ([{"source": "card", "count": 3}], "no option 'count'"),
         ([{"source": "nodes", "names": ["A", "A"]}], "named twice"),
         ([{"source": "nodes", "names": [f"n{i}" for i in range(11)]}], "at most 10 nodes"),
-        ([{"source": s} for s in ("card", "fields", "comments", "parent", "children", "siblings", "nodes", "executions")] + [{"source": "x"}], "At most 8 sources"),
+        ([{"source": s} for s in ("card", "fields", "comments", "parent", "children", "siblings", "nodes", "handovers", "executions")] + [{"source": "x"}], "At most 9 sources"),
     ],
 )  # fmt: skip
 def test_a_list_that_does_not_fit_is_refused_in_plain_words(value: Any, message: str) -> None:

@@ -8,7 +8,7 @@ on fail*) and ``duration_ms`` (wall time of the step, waits between tries includ
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 #: Longest ``reason`` kept; reasons are text for people, never the input of anything.
@@ -39,6 +39,9 @@ class NodeResult:
     #: How many bytes of ``output`` the run context keeps for later nodes (the step keeps all); ``None``: the context's own limit for a node
     #: (4 KiB). The Build Context node asks for the size of its package (ADR-078).
     keep_bytes: int | None = None
+    #: Results of other nodes that this node produced while it ran, to be stored in the run context under their own names: the documents
+    #: an agent handed over through its Hand Over Tools (ADR-080), as ``(the tool node, its result)``. Never stored as steps.
+    recorded: list[tuple[dict[str, Any], NodeResult]] = field(default_factory=list)
 
     @property
     def success(self) -> bool:

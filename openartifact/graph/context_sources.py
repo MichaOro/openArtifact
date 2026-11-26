@@ -6,7 +6,8 @@ checked; the engine (``engine/context_builder.py``) builds from it, the editor d
 the settings API validates with :func:`sources_error` / :func:`normalise`.
 
 Options: ``count`` (a whole number within bounds: how many items), ``detail`` (``title`` or ``text``: a related card as one line, or with
-its text), ``names`` (a list of names of nodes of this run). A source can be there once; ``nodes`` names its nodes inside.
+its text), ``names`` (a list of names of nodes of this run; ``handovers`` may name none: all documents). A source can be there once;
+``nodes`` names its nodes inside.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 #: The most sources a node holds and the most node names ``nodes`` may name.
-MAX_SOURCES = 8
+MAX_SOURCES = 9
 MAX_NAMES = 10
 MAX_NAME_CHARS = 200
 
@@ -96,6 +97,13 @@ SOURCES: dict[str, SourceSpec] = {
             "Results of earlier nodes",
             "The output of nodes of this run that already ran, picked by their name (a node of this run's actions). A node that "
             "has not run is listed as left out. The run keeps at most 4 KiB of a node's output.",
+            names=True,
+        ),
+        SourceSpec(
+            "handovers",
+            "Handover documents",
+            "The documents agents handed over in this run through a Hand Over Tool, as fields and values. Name the tool nodes to use "
+            "only those; none named means all of them, oldest first.",
             names=True,
         ),
         SourceSpec(

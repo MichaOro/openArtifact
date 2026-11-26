@@ -75,7 +75,9 @@ async def test_every_kind_that_executes_leaves_the_core(kind: NodeKind) -> None:
 def test_a_kind_that_leaves_a_result_is_one_the_engine_executes() -> None:
     """A manifest that says `produces_result` for a kind with no executor would offer references that never resolve."""
     for kind, node in NODE_TYPES.items():
-        if node.produces_result:
+        if (
+            node.produces_result and node.behaviour != "tool"
+        ):  # a tool node's result is recorded by the agent node (ADR-080)
             assert kind in EXECUTORS, f"{kind.value} produces a result but has no executor"
 
 

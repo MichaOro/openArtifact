@@ -283,6 +283,11 @@ class RunContext:
         key = node_key(str(node["name"]))
         self.nodes.pop(key, None)  # the order of the keys is the order of recency
         self.nodes[key] = entry
+        for (
+            other,
+            other_result,
+        ) in result.recorded:  # what the node handed over under the name of another node (ADR-080)
+            self.record(other, other_result, "out")
         self._fit()
 
     def _fit(self) -> None:

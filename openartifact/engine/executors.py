@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from openartifact.agents import tools as agent_tools
+from openartifact.agents.handover import HandoverSink
 from openartifact.agents.runtime import run_node as run_agent_node
 from openartifact.comments.schemas import Author
 from openartifact.config import Settings
@@ -169,6 +170,11 @@ def _masked(result: NodeResult, values: dict[str, str]) -> NodeResult:
         result.variables = mask_data(result.variables, used)
     if result.detail is not None:
         result.detail = mask_data(result.detail, used)
+    for (
+        _,
+        other,
+    ) in result.recorded:  # what the node handed over is masked like the rest of its result
+        _masked(other, values)
     return result
 
 
@@ -395,10 +401,15 @@ async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = No
     run_view = view or RunView()
 
     async def run(values: dict[str, str]) -> NodeResult:
+        handovers = HandoverSink()  # the documents the node's Hand Over Tools accept (ADR-080)
         context = agent_tools.ToolContext(
-            values, limits.llm_allow_private_networks, limits=limits, view=run_view
+            values,
+            limits.llm_allow_private_networks,
+            limits=limits,
+            view=run_view,
+            handovers=handovers,
         )
-        return await run_agent_node(
+        result = await run_agent_node(
             node,
             run_view,
             values.get(name) if name else None,
@@ -406,6 +417,11 @@ async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = No
             comments=limits.comments,
             on_event=_agent_events(limits, run_view),
         )
+        documents = handovers.documents()
+        if documents:
+            result.recorded = handovers.recorded()
+            result.data = {**(result.data or {}), "handovers": documents}
+        return result
 
     return await _with_secrets(list(dict.fromkeys(names)), limits, run)
 

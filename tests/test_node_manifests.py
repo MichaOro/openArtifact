@@ -374,6 +374,7 @@ RESULT_KINDS = {
     "sqlite",
     "artifact",
     "context",
+    "handover_tool",
     "set",
     "agent",
     "if",

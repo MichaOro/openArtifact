@@ -30,6 +30,7 @@ kinds:
 - code_tool
 - postgres_tool
 - sqlite_tool
+- handover_tool
 - artifact
 - context
 # Entries of the "+" menu that are not kinds of nodes. `scopes` says in which editors the entry is offered; `soon`

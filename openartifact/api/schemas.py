@@ -64,6 +64,10 @@ class SettingRead(BaseModel):
     #: The sources a ``sources`` setting (the Build Context node, ADR-078) offers, each with its options, and how many a list holds.
     sources: list[dict[str, Any]] | None = None
     max_sources: int | None = None
+    #: What a ``fields`` setting (a schema of flat fields, ADR-080) offers: the types, how many fields, the bounds of a field.
+    field_types: list[str] | None = None
+    max_fields: int | None = None
+    field_limits: dict[str, Any] | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None

@@ -83,6 +83,7 @@ class NodeKind(enum.StrEnum):
     POSTGRES_TOOL = "postgres_tool"
     SQLITE = "sqlite"
     SQLITE_TOOL = "sqlite_tool"
+    HANDOVER_TOOL = "handover_tool"
     ARTIFACT = "artifact"
     CONTEXT = "context"
 
