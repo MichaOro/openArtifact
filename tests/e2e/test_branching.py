@@ -62,11 +62,11 @@ def test_the_menu_offers_if_and_switch_after_http(
             "MCP Client Tool",
             "GitHub MCP",
             "HTTP Request Tool",
-            "Code Tool",
+            "Execute Command Tool",
             "Postgres Tool",
         ],
         "Apps and data": ["GitHub", "Postgres"],
-        "Core": ["Code", "HTTP request"],
+        "Core": ["Execute Command", "HTTP request"],
         "Data": ["Edit Fields", "Artifact"],
         "Flow": ["If", "Switch", "Timer"],
     }
@@ -189,7 +189,7 @@ def test_the_flow_page_shows_the_branch_that_was_taken(
     page.locator(".ge-node[aria-label^='Action: Triage']").dblclick()
     decide_node = page.locator(".ge-node[aria-label^='If: Decide']")
     expect(decide_node).to_have_class(_PASSED)
-    expect(page.locator(".ge-node[aria-label^='Code: Escalate']")).to_have_class(_PASSED)
+    expect(page.locator(".ge-node[aria-label^='Execute Command: Escalate']")).to_have_class(_PASSED)
     expect(page.locator(".ge-edge--yes.is-walked")).to_have_count(1)
     expect(page.locator(".ge-edge--no.is-walked, .ge-edge--else.is-walked")).to_have_count(0)
     expect(decide_node.locator(".ge-port--yes")).to_have_attribute("data-label", "Yes")
@@ -294,7 +294,7 @@ def test_conditions_never_suggest_secrets_and_the_code_text_never_suggests(
     expect(page.get_by_role("option", name="secret:")).to_have_count(0)
     left.press("Escape")  # closes the list
     page.keyboard.press("Escape")  # closes the dialog
-    page.locator(".ge-node[aria-label^='Code:']").dblclick(position={"x": 30, "y": 5})
+    page.locator(".ge-node[aria-label^='Execute Command:']").dblclick(position={"x": 30, "y": 5})
     code = page.locator(".ge-inspector").get_by_label("Code", exact=True)
     code.click()
     code.press_sequentially("echo ${")

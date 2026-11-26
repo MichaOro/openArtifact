@@ -1108,8 +1108,8 @@
     "height": 84
    },
    "caption": "sh · no code yet",
-   "subtitle": "Code",
-   "displayName": "Code",
+   "subtitle": "Execute Command",
+   "displayName": "Execute Command",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -1215,8 +1215,8 @@
     "height": 84
    },
    "caption": "python · print('hi')",
-   "subtitle": "Code",
-   "displayName": "Code",
+   "subtitle": "Execute Command",
+   "displayName": "Execute Command",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -1321,8 +1321,8 @@
     "height": 84
    },
    "caption": "sh · echo one",
-   "subtitle": "Code",
-   "displayName": "Code",
+   "subtitle": "Execute Command",
+   "displayName": "Execute Command",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -1428,8 +1428,8 @@
     "height": 84
    },
    "caption": "sh · x",
-   "subtitle": "Code",
-   "displayName": "Code",
+   "subtitle": "Execute Command",
+   "displayName": "Execute Command",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -1535,8 +1535,8 @@
     "height": 84
    },
    "caption": "sh · x",
-   "subtitle": "Code",
-   "displayName": "Code",
+   "subtitle": "Execute Command",
+   "displayName": "Execute Command",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -5683,9 +5683,9 @@
     "width": 200,
     "height": 64
    },
-   "caption": "python · Code Tool",
-   "subtitle": "Code Tool",
-   "displayName": "Code Tool",
+   "caption": "python · Execute Command Tool",
+   "subtitle": "Execute Command Tool",
+   "displayName": "Execute Command Tool",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -5746,8 +5746,8 @@
     "height": 64
    },
    "caption": "sh · run_it",
-   "subtitle": "Code Tool",
-   "displayName": "Code Tool",
+   "subtitle": "Execute Command Tool",
+   "displayName": "Execute Command Tool",
    "renamable": true,
    "icon": "code",
    "ports": [

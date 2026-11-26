@@ -503,7 +503,18 @@
 
 /* Retry on fail: what shows while the switch is on, under the line of the switch (editor/setting-controls.js RetryControl) */
 .ge-retry { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
-/* a duration: the number takes what is left, the unit has the width of its longest text (components/duration-input.js) */
-.duration-input { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.duration-input > input.field__control { flex: 1 1 auto; min-width: 0; width: auto; }
-.duration-input > select.field__control { flex: 0 0 auto; width: auto; min-width: 5.5rem; }
+/* a duration or a size: the number takes what is left, the unit has the width of its longest text (components/duration-input.js) */
+.duration-input, .size-input { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.duration-input > input.field__control, .size-input > input.field__control { flex: 1 1 auto; min-width: 0; width: auto; }
+.duration-input > select.field__control, .size-input > select.field__control { flex: 0 0 auto; width: auto; min-width: 5.5rem; }
+
+/* a node of a kind this instance has switched off (Execute Command, ADR-075): said at the top of its window, the node stays editable */
+.ge-switched-off {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--lane-hue-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--lane-hue-2) 10%, transparent);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}

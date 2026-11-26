@@ -86,6 +86,7 @@ export class AddMenu {
     name.append(...(glyph ? [icon(glyph), label] : [label]));
     item.append(name);
     if (type.placeholder && type.soon) item.append(Object.assign(document.createElement("span"), { className: "tag", textContent: t("editor.add_menu.soon") }));
+    if (type.unavailable) item.append(Object.assign(document.createElement("span"), { className: "tag", textContent: t("editor.add_menu.switched_off"), title: t("editor.add_menu.switched_off_help") }));
     if (group) item.append(Object.assign(document.createElement("span"), { className: "ge-add__tag", textContent: group }));
     return item;
   }

@@ -4,6 +4,7 @@
  * until the field is left (persist-policy.js), so the caret never moves while typing. */
 import { typeOf } from "./node-types.js";
 import { whenFieldFree } from "./persist-policy.js";
+import { t } from "../i18n.js";
 
 export class InspectorPanel {
   /** @param {HTMLElement} element the [data-inspector] aside @param {import("./inspector.js").InspectorBlocks} blocks @param {import("./graph-model.js").GraphModel} model */
@@ -62,6 +63,15 @@ export class InspectorPanel {
     if (selection?.type !== "node" || !nodes.has(selection.id)) return [];
     const node = nodes.get(selection.id);
     const type = typeOf(node);
-    return [this.blocks.title(node), ...type.sections(node, this.blocks).filter(Boolean)];
+    return [this.blocks.title(node), ...(type.unavailable ? [switchedOffNotice()] : []), ...type.sections(node, this.blocks).filter(Boolean)];
   }
+}
+
+/** The kind of this node cannot run on this instance (an Execute Command node while its switch is off, ADR-075): the node stays editable. */
+function switchedOffNotice() {
+  const notice = document.createElement("p");
+  notice.className = "ge-switched-off";
+  notice.setAttribute("role", "note");
+  notice.textContent = t("editor.inspector_panel.switched_off");
+  return notice;
 }

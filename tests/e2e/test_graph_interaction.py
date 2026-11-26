@@ -272,9 +272,9 @@ def test_duplicate_makes_a_copy_with_a_new_name_and_selects_it(
     expect(page.locator(".ge-node--code")).to_have_count(3)
     eventually(lambda: len(_code_nodes(api, definition)), 3)
     names = [n["name"] for n in _code_nodes(api, definition)]
-    assert names.count("Code copy") == 1, (
+    assert names.count("Execute Command copy") == 1, (
         names
-    )  # the two nodes made by the add menu were both "Code"
+    )  # the two nodes made by the add menu were both "Execute Command"
     expect(page.locator(".ge-node.is-selected")).to_have_count(1)
 
 
@@ -362,7 +362,7 @@ def test_rename_asks_for_the_name_in_a_small_dialog_and_the_settings_have_one_ti
     dialog = page.locator("#new-modal")  # the small name dialog, not the node's settings
     expect(dialog).to_be_visible()
     expect(page.locator("#node-modal")).not_to_be_visible()
-    expect(dialog.get_by_label("Name")).to_have_value("Code")
+    expect(dialog.get_by_label("Name")).to_have_value("Execute Command")
     dialog.get_by_label("Name").fill("Fetch user")
     dialog.get_by_role("button", name="Rename").click()
     expect(dialog).not_to_be_visible()

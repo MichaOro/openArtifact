@@ -7,6 +7,8 @@
 import { CredentialDialog } from "../components/credential-dialog.js";
 import { DurationInput } from "../components/duration-input.js";
 import { describeDuration } from "../components/duration-model.js";
+import { describeSize } from "../components/size-model.js";
+import { SizeInput } from "../components/size-input.js";
 import { icon } from "../components/icons.js";
 import { Modal } from "../components/modal.js";
 import { request } from "../http.js";
@@ -16,6 +18,8 @@ import { suggestReferences } from "./reference-suggest.js";
 import { t, tn } from "../i18n.js";
 
 const INDENT = "  ";
+/** What an added size setting starts at: the default output limit of an instance (64 KiB). */
+const SIZE_START = 64 * 1024;
 const LEAVE_HINT = t("editor.setting_controls.tab_indents_press_escape_then");
 
 function element(tag, className, text = null) {
@@ -92,6 +96,11 @@ class SettingControl {
   /** Whether the control offers suggestions for ${...} references (text and lines, not code). */
   static suggests = false;
 
+  /** The element inside a composite control the label belongs to (null: the control itself). */
+  labelTarget() {
+    return null;
+  }
+
   /** Text under the control that is not the setting's own help (null: none). */
   hint() {
     return null;
@@ -101,8 +110,8 @@ class SettingControl {
     const box = element("div", "ge-setting");
     // the explanation (the setting's help and the control's own hint) is a tooltip after the label, not text under the field
     const help = [this.setting.help, this.hint()].filter(Boolean).join("\n\n");
-    const labelled = field(this.setting.label, this.input, { row: this.constructor.row, help: help || null, end: this.end });
-    const id = this.input.id;
+    const labelled = field(this.setting.label, this.input, { row: this.constructor.row, help: help || null, end: this.end, labelFor: this.labelTarget() });
+    const id = (this.labelTarget() ?? this.input).id;
     this.status = element("span", "field__status");
     this.status.id = `${id}-status`;
     this.status.setAttribute("aria-live", "polite");
@@ -372,6 +381,51 @@ class RetryControl extends SettingControl {
   }
 }
 
+/** A size in bytes (the output limit of an Execute Command node): a number and a unit (B, KiB, MiB), the value is bytes (ADR-075).
+ * Saves when the number is left or Enter is pressed and when the unit changes; a value that does not fit says why in plain words
+ * and is not sent. An added setting starts at the default size and is stored at once, so the row never shows what is not stored. */
+class SizeControl extends SettingControl {
+  static kind = "toggle"; // the control binds its own number and unit (a composite), not the wrapper
+
+  constructor(setting, value, save, suggest = null, options = {}) {
+    super(setting, value, save, suggest, options);
+    if (options.unsaved) queueMicrotask(() => this.commit());
+  }
+
+  createInput(value) {
+    this.size = new SizeInput({
+      bytes: Number.isInteger(value) ? value : SIZE_START,
+      min: 0,
+      focusKey: `setting-${this.setting.key}`,
+      onInput: () => this.markDirty(),
+      onCommit: () => this.commit(),
+    });
+    for (const el of [this.size.number, this.size.unit]) registerDirty({ isDirty: () => this.isDirty(), commit: () => this.commit(), element: el });
+    return this.size.element;
+  }
+
+  labelTarget() {
+    return this.size.number;
+  }
+
+  read() {
+    return String(this.size.bytes);
+  }
+
+  parse(raw) {
+    const bytes = Number(raw);
+    const { minimum, maximum } = this.setting;
+    if (!Number.isFinite(bytes) || bytes < minimum || bytes > maximum) {
+      throw new Error(t("editor.size.bounds", { min: describeSize(minimum), max: describeSize(maximum) }));
+    }
+    return bytes;
+  }
+
+  isDirty() {
+    return this.read() !== this.baseline;
+  }
+}
+
 class TextControl extends SettingControl {
   static kind = "text";
   static suggests = true;
@@ -586,6 +640,7 @@ const CONTROLS = {
   code: CodeControl,
   select: SelectControl,
   retry: RetryControl,
+  size: SizeControl,
 };
 
 /** The control for a setting; a type this editor does not know is shown as plain text. */

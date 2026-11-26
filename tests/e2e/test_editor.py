@@ -526,11 +526,11 @@ def test_create_an_action_definition_from_the_navigation(
             "MCP Client Tool",
             "GitHub MCP",
             "HTTP Request Tool",
-            "Code Tool",
+            "Execute Command Tool",
             "Postgres Tool",
         ],
         "Apps and data": ["GitHub", "Postgres"],
-        "Core": ["Code", "HTTP request"],
+        "Core": ["Execute Command", "HTTP request"],
         "Data": ["Edit Fields", "Artifact"],
         "Flow": ["If", "Switch", "Timer"],
     }

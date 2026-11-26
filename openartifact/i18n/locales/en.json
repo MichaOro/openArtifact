@@ -1479,5 +1479,9 @@
  "tasks.history_step.tries_summary": "Tried {n} times",
  "tasks.history_step.try_failed": "Try {n} of {total} failed after {time}: {reason}",
  "tasks.history_step.try_failed_last": "Try {n} of {total} failed: {reason}",
- "tasks.history_step.try_passed": "Try {n} of {total} passed"
+ "tasks.history_step.try_passed": "Try {n} of {total} passed",
+ "editor.add_menu.switched_off": "Switched off",
+ "editor.add_menu.switched_off_help": "Switched off on this instance: the node fails when it runs. Set OPENARTIFACT_CODE_NODES_ENABLED=true in the environment and restart to switch it on.",
+ "editor.inspector_panel.switched_off": "Execute Command nodes are switched off on this instance, so this node fails when it runs. Set OPENARTIFACT_CODE_NODES_ENABLED=true in the environment and restart to switch them on. The node stays editable.",
+ "editor.size.bounds": "The output limit must be from {min} to {max}"
 }

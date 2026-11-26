@@ -76,7 +76,7 @@ test("the code caption is the language and the first non-empty line", () => {
   assert.equal(code.caption(node("code", { config: { language: "python", code: "\n  \n  print(1)\nx" } })), "python · print(1)");
   assert.equal(code.caption(node("code", { config: { language: "python", code: "  " } })), "python · no code yet");
   assert.equal(code.caption(node("code", { config: undefined })), "sh · no code yet");
-  assert.equal(code.subtitle(), "Code");
+  assert.equal(code.subtitle(), "Execute Command");
 });
 
 test("the http caption never shows the query string, the fragment or credentials", () => {
@@ -252,6 +252,12 @@ test("the kinds of the add menu are grouped in a fixed order, and a kind nobody 
   assert.deepEqual(groups.find((g) => g.group === "Flow").types.map((t) => t.kind), ["if", "switch", "timer"]);
   assert.deepEqual(groups.find((g) => g.group === "More").types.map((t) => t.kind), ["future_kind"]);
   assert.equal(groups.flatMap((g) => g.types).length, KINDS.length, "nothing is lost");
+});
+
+test("a kind the instance has switched off keeps its reason in the search results, so the menu can mark it (ADR-075)", () => {
+  const kinds = KINDS.map((t) => (t.kind === "code" ? { ...t, unavailable: "switched off here" } : t));
+  assert.equal(searchAddable(kinds, "code").find((t) => t.kind === "code").unavailable, "switched off here");
+  assert.equal(searchAddable(kinds, "http").find((t) => t.kind === "http").unavailable, undefined, "a kind that can run says nothing");
 });
 
 test("searching looks at the elements only, by name or kind, ignoring case, and says which cluster each is in", () => {
