@@ -364,7 +364,7 @@ GUARD = RuleSchema(
 # ── cards: the rules of a lane and of the board (ADR-071) ─────────────
 
 _AT = ("at_least", "below")
-_CARD_SPAN = dict(minimum=0, maximum=3650 * DAY, units=("days", "hours", "minutes"))
+_CARD_SPAN: dict[str, Any] = dict(minimum=0, maximum=3650 * DAY, units=("days", "hours", "minutes"))
 _TEXT = ("is", "is_not", "contains")
 #: What a condition over cards may test; the value of a duration is in seconds. A rule over a lane does not need ``lane``.
 CARD_FIELDS: tuple[FieldSpec, ...] = (

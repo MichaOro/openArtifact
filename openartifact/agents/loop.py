@@ -163,7 +163,7 @@ async def run_turns(
     )  # a wanted tool the server does not have
     if notes:
         detail["tool_notes"] = list(notes)  # kept in the step even when the run ends in an error
-    state = {"last": None, "repeats": 0, "same_result": 0, "last_result": None}
+    state: dict[str, Any] = {"last": None, "repeats": 0, "same_result": 0, "last_result": None}
 
     def tell(event: str, payload: dict[str, Any]) -> None:
         if signal is not None:
