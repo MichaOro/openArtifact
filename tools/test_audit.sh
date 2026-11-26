@@ -46,7 +46,7 @@ section() { # name, command
 
 section "ruff lint"        "ruff check ."
 section "ruff format"      "ruff format --check ."
-section "mypy"             "mypy openartifact"
+section "mypy"             "mypy ."
 section "check links"      "python3 tools/check_links.py"
 section "check i18n"       "python3 tools/check_i18n.py"
 section "check quarantine" "python3 tools/check_quarantine.py"
