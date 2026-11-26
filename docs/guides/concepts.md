@@ -208,6 +208,11 @@ replayed from the snapshot and the steps; it is not stored separately.
 the last H hours), with an application default of 50 executions. The newest execution and a running one are
 never removed by it.
 
+**STOP.** The global switch (ADR-076) that blocks execution as a whole: while it is on, every running execution is aborted and no
+execution starts from any source (browser, API, MCP); everything else, cards, pipelines, actions and guards, keeps working. It is
+offered by the personal setting *Show the STOP switch*, kept across restarts and shown by a banner on every page. A guard or the stop
+button ends one run; STOP ends all of them and keeps any from starting.
+
 ## UI conventions
 
 Every control has one of three roles, so a new page looks like the others. **Primary** (purple, `button--primary`): what creates

@@ -85,6 +85,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [073](073-retry-on-fail.md) | Retry on fail: an optional setting of every node that runs something and of an action (2 to 10 tries, a wait of 0 to 10 minutes), only the failing node is tried again, the wait ends at once with Stop, the tries are `attempts` and `detail.tries` of one step | Accepted | 2026-11-26 | amends ADR-061, ADR-053, ADR-054 |
 | [074](074-setting-row-and-durations.md) | The setting row (label, control, end action, no overlap) and durations as a number with a unit (ms, sec, min) | Accepted | 2026-11-26 | amends ADR-053, ADR-059 |
 | [075](075-execute-command-node.md) | The Code node is called Execute Command, is off by default and has an output limit of its own | Accepted | 2026-11-26 | amends ADR-021, ADR-023, ADR-053, ADR-059, ADR-074 |
+| [076](076-stop-switch.md) | The STOP switch: one global switch that blocks every execution | Accepted | 2026-11-26 | amends ADR-062, ADR-028 |
 
 ## Notes
 
