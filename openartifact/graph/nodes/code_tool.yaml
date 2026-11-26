@@ -1,6 +1,6 @@
 schema: 1
 kind: code_tool
-label: Code Tool
+label: Execute Command Tool
 behaviour: tool
 scopes:
 - action
@@ -41,8 +41,8 @@ settings:
   type: code
   default: ''
   max_length: 20000
-  help: The model's arguments are the object 'input' in context.json in the working directory; what the code prints
-    is the answer to the model. Runs with the rules of the Code node.
+  help: "The model's arguments are 'input' in context.json; what the code prints is the answer. Not a sandbox: it runs as the
+    application's user."
   stored_in: config
 - key: secrets
   label: Secrets

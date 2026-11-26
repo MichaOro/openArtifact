@@ -115,7 +115,16 @@ class SettingSpec(_Strict):
     label: str | None = None
     type: (
         Literal[
-            "integer", "number", "switch", "text", "lines", "code", "select", "credential", "retry"
+            "integer",
+            "number",
+            "size",
+            "switch",
+            "text",
+            "lines",
+            "code",
+            "select",
+            "credential",
+            "retry",
         ]
         | None
     ) = None

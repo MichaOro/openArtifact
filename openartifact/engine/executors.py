@@ -44,7 +44,14 @@ from openartifact.models import NodeKind
 
 logger = logging.getLogger(__name__)
 
-OPEN_MODE_CODE_REASON = "Code nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
+OPEN_MODE_CODE_REASON = (
+    "Execute Command nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
+)
+#: The reason of an Execute Command node (and the Execute Command Tool of an agent) while the instance has them switched off.
+CODE_DISABLED_REASON = (
+    "Execute Command nodes are switched off on this instance: set OPENARTIFACT_CODE_NODES_ENABLED=true "
+    "in the environment and restart to switch them on"
+)
 
 #: Gives the values of secrets by name; raises :class:`SecretResolveError`.
 SecretResolver = Callable[[Sequence[str]], Awaitable[dict[str, str]]]
@@ -176,9 +183,18 @@ async def _with_secrets(
         return _masked(result, values)
 
 
+def node_output_limit(config: dict[str, Any], instance_limit: int) -> int:
+    """What an Execute Command node keeps of its output: its own ``output_limit_bytes`` when it has one, never more than the
+    limit of the instance (``OPENARTIFACT_CODE_OUTPUT_LIMIT_BYTES``), which stays the ceiling (ADR-075)."""
+    own = config.get("output_limit_bytes")
+    if isinstance(own, int) and not isinstance(own, bool) and own > 0:
+        return min(own, instance_limit)
+    return instance_limit
+
+
 async def _code(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     if not limits.code_nodes_enabled:
-        return failed("Code nodes are disabled")
+        return failed(CODE_DISABLED_REASON)
     if limits.code_blocked_in_open_mode:
         return failed(OPEN_MODE_CODE_REASON)
     config = node["config"]
@@ -192,7 +208,7 @@ async def _code(node: dict[str, Any], limits: Limits, view: RunView | None = Non
             config["language"],
             config["code"],
             config["timeout_seconds"],
-            limits.code_output_limit_bytes,
+            node_output_limit(config, limits.code_output_limit_bytes),
             env=values,
             limits=limits.code,
             node_id=str(node.get("id") or ""),

@@ -148,7 +148,7 @@ def test_a_node_that_fails_twice_and_passes_on_the_third_try_passes(
         "try 3\n",
     )
     assert counter.read_text().strip() == "3"
-    entry = _context(client, task)["nodes"]["Code"]
+    entry = _context(client, task)["nodes"]["Execute_Command"]
     assert (entry["success"], entry["attempts"]) == (True, 3)
 
 
@@ -188,7 +188,7 @@ def test_a_node_that_always_fails_stops_after_max_tries_and_leaves_by_on_fail(
         "Exit code 1",
     )
     assert counter.read_text().strip() == "2"  # tried exactly max_tries times, not one more
-    assert _context(client, task)["nodes"]["Code"]["success"] is False
+    assert _context(client, task)["nodes"]["Execute_Command"]["success"] is False
 
 
 def test_a_node_without_the_setting_or_with_it_off_is_tried_once(

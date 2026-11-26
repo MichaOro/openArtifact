@@ -79,11 +79,12 @@ def clean_engine() -> Generator[None, None, None]:
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    """Provide settings pointing to a temporary directory (open mode, so Code nodes are opted in)."""
+    """Provide settings pointing to a temporary directory (open mode and Execute Command nodes switched on, so they can run)."""
     return Settings(  # type: ignore[call-arg]
         data_dir=tmp_path,
         database_filename="test.db",
-        code_nodes_without_token=True,  # open mode runs no Code nodes otherwise
+        code_nodes_enabled=True,  # off by default (ADR-075): the tests that run Execute Command nodes switch it on here
+        code_nodes_without_token=True,  # open mode runs no Execute Command nodes otherwise
         _env_file=None,
     )
 

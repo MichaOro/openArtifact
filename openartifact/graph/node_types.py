@@ -304,6 +304,16 @@ class Setting:
             return value
         if self.type == "retry":
             return self._retry(value)
+        if self.type == "size":
+            low, high = self.minimum or 0, self.maximum
+            if not _whole(value) or value < low or (high is not None and value > high):
+                span = (
+                    f"{_bytes_text(low)} to {_bytes_text(high)}"
+                    if high
+                    else f"at least {_bytes_text(low)}"
+                )
+                raise SettingError(f"{self.label} must be a whole number of bytes, {span}")
+            return value
         if not isinstance(value, str):
             raise SettingError(f"'{self.key}' must be text")
         if self.type == "select":
@@ -325,6 +335,14 @@ class Setting:
 
 def _whole(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _bytes_text(value: int) -> str:
+    """A size in words for a message: ``1 KiB``, ``64 MiB``, ``1500 bytes``."""
+    for unit, factor in (("MiB", 1024**2), ("KiB", 1024)):
+        if value >= factor and value % factor == 0:
+            return f"{value // factor} {unit}"
+    return f"{value} bytes"
 
 
 def retry_error(value: Any) -> str | None:

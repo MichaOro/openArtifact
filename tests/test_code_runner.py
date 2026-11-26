@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from openartifact.engine import executors
 from openartifact.engine.code_runner import run_code
 from openartifact.engine.executors import Limits, _code
 from openartifact.engine.results import NodeResult
@@ -193,11 +194,11 @@ async def test_cancelling_kills_the_child_and_removes_the_directory(tmp_path: Pa
 async def test_a_disabled_code_node_fails_without_running() -> None:
     node = {"config": {"language": "sh", "code": "echo hi", "timeout_seconds": 5}}
     result = await _code(node, Limits(code_nodes_enabled=False))
-    assert (result.outcome, result.reason) == ("fail", "Code nodes are disabled")
+    assert (result.outcome, result.reason) == ("fail", executors.CODE_DISABLED_REASON)
     assert result.output == ""
 
 
-_OPEN = "Code nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
+_OPEN = "Execute Command nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
 _NODE = {"config": {"language": "sh", "code": "echo ran", "timeout_seconds": 5}}
 
 
@@ -213,7 +214,9 @@ _NODE = {"config": {"language": "sh", "code": "echo ran", "timeout_seconds": 5}}
 async def test_code_nodes_in_open_mode_need_the_opt_in(
     changes: dict[str, object], runs: bool
 ) -> None:
-    limits = Limits.from_settings(bare_settings(**changes))
+    limits = Limits.from_settings(
+        bare_settings(code_nodes_enabled=True, **changes)
+    )  # off by default (ADR-075)
     result = await _code(_NODE, limits)
     if runs:
         assert (result.outcome, result.output.strip()) == ("pass", "ran")

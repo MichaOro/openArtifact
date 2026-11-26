@@ -115,14 +115,16 @@ class Settings(BaseSettings):
     card_sweep_interval_seconds: float = Field(default=900, ge=0, le=86400)
 
     # ── Code and HTTP nodes ─────────────────────────────────────────
-    #: Whether Code nodes run. Code runs as a child of the application with the application's own
-    #: rights (no sandbox); off: a Code node fails with "Code nodes are disabled".
-    code_nodes_enabled: bool = True
-    #: Code nodes in *open mode* (no ``api_token``). Off by default: without a token everyone who reaches
-    #: the port can create and run a Code node, i.e. run commands as the application's user, so Code
-    #: nodes then fail with an explanation. Switch on only for local development on a trusted machine.
+    #: Whether Execute Command nodes (kind ``code``: shell or Python text) and the Execute Command Tool of agents run.
+    #: They run as a child of the application with the application's own rights (no sandbox), so the default is OFF
+    #: (ADR-075): a node then fails with a message that names this switch. Switch on with ``OPENARTIFACT_CODE_NODES_ENABLED=true``.
+    code_nodes_enabled: bool = False
+    #: Execute Command nodes in *open mode* (no ``api_token``). Off by default: without a token everyone who reaches
+    #: the port can create and run one, i.e. run commands as the application's user, so they
+    #: then fail with an explanation. Switch on only for local development on a trusted machine.
     code_nodes_without_token: bool = False
-    #: Largest stdout and stderr (each, in bytes) kept of a Code node; the rest is cut off.
+    #: Largest stdout and stderr (each, in bytes) kept of an Execute Command node; the rest is cut off. A node may set a lower
+    #: limit of its own (ADR-075); this one is the ceiling.
     code_output_limit_bytes: int = Field(default=65536, ge=1024, le=64 * 1024 * 1024)
     #: Largest response body (bytes) an HTTP node reads; the rest is cut off.
     http_response_limit_bytes: int = Field(default=1024 * 1024, ge=1024, le=1024**3)

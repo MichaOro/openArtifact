@@ -42,7 +42,7 @@ def test_tool_kinds_are_described_with_one_port_on_top(client: TestClient) -> No
         "mcp_tool": "MCP Client Tool",
         "github_tool": "GitHub MCP",
         "http_tool": "HTTP Request Tool",
-        "code_tool": "Code Tool",
+        "code_tool": "Execute Command Tool",
     }
     for kind in TOOL_KINDS:
         entry = described[kind]

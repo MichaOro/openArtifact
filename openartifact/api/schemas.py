@@ -94,6 +94,9 @@ class NodeTypeRead(BaseModel):
     tool: bool = False
     #: A guard may be attached to a node of this kind inside an action definition (ADR-060).
     guardable: bool = False
+    #: Why the kind cannot run on this instance (an Execute Command node while ``OPENARTIFACT_CODE_NODES_ENABLED`` is off, ADR-075);
+    #: ``None``: it can. The kind stays listed and its nodes stay editable; the editor says so.
+    unavailable: str | None = None
     #: The node leaves ``output`` and ``data`` for later nodes; its duration is worth showing; the keys of ``data`` it always
     #: leaves; the setting that holds the run variables it sets (``{setting, format}``).
     produces_result: bool = False

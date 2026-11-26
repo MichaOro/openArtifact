@@ -134,6 +134,6 @@ async def test_a_malformed_secret_reference_fails_an_http_node_without_a_request
 
 async def test_code_nodes_are_refused_when_disabled_or_blocked_in_open_mode() -> None:
     disabled = await EXECUTORS[NodeKind.CODE].run(_code(), Limits(code_nodes_enabled=False))
-    assert (disabled.outcome, disabled.reason) == ("fail", "Code nodes are disabled")
+    assert (disabled.outcome, disabled.reason) == ("fail", executors.CODE_DISABLED_REASON)
     blocked = await EXECUTORS[NodeKind.CODE].run(_code(), Limits(code_blocked_in_open_mode=True))
     assert (blocked.outcome, blocked.reason) == ("fail", executors.OPEN_MODE_CODE_REASON)

@@ -135,7 +135,7 @@ def test_a_run_leaves_the_core_with_the_engine_measured_time(client: TestClient)
     run = _wait(client, task, "failed")
     execution = _run(client, task)["execution_id"]
     context = client.get(f"/api/tasks/{task['id']}/executions/{execution}/context").json()
-    entry = context["nodes"]["Code"]
+    entry = context["nodes"]["Execute_Command"]
     assert (entry["success"], entry["outcome"], entry["exit_code"], entry["attempts"]) == (
         False,
         "fail",

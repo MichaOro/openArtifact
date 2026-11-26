@@ -161,14 +161,19 @@ def test_the_menu_offers_the_execution_kinds_the_editor_can_draw() -> None:
 def test_a_new_node_has_the_defaults_and_stores_what_was_set(client: TestClient) -> None:
     action = _post(client, "/api/actions", name="A")
     plain = _node(client, action, "code")
-    assert plain["config"] == {
-        "language": "sh",
-        "code": "",
-        "secrets": "",
-        "sets_variables": "",
-        "timeout_seconds": 30,
-        "on_failure": "fail",
-    }
+    assert (
+        plain["config"]
+        == {
+            "language": "sh",
+            "code": "",
+            "secrets": "",
+            "sets_variables": "",
+            "timeout_seconds": 30,
+            "output_limit_bytes": None,  # optional settings of the manifest (ADR-075, ADR-073): not set means the default
+            "retry": None,
+            "on_failure": "fail",
+        }
+    )
     node = _node(client, action, "http", config={"url": "https://example.org", "method": "POST"})
     assert node["config"]["method"] == "POST"
     assert node["config"]["success_status"] == "200-299"
@@ -187,6 +192,8 @@ def test_config_is_merged_per_key_and_null_resets_a_key(client: TestClient) -> N
         "secrets": "",
         "sets_variables": "",
         "timeout_seconds": 5,
+        "output_limit_bytes": None,
+        "retry": None,
         "on_failure": "fail",
     }
     config = client.patch(url, json={"config": {"timeout_seconds": None}}).json()["config"]
@@ -421,7 +428,7 @@ def test_the_protocol_fails_a_zero_exit_and_keeps_data(client: TestClient) -> No
     # what the node returned stays; the failure is added as data.error (ADR-061)
     assert result["data"] == {
         "n": 1,
-        "error": {"message": "not today", "mode": "error_output", "node": "Code"},
+        "error": {"message": "not today", "mode": "error_output", "node": "Execute Command"},
     }
 
 
@@ -431,7 +438,10 @@ def test_code_nodes_can_be_switched_off(make_client: Make) -> None:
     _use(client, pipeline, _definition(client, "code", code="echo hi"))
     _start(client, pipeline, task)
     run = _wait(client, task, "failed")
-    assert _work(run)[0]["reason"] == "Code nodes are disabled"
+    reason = _work(run)[0]["reason"]
+    assert (
+        "switched off" in reason and "OPENARTIFACT_CODE_NODES_ENABLED=true" in reason
+    )  # names the switch (ADR-075)
 
 
 def test_code_nodes_fail_in_open_mode_by_default(make_client: Make) -> None:
@@ -441,7 +451,7 @@ def test_code_nodes_fail_in_open_mode_by_default(make_client: Make) -> None:
     _start(client, pipeline, task)
     step = _work(_wait(client, task, "failed"))[0]
     assert step["reason"] == (
-        "Code nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
+        "Execute Command nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
     )
 
 
@@ -452,6 +462,62 @@ def test_the_output_limit_is_a_setting(make_client: Make) -> None:
     _start(client, pipeline, task)
     output = _work(_wait(client, task, "done"))[0]["output"]
     assert output.endswith("[output truncated]") and len(output) < 100
+
+
+def test_execute_command_nodes_are_switched_off_unless_the_environment_says_so() -> None:
+    """ADR-075: the default of ``OPENARTIFACT_CODE_NODES_ENABLED`` is off, as the shell runs with the application's rights."""
+    assert Settings(_env_file=None).code_nodes_enabled is False  # type: ignore[call-arg]
+
+
+def test_a_node_output_limit_below_the_instance_limit_cuts_earlier(client: TestClient) -> None:
+    pipeline, task = _pipeline(client, stages=1), _make_task(client)
+    definition = _definition(client, "code", code="echo " + "z" * 3000, output_limit_bytes=1024)
+    _use(client, pipeline, definition)
+    _start(client, pipeline, task)
+    output = _work(_wait(client, task, "done"))[0]["output"]
+    assert output.endswith("[output truncated]")
+    assert 1000 < len(output) < 1100  # the node's 1 KiB, not the 64 KiB of the instance
+
+
+def test_a_node_output_limit_above_the_instance_limit_is_capped_there(make_client: Make) -> None:
+    client = make_client(code_output_limit_bytes=1024)
+    pipeline, task = _pipeline(client, stages=1), _make_task(client)
+    definition = _definition(client, "code", code="echo " + "z" * 3000, output_limit_bytes=1048576)
+    _use(client, pipeline, definition)
+    _start(client, pipeline, task)
+    output = _work(_wait(client, task, "done"))[0]["output"]
+    assert (
+        output.endswith("[output truncated]") and len(output) < 1100
+    )  # the instance's limit stays the ceiling
+
+
+@pytest.mark.parametrize("value", [10, 1023, 67108865, "64", True, 1.5])
+def test_the_output_limit_of_a_node_must_be_a_size_in_bounds(
+    client: TestClient, value: Any
+) -> None:
+    action = _post(client, "/api/actions", name="Bounds")
+    answer = client.post(
+        f"{_url(action)}/nodes",
+        json={"kind": "code", "name": "Run", "config": {"output_limit_bytes": value}},
+    )
+    assert answer.status_code == 422
+    assert "Output limit must be a whole number of bytes, 1 KiB to 64 MiB" in answer.text
+
+
+def test_the_kind_keeps_its_id_and_gets_the_honest_name(client: TestClient) -> None:
+    """ADR-075: stored actions name the kind ``code``; only what people read changed."""
+    kinds = {t["kind"]: t for t in client.get("/api/node-types").json()}
+    assert kinds["code"]["label"] == "Execute Command"
+    assert kinds["code_tool"]["label"] == "Execute Command Tool"
+    assert "unavailable" not in kinds["code"]  # the switch is on in the test settings
+
+
+def test_the_editor_is_told_when_execute_command_is_switched_off(make_client: Make) -> None:
+    client = make_client(code_nodes_enabled=False)
+    kinds = {t["kind"]: t for t in client.get("/api/node-types").json()}
+    for kind in ("code", "code_tool"):
+        assert "OPENARTIFACT_CODE_NODES_ENABLED=true" in kinds[kind]["unavailable"]
+    assert "unavailable" not in kinds["http"]
 
 
 def test_stopping_the_run_kills_the_process_of_the_node(client: TestClient, tmp_path: Path) -> None:

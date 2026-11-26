@@ -149,6 +149,32 @@
     "section": "behaviour",
     "level": "optional",
     "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Runs the action again when it fails, all its nodes; the run does not start over. Writes in it (HTTP, Postgres, GitHub) can happen twice.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
    }
   ],
   "links_to": "action",
@@ -388,7 +414,7 @@
  },
  {
   "kind": "code",
-  "label": "Code",
+  "label": "Execute Command",
   "scopes": [
    "action"
   ],
@@ -447,7 +473,7 @@
     "default": "",
     "stored_in": "config",
     "max_length": 20000,
-    "help": "Plain text, so no secrets here; ${...} is not replaced in code. The run context is the file context.json, and a last line {\"ok\": true, \"vars\": {\"name\": \"value\"}} sets variables.",
+    "help": "Not a sandbox: it runs as the application's user, and the text is stored as it is (no secrets here, no ${...}). The run context is context.json; a last line {\"ok\": true, \"vars\": {\"name\": \"value\"}} sets variables.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -496,6 +522,19 @@
     "inherits": null
    },
    {
+    "key": "output_limit_bytes",
+    "label": "Output limit",
+    "type": "size",
+    "minimum": 1024,
+    "maximum": 67108864,
+    "default": null,
+    "stored_in": "config",
+    "help": "The most this node keeps of its output and its errors, each; the rest is cut off. Never above the limit of the instance (64 KiB unless changed).",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
     "key": "on_failure",
     "label": "If the node fails",
     "type": "select",
@@ -514,6 +553,32 @@
      "error_output": "Error output"
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
     "section": "behaviour",
     "level": "optional",
     "inherits": null
@@ -692,6 +757,32 @@
      "error_output": "Error output"
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
     "section": "behaviour",
     "level": "optional",
     "inherits": null
@@ -1773,6 +1864,32 @@
     "section": "behaviour",
     "level": "optional",
     "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
    }
   ],
   "links_to": null,
@@ -2344,6 +2461,32 @@
     "section": "behaviour",
     "level": "optional",
     "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
    }
   ],
   "links_to": null,
@@ -2524,6 +2667,32 @@
     "section": "behaviour",
     "level": "optional",
     "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
    }
   ],
   "links_to": null,
@@ -2695,6 +2864,32 @@
      "error_output": "Error output"
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
     "section": "behaviour",
     "level": "optional",
     "inherits": null
@@ -3234,7 +3429,7 @@
  },
  {
   "kind": "code_tool",
-  "label": "Code Tool",
+  "label": "Execute Command Tool",
   "scopes": [
    "action"
   ],
@@ -3310,7 +3505,7 @@
     "default": "",
     "stored_in": "config",
     "max_length": 20000,
-    "help": "The model's arguments are the object 'input' in context.json in the working directory; what the code prints is the answer to the model. Runs with the rules of the Code node.",
+    "help": "The model's arguments are 'input' in context.json; what the code prints is the answer. Not a sandbox: it runs as the application's user.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3843,6 +4038,32 @@
      "error_output": "Error output"
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
     "section": "behaviour",
     "level": "optional",
     "inherits": null

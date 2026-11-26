@@ -162,8 +162,11 @@ async def test_a_failing_code_tool_is_an_error_for_the_model() -> None:
 @pytest.mark.parametrize(
     ("limits", "message"),
     [
-        ({"code_nodes_enabled": False}, "Code nodes are disabled"),
-        ({"code_blocked_in_open_mode": True}, "Code nodes need OPENARTIFACT_API_TOKEN"),
+        (
+            {"code_nodes_enabled": False},
+            "switched off on this instance: set OPENARTIFACT_CODE_NODES_ENABLED=true",
+        ),
+        ({"code_blocked_in_open_mode": True}, "Execute Command nodes need OPENARTIFACT_API_TOKEN"),
     ],
 )
 def test_the_code_tool_keeps_the_rules_of_the_code_node(

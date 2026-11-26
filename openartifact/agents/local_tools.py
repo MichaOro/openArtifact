@@ -180,11 +180,11 @@ def build_http_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
 
 def build_code_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
     """The Code Tool of a frozen tool node; :class:`ValueError` when the Code node's rules forbid it."""
-    from openartifact.engine.executors import OPEN_MODE_CODE_REASON, Limits
+    from openartifact.engine.executors import CODE_DISABLED_REASON, OPEN_MODE_CODE_REASON, Limits
 
     limits = context.limits if isinstance(context.limits, Limits) else Limits()
     if not limits.code_nodes_enabled:
-        raise ValueError("Code nodes are disabled")
+        raise ValueError(CODE_DISABLED_REASON)
     if limits.code_blocked_in_open_mode:
         raise ValueError(OPEN_MODE_CODE_REASON)
     config = frozen.get("config") or {}

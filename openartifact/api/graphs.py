@@ -19,6 +19,7 @@ from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import SessionDep
 from openartifact.api.schemas import ChainEntryRead, NodeTypeRead
 from openartifact.engine.chain import pipeline_chain
+from openartifact.engine.executors import CODE_DISABLED_REASON
 from openartifact.engine.neighbour_schemas import GraphNeighbours
 from openartifact.engine.neighbours import graph_neighbours
 from openartifact.graph import publishing, versions
@@ -559,6 +560,9 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
 pipelines_router = build_graph_router(GraphKind.PIPELINE)
 actions_router = build_graph_router(GraphKind.ACTION)
 
+#: The kinds that run text as a child process of the application: the node and the tool of an agent.
+EXECUTE_COMMAND_KINDS = frozenset({"code", "code_tool"})
+
 node_types_router = APIRouter(prefix="/api", tags=["node-types"], responses=GATED)
 
 
@@ -577,4 +581,10 @@ async def list_node_types(request: Request, session: SessionDep) -> list[dict[st
         ui_layout.apply_layout(f"nodes/{t.kind}", t.describe(), saved.get(f"nodes/{t.kind}"))
         for t in NODE_TYPES.values()
     ]
+    if (
+        not request.app.state.settings.code_nodes_enabled
+    ):  # Execute Command nodes are switched off on this instance (ADR-075)
+        for entry in described:
+            if entry["kind"] in EXECUTE_COMMAND_KINDS:
+                entry["unavailable"] = CODE_DISABLED_REASON
     return localize(described, language_for(request))
