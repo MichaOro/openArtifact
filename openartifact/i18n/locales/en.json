@@ -1408,6 +1408,8 @@
  "index.hide_archive": "Hide archive",
  "nav.archive.label": "Archive",
  "nav.archive.tooltip": "Move artifact to the archive",
+ "nav.unarchive.label": "Remove from archive",
+ "nav.unarchive.tooltip": "Put the artifact back on the board",
  "tasks.activity.archived": "moved it to the archive",
  "tasks.activity.unarchived": "took it out of the archive",
  "tasks.activity.unarchived_to": "took it out of the archive, back to {to}",

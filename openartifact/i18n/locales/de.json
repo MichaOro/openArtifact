@@ -2075,6 +2075,8 @@
  "index.hide_archive": "Archiv ausblenden",
  "nav.archive.label": "Archivieren",
  "nav.archive.tooltip": "Artefakt ins Archiv legen",
+ "nav.unarchive.label": "Aus dem Archiv entfernen",
+ "nav.unarchive.tooltip": "Artefakt zurück aufs Board legen",
  "tasks.activity.archived": "hat es ins Archiv gelegt",
  "tasks.activity.unarchived": "hat es aus dem Archiv genommen",
  "tasks.activity.unarchived_to": "hat es aus dem Archiv genommen, zurück nach {to}",

@@ -18,9 +18,10 @@ export class ClampedText {
   /**
    * @param {{text: string, lines?: number, label?: string, empty?: string}} options
    *   `lines`: how many lines show before "Show more" (the text may be shorter: then there is no button);
-   *   `label`: what the text is, for the names of its buttons; `empty`: said when there is no text
+   *   `label`: what the text is, for the names of its buttons; `empty`: said when there is no text;
+   *   `onMore`: when given, "Show more" calls it instead of unfolding the text here (the page opens the text elsewhere)
    */
-  constructor({ text, lines = 6, label = "", empty = "–" }) {
+  constructor({ text, lines = 6, label = "", empty = "–", onMore = null }) {
     this.text = text ?? "";
     this.element = make("div", "ct");
     this.element.style.setProperty("--ct-lines", String(lines));
@@ -36,7 +37,7 @@ export class ClampedText {
     this.more = make("button", "button button--ghost button--sm", t("components.clamped_text.show_more"));
     this.more.type = "button";
     this.more.setAttribute("aria-expanded", "false");
-    this.more.addEventListener("click", () => this.#toggle());
+    this.more.addEventListener("click", () => (onMore ? onMore() : this.#toggle()));
     this.copy = make("button", "button button--ghost button--sm");
     this.copy.type = "button";
     this.copy.append(icon("copy"), document.createTextNode(t("components.clamped_text.copy")));

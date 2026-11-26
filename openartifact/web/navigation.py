@@ -324,6 +324,8 @@ def build_registry() -> NavigationRegistry:
         ("custom", NavGroupEntry("fields", "tag", order=20)),
         ("actions", NavActionEntry("archive", "inbox", order=5)),
         ("actions", NavActionEntry("delete", "trash", danger=True, order=10)),
+        # only drawn in the read-only window of an archived card, in the place of Delete (static/js/tasks/artifact-dialog.js)
+        ("actions", NavActionEntry("unarchive", "inbox", order=11)),
     ]
     for group, entry in rail:
         registry.register(entry, parent=f"rail:{group}")

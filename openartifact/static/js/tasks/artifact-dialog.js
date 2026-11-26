@@ -65,6 +65,8 @@ export class ArtifactDialog extends FormDialog {
     this.viewLabels = root.querySelector("[data-view-labels]");
     this.viewWarning = root.querySelector("[data-view-warning]");
     this.warned = null; // the notes of the last save, for the artifact they belong to
+    /** An archived card is shown read only (ADR-071): the same window, nothing in it can change the card. */
+    this.readOnly = false;
     this.backButton = root.querySelector("[data-view-back]");
     this.history = history;
     this.comments = comments;
@@ -77,6 +79,7 @@ export class ArtifactDialog extends FormDialog {
     });
 
     root.querySelector("[data-view-edit]").addEventListener("click", () => this.startEdit());
+    this.#applyReadOnly();
     this.backButton.addEventListener("click", () => onBack());
     this.viewBody.addEventListener("click", (event) => {
       const link = event.target.closest("a[data-number]");
@@ -87,9 +90,27 @@ export class ArtifactDialog extends FormDialog {
     window.addEventListener("resize", () => this.#applyFit());
   }
 
+  /** What a read-only window is: the attribute lets css/task-dialog.css hide what writes (the comment box and its Send,
+   * the menus of the comments, Edit, Run); the rail's fields are switched off here; the rail shows "Remove from archive"
+   * where Delete is (Archive keeps its place as a gap, so nothing else moves). */
+  #applyReadOnly() {
+    const on = this.readOnly;
+    this.root.toggleAttribute("data-readonly", on);
+    this.root.querySelector("[data-view-edit]").hidden = on;
+    this.root.querySelector('[data-card-action="run"]').hidden = on;
+    for (const field of this.cardNav?.querySelectorAll("[data-card-field]") ?? []) field.disabled = on;
+    this.subtitle.disabled = on;
+    const entry = (action) => this.cardNav?.querySelector(`[data-card-action="${action}"]`)?.closest("li");
+    if (entry("archive")) entry("archive").style.visibility = on ? "hidden" : "";
+    if (entry("delete")) entry("delete").hidden = on;
+    if (entry("unarchive")) entry("unarchive").hidden = !on;
+  }
+
   /** Open in create mode for a lane. The draft is kept if the user dismissed the dialog earlier. */
   openCreate(status, laneTitle, hue) {
     this.#leaveEditMode();
+    this.readOnly = false;
+    this.#applyReadOnly();
     this.status = status;
     this.mode = "create";
     this.#present(t("dialog.create_artifact"));
@@ -99,8 +120,12 @@ export class ArtifactDialog extends FormDialog {
     this.modal.open();
   }
 
-  /** Open an existing artifact read-only; `canGoBack` shows the Back button. */
-  openView(task, laneTitle, hue, parentTitle = null, canGoBack = false) {
+  /** Open an existing artifact for reading (references are links); `canGoBack` shows the Back button.
+   * `readOnly` (an archived card): the rail's fields and the Edit, Run, comment and Delete controls are off, and
+   * "Remove from archive" takes the place of Delete. */
+  openView(task, laneTitle, hue, parentTitle = null, canGoBack = false, { readOnly = false } = {}) {
+    this.readOnly = readOnly;
+    this.#applyReadOnly();
     this.editing = task;
     this.backButton.hidden = !canGoBack;
     this.setLane(task.status, laneTitle, hue);
@@ -138,7 +163,7 @@ export class ArtifactDialog extends FormDialog {
   /** Switch from the read-only view to the form. */
   startEdit() {
     const task = this.editing;
-    if (!task || this.mode !== "view") return;
+    if (!task || this.mode !== "view" || this.readOnly) return;
     this.draft ??= this.snapshot();
     this.setValues({ title: task.title, body: task.body ?? "" });
     this.mode = "edit";

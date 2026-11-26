@@ -319,7 +319,9 @@ def test_task_dialog_has_collapsed_card_navigation_with_delete(client: TestClien
         html.count('data-card-action="delete"') == 1
     )  # the rail's only command (Start/Stop is in the footer)
     assert html.count('data-card-action="archive"') == 1
-    assert html.count("data-card-action=") == 3  # run (footer), archive, delete
+    # "Remove from archive" is in the rail too: only the read-only window of an archived card shows it, in the place of Delete
+    assert html.count('data-card-action="unarchive"') == 1
+    assert html.count("data-card-action=") == 4  # run (footer), archive, delete, unarchive
     assert "collapsible-nav.js" in client.get("/static/js/tasks/main.js").text
     assert client.get("/static/js/components/collapsible-nav.js").status_code == 200
 
