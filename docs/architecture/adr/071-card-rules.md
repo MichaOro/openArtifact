@@ -108,3 +108,22 @@ The archive has a view on the board page (`tasks/archive-view.js`, built on `Man
 - **By hand:** the rail of the artifact dialog has an *Archive* action (above *Delete*) that calls `POST /api/tasks/{id}/archive`. Events of an
   archived card (`task.updated` with `archived_at`) take it off the board and close its open dialog.
 - **History:** the entries `archived` and `unarchived` read "moved it to the archive" and "took it out of the archive, back to {lane}".
+
+## Addendum 3 (2026-11-26): a rule can be "always"
+
+The server already treats a rule without a condition as *holds for every card of its place* and derives the marks at every read, so a
+card that leaves the lane loses the state at once. What was missing was saying so in the editor (*If all of these* with *No conditions
+yet* looked unfinished). No data change, no migration.
+
+- **The choice.** In the rules window of a lane and of the board, a rule has *Always (every card in this lane)* / *(every card on the
+  board)* or *Only when…* above its conditions. *Always* hides the condition tree; *Only when…* shows it. A new rule starts as *Always*;
+  going back to *Always* clears the tree. There is no *always false*: a rule that never holds is a rule that is switched off.
+- **Stored as before.** An empty `when` group is *always*. The choice is a flag of the open window (`rule.conditional`, dropped by
+  `kept()`, never saved); a rule that has conditions reads as *only when*. *Only when…* with no condition yet keeps Save off, because
+  it would be saved as *always*.
+- **A rule that deletes** needs a condition (as before, the server refuses it): *Always* is disabled for it, and choosing the action
+  switches the rule to *Only when…*.
+- **The list** tells a rule without a condition as *Always: Set card as done*.
+- **Opt-in.** The shared `RuleEditor` and `rule-list-model` offer the choice only for a schema with `always` (`buildSchema(…, {scope})`
+  of the card rules). The retention rules and the guards keep their meaning: an empty rule does nothing.
+- Design: [2026-11-26-optional-rule-condition-design.md](../../superpowers/specs/2026-11-26-optional-rule-condition-design.md).
