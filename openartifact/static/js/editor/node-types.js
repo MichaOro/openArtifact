@@ -82,7 +82,8 @@ export class NodeView {
   }
 
   displayName(node) {
-    return node.definition_name ?? node.name;
+    const name = node.definition_name ?? node.name;
+    return node.placement_number ? `${name} #${node.placement_number}` : name; // the same action placed more than once (ADR-082)
   }
 
   /** The small line under the name: the manifest's template or function, else (null: none) the kind's label when the name differs. */

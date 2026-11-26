@@ -1605,5 +1605,10 @@
  "graph_versions.findings_message": "The check found {errors} error(s) and {warnings} warning(s) in the draft. An error cannot work and fails a run where it is; a warning may not work. Publish anyway, or cancel and keep editing?",
  "graph_versions.publish_anyway": "Publish anyway",
  "graph_versions.finding_error": "Error",
- "graph_versions.finding_warning": "Warning"
+ "graph_versions.finding_warning": "Warning",
+ "editor.reference_completion.an_input": "An input of this graph",
+ "editor.reference_completion.gone": "deleted node",
+ "editor.reference.inputs.one": "1 input of this graph",
+ "editor.reference.inputs.other": "{count} inputs of this graph",
+ "editor.setting_controls.refers_to": "Reads:"
 }

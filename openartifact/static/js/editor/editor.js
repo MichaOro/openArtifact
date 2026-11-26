@@ -134,6 +134,7 @@ export class GraphEditor {
   async load({ fit = false } = {}) {
     try {
       await this.model.load();
+      await this.#loadContracts();
       this.addMenu.setPurpose(this.model.graph?.purpose ?? null); // an action for guards offers the kinds for guards
       this.alert.hide();
       this.#showTitle();
@@ -149,6 +150,28 @@ export class GraphEditor {
       if (error.status === 404 && !this.model.isAction) removeStorage(KEYS.lastPipeline);
       this.#showError(error.status === 404 ? t("editor.editor.pipeline_action_does_not_exist") : t("editor.editor.could_not_be_loaded"), true);
     }
+  }
+
+  /** The inputs and outputs the action definitions of this pipeline declare (ADR-083), by definition id: what the reference list offers of a
+   * placement and what its mapping rows ask. A definition that cannot be read is simply not in it. */
+  async #loadContracts() {
+    this.contracts = new Map();
+    if (this.model.isAction) return;
+    const ids = [...new Set([...this.nodes.values()].filter((n) => n.kind === "action" && n.definition_id).map((n) => n.definition_id))];
+    await Promise.allSettled(
+      ids.map(async (id) => {
+        const { nodes } = await loadGraph("action", id);
+        const trigger = nodes.find((n) => n.kind === "trigger");
+        const output = nodes.find((n) => n.kind === "output");
+        this.contracts.set(id, { inputs: trigger?.config?.inputs ?? [], outputs: (output?.config?.outputs ?? []).map((o) => o.name) });
+      }),
+    );
+  }
+
+  /** What an action node reads as a contract: `{outputs}` when its definition declares inputs or outputs, else null. */
+  #contractOf(node) {
+    const found = node.kind === "action" && node.definition_id ? this.contracts?.get(node.definition_id) : null;
+    return found && (found.inputs.length || found.outputs.length) ? { outputs: found.outputs } : null;
   }
 
   /** Opened from a node of a pipeline: offer the way back; back in a pipeline: select that node again. */
@@ -751,7 +774,7 @@ export class GraphEditor {
   #blockActions() {
     return {
       saveSetting: (node, setting, value) => this.#saveSetting(node, setting, value),
-      suggestions: (node) => ({ nodes: () => [...this.nodes.values()], exceptId: node.id }),
+      suggestions: (node) => ({ nodes: () => [...this.nodes.values()], exceptId: node.id, contracts: (n) => this.#contractOf(n) }),
       link: (node, targetId) => this.#link(node, targetId),
       askNew: (node) => this.#askNew(node),
       linkUrl: (node) => this.#linkUrl(node, node.definition_slug),

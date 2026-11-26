@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.artifact_fields.service import field_specs
 from openartifact.engine.context import NodeIndex, node_key, problems, references_in
+from openartifact.graph import placements
 from openartifact.graph.node_types import (
     NODE_TYPES,
     FailureMode,
@@ -742,7 +743,54 @@ class GraphRepository:
             if calls and await self._calls(definition_id, graph.id):
                 raise NodeError("A pipeline cannot call itself, not even through other pipelines")
         node.definition_id = definition_id
+        node.config = await self._numbered(node, definition_id)
         await self._session.flush()
+
+    async def _numbered(self, node: GraphNode, definition_id: str | None) -> dict[str, Any]:
+        """The node's config with its placement number (ADR-082): the lowest free number of this definition among the action nodes of the
+        graph, or none while it runs nothing. The number never shows as a setting."""
+        config = {k: v for k, v in (node.config or {}).items() if k != placements.KEY}
+        if definition_id is None or node.kind != NodeKind.ACTION.value:
+            return config
+        rows = await self._session.execute(
+            select(GraphNode.config).where(
+                GraphNode.graph_id == node.graph_id,
+                GraphNode.kind == NodeKind.ACTION.value,
+                GraphNode.definition_id == definition_id,
+                GraphNode.id != node.id,
+            )
+        )
+        config[placements.KEY] = placements.lowest_free(
+            (c or {}).get(placements.KEY) for (c,) in rows
+        )
+        return config
+
+    async def placement_numbers(self, nodes: Sequence[GraphNode]) -> dict[str, int]:
+        """The placement numbers (ADR-082) of the action nodes among ``nodes``, worked out against all action nodes of their graphs."""
+        graph_ids = {
+            n.graph_id for n in nodes if n.kind == NodeKind.ACTION.value and n.definition_id
+        }
+        if not graph_ids:
+            return {}
+        rows = await self._session.scalars(
+            select(GraphNode)
+            .where(
+                GraphNode.graph_id.in_(graph_ids),
+                GraphNode.kind == NodeKind.ACTION.value,
+                GraphNode.definition_id.is_not(None),
+            )
+            .order_by(GraphNode.created_at, GraphNode.id)
+        )
+        everything = [
+            {
+                "id": n.id,
+                "kind": n.kind,
+                "definition_id": n.definition_id,
+                "number": (n.config or {}).get(placements.KEY),
+            }
+            for n in rows
+        ]
+        return placements.numbers_of(everything)
 
     async def _calls(self, start_id: str, wanted_id: str) -> bool:
         """Whether the pipeline ``start_id`` is, or (through its pipeline nodes) calls, ``wanted_id``."""
@@ -842,6 +890,11 @@ class GraphRepository:
             row.config = dict(data.get("config") or {})
             definition = data.get("definition_id")
             row.definition_id = definition if definition in known else None
+            if row.definition_id and isinstance(data.get("number"), int):
+                row.config = {
+                    **row.config,
+                    placements.KEY: data["number"],
+                }  # the number the version was published with
             await self._session.flush()
         for edge in content.get("edges", []):
             self._session.add(

@@ -7,7 +7,10 @@
  * stopped (the execution was stopped there), skipped (in front of where it started) or not-run. */
 
 /** What a node is called (a linked node carries the name of what it links to, as in the editor). */
-export const nameOf = (node) => node.definition_name ?? node.name;
+export const nameOf = (node) => {
+  const name = node.definition_name ?? node.name;
+  return node.placement_number ? `${name} #${node.placement_number}` : name; // the same action placed more than once (ADR-082)
+};
 
 /**
  * What a tool node did while an agent ran, as a state of the node: `pass` (every call went well), `fail` (at least one call

@@ -18,6 +18,7 @@ import { field } from "./field.js";
 import { bindPersist, registerDirty, trackSave } from "./persist-policy.js";
 import { addSource, listProblem, moveSource, parseNames, removeSource, setOption, specOf, unused } from "./sources-model.js";
 import { suggestReferences } from "./reference-suggest.js";
+import { readableReferences } from "./reference-completion.js";
 import { t, tn } from "../i18n.js";
 
 const INDENT = "  ";
@@ -70,10 +71,23 @@ class SettingControl {
     this.baseline = this.read();
     this.input.addEventListener("input", () => this.markDirty());
     registerDirty({ isDirty: () => this.isDirty(), commit: () => this.commit(), element: this.input });
-    if (suggest && setting.references && this.constructor.suggests) {
-      suggestReferences(this.input, suggest, { allowSecrets: setting.references === "all" });
-    }
+    this.suggest = suggest && setting.references && this.constructor.suggests ? suggest : null;
+    if (this.suggest) suggestReferences(this.input, this.suggest, { allowSecrets: setting.references === "all" });
     this.element = this.build();
+    this.refs = element("p", "field__meta ge-refs");
+    this.refs.dataset.references = "";
+    this.element.append(this.refs);
+    this.showReferences();
+    if (this.suggest) this.input.addEventListener("input", () => this.showReferences());
+  }
+
+  /** Under a field whose text names nodes by their ids (ADR-082) a line says which nodes they are now, by name: the id is for the
+   * machine, the name for the reader, and a rename shows here at once. Nothing is shown while the text holds no id. */
+  showReferences() {
+    const text = this.suggest ? this.input.value : "";
+    const readable = text.includes("${node:") ? readableReferences(text, this.suggest.nodes()) : "";
+    this.refs.textContent = readable ? `${t("editor.setting_controls.refers_to")} ${readable}` : "";
+    this.refs.hidden = !readable;
   }
 
   /** The editable element (an input, a textarea, a select ...). */

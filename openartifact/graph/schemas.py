@@ -228,6 +228,9 @@ class NodeRead(BaseModel):
     definition_name: str | None = None
     definition_slug: str | None = None
     definition_fail_enabled: bool | None = None
+    #: The number of this placement while the same action definition is placed more than once in the pipeline ("Check #2", ADR-082);
+    #: ``None`` for a single placement and for every other node. A label for people: references name the node by its id.
+    placement_number: int | None = None
     #: Hints about the node's ``${node...}`` / ``${var...}`` references (unknown or ambiguous node
     #: names, malformed references) on a node just created or changed; the node is saved anyway.
     warnings: list[str] = Field(default_factory=list)

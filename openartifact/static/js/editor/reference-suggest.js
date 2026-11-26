@@ -51,7 +51,8 @@ let count = 0;
 /**
  * Add suggestions to a text input or textarea.
  * @param {HTMLInputElement|HTMLTextAreaElement} input
- * @param {{nodes: () => object[], exceptId?: string}} source the nodes of the graph being edited
+ * @param {{nodes: () => object[], exceptId?: string, contracts?: (node: object) => {outputs: string[]}|null}} source the nodes of the graph being edited
+ *   (`contracts`: the declared outputs of what an action or pipeline node runs, ADR-083)
  * @param {{allowSecrets: boolean}} options whether ${secret:NAME} is offered (not in conditions)
  */
 export function suggestReferences(input, source, { allowSecrets }) {
@@ -123,7 +124,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
     reference = input.selectionStart === input.selectionEnd ? openReference(input.value, input.selectionStart) : null;
     if (!reference) return close();
     if (!el) redrawWhenFieldsChange(); // a field added meanwhile is offered without reloading the editor
-    matches = suggestionsFor(candidatesFor(source.nodes(), { exceptId: source.exceptId, secrets: secretNames, allowSecrets, cardFields, kinds: typeOf }), reference.query);
+    matches = suggestionsFor(candidatesFor(source.nodes(), { exceptId: source.exceptId, secrets: secretNames, allowSecrets, cardFields, kinds: typeOf, contracts: source.contracts }), reference.query);
     if (!matches.length) return close();
     if (!el) {
       el = document.createElement("div");
@@ -153,7 +154,7 @@ export function suggestReferences(input, source, { allowSecrets }) {
         option.dataset.index = String(i);
         option.title = candidate.detail;
         const name = document.createElement("span");
-        name.textContent = candidate.insert;
+        name.textContent = candidate.label ?? candidate.insert;
         const detail = document.createElement("span");
         detail.className = "popover__number popover__detail";
         detail.textContent = candidate.detail;

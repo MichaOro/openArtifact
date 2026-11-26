@@ -37,6 +37,7 @@ from openartifact.engine.flow_schemas import (
 from openartifact.engine.limits import MAX_STEPS_MAX
 from openartifact.engine.schemas import ExecutionRead, ExecutionStepRead
 from openartifact.graph.node_types import Ports, node_type
+from openartifact.graph.placements import numbers_of
 from openartifact.models import NodeKind, RunStatus
 
 #: The highest step limit an execution can have (engine/limits.py): the engine fails a run before it, so the
@@ -118,8 +119,10 @@ def _graphs(snapshot: Raw, root_id: str) -> dict[str, Raw]:
         for i, (kind, raw) in raws.items()
     }
     for graph in graphs.values():
+        numbers = numbers_of(graph["nodes"])
         for n in graph["nodes"]:
             target = graphs.get(n["definition_id"] or "")
+            n["placement_number"] = numbers.get(str(n["id"]))
             n["definition_name"] = n["label"] if target else None
             outputs = [m for m in target["nodes"] if m["kind"] == NodeKind.OUTPUT] if target else []
             n["definition_fail_enabled"] = (

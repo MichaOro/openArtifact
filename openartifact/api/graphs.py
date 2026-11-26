@@ -81,9 +81,11 @@ def _invalid(error: ValueError) -> HTTPException:
 async def _node_reads(repo: GraphRepository, nodes: Sequence[GraphNode]) -> list[NodeRead]:
     """Nodes as the API returns them, linked actions with their definition's name and On Fail."""
     described = await repo.describe(nodes)
+    numbers = await repo.placement_numbers(nodes)
     reads = [NodeRead.model_validate(n) for n in nodes]
     for read, node in zip(reads, nodes, strict=True):
         read.config = node_type(node.kind).effective_config(node.config)
+        read.placement_number = numbers.get(node.id)
         if read.id in described:
             link = described[read.id]
             read.definition_name = link.name

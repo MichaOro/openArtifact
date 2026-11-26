@@ -2320,5 +2320,10 @@
  "graph_versions.findings_message": "Die Prüfung hat {errors} Fehler und {warnings} Warnung(en) im Entwurf gefunden. Ein Fehler kann nicht funktionieren und lässt einen Lauf dort scheitern; eine Warnung funktioniert vielleicht nicht. Trotzdem veröffentlichen oder abbrechen und weiter bearbeiten?",
  "graph_versions.publish_anyway": "Trotzdem veröffentlichen",
  "graph_versions.finding_error": "Fehler",
- "graph_versions.finding_warning": "Warnung"
+ "graph_versions.finding_warning": "Warnung",
+ "editor.reference_completion.an_input": "Ein Input dieses Graphen",
+ "editor.reference_completion.gone": "gelöschter Knoten",
+ "editor.reference.inputs.one": "1 Input dieses Graphen",
+ "editor.reference.inputs.other": "{count} Inputs dieses Graphen",
+ "editor.setting_controls.refers_to": "Liest:"
 }
