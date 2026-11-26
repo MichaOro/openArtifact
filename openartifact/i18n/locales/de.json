@@ -2429,5 +2429,6 @@
  "executions.kind": "Art",
  "executions.real_runs": "Echte Läufe",
  "executions.dry_runs": "Testläufe",
- "executions.any_kind": "Alle"
+ "executions.any_kind": "Alle",
+ "components.schema_fields.default_wide_placeholder": "Standardwert"
 }

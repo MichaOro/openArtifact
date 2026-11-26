@@ -1688,5 +1688,6 @@
  "executions.kind": "Kind",
  "executions.real_runs": "Real runs",
  "executions.dry_runs": "Dry runs",
- "executions.any_kind": "Any"
+ "executions.any_kind": "Any",
+ "components.schema_fields.default_wide_placeholder": "Default value"
 }

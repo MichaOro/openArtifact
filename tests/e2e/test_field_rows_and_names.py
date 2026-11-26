@@ -286,6 +286,9 @@ def test_the_row_menu_adds_and_removes_the_description_and_the_default_and_delet
     items.filter(has_text="Add default value").click()
     default = row.locator(".sf__extra")
     expect(default).to_be_focused()
+    expect(default).to_have_attribute(
+        "placeholder", "Default value"
+    )  # it sits on a line of its own: it says what it is
     default.fill("anna")
     default.press("Enter")
     eventually(lambda: _stored_inputs(api, action)[0].get("default"), "anna")

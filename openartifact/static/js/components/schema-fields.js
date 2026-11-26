@@ -188,7 +188,9 @@ export class SchemaFields {
     const extra = this.typed("input", "sf__extra", this.names ? this.names.display(shown) : shown, (value) => this.change(index, this.extra, this.names ? this.names.stored(value) : value));
     extra.maxLength = 2000;
     extra.spellcheck = false;
+    // a wide row has the column headers of its columns; the default of an input sits on a line of its own without one: it says what it is
     if (!this.wide) extra.placeholder = t(`components.schema_fields.${this.extra}_placeholder`);
+    else if (this.extra === "default") extra.placeholder = t("components.schema_fields.default_wide_placeholder");
     extra.setAttribute("aria-label", t(`components.schema_fields.${this.extra}_label`, { name }));
     this.decorate?.(extra, this.extra);
     return extra;
