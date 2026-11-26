@@ -196,7 +196,7 @@ Put the page's own facts in `mg-facts` (a `<dl>`), sections in `mg-section`, chi
 entry is a form manifest drawn by `ManifestDialog` (ADR-065), opened from the *Properties* button of the panel and from the page's *New* button.
 
 The room of the detail panel is reserved (two thirds entries, one third panel, a quiet `panel.placeholder` line without a selection) so that
-the entries do not move when one is selected; the page size ("Per page") is part of the toolbar next to the switch between cards and rows (ADR-069 §6).
+the entries do not move when one is selected; the page size ("Per page") is part of the toolbar next to the switch between cards and rows (ADR-069 §6) and follows the room: the base is the number of whole columns times whole rows that fit the area (at least 12), the choices are the base and twice and four times the base (never over 500), and the browser remembers the step, not the number (ADR-069 §12, `page-size.js`). A page passes no page size.
 
 **Cards** (ADR-069 §9): every card of every management page has one size (19 rem by 11 rem, `--mg-card-w` / `--mg-card-h`; ADR-069 §10) and one arrangement, built by
 `cardBody({title, text, chips, facts, date})` of `management-page.js`: the title on top (two lines, then "…", clear of the pencil and the bin), the text in the
