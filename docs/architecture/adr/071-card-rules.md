@@ -127,3 +127,18 @@ yet* looked unfinished). No data change, no migration.
 - **Opt-in.** The shared `RuleEditor` and `rule-list-model` offer the choice only for a schema with `always` (`buildSchema(…, {scope})`
   of the card rules). The retention rules and the guards keep their meaning: an empty rule does nothing.
 - Design: [2026-11-26-optional-rule-condition-design.md](../../superpowers/specs/2026-11-26-optional-rule-condition-design.md).
+
+## Addendum 4 (2026-11-26): an archived card in the dialog of the board, read only
+
+- **"Show more"** of the text in the archive panel (Details tab) no longer unfolds the text in the narrow panel: it opens the card in the
+  same `ArtifactDialog` a card of the board opens in (`ClampedText` got the opt-in option `onMore`; `ArchiveView` has `onOpen`, `main.js`
+  `showArchived`). The panel keeps its own *Remove from archive* button.
+- **Read only is a mode of that window, not a copy** (`openView(…, { readOnly: true })`, off for every other opening). It hides what writes:
+  Edit, Run, the comment box with its Send and the menus of the comments (`[data-readonly]` in `task-dialog.css`), and switches off the rail's
+  Lane, Parent, Pipeline, Stage and Action and the artifact fields; the lane chip under the title is switched off too. Tabs, the references in
+  the text and the history stay as they are. The server's 409 `archived` stays the rule behind it.
+- **The rail:** Archive and Delete are gone; *Remove from archive* (`nav.unarchive`, registered in `web/navigation.py` after Delete) takes
+  the place of Delete, the last entry. Archive keeps its row as an invisible gap, so no other entry moves. It calls the same
+  `POST /api/tasks/{id}/unarchive` as the panel (`ArchiveView.restore`), closes the window and takes the tile out of the archive.
+- **Events:** the event that archives a card closes its dialog on the board, but not the read-only one (that is where it is looked at); the
+  read-only window closes when the card leaves the archive elsewhere or is deleted.
