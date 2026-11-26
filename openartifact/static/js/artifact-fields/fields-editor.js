@@ -284,7 +284,7 @@ export class FieldsEditor extends ActionDialog {
 
   #check(field, key, label) {
     const wrap = element("label", "at-check");
-    const box = element("input");
+    const box = element("input", "check");
     box.type = "checkbox";
     box.checked = field[key];
     box.dataset.key = key;
@@ -403,7 +403,7 @@ export class FieldsEditor extends ActionDialog {
       control.setAttribute("aria-label", t("common.default"));
       for (const option of field.options.filter((o) => o.text)) {
         const wrap = element("label", "at-check");
-        const box = element("input");
+        const box = element("input", "check");
         box.type = "checkbox";
         box.checked = field.default.includes(option.text);
         box.addEventListener("change", () => {

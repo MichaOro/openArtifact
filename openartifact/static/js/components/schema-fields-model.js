@@ -89,18 +89,38 @@ export function listProblem(list, limits = LIMITS, max = MAX_FIELDS) {
   return null;
 }
 
+/** What a row of the wide variant shows besides the compact row (name, type, required, menu): `description` and, for a list with a default, `extra`.
+ * A field that has the text shows it; one that has not shows it only after the menu added it (the data does not say that, the row does). */
+export function shownOf(field, extra = null) {
+  return { description: Boolean(field.description), extra: extra === "default" ? Boolean(field[extra]) : extra === "value" };
+}
+
+/** The entries of the row menu, in order: `{key, on}` for description and (inputs only) default, then the deletion. `on` says the text is
+ * on the row now, so the entry takes it away; otherwise it adds it. Pure, so the toggling is tested on its own. */
+export function menuPlan({ extra = null, shown }) {
+  const entries = [{ key: "description", on: Boolean(shown?.description) }];
+  if (extra === "default") entries.push({ key: "extra", on: Boolean(shown?.extra) });
+  entries.push({ key: "delete", on: false });
+  return entries;
+}
+
 /** The columns of a field list laid out as one row per field (the wide variant): the columns that are there, in the order of the keyboard, the
- * CSS grid template that gives each its width, and the two strings of areas (the row, and the line of a choice's values under it). Pure, so the
- * plan is tested on its own; the component only hands it to the stylesheet. */
-const WIDTHS = { grip: "2rem", name: "minmax(7rem, 1.2fr)", type: "8.5rem", required: "5.5rem", description: "minmax(8rem, 2fr)", extra: "minmax(8rem, 1.4fr)", bin: "2rem" };
+ * CSS grid template that gives each its width, and the strings of areas (the row, and the lines under it for a description, a default and a
+ * choice's values). The row is compact: handle, name, type, "required" (not for an output), the value of an output (an output always has one)
+ * and the menu; the rest comes on lines of its own when a row has it. Pure, so the plan is tested on its own; the component only hands it to
+ * the stylesheet. */
+const WIDTHS = { grip: "2rem", name: "minmax(5.5rem, 1.2fr)", type: "8.5rem", required: "5.5rem", extra: "minmax(6rem, 1.4fr)", more: "2rem" };
 
 export function rowPlan({ showRequired = true, extra = null } = {}) {
-  const columns = ["grip", "name", "type", ...(showRequired ? ["required"] : []), "description", ...(extra ? ["extra"] : []), "bin"];
-  const inner = columns.length - 2; // the columns between the handle and the bin
+  const columns = ["grip", "name", "type", ...(showRequired ? ["required"] : []), ...(extra === "value" ? ["extra"] : []), "more"];
+  const inner = columns.length - 2; // the columns between the handle and the menu
+  const line = (area) => `"${[".", ...Array(inner).fill(area), "."].join(" ")}"`;
   return {
     columns,
     template: columns.map((c) => WIDTHS[c]).join(" "),
     row: `"${columns.join(" ")}"`,
-    choices: `"${[".", ...Array(inner).fill("choices"), "."].join(" ")}"`,
+    description: line("description"),
+    extra: line(extra === "default" ? "extra" : "."), // the default of an input gets a line; the value of an output is a column of the row (an area may not be in two places)
+    choices: line("choices"),
   };
 }

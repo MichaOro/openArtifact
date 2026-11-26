@@ -70,15 +70,37 @@ test("only a choice is checked for values", () => {
   assert.equal(fieldProblem([{ name: "a", type: "list" }], 0), null);
 });
 
-test("a row of the wide list has the columns that are there, in the keyboard's order, and the choices under all but the handle and the bin", async () => {
+test("the compact row of the wide list is handle, name, type, required and the menu; an output has its value as a column, the rest comes on lines of its own", async () => {
   const { rowPlan } = await import("../../openartifact/static/js/components/schema-fields-model.js");
   const inputs = rowPlan({ showRequired: true, extra: "default" });
-  assert.deepEqual(inputs.columns, ["grip", "name", "type", "required", "description", "extra", "bin"]);
-  assert.equal(inputs.row, '"grip name type required description extra bin"');
-  assert.equal(inputs.choices, '". choices choices choices choices choices ."');
+  assert.deepEqual(inputs.columns, ["grip", "name", "type", "required", "more"], "an input row is compact: no description and no default column");
+  assert.equal(inputs.row, '"grip name type required more"');
+  assert.equal(inputs.description, '". description description description ."');
+  assert.equal(inputs.extra, '". extra extra extra ."');
+  assert.equal(inputs.choices, '". choices choices choices ."');
   const outputs = rowPlan({ showRequired: false, extra: "value" });
-  assert.deepEqual(outputs.columns, ["grip", "name", "type", "description", "extra", "bin"], "an output has no required box");
+  assert.deepEqual(outputs.columns, ["grip", "name", "type", "extra", "more"], "an output has no required box but always its value");
   assert.equal(outputs.template.split(" ").length >= outputs.columns.length, true);
+  assert.equal(outputs.extra, '". . . . ."', "the value is a column of the row: no second place for the area extra (an area may not be in two places)");
   const plain = rowPlan({ showRequired: true, extra: null });
-  assert.deepEqual(plain.columns, ["grip", "name", "type", "required", "description", "bin"]);
+  assert.deepEqual(plain.columns, ["grip", "name", "type", "required", "more"]);
+});
+
+test("a row shows a description or a default only when the field has it (or the menu added it); an output always shows its value", async () => {
+  const { shownOf } = await import("../../openartifact/static/js/components/schema-fields-model.js");
+  assert.deepEqual(shownOf({ name: "a", description: "", default: "" }, "default"), { description: false, extra: false });
+  assert.deepEqual(shownOf({ name: "a", description: "who", default: "x" }, "default"), { description: true, extra: true });
+  assert.deepEqual(shownOf({ name: "a", description: "" }, "value"), { description: false, extra: true });
+  assert.deepEqual(shownOf({ name: "a", description: "" }, null), { description: false, extra: false });
+});
+
+test("the row menu offers add or remove for the description (and the default of an input) and then Delete", async () => {
+  const { menuPlan } = await import("../../openartifact/static/js/components/schema-fields-model.js");
+  assert.deepEqual(menuPlan({ extra: "default", shown: { description: false, extra: false } }), [
+    { key: "description", on: false },
+    { key: "extra", on: false },
+    { key: "delete", on: false },
+  ]);
+  assert.deepEqual(menuPlan({ extra: "default", shown: { description: true, extra: true } }).map((e) => e.on), [true, true, false], "shown entries offer removing");
+  assert.deepEqual(menuPlan({ extra: "value", shown: { description: false, extra: true } }).map((e) => e.key), ["description", "delete"], "an output has no default to add");
 });

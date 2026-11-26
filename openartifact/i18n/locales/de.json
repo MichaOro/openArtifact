@@ -2404,5 +2404,12 @@
  "components.schema_fields.head.required": "Pflicht",
  "components.schema_fields.head.description": "Beschreibung",
  "components.schema_fields.head.default": "Standard",
- "components.schema_fields.head.value": "Wert"
+ "components.schema_fields.head.value": "Wert",
+ "components.schema_fields.more": "Aktionen für {name}",
+ "components.schema_fields.menu.add_description": "Beschreibung hinzufügen",
+ "components.schema_fields.menu.remove_description": "Beschreibung entfernen",
+ "components.schema_fields.menu.add_default": "Standardwert hinzufügen",
+ "components.schema_fields.menu.remove_default": "Standardwert entfernen",
+ "components.schema_fields.menu.delete": "Löschen",
+ "components.schema_fields.description_wide_placeholder": "Beschreibung"
 }

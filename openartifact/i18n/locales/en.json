@@ -1669,5 +1669,12 @@
  "components.schema_fields.head.required": "Required",
  "components.schema_fields.head.description": "Description",
  "components.schema_fields.head.default": "Default",
- "components.schema_fields.head.value": "Value"
+ "components.schema_fields.head.value": "Value",
+ "components.schema_fields.more": "Actions for {name}",
+ "components.schema_fields.menu.add_description": "Add description",
+ "components.schema_fields.menu.remove_description": "Remove description",
+ "components.schema_fields.menu.add_default": "Add default value",
+ "components.schema_fields.menu.remove_default": "Remove default value",
+ "components.schema_fields.menu.delete": "Delete",
+ "components.schema_fields.description_wide_placeholder": "Description"
 }
