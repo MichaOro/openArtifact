@@ -19,6 +19,8 @@ from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import SessionDep
 from openartifact.api.schemas import ChainEntryRead, NodeTypeRead
 from openartifact.engine.chain import pipeline_chain
+from openartifact.engine.neighbour_schemas import GraphNeighbours
+from openartifact.engine.neighbours import graph_neighbours
 from openartifact.graph import publishing, versions
 from openartifact.graph.content import graph_of
 from openartifact.graph.localize import localize
@@ -182,6 +184,35 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             nodes=await _node_reads(repo, nodes),
             edges=[EdgeRead.model_validate(e) for e in edges],
         )
+
+    @router.get(
+        "/{graph_id}/neighbours",
+        response_model=GraphNeighbours,
+        name=f"get_{kind}_neighbours",
+        summary=f"The predecessors and successors of every node of a {kind}",
+        responses=errors(404, 422),
+    )
+    async def get_neighbours(
+        graph_id: str,
+        session: SessionDep,
+        version: Annotated[
+            str,
+            Query(
+                pattern=r"^(published|draft|[0-9]{1,9})$",
+                description="``published`` (default): what executions run, the draft while nothing is published; ``draft``: what the "
+                "editor shows; or the number of a published version.",
+            ),
+        ] = "published",
+    ) -> GraphNeighbours:
+        """Every node (for a pipeline the trigger, stages, actions, called pipelines and the end; for an action definition its nodes) with
+        the nodes that lead to it (``predecessors``) and the ones it leads to (``successors``), each with the connector it hangs on
+        (*On Pass*, *On Error*, *On Fail*, a branch, a tool) as the editor draws it. Every connection of the graph appears once as a
+        successor and once as a predecessor. ``version`` says which state is read; the answer names the one used."""
+        graph = await _graph(GraphRepository(session), graph_id)
+        found = await graph_neighbours(session, graph, version)
+        if found is None:
+            raise _not_found(f"Version {version}")
+        return found
 
     if kind == GraphKind.PIPELINE:
 

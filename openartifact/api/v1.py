@@ -37,6 +37,7 @@ from openartifact.comments.service import author_of
 from openartifact.credentials.store import SecretRead, SecretWrite
 from openartifact.engine.flow_schemas import ExecutionFlow
 from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
+from openartifact.engine.neighbour_schemas import ExecutionPosition, GraphNeighbours
 from openartifact.engine.schemas import (
     ExecutionDetail,
     ExecutionList,
@@ -47,7 +48,7 @@ from openartifact.engine.schemas import (
     RunRead,
 )
 from openartifact.exceptions import ArtifactError
-from openartifact.models import CreatedBy, StartedBy
+from openartifact.models import CreatedBy, GraphKind, StartedBy
 from openartifact.security import require_api_token
 from openartifact.tasks.schemas import (
     LaneRead,
@@ -376,6 +377,50 @@ async def get_execution_flow(
     """The graphs of the execution as frozen at its start, its steps and the path it walked through
     them (``visits``, ``reached``). Outputs only with ``outputs=true``; they are text from outside."""
     return await service.execution_flow(ref, execution_id, outputs)
+
+
+@router.get(
+    "/artifacts/{ref}/executions/{execution_id}/position",
+    response_model=ExecutionPosition,
+    summary="Where an execution is",
+    responses=errors(404, 422),
+)
+async def get_execution_position(
+    ref: str, execution_id: str, service: ServiceDep
+) -> ExecutionPosition:
+    """Where the execution is, from the same frozen graphs as its flow: ``at`` (root pipeline down to the node it is in), ``next``
+    (which port of that node leads where), ``afterwards`` (the same for the nodes around it, innermost first) and ``path``."""
+    return await service.execution_position(ref, execution_id)
+
+
+@router.get(
+    "/pipelines/{ref}/neighbours",
+    response_model=GraphNeighbours,
+    summary="The predecessors and successors of every node of a pipeline",
+    responses=errors(404, 422),
+)
+async def get_pipeline_neighbours(
+    ref: str,
+    service: ServiceDep,
+    version: Annotated[str, Query(pattern=r"^(published|draft|[0-9]{1,9})$")] = "published",
+) -> GraphNeighbours:
+    """``ref`` is the pipeline's id, URL name or name. ``version``: ``published`` (default), ``draft`` or a version number."""
+    return await service.graph_neighbours(GraphKind.PIPELINE, ref, version)
+
+
+@router.get(
+    "/actions/{ref}/neighbours",
+    response_model=GraphNeighbours,
+    summary="The predecessors and successors of every node of an action definition",
+    responses=errors(404, 422),
+)
+async def get_action_neighbours(
+    ref: str,
+    service: ServiceDep,
+    version: Annotated[str, Query(pattern=r"^(published|draft|[0-9]{1,9})$")] = "published",
+) -> GraphNeighbours:
+    """``ref`` is the action definition's id, URL name or name. ``version``: ``published`` (default), ``draft`` or a version number."""
+    return await service.graph_neighbours(GraphKind.ACTION, ref, version)
 
 
 @router.get(

@@ -54,6 +54,7 @@ DELETE /api/v1/secrets/{name} -> -
 DELETE /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/actions -> GraphListRead[]
 GET /api/actions/{graph_id} -> GraphDetail
+GET /api/actions/{graph_id}/neighbours -> GraphNeighbours
 GET /api/actions/{graph_id}/uses -> GraphUses
 GET /api/actions/{graph_id}/versions -> GraphVersionRead[]
 GET /api/actions/{graph_id}/versions/{number} -> GraphVersionDetail
@@ -85,6 +86,7 @@ GET /api/lanes/{status}/rules -> RulesAnswer
 GET /api/node-types -> NodeTypeRead[]
 GET /api/pipelines -> GraphListRead[]
 GET /api/pipelines/{graph_id} -> GraphDetail
+GET /api/pipelines/{graph_id}/neighbours -> GraphNeighbours
 GET /api/pipelines/{graph_id}/stages -> ChainEntryRead[]
 GET /api/pipelines/{graph_id}/uses -> GraphUses
 GET /api/pipelines/{graph_id}/versions -> GraphVersionRead[]
@@ -108,9 +110,11 @@ GET /api/tasks/{task_id}/executions -> ExecutionList
 GET /api/tasks/{task_id}/executions/{execution_id} -> ExecutionDetail
 GET /api/tasks/{task_id}/executions/{execution_id}/context -> RunContextRead
 GET /api/tasks/{task_id}/executions/{execution_id}/flow -> ExecutionFlow
+GET /api/tasks/{task_id}/executions/{execution_id}/position -> ExecutionPosition
 GET /api/tasks/{task_id}/executions/{execution_id}/steps/{step_id} -> ExecutionStepRead
 GET /api/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/ui-layouts/{kind}/{name}/export -> -
+GET /api/v1/actions/{ref}/neighbours -> GraphNeighbours
 GET /api/v1/agents -> AgentRead[]
 GET /api/v1/agents/{ref} -> AgentDetail
 GET /api/v1/agents/{ref}/uses -> AgentUse[]
@@ -125,6 +129,7 @@ GET /api/v1/artifacts/{ref}/executions -> ExecutionList
 GET /api/v1/artifacts/{ref}/executions/{execution_id} -> ExecutionDetail
 GET /api/v1/artifacts/{ref}/executions/{execution_id}/context -> RunContextRead
 GET /api/v1/artifacts/{ref}/executions/{execution_id}/flow -> ExecutionFlow
+GET /api/v1/artifacts/{ref}/executions/{execution_id}/position -> ExecutionPosition
 GET /api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id} -> ExecutionStepRead
 GET /api/v1/artifacts/{ref}/run -> RunRead
 GET /api/v1/artifacts/{ref}/run/results -> NodeResultRead[]
@@ -136,6 +141,7 @@ GET /api/v1/guards/templates -> TemplateRead[]
 GET /api/v1/guards/{guard_id} -> GuardDefinitionRead
 GET /api/v1/lanes -> LaneRead[]
 GET /api/v1/pipelines -> PipelineChainRead[]
+GET /api/v1/pipelines/{ref}/neighbours -> GraphNeighbours
 GET /api/v1/providers -> ProviderRead[]
 GET /api/v1/providers/{ref} -> ProviderRead
 GET /api/v1/secrets -> SecretRead[]
