@@ -13,6 +13,7 @@ from openartifact.api.settings import PersonalSettingsRead, PersonalSettingsWrit
 from openartifact.ui.forms import FORMS
 
 URL = "/api/settings/personal"
+OFF = {"mark_resolved_references": False, "show_stop_switch": False}  # every setting at its default
 
 
 def test_the_models_and_the_manifest_declare_the_same_settings() -> None:
@@ -22,26 +23,36 @@ def test_the_models_and_the_manifest_declare_the_same_settings() -> None:
     # the one place that declares a default is the manifest: the model takes it from there
     for name, default in manifest.items():
         assert PersonalSettingsRead.model_fields[name].default == default, name
-    assert manifest == {"mark_resolved_references": False}
+    assert manifest == {
+        "mark_resolved_references": False,
+        "show_stop_switch": False,
+    }  # ADR-076 added the second
     field = FORMS["personal"].sections[0].fields[0]
     assert (field.key, field.widget) == ("mark_resolved_references", "switch")
 
 
 def test_a_setting_that_was_never_set_has_its_default(client: TestClient) -> None:
-    assert client.get(URL).json() == {"mark_resolved_references": False}
+    assert client.get(URL).json() == OFF
 
 
 def test_a_setting_is_changed_kept_and_published(
     client: TestClient, published: list[tuple[str, dict[str, Any]]]
 ) -> None:
     changed = client.put(URL, json={"mark_resolved_references": True})
-    assert changed.status_code == 200 and changed.json() == {"mark_resolved_references": True}
-    assert client.get(URL).json() == {"mark_resolved_references": True}  # stored
-    assert ("settings.changed", {"personal": {"mark_resolved_references": True}}) in published
-    assert client.put(URL, json={}).json() == {"mark_resolved_references": True}  # left out: kept
-    assert client.put(URL, json={"mark_resolved_references": False}).json() == {
-        "mark_resolved_references": False
+    assert changed.status_code == 200 and changed.json() == {
+        **OFF,
+        "mark_resolved_references": True,
     }
+    assert client.get(URL).json() == {**OFF, "mark_resolved_references": True}  # stored
+    assert (
+        "settings.changed",
+        {"personal": {**OFF, "mark_resolved_references": True}},
+    ) in published
+    assert client.put(URL, json={}).json() == {
+        **OFF,
+        "mark_resolved_references": True,
+    }  # left out: kept
+    assert client.put(URL, json={"mark_resolved_references": False}).json() == OFF
 
 
 @pytest.mark.parametrize(
@@ -53,7 +64,7 @@ def test_a_wrong_value_or_an_unknown_setting_is_refused(
 ) -> None:
     refused = client.put(URL, json=body)
     assert refused.status_code == 422, refused.text
-    assert client.get(URL).json() == {"mark_resolved_references": False}  # nothing was written
+    assert client.get(URL).json() == OFF  # nothing was written
 
 
 # ── what the server sends with an artifact ──────────────────────────

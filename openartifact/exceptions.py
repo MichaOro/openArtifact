@@ -13,12 +13,16 @@ class OpenArtifactError(Exception):
 
 
 class ArtifactError(OpenArtifactError):
-    """A request that cannot be done; ``status`` is the HTTP status to answer with."""
+    """A request that cannot be done; ``status`` is the HTTP status to answer with.
 
-    def __init__(self, status: int, message: str) -> None:
+    ``code`` is an optional stable word a program can match on (``stopped``); the message is for people.
+    """
+
+    def __init__(self, status: int, message: str, code: str | None = None) -> None:
         super().__init__(message)
         self.status = status
         self.message = message
+        self.code = code
 
 
 class ConfigurationError(OpenArtifactError):

@@ -14,3 +14,12 @@ sections:
         label: Mark resolved references
         help: Highlight ${card.X} references in artifact dialog and board cards with a coloured background and show a legend.
         default: false
+  - key: stop
+    title: Execution
+    column: 1
+    fields:
+      - key: show_stop_switch
+        widget: switch
+        label: Show the STOP switch
+        help: Offers the STOP switch on the Executions page, in the API and in MCP. While STOP is on, no execution starts and every running one is aborted.
+        default: false

@@ -60,3 +60,8 @@ async def save(session: AsyncSession, changes: Mapping[str, Any]) -> None:
 async def marks_resolved_references(session: AsyncSession) -> bool:
     """Whether the text a ``${card.x}`` stands for is marked where artifacts are read (board card, artifact dialog)."""
     return bool((await load(session))["mark_resolved_references"])
+
+
+async def stop_switch_available(session: AsyncSession) -> bool:
+    """Whether the STOP switch is offered (the button, the API and MCP set it only then; ADR-076)."""
+    return bool((await load(session))["show_stop_switch"])

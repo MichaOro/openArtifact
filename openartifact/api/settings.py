@@ -12,11 +12,12 @@ from pydantic import BaseModel, ConfigDict
 
 from openartifact import personal_settings
 from openartifact.api.contract import GATED, errors
-from openartifact.api.deps import SessionDep
+from openartifact.api.deps import ServiceDep, SessionDep
 from openartifact.engine import history as history_module
 from openartifact.engine import retention
 from openartifact.engine.history import Changes
 from openartifact.engine.limits import RunLimitsRead, RunLimitsWrite, load_limits, save_limits
+from openartifact.engine.stop_switch import StopState
 
 DESCRIPTION = (
     "``max_steps`` (10 to 100000, default 1000): steps one execution may take, the actions and the nodes of "
@@ -28,7 +29,8 @@ DESCRIPTION = (
 
 PERSONAL = (
     "Personal preferences of the user (a single-user system): ``mark_resolved_references`` (default off) marks the text "
-    "a ``${card.x}`` reference stands for, in the artifact dialog and on the board's cards. Which settings exist and "
+    "a ``${card.x}`` reference stands for, in the artifact dialog and on the board's cards; ``show_stop_switch`` (default off) "
+    "offers the STOP switch (``/settings/stop``), and cannot be switched off while STOP is on. Which settings exist and "
     "their defaults are declared in the form manifest ``ui/forms/personal.yaml``. A change takes effect at once."
 )
 
@@ -42,6 +44,7 @@ class PersonalSettingsRead(BaseModel):
     """The personal settings; what was never set has the default of the manifest."""
 
     mark_resolved_references: bool = _default("mark_resolved_references")
+    show_stop_switch: bool = _default("show_stop_switch")
 
 
 class PersonalSettingsWrite(BaseModel):
@@ -50,6 +53,24 @@ class PersonalSettingsWrite(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     mark_resolved_references: bool | None = None
+    show_stop_switch: bool | None = None
+
+
+class StopWrite(BaseModel):
+    """Switch STOP on (``true``) or off (``false``)."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    active: bool
+
+
+STOP = (
+    "The STOP switch (ADR-076): while ``active`` no execution starts from any source (browser, API, MCP) and every execution "
+    "that runs is aborted when the switch goes on (``aborted`` counts them). A refused start is ``409`` with ``code`` "
+    "``stopped``. The state is kept across restarts; a new system has it off. Switching on needs the personal setting "
+    "``show_stop_switch`` (``available``), else ``409`` ``stop_unavailable``; switching off is always allowed. Cards, pipelines, "
+    "actions, guards and the history keep working."
+)
 
 
 RETENTION = (
@@ -172,6 +193,29 @@ def build_settings_router(
             matching=len(found), per_rule=await retention.count_per_rule(session, payload, now)
         )
 
+    # ── The STOP switch ──────────────────────────────────────────────────
+
+    @router.get(
+        "/stop",
+        response_model=StopState,
+        name=f"{tag}get_stop",
+        summary="Get the STOP switch",
+        description=STOP,
+    )
+    async def get_stop(service: ServiceDep) -> StopState:
+        return await service.stop_switch_state()
+
+    @router.put(
+        "/stop",
+        response_model=StopState,
+        name=f"{tag}put_stop",
+        summary="Switch STOP on or off",
+        description=STOP + " Publishes ``settings.changed`` with ``stop``.",
+        responses=errors(409, 422, write=True, body=True),
+    )
+    async def put_stop(payload: StopWrite, service: ServiceDep) -> StopState:
+        return await service.set_stop_switch(payload.active)
+
     # ── Personal settings ────────────────────────────────────────────────
 
     @router.get(
@@ -191,17 +235,22 @@ def build_settings_router(
         summary="Change personal settings",
         description=PERSONAL
         + " A field that is left out keeps its value. Publishes ``settings.changed``.",
-        responses=errors(422, write=True, body=True),
+        responses=errors(409, 422, write=True, body=True),
     )
     async def put_personal(
-        payload: PersonalSettingsWrite, request: Request, session: SessionDep
+        payload: PersonalSettingsWrite, request: Request, session: SessionDep, service: ServiceDep
     ) -> PersonalSettingsRead:
+        if payload.show_stop_switch is False:
+            await service.refuse_hiding_active_stop()
         await personal_settings.save(session, payload.model_dump(exclude_unset=True))
         await session.commit()
         result = PersonalSettingsRead(**await personal_settings.load(session))
-        request.app.state.event_bus.publish(
-            "settings.changed", {"personal": result.model_dump(mode="json")}
-        )
+        bus = request.app.state.event_bus
+        bus.publish("settings.changed", {"personal": result.model_dump(mode="json")})
+        if payload.show_stop_switch is not None:
+            # whether the STOP switch is offered changed with the setting: the pages that show it hear it
+            state = await service.stop_switch_state()
+            bus.publish("settings.changed", {"stop": state.model_dump(mode="json")})
         return result
 
     return router

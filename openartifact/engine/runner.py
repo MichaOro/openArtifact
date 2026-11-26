@@ -31,7 +31,7 @@ from openartifact.activity import recorder as activity
 from openartifact.artifact_fields.service import card_of
 from openartifact.comments.schemas import Author
 from openartifact.database import SessionOpener
-from openartifact.engine import code_registry
+from openartifact.engine import code_registry, stop_switch
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
 from openartifact.engine.context import ContextError, NodeIndex, RunContext, RunView, check_card
 from openartifact.engine.executors import EXECUTORS, Limits
@@ -73,6 +73,8 @@ RUN_READ_RESULTS = 200
 #: How a time limit in minutes becomes seconds (one place, so a test can make a minute short).
 SECONDS_PER_MINUTE = 60
 _UNSET: Any = object()
+#: How long ``set_stop`` waits for starts that are on their way (they take milliseconds).
+_START_WAIT_SECONDS = 10.0
 
 
 def _cut(result: NodeResult) -> NodeResult:
@@ -250,6 +252,8 @@ class RunEngine:
         # artifacts whose start has not reached its background task
         self._starting: set[str] = set()
         self._jobs: dict[str, asyncio.Task[None]] = {}
+        #: The STOP switch (ADR-076) as this process last saw it: no execution starts while it is on.
+        self._stopped = False
         self.guard_settings = guards or GuardSettings()
         #: The guard monitor of every execution that runs, by execution id (heartbeats, previews).
         self.monitors: dict[str, tuple[str, Monitor]] = {}
@@ -370,6 +374,8 @@ class RunEngine:
         """
         # Everything up to the registration of the background task happens for one artifact at a time:
         # the check below runs before the first await, so a second start cannot slip in.
+        if self._stopped:
+            raise ArtifactError(409, stop_switch.MESSAGE, stop_switch.CODE)
         if task_id in self._starting or task_id in self._jobs:
             raise ArtifactError(409, "The artifact is already being processed")
         if len(self._starting) + len(self._jobs) >= self._max_runs:
@@ -458,6 +464,11 @@ class RunEngine:
                 )
             await self.history.prune(session, task, changes)
             await self.history.apply_rules(session, changes)
+            # The last word before the run is real: STOP (ADR-076) is read in this very transaction, so a start that is
+            # on its way when the switch goes on either sees it here (nothing is written) or is a run that the switch
+            # aborts, because ``set_stop`` waits for the starts on their way before it looks for runs.
+            if self._stopped or (await stop_switch.load(session))[0]:
+                raise ArtifactError(409, stop_switch.MESSAGE, stop_switch.CODE)
             await session.commit()
             result = await self.read(session, run)
             execution_id = execution.id
@@ -515,8 +526,11 @@ class RunEngine:
             await session.execute(delete(RunStage).where(RunStage.run_id == run.id))
         return run, previous
 
-    async def stop(self, task_id: str) -> RunRead:
-        """Stop a running artifact; it stays at its stage and action and can be started again."""
+    async def stop(self, task_id: str, note: str = "stopped") -> RunRead:
+        """Stop a running artifact; it stays at its stage and action and can be started again.
+
+        ``note`` is what the run and its execution say about the end (the STOP switch gives its own).
+        """
         if task_id in self._starting:
             raise ArtifactError(409, "The artifact is just being started")
         job = self._jobs.pop(task_id, None)
@@ -528,7 +542,7 @@ class RunEngine:
             if run is None or run.status != RunStatus.RUNNING:
                 raise ArtifactError(409, "The artifact is not being processed")
             run.status = RunStatus.STOPPED
-            run.note = "stopped"
+            run.note = note
             await self._pause_running_stages(session, run.id)
             changes = await self._close_execution(session, run)
             await session.commit()
@@ -536,6 +550,59 @@ class RunEngine:
         self._bus.publish("run.updated", result.model_dump(mode="json"))
         self.history.publish(changes)
         return result
+
+    # ── the STOP switch (ADR-076) ─────────────────────────────────────
+
+    async def stop_active(self) -> bool:
+        """Whether STOP is on (read from the database; this also refreshes what the process remembers)."""
+        async with self._session() as session:
+            self._stopped = (await stop_switch.load(session))[0]
+        return self._stopped
+
+    async def running_count(self) -> int:
+        """How many executions run now."""
+        async with self._session() as session:
+            return int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(PipelineRun)
+                    .where(PipelineRun.status == RunStatus.RUNNING)
+                )
+                or 0
+            )
+
+    async def set_stop(self, active: bool) -> int:
+        """Switch STOP on or off; on: abort every execution that runs. Returns how many were aborted.
+
+        Order matters for the race with a start that is on its way: the state is written first, then the process
+        remembers it, then the starts that have not finished are waited for (each of them either refuses itself or
+        has registered its run), and only then the runs are looked for and stopped.
+        """
+        async with self._session() as session:
+            await stop_switch.store(session, active, utcnow())
+            await session.commit()
+        self._stopped = active
+        if not active:
+            return 0
+        deadline = time.monotonic() + _START_WAIT_SECONDS
+        while self._starting and time.monotonic() < deadline:
+            await asyncio.sleep(0.02)
+        async with self._session() as session:
+            running = set(
+                (
+                    await session.execute(
+                        select(PipelineRun.task_id).where(PipelineRun.status == RunStatus.RUNNING)
+                    )
+                ).scalars()
+            )
+        aborted = 0
+        for task_id in sorted(running | set(self._jobs)):
+            try:
+                await self.stop(task_id, note=stop_switch.NOTE)
+                aborted += 1
+            except ArtifactError:  # it ended by itself in the meantime
+                continue
+        return aborted
 
     async def recover(self) -> None:
         """After a restart no run is running any more; the ones that were are stopped.
@@ -566,6 +633,9 @@ class RunEngine:
                 .values(status=RunStatus.STOPPED, note="interrupted", finished_at=utcnow())
             )
             await session.commit()
+        await (
+            self.stop_active()
+        )  # STOP survives the restart: the switch stays on until somebody switches it off
 
     async def _close_execution(self, session: AsyncSession, run: PipelineRun) -> Changes:
         """Bring the run's execution in line with the run, then apply the retention policy."""

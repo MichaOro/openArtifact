@@ -39,7 +39,7 @@ from openartifact.artifact_fields.service import (
 from openartifact.comments.schemas import Author
 from openartifact.database import SessionOpener
 from openartifact.engine import history as history_module
-from openartifact.engine import history_query
+from openartifact.engine import history_query, stop_switch
 from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.flow import build_flow
 from openartifact.engine.flow_schemas import ExecutionFlow
@@ -857,6 +857,49 @@ class ArtifactService:
         async with self._session() as session:
             task_id = (await self._task(session, ref)).id
         return await self._engine.stop(task_id)
+
+    # ── the STOP switch (ADR-076) ─────────────────────────────────────
+
+    async def stop_switch_state(self) -> stop_switch.StopState:
+        """Whether STOP is on, since when, whether the switch is offered and how many executions run."""
+        async with self._session() as session:
+            active, since = await stop_switch.load(session)
+            available = await personal_settings.stop_switch_available(session)
+        return stop_switch.StopState(
+            active=active,
+            since=since,
+            available=available,
+            running=await self._engine.running_count(),
+        )
+
+    async def set_stop_switch(self, active: bool) -> stop_switch.StopState:
+        """Switch STOP on (aborts every running execution) or off. On needs the personal setting *Show the STOP switch*.
+
+        Off is always allowed, so a stop can never get stuck behind a hidden switch. Publishes ``settings.changed``
+        with ``stop``.
+        """
+        state = await self.stop_switch_state()
+        if active and not state.available:
+            raise ArtifactError(
+                409,
+                'The STOP switch is switched off: switch on "Show the STOP switch" in the personal settings first',
+                "stop_unavailable",
+            )
+        if active == state.active:
+            return state
+        aborted = await self._engine.set_stop(active)
+        state = (await self.stop_switch_state()).model_copy(update={"aborted": aborted})
+        self._bus.publish("settings.changed", {"stop": state.model_dump(mode="json")})
+        return state
+
+    async def refuse_hiding_active_stop(self) -> None:
+        """409 while STOP is on: the switch cannot be hidden then, a stop is never cleared by a settings change."""
+        if await self._engine.stop_active():
+            raise ArtifactError(
+                409,
+                "STOP is on: switch STOP off before you hide the switch",
+                "stop_active",
+            )
 
     # ── helpers ───────────────────────────────────────────────────────
 

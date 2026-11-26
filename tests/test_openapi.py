@@ -102,6 +102,7 @@ GET /api/secrets/{name}/uses -> SecretUse[]
 GET /api/settings/personal -> PersonalSettingsRead
 GET /api/settings/retention -> RulesRead
 GET /api/settings/run-limits -> RunLimitsRead
+GET /api/settings/stop -> StopState
 GET /api/tasks -> TaskRead[]
 GET /api/tasks/{ref}/activity -> ActivityPage
 GET /api/tasks/{ref}/comments -> CommentRead[]
@@ -148,6 +149,7 @@ GET /api/v1/secrets -> SecretRead[]
 GET /api/v1/settings/personal -> PersonalSettingsRead
 GET /api/v1/settings/retention -> RulesRead
 GET /api/v1/settings/run-limits -> RunLimitsRead
+GET /api/v1/settings/stop -> StopState
 GET /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/v1/ui-layouts/{kind}/{name}/export -> -
 GET /health -> HealthRead
@@ -246,6 +248,7 @@ PUT /api/secrets/{name} -> SecretRead
 PUT /api/settings/personal -> PersonalSettingsRead
 PUT /api/settings/retention -> RulesSaved
 PUT /api/settings/run-limits -> RunLimitsRead
+PUT /api/settings/stop -> StopState
 PUT /api/ui-layouts/{kind}/{name} -> LayoutRead
 PUT /api/v1/agents/{ref}/draft -> AgentDetail
 PUT /api/v1/artifact-fields -> ArtifactFieldsRead
@@ -255,6 +258,7 @@ PUT /api/v1/secrets/{name} -> SecretRead
 PUT /api/v1/settings/personal -> PersonalSettingsRead
 PUT /api/v1/settings/retention -> RulesSaved
 PUT /api/v1/settings/run-limits -> RunLimitsRead
+PUT /api/v1/settings/stop -> StopState
 PUT /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 """.splitlines()
 
