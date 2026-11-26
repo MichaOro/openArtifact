@@ -51,7 +51,7 @@ def test_the_lowest_free_number_fills_a_gap() -> None:
 
 
 def test_only_a_definition_placed_more_than_once_has_numbers_and_kept_numbers_stay() -> None:
-    nodes = [
+    nodes: list[dict[str, Any]] = [
         {"id": "a", "kind": "action", "definition_id": "d", "number": 1},
         {"id": "b", "kind": "action", "definition_id": "d", "number": 3},
         {"id": "c", "kind": "action", "definition_id": "other"},
@@ -63,7 +63,7 @@ def test_only_a_definition_placed_more_than_once_has_numbers_and_kept_numbers_st
 def test_a_node_without_a_number_or_with_a_taken_one_gets_the_lowest_free_in_the_order_of_the_nodes() -> (
     None
 ):
-    nodes = [
+    nodes: list[dict[str, Any]] = [
         {"id": "a", "kind": "action", "definition_id": "d"},
         {"id": "b", "kind": "action", "definition_id": "d", "number": 1},
         {"id": "c", "kind": "action", "definition_id": "d", "number": 1},
