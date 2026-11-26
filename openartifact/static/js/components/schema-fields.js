@@ -22,10 +22,16 @@ function element(tag, className, text = null) {
 
 export class SchemaFields {
   /**
-   * @param {{fields?: object[], types?: string[], limits?: object, max?: number, label?: string, onInput?: () => void, onSettle?: () => void}} options
-   *   `label`: the accessible name of the list
+   * @param {{fields?: object[], types?: string[], limits?: object, max?: number, label?: string, extra?: "default"|"value"|null,
+   *   showRequired?: boolean, decorate?: (input: HTMLInputElement, kind: string) => void, onInput?: () => void, onSettle?: () => void}} options
+   *   `label`: the accessible name of the list; `extra`: one more text each field carries, the default of an input or the value of an
+   *   output (ADR-083); `showRequired`: whether a field has the "required" box (an output has not); `decorate`: called with each extra
+   *   text field (the editor adds the reference suggestions to the value of an output)
    */
-  constructor({ fields = [], types = TYPES, limits = LIMITS, max = MAX_FIELDS, label = "", onInput = () => {}, onSettle = () => {} } = {}) {
+  constructor({ fields = [], types = TYPES, limits = LIMITS, max = MAX_FIELDS, label = "", extra = null, showRequired = true, decorate = null, onInput = () => {}, onSettle = () => {} } = {}) {
+    this.extra = extra;
+    this.showRequired = showRequired;
+    this.decorate = decorate;
     this.types = types;
     this.limits = limits;
     this.max = max;
@@ -93,6 +99,7 @@ export class SchemaFields {
       this.settle();
     });
     required.append(box, element("span", "", t("components.schema_fields.required")));
+    required.hidden = !this.showRequired;
     const bin = element("button", "icon-button icon-button--sm sf__bin");
     bin.type = "button";
     bin.title = t("components.schema_fields.remove", { name });
@@ -104,6 +111,15 @@ export class SchemaFields {
     description.placeholder = t("components.schema_fields.description_placeholder");
     description.setAttribute("aria-label", t("components.schema_fields.description_label", { name }));
     item.append(grip, nameInput, bin, type, required, description);
+    if (this.extra) {
+      const extra = this.typed("input", "sf__extra", field[this.extra] ?? "", (value) => this.change(index, this.extra, value));
+      extra.maxLength = 2000;
+      extra.spellcheck = false;
+      extra.placeholder = t(`components.schema_fields.${this.extra}_placeholder`);
+      extra.setAttribute("aria-label", t(`components.schema_fields.${this.extra}_label`, { name }));
+      this.decorate?.(extra, this.extra);
+      item.append(extra);
+    }
     if (field.type === "choice") {
       const values = this.typed("input", "sf__choices", (field.choices ?? []).join(", "), (value) => this.change(index, "choices", parseChoices(value)));
       values.placeholder = t("components.schema_fields.choices_placeholder");

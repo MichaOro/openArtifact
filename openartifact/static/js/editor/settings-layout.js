@@ -47,7 +47,10 @@ const TITLES = { definition: t("editor.node_types.definition"), behaviour: t("ed
 export function buildSettings({ node, editor, suggest, skip = [], extras = [], inheritance = null }) {
   const type = typeOf(node);
   const titles = { ...TITLES, ...(type.layout?.titles ?? {}) };
-  const plan = planSettings(type.settings, node, { skip, sections: type.layout?.sections, added: opened.get(node.id) ?? new Set() });
+  // a node that runs a definition without inputs has nothing to map (ADR-083): the setting is not drawn
+  const hasInputs = (suggest?.inputsOf?.(node) ?? []).length > 0;
+  const unmapped = type.settings.filter((s) => s.type === "mapping" && !hasInputs).map((s) => s.key);
+  const plan = planSettings(type.settings, node, { skip: [...skip, ...unmapped], sections: type.layout?.sections, added: opened.get(node.id) ?? new Set() });
   const order = new Map(type.settings.map((s, i) => [s.key, i]));
   const redraw = () => (inheritance ? inheritance.refresh() : editor.refresh());
   const open = () => {

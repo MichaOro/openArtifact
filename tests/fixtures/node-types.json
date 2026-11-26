@@ -48,6 +48,8 @@
      ],
      "choice_chars": 60
     },
+    "field_extra": "default",
+    "field_required": true,
     "help": "What this graph takes from the one that runs it: a name, a type, whether it must be given, and a default. Inside, a node reads an input as ${input.name}. The one that runs it gives each input a value; a required input without a value fails the run with a message that names it. Without inputs nothing changes: the nodes read the run context as before.",
     "section": "definition",
     "level": "core",
@@ -215,6 +217,7 @@
     "maximum": null,
     "default": {},
     "stored_in": "config",
+    "max_mapping": 30,
     "help": "The value of each input of what this node runs: a text, a card field (${card.name}) or a reference to the outputs of an earlier node (${node:ID.data.name}). An input left empty uses its default; a required one without a value fails.",
     "section": "definition",
     "level": "core",
@@ -276,6 +279,7 @@
     "maximum": null,
     "default": {},
     "stored_in": "config",
+    "max_mapping": 30,
     "help": "The value of each input of what this node runs: a text, a card field (${card.name}) or a reference to the outputs of an earlier node (${node:ID.data.name}). An input left empty uses its default; a required one without a value fails.",
     "section": "definition",
     "level": "core",
@@ -339,7 +343,6 @@
      "text",
      "number",
      "boolean",
-     "choice",
      "list"
     ],
     "max_fields": 30,
@@ -352,6 +355,8 @@
      ],
      "choice_chars": 60
     },
+    "field_extra": "value",
+    "field_required": false,
     "help": "What this pipeline hands back to the one that ran it: a name, a type and a value (a text, or references such as ${(Node name).output} or ${input.name}). When it ends On Pass the values are worked out and become the data of the node that ran it, where later nodes read them by that node. Without outputs nothing changes.",
     "section": "definition",
     "level": "core",
@@ -492,7 +497,6 @@
      "text",
      "number",
      "boolean",
-     "choice",
      "list"
     ],
     "max_fields": 30,
@@ -505,6 +509,8 @@
      ],
      "choice_chars": 60
     },
+    "field_extra": "value",
+    "field_required": false,
     "help": "What this action hands back to the one that ran it: a name, a type and a value (a text, or references such as ${(Node name).output} or ${input.name}). When it ends On Pass the values are worked out and become the data of the node that ran it, where later nodes read them by that node. Without outputs nothing changes.",
     "section": "definition",
     "level": "core",
@@ -4228,6 +4234,7 @@
      ],
      "choice_chars": 60
     },
+    "field_required": true,
     "help": "The fields of the document, flat (no field holds another object). The model hands over exactly these. A document with a missing required field, a wrong type, a value outside a choice or a field that is not listed is refused, and the answer says why. The last accepted document counts; every call stays in the step.",
     "section": "definition",
     "level": "core",

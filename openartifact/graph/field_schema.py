@@ -91,7 +91,9 @@ def describe(extra: str | None = None) -> dict[str, Any]:
     """What an editor needs to draw the list: the types, the bounds (and which extra text a field carries)."""
     return {
         **({"field_extra": extra} if extra else {}),
-        "field_types": list(TYPES),
+        "field_types": [t for t in TYPES if not (extra == "value" and t == "choice")],
+        # an output is not "required": it is worked out when the action ends
+        "field_required": extra != "value",
         "max_fields": MAX_FIELDS,
         "field_limits": {
             "name_chars": 32,
@@ -151,8 +153,9 @@ def normalise(value: Any, extra: str | None = None) -> list[dict[str, Any]]:
             raise ValueError(f"The field '{name}' is there twice")
         seen.add(name)
         kind = item.get("type", "text")
-        if kind not in TYPES:
-            raise ValueError(f"Field '{name}': the type is one of {', '.join(TYPES)}")
+        if kind not in TYPES or (extra == "value" and kind == "choice"):
+            allowed_types = [t for t in TYPES if not (extra == "value" and t == "choice")]
+            raise ValueError(f"Field '{name}': the type is one of {', '.join(allowed_types)}")
         required = item.get("required", False)
         if not isinstance(required, bool):
             raise ValueError(f"Field '{name}': required is true or false")

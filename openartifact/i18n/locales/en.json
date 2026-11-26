@@ -1610,5 +1610,11 @@
  "editor.reference_completion.gone": "deleted node",
  "editor.reference.inputs.one": "1 input of this graph",
  "editor.reference.inputs.other": "{count} inputs of this graph",
- "editor.setting_controls.refers_to": "Reads:"
+ "editor.setting_controls.refers_to": "Reads:",
+ "components.schema_fields.default_placeholder": "Default (optional)",
+ "components.schema_fields.default_label": "Default of {name}",
+ "components.schema_fields.value_placeholder": "Value: a text, or ${…} references",
+ "components.schema_fields.value_label": "Value of {name}",
+ "editor.setting_controls.mapping_required": "(required)",
+ "editor.setting_controls.mapping_default": "Default"
 }

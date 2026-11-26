@@ -68,6 +68,11 @@ class SettingRead(BaseModel):
     field_types: list[str] | None = None
     max_fields: int | None = None
     field_limits: dict[str, Any] | None = None
+    #: A ``fields`` list: the one more text each field carries (``default`` of an input, ``value`` of an output, ADR-083) and whether a field
+    #: has the "required" box; a ``mapping`` setting: how many inputs it maps at most.
+    field_extra: str | None = None
+    field_required: bool | None = None
+    max_mapping: int | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None

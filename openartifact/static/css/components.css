@@ -1032,7 +1032,7 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 .sf__row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "grip name bin" "type type required" "description description description" "choices choices choices";
+  grid-template-areas: "grip name bin" "type type required" "description description description" "extra extra extra" "choices choices choices";
   align-items: center;
   gap: var(--space-1) var(--space-2);
   min-width: 0;
@@ -1052,6 +1052,7 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 .sf__required { grid-area: required; display: inline-flex; align-items: center; gap: var(--space-1); font-size: 0.8125rem; color: var(--color-text-secondary); white-space: nowrap; }
 .sf__description { grid-area: description; min-width: 0; width: 100%; box-sizing: border-box; }
 .sf__choices { grid-area: choices; min-width: 0; width: 100%; box-sizing: border-box; }
+.sf__extra { grid-area: extra; min-width: 0; width: 100%; box-sizing: border-box; }
 .sf__add { align-self: flex-start; }
 /* a modal gives every control a minimum width of 16 rem; the controls of a row give way to the width of the window instead */
 .sf .sf__row .field__control { min-width: 0; }
@@ -1064,3 +1065,11 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 .confirm-items__item--warning { background: color-mix(in srgb, var(--color-warning, var(--color-text-muted)) 12%, transparent); }
 .confirm-items__mark { font-weight: 700; font-size: 0.6875rem; letter-spacing: 0.04em; text-transform: uppercase; }
 .confirm-items__item--error .confirm-items__mark { color: var(--color-danger); }
+
+/* What an action or pipeline node gives to the inputs of what it runs (ADR-083): a label and a text per declared input. */
+.ge-mapping { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.ge-mapping__row { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ge-mapping__label { font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); }
+.ge-mapping__required { font-weight: 400; color: var(--color-text-muted); }
+.ge-mapping__input { min-width: 0; width: 100%; box-sizing: border-box; }
+.ge-mapping .field__control { min-width: 0; }

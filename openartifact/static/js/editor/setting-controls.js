@@ -58,6 +58,7 @@ class SettingControl {
     this.setting = setting;
     this.end = end;
     this.saved = unsaved ? NOT_SAVED : value;
+    this.source = suggest; // what the graph offers a control (its nodes, the inputs a placement maps), also for controls that take no suggestions
     this.save = save;
     this.busy = false;
     this.again = false;
@@ -838,6 +839,12 @@ class FieldsControl extends SettingControl {
       limits: this.setting.field_limits ?? undefined,
       max: this.setting.max_fields ?? undefined,
       label: this.setting.label,
+      extra: this.setting.field_extra ?? null,
+      showRequired: this.setting.field_required !== false,
+      // the value of an output may name nodes and inputs: the reference list helps there too
+      decorate: (input, kind) => {
+        if (kind === "value" && this.source) suggestReferences(input, this.source, { allowSecrets: false });
+      },
       onInput: () => this.markDirty(),
       onSettle: () => this.commit(),
     });
@@ -865,7 +872,70 @@ class FieldsControl extends SettingControl {
   }
 }
 
+/** What an action or pipeline node gives to the inputs of what it runs (ADR-083): one row per declared input of its definition, each a text
+ * (or a reference to a card field or to the outputs of an earlier node) with the reference list. A row left empty uses the default of the
+ * input; a required one without a value fails the run, and the publish check says so. The rows come from the definition (`source.inputsOf`),
+ * the stored value is `{name: text}` with only the filled rows. */
+class MappingControl extends SettingControl {
+  static kind = "toggle"; // the rows bind their own events (a composite), not the wrapper
+  static row = false;
+
+  createInput(value) {
+    const box = element("div", "ge-mapping");
+    box.dataset.focusKey = `setting-${this.setting.key}`;
+    const given = value && typeof value === "object" ? value : {};
+    this.rows = new Map();
+    const inputs = this.source?.inputsOf?.(this.source.node) ?? [];
+    for (const spec of inputs) {
+      const row = element("div", "ge-mapping__row");
+      const label = element("label", "ge-mapping__label");
+      label.textContent = spec.name;
+      if (spec.required) label.append(element("span", "ge-mapping__required", ` ${t("editor.setting_controls.mapping_required")}`));
+      const input = element("input", "field__control ge-mapping__input");
+      input.type = "text";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.maxLength = 2000;
+      input.value = given[spec.name] ?? "";
+      input.placeholder = spec.default ? `${t("editor.setting_controls.mapping_default")}: ${spec.default}` : spec.description || t(`components.schema_fields.type.${spec.type}`);
+      input.id = `mapping-${this.setting.key}-${spec.name}`;
+      label.htmlFor = input.id;
+      input.addEventListener("input", () => this.markDirty());
+      input.addEventListener("change", () => this.commit());
+      if (this.source) suggestReferences(input, this.source, { allowSecrets: false });
+      row.append(label, input);
+      box.append(row);
+      this.rows.set(spec.name, input);
+    }
+    return box;
+  }
+
+  labelTarget() {
+    return this.rows.values().next().value ?? null;
+  }
+
+  read() {
+    return JSON.stringify(this.value());
+  }
+
+  /** The filled rows as the server stores them. */
+  value() {
+    const out = {};
+    for (const [name, input] of this.rows) if (input.value.trim() !== "") out[name] = input.value;
+    return out;
+  }
+
+  parse() {
+    return this.value();
+  }
+
+  isDirty() {
+    return this.read() !== this.baseline;
+  }
+}
+
 const CONTROLS = {
+  mapping: MappingControl,
   credential: CredentialControl,
   integer: IntegerControl,
   number: NumberControl,
