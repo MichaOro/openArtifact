@@ -42,3 +42,15 @@ the first and the second are one definition.
 - The check before publishing (ADR-082) reads a declared contract: a required input without a mapping, an output that is not declared, and an action that
   declares nothing but is read as if it did, are findings.
 - The window of the Trigger, the Output, the Complete and of the node that runs an action are the places to see and change the contract.
+
+## Addendum 1: the field list of the Trigger, Output and Complete windows is one row per field
+
+The first version drew every field stacked (name, type and *Required*, a description with the text meant for a model, a default), which is right for the narrow
+window of the Hand Over Tool and wrong for a window with room. The `fields` setting that carries an `extra` (the default of an input, the value of an output) is
+drawn by the **wide variant** of `SchemaFields` (`wide: true`, the same component and model): **one row per field under a row of column heads**: handle, *Name \**,
+*Type*, *Required* (not in an output's list), *Description*, *Default* (inputs) or *Value* (outputs), bin; the columns of the heads and of the rows are one grid
+(`rowPlan` in `schema-fields-model.js` gives the columns and the template). The keyboard goes through a row in the order of its columns (name, type, required,
+description, default or value, bin). The text "What the model puts here" and the default and value placeholders are not drawn there (the head names the column; the
+text for a model belongs to the Hand Over Tool, where it stays). The window gets the wide size (`is-wide`, 56 rem) when it holds such a list. In a window narrower than
+44 rem (a container query on the list) the stacked layout is back, so nothing lies over anything at any width. The values of a choice stay a line of their own under
+the row.

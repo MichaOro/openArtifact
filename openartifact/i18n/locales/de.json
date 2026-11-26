@@ -2398,5 +2398,11 @@
  "storage.shrink_help": "VACUUM: braucht freien Platz in der Größe der Datenbank und hält sie kurz an.",
  "storage.next_pass": "nächster Durchlauf",
  "storage.in": "in {time}",
- "storage.due_now": "jetzt fällig"
+ "storage.due_now": "jetzt fällig",
+ "components.schema_fields.head.name": "Name *",
+ "components.schema_fields.head.type": "Typ",
+ "components.schema_fields.head.required": "Pflicht",
+ "components.schema_fields.head.description": "Beschreibung",
+ "components.schema_fields.head.default": "Standard",
+ "components.schema_fields.head.value": "Wert"
 }

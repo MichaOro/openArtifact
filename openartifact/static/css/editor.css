@@ -196,6 +196,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* the system's number of a placement (ADR-082): first, quieter than the name (secondary text keeps 4.5:1 on the tinted card), and not the user's to change */
+.ge-node__number { font-weight: 400; font-size: 0.75rem; color: var(--color-text-secondary); }
+/* an action card draws On Pass / On Error inside its right edge: the name stops before them (cut with an ellipsis), it never runs into the labels */
+.ge-node[data-behaviour="action"] { padding-right: 3.5rem; } /* the widest label ("On Error") ends 8px from the edge and is about 42px wide */
 .ge-node__kind { font-size: 0.6875rem; color: var(--color-text-secondary); } /* secondary, not muted: on the tinted card the muted text fell under 4.5:1 (checked per kind in both themes) */
 
 /* --ge-stage-header is set by canvas.js from HEADER in node-types.js; 44px is only the fallback */
@@ -338,6 +342,7 @@
 }
 .ge-inspector__heading p,
 .ge-inspector__note { font-size: 0.8125rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.ge-inspector__number { font-weight: 400; color: var(--color-text-secondary); } /* the system's number of a placement, not the user's to edit (ADR-082) */
 .ge-inspector__section { display: flex; flex-direction: column; gap: var(--space-3); }
 .ge-setting { display: flex; flex-direction: column; gap: var(--space-1); }
 .ge-inspector__section h3 {

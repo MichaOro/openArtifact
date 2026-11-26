@@ -1054,6 +1054,22 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 .sf__choices { grid-area: choices; min-width: 0; width: 100%; box-sizing: border-box; }
 .sf__extra { grid-area: extra; min-width: 0; width: 100%; box-sizing: border-box; }
 .sf__add { align-self: flex-start; }
+/* The wide variant (Trigger, Output and Complete windows, ADR-083): one row per field under a row of column heads; the columns and their
+   areas come from rowPlan (schema-fields-model.js) as --sf-cols, --sf-row and --sf-row-2 on the list. It needs the room of its window
+   (container query): in a narrower one the stacked layout above stays. The head is only for the eye (aria-hidden), the inputs name themselves. */
+.sf--wide { container-type: inline-size; }
+.sf__head { display: none; }
+@container (min-width: 44rem) {
+  .sf--wide .sf__head,
+  .sf--wide .sf__row { grid-template-columns: var(--sf-cols); gap: var(--space-1) var(--space-2); align-items: center; }
+  .sf--wide .sf__head { display: grid; grid-template-areas: var(--sf-row); padding: 0 0 var(--space-1); font-size: 0.75rem; color: var(--color-text-secondary); border-bottom: 1px solid var(--glass-border); }
+  .sf--wide .sf__row { grid-template-areas: var(--sf-row) var(--sf-row-2); }
+  .sf--wide .sf__h { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sf--wide .sf__h--required { text-align: center; }
+  .sf--wide .sf__required { justify-self: center; }
+  .sf--wide .sf__required-text { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } /* the head says it */
+  .sf--wide .sf__bin { justify-self: center; }
+}
 /* a modal gives every control a minimum width of 16 rem; the controls of a row give way to the width of the window instead */
 .sf .sf__row .field__control { min-width: 0; }
 

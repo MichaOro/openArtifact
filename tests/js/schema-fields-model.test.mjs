@@ -69,3 +69,16 @@ test("only a choice is checked for values", () => {
   assert.equal(fieldProblem([{ name: "a", type: "text" }], 0), null);
   assert.equal(fieldProblem([{ name: "a", type: "list" }], 0), null);
 });
+
+test("a row of the wide list has the columns that are there, in the keyboard's order, and the choices under all but the handle and the bin", async () => {
+  const { rowPlan } = await import("../../openartifact/static/js/components/schema-fields-model.js");
+  const inputs = rowPlan({ showRequired: true, extra: "default" });
+  assert.deepEqual(inputs.columns, ["grip", "name", "type", "required", "description", "extra", "bin"]);
+  assert.equal(inputs.row, '"grip name type required description extra bin"');
+  assert.equal(inputs.choices, '". choices choices choices choices choices ."');
+  const outputs = rowPlan({ showRequired: false, extra: "value" });
+  assert.deepEqual(outputs.columns, ["grip", "name", "type", "description", "extra", "bin"], "an output has no required box");
+  assert.equal(outputs.template.split(" ").length >= outputs.columns.length, true);
+  const plain = rowPlan({ showRequired: true, extra: null });
+  assert.deepEqual(plain.columns, ["grip", "name", "type", "required", "description", "bin"]);
+});

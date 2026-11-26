@@ -64,10 +64,12 @@ def test_the_menu_offers_if_and_switch_after_http(
             "HTTP Request Tool",
             "Execute Command Tool",
             "Postgres Tool",
+            "OpenArtifact MCP Tool",  # ADR-079
+            "Hand Over Tool",  # ADR-080
         ],
         "Apps and data": ["GitHub", "Postgres"],
         "Core": ["Execute Command", "HTTP request"],
-        "Data": ["Edit Fields", "Artifact"],
+        "Data": ["Edit Fields", "Artifact", "Build Context"],  # ADR-078
         "Flow": ["If", "Switch", "Timer"],
     }
 
@@ -259,27 +261,31 @@ def test_typing_a_reference_suggests_and_the_keyboard_accepts(
     expect(listbox.get_by_role("option", name="exit_code")).to_have_count(0)
     # choosing a node shows what is behind it
     url.press_sequentially("(Decide).")
-    expect(_options(page)).to_have_count(4 + 1)  # the If node's own result: 5 fields
+    # the If node's own result: the 5 fields it had plus the 3 of the result core every node leaves (success, attempts, duration_ms: ADR-072)
+    expect(_options(page)).to_have_count(4 + 1 + 3)
     url.fill("https://example.org/${(Fetch")
     expect(_options(page)).to_have_count(1)
     url.press("Enter")
-    expect(url).to_have_value("https://example.org/${(Fetch user).")
+    # the list inserts the node by its id and shows its name (ADR-082: a rename changes no reference)
+    id_form = re.compile(r"^https://example\.org/\$\{node:([0-9a-f-]{36})\.$")
+    expect(url).to_have_value(id_form)
+    prefix = url.input_value()
     expect(_options(page).first).to_contain_text("(Fetch user).output")
     url.press("ArrowDown")
     expect(url).to_have_attribute("aria-activedescendant", re.compile(r"^ge-suggest-\d+-1$"))
     url.press("Enter")
-    expect(url).to_have_value("https://example.org/${(Fetch user).exit_code}")
+    expect(url).to_have_value(f"{prefix}exit_code}}")
     expect(listbox).to_be_hidden()
     # typing filters, Escape closes and keeps what was typed
     url.press_sequentially("?q=${var.pr")
     expect(_options(page)).to_have_count(1)
     url.press("Escape")
     expect(listbox).to_be_hidden()
-    expect(url).to_have_value("https://example.org/${(Fetch user).exit_code}?q=${var.pr")
+    expect(url).to_have_value(f"{prefix}exit_code}}?q=${{var.pr")
     url.press("Control+ ")  # Ctrl+Space inside an open ${ asks again
     expect(_options(page)).to_have_count(1)
     _options(page).first.click()
-    expect(url).to_have_value("https://example.org/${(Fetch user).exit_code}?q=${var.priority}")
+    expect(url).to_have_value(f"{prefix}exit_code}}?q=${{var.priority}}")
 
 
 def test_conditions_never_suggest_secrets_and_the_code_text_never_suggests(

@@ -841,6 +841,7 @@ class FieldsControl extends SettingControl {
       label: this.setting.label,
       extra: this.setting.field_extra ?? null,
       showRequired: this.setting.field_required !== false,
+      wide: this.setting.field_extra != null, // the Trigger, Output and Complete windows: one row per field (the Hand Over Tool has no extra and stays compact)
       // the value of an output may name nodes and inputs: the reference list helps there too
       decorate: (input, kind) => {
         if (kind === "value" && this.source) suggestReferences(input, this.source, { allowSecrets: false });

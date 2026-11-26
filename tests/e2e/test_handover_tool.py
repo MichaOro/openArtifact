@@ -44,6 +44,13 @@ def test_the_fields_are_a_list_that_is_added_to_edited_ordered_and_kept(
     modal.locator(".sf__add").click()
     modal.locator(".sf__add").click()
     expect(rows).to_have_count(2)
+    # this narrow window keeps its compact layout (the one row per field with heads belongs to the Trigger, Output and Complete windows,
+    # ADR-083) and the text for a model: it is where a model fills the field
+    expect(modal.locator(".sf--wide")).to_have_count(0)
+    expect(modal.locator(".sf__head")).to_have_count(0)
+    expect(rows.nth(0).locator(".sf__description")).to_have_attribute(
+        "placeholder", "What the model puts here"
+    )
     expect(rows.nth(0).locator(".sf__name")).to_have_value("field")
     expect(rows.nth(1).locator(".sf__name")).to_have_value("field_2")
     eventually(
