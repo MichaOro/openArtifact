@@ -553,3 +553,32 @@
 .ge-source__names { flex: 1 1 auto; min-height: 0; height: 4.5rem; resize: vertical; }
 .ge-source__bin { flex: 0 0 auto; order: 2; }
 .ge-sources__add { align-self: flex-start; width: auto; min-width: 12rem; }
+
+/* The Dry run tab of the Trigger window (editor/dry-run-panel.js, ADR-086) */
+.ge-dry-tabs { padding: 0; margin-bottom: var(--space-3); }
+.ge-dry { display: grid; gap: var(--space-3); }
+.ge-dry__lead, .ge-dry__note { margin: 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.ge-dry__inputs, .ge-dry__version { margin: 0; padding: 0; border: 0; min-width: 0; }
+.ge-dry__legend { padding: 0; margin-bottom: var(--space-1); font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); }
+.ge-dry__rows { display: grid; gap: var(--space-2); }
+.ge-dry__row { display: grid; gap: var(--space-1); }
+.ge-dry__required { font-weight: 400; color: var(--color-text-muted); }
+.ge-dry__lines { resize: vertical; }
+.ge-dry__choices { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.ge-dry__choice { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 0.875rem; cursor: pointer; }
+.ge-dry__check { font-size: 0.8125rem; color: var(--color-text-secondary); min-height: 1.25rem; }
+.ge-dry__check[data-state="problems"] { color: var(--color-danger); }
+.ge-dry__check p, .ge-dry__problems { margin: 0; }
+.ge-dry__problems { padding-left: var(--space-4); }
+.ge-dry__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.ge-dry__hint { font-size: 0.8125rem; color: var(--color-text-muted); }
+.ge-dry__error { margin: 0; font-size: 0.8125rem; color: var(--color-danger); }
+.ge-dry__result { display: grid; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--glass-border); }
+.ge-dry__resulthead { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.ge-dry__resulthead[data-status="failed"] strong { color: var(--color-danger); }
+.ge-dry__steps { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); font-size: 0.8125rem; }
+.ge-dry__step { padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-text-muted) 10%, transparent); }
+.ge-dry__step[data-outcome="fail"] { background: color-mix(in srgb, var(--color-danger) 14%, transparent); }
+.ge-dry__stepoutcome { color: var(--color-text-secondary); }
+.ge-dry__steptext { margin: 0; overflow-wrap: anywhere; color: var(--color-text-secondary); }
+.ge-dry__history { font-size: 0.8125rem; justify-self: start; }

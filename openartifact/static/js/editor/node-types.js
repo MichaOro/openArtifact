@@ -292,6 +292,15 @@ class PipelineNodeView extends NodeView {
   }
 }
 
+/** The Trigger: its window has two tabs, the inputs it declares and a dry run of the graph (ADR-086). An Output node has no such tab: it only gives data out. */
+class TriggerView extends NodeView {
+  static kind = "trigger";
+
+  sections(node, blocks) {
+    return [blocks.triggerTabs(node, [blocks.settings(node), blocks.actions(node, { remove: !this.fixed })])];
+  }
+}
+
 class OutputView extends NodeView {
   /** The connectors sit below the name, On Pass above On Fail. */
   portLocal(node, port) {
@@ -326,6 +335,8 @@ const VIEWS = new Map();
 export function registerView(View) {
   VIEWS.set(View.kind, View);
 }
+
+registerView(TriggerView);
 
 const TYPES = new Map();
 
