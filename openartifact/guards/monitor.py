@@ -552,6 +552,8 @@ class Monitor:
             "at": now().isoformat(),
             "guard_id": guard.id,
             "guard": guard.name,
+            #: the published version the run froze (``None``: a run frozen before versions existed, ADR-081)
+            "guard_version": guard.data.get("version"),
             "scope_type": scope.type,
             "scope_id": scope.id,
             "scope_name": scope.name,

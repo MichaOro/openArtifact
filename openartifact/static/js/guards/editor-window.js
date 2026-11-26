@@ -4,8 +4,11 @@
  * (templates are in the page's New menu). The form itself is a manifest (ui/forms/guard.yaml) drawn by components/
  * form-view.js in two columns on a wide window: trigger and condition on the left, escalation, consequence and the
  * guard's own action (Logic) on the right; its custom widgets are in guards/widgets.js. Below it a live preview. The
- * header says in how many places the definition is used: a change acts on all of them. */
+ * header says in how many places the definition is used and carries the mark of the draft ("Draft", "v3 published"): Save keeps
+ * the draft, and the mark's popup publishes it or throws it away (ADR-081; it saves a form that was changed first). Only the
+ * published version applies where the guard is attached. */
 import { FormView } from "../components/form-view.js";
+import { PublicationControl } from "../editor/publication-control.js";
 import { InlineName } from "../components/inline-name.js";
 import { formStructure } from "../components/layout-model.js";
 import { WindowLayout } from "../components/window-layout.js";
@@ -128,7 +131,46 @@ export class GuardEditor {
     this.used = make("p", "gd-used");
     this.used.dataset.guardUsed = "";
     this.used.hidden = true;
-    title.after(this.used);
+    // the mark of the draft ("Draft", "v3 published") with its popup (Publish, Discard draft), beside how many places use the guard
+    this.stateHost = make("span", "gd-state");
+    this.stateHost.dataset.guardState = "";
+    this.stateHost.hidden = true;
+    const meta = make("div", "gd-meta"); // one line: the mark and, beside it, how many places use the guard
+    meta.append(this.stateHost, this.used);
+    title.after(meta);
+    const calls = model.versionCalls(send);
+    this.mark = new PublicationControl(this.stateHost, {
+      texts: model.versionWords,
+      popupParent: this.root.querySelector(".modal__panel"),
+      calls: { publish: () => calls.publish(this.guard.id), discard: () => calls.discard(this.guard.id) },
+      beforeAct: () => this.#store(), // a form that was changed is saved as the draft first
+      onChanged: () => this.#reload(),
+    });
+  }
+
+  /** The line under the title (where the guard is used, that only the published version applies there) and the mark of the draft. */
+  #drawHeader() {
+    const guard = this.guard;
+    const count = guard?.used_by ?? 0;
+    this.used.hidden = !guard;
+    const parts = [count ? `${model.usedText(count)}. ${t("guards.used_note")}` : model.usedText(0)];
+    if (guard && guard.published_version == null) parts.push(t("guards.not_published_note"));
+    this.used.textContent = parts.join(" ");
+    this.stateHost.hidden = !guard;
+    if (guard) this.mark.update(guard);
+  }
+
+  /** After a publication or a discard: read the definition again (a discarded draft changes the form) and tell the page. */
+  async #reload() {
+    const fresh = await request(`${URL}/${this.guard.id}`);
+    this.guard = fresh;
+    this.state = structuredClone({ ...fresh, scope_types: fresh.scope_types ?? [...model.SCOPES] });
+    this.nameText.setText(this.state.name);
+    this.#setError("");
+    this.#drawHeader();
+    this.#draw();
+    this.#preview();
+    this.hooks.onSaved(fresh);
   }
 
   async #show(guard, state, attachTo) {
@@ -148,9 +190,8 @@ export class GuardEditor {
     }
     this.layout.setWindow("forms/guard", { width: this.manifest.width ?? null });
     this.nameText.setText(state.name);
-    const count = guard?.used_by ?? 0;
-    this.used.hidden = !guard;
-    this.used.textContent = count ? `${model.usedText(count)}. ${t("guards.used_note")}` : model.usedText(0);
+    this.saveButton.textContent = t("guards.save_draft");
+    this.#drawHeader();
     this.deleteButton.hidden = !guard;
     const blocked = guard ? model.deleteBlocked(guard) : "";
     this.deleteButton.setAttribute("aria-disabled", String(Boolean(blocked)));
@@ -251,8 +292,9 @@ export class GuardEditor {
     }
   }
 
-  /** Save the definition (and attach a new one where it was made for); `openAction`: then open its action. */
-  async #save({ openAction = false } = {}) {
+  /** Store the form as the draft (and attach a new definition where it was made for): the guard as the server has it now. A form with a
+   * problem throws its reason (shown by the caller) and stores nothing. */
+  async #store() {
     if (this.nameText.editing) {
       // the name field is still open: what it holds is the name
       const typed = this.nameText.element.querySelector("input")?.value.trim() ?? "";
@@ -264,18 +306,30 @@ export class GuardEditor {
     }
     const fieldsOk = this.form.validate();
     const problem = model.problem(this.state, this.schema);
-    if (problem || !fieldsOk) return this.#setError(problem || t("guards.fix_marked"));
+    if (problem || !fieldsOk) throw new Error(problem || t("guards.fix_marked"));
     const body = model.body(this.state);
+    let saved = this.guard ? await send(`${URL}/${this.guard.id}`, "PATCH", body) : await send(URL, "POST", body);
+    this.guard = saved;
+    if (this.attachTo) {
+      const place = this.attachTo;
+      await send("/api/guard-attachments", "POST", { guard_id: saved.id, graph_id: place.graphId, scope_type: place.type, scope_id: model.isGraphScope(place.type) ? null : place.id });
+      this.attachTo = null;
+      saved = await request(`${URL}/${saved.id}`);
+      this.guard = saved;
+    }
+    return saved;
+  }
+
+  /** Save the draft of the definition and close; `openAction`: instead open its action. */
+  async #save({ openAction = false } = {}) {
     this.saveButton.disabled = true;
     try {
-      let saved = this.guard ? await send(`${URL}/${this.guard.id}`, "PATCH", body) : await send(URL, "POST", body);
-      this.guard = saved;
-      if (this.attachTo) {
-        const place = this.attachTo;
-        await send("/api/guard-attachments", "POST", { guard_id: saved.id, graph_id: place.graphId, scope_type: place.type, scope_id: model.isGraphScope(place.type) ? null : place.id });
-        this.attachTo = null;
-        saved = await request(`${URL}/${saved.id}`);
-        this.guard = saved;
+      let saved;
+      try {
+        saved = await this.#store();
+      } catch (error) {
+        if (!error.status && !error.fieldErrors) return this.#setError(error.message);
+        throw error;
       }
       if (openAction && saved.action_id) {
         window.location.assign(this.hooks.actionUrl(saved.action_id, saved.id));

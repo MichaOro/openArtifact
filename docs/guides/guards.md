@@ -41,7 +41,8 @@ call. The counters are kept with the execution (`guard_state`) and shown in its 
 
 *Pipeline* → **Guards** lists every guard of the library as cards or as rows (a switch remembers the choice), like the pages of
 actions and pipelines ([ADR-069](../architecture/adr/069-management-pages.md)). A card shows the name, two chips (what fires it:
-"Every 1 minute", "On entered"; the consequence: "Pause the run"), the condition in words ("Time without progress is at least
+"Every 1 minute", "On entered"; the consequence: "Pause the run") and a third chip that says where the guard stands between draft and
+published (*Draft*, *v3 published*, *Draft has changes*), the condition in words ("Time without progress is at least
 15 minutes") and **Used in N places**. The search finds a guard by its name, its description or its trigger and condition; the
 order is by name or by how often it is used.
 
@@ -50,13 +51,34 @@ order is by name or by how often it is used.
   and opens in the editor).
 - A **click** selects a guard and shows its details on the right; a **double click**, the **pencil** and **Enter** open it in the
   **guard editor**. The arrow keys move through the list. On a narrow screen the details rise from the bottom.
-- The **detail panel** has three tabs: **Overview** (what fires it, the condition as a sentence, the consequence, the guard's own
+- The **detail panel** has four tabs: **Overview** (what fires it, the condition as a sentence, the consequence, the guard's own
   action with a link to it, what happens if that action fails, the escalation steps, the description), **Usage** (where it is
-  attached: the pipeline or the action definition as a link, and what it watches there; a detached attachment says *Off*) and
+  attached: the pipeline or the action definition as a link, and what it watches there; a switched-off attachment says *Off*, one
+  whose guard nobody published says *Not published*), **Versions** (see below) and
   **Preview** (for how many running scopes the condition holds right now, the same sentence as under the editor's condition).
 - **Delete** (the bin) is refused while the guard is attached anywhere: the bin says why ("Detach it first: it is used
   in 2 places"). Detach it in the pipelines first. Its own action stays (an action definition like any other).
 - A definition has no on/off of its own: only where it is attached it is switched on or off.
+
+### Draft and published versions ([ADR-081](../architecture/adr/081-guard-versions.md))
+
+A guard has a **draft** and numbered **published versions**, like a pipeline, an action or an agent. Only the **published version** applies where
+the guard is attached.
+
+- A **new guard is a draft and watches nothing** until you publish it. You can attach it before; the attachment is inactive (the window says
+  *Not published yet*, the Usage tab *Not published*). A guard made from a template is published as version 1 at once.
+- **Save** in the guard window (*Save draft*) saves the **draft**. It changes nothing for executions.
+- **Publish** makes the draft a new version; executions that **start from then on** use it. An execution that is already running **keeps the
+  version it started with**: a save, a publication or a rollback does not reach it.
+- **Discard draft** throws the changes away: the draft is the published version again. **Publish again** (Versions tab) makes a new version with the
+  content of an earlier one; the history stays and the draft is not touched.
+- **Switching a guard on or off where it is attached is not part of a version.** It acts **at once**, also on running executions, and needs no
+  publication, so a guard can be switched off in an emergency. Attaching and detaching are not versions either.
+- The **Versions** tab of the panel has *Publish* on top (with a note where the draft stands), the versions newest first (*In use* marks the
+  published one), *Show* (the Overview draws that version read-only, with a way back to the draft) and *Publish again*. The chip in the guard window
+  opens a small popup with *Publish* and *Discard draft* when there is something to do; a changed form is saved as the draft first.
+- An execution names the version in its history: "Health guard v3" fired at ... An execution that started before versions existed shows no
+  version.
 
 ## Attaching a guard
 
@@ -129,8 +151,9 @@ examples are in [execution-nodes](execution-nodes.md#sqlite-node-guard-actions-o
 
 The window's title is **Guard – NAME**: the name is renamed in place (click it, or Enter or Space on it; Enter keeps,
 Escape leaves only the field; a guard needs a name, an empty one is refused with a hint). Under the title it says in how
-many places the guard is used: **a change affects all of them** (at the next start of a run; a running execution keeps
-what it started with). There is no Name row and no template row (templates are in the page's *New guard* menu).
+many places the guard is used: **only the published version applies** there (a save is a draft; see *Draft and published versions* above), and, for
+a guard nobody published, that it watches nothing yet. Beside it the **mark of the draft** (*Draft*, *v3 published*) opens the popup *Publish* /
+*Discard draft*. There is no Name row and no template row (templates are in the page's *New guard* menu).
 
 The form is a manifest (`ui/forms/guard.yaml`, [ADR-062](../architecture/adr/062-configuration-windows-as-data.md)) drawn by
 `form-view.js`: on a wide window **Trigger** and **Then** side by side, **Condition** across the whole width, **Escalation steps**

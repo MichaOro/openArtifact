@@ -187,6 +187,40 @@ export function previewText(result) {
   return result.running_scopes ? tn("guards.preview_fires", result.matching, { running: result.running_scopes }) : t("guards.preview_none_running");
 }
 
+/** The words of the publication mark and of the Versions tab where they differ for a guard (ADR-081): a guard that was never published
+ * watches nothing, and switching it on or off is not part of a version. `null`: the words of a pipeline or an action. */
+export function versionWords(key, params) {
+  switch (key) {
+    case "note_nothing_published":
+      return t("guard_versions.note_nothing_published");
+    case "note_equal":
+      return t("guard_versions.note_equal", params);
+    case "note_changed":
+      return t("guard_versions.note_changed", params);
+    case "publish_confirm":
+      return t("guard_versions.publish_confirm");
+    case "popup_label":
+      return t("guard_versions.popup_label");
+    default:
+      return null;
+  }
+}
+
+/** The calls of a guard's versions, in the shape the Versions tab and the publication mark take (`/api/guards/{id}/...`). */
+export function versionCalls(send) {
+  const base = (id) => `/api/guards/${encodeURIComponent(id)}`;
+  return {
+    versions: (id) => send(`${base(id)}/versions`, "GET"),
+    version: (id, number) => send(`${base(id)}/versions/${number}`, "GET"),
+    publish: (id) => send(`${base(id)}/publish`, "POST"),
+    republish: (id, number) => send(`${base(id)}/versions/${number}/republish`, "POST"),
+    discard: (id) => send(`${base(id)}/draft/discard`, "POST"),
+  };
+}
+
+/** Whether an attachment watches nothing for want of a published version of its guard. */
+export const isInactive = (attachment) => attachment.guard_published === false;
+
 /** Where an attachment sits, for the usage list: the holder (a pipeline or an action definition) as a link target, and what it watches. */
 export function attachmentPlace(attachment) {
   const action = attachment.holder_kind === "action";

@@ -252,3 +252,13 @@ def test_progress_and_a_heartbeat_restart_the_stall_clock(clock: Clock) -> None:
         "note": "still thinking",
         "count": 1,
     }
+
+
+def test_a_firing_names_the_version_the_run_froze_and_none_for_a_run_frozen_before_versions() -> (
+    None
+):
+    frozen = {**_guard(events=["enter"], ident="g1"), "version": 3}
+    old = _guard(events=["enter"], ident="g2")  # a snapshot from before ADR-081 has no "version"
+    monitor = Monitor([frozen, old], Hooks())
+    asyncio.run(_rounds(monitor, 1))
+    assert {f["guard_id"]: f["guard_version"] for f in monitor.firings} == {"g1": 3, "g2": None}

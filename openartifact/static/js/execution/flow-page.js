@@ -274,7 +274,7 @@ class FlowPage {
         const item = document.createElement("li");
         item.className = "ef-guards__item";
         const name = document.createElement("strong");
-        name.textContent = firing.guard;
+        name.textContent = firing.guard_version ? `${firing.guard} v${firing.guard_version}` : firing.guard;
         item.append(icon("shield"), name, document.createTextNode(` ${sentenceOf({ kind: "guard", data: firing })}`));
         return item;
       }),

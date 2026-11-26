@@ -119,3 +119,30 @@ test("an attachment links to its holder (a pipeline or an action definition) and
   const whole = { holder_kind: "action", graph_id: "a1", holder_name: "Judge", scope_type: "definition", scope_name: "Judge" };
   assert.deepEqual(G.attachmentPlace(whole), { href: "/actions/a1", holder: "Action definition Judge", watches: "Action definition" });
 });
+
+test("a guard's versions: the words that differ from a graph's, null for the rest, and the calls under /api/guards/{id}", async () => {
+  assert.match(G.versionWords("note_nothing_published"), /this guard watches nothing yet/);
+  assert.match(G.versionWords("note_changed", { number: 3 }), /version 3.*Switching the guard on or off acts at once/);
+  assert.match(G.versionWords("publish_confirm"), /a running execution keeps its version/);
+  assert.equal(G.versionWords("discard_confirm"), null, "the words of a graph are used for what does not differ");
+  const seen = [];
+  const calls = G.versionCalls(async (url, method) => seen.push(`${method} ${url}`));
+  await calls.versions("g 1");
+  await calls.version("g 1", 2);
+  await calls.publish("g 1");
+  await calls.republish("g 1", 2);
+  await calls.discard("g 1");
+  assert.deepEqual(seen, [
+    "GET /api/guards/g%201/versions",
+    "GET /api/guards/g%201/versions/2",
+    "POST /api/guards/g%201/publish",
+    "POST /api/guards/g%201/versions/2/republish",
+    "POST /api/guards/g%201/draft/discard",
+  ]);
+});
+
+test("an attachment to a guard nobody published is inactive; one without the field is not", () => {
+  assert.equal(G.isInactive({ guard_published: false }), true);
+  assert.equal(G.isInactive({ guard_published: true }), false);
+  assert.equal(G.isInactive({}), false);
+});

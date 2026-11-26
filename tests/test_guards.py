@@ -87,6 +87,15 @@ def _attach(
     )
 
 
+def _published(client: TestClient, **fields: Any) -> dict[str, Any]:
+    """A definition made for a test and published as version 1: a new definition is a draft and watches nothing (ADR-081)."""
+    guard = post(client, GUARDS, **fields)
+    response = client.post(f"{GUARDS}/{guard['id']}/publish")
+    assert response.status_code == 200, response.text
+    published: dict[str, Any] = response.json()["guard"]
+    return published
+
+
 def _guard_on(
     client: TestClient,
     pipeline: dict[str, Any],
@@ -95,7 +104,7 @@ def _guard_on(
     **extra: Any,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """A definition made for this test and attached to one scope: (definition, attachment)."""
-    guard = post(client, GUARDS, **_definition(**extra))
+    guard = _published(client, **_definition(**extra))
     return guard, _attach(client, guard, pipeline, scope_type, scope_id)
 
 
@@ -566,7 +575,10 @@ def test_a_running_execution_keeps_the_definition_it_started_with_and_the_next_o
     task = make_task(client)
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
     changed = {"name": "Renamed", "when": _group(_at_least("runs", 7))}
-    assert client.patch(f"{GUARDS}/{guard['id']}", json=changed).status_code == 200
+    assert client.patch(f"{GUARDS}/{guard['id']}", json=changed).status_code == 200  # the draft
+    assert (
+        client.post(f"{GUARDS}/{guard['id']}/publish").status_code == 200
+    )  # version 2, while the run runs
     first = wait_for_run(client, task, "stopped", timeout=20)
     assert first["note"].startswith("Paused by guard Round guard fired at Stage 1: round 5")
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
@@ -786,9 +798,8 @@ def test_a_node_guard_stops_a_stalled_agent_like_node_inside_an_action_and_pause
     action = _code_definition(client, "Sleeping action", "sleep 30")
     link(client, pipeline, work, action)
     code = kind_of(client, action, "code")
-    guard = post(
+    guard = _published(
         client,
-        GUARDS,
         **_definition(
             name="Node stall",
             trigger={"type": "interval", "every_seconds": 1, "for_seconds": 0},
@@ -825,7 +836,7 @@ def test_a_definition_guard_counts_apart_for_one_action_used_in_two_stages(
     action = _code_definition(client, "Shared", "echo ok")
     link(client, pipeline, first, action)
     link(client, pipeline, second, action)
-    guard = post(client, GUARDS, **_definition(name="Per use", when=_group(_at_least("runs", 1))))
+    guard = _published(client, **_definition(name="Per use", when=_group(_at_least("runs", 1))))
     assert _attach_to(client, guard, action, "definition", None).status_code == 201
     task = make_task(client)
     post(client, f"/api/tasks/{task['id']}/run", pipeline_id=pipeline["id"])
@@ -855,15 +866,13 @@ def test_a_node_guard_in_a_looping_action_counts_every_entry_and_hears_pass_and_
     action = _code_definition(client, "Step", "echo ok")
     link(client, pipeline, work, action)
     code = kind_of(client, action, "code")
-    guard = post(
+    guard = _published(
         client,
-        GUARDS,
         **_definition(name="Third entry", when=_group(_at_least("runs", 3)), consequence="pause"),
     )
     assert _attach_to(client, guard, action, "node", code["id"]).status_code == 201
-    passed = post(
+    passed = _published(
         client,
-        GUARDS,
         **_definition(
             name="Heard a pass",
             trigger={"type": "event", "events": ["pass"]},
@@ -892,9 +901,8 @@ def test_a_node_guard_hears_an_error_whatever_the_failure_setting_does_with_it(
     action = _code_definition(client, "Broken", "exit 3")
     link(client, pipeline, work, action)
     code = kind_of(client, action, "code")
-    guard = post(
+    guard = _published(
         client,
-        GUARDS,
         **_definition(
             name="Saw an error",
             trigger={"type": "event", "events": ["error"]},

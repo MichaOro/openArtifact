@@ -75,3 +75,9 @@ the graph editor.
   with `graph.changed`.
 - **Unsaved edits.** The editor saves every change at once, so there is no unsaved graph. Text typed into a field and not left yet is saved first.
 - The agent editor keeps its own header buttons (*Save draft*, *Discard draft*, *Publish*): it does not use this mark.
+
+## Addendum 2 (2026-11-26): guards get the same
+
+The guard library has a draft and published versions in the same words (*Draft*, *v3 published*, *Draft has changes*, *Publish*, *Publish again*, *Discard
+draft*) and the same popup on the chip ([ADR-081](081-guard-versions.md)). One difference: a graph that was never published runs its draft, a guard that was never
+published watches nothing.

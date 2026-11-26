@@ -34,7 +34,7 @@ should use `/api/v1` and MCP. Open without a token: `/health`, `/login`, `/logou
 
 Errors are JSON `{"detail": "..."}`. The columns "Errors" below list the statuses specific to a route in
 addition to these. The OpenAPI schema (`/api/docs`, `/openapi.json`) declares them per route and lists the
-190 operations of the API only (the HTML pages are not part of it); `tests/test_openapi.py` guards the contract.
+248 operations of the API only (the HTML pages are not part of it); `tests/test_openapi.py` guards the contract.
 
 ## Integration API (`/api/v1`)
 
@@ -114,7 +114,10 @@ Guide: [Agents and LLM providers](agents.md).
 ### Guards and heartbeat (ADR-060)
 
 A guard is a **definition** of the guard library; it watches nothing until it is **attached** to a pipeline, a stage or
-an action ([Guards](guards.md)).
+an action ([Guards](guards.md)). A definition has a **draft** (the fields below, what `PATCH` changes) and numbered **published versions**
+([ADR-081](../architecture/adr/081-guard-versions.md)): only the published version applies, runs freeze it when they start, and a definition nobody
+published watches nothing (`published_version` is `null`; `draft_changed` says that the draft differs from the published version). Switching an
+attachment on or off is not part of a version and acts at once.
 
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
@@ -123,8 +126,13 @@ an action ([Guards](guards.md)).
 | GET | `/api/v1/guards/templates` | The templates (Stall, Runtime, Health guard) | — |
 | POST | `/api/v1/guards/from-template` | `template`, `name?`, `description?`: the template as a definition, with its own action where it has one; `201` | 404, 422 |
 | GET | `/api/v1/guards/{id}` | One definition | 404 |
-| PATCH | `/api/v1/guards/{id}` | Change; a field left out keeps its value; acts on every place it is attached to (from the next start) | 404, 422 (also: `scope_types` narrowed below where it is attached) |
-| DELETE | `/api/v1/guards/{id}` | Delete (its own action stays); `204` | 404, 409 (attached somewhere: detach it first) |
+| PATCH | `/api/v1/guards/{id}` | Change the **draft**; a field left out keeps its value; nothing changes for runs until it is published | 404, 422 (also: `scope_types` narrowed below where it is attached) |
+| GET | `/api/v1/guards/{id}/versions` | The published versions, newest first: `number`, `name`, `published_at`, `published_via` (`user`, `api`), `source_number` (a version made by publishing an earlier one again), `current` (the one runs use) | 404 |
+| GET | `/api/v1/guards/{id}/versions/{number}` | One version with what it held (`guard`: name, description, scope types, trigger, `when`, consequence, fallback, escalation, `action_id`), to show it read-only | 404 |
+| POST | `/api/v1/guards/{id}/publish` | Make the draft a new version (`guard` as it is now and the `version`); runs that start from now on use it | 404, 409 (the draft equals the published version), 422 (a guard that runs an action has none) |
+| POST | `/api/v1/guards/{id}/versions/{number}/republish` | Publish an earlier version again (a new version with its content; the draft is not touched) | 404, 409 (it is the published one already) |
+| POST | `/api/v1/guards/{id}/draft/discard` | The draft becomes the published version again; answers the definition | 404, 409 (nothing published, or the draft equals the version), 422 (that version's scope types no longer cover where it is attached) |
+| DELETE | `/api/v1/guards/{id}` | Delete (its own action stays; its versions go with it); `204` | 404, 409 (attached somewhere: detach it first) |
 | GET | `/api/v1/guard-attachments?pipeline_id=` | Where guards are attached: `id`, `guard_id`, `name`, `graph_id` (the graph that holds the scope), `pipeline_id` (the same for a pipeline's scopes, `null` for an action definition's), `holder_kind` (`pipeline` or `action`), `holder_name`, `scope_type`, `scope_id`, `scope_name`, `enabled`; `pipeline_id` is any graph that holds scopes, `inner=true` adds the attachments inside the action definitions a pipeline uses | 422 |
 | POST | `/api/v1/guard-attachments` | Attach: `guard_id`, `graph_id` (the pipeline or action definition that holds the scope; `pipeline_id` is the old name for it), `scope_type` (`pipeline`, `stage`, `action` in a pipeline; `definition`, `node` in an action definition), `scope_id` (left out for `pipeline` and `definition`; a node's id otherwise), `enabled?`; `201` | 404 (guard, pipeline), 409 (attached there already), 422 (a scope the guard may not watch, or not part of the pipeline; a guard on a guard) |
 | GET | `/api/v1/guard-attachments/{id}` | One attachment | 404 |
@@ -427,7 +435,7 @@ execution.
 | `list_agents` | | The agents: name, description, active, published version, number of nodes; read only |
 | `get_agent` | `agent` (name or id) | One agent: published configuration, draft, versions; read only |
 | `list_providers` | | The LLM providers with their models and the last connection test; never a key; read only |
-| `list_guards` | `pipeline?` (name or id) | The guard library: each definition (trigger, condition, consequence, escalation, scope types) with its attachments (where, on or off); with `pipeline` only the guards attached to it |
+| `list_guards` | `pipeline?` (name or id) | The guard library: each definition (its draft: trigger, condition, consequence, escalation, scope types; `published_version`; `draft_changed`) with its attachments (where, on or off, `guard_published`); with `pipeline` only the guards attached to it. MCP cannot create, change or publish a guard |
 | `set_guard_enabled` | `guard` (an attachment's id, or the guard's name or id when it is attached in one place), `enabled`, `pipeline?` | Switch a guard on or off where it is attached (off acts on running executions at once) |
 | `heartbeat` | `execution_id`, `note?` | Restart the stall clock of a running execution |
 
