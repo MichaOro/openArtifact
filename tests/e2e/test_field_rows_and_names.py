@@ -58,6 +58,25 @@ def _placed(api: httpx.Client, count: int, name: str) -> dict[str, Any]:
     return pipeline
 
 
+STILL = """() => new Promise((resolve) => {
+  // the dialog opens with a short animation: measure when its box has stood still for a few frames
+  const panel = document.querySelector('#node-modal .modal__panel');
+  let last = '', same = 0;
+  const tick = () => {
+    const r = panel.getBoundingClientRect();
+    const now = [r.left, r.top, r.width, r.height].map((n) => n.toFixed(1)).join();
+    same = now === last ? same + 1 : 0;
+    last = now;
+    same >= 4 ? resolve(true) : requestAnimationFrame(tick);
+  };
+  tick();
+})"""
+
+
+def _still(page: Page) -> None:
+    page.evaluate(STILL)
+
+
 def _no_overlap(boxes: dict[str, Any], names: list[str]) -> None:
     present = [(n, boxes[n]) for n in names if boxes[n]]
     for i, (one_name, one) in enumerate(present):
@@ -176,6 +195,7 @@ def test_the_trigger_window_draws_one_row_per_input_under_column_heads(
     page.locator(".ge-node--trigger").dblclick(position={"x": 20, "y": 5})
     dialog = page.locator(DIALOG)
     expect(dialog.locator(".sf--wide")).to_have_count(1)
+    _still(page)
     heads = dialog.locator(".sf__head .sf__h")
     assert heads.all_inner_texts() == ["Name *", "Type", "Required", "Description", "Default"]
     rows = dialog.locator(".sf__row")
@@ -240,6 +260,7 @@ def test_in_a_narrow_window_the_rows_are_stacked_again_without_overlap(
     dialog = page.locator(DIALOG)
     expect(dialog.locator(".sf__row").first).to_be_visible()
     expect(dialog.locator(".sf__head")).to_be_hidden()
+    _still(page)
     boxes = dialog.locator(".sf__row").first.evaluate(BOXES)
     assert boxes["description"]["t"] >= boxes["name"]["b"] - 1, "the description is under the name"
     _no_overlap(boxes, ["grip", "name", "type", "required", "description", "extra", "bin"])
@@ -257,6 +278,8 @@ def test_the_output_window_has_no_required_column_and_names_the_value_column(
     page.goto(f"{base_url}/actions/{action['slug']}")
     page.locator(".ge-node--output").dblclick(position={"x": 30, "y": 5})
     dialog = page.locator(DIALOG)
+    expect(dialog.locator(".sf__row").first).to_be_visible()
+    _still(page)
     heads: Locator = dialog.locator(".sf__head .sf__h")
     assert heads.all_inner_texts() == ["Name *", "Type", "Description", "Value"]
     boxes = dialog.locator(".sf__row").first.evaluate(BOXES)
