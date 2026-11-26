@@ -68,7 +68,8 @@ function renderSlice(segments, from, to, find) {
     const begin = Math.max(from, offset);
     const stop = Math.min(to, offset + segment.text.length);
     if (stop > begin) {
-      const piece = renderReferences(segment.text.slice(begin - offset, stop - offset), find);
+      const cut = segment.text.slice(begin - offset, stop - offset);
+      const piece = find ? renderReferences(cut, find) : document.createTextNode(cut); // no `find`: literal text (code, the words of a link)
       if (segment.resolved) {
         const mark = document.createElement("mark");
         mark.className = "resolved-ref";
@@ -82,20 +83,23 @@ function renderSlice(segments, from, to, find) {
 }
 
 /**
- * A body as it is read (ADR-077): the Markdown of the text (bold, italic, strikethrough, lists) with "#12" turned into links and, when
- * `segments` are given, the filled in references marked. The marks and links sit inside the formatting, wherever the text is cut.
+ * A body as it is read (ADR-077): the Markdown of the text (headings, bold, italic, strikethrough, code, quotes, lists, tables, links) with "#12"
+ * turned into links and, when `segments` are given, the filled in references marked. The marks and links sit inside the formatting, in every kind of
+ * block, wherever the text is cut. Code and the words of a link stay text: marks yes, "#12" links no.
  * @param {string} text the text as it is shown; with `segments` their texts joined
  * @param {(number: number) => {title: string}|undefined} find the artifact with that number
- * @param {{segments?: Array<{text: string, resolved: boolean}>|null, lists?: boolean, links?: boolean}} [options]
- *   `links` false leaves "#12" as text (a card on the board draws no links unless its references are marked)
+ * @param {{segments?: Array<{text: string, resolved: boolean}>|null, lists?: boolean, links?: boolean, plain?: boolean}} [options]
+ *   `links` false leaves "#12" as text (a card on the board draws no links unless its references are marked);
+ *   `plain` draws no blocks and no anchors, only the lines (the preview of a card on the board)
  * @returns {DocumentFragment}
  */
-export function renderBody(text, find, { segments = null, lists = true, links = true } = {}) {
+export function renderBody(text, find, { segments = null, lists = true, links = true, plain = false } = {}) {
   const source = segments ? segments.map((segment) => segment.text).join("") : text;
   const renderText = segments
     ? (piece, start) => renderSlice(segments, start, start + piece.length, find)
     : links
       ? (piece) => renderReferences(piece, find)
       : undefined;
-  return renderMarkdown(source, { renderText, lists });
+  const renderLiteral = segments ? (piece, start) => renderSlice(segments, start, start + piece.length, null) : undefined;
+  return renderMarkdown(source, { renderText, renderLiteral, lists, plain });
 }

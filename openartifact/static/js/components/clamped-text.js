@@ -3,7 +3,8 @@
  *
  *   const block = new ClampedText({ text, lines: 6, label: "User prompt" });  parent.append(block.element);
  *
- * `markdown: true` shows the Markdown of the text (ADR-077: bold, italic, strikethrough, lists) as elements built from text nodes; "Copy"
+ * `markdown: true` shows the Markdown of the text (ADR-077: headings, emphasis, code, quotes, lists, tables, links) as elements built from text nodes; it is cut
+ * by the height of its lines (a heading is taller than a line of text), not by -webkit-line-clamp, which does not count lines of blocks; "Copy"
  * still puts the text as written on the clipboard. A prompt is shown as written (no `markdown`), as the model gets it.
  *
  * Without text the block says so (`empty`). The look is css/management.css `.ct`; its colours are tokens. */
@@ -33,7 +34,7 @@ export class ClampedText {
       this.element.append(make("p", "ct__empty", empty));
       return;
     }
-    this.body = make("pre", "ct__text", markdown ? null : this.text);
+    this.body = make("pre", markdown ? "ct__text ct__text--md" : "ct__text", markdown ? null : this.text);
     if (markdown) this.body.append(renderMarkdown(this.text));
     this.body.tabIndex = 0;
     if (label) this.body.setAttribute("aria-label", label);

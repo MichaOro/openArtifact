@@ -96,7 +96,7 @@ function drawn(node) {
 }
 
 test("renderBody: Markdown with the references as links inside the formatting", () => {
-  assert.equal(drawn(renderBody("a **see #12** b", find)), "a |strong(see |a:#12)| b");
+  assert.equal(drawn(renderBody("a **see #12** b", find)), "p(a |strong(see |a:#12)| b)");
   assert.equal(drawn(renderBody("- #7 first\n- second", find)), "ul(li(a:#7| first)|li(second))");
 });
 
@@ -106,7 +106,7 @@ test("renderBody: the filled in parts are marked inside the formatting, wherever
     { text: "ld", resolved: true },
     { text: "** #12 end", resolved: false },
   ];
-  assert.equal(drawn(renderBody("ignored when segments are given", find, { segments })), "a |strong(bo|mark(ld))| |a:#12| end");
+  assert.equal(drawn(renderBody("ignored when segments are given", find, { segments })), "p(a |strong(bo|mark(ld))| |a:#12| end)");
 });
 
 test("renderBody: the marks change nothing about the text that is read", () => {
@@ -116,8 +116,39 @@ test("renderBody: the marks change nothing about the text that is read", () => {
   assert.equal(textOf(renderBody(joined, find)), "one two three" + "four", "the markers and the bullet are not read");
 });
 
-test("renderBody on the board: no lists, and no links unless the references are marked", () => {
-  assert.equal(drawn(renderBody("- **x** see #12", find, { lists: false, links: false })), "- |strong(x)| see #12");
+test("renderBody on the board: plain lines, and no links unless the references are marked", () => {
+  assert.equal(drawn(renderBody("- **x** see #12", find, { plain: true, links: false })), "strong(x)| see #12");
+  assert.equal(drawn(renderBody("# Title\n> quote #12", find, { plain: true, links: false })), "Title|\n|quote #12");
   const segments = [{ text: "see #12", resolved: false }];
-  assert.equal(drawn(renderBody("", find, { segments, lists: false, links: true })), "see |a:#12");
+  assert.equal(drawn(renderBody("", find, { segments, plain: true, links: true })), "see |a:#12");
+});
+
+/** Every element of a drawn tree that the test says yes to. */
+function findAll(node, yes, found = []) {
+  if (!(node instanceof FakeNode)) return found;
+  if (yes(node)) found.push(node);
+  node.children.forEach((child) => findAll(child, yes, found));
+  return found;
+}
+
+test("renderBody: marks and '#12' links sit inside every kind of block; code and the words of a link get marks but no '#12' link", () => {
+  const text = (value, resolved = false) => ({ text: value, resolved });
+  const segments = [
+    text("# Title "), text("R1", true), text(" #12\n\n> quote "), text("R2", true), text(" #7\n\n- item "), text("R3", true),
+    text("\n\n| h |\n|---|\n| cell "), text("R4", true), text(" #12 |\n\n```\ncode "), text("R5", true), text(" #12\n```\n\n[link "), text("R6", true),
+    text(" #12](https://x.test)"),
+  ];
+  const out = renderBody("", find, { segments });
+  const inside = (tag, mark) => findAll(out, (el) => el.tagName === tag).some((el) => findAll(el, (m) => m.tagName === "mark" && textOf(m) === mark).length === 1);
+  assert.ok(inside("h1", "R1"), "heading");
+  assert.ok(inside("blockquote", "R2"), "quote");
+  assert.ok(inside("li", "R3"), "list item");
+  assert.ok(inside("td", "R4"), "table cell");
+  assert.ok(inside("code", "R5"), "code block");
+  assert.ok(inside("a", "R6"), "words of a link");
+  assert.equal(findAll(out, (el) => el.tagName === "mark").length, 6);
+  const refs = findAll(out, (el) => el.className === "ref");
+  assert.equal(refs.length, 3, "#12 in the heading, #7 in the quote, #12 in the cell; none in code or in a link's words");
+  assert.equal(findAll(out, (el) => el.tagName === "a" && el.className === "md-link").length, 1);
+  assert.equal(textOf(out), "Title R1 #12quote R2 #7item R3hcell R4 #12code R5 #12link R6 #12", "the marks change nothing about what is read");
 });

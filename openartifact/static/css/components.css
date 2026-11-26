@@ -971,14 +971,54 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* The Markdown of the long texts (ADR-077): the bar under a field (components/markdown-bar.js) and what the texts show
    (components/markdown.js: strong, em, del, ul). The tokens are the page's. */
-.md-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-2); }
-.md-bar__tools { display: flex; gap: var(--space-1); }
+.md-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
+.md-bar__tools { display: flex; gap: 2px; }
+.md-bar__tools .icon-button { width: 1.75rem; height: 1.75rem; } /* ten buttons and the Preview switch stay on one row of the form column, so the bar is two lines high */
 .md-bar__hint { order: 3; flex: 1 1 100%; min-width: 0; font-size: 0.75rem; color: var(--color-text-muted); } /* a quiet line under the buttons */
 .md-bar__preview { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: auto; font-size: 0.8125rem; color: var(--color-text-secondary); cursor: pointer; }
 .md-preview { min-height: 4.5rem; padding: 0.65rem 0.85rem; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-text-primary); border: 1px dashed var(--glass-border); border-radius: var(--radius-md); }
 .md-preview[hidden] { display: none; }
-.task-view__body strong, .comment__body strong, .task-card__body strong, .md-preview strong, .ct__text strong { font-weight: 700; }
-.task-view__body em, .comment__body em, .task-card__body em, .md-preview em, .ct__text em { font-style: italic; }
-.task-view__body del, .comment__body del, .task-card__body del, .md-preview del, .ct__text del { text-decoration: line-through; }
-.task-view__body ul, .comment__body ul, .task-card__body ul, .md-preview ul, .ct__text ul { margin: var(--space-1) 0; padding-left: 1.25rem; list-style: disc; white-space: normal; }
-.task-view__body ul ul, .comment__body ul ul, .task-card__body ul ul, .md-preview ul ul, .ct__text ul ul { margin: 0; list-style: circle; }
+/* what the readers draw of the Markdown (markdown.js): headings, paragraphs, lists, quotes, code, tables, links, rules */
+:is(.task-view__body, .comment__body, .task-card__body, .md-preview, .ct__text) strong { font-weight: 700; }
+:is(.task-view__body, .comment__body, .task-card__body, .md-preview, .ct__text) em { font-style: italic; }
+:is(.task-view__body, .comment__body, .task-card__body, .md-preview, .ct__text) del { text-decoration: line-through; }
+:is(.task-view__body, .comment__body, .task-card__body, .md-preview, .ct__text) .md-code-inline,
+.md-code__pre code { font-family: var(--font-mono); font-size: 0.875em; }
+:is(.task-view__body, .comment__body, .task-card__body, .md-preview, .ct__text) .md-code-inline { padding: 0.05em 0.35em; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-text-primary) 9%, transparent); }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) :is(.md-p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, .md-code, .md-table, .md-hr) { margin: 0 0 var(--space-2); }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) > :last-child { margin-bottom: 0; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-p { white-space: pre-wrap; } /* a line break inside a paragraph stays a line break */
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-h { margin-top: var(--space-3); font-weight: 700; line-height: 1.25; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) > .md-h:first-child { margin-top: 0; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) h1 { font-size: 1.25rem; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) h2 { font-size: 1.125rem; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) h3 { font-size: 1rem; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) :is(h4, h5, h6) { font-size: 0.9375rem; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) h6 { color: var(--color-text-secondary); }
+:is(.task-view__body, .comment__body, .task-card__body, .md-preview, .ct__text) :is(ul, ol) { padding-left: 1.4rem; white-space: normal; }
+:is(.task-view__body, .comment__body, .task-card__body, .md-preview, .ct__text) ul { list-style: disc; }
+:is(.task-view__body, .comment__body, .task-card__body, .md-preview, .ct__text) ol { list-style: decimal; }
+:is(.task-view__body, .comment__body, .task-card__body, .md-preview, .ct__text) :is(ul, ol) :is(ul, ol) { margin: 0; }
+:is(.task-view__body, .comment__body, .task-card__body, .md-preview, .ct__text) ul ul { list-style: circle; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-quote { padding: var(--space-1) var(--space-3); border-left: 3px solid var(--color-accent); color: var(--color-text-secondary); white-space: normal; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-quote .md-quote { margin-bottom: 0; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-code { border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-text-primary) 6%, transparent); overflow: hidden; white-space: normal; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-code__lang { padding: 0.15rem var(--space-3); border-bottom: 1px solid var(--glass-border); font-size: 0.6875rem; letter-spacing: 0.04em; text-transform: lowercase; color: var(--color-text-muted); }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-code__pre { margin: 0; padding: var(--space-2) var(--space-3); overflow-x: auto; white-space: pre; overflow-wrap: normal; font: inherit; line-height: 1.45; } /* a code line never wraps: the block scrolls */
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-table { overflow-x: auto; white-space: normal; max-width: 100%; } /* a wide table scrolls inside the text */
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-table table { border-collapse: collapse; font-size: 0.9em; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-table :is(th, td) { padding: 0.3rem 0.65rem; border: 1px solid var(--glass-border); text-align: left; vertical-align: top; overflow-wrap: normal; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-table th { font-weight: 700; background: color-mix(in srgb, var(--color-text-primary) 8%, transparent); }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--color-text-primary) 4%, transparent); }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-table .md-al-center { text-align: center; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-table .md-al-right { text-align: right; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-hr { border: 0; border-top: 1px solid var(--glass-border); }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-link { color: var(--color-accent); text-decoration: underline; text-underline-offset: 0.15em; overflow-wrap: anywhere; }
+:is(.task-view__body, .comment__body, .md-preview, .ct__text) .md-link:hover { text-decoration-thickness: 2px; }
+/* the link popup of the bar */
+.md-link-popup { position: fixed; z-index: 30; display: flex; flex-direction: column; gap: var(--space-2); width: min(22rem, calc(100vw - 1rem)); padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-glass-card) 96%, var(--color-background)); box-shadow: var(--shadow-card-hover); }
+.md-link-popup[hidden] { display: none; }
+.md-link-popup__field { display: flex; flex-direction: column; gap: var(--space-1); font-size: 0.8125rem; color: var(--color-text-secondary); }
+.md-link-popup__error { margin: 0; min-height: 1rem; font-size: 0.75rem; color: var(--color-danger); }
+.md-link-popup__actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.md-bar__tools { flex-wrap: wrap; }
