@@ -18,6 +18,9 @@ def _open(page: Page, secured_url: str) -> None:
     page.fill("#token", SECURED_TOKEN)
     page.click("button[type=submit]")
     expect(page.get_by_role("tab", name="Internal")).to_be_visible()
+    page.wait_for_load_state(
+        "networkidle"
+    )  # the page is wired (its scripts are loaded) before a tab is clicked
 
 
 def test_a_token_is_shown_once_works_and_stops_when_revoked(page: Page, secured_url: str) -> None:

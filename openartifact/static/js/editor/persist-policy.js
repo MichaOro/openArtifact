@@ -72,6 +72,21 @@ export function bindPersist(element, kind, commit) {
 }
 
 /**
+ * A field settled with Enter keeps the focus when the dialog is drawn again meanwhile (a draw that comes after the save may
+ * replace the field): for a moment, when the focus has fallen to the page, the field of the same place gets it back. A focus
+ * the user moved to another control is left alone.
+ */
+function keepFocus(place, tries = 10) {
+  const back = document.querySelector(`[data-focus-key="${place}"]`);
+  const active = document.activeElement;
+  if (back && active !== back && (!active || active === document.body)) {
+    back.focus();
+    if (typeof back.setSelectionRange === "function") back.setSelectionRange(back.value.length, back.value.length);
+  }
+  if (tries > 0) window.setTimeout(() => keepFocus(place, tries - 1), 100);
+}
+
+/**
  * A text field of a block that is not a setting control (the input mapping): it saves by the policy and shows the
  * "not saved" marker while its text is typed and not saved. `save(text)` resolves to null, or to why it was refused
  * (the text stays then and counts as unsaved).
@@ -90,20 +105,22 @@ export function persistText(input, save, { kind = "text", unsavedText = "" } = {
     const label = box.querySelector(".field__label");
     if (label) label.dataset.unsaved = unsavedText; // the marker after the label reads it (forms.css)
   };
-  const commit = () => {
+  const commit = (settledWithEnter = false) => {
     const sent = input.value;
+    const place = input.dataset.focusKey;
     inFlight = sent;
     const saving = Promise.resolve(save(sent)).then((message) => {
       if (!message) baseline = sent;
       if (inFlight === sent) inFlight = null;
       mark();
+      if (settledWithEnter && place) keepFocus(place);
       return message;
     });
     return trackSave(saving);
   };
   bindPersist(input, kind, (event) => {
     if (event.type === "focusout" && (!isDirty() || input.value === inFlight)) return;
-    commit();
+    commit(event.type === "keydown");
   });
   input.addEventListener("input", mark);
   registerDirty({ isDirty, commit, element: input });

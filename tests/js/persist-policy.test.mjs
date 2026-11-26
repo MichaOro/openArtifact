@@ -75,3 +75,28 @@ test("leaving a text while its save from Enter is still on its way does not send
   listeners.focusout({ type: "focusout" });
   assert.equal(sent.length, 2, "a changed text is still saved on leaving");
 });
+
+test("a field settled with Enter gets the focus back when a draw took it, but not from a control the user went to", async () => {
+  const listeners = {};
+  const body = { tagName: "BODY" };
+  const fresh = { value: "t = x", dataset: { focusKey: "agent-input-t" }, focus() { fakeDocument.activeElement = this; }, setSelectionRange() {} };
+  const fakeDocument = { activeElement: body, body, querySelector: (selector) => (selector.includes("agent-input-t") ? fresh : null) };
+  const input = { value: "", dataset: { focusKey: "agent-input-t" }, closest: () => null, addEventListener: (name, fn) => (listeners[name] = fn) };
+  const keep = { document: globalThis.document, window: globalThis.window };
+  globalThis.document = fakeDocument;
+  globalThis.window = globalThis;
+  try {
+    persistText(input, async () => null);
+    input.value = "t = x";
+    listeners.keydown({ type: "keydown", key: "Enter" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(fakeDocument.activeElement, fresh, "the focus fell to the page: the field of the same place has it again");
+    const other = { tagName: "SELECT" };
+    fakeDocument.activeElement = other;
+    await new Promise((resolve) => setTimeout(resolve, 1200)); // past the last try of the safety net
+    assert.equal(fakeDocument.activeElement, other, "a control the user moved to keeps the focus");
+  } finally {
+    globalThis.document = keep.document;
+    globalThis.window = keep.window;
+  }
+});
