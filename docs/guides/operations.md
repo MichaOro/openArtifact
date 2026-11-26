@@ -8,6 +8,20 @@ no `container_name` is set, so address the container through `docker compose`, n
 alias oa='docker compose -f deploy/docker-compose.yml'   # shorthand for this page
 ```
 
+## Reaching another container (LiteLLM, a local model server)
+
+A provider at `http://litellm:4000/v1` works only when OpenArtifact and that container share a Docker network; the
+connection test otherwise says *The host name could not be resolved*. Copy
+[`deploy/docker-compose.network.example.yml`](../../deploy/docker-compose.network.example.yml) to
+`deploy/docker-compose.override.yml` (git-ignored), set the network's name (`docker network ls`) and start with both files:
+
+```bash
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml up -d --build
+```
+
+A command with only `-f deploy/docker-compose.yml` (the `oa` alias above) **leaves the override out**, and the container loses
+the network on its next recreate. A service on the host itself needs no network: use `http://host.docker.internal:PORT/v1`.
+
 ## First start
 
 ```bash

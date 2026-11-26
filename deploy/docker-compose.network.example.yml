@@ -1,0 +1,23 @@
+# Example: let OpenArtifact reach another container by its name (a LiteLLM proxy, a local model server, ...).
+#
+# From inside a container, 127.0.0.1 is the container itself, so a provider at http://litellm:4000/v1 only works
+# when both containers share a Docker network. Copy this file, set the name of the network the other container
+# is on (docker network ls), and start with BOTH files; a command with only -f deploy/docker-compose.yml leaves
+# the file out and the container loses the network (the connection test then says "The host name could not be
+# resolved"):
+#
+#   cp deploy/docker-compose.network.example.yml deploy/docker-compose.override.yml   (git-ignored)
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml up -d --build
+#
+# (Run from deploy/ without -f, compose reads docker-compose.override.yml by itself.)
+# A service on the host instead: use http://host.docker.internal:PORT/v1 and no network here.
+services:
+  openartifact:
+    networks:
+      - default
+      - shared
+
+networks:
+  shared:
+    external: true
+    name: litellm_default # the network of the other container
