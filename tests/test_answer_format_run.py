@@ -74,7 +74,9 @@ def test_the_report_is_the_answer_and_a_later_node_reads_its_fields(
     assert entry["data"]["passed"] is True and entry["data"]["verdict"] == "ship"
     assert entry["data"]["reasons"] == ["clear", "short"]
     assert json.loads(entry["output"]) == GOOD
-    assert found["context"]["vars"] == {"line": "ship: true"}  # ${(Ask).data.verdict}: ${(Ask).data.passed}
+    assert found["context"]["vars"] == {
+        "line": "ship: true"
+    }  # ${(Ask).data.verdict}: ${(Ask).data.passed}
     assert found["step"]["data"]["repaired"] is False
 
 
@@ -88,15 +90,13 @@ def test_a_report_that_does_not_fit_is_repaired_once_and_both_calls_stay_in_the_
         (200, tool_answer(("c2", "report_result", GOOD))),
     ]
     found = run(api, pipeline)
-    first, second = llm.completions()
+    _first, second = llm.completions()
     refusal = second["json"]["messages"][-1]["content"]
     assert refusal.startswith("Error: the answer was not accepted:")
     assert "'passed' must be true or false" in refusal and "'verdict' is required" in refusal
     assert "unknown field 'extra'" in refusal
     assert found["step"]["data"]["repaired"] is True and found["step"]["data"]["answer_calls"] == 2
-    calls = [
-        c for t in found["read"]["detail"]["turns"] for c in t["tool_calls"]
-    ]
+    calls = [c for t in found["read"]["detail"]["turns"] for c in t["tool_calls"]]
     assert [c["error"] for c in calls] == [True, False]
     assert found["context"]["vars"] == {"line": "ship: true"}
 
@@ -127,7 +127,7 @@ def test_a_text_answer_gets_one_reminder_then_the_report_counts(
         (200, tool_answer(("c1", "report_result", GOOD))),
     ]
     found = run(api, pipeline)
-    first, second = llm.completions()
+    _first, second = llm.completions()
     reminder = second["json"]["messages"][-1]
     assert reminder["role"] == "user" and "report_result" in reminder["content"]
     assert found["context"]["vars"] == {"line": "ship: true"}

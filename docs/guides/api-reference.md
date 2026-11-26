@@ -91,7 +91,7 @@ Guide: [Agents and LLM providers](agents.md).
 | GET | `/api/v1/agents/{ref}` | One agent by id or name: `draft`, `published`, `versions`, `problems` (what publishing would refuse) | 404 |
 | PATCH | `/api/v1/agents/{ref}` | `name`, `description`, `active` | 404, 409, 422 |
 | DELETE | `/api/v1/agents/{ref}` | Delete with its versions; `204` | 404, 409 (agent nodes refer to it) |
-| PUT | `/api/v1/agents/{ref}/draft` | Replace the draft (the configuration); changes no execution | 404, 422 |
+| PUT | `/api/v1/agents/{ref}/draft` | Replace the draft (the configuration, among it `answer_format`, a list of fields for the final answer, ADR-085); changes no execution | 404, 422 |
 | POST | `/api/v1/agents/{ref}/draft/discard` | Draft back to the published version | 404, 409 (nothing published) |
 | POST | `/api/v1/agents/{ref}/publish` | Publish the draft as a new version; answers `version`, `changed`, `overriding` | 404, 422 (not complete) |
 | GET | `/api/v1/agents/{ref}/versions` | Every version with its configuration, newest first | 404 |
@@ -198,7 +198,7 @@ Every step and every node in the run `context` has the result contract ([ADR-072
 An agent node's settings are keys of its `config` (`PATCH /api/actions/{id}/nodes/{node_id}`): `agent_id`, `inputs`
 (`name = value` per line) and the overrides `system_prompt_enabled`, `system_prompt`, `user_prompt`, `provider_id`,
 `model`, `temperature`, `max_tokens`, `request_timeout_seconds`, `total_timeout_seconds`, `retries`, `max_iterations`,
-`token_budget`, `tool_result_chars`;
+`token_budget`, `tool_result_chars`, `answer_format` (a list of fields, ADR-085; an empty list switches the agent's format off for the node);
 `null` resets one. `warnings` in the answer says what would make the node fail.
 
 Tools (ADR-040, ADR-041) are nodes of the kinds `mcp_tool`, `http_tool`, `code_tool` and `postgres_tool` with their settings in `config`

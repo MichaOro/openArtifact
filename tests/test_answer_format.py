@@ -55,7 +55,9 @@ async def _run(script: Scripted, frozen: dict[str, Any] | None = None, tools: An
 async def test_a_valid_report_is_the_answer_at_once_and_its_fields_are_the_data() -> None:
     script = Scripted(_report(GOOD))
     result = await _run(script)
-    assert result.outcome == "pass" and len(script.calls) == 1  # no further request after the answer
+    assert (
+        result.outcome == "pass" and len(script.calls) == 1
+    )  # no further request after the answer
     assert result.data["passed"] is True
     assert result.data["reasons"] == ["clear", "short"]
     assert result.data["verdict"] == "ship"
@@ -69,7 +71,7 @@ async def test_a_valid_report_is_the_answer_at_once_and_its_fields_are_the_data(
     (tool,) = script.calls[0]["tools"]
     assert tool["function"]["name"] == "report_result"
     assert tool["function"]["parameters"] == field_schema.json_schema(REVIEW)
-    assert result.detail["answer"]["document"]["passed"] is True  # type: ignore[index]
+    assert result.detail["answer"]["document"]["passed"] is True
 
 
 async def test_a_report_that_does_not_fit_gets_the_reasons_and_one_repair() -> None:
@@ -80,12 +82,16 @@ async def test_a_report_that_does_not_fit_gets_the_reasons_and_one_repair() -> N
     told = script.calls[1]["messages"][-1]
     assert told["role"] == "tool"
     assert told["content"].startswith("Error: the answer was not accepted:")
-    for problem in ("'passed' is required", "'verdict' must be one of: ship, fix", "unknown field 'extra'"):
+    for problem in (
+        "'passed' is required",
+        "'verdict' must be one of: ship, fix",
+        "unknown field 'extra'",
+    ):
         assert problem in told["content"]  # all problems at once
     assert "corrected once" in (result.reason or "")
-    refused = result.detail["answer"]["refused"]  # type: ignore[index]
+    refused = result.detail["answer"]["refused"]
     assert len(refused) == 1 and "'passed' is required" in refused[0]
-    calls = [c for t in result.detail["turns"] for c in t["tool_calls"]]  # type: ignore[index]
+    calls = [c for t in result.detail["turns"] for c in t["tool_calls"]]
     assert [c["error"] for c in calls] == [True, False]  # both attempts stay in the step
 
 
@@ -95,7 +101,7 @@ async def test_a_second_report_that_does_not_fit_fails_the_step_with_the_reasons
     assert result.outcome == "fail" and len(script.calls) == 2
     assert "also after one correction" in (result.reason or "")
     assert "'passed' must be true or false" in (result.reason or "")
-    assert len(result.detail["answer"]["refused"]) == 2  # type: ignore[index]
+    assert len(result.detail["answer"]["refused"]) == 2
     assert "passed" not in (result.data or {})
 
 
@@ -140,7 +146,9 @@ async def test_other_tools_may_come_first_and_the_report_is_added_to_them() -> N
     assert result.data["passed"] is True
 
 
-async def test_a_tool_named_like_the_report_tool_keeps_its_name_and_the_report_gets_another() -> None:
+async def test_a_tool_named_like_the_report_tool_keeps_its_name_and_the_report_gets_another() -> (
+    None
+):
     clash = Recorder("x")
     script = Scripted(_asks(("r1", "report_result_2", GOOD)))
     # an MCP tool may be called report_result too: the report tool is added after it and the loop knows the name it was given
@@ -163,7 +171,10 @@ async def test_at_the_iteration_limit_the_final_request_offers_the_report_tool_o
     assert result.outcome == "pass" and result.data["passed"] is True
     final = script.calls[1]
     assert [t["function"]["name"] for t in final["tools"]] == ["report_result"]
-    assert "Give your final answer now by calling the tool report_result" in final["messages"][-1]["content"]
+    assert (
+        "Give your final answer now by calling the tool report_result"
+        in final["messages"][-1]["content"]
+    )
     assert "may be incomplete" in (result.reason or "")
 
 
@@ -205,15 +216,31 @@ def _agent_with_format(node_config: dict[str, Any] | None = None) -> dict[str, A
     ).model_dump()
     providers = {
         "p1": ProviderInfo(
-            "p1", "openai_compatible", "Local", "https://llm.example/v1", "LLM_KEY", True, "small", True, frozenset({"small"})
+            "p1",
+            "openai_compatible",
+            "Local",
+            "https://llm.example/v1",
+            "LLM_KEY",
+            True,
+            "small",
+            True,
+            frozenset({"small"}),
         )
     }
     agent = {"id": "a1", "name": "Reviewer", "active": True, "version": 1, "config": config}
     node = {"agent_id": "a1", "inputs": "ticket = ${var.ticket}", **(node_config or {})}
-    return {"id": "n1", "name": "Review", "kind": "agent", "config": node, "agent": freeze(agent, node, providers)}
+    return {
+        "id": "n1",
+        "name": "Review",
+        "kind": "agent",
+        "config": node,
+        "agent": freeze(agent, node, providers),
+    }
 
 
-async def test_the_format_of_the_agent_applies_and_a_node_may_switch_it_off_with_an_empty_list() -> None:
+async def test_the_format_of_the_agent_applies_and_a_node_may_switch_it_off_with_an_empty_list() -> (
+    None
+):
     script = Scripted(_report(GOOD))
     result = await _run(script, _agent_with_format())
     assert result.outcome == "pass" and result.data["passed"] is True
@@ -296,7 +323,7 @@ def test_publishing_a_changed_answer_format_tells_the_nodes_that_set_their_own(
 
 def test_the_check_is_the_one_of_the_hand_over_tool() -> None:
     """One module for both: the answer format neither copies the schema nor its check."""
-    assert answer_format.field_schema is field_schema
+    assert vars(answer_format)["field_schema"] is field_schema
     fields = field_schema.normalise(REVIEW)
     sink = answer_format.AnswerSink()
     tool = answer_format.report_tool(fields, sink)

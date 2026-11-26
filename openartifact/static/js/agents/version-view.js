@@ -30,6 +30,27 @@ export function promptsView(config) {
   host.append(block(t("agent_editor.user_prompt"), config.user_prompt));
   if (config.system_prompt_enabled) host.append(block(t("agent_editor.system_prompt"), config.system_prompt));
   else host.append(el("p", "field__help", t("agents.version_view.no_system_prompt")));
+  const format = answerFormatView(config);
+  if (format) host.append(format);
+  return host;
+}
+
+/** The answer format of a version as a small table (name, type, required, description), or null when it had none (ADR-085). */
+export function answerFormatView(config) {
+  if (!config.answer_format?.length) return null;
+  const host = el("div", "ag-version-view__answer");
+  host.append(el("h4", "ag-version-view__title", t("agent_editor.answer_format")));
+  const table = el("table", "ag-table");
+  const head = el("tr");
+  for (const title of [t("common.name"), t("common.type"), t("common.required"), t("common.description")]) head.append(el("th", "", title));
+  table.append(head);
+  for (const field of config.answer_format) {
+    const row = el("tr");
+    const kind = field.type === "choice" ? `${field.type}: ${(field.choices ?? []).join(", ")}` : field.type;
+    for (const value of [field.name, kind, field.required ? t("common.required") : t("agents.editor_page.optional"), field.description || "—"]) row.append(el("td", "", String(value)));
+    table.append(row);
+  }
+  host.append(table);
   return host;
 }
 

@@ -316,7 +316,9 @@ async def run_turns(
             # the final request offered the report tool only: its call is the answer (one try, no repair here)
             reported = next((c for c in done.tool_calls if c.name == answer.tool), None)
             if reported is None:
-                return fail(f"{cause}, and the agent did not report a result with the tool {answer.tool}")
+                return fail(
+                    f"{cause}, and the agent did not report a result with the tool {answer.tool}"
+                )
             await report(done, reported)
             if answer.sink.document is None:
                 return fail(
@@ -342,10 +344,7 @@ async def run_turns(
         data["repaired"] = answer.sink.repaired
         data["answer_calls"] = answer.sink.calls
         if answer.sink.repaired:
-            notes.append(
-                "the answer was corrected once: "
-                + "; ".join(answer.sink.refused[0])
-            )
+            notes.append("the answer was corrected once: " + "; ".join(answer.sink.refused[0]))
         return finish(
             NodeResult(
                 "pass",
@@ -364,7 +363,9 @@ async def run_turns(
             call.id, call.name, call.arguments, min(max(budget.left(), 0.0), TOOL_CALL_SECONDS)
         )
         if record.error and answer.sink.calls == before:
-            answer.sink.refuse(record.result)  # the arguments were no JSON object: the tool never saw the call
+            answer.sink.refuse(
+                record.result
+            )  # the arguments were no JSON object: the tool never saw the call
         detail["turns"][-1]["tool_calls"].append(record.to_data())
 
     def conclude(done: Completion) -> NodeResult:
@@ -473,7 +474,9 @@ async def run_turns(
                 call.id, call.name, call.arguments, min(max(budget.left(), 0.0), TOOL_CALL_SECONDS)
             )
             if reports and answer is not None and record.error and answer.sink.calls == seen:
-                answer.sink.refuse(record.result)  # the arguments were no JSON object: the tool never saw the call
+                answer.sink.refuse(
+                    record.result
+                )  # the arguments were no JSON object: the tool never saw the call
             if node_id:
                 tell(
                     "tool_call",

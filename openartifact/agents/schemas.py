@@ -169,7 +169,9 @@ class AgentConfig(_Strict):
     tool_result_chars: int | None = Field(default=None, ge=TOOL_RESULT_MIN, le=TOOL_RESULT_MAX)
     #: The shape of the agent's final answer (ADR-085): a flat list of fields (``graph/field_schema.py``); empty: the answer is free text.
     #: The model reports it through a tool with these fields and the server checks it; the checked fields become the node's ``data``.
-    answer_format: list[dict[str, Any]] = Field(default_factory=list, max_length=field_schema.MAX_FIELDS)
+    answer_format: list[dict[str, Any]] = Field(
+        default_factory=list, max_length=field_schema.MAX_FIELDS
+    )
     #: Whether the inputs are in effect (ADR-045); switched off they are kept but the agent has none.
     #: ``None`` (agents from before the switch): in effect when any input is declared.
     inputs_enabled: bool | None = None

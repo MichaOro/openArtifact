@@ -2406,5 +2406,13 @@
  "components.schema_fields.head.default": "Standard",
  "components.schema_fields.head.value": "Wert",
  "nodes.agent.settings.answer_format.label": "Antwortformat",
- "nodes.agent.settings.answer_format.help": "Die Form der Endantwort. Das Modell meldet diese Felder über ein Werkzeug, der Server prüft sie; sie werden zu den Daten des Knotens."
+ "nodes.agent.settings.answer_format.help": "Die Form der Endantwort. Das Modell meldet diese Felder über ein Werkzeug, der Server prüft sie; sie werden zu den Daten des Knotens.",
+ "agent_editor.answer_format": "Antwortformat",
+ "agent_editor.answer_format_help": "Optional. Das Modell gibt seine Endantwort über ein Werkzeug mit diesen Feldern; der Server prüft sie, und die geprüften Felder werden zu den Daten des Agent-Knotens. Ohne Felder ist die Antwort freier Text.",
+ "agents.view.answer_title": "Antwortformat",
+ "agents.view.answer_refused": "Aufruf {n}: nicht angenommen: {problems}",
+ "agents.view.answer_accepted": "Aufruf {n}: angenommen",
+ "agents.view.answer_repaired": "Die Antwort wurde einmal korrigiert.",
+ "tasks.history_step.answer_reported": "Antwort gemeldet",
+ "tasks.history_step.answer_repaired": "Antwort gemeldet, einmal korrigiert"
 }

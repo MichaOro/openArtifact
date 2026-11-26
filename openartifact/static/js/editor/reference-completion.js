@@ -57,13 +57,14 @@ export function openReference(text, caret) {
  * @param {{id: string, kind: string, name: string, config?: object}[]} nodes the nodes of the graph being edited
  * @param {{exceptId?: string, secrets?: string[], allowSecrets?: boolean, cardFields?: {name: string, label: string}[], kinds?: (kind: string) => object|undefined}} options
  *   `exceptId`: the node being edited (it cannot read its own result); `secrets`: names only;
+ *   `answers`: the names of the fields of the answer format an agent node reports (ADR-085), offered as its `data.NAME`;
  *   `cardFields`: the artifact fields, offered as `card.NAME` (ADR-044); `kinds`: the description of a kind (what the server
  *   says: `produces_result`, `result_data`, `variables`); a node of a kind that is not described or leaves no result is not offered
  * @returns {{insert: string, detail: string, complete: boolean, head: string, kind?: string}[]} `insert` is what goes between
  *   "${" and "}"; `complete` is false when the user continues typing (a data path); `head` is the group it belongs to
  *   ("card.", "var.", "secret:", or the node as "(Name)."), see `suggestionsFor`
  */
-export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecrets = false, cardFields = [], kinds = () => undefined, contracts = () => null } = {}) {
+export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecrets = false, cardFields = [], kinds = () => undefined, contracts = () => null, answers = () => [] } = {}) {
   const out = [];
   for (const name of CARD_BUILT_INS) out.push({ insert: `card.${name}`, detail: t(`editor.reference_completion.card_${name}`), complete: true, head: "card." });
   for (const field of cardFields) out.push({ insert: `card.${field.name}`, detail: t("editor.reference_completion.label_field_artifact", { label: field.label }), complete: true, head: "card." });
@@ -85,7 +86,8 @@ export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecre
       if (contract && ["exit_code", "output"].includes(field)) continue; // an action leaves its outputs as data, not text or an exit code
       out.push({ insert: `${head}${field}`, label: label(field), detail: `${name}: ${detail}`, complete: !field.endsWith("."), head, headLabel, kind: node.kind });
     }
-    const paths = contract ? contract.outputs : (kinds(node.kind).result_data ?? []);
+    // an agent node with an answer format also leaves the fields of the format as data (ADR-085)
+    const paths = [...(contract ? contract.outputs : (kinds(node.kind).result_data ?? [])), ...(answers(node) ?? [])];
     for (const path of paths) out.push({ insert: `${head}data.${path}`, label: label(`data.${path}`), detail: `${name}: ${t("editor.reference_completion.its_data_path", { path })}`, complete: true, head, headLabel, kind: node.kind });
   }
   const variables = new Set();

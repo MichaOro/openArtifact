@@ -39,6 +39,12 @@ export function useText(count) {
   return tn("agents.model.used_by", count);
 }
 
+/** The fields of an answer format as one short line, for a row that names what a setting inherits ("passed, verdict, reasons"). */
+export function fieldNames(fields, limit = 70) {
+  const names = (fields ?? []).map((f) => f.name).join(", ");
+  return names.length > limit ? `${names.slice(0, limit - 1).trimEnd()}…` : names;
+}
+
 /** The overrides of a node: the settings that inherit from the agent (`inherits`, as the server describes them) whose
  * value the node stores (false and 0 are values). */
 export function overridesOf(config, settings) {

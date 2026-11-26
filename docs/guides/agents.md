@@ -89,6 +89,21 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
   the default applies (default provider and its default model; 60 s, 900 s, 3 retries, 100 iterations, no token budget,
   12000 characters of a tool result for the model). An agent without provider and model can be
   published; whether one can be resolved is checked at the node.
+- **Answer format** ([ADR-085](../architecture/adr/085-answer-format-of-an-agent.md)). In the *Prompts* tab, below the prompts, you can define the shape of the **final answer** as a
+  list of fields (name, type, *Required*, description; flat, at most 30: the same editor as the Hand Over Tool). Without fields the answer is free text, as ever. With
+  fields the model **gives its final answer by calling a tool**, `report_result`, whose parameters are exactly these fields; the server checks the call, and the checked
+  fields become the **data of the agent node**: `${(Review).data.passed}` in an If node, a Switch or Edit Fields. `output` holds the same document as JSON text.
+  - A call that does not fit (a required field missing, a wrong type, a value that is not one of a choice, an unknown field) gets all that is wrong back in one answer
+    and the model may **correct it once**; a second call that does not fit fails the node with the reasons (*If the node fails* applies). A text answer without the
+    tool is reminded once. Both calls and the reasons stay in the step (*Answer reported, corrected once*).
+  - The agent may use its other tools first and report when it has the answer. At a limit (iterations, time, tokens) the last request offers only the report tool.
+  - A node can set a format of its own (*Add setting*, *Answer format*); an empty list on the node switches the agent's format off for that node. The reference list offers
+    the fields as `data.NAME`.
+  - A field may not be named like the data the agent leaves anyway (`model`, `usage`, `finish_reason`, `iterations`, `tools`, `attempts`, `status`, `provider`,
+    `agent_id`, `agent_version`, `repaired`, `answer_calls`). A model without tool calling cannot give a structured answer.
+  - *Example:* a reviewer agent with the fields `passed` (true or false, required), `verdict` (choice: ship, fix) and `reasons` (list of texts). The next node is an If node with
+    the condition `${(Review).data.passed}` *is true*; a free-text answer would have to be parsed.
+  - What the model reports is text from outside: it is never read for `${...}` references.
 - **Draft and versions.** You edit the *draft*. Nothing an execution uses changes until you **publish**: that makes a
   new version (numbers count up, a version is never changed) and executions that start from then on use it. *Discard
   draft* goes back to the published version. **Publish again** on an earlier version is the rollback: a new version with
