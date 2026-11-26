@@ -108,7 +108,9 @@
 .history-row__delete { margin-right: var(--space-2); }
 /* Stop: the red square sits left of the trash; it is red at rest (the run is what the owner wants to end), the hover tint is the shared is-danger one. */
 .history-row__stop { margin-right: var(--space-1); color: var(--color-danger); }
-.history-row__stop[hidden] { display: none; }
+.history-row__stop[hidden], .history-row__delete[hidden] { display: none; }
+/* In the global list a running row shows the stop where the trash is (ADR-076): the same distance to the edge as the trash has. */
+.ex-row__actions .history-row__stop { margin-right: var(--space-2); }
 
 /* ── One execution ───────────────────────────────────────────────── */
 .history-detail__bar { display: flex; gap: var(--space-2); }

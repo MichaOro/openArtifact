@@ -234,6 +234,10 @@ textarea.field__control--lines { resize: vertical; }
 .ge-switch[aria-checked="true"] .ge-switch__state { right: auto; left: 0.75rem; }
 .ge-switch[aria-checked="true"] .ge-switch__thumb { transform: translateX(2.5rem); background: var(--color-accent); }
 .ge-switch:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* The STOP switch (ADR-076): the same switch in the red of the trash button when it is on; off it is the neutral switch. */
+.ge-switch--danger[aria-checked="true"] { background: var(--danger-soft); border-color: var(--btn-danger-border); color: var(--color-danger); }
+.ge-switch--danger[aria-checked="true"] .ge-switch__thumb { background: var(--color-danger); }
+.ge-switch--danger:focus-visible { outline-color: var(--color-danger); }
 
 /* ── Combobox (components/combobox.js): a text field with a list of choices under it ─────────────── */
 .combobox { position: relative; min-width: 0; }

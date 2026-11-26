@@ -203,6 +203,7 @@ export class ProcessingPanel {
         this.upsert(await startRun(taskId, { pipeline_id: draft.pipeline, stage_id: draft.stage, action_id: draft.action }));
       }
     } catch (error) {
+      if (error.code === "stopped") return this.onError(t("stop.start_refused"));
       this.onError(error.status === 409 ? t("tasks.processing.artifact_already_being_processed") : error.message || t("tasks.processing.did_not_work"));
     }
   }

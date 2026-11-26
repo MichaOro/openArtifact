@@ -345,7 +345,7 @@ def test_load_more_appends_the_next_page_and_never_scrolls_by_itself(
 # ── deleting ──────────────────────────────────────────────────────────
 
 
-def test_delete_needs_a_confirmation_and_a_running_row_cannot_be_deleted(
+def test_delete_needs_a_confirmation_and_a_running_row_has_no_trash_at_all(
     page: Page, secured_url: str, api: httpx.Client
 ) -> None:
     made = _seed(api)
@@ -354,11 +354,9 @@ def test_delete_needs_a_confirmation_and_a_running_row_cannot_be_deleted(
     rows = _open(page, secured_url)
     running = rows.first
     expect(running.locator(".history-chip")).to_have_text("Running")
-    delete = running.locator("[data-delete]")
-    expect(delete).to_have_attribute("aria-disabled", "true")
-    expect(delete).to_have_attribute("title", "Stop it first")
-    delete.click(force=True)
-    expect(page.locator("#confirm-modal")).to_be_hidden()
+    # ADR-076: a running execution cannot be deleted, so the trash is not drawn there (the stop button takes its place)
+    expect(running.locator("[data-delete]")).to_be_hidden()
+    expect(running.locator("[data-stop]")).to_be_visible()
 
     target = rows.nth(2)  # B#1
     target.locator("[data-delete]").click()
@@ -396,15 +394,12 @@ def test_only_a_running_row_has_a_stop_button_and_it_asks_before_it_stops(
     stop = running.locator("[data-stop]")
     expect(stop).to_be_visible()
     expect(stop).to_have_attribute("aria-label", f"Stop execution #3 of #{made['a']['number']}")
-    expect(running.locator("[data-delete]")).to_have_attribute("aria-disabled", "true")
-    assert (
-        stop.bounding_box() is not None
-        and running.locator("[data-delete]").bounding_box() is not None
-    )
-    stop_box, trash_box = stop.bounding_box(), running.locator("[data-delete]").bounding_box()
+    # ADR-076: the stop button is where the trash is on the other rows (a replacement, not a second button)
+    expect(running.locator("[data-delete]")).to_be_hidden()
+    stop_box, trash_box = stop.bounding_box(), rows.nth(1).locator("[data-delete]").bounding_box()
     assert stop_box and trash_box
     assert stop_box["width"] == trash_box["width"] and stop_box["height"] == trash_box["height"]
-    assert stop_box["x"] < trash_box["x"]  # the stop sits to the left of the trash
+    assert abs(stop_box["x"] - trash_box["x"]) < 1.5  # the same place in the column
     for finished in (1, 2, 3, 4):
         expect(rows.nth(finished).locator("[data-stop]")).to_be_hidden()  # nothing to stop there
 
@@ -428,7 +423,9 @@ def test_only_a_running_row_has_a_stop_button_and_it_asks_before_it_stops(
     expect(dialog).to_be_hidden()
     expect(running.locator(".history-chip")).to_have_text("Stopped")
     expect(running.locator("[data-stop]")).to_be_hidden()
-    expect(running.locator("[data-delete]")).to_have_attribute("aria-disabled", "false")
+    expect(
+        running.locator("[data-delete]")
+    ).to_be_visible()  # the trash is back once it is no longer running
     expect(page.locator("[data-summary=running] [data-summary-value]")).to_have_text("0")
     expect(rows).to_have_count(5)  # stopped, not deleted
     assert next(e["status"] for e in executions(api, made["a"])) == "stopped"

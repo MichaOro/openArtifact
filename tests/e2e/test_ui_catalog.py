@@ -161,6 +161,8 @@ VARIANTS = {
     "icon quiet": '<button class="icon-button icon-button--quiet icon-button--xs" aria-label="Guards"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
     "layout handle": '<button class="layout-handle" aria-label="Window layout"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
     "layout grip": '<button class="lw-grip" aria-label="Move"><svg class="icon" width="16" height="16" viewBox="0 0 16 16"><path d="M2 8h12" stroke="currentColor" stroke-width="2"/></svg></button>',
+    "stop switch off": '<button class="ge-switch ge-switch--danger" role="switch" aria-checked="false" aria-label="STOP"><span class="ge-switch__state">Off</span><span class="ge-switch__thumb"></span></button>',
+    "stop switch on": '<button class="ge-switch ge-switch--danger" role="switch" aria-checked="true" aria-label="STOP"><span class="ge-switch__state">On</span><span class="ge-switch__thumb"></span></button>',
     "chip off": '<button class="chip-button" aria-pressed="false">Comments</button>',
     "chip on": '<button class="chip-button" aria-pressed="true">Comments</button>',
 }

@@ -1,6 +1,7 @@
 /* UI wiring of the shell: binds the toggles to the theme and sidebar state (theme.js) and keeps
  * their ARIA in sync. */
 import { ActionMenu } from "./components/action-menu.js";
+import "./components/stop-banner.js"; // the banner while STOP is on (ADR-076), on every page
 import { chooseLanguage, language, languages, t } from "./i18n.js";
 import { KEYS, readJson } from "./storage.js";
 

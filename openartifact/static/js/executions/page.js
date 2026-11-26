@@ -7,6 +7,7 @@ import { BulkBar } from "../components/bulk-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { Modal } from "../components/modal.js";
 import { Selection } from "../components/selection.js";
+import { StopSwitch } from "../components/stop-switch.js";
 import { connectEvents } from "../tasks/events.js";
 import { deleteExecution } from "../tasks/history-api.js";
 import { stopRun } from "../tasks/api.js";
@@ -81,6 +82,11 @@ class ExecutionsPage {
       },
     });
     $("[data-retention]").addEventListener("click", () => this.retention.open());
+    // STOP (ADR-076): the switch next to Retention; switching on ended the runs, so the list is read again
+    this.stop = new StopSwitch($("[data-stop-switch]"), this.confirm, {
+      onChanged: () => this.load(),
+      onError: (message) => this.alert.show(message),
+    });
     this.newButton.addEventListener("click", () => this.load({ focusFirst: true }));
     this.moreButton.addEventListener("click", () => this.#more());
     window.addEventListener("popstate", () => this.#apply(Filters.fromSearch(window.location.search)));

@@ -177,7 +177,10 @@ export class ExecutionTable {
     note.textContent = e.note ?? "";
     note.title = e.note ?? "";
     const subject = `execution #${e.number} of #${e.task.number}`;
+    // a running execution has the stop button where the trash is (ADR-076: a replacement, not two buttons)
+    const trash = row.querySelector("[data-delete]");
     fillStopButton(row.querySelector("[data-stop]"), e, subject);
-    fillDeleteButton(row.querySelector("[data-delete]"), e, subject);
+    fillDeleteButton(trash, e, subject);
+    trash.hidden = e.status === "running";
   }
 }

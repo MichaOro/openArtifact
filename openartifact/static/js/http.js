@@ -7,12 +7,14 @@ export class ApiError extends Error {
    * @param {number} status HTTP status, 0 for network failures
    * @param {Record<string, string>} fieldErrors messages by field name
    * @param {string|null} detail the server's own explanation, when it sent a text (a refused rule, a conflict)
+   * @param {string|null} code the stable word the server gave a refusal (`stopped`), for what a program must tell apart
    */
-  constructor(message, status, fieldErrors = {}, detail = null) {
+  constructor(message, status, fieldErrors = {}, detail = null, code = null) {
     super(message);
     this.status = status;
     this.fieldErrors = fieldErrors;
     this.detail = detail;
+    this.code = code;
   }
 }
 
@@ -43,8 +45,11 @@ export async function request(url, options = {}) {
   if (response.status === 401) throw signIn();
 
   let detail = null;
+  let code = null;
   try {
-    detail = (await response.json()).detail;
+    const body = await response.json();
+    detail = body.detail;
+    code = typeof body.code === "string" ? body.code : null;
   } catch {
     /* non-JSON error body */
   }
@@ -59,5 +64,5 @@ export async function request(url, options = {}) {
   }
   const text = typeof detail === "string" && detail ? detail : null;
   if (response.status >= 500) throw new ApiError(t("http.something_went_wrong_server_please"), response.status, {}, text);
-  throw new ApiError(text ?? t("http.request_was_not_accepted"), response.status, {}, text);
+  throw new ApiError(text ?? t("http.request_was_not_accepted"), response.status, {}, text, code);
 }

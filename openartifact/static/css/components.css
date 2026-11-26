@@ -937,3 +937,34 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 .fold-separator { position: relative; display: grid; place-items: center; padding: var(--space-2) 0; list-style: none; }
 .fold-separator::before { content: ""; position: absolute; inset: 0 auto 0 50%; width: 0; border-left: 2px dotted var(--glass-border-hover, var(--glass-border)); transform: translateX(-1px); }
 .fold-separator .fold-separator__button { position: relative; background: var(--color-surface); } /* hides the line behind the words */
+
+/* The banner while STOP is on (ADR-076, components/stop-banner.js): top centre of every page, in the red of the trash button. */
+.stop-banner {
+  position: fixed;
+  top: var(--space-2);
+  left: 50%;
+  translate: -50% 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--btn-danger-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--color-glass-card));
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-card-hover);
+}
+.stop-banner[hidden] { display: none; }
+.stop-banner__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stop-banner__title { color: var(--color-danger); }
+.stop-banner__text, .stop-banner__problem { font-size: 0.8125rem; color: var(--color-text-secondary); }
+.stop-banner__problem { color: var(--color-danger); }
+.stop-banner__problem[hidden], .stop-banner [data-stop-off][hidden] { display: none; }
+.stop-banner [data-stop-off] { flex: none; }
+/* the STOP switch of the Executions page: the label and the switch on one line */
+.stop-switch { display: inline-flex; align-items: center; gap: var(--space-2); }
+.stop-switch[hidden] { display: none; }
+.stop-switch__label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; color: var(--color-danger); }
