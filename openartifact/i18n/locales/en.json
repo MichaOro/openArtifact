@@ -242,7 +242,7 @@
  "comments.loading_comments": "Loading comments...",
  "comments.no_comments_yet_write_the_first": "No comments yet. Write the first one below.",
  "comments.open_the_execution": "Open the execution",
- "comments.plain_text_ctrl_enter_sends": "Plain text. Ctrl+Enter sends.",
+ "comments.markdown_ctrl_enter_sends": "Markdown: bold, italic, strikethrough, lists. Ctrl+Enter sends.",
  "comments.write_a_comment": "Write a comment...",
  "common.actions": "Actions",
  "common.active": "Active",
@@ -1440,5 +1440,12 @@
  "archive.remove_failed": "The card could not be taken out of the archive.",
  "archive.restored": "{title} is back in its lane",
  "archive.yes": "Yes",
- "archive.no": "No"
+ "archive.no": "No",
+ "components.markdown_bar.formatting": "Formatting",
+ "components.markdown_bar.bold": "Bold",
+ "components.markdown_bar.italic": "Italic",
+ "components.markdown_bar.strikethrough": "Strikethrough",
+ "components.markdown_bar.list": "Bulleted list",
+ "components.markdown_bar.hint": "Markdown: bold, italic, strikethrough, lists",
+ "components.markdown_bar.preview": "Preview"
 }

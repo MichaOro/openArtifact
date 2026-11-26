@@ -11,6 +11,7 @@ import { foldEntries, foldSeparator } from "../components/fold-list.js";
 import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
 import { LeaveGuard } from "../components/leave-guard.js";
+import { MarkdownBar } from "../components/markdown-bar.js";
 import { fitColumn, fitSelect, refitWhenFontsLoad } from "../components/select-fit.js";
 import { Modal } from "../components/modal.js";
 import { OptionsPanel } from "../components/options-panel.js";
@@ -33,6 +34,8 @@ const nameDialog = new FormDialog(new Modal(document.getElementById("name-modal"
 const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
 const $ = (selector) => root.querySelector(selector);
 const control = (key) => root.querySelector(`[data-field="${key}"]`);
+// The prompts are Markdown by convention and go to the model as they are written (ADR-077); the bar only helps to write them.
+for (const key of ["user_prompt", "system_prompt"]) new MarkdownBar(control(key));
 
 const NUMBERS = ["temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations", "token_budget", "tool_result_chars"];
 const ORIGINS = { user: t("agents.editor_page.browser"), api: t("agents.editor_page.through_api") };

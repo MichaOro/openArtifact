@@ -8,7 +8,8 @@ import { Tabs } from "../components/tabs.js";
 import { drawLabels } from "./card-marks.js";
 import { ResolvedLegend } from "../components/resolved-legend.js";
 import { bodySegments, bodyText, rememberWarnings, warningsFor } from "./body-model.js";
-import { renderReferences, renderResolvedBody } from "./references.js";
+import { MarkdownBar } from "../components/markdown-bar.js";
+import { renderBody, renderReferences } from "./references.js";
 import { t } from "../i18n.js";
 
 /** Share of the viewport height a saved artifact's dialog may use at most. */
@@ -48,6 +49,7 @@ export class ArtifactDialog extends FormDialog {
     const root = this.root;
     this.titleInput = this.fields.get("title").control;
     this.bodyInput = this.fields.get("body").control;
+    this.bodyBar = new MarkdownBar(this.bodyInput, { renderText: (piece) => renderReferences(piece, this.findByNumber) }); // Markdown (ADR-077)
     this.numberLabel = root.querySelector("[data-modal-number]");
     this.subtitle = root.querySelector("[data-modal-subtitle]");
     this.cardNav = root.querySelector("[data-card-nav]");
@@ -261,7 +263,7 @@ export class ArtifactDialog extends FormDialog {
     else delete panel.dataset.colourTone, delete panel.dataset.colourMode;
 
     const segments = bodySegments(task); // only while the personal setting marks resolved references
-    this.viewBody.replaceChildren(segments ? renderResolvedBody(segments, this.findByNumber) : renderReferences(bodyText(task), this.findByNumber));
+    this.viewBody.replaceChildren(renderBody(bodyText(task), this.findByNumber, { segments })); // Markdown, with the links and marks inside (ADR-077)
     this.#legend().show(Boolean(segments));
 
     const notes = warningsFor(this.warned, task);
@@ -327,6 +329,7 @@ export class ArtifactDialog extends FormDialog {
     this.view.hidden = !showView;
     this.form.hidden = showView;
     if (this.mode === "create") this.backButton.hidden = true;
+    if (!showView) this.bodyBar.reset(); // the form opens on the field, not on the preview
     if (this.cardNav) this.cardNav.hidden = !this.editing; // task actions only exist for saved tasks
   }
 }

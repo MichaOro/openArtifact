@@ -2,7 +2,7 @@
 {% from "components/form_modal.html" import dialog_form %}
 {% set ARTIFACT_FIELDS = [
     {"name": "title", "label": t('artifact.title'), "kind": "text", "required": True, "maxlength": 255, "placeholder": t('artifact.title_placeholder')},
-    {"name": "body", "label": t('artifact.body'), "kind": "textarea", "maxlength": 10000, "rows": 6, "hint": t('common.optional'), "placeholder": t('artifact.body_placeholder')},
+    {"name": "body", "label": t('artifact.body'), "kind": "textarea", "maxlength": 10000, "rows": 5, "hint": t('common.optional'), "placeholder": t('artifact.body_placeholder')},
 ] %}
 {% from "components/icons.html" import icon %}
 {% from "components/nav.html" import nav_items %}
@@ -20,7 +20,7 @@
     <div class="modal__body" role="tabpanel" id="artifact-panel-details" aria-labelledby="artifact-tab-details" tabindex="0">
         <h3 class="task-view__title" data-view-title></h3>
         <ul class="task-view__labels" data-view-labels hidden></ul>
-        <p class="task-view__body" data-view-body></p>
+        <div class="task-view__body" data-view-body></div>
         <p class="task-view__warning" role="status" data-view-warning hidden></p>
     </div>
     {% include "components/comments_panel.html" %}

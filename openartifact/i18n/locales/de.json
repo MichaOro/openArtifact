@@ -255,7 +255,7 @@
  "comments.loading_comments": "Kommentare werden geladen...",
  "comments.no_comments_yet_write_the_first": "Noch keine Kommentare. Schreibe unten den ersten.",
  "comments.open_the_execution": "Ausführung öffnen",
- "comments.plain_text_ctrl_enter_sends": "Nur Text. Strg+Enter sendet.",
+ "comments.markdown_ctrl_enter_sends": "Markdown: fett, kursiv, durchgestrichen, Listen. Strg+Enter sendet.",
  "comments.write_a_comment": "Kommentar schreiben...",
  "common.actions": "Aktionen",
  "common.active": "Aktiv",
@@ -2107,5 +2107,12 @@
  "archive.remove_failed": "Die Karte konnte nicht aus dem Archiv genommen werden.",
  "archive.restored": "{title} ist wieder in seiner Spalte",
  "archive.yes": "Ja",
- "archive.no": "Nein"
+ "archive.no": "Nein",
+ "components.markdown_bar.formatting": "Formatierung",
+ "components.markdown_bar.bold": "Fett",
+ "components.markdown_bar.italic": "Kursiv",
+ "components.markdown_bar.strikethrough": "Durchgestrichen",
+ "components.markdown_bar.list": "Aufzählung",
+ "components.markdown_bar.hint": "Markdown: fett, kursiv, durchgestrichen, Listen",
+ "components.markdown_bar.preview": "Vorschau"
 }
