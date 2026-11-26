@@ -422,7 +422,7 @@ class NodeType:
         self.variables = variables  # the setting it sets run variables from
         self.scopes = scopes
         #: The kinds of action definition it may be used in (``pipeline`` and/or ``guard``, ADR-067) and the right it needs
-        #: (a hook for the permissions of card #99, not evaluated yet).
+        #: (a hook for planned per-person rights, not evaluated yet).
         self.purposes = purposes
         self.requires = requires
         self.fixed = fixed  # comes with the graph, cannot be added or deleted

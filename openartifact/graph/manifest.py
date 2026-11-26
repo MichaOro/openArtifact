@@ -281,7 +281,7 @@ class NodeManifest(_Strict):
         default_factory=lambda: cast(list[Literal["pipeline", "guard"]], ["pipeline", "guard"]),
         min_length=1,
     )
-    #: The right a person needs to use the kind (a hook for the permissions of card #99; nothing evaluates it yet).
+    #: The right a person needs to use the kind (a hook for planned per-person rights; nothing evaluates it yet).
     requires: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_.:-]*$")
     fixed: bool = False
     addable: bool = False

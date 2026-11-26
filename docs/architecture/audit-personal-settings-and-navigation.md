@@ -91,7 +91,7 @@ This audit examines two foundational extensions for the Settings area and the na
 
 **Current state:** `AppSetting` table stores arbitrary key-value pairs as JSON text. Keys use dotted names such as `run.max_steps` (`models/settings.py`); the new ones follow that style (`personal.mark_resolved_references`). No personal settings yet.
 
-**Gap to requirement:** Need namespaced keys (`personal.*`) to separate personal from global/admin settings later (per card #99: System → Global → Personal resolution).
+**Gap to requirement:** Need namespaced keys (`personal.*`) to separate personal from global/admin settings later (planned: System → Global → Personal resolution).
 
 **Recommendation:** Use `AppSetting` with keys `personal.mark_resolved_references` (boolean), `personal.<future_setting>`. Value stored as JSON (`"true"`, `"false"`, `"auto"`, etc.). No schema migration needed — table accepts any key.
 
@@ -160,7 +160,7 @@ async def put_personal(payload: PersonalSettingsWrite, request: Request, session
 
 **Error behavior:** 422 for invalid boolean; 401/403 via existing `GATED` dependencies; unknown keys ignored (forward-compatible).
 
-**Permissions:** Today single user → no auth check beyond existing API token/OIDC. Designed for later: `personal.*` keys scoped to user when multi-user arrives (card #99).
+**Permissions:** Today single user → no auth check beyond existing API token/OIDC. Designed for later: `personal.*` keys scoped to user if per-person rights are added (planned, not implemented).
 
 #### 3.1.4 UI: Page from Catalog Components
 
@@ -237,7 +237,7 @@ def resolve_body_segments(body: str, card: Mapping) -> list[Segment]:
 | **Performance on large bodies** | Token-by-token walk already budgeted; segments add array allocation | Acceptable — budget stops early; segments only for bodies with references |
 | **Where legend lives** | Dialog: footer; Board card: tooltip or popover | Dialog: collapsible `<details>` in view mode; Board: hover tooltip on first mark |
 | **Language/Theme migration** | Not in scope; keep cookies for now | Document in manifest as `visible_when: {field: _meta.migration, equals: true}` placeholder |
-| **Multi-user scoping (card #99)** | `AppSetting` has no user_id | Add `user_id` column later (nullable, default NULL = global); personal keys written with current user_id |
+| **Per-person scoping (planned, not implemented)** | `AppSetting` has no user_id | Add `user_id` column later (nullable, default NULL = global); personal keys written with current user_id |
 
 **Owner decisions needed:**
 1. **D1:** Segmented response (`body_resolved_segments`) vs. client-side re-parse (recommend: server segments — single source of truth)
@@ -337,7 +337,7 @@ Run in CI; fails if new page added without nav registration.
 |------|--------|-------|
 | **1. Abstract base** | Convert `NavItem` to `ABC` with abstract `render(context)`; keep dataclass fields | Unit: subclasses instantiate, `kind` correct |
 | **2. Registry class** | `NavigationRegistry` with `register()`, `build_sidebar()`, `build_rail()`; move `SIDEBAR`/`ARTIFACT_RAIL` construction into `registry.populate_builtin()` | Unit: registry builds same structure as old constants |
-| **3. Visibility predicate** | Add `visible_when: Callable[[dict], bool] | None` to `NavEntry`; evaluate in `build_*` with an explicit context dict (the request's page and the feature flags; no user or rights while the system has one user, card #99) | Unit: entry hidden when predicate false |
+| **3. Visibility predicate** | Add `visible_when: Callable[[dict], bool] | None` to `NavEntry`; evaluate in `build_*` with an explicit context dict (the request's page and the feature flags; no user or rights while the system has one user; per-person rights are planned, not implemented) | Unit: entry hidden when predicate false |
 | **4. Settings sub-nav** | Create `NavGroup("settings", "Settings", "settings")` with dynamic children from registry (filter `parent="settings"`); replace hardcoded children in `SIDEBAR` | E2E: Settings dropdown shows Providers, Credentials, Run limits, Personal |
 | **5. Migrate routes** | In `web/routes.py`, remove hardcoded `_page(..., nav="providers")` — derive `active_nav` from registry via request path | E2E: Active highlight works on all settings pages |
 | **7. Third-party API** | Document `registry.register()` in `extending.md`; add example plugin | Integration test: external package adds entry |

@@ -31,7 +31,7 @@ can be for one of them or for both.
   change either. The `409` answer names the pipelines, the guards or the node kinds, and the window shows it.
 - **A kind of node says where it may be used** (`purposes: [pipeline, guard]` in its manifest, both by default; `[guard]` for a kind
   that only guards may use). The "+" menu of an action offers only the kinds for its purpose, and the server refuses another when a
-  node is added. An optional `requires: <right>` is a hook for the permissions of card #99 (user, developer, admin): nothing
+  node is added. An optional `requires: <right>` is a hook for planned per-person rights (user, developer, admin; not implemented): nothing
   evaluates it yet, so later permissions need no change of the manifests.
 - **The Actions page keeps them apart:** two tabs, *Pipeline actions* and *Guard actions*; a guard action shows a *Guard* chip next
   to *Draft*. `GET /api/actions?purpose=guard|pipeline` narrows the list; the stage's choice of an action and the guard editor use it.

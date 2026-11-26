@@ -32,7 +32,7 @@ that humans and AI contributors must follow.
   same length, and a page that is in no navigation marks nothing. Routes pass no `active_nav`.
 - **Texts are i18n keys by entry key:** `nav.<key>.label` and `nav.<key>.tooltip` (English and German). The registry holds no texts.
 - **`visible_when` is a plain function** of a context dict (`{"path": ...}`); no expression language is evaluated and the context
-  has neither a user nor rights (the application knows one user, card #99). A predicate that raises hides its entry and is logged
+  has neither a user nor rights (the application knows one user; per-person rights are planned, not implemented, and the personal settings decide today what one sees and uses, for example the emergency stop). A predicate that raises hides its entry and is logged
   as a warning, never swallowed silently.
 - **A page cannot be added without an entry.** `tests/test_navigation_modularity.py` checks that every page route (a GET route
   outside the API document) has an entry or is listed with a reason (the sign-in pages), and that no template has a navigation link
