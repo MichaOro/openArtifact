@@ -1,0 +1,59 @@
+schema: 1
+kind: openartifact_tool
+label: OpenArtifact MCP Tool
+behaviour: tool
+scopes:
+- action
+addable: true
+tool: true
+menu:
+  group: Agent tools
+  order: 6
+ports:
+  outputs:
+  - name: tool
+    label: Tool
+    side: top
+ui:
+  color: artifact
+  icon: board
+  hint: This node lets an agent work with the OpenArtifact board itself - read cards, comments and executions, tidy up (move, archive, bundle) and, when allowed, create and change cards. It runs inside the application, with no address and no token.
+  caption:
+    template: '{?allow_write:can change}{?!allow_write:read only}'
+settings:
+- key: allow_write
+  label: Allow writes
+  type: switch
+  default: false
+  level: optional
+  help: 'Off: the agent can only read; the tools that change something are left out. On: it may also create, change, move, archive and comment cards and start or stop their processing. Nothing is ever deleted.'
+  stored_in: config
+- key: tools_mode
+  label: Tools to include
+  type: select
+  default: all
+  options:
+  - all
+  - selected
+  - all_except
+  option_labels:
+    all_except: all except
+  level: optional
+  help: 'Every tool is described to the model with each request: fewer tools, a smaller prompt. Tools that change something stay out while Allow writes is off.'
+  stored_in: config
+- key: tool_names
+  label: Tools
+  type: lines
+  default: ''
+  max_length: 10000
+  placeholder: list_artifacts
+  help: 'One tool name per line, for example list_artifacts, get_artifacts, move_artifacts. A name that is not a tool is refused with the list of the tools.'
+  stored_in: config
+  check: board_tool_names
+  shown_when:
+    setting: tools_mode
+    values:
+    - selected
+    - all_except
+- use: tool_name
+  level: optional

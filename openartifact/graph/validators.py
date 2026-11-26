@@ -188,6 +188,20 @@ def _blocked_list(value: str) -> None:
         raise SettingError(str(error)) from None
 
 
+def _board_tool_names(value: str) -> None:
+    """The tool names of the OpenArtifact MCP Tool: a known name per line (the tools are the application's own, so a wrong name is
+    refused, and the answer lists the names there are)."""
+    from openartifact.api.board_tool_names import BOARD_TOOLS
+
+    try:
+        names = tool_config.parse_tool_names(value)
+    except tool_config.ToolConfigError as error:
+        raise SettingError(str(error)) from error
+    for name in names:
+        if name not in BOARD_TOOLS:
+            raise SettingError(f"'{name}' is not a tool. The tools: {', '.join(BOARD_TOOLS)}")
+
+
 def _query_values(value: str) -> None:
     _not_secret(value)
     if len(value.splitlines()) > MAX_QUERY_VALUES:
@@ -215,6 +229,7 @@ VALIDATORS: dict[str, Callable[[str], None]] = {
     "blocked_list": _blocked_list,
     "tool_endpoint": _tool_rule(tool_config.check_endpoint),
     "tool_names": _tool_rule(tool_config.parse_tool_names),
+    "board_tool_names": _board_tool_names,
     "tool_parameters": _tool_rule(tool_config.parse_parameters),
     "tool_name": _tool_rule(tool_config.check_tool_name),
 }

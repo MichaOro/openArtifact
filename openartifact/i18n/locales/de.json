@@ -2277,5 +2277,20 @@
  "nodes.handover_tool.settings.fields.help": "Die Felder des Dokuments, flach (kein Feld enthält ein anderes Objekt). Das Modell übergibt genau diese. Ein Dokument mit fehlendem Pflichtfeld, falschem Typ, einem Wert außerhalb einer Auswahl oder einem Feld, das nicht aufgeführt ist, wird abgelehnt, und die Antwort sagt warum. Das zuletzt angenommene Dokument zählt; jeder Aufruf bleibt im Schritt.",
  "nodes.handover_tool.settings.max_bytes.label": "Größenlimit",
  "nodes.handover_tool.settings.max_bytes.help": "Das Höchste, was ein Dokument einnimmt (Bytes von UTF-8-JSON). Ein größeres wird mit einer Meldung abgelehnt, die das sagt.",
- "tasks.history_step.handed_over": "Übergeben: {names}"
+ "tasks.history_step.handed_over": "Übergeben: {names}",
+ "nodes.openartifact_tool.label": "OpenArtifact MCP Tool",
+ "nodes.openartifact_tool.hint": "Dieser Node lässt einen Agent mit dem OpenArtifact-Board selbst arbeiten – Karten, Kommentare und Ausführungen lesen, aufräumen (verschieben, archivieren, bündeln) und, wenn erlaubt, Karten anlegen und ändern. Er läuft in der Anwendung, ohne Adresse und ohne Token.",
+ "nodes.openartifact_tool.caption": "{?allow_write:kann ändern}{?!allow_write:nur lesen}",
+ "nodes.openartifact_tool.ports.tool": "Werkzeug",
+ "nodes.openartifact_tool.settings.allow_write.label": "Schreiben erlauben",
+ "nodes.openartifact_tool.settings.allow_write.help": "Aus: Der Agent kann nur lesen, die Werkzeuge, die etwas ändern, fehlen. An: Er darf auch Karten anlegen, ändern, verschieben, archivieren und kommentieren und ihre Verarbeitung starten oder stoppen. Gelöscht wird nie etwas.",
+ "nodes.openartifact_tool.settings.tools_mode.label": "Einzubeziehende Werkzeuge",
+ "nodes.openartifact_tool.settings.tools_mode.help": "Jedes Werkzeug wird dem Modell bei jeder Anfrage beschrieben: weniger Werkzeuge, kleinerer Prompt. Werkzeuge, die etwas ändern, bleiben weg, solange Schreiben erlauben aus ist.",
+ "nodes.openartifact_tool.settings.tools_mode.options.all": "alle",
+ "nodes.openartifact_tool.settings.tools_mode.options.selected": "ausgewählte",
+ "nodes.openartifact_tool.settings.tools_mode.options.all_except": "alle außer",
+ "nodes.openartifact_tool.settings.tool_names.label": "Werkzeuge",
+ "nodes.openartifact_tool.settings.tool_names.help": "Ein Werkzeugname pro Zeile, zum Beispiel list_artifacts, get_artifacts, move_artifacts. Ein Name, der kein Werkzeug ist, wird mit der Liste der Werkzeuge abgelehnt.",
+ "nodes.openartifact_tool.settings.tool_name.label": "Werkzeugname",
+ "nodes.openartifact_tool.settings.tool_name.help": "Der Name, unter dem das Modell es aufruft (Buchstaben, Ziffern, _ und -). Leer: der Name des Nodes."
 }

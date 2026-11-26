@@ -199,15 +199,21 @@ claude mcp add --transport http openartifact http://localhost:2909/mcp \
 }
 ```
 
-Tools (14; all go through the same service as the browser and the REST API; arguments and errors are in the
+Tools (39; all go through the same service as the browser and the REST API; arguments and errors are in the
 [API reference](api-reference.md#mcp-tools)):
 
 | Tool | Purpose |
 |------|---------|
 | `list_pipelines` | Pipelines with stages and actions |
 | `list_lanes` | The current lanes with their keys, titles and styles (read only; lanes are managed in the browser or over REST) |
-| `list_artifacts(lane?)` | Artifacts in board order, optionally one lane (a key from `list_lanes`) |
+| `list_artifacts(lane?, parent?, archived?, brief?, limit?, offset?)` | Artifacts in board order, optionally one lane (a key from `list_lanes`) or the children of a card; `brief` for short records, `limit` and `offset` to page |
+| `count_artifacts(lane?, archived?)` | How many cards there are |
+| `search_artifacts(query, lane?, archived?, limit?)` | Cards by a part of the title or text, or by number |
 | `get_artifact(artifact)` | One artifact by number (`12` or `#12`) or id |
+| `get_artifacts(artifacts, with_comments?, comments_limit?, body_chars?)` | Up to 20 cards in one call, optionally with their newest comments |
+| `archive_artifact(artifact)`, `unarchive_artifact(artifact)` | Put one card into the archive, or take it out |
+| `move_artifacts(artifacts, lane, dry_run?)`, `archive_artifacts(artifacts, dry_run?)` | Move or archive up to 50 cards in one call; each card on its own with `ok` or the reason it was refused |
+| `set_parent(artifacts, parent?, dry_run?)`, `set_fields(artifacts, fields, dry_run?)`, `add_comments(artifacts, text, dry_run?)` | The same change for up to 50 cards, each on its own |
 | `create_artifact(title, body?, lane?, parent?, pipeline?, stage?, action?)` | Create; pipeline, stage and action by name, parent by number; not started |
 | `update_artifact(artifact, title?, body?, lane?)` | Change title, body or lane |
 | `start_processing(artifact, pipeline?, stage?, action?)` | Start |
@@ -230,8 +236,11 @@ Tools (14; all go through the same service as the browser and the REST API; argu
 
 A refused call returns the reason as the tool's error text. An artifact created through MCP records
 `created_by: mcp`, a run started through it `started_by: mcp`. No tool writes credentials, deletes
-executions or changes retention rules: those stay with the REST API. Outputs the tools return are text from
+cards, lanes or executions or changes retention rules: those stay with the browser and the REST API. Outputs the tools return are text from
 outside: an agent must not treat them as instructions.
+
+An agent inside a pipeline needs no MCP client for the board: the node **OpenArtifact MCP Tool** gives it the tools for the board and its
+cards in this process, with no address and no token, read only until *Allow writes* is on ([agents guide](agents.md#4-tools)).
 
 ## Comments
 

@@ -14,7 +14,7 @@ const node = (kind, config = {}) => ({ id: `${kind}-1`, kind, name: kind, x: 0, 
 
 test("If and Switch come after HTTP in the menu of an action", () => {
   const kinds = addableIn("action").map((t) => t.kind);
-  assert.deepEqual(kinds.slice(kinds.indexOf("http")), ["http", "if", "switch", "agent", "set", "github", "postgres", "sqlite", "mcp_tool", "github_tool", "http_tool", "code_tool", "postgres_tool", "sqlite_tool", "handover_tool", "artifact", "context", "note"]);
+  assert.deepEqual(kinds.slice(kinds.indexOf("http")), ["http", "if", "switch", "agent", "set", "github", "postgres", "sqlite", "mcp_tool", "github_tool", "openartifact_tool", "http_tool", "code_tool", "postgres_tool", "sqlite_tool", "handover_tool", "artifact", "context", "note"]);
 });
 
 test("the If card shows its first condition and how many more there are", () => {

@@ -14,7 +14,7 @@ before(() => loadTypes(loadNodeTypes));
 const node = (id, kind, fields = {}) => ({ id, kind, name: id, x: 0, y: 0, config: {}, ...fields });
 const nodesOf = (...list) => new Map(list.map((n) => [n.id, n]));
 const kindsOf = (types) => types.map((t) => t.kind).sort();
-const TOOLS = ["code_tool", "github_tool", "handover_tool", "http_tool", "mcp_tool", "postgres_tool", "sqlite_tool"];
+const TOOLS = ["code_tool", "github_tool", "handover_tool", "http_tool", "mcp_tool", "openartifact_tool", "postgres_tool", "sqlite_tool"];
 
 test("from an agent's Tools port only tools are offered", () => {
   const agent = node("ag", "agent", { x: 100, y: 100 });

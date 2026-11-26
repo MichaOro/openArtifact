@@ -188,6 +188,14 @@ class ArtifactService:
                 read.archived_from_lane = titles.get(read.archived_from_status or "")
             return reads
 
+    async def processing_ids(self) -> set[str]:
+        """The ids of the cards that are being processed now (a run of theirs is running)."""
+        async with self._session() as session:
+            rows = await session.scalars(
+                select(PipelineRun.task_id).where(PipelineRun.status == RunStatus.RUNNING)
+            )
+            return set(rows)
+
     async def count_cards(self, archived: str) -> int:
         """How many cards a list with this ``archived`` value holds in all (before paging)."""
         async with self._session() as session:

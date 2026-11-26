@@ -376,16 +376,35 @@ The HTML pages (`/`, `/pipelines`, `/pipelines/{ref}`, `/actions`, `/actions/{re
 
 ## MCP tools
 
-`/mcp` offers 22 tools over Streamable HTTP. They go through the same service as the REST API; a refused
+`/mcp` offers 39 tools over Streamable HTTP. They go through the same service as the REST API; a refused
 call returns the reason as the tool's error text. Artifacts are addressed by number (`12` or `#12`) or id.
 Pipeline, stage and action are given by name.
+
+The tools for the board and its cards (pipelines, lanes, artifacts, comments, activity, executions, the neighbours of a graph) are one
+set that an agent also has in a run: the node **OpenArtifact MCP Tool** offers them in this process, read only until *Allow writes* is
+on ([agents guide](agents.md#4-tools), [ADR-079](../architecture/adr/079-openartifact-mcp-tool.md)). The tools for the STOP switch, the
+secrets, the agents, the providers, the guards and the heartbeat are only here. The tools that change several cards (`move_artifacts`, `archive_artifacts`,
+`set_parent`, `set_fields`, `add_comments`) take up to 50 cards in a call and do every card on its own: the answer has `dry_run`, `ok`,
+`failed` and `results`, one entry per card with `artifact` (the number), `ok` and, when it was refused, the plain `reason` (archived, being
+processed, ...); a refusal does not stop the others, and with `dry_run` nothing changes. Nothing here deletes a card, a lane or an
+execution.
 
 | Tool | Arguments | Purpose |
 |------|-----------|---------|
 | `list_pipelines` | | Pipelines with stages and actions |
 | `list_lanes` | | The current lanes (`status`, `title`, `style`, `artifact_count`, `deletable`); read only. The keys are what `lane` takes |
-| `list_artifacts` | `lane?` | Artifacts in board order; `lane`: a key from `list_lanes` |
-| `get_artifact` | `artifact` | One artifact |
+| `list_artifacts` | `lane?`, `parent?`, `include_archived?`, `archived?` (`exclude` default, `include`, `only`), `brief?`, `limit?` (1 to 500), `offset?` | Artifacts in board order; `lane`: a key from `list_lanes`; `parent`: a number, only its children. Without paging arguments it answers the whole list as before. With `brief` each card is a short record (`number`, `title`, `lane`, `parent` (a number), `archived`, `archived_at`, `created_at`, `updated_at`, `processing`): the full cards carry the text and are too large for a long list. *Tidy up* |
+| `count_artifacts` | `lane?`, `archived?` | `{total, lane, archived}`: how many cards there are (how far to page). *Tidy up* |
+| `search_artifacts` | `query`, `lane?`, `archived?`, `limit?` (1 to 200, default 50) | Cards whose title or text contains `query` (ignoring case) or whose number it is: short records plus `match` (`number`, `title`, `body`) and, for a text match, a `snippet`. Titles first. *Tidy up* |
+| `get_artifact` | `artifact` | One artifact; `parent` is its parent's number, `processing` says whether it is being processed now |
+| `get_artifacts` | `artifacts` (at most 20), `with_comments?`, `comments_limit?` (1 to 100, default 20), `body_chars?` | Several cards in one call, each as `get_artifact` gives it; with `with_comments` the newest comments (oldest first); with `body_chars` the text cut to that many characters (`body_truncated`). A card that cannot be read is an entry with `artifact` and `error`. *Tidy up* |
+| `archive_artifact` | `artifact` | Put one card into the archive ([card rules](../architecture/adr/071-card-rules.md)): `409 archived` when it already is, a refusal while it is being processed. *Tidy up* |
+| `unarchive_artifact` | `artifact` | Take one card out of the archive: back into its lane, at the top. Refused when it is not archived. *Tidy up* |
+| `move_artifacts` | `artifacts` (at most 50), `lane`, `dry_run?` | Move cards into a lane (a key from `list_lanes`); archived cards and cards being processed are refused with the reason, a card already there is `ok`. The cards land at the end of the lane in the order given. *Tidy up* |
+| `archive_artifacts` | `artifacts` (at most 50), `dry_run?` | Archive cards; refused with the reason: already archived, being processed. *Tidy up* |
+| `set_parent` | `artifacts` (at most 50), `parent?`, `dry_run?` | Make cards the children of the card `parent` (its number), or take them out of their parent when it is left out; refused: archived, being processed, the card itself, a cycle. *Tidy up* |
+| `set_fields` | `artifacts` (at most 50), `fields`, `dry_run?` | Set the same field values (`{name: value}`, `null` clears one) on cards; an unknown name is an error of the call, a value that does not fit is the card's reason. With `dry_run` the names are checked and the values when it is done for real. *Tidy up* |
+| `add_comments` | `artifacts` (at most 50), `text`, `dry_run?` | The same comment on cards, for example the note that they were bundled into another one; archived cards cannot be commented. *Tidy up* |
 | `list_artifact_fields` | | The artifact fields (kind, default, allowed values, limits); `create_artifact` and `update_artifact` take `fields`; read only |
 | `create_artifact` | `title`, `body?`, `lane?`, `parent?`, `pipeline?`, `stage?`, `action?`, `type?`, `parameters?` | Create; not started; records `created_by: mcp`; `type` is a name or id, `parameters` is `{name: value}` checked now |
 | `update_artifact` | `artifact`, `title?`, `body?`, `lane?`, `type?`, `parameters?`, `reset_parameters?` | Change; not while processed; `parameters` are merged, `type: ""` removes the type |
@@ -412,7 +431,7 @@ Pipeline, stage and action are given by name.
 | `set_guard_enabled` | `guard` (an attachment's id, or the guard's name or id when it is attached in one place), `enabled`, `pipeline?` | Switch a guard on or off where it is attached (off acts on running executions at once) |
 | `heartbeat` | `execution_id`, `note?` | Restart the stall clock of a running execution |
 
-Not available through MCP, on purpose: creating, changing, publishing or deleting agents and providers, writing or deleting credentials, deleting executions, changing
+Not available through MCP, on purpose: deleting cards, lanes or executions, creating, renaming or deleting lanes, creating, changing, publishing or deleting agents and providers, writing or deleting credentials, changing
 retention rules and reading one step's complete output (`get_execution` returns all steps).
 
 ## Server-sent events (`GET /api/events`)
