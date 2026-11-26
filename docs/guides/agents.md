@@ -67,6 +67,9 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
   **The card is a source, never an implicit part of the request: the prompt decides.** The model sees an artifact
   input only where a prompt contains `${input.x}`; a prompt that does not use an input does not send it, and the node
   dialog warns about an input that no prompt uses. A run that has no artifact fails the node when the agent needs one.
+  To give an agent more than the card itself (its comments, the parent and the child cards, earlier results), put a
+  [Build Context node](execution-nodes.md#build-context-node) before the agent and map its output (`${(Build Context).output}`) to a
+  *Value* input of the agent; the node keeps the package within a size you set and says what it left out.
 - **Inputs.** Declare what the agent needs in the table: a name (`[a-z][a-z0-9_]{0,31}`), where it *Comes from* (*Value* with a type `string`, `number` or `boolean`, or *Artifact* with its part), for a value
   *Required* or *Optional*, and a default for an optional one. A description is added from the row's menu
   (⋮); the Description column shows while any input has one.

@@ -167,7 +167,8 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A bar for selected rows | `selection.js` and `bulk-bar.js` |
 | A guard against leaving unsaved changes | `leave-guard.js` |
 | A collapsible rail or a navigation group | `collapsible-nav.js`, `nav-group.js` |
-| A list that is reordered by hand | `sortable.js` (a handle per entry; used by the field editor and the inputs of an agent) |
+| A list that is reordered by hand | `sortable.js` (a handle per entry; used by the field editor, the inputs of an agent and the sources of a Build Context node) |
+| The sources of a Build Context node ([ADR-078](../architecture/adr/078-build-context-node.md)) | the `sources` setting type: `SourcesControl` in `editor/setting-controls.js` (rows with a handle, the name, the options of the source and a bin, a select that adds a source not used yet) with its rules as pure functions in `editor/sources-model.js` |
 | Settings that override a default | `settings-group.js`, `override-row.js`, `options-panel.js` |
 | Rules with all/any conditions | `rule-builder.js` (the conditions), `rule-editor.js` (one rule: conditions and what to do), `rule-list.js` (the front door: a row per rule with its switch, name and a line about it, opening, taking out with Undo; data in `rule-list-model.js`) |
 | A `#` reference in a text | `reference-picker.js` |

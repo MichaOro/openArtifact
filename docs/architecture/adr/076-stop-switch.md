@@ -4,7 +4,7 @@
 **Date:** 2026-11-26  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** [ADR-062](062-configuration-windows-as-data.md) (a second personal setting), [ADR-028](028-execution-history-ui.md) (a running row has the stop button where the trash is)  
+**Amends:** [ADR-062](062-configuration-windows-as-data.md) (a second personal setting), [ADR-028](028-global-executions-page-and-keyset-paging.md) (a running row has the stop button where the trash is)  
 **Implemented in:** `engine/stop_switch.py`, `engine/runner.py` (`set_stop`, `stop_active`, the check in `start` and `_start`), `tasks/service.py` (`stop_switch_state`, `set_stop_switch`), `api/settings.py` (`/settings/stop`), `api/mcp.py` (`get_stop_switch`, `set_stop_switch`), `exceptions.py` (`code`), `ui/forms/personal.yaml` (`show_stop_switch`), `static/js/components/stop-state.js`, `stop-switch.js`, `stop-banner.js`, `tasks/events.js` (one shared connection)  
 **Affected chapters:** guides [api-reference](../../guides/api-reference.md), [execution-history](../../guides/execution-history.md), [concepts](../../guides/concepts.md), [ui-catalog](../../guides/ui-catalog.md)
 
@@ -44,7 +44,7 @@ switch, for execution as a whole.
   `settings.changed` with a `stop` part, so every open tab shows the same. A card's *Start processing* shows the refusal as a message.
 - **A running row has the stop button where the trash is.** The trash is not drawn on a running row (a running execution cannot be deleted
   anyway) and the red square takes its place; any other row shows the trash. This replaces the greyed trash of
-  [ADR-028](028-execution-history-ui.md) Addendum 1 in the global list.
+  [ADR-028](028-global-executions-page-and-keyset-paging.md) Addendum 1 in the global list.
 - **One event connection per page.** Every page now listens for the banner, and a browser keeps six connections per host open across all tabs, so
   `connectEvents` shares one `EventSource` per page for the default URL (a caller that joins late is told at once that it is open or that it was
   refused). A custom URL still gets its own.

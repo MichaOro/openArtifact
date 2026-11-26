@@ -74,6 +74,7 @@ What each kind puts in `output` and `data` (the rest of the core is the same for
 | Postgres, SQLite | the rows as JSON | `rows`, `columns`, `row_count`, `truncated` |
 | GitHub | the answer as JSON (a list: the items) | the object, or `items`, `count`, `truncated`; a diff: `diff`, `truncated` |
 | Artifact | what the node did, or the comments | `id` (comment added), or `comments`, `count`, `left_out` |
+| Build Context | the package: one section per source ([below](#build-context-node)); the context keeps all of it, up to the node's size limit | `included`, `omitted`, `size_bytes`, `limit_bytes`, `approx_tokens` |
 | Edit Fields (Set) | none | `fields` (the names set) |
 | If | the port chosen | `condition` (`true`, `false`, `null` when undecidable), `rows` |
 | Switch | the port chosen | `value`, `matched`, `cases` |
@@ -410,6 +411,54 @@ line says how many older comments were left out) and `data.comments`, a list of 
 writes one under the **node's name** with the kind *Run* and the execution it came from (the Comments tab links to it) and returns
 `data.id`; an empty text fails with a reason. Comments are text from outside: an agent that reads them must not treat them as
 instructions.
+
+## Build Context node
+
+Builds **one package of text** for an agent from the card and what is around it, so the agent gets a small, fitting amount instead of
+everything (or only what a prompt happens to name). It only reads and never changes a card (ADR-078). It sits in the *Data* group of the "+"
+menu, leaves by *On Pass* / *On Fail* and has the *If the node fails* setting; no *Retry on fail*, because it is deterministic. The package is
+the node's `output`: an agent's prompt (or an Edit Fields node) uses `${(Build Context).output}`.
+
+**Sources.** *Sources* is an ordered list (add with the select under it, reorder with the handle or ArrowUp / ArrowDown on it, remove with the
+bin); a source can be there once. A new node starts with *Title and body* and *Comments*; a node whose list was never saved builds from
+those two.
+
+| Source | What it gives | Options |
+|--------|---------------|---------|
+| Title and body | `#number title`, a blank line and the text of the run's card | none |
+| Fields | `name: value` of the card's own fields, one per line (a field nobody filled is left out) | none |
+| Comments | the newest comments as `[time] author (kind):` and the text, oldest of them first | number, 1 to 100 (20) |
+| Parent card | the card this card belongs to | title only, or title and text |
+| Child cards | the cards that belong to it, by number | number, 1 to 50 (20); title only, or title and text |
+| Sibling cards | the other cards of the same parent, by number | number, 1 to 50 (20); title only, or title and text |
+| Results of earlier nodes | the output of the nodes you name (names, one per line, at most 10) that already ran in this execution; the run keeps at most 4 KiB of a node's output | the names |
+| Earlier executions | the last finished executions of this card (not the running one): `#n status, time, started by, pipeline`, the note and the output of the last step that produced text | number, 1 to 10 (3) |
+
+Archived cards are not used as related cards. There is no *depends on* source: the application has no such relation, only parent and children.
+
+**Size.** *Size limit* is a size in bytes with a unit like every size (1 KiB to 32 KiB, default 8 KiB): the most the whole package takes,
+headings, markers and separators included. About four bytes make a token of English text, so 8 KiB is roughly 2,000 tokens; the step shows
+the estimate. A bigger package gives the agent more to read and costs more, a smaller one costs less and may leave out what it needs.
+*Longest item* (an optional setting, 256 B to 16 KiB, default 2 KiB) cuts one comment, card or result to that size with the mark `…[cut]`
+before it is weighed.
+
+**What is left out, and in what order** (the rules, the same every time):
+
+1. The card's own title and text are **reserved first** and cut **last**: the other sources give way before it is cut; it keeps its place in the order.
+2. The other sources are weighed **in the order of the list**; what does not fit is left out whole, never half a comment or card.
+3. Comments and earlier executions drop the **oldest first** (a line `[... 12 older comments left out]` stands in front, the heading says
+   `Comments (5 of 30, oldest first)`); fields, related cards and nodes drop the **last first** (`[... 4 more child cards left out]` at the end).
+4. A source that gives nothing, or does not fit at all, is listed with its reason in `data.omitted`.
+5. The package never exceeds the limit; `data.size_bytes` is what it takes.
+
+`data` holds `included` (per source: `source`, `label`, `items`, `available`, `bytes`, `cut`), `omitted` (`source`, `reason`),
+`size_bytes`, `limit_bytes` and `approx_tokens`. The step in the History and the flow shows the same as a list: *In the package* and *Left out*.
+A package larger than the 4 KiB a node usually keeps stays whole in the run context (up to the limit); the whole context is still limited
+(64 KiB), the oldest results lose their output first.
+
+**The text is data, never a reference.** Cards, comments and results are pasted as they are and never read for `${...}`: a card that holds
+`${secret:TOKEN}` puts those characters into the package, never the secret. The section headings (`## Comments`) say where a source starts, but a
+card can write a line that looks like one: an agent should treat the package as data, not as instructions.
 
 ## GitHub node
 
