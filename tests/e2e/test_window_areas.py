@@ -102,34 +102,36 @@ def test_a_setting_is_dragged_into_the_other_area_and_the_node_window_follows(
     _reset(api, window_name)
 
 
+def _last_of_definition(arrange: Locator) -> str:
+    """The key of the last setting of the Definition area (the one a key moves on into Behaviour)."""
+    key = arrange.locator("[data-section='definition'] .lw-field").last.get_attribute("data-field")
+    assert key and not key.startswith("group:"), key
+    return key
+
+
 def test_a_setting_moves_into_the_next_area_by_key_and_the_move_is_announced(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     _reset(api, AGENT)
     window = _node_window(page, base_url, api, "agent")
     arrange = _arrange(page, window)
-    _grip(arrange, "definition", "user_prompt").focus()
+    last = _last_of_definition(
+        arrange
+    )  # the answer format ends Definition since ADR-085; it was the user prompt before
+    _grip(arrange, "definition", last).focus()
     page.keyboard.press(
         "ArrowDown"
     )  # the last setting of Definition: on into Behaviour, at its start
     expect(arrange.locator("[data-section='behaviour'] .lw-field").first).to_have_attribute(
-        "data-field", "user_prompt"
+        "data-field", last
     )
     expect(page.locator(".lw-arrange [role='status']")).to_contain_text("Behaviour")
-    assert (
-        page.evaluate("() => document.activeElement.dataset.gripKey") == "f:behaviour:user_prompt"
-    )
+    assert page.evaluate("() => document.activeElement.dataset.gripKey") == f"f:behaviour:{last}"
     page.keyboard.press("Alt+ArrowLeft")  # back to the area before, at the same position
-    expect(arrange.locator("[data-section='definition'] [data-field='user_prompt']")).to_have_count(
-        1
-    )
+    expect(arrange.locator(f"[data-section='definition'] [data-field='{last}']")).to_have_count(1)
     page.keyboard.press("ArrowRight")
-    expect(arrange.locator("[data-section='behaviour'] [data-field='user_prompt']")).to_have_count(
-        1
-    )
-    assert (
-        page.evaluate("() => document.activeElement.dataset.gripKey") == "f:behaviour:user_prompt"
-    )
+    expect(arrange.locator(f"[data-section='behaviour'] [data-field='{last}']")).to_have_count(1)
+    assert page.evaluate("() => document.activeElement.dataset.gripKey") == f"f:behaviour:{last}"
     _item(_menu(page, window), "Discard changes").click()
 
 
@@ -177,11 +179,10 @@ def test_in_a_narrow_window_the_areas_are_stacked_and_a_setting_still_moves_betw
     expect(
         arrange.locator("[data-section='definition'] [data-field='system_prompt']")
     ).to_have_count(1)
-    _grip(arrange, "definition", "user_prompt").focus()
+    last = _last_of_definition(arrange)
+    _grip(arrange, "definition", last).focus()
     page.keyboard.press("Alt+ArrowDown")  # by key it crosses into the area below
-    expect(arrange.locator("[data-section='behaviour'] [data-field='user_prompt']")).to_have_count(
-        1
-    )
+    expect(arrange.locator(f"[data-section='behaviour'] [data-field='{last}']")).to_have_count(1)
     # an area is dragged under the other in the stack
     drag(
         page,

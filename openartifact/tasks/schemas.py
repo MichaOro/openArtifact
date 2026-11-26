@@ -109,6 +109,34 @@ class RunStart(BaseModel):
     version: Literal["draft", "published"] | None = None
 
 
+class DryRunCheck(BaseModel):
+    """Body of ``POST /api/tasks/{id}/dry-run/check``: what a dry run would be started with (the fields of :class:`RunStart`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pipeline_id: str
+    stage_id: str | None = None
+    action_id: str | None = None
+    inputs: dict[str, Any] | None = None
+    version: Literal["draft", "published"] | None = None
+
+
+class DryRunProblems(BaseModel):
+    """What would refuse the dry run, in plain words; empty when nothing was found."""
+
+    problems: list[str]
+
+
+class DryRunTarget(BaseModel):
+    """One place an action definition is placed in a pipeline: where a dry run of the action starts."""
+
+    pipeline_id: str
+    pipeline_name: str
+    stage_id: str
+    stage_name: str
+    action_id: str
+
+
 class TaskRead(BaseModel):
     """A task as returned by the API."""
 

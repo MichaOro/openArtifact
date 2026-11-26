@@ -55,6 +55,7 @@ from openartifact.engine.targets import TargetError, load_pipeline, pick_start
 from openartifact.engine.telemetry import TelemetrySource
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
+from openartifact.graph import preflight
 from openartifact.graph.effects import writes
 from openartifact.graph.node_types import FailureMode, Ports
 from openartifact.guards.monitor import GuardSettings, Monitor, Verdict
@@ -548,6 +549,51 @@ class RunEngine:
         self.history.publish(changes)
         self._jobs[task_id] = asyncio.create_task(self._execute(task_id, execution_id))
         return result
+
+    async def check_start(
+        self,
+        task_id: str,
+        pipeline_id: str,
+        stage_id: str | None = None,
+        action_id: str | None = None,
+        inputs: Mapping[str, Any] | None = None,
+        version: str | None = None,
+    ) -> list[str]:
+        """What would refuse a dry run started like this, in plain words (empty: nothing found). Reads only and starts nothing: the same
+        build of the snapshot, the same choice of the start, the same check of the inputs as :meth:`start`, and for the draft the check
+        before publishing (ADR-082) of every graph the run would use, so the editor can say it before the click (ADR-086)."""
+        if version not in (None, "draft", "published"):
+            return ["version is draft or published"]
+        async with self._session() as session:
+            task = await session.get(Task, task_id)
+            if task is None:
+                raise ArtifactError(404, "Artifact not found")
+            try:
+                pipeline = await load_pipeline(session, pipeline_id)
+                snapshot = await build_snapshot(session, pipeline, draft=version == "draft")
+                chain = pipeline_chain(snapshot["nodes"], snapshot["edges"])
+                pick_start(chain, stage_id, action_id)
+            except (TargetError, NestingError) as error:
+                return [str(error)]
+            found: list[str] = []
+            if inputs is not None:
+                try:
+                    self._entry_inputs(snapshot, inputs, action_id)
+                except ArtifactError as error:
+                    found.append(error.message)
+            try:
+                check_card(await card_of(session, task))
+            except ContextError as error:
+                found.append(str(error))
+            if version == "draft":
+                used = [pipeline_id, *snapshot["definitions"], *snapshot["pipelines"]]
+                for graph_id in dict.fromkeys(used):
+                    for finding in await preflight.check(session, graph_id):
+                        # the values given for the entry action stand in for what its placement maps (they are checked above)
+                        given = finding.code == "input_not_given" and finding.node_id == action_id
+                        if finding.level == "error" and not (given and inputs is not None):
+                            found.append(f"{finding.node_name}: {finding.message}")
+            return found
 
     @staticmethod
     def _entry_inputs(

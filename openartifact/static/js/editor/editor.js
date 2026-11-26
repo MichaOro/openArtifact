@@ -19,6 +19,7 @@ import { ConnectMenu } from "./connect-menu.js";
 import { choosePort, connectionFor, placement, replacedEdges } from "./connect-plan.js";
 import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextToolPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
 import { GraphModel } from "./graph-model.js";
+import { DryRunPanel } from "./dry-run-panel.js";
 import { PublicationControl } from "./publication-control.js";
 import { InspectorBlocks, joinFooter } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
@@ -825,7 +826,23 @@ export class GraphEditor {
       showError: (message) => this.#showError(message),
       refresh: () => this.#renderInspector(),
       renameNode: (node, name) => this.#rename(node, name),
+      dryRunPanel: (node) => this.#dryRunPanel(node),
+      dryRunTab: () => this.dryRunTab,
+      setDryRunTab: (name) => {
+        this.dryRunTab = name;
+      },
     };
+  }
+
+  /** The panel of the Dry run tab of the Trigger window (ADR-086), one for the page; none for a graph for guards (they run on their own, not on a card). */
+  #dryRunPanel(node) {
+    if (this.model.graph?.purpose === "guard") return null;
+    this.dryRun ??= new DryRunPanel({
+      kind: this.model.kind,
+      id: this.model.id,
+      contract: async () => (await loadContract(this.model.kind, this.model.id)).inputs ?? [],
+    });
+    return this.dryRun.show(node.config?.inputs ?? []);
   }
 
   /** The things a node may link to, fetched once until something new is created. */

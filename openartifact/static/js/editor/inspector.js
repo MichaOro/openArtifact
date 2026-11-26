@@ -3,6 +3,7 @@
  * kind, the choice of what it links to, and one action row New · Edit · Delete. */
 import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
+import { Tabs } from "../components/tabs.js";
 import { field } from "./field.js";
 import { agentBlock } from "./agent-inspector.js";
 import { displayName, nameParts } from "./geometry.js";
@@ -40,6 +41,13 @@ export function note(text) {
   p.className = "ge-inspector__note";
   p.textContent = text;
   return p;
+}
+
+function wrapAll(children) {
+  const wrap = document.createElement("div");
+  wrap.className = "ge-dry-inputs";
+  wrap.append(...children);
+  return wrap;
 }
 
 function section(title, ...children) {
@@ -93,6 +101,55 @@ export class InspectorBlocks {
   settings(node) {
     if (!typeOf(node).settings.length) return null;
     return section(null, buildSettings({ node, editor: this.editor, suggest: this.editor.suggestions?.(node) ?? null }));
+  }
+
+  /**
+   * The window of a Trigger: the tab *Inputs* (what `inner` holds, the settings as before) and the tab *Dry run* (dry-run-panel.js). A graph for
+   * guards has no dry run, so its window stays as it was. The tab chosen stays chosen while the window is drawn again and when it is opened again.
+   * @param {object} node the trigger @param {(HTMLElement|null)[]} inner what the Inputs tab holds
+   */
+  triggerTabs(node, inner) {
+    const content = inner.filter(Boolean);
+    const dry = this.editor.dryRunPanel?.(node);
+    if (!dry) return content.length === 1 ? content[0] : wrapAll(content);
+    const chosen = this.editor.dryRunTab?.() === "dry-run" ? "dry-run" : "inputs";
+    const strip = document.createElement("div");
+    strip.className = "task-tabs ge-dry-tabs";
+    strip.setAttribute("role", "tablist");
+    strip.setAttribute("aria-label", t("editor.dry_run.tabs_label"));
+    const panels = {};
+    const make = (name, label, body) => {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "task-tab";
+      tab.id = `trigger-tab-${name}`;
+      tab.dataset.tab = name;
+      tab.dataset.focusKey = `trigger-tab-${name}`;
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-controls", `trigger-panel-${name}`);
+      tab.setAttribute("aria-selected", String(name === chosen));
+      if (name !== chosen) tab.tabIndex = -1;
+      tab.textContent = label;
+      strip.append(tab);
+      const panel = document.createElement("div");
+      panel.id = `trigger-panel-${name}`;
+      panel.className = "ge-dry-panel";
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", tab.id);
+      panel.hidden = name !== chosen;
+      panel.append(body);
+      panels[name] = panel;
+    };
+    make("inputs", t("editor.dry_run.tab_inputs"), wrapAll(content));
+    make("dry-run", t("editor.dry_run.tab_dry_run"), dry);
+    const wrap = document.createElement("div");
+    wrap.className = "ge-dry-tabbed";
+    wrap.append(strip, panels.inputs, panels["dry-run"]);
+    // the tab list needs its panels in the document: it is made as soon as the window has put this in
+    queueMicrotask(() => {
+      if (wrap.isConnected) new Tabs(strip, (name) => this.editor.setDryRunTab?.(name));
+    });
+    return wrap;
   }
 
   /** An agent node: its agent, the input mapping and the settings with their overrides (agent-inspector.js). */

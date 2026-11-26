@@ -1149,6 +1149,18 @@ def _agent_dialog(page: Page, agents_url: str, api: httpx.Client, agent: dict[st
     return inspector
 
 
+def _settled_box(page: Page, locator: Locator) -> Any:
+    """The box of an element once two measurements in a row agree (the window animates when it opens)."""
+    last: Any = None
+    for _ in range(60):
+        now = locator.bounding_box()
+        if now == last:
+            return now
+        last = now
+        page.wait_for_timeout(50)
+    return last
+
+
 def test_the_version_is_a_badge_next_to_the_close_button_and_opens_the_agent_after_a_question(
     signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
 ) -> None:
@@ -1159,8 +1171,9 @@ def test_the_version_is_a_badge_next_to_the_close_button_and_opens_the_agent_aft
     badge = page.locator("#node-modal [data-node-version]")
     expect(badge).to_have_text("v1")
     expect(badge).to_have_attribute("title", re.compile(r"^Version published at .+\d"))
-    close = page.locator("#node-modal [data-modal-close]").bounding_box()
-    box = badge.bounding_box()
+    # the window may still be opening: measure when both boxes stand still (a measurement in the middle of the animation made this flaky)
+    close = _settled_box(page, page.locator("#node-modal [data-modal-close]"))
+    box = _settled_box(page, badge)
     assert close and box and box["x"] + box["width"] <= close["x"] + 1, "left of the X"
     assert abs(box["y"] + box["height"] / 2 - (close["y"] + close["height"] / 2)) < 6, "same line"
     expect(inspector.locator(".ag-node__status")).to_have_count(0)  # the line of text is gone

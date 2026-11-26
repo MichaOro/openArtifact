@@ -196,9 +196,12 @@ test("the inspector sections each kind asks for", () => {
     addAction: (stage) => calls.push(["addAction", stage.id]),
     link: (n, ...labels) => `link:${n.kind}:${labels.join("/")}`,
     linkActions: () => ({ open: true }),
+    triggerTabs: (n, inner) => `tabs:${n.kind}:${inner.join("+")}`,
   };
   const sections = (kind) => typeOf(kind).sections(node(kind), blocks);
-  assert.deepEqual(sections("trigger"), ["settings:trigger", 'actions:trigger:{"remove":false}']);
+  // the Trigger's window has the tabs Inputs and Dry run (ADR-086): the settings are what the first tab holds; the Output has no such tab
+  assert.deepEqual(sections("trigger"), ['tabs:trigger:settings:trigger+actions:trigger:{"remove":false}']);
+  assert.deepEqual(sections("output"), ["settings:output", 'actions:output:{"remove":false}']);
   assert.deepEqual(sections("timer"), ["settings:timer", 'actions:timer:{"remove":true}']);
   assert.deepEqual(sections("stage"), ['actions:stage:{"create":"fn","remove":true}']);
   assert.deepEqual(sections("action"), ["link:action:Definition/Action/Not defined", "settings:action", 'actions:action:{"open":true}']);
