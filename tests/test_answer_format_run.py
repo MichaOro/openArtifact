@@ -153,6 +153,38 @@ def test_an_if_node_branches_on_a_field_of_the_answer(api: TestClient, llm: Fake
     assert found["context"]["nodes"]["Decide"]["port"] == "yes"
 
 
+def test_a_second_refusal_leaves_by_on_fail_with_the_reasons(api: TestClient, llm: FakeLlm) -> None:
+    make_provider(api, llm)
+    agent = make_agent(api)
+    action = post(api, "/api/actions", name="Fallback")
+    trigger, output = kind_of(api, action, "trigger"), kind_of(api, action, "output")
+    for edge in api.get(graph_url(action)).json()["edges"]:
+        api.delete(f"{graph_url(action)}/edges/{edge['id']}")
+    ask = node(
+        api,
+        action,
+        "agent",
+        name="Ask",
+        config={"agent_id": agent["id"], "inputs": "ticket = T-1", "answer_format": FORMAT},
+    )
+    fallback = node(api, action, "set", name="Fallback", config={"fields": "route = rework"})
+    connect(api, action, trigger, "out", ask, "in")
+    connect(api, action, ask, "fail", fallback, "in")  # switches On Fail on, as the editor does
+    connect(api, action, fallback, "pass", output, "pass")
+    pipeline = build_pipeline(api, stages=1)
+    link(api, pipeline, pipeline["stages"][0][1], action)
+    llm.script = [
+        (200, tool_answer(("c1", "report_result", {"passed": "yes"}))),
+        (200, tool_answer(("c2", "report_result", {"passed": "no"}))),
+    ]
+    found = run(api, pipeline)
+    assert found["context"]["vars"] == {"route": "rework"}  # the flow went on by On Fail
+    entry = found["context"]["nodes"]["Ask"]
+    assert (entry["outcome"], entry["success"]) == ("fail", False)
+    assert "also after one correction" in entry["reason"]
+    assert "'passed' must be true or false" in entry["reason"]
+
+
 def test_a_text_answer_gets_one_reminder_then_the_report_counts(
     api: TestClient, llm: FakeLlm
 ) -> None:
