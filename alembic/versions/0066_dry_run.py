@@ -41,6 +41,8 @@ def _drop_guard_views() -> None:
 def upgrade() -> None:
     _drop_guard_views()
     for table in TABLES:
+        # a start that failed on this migration before the views were dropped (SQLite does not roll DDL back) left the empty copy behind
+        op.execute(f"DROP TABLE IF EXISTS _alembic_tmp_{table}")
         with op.batch_alter_table(table) as batch:
             batch.add_column(
                 sa.Column("dry_run", sa.Boolean(), nullable=False, server_default=sa.text("0"))

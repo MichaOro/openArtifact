@@ -540,6 +540,21 @@ def test_the_mcp_tool_starts_a_dry_run(api: TestClient) -> None:
     assert api.get(f"/api/tasks/{task['id']}/comments").json() == []
 
 
+def test_migration_0066_survives_the_empty_copy_a_failed_start_left_behind(
+    at_revision: Callable[[str], Path],
+) -> None:
+    path = at_revision("0065")
+    guard_views.install(path)
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE _alembic_tmp_executions (id VARCHAR(36) NOT NULL PRIMARY KEY)")
+    command.upgrade(alembic_config(), "0066")
+    with sqlite3.connect(path) as conn:
+        names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master")}
+        assert "_alembic_tmp_executions" not in names
+        assert "dry_run" in [r[1] for r in conn.execute("PRAGMA table_info(executions)")]
+    command.upgrade(alembic_config(), "head")
+
+
 def test_migration_0066_marks_every_row_that_exists_as_a_real_run_and_goes_down_again(
     at_revision: Callable[[str], Path],
 ) -> None:
