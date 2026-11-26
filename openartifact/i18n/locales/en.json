@@ -1456,5 +1456,10 @@
  "components.rule_list.always": "Always: {action}",
  "cards_rules.always_lane": "Always (every card in this lane)",
  "cards_rules.always_board": "Always (every card on the board)",
- "cards_rules.only_when_needs_condition": "“Only when…” needs at least one condition. Name one, or choose “Always”."
+ "cards_rules.only_when_needs_condition": "“Only when…” needs at least one condition. Name one, or choose “Always”.",
+ "executions.page.stop_execution": "Stop execution",
+ "executions.page.stop_subject_it_ends_as_stopped": "Stop {subject}? It ends as Stopped.",
+ "executions.page.steps_already_done_stay": "Steps already done stay in its history.",
+ "executions.page.stop_too_late": "It is no longer running (it just ended or was just started). The list was refreshed.",
+ "tasks.history_row.stop_subject": "Stop {subject}"
 }

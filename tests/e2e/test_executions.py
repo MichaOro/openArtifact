@@ -381,6 +381,93 @@ def test_delete_needs_a_confirmation_and_a_running_row_cannot_be_deleted(
     expect(rows.nth(2).locator("[data-open]")).to_be_focused()  # focus moved on to the next row
 
 
+# ── stopping ──────────────────────────────────────────────────────────
+
+
+def test_only_a_running_row_has_a_stop_button_and_it_asks_before_it_stops(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    made = _seed(api)
+    start(api, made["a"], made["slow"])
+    wait_executions(api, made["a"], ["running", "failed", "done"])
+    rows = _open(page, secured_url)
+    running = rows.first
+    expect(running.locator(".history-chip")).to_have_text("Running")
+    stop = running.locator("[data-stop]")
+    expect(stop).to_be_visible()
+    expect(stop).to_have_attribute("aria-label", f"Stop execution #3 of #{made['a']['number']}")
+    expect(running.locator("[data-delete]")).to_have_attribute("aria-disabled", "true")
+    assert (
+        stop.bounding_box() is not None
+        and running.locator("[data-delete]").bounding_box() is not None
+    )
+    stop_box, trash_box = stop.bounding_box(), running.locator("[data-delete]").bounding_box()
+    assert stop_box and trash_box
+    assert stop_box["width"] == trash_box["width"] and stop_box["height"] == trash_box["height"]
+    assert stop_box["x"] < trash_box["x"]  # the stop sits to the left of the trash
+    for finished in (1, 2, 3, 4):
+        expect(rows.nth(finished).locator("[data-stop]")).to_be_hidden()  # nothing to stop there
+
+    dialog = page.locator("#confirm-modal")
+    stop.click()
+    expect(dialog).to_be_visible()
+    expect(dialog).to_contain_text(
+        f"Stop execution #3 of #{made['a']['number']}? It ends as Stopped."
+    )
+    expect(dialog).to_contain_text("Steps already done stay in its history.")
+    dialog.get_by_role("button", name="Cancel").click()
+    expect(dialog).to_be_hidden()
+    expect(running.locator(".history-chip")).to_have_text("Running")  # cancel stopped nothing
+    assert (
+        api.get(f"/api/tasks/{made['a']['id']}/executions").json()["items"][0]["status"]
+        == "running"
+    )
+
+    stop.click()
+    dialog.get_by_role("button", name="Stop execution").click()
+    expect(dialog).to_be_hidden()
+    expect(running.locator(".history-chip")).to_have_text("Stopped")
+    expect(running.locator("[data-stop]")).to_be_hidden()
+    expect(running.locator("[data-delete]")).to_have_attribute("aria-disabled", "false")
+    expect(page.locator("[data-summary=running] [data-summary-value]")).to_have_text("0")
+    expect(rows).to_have_count(5)  # stopped, not deleted
+    assert next(e["status"] for e in executions(api, made["a"])) == "stopped"
+
+
+def test_a_stop_that_comes_too_late_says_so_and_the_list_shows_what_is_true(
+    page: Page, secured_url: str, api: httpx.Client
+) -> None:
+    made = _seed(api)
+    start(api, made["a"], made["slow"])
+    wait_executions(api, made["a"], ["running", "failed", "done"])
+    rows = _open(page, secured_url)
+    running = rows.first
+    expect(running.locator("[data-stop]")).to_be_visible()
+
+    def too_late(route: Route) -> None:
+        route.fulfill(
+            status=409,
+            content_type="application/json",
+            body='{"detail": "The artifact is not being processed"}',
+        )
+
+    page.route("**/run/stop", too_late)
+    running.locator("[data-stop]").click()
+    dialog = page.locator("#confirm-modal")
+    dialog.get_by_role("button", name="Stop execution").click()
+    expect(dialog).to_be_visible()  # the dialog stays open with the reason
+    expect(dialog.locator("[data-form-error]")).to_have_text(
+        "It is no longer running (it just ended or was just started). The list was refreshed."
+    )
+    assert (
+        api.get(f"/api/tasks/{made['a']['id']}/executions").json()["items"][0]["status"]
+        == "running"
+    )
+    dialog.get_by_role("button", name="Cancel").click()
+    expect(dialog).to_be_hidden()
+    expect(rows).to_have_count(5)  # the list was read again, nothing was lost
+
+
 # ── live ──────────────────────────────────────────────────────────────
 
 

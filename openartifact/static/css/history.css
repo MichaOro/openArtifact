@@ -106,6 +106,9 @@
 .history-row__meta { grid-area: meta; justify-self: end; font-size: 0.75rem; color: var(--color-text-muted); white-space: nowrap; }
 .history-row__note { grid-area: note; font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .history-row__delete { margin-right: var(--space-2); }
+/* Stop: the red square sits left of the trash; it is red at rest (the run is what the owner wants to end), the hover tint is the shared is-danger one. */
+.history-row__stop { margin-right: var(--space-1); color: var(--color-danger); }
+.history-row__stop[hidden] { display: none; }
 
 /* ── One execution ───────────────────────────────────────────────── */
 .history-detail__bar { display: flex; gap: var(--space-2); }

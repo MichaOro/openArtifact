@@ -2123,5 +2123,10 @@
  "components.rule_set.only_when": "Nur wenn…",
  "cards_rules.always_lane": "Immer (jede Karte in dieser Spalte)",
  "cards_rules.always_board": "Immer (jede Karte auf dem Board)",
- "cards_rules.only_when_needs_condition": "„Nur wenn…“ braucht mindestens eine Bedingung. Nenne eine oder wähle „Immer“."
+ "cards_rules.only_when_needs_condition": "„Nur wenn…“ braucht mindestens eine Bedingung. Nenne eine oder wähle „Immer“.",
+ "executions.page.stop_execution": "Ausführung stoppen",
+ "executions.page.stop_subject_it_ends_as_stopped": "{subject} stoppen? Sie endet als Gestoppt.",
+ "executions.page.steps_already_done_stay": "Bereits ausgeführte Schritte bleiben im Verlauf.",
+ "executions.page.stop_too_late": "Sie läuft nicht mehr (sie ist gerade zu Ende gegangen oder wurde gerade erst gestartet). Die Liste wurde aktualisiert.",
+ "tasks.history_row.stop_subject": "{subject} stoppen"
 }
