@@ -133,6 +133,7 @@ agent takes any number of tools; a tool belongs to one agent.
 |------|---------------------|----------|
 | **MCP Client Tool** | the tools of a remote MCP server, with their own names, descriptions and parameters | endpoint (Streamable HTTP), secret with the token (sent as `Authorization: Bearer`), *Tools to include*: `all`, `selected` or `all_except` with one tool name per line, timeout per call (1 to 300 s, 60) |
 | **GitHub MCP** | the tools of GitHub's MCP server (a fixed address), read-only until *Allow writes* is on | credential (a GitHub access token), *Allow writes*, *Tools to include* (`all`, `selected`, `all except`) with one tool name per line, tool name, timeout |
+| **OpenArtifact MCP Tool** | the tools of the board and its cards ([MCP tools](api-reference.md#mcp-tools)), run inside the application: read only until *Allow writes* is on; no address, no credential | *Allow writes*, *Tools to include* (`all`, `selected`, `all except`) with one tool name per line (a name that is no tool is refused with the list), tool name |
 | **HTTP Request Tool** | one function with the parameters you declare | tool name and description, method, URL, headers, body, parameters (`name: description` per line), timeout (1 to 120 s, 30), success status |
 | **Execute Command Tool** | one function with the parameters you declare | tool name and description, language (`sh`, `python`), code, secrets, parameters, timeout (1 to 600 s, 30) |
 | **Postgres Tool** | one function: your SQL statement, with the parameters you declare | tool name and description, secret with the connection URL, query, parameters, *Allow changes*, *Private network*, max rows (1 to 1000, 100), timeout (1 to 120 s, 30) |
@@ -146,6 +147,22 @@ agent takes any number of tools; a tool belongs to one agent.
   access token. For an agent that only reads, choose *selected* and list the read tools (`get_issue`, `list_issues`,
   ...); the tools the agent is not offered cannot be called. For a fixed step of a flow, without a model, there is the
   [GitHub node](execution-nodes.md).
+- **The board in a run.** The **OpenArtifact MCP Tool** gives an agent the same tools as the [MCP server](api-reference.md#mcp-tools), for the
+  board and its cards, without an address or a token: it runs in the application, and what the agent changes is recorded as done by the
+  agent (cards it makes count as made by an action, a run it starts as started by the system, its comments are written as `agent` with the kind `run`). With *Allow
+  writes* off (the default) only the tools that read are offered; the step names those left out. A refusal of the application comes back as
+  the tool's error text: the agent cannot move, archive or re-parent the card its own run is on (it is being processed), and an
+  archived card can only be read. The tools of the STOP switch, the secrets, the agents, the providers and the guards are not offered, and
+  nothing deletes. Text the tools return (card texts, comments, step outputs) comes from outside; the agent's prompt should say that it is
+  not an instruction.
+- **Tidy up the board in two steps.** Cards that overlap or are done can be bundled by an agent: a card holds the order ("bundle the
+  requirements of cards 110, 111 and 112, sort them into partly done and not done, prioritise within each, move the old cards to the lane
+  *Bundled*"). *Step 1, plan:* an action with an agent and an OpenArtifact MCP Tool that is read only (`list_artifacts` with `brief`,
+  `get_artifacts` with `with_comments`, `search_artifacts`) writes the bundle as a comment (or, with *Allow writes*, a new card) and moves
+  nothing. You read it and move the card on. *Step 2, apply:* a second action, with *Allow writes* on and *Tools to include* narrowed to
+  `move_artifacts`, `archive_artifacts` and `add_comments`, does it: each call takes up to 50 cards and answers per card, `dry_run` shows what
+  would happen first, and archived cards can be taken back with `unarchive_artifact`. To judge whether a card is done the agent needs more
+  than the card text, for example the GitHub MCP node to read the repository (what is not pushed is not seen).
 - **The Postgres Tool** lets the model look something up in a database with a query *you* wrote: the statement uses
   `$1`, `$2`, ... and the declared parameters, in the order you list them, are what the model fills in (`id: The number
   of the ticket` is `$1`). The model's values are bound parameters, never part of the SQL text, so it cannot change the

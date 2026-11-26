@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Generator
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
-from openartifact.api.board_tools import BOARD_TOOLS, BULK_MAX, READ_TOOLS, WRITE_TOOLS
+from openartifact.api.board_tools import (
+    BOARD_TOOLS,
+    BULK_MAX,
+    READ_TOOLS,
+    WRITE_TOOLS,
+    BoardTools,
+)
 from openartifact.app import _create_app
 from openartifact.config import Settings
 from tests.helpers import slow_pipeline
@@ -45,6 +52,16 @@ def test_the_server_offers_every_board_tool_and_none_that_deletes(api: TestClien
     assert set(BOARD_TOOLS) <= names
     assert set(READ_TOOLS).isdisjoint(WRITE_TOOLS)
     assert not [n for n in names if any(word in n for word in ("delete", "remove", "purge"))]
+
+
+def test_every_tool_of_the_class_is_on_the_read_or_the_write_list() -> None:
+    """A new tool that is on neither list would be offered by no node (or held back by none): the lists are the contract."""
+    methods = {
+        name
+        for name, member in vars(BoardTools).items()
+        if not name.startswith("_") and inspect.iscoroutinefunction(member)
+    }
+    assert methods == set(BOARD_TOOLS)
 
 
 def test_a_card_is_archived_and_taken_out_again_with_the_reason_of_a_refusal(

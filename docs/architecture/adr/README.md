@@ -86,6 +86,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [074](074-setting-row-and-durations.md) | The setting row (label, control, end action, no overlap) and durations as a number with a unit (ms, sec, min) | Accepted | 2026-11-26 | amends ADR-053, ADR-059 |
 | [075](075-execute-command-node.md) | The Code node is called Execute Command, is off by default and has an output limit of its own | Accepted | 2026-11-26 | amends ADR-021, ADR-023, ADR-053, ADR-059, ADR-074 |
 | [076](076-stop-switch.md) | The STOP switch: one global switch that blocks every execution | Accepted | 2026-11-26 | amends ADR-062, ADR-028 |
+| [079](079-openartifact-mcp-tool.md) | The OpenArtifact MCP Tool: the board tools of the MCP server (with tools to tidy up many cards) for an agent in a run, in this process, read only until *Allow writes* | Accepted | 2026-11-26 | amends ADR-040, ADR-054, ADR-071 |
 
 ## Notes
 
