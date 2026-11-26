@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { flushDirty, isTextEditing, persistsOn, registerDirty } from "../../openartifact/static/js/editor/persist-policy.js";
+import { flushDirty, isTextEditing, persistText, persistsOn, registerDirty } from "../../openartifact/static/js/editor/persist-policy.js";
 
 const ev = (type, extra = {}) => ({ type, ...extra });
 
@@ -55,4 +55,23 @@ test("closing the dialog saves every field with unsaved text and only those", as
   forget.forEach((f) => f());
   await flushDirty();
   assert.deepEqual(saved, ["a", "b"], "forgotten fields are not saved again");
+});
+
+test("leaving a text while its save from Enter is still on its way does not send it a second time", async () => {
+  const listeners = {};
+  const input = { value: "", dataset: {}, closest: () => null, addEventListener: (name, fn) => (listeners[name] = fn) };
+  const sent = [];
+  let finish = () => {};
+  persistText(input, (text) => new Promise((resolve) => { sent.push(text); finish = () => resolve(null); }));
+  input.value = "t = ${card.title}";
+  listeners.keydown({ type: "keydown", key: "Enter" });
+  listeners.focusout({ type: "focusout" }); // the draw after the save takes the focus away before the save is back
+  assert.deepEqual(sent, ["t = ${card.title}"], "one request for one text");
+  finish();
+  await new Promise((resolve) => setTimeout(resolve));
+  listeners.focusout({ type: "focusout" });
+  assert.equal(sent.length, 1, "saved: nothing to send when it is left");
+  input.value = "other";
+  listeners.focusout({ type: "focusout" });
+  assert.equal(sent.length, 2, "a changed text is still saved on leaving");
 });

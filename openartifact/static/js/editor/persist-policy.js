@@ -81,6 +81,7 @@ export function bindPersist(element, kind, commit) {
  */
 export function persistText(input, save, { kind = "text", unsavedText = "" } = {}) {
   let baseline = input.value;
+  let inFlight = null; // the text on its way: leaving the field meanwhile must not send it a second time
   const isDirty = () => input.value !== baseline;
   const mark = () => {
     const box = input.closest(".field");
@@ -91,15 +92,17 @@ export function persistText(input, save, { kind = "text", unsavedText = "" } = {
   };
   const commit = () => {
     const sent = input.value;
+    inFlight = sent;
     const saving = Promise.resolve(save(sent)).then((message) => {
       if (!message) baseline = sent;
+      if (inFlight === sent) inFlight = null;
       mark();
       return message;
     });
     return trackSave(saving);
   };
   bindPersist(input, kind, (event) => {
-    if (event.type === "focusout" && !isDirty()) return;
+    if (event.type === "focusout" && (!isDirty() || input.value === inFlight)) return;
     commit();
   });
   input.addEventListener("input", mark);

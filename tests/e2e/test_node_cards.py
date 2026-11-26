@@ -111,6 +111,11 @@ def test_the_reference_picker_of_an_agent_input_offers_the_result_of_every_kind_
     page: Page, base_url: str, api: httpx.Client, cards: dict[str, Any]
 ) -> None:
     """GitHub, Postgres and Artifact nodes were missing from the list the editor kept; now the kinds say it."""
+    for left in api.get(
+        "/api/agents"
+    ).json():  # the server is shared by the tests of a worker: one agent of this name only
+        if left["name"] == "Triage":
+            api.delete(f"/api/agents/{left['id']}")
     agent = api.post(
         "/api/agents",
         json={

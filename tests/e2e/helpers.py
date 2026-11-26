@@ -46,6 +46,14 @@ def centre(locator: Locator) -> tuple[float, float]:
         state="visible"
     )  # a slow machine draws it later than the click that precedes this
     box = locator.bounding_box()
+    for _ in range(
+        40
+    ):  # the view may still move (Fit animates): take the place once it stands still
+        locator.page.wait_for_timeout(50)
+        again = locator.bounding_box()
+        if again == box:
+            break
+        box = again
     assert box is not None
     return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
 
