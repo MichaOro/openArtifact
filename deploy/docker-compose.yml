@@ -19,9 +19,9 @@
 # 2909). OPENARTIFACT_PORT (also read from deploy/.env) is the port the application listens on inside
 # the container; the mapping and the health check follow it.
 #
-# Memory: the container limit (mem_limit, 1g) must stay clearly above what one Code node may use
+# Memory: the container limit (mem_limit, 1g) must stay clearly above what one Execute Command node may use
 # (OPENARTIFACT_CODE_MEMORY_LIMIT_MB, default 512, an address-space limit per process): the application
-# needs about 150-250 MB itself, so a Code node at its limit plus the application fits, whereas equal
+# needs about 150-250 MB itself, so an Execute Command node at its limit plus the application fits, whereas equal
 # values would let the kernel OOM-kill the whole container instead of just the node. Raise both together.
 
 services:

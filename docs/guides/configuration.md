@@ -9,7 +9,7 @@ value outside its bounds, or one of the wrong type, stops the start with an erro
 With Docker Compose the variables go into `deploy/.env` (copy of [`deploy/.env.example`](../../deploy/.env.example));
 the compose file passes the whole file to the container and also reads it for its own substitutions.
 
-Read first: [Security](security.md) (what the token protects, what Code nodes can do),
+Read first: [Security](security.md) (what the token protects, what Execute Command nodes can do),
 [Credentials](credentials.md) (what the secret key encrypts) and [Execution nodes](execution-nodes.md)
 (Code and HTTP nodes). The vulnerability policy is in [SECURITY.md](../../SECURITY.md).
 
@@ -35,7 +35,7 @@ The database is SQLite in WAL mode and stays so ([ADR-020](../architecture/adr/0
 | Variable | Type | Default | Bounds | Meaning |
 |----------|------|---------|--------|---------|
 | `OPENARTIFACT_SECRET_KEY` | string | `change-me-in-production` | at least 32 characters when a token is set or credentials are stored | Signs the session cookie **and is the source of the key that encrypts stored credentials** (AES-256-GCM, key derived with HKDF). Required as soon as a token is set: an empty or default key stops the start. **Never change it once credentials are stored: every stored credential becomes unreadable** (there is no re-encryption); it also signs every browser out. Generate: `openssl rand -hex 32`. See [Credentials](credentials.md). |
-| `OPENARTIFACT_API_TOKEN` | string | *(empty)* | at least 32 characters when set | The one access token (`openssl rand -hex 32`); a shorter one stops the start. Set: the whole application asks for it (sign-in page, `Authorization: Bearer`). Empty: pages and browser API are open, `/api/v1` and `/mcp` answer `401`, Code nodes are refused (see `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN`), credentials cannot be stored, and the log warns at startup. See [Sign in and use the API](integration.md). |
+| `OPENARTIFACT_API_TOKEN` | string | *(empty)* | at least 32 characters when set | The one access token (`openssl rand -hex 32`); a shorter one stops the start. Set: the whole application asks for it (sign-in page, `Authorization: Bearer`). Empty: pages and browser API are open, `/api/v1` and `/mcp` answer `401`, Execute Command nodes are refused (see `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN`), credentials cannot be stored, and the log warns at startup. See [Sign in and use the API](integration.md). |
 | `OPENARTIFACT_ALLOWED_HOSTS` | string | *(empty)* | comma-separated; `*.example.org` allowed | Host names the application answers to, for example `oa.example.com, *.example.org`. Any other `Host` header gets `400`. Empty: no check. `/health` is always reachable, so container health checks work. Protects against DNS rebinding. |
 | `OPENARTIFACT_OIDC_ISSUER`, `OPENARTIFACT_OIDC_CLIENT_ID`, `OPENARTIFACT_OIDC_CLIENT_SECRET` | text | empty | all three or none | Single sign-on through OpenID Connect next to the API token (ADR-043): the provider's address (its `/.well-known/openid-configuration` is read), the client it knows this application as, and the client secret. Needs `OPENARTIFACT_API_TOKEN` and a list of who may come in. See [Reverse proxy](reverse-proxy.md) for an Authelia example. |
 | `OPENARTIFACT_OIDC_ALLOWED_EMAILS`, `OPENARTIFACT_OIDC_ALLOWED_USERS`, `OPENARTIFACT_OIDC_ALLOWED_GROUPS` | comma separated | empty | at least one when SSO is on | Who may sign in with SSO: verified e-mail addresses, user names (`preferred_username` or `sub`), groups. One match is enough. |
@@ -72,20 +72,20 @@ that start afterwards and are kept in the database ([ADR-039](../architecture/ad
 
 | Variable | Type | Default | Bounds | Meaning |
 |----------|------|---------|--------|---------|
-| `OPENARTIFACT_CODE_NODES_ENABLED` | boolean | `true` | | Whether Code nodes run. Code runs as a child of the application with the application's own rights (hardened against reading the parent's environment, no sandbox); off: a Code node fails with "Code nodes are disabled". |
-| `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN` | boolean | `false` | | Code nodes need `OPENARTIFACT_API_TOKEN`. In open mode (no token) they are refused unless this is `true`. It exists for local development on `127.0.0.1`; never set it on a reachable instance. |
-| `OPENARTIFACT_CODE_OUTPUT_LIMIT_BYTES` | integer | `65536` | at least 1 | Largest stdout and stderr (each, in bytes) kept of a Code node; the rest is cut off. |
-| `OPENARTIFACT_CODE_MEMORY_LIMIT_MB` | integer | `512` | 64 to 65536 | Address space (virtual memory) of a Code node's process in MiB (`RLIMIT_AS`). Python and the shell need little; runtimes that reserve much address space (Java, Node.js, Go) need more. |
-| `OPENARTIFACT_CODE_PROCESS_LIMIT` | integer | `64` | 1 to 4096 | Processes and threads a Code node may add (`RLIMIT_NPROC`). The kernel counts per user, not per process tree, so the limit is the user's current count plus this number. Does not apply to a process that runs as root. |
-| `OPENARTIFACT_CODE_FILE_SIZE_LIMIT_MB` | integer | `64` | 1 to 10240 | Largest file in MiB a Code node's process may write (`RLIMIT_FSIZE`). |
-| `OPENARTIFACT_CODE_OPEN_FILES_LIMIT` | integer | `256` | 16 to 65536 | Open files of a Code node's process (`RLIMIT_NOFILE`). |
+| `OPENARTIFACT_CODE_NODES_ENABLED` | boolean | `false` | | Whether Execute Command nodes (formerly *Code* nodes) and the Execute Command Tool of agents run. They run text as a child of the application with the application's own rights (hardened against reading the parent's environment, no sandbox), so they are **off unless you switch them on**: without `true` a node fails with a message that names this variable, the editor says it is switched off, and existing nodes stay editable. **Installations that used Code nodes before ADR-075 must set it to `true`** (see [updating](operations.md#update)). |
+| `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN` | boolean | `false` | | Execute Command nodes need `OPENARTIFACT_API_TOKEN`. In open mode (no token) they are refused unless this is `true`. It exists for local development on `127.0.0.1`; never set it on a reachable instance. |
+| `OPENARTIFACT_CODE_OUTPUT_LIMIT_BYTES` | integer | `65536` | at least 1 | Largest stdout and stderr (each, in bytes) kept of an Execute Command node; the rest is cut off. A node may set a lower *Output limit* of its own; this one is the ceiling. |
+| `OPENARTIFACT_CODE_MEMORY_LIMIT_MB` | integer | `512` | 64 to 65536 | Address space (virtual memory) of an Execute Command node's process in MiB (`RLIMIT_AS`). Python and the shell need little; runtimes that reserve much address space (Java, Node.js, Go) need more. |
+| `OPENARTIFACT_CODE_PROCESS_LIMIT` | integer | `64` | 1 to 4096 | Processes and threads an Execute Command node may add (`RLIMIT_NPROC`). The kernel counts per user, not per process tree, so the limit is the user's current count plus this number. Does not apply to a process that runs as root. |
+| `OPENARTIFACT_CODE_FILE_SIZE_LIMIT_MB` | integer | `64` | 1 to 10240 | Largest file in MiB an Execute Command node's process may write (`RLIMIT_FSIZE`). |
+| `OPENARTIFACT_CODE_OPEN_FILES_LIMIT` | integer | `256` | 16 to 65536 | Open files of an Execute Command node's process (`RLIMIT_NOFILE`). |
 | `OPENARTIFACT_HTTP_RESPONSE_LIMIT_BYTES` | integer | `1048576` | at least 1 | Largest response body (bytes) an HTTP node reads; the rest is cut off. |
-| `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS` | boolean | `false` | | Whether HTTP nodes, GitHub nodes and Postgres nodes may call loopback, private, link-local and carrier-grade NAT addresses (a Postgres node also needs its own *Private network* switch). Off by default (protects the host network); self-hosters calling their own services switch it on. Metadata, unspecified and multicast addresses stay blocked. A Code node is not bound by this: it reaches whatever the application reaches. |
+| `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS` | boolean | `false` | | Whether HTTP nodes, GitHub nodes and Postgres nodes may call loopback, private, link-local and carrier-grade NAT addresses (a Postgres node also needs its own *Private network* switch). Off by default (protects the host network); self-hosters calling their own services switch it on. Metadata, unspecified and multicast addresses stay blocked. An Execute Command node is not bound by this: it reaches whatever the application reaches. |
 | `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS` | boolean | `false` | | Whether an MCP Client Tool, an HTTP Request Tool or a Postgres Tool of an agent may be on a loopback, private or link-local address (a service on this host or in the internal network). It is the operator's half of the permission: the tool must also have its own *Private network* switch on. An LLM provider needs no setting (ADR-042). Independent of `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS`: it does not open HTTP nodes. Metadata, unspecified and multicast addresses stay blocked. See [Agents and LLM providers](agents.md). |
 
 The limits do not replace each other: in the container the memory limit (`mem_limit`, 1 GiB) and the process
 limit (`pids_limit`, 256) apply to the whole container, the `CODE_*` limits to one Code process. See
-[Operate the Docker deployment](operations.md#code-nodes-in-the-container).
+[Operate the Docker deployment](operations.md#execute-command-nodes-in-the-container).
 
 ## Logging
 
@@ -140,6 +140,6 @@ OPENARTIFACT_BIND=127.0.0.1
 OPENARTIFACT_HOST=127.0.0.1
 OPENARTIFACT_DATA_DIR=./.data
 OPENARTIFACT_DEBUG=true
-# open mode refuses Code nodes; to try them locally, either set a token and a key (>= 32 characters each) or:
+# open mode refuses Execute Command nodes; to try them locally, either set a token and a key (>= 32 characters each) or:
 # OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true
 ```

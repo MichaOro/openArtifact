@@ -16,7 +16,7 @@ openssl rand -hex 32     # the secret key  -> OPENARTIFACT_SECRET_KEY
 
 The application refuses to start with a token shorter than 32 characters, or with a token and a secret
 key that is missing, the default or shorter than 32 characters. Without a token the pages and the browser
-API are open to everyone who can reach the port, `/api/v1` and `/mcp` answer `401`, and Code nodes and
+API are open to everyone who can reach the port, `/api/v1` and `/mcp` answer `401`, and Execute Command nodes and
 credentials are unavailable ([Security](security.md)). The secret key also encrypts stored credentials:
 do not change it later ([Credentials](credentials.md)). Recreate the container after changing the file:
 
@@ -121,7 +121,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$OA/api/v1/artifacts/12/executions?li
 
 # one execution with all steps, its flow (graphs, walked path; add ?outputs=true for step output), one step
 curl -s -H "Authorization: Bearer $TOKEN" $OA/api/v1/artifacts/12/executions/<execution_id>
-# the run context (variables Code nodes set, latest result of each node) is in it as "context", or alone:
+# the run context (variables Execute Command nodes set, latest result of each node) is in it as "context", or alone:
 curl -s -H "Authorization: Bearer $TOKEN" $OA/api/v1/artifacts/12/executions/<execution_id>/context
 curl -s -H "Authorization: Bearer $TOKEN" "$OA/api/v1/artifacts/12/executions/<execution_id>/flow"
 curl -s -H "Authorization: Bearer $TOKEN" $OA/api/v1/artifacts/12/executions/<execution_id>/steps/<step_id>

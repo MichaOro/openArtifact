@@ -9,8 +9,8 @@ OpenArtifact is a self-hosted board of artifacts that run through pipelines:
 - **LLM agents** — do the same through the MCP server (`/mcp`, bearer token, 19 tools).
 - **Persistent storage** — one SQLite file for artifacts, pipelines, executions and the encrypted credentials.
 - **HTTP targets** — HTTP nodes call URLs that the pipeline designer chose. Requests go to checked public addresses only, unless private networks are allowed by a setting.
-- **Child processes** — Code nodes run a shell or Python script as a child process of the application.
-- **Not built:** AI model providers, Git, notification services and PostgreSQL as a data source. They are planned integrations behind a future connector layer (ADR-020); an HTTP or Code node can reach such systems by hand, but there is no first-class support.
+- **Child processes** — Execute Command nodes run a shell or Python script as a child process of the application.
+- **Not built:** AI model providers, Git, notification services and PostgreSQL as a data source. They are planned integrations behind a future connector layer (ADR-020); an HTTP or Execute Command node can reach such systems by hand, but there is no first-class support.
 
 ## 3.2 Technical Context
 
@@ -23,7 +23,7 @@ OpenArtifact is a self-hosted board of artifacts that run through pipelines:
 │ Scripts  │ ─────────────► │               │   HTTP    ┌──────────────┐
 └──────────┘  (Bearer)      │  run engine:  │ ────────► │ HTTP targets │
 ┌──────────┐  /mcp          │  HTTP node    │           └──────────────┘
-│ LLM agent│ ─────────────► │  Code node    │  fork     ┌──────────────┐
+│ LLM agent│ ─────────────► │  Execute Command node    │  fork     ┌──────────────┐
 └──────────┘  (Bearer)      │               │ ────────► │ child        │
                             └───────────────┘           │ processes    │
                                                         └──────────────┘
@@ -34,7 +34,7 @@ OpenArtifact is a self-hosted board of artifacts that run through pipelines:
 - **OpenArtifact** — application server, run engine, artifact store, credential store; behind an optional TLS reverse proxy ([guide](../../guides/reverse-proxy.md)).
 - **SQLite** — persistent storage (WAL mode); one process opens it.
 - **HTTP targets** — one request per HTTP node, no redirects, size and time limits, address checked before the connection (DNS-rebinding safe); see [8.1](08-cross-cutting-concepts/08.01-security.md) and ADR-023.
-- **Child processes** — started per Code node with resource limits, in their own process group; they are not isolated from the network or the file system (ADR-023).
+- **Child processes** — started per Execute Command node with resource limits, in their own process group; they are not isolated from the network or the file system (ADR-023).
 - **Swagger UI** — `/api/docs` loads its scripts from a public CDN; this is the only external asset (chapter 2).
 - **LLM providers** — OpenRouter or an OpenAI-compatible endpoint, called by Agent nodes through the same address guard as HTTP nodes (ADR-037).
 - **Remote MCP servers and tool targets** — the tools of an agent (MCP Client Tool over Streamable HTTP, e.g. GitHub's; HTTP Request Tool) reach them through the same guard, only when the model calls them (ADR-040).

@@ -41,7 +41,7 @@ the action ("X failed" or "X has no On Pass connection"). So a failure path is s
   that posts to a chat webhook, then to the Output's **On Fail**.
 - *Tolerate a failure:* connect On Error to the end of the stage; the run goes on as if the action had passed.
 
-Stopping a run cancels the node that is running: a Code node's process group is killed, an HTTP request is
+Stopping a run cancels the node that is running: an Execute Command node's process group is killed, an HTTP request is
 abandoned.
 
 ## Results
@@ -85,7 +85,7 @@ the history, and in whatever agent reads it), so treat it as untrusted. Used sec
 
 ## The run context and references
 
-Every execution has a **context**: the variables Code nodes set and the latest result of every node that ran. A later
+Every execution has a **context**: the variables Execute Command nodes set and the latest result of every node that ran. A later
 node can use it, however many steps earlier the value was produced. It is stored with the execution, so it survives a
 server restart and is shown in the History tab ([Execution history](execution-history.md)).
 
@@ -150,7 +150,7 @@ clashes were renamed to `title_field` and so on by migration 0051, also in the r
 value, percent-encoded in a URL. A field that is defined but empty on this card is empty text. The name is the field's
 name (`[a-z][a-z0-9_]{0,31}`), not its label. A name that does not exist is a warning when the node is saved (it lists
 the known names) and fails the node in the run: `${card.x}: the artifact has no field "x" (it has: ...)`; the same holds
-for a field that was renamed or deleted after the node mapped it. Code nodes read `card` in `context.json`. The card
+for a field that was renamed or deleted after the node mapped it. Execute Command nodes read `card` in `context.json`. The card
 of a run may hold at most 40 KiB; a larger one is refused when the run starts (never cut). Changing the artifact later
 never changes an execution that exists, and the History shows what that run saw.
 
@@ -160,7 +160,7 @@ resolved text under every field that takes references. Only `${card...}` is reso
 placeholders and secrets are never shown.
 Field values are plain data: do not put secrets in them ([Security](security.md)).
 
-**Setting variables.** A Code node ends with a result line (see the *Result protocol* below). Add `"vars"`:
+**Setting variables.** An Execute Command node ends with a result line (see the *Result protocol* below). Add `"vars"`:
 
 ```python
 print(json.dumps({"ok": True, "vars": {"user": "bob", "limit": 5}}))
@@ -173,9 +173,9 @@ variables the code sets and feeds the editor's suggestions; if it is not empty a
 notes a difference (`undeclared variable 'x'`, `declared variable 'y' was not set`). It is a hint: the node still passes. The line must be short enough to
 survive the 8 KiB tail of the output the protocol is read from. All variables together may use 32 KiB; a node that
 would exceed it fails. HTTP nodes do not set variables (their parsed body is not stored; use `data` and the
-`output` of the node, or a Code node that reads `context.json` and sets the variable).
+`output` of the node, or an Execute Command node that reads `context.json` and sets the variable).
 
-**Code nodes read `context.json`.** The text of a Code node is never interpolated. The file `context.json` in the
+**Execute Command nodes read `context.json`.** The text of an Execute Command node is never interpolated. The file `context.json` in the
 node's working directory holds the whole context, written (read-only) just before the script starts:
 `json.load(open("context.json"))["vars"]["user"]`. It is a temporary file in the node's own temporary directory
 (`/tmp`, usually memory) and is removed with it when the node ends; nothing about it is written to disk
@@ -186,9 +186,13 @@ output, then their data, then are dropped; variables are never dropped). It is b
 a secret a node printed is `***` in it and in `context.json`. The values are text from outside (responses, script
 output), so treat them as untrusted, like any output.
 
-## Code node
+## Execute Command node
 
-Runs shell or Python text stored in the node.
+Runs shell or Python text stored in the node. It was called *Code* before ADR-075: the kind is still `code` in stored actions and in the
+API (old actions run unchanged), only the name people read changed, because it is not a sandbox but a command run as the application's user.
+**It is off by default**: set `OPENARTIFACT_CODE_NODES_ENABLED=true` to switch it on. While it is off a node fails with a message that names the
+switch, the editor marks the kind *Switched off* and says so in the node's window, and existing nodes stay editable. A real Code node with a
+sandbox is a later card (#133).
 
 | Setting | Values | Default |
 |---------|--------|---------|
@@ -196,6 +200,7 @@ Runs shell or Python text stored in the node.
 | Code | up to 20000 characters | empty (an empty program fails with "The code is empty") |
 | Secrets | one secret name per line, up to 32 | none |
 | Timeout (seconds) | 1 to 600 | 30 |
+| Output limit | optional: a size (B, KiB, MiB) from 1 KiB to 64 MiB; never above `OPENARTIFACT_CODE_OUTPUT_LIMIT_BYTES` | the limit of the instance (64 KiB) |
 
 **How it runs.** The code is written to a new private directory (mode 0700) under the system temporary
 directory and run as a child process of the application: `sh script.sh`, or the application's own Python
@@ -253,8 +258,8 @@ the application's user can read and write) and it runs as the application's own 
 limits are per process and per user, not a control group. Details and the consequences are in
 [Security](security.md).
 
-**Switches.** `OPENARTIFACT_CODE_NODES_ENABLED=false` makes every Code node fail with "Code nodes are
-disabled". Code nodes also require `OPENARTIFACT_API_TOKEN`: an open application (no token) refuses them
+**Switches.** `OPENARTIFACT_CODE_NODES_ENABLED=false` makes every Execute Command node fail with "Execute Command nodes are
+disabled". Execute Command nodes also require `OPENARTIFACT_API_TOKEN`: an open application (no token) refuses them
 unless `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` is set, which is for local development only.
 
 ### Code examples
@@ -589,7 +594,7 @@ and *Compare with* (text, may hold references; ignored by the operators without 
 | is true / is false | the left side is `true` or `false` (lowercase, JSON); anything else goes to **Else** | no |
 | is empty / is not empty | empty text, only white space, `null`, `[]` or `{}` | no |
 
-Comparison rules: both sides are trimmed of white space first (so the newline at the end of a Code node's output does
+Comparison rules: both sides are trimmed of white space first (so the newline at the end of an Execute Command node's output does
 not matter); text is compared **case-sensitively** unless *Case sensitive* is switched off; a number is an optional
 sign, digits, an optional decimal point and an optional exponent (`-3`, `+2.5`, `1e3`), no thousands separators; all
 conditions are evaluated, and an error in any of them sends the node to **Else** (the reason names the first one).
@@ -640,10 +645,10 @@ as `${var.name}` in the nodes after it.
 
 ### Example: support triage
 
-A Code node *Classify* reads the text of the ticket from `context.json`, prints
+An Execute Command node *Classify* reads the text of the ticket from `context.json`, prints
 `{"ok": true, "vars": {"priority": "high", "score": 7}}` and declares `priority` and `score` under *Sets variables*.
 An **If** node *Is urgent* with `${var.priority}` equals `high` and `${var.score}` greater than `5` (all) leads by
-**Yes** to an HTTP node that pages on-call, by **No** to a Code node that queues the ticket, and by **Else** (the
+**Yes** to an HTTP node that pages on-call, by **No** to an Execute Command node that queues the ticket, and by **Else** (the
 variable was not set, the score is no number) to the Output's **On Fail**. A **Switch** on `${var.tier}` with the
 cases `silver`, `gold`, `platinum` sends each tier to its own handling and everything else by **Else**.
 
@@ -652,7 +657,7 @@ cases `silver`, `gold`, `platinum` sends each tier to its own handling and every
 In every text field that takes references (HTTP URL, headers and body; the If and Switch values and cases; the
 fields of Edit Fields; the inputs of an Agent node) typing `${` (or
 pressing Ctrl+Space inside an open `${`) opens a list under the caret that leads in steps, so that it stays short in a large action: first `card.` (the artifact
-fields), `var.` (variables the Code nodes declare and the Edit Fields nodes set), `secret:` (your secrets, in the fields
+fields), `var.` (variables the Execute Command nodes declare and the Edit Fields nodes set), `secret:` (your secrets, in the fields
 that allow them, not in conditions) and the nodes of the action being edited by name, `(Code: hello).`; once one is
 chosen, what is behind it: the fields of the artifact, the variables, the secrets, or `output`, `exit_code`, `outcome`,
 `reason` and `data.` of the node. Typing a part of a name finds the node at once. Arrow keys move, Enter or
@@ -727,7 +732,7 @@ the place that uses the definition has *If the action fails: Error output*. Whic
 
 Open editors follow: a pipeline editor that shows a use loads the graph again when the definition changes in another tab.
 
-The Code node ends when the shell ends: a background process that keeps the output open (`sleep 300 &` without a
+The Execute Command node ends when the shell ends: a background process that keeps the output open (`sleep 300 &` without a
 redirect) does not hold the node until the timeout. Whatever the code left running is killed with the process
 group when the node ends.
 
@@ -736,7 +741,7 @@ group when the node ends.
 | Reason shown | Cause |
 |--------------|-------|
 | `The code is empty` / `The URL is empty` | Nothing to run |
-| `Code nodes are disabled` | `OPENARTIFACT_CODE_NODES_ENABLED=false` |
+| `Execute Command nodes are disabled` | `OPENARTIFACT_CODE_NODES_ENABLED=false` |
 | `Exit code N`, `Killed by signal N` | The process ended that way; the output has the details |
 | `Timeout after N s` | The node's timeout; the process group was killed |
 | `CPU time limit exceeded`, `File size limit exceeded (N MiB)`, `... (memory limit of N MiB exceeded?)` | A resource limit |

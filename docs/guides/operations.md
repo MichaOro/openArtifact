@@ -83,7 +83,12 @@ first (`GET /api/v1/secrets`), change the key, and store every value again with 
 
 ## Update
 
-Back up first ([below](#backup)). The application only migrates forward on start. Older migrations
+Back up first ([below](#backup)). The application only migrates forward on start.
+
+> **Execute Command nodes are off by default** (ADR-075). The node that used to be called *Code* (shell or Python as the
+> application's user, no sandbox) now needs `OPENARTIFACT_CODE_NODES_ENABLED=true` in `deploy/.env`. An installation that
+> used Code nodes and updates without it keeps its actions, but every such node fails with "Execute Command nodes are
+> switched off on this instance" until the variable is set and the container restarted. The stored data does not change. Older migrations
 do have a `downgrade()`, but it loses data on purpose (for example Code and HTTP nodes, all stored
 credentials, or all but the newest execution per run), so a rollback means restoring the backup made
 before the update, together with the older image.
@@ -192,9 +197,9 @@ is limited to 256 processes and 1 GiB of memory. The published address is `127.0
 `OPENARTIFACT_BIND`. These flags are the reference hardening; if you start the image with `docker run`,
 pass the same ones (see [deploy/README.md](../../deploy/README.md)). Raise a limit only with a reason.
 
-### Code nodes in the container
+### Execute Command nodes in the container
 
-Code nodes run inside this container as children of the application, as the same unprivileged user, so
+Execute Command nodes run inside this container as children of the application, as the same unprivileged user, so
 they see what the application sees: `/data` (the database), the network, and `/tmp`. They are bounded by
 `OPENARTIFACT_CODE_*` limits (address space 512 MiB, 64 added processes, 64 MiB per file, 256 files, the
 node's timeout) and are hardened against reading the parent's environment, but are no sandbox
@@ -202,14 +207,14 @@ node's timeout) and are hardened against reading the parent's environment, but a
 
 - `mem_limit: 1g` is for the whole container; the Code memory limit (512 MiB) is address space of one
   process. `/tmp` is a tmpfs and counts against the container memory; Code directories and the process
-  registry live there. Several parallel Code nodes can still exhaust the container: lower
-  `OPENARTIFACT_MAX_CONCURRENT_RUNS` or the memory limit of Code nodes rather than raising `mem_limit` blindly.
+  registry live there. Several parallel Execute Command nodes can still exhaust the container: lower
+  `OPENARTIFACT_MAX_CONCURRENT_RUNS` or the memory limit of Execute Command nodes rather than raising `mem_limit` blindly.
 - `pids_limit: 256` applies to the container in addition to `OPENARTIFACT_CODE_PROCESS_LIMIT` (64, counted per user).
 - Runtimes that reserve a lot of address space (Java, Node.js, Go) need a higher
   `OPENARTIFACT_CODE_MEMORY_LIMIT_MB` and then a higher `mem_limit`.
 
-Safety switches, from strongest to weakest: `OPENARTIFACT_CODE_NODES_ENABLED=false` (no Code node runs);
-no token (open mode refuses Code nodes unless `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true`, for local
+Safety switches, from strongest to weakest: `OPENARTIFACT_CODE_NODES_ENABLED` unset or `false`, the default (no Execute Command node runs; set `true` to switch them on);
+no token (open mode refuses Execute Command nodes unless `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true`, for local
 development only); the limits above. Whoever may edit pipelines and holds the token may run code with the
 rights of the application: treat the token like shell access to the container.
 

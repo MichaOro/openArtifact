@@ -52,9 +52,9 @@ artifact is processed. Removing a field removes its values; a change that stored
 ([details](execution-nodes.md#card-parameters-card-the-artifact-fields)). Title, body, number and id are there too (`${card.title}`, ...), and `${card.text}` is all of it as one text (ADR-064). A body may use them too (`${card.test}`, `${card.title}`): only the original is stored, the artifact dialog and the board show the finished text Edit shows the original, and a run reads the finished text.
 
 **Run context.** The values an execution keeps while it runs: the artifact's parameters as they were when it started
-(`card`), variables a Code node sets and the latest result of
+(`card`), variables an Execute Command node sets and the latest result of
 every node that ran. Later nodes use them through references such as `${node.Fetch_user.output}`, `${var.user}` and
-`${card.urgency}` (HTTP nodes) or the file `context.json` (Code nodes). It is stored with the execution and shown in its history
+`${card.urgency}` (HTTP nodes) or the file `context.json` (Execute Command nodes). It is stored with the execution and shown in its history
 ([execution nodes](execution-nodes.md#the-run-context-and-references)).
 
 **Pipeline.** What an artifact runs through: a trigger, a main line of stages (and pipeline nodes) and a
@@ -165,7 +165,7 @@ stays, the draft is not touched). A pipeline follows the published versions of i
 | Agent | Asks a language model for an [agent](agents.md); the tools attached below it can be called by the model | On Pass or On Fail |
 | GitHub | Reads GitHub (repository, issues, pull requests, files, comments) and, if allowed, comments, without a model | On Pass or On Fail |
 | Postgres | Runs one SQL statement on a Postgres database, read-only unless changes are allowed; returns the rows as a list | On Pass or On Fail |
-| MCP Client Tool, HTTP Request Tool, Code Tool, Postgres Tool | A tool of an Agent node, attached to its *Tools* port; runs only when the model calls it | none (attached, not part of the flow) |
+| MCP Client Tool, HTTP Request Tool, Execute Command Tool, Postgres Tool | A tool of an Agent node, attached to its *Tools* port; runs only when the model calls it | none (attached, not part of the flow) |
 
 Details in the [execution nodes guide](execution-nodes.md). Further kinds are added through a registry
 ([Extending](extending.md)).

@@ -134,7 +134,7 @@ agent takes any number of tools; a tool belongs to one agent.
 | **MCP Client Tool** | the tools of a remote MCP server, with their own names, descriptions and parameters | endpoint (Streamable HTTP), secret with the token (sent as `Authorization: Bearer`), *Tools to include*: `all`, `selected` or `all_except` with one tool name per line, timeout per call (1 to 300 s, 60) |
 | **GitHub MCP** | the tools of GitHub's MCP server (a fixed address), read-only until *Allow writes* is on | credential (a GitHub access token), *Allow writes*, *Tools to include* (`all`, `selected`, `all except`) with one tool name per line, tool name, timeout |
 | **HTTP Request Tool** | one function with the parameters you declare | tool name and description, method, URL, headers, body, parameters (`name: description` per line), timeout (1 to 120 s, 30), success status |
-| **Code Tool** | one function with the parameters you declare | tool name and description, language (`sh`, `python`), code, secrets, parameters, timeout (1 to 600 s, 30) |
+| **Execute Command Tool** | one function with the parameters you declare | tool name and description, language (`sh`, `python`), code, secrets, parameters, timeout (1 to 600 s, 30) |
 | **Postgres Tool** | one function: your SQL statement, with the parameters you declare | tool name and description, secret with the connection URL, query, parameters, *Allow changes*, *Private network*, max rows (1 to 1000, 100), timeout (1 to 120 s, 30) |
 
 - **Fewer tools, a smaller prompt.** The description of **every** tool the model is offered goes with each request. GitHub's server
@@ -166,7 +166,7 @@ agent takes any number of tools; a tool belongs to one agent.
   Content-Type says JSON, or it is valid JSON) a value is escaped for the inside of a JSON string, so quotes and line
   breaks in a comment cannot break the body or add fields; write the placeholder in quotes (`"{text}"`). The answer to the model is
   `HTTP <status>` and the body; another status than the accepted ones is an error.
-- **The Code Tool** runs under the rules of the Code node ([execution nodes](execution-nodes.md)): it needs the API
+- **The Execute Command Tool** runs under the rules of the Execute Command node ([execution nodes](execution-nodes.md)): it needs the API
   token, can be switched off, has its limits and no sandbox. The model's arguments are the object `input` in
   `context.json`; what the code prints (or the result protocol's output) is the answer.
 - **The loop.** The node asks the model with the tools offered, runs every tool call of the answer, sends the results
@@ -199,7 +199,7 @@ agent takes any number of tools; a tool belongs to one agent.
   states only. A page opened in the middle of a run shows the rounds from then on; the finished step has the whole story.
 - **A failing tool does not fail the node.** An unknown tool, arguments that are not a JSON object, an HTTP error or a
   failing script go back to the model as a text starting with `Error:`, and the model may try something else. A tool
-  that cannot be used at all (the MCP server refuses the token or cannot be reached, a Code Tool while Code nodes are
+  that cannot be used at all (the MCP server refuses the token or cannot be reached, an Execute Command Tool while Execute Command nodes are
   off) fails the node before its first request, with the tool's name in the reason.
 - **Results** are cut to 16 KiB for the model and the history, and the values of the run's secrets are masked in them
   before the model reads them.

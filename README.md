@@ -24,7 +24,7 @@ docker compose -f deploy/docker-compose.yml up -d --build
 Open <http://localhost:2909> and sign in with the token. `curl http://localhost:2909/health` checks the service.
 `docker compose -f deploy/docker-compose.yml down` stops it; the `openartifact-data` volume (the database) stays.
 
-- The token is required: Code nodes, the credential store and the integration API are refused without it. Without a token the
+- The token is required: Execute Command nodes, the credential store and the integration API are refused without it. Without a token the
   pages and the browser API are open to everyone who can reach the port.
 - The secret key (at least 32 characters) signs the session cookie and encrypts stored credentials. Do not change it
   afterwards: stored credentials could no longer be read.
@@ -42,7 +42,7 @@ uv run openartifact                   # http://localhost:2909
 ```
 
 `OPENARTIFACT_HOST` defaults to `0.0.0.0`; bind to loopback on a workstation, especially without a token. In open mode (no
-token) Code nodes are refused; for local work only, add `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` to `.env`. Checks, tests
+token) Execute Command nodes are refused; for local work only, add `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` to `.env`. Checks, tests
 and conventions: [CONTRIBUTING](.github/CONTRIBUTING.md) and the [development guide](docs/guides/development.md). The interactive
 API documentation of a running instance is at `/api/docs`.
 
@@ -67,7 +67,7 @@ More with examples: [Concepts](docs/guides/concepts.md). Terms of the architectu
 - Board of artifacts with lanes, live updates (server-sent events) and a pipeline per artifact.
 - Editor for pipelines and action definitions with Timer, Code, HTTP and Output nodes
   ([execution nodes](docs/guides/execution-nodes.md)); the run engine executes stages and actions in-process.
-- Code nodes run shell or Python as a child process with CPU, memory, process, file and output limits; HTTP nodes refuse
+- Execute Command nodes run shell or Python as a child process with CPU, memory, process, file and output limits; HTTP nodes refuse
   loopback, private and metadata addresses unless you allow them.
 - Agents: reusable prompts with declared inputs, a draft and published versions (rollback included), run by an Agent
   node that asks a model of OpenRouter or an OpenAI-compatible endpoint; tools attached below the node (an MCP server
@@ -111,11 +111,11 @@ Frontend: Jinja2 templates, CSS design tokens and vanilla JavaScript, no build s
 
 - Pre-release, version `0.1.x`. The application's own data stays in SQLite; PostgreSQL comes only as a data source
   (the Postgres node and tool), not as the application database.
-- **No sandbox for Code nodes.** Code runs as the application's user, with resource limits, without network or file system
+- **No sandbox for Execute Command nodes.** Code runs as the application's user, with resource limits, without network or file system
   isolation. The application is hardened against Code reading its parent's environment (API token and secret key), but anyone who
   may edit a pipeline can run code in the container. Give edit access only to people you trust.
   See [SECURITY.md](SECURITY.md) and [Security for operators](docs/guides/security.md).
-- A token is required for Code nodes and credentials; without one the instance is open to everyone who reaches the port.
+- A token is required for Execute Command nodes and credentials; without one the instance is open to everyone who reaches the port.
 - Single process, single database file: do not run several instances against one database. The in-process event bus and
   run engine do not scale out.
 - Accessibility is limited: connections in the graph editor are made by dragging (no keyboard-only way) and screen reader

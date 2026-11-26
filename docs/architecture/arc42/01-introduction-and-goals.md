@@ -30,7 +30,7 @@ Technology decisions are documented in ADR-002 (Language), ADR-003 (Backend), AD
 - **Self-hosting simplicity:** Single `docker compose up` deployment
 - **Reliability:** Graceful shutdown, health checks, restart policies; runs interrupted by a restart are marked `stopped`, and leftover Code processes of a hard-killed application are cleaned up at the next start
 - **Traceability:** Who created an artifact (`created_by`), how a run was started (`started_by`: `user`, `api`, `mcp`) and what every node did (a step per node with outcome, output and duration) is recorded and kept as an execution history with a retention policy (ADR-025)
-- **Security of execution:** Code and HTTP nodes run foreign instructions. Child processes are resource-limited, HTTP requests are guarded against SSRF, secrets are encrypted and masked, Code nodes and credentials need an API token. There is no sandbox; see [8.1](08-cross-cutting-concepts/08.01-security.md) for what is and is not covered (ADR-023, ADR-024)
+- **Security of execution:** Code and HTTP nodes run foreign instructions. Child processes are resource-limited, HTTP requests are guarded against SSRF, secrets are encrypted and masked, Execute Command nodes and credentials need an API token. There is no sandbox; see [8.1](08-cross-cutting-concepts/08.01-security.md) for what is and is not covered (ADR-023, ADR-024)
 - **Security of access:** One access token protects everything; secrets and tokens are masked in logs; hardened non-root container ([chapter 8.1](08-cross-cutting-concepts/08.01-security.md), [SECURITY.md](../../../SECURITY.md))
 
 ## 1.3 Stakeholders

@@ -94,7 +94,7 @@ model for anything new.
 
 ### Checklist for nodes that run foreign code, call the network or use credentials
 
-- A node that runs text it did not write needs the Code node's safeguards or better: a bounded time, bounded
+- A node that runs text it did not write needs the Execute Command node's safeguards or better: a bounded time, bounded
   output, bounded resources, a clean environment (never the application's settings), the process group
   killed on timeout and on cancel. See `engine/code_runner.py` and [Security](security.md).
 - A node that calls out must vet the address it connects to, not the one it was given (resolve once, check,

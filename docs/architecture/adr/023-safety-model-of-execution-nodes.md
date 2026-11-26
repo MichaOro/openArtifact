@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-008](008-security-operations.md), [ADR-017](017-request-hardening-and-signed-sessions.md)  
-**Amended by:** —  
+**Amended by:** [ADR-075](075-execute-command-node.md)  
 **Implemented in:** `engine/code_runner.py`, `engine/code_registry.py`, `engine/http_runner.py`, `config.py` (settings `code_*`, `http_*`, key length), the start-up checks of `security.py`; no migration  
 **Affected chapters:** [08.05](../arc42/08-cross-cutting-concepts/08.05-execution-nodes-safety.md), [08.01](../arc42/08-cross-cutting-concepts/08.01-security.md), [07](../arc42/07-deployment-view.md); guide [security](../../guides/security.md); [SECURITY.md](../../../SECURITY.md)
 
@@ -67,3 +67,8 @@ cloud metadata addresses are always refused, and private networks only with
 - Windows or a system without the `resource` module runs code without limits and says so in the result.
 - Open mode cannot run Code nodes by default, which costs convenience on a first local trial and is the intended
   trade.
+
+## Update (2026-11-26): off by default, honest name
+
+[ADR-075](075-execute-command-node.md): the node is called *Execute Command* (the kind id stays `code`), `OPENARTIFACT_CODE_NODES_ENABLED` is `false`
+unless set, and a node may set an output limit of its own below the instance's.

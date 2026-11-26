@@ -15,7 +15,7 @@ Secrets can be saved only when
 
 Otherwise saving answers `409` ("Set OPENARTIFACT_API_TOKEN and OPENARTIFACT_SECRET_KEY first"). The reason
 is the open mode: without a token everyone who can reach the application is allowed to edit actions, so a
-stored secret would be readable by all of them through any node. The same reasoning is why Code nodes are
+stored secret would be readable by all of them through any node. The same reasoning is why Execute Command nodes are
 refused in open mode ([Security](security.md)).
 
 ## Store a secret
@@ -48,7 +48,7 @@ A node never holds a value, only a name.
   header value or in the body: `Authorization: Bearer ${secret:API_TOKEN}`. A reference in the scheme or host
   of the URL is refused. A malformed reference (a name that is not capitals, digits and underscores) is
   refused when you save the setting.
-- **Code node:** list the names, one per line, in the **Secrets** setting. Each is provided to the process as an
+- **Execute Command node:** list the names, one per line, in the **Secrets** setting. Each is provided to the process as an
   environment variable of that name (`$API_TOKEN` in shell, `os.environ["API_TOKEN"]` in Python). Up to 32
   per node. The names `PATH`, `HOME`, `LANG` and `OPENARTIFACT_*` are reserved. `${secret:NAME}` is not
   substituted inside the code text: the code is stored and shown in plain text.
@@ -88,7 +88,7 @@ least 8 characters) and any value that follows a secret-looking name.
   stolen database file or backup alone is not enough, and a stolen key alone is not enough either. Keep the key
   out of the backup of the data volume (the operations guide describes the backup of the database).
 - The process holds the derived key and the decrypted values in memory while it uses them.
-- The values are not protected against a Code node: it runs with the application's rights.
+- The values are not protected against an Execute Command node: it runs with the application's rights.
 
 ## Key rotation and what changes break
 
@@ -120,7 +120,7 @@ them again.
 - **External**: values for other systems, of the types *GitHub access token*, *OpenRouter API key*,
   *OpenAI-compatible API key*, *PostgreSQL connection*, *Bearer token*, *MCP authentication* and *Generic API key*. The
   value is stored by the credential store exactly as before (the credential's name is the secret's name), so every
-  `${secret:NAME}`, Code node setting and provider keeps working; secrets made with the older API appear as *Generic
+  `${secret:NAME}`, Execute Command node setting and provider keeps working; secrets made with the older API appear as *Generic
   API key* credentials. **Test connection** makes a real request (GitHub `/user`, OpenRouter `/key`, the endpoint's
   model list, `SELECT 1`) and records the time and the outcome; types without a meaningful test (bearer, MCP, generic)
   have none and are never shown as tested. A changed value clears the last test. A switched-off credential is refused to
