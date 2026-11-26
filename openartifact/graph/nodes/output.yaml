@@ -7,6 +7,8 @@ scopes:
 fixed: true
 ending: true
 menu_icon: inbox
+effect:
+  default: none
 ports:
   inputs:
   - name: pass

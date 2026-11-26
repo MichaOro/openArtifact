@@ -8,6 +8,8 @@ scopes:
 fixed: true
 chain: true
 menu_icon: play
+effect:
+  default: none
 ports:
   outputs:
   - name: out

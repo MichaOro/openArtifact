@@ -9,6 +9,8 @@ tool: true
 menu:
   group: Agent tools
   order: 1
+effect:
+  default: mixed
 ports:
   outputs:
   - name: tool

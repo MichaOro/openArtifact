@@ -660,6 +660,19 @@
     "inherits": null
    },
    {
+    "key": "read_only",
+    "label": "Read only",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "Tick it when this code only reads and changes nothing. A dry run then runs it; otherwise it skips it as a change.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
     "key": "on_failure",
     "label": "If the node fails",
     "type": "select",
@@ -3825,6 +3838,19 @@
     "stored_in": "config",
     "section": "definition",
     "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "read_only",
+    "label": "Read only",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "Tick it when this code only reads and changes nothing. A dry run then runs it; otherwise it skips it as a change.",
+    "section": "definition",
+    "level": "optional",
     "inherits": null
    }
   ],

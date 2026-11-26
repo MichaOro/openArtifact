@@ -1,19 +1,20 @@
 /* The filters of the global execution list as a value that lives in the URL's query string, so a reload,
  * a shared link and the browser's Back button restore them.
  *
- * URL names are the API's: status, started_by (comma separated), pipeline, q, since, until. `range`
+ * URL names are the API's: status, started_by (comma separated), pipeline, q, since, until, dry_run (only | exclude). `range`
  * (1h, 24h, 7d) is a relative since that is worked out when the list is fetched, so a reloaded link means
  * "the last 24 hours" again. `page_size` (tests) passes through untouched. */
 
 export const STATUSES = ["running", "done", "failed", "stopped"];
 export const ORIGINS = ["user", "api", "mcp", "system"];
+export const DRY_RUN = ["only", "exclude"];
 export const RANGES = { "1h": 3600, "24h": 86400, "7d": 7 * 86400 };
 
 const csv = (value, allowed) => [...new Set((value ?? "").split(",").map((v) => v.trim().toLowerCase()))].filter((v) => allowed.includes(v));
 const ordered = (values, allowed) => allowed.filter((v) => values.includes(v));
 
 export class Filters {
-  constructor({ status = [], startedBy = [], pipeline = "", q = "", range = "", since = "", until = "", pageSize = "" } = {}) {
+  constructor({ status = [], startedBy = [], pipeline = "", q = "", range = "", since = "", until = "", pageSize = "", dryRun = "" } = {}) {
     this.status = ordered(status, STATUSES);
     this.startedBy = ordered(startedBy, ORIGINS);
     this.pipeline = pipeline.trim();
@@ -22,6 +23,7 @@ export class Filters {
     this.since = since;
     this.until = until;
     this.pageSize = pageSize;
+    this.dryRun = DRY_RUN.includes(dryRun) ? dryRun : "";
   }
 
   static fromSearch(search) {
@@ -35,6 +37,7 @@ export class Filters {
       since: p.get("since") ?? "",
       until: p.get("until") ?? "",
       pageSize: p.get("page_size") ?? "",
+      dryRun: p.get("dry_run") ?? "",
     });
   }
 
@@ -49,7 +52,7 @@ export class Filters {
 
   /** How many kinds of filter are set; shown on the disclosure of the phone layout. */
   get activeCount() {
-    return [this.status.length, this.startedBy.length, this.pipeline, this.q, this.range || this.since || this.until].filter(Boolean).length;
+    return [this.status.length, this.startedBy.length, this.pipeline, this.q, this.dryRun, this.range || this.since || this.until].filter(Boolean).length;
   }
 
   /** since/until given by hand (a link or the API's names) rather than by a preset. */
@@ -64,6 +67,7 @@ export class Filters {
     if (this.startedBy.length) p.set("started_by", this.startedBy.join(","));
     if (this.pipeline) p.set("pipeline", this.pipeline);
     if (this.q) p.set("q", this.q);
+    if (this.dryRun) p.set("dry_run", this.dryRun);
     if (this.range) p.set("range", this.range);
     else {
       if (this.since) p.set("since", this.since);
@@ -81,6 +85,7 @@ export class Filters {
     if (this.startedBy.length) p.set("started_by", this.startedBy.join(","));
     if (this.pipeline) p.set("pipeline", this.pipeline);
     if (this.q) p.set("q", this.q);
+    if (this.dryRun) p.set("dry_run", this.dryRun);
     const since = this.range ? new Date(now - RANGES[this.range] * 1000).toISOString() : this.since;
     if (since) p.set("since", since);
     if (!this.range && this.until) p.set("until", this.until);
@@ -94,6 +99,7 @@ export class Filters {
   mayInclude(execution, now = Date.now()) {
     if (this.status.length && !this.status.includes(execution.status)) return false;
     if (this.startedBy.length && !this.startedBy.includes(execution.started_by)) return false;
+    if (this.dryRun && Boolean(execution.dry_run) !== (this.dryRun === "only")) return false;
     if (this.pipeline) {
       const name = (execution.pipeline_name ?? "").toLowerCase();
       if (execution.pipeline_id !== this.pipeline && !name.includes(this.pipeline.toLowerCase())) return false;

@@ -11,6 +11,8 @@ tool: true
 menu:
   group: Agent tools
   order: 5
+effect:
+  default: read
 ports:
   outputs:
   - name: tool

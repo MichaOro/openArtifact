@@ -52,6 +52,14 @@
                     </div>
                 </fieldset>
                 <fieldset class="ex-group">
+                    <legend class="ex-group__legend">{{ t('executions.kind') }}</legend>
+                    <div class="ex-group__items">
+                        {% for value, label in [("all", t('executions.any_kind')), ("exclude", t('executions.real_runs')), ("only", t('executions.dry_runs'))] %}
+                        <label class="ex-toggle ex-toggle--range history-chip"><input type="radio" class="ex-toggle__input" name="dry_run" value="{{ value }}"><span class="ex-toggle__tick" aria-hidden="true">{{ icon("check") }}</span><span>{{ label }}</span></label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <fieldset class="ex-group">
                     <legend class="ex-group__legend">{{ t('executions.started') }}</legend>
                     <div class="ex-group__items">
                         {% for value, label in [("1h", t('executions.last_hour')), ("24h", t('executions.24_hours')), ("7d", t('executions.7_days')), ("all", t('common.all'))] %}
@@ -130,7 +138,7 @@
         <td class="ex-row__select"><input type="checkbox" class="check" data-select></td>
         <td class="ex-row__status" data-label="{{ t('common.status') }}"><span class="history-chip"><span data-chip-icon></span><span data-chip-text></span></span></td>
         <td class="ex-row__artifact" data-label="{{ t('executions.artifact') }}"><a class="ex-link" data-artifact></a></td>
-        <td class="ex-row__number" data-label="{{ t('execution_flow.execution') }}"><a class="ex-link ex-link--open" data-open></a></td>
+        <td class="ex-row__number" data-label="{{ t('execution_flow.execution') }}"><a class="ex-link ex-link--open" data-open></a> <span class="history-flag" data-dry hidden>{{ t('executions.dry_run') }}</span></td>
         <td class="ex-row__pipeline" data-label="{{ t('common.pipeline') }}"><a class="ex-link" data-pipeline-link hidden></a><span data-pipeline-text></span> <span class="ex-deleted" data-pipeline-gone hidden>{{ t('executions.deleted') }}</span></td>
         <td class="ex-row__time" data-label="{{ t('executions.started') }}"><time data-time></time></td>
         <td class="ex-row__duration" data-label="{{ t('executions.duration') }}" data-duration></td>

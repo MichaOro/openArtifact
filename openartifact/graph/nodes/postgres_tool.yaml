@@ -9,6 +9,10 @@ tool: true
 menu:
   group: Agent tools
   order: 4
+effect:
+  default: read
+  flag: allow_write
+  flag_true: write
 ports:
   outputs:
   - name: tool

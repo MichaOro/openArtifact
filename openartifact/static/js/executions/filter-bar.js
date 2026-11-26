@@ -55,6 +55,7 @@ export class FilterBar {
     this.filters = filters;
     for (const box of this.form.querySelectorAll("input[name=status]")) box.checked = filters.status.includes(box.value);
     for (const box of this.form.querySelectorAll("input[name=started_by]")) box.checked = filters.startedBy.includes(box.value);
+    for (const radio of this.form.querySelectorAll("input[name=dry_run]")) radio.checked = radio.value === "all" ? filters.dryRun === "" : radio.value === filters.dryRun;
     if (document.activeElement !== this.pipeline) this.pipeline.value = filters.pipeline;
     if (document.activeElement !== this.q) this.q.value = filters.q;
     for (const radio of this.form.querySelectorAll("input[name=range]")) radio.checked = !filters.custom && (radio.value === "all" ? filters.range === "" : radio.value === filters.range);
@@ -72,10 +73,12 @@ export class FilterBar {
     const checked = (name) => [...this.form.querySelectorAll(`input[name=${name}]:checked`)].map((box) => box.value);
     const picked = this.form.querySelector("input[name=range]:checked")?.value; // "all" is no preset
     const range = picked === "all" ? "" : (picked ?? "");
+    const dryRunPicked = this.form.querySelector("input[name=dry_run]:checked")?.value ?? "all";
     const keepsCustom = this.filters.custom && picked === undefined;
     return this.filters.with({
       status: checked("status"),
       startedBy: checked("started_by"),
+      dryRun: dryRunPicked === "all" ? "" : dryRunPicked,
       pipeline: this.pipeline.value,
       q: this.q.value,
       range,

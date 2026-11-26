@@ -81,6 +81,7 @@ not suggestions, and a change that breaks one is sent back.
 | Icon only, destructive | `icon-button is-danger` | A delete icon: it turns red on hover and focus. |
 | Chip (toggle) | `chip-button` with `aria-pressed="true|false"` | A filter or a switch among a few: *All / Comments / Executions / Changes*. |
 | Chip (small action) | `chip-button` without `aria-pressed` | A compact action in a tight place. |
+| Flag (mark) | `history-flag` | A small tinted pill that marks a row: *Dry run* / *Testlauf* next to the execution number in the history (ADR-086); hidden unless the execution is a dry run. |
 
 Sizes: the default is 2.5 rem high; `button--sm` (and every `.action-row`) is 2 rem. `button--md` brings one button back to
 the full size inside a compact container.

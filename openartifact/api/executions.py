@@ -26,11 +26,12 @@ Filters (all optional, combined with AND): ``status`` and ``started_by`` are com
 (``running,done,failed,stopped`` / ``user,api,mcp,system``); ``pipeline`` matches the pipeline id exactly
 or the stored pipeline name as a case-insensitive substring; ``q`` is a case-insensitive substring of the
 artifact title, pipeline name or note, or an artifact number (``12``, ``#12``); ``since`` / ``until`` are
-ISO 8601 times (UTC when no offset is given), both inclusive, on the start time. An invalid value is 422.
+ISO 8601 times (UTC when no offset is given), both inclusive, on the start time; ``dry_run`` is ``only`` (the dry runs) or
+``exclude`` (the real runs), both when left out. An invalid value is 422.
 
 ``limit`` is 1 to 200 (default 50). ``next_cursor`` goes into ``cursor`` for the next page and is ``null`` on
 the last; paging is stable while executions are added or deleted. ``total`` counts everything the filters
-match, ``summary`` is unfiltered (``failed_24h`` / ``done_24h``: started in the last 24 hours).
+match, ``summary`` is unfiltered (``failed_24h`` / ``done_24h``: real runs started in the last 24 hours, dry runs are left out).
 Each item has its ``task`` (id, number, title) and ``pipeline_exists`` (the pipeline still exists)."""
 
 
@@ -49,6 +50,7 @@ async def list_all_executions(
     q: str | None = None,
     since: str | None = None,
     until: str | None = None,
+    dry_run: str | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     cursor: str | None = None,
 ) -> ExecutionsPage:
@@ -59,6 +61,7 @@ async def list_all_executions(
         q=q,
         since=since,
         until=until,
+        dry_run=dry_run,
         limit=limit,
         cursor=cursor,
     )

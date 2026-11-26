@@ -278,7 +278,14 @@ async def start_run(ref: str, service: ServiceDep, payload: RunStart | None = No
     """Start processing. Without a body it starts with the pipeline, stage and action the artifact has."""
     body = payload or RunStart()
     return await service.start(
-        ref, body.pipeline_id, body.stage_id, body.action_id, started_by=StartedBy.API
+        ref,
+        body.pipeline_id,
+        body.stage_id,
+        body.action_id,
+        started_by=StartedBy.API,
+        dry_run=body.dry_run,
+        inputs=body.inputs,
+        version=body.version,  # the published version unless the caller asks for the draft
     )
 
 
@@ -308,6 +315,7 @@ async def list_all_executions(
     q: str | None = None,
     since: str | None = None,
     until: str | None = None,
+    dry_run: str | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     cursor: str | None = None,
 ) -> ExecutionsPage:
@@ -318,6 +326,7 @@ async def list_all_executions(
         q=q,
         since=since,
         until=until,
+        dry_run=dry_run,
         limit=limit,
         cursor=cursor,
     )

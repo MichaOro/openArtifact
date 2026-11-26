@@ -493,6 +493,27 @@ def _walk(value: Any, path: tuple[str, ...], where: str) -> Any:
     return value
 
 
+#: What a dry run skips leaves no data of the node's own, and the next node that needs it is told (ADR-086).
+SKIPPED_IN_DRY_RUN = (
+    'node "{node}" was skipped in the dry run, so it has no result: use mock data for it'
+)
+#: The keys a skipped node does leave: the marker and what it would have done.
+_DRY_RUN_KEYS = ("dry_run", "would_have")
+
+
+def _skipped_in_dry_run(entry: Mapping[str, Any], ref: Reference) -> str | None:
+    """The message when ``ref`` asks a node that a dry run skipped for something it did not produce (its output, its exit code, or a
+    key of its data); ``None`` for what it does leave (``success``, ``outcome``, ``reason``, ``attempts`` and the dry-run marker)."""
+    data = entry.get("data")
+    if not (isinstance(data, dict) and data.get("dry_run") is True):
+        return None
+    if ref.field in ("output", "exit_code") or (
+        ref.field == "data" and ref.path and ref.path[0] not in _DRY_RUN_KEYS
+    ):
+        return SKIPPED_IN_DRY_RUN
+    return None
+
+
 def resolve(ref: Reference, context: RunContext, index: NodeIndex) -> Any:
     """The value a reference stands for; :class:`ContextError` if it cannot be resolved."""
     if ref.kind == "var":
@@ -528,6 +549,9 @@ def resolve(ref: Reference, context: RunContext, index: NodeIndex) -> Any:
         entry = context.nodes.get(ref.name)
     if entry is None:
         raise ContextError(f'node "{label}" has not run yet')
+    skipped = _skipped_in_dry_run(entry, ref)
+    if skipped:
+        raise ContextError(skipped.format(node=label))
     value = entry.get(ref.field)
     if (
         value is None and ref.field == "success"
@@ -551,6 +575,8 @@ class RunView:
     #: The artifact and the execution the run belongs to (for the nodes that act on their own card).
     task_id: str | None = None
     execution_id: str | None = None
+    #: The run is a dry run (ADR-086): what writes is skipped, a timer does not wait.
+    dry_run: bool = False
 
     def render(
         self,
@@ -601,11 +627,53 @@ def bind_inputs(
     Raises :class:`ContextError`.
     """
     mapped = (node.get("config") or {}).get("input_values") or {}
+    return _bind(
+        declared, lambda name: str(mapped.get(name) or ""), view.render, definition_name, []
+    )
+
+
+def bind_given(
+    definition_name: str, declared: list[dict[str, Any]], given: Mapping[str, Any]
+) -> dict[str, Any]:
+    """The inputs of a run that someone gave from outside (the ``inputs`` of a dry run, ADR-086): the same rules as a mapping (the default
+    for a missing one, a required one must have a value, a value must fit its type), but the values are taken as they are and never read
+    for ``${...}`` references. A name the definition does not declare is refused.
+
+    Raises :class:`ContextError`.
+    """
+    known = {spec["name"] for spec in declared}
+    problems = [
+        f"there is no input '{name}' (the inputs are: {', '.join(sorted(known)) or 'none'})"
+        for name in given
+        if name not in known
+    ]
+    return _bind(
+        declared, lambda name: _given_text(given.get(name)), str, definition_name, problems
+    )
+
+
+def _given_text(value: Any) -> str:
+    """A value handed in as JSON, as the text a typed input is read from."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _bind(
+    declared: list[dict[str, Any]],
+    text_of: Callable[[str], str],
+    render: Callable[[str], str],
+    definition_name: str,
+    problems: list[str],
+) -> dict[str, Any]:
     bound: dict[str, Any] = {}
-    problems: list[str] = []
     for spec in declared:
         name = spec["name"]
-        text = str(mapped.get(name) or "")
+        text = text_of(name)
         if not text.strip():
             text = str(spec.get("default") or "")
         if not text.strip():
@@ -615,7 +683,7 @@ def bind_inputs(
                 bound[name] = None
             continue
         try:
-            bound[name] = field_schema.coerce(spec, view.render(text))
+            bound[name] = field_schema.coerce(spec, render(text))
         except (ContextError, ValueError) as error:
             problems.append(f"input '{name}': {error}")
     if problems:

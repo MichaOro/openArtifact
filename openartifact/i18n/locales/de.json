@@ -2420,5 +2420,14 @@
  "components.schema_fields.menu.add_default": "Standardwert hinzufügen",
  "components.schema_fields.menu.remove_default": "Standardwert entfernen",
  "components.schema_fields.menu.delete": "Löschen",
- "components.schema_fields.description_wide_placeholder": "Beschreibung"
+ "components.schema_fields.description_wide_placeholder": "Beschreibung",
+ "nodes.code.settings.read_only.label": "Nur lesend",
+ "nodes.code.settings.read_only.help": "Setze es, wenn dieser Code nur liest und nichts ändert. Ein Dry run führt ihn dann aus, sonst wird er als Änderung übersprungen.",
+ "nodes.code_tool.settings.read_only.label": "Nur lesend",
+ "nodes.code_tool.settings.read_only.help": "Setze es, wenn dieser Code nur liest und nichts ändert. Ein Dry run führt ihn dann aus, sonst wird er als Änderung übersprungen.",
+ "executions.dry_run": "Testlauf",
+ "executions.kind": "Art",
+ "executions.real_runs": "Echte Läufe",
+ "executions.dry_runs": "Testläufe",
+ "executions.any_kind": "Alle"
 }

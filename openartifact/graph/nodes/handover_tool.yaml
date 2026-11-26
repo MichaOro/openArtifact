@@ -10,6 +10,8 @@ tool: true
 menu:
   group: Agent tools
   order: 6
+effect:
+  default: none
 ports:
   outputs:
   - name: tool

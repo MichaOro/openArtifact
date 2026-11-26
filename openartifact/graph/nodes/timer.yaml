@@ -13,6 +13,8 @@ menu:
   group: Flow
   order: 3
 menu_icon: clock
+effect:
+  default: none
 ports:
   inputs:
   - name: in

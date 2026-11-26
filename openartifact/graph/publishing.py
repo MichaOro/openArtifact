@@ -19,10 +19,13 @@ from openartifact.graph.versions import current_version, fingerprint, get_versio
 from openartifact.models import Graph, GraphVersion
 
 
-async def graph_for_run(session: AsyncSession, graph_id: str) -> dict[str, Any]:
-    """The graph as an execution reads it: its published version, else its draft. The name is the current one."""
+async def graph_for_run(
+    session: AsyncSession, graph_id: str, *, draft: bool = False
+) -> dict[str, Any]:
+    """The graph as an execution reads it: its published version, else its draft; with ``draft`` always the draft (a dry run that
+    tests what is being edited, ADR-086). The name is the current one."""
     graph = await session.get(Graph, graph_id)
-    version = await current_version(session, graph) if graph else None
+    version = await current_version(session, graph) if graph and not draft else None
     if graph is None or version is None:
         return await graph_of(session, graph_id)
     content: dict[str, Any] = json.loads(version.content)

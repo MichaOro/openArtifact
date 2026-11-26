@@ -6,6 +6,8 @@ scopes:
 - pipeline
 links_to: action
 menu_icon: action
+effect:
+  default: none
 ports:
   inputs:
   - name: in

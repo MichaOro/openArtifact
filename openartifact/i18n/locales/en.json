@@ -1683,5 +1683,10 @@
  "components.schema_fields.menu.add_default": "Add default value",
  "components.schema_fields.menu.remove_default": "Remove default value",
  "components.schema_fields.menu.delete": "Delete",
- "components.schema_fields.description_wide_placeholder": "Description"
+ "components.schema_fields.description_wide_placeholder": "Description",
+ "executions.dry_run": "Dry run",
+ "executions.kind": "Kind",
+ "executions.real_runs": "Real runs",
+ "executions.dry_runs": "Dry runs",
+ "executions.any_kind": "Any"
 }

@@ -101,6 +101,7 @@ export class HistoryList {
     setMarker(row, markerOf({ type: "execution", execution: e }));
     setChip(row.querySelector(".history-chip"), e.status);
     row.querySelector("[data-row-number]").textContent = `#${e.number}`;
+    row.querySelector("[data-row-dry]").hidden = !e.dry_run;
     fillTime(row.querySelector("[data-row-time]"), e.started_at);
     this.#duration(row, e);
     row.querySelector("[data-row-pipeline]").textContent = e.pipeline_name ?? "";
