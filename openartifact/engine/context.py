@@ -92,6 +92,9 @@ _NO_RESULT = frozenset(
     }
 )
 
+#: Public name of the same set (the check before a graph is published reads it).
+NO_RESULT_KINDS = _NO_RESULT
+
 #: The nodes of a pipeline that run something and so can have a result of their own, named by their id (ADR-082, ADR-083).
 PLACEMENT_KINDS = frozenset({"action", "pipeline"})
 

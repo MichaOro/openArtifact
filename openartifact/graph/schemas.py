@@ -254,6 +254,35 @@ class EdgeRead(BaseModel):
     target_slot: int
 
 
+class FindingRead(BaseModel):
+    """One thing the check before publishing found (ADR-082): an ``error`` cannot work, a ``warning`` may."""
+
+    level: Literal["error", "warning"]
+    code: str = Field(
+        description="A stable word (``node_missing``, ``secret_missing``, ``input_not_given`` ...)."
+    )
+    node_id: str | None = Field(description="The node it is about.")
+    node_name: str = Field(description="The name the editor shows for that node.")
+    message: str = Field(description="What is wrong, in plain words.")
+
+
+class PublishCheck(BaseModel):
+    """The check of a draft: its findings, errors first (``GET .../check``)."""
+
+    findings: list[FindingRead]
+    errors: int
+    warnings: int
+
+
+class PublishRequest(BaseModel):
+    """The body of a publish. ``acknowledge`` says the caller has seen the findings and publishes anyway."""
+
+    acknowledge: bool = Field(
+        default=False,
+        description="Publish although the check found something. Without it a draft with findings is refused with 409 and the findings.",
+    )
+
+
 class PublishedGraph(BaseModel):
     """What publishing answers: the graph as it is now and the version that was made."""
 

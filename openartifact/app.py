@@ -262,7 +262,9 @@ def _create_app(settings: Settings) -> FastAPI:
     @app.exception_handler(ArtifactError)
     async def _handle_refusal(request: Request, exc: ArtifactError) -> JSONResponse:
         # the same body HTTPException produces: the services refuse, routes do not translate
-        body = {"detail": exc.message} | ({"code": exc.code} if exc.code else {})
+        body = (
+            {"detail": exc.message} | ({"code": exc.code} if exc.code else {}) | (exc.extra or {})
+        )
         return JSONResponse(status_code=exc.status, content=body)
 
     @app.exception_handler(OpenArtifactError)

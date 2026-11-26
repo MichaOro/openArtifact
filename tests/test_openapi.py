@@ -54,6 +54,7 @@ DELETE /api/v1/secrets/{name} -> -
 DELETE /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/actions -> GraphListRead[]
 GET /api/actions/{graph_id} -> GraphDetail
+GET /api/actions/{graph_id}/check -> PublishCheck
 GET /api/actions/{graph_id}/neighbours -> GraphNeighbours
 GET /api/actions/{graph_id}/uses -> GraphUses
 GET /api/actions/{graph_id}/versions -> GraphVersionRead[]
@@ -88,6 +89,7 @@ GET /api/lanes/{status}/rules -> RulesAnswer
 GET /api/node-types -> NodeTypeRead[]
 GET /api/pipelines -> GraphListRead[]
 GET /api/pipelines/{graph_id} -> GraphDetail
+GET /api/pipelines/{graph_id}/check -> PublishCheck
 GET /api/pipelines/{graph_id}/neighbours -> GraphNeighbours
 GET /api/pipelines/{graph_id}/stages -> ChainEntryRead[]
 GET /api/pipelines/{graph_id}/uses -> GraphUses

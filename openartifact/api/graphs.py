@@ -22,7 +22,8 @@ from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.executors import CODE_DISABLED_REASON
 from openartifact.engine.neighbour_schemas import GraphNeighbours
 from openartifact.engine.neighbours import graph_neighbours
-from openartifact.graph import publishing, versions
+from openartifact.exceptions import ArtifactError
+from openartifact.graph import preflight, publishing, versions
 from openartifact.graph.content import graph_of
 from openartifact.graph.localize import localize
 from openartifact.graph.node_types import NODE_TYPES, node_type
@@ -32,6 +33,7 @@ from openartifact.graph.schemas import (
     EdgeCreate,
     EdgeRead,
     EdgeUpdate,
+    FindingRead,
     GraphCreate,
     GraphDetail,
     GraphListRead,
@@ -43,7 +45,9 @@ from openartifact.graph.schemas import (
     NodeCreate,
     NodeRead,
     NodeUpdate,
+    PublishCheck,
     PublishedGraph,
+    PublishRequest,
 )
 from openartifact.i18n.web import language_for
 from openartifact.models import Graph, GraphKind, GraphNode, GraphVersion, NodeKind
@@ -306,6 +310,24 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             stages=pipeline_chain(nodes, edges) if kind == GraphKind.PIPELINE else None,
         )
 
+    @router.get(
+        "/{graph_id}/check",
+        response_model=PublishCheck,
+        name=f"check_{kind}",
+        summary=f"Check the draft of a {kind} before it is published",
+        responses=errors(404, 422),
+    )
+    async def check_graph(graph_id: str, session: SessionDep) -> PublishCheck:
+        """What publishing the draft would run into (ADR-082): every reference that names something that is not there, a secret that
+        does not exist, a required input without a value (errors), and what may not work (warnings). Reads only, runs nothing."""
+        graph = await _graph(GraphRepository(session), graph_id)
+        found = [FindingRead(**f.as_dict()) for f in await preflight.check(session, graph.id)]
+        return PublishCheck(
+            findings=found,
+            errors=sum(1 for f in found if f.level == "error"),
+            warnings=sum(1 for f in found if f.level == "warning"),
+        )
+
     @router.post(
         "/{graph_id}/publish",
         response_model=PublishedGraph,
@@ -313,10 +335,23 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         summary=f"Publish a {kind}",
         responses=errors(404, 409, 422, write=True),
     )
-    async def publish_graph(graph_id: str, session: SessionDep) -> PublishedGraph:
+    async def publish_graph(
+        graph_id: str, session: SessionDep, body: PublishRequest | None = None
+    ) -> PublishedGraph:
         """Publish the draft as a new version; executions that start from now on use it. 409 when the draft equals the published
-        version (nothing new to publish)."""
+        version (nothing new to publish), and 409 with ``findings`` when the check (``GET .../check``) found something and the body
+        does not say ``{"acknowledge": true}``: the caller has seen the findings and publishes anyway (ADR-082)."""
         graph = await _graph(GraphRepository(session), graph_id)
+        if not (body and body.acknowledge) and await publishing.would_change(session, graph):
+            found = await preflight.check(session, graph.id)
+            if found:
+                raise ArtifactError(
+                    409,
+                    f"The check found {len(found)} thing(s) to look at before publishing; "
+                    "publish again with acknowledge to publish anyway",
+                    code="findings",
+                    extra={"findings": [f.as_dict() for f in found]},
+                )
         version = await publishing.publish(session, graph, "user")
         await session.commit()
         return await _published(session, graph, version)

@@ -38,6 +38,12 @@ async def draft_changed(session: AsyncSession, graph: Graph) -> bool:
     return fingerprint(await graph_of(session, graph.id)) != version.fingerprint
 
 
+async def would_change(session: AsyncSession, graph: Graph) -> bool:
+    """Whether publishing now would make a new version (it would not when the draft equals the published one)."""
+    version = await current_version(session, graph)
+    return version is None or fingerprint(await graph_of(session, graph.id)) != version.fingerprint
+
+
 async def publish(session: AsyncSession, graph: Graph, via: str) -> GraphVersion:
     """Publish the draft as a new version. 409 when it equals the published one (nothing would change)."""
     content = await graph_of(session, graph.id)
