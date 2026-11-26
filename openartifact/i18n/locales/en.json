@@ -877,7 +877,7 @@
  "guards.use_action": "Run an action when it fires",
  "guards.used_in.one": "Used in {count} place",
  "guards.used_in.other": "Used in {count} places",
- "guards.used_note": "A change affects all of them.",
+ "guards.used_note": "Only the published version applies.",
  "header.language": "Language",
  "header.language_menu": "Choose the language",
  "header.sign_out": "Sign out",
@@ -1590,5 +1590,15 @@
  "components.markdown_bar.link_insert": "Insert",
  "components.markdown_bar.link_cancel": "Cancel",
  "components.markdown_bar.link_error_empty": "Enter an address.",
- "components.markdown_bar.link_error_invalid": "This is not a web or mail address (http, https or mailto)."
+ "components.markdown_bar.link_error_invalid": "This is not a web or mail address (http, https or mailto).",
+ "guard_versions.note_nothing_published": "Nothing is published: this guard watches nothing yet.",
+ "guard_versions.note_equal": "The draft equals the published version {number}. Switching the guard on or off where it is attached is not part of a version and acts at once.",
+ "guard_versions.note_changed": "The draft differs from the published version {number}: runs that start from now on use version {number} until the draft is published. Switching the guard on or off acts at once.",
+ "guard_versions.publish_confirm": "Publish the draft as a new version? Runs that start from now on use it; a running execution keeps its version. Switching the guard on or off where it is attached still acts at once.",
+ "guard_versions.popup_label": "Publish or discard the draft of this guard",
+ "guards.tab_versions": "Versions",
+ "guards.save_draft": "Save draft",
+ "guards.not_published_note": "Not published yet: it watches nothing until it is published.",
+ "guards.not_published_hint": "not published, it watches nothing yet",
+ "guards.panel.not_published": "Not published"
 }

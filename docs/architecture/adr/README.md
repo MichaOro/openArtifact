@@ -90,6 +90,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [078](078-build-context-node.md) | The Build Context node: one package for an agent from the card, its neighbours and earlier results, within a size limit, with a list of what went in and what was left out | Accepted | 2026-11-26 | amends ADR-054, ADR-053, ADR-072 |
 | [079](079-openartifact-mcp-tool.md) | The OpenArtifact MCP Tool: the board tools of the MCP server (with tools to tidy up many cards) for an agent in a run, in this process, read only until *Allow writes* | Accepted | 2026-11-26 | amends ADR-040, ADR-054, ADR-071 |
 | [080](080-hand-over-tool.md) | The Hand Over Tool: a model hands over a document with the fields you define, the server checks every call, a later node reads it as the result of the tool node | Accepted | 2026-11-26 | amends ADR-040, ADR-054, ADR-072, ADR-078 |
+| [081](081-guard-versions.md) | Versions of guard definitions: a draft and published versions, a new guard watches nothing until it is published, an execution freezes the published version, switching on or off stays immediate | Accepted | 2026-11-26 | amends ADR-060, ADR-070 |
 
 ## Notes
 

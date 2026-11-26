@@ -189,11 +189,13 @@ export class GuardPopover {
     const row = make("li", "gd-attached");
     row.dataset.attachmentId = attachment.id;
     row.classList.toggle("is-off", !attachment.enabled);
+    row.classList.toggle("is-unpublished", model.isInactive(attachment));
     const name = make("button", "popover__option gd-attached__name", guard.name);
     name.type = "button";
     name.id = `gd-attached-${(nextId += 1)}`;
     name.dataset.focusKey = `open:${attachment.id}`;
-    const label = attachment.enabled ? t("guards.open_guard", { name: guard.name }) : t("guards.open_guard_off", { name: guard.name });
+    const opens = attachment.enabled ? t("guards.open_guard", { name: guard.name }) : t("guards.open_guard_off", { name: guard.name });
+    const label = model.isInactive(attachment) ? `${opens} (${t("guards.not_published_hint")})` : opens; // a guard nobody published watches nothing
     name.title = label;
     name.setAttribute("aria-label", label);
     name.addEventListener("click", () => {

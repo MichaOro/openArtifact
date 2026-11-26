@@ -973,7 +973,7 @@
  "guards.use_action": "Beim Auslösen eine Aktion ausführen",
  "guards.used_in.one": "Verwendet an {count} Stelle",
  "guards.used_in.other": "Verwendet an {count} Stellen",
- "guards.used_note": "Eine Änderung wirkt an allen.",
+ "guards.used_note": "Nur die veröffentlichte Version gilt.",
  "header.language": "Sprache",
  "header.language_menu": "Sprache wählen",
  "header.sign_out": "Abmelden",
@@ -2305,5 +2305,15 @@
  "components.markdown_bar.link_insert": "Einfügen",
  "components.markdown_bar.link_cancel": "Abbrechen",
  "components.markdown_bar.link_error_empty": "Gib eine Adresse ein.",
- "components.markdown_bar.link_error_invalid": "Das ist keine Web- oder Mail-Adresse (http, https oder mailto)."
+ "components.markdown_bar.link_error_invalid": "Das ist keine Web- oder Mail-Adresse (http, https oder mailto).",
+ "guard_versions.note_nothing_published": "Nichts ist veröffentlicht: dieser Guard überwacht noch nichts.",
+ "guard_versions.note_equal": "Der Entwurf entspricht der veröffentlichten Version {number}. Das Ein- und Ausschalten des Guards an seinen Stellen gehört nicht zu einer Version und wirkt sofort.",
+ "guard_versions.note_changed": "Der Entwurf weicht von der veröffentlichten Version {number} ab: Läufe, die ab jetzt starten, nutzen Version {number}, bis der Entwurf veröffentlicht ist. Das Ein- und Ausschalten des Guards wirkt sofort.",
+ "guard_versions.publish_confirm": "Den Entwurf als neue Version veröffentlichen? Läufe, die ab jetzt starten, nutzen sie; eine laufende Ausführung behält ihre Version. Das Ein- und Ausschalten des Guards an seinen Stellen wirkt weiterhin sofort.",
+ "guard_versions.popup_label": "Den Entwurf dieses Guards veröffentlichen oder verwerfen",
+ "guards.tab_versions": "Versionen",
+ "guards.save_draft": "Entwurf speichern",
+ "guards.not_published_note": "Noch nicht veröffentlicht: er überwacht nichts, bis er veröffentlicht ist.",
+ "guards.not_published_hint": "nicht veröffentlicht, überwacht noch nichts",
+ "guards.panel.not_published": "Nicht veröffentlicht"
 }

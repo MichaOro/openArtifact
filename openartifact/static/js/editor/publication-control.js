@@ -8,9 +8,12 @@
  *
  *   new PublicationControl(host, {kind, id, beforeAct, onChanged})   host: the element of the mark
  *   control.update(graph)                                            the graph with `published_version` and `draft_changed`
+ *
+ * The guard editor uses it too (ADR-081): `calls` ({publish, discard}) replace the calls of a graph, `texts` the words that differ
+ * (a function `(key, params) -> text or null` for the words of this popup; null: the graph's own), `popupParent` the element the popup sits in (a modal window hides what is outside it)
+ * and `beforeAct` may be async (it saves the form first; a refusal of it is shown in the popup).
  */
 import { icon } from "../components/icons.js";
-import { placePopover } from "../components/popover.js";
 import { t } from "../i18n.js";
 import { discardGraphDraft, publishGraph } from "./api.js";
 import { publicationOffer, publicationOf } from "./versions-model.js";
@@ -33,10 +36,13 @@ export class PublicationControl {
    * @param {{kind: string, id: string, beforeAct?: () => void, onChanged: () => Promise<void>|void}} options `onChanged` is called after
    *   a publication or a discard (the editor reads the graph again, which draws the mark anew)
    */
-  constructor(host, { kind, id, beforeAct = () => {}, onChanged }) {
+  constructor(host, { kind, id, beforeAct = () => {}, onChanged, calls = null, texts = null, popupParent = null }) {
     this.host = host;
     this.kind = kind;
     this.id = id;
+    this.calls = calls ?? { publish: () => publishGraph(kind, id), discard: () => discardGraphDraft(kind, id) };
+    this.texts = texts;
+    this.popupParent = popupParent;
     this.beforeAct = beforeAct;
     this.onChanged = onChanged;
     this.graph = null;
@@ -51,7 +57,7 @@ export class PublicationControl {
     this.el = make("div", "popover pub-popover");
     this.el.id = `pub-popover-${(nextId += 1)}`;
     this.el.setAttribute("role", "dialog");
-    this.el.setAttribute("aria-label", t("graph_versions.popup_label"));
+    this.el.setAttribute("aria-label", this.#tr("popup_label"));
     this.el.hidden = true;
     this.el.dataset.publicationPopover = "";
     this.trigger.setAttribute("aria-controls", this.el.id);
@@ -70,11 +76,16 @@ export class PublicationControl {
     return !this.el.hidden;
   }
 
+  /** The text of `key`: the graph words, or the ones the owner of this control names. */
+  #tr(key, params) {
+    return this.texts?.(key, params) ?? t(`graph_versions.${key}`, params);
+  }
+
   /** Draw the mark for the graph as it is now; an open popup follows it (and closes when nothing is left to do). */
   update(graph) {
     this.graph = graph;
     const offer = publicationOffer(graph);
-    const chip = editorChip(graph);
+    const chip = editorChip(graph, this.texts);
     if (!offer.publish && !offer.discard) {
       this.close({ restoreFocus: false });
       this.host.replaceChildren(chip);
@@ -84,7 +95,7 @@ export class PublicationControl {
     caret.classList.add("ge-state__caret");
     this.trigger.replaceChildren(chip, caret);
     this.trigger.title = chip.title;
-    this.trigger.setAttribute("aria-label", `${chip.textContent}: ${t("graph_versions.popup_label")}`);
+    this.trigger.setAttribute("aria-label", `${chip.textContent}: ${this.#tr("popup_label")}`);
     if (this.host.firstElementChild !== this.trigger) this.host.replaceChildren(this.trigger);
     if (this.isOpen && !this.busy) {
       if (this.step === "confirm" && !offer.discard) this.step = "offer";
@@ -102,7 +113,8 @@ export class PublicationControl {
   }
 
   #open() {
-    if (this.el.parentElement !== document.body) document.body.append(this.el);
+    const parent = this.popupParent ?? document.body;
+    if (this.el.parentElement !== parent) parent.append(this.el);
     this.step = "offer";
     this.#render();
     this.el.hidden = false;
@@ -113,7 +125,16 @@ export class PublicationControl {
 
   #place() {
     const rect = this.trigger.getBoundingClientRect();
-    placePopover(this.el, (size) => ({ left: rect.left, top: rect.bottom + 6, flipTop: rect.top - size.height - 6 }));
+    // inside a window that blurs its background a fixed box is measured from that window, not from the page: measure where it starts
+    this.el.style.left = "0px";
+    this.el.style.top = "0px";
+    const origin = this.el.getBoundingClientRect();
+    const margin = 8;
+    const x = Math.min(Math.max(margin, rect.left), window.innerWidth - origin.width - margin);
+    const below = rect.bottom + 6;
+    const y = below + origin.height > window.innerHeight - margin ? Math.max(margin, rect.top - origin.height - 6) : below;
+    this.el.style.left = `${x - origin.left}px`;
+    this.el.style.top = `${y - origin.top}px`;
   }
 
   #render(error = null) {
@@ -122,13 +143,13 @@ export class PublicationControl {
     const parts = [];
     const note = make("p", "popover__caption pub-popover__note");
     if (this.step === "confirm") {
-      note.textContent = t("graph_versions.discard_confirm", { number: where.number });
-      parts.push(note, this.#buttons([this.#button("discard-confirm", t("graph_versions.discard_draft"), "button--danger", () => this.#discard()), this.#button("cancel", t("common.cancel"), "button--ghost", () => this.#back())]));
+      note.textContent = this.#tr("discard_confirm", { number: where.number });
+      parts.push(note, this.#buttons([this.#button("discard-confirm", this.#tr("discard_draft"), "button--danger", () => this.#discard()), this.#button("cancel", t("common.cancel"), "button--ghost", () => this.#back())]));
     } else {
-      note.textContent = where.state === "draft" ? t("graph_versions.note_nothing_published") : t("graph_versions.note_changed", { number: where.number });
+      note.textContent = where.state === "draft" ? this.#tr("note_nothing_published") : this.#tr("note_changed", { number: where.number });
       const buttons = [];
-      if (offer.discard) buttons.push(this.#button("discard", t("graph_versions.discard_draft"), "button--ghost", () => this.#ask()));
-      if (offer.publish) buttons.push(this.#button("publish", t("graph_versions.publish"), "button--primary", () => this.#publish()));
+      if (offer.discard) buttons.push(this.#button("discard", this.#tr("discard_draft"), "button--ghost", () => this.#ask()));
+      if (offer.publish) buttons.push(this.#button("publish", this.#tr("publish"), "button--primary", () => this.#publish()));
       parts.push(note, this.#buttons(buttons));
     }
     const alert = make("p", "field__error pub-popover__error", error ?? "");
@@ -168,24 +189,24 @@ export class PublicationControl {
   }
 
   async #publish() {
-    await this.#run(() => publishGraph(this.kind, this.id));
+    await this.#run(() => this.calls.publish());
   }
 
   async #discard() {
-    await this.#run(() => discardGraphDraft(this.kind, this.id));
+    await this.#run(() => this.calls.discard());
   }
 
   /** One call of the server: the buttons wait, a refusal is shown here, success closes the popup and lets the editor read the graph. */
   async #run(call) {
     if (this.busy) return;
     this.busy = true;
-    this.beforeAct();
     for (const button of this.el.querySelectorAll("button")) button.disabled = true;
     try {
+      await this.beforeAct();
       await call();
     } catch (error) {
       this.busy = false;
-      this.#render(error?.message || t("graph_versions.action_failed"));
+      this.#render(error?.message || this.#tr("action_failed"));
       this.#place();
       (this.el.querySelector(FOCUSABLE) ?? this.el).focus({ preventScroll: true });
       return;
