@@ -47,3 +47,14 @@ id; only the text did not.
 - Raw text (API, MCP, an Execute Command's input) shows ids, not names; the editor's line under the field is the readable form.
 - The check is static: a variable a script sets and a path that depends on data are warnings at most.
 - Not built: a run index (an earlier run of a node), a chip inside a text field (a line under the field instead), a check of the guards.
+
+## Addendum 1: how a numbered placement is written on its card
+
+The number is the system's: it counts the placements of one definition in one pipeline (a copied stage in the same pipeline continues the count) and the
+user cannot change it. On the card it comes **first and quiet** (`#4`, lighter and not larger than the name, secondary text colour), then the name:
+`#4 Test: Code und HTTP`; a card without a number shows only the name. The name is **one line, cut with an ellipsis**, and the whole name (with its
+number) is the tooltip; an action card draws its port labels (On Pass, On Error) inside its right edge, so it keeps room for them (`padding-right: 4rem`)
+and the name stops before them. The node's window shows the number in front of the heading in the same quiet way; it is not part of the text that can be
+edited. A node the user names is edited as a whole: the existing limit of 255 characters stands (the API refuses a longer name with 422; the owner
+suggested about 200, and the larger limit that was already there is kept so no stored name becomes invalid). Menus, dialogs, the reference list and the
+flow keep saying `Name #n`. `NodeView.nameParts` gives the two parts, `displayName` the whole.
