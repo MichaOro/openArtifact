@@ -7,6 +7,20 @@
 .st-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); }
 .st-status { font-size: 0.875rem; color: var(--color-text-muted); }
 
+/* The Data storage panel under the Personal form (settings/storage-panel.js, ADR-084). */
+.st-heading { margin: 0; font-size: 1.0625rem; }
+.st-subheading { margin: var(--space-2) 0 var(--space-1); font-size: 0.875rem; color: var(--color-text-secondary); }
+.st-facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-4); margin: 0; font-size: 0.875rem; }
+.st-facts dt { color: var(--color-text-muted); }
+.st-facts dd { margin: 0; }
+.st-list { margin: 0; padding-left: 1.1rem; font-size: 0.875rem; color: var(--color-text-secondary); }
+.st-buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.st-warning { margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--btn-danger-border); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-danger) 12%, transparent); font-size: 0.875rem; }
+.st-warning[hidden], .st-preview[hidden] { display: none; }
+.st-plan { display: grid; gap: var(--space-1); font-size: 0.875rem; }
+.st-plan p { margin: 0; }
+.st-plan__total { font-weight: 600; }
+
 @media (max-width: 640px) {
   .st-card { padding: var(--space-3); }
 }

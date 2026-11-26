@@ -159,6 +159,18 @@ guard (by attachment), the last heartbeat and the firings with their facts.
 While the emergency stop is on, `POST .../run` is `409` with `{"detail": "...", "code": "stopped"}`; cards, pipelines and the history keep working. Switching on
 needs the personal setting `show_stop_switch` (`GET`/`PUT /api/settings/personal`), which cannot be switched off while the emergency stop is on (`409` `stop_active`).
 
+**Data storage** (ADR-084; the limits are the personal settings `storage_*`, all `null` by default; `null` clears one):
+
+| Method | Path | Purpose | Errors |
+|--------|------|---------|--------|
+| GET | `/api/v1/settings/storage` | The database file and its write-ahead log in bytes, pages, free pages, the biggest tables (`dbstat`, else row counts), `run_data_bytes`, `last_clean` and `interval_hours` of the cleaner, `warn_bytes` and `over_warning` | |
+| POST | `/api/v1/settings/storage/preview` | What a pass would delete or empty now, per kind (`executions_keep`, `executions_rules`, `step_data_age`, `step_data_size`) with `entries` and `bytes`; changes nothing | |
+| POST | `/api/v1/settings/storage/clean` | Carries out exactly that plan, then truncates the write-ahead log; answers the plan, `before` and `after` sizes and `wal` | 409 `busy` |
+| POST | `/api/v1/settings/storage/shrink` | `VACUUM`: rewrites the file; answers `before`, `after` and `wal` | 409 `not_enough_space`, 409 `busy` |
+
+A running execution, cards, comments and their history are never touched. `PUT /api/settings/personal` takes the limits (a number outside its
+bounds is `422` with the bounds in plain words).
+
 The browser has the same routes under `/api/settings`.
 
 ### Window layouts (`/api/v1/ui-layouts`, ADR-063)
@@ -398,7 +410,7 @@ The HTML pages (`/`, `/pipelines`, `/pipelines/{ref}`, `/actions`, `/actions/{re
 
 ## MCP tools
 
-`/mcp` offers 39 tools over Streamable HTTP. They go through the same service as the REST API; a refused
+`/mcp` offers 41 tools over Streamable HTTP. They go through the same service as the REST API; a refused
 call returns the reason as the tool's error text. Artifacts are addressed by number (`12` or `#12`) or id.
 Pipeline, stage and action are given by name.
 
@@ -434,6 +446,8 @@ execution.
 | `stop_processing` | `artifact` | Stop |
 | `get_stop_switch` | | The emergency stop: `active`, `since`, `available`, `running` |
 | `set_stop_switch` | `active` | Switch the emergency stop on (aborts every running execution, refuses every start) or off; on needs the personal setting *Show the emergency stop* (`stop_unavailable`); a refused start says `stopped: ...` |
+| `get_storage_status` | | The size of the database file and its write-ahead log, free pages, the biggest tables, the data of all executions, the last cleaning pass and the cleaner's interval; read only (ADR-084) |
+| `preview_storage_cleanup` | | What a cleaning pass would delete or empty now, per kind, in entries and bytes; read only, nothing over MCP cleans, shrinks or deletes |
 | `get_processing_status` | `artifact` | Run state, or `never processed` |
 | `get_processing_results` | `artifact` | Steps inside action definitions with output, exit code, reason, data (text from outside) |
 | `list_activity` | `artifact`, `limit?` (1 to 200, default 50), `before?` | What changed on the artifact and who did it, newest first; `next` goes into `before` |

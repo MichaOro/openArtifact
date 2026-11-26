@@ -107,6 +107,7 @@ GET /api/settings/personal -> PersonalSettingsRead
 GET /api/settings/retention -> RulesRead
 GET /api/settings/run-limits -> RunLimitsRead
 GET /api/settings/stop -> StopState
+GET /api/settings/storage -> StorageStatusRead
 GET /api/tasks -> TaskRead[]
 GET /api/tasks/{ref}/activity -> ActivityPage
 GET /api/tasks/{ref}/comments -> CommentRead[]
@@ -156,6 +157,7 @@ GET /api/v1/settings/personal -> PersonalSettingsRead
 GET /api/v1/settings/retention -> RulesRead
 GET /api/v1/settings/run-limits -> RunLimitsRead
 GET /api/v1/settings/stop -> StopState
+GET /api/v1/settings/storage -> StorageStatusRead
 GET /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/v1/ui-layouts/{kind}/{name}/export -> -
 GET /health -> HealthRead
@@ -218,6 +220,9 @@ POST /api/providers/{ref}/models -> ProviderRead
 POST /api/providers/{ref}/models/refresh -> ProviderRead
 POST /api/providers/{ref}/test -> CheckResult
 POST /api/settings/retention/preview -> RulesPreview
+POST /api/settings/storage/clean -> StorageReportRead
+POST /api/settings/storage/preview -> StoragePlanRead
+POST /api/settings/storage/shrink -> ShrinkRead
 POST /api/tasks -> TaskRead
 POST /api/tasks/{ref}/comments -> CommentRead
 POST /api/tasks/{task_id}/archive -> TaskRead
@@ -249,6 +254,9 @@ POST /api/v1/providers/{ref}/models -> ProviderRead
 POST /api/v1/providers/{ref}/models/refresh -> ProviderRead
 POST /api/v1/providers/{ref}/test -> CheckResult
 POST /api/v1/settings/retention/preview -> RulesPreview
+POST /api/v1/settings/storage/clean -> StorageReportRead
+POST /api/v1/settings/storage/preview -> StoragePlanRead
+POST /api/v1/settings/storage/shrink -> ShrinkRead
 PUT /api/agents/{ref}/draft -> AgentDetail
 PUT /api/artifact-fields -> ArtifactFieldsRead
 PUT /api/board/rules -> RulesAnswer

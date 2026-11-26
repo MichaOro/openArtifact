@@ -66,7 +66,7 @@ that start afterwards and are kept in the database ([ADR-039](../architecture/ad
 
 | Variable | Type | Default | Bounds | Meaning |
 |----------|------|---------|--------|---------|
-| `OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP` | integer | `50` | 0 to 100000 | The operator's guard: how many executions of an artifact are kept at most (there is no per-artifact policy; the retention rules add to this); the oldest finished ones beyond that are deleted (a running one and the newest one are never deleted by retention). `0` keeps all of them: the database then grows with every run (step outputs of up to 1 MiB each), so use it only with a policy per artifact. See [Execution history](execution-history.md) and [Database size](operations.md#database-size-and-history-retention). |
+| `OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP` | integer | `50` | 0 to 100000 | The operator's guard: how many executions of an artifact are kept at most (there is no per-artifact policy; the retention rules add to this); the oldest finished ones beyond that are deleted (a running one and the newest one are never deleted by retention). `0` keeps all of them: the database then grows with every run (step outputs of up to 1 MiB each), so use it only with a policy per artifact. The user can replace this number in *Settings → Personal → Data storage* (empty keeps this value). See [Execution history](execution-history.md) and [Database size](operations.md#database-size-and-history-retention). |
 
 ## Code and HTTP nodes
 

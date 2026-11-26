@@ -23,6 +23,7 @@ from openartifact.artifact_fields.service import ArtifactFieldService
 from openartifact.comments.service import CommentService
 from openartifact.credentials.store import SecretStore
 from openartifact.engine.runner import RunEngine
+from openartifact.engine.storage import Cleaner
 from openartifact.guards.service import GuardService
 from openartifact.tasks.service import ArtifactService
 
@@ -58,6 +59,7 @@ def build_mcp(
     activity: ActivityService,
     guards: GuardService | None = None,
     engine: RunEngine | None = None,
+    storage: Cleaner | None = None,
 ) -> MCPServer:
     """The server with its tools (see the module docstring)."""
     mcp = MCPServer("OpenArtifact", instructions=INSTRUCTIONS)
@@ -79,6 +81,21 @@ def build_mcp(
         from any source, until it is switched off; ``aborted`` says how many it aborted. Cards, pipelines and the history keep
         working. Switching on is refused (``stop_unavailable``) unless the user offers the switch in the personal settings."""
         return (await guarded(service.set_stop_switch(active))).model_dump(mode="json")
+
+    if storage is not None:
+
+        @mcp.tool()
+        async def get_storage_status() -> dict[str, Any]:
+            """The size of the database file and of its write-ahead log, the free pages, the biggest tables, the data of all executions,
+            the last cleaning pass and the interval of the background cleaner. Read only."""
+            return await storage.status()
+
+        @mcp.tool()
+        async def preview_storage_cleanup() -> dict[str, Any]:
+            """What a cleaning pass would delete or empty now, per kind (executions beyond the number kept, executions a retention rule
+            matches, step outputs older than the set days or over the size limit), in entries and bytes. Read only: nothing is changed
+            and no MCP tool deletes; the pass is run by the user (Settings, Personal, Data storage) or the background cleaner."""
+            return (await storage.preview()).to_data()
 
     @mcp.tool()
     async def list_secrets() -> list[dict[str, Any]]:
