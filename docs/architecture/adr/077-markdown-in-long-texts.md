@@ -66,3 +66,41 @@ sentence) must read as they always did.
   sizing of the artifact dialog).
 - A field of a node's settings that holds text for a person (the prompt overrides of an agent node) could get the bar later; it needs a flag in the
   manifest of the setting and a change in the editor's persistence, so it is not part of this decision.
+
+## Addendum 1: the common Markdown
+
+The owner tried the small subset, wrote `## Hello` and saw the characters: the common Markdown is wanted, not only bold, italic, strikethrough
+and bullets. This addendum widens section 2; everything not named here stays as decided there (stored as written, no migration, the prompts
+shown as written, `#12` links, the marks of filled in references inside the formatting).
+
+- **What renders now** (`markdown.js`): headings `#` to `######` (a blank after the hashes: `##Hello` and `#117` stay text), bold with `**` and `__`,
+  italic with `*` and `_`, `~~strikethrough~~`, `` `inline code` ``, fenced code blocks with an optional language shown as a small caption (the content
+  is text and is never read), quotes with `>` (two levels), bullet lists with `-`, `*` and `+` and numbered lists with `1.` (the indent of the sub item decides
+  the level: two, three or four spaces; three levels below the first), a rule (`---`, `***`, `___`), paragraphs, GFM tables (header row, delimiter row, alignment
+  colons, `\|` for a pipe in a cell, formatting inside the cells; a wide table scrolls inside the text), links `[text](https://address)` and bare `https://`
+  addresses. A line break inside a paragraph stays a visible line break (as before); a blank line starts a new paragraph.
+- **What stays text on purpose:** images (`![alt](address)` is shown as typed and nothing is fetched or linked), raw HTML, reference style links,
+  footnotes, task lists, backslash escapes (but `\|` in a table cell) and setext headings (a line of dashes under a text is a rule). The underscore rule is the
+  word rule of the stars: `_a_` is italic, `snake_case` and `2_3` are not.
+- **Old texts:** a line `1. one` is now a numbered list, a line that starts with `# ` is a heading, `* x` and `+ x` are bullets, `__init__` is bold: the owner
+  accepted this by asking for the common Markdown. The rest of the old kinds (`${card.x}`, `#117`, `snake_case`, `2 * 3 * 4`, a dash in a sentence, `<b>x</b>`) reads as before; tests keep them.
+- **Safe by construction, as before, and a little more.** Elements and text nodes only, never `innerHTML`. A link goes to `http`, `https` or `mailto` only:
+  `javascript:`, `data:`, `file:` and a bare `www.x.de` stay text. It opens in a new tab with `rel="noopener noreferrer nofollow"`, and its address is its `title`, so a
+  link whose words say something else shows where it goes. The words of a link and code are text: `#12` is no link there, but the marks of filled in references are
+  drawn there too. Limits keep a hostile text cheap: a text is read as Markdown up to 100,000 characters (the rest is a plain paragraph), a line up to 1,500 characters
+  (a longer one is plain text), emphasis and links nest four deep, a quote two, a table 20 columns and 300 rows. The scanners have no backtracking pattern; a test feeds
+  long runs of markers, deep nesting, many cells and a huge text and bounds the time.
+- **The first words of a card on the board stay plain lines:** no block is drawn and no link; the block marks (`#`, `>`, bullets, fences, the pipes of a table, the address of
+  a link) are not shown, the words are; bold, italic, strikethrough and code stay. A table row reads as its cells with ` · ` between them.
+- **A text with blocks in a panel** (`ClampedText` with `markdown`) is cut by the height of its lines (`max-height` of the lines times the line height), not by
+  `-webkit-line-clamp`, which does not count the lines of blocks reliably; a heading counts as taller than a line of text.
+- **The bar** has ten buttons: heading (one click goes `#`, `##`, `###`, none), bold, italic, strikethrough, bullet list, numbered list, quote, code, code block and link, and
+  the Preview switch; Ctrl/Cmd+B, +I and +K. A block button works on the lines of the selection and takes its mark away when every line has it; an inline button wraps the
+  selection or sets the caret between the marks. The buttons are 28 px so that the bar stays two lines high in the form column (it must not change the height of the dialog when the rail
+  opens). **No table button and no image button:** there is no good standard for a table and a table is written by hand; the table is drawn.
+- **The link popup** opens under the Link button (above it where there is no room) with two lines, *Text* (the selection is prefilled) and *Address*. Enter inserts, Escape
+  closes it and the window around stays open, the focus returns to the field. The address is checked: only `http`, `https` and `mailto`; a bare `www.x.de` or `x.de/path` becomes `https://…`,
+  `a@b.de` becomes `mailto:…`; a wrong or empty one shows its reason in the popup and nothing is inserted. With the caret in an existing link the popup opens prefilled to change it. The
+  window of a dialog blurs its backdrop and so frames everything `position: fixed` inside it: the popup works its place out from where its own origin lies on the screen.
+- **Why not a library:** the renderer is about 500 lines and safe by construction; a library would bring its own sanitiser or a rule for what is HTML, more than the owner wants (no
+  images, no HTML) and a dependency to keep up. Rejected again for the wider set.
