@@ -214,6 +214,29 @@ The result of a node that ran a definition with a contract carries the result co
 without one has no result of its own. A called pipeline works the same way: it declares its inputs on its Trigger and its outputs on its **Complete**, the pipeline node that calls it
 maps the inputs, and the outputs are the `data` of that pipeline node.
 
+## Dry run (Testlauf)
+
+A dry run runs a pipeline under real conditions and skips everything that writes (ADR-086). Start it with `dry_run: true` in the start of a run
+(`POST /api/tasks/{id}/run`, `POST /api/v1/artifacts/{ref}/run`, the MCP tool `start_processing`). Besides `dry_run` the start takes:
+
+- `inputs`: values for the declared inputs of the entry, checked like a mapping (422 for a missing, unknown or unfitting value). With `action_id` they are the inputs of
+  that action's Trigger, without it those of the pipeline's own Trigger. The values are text: they are never read for `${...}`.
+- `version`: `draft` or `published`. The editor's start defaults to the draft, the Integration API and MCP to the published version.
+
+`inputs` and `version` without `dry_run` are 422. The emergency stop blocks a dry run like any start. The artifact's own pipeline, stage and action stay as they were.
+
+**What every node kind does outside its run (its effect):**
+
+| Effect | Kinds | In a dry run |
+|--------|-------|--------------|
+| none | Trigger, Output, If, Switch, Edit Fields, Timer, Action, Pipeline, Stage, Complete, Hand Over Tool | runs (a Timer does not wait and records `skipped_seconds`) |
+| read | Build Context, SQLite, SQLite Tool, HTTP / HTTP Tool with GET, HEAD or OPTIONS, Artifact *Get comments*, GitHub read operations, Postgres without *Allow changes*, Execute Command (and its tool) with *Read only* | runs |
+| write | other HTTP methods, Artifact *Add comment*, other GitHub operations, Postgres with *Allow changes*, Execute Command without *Read only*, and anything not declared | skipped |
+| mixed | Agent, MCP Tool, GitHub Tool and OpenArtifact Tool with changes allowed | runs; the tools it calls that change something are answered with "Dry run: ... was not executed" |
+
+A skipped step passes and says what it would have done in `reason` and in `data` (`dry_run: true`, `would_have`). It has no result: a later node that reads `.output`,
+`.exit_code` or another `data` field of it fails with a message that names the node and suggests mock data. `success` and `data.dry_run` can be read.
+
 ## Execute Command node
 
 Runs shell or Python text stored in the node. It was called *Code* before ADR-075: the kind is still `code` in stored actions and in the

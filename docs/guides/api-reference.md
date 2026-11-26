@@ -56,7 +56,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | PATCH | `/api/v1/artifacts/{ref}` | Change it (partial); `fields` are merged into the stored ones (`null` clears one); lane, order, parent, pipeline, type and parameters are locked while it is processed | 404, 409, 422 |
 | DELETE | `/api/v1/artifacts/{ref}` | Delete it (not while it is processed); `204` | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run` | State of the run: status, where it is, status of every stage | 404 (never processed) |
-| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`); the run records `started_by: api`; `201`; `409` with `code: stopped` while the emergency stop is on (ADR-076) | 404, 409, 422, 429 |
+| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`, and for a dry run `dry_run`, `inputs`, `version`: see [execution nodes](execution-nodes.md#dry-run-testlauf)); the run records `started_by: api`; `201`; `409` with `code: stopped` while the emergency stop is on (ADR-076) | 404, 409, 422, 429 |
 | POST | `/api/v1/artifacts/{ref}/run/stop` | Stop; the artifact keeps its stage and action | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run/results` | Every step of the run inside action definitions, in order, with complete outputs | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions` | The artifact's executions, newest first, without steps; `limit` 1 to 500 (default 100) | 404, 422 |
@@ -277,7 +277,7 @@ values together are at most 4 KiB. The refusal for a typo:
 |--------|------|---------|--------|
 | GET | `/api/runs` | The state of every artifact that was processed | |
 | GET | `/api/runs/{task_id}/results` | Steps inside action definitions with complete outputs | 404 |
-| POST | `/api/tasks/{task_id}/run` | Start; stages before the starting stage count as done; `201` | 404, 409, 422, 429 |
+| POST | `/api/tasks/{task_id}/run` | Start; stages before the starting stage count as done; `dry_run`, `inputs`, `version` for a dry run (the draft by default); `201` | 404, 409, 422, 429 |
 | POST | `/api/tasks/{task_id}/run/stop` | Stop | 404, 409 |
 
 ### Executions and history
