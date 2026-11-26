@@ -126,6 +126,21 @@ test("mayInclude uses the current time when none is given", () => {
   assert.equal(new Filters({ range: "1h" }).mayInclude(run({ started_at: "2020-01-01T00:00:00Z" })), false);
 });
 
+test("the dry-run filter lives in the URL, goes to the API and decides which events may belong", () => {
+  const only = Filters.fromSearch("?dry_run=only");
+  assert.equal(only.dryRun, "only");
+  assert.equal(only.toSearch(), "?dry_run=only");
+  assert.equal(only.toQuery().get("dry_run"), "only");
+  assert.equal(only.activeCount, 1);
+  assert.equal(only.mayInclude({ status: "done", started_at: "2026-03-10T11:00:00Z", dry_run: true }, NOW), true);
+  assert.equal(only.mayInclude({ status: "done", started_at: "2026-03-10T11:00:00Z", dry_run: false }, NOW), false);
+  const real = Filters.fromSearch("?dry_run=exclude");
+  assert.equal(real.mayInclude({ status: "done", started_at: "2026-03-10T11:00:00Z", dry_run: true }, NOW), false);
+  assert.equal(real.mayInclude({ status: "done", started_at: "2026-03-10T11:00:00Z" }, NOW), true);
+  assert.equal(Filters.fromSearch("?dry_run=maybe").dryRun, "", "an unknown value is dropped");
+  assert.equal(new Filters().toSearch(), "");
+});
+
 test("toQuery uses the current time when none is given", () => {
   const since = new Date(new Filters({ range: "1h" }).toQuery().get("since")).getTime();
   assert.ok(Math.abs(Date.now() - 3600_000 - since) < 5000);

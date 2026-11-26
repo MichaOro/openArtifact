@@ -57,6 +57,9 @@
 }
 .history-chip [data-chip-icon] { display: inline-flex; color: var(--chip); }
 .history-chip .icon { width: 0.875rem; height: 0.875rem; }
+/* a dry run (ADR-086): a small tinted pill next to the number, besides the status */
+.history-chip--dry { --chip: var(--lane-hue-5); margin-left: var(--space-1); font-size: 0.6875rem; line-height: 1.25rem; }
+.history-chip--dry[hidden] { display: none; }
 .history-chip[data-status="running"] { --chip: var(--color-accent); }
 .history-chip[data-status="done"],
 .history-chip[data-status="pass"] { --chip: var(--lane-hue-3); }

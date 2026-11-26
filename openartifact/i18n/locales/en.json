@@ -1677,5 +1677,9 @@
  "agents.view.answer_accepted": "Call {n}: accepted",
  "agents.view.answer_repaired": "The answer was corrected once.",
  "tasks.history_step.answer_reported": "Answer reported",
- "tasks.history_step.answer_repaired": "Answer reported, corrected once"
+ "tasks.history_step.answer_repaired": "Answer reported, corrected once",
+ "executions.dry_run": "Dry run",
+ "executions.kind": "Kind",
+ "executions.real_runs": "Real runs",
+ "executions.dry_runs": "Dry runs"
 }
