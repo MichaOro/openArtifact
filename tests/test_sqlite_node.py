@@ -266,7 +266,7 @@ async def test_the_node_runs_the_query_with_its_values_and_leaves_rows_data_and_
         view=view,
     )
     assert ok.outcome == "pass"
-    assert ok.data["rows"] == [{"title": "Card one"}] and ok.data["row_count"] == 1
+    assert ok.data["rows"] == [{"title": "Card one"}] and ok.data["row_count"] == 1  # type: ignore[index]  # a pass has data
     assert json.loads(ok.output or "[]") == [{"title": "Card one"}]
     refused = await run_sqlite({"query": "SELECT * FROM tasks"}, sources, view=view)
     assert refused.outcome == "fail" and "Not allowed here" in (refused.reason or "")

@@ -3,6 +3,8 @@ and what it inherits from. Persisted configurations are not touched by it."""
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -67,7 +69,7 @@ def test_metadata_that_means_nothing_is_refused_when_the_setting_is_declared(
     bad: dict[str, str],
 ) -> None:
     with pytest.raises(ValueError, match=next(iter(bad))):
-        Setting("x", "X", "text", **bad)
+        Setting("x", "X", "text", **cast(dict[str, Any], bad))
 
 
 def test_every_kind_declares_valid_metadata_and_the_shared_failure_setting_is_behaviour() -> None:

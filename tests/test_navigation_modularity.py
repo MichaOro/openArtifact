@@ -50,7 +50,7 @@ def test_every_page_of_the_application_has_an_entry_or_a_reason() -> None:
     pages = [
         route.path
         for route in routes.router.routes
-        if isinstance(route, APIRoute) and "GET" in route.methods and not route.include_in_schema
+        if isinstance(route, APIRoute) and "GET" in route.methods and not route.include_in_schema  # type: ignore[operator]  # a page route has methods
     ]
     assert pages, "no page found: the test looks at the wrong router"
     missing = []
@@ -72,8 +72,8 @@ def test_the_shipped_sidebar_and_rail() -> None:
     sidebar = registry.build_sidebar()
     assert [item.key for item in sidebar] == ["board", "pipeline", "executions", "settings"]
     by_key = {item.key: item for item in sidebar}
-    assert [c.key for c in by_key["pipeline"].children] == ["actions", "guards", "agents"]
-    assert [c.key for c in by_key["settings"].children] == [
+    assert [c.key for c in by_key["pipeline"].children] == ["actions", "guards", "agents"]  # type: ignore[union-attr]  # the entries of the sidebar are links
+    assert [c.key for c in by_key["settings"].children] == [  # type: ignore[union-attr]  # the entries of the sidebar are links
         "providers",
         "credentials",
         "run-limits",
@@ -124,7 +124,7 @@ def test_a_new_entry_is_registered_with_a_parent_and_an_order() -> None:
         NavLinkEntry("reports", "key", "/settings/reports"), parent="settings", order=25
     )
     registry.register(NavLinkEntry("late", "key", "/late", order=5), parent="settings")
-    keys = [c.key for c in {i.key: i for i in registry.build_sidebar()}["settings"].children]
+    keys = [c.key for c in {i.key: i for i in registry.build_sidebar()}["settings"].children]  # type: ignore[union-attr]  # the entries of the sidebar are links
     assert keys == ["late", "providers", "credentials", "reports", "run-limits", "personal"]
     assert registry.active_key("/settings/reports") == "reports"
 
@@ -184,7 +184,7 @@ def test_every_page_without_a_parameter_renders_with_its_sidebar(client: TestCli
         route.path
         for route in routes.router.routes
         if isinstance(route, APIRoute)
-        and "GET" in route.methods
+        and "GET" in route.methods  # type: ignore[operator]  # a page route has methods
         and not route.include_in_schema
         and "{" not in route.path
         and route.path not in NO_ENTRY

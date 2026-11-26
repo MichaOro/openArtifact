@@ -4,6 +4,7 @@ are kept but not in effect, as the system prompt already was. Agents from before
 from __future__ import annotations
 
 from collections.abc import Generator, Iterator
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -134,7 +135,7 @@ def test_a_stored_agent_from_before_reads_its_old_default_limits_as_unset() -> N
 def test_the_limits_out_of_range_are_still_refused() -> None:
     for field, value in (("retries", 5), ("request_timeout_seconds", 0), ("max_iterations", 501)):
         with pytest.raises(ValueError, match=field):
-            AgentConfig(**{field: value})
+            AgentConfig(**cast(dict[str, Any], {field: value}))
 
 
 def test_an_agent_without_provider_model_and_limits_is_published_and_a_run_uses_the_defaults(

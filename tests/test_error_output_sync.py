@@ -7,7 +7,7 @@ transaction, and where a change takes a connector away it disconnects instead of
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,7 +26,7 @@ def _patch(client: TestClient, graph: dict[str, Any], node_: dict[str, Any], **b
 
 def _mode(client: TestClient, graph: dict[str, Any], node_: dict[str, Any]) -> str:
     nodes = client.get(graph_url(graph)).json()["nodes"]
-    return next(n for n in nodes if n["id"] == node_["id"])["config"]["on_failure"]
+    return cast(str, next(n for n in nodes if n["id"] == node_["id"])["config"]["on_failure"])
 
 
 def _flag(client: TestClient, definition: dict[str, Any]) -> bool:

@@ -5,7 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from openartifact.agents.runtime import run_node, tools_used
+from openartifact.agents.loop import tools_used
+from openartifact.agents.runtime import run_node
 from openartifact.agents.tools import Tool
 from tests.test_agent_loop import WEATHER, Recorder, _asks, _box, _with_tools
 from tests.test_agent_runtime import OK, VIEW, Scripted

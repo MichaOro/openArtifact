@@ -258,7 +258,7 @@ def test_an_attachment_is_checked_against_the_pipeline_and_the_scope_types_of_it
 
 def test_the_interval_is_checked_against_the_settings(client: TestClient) -> None:
     interval = {"type": "interval", "every_seconds": 1}
-    settings = client.app.state.guards
+    settings = client.app.state.guards  # type: ignore[attr-defined]  # the app of the test client is the FastAPI app
     settings.min_interval_seconds = 30  # the operator's minimum
     try:
         short = client.post(GUARDS, json=_definition(trigger=interval))
@@ -388,7 +388,7 @@ def test_the_agent_events_of_the_application_reach_the_telemetry_of_the_guards(
         "agent.tool_call",
         {"execution_id": "ex-1", "state": "finished", "tool": "t", "args_key": "k", "ok": False},
     )
-    facts = app.state.telemetry.facts("ex-1")
+    facts = app.state.telemetry.facts("ex-1")  # type: ignore[attr-defined]  # the app of the test is the FastAPI app
     assert (facts["agent.tool_calls"], facts["agent.tool_errors"], facts["agent.repeat"]) == (
         2,
         1,
@@ -920,7 +920,7 @@ def test_0049_renames_the_holder_widens_what_could_watch_everything_and_goes_dow
             "INSERT INTO graphs (id, name, status, kind, slug, created_at, updated_at) "
             "VALUES ('p', 'p', 'draft', 'pipeline', 'p', '2026-11-01', '2026-11-01')"
         )
-        for ident, scopes in (
+        for ident, scope_types in (
             ("wide", everywhere),
             ("narrow", '["stage"]'),
             ("odd", '["pipeline", "action"]'),
@@ -929,7 +929,7 @@ def test_0049_renames_the_holder_widens_what_could_watch_everything_and_goes_dow
                 "INSERT INTO guard_definitions (id, name, description, scope_types, trigger, condition, consequence, "
                 "fallback, escalation, created_at, updated_at) "
                 "VALUES (?, ?, '', ?, '{}', '{}', 'pause', 'pause', '[]', '2026-11-01', '2026-11-01')",
-                (ident, ident, scopes),
+                (ident, ident, scope_types),
             )
         conn.execute(
             "INSERT INTO guard_attachments (id, guard_id, pipeline_id, scope_type, scope_id, enabled, created_at) "

@@ -165,7 +165,9 @@ def test_a_later_node_reads_the_output_and_the_data_of_an_artifact_node_in_a_rea
     client: TestClient,
 ) -> None:
     """``${(Artifact).output}`` and ``${(Artifact).data.count}`` resolve for the node of a kind the editor did not list before."""
-    from tests.test_execution_nodes import _connect, _node, _url
+    from tests.helpers import connect as _connect
+    from tests.helpers import graph_url as _url
+    from tests.helpers import node as _node
 
     task = make_task(client)
     client.post(f"/api/tasks/{task['id']}/comments", json={"body": "first"})

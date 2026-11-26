@@ -264,8 +264,8 @@ def test_old_executions_go_when_a_new_one_starts_without_any_save(
     # the rule is stored while nothing matches yet; the old execution is not touched by anything else
     assert _put(client, _group(_cond("age", "older_than", 7 * 86400))).json()["deleted"] == 0
     with sqlite3.connect(
-        Path(client.app.state.settings.data_dir / client.app.state.settings.database_filename)
-    ) as c:  # type: ignore[attr-defined]
+        Path(client.app.state.settings.data_dir / client.app.state.settings.database_filename)  # type: ignore[attr-defined]  # the app of the test client is the FastAPI app
+    ) as c:
         c.execute(
             "UPDATE executions SET started_at = ? WHERE id = ?",
             ("2020-01-01 00:00:00.000000", stale),

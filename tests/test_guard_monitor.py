@@ -6,7 +6,7 @@ import asyncio
 import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -55,7 +55,7 @@ class Hooks:
     async def run_body(
         self, guard: Mapping[str, Any], facts: Mapping[str, Any]
     ) -> tuple[bool, str]:
-        return await self.body(facts)
+        return cast(tuple[bool, str], await self.body(facts))
 
     async def interrupt(self, verdict: Verdict) -> None:
         self.interrupted.append(verdict)

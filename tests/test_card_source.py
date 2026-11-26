@@ -555,7 +555,7 @@ def test_the_node_dialog_is_told_about_a_typo_in_a_card_reference_of_the_mapping
 # ── (h) every custom field is mappable, whatever its name and type ───────────────────────────────
 
 LONG = "a_name_of_exactly_32_characters_"  # 32 characters
-FIELDS = [
+FIELDS: list[dict[str, Any]] = [
     {"name": "epic_url", "label": "Epic URL", "kind": "text"},
     {"name": "priority", "label": "Priority", "kind": "number"},
     {"name": "ratio", "label": "Ratio", "kind": "number"},
@@ -564,7 +564,7 @@ FIELDS = [
     {"name": "v2_step_3", "label": "Step", "kind": "text"},
     {"name": LONG, "label": "Long", "kind": "text"},
 ]
-VALUES = {
+VALUES: dict[str, Any] = {
     "epic_url": "https://example.test/e?a=1&b=${x}",
     "priority": 3,
     "ratio": 1.5,

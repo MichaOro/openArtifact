@@ -5,13 +5,14 @@ saved is validated; the API stores, resets and exports it."""
 from __future__ import annotations
 
 import copy
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import yaml
 from fastapi.testclient import TestClient
 
 from openartifact.graph.node_types import NODE_TYPES
+from openartifact.models import NodeKind
 from openartifact.ui import forms, layout
 from openartifact.ui.layout import LayoutError
 
@@ -160,7 +161,7 @@ def test_a_layout_is_checked_before_it_is_saved() -> None:
 
 
 def node(kind: str = "agent") -> dict[str, Any]:
-    return NODE_TYPES[kind].describe()
+    return NODE_TYPES[cast(NodeKind, kind)].describe()
 
 
 def order(description: dict[str, Any], section: str) -> list[str]:
@@ -220,7 +221,7 @@ GUARD = "/api/ui-layouts/forms/guard"
 
 
 def shipped_of(client: TestClient, window: str = GUARD) -> dict[str, Any]:
-    return client.get(window).json()["shipped"]
+    return cast(dict[str, Any], client.get(window).json()["shipped"])
 
 
 def test_a_layout_is_saved_merged_into_the_description_and_reset(client: TestClient) -> None:
@@ -296,7 +297,7 @@ def test_a_stale_stored_layout_does_not_break_the_window(client: TestClient) -> 
             await layout.save_raw(session, "forms/guard", stale)
             await session.commit()
 
-    client.portal.call(store)  # type: ignore[attr-defined]
+    client.portal.call(store)  # type: ignore[union-attr]  # the client runs the app, so it has a portal
     form = client.get("/api/forms/guard")
     assert form.status_code == 200
     assert [s["key"] for s in form.json()["sections"]] == keys(guard())
@@ -311,7 +312,7 @@ def test_the_integration_api_has_the_same_routes_and_needs_the_token(client: Tes
 
 
 def area_of(description: dict[str, Any], key: str) -> str:
-    return next(s["section"] for s in description["settings"] if s["key"] == key)
+    return cast(str, next(s["section"] for s in description["settings"] if s["key"] == key))
 
 
 def test_a_setting_sits_in_any_area_of_a_node_and_keeps_its_meaning() -> None:
@@ -499,7 +500,7 @@ def test_areas_of_ones_own_are_saved_served_exported_and_reset(client: TestClien
     assert next(s["section"] for s in kind["settings"] if s["key"] == "on_failure") == "custom_q1"
     # the export is the layout as YAML and it loads back into the same layout
     exported = yaml.safe_load(client.get(f"{window}/export").text)
-    code = NODE_TYPES["code"].describe()
+    code = NODE_TYPES[cast(NodeKind, "code")].describe()
     assert layout.check_node_layout(code, exported["layout"]) == body["layout"]
     assert client.delete(window).json()["customised"] is False
     after = next(k for k in client.get("/api/node-types").json() if k["kind"] == "code")

@@ -310,7 +310,7 @@ def test_an_http_address_needs_the_tick_for_unencrypted_connections(
     put_secret(api)
     refused = api.post("/api/providers", json=_body(llm, allow_http=False))
     assert refused.status_code == 422
-    assert refused.json()["detail"] == providers_module.UNENCRYPTED_REFUSED
+    assert refused.json()["detail"] == llm_client.UNENCRYPTED_REFUSED
     tested = api.post("/api/providers/test", json=_body(llm, allow_http=False))
     assert tested.status_code == 422  # the test refuses it before any request, too
     assert llm.hits == []

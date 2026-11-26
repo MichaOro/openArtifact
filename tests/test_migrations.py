@@ -806,7 +806,7 @@ def test_migration_0048_gives_a_used_error_output_its_setting_and_keeps_the_rest
     import json
 
     db = at_revision("0047")
-    nodes = [
+    nodes: list[tuple[str, str, dict[str, Any], str, bool]] = [
         # id, kind, config, error port, has an edge there
         ("n_edge", "code", {"code": "x"}, "fail", True),
         ("n_fail_edge", "http", {"on_failure": "fail"}, "fail", True),
@@ -880,7 +880,7 @@ def test_migration_0050_brings_an_action_definition_and_its_uses_in_step(
     db = at_revision("0049")
     # definition -> (has On Fail before); uses -> (definition, config)
     definitions = {"d_on": 1, "d_off": 0, "d_wanted": 0, "d_plain": 0}
-    uses = [
+    uses: list[tuple[str, str | None, dict[str, Any]]] = [
         ("u_on_stop", "d_on", {}),  # offered, stops: gets the error output
         ("u_on_fail", "d_on", {"on_failure": "fail"}),
         ("u_on_continue", "d_on", {"on_failure": "continue"}),  # untouched

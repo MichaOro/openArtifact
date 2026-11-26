@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from openartifact.agents import client, runtime
+from openartifact.agents import client
 from openartifact.agents.client import (
     UNENCRYPTED_REFUSED,
     Completion,
@@ -20,8 +20,9 @@ from openartifact.agents.client import (
     retry_after_seconds,
     status_error,
 )
+from openartifact.agents.completion import BACKOFF_SECONDS, Outcome, run_completion
 from openartifact.agents.resolve import ProviderInfo, freeze
-from openartifact.agents.runtime import BACKOFF_SECONDS, endpoint_of, run_completion, run_node
+from openartifact.agents.runtime import endpoint_of, run_node
 from openartifact.agents.schemas import AgentConfig, InputSpec
 from openartifact.engine import http_runner
 from openartifact.engine.context import NodeIndex, RunContext, RunView
@@ -327,7 +328,7 @@ def _transient(status: int | None = 503, retry_after: float | None = None) -> Pr
     )
 
 
-async def _run(script: Scripted, **settings: Any) -> runtime.Outcome:
+async def _run(script: Scripted, **settings: Any) -> Outcome:
     return await run_completion(
         ENDPOINT, "small", MESSAGES, complete=script.complete, sleep=script.sleep, **settings
     )

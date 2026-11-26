@@ -8,7 +8,7 @@ import sqlite3
 from collections.abc import Callable, Generator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -57,12 +57,14 @@ def client(migrated_settings: Settings) -> Generator[TestClient, None, None]:
 def card(client: TestClient, title: str, lane: str = "backlog", **extra: Any) -> dict[str, Any]:
     reply = client.post("/api/tasks", json={"title": title, "status": lane, **extra})
     assert reply.status_code == 201, reply.text
-    return reply.json()
+    return cast(dict[str, Any], reply.json())
 
 
 def age(db: Path, task_id: str, days: float, *, moved: float | None = None) -> None:
     """Make a card ``days`` old; its last move (activity of kind lane/created) is ``moved`` days ago (default: as old)."""
-    then = lambda d: (datetime.now(UTC) - timedelta(days=d)).strftime("%Y-%m-%d %H:%M:%S.%f")  # noqa: E731
+    then: Callable[[float], str] = lambda d: (datetime.now(UTC) - timedelta(days=d)).strftime(  # noqa: E731
+        "%Y-%m-%d %H:%M:%S.%f"
+    )
     with sqlite3.connect(db) as conn:
         conn.execute(
             "UPDATE tasks SET created_at = ?, updated_at = ? WHERE id = ?",
@@ -310,7 +312,7 @@ def test_the_marks_of_many_cards_take_a_few_grouped_queries(client: TestClient) 
         card(client, f"C{n}")
     put_board(client, rule("label", when("idle", "at_least", 3600), text="Old", tone="red"))
     statements: list[str] = []
-    sync = database._engine.sync_engine  # type: ignore[attr-defined]
+    sync = database._engine.sync_engine  # type: ignore[union-attr]
 
     def count(conn: Any, cursor: Any, statement: str, *rest: Any) -> None:
         statements.append(statement)
@@ -480,7 +482,7 @@ def test_events_tell_the_page_that_rules_and_cards_changed(client: TestClient, d
     seen: list[str] = []
     bus = client.app.state.event_bus  # type: ignore[attr-defined]
     original = bus.publish
-    bus.publish = lambda name, data=None: (seen.append(name), original(name, data))[1]  # type: ignore[method-assign]
+    bus.publish = lambda name, data=None: (seen.append(name), original(name, data))[1]  # type: ignore[func-returns-value]
     c = card(client, "Old")
     age(db, c["id"], 30, moved=30)
     put_lane(client, "backlog", rule("archive", when("in_lane", "at_least", DAY)))
@@ -640,7 +642,9 @@ def test_the_archive_list_filters_sorts_and_pages(client: TestClient, db: Path) 
                 (at.strftime("%Y-%m-%d %H:%M:%S.%f"), c["id"]),
             )
     card(client, "On the board")
-    titles = lambda **q: [t["title"] for t in client.get("/api/tasks", params=q).json()]  # noqa: E731
+    titles: Callable[..., list[str]] = lambda **q: [  # noqa: E731
+        t["title"] for t in client.get("/api/tasks", params=q).json()
+    ]
     assert titles() == ["On the board"]
     assert titles(archived="only") == ["Charlie", "alpha", "Bravo"]  # newest archived first
     assert titles(archived="only", sort="archived_at", order="asc") == ["Bravo", "alpha", "Charlie"]
