@@ -55,7 +55,9 @@
 .mg-chip { display: inline-flex; align-items: center; gap: var(--space-1); white-space: nowrap; max-width: 100%; }
 .mg-chip .icon { width: 0.8rem; height: 0.8rem; }
 .mg-tag { padding: 0 var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-pill); font-size: 0.75rem; line-height: 1.4rem; color: var(--color-text-secondary); }
-.mg__pager { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 0.8125rem; color: var(--color-text-muted); }
+/* the page size follows the room (ADR-069 addendum 12): with twice or four times the base the page scrolls, and the pager stays at the lower edge of the
+   area, so "Next" is always within reach */
+.mg__pager { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding-block: var(--space-1); font-size: 0.8125rem; color: var(--color-text-muted); background: color-mix(in srgb, var(--color-background) 92%, transparent); backdrop-filter: blur(6px); }
 .mg__tools { display: inline-flex; align-items: center; gap: var(--space-3); margin-left: auto; flex: none; }
 .mg__size { display: inline-flex; font-size: 0.8125rem; color: var(--color-text-muted); align-items: center; gap: var(--space-2); }
 .mg__size .field__control { width: auto; min-width: 0; height: 2rem; padding-block: 0; }

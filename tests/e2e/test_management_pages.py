@@ -211,8 +211,9 @@ def test_the_page_size_is_in_the_toolbar_next_to_the_switch_and_the_pager_keeps_
     assert size_box and view_box
     assert size_box["x"] + size_box["width"] <= view_box["x"] + 1, "left of the switch"
     assert abs(size_box["y"] - view_box["y"]) < 12, "on the same line"
-    size.select_option("24")
-    assert page.evaluate("JSON.parse(localStorage.getItem('oa-management-actions')).size") == 24
+    size.select_option(label="24")  # twice the base of 12 at this window size
+    # what is stored is the step (twice the base), not a number of entries: the base follows the room (ADR-069 addendum 12)
+    assert page.evaluate("JSON.parse(localStorage.getItem('oa-management-actions')).step") == 2
 
 
 def _box(locator: Locator) -> dict[str, float]:
