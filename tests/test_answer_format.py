@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from openartifact.agents import answer_format
@@ -15,8 +16,11 @@ from openartifact.agents.runtime import run_node
 from openartifact.agents.schemas import AgentConfig, InputSpec
 from openartifact.agents.tools import Tool
 from openartifact.graph import field_schema
+from tests.agent_support import make_agent
+from tests.helpers import graph_url
 from tests.test_agent_loop import WEATHER, Recorder, _asks, _box, _with_tools
 from tests.test_agent_runtime import OK, VIEW, Scripted, _frozen
+from tests.test_agents_api import _agent_node, api  # noqa: F401 (the fixture of the API tests)
 
 REVIEW = [
     {"name": "passed", "type": "boolean", "required": True, "description": "Did it pass?"},
@@ -231,6 +235,63 @@ def test_a_field_named_like_the_data_of_the_agent_is_refused() -> None:
         AgentConfig(answer_format=[{"name": "model", "type": "text", "required": False}])
     with pytest.raises(ValueError, match="'usage' is used by the agent's own data"):
         answer_format.fields_of([{"name": "usage", "type": "text", "required": False}])
+
+
+def test_the_answer_format_is_part_of_the_draft_and_of_the_published_version(
+    api: TestClient,  # noqa: F811
+) -> None:
+    agent = make_agent(api, answer_format=REVIEW)
+    assert agent["draft"]["answer_format"] == field_schema.normalise(REVIEW)
+    assert agent["published_number"] == 1
+    version = api.get(f"/api/agents/{agent['id']}/versions/1").json()
+    assert version["config"]["answer_format"] == field_schema.normalise(REVIEW)
+    # no format is the default: an agent from before has none and nothing changes for it
+    plain = make_agent(api, name="Plain")
+    assert plain["draft"]["answer_format"] == []
+
+
+def test_a_field_named_like_the_data_of_the_agent_is_refused_by_the_api(
+    api: TestClient,  # noqa: F811
+) -> None:
+    agent = make_agent(api)
+    draft = {
+        **agent["draft"],
+        "answer_format": [{"name": "usage", "type": "text", "required": False}],
+    }
+    response = api.put(f"/api/agents/{agent['id']}/draft", json=draft)
+    assert response.status_code == 422
+    assert "'usage' is used by the agent's own data" in response.text
+
+
+def test_a_node_sets_its_own_answer_format_and_the_same_rules_apply(
+    api: TestClient,  # noqa: F811
+) -> None:
+    agent = make_agent(api)
+    action, node = _agent_node(api, agent, "Reviewer", answer_format=REVIEW)
+    assert node["config"]["answer_format"] == field_schema.normalise(REVIEW)
+    url = f"{graph_url(action)}/nodes/{node['id']}"
+    refused = api.patch(
+        url,
+        json={"config": {"answer_format": [{"name": "model", "type": "text", "required": False}]}},
+    )
+    assert refused.status_code in (400, 422)
+    assert "'model' is used by the agent's own data" in refused.text
+
+
+def test_publishing_a_changed_answer_format_tells_the_nodes_that_set_their_own(
+    api: TestClient,  # noqa: F811
+) -> None:
+    agent = make_agent(api, answer_format=REVIEW)
+    _agent_node(api, agent, "Own format", answer_format=REVIEW[:1])
+    _agent_node(api, agent, "Follows")
+    api.put(
+        f"/api/agents/{agent['id']}/draft", json={**agent["draft"], "answer_format": REVIEW[:2]}
+    )
+    result = api.post(f"/api/agents/{agent['id']}/publish").json()
+    assert result["changed"] == ["answer_format"]
+    assert [(u["node_name"], u["overrides"]) for u in result["overriding"]] == [
+        ("Own format", ["answer_format"])
+    ]
 
 
 def test_the_check_is_the_one_of_the_hand_over_tool() -> None:
