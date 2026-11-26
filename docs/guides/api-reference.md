@@ -278,6 +278,8 @@ values together are at most 4 KiB. The refusal for a typo:
 | GET | `/api/runs` | The state of every artifact that was processed | |
 | GET | `/api/runs/{task_id}/results` | Steps inside action definitions with complete outputs | 404 |
 | POST | `/api/tasks/{task_id}/run` | Start; stages before the starting stage count as done; `dry_run`, `inputs`, `version` for a dry run (the draft by default); `201` | 404, 409, 422, 429 |
+| POST | `/api/tasks/{task_id}/dry-run/check` | What would refuse a dry run started with the same body as the start (`pipeline_id`, `stage_id`, `action_id`, `inputs`, `version`, default `draft`): `{"problems": [text]}`, empty when nothing is in the way; reads only, starts nothing (ADR-086) | 404, 422 |
+| GET | `/api/actions/{action_id}/placements` | Where a pipeline puts the action definition (`pipeline_id`, `pipeline_name`, `stage_id`, `stage_name`, `action_id`): where a dry run of the action starts; empty when none does | 404 |
 | POST | `/api/tasks/{task_id}/run/stop` | Stop | 404, 409 |
 
 ### Executions and history
