@@ -4,6 +4,7 @@ execution, the filter, live updates; and the layout of the Comments tab."""
 from __future__ import annotations
 
 import re
+from typing import cast
 
 import httpx
 import pytest
@@ -186,7 +187,7 @@ def _comment_layout(board: Board, count: int) -> dict[str, dict[str, float]]:
     }
     boxes = {name: part.bounding_box() for name, part in parts.items()}
     assert all(boxes.values()), boxes
-    return {name: box for name, box in boxes.items() if box}
+    return {name: cast(dict[str, float], box) for name, box in boxes.items() if box}
 
 
 def _check_composer_at_the_bottom(boxes: dict[str, dict[str, float]]) -> None:

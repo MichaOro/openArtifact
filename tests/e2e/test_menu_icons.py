@@ -30,9 +30,10 @@ def _open(page: Page, base_url: str, slug: str, folder: str = "pipelines") -> No
 
 def _without_glyph(page: Page) -> list[str]:
     """The names of the entries that show no glyph before them."""
-    return page.locator(".ge-add__item").evaluate_all(
+    names: list[str] = page.locator(".ge-add__item").evaluate_all(
         "items => items.filter(i => !i.querySelector('.ge-add__name > svg.icon')).map(i => i.textContent.trim())"
     )
+    return names
 
 
 def test_every_entry_of_the_add_menu_shows_a_glyph_in_every_cluster(

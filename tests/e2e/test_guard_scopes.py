@@ -6,7 +6,7 @@ side everywhere else."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from playwright.sync_api import Locator, Page, expect
@@ -28,7 +28,7 @@ from tests.helpers import graph_url, link, node
 def _box(el: Locator) -> dict[str, float]:
     box = el.bounding_box()
     assert box is not None
-    return box
+    return cast(dict[str, float], box)
 
 
 def _attach_to(

@@ -78,7 +78,9 @@ def _mcp(url: str, names: str) -> dict[str, Any]:
 
 
 def _start(api: httpx.Client, pipeline: dict[str, Any]) -> dict[str, Any]:
-    task = api.post("/api/tasks", json={"title": "Item", "status": "backlog"}).json()
+    task: dict[str, Any] = api.post(
+        "/api/tasks", json={"title": "Item", "status": "backlog"}
+    ).json()
     api.post(
         f"/api/tasks/{task['id']}/run", json={"pipeline_id": pipeline["id"]}
     ).raise_for_status()

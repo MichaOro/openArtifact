@@ -6,7 +6,7 @@ the advanced fields, marks what breaks a limit and no longer shows "Can watch" (
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from playwright.sync_api import Locator, Page, expect
@@ -24,7 +24,7 @@ IDLE = {
 def _box(el: Locator) -> dict[str, float]:
     box = el.bounding_box()
     assert box is not None
-    return box
+    return cast(dict[str, float], box)
 
 
 def _settled(page: Page, *locators: Locator) -> list[dict[str, float]]:
@@ -42,7 +42,7 @@ def _settled(page: Page, *locators: Locator) -> list[dict[str, float]]:
 
 def _open_editor(page: Page, base_url: str, guard: dict[str, Any]) -> Locator:
     page.goto(f"{base_url}/guards?open={guard['id']}")
-    return _window(page)
+    return cast(Locator, _window(page))
 
 
 # ── the add popup and the attach dialog ──────────────────────────────

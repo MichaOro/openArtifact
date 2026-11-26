@@ -69,7 +69,7 @@ def _y(locator: Locator) -> float:
 
 def _stored(api: httpx.Client, pipeline: dict[str, Any], node_id: str) -> dict[str, Any]:
     nodes = api.get(graph_url(pipeline)).json()["nodes"]
-    return next(n for n in nodes if n["id"] == node_id)  # type: ignore[no-any-return]
+    return next(n for n in nodes if n["id"] == node_id)
 
 
 def _grip(page: Page, side: str) -> Locator:

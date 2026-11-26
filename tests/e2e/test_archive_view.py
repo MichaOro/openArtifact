@@ -4,6 +4,7 @@ four tabs, "Remove from archive" puts a card back on top of its lane, and a card
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from playwright.sync_api import expect
@@ -24,7 +25,7 @@ def _menu(board: Board, label: str) -> None:
     board.page.get_by_role("menuitem", name=label).click()
 
 
-def _archive(board: Board, task: dict) -> None:
+def _archive(board: Board, task: dict[str, Any]) -> None:
     board.api.post(f"/api/tasks/{task['id']}/archive").raise_for_status()
 
 

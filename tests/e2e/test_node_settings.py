@@ -26,7 +26,7 @@ def _open(page: Page, base_url: str, api: httpx.Client, kind: str) -> Any:
 
 def _config(api: httpx.Client, definition: Any, kind: str) -> dict[str, Any]:
     nodes = api.get(graph_url(definition)).json()["nodes"]
-    return next(n["config"] for n in nodes if n["kind"] == kind)  # type: ignore[no-any-return]
+    return next(n["config"] for n in nodes if n["kind"] == kind)
 
 
 def test_a_node_with_a_definition_and_a_behaviour_gets_two_columns(

@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 
 import httpx
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.helpers import eventually, pick_node
 from tests.helpers import build_pipeline, graph_url, link
@@ -145,13 +145,13 @@ def test_the_sqlite_node_is_offered_only_in_a_guard_action_and_is_set_up_like_th
     expect(page.locator("[data-add=postgres]")).to_have_count(1)
 
 
-def _chips(dialog):  # type: ignore[no-untyped-def]
+def _chips(dialog: Locator) -> dict[str, Locator]:
     return {
         purpose: dialog.locator(f'[data-choice="{purpose}"]') for purpose in ("pipeline", "guard")
     }
 
 
-def _outlined(chip) -> bool:  # type: ignore[no-untyped-def]
+def _outlined(chip: Locator) -> bool:
     """The chip has a visible frame: a width and a colour that is not transparent."""
     width, colour = chip.evaluate(
         "el => { const s = getComputedStyle(el); return [parseFloat(s.borderTopWidth), s.borderTopColor]; }"

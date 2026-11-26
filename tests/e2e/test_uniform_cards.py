@@ -5,6 +5,7 @@ stretches a card and starts a new row only when the room is gone."""
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import cast
 
 import httpx
 import pytest
@@ -71,7 +72,11 @@ PAGES: list[tuple[str, Callable[[httpx.Client], None]]] = [
 
 
 def _boxes(page: Page, selector: str) -> list[dict[str, float]]:
-    return [b for b in (el.bounding_box() for el in page.locator(selector).all()) if b]
+    return [
+        cast(dict[str, float], b)
+        for b in (el.bounding_box() for el in page.locator(selector).all())
+        if b
+    ]
 
 
 @pytest.mark.parametrize(("path", "make"), PAGES, ids=[p for p, _ in PAGES])
@@ -114,10 +119,8 @@ def test_every_card_has_the_same_size_whatever_it_holds_and_a_long_title_is_cut_
             assert (
                 box
                 and box["y"] + box["height"]
-                <= card.bounding_box()["y"] + card.bounding_box()["height"] + 1
-            ), (  # type: ignore[index]
-                "the last line (the date) is not cut off"
-            )
+                <= card.bounding_box()["y"] + card.bounding_box()["height"] + 1  # type: ignore[index]  # a card is drawn
+            ), "the last line (the date) is not cut off"
         text_right = card.locator(".mg-card__name").evaluate(
             "el => el.getBoundingClientRect().right - parseFloat(getComputedStyle(el).paddingRight)"
         )
@@ -127,10 +130,10 @@ def test_every_card_has_the_same_size_whatever_it_holds_and_a_long_title_is_cut_
             "the title's text stays left of the pencil and the bin"
         )
         assert (
-            card.locator(".mg-card__foot").bounding_box()["y"]
-            + card.locator(".mg-card__foot").bounding_box()["height"]
-            <= card.bounding_box()["y"] + card.bounding_box()["height"] + 1
-        ), "the foot stays inside the card"  # type: ignore[index]
+            card.locator(".mg-card__foot").bounding_box()["y"]  # type: ignore[index]  # the boxes exist: the cards are drawn
+            + card.locator(".mg-card__foot").bounding_box()["height"]  # type: ignore[index]
+            <= card.bounding_box()["y"] + card.bounding_box()["height"] + 1  # type: ignore[index]
+        ), "the foot stays inside the card"
     long_name = page.locator(".mg-card__name", has_text="A very long name").first
     assert long_name.evaluate("el => el.scrollHeight > el.clientHeight"), (
         "a title of more than two lines is cut"

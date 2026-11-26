@@ -4,7 +4,7 @@ resetting and exporting; only manifest windows have the handle."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import yaml
@@ -17,11 +17,11 @@ GUARD = "/api/ui-layouts/forms/guard"
 
 
 def _boxes(*locators: Locator) -> list[dict[str, float]]:
-    out = []
+    out: list[dict[str, float]] = []
     for el in locators:
         box = el.bounding_box()
         assert box is not None
-        out.append(box)
+        out.append(cast(dict[str, float], box))
     return out
 
 
@@ -41,7 +41,7 @@ def _guard_window(page: Page, base_url: str, api: httpx.Client) -> Locator:
     page.goto(f"{base_url}/guards?open={guard['id']}")
     window = _window(page)
     expect(window.locator("[data-form='guard']")).to_be_visible()
-    return window
+    return cast(Locator, window)
 
 
 def _node_window(page: Page, base_url: str, api: httpx.Client, kind: str = "http") -> Locator:

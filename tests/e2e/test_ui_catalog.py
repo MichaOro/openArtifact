@@ -311,14 +311,14 @@ def test_every_button_of_the_main_pages_comes_from_the_catalog_and_is_readable(
             path == "/executions"
         ):  # the retention dialog: the list of rules, then one rule in the same frame
             page.get_by_role("button", name="Retention").click()
-            dialog = page.locator("#retention-modal")
-            expect(dialog.locator(".rl-row")).to_have_count(2)
+            retention_dialog = page.locator("#retention-modal")
+            expect(retention_dialog.locator(".rl-row")).to_have_count(2)
             check("retention dialog / list")
-            dialog.get_by_role("button", name="Open Failed ones").click()
+            retention_dialog.get_by_role("button", name="Open Failed ones").click()
             check("retention dialog / rule")
             page.keyboard.press("Escape")
             page.keyboard.press("Escape")
-            expect(dialog).to_be_hidden()
+            expect(retention_dialog).to_be_hidden()
         if path == "/guards":  # the guard editor: Settings and Logic, the title renamed in place
             page.locator(".mg-card [data-edit]").first.click()
             expect(page.locator("#guard-modal")).to_be_visible()

@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import pytest
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import Dialog, Locator, Page, expect
 
 from tests.agent_support import API_KEY, HEADERS, TOKEN, FakeLlm, completion, fake_llm
 from tests.e2e.conftest import _serve
@@ -312,7 +312,7 @@ def test_the_agent_dialog_is_wide_and_draws_its_two_areas_side_by_side(
     wrap = inspector.locator(".ge-settings-wrap").bounding_box()
     rem = page.evaluate("parseFloat(getComputedStyle(document.documentElement).fontSize)")
     assert wrap and wrap["width"] >= 44 * rem, (
-        f"room for two columns ({wrap['width']} px, 44 rem = {44 * rem})"
+        f"room for two columns ({wrap['width']} px, 44 rem = {44 * rem})"  # type: ignore[index]  # `wrap and` above ends the test when it is None
     )
 
 
@@ -1029,7 +1029,12 @@ def test_leaving_with_unsaved_changes_asks_in_the_page_and_can_save_or_leave(
     page.goto(f"{agents_url}/agents/{agent['id']}")
     editor = page.locator("[data-agent-editor]")
     native: list[str] = []
-    page.on("dialog", lambda d: (native.append(d.type), d.dismiss()))
+
+    def on_dialog(d: Dialog) -> None:
+        native.append(d.type)
+        d.dismiss()
+
+    page.on("dialog", on_dialog)
     editor.get_by_label("User prompt").fill("Changed")
     editor.locator(".ag-back").click()
     leave = page.locator("#leave-modal")
@@ -1126,4 +1131,4 @@ def test_the_node_has_no_switch_for_the_system_prompt_and_delete_and_add_guard_s
 def _box(el: Locator) -> dict[str, float]:
     box = el.bounding_box()
     assert box is not None
-    return box
+    return cast(dict[str, float], box)

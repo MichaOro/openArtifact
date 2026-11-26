@@ -5,9 +5,10 @@ the versions tab, and the sheet on a narrow screen."""
 from __future__ import annotations
 
 import re
+from typing import cast
 
 import httpx
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.helpers import eventually
 from tests.helpers import build_pipeline, connect, graph_url, link, node, post
@@ -135,7 +136,7 @@ def test_a_new_pipeline_gets_description_and_tags_and_the_panel_is_a_sheet_on_a_
 def _first_card_box(page: Page) -> dict[str, float]:
     box = page.locator(".mg-card").first.bounding_box()
     assert box is not None
-    return box
+    return cast(dict[str, float], box)
 
 
 def test_the_room_of_the_panel_is_reserved_so_the_cards_stay_where_they_are_on_every_page(
@@ -214,10 +215,10 @@ def test_the_page_size_is_in_the_toolbar_next_to_the_switch_and_the_pager_keeps_
     assert page.evaluate("JSON.parse(localStorage.getItem('oa-management-actions')).size") == 24
 
 
-def _box(locator):  # type: ignore[no-untyped-def]
+def _box(locator: Locator) -> dict[str, float]:
     box = locator.bounding_box()
     assert box is not None
-    return box
+    return cast(dict[str, float], box)
 
 
 def test_actions_keep_search_and_order_in_place_between_the_tabs_and_the_tabs_and_filter_have_a_row_below(

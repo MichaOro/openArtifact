@@ -135,7 +135,7 @@ def test_parent_picker_keeps_every_option_readable_when_the_list_scrolls(board: 
     dialog.rail("parent").click()
     options = dialog.root.locator(".popover:not([hidden]) [role=option]")
     expect(options).to_have_count(40)  # "No parent" and the 39 others
-    heights = [box["height"] for box in (options.nth(i).bounding_box() for i in (0, 1, 20))]
+    heights = [box["height"] for box in (options.nth(i).bounding_box() for i in (0, 1, 20))]  # type: ignore[index]  # the options are drawn
     assert all(height >= 24 for height in heights), heights
     popover = dialog.root.locator(".popover:not([hidden])")
     assert popover.evaluate("el => el.scrollHeight > el.clientHeight"), "the list should scroll"

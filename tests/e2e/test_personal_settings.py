@@ -94,7 +94,7 @@ def test_resolved_text_is_marked_with_a_legend_only_while_the_setting_is_on_and_
     expect(body.locator("mark.resolved-ref")).to_have_count(0)
 
 
-def pattern_not_transparent():  # type: ignore[no-untyped-def]
+def pattern_not_transparent() -> re.Pattern[str]:
     import re
 
     return re.compile(r"^(?!rgba\(0, 0, 0, 0\)$|transparent$).+")

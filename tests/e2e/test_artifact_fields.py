@@ -10,7 +10,7 @@ from playwright.sync_api import expect
 
 from tests.e2e.helpers import Board, eventually
 
-FIELDS = [
+FIELDS: list[dict[str, Any]] = [
     {"name": "size", "label": "Size", "kind": "choice", "options": ["S", "M", "L"], "default": "M"},
     {"name": "estimate", "label": "Estimate", "kind": "number"},
     {"name": "summary", "label": "Summary", "kind": "text"},
