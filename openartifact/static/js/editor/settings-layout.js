@@ -81,23 +81,28 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
 
   /** An unset optional setting just added: an empty control that shows the default, with a bin to take it away. */
   const addedRow = (setting) => {
-    const control = createControl(setting, null, save(setting), suggest, { unsaved: true });
-    if (setting.default !== null && setting.default !== undefined && setting.default !== "") control.input.placeholder = String(setting.default);
-    return withBin(control.element, setting, t("editor.settings_layout.remove"), () => {
+    const bin = makeBin(setting, t("editor.settings_layout.remove"), async () => {
+      // a value saved while the row was still "just added" (a typed value, a retry that starts on) goes with the row
+      if (node.config?.[setting.key] != null && (await editor.saveSetting(node, setting, null))) return;
       open().delete(setting.key);
       redraw();
     });
+    const control = createControl(setting, null, save(setting), suggest, { unsaved: true, end: bin });
+    if (setting.default !== null && setting.default !== undefined && setting.default !== "") control.input.placeholder = String(setting.default);
+    return optionalRow(control.element, setting);
   };
 
   /** An optional setting that has a value: its control and a bin that makes it not set again. */
-  const shownRow = (setting) =>
-    withBin(createControl(setting, settingValue(node, setting), save(setting), suggest).element, setting, t("editor.settings_layout.use_default_again"), async () => {
+  const shownRow = (setting) => {
+    const bin = makeBin(setting, t("editor.settings_layout.use_default_again"), async () => {
       const message = await editor.saveSetting(node, setting, null);
       if (!message) {
         open().delete(setting.key);
         redraw();
       }
     });
+    return optionalRow(createControl(setting, settingValue(node, setting), save(setting), suggest, { end: bin }).element, setting);
+  };
 
   const overrideOf = (setting) => {
     const state = inheritance.state(setting.key);
@@ -255,9 +260,8 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
   return wrap;
 }
 
-function withBin(controlElement, setting, title, onClick) {
-  const row = make("div", "ge-optional");
-  row.dataset.setting = setting.key;
+/** The bin that takes an optional setting away; it goes into the row of the control (`end`), never over it. */
+function makeBin(setting, title, onClick) {
   const bin = make("button", "icon-button icon-button--sm is-danger ge-optional__remove");
   bin.type = "button";
   bin.title = title;
@@ -265,7 +269,13 @@ function withBin(controlElement, setting, title, onClick) {
   bin.setAttribute("aria-label", `${title}: ${setting.label}`);
   bin.append(icon("trash"));
   bin.addEventListener("click", onClick);
-  row.append(controlElement, bin);
+  return bin;
+}
+
+function optionalRow(controlElement, setting) {
+  const row = make("div", "ge-optional");
+  row.dataset.setting = setting.key;
+  row.append(controlElement);
   return row;
 }
 

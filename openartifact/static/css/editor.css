@@ -423,8 +423,16 @@
 .ge-advanced[open] > summary { margin-bottom: var(--space-3); }
 .ge-advanced > .ge-setting + .ge-setting,
 .ge-advanced > .ge-optional + .ge-optional { margin-top: var(--space-3); }
-.ge-optional { position: relative; }
-.ge-optional__remove { position: absolute; top: 0; right: 0; }
+/* the row of a control that can be taken away: the control gives way (min-width 0), the bin has a column of its own at the end, so
+   the two never overlap (ADR-074); a label above the control stays above it, a label on the line (a switch) stays on it */
+.field__line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.field__line > :first-child { flex: 1 1 auto; min-width: 0; }
+.field__line > .field__control { width: auto; }
+.field--row > .field__line { flex: 0 0 auto; }
+.field--row > .field__line > :first-child { flex: 0 0 auto; }
+.field__line:has(> textarea) { align-items: flex-start; }
+.ge-optional { min-width: 0; }
+.ge-optional__remove { flex: 0 0 auto; }
 
 .ge-inspector__identity { display: flex; align-items: flex-start; gap: var(--space-3); }
 .ge-inspector__identity .ge-inspector__heading { flex: 1; min-width: 0; }
@@ -492,3 +500,10 @@
 
 /* an input the agent fixes to the artifact, shown in the action's settings (agent-inspector.js) and the heading with its (i) */
 .ge-inspector__heading-tip { display: flex; align-items: center; gap: var(--space-2); }
+
+/* Retry on fail: what shows while the switch is on, under the line of the switch (editor/setting-controls.js RetryControl) */
+.ge-retry { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
+/* a duration: the number takes what is left, the unit has the width of its longest text (components/duration-input.js) */
+.duration-input { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.duration-input > input.field__control { flex: 1 1 auto; min-width: 0; width: auto; }
+.duration-input > select.field__control { flex: 0 0 auto; width: auto; min-width: 5.5rem; }

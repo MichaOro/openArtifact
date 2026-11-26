@@ -216,3 +216,6 @@
 @media (max-width: 640px) {
   .history-event { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+/* the tries of a node that was tried again (Retry on fail): one line each under the block's title */
+.history-step__tries { margin: var(--space-2) 0 0; padding-left: 1.25rem; font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }

@@ -82,6 +82,8 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [070](070-versions-of-actions-and-pipelines.md) | Versions of pipelines and actions: a draft and published versions (frozen copies of the graph), publish and publish again in the panel, executions read the published version and fall back to the draft | Accepted | 2026-11-25 | amends ADR-015, ADR-067, ADR-069 |
 | [071](071-card-rules.md) | Card rules: when a condition holds for a card, a lane or the board sets it as done, hides (archives) it, deletes an archived one, gives it a label or a colour; marks are derived when read, archive and delete are done by a sweeper with safeguards | Accepted | 2026-11-25 | amends ADR-036, ADR-052, ADR-060 |
 | [072](072-result-contract.md) | The result contract: every node that ran leaves `success`, `outcome`, `reason`, `output`, `data`, `attempts` and `duration_ms`; `success` is derived from the outcome and asked as `${(Node).success}` | Accepted | 2026-11-26 | amends ADR-033, ADR-054 |
+| [073](073-retry-on-fail.md) | Retry on fail: an optional setting of every node that runs something and of an action (2 to 10 tries, a wait of 0 to 10 minutes), only the failing node is tried again, the wait ends at once with Stop, the tries are `attempts` and `detail.tries` of one step | Accepted | 2026-11-26 | amends ADR-061, ADR-053, ADR-054 |
+| [074](074-setting-row-and-durations.md) | The setting row (label, control, end action, no overlap) and durations as a number with a unit (ms, sec, min) | Accepted | 2026-11-26 | amends ADR-053, ADR-059 |
 
 ## Notes
 

@@ -94,10 +94,14 @@ def test_an_optional_setting_is_added_kept_and_taken_away(
     timeout.fill("12")
     timeout.press("Enter")
     eventually(lambda: _config(api, definition, "http")["timeout_seconds"], 12)
-    # "If the node fails" is optional too: both are set before nothing is left to add
+    # "If the node fails" and "Retry on fail" (ADR-073) are optional too: all three are set before nothing is left to add
     add_setting(page, "If the node fails")
     dialog.get_by_label("If the node fails", exact=True).select_option(label="Continue")
     eventually(lambda: _config(api, definition, "http")["on_failure"], "continue")
+    add_setting(
+        page, "Retry on fail"
+    )  # an added retry starts on and is stored at once, so it is there when the node is reopened
+    eventually(lambda: (_config(api, definition, "http").get("retry") or {}).get("enabled"), True)
 
     page.keyboard.press("Escape")  # reopened: a configured optional setting is there without asking
     page.locator(".ge-node--http").dblclick(position={"x": 30, "y": 5})

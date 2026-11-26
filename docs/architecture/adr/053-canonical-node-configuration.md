@@ -57,3 +57,7 @@ overridable fields for the Agent, and eleven override rows that were all shown. 
 A kind gets the shared shape by declaring metadata on its settings; the Agent is no longer an exception except for the
 two things only it has. Optional settings are less discoverable than before (they sit behind *Add setting*), which the
 menu and the rule "a set value is always shown" are meant to offset.
+
+## Addendum (2026-11-26): the row of an optional setting
+
+The bin of an optional setting is the end of the control's row, not an element laid over it, and a setting may have a type of its own (`retry`, with *Max. tries* and a wait as a number and a unit): [ADR-074](074-setting-row-and-durations.md), [ADR-073](073-retry-on-fail.md).

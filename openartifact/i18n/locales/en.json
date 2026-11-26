@@ -1464,5 +1464,20 @@
  "tasks.history_row.stop_subject": "Stop {subject}",
  "editor.reference_completion.true_or_false": "true if it succeeded",
  "editor.reference_completion.tries": "number of tries",
- "editor.reference_completion.milliseconds": "how long it took (ms)"
+ "editor.reference_completion.milliseconds": "how long it took (ms)",
+ "components.duration_input.ms": "ms",
+ "components.duration_input.sec": "sec",
+ "components.duration_input.min": "min",
+ "editor.retry.max_tries": "Max. tries",
+ "editor.retry.max_tries_help": "How often the node is tried in all, the first try included. A whole number from {min} to {max}.",
+ "editor.retry.wait": "Wait between tries",
+ "editor.retry.wait_help": "How long to wait after a failed try before the next one, up to {max}.",
+ "editor.retry.tries_bounds": "Max. tries: a whole number from {min} to {max} (the first try counts).",
+ "editor.retry.wait_bounds": "Wait between tries: from 0 to {max}.",
+ "editor.retry.total_bounds": "{tries} tries with {wait} between them wait {total} in all, more than the {max} allowed: use fewer tries or a shorter wait.",
+ "tasks.history_step.tries_fact": "{n} tries",
+ "tasks.history_step.tries_summary": "Tried {n} times",
+ "tasks.history_step.try_failed": "Try {n} of {total} failed after {time}: {reason}",
+ "tasks.history_step.try_failed_last": "Try {n} of {total} failed: {reason}",
+ "tasks.history_step.try_passed": "Try {n} of {total} passed"
 }

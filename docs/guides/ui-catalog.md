@@ -149,6 +149,8 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A short message above a page | `alert-bar.js` with `templates/components/alert.html`; `show(message, { tone: "info" })` is the calm look for news that is not an error (what a change did beyond the node); it floats above an open window (popover layer), because a window's backdrop would cover the bar |
 | An explanation of a field | `info-tip.js` (the (i) that opens a tooltip) |
 | An on/off setting | `switch.js` |
+| A length of time (a wait, a timeout) | `duration-input.js` (`new DurationInput({ milliseconds, onCommit })`, `.element`, `.milliseconds`): a number and a unit (ms, sec, min), kept as milliseconds; the largest unit that divides the value evenly is shown (`duration-model.js`: 3467 ms stays, 90000 ms is 90 sec). Never ask for seconds as a bare number when a person has to convert; see [the setting row](#the-setting-row) |
+| A removable setting in a node's window | the **setting row** (`field(label, control, { end: bin })` in `editor/field.js`, `.field__line`): label, control, bin, never overlapping; see [the setting row](#the-setting-row) |
 | The legend under text that marks resolved references | `resolved-legend.js` (`new ResolvedLegend()`, `.element` after the text, `.show(visible)`); a closed disclosure with the colour swatch `--color-resolved-ref-bg` (`.resolved-legend__mark`) and the words, no `innerHTML`, no glyph in the text; the marked text itself is `<mark class="resolved-ref">` (`renderResolvedBody` in `tasks/references.js`), shown only while the personal setting *Mark resolved references* is on |
 | The add menu of the editor, under the "+" or at a point | `add-menu.js`; `openFrom(point, {types, header, emptyText, onPick})` opens the same menu at the pointer for a line released on the canvas (anchored mode: `is-anchored`, a header line `ge-add__from`, only the given kinds), glue and plan in `connect-menu.js` and `connect-plan.js` |
 | Choose one of many by typing | `combobox.js` (a field with a list under it; typing narrows it by name, then by description and keywords; arrow keys, Enter, Escape closes only the list; the list is a popup so a dialog does not clip it; ARIA combobox with `aria-activedescendant`; the pure part is `combobox-model.js`) |
@@ -169,6 +171,24 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A `#` reference in a text | `reference-picker.js` |
 | The guards of a scope: one shield and its popup (names, switch, Detach; "Add a guard"; a group *In the action* on an action card); the popup has two layouts: its two buttons sit side by side, and **stacked** when it opens from a stage header or a card (`what.stack`, class `gd-popover--stack`) | `editor/guards.js` (`shieldButton`), `guards/guard-popover.js` (a `popover` with `popover__option`, `ge-switch` and catalog buttons) |
 | An icon | `icons.js` (`icon("name")`), the paths in `templates/components/icons.html`; a node kind's glyph in the menus is its manifest's `menu_icon` (else `ui.icon`) |
+
+## The setting row
+
+One row for every removable setting of a node window ([ADR-074](../architecture/adr/074-setting-row-and-durations.md)); a control does not
+position its own bin, the row does. For people and for later agents:
+
+1. **Anatomy:** label (with its (i)) above the control, or on the line of the control for a switch; the control in a column that gives way
+   (`min-width: 0`); the **end action** (the bin) in a column of its own, fixed width, on the line of the control; messages under the row.
+2. **No overlap, by construction:** nothing in a row is positioned absolutely over another thing. Pass the bin as `end` to `field()` /
+   `createControl(..., { end })`; a test measures that it starts after the control ends and lies on its line.
+3. **A switch** sits on the line of its label; what depends on it shows below only while it is on, and Off keeps the values.
+4. **A time is a number and a unit** (`DurationInput`): ms, sec, min, stored as milliseconds, shown in the largest unit that divides the
+   value evenly. Nobody converts 3467 ms into seconds.
+5. **Defaults** are shown (the added row starts with them and the menu says what applies meanwhile); a setting whose row would otherwise
+   show what is not kept is stored when it is added.
+6. **Bounds** are the server's and both sides say them in plain words with the reason ("a whole number from 2 to 10"), under the field;
+   nothing is sent while a value is wrong.
+7. **Taking it away** is one click on the bin, and it also takes away a value saved while the row was still "just added".
 
 ## Management pages
 

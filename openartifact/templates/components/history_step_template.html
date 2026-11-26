@@ -19,6 +19,10 @@
             <summary>{{ t('history_step.request_prompts_inputs_attempts') }}</summary>
             <div class="history-step__agent" data-step-agent-body></div>
         </details>
+        <details class="history-step__block" data-step-tries hidden>
+            <summary data-step-tries-summary></summary>
+            <ol class="history-step__tries" data-step-tries-body></ol>
+        </details>
         <details class="history-step__block" data-step-data hidden>
             <summary>{{ t('common.data') }}</summary>
             <pre class="history-step__pre" tabindex="0"></pre>

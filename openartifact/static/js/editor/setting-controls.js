@@ -5,6 +5,8 @@
  * on leaving the field or Enter, a choice when it changes, never on a keystroke). Add a type by subclassing
  * SettingControl and listing it in CONTROLS. */
 import { CredentialDialog } from "../components/credential-dialog.js";
+import { DurationInput } from "../components/duration-input.js";
+import { describeDuration } from "../components/duration-model.js";
 import { icon } from "../components/icons.js";
 import { Modal } from "../components/modal.js";
 import { request } from "../http.js";
@@ -39,12 +41,14 @@ class SettingControl {
    * @param {(value: *) => Promise<string|null>} save resolves to null, or to why the value was refused
    * @param {{nodes: () => object[], exceptId?: string}|null} suggest the graph's nodes, for the suggestions
    *   of a text that takes references (null: none)
-   * @param {{unsaved?: boolean}} [options] `unsaved`: nothing is stored yet (an override being made, an optional
-   *   setting just added): `value` is only what the field starts with, and committing it saves it even when it is
-   *   the same (Enter on a field is a decision)
+   * @param {{unsaved?: boolean, end?: HTMLElement|null}} [options] `unsaved`: nothing is stored yet (an override being made, an
+   *   optional setting just added): `value` is only what the field starts with, and committing it saves it even when it is
+   *   the same (Enter on a field is a decision). `end`: what closes the row of the control (the bin of a removable setting),
+   *   in a column of its own so it never lies over the control
    */
-  constructor(setting, value, save, suggest = null, { unsaved = false } = {}) {
+  constructor(setting, value, save, suggest = null, { unsaved = false, end = null } = {}) {
     this.setting = setting;
+    this.end = end;
     this.saved = unsaved ? NOT_SAVED : value;
     this.save = save;
     this.busy = false;
@@ -97,7 +101,7 @@ class SettingControl {
     const box = element("div", "ge-setting");
     // the explanation (the setting's help and the control's own hint) is a tooltip after the label, not text under the field
     const help = [this.setting.help, this.hint()].filter(Boolean).join("\n\n");
-    const labelled = field(this.setting.label, this.input, { row: this.constructor.row, help: help || null });
+    const labelled = field(this.setting.label, this.input, { row: this.constructor.row, help: help || null, end: this.end });
     const id = this.input.id;
     this.status = element("span", "field__status");
     this.status.id = `${id}-status`;
@@ -254,6 +258,117 @@ class SwitchControl extends SettingControl {
     }
     this.saved = wanted;
     this.fail(null);
+  }
+}
+
+/** *Retry on fail* (ADR-073): the switch on the line of the label, and while it is on the number of tries and the wait between
+ * them (a number and a unit, ADR-074). One setting, one value `{enabled, max_tries, wait_ms}` (milliseconds): the switch saves when it
+ * flips, the numbers when they are left, a unit when it changes; a value that does not fit says why in plain words and is not sent.
+ * Off keeps the numbers; taking the setting away (the bin) is "no retry". An added setting starts on, with the defaults, and is
+ * stored at once: a row that shows On and holds nothing would lie. */
+class RetryControl extends SettingControl {
+  static kind = "toggle";
+  static row = true;
+
+  constructor(setting, value, save, suggest = null, options = {}) {
+    super(setting, value, save, suggest, options);
+    if (options.unsaved) queueMicrotask(() => this.commit());
+  }
+
+  createInput(value) {
+    const [, , defaultTries] = this.setting.limits.max_tries;
+    const [, , defaultWait] = this.setting.limits.wait_ms;
+    const stored = value && typeof value === "object" ? value : {};
+    this.tries = element("input", "field__control");
+    this.tries.type = "number";
+    this.tries.step = "1";
+    this.tries.min = String(this.setting.limits.max_tries[0]);
+    this.tries.max = String(this.setting.limits.max_tries[1]);
+    this.tries.value = String(stored.max_tries ?? defaultTries);
+    this.tries.dataset.focusKey = `setting-${this.setting.key}-tries`;
+    this.tries.addEventListener("input", () => this.markDirty());
+    bindPersist(this.tries, "text", (event) => {
+      if (event.type === "focusout" && !this.isDirty()) return;
+      this.commit();
+    });
+    this.wait = new DurationInput({
+      milliseconds: stored.wait_ms ?? defaultWait,
+      focusKey: `setting-${this.setting.key}-wait`,
+      onInput: () => this.markDirty(),
+      onCommit: () => this.commit(),
+    });
+    for (const el of [this.tries, this.wait.number, this.wait.unit]) registerDirty({ isDirty: () => this.isDirty(), commit: () => this.commit(), element: el });
+    const toggle = element("button", "ge-switch");
+    toggle.type = "button";
+    toggle.setAttribute("role", "switch");
+    const state = element("span", "ge-switch__state");
+    toggle.append(state, element("span", "ge-switch__thumb"));
+    this.show = (on) => {
+      toggle.setAttribute("aria-checked", String(on));
+      state.textContent = on ? "On" : t("components.switch.off");
+      if (this.details) this.details.hidden = !on;
+    };
+    this.show(stored.enabled ?? true);
+    toggle.addEventListener("click", () => this.#flip());
+    return toggle;
+  }
+
+  build() {
+    const box = super.build();
+    this.details = element("div", "ge-retry");
+    this.details.hidden = !this.enabled;
+    const limits = this.setting.limits;
+    this.details.append(
+      field(t("editor.retry.max_tries"), this.tries, { help: t("editor.retry.max_tries_help", { min: limits.max_tries[0], max: limits.max_tries[1] }) }),
+      field(t("editor.retry.wait"), this.wait.element, { labelFor: this.wait.number, help: t("editor.retry.wait_help", { max: describeDuration(limits.wait_ms[1]) }) }),
+    );
+    box.querySelector(".field").after(this.details);
+    return box;
+  }
+
+  get enabled() {
+    return this.input.getAttribute("aria-checked") === "true";
+  }
+
+  /** The numbers as typed, canonical, so that "nothing changed" is a text comparison. */
+  read() {
+    return JSON.stringify({ enabled: this.enabled, max_tries: this.tries.value.trim(), wait_ms: this.wait.milliseconds });
+  }
+
+  parse(raw) {
+    const typed = JSON.parse(raw);
+    const [minTries, maxTries] = this.setting.limits.max_tries;
+    const [minWait, maxWait] = this.setting.limits.wait_ms;
+    const tries = Number(typed.max_tries);
+    if (typed.max_tries === "" || !Number.isInteger(tries) || tries < minTries || tries > maxTries) {
+      throw new Error(t("editor.retry.tries_bounds", { min: minTries, max: maxTries }));
+    }
+    const wait = typed.wait_ms;
+    if (!Number.isFinite(wait) || wait < minWait || wait > maxWait) throw new Error(t("editor.retry.wait_bounds", { max: describeDuration(maxWait) }));
+    const total = (tries - 1) * wait;
+    if (total > this.setting.limits.total_wait_ms) {
+      throw new Error(t("editor.retry.total_bounds", { tries, wait: describeDuration(wait), total: describeDuration(total), max: describeDuration(this.setting.limits.total_wait_ms) }));
+    }
+    const value = { enabled: typed.enabled, max_tries: tries, wait_ms: wait };
+    const saved = this.saved && typeof this.saved === "object" ? this.saved : null;
+    return saved && JSON.stringify(saved) === JSON.stringify(value) ? saved : value; // the stored object itself when nothing changed
+  }
+
+  isDirty() {
+    return this.read() !== this.baseline;
+  }
+
+  markDirty() {
+    const dirty = this.isDirty();
+    this.element?.classList.toggle("is-dirty", dirty);
+    if (this.status) this.status.textContent = dirty ? t("agents.editor_page.not_saved") : "";
+  }
+
+  async #flip() {
+    const before = this.enabled;
+    this.show(!before);
+    await this.commit();
+    if (!this.error.hidden) this.show(before); // refused: the switch goes back
   }
 }
 
@@ -470,6 +585,7 @@ const CONTROLS = {
   lines: LinesControl,
   code: CodeControl,
   select: SelectControl,
+  retry: RetryControl,
 };
 
 /** The control for a setting; a type this editor does not know is shown as plain text. */

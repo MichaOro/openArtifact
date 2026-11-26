@@ -20,6 +20,7 @@ function stepFacts(step) {
   const facts = [step.port ? `Port: ${PORTS[step.port] ?? step.port.replace(/^case_(\d)$/, "Case $1")}` : null, step.exit_code != null ? `Exit code: ${step.exit_code}` : null, stepDuration(step)];
   if (step.kind === "agent") facts.push(...agentFacts(step.data)); // model, tokens and attempts at a glance
   if (step.data?.output_truncated) facts.push(t("tasks.history_step.output_cut_at_limit_step"));
+  if (step.attempts > 1) facts.push(t("tasks.history_step.tries_fact", { n: step.attempts })); // Retry on fail (ADR-073)
   return facts.filter(Boolean);
 }
 
@@ -63,7 +64,38 @@ export function fillStep(template, step, open = new Set(), { loadDetail = null }
   const data = step.data == null ? "" : JSON.stringify(step.data, null, 2);
   fillBlock(item.querySelector("[data-step-data]"), `${step.id}:data`, data, open, Boolean(data));
   fillAgent(item.querySelector("[data-step-agent]"), step, open, loadDetail);
+  fillTries(item.querySelector("[data-step-tries]"), step, open, loadDetail);
   return item;
+}
+
+/** A node that was tried again (*Retry on fail*, ADR-073) lists its tries when the block is opened: the failed ones with their
+ * reason and time (the step's `detail.tries`, which a list does not carry), then how the last one ended. */
+function fillTries(details, step, open, loadDetail) {
+  if (!details) return; // a page with an older template
+  const present = step.attempts > 1 && Boolean(loadDetail);
+  details.hidden = !present;
+  if (!present) return;
+  details.dataset.key = `${step.id}:tries`;
+  details.querySelector("[data-step-tries-summary]").textContent = t("tasks.history_step.tries_summary", { n: step.attempts });
+  const body = details.querySelector("[data-step-tries-body]");
+  let loaded = false;
+  const load = async () => {
+    if (loaded) return;
+    loaded = true;
+    body.replaceChildren(Object.assign(document.createElement("li"), { textContent: t("execution.flow_panel.loading") }));
+    try {
+      const failedTries = (await loadDetail(step)).detail?.tries ?? [];
+      const rows = failedTries.map((one) => t("tasks.history_step.try_failed", { n: one.try, total: step.attempts, reason: one.reason, time: formatDuration(one.duration_ms / 1000) }));
+      rows.push(step.outcome === "pass" ? t("tasks.history_step.try_passed", { n: step.attempts, total: step.attempts }) : t("tasks.history_step.try_failed_last", { n: step.attempts, total: step.attempts, reason: step.reason ?? "" }));
+      body.replaceChildren(...rows.map((text) => Object.assign(document.createElement("li"), { textContent: text })));
+    } catch {
+      loaded = false;
+      body.textContent = t("tasks.history_step.request_could_not_be_loaded");
+    }
+  };
+  details.addEventListener("toggle", () => details.open && load());
+  details.open = open.has(details.dataset.key);
+  if (details.open) load();
 }
 
 /** The block of an agent step: what was sent and every attempt, loaded when it is opened. */
