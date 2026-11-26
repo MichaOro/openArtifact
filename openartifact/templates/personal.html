@@ -7,42 +7,35 @@
 {% block content %}
 {{ alert(t('settings.personal_page.personal_could_not_be')) }}
 <div class="st-page" data-personal-settings novalidate>
-    {# Tabs (components/tabs.js); the active one is kept in the address (#general, #storage, #database). #}
+    {# Tabs (components/tabs.js); the active one is kept in the address (#general, #storage; the old #database opens the storage tab). #}
     <div class="tab-bar st-tabs" role="tablist" aria-label="{{ t('page.personal') }}" data-st-tabs>
         <button type="button" class="task-tab" role="tab" id="st-tab-general" data-tab="general" aria-controls="st-panel-general" aria-selected="true">{{ icon("user") }}<span>{{ t('settings.personal_page.tab_general') }}</span></button>
         <button type="button" class="task-tab" role="tab" id="st-tab-storage" data-tab="storage" aria-controls="st-panel-storage" aria-selected="false">{{ icon("settings") }}<span>{{ t('settings.personal_page.tab_storage') }}</span></button>
-        <button type="button" class="task-tab" role="tab" id="st-tab-database" data-tab="database" aria-controls="st-panel-database" aria-selected="false">{{ icon("database") }}<span>{{ t('settings.personal_page.tab_database') }}</span></button>
     </div>
     <div class="st-card glass">
         <section role="tabpanel" id="st-panel-general" aria-labelledby="st-tab-general" class="st-panel">
             <p class="st-intro">{{ t('settings.personal_page.intro') }}</p>
             <div class="form-view" data-form="general"></div>
         </section>
-        <section role="tabpanel" id="st-panel-storage" aria-labelledby="st-tab-storage" class="st-panel" hidden>
-            <p class="st-intro">{{ t('settings.personal_page.storage_intro') }}</p>
-            <div class="form-view" data-form="storage"></div>
-        </section>
-        <section role="tabpanel" id="st-panel-database" aria-labelledby="st-tab-database" class="st-panel" hidden data-storage-panel>
-            <p class="st-intro">{{ t('storage.intro') }}</p>
-            <p class="st-warning" role="status" hidden data-storage-warning></p>
-            <dl class="st-facts" data-storage-facts></dl>
-            <div class="st-tables" data-storage-tables></div>
-            <div class="st-actions-grid">
-                <div class="st-action">
+        <section role="tabpanel" id="st-panel-storage" aria-labelledby="st-tab-storage" class="st-panel st-split" hidden>
+            <div class="st-col">
+                <p class="st-intro">{{ t('settings.personal_page.storage_intro') }}</p>
+                <div class="form-view" data-form="storage"></div>
+            </div>
+            <div class="st-col st-col--database" data-storage-panel>
+                <p class="st-intro">{{ t('storage.intro') }}</p>
+                <p class="st-warning" role="status" hidden data-storage-warning></p>
+                <dl class="st-facts" data-storage-facts></dl>
+                <div class="st-tables" data-storage-tables></div>
+                <div class="st-preview" data-storage-result hidden></div>
+                <p class="form-error" role="alert" hidden data-storage-error></p>
+                {# The three actions sit at the bottom of the card, left; what each does is its tooltip (storage-panel.js). #}
+                <div class="st-buttons">
                     <button type="button" class="button button--ghost" data-storage-preview>{{ t('storage.preview') }}</button>
-                    <p class="st-action__help">{{ t('storage.preview_help') }}</p>
-                </div>
-                <div class="st-action">
                     <button type="button" class="button button--primary" data-storage-clean>{{ t('storage.clean_now') }}</button>
-                    <p class="st-action__help">{{ t('storage.clean_help') }}</p>
-                </div>
-                <div class="st-action">
                     <button type="button" class="button button--ghost" data-storage-shrink>{{ t('storage.shrink') }}</button>
-                    <p class="st-action__help">{{ t('storage.shrink_help') }}</p>
                 </div>
             </div>
-            <div class="st-preview" data-storage-result hidden></div>
-            <p class="form-error" role="alert" hidden data-storage-error></p>
         </section>
         <p class="form-error" role="alert" hidden data-form-error></p>
         <div class="st-actions">

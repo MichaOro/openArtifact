@@ -2,14 +2,21 @@
 
 .st-intro { margin: 0 0 var(--space-4); color: var(--color-text-muted); max-width: 52rem; }
 .st-card { display: grid; gap: var(--space-4); max-width: 40rem; padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); }
-/* Settings > Personal (tabs: General, Data storage, Database): one card whose tab panels are as high as their content; the form fills the
-   card (it used to be wider than the card and its fieldset lay over the edge). */
+/* Settings > Personal (tabs: General, Data storage): one card whose tab panels are as high as their content; the form fills the
+   card (it used to be wider than the card and its fieldset lay over the edge). The Data storage tab has two columns, the limits and
+   the database, so its card is wider; on a narrow screen they stack. */
 .st-page { display: grid; gap: var(--space-3); max-width: 46rem; min-width: 0; }
+.st-page:has(#st-panel-storage:not([hidden])) { max-width: 64rem; }
 .st-page .st-card { max-width: none; min-width: 0; }
 .st-page .fv { width: 100%; max-width: 100%; }
 .st-tabs { justify-self: start; max-width: 100%; }
 .st-panel { display: grid; gap: var(--space-4); min-width: 0; }
 .st-panel[hidden] { display: none; }
+.st-split { grid-template-columns: minmax(0, 27rem) minmax(0, 29rem); gap: var(--space-5); align-items: stretch; }
+.st-col { display: grid; align-content: start; gap: var(--space-3); min-width: 0; }
+.st-col--database { display: flex; flex-direction: column; gap: var(--space-4); }
+/* the introductions are narrow (about two thirds of the card), so they wrap once more and read as a block */
+.st-split .st-intro { max-width: 24rem; margin: 0; }
 .st-card code { font-family: var(--font-mono); font-size: 0.8125rem; }
 .st-fact { font-size: 0.875rem; color: var(--color-text-secondary); }
 .st-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); }
@@ -22,25 +29,25 @@
 .st-facts dt { color: var(--color-text-muted); }
 .st-facts dd { margin: 0; }
 .st-list { margin: 0; padding-left: 1.1rem; font-size: 0.875rem; color: var(--color-text-secondary); }
-.st-buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.st-buttons { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: var(--space-2); margin-top: auto; }
 .st-warning { margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--btn-danger-border); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-danger) 12%, transparent); font-size: 0.875rem; }
 .st-warning[hidden], .st-preview[hidden] { display: none; }
 .st-plan { display: grid; gap: var(--space-1); font-size: 0.875rem; }
 .st-plan p { margin: 0; }
 .st-plan__total { font-weight: 600; }
 
-/* The Database tab: the facts as a two-column list, the biggest tables with their sizes on the right, the three actions in a row with a line under each. */
+/* The database column of the Data storage tab: the facts as a two-column list, the biggest tables with their sizes on the right, the three actions in a row at the bottom, left (what each does is its tooltip). */
 .st-link { color: var(--color-accent); }
 .st-tablelist { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: 0.875rem; max-width: 24rem; }
 .st-tablelist__row { display: flex; justify-content: space-between; gap: var(--space-4); padding: 2px 0; border-bottom: 1px solid var(--glass-border); }
 .st-tablelist__name { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--color-text-secondary); min-width: 0; overflow-wrap: anywhere; }
 .st-tablelist__size { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.st-actions-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); align-items: start; }
-.st-action { display: grid; gap: var(--space-1); justify-items: start; min-width: 0; }
-.st-action__help { margin: 0; font-size: 0.75rem; color: var(--color-text-muted); }
+
+@media (max-width: 64rem) {
+  .st-split { grid-template-columns: minmax(0, 1fr); }
+}
 
 @media (max-width: 640px) {
-  .st-actions-grid { grid-template-columns: minmax(0, 1fr); }
   .st-facts { grid-template-columns: minmax(0, 1fr); }
   .st-facts dd { margin-bottom: var(--space-1); }
   .st-card { padding: var(--space-3); }

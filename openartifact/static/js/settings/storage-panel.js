@@ -3,6 +3,7 @@
  * and three actions: Preview (what a pass would delete or empty, nothing is changed), Clean now (asks first, then does exactly what
  * the preview shows) and Shrink database (asks first: it rewrites the file). Text is set with textContent only. */
 import { ConfirmDialog } from "../components/confirm-dialog.js";
+import { attachTip } from "../components/info-tip.js";
 import { Modal } from "../components/modal.js";
 import { request } from "../http.js";
 import { plural, t } from "../i18n.js";
@@ -50,9 +51,16 @@ export class StoragePanel {
     this.result = root.querySelector("[data-storage-result]");
     this.errorLine = root.querySelector("[data-storage-error]");
     this.confirm = new ConfirmDialog(new Modal(document.getElementById("storage-confirm")));
-    root.querySelector("[data-storage-preview]").addEventListener("click", () => this.preview());
-    root.querySelector("[data-storage-clean]").addEventListener("click", () => this.askClean());
-    root.querySelector("[data-storage-shrink]").addEventListener("click", () => this.askShrink());
+    // what each action does is its tooltip (hover and keyboard focus), not a line under it
+    for (const [selector, help, run] of [
+      ["[data-storage-preview]", t("storage.preview_help"), () => this.preview()],
+      ["[data-storage-clean]", t("storage.clean_help"), () => this.askClean()],
+      ["[data-storage-shrink]", t("storage.shrink_help"), () => this.askShrink()],
+    ]) {
+      const button = root.querySelector(selector);
+      button.addEventListener("click", run);
+      attachTip(button, help);
+    }
     this.refresh();
   }
 
@@ -82,6 +90,11 @@ export class StoragePanel {
     } else cleaner.append(`${t("storage.cleaner_off")} `);
     const link = element("a", "st-link", t("storage.cleaner_change"));
     link.href = "#storage";
+    // the switch is on the same page now: "Change" takes the focus to it
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      document.querySelector('[data-field-key="storage_clean_interval_hours"]')?.focus();
+    });
     cleaner.append(link);
     const rows = [
       [t("storage.file"), human(db.file_bytes)],

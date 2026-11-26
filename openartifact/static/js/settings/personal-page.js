@@ -17,8 +17,12 @@ const errorLine = root.querySelector("[data-form-error]");
 const banner = new AlertBar();
 const NUMBER_PAUSE_MS = 700;
 const storage = new StoragePanel(document.querySelector("[data-storage-panel]"));
-const TABS = ["general", "storage", "database"];
-const fromHash = () => (TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "general");
+const TABS = ["general", "storage"];
+/** `#database` was a tab of its own once: a link to it opens the storage tab, where the database now is. */
+const fromHash = () => {
+  const name = location.hash.slice(1) === "database" ? "storage" : location.hash.slice(1);
+  return TABS.includes(name) ? name : "general";
+};
 /** The tab is in the address: a reload and a link open the same one. */
 const tabs = new Tabs(document.querySelector("[data-st-tabs]"), (name) => history.replaceState(null, "", `#${name}`));
 tabs.select(fromHash(), { notify: false });

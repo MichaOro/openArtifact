@@ -17,6 +17,27 @@ const made = [];
  *   `aria-describedby=id`
  */
 export function infoTip(text, { label = t("components.info_tip.field") } = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "info-tip";
+  button.append(icon("info"), Object.assign(document.createElement("span"), { className: "visually-hidden", textContent: t("components.info_tip.help") }));
+  button.dataset.about = label;
+  const { tip, id } = attachTip(button, text, { toggleOnClick: true });
+  button.dataset.tipId = id;
+  return { button, tip, id };
+}
+
+/**
+ * The same tooltip on any element that is already there (a button of an action, say): it opens on hover and on keyboard focus,
+ * closes on leaving, blur and Escape, and the element is tied to it with aria-describedby, so assistive technology reads it
+ * (on touch the text stays its accessible description). A click is left to the element unless `toggleOnClick` (the (i) is a button
+ * whose only job is the tooltip).
+ * @param {HTMLElement} trigger
+ * @param {string} text the explanation (blank lines separate paragraphs)
+ * @param {{toggleOnClick?: boolean}} [options]
+ * @returns {{tip: HTMLElement, id: string}}
+ */
+export function attachTip(trigger, text, { toggleOnClick = false } = {}) {
   for (let i = made.length - 1; i >= 0; i -= 1) {
     if (!made[i].button.isConnected) {
       made[i].tip.remove();
@@ -24,20 +45,15 @@ export function infoTip(text, { label = t("components.info_tip.field") } = {}) {
     }
   }
   const id = `info-tip-${(count += 1)}`;
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "info-tip";
+  const button = trigger;
   // named by its content, not by the field's label: a label lookup must find the field, not this button
   button.setAttribute("aria-describedby", id);
-  button.append(icon("info"), Object.assign(document.createElement("span"), { className: "visually-hidden", textContent: t("components.info_tip.help") }));
-  button.dataset.about = label;
   const tip = document.createElement("div");
   tip.className = "info-tip__text";
   tip.id = id;
   tip.setAttribute("role", "tooltip");
   tip.hidden = true;
   for (const paragraph of text.split(/\n{2,}/)) tip.append(Object.assign(document.createElement("p"), { textContent: paragraph.trim() }));
-  button.dataset.tipId = id;
 
   const show = () => {
     // inside an open dialog the tooltip must live in it: the dialog is in the top layer, the body is under it
@@ -54,7 +70,8 @@ export function infoTip(text, { label = t("components.info_tip.field") } = {}) {
   button.addEventListener("pointerleave", hide);
   button.addEventListener("focus", show);
   button.addEventListener("blur", hide);
-  button.addEventListener("click", () => (tip.hidden ? show() : hide()));
+  if (toggleOnClick) button.addEventListener("click", () => (tip.hidden ? show() : hide()));
+  else button.addEventListener("click", hide); // the action runs: the tooltip is not in its way
   button.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !tip.hidden) {
       event.preventDefault();
@@ -65,5 +82,5 @@ export function infoTip(text, { label = t("components.info_tip.field") } = {}) {
   // the tooltip lives in the document (hidden) from the start, so aria-describedby always finds it
   queueMicrotask(() => button.isConnected && !tip.isConnected && (button.closest("dialog") ?? document.body).append(tip));
   made.push({ button, tip });
-  return { button, tip, id };
+  return { tip, id };
 }
