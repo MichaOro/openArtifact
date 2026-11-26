@@ -157,6 +157,8 @@ class SettingSpec(_Strict):
     inherits: str | None = None
     #: A ``fields`` setting: the one more text each field carries (``default`` of an input, ``value`` of an output; ADR-083).
     field_extra: Literal["default", "value"] | None = None
+    #: A ``fields`` setting: the names its fields may not use (a key of ``field_schema.RESERVED_NAMES``; ADR-085).
+    field_reserved: Literal["agent_data"] | None = None
     #: Fields only the first copy of a repeated block has (a help text is said once, not five times).
     first: dict[str, Any] | None = None
 

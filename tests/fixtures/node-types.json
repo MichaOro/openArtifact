@@ -1968,6 +1968,37 @@
     "inherits": "agent"
    },
    {
+    "key": "answer_format",
+    "label": "Answer format",
+    "type": "fields",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "field_types": [
+     "text",
+     "number",
+     "boolean",
+     "choice",
+     "list"
+    ],
+    "max_fields": 30,
+    "field_limits": {
+     "name_chars": 32,
+     "description_chars": 300,
+     "choices": [
+      2,
+      20
+     ],
+     "choice_chars": 60
+    },
+    "field_required": true,
+    "help": "The shape of the final answer. The model reports these fields through a tool and the server checks them; they become the node's data.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
     "key": "on_failure",
     "label": "If the node fails",
     "type": "select",

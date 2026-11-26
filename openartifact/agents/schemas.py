@@ -13,6 +13,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from openartifact.graph import field_schema
 from openartifact.schemas_common import UtcDateTime
 
 INPUT_NAME = re.compile(r"[a-z][a-z0-9_]{0,31}")
@@ -54,6 +55,7 @@ OVERRIDABLE = (
     "max_iterations",
     "token_budget",
     "tool_result_chars",
+    "answer_format",
 )
 
 
@@ -165,6 +167,9 @@ class AgentConfig(_Strict):
     token_budget: int | None = Field(default=None, ge=TOKEN_BUDGET_MIN, le=TOKEN_BUDGET_MAX)
     #: How many characters of one tool result the model reads (not set: the default); the step keeps the result up to 16 KiB.
     tool_result_chars: int | None = Field(default=None, ge=TOOL_RESULT_MIN, le=TOOL_RESULT_MAX)
+    #: The shape of the agent's final answer (ADR-085): a flat list of fields (``graph/field_schema.py``); empty: the answer is free text.
+    #: The model reports it through a tool with these fields and the server checks it; the checked fields become the node's ``data``.
+    answer_format: list[dict[str, Any]] = Field(default_factory=list, max_length=field_schema.MAX_FIELDS)
     #: Whether the inputs are in effect (ADR-045); switched off they are kept but the agent has none.
     #: ``None`` (agents from before the switch): in effect when any input is declared.
     inputs_enabled: bool | None = None
@@ -198,6 +203,14 @@ class AgentConfig(_Strict):
         if "\x00" in value:
             raise ValueError("a prompt must not contain NUL characters")
         return value
+
+    @field_validator("answer_format")
+    @classmethod
+    def _answer_format(cls, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        try:
+            return field_schema.normalise(value, None, field_schema.RESERVED_NAMES["agent_data"])
+        except ValueError as error:
+            raise ValueError(str(error)) from None
 
     @field_validator("provider_id", "model")
     @classmethod

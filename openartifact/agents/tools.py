@@ -145,7 +145,21 @@ class Toolbox:
     def __bool__(self) -> bool:
         return bool(self._tools)
 
-    def schemas(self) -> list[dict[str, Any]]:
+    def add(self, tool: Tool) -> str:
+        """Add one more tool after the box was made (the answer format's report tool, ADR-085); returns the name the model calls it by
+        (its own name unless another tool took it)."""
+        base = _valid(tool.name)
+        name, number = base, 2
+        while name in self._tools:
+            name = f"{base[:60]}_{number}"
+            number += 1
+        tool.called = name
+        self._tools[name] = tool
+        return name
+
+    def schemas(self, only: str | None = None) -> list[dict[str, Any]]:
+        """The tools as the model is told them; ``only`` names the one tool to offer (the final request of an agent with an
+        answer format offers nothing else)."""
         return [
             {
                 "type": "function",
@@ -156,6 +170,7 @@ class Toolbox:
                 },
             }
             for name, tool in self._tools.items()
+            if only is None or name == only
         ]
 
     def node_of(self, name: str) -> tuple[str, str]:

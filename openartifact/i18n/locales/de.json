@@ -2404,5 +2404,7 @@
  "components.schema_fields.head.required": "Pflicht",
  "components.schema_fields.head.description": "Beschreibung",
  "components.schema_fields.head.default": "Standard",
- "components.schema_fields.head.value": "Wert"
+ "components.schema_fields.head.value": "Wert",
+ "nodes.agent.settings.answer_format.label": "Antwortformat",
+ "nodes.agent.settings.answer_format.help": "Die Form der Endantwort. Das Modell meldet diese Felder über ein Werkzeug, der Server prüft sie; sie werden zu den Daten des Knotens."
 }

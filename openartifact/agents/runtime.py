@@ -18,6 +18,7 @@ from contextlib import AsyncExitStack
 from typing import Any
 
 from openartifact.agents import client
+from openartifact.agents.answer_format import AnswerRun, AnswerSink, fields_of, report_tool
 from openartifact.agents.artifact_inputs import ArtifactInputError, artifact_values
 from openartifact.agents.client import UNENCRYPTED_REFUSED, Endpoint
 from openartifact.agents.completion import (  # noqa: F401 (the requests are part of the runtime's interface)
@@ -76,6 +77,7 @@ def _settings(frozen: Mapping[str, Any]) -> dict[str, Any]:
         "max_iterations": settings.get("max_iterations") or ITERATIONS_DEFAULT,
         "token_budget": settings.get("token_budget"),
         "tool_result_chars": settings.get("tool_result_chars"),
+        "answer_format": settings.get("answer_format") or [],
     }
 
 
@@ -163,6 +165,12 @@ async def run_node(
         and not provider.get("allow_http")
     ):
         return refuse(UNENCRYPTED_REFUSED)
+    try:
+        answer_fields = fields_of(settings["answer_format"])
+    except ValueError as error:
+        return refuse(f"Answer format: {error}")
+    if answer_fields:
+        detail["answer_format"] = answer_fields
     started = time.monotonic()  # the node's time limit covers opening the tools too
     async with AsyncExitStack() as stack:
         box = Toolbox([])
@@ -175,6 +183,11 @@ async def run_node(
                 return refuse(str(error))
             except TimeoutError:
                 return refuse(f"The tools could not be opened within the time limit of {limit:g} s")
+        answer: AnswerRun | None = None
+        if answer_fields:
+            # the model reports its final answer through this tool (ADR-085): added to whatever tools the agent has
+            sink = AnswerSink()
+            answer = AnswerRun(answer_fields, sink, box.add(report_tool(answer_fields, sink)))
         return await run_turns(
             started,
             endpoint_of(provider, api_key),
@@ -191,4 +204,5 @@ async def run_node(
             )
             if on_event
             else None,
+            answer=answer,
         )
