@@ -1,12 +1,13 @@
 # The form of the Personal settings page (ADR-062): display preferences and the data storage limits of the single user.
-# The window around it (the title with the name, Save and Cancel) is a component of its own.
+# The page has tabs (General, Data storage, Database): a section names its tab. The window around it is a component of its own.
 schema: 1
 name: personal
-columns: 2
-width: 50
+columns: 1
+width: 44
 sections:
   - key: display
     title: Display
+    tab: general
     column: 1
     fields:
       - key: mark_resolved_references
@@ -16,6 +17,7 @@ sections:
         default: false
   - key: stop
     title: Execution
+    tab: general
     column: 1
     fields:
       - key: show_stop_switch
@@ -25,61 +27,77 @@ sections:
         default: false
   - key: storage
     title: Data storage
-    column: 2
+    tab: storage
+    column: 1
     fields:
       - key: storage_keep_executions
-        widget: number
+        widget: limit
         label: "Executions kept per artifact"
-        help: "How many of the newest executions of each artifact are kept; older ones are deleted with their steps. Empty uses the operator's default (50). 0 keeps all. The rules that also delete executions are under Executions, Retention."
-        placeholder: "Operator default (50)"
+        help: "The newest executions of each artifact stay; older ones are deleted with their steps. Default: the operator's number (50). 0 keeps all."
         default: null
         min: 0
         max: 100000
-      - key: storage_step_data_days
-        widget: number
-        label: "Empty step outputs after (days)"
-        help: "The outputs and details of the steps of a finished execution older than this are removed; the execution, its steps and their results stay. Empty is off."
-        placeholder: "Off"
-        default: null
-        min: 1
-        max: 36500
-      - key: storage_run_data_mib
-        widget: number
-        label: "Limit for the data of all executions (MiB)"
-        help: "When the outputs, details and contexts of all executions together are larger, the oldest finished executions lose their step outputs and details until it fits. Empty is off."
-        placeholder: "Off"
-        default: null
-        min: 1
-        max: 1000000
+        config:
+          unit: executions
+          default_value: 50
       - key: storage_step_output_kib
-        widget: number
-        label: "Longest stored output of a step (KiB)"
-        help: "A longer output (and every long text in the details of a step: prompts, tool results) is cut when it is stored; the cut is marked. Empty keeps today's limit (256 KiB)."
-        placeholder: "256"
+        widget: limit
+        label: "Longest stored output of a step"
+        help: "A longer output, and every long text in a step's details, is cut when stored; the cut is marked. Default: 256 KiB, the most possible."
         default: null
         min: 1
         max: 256
+        config:
+          unit: KiB
+          default_value: 256
       - key: storage_run_output_kib
-        widget: number
-        label: "Longest stored output of an execution (KiB)"
-        help: "All stored outputs of one execution together; the oldest are replaced by a note when it is exceeded. Empty keeps today's limit (1024 KiB)."
-        placeholder: "1024"
+        widget: limit
+        label: "Longest stored output of an execution"
+        help: "All stored outputs of one execution together; the oldest become a note when it is exceeded. Default: 1024 KiB, the most possible."
         default: null
         min: 1
         max: 1024
+        config:
+          unit: KiB
+          default_value: 1024
+      - key: storage_step_data_days
+        widget: optional-number
+        label: "Empty step outputs after"
+        help: "Outputs and details of finished executions older than this are removed; the executions, their steps and results stay. Default: off."
+        default: null
+        min: 1
+        max: 36500
+        config:
+          unit: days
+          on_value: 30
+      - key: storage_run_data_mib
+        widget: optional-number
+        label: "Limit for the data of all executions"
+        help: "When all outputs, details and contexts together are larger, the oldest finished executions lose them until it fits. Default: off."
+        default: null
+        min: 1
+        max: 1000000
+        config:
+          unit: MiB
+          on_value: 1024
       - key: storage_clean_interval_hours
-        widget: number
-        label: "Clean automatically every (hours)"
-        help: "The cleaner applies the limits above and the retention rules, and shrinks the write-ahead log. It deletes nothing you have not set a limit for. Empty is off; Clean now is always available."
-        placeholder: "Off"
+        widget: optional-number
+        label: "Clean automatically"
+        help: "Applies the limits above and your retention rules every few hours and shrinks the write-ahead log; deletes nothing you set no limit for. Default: off."
         default: null
         min: 1
         max: 8760
+        config:
+          unit: hours
+          on_value: 24
+          every: true
       - key: storage_warn_mib
-        widget: number
-        label: "Warn when the database is larger than (MiB)"
-        help: "Shows a hint in this section when the database file is larger. Empty is off."
-        placeholder: "Off"
+        widget: optional-number
+        label: "Warn when the database is larger than"
+        help: "Shows a hint on the Database tab when the database file is larger. Default: off."
         default: null
         min: 1
         max: 10000000
+        config:
+          unit: MiB
+          on_value: 1024

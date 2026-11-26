@@ -9,6 +9,16 @@ import { plural, t } from "../i18n.js";
 
 const BASE = "/api/settings/storage";
 
+/** How long until a moment, for people: "in 3 h 12 min", "in 5 min", "due now". */
+export function untilText(iso, now = Date.now()) {
+  const ms = new Date(iso).getTime() - now;
+  if (!Number.isFinite(ms)) return "";
+  const minutes = Math.round(ms / 60000);
+  if (minutes <= 0) return t("storage.due_now");
+  const hours = Math.floor(minutes / 60);
+  return t("storage.in", { time: hours ? `${hours} h ${minutes % 60} min` : `${minutes} min` });
+}
+
 /** A size in bytes for people: "1.9 MiB", "512 KiB", "300 B". */
 export function human(bytes) {
   if (!Number.isFinite(bytes)) return "";
@@ -65,20 +75,30 @@ export class StoragePanel {
     this.warning.hidden = !db.over_warning;
     this.warning.textContent = db.over_warning ? t("storage.over_warning", { size: human(db.file_bytes), limit: human(db.warn_bytes) }) : "";
     const last = status.last_clean;
+    const cleaner = element("dd", "");
+    if (status.interval_hours) {
+      const next = status.next_clean_at ? `, ${t("storage.next_pass")} ${untilText(status.next_clean_at)}` : "";
+      cleaner.append(`${plural("storage.every_hours", status.interval_hours)}${next} `);
+    } else cleaner.append(`${t("storage.cleaner_off")} `);
+    const link = element("a", "st-link", t("storage.cleaner_change"));
+    link.href = "#storage";
+    cleaner.append(link);
     const rows = [
       [t("storage.file"), human(db.file_bytes)],
       [t("storage.wal"), human(db.wal_bytes)],
       [t("storage.free_pages"), `${db.free_pages} (${human(db.free_bytes)})`],
       [t("storage.run_data"), human(status.run_data_bytes)],
-      [t("storage.cleaner"), status.interval_hours ? plural("storage.every_hours", status.interval_hours) : t("storage.cleaner_off")],
+      [t("storage.cleaner"), cleaner],
       [t("storage.last_pass"), last ? t("storage.last_pass_value", { when: new Date(last.at).toLocaleString(), entries: last.entries, size: human(last.bytes) }) : t("storage.never")],
     ];
-    this.facts.replaceChildren(...rows.flatMap(([label, value]) => [element("dt", "", label), element("dd", "", value)]));
+    this.facts.replaceChildren(...rows.flatMap(([label, value]) => [element("dt", "", label), typeof value === "string" ? element("dd", "", value) : value]));
     const heading = element("h3", "st-subheading", t("storage.biggest_tables"));
-    const list = element("ul", "st-list");
+    const list = element("ul", "st-tablelist");
     for (const table of db.tables) {
       const size = table.bytes === null ? plural("storage.rows", table.rows ?? 0) : human(table.bytes);
-      list.append(element("li", "", `${table.name}: ${size}`));
+      const item = element("li", "st-tablelist__row");
+      item.append(element("span", "st-tablelist__name", table.name), element("span", "st-tablelist__size", size));
+      list.append(item);
     }
     this.tables.replaceChildren(heading, list);
   }
