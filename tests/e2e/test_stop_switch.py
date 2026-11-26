@@ -1,4 +1,4 @@
-"""The STOP switch in the browser (ADR-076): the red switch next to Retention, the question before it goes on, the banner on
+"""The emergency stop in the browser (ADR-076): the red switch next to Retention, the question before it goes on, the banner on
 every page and live, the refused start of a card, and the personal setting that offers it."""
 
 from __future__ import annotations
@@ -104,8 +104,10 @@ def test_switching_on_asks_naming_the_running_executions_and_aborts_them_and_off
 
     switch.click()
     expect(dialog).to_be_visible()
-    expect(dialog).to_contain_text("STOP aborts 1 running execution and refuses every start")
-    expect(dialog.get_by_role("button", name="Switch STOP on")).to_be_visible()
+    expect(dialog).to_contain_text(
+        "The emergency stop aborts 1 running execution and refuses every start"
+    )
+    expect(dialog.get_by_role("button", name="Switch emergency stop on")).to_be_visible()
     dialog.get_by_role("button", name="Cancel").click()
     expect(dialog).to_be_hidden()
     expect(switch).to_have_attribute(
@@ -115,13 +117,13 @@ def test_switching_on_asks_naming_the_running_executions_and_aborts_them_and_off
     assert executions(api, task)[0]["status"] == "running"
 
     switch.click()
-    dialog.get_by_role("button", name="Switch STOP on").click()
+    dialog.get_by_role("button", name="Switch emergency stop on").click()
     expect(dialog).to_be_hidden()
     expect(switch).to_have_attribute("aria-checked", "true")
     assert _is_danger_red(page, SWITCH, "color")  # the red of the trash button, not the accent
     row = page.locator(".ex-row").first
     expect(row.locator(".history-chip")).to_have_text("Stopped")
-    expect(row.locator("[data-note]")).to_have_text("STOP switch")
+    expect(row.locator("[data-note]")).to_have_text("EMERGENCY STOP")
     expect(page.locator(BANNER)).to_be_visible()
     assert api.get(STOP).json()["active"] is True
 
@@ -139,7 +141,7 @@ def test_the_question_says_so_when_nothing_runs(
     page.goto(f"{base_url}/executions")
     page.locator(SWITCH).click()
     expect(page.locator("#confirm-modal")).to_contain_text(
-        "No execution is running. STOP refuses every start"
+        "No execution is running. The emergency stop refuses every start"
     )
     page.locator("#confirm-modal").get_by_role("button", name="Cancel").click()
 
@@ -172,7 +174,7 @@ def test_the_banner_is_at_the_top_centre_of_every_page_and_follows_the_switch_li
         other.locator(BANNER)
     ).to_be_visible()  # the state comes with the page load too, not only with an event
 
-    board.locator(BANNER).get_by_role("button", name="Switch STOP off").click()
+    board.locator(BANNER).get_by_role("button", name="Switch emergency stop off").click()
     for tab in (board, other):
         expect(tab.locator(BANNER)).to_be_hidden()
     assert api.get(STOP).json()["active"] is False
@@ -181,25 +183,54 @@ def test_the_banner_is_at_the_top_centre_of_every_page_and_follows_the_switch_li
 
 # ── a card cannot be started ──────────────────────────────────────────
 
+START_OFF = "Emergency stop is on: processing is stopped"
 
-def test_a_card_cannot_be_started_while_stop_is_on_and_says_why(
+
+def test_start_is_greyed_while_the_emergency_stop_is_on_says_why_and_follows_it_live(
+    board: Board, api: httpx.Client
+) -> None:
+    """The button is not clickable (no click that only answers with a message); a dialog that is already open flips with the switch."""
+    pipeline = slow_pipeline(api, stage_name="Gap analysis")
+    task = board.create("Item")
+    _offer(api)
+    board.open()
+    dialog = board.open_card("Item")
+    run = dialog.root.locator('[data-card-action="run"]')
+    expect(run).to_be_enabled()
+    expect(run).not_to_have_attribute("title", START_OFF)
+
+    api.put(
+        STOP, json={"active": True}
+    ).raise_for_status()  # from outside, while the dialog is open
+    expect(run).to_be_disabled()
+    expect(run).to_have_attribute("title", START_OFF)
+    expect(run).to_contain_text("Start processing")  # still the Start button, only greyed
+    assert [r for r in api.get("/api/runs").json() if r["task_id"] == task["id"]] == []
+
+    # greyed is the front, the server is the safety net: a direct start is refused all the same
+    refused = api.post(f"/api/tasks/{task['id']}/run", json={"pipeline_id": pipeline["id"]})
+    assert refused.status_code == 409 and refused.json()["code"] == "stopped"
+
+    api.put(STOP, json={"active": False}).raise_for_status()
+    expect(run).to_be_enabled()  # live again, without reopening the dialog
+    expect(run).not_to_have_attribute("title", START_OFF)
+    run.click()
+    expect(run).to_contain_text("Stop processing")  # the same click starts it now
+    run.click()
+
+
+def test_a_card_opened_while_the_emergency_stop_is_on_has_its_start_greyed(
     board: Board, api: httpx.Client
 ) -> None:
     slow_pipeline(api, stage_name="Gap analysis")
-    task = board.create("Item")
+    board.create("Item")
     _offer(api)
     api.put(STOP, json={"active": True}).raise_for_status()
     board.open()
     dialog = board.open_card("Item")
     run = dialog.root.locator('[data-card-action="run"]')
-    run.click()
-    expect(board.page.get_by_text("Pipeline processing is stopped (STOP is on).")).to_be_visible()
-    expect(run).to_contain_text("Start processing")  # nothing started
-    assert [r for r in api.get("/api/runs").json() if r["task_id"] == task["id"]] == []
-    api.put(STOP, json={"active": False}).raise_for_status()
-    run.click()
-    expect(run).to_contain_text("Stop processing")  # the same click starts it now
-    run.click()
+    expect(run).to_be_disabled()
+    expect(run).to_have_attribute("title", START_OFF)
 
 
 # ── the setting that offers it ────────────────────────────────────────
@@ -209,14 +240,12 @@ def test_the_personal_page_offers_the_switch_and_will_not_hide_it_while_stop_is_
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     page.goto(f"{base_url}/settings/personal")
-    setting = page.get_by_label("Show the STOP switch")
+    setting = page.get_by_label("Show the emergency stop")
     expect(setting).not_to_be_checked()
     setting.check()
     eventually(lambda: api.get(PERSONAL).json()["show_stop_switch"], True)
     api.put(STOP, json={"active": True}).raise_for_status()
     setting.uncheck()
-    expect(page.locator("[data-form-error]")).to_contain_text(
-        "switch STOP off before you hide the switch"
-    )
+    expect(page.locator("[data-form-error]")).to_contain_text("switch it off before you hide it")
     expect(setting).to_be_checked()  # the form shows what the server holds
     assert api.get(PERSONAL).json()["show_stop_switch"] is True

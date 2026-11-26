@@ -20,6 +20,6 @@ sections:
     fields:
       - key: show_stop_switch
         widget: switch
-        label: Show the STOP switch
-        help: Offers the STOP switch on the Executions page, in the API and in MCP. While STOP is on, no execution starts and every running one is aborted.
+        label: Show the emergency stop
+        help: Offers the emergency stop on the Executions page, in the API and in MCP. While the emergency stop is on, no execution starts and every running one is aborted.
         default: false

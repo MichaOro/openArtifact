@@ -1,4 +1,4 @@
-/* The STOP switch's state in the browser (components/stop-state.js, ADR-076): what the banner and the switch share. */
+/* The emergency stop's state in the browser (components/stop-state.js, ADR-076): what the banner and the switch share. */
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
@@ -57,8 +57,8 @@ test("a refusal of the server reaches the caller and leaves the state as it was"
   globalThis.fetch = async () => ({
     status: 409,
     ok: false,
-    json: async () => ({ detail: 'The STOP switch is switched off: switch on "Show the STOP switch"', code: "stop_unavailable" }),
+    json: async () => ({ detail: 'The emergency stop is switched off: switch on "Show the emergency stop"', code: "stop_unavailable" }),
   });
-  await assert.rejects(setStop(true), (error) => error.status === 409 && error.code === "stop_unavailable" && error.detail.includes("Show the STOP switch"));
+  await assert.rejects(setStop(true), (error) => error.status === 409 && error.code === "stop_unavailable" && error.detail.includes("Show the emergency stop"));
   assert.equal(currentStop().active, false);
 });
