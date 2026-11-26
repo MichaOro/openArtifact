@@ -110,8 +110,15 @@ server restart and is shown in the History tab ([Execution history](execution-hi
 | `${(Node name).attempts}`, `.duration_ms` | the number of tries, the milliseconds it took |
 | `${(Node name).data}` | the node's data as compact JSON |
 | `${(Node name).data.key.sub.0}` | one value in the data; numbers index lists |
+| `${node:ID.output}`, `${node:ID.data.key}` ... | the same fields of a node named by its **id** (ADR-082): the editor inserts this form and shows the name; a rename changes nothing, and two nodes of one name are told apart |
+| `${input.name}` | an input of the action that is running (ADR-083): declared on its Trigger, given by the node that runs it |
 | `${var.name}` | a variable |
 | `${card.name}` | a parameter of the artifact (see [below](#card-parameters-card-the-artifact-fields)) |
+
+A node is best written by its **id**, `${node:<uuid>.output}`: the reference list of the editor inserts it and shows the node's name (`(Fetch).output`),
+and a line under the field says which nodes the ids are now (`Reads: …`). The same action definition placed more than once in a pipeline is shown as
+`Name #1`, `#2`, `#3` (the lowest free number; the number appears only while it is placed more than once) and each placement has its own id, so each
+has its own result. The name forms below keep working while the name is unique.
 
 A node is written by its name **as the editor shows it**, in parentheses: `${(Code: hello).output}`. The name may hold
 blanks and punctuation, only `(`, `)` and `}` are not possible in it. The older spelling `${node.NAME.output}` stays valid:
@@ -187,6 +194,25 @@ permanently. Changes the script makes to it are not read back.
 output, then their data, then are dropped; variables are never dropped). It is built from the masked results, so
 a secret a node printed is `***` in it and in `context.json`. The values are text from outside (responses, script
 output), so treat them as untrusted, like any output.
+
+## Inputs and outputs of an action
+
+An action definition can say what it needs and what it gives (ADR-083). Both are optional: a definition that declares nothing runs as before.
+
+- **Inputs** are declared in the window of its **Trigger**: a list of fields with a name, a type (text, number, true or false, choice, list), *required*
+  and a default. Inside the definition a node reads an input as `${input.name}` (an optional input with no value reads as empty text).
+- **Outputs** are declared in the window of its **Output** node: a name, a type and a value (a text, or references such as `${(Fetch).output}` or
+  `${input.who}`). When the action ends on *On Pass* the values are worked out and become the `data` of the node that ran it; a value that cannot be
+  worked out fails the action and names the output.
+- **The node that runs the action** (in a pipeline) shows one row per declared input and takes a text, a card field (`${card.title}`) or the output of an
+  earlier node (`${node:<id>.data.greeting}`; pick it from the list). A row left empty uses the default of the input; a required one without a value
+  fails the run: `Greet: input 'who' is required and has no value`. A value that does not fit the type fails with the input and the value.
+- **Outputs are read by the id of that node.** The same definition placed twice, or three times, gives each placement its own outputs, so the third
+  action can take the outputs of the first and the second.
+
+The result of a node that ran a definition with a contract carries the result contract (`success`, `outcome`, `reason`, `attempts`); a node that ran a definition
+without one has no result of its own. A pipeline node and the Complete of a pipeline have the same two settings; the run of a called pipeline does not use
+them yet.
 
 ## Execute Command node
 

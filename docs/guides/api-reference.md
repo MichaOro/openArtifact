@@ -337,9 +337,23 @@ is saved at once.
 | DELETE | `/api/{kind}/{graph_id}/edges/{edge_id}` | Remove; `204` | 404 |
 | GET | `/api/pipelines/{graph_id}/stages` | The stages in running order with their actions | 404 |
 | GET | `/api/{kind}/{graph_id}/neighbours` | Every node with its predecessors and successors (`?version=published` (default) \| `draft` \| a number; see [Neighbours and position](#neighbours-and-position)) | 404, 422 |
+| GET | `/api/{kind}/{graph_id}/check` | What publishing the draft would run into (ADR-082): `findings` (each `level` `error` or `warning`, `code`, `node_id`, `node_name`, `message`), `errors` and `warnings`; reads only, runs nothing; see [The check before publishing](#the-check-before-publishing) | 404, 422 |
+| GET | `/api/{kind}/{graph_id}/versions` | The published versions, newest first (`current`: the one executions use) | 404 |
+| POST | `/api/{kind}/{graph_id}/publish` | Publish the draft as a new version. Body `{"acknowledge": true}` (optional) publishes although the check found something; without it findings answer `409` with code `findings` and the list in `findings` | 404, 409 (nothing new, or findings), 422 |
+| POST | `/api/{kind}/{graph_id}/draft/discard` | Throw the draft away: it is the published version again | 404, 409 (nothing published, or equal) |
 | GET | `/api/node-types` | The kinds of nodes: ports, settings (with `group` and `references` hints for the inspector), links (the editor draws from this); texts in the language of the request (cookie `oa_lang`, else `Accept-Language`) where a translation exists, stored values unchanged | |
 
 `{kind}` is `pipelines` or `actions`.
+
+#### The check before publishing
+
+Only what is published runs, so a draft may be wrong and saving a draft never checks. Publishing asks first. `GET /api/{kind}/{graph_id}/check`
+reads the draft as data (it runs nothing) and answers what it found, errors first: **errors** cannot work (`node_missing`: a reference to a
+node that is not there; `secret_missing`, `card_field_missing`, `input_missing`: a `${input.x}` the graph does not declare, `output_missing`,
+`placement_no_contract`, `input_not_given`: a required input without a value, `name_ambiguous`, `reference_malformed`) and **warnings** may
+(`node_not_before`: the node is not in front of this one on every path, `node_elsewhere`, `variable_unknown`, `input_unknown`). The browser
+shows the findings in a confirmation window before it publishes; a script publishes over findings with `{"acknowledge": true}`, else it gets
+`409` with `{"detail", "code": "findings", "findings": [...]}`.
 
 #### Neighbours and position
 
