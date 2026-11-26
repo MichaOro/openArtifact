@@ -1,0 +1,123 @@
+# Settings that more than one kind has, by name: a manifest says `use: name` (and may override fields beside it).
+settings:
+  on_failure:
+    key: on_failure
+    label: If the node fails
+    type: select
+    default: fail
+    options:
+    - fail
+    - continue
+    - error_output
+    option_labels:
+      fail: Stop the run
+      continue: Continue
+      error_output: Error output
+    help: Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error
+      output goes on through On Fail, which shows only then.
+    stored_in: config
+    level: optional
+    section: behaviour
+  method:
+    key: method
+    label: Method
+    type: select
+    default: GET
+    options:
+    - GET
+    - POST
+    - PUT
+    - PATCH
+    - DELETE
+    stored_in: config
+  case_sensitive:
+    key: case_sensitive
+    label: Case sensitive
+    type: switch
+    default: true
+    help: 'Off: texts are compared without regard to upper and lower case.'
+    stored_in: config
+  timeout_seconds:
+    key: timeout_seconds
+    label: Timeout (seconds)
+    type: integer
+    minimum: 1
+    maximum: 120
+    default: 30
+    stored_in: config
+  query:
+    key: query
+    label: Query
+    type: code
+    default: ''
+    max_length: 20000
+    placeholder: SELECT id, title FROM tickets WHERE status = $1 LIMIT 20
+    help: One SQL statement; values go in as $1, $2, ... (never ${...}). Stored in plain text, so no passwords.
+    stored_in: config
+    check: sql_query
+  allow_write:
+    key: allow_write
+    label: Allow changes
+    type: switch
+    default: false
+    help: 'Off: the statement runs in a read-only transaction that is rolled back, so any change is refused. On: it may change
+      data and is committed; use a database role with only the privileges it needs.'
+    stored_in: config
+  max_rows:
+    key: max_rows
+    label: Max rows
+    type: integer
+    minimum: 1
+    maximum: 1000
+    default: 100
+    help: More rows are left out and the result says it is truncated.
+    stored_in: config
+  tool_name:
+    key: tool_name
+    label: Tool name
+    type: text
+    default: ''
+    max_length: 64
+    placeholder: get_weather
+    help: 'The name the model calls it by (letters, digits, _ and -). Empty: the node''s name.'
+    stored_in: config
+    check: tool_name
+  allow_private:
+    key: allow_private
+    label: Private network
+    type: switch
+    default: false
+    help: The address is on a private or local network. Counts only when the operator allows it too (OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).
+    stored_in: config
+  parameters:
+    key: parameters
+    label: Parameters
+    type: lines
+    default: ''
+    max_length: 5000
+    placeholder: 'city: The city to look up'
+    help: 'One ''name: description'' per line; the model fills them. Names: lowercase letters, digits and _.'
+    stored_in: config
+    check: tool_parameters
+  operator:
+    key: operator_1
+    label: Operator
+    type: select
+    default: equals
+    options:
+    - equals
+    - not equals
+    - contains
+    - not contains
+    - starts with
+    - ends with
+    - is empty
+    - is not empty
+    - greater than
+    - less than
+    - greater or equal
+    - less or equal
+    - is true
+    - is false
+    stored_in: config
+    group: Condition 1

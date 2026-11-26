@@ -41,6 +41,13 @@ nodes. Several of these are listed in arc42 chapter 11.
 - A request carries the token as `Authorization: Bearer <token>` or, for a browser, a session cookie from the
   sign-in page. The comparison is constant-time on bytes; a wrong token on the sign-in page costs half a
   second. A browser asking for a page is sent to the sign-in page; everything else gets `401`.
+- **Single sign-on** (OpenID Connect, ADR-043) is a second way to the same cookie, for example with Authelia. It is
+  switched on by `OPENARTIFACT_OIDC_ISSUER`, `..._CLIENT_ID` and `..._CLIENT_SECRET` and **needs a list of who may
+  come in** (`OPENARTIFACT_OIDC_ALLOWED_EMAILS`, `..._USERS` or `..._GROUPS`), because everyone who is in may do
+  everything; without the token or without a list the start is refused. The flow uses PKCE, a state cookie used once
+  and a nonce; the ID token must be signed with an asymmetric algorithm by the provider's published key and match
+  issuer, audience and expiry. The provider's discovery document must keep its token, key and userinfo endpoints on
+  the issuer's origin, so the client secret cannot be sent elsewhere. The API token keeps working for scripts and MCP.
 - The cookie holds `<issued-at>.<HMAC-SHA256>` signed with the secret key over the time and the token, never
   the token itself; valid for 30 days; `HttpOnly`, `SameSite=Strict`, `Secure` (and named `__Host-oa_session`)
   over HTTPS. Changing the token or the secret key ends every session. Logging out clears the cookie in that
@@ -82,12 +89,57 @@ the unspecified, multicast and cloud-metadata addresses are refused always. Deta
 [execution nodes guide](execution-nodes.md#http-node). Limit: it protects what **HTTP nodes** can reach; a
 Code node is not behind it.
 
+**LLM providers** go through the same guard: the connection test, the model list and every request of an Agent
+node. A provider may be on any address (a model server on this host or in the internal network included), so whoever may
+create providers can have the application ask such an address; a provider is saved only when that address answers in
+the OpenAI format. An `http://` address needs the provider's *Allow unencrypted connection (HTTP)*, and OpenRouter's
+address is fixed. `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS` now governs the tools of an agent only. The
+**tools of an agent** (MCP Client Tool, HTTP Request Tool, Postgres Tool) use the same guard and the same two switches (the tool's
+*Private network* and the operator's); a Code Tool runs under the Code node's rules.
+
+**What an agent's tools may do** is what the model decides within what you offer: a tool's answer and an MCP server's
+tool descriptions are text from outside and can steer the model. Offer only the tools an agent needs (for GitHub:
+*Tools to include: selected* with the read tools), keep tokens to the scopes the agent needs, and remember that there is
+no approval step before a tool call. Model values are filled in after the references, so a model cannot reach a secret
+by writing `${secret:...}`; the run's secret values are masked in tool answers before the model reads them.
+
+**GitHub and Postgres (ADR-041).** The *GitHub node* reads and, only with *Allow comments* on, writes one kind of thing:
+a comment; give its token the scope to comment and nothing more. The *Postgres node* and *Postgres Tool* run one
+statement with the values as bound parameters, never as SQL text, and read-only by the database's own enforcement unless
+*Allow changes* is on; that switch is no replacement for a database role with only the privileges the statement needs, so
+connect with such a role, and with TLS (`?sslmode=require`) beyond a trusted network. The connection URL is a secret; it
+and its password are masked in results, history and logs, and error texts never contain the URL, the user or the
+address. Connections go through the HTTP node's address guard (metadata addresses never, private ones only with both
+switches). Rows and answers are data from outside, like every node output. A Postgres Tool with *Allow changes* lets the
+model run a statement *you* wrote with the values *it* chooses: offer it only for statements where that is acceptable.
+
+**What an Agent node sends.** Everything a node maps into an agent's input goes to the provider and is stored in
+the step ("Request"). The provider's key is masked in results and logs and is never in a snapshot; other sensitive
+text (a value in a variable, a card parameter, an earlier node's output) is **not** recognised. Secrets cannot be
+mapped into an input. An answer is text from outside, like every node output. There is no budget: a node sends up
+to five requests. See [Agents and LLM providers](agents.md).
+
 ### 4. Credential store
 
 Named secrets, AES-256-GCM, key derived from `OPENARTIFACT_SECRET_KEY`, referenced by name, resolved only
 when a node runs and masked in results and logs. Needs a token and a key. The masking is by value and cannot
 catch a deliberate leak; a node that can read a secret can always exfiltrate it. See
 [Credentials](credentials.md).
+
+**Artifact fields** (`${card.NAME}`, ADR-044) are plain user data: stored as they are in
+`tasks.field_values`, copied into the context of every execution, never masked. Do not put credentials in them; a
+`${secret:NAME}` written into a parameter stays that text (a replaced value is never scanned again) and is not
+resolved. They are validated when saved (kinds, limits, 4 KiB in total) and, like any value from outside, pasted
+literally into requests (percent-encoded in a URL), never evaluated.
+
+The **run context** (variables and the results of the nodes that ran, stored with the execution, shown in the
+History and read by later nodes) is built from the results *after* secret masking, so a secret a node printed is
+`***` there and in the `context.json` the next Code node gets. A secret used in an HTTP node's request does not enter
+it. Context values are text from outside (responses, script output): `${node...}` and `${var...}` references paste
+them literally, never evaluate them and never search them for references again (no injection into the secret
+references or the URL: in a URL they are percent-encoded and never allowed in the scheme or host). The context is
+never logged (only ids and sizes). A node that is allowed to read a secret can still leak it into a variable on
+purpose, like anywhere else. `${secret:NAME}` is refused in the conditions of If and Switch nodes: a branch could reveal a secret bit by bit; the context is their only source. `context.json` is a temporary file in the node's own temporary directory.
 
 ### 5. Code node hardening, and its honest limits
 

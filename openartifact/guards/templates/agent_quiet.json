@@ -1,0 +1,16 @@
+{
+  "key": "agent_quiet",
+  "name": "Agent quiet and storm guard",
+  "summary": "Checks every minute while an agent works; when it has done nothing for 5 minutes, or has made the same tool call with the same arguments 10 times in a row, the run is paused. Ten different calls of the same tool (for example ten websites) are work, not a storm.",
+  "scope_types": ["action", "stage", "pipeline", "definition", "node"],
+  "guard": {
+    "trigger": {"type": "interval", "every_seconds": 60, "for_seconds": 0, "cooldown_seconds": 600},
+    "when": {"type": "group", "mode": "any", "items": [
+      {"type": "condition", "field": "agent.idle", "op": "at_least", "value": 300},
+      {"type": "condition", "field": "agent.repeat", "op": "at_least", "value": 10}
+    ]},
+    "consequence": "pause",
+    "fallback": "pause",
+    "escalation": []
+  }
+}

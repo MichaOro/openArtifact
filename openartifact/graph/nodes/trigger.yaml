@@ -1,0 +1,16 @@
+schema: 1
+kind: trigger
+label: Trigger
+behaviour: plain
+scopes:
+- action
+- pipeline
+fixed: true
+chain: true
+menu_icon: play
+ports:
+  outputs:
+  - name: out
+    label: Next
+ui:
+  color: trigger

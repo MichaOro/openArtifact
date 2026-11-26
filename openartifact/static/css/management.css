@@ -1,0 +1,140 @@
+/* The management pages (ADR-069): the list of definitions as cards or rows with a toolbar, the detail panel on the right, the picture
+ * of a graph. Colours come from tokens.css only. Prefixes: mg- = management page, gp- = graph preview. */
+
+/* two thirds for the entries and one third for the panel, always: the room of the panel is reserved so that the cards stay where they are
+   when one is selected (a narrow screen has a sheet instead, below) */
+.mg { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.mg__main { display: grid; gap: var(--space-4); min-width: 0; }
+
+/* ── toolbar ──────────────────────────────────────────────────────── */
+.mg__toolbar { display: grid; gap: var(--space-2); }
+.mg__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.mg-segment { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid var(--glass-border); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--color-glass-card) 70%, transparent); }
+.mg-segment__tab { white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-pill); background: none; color: var(--color-text-secondary); font: inherit; font-size: 0.8125rem; cursor: pointer; }
+.mg-segment__tab .icon { width: 1rem; height: 1rem; }
+.mg-segment__tab[aria-selected="true"] { background: color-mix(in srgb, var(--color-accent) 20%, transparent); border-color: var(--color-accent); color: var(--color-text-primary); }
+.mg-segment__count { color: var(--color-text-muted); }
+.mg-search { flex: 1 1 9rem; max-width: 22rem; position: relative; display: flex; align-items: center; }
+.mg-search .icon { position: absolute; left: var(--space-3); width: 1rem; height: 1rem; color: var(--color-text-muted); pointer-events: none; }
+.mg-search .field__control { min-width: 0; width: 100%; height: 2rem; padding-block: 0; padding-left: 2.1rem; }
+.modal__panel .mg-search .field__control { min-width: 0; }
+.mg-sort { width: auto; min-width: 0; height: 2rem; padding-block: 0; }
+.mg-filter.is-on, .mg-view__button.is-on { background: color-mix(in srgb, var(--color-accent) 20%, transparent); border-color: var(--color-accent); }
+.mg-view { display: inline-flex; gap: 2px; }
+.mg-view__button { border: 1px solid transparent; }
+
+/* ── list ─────────────────────────────────────────────────────────── */
+.mg__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+/* a card has a fixed size, the same on all four pages: the grid never stretches them, it only starts a new row when the room beside
+   the panel no longer holds another one. 19rem by 11rem holds a title of two lines, a text of two lines, one row of chips, one line of facts and the date */
+.mg { --mg-card-w: 19rem; --mg-card-h: 11rem; }
+.mg__list[data-view="cards"] { grid-template-columns: repeat(auto-fill, var(--mg-card-w)); justify-content: start; }
+.mg-card { position: relative; display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border: 1px solid transparent; cursor: pointer; min-width: 0; }
+.mg-card:hover { border-color: var(--glass-border-hover); }
+.mg-card:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.mg-card[aria-current="true"] { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent), 0 0 1.25rem color-mix(in srgb, var(--color-accent) 30%, transparent); }
+.mg-card__actions { position: absolute; top: var(--space-2); right: var(--space-2); display: flex; gap: 2px; }
+.mg__list[data-view="cards"] .mg-card { height: var(--mg-card-h); overflow: hidden; }
+.mg-card__body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; min-height: 0; height: 100%; }
+.mg-card__name { margin: 0; padding-right: 4.5rem; min-width: 0; font-size: 0.9375rem; line-height: 1.25; font-weight: 600; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mg-card__text { flex: 0 1 auto; margin: 0; min-height: 0; font-size: 0.8125rem; line-height: 1.35; color: var(--color-text-secondary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.mg-card__foot { display: grid; gap: var(--space-1); margin-top: auto; min-width: 0; } /* flush to the bottom edge */
+.mg-card__chips, .mg-panel__chips, .mg-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.mg-card__chips { flex-wrap: nowrap; overflow: hidden; } /* ONE row: what does not fit is cut with an ellipsis, never wrapped */
+.mg-card__chips .mg-chip { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-card__chips:empty { display: none; }
+.mg-card__facts, .mg-card__date { display: flex; flex-wrap: nowrap; gap: 0 var(--space-4); margin: 0; font-size: 0.75rem; line-height: 1.3; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.mg-card__facts:empty, .mg-card__date:empty { display: none; }
+.mg-card__facts b, .mg-card__date b { color: var(--color-text-secondary); font-weight: 600; }
+.mg__list[data-view="list"] .mg-card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.mg__list[data-view="list"] .mg-card__body { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); height: auto; }
+.mg__list[data-view="list"] .mg-card__name { padding-right: 0; -webkit-line-clamp: 1; }
+.mg__list[data-view="list"] .mg-card__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); margin-top: 0; }
+.mg__list[data-view="list"] .mg-card__actions { position: static; }
+.mg__list[data-view="list"] .mg-card__text { display: none; }
+.mg-chip { display: inline-flex; align-items: center; gap: var(--space-1); white-space: nowrap; max-width: 100%; }
+.mg-chip .icon { width: 0.8rem; height: 0.8rem; }
+.mg-tag { padding: 0 var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-pill); font-size: 0.75rem; line-height: 1.4rem; color: var(--color-text-secondary); }
+.mg__pager { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 0.8125rem; color: var(--color-text-muted); }
+.mg__tools { display: inline-flex; align-items: center; gap: var(--space-3); margin-left: auto; flex: none; }
+.mg__size { display: inline-flex; font-size: 0.8125rem; color: var(--color-text-muted); align-items: center; gap: var(--space-2); }
+.mg__size .field__control { width: auto; min-width: 0; height: 2rem; padding-block: 0; }
+
+/* ── detail panel ─────────────────────────────────────────────────── */
+.mg__panel { display: grid; gap: var(--space-3); align-content: start; padding: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--glass-border); background: var(--color-glass-card); position: sticky; top: var(--space-4); max-height: calc(100vh - 2 * var(--space-4)); overflow: auto; min-width: 0; }
+.mg__panel[hidden] { display: none; }
+.mg__panel[data-empty="true"] { background: none; border-style: dashed; place-content: center; min-height: 10rem; }
+.mg-panel__placeholder { margin: 0; text-align: center; font-size: 0.875rem; color: var(--color-text-muted); }
+.mg__scrim { display: none; } /* only a sheet on a narrow screen has one */
+.mg-panel__head { display: flex; align-items: flex-start; gap: var(--space-3); }
+.mg-panel__icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-accent) 18%, transparent); color: var(--color-accent); }
+.mg-panel__title { flex: 1; min-width: 0; display: grid; gap: var(--space-1); }
+.mg-panel__title h2 { margin: 0; font-size: 1.125rem; overflow-wrap: anywhere; }
+.mg-tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); border-bottom: 1px solid var(--glass-border); }
+.mg-tabs__tab { padding: var(--space-1) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-md) var(--radius-md) 0 0; background: none; color: var(--color-text-secondary); font: inherit; font-size: 0.875rem; cursor: pointer; }
+.mg-tabs__tab[aria-selected="true"] { border-color: var(--color-accent); border-bottom-color: transparent; background: color-mix(in srgb, var(--color-accent) 16%, transparent); color: var(--color-text-primary); }
+.mg-tabs__tab:disabled { opacity: 0.4; cursor: not-allowed; }
+.mg-panel__body { display: grid; gap: var(--space-3); min-width: 0; }
+.mg-panel__body[hidden] { display: none; }
+.mg-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2) var(--space-4); margin: 0; font-size: 0.875rem; }
+.mg-facts dt { color: var(--color-text-muted); }
+.mg-facts dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.mg-section { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+.mg-section h3 { margin: 0; font-size: 0.875rem; }
+.mg-uses { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); font-size: 0.875rem; }
+.mg-uses a { color: var(--color-accent); }
+.mg-uses__kind { color: var(--color-text-muted); font-size: 0.75rem; margin-right: var(--space-2); }
+.mg-prompt { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--glass-border); font-size: 0.8125rem; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12rem; overflow: auto; }
+
+/* on a narrow screen the panel is a sheet that rises from the bottom (the mobile web app) */
+@media (max-width: 52rem) {
+  .mg { grid-template-columns: minmax(0, 1fr); }
+  .mg__panel[data-empty="true"] { display: none; }
+  .mg__scrim:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 30; background: color-mix(in srgb, var(--color-background) 55%, transparent); }
+  .mg__panel { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 31; max-height: 82vh; border-radius: var(--radius-lg, var(--radius-md)) var(--radius-lg, var(--radius-md)) 0 0; }
+  .mg__tools { margin-left: 0; }
+}
+
+/* ── picture of a graph ───────────────────────────────────────────── */
+.gp { position: relative; width: 100%; min-height: 2.5rem; overflow: hidden; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-background) 40%, transparent); }
+.gp__stage { position: absolute; top: 0; transform-origin: top left; }
+.gp__links { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.gp__link { fill: none; stroke: var(--color-text-secondary); stroke-width: 1.5; stroke-linejoin: round; }
+.gp__link.is-passing { stroke: var(--edge-pass); }
+.gp__link.is-failing { stroke: var(--color-danger); stroke-dasharray: 5 4; }
+.gp__link.is-tool { stroke-dasharray: 4 4; stroke: var(--color-text-muted); }
+.gp__arrow { fill: var(--color-text-secondary); }
+.gp__arrow--pass { fill: var(--edge-pass); }
+.gp__arrow--failing { fill: var(--color-danger); }
+.gp-cluster { position: absolute; box-sizing: border-box; border: 1px solid var(--glass-border-hover, var(--color-border)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-text-primary) 5%, transparent); }
+.gp-cluster .icon { position: absolute; left: 6px; top: 3px; width: 11px; height: 11px; color: var(--color-text-muted); }
+.gp-node { position: absolute; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--node-color) 60%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--node-color) 20%, var(--color-glass-card)); color: var(--node-color); }
+.gp-node .icon { width: 55%; height: 55%; }
+.gp-node.is-tool { border-style: dashed; opacity: 0.85; }
+.gp.is-failed { opacity: 0.4; }
+
+/* A long text in a panel (components/clamped-text.js): its first lines, "Show more", "Copy" */
+.ct { display: grid; gap: var(--space-2); min-width: 0; }
+.ct__box { padding: var(--space-2) var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-glass-card) 60%, transparent); min-width: 0; }
+.ct__text { margin: 0; color: var(--color-text-primary); font: inherit; font-size: 0.8125rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ct__text[data-clamped="true"] { display: -webkit-box; -webkit-line-clamp: var(--ct-lines, 6); -webkit-box-orient: vertical; overflow: hidden; }
+.ct__bar { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ct__empty { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); }
+.mg-prompt-switch { display: flex; gap: var(--space-1); }
+.mg-prompts { display: grid; gap: var(--space-3); }
+
+/* The Versions tab of the panel of pipelines and actions (ADR-070): a compact row per version, like the versions of an agent */
+.mg-versions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.mg-versions__top { display: grid; gap: var(--space-2); justify-items: start; }
+.mg-versions__note { margin: 0; }
+.mg-version { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-glass-card) 90%, transparent); }
+.mg-version__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.mg-version__meta { font-size: 0.75rem; color: var(--color-text-muted); }
+.mg-version__buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.mg-showing { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-accent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-accent) 10%, transparent); font-size: 0.8125rem; }
+.ge-chip--use { background: color-mix(in srgb, var(--edge-pass) 18%, transparent); }
+
+/* The archive of the board (ADR-071): the view takes the place of the lanes; the text of a comment keeps its line breaks. */
+.archive-view[hidden] { display: none; }
+.archive-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.board[hidden] { display: none; }

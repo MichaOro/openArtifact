@@ -1,0 +1,63 @@
+schema: 1
+kind: code_tool
+label: Code Tool
+behaviour: tool
+scopes:
+- action
+addable: true
+tool: true
+menu:
+  group: Agent tools
+  order: 3
+ports:
+  outputs:
+  - name: tool
+    label: Tool
+    side: top
+ui:
+  color: code
+  icon: code
+  caption:
+    template: '{language|default:python} · {tool_name|default:@name}'
+settings:
+- use: tool_name
+- key: description
+  label: Description
+  type: lines
+  default: ''
+  max_length: 1000
+  help: Tells the model what the tool does and when to use it. Name the parameters it takes below.
+  stored_in: config
+- key: language
+  label: Language
+  type: select
+  default: python
+  options:
+  - sh
+  - python
+  stored_in: config
+- key: code
+  label: Code
+  type: code
+  default: ''
+  max_length: 20000
+  help: The model's arguments are the object 'input' in context.json in the working directory; what the code prints
+    is the answer to the model. Runs with the rules of the Code node.
+  stored_in: config
+- key: secrets
+  label: Secrets
+  type: lines
+  default: ''
+  max_length: 2000
+  placeholder: API_KEY
+  help: One secret name per line, available as environment variables.
+  stored_in: config
+  check: secret_names
+- use: parameters
+- key: timeout_seconds
+  label: Timeout (seconds)
+  type: integer
+  minimum: 1
+  maximum: 600
+  default: 30
+  stored_in: config

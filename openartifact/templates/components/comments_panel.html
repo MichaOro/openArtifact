@@ -1,0 +1,39 @@
+{# The Comments tab of the artifact dialog (behaviour in static/js/tasks/comments-tab.js): the comments of the artifact,
+   oldest first, and a box to write one at the bottom; the button that sends it is in the dialog's footer
+   (create_task_modal.html), next to Close, as Edit is on the Details tab. Plain text only. #}
+{% from "components/icons.html" import icon %}
+<div class="modal__body comments" role="tabpanel" id="artifact-panel-comments" aria-labelledby="artifact-tab-comments" tabindex="0" hidden data-comments>
+    <div class="alert-bar glass" role="alert" hidden data-comments-alert>
+        <span data-alert-text></span>
+        <button type="button" class="button button--ghost button--sm" data-alert-retry>{{ t('common.retry') }}</button>
+    </div>
+    <div class="visually-hidden" role="status" aria-live="polite" data-comments-live></div>
+    <p class="history__summary" data-comments-summary>{{ t('comments.loading_comments') }}</p>
+    <div class="comments__scroll" data-comments-scroll>
+        <button type="button" class="button button--ghost button--sm comments__older" data-comments-older hidden></button>
+        <ul class="comments__list" aria-label="{{ t('common.comments') }}" data-comments-list></ul>
+        <p class="history__empty" data-comments-empty hidden>{{ t('comments.no_comments_yet_write_the_first') }}</p>
+    </div>
+    <form class="comments__form" id="comment-form" novalidate data-comments-form>
+        <div class="comments__head">
+            <label class="field__label" for="comment-input">{{ t('comments.add_a_comment') }}</label>
+            <p class="field__help" id="comment-hint">{{ t('comments.plain_text_ctrl_enter_sends') }}</p>
+        </div>
+        <textarea class="field__control" id="comment-input" rows="3" maxlength="65536" data-comments-input
+                  aria-describedby="comment-hint comment-error" placeholder="{{ t('comments.write_a_comment') }}"></textarea>
+        <p class="form-error" id="comment-error" role="alert" hidden data-comments-error></p>
+    </form>
+</div>
+<template id="comment-template">
+    <li class="comment">
+        <div class="comment__head">
+            <span data-comment-avatar></span>
+            <span class="comment__author" data-comment-author></span>
+            <time class="comment__time" data-comment-time></time>
+            <span class="comment__edited" data-comment-edited hidden>{{ t('comments.edited') }}</span>
+            <a class="comment__run" data-comment-run hidden>{{ t('comments.open_the_execution') }}</a>
+            <button type="button" class="icon-button icon-button--sm comment__more" aria-haspopup="menu" aria-expanded="false" data-comment-more></button>
+        </div>
+        <div class="comment__body" data-comment-body></div>
+    </li>
+</template>

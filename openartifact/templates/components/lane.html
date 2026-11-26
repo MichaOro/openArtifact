@@ -1,0 +1,24 @@
+{% from "components/icons.html" import icon %}
+{# Kanban lane. Usage: {{ lane("In Progress", "in-progress", "in_progress", hue=2) }}
+   `status` is the API value (the lane's key); `key` is only used for DOM ids. The board also renders it
+   once, empty, into <template id="lane-template">: static/js/tasks/board.js fills a copy for every
+   lane that is added while the page is open, so server and browser build the same markup. #}
+{% macro lane(title, key, status, count=0, hue=1, style="normal") -%}
+<section class="lane glass{% if style == 'finished' %} lane--finished{% endif %}" aria-labelledby="lane-{{ key }}-title" data-lane="{{ key }}" data-status="{{ status }}" data-lane-hue="{{ hue }}">
+    <header class="lane__header">
+        <h2 class="lane__title" id="lane-{{ key }}-title"><span class="lane__name" data-lane-name title="{{ title }}">{{ title }}</span></h2>
+        <span class="lane__count" aria-label="{{ plural('count.artifact', count) }}">{{ count }}</span>
+        <button type="button" class="icon-button icon-button--sm lane__add" data-create-task
+                data-status="{{ status }}" data-lane-title="{{ title }}"
+                aria-haspopup="dialog" aria-label="{{ t('tasks.board.add_artifact_title', title=title) }}" title="{{ t('lane.add_artifact') }}">
+            {{ icon("plus") }}
+        </button>
+        <button type="button" class="icon-button icon-button--sm lane__menu" data-lane-menu
+                aria-haspopup="menu" aria-expanded="false" aria-label="{{ t('tasks.board.options_lane_title', title=title) }}" title="{{ t('lane.lane_options') }}">
+            {{ icon("more") }}
+        </button>
+    </header>
+    <ul class="lane__cards" aria-label="{{ t('tasks.board.lane_artifacts', title=title) }}"></ul>
+    <p class="empty-state">{{ icon("inbox") }}<span>{{ t('lane.no_artifacts_yet') }}</span></p>
+</section>
+{%- endmacro %}

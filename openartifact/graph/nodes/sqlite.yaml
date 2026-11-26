@@ -1,0 +1,85 @@
+schema: 1
+kind: sqlite
+label: SQLite
+behaviour: flow
+produces_result: true
+timed: true
+result_data:
+- rows
+- truncated
+guardable: true
+scopes:
+- action
+# only a guard action may hold it (ADR-067): it reads the application's own data
+purposes:
+- guard
+addable: true
+chain: true
+reference_keys:
+- values
+menu:
+  group: Apps and data
+  order: 3
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+    visible_when:
+      setting: on_failure
+      equals: error_output
+ui:
+  color: sqlite
+  icon: database
+  hint: This node only reads data of the application (runs, steps, tool calls, artifacts, lanes) through the views v_guard_*. It never writes.
+  caption:
+    template: '{query|first_line|short|default:no query yet}'
+settings:
+- key: source
+  label: Data source
+  type: select
+  default: app
+  options:
+  - app
+  option_labels:
+    app: Application data
+  help: Where the query reads. Application data is this application's own database, through the views v_guard_*.
+  stored_in: config
+- key: query
+  label: Query
+  type: code
+  default: ''
+  max_length: 20000
+  placeholder: SELECT lane, count(*) FROM v_guard_artifacts GROUP BY lane
+  help: One read-only SQL statement on the views of the data source; values go in as ?1, ?2, ... (never ${...}). Anything that changes data is refused by the database itself.
+  stored_in: config
+  check: sql_query
+- key: values
+  label: Values
+  type: lines
+  default: ''
+  max_length: 20000
+  placeholder: backlog
+  help: One value per line (the first is ?1, the second ?2). ${node...} and ${var...} insert earlier results, no secrets.
+  stored_in: config
+  check: query_values
+  references: context
+- key: blocked
+  label: Blocked tables
+  type: lines
+  default: ''
+  max_length: 2000
+  level: optional
+  placeholder: tasks.title
+  help: 'Tables or columns this query may not read, one per line. Secrets, credentials, tokens, providers and settings are always blocked.'
+  stored_in: config
+  check: blocked_list
+- use: max_rows
+  level: optional
+- use: timeout_seconds
+  level: optional
+- use: on_failure

@@ -1,0 +1,70 @@
+schema: 1
+kind: postgres
+label: Postgres
+behaviour: flow
+produces_result: true
+timed: true
+result_data:
+- rows
+- truncated
+guardable: true
+scopes:
+- action
+addable: true
+chain: true
+reference_keys:
+- values
+menu:
+  group: Apps and data
+  order: 2
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+    visible_when:
+      setting: on_failure
+      equals: error_output
+ui:
+  color: postgres
+  icon: database
+  caption:
+    template: '{?allow_write:changes · }{query|first_line|short|default:no query yet}'
+settings:
+- key: secret
+  label: Connection secret
+  type: text
+  default: ''
+  max_length: 64
+  placeholder: TICKETS_DB
+  help: The name of a stored secret that holds postgresql://user:password@host:5432/db (add ?sslmode=require for
+    TLS). The URL is never kept in the node.
+  stored_in: config
+  check: secret_name
+- use: query
+- key: values
+  label: Values
+  type: lines
+  default: ''
+  max_length: 20000
+  placeholder: open
+  help: One value per line (the first is $1, the second $2); the database converts the text to the type the query expects,
+    and NULLIF($1, '') gives a NULL. ${node...} and ${var...} insert earlier results, no secrets.
+  stored_in: config
+  check: query_values
+  references: context
+- use: allow_write
+- key: allow_private
+  label: Private network
+  type: switch
+  default: false
+  help: The database is on a private or local network. Counts only when the operator allows it too (OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS).
+  stored_in: config
+  level: advanced
+- use: max_rows
+- use: timeout_seconds
+- use: on_failure

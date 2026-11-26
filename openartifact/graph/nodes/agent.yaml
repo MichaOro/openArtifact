@@ -1,0 +1,184 @@
+schema: 1
+kind: agent
+label: Agent
+behaviour: flow
+produces_result: true
+timed: true
+result_data:
+- model
+- usage.total_tokens
+- finish_reason
+- iterations
+guardable: true
+scopes:
+- action
+addable: true
+chain: true
+reference_keys:
+- inputs
+menu:
+  group: AI
+  order: 1
+ports:
+  inputs:
+  - name: in
+    label: Input
+  - name: tools
+    label: Tools
+    side: bottom
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+    visible_when:
+      setting: on_failure
+      equals: error_output
+ui:
+  color: agent
+  icon: agent
+  caption:
+    fn: agent_summary
+  block: agent
+settings:
+- key: agent_id
+  label: Agent
+  type: text
+  default: ''
+  max_length: 36
+  help: The agent this node runs (managed under Agents).
+  stored_in: config
+- key: inputs
+  label: Inputs
+  type: lines
+  default: ''
+  max_length: 20000
+  placeholder: ticket = ${node.Fetch_ticket.output}
+  help: One 'name = value' per line for the inputs the agent declares. The value is text and may hold ${node.NAME.output},
+    ${node.NAME.data.key}, ${var.name} or ${card.name}; secrets cannot be used.
+  stored_in: config
+  check: agent_inputs
+  references: context
+- key: system_prompt_enabled
+  label: Use system prompt
+  type: switch
+  stored_in: config
+  inherits: agent
+- key: system_prompt
+  label: System prompt
+  type: lines
+  max_length: 20000
+  stored_in: config
+  check: agent_prompt
+  level: optional
+  inherits: agent
+- key: user_prompt
+  label: User prompt
+  type: lines
+  max_length: 20000
+  stored_in: config
+  check: agent_prompt
+  level: optional
+  inherits: agent
+- key: provider_id
+  label: Provider
+  type: text
+  max_length: 36
+  stored_in: config
+  group: Model & Generation
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: model
+  label: Model
+  type: text
+  max_length: 200
+  stored_in: config
+  group: Model & Generation
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: temperature
+  label: Temperature
+  type: number
+  minimum: 0
+  maximum: 2
+  stored_in: config
+  group: Model & Generation
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: max_tokens
+  label: Max tokens
+  type: integer
+  minimum: 1
+  maximum: 8192
+  stored_in: config
+  group: Model & Generation
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: request_timeout_seconds
+  label: Request timeout (seconds)
+  type: integer
+  minimum: 1
+  maximum: 300
+  stored_in: config
+  group: Execution limits
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: total_timeout_seconds
+  label: Time limit (seconds)
+  type: integer
+  minimum: 1
+  maximum: 1800
+  stored_in: config
+  group: Execution limits
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: retries
+  label: Retries
+  type: integer
+  minimum: 0
+  maximum: 4
+  stored_in: config
+  group: Execution limits
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: max_iterations
+  label: Max iterations
+  type: integer
+  minimum: 1
+  maximum: 500
+  help: A safety net, not a goal (default 100). At the limit the agent writes its answer from what it has found, without tools.
+  stored_in: config
+  group: Execution limits
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: token_budget
+  label: Token budget
+  type: integer
+  minimum: 1000
+  maximum: 10000000
+  help: The most tokens all requests of one run may use. Not set - no budget; at the budget the agent answers from what it has.
+  stored_in: config
+  group: Execution limits
+  section: behaviour
+  level: optional
+  inherits: agent
+- key: tool_result_chars
+  label: Tool result limit
+  type: integer
+  minimum: 500
+  maximum: 100000
+  help: How many characters of one tool result the model reads (default 12000); older results are shortened more. The step keeps the result.
+  stored_in: config
+  group: Execution limits
+  section: behaviour
+  level: optional
+  inherits: agent
+- use: on_failure

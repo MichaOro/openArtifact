@@ -16,7 +16,7 @@ backports to older versions.
 
 ## Scope
 
-In scope: the application in this repository (`apps/backend`), the Docker image built from the `Dockerfile` and
+In scope: the application in this repository (the `openartifact` package), the Docker image built from the `Dockerfile` and
 the example deployment in `deploy/`: authentication (token and session), request hardening, the credential
 store, the HTTP and Code execution nodes, the REST API and the MCP server.
 

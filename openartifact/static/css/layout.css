@@ -1,0 +1,160 @@
+/* The layout handle and the arrange view of the manifest windows (ADR-063). Prefix: layout-handle, lw- (layout window).
+   Colours via tokens only: --layout-accent and friends are a family of their own (tokens.css), so the handle and its menu
+   cannot be mistaken for a "..." menu. */
+
+/* the handle: a pill on the top edge of the window's panel, in the middle, half outside */
+.modal__panel:has(> .layout-handle) { position: relative; }
+.layout-handle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% -50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 1.5rem; /* the hit area: 24 px */
+  padding: 0;
+  border: 1px solid var(--layout-accent);
+  border-radius: var(--radius-pill);
+  background: var(--layout-accent);
+  color: var(--layout-on-accent);
+  cursor: pointer;
+  box-shadow: var(--shadow-card-hover);
+  transition: background var(--transition-fast);
+}
+.layout-handle[hidden] { display: none; }
+.layout-handle .icon { width: 1.125rem; height: 1.125rem; }
+.layout-handle:hover { background: var(--layout-accent-hover); border-color: var(--layout-accent-hover); }
+.layout-handle:focus-visible { outline: 2px solid var(--layout-accent); outline-offset: 3px; }
+.layout-handle[aria-expanded="true"] { background: var(--layout-accent-hover); }
+/* an arrangement that is not saved yet */
+.layout-handle[data-dirty]::after {
+  content: "";
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  border: 2px solid var(--layout-accent);
+}
+
+/* its menu: the menu component in the layout colour, with a title */
+.menu--layout { border-top: 3px solid var(--layout-accent); }
+.menu--layout .menu__title {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.menu--layout .menu__item .icon { color: var(--layout-accent); }
+
+/* arranging */
+.lw-host { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
+.lw-banner {
+  contain: inline-size; /* the line does not make the window wide: it wraps to the width of the arranged window */
+  margin: 0 2.75rem 0 0; /* clear of the close button, which a node's window draws over its top right corner */
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--layout-accent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--layout-accent) 12%, transparent);
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+}
+.lw-banner[data-error] { border-left-color: var(--color-danger); }
+.lw-arrange { display: flex; flex-direction: column; gap: var(--space-3); width: min(var(--lw-width, 100%), 100%); min-width: min(30rem, 100%); }
+.lw-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); align-items: start; }
+.lw-grid[data-columns="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 52rem) { .lw-grid[data-columns="2"] { grid-template-columns: minmax(0, 1fr); } }
+.lw-lane { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; min-height: 3rem; }
+.lw-row { min-width: 0; }
+.lw-section {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border: 2px dashed var(--layout-accent);
+  border-radius: var(--radius-md);
+}
+.lw-section__head { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-1); font-weight: 600; }
+.lw-section__title { color: var(--color-text-primary); }
+.lw-fields { display: flex; flex-direction: column; gap: var(--space-1); min-height: 1.75rem; margin: 0; padding: 0; list-style: none; }
+.lw-field,
+.lw-fixed {
+  display: flex;
+  flex-wrap: wrap; /* a long tag goes below the name instead of squeezing it into letters */
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-glass-card) 90%, transparent);
+  font-size: 0.875rem;
+}
+.lw-fixed { margin: 0 0 var(--space-2); justify-content: space-between; border-style: dashed; color: var(--color-text-secondary); }
+.lw-field__label { flex: 1 0 auto; min-width: 5rem; max-width: 100%; overflow-wrap: break-word; }
+.lw-field__tag {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  font-size: 0.6875rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.lw-folded {
+  margin: var(--space-2) 0 var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px dashed var(--glass-border);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+.lw-grip {
+  display: grid;
+  place-items: center;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--layout-accent-hover); /* the darker (light theme) or lighter (dark theme) step: 5.8:1 on the card */
+  cursor: grab;
+  touch-action: none;
+}
+.lw-grip .icon { width: 1rem; height: 1rem; }
+.lw-grip:hover { background: color-mix(in srgb, var(--layout-accent) 16%, transparent); }
+.lw-grip:focus-visible { outline: 2px solid var(--layout-accent); outline-offset: 1px; }
+.lw-drop { height: 3px; margin: 2px 0; border-radius: 2px; background: var(--layout-accent); list-style: none; pointer-events: none; }
+.is-dragging { outline: 2px dashed var(--layout-accent); background: color-mix(in srgb, var(--layout-accent) 14%, transparent); }
+.lw-ghost {
+  position: fixed;
+  z-index: 1000;
+  margin: 0;
+  pointer-events: none;
+  background: var(--color-glass-card);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* a list that holds nothing yet: where a field may be dropped */
+.lw-hint {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-sm);
+  list-style: none;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+/* an area of one's own: renamed in place, deleted while empty */
+.lw-section__title[data-area-title] { min-width: 3rem; }
+.lw-section__delete { margin-left: auto; }
+.lw-section__delete[aria-disabled="true"] { cursor: not-allowed; }
+.lw-add { align-self: flex-start; }
+/* where a dragged area will land in a grid of areas: a bar on the edge it goes before or after */
+.lw-lane.is-drop-before { box-shadow: inset 4px 0 0 var(--layout-accent), inset 0 4px 0 var(--layout-accent); }
+.lw-lane.is-drop-after { box-shadow: inset -4px 0 0 var(--layout-accent), inset 0 -4px 0 var(--layout-accent); }

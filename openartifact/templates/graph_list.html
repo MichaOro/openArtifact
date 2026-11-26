@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/manifest_modal.html" import manifest_modal %}
+{% from "components/icons.html" import icon %}
+{% block title %}{{ t('page.' ~ section.key ~ 's') }} · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
+<link rel="stylesheet" href="/static/css/management.css">{% endblock %}
+{% block content %}
+{{ alert(t('graph.' ~ section.key ~ '.load_error')) }}
+<div class="action-row">
+    <button type="button" class="button button--primary" data-new-graph>{{ icon("plus") }} {{ t('graph.' ~ section.key ~ '.new') }}</button>
+</div>
+{# The list, its toolbar and the detail panel are drawn by components/management-page.js (ADR-069); this page says what an entry is. #}
+<div data-management data-kind="{{ section.kind }}" data-path="{{ section.path }}"></div>
+
+{{ manifest_modal("graph-modal", t('page.' ~ section.key ~ 's')) }}
+{{ confirm_modal("confirm-modal", t('graph.' ~ section.key ~ '.delete')) }}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/editor/list.js"></script>{% endblock %}

@@ -1,0 +1,31 @@
+schema: 1
+kind: action
+label: Action
+behaviour: action
+scopes:
+- pipeline
+links_to: action
+menu_icon: action
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: error
+    label: On Error
+    visible_when:
+      setting: on_failure
+      equals: error_output
+ui:
+  color: action
+  size:
+    width: 190
+    height: 68
+  port_labels: true
+settings:
+- use: on_failure
+  label: If the action fails
+  help: Stop the run ends the run as failed; Continue goes on through On Pass and keeps the error as data. Error
+    output goes on through On Error, which shows only then.

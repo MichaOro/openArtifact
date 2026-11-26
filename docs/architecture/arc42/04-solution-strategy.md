@@ -61,16 +61,23 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Run engine: start, stop, jump, sub-pipelines, timer node, recovery on restart | Built | ADR-013, ADR-018 |
 | Code node (`sh`, `python`), resource limits, leftover cleanup | Built; no sandbox, needs an API token (or an explicit development switch) | ADR-021, ADR-023 |
 | HTTP node with SSRF guard | Built | ADR-021, ADR-023 |
-| Credential store | Built as API only; no UI | ADR-024 |
+| Run context: variables and node results of a run, `${node...}` / `${var...}` / `${card...}` references | Built | ADR-033 |
+| If and Switch nodes (a rule per Switch case), Edit Fields node, editor suggestions for references | Built | ADR-034, ADR-039 |
+| Artifact fields (global custom fields, set in the dialog's rail) | Built | ADR-044 (replaced ADR-035) |
+| User-defined lanes with a card look per lane; one UI language (primary, destructive, neutral) | Built | ADR-011, ADR-036 |
+| Credential store | Built as API; no page of its own (the provider dialog can store an API key) | ADR-024, ADR-037 |
 | Execution history per artifact with retention policy | Built | ADR-025 |
 | Flow view of an execution (read-only, frozen snapshot) | Built | ADR-027 |
 | Global executions page and API | Built | ADR-028 |
-| Integration API (`/api/v1`) and MCP server (14 tools) | Built | ADR-016 |
+| Integration API (`/api/v1`) and MCP server (19 tools) | Built | ADR-016 |
 | Access protection and request hardening | Built | ADR-016, ADR-017 |
-| Settings area in the UI: loop protection, wall-clock deadlines, separate tokens | Not built (a run is cut off at 1000 steps; limits are environment variables) | |
+| Settings area: LLM providers, run limits (steps and time per execution) | Built (ADR-037, ADR-039); separate tokens are not built, the number of parallel runs stays an environment variable | ADR-039 |
 | Human-in-the-loop (a `waiting` status), automatic starts by the system | Not built (`started_by` knows `system`, nothing sets it) | |
-| Agent nodes (AI model providers), Git, notifications, PostgreSQL as a data source, connector layer | Not built | ADR-020 |
-| Node versions, user-defined lanes, priorities, tags, due dates, assignees | Not built | |
+| Agents: definitions with draft, versions and rollback, LLM providers (OpenRouter, OpenAI-compatible) with models and connection test, the Agent node with overrides, one request per run with retries, prompts and attempts in the history | Built; no streaming, structured output, budgets | ADR-037 |
+| Tools for agents: MCP Client Tool (remote Streamable HTTP, e.g. GitHub), HTTP Request Tool and Code Tool as nodes attached below the Agent node, a loop bounded by max iterations, tool calls in the history | Built; no memory, multi-agent runs, approval before a tool call, local MCP servers | ADR-040 |
+| GitHub node (read and comment) and Postgres as a node and as a tool for agents: bound parameters, read-only enforced by the server, bounded results, the connection URL a secret | Built; one page of a list, one statement per call, a connection per call, no query the model writes itself | ADR-041 |
+| Git, notifications, PostgreSQL as a data source, connector layer | Not built | ADR-020 |
+| Node versions, reordering and colouring of lanes, priorities, tags, due dates, assignees | Not built | |
 | Third-party extensions (manifest, contract version, pages) | Not built | ADR-014 §3.5 |
 | Keyboard creation of graph connections, screen-reader use of the editor | Not built; known limitation | ADR-030, chapter 11 |
 | Rate limiting, per-session revocation, key rotation for secrets | Not built | chapter 11 |
@@ -82,13 +89,14 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | App shell (sidebar, header, theme toggle) | Jinja2 + CSS tokens + vanilla JS; narrow screens collapse the sidebar to an overlay |
 | Sign-in (`/login`), sign out | With an API token set the whole UI asks for it; signed, expiring session cookie (ADR-016, ADR-017) |
 | Themes | Light "Sand Dune" and dark "Midnight Purple"; persisted in `localStorage`, follows the system on first visit |
-| Kanban board | Three lanes (`BOARD_LANES`, not configurable), counters, cards loaded from `GET /api/tasks`, rendered client-side; responsive (horizontal snap board on phones) |
+| Kanban board | User-defined lanes (three at the start; add, rename, delete when empty; at most 12), counters, cards loaded from `GET /api/tasks`, rendered client-side; responsive (horizontal snap board on phones) |
 | Cards | Create, view, edit, delete; fractional `position` for the order in a lane; parent/child tree; numbers `#n` never reused; `#n` in the text is a link, unknown numbers are struck through; `/?artifact=N` opens a card |
 | Drag and drop | Mouse, touch and keyboard (Alt+arrows); Pointer Events, optimistic with rollback (ADR-011) |
 | Live updates | SSE (`GET /api/events`), all tabs stay in sync, resync on reconnect; no WebSocket |
 | Artifact dialog | Tabs Details and History; card navigation rail (lane, parent, pipeline, stage, action, start/stop, delete); sizing rule in [5.7](05-building-block-view/05.07-frontend-dialogs-tabs-and-flow-viewer.md) (ADR-029) |
-| Pipeline and action editor | List and canvas: trigger, stages with one start and end, actions, connections by dragging (curved, straight or elbow; three attachment points per stage side); changes saved at once; inspector with settings per node kind including Code and HTTP (ADR-012, ADR-014, ADR-022) |
+| Agents and providers | Agent list and page (draft, publish, versions with rollback, preview, uses); *Settings › LLM providers* (test, models, defaults); Agent node inspector with inherited and overridden settings; the request of an agent step in the history (ADR-037) |
+| Pipeline and action editor | List and canvas: trigger, stages with one start and end, actions, connections by dragging (curved, straight or elbow; three attachment points per stage side); hovering or selecting a connection shows a small bar on it with a bin (delete) and a pencil (the three line styles as pictograms with a tooltip), next to the inspector's buttons; a double click on an action (or a pipeline node) opens what it links to, like Edit; changes saved at once; inspector with settings per node kind including Code and HTTP (ADR-012, ADR-014, ADR-022) |
 | Processing | Start and stop at a chosen pipeline, stage and action; the card is locked while it runs; state pushed by SSE (ADR-013) |
 | History tab, flow page, executions page | List, detail with steps, retention editor, delete and clear; read-only flow on the editor canvas with drill-in; global list with filters and summary |
-| Not implemented | Priorities, tags, due dates, assignees; user-defined lanes; UI for credentials; keyboard creation of graph connections |
+| Not implemented | Priorities, tags, due dates, assignees; reordering lanes; a page for credentials; keyboard creation of graph connections |
 | Never used | HTMX, Tailwind CSS, Alpine.js (ADR-010) |

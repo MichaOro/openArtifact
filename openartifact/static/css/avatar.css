@@ -1,0 +1,22 @@
+/* The avatar (static/js/components/avatar.js): a round, softly shaded circle with an icon or initials in it.
+   The tint is --avatar (a token colour); a kind picks it. Tokens only, so light and dark both work. */
+.avatar {
+  --avatar: var(--lane-hue-8);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--avatar) 22%, transparent);
+  color: var(--avatar);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
+}
+.avatar .icon { width: 0.9375rem; height: 0.9375rem; }
+.avatar[data-kind="run"] { --avatar: var(--color-accent); }
+.avatar[data-kind="api"],
+.avatar[data-kind="mcp"] { --avatar: var(--lane-hue-3); }

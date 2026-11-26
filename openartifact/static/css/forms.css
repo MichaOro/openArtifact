@@ -1,0 +1,298 @@
+/* Form primitives: buttons, fields, spinner. Colours via tokens only. */
+
+/* ── Button catalog (ADR-059, docs/guides/ui-catalog.md): ONE definition ──────────────────────────────
+   Variants: .button--primary, .button--ghost (the outlined secondary), .button--danger, plus .icon-button
+   (components.css) and .chip-button (a toggle pill). Sizes: default, .button--sm. Destructive: .is-danger.
+   Every colour comes from the --btn-* / --button-primary-* tokens (tokens.css), which have values for both
+   themes; a state never lowers the opacity, so a disabled button stays readable in light and dark. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--button-h, 2.5rem);
+  padding: 0 var(--button-px, var(--space-4));
+  font-size: var(--button-fs, inherit);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+/* Sizes are three custom properties, so a container can set the size of the buttons in it and a single
+   button can override it. The compact size is the standard for the create buttons of a page (".action-row":
+   Add lane, New agent, New provider, New pipeline, ...); `button--md` brings a button back to the full size. */
+.button--sm,
+.action-row { --button-h: 2rem; --button-px: var(--space-3); --button-fs: 0.8125rem; }
+.button--md { --button-h: 2.5rem; --button-px: var(--space-4); --button-fs: inherit; }
+.button[aria-busy="true"] { cursor: progress; }
+
+.button--primary {
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-highlight) 28%, transparent);
+}
+.button--primary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--button-primary-hover-bg);
+}
+
+.button--danger {
+  background: var(--color-danger);
+  color: var(--color-on-accent);
+}
+.button--danger:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: color-mix(in srgb, var(--color-danger) 86%, var(--color-highlight));
+}
+
+.button--ghost {
+  background: var(--btn-outline-bg);
+  border-color: var(--btn-outline-border);
+  color: var(--btn-outline-text);
+}
+.button--ghost:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--btn-outline-bg-hover);
+  border-color: var(--btn-outline-border-hover);
+}
+
+/* A toggle pill (filters): outlined when off, tinted when on (aria-pressed). */
+.chip-button {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--btn-outline-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--btn-outline-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.75rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.chip-button:hover:not(:disabled) { border-color: var(--btn-outline-border-hover); }
+.chip-button[aria-pressed="true"] {
+  background: var(--btn-chip-on-bg);
+  border-color: var(--color-accent); /* on: tinted AND framed in the accent colour (never a frame that comes and goes) */
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* Disabled: ONE look for every variant (tokens, no opacity), so it is readable in both themes. */
+:is(.button, .icon-button, .chip-button):is(:disabled, [aria-disabled="true"]) {
+  background: var(--btn-disabled-bg);
+  border-color: var(--btn-disabled-border);
+  color: var(--btn-disabled-text);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ── Destructive controls: ONE definition (ADR-036) ───────────────────────────────────────────────
+   Add `is-danger` to any control that deletes or discards: text buttons and menu items are red at
+   rest, icon buttons turn red on hover and focus; the red tint is the same everywhere. The solid
+   `button--danger` is only for the confirming button of a dialog. Disabled controls stay as they are. */
+.is-danger:is(.button--ghost, .menu__item):not(:disabled):not([aria-disabled="true"]) { color: var(--color-danger); }
+.button--ghost.is-danger:not(:disabled):not([aria-disabled="true"]) { border-color: var(--btn-danger-border); }
+:is(.button, .icon-button, .menu__item, .nav-link).is-danger:is(:hover, :focus-visible):not(:disabled):not([aria-disabled="true"]) {
+  color: var(--color-danger);
+  background: var(--danger-soft);
+  border-color: var(--color-danger);
+}
+
+/* ── Spinner (visible while a button is aria-busy) ───────────────── */
+.spinner {
+  display: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+[aria-busy="true"] > .spinner { display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+/* ── Fields ──────────────────────────────────────────────────────── */
+.field { display: flex; flex-direction: column; gap: var(--space-2); }
+.field__label { font-size: 0.8125rem; font-weight: 500; color: var(--color-text-secondary); }
+.field__required { color: var(--color-accent); }
+.field__hint { color: var(--color-text-muted); font-weight: 400; }
+
+.field__control {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  font: inherit;
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-background) 45%, transparent);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) * 0.4), transparent);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast),
+    background var(--transition-fast);
+}
+.field__control::placeholder { color: var(--color-text-muted); opacity: 1; }
+/* One select for every page: its own chevron with some room to the right edge (the browser's sits right on it). */
+select.field__control {
+  appearance: none;
+  padding-right: 2.6rem;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 1rem;
+  cursor: pointer;
+}
+select.field__control:disabled { cursor: not-allowed; }
+/* a select that is as wide as its longest choice (components/select-fit.js): its text is never cut */
+select.field__control[data-fit] { min-width: var(--select-min, 0); }
+.field__control:hover { border-color: var(--glass-border-hover); }
+.field__control:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+textarea.field__control { min-height: 8rem; resize: none; line-height: 1.5; }
+textarea.field__control--code,
+textarea.field__control--lines { resize: vertical; }
+.field__control--code {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+  min-height: 12rem;
+}
+.field__help,
+.field__meta,
+.field__status { font-size: 0.75rem; color: var(--color-text-muted); }
+.field__status:empty { display: none; }
+.field__meta.is-over { color: var(--color-danger); }
+
+.field__control[aria-invalid="true"] { border-color: var(--color-danger); }
+.field__error,
+.form-error { font-size: 0.8125rem; color: var(--color-danger); }
+.field__error[hidden],
+.form-error[hidden] { display: none; }
+
+/* a label with its explanation: the (i) and, for several lines, the count at the right (components/info-tip.js) */
+.field__head { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.field__head .field__meta { margin-left: auto; }
+.info-tip { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-text-muted); cursor: help; }
+.info-tip:hover,
+.info-tip:focus-visible { color: var(--color-accent); outline: none; }
+.info-tip:focus-visible { box-shadow: 0 0 0 2px var(--accent-ring, var(--color-accent)); }
+.info-tip .icon { width: 0.95rem; height: 0.95rem; }
+.info-tip__text {
+  position: fixed;
+  z-index: 60;
+  max-width: min(26rem, calc(100vw - 1rem));
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--color-glass-card);
+  box-shadow: var(--shadow-card-hover);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+.info-tip__text[hidden] { display: none; }
+.info-tip__text p { margin: 0; }
+.info-tip__text p + p { margin-top: var(--space-2); }
+
+/* An on/off switch with its state written in it (switch.js): a catalog component like the buttons. The look is made of
+   the button tokens, so it reads in both themes; the state is a word, not only a colour. */
+.ge-switch {
+  position: relative;
+  display: block;
+  width: 4.5rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--btn-outline-border);
+  border-radius: var(--radius-pill);
+  background: var(--btn-outline-bg);
+  color: var(--btn-outline-text);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.ge-switch__state { position: absolute; top: 50%; right: 0.75rem; transform: translateY(-50%); }
+.ge-switch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--btn-outline-border);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+.ge-switch[aria-checked="true"] {
+  background: var(--btn-chip-on-bg);
+  border-color: var(--color-accent);
+}
+.ge-switch[aria-checked="true"] .ge-switch__state { right: auto; left: 0.75rem; }
+.ge-switch[aria-checked="true"] .ge-switch__thumb { transform: translateX(2.5rem); background: var(--color-accent); }
+.ge-switch:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* ── Combobox (components/combobox.js): a text field with a list of choices under it ─────────────── */
+.combobox { position: relative; min-width: 0; }
+.combobox__field { position: relative; display: flex; align-items: center; }
+.combobox__input { padding-right: 2.5rem; }
+.combobox__toggle { position: absolute; right: 0.25rem; }
+.combobox__list { z-index: 60; gap: 0; padding: var(--space-1); max-height: min(50vh, 18rem); min-width: 12rem; max-width: min(40rem, calc(100vw - 1rem)); }
+.combobox__list[hidden] { display: none; }
+.combobox__option { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; height: auto; min-height: 2.5rem; padding: 0.375rem var(--space-3); white-space: normal; }
+.combobox__option.is-active { background: var(--accent-soft); }
+.combobox__name { max-width: 100%; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.combobox__description { max-width: 100%; overflow: hidden; font-size: 0.75rem; color: var(--color-text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+.combobox__empty { padding: var(--space-2) var(--space-3); font-size: 0.875rem; color: var(--color-text-secondary); list-style: none; }
+
+/* ── Form renderer (components/form-view.js, ADR-062): the form of a configuration window from its manifest ─────── */
+.fv { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+@media (min-width: 52rem) { .fv { width: var(--fv-width, auto); max-width: 100%; } }
+.fv-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); align-items: start; }
+.fv-col { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+@media (min-width: 52rem) {
+  .fv-grid[data-columns="2"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.fv-section__title .info-tip { margin-left: var(--space-1); vertical-align: middle; }
+.fv-section { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+.fv-section__title { padding: 0 var(--space-1); font-weight: 600; }
+.fv-section > .button, .fv-section > .chip-button { align-self: flex-start; } /* a column would stretch them */
+.fv-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.fv-section .rb-choices { flex: none; } /* in a column: the rule builder's row basis would make it 12rem high */
+.modal__panel .fv-number { width: 7rem; min-width: 0; flex: none; } /* a count, not a text: narrower than the dialog's usual control */
+.fv-readonly { margin: 0; }
+.fv-error { margin: 0; }
+
+
+/* text typed in a field of a node's settings and not saved yet (persist-policy.js): saved when the field is left */
+.field.is-dirty .field__control { border-color: var(--accent-ring); }
+.field.is-dirty .field__label::after { content: " · " attr(data-unsaved); font-weight: 400; color: var(--color-text-secondary); }
+
+/* ── Field group: controls in one row that know their group (docs/guides/ui-catalog.md) ──────────────────────────────────────────
+   A table of rows (the inputs of an agent, the fields of a mapping): the rows break by the width of the TABLE, not of the window. Wide,
+   a row is one line of `--fg-cols`; when one control would be cut it breaks in pairs (2, 2, 2: a grid of two columns, the head row goes
+   and `.field-group__wide` takes a whole line), and into one column when even a pair does not fit. A row with many elements
+   (`.field-group--long`, seven and more) breaks earlier. The choices (select-fit.js) are never narrower than their longest text. */
+.field-group { container-type: inline-size; display: grid; gap: var(--space-2); }
+.field-group__head,
+.field-group__row { display: grid; grid-template-columns: var(--fg-cols); gap: var(--space-2); align-items: center; }
+@container (max-width: 42rem) {
+  .field-group__head { display: none; }
+  .field-group__row { grid-template-columns: repeat(2, minmax(min-content, 1fr)); padding: var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+  .field-group__wide { grid-column: 1 / -1; }
+  .field-group__end { justify-self: end; }
+}
+@container (max-width: 48rem) {
+  .field-group--long .field-group__head { display: none; }
+  .field-group--long .field-group__row { grid-template-columns: repeat(2, minmax(min-content, 1fr)); padding: var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+  .field-group--long .field-group__wide { grid-column: 1 / -1; }
+  .field-group--long .field-group__end { justify-self: end; }
+}
+@container (max-width: 24rem) {
+  .field-group__row,
+  .field-group--long .field-group__row { grid-template-columns: minmax(0, 1fr); }
+  .field-group__end { justify-self: start; }
+}

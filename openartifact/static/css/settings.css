@@ -1,0 +1,12 @@
+/* The settings pages that are forms (Settings > Run limits). Colours come from tokens.css only. Prefix: st-. */
+
+.st-intro { margin: 0 0 var(--space-4); color: var(--color-text-muted); max-width: 52rem; }
+.st-card { display: grid; gap: var(--space-4); max-width: 40rem; padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); }
+.st-card code { font-family: var(--font-mono); font-size: 0.8125rem; }
+.st-fact { font-size: 0.875rem; color: var(--color-text-secondary); }
+.st-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); }
+.st-status { font-size: 0.875rem; color: var(--color-text-muted); }
+
+@media (max-width: 640px) {
+  .st-card { padding: var(--space-3); }
+}

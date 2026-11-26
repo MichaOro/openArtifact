@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-013](013-execution-engine-and-runs.md), [ADR-014](014-building-blocks-and-extension-points.md)  
-**Amended by:** —  
+**Amended by:** [ADR-033](033-run-context.md)  
 **Implemented in:** migration 0021 (kinds `code` and `http`, table `run_node_results`); `engine/executors.py`, `engine/code_runner.py`, `engine/http_runner.py`, `engine/results.py`  
 **Affected chapters:** [05.06](../arc42/05-building-block-view/05.06-execution-engine-internals.md), [06.07](../arc42/06-runtime-view/06.07-code-node-execution.md), [08.05](../arc42/08-cross-cutting-concepts/08.05-execution-nodes-safety.md); guide [execution nodes](../../guides/execution-nodes.md)
 

@@ -1,0 +1,44 @@
+{% from "components/modal.html" import modal %}
+{# The rules of a lane and of the board (behaviour in static/js/tasks/card-rules-dialog.js; ADR-071). The same frame as the
+   retention rules of the executions: the list of rules, and after a click on one that rule (If conditions, Then action). The
+   board's rules also have a "Preview now" pass and the log of what the rules deleted. #}
+{% call modal("card-rules-modal", t('dialog.lane_settings'), chip=True, size="wide", reason="the rule builder: rows of conditions") %}
+<form class="task-form" id="card-rules-form" novalidate>
+    <div class="modal__body">
+        <div class="rl-view" data-view="list">
+            <p class="field__help" data-intro></p>
+            <div data-rules></div>
+            <section class="cr-sweep" data-sweep hidden>
+                <button type="button" class="button button--ghost button--sm" data-sweep-now>{{ t('cards_rules.preview_now') }}</button>
+                <p class="field__help" data-sweep-text role="status"></p>
+                <details class="cr-log" data-log>
+                    <summary>{{ t('cards_rules.deletions_log') }}</summary>
+                    <ul class="cr-log__list" data-log-list></ul>
+                </details>
+            </section>
+        </div>
+        <div class="rl-view rl-detail" data-view="detail" hidden>
+            <div data-rule-editor></div>
+            <p class="field__help" data-rule-count role="status"></p>
+            <div class="cr-sample" aria-hidden="true">
+                <p class="lane-preview__caption">{{ t('common.preview') }}</p>
+                <ul class="cr-sample__cards" data-rule-sample></ul>
+            </div>
+            <div class="rl-detail__foot"><button type="button" class="button button--ghost button--sm" data-done>{{ t('components.rule_list.done') }}</button></div>
+        </div>
+        <p class="ag-warning" data-delete-warning role="alert" hidden></p>
+        <p class="form-error" role="alert" hidden data-form-error></p>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-cancel>{{ t('common.cancel') }}</button>
+        <button type="submit" class="button button--primary" data-submit>
+            <span class="spinner" aria-hidden="true"></span>
+            <span data-submit-label>{{ t('common.save') }}</span>
+        </button>
+    </footer>
+</form>
+<div class="cr-popover" data-popover role="tooltip" hidden>
+    <p class="lane-preview__caption" data-popover-caption></p>
+    <ul class="cr-sample__cards" data-popover-card></ul>
+</div>
+{% endcall %}

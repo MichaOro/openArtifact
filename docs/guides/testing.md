@@ -1,13 +1,12 @@
 # Testing
 
-Automated tests live next to the application they test, in `apps/backend/tests/`. All commands run from
-`apps/backend` after the [development setup](../../README.md#development) (`pip install -e ".[dev]"` or
+Automated tests live in `tests/` at the repository root. All commands run from the root after the [development setup](../../README.md#development) (`pip install -e ".[dev]"` or
 `uv sync --all-extras`).
 
 | Kind | Location | Run | Size (at the time of writing) |
 |------|----------|-----|------|
-| Unit and API tests | `tests/test_*.py` | `pytest` | about 640 tests |
-| Browser tests (Playwright) | `tests/e2e/` | `pytest -m e2e` | about 190 tests |
+| Unit and API tests | `tests/test_*.py` | `pytest` | about 1,240 tests |
+| Browser tests (Playwright) | `tests/e2e/` | `pytest -m e2e` | about 240 tests |
 
 ## Layout
 
@@ -15,6 +14,7 @@ Automated tests live next to the application they test, in `apps/backend/tests/`
 tests/
 ├── conftest.py        fixtures of the unit and API tests (settings, template database, client, event spy)
 ├── helpers.py         builders and waiting helpers shared by the API tests and the browser tests
+├── agent_support.py   a local OpenAI-compatible server (FakeLlm) and builders for providers and agents
 ├── test_<area>.py     one file per area (below)
 └── e2e/
     ├── conftest.py    starts a real server on a free port; marks every test below it `e2e`
@@ -26,7 +26,9 @@ The areas: services and API (`test_tasks.py`, `test_graphs.py`, `test_health.py`
 `test_integration.py` for `/api/v1` and MCP), access and hardening (`test_access.py`, `test_security.py`),
 the engine (`test_engine.py`, `test_chain.py`, `test_task_target.py`), execution nodes
 (`test_code_runner.py`, `test_code_hardening.py`, `test_http_runner.py`, `test_execution_nodes.py`),
-credentials (`test_secrets.py`), history (`test_history.py`, `test_history_global.py`,
+credentials (`test_secrets.py`), agents and providers (`test_agent_render.py` and `test_agent_runtime.py` without a
+database, `test_agents_api.py`, `test_providers_api.py`, `test_agent_node.py` for runs, `test_agents_misc.py`; a local
+stand-in answers like a provider, so no test calls a real one), history (`test_history.py`, `test_history_global.py`,
 `test_execution_flow.py`), migrations (`test_migrations.py`, which also runs `alembic check` so the models
 cannot drift from the migrations), configuration, logging and the lifespan. The browser tests cover the
 board, dialogs, editor, processing, history, executions page, flow view, execution nodes, access and the CSP
@@ -38,7 +40,6 @@ resource limits elsewhere, and says so in its result.
 ## Unit and API tests
 
 ```bash
-cd apps/backend
 pytest                      # everything except the browser tests (addopts: -m 'not e2e')
 pytest tests/test_tasks.py  # one file
 pytest -k "timer"           # by name
@@ -168,8 +169,11 @@ CI runs a `static` job (JavaScript syntax, relative links in the Markdown files,
 `lint` (Ruff lint and format check), `type-check` (mypy), `test` (pytest under coverage) and `e2e`
 (Playwright) in that order; see the [CI/CD guide](CI-CD.md). Locally, the three commands above and `pytest`
 cover the same ground except for the static checks (`python tools/check_links.py`,
-`python tools/check_quarantine.py`, and the JavaScript unit tests: `node --test 'apps/backend/tests/js/*.test.mjs'`,
+`python tools/check_quarantine.py`, and the JavaScript unit tests: `node --test 'tests/js/*.test.mjs'`,
 quote the glob; they take a few seconds and need no npm packages).
+
+`tools/test_audit.sh` runs all of it in one go and reports start, end, duration and result per section (about
+35 minutes; `--fast` skips coverage and runs the Python tests in parallel). See [tools/README](../../tools/README.md).
 
 ## Writing tests
 
@@ -178,6 +182,8 @@ quote the glob; they take a few seconds and need no npm packages).
 - A schema change needs a migration and keeps `tests/test_migrations.py` green.
 - A change to what the user sees or does gets a flow in `tests/e2e/` using the helpers in
   `tests/e2e/helpers.py`.
+- A new page, dialog or kind of control is added to `tests/e2e/test_ui_catalog.py` (its page list or its variant matrix):
+  every button must be a catalog component and readable in both themes ([UI catalog](ui-catalog.md)).
 - A new node kind: see [Extending](extending.md#add-a-kind-of-node) for the list of tests.
 - Code that runs processes or opens sockets is tested against real processes and a local server (see
   `test_code_runner.py`, `test_http_runner.py`); the SSRF rules are tested with real addresses and a local server;

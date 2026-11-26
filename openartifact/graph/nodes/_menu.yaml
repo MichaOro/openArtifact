@@ -1,0 +1,47 @@
+# The clusters of the "+" menu, in order, and the order the kinds are listed in everywhere (the API, the editor).
+groups:
+- Structure
+- AI
+- Agent tools
+- Apps and data
+- Core
+- Data
+- Flow
+kinds:
+- trigger
+- stage
+- action
+- pipeline
+- complete
+- timer
+- output
+- code
+- http
+- if
+- switch
+- agent
+- set
+- github
+- postgres
+- sqlite
+- mcp_tool
+- github_tool
+- http_tool
+- code_tool
+- postgres_tool
+- sqlite_tool
+- artifact
+# Entries of the "+" menu that are not kinds of nodes. `scopes` says in which editors the entry is offered; `soon`
+# marks a place held for something that is coming. Guard (ADR-060) opens the Guard window: a guard of the pipeline
+# (from this menu), of a stage (its "+") or of an action (its node menu); it is never a node of the canvas. An action
+# definition has no pipeline to attach a guard to, so it does not offer one.
+placeholders:
+- key: guard
+  label: Guard
+  icon: shield
+  group: Structure
+  order: 3
+  scopes:
+  - pipeline
+  - action
+  soon: false

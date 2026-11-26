@@ -9,7 +9,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "apps/backend/pyproject.toml"
+      - "pyproject.toml"
       - ".github/workflows/audit.yml"
 
 permissions:
@@ -27,7 +27,7 @@ jobs:
       - name: Declared runtime dependencies
         run: |
           # The list from pyproject.toml, the same one the Dockerfile installs.
-          python -c "import tomllib; print('\n'.join(tomllib.load(open('apps/backend/pyproject.toml', 'rb'))['project']['dependencies']))" > "$RUNNER_TEMP/requirements.txt"
+          python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))" > "$RUNNER_TEMP/requirements.txt"
           cat "$RUNNER_TEMP/requirements.txt"
       - name: Audit them
         run: |

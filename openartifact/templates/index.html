@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% from "components/lane.html" import lane %}
+{% from "components/icons.html" import icon %}
+{% from "components/alert.html" import alert %}
+{% from "components/form_modal.html" import form_modal %}
+{% set LANE_FIELDS = [{"name": "title", "label": t('dialog.lane_name'), "kind": "text", "required": True, "maxlength": 40}] %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/modal.html" import modal %}
+{% block title %}{{ t('page.board') }} · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/task-dialog.css">
+<link rel="stylesheet" href="/static/css/history.css">
+<link rel="stylesheet" href="/static/css/avatar.css">
+<link rel="stylesheet" href="/static/css/comments.css">
+<link rel="stylesheet" href="/static/css/agents.css">
+<link rel="stylesheet" href="/static/css/artifact-fields.css">
+<link rel="stylesheet" href="/static/css/rule-builder.css">
+<link rel="stylesheet" href="/static/css/management.css">{% endblock %}
+{% block content %}
+{{ alert(t('tasks.board.artifacts_could_not_be_loaded')) }}
+<div class="action-row action-row--slim">
+    <button type="button" class="button button--primary" data-add-lane aria-haspopup="dialog">{{ icon("plus") }}<span>{{ t('index.add_lane') }}</span></button>
+    <button type="button" class="icon-button icon-button--sm board-menu" data-board-menu aria-haspopup="menu" aria-expanded="false" aria-label="{{ t('index.board_options') }}" title="{{ t('index.board_options') }}">{{ icon("more") }}</button>
+</div>
+<div class="archive-view" data-archive-view hidden></div>
+<div class="board" role="group" aria-label="{{ t('index.kanban_board') }}">
+    {% for board_lane in lanes %}
+    {{ lane(board_lane.title, board_lane.key, board_lane.status, count=board_lane.artifact_count, hue=board_lane.hue, style=board_lane.style) }}
+    {% endfor %}
+</div>
+
+<template id="lane-template">{{ lane("", "", "") }}</template>
+
+<template id="task-card-template">
+    <li class="task-card" tabindex="0" aria-keyshortcuts="Enter Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown Delete" aria-haspopup="dialog">
+        <div class="task-card__content">
+            <h3 class="task-card__title"></h3>
+            <p class="task-card__body"></p>
+            <ul class="task-card__labels" hidden></ul>
+            <p class="task-card__meta" hidden></p>
+            <p class="task-card__run" hidden></p>
+        </div>
+        <button type="button" class="icon-button icon-button--sm is-danger task-card__delete" data-delete-task
+                aria-label="{{ t('index.delete_artifact') }}" title="{{ t('index.delete_artifact') }}">{{ icon("trash") }}</button>
+    </li>
+</template>
+
+<div class="visually-hidden" role="status" aria-live="polite" data-live-region></div>
+
+{% include "components/create_task_modal.html" %}
+{{ form_modal("add-lane-modal", t('dialog.add_lane'), LANE_FIELDS, submit=t('dialog.add_lane')) }}
+{% include "components/card_rules_modal.html" %}
+{{ confirm_modal("delete-lane-modal", t('dialog.delete_lane')) }}
+{{ confirm_modal("delete-task-modal", t('dialog.delete_artifact'), note="data-children-note") }}
+{{ confirm_modal("delete-execution-modal", t('dialog.delete_execution'), note="data-history-note") }}
+{{ confirm_modal("delete-comment-modal", t('dialog.delete_comment')) }}
+
+{% call modal("fields-modal", t('dialog.artifact_fields'), size="wide", reason="two panes: the list of fields and the settings of the chosen one") %}
+<form class="task-form at-editor" id="fields-modal-form" novalidate>
+    <div class="modal__body">
+        <div class="af-head">
+            <p class="at-editor__lead" data-lead></p>
+            {# once fields exist, "Add field" is the page's usual create button, top right, in the accent colour #}
+            <button type="button" class="button button--primary button--sm" data-add-field hidden>{{ icon("plus") }} {{ t('index.add_field') }}</button>
+        </div>
+        {# every artifact has a title and a body: standard rows that cannot be changed, with the reference a run reads them by (ADR-064) #}
+        <ul class="af-standard" aria-label="{{ t('index.standard_fields') }}">
+            <li class="af-standard__row"><span class="af-standard__label">{{ t('index.standard_title') }}</span> <code>${card.title}</code> <span class="tag">{{ t('index.standard_tag') }}</span> <span class="af-standard__help">{{ t('index.standard_title_help') }}</span></li>
+            <li class="af-standard__row"><span class="af-standard__label">{{ t('index.standard_body') }}</span> <code>${card.body}</code> <span class="tag">{{ t('index.standard_tag') }}</span> <span class="af-standard__help">{{ t('index.standard_body_help') }}</span></li>
+        </ul>
+        {# the fields on the left (a grip to reorder, a click to choose), the chosen field's settings on the right (ADR-050) #}
+        <div class="af-layout">
+            <div class="af-fields">
+                <ol class="af-list" data-field-list aria-label="{{ t('index.artifact_fields') }}"></ol>
+            </div>
+            <section class="af-detail" data-field-detail aria-label="{{ t('index.the_chosen_field') }}"></section>
+        </div>
+        <div class="af-empty" data-field-empty hidden>
+            <p>{{ t('index.no_fields_yet_add_the_first') }}</p>
+            <button type="button" class="button button--primary button--sm" data-add-first>{{ icon("plus") }} {{ t('index.add_field') }}</button>
+        </div>
+        <p class="at-editor__removal" role="status" data-removal-note hidden></p>
+        <div class="af-discard" role="alert" data-discard-confirm hidden>
+            <span>{{ t('index.discard_the_unsaved_changes') }}</span>
+            <button type="button" class="button button--ghost button--sm" data-discard-keep>{{ t('index.keep_editing') }}</button>
+            <button type="button" class="button button--danger button--sm" data-discard-go>{{ t('index.discard') }}</button>
+        </div>
+        <p class="form-error" role="alert" hidden data-form-error></p>
+    </div>
+    <footer class="modal__footer">
+        <span class="af-unsaved" data-unsaved hidden>{{ t('index.unsaved_changes') }}</span>
+        <button type="button" class="button button--ghost" data-cancel>{{ t('common.cancel') }}</button>
+        <button type="submit" class="button button--primary" data-submit>
+            <span class="spinner" aria-hidden="true"></span>
+            <span data-submit-label>{{ t('common.save') }}</span>
+        </button>
+    </footer>
+</form>
+{% endcall %}
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/js/tasks/main.js"></script>
+{% endblock %}

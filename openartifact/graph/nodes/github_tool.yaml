@@ -1,0 +1,77 @@
+schema: 1
+kind: github_tool
+label: GitHub MCP
+behaviour: tool
+scopes:
+- action
+addable: true
+tool: true
+menu:
+  group: Agent tools
+  order: 2
+ports:
+  outputs:
+  - name: tool
+    label: Tool
+    side: top
+ui:
+  color: github
+  icon: github
+  hint: This node lets an agent work with GitHub, the remote, on its own - issues, pull requests, files, branches - through GitHub's MCP server.
+  caption:
+    template: '{?allow_write:can change}{?!allow_write:read only}'
+settings:
+- key: secret
+  label: Credential
+  type: credential
+  credential_types:
+  - github_pat
+  default: ''
+  max_length: 64
+  help: A GitHub access token (classic or fine-grained), kept in the credentials. What the token may do on GitHub is what the agent may do.
+  stored_in: config
+  check: secret_name
+- key: allow_write
+  label: Allow writes
+  type: switch
+  default: false
+  level: optional
+  help: 'Off: the agent can only read (the connection is held to reading and the tools that change something are left out). On: it may also create and change issues, comments and more.'
+  stored_in: config
+- key: tools_mode
+  label: Tools to include
+  type: select
+  default: all
+  options:
+  - all
+  - selected
+  - all_except
+  option_labels:
+    all_except: all except
+  level: optional
+  help: 'Every tool is described to the model with each request: fewer tools, a smaller prompt. Tools that change something stay out while Allow writes is off.'
+  stored_in: config
+- key: tool_names
+  label: Tools
+  type: lines
+  default: ''
+  max_length: 10000
+  placeholder: get_file_contents
+  help: One tool name per line. A name the server does not have is no error, the step says so.
+  stored_in: config
+  check: tool_names
+  shown_when:
+    setting: tools_mode
+    values:
+    - selected
+    - all_except
+- key: timeout_seconds
+  label: Timeout (seconds)
+  type: integer
+  minimum: 1
+  maximum: 300
+  default: 60
+  level: optional
+  stored_in: config
+- use: tool_name
+  level: optional

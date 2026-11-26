@@ -104,7 +104,7 @@ planned settings (ADR-013 §4).
 
 - A run started through `/api/v1` has `started_by: api`, one started through MCP has `started_by: mcp`; `system` is
   reserved ([ADR-026](026-origin-of-a-run-started-by.md)). §3.2 ("`started_by: system`") is the older state.
-- The MCP server has **14 tools** now, not eight: besides the artifact and run tools of §3.3 there are
+- The MCP server has **19 tools** now (update 2026-11-23: agents and providers read-only, ADR-037), not eight: besides the artifact and run tools of §3.3 there are
   `list_executions`, `list_all_executions`, `get_execution`, `get_execution_flow` ([ADR-025](025-execution-history-and-retention.md), [ADR-028](028-global-executions-page-and-keyset-paging.md)) and `list_secrets`
   ([ADR-024](024-credential-store.md)). The integration API has the matching routes (`/api/v1/executions`, `/api/v1/secrets`).
 - Features that use credentials need a token ([ADR-023](023-safety-model-of-execution-nodes.md), [ADR-024](024-credential-store.md)).

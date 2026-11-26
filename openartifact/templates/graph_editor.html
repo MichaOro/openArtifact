@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/form_modal.html" import form_modal, NAME_FIELDS %}
+{% from "components/icons.html" import icon %}
+{% from "components/modal.html" import modal %}
+{% from "components/guard_modal.html" import guard_modal %}
+{% from "components/credential_modal.html" import credential_modal %}
+{% from "components/guard_attach_modal.html" import guard_attach_modal %}
+{% block title %}{{ t('page.' ~ section.key) }} · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
+<link rel="stylesheet" href="/static/css/agents.css">
+<link rel="stylesheet" href="/static/css/management.css">
+<link rel="stylesheet" href="/static/css/rule-builder.css">{% endblock %}
+{% block content %}
+{# data-*-path: where a pipeline / an action definition is edited (the links between them). #}
+<div class="ge-editor" data-graph-id="{{ graph_id }}" data-kind="{{ section.kind }}"
+     data-pipelines-path="/pipelines" data-actions-path="/actions"
+     data-menu-placeholders='{{ menu_placeholders|tojson }}'>
+    {{ alert() }}
+    <div class="ge-bar glass" role="toolbar" aria-label="{{ t('graph.' ~ section.key ~ '.tools') }}">
+        <a class="button button--ghost button--sm" href="{{ section.path }}">{{ t('graph.' ~ section.key ~ '.all') }}</a>
+        <a class="button button--ghost button--sm" href="#" data-back hidden></a>
+        <span class="ge-bar__state" data-publication hidden></span>
+        <span class="ge-bar__spacer"></span>
+        <button type="button" class="button button--ghost button--sm" data-zoom-out aria-label="{{ t('execution_flow.zoom_out') }}">−</button>
+        <span class="ge-bar__zoom" data-zoom-label aria-live="polite">100%</span>
+        <button type="button" class="button button--ghost button--sm" data-zoom-in aria-label="{{ t('execution_flow.zoom_in') }}">+</button>
+        <button type="button" class="button button--ghost button--sm" data-zoom-fit>{{ t('execution_flow.fit') }}</button>
+    </div>
+    <div class="ge-main">
+        <div class="ge-canvas">
+            <div class="ge-viewport glass" data-viewport tabindex="-1" role="application" aria-label="{{ t('graph.' ~ section.key ~ '.canvas') }}">
+                <div class="ge-world" data-world>
+                    <div data-nodes></div>
+                    <svg class="ge-edges" data-edges aria-hidden="true"></svg>
+                </div>
+            </div>
+            <div class="ge-add">
+                <div class="ge-add__row">
+                <button type="button" class="icon-button gd-shield" data-pipeline-shield aria-haspopup="dialog" aria-expanded="false" hidden>{{ icon("shield") }}</button>
+                <button type="button" class="icon-button" data-add-menu aria-controls="ge-add-list" aria-expanded="false" aria-label="{{ t('graph_editor.add_to_the_canvas') }}" title="{{ t('common.add') }}">{{ icon("plus") }}</button>
+                </div>
+                <div class="ge-add__menu glass" id="ge-add-list" aria-label="{{ t('common.add') }}" hidden data-add-list></div>
+            </div>
+        </div>
+    </div>
+</div>
+{# the settings of a node, opened by a double click (or Enter on a node) #}
+{% call modal("node-modal", t('common.settings'), size="wide", reason="the settings of some kinds are two columns (Definition and Behaviour)") %}
+<div class="modal__body ge-inspector" data-inspector></div>
+{% endcall %}
+{{ form_modal("new-modal", t('common.new'), NAME_FIELDS) }}
+{# the guard editor (ADR-060): a definition of the library, opened from a shield popup or "New guard"; in a pipeline and in an action #}
+{{ guard_modal() }}
+{{ credential_modal() }}
+{{ guard_attach_modal() }}
+{{ confirm_modal("confirm-modal", t('common.delete')) }}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/editor/editor-main.js"></script>{% endblock %}

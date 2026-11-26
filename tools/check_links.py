@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -43,7 +44,7 @@ def slug(heading: str) -> str:
     return text.replace(" ", "-")
 
 
-def prose_lines(path: Path):
+def prose_lines(path: Path) -> Iterator[tuple[int, str]]:
     in_fence = False
     for number, line in enumerate(path.read_text("utf-8", "ignore").splitlines(), 1):
         if FENCE.match(line):
@@ -90,9 +91,13 @@ def check(path: Path) -> list[str]:
             if file_part and not dest.exists():
                 problems.append(f"{rel}:{number}: missing file {target}")
                 continue
-            if fragment and dest.suffix == ".md" and dest.is_file():
-                if unquote(fragment).lower() not in anchors(dest):
-                    problems.append(f"{rel}:{number}: missing anchor {target}")
+            if (
+                fragment
+                and dest.suffix == ".md"
+                and dest.is_file()
+                and unquote(fragment).lower() not in anchors(dest)
+            ):
+                problems.append(f"{rel}:{number}: missing anchor {target}")
     return problems
 
 

@@ -1,0 +1,33 @@
+/* The Comments tab of the artifact dialog: a list, oldest first, and the box to write at the bottom.
+   Prefix: comment(s)- = this tab. The author is an avatar (avatar.css). Colours via tokens only. */
+.comments { gap: var(--space-3); padding-top: var(--space-3); min-height: 0; }
+.comments .alert-bar { margin-bottom: 0; }
+/* the list takes the free height above the box to write in and is the only thing that scrolls (min-height: 0 lets it
+   shrink; the box below keeps its size), so with few comments the box still sits at the bottom of the tab */
+.comments__scroll { display: flex; flex-direction: column; gap: var(--space-3); flex: 1; min-height: 0; overflow-y: auto; }
+.comments__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.comment { padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); min-width: 0; }
+.comment__head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
+.comment__author { font-weight: 600; overflow-wrap: anywhere; }
+.comment__time, .comment__edited { font-size: 0.75rem; color: var(--color-text-secondary); }
+.comment__edited { font-style: italic; }
+.comment__run { font-size: 0.75rem; }
+.comment__more { margin-left: auto; }
+.comment__body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.comment__edit { display: flex; flex-direction: column; gap: var(--space-2); }
+.comment__edit-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.comments__form { display: flex; flex-direction: column; gap: var(--space-2); flex: none; }
+.comments__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.comments__head .field__help { margin: 0; text-align: right; }
+.comments__older { align-self: flex-start; flex: none; }
+/* a comment jumped to from the History: its border pulses three times, a second each (a static highlight when motion is
+   reduced). The colour is --color-pulse: the accent in the light theme, the sand tone in the dark one. */
+.comment:focus-visible { outline: none; }
+.comment[data-pulse] { animation: comment-pulse 1s ease-in-out 3; }
+@keyframes comment-pulse {
+  0%, 100% { border-color: var(--glass-border); box-shadow: 0 0 0 0 transparent; }
+  50% { border-color: color-mix(in srgb, var(--color-pulse) 67%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-pulse) 30%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .comment[data-pulse] { animation: none; border-color: color-mix(in srgb, var(--color-pulse) 67%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-pulse) 30%, transparent); }
+}

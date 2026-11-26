@@ -1,0 +1,25 @@
+schema: 1
+kind: pipeline
+label: Pipeline
+behaviour: pipeline
+scopes:
+- pipeline
+addable: true
+chain: true
+links_to: pipeline
+menu:
+  group: Structure
+  order: 2
+menu_icon: pipeline
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: out
+    label: Next
+ui:
+  color: pipeline
+  size:
+    width: 200
+    height: 64

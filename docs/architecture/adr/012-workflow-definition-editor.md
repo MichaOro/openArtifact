@@ -7,7 +7,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** —  
-**Amended by:** [ADR-014](014-building-blocks-and-extension-points.md) (routing select), [ADR-015](015-vocabulary-and-storage-names.md) (vocabulary), [ADR-030](030-accessibility-scope.md) (accessibility)
+**Amended by:** [ADR-014](014-building-blocks-and-extension-points.md) (routing select), [ADR-015](015-vocabulary-and-storage-names.md) (vocabulary), [ADR-030](030-accessibility-scope.md) (accessibility), [ADR-040](040-agent-tools.md) (tool nodes attached below an Agent node), [ADR-041](041-github-and-postgres-nodes.md) (GitHub, Postgres and Postgres Tool nodes)
 
 ## 1. Context
 
@@ -71,7 +71,7 @@ The definition of what an action does is edited on the same canvas, reached thro
 
 ### 2.15 Navigation: Pipeline and Actions
 
-The sidebar has two entries: Projects and **Pipeline** (own icon). Pipeline is a page of its own: the list of pipelines, each containing a trigger, stages and a complete. Only while the user is inside the Pipeline section (on a pipeline page or on Actions) does it show its one sub-entry **Actions** (`/actions`, the action definitions); on Projects it is not rendered. The user switches between Pipeline and Actions. The sidebar template marks the section (`nav-link--section`) when a child is current, and sets `aria-current="page"` only on the current entry. Inside the section, Pipeline and its sub-entries are outlined together as one group (`nav-section`), so the grouping also reads with the collapsed, icon-only sidebar. Arriving in the section from outside, the group's box fades in and grows downwards, then the sub-entries appear one after the other (about 1.4 s in total for two entries, at most about 0.75 s of staggering however many there are; an inline script before first paint compares with `sessionStorage`; switching inside the section does not replay it; skipped with `prefers-reduced-motion`).
+The sidebar has two entries: Board (called Projects until 2026-11-22) and **Pipeline** (own icon). Pipeline is a page of its own: the list of pipelines, each containing a trigger, stages and a complete. Only while the user is inside the Pipeline section (on a pipeline page or on Actions) does it show its one sub-entry **Actions** (`/actions`, the action definitions); on the Board it is not rendered. The user switches between Pipeline and Actions. The sidebar template marks the section (`nav-link--section`) when a child is current, and sets `aria-current="page"` only on the current entry. Inside the section, Pipeline and its sub-entries are outlined together as one group (`nav-section`), so the grouping also reads with the collapsed, icon-only sidebar. Arriving in the section from outside, the group's box fades in and grows downwards, then the sub-entries appear one after the other (about 1.4 s in total for two entries, at most about 0.75 s of staggering however many there are; an inline script before first paint compares with `sessionStorage`; switching inside the section does not replay it; skipped with `prefers-reduced-motion`).
 
 ### 2.16 Trigger and complete are fixed
 
@@ -123,3 +123,36 @@ The history above is kept; what changed afterwards.
   then" is outdated. Node settings beyond the timer's live in a JSON `config`
   ([ADR-022](022-node-settings-as-json-config.md)). The missing keyboard way to connect nodes is a scope decision
   in [ADR-030](030-accessibility-scope.md).
+
+## Addendum (2026-11-24): straight lines and resizing
+
+The three attachment points of a stage side no longer sit at fixed heights (header, middle, bottom) and do not follow its
+actions either (a first version let the last point follow the lowest action, which left no point near the bottom edge
+when that action sat high): they follow the stage's **height**. The first point is level with the port of an action at the
+very top: the highest row an action can sit in, which is also where a new action goes and where the drag stops
+(`FIRST_ROW`, one number for the three, `clampInStage`); it is fixed, whatever the other actions do; the last one is level with the port of an action dragged as
+low as it goes without the stage growing (stage height minus the padding minus the action's height); the middle one is
+halfway. On the left they face the actions' input, on the right their On Pass. A line from a point to an action in the
+very top or at the very bottom is therefore horizontal, and resizing the stage moves the lower points with its edge. A
+node dragged in the editor settles level with a connected port or with one of its stage's points (the connected one
+first when two are equally near) within 8 screen pixels (Alt switches it off), and a stage can be resized with grips on
+its right edge, bottom edge and corner down to the size its actions need (`minStageSize`). A level connection with little
+room is drawn straight instead of being routed around the nodes. The stored data does not change: an edge keeps its slot,
+the heights are computed.
+
+## Addendum (2026-11-24, later): outer and inner border, one band
+
+A stage has an outer border (its edge) and an inner border, the limit of its actions, the same distance from the edge on
+all four sides: `STAGE_MARGIN`, the header plus `FIRST_ROW` (56 px), which is the distance from a stage's top edge to an
+action in the first row; it is one number derived from those two, not a second value. `clampInStage` stops an action
+at the inner border on the left and at the top; right and below the stage grows with it (`fitStage`), so the band stays
+there too. `minStageSize` (the floor of both grips and of the double click) is the actions plus the band to the right
+and below (before: 24 below and right, 12 on the left, and not the same for the two grips). The bottom attachment point
+is level with an action at the bottom of the inner border (stage height minus the band minus the action's height); the top and
+middle ones are unchanged. A connection that loops back keeps its routing: `DETOUR` (28 px) below the lowest of its two nodes,
+wherever the stage's bottom edge is. It may cross the inner border and run in the band; since `DETOUR + CORNER <=
+STAGE_MARGIN` (a test holds it) the loop still lies inside the outer border at the least size of the stage. (A first version
+clamped the loop into the middle of the band at the bottom of the stage; the owner wanted the routing as before, close
+under the nodes.) The inner border is a limit and is not drawn (a first version showed it as a faint dashed line while an
+action or a grip was dragged; the owner did not want it). Stored positions do not change: a stage saved earlier may have an action closer to an edge; the
+limit applies when it is dragged, placed or resized.

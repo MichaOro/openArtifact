@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% block title %}{{ t('page.run_limits') }} · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/settings.css">{% endblock %}
+{% block content %}
+{{ alert(t('settings.run_limits_page.run_limits_could_not_be')) }}
+<p class="st-intro">{{ t('run_limits.limits_of_one_execution_an_execution') }}</p>
+<form class="st-card glass" data-run-limits novalidate>
+    <div class="field">
+        <label class="field__label" for="rl-steps">{{ t('run_limits.steps_per_execution') }} <span class="field__hint">{{ t('run_limits.10_to_100_000') }}</span></label>
+        <input class="field__control" id="rl-steps" name="max_steps" type="number" min="10" max="100000" step="1" required aria-describedby="rl-steps-help">
+        <p class="field__help" id="rl-steps-help">{{ t('run_limits.every_action_and_every_node_of') }}</p>
+    </div>
+    <div class="field">
+        <label class="field__label" for="rl-time">{{ t('run_limits.time_limit_per_execution') }} <span class="field__hint">{{ t('run_limits.minutes_0_none_at_most_10') }}</span></label>
+        <input class="field__control" id="rl-time" name="time_limit_minutes" type="number" min="0" max="10080" step="1" required aria-describedby="rl-time-help">
+        <p class="field__help" id="rl-time-help">{{ t('run_limits.when_the_time_is_up_the') }}</p>
+    </div>
+    <p class="st-fact">{{ t('run_limits.runs_at_the_same_time') }} <strong data-concurrent></strong>{{ t('run_limits.this_is_a_setting_of_the') }}<code>OPENARTIFACT_MAX_CONCURRENT_RUNS</code>{{ t('run_limits.and_cannot_be_changed_here') }}</p>
+    <p class="form-error" role="alert" hidden data-form-error></p>
+    <div class="st-actions">
+        <span class="st-status" aria-live="polite" data-status></span>
+        <button type="submit" class="button button--primary" data-submit disabled>{{ t('common.save') }}</button>
+    </div>
+</form>
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/settings/run-limits-page.js"></script>{% endblock %}

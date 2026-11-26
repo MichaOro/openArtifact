@@ -1,0 +1,215 @@
+/* The tabs of the artifact dialog and its History tab: list and one execution.
+   Loaded by the board with the dialog. Colours via tokens only; a status is never colour alone
+   (every chip has an icon and a word).
+   Prefix: history- = this tab (also the execution rows on the flow page); the status chips defined
+   here are shared with executions.css and execution.css. */
+
+.task-tab__badge {
+  min-width: 1.25rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--color-text-primary);
+  font-size: 0.6875rem;
+  line-height: 1.25rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+/* the History tab has the Close button only */
+.task-view[data-tab="history"] [data-view-edit],
+.task-view[data-tab="history"] .card-run,
+.task-view[data-tab="comments"] [data-view-edit],
+.task-view[data-tab="comments"] .card-run { display: none; }
+/* the send button of the Comments tab is in the footer, but only on that tab */
+.task-view:not([data-tab="comments"]) [data-comments-send] { display: none; }
+/* .modal__body is a flex column; hidden panels must really go */
+.modal__body[hidden] { display: none; }
+
+/* ── History panel ───────────────────────────────────────────────── */
+.history { gap: var(--space-3); padding-top: var(--space-3); }
+.history .alert-bar { margin-bottom: 0; }
+.history__list-view,
+.history-detail { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.history__toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.history__summary { font-size: 0.8125rem; color: var(--color-text-secondary); }
+.history__empty {
+  padding: var(--space-5) var(--space-3);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+/* chips: tinted by status, text in the normal colour, an icon besides the word */
+.history-chip {
+  --chip: var(--lane-hue-8);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--chip) 20%, transparent);
+  color: var(--color-text-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.5rem;
+  white-space: nowrap;
+}
+.history-chip [data-chip-icon] { display: inline-flex; color: var(--chip); }
+.history-chip .icon { width: 0.875rem; height: 0.875rem; }
+.history-chip[data-status="running"] { --chip: var(--color-accent); }
+.history-chip[data-status="done"],
+.history-chip[data-status="pass"] { --chip: var(--lane-hue-3); }
+.history-chip[data-status="failed"],
+.history-chip[data-status="fail"] { --chip: var(--color-danger); }
+.history-chip[data-status="running"] .icon { animation: history-pulse 1.4s ease-in-out infinite; }
+@keyframes history-pulse { 50% { opacity: 0.35; } }
+
+/* ── List ────────────────────────────────────────────────────────── */
+.history-list { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.history-list:focus-visible { outline: none; }
+.history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+}
+.history-row:hover { border-color: var(--glass-border-hover); }
+.history-row__open {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "chip number time duration"
+    "pipeline pipeline meta meta"
+    "note note note note";
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.history-row__open:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.history-row .history-chip { grid-area: chip; }
+.history-row__number { grid-area: number; font-weight: 600; font-variant-numeric: tabular-nums; }
+.history-row__time { grid-area: time; font-size: 0.8125rem; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-row__duration { grid-area: duration; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+.history-row__pipeline { grid-area: pipeline; font-size: 0.8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-row__meta { grid-area: meta; justify-self: end; font-size: 0.75rem; color: var(--color-text-muted); white-space: nowrap; }
+.history-row__note { grid-area: note; font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.history-row__delete { margin-right: var(--space-2); }
+
+/* ── One execution ───────────────────────────────────────────────── */
+.history-detail__bar { display: flex; gap: var(--space-2); }
+.history-detail__delete { margin-left: auto; }
+.history-detail__heading { font-size: 1rem; }
+.history-detail__heading:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.history-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-4); margin: 0; font-size: 0.8125rem; }
+.history-facts dt { color: var(--color-text-muted); }
+.history-facts dd { margin: 0; overflow-wrap: anywhere; }
+.history-steps { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.history-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-left: calc(var(--depth, 0) * var(--space-4));
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--lane-hue-3);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+}
+.history-step[data-outcome="fail"] { border-left-color: var(--color-danger); }
+.history-step__head { display: flex; align-items: center; gap: var(--space-2); }
+.history-step__seq { min-width: 1.25rem; font-variant-numeric: tabular-nums; color: var(--color-text-muted); }
+.history-step__kind { display: inline-flex; color: var(--color-text-secondary); }
+.history-step__kind .icon { width: 1rem; height: 1rem; }
+.history-step__name { flex: 1; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+.history-step__kind-text { font-weight: 400; font-size: 0.75rem; color: var(--color-text-muted); }
+.history-step__where,
+.history-step__facts,
+.history-step__reason { font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.history-step__reason { color: var(--color-text-primary); }
+.history-step__block summary { cursor: pointer; font-size: 0.75rem; color: var(--color-text-secondary); }
+.history-context > .button { margin-top: var(--space-1); }
+.history-step__block summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.history-step__pre {
+  max-height: 12rem;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2);
+  overflow: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-background) 55%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .task-tabs { padding: 0 var(--space-4); }
+  .history-row__open { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "chip number duration" "time time time" "pipeline pipeline meta" "note note note"; }
+  .history-facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .history-facts dd { margin-bottom: var(--space-2); }
+}
+
+
+/* ── Timeline: changes, filter and the trace of a deleted execution (ADR-058) ───────────────── */
+.history__filter { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.history__older { align-self: flex-start; }
+.history-list > li[hidden] { display: none; }
+/* the timeline: a round marker at the left of every entry, joined by a thin line (the marker says what kind of event
+   it is by its icon and tone; the sentence says it in words) */
+.history-list { --marker: 2rem; --marker-gap: var(--space-3); gap: 0; }
+.history-list > li { position: relative; margin: 0 0 var(--space-2) calc(var(--marker) + var(--marker-gap)); }
+.history-list > li::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * (var(--marker) + var(--marker-gap)) + var(--marker) / 2 - 1px);
+  top: calc(var(--marker) + 0.25rem);
+  bottom: calc(-1 * var(--space-2));
+  width: 2px;
+  background: var(--glass-border);
+}
+.history-list > li[data-last]::before { display: none; }
+.history-marker {
+  --tone: var(--lane-hue-8);
+  position: absolute;
+  left: calc(-1 * (var(--marker) + var(--marker-gap)));
+  top: 0.125rem;
+  display: grid;
+  place-items: center;
+  width: var(--marker);
+  height: var(--marker);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tone) 22%, var(--color-background));
+  color: var(--tone);
+}
+.history-marker .icon { width: 1rem; height: 1rem; }
+.history-marker[data-tone="ok"] { --tone: var(--lane-hue-3); }
+.history-marker[data-tone="bad"] { --tone: var(--color-danger); }
+.history-marker[data-tone="accent"] { --tone: var(--color-accent); }
+.history-event { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); min-height: var(--marker); padding: 0.375rem 0 0.125rem; }
+.history-event__body { min-width: 0; }
+.history-event__text { font-size: 0.875rem; overflow-wrap: anywhere; }
+.history-event__actor { font-weight: 600; }
+.history-event__sub { margin: 0; font-size: 0.75rem; color: var(--color-text-muted); }
+.history-event__time { font-size: 0.75rem; color: var(--color-text-secondary); white-space: nowrap; }
+.history-event__jump { display: block; max-width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.history-event__jump:hover .history-event__text { text-decoration: underline; }
+.history-event__jump:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.history-event[data-kind="run"] .history-event__text,
+.history-event[data-kind="comment_deleted"] .history-event__text { color: var(--color-text-secondary); }
+.history-collapse { display: flex; align-items: center; min-height: var(--marker); }
+@media (max-width: 640px) {
+  .history-event { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}

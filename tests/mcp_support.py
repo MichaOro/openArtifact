@@ -1,0 +1,93 @@
+"""A small MCP server for the tool tests: three tools behind a bearer token, served by uvicorn in a thread."""
+
+from __future__ import annotations
+
+import socket
+import threading
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
+
+import uvicorn
+from mcp.server import MCPServer
+from mcp.types import ToolAnnotations
+
+TOKEN = "ghp_test_token_0123456789"
+CALLS: list[tuple[str, dict[str, Any]]] = []
+#: Every HTTP request that reached the server (method and path), listings included.
+REQUESTS: list[tuple[str, str]] = []
+#: The value of the ``X-MCP-Readonly`` header of every request that had one.
+READONLY_HEADERS: list[str] = []
+
+
+def _server() -> Any:
+    mcp = MCPServer("Test GitHub")
+
+    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+    def get_issue(number: int) -> str:
+        """Read one issue by its number."""
+        CALLS.append(("get_issue", {"number": number}))
+        return f"Issue #{number}: Login is broken"
+
+    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+    def list_issues(state: str = "open") -> str:
+        """List the issues."""
+        CALLS.append(("list_issues", {"state": state}))
+        return "#1 Login is broken\n#2 Slow search"
+
+    @mcp.tool(annotations=ToolAnnotations(read_only_hint=False))
+    def create_issue(title: str) -> str:
+        """Create an issue."""
+        CALLS.append(("create_issue", {"title": title}))
+        return "Created #3"
+
+    @mcp.tool()
+    def explode() -> str:
+        """Always fails."""
+        raise ValueError("the server could not do it")
+
+    app = mcp.streamable_http_app(stateless_http=True, json_response=True, host="0.0.0.0")
+
+    async def guarded(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope["type"] == "http":
+            REQUESTS.append((scope["method"], scope["path"]))
+            headers = dict(scope.get("headers") or [])
+            if b"x-mcp-readonly" in headers:
+                READONLY_HEADERS.append(headers[b"x-mcp-readonly"].decode())
+            if headers.get(b"authorization") != f"Bearer {TOKEN}".encode():
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": 401,
+                        "headers": [(b"content-type", b"text/plain")],
+                    }
+                )
+                await send({"type": "http.response.body", "body": b"unauthorized"})
+                return
+        await app(scope, receive, send)
+
+    return guarded
+
+
+@contextmanager
+def mcp_server() -> Iterator[str]:
+    """The endpoint URL of a running test MCP server."""
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    server = uvicorn.Server(
+        uvicorn.Config(_server(), host="127.0.0.1", port=port, log_level="warning", lifespan="on")
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    for _ in range(200):
+        if server.started:
+            break
+        time.sleep(0.02)
+    CALLS.clear()
+    try:
+        yield f"http://127.0.0.1:{port}/mcp"
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)

@@ -1,0 +1,3876 @@
+[
+ {
+  "kind": "trigger",
+  "label": "Trigger",
+  "scopes": [
+   "action",
+   "pipeline"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": true,
+  "addable": false,
+  "chain": true,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "out",
+    "label": "Next"
+   }
+  ],
+  "settings": [],
+  "links_to": null,
+  "tool": false,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "plain",
+  "menu": null,
+  "menu_icon": "play",
+  "ui": {
+   "color": "trigger"
+  }
+ },
+ {
+  "kind": "stage",
+  "label": "Stage",
+  "scopes": [
+   "pipeline"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "start",
+    "label": "Start"
+   },
+   {
+    "name": "end",
+    "label": "End"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "start",
+    "label": "First action"
+   },
+   {
+    "name": "end",
+    "label": "Next"
+   }
+  ],
+  "settings": [],
+  "links_to": null,
+  "tool": false,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "stage",
+  "menu": {
+   "group": "Structure",
+   "group_index": 0,
+   "order": 1
+  },
+  "menu_icon": "layers",
+  "ui": {
+   "color": "stage"
+  }
+ },
+ {
+  "kind": "action",
+  "label": "Action",
+  "scopes": [
+   "pipeline"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": false,
+  "chain": false,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "error",
+    "label": "On Error",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "on_failure",
+    "label": "If the action fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the run as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Error, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": "action",
+  "tool": false,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "action",
+  "menu": null,
+  "menu_icon": "action",
+  "ui": {
+   "color": "action",
+   "size": {
+    "width": 190,
+    "height": 68
+   },
+   "port_labels": true
+  }
+ },
+ {
+  "kind": "pipeline",
+  "label": "Pipeline",
+  "scopes": [
+   "pipeline"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "out",
+    "label": "Next"
+   }
+  ],
+  "settings": [],
+  "links_to": "pipeline",
+  "tool": false,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "pipeline",
+  "menu": {
+   "group": "Structure",
+   "group_index": 0,
+   "order": 2
+  },
+  "menu_icon": "pipeline",
+  "ui": {
+   "color": "pipeline",
+   "size": {
+    "width": 200,
+    "height": 64
+   }
+  }
+ },
+ {
+  "kind": "complete",
+  "label": "Complete",
+  "scopes": [
+   "pipeline"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": true,
+  "addable": false,
+  "chain": false,
+  "ending": true,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [],
+  "settings": [],
+  "links_to": null,
+  "tool": false,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "plain",
+  "menu": null,
+  "menu_icon": "check",
+  "ui": {
+   "color": "complete",
+   "size": {
+    "width": 160,
+    "height": 56
+   }
+  }
+ },
+ {
+  "kind": "timer",
+  "label": "Timer",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "out",
+    "label": "Next"
+   }
+  ],
+  "settings": [
+   {
+    "key": "seconds",
+    "label": "Seconds",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 86400,
+    "default": 5,
+    "stored_in": "column",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "plain",
+  "menu": {
+   "group": "Flow",
+   "group_index": 6,
+   "order": 3
+  },
+  "menu_icon": "clock",
+  "ui": {
+   "color": "timer",
+   "caption": {
+    "template": "{@seconds} s"
+   }
+  }
+ },
+ {
+  "kind": "output",
+  "label": "Output",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": true,
+  "addable": false,
+  "chain": false,
+  "ending": true,
+  "inputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "node": "fail_enabled"
+    }
+   }
+  ],
+  "outputs": [],
+  "settings": [
+   {
+    "key": "fail_enabled",
+    "label": "On Fail",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "column",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "output",
+  "menu": null,
+  "menu_icon": "inbox",
+  "ui": {
+   "color": "output",
+   "step_icon": "check",
+   "size": {
+    "width": 250,
+    "height": 104
+   },
+   "port_labels": true
+  }
+ },
+ {
+  "kind": "code",
+  "label": "Code",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "language",
+    "label": "Language",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "sh",
+    "stored_in": "config",
+    "options": [
+     "sh",
+     "python"
+    ],
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "code",
+    "label": "Code",
+    "type": "code",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "help": "Plain text, so no secrets here; ${...} is not replaced in code. The run context is the file context.json, and a last line {\"ok\": true, \"vars\": {\"name\": \"value\"}} sets variables.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "secrets",
+    "label": "Secrets",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 2000,
+    "placeholder": "API_KEY",
+    "help": "One secret name per line; each is an environment variable of that name, like $API_KEY. A missing secret fails the node.",
+    "section": "definition",
+    "level": "advanced",
+    "inherits": null
+   },
+   {
+    "key": "sets_variables",
+    "label": "Sets variables",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 2000,
+    "placeholder": "ticket_priority",
+    "help": "Optional: the variables this code sets, one per line, as in \"vars\". They feed the suggestions; a difference is noted in the step and does not fail the node.",
+    "section": "definition",
+    "level": "advanced",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 600,
+    "default": 30,
+    "stored_in": "config",
+    "group": "Execution limits",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [],
+  "variables": {
+   "setting": "sets_variables",
+   "format": "lines"
+  },
+  "behaviour": "flow",
+  "menu": {
+   "group": "Core",
+   "group_index": 4,
+   "order": 1
+  },
+  "menu_icon": "code",
+  "ui": {
+   "icon": "code",
+   "color": "code",
+   "caption": {
+    "template": "{language|default:sh} · {code|first_line|default:no code yet}"
+   }
+  }
+ },
+ {
+  "kind": "http",
+  "label": "HTTP request",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "method",
+    "label": "Method",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "GET",
+    "stored_in": "config",
+    "options": [
+     "GET",
+     "POST",
+     "PUT",
+     "PATCH",
+     "DELETE"
+    ],
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "url",
+    "label": "URL",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 2000,
+    "placeholder": "https://example.org/hook",
+    "help": "Use ${secret:NAME} for a stored secret and ${node.NAME.output} or ${var.NAME} for the result of an earlier node or a variable in the path or the query (replaced text is percent-encoded there); not in the scheme or host.",
+    "references": "all",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "headers",
+    "label": "Headers",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "Name: value",
+    "help": "One 'Name: value' per line, stored in plain text: put a secret in as ${secret:NAME}, for example 'Authorization: Bearer ${secret:API_TOKEN}'. ${node.NAME.output} and ${var.NAME} insert an earlier result or variable.",
+    "references": "all",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "body",
+    "label": "Body",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "help": "Sent as it is, stored in plain text: use ${secret:NAME} for a secret. ${node.NAME.output}, ${node.NAME.data.key} and ${var.NAME} insert earlier results (NAME: the node's name, _ for spaces).",
+    "references": "all",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 120,
+    "default": 30,
+    "stored_in": "config",
+    "group": "Execution limits",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "success_status",
+    "label": "Success status",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "200-299",
+    "stored_in": "config",
+    "max_length": 100,
+    "help": "Comma-separated codes or ranges, for example 200-299, 404.",
+    "section": "behaviour",
+    "level": "advanced",
+    "inherits": null
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "truncated"
+  ],
+  "variables": null,
+  "behaviour": "flow",
+  "menu": {
+   "group": "Core",
+   "group_index": 4,
+   "order": 2
+  },
+  "menu_icon": "http",
+  "ui": {
+   "icon": "http",
+   "color": "http",
+   "caption": {
+    "template": "{method|default:GET} {url|host_path|default:no URL yet}"
+   }
+  }
+ },
+ {
+  "kind": "if",
+  "label": "If",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "yes",
+    "label": "Yes"
+   },
+   {
+    "name": "no",
+    "label": "No"
+   },
+   {
+    "name": "else",
+    "label": "Else"
+   }
+  ],
+  "settings": [
+   {
+    "key": "combine",
+    "label": "Conditions",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "all",
+    "stored_in": "config",
+    "options": [
+     "all",
+     "any"
+    ],
+    "help": "all: every used condition must hold (and). any: one is enough (or).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_sensitive",
+    "label": "Case sensitive",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": true,
+    "stored_in": "config",
+    "help": "Off: texts are compared without regard to upper and lower case.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "left_1",
+    "label": "Value",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "placeholder": "${var.priority}",
+    "help": "Text, may hold ${node.NAME.output} or ${var.name}. Empty: the row is unused.",
+    "group": "Condition 1",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "operator_1",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Condition 1",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "right_1",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "help": "Ignored by is empty, is not empty, is true and is false.",
+    "group": "Condition 1",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "left_2",
+    "label": "Value",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Condition 2",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "operator_2",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Condition 2",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "right_2",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Condition 2",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "left_3",
+    "label": "Value",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Condition 3",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "operator_3",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Condition 3",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "right_3",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Condition 3",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "left_4",
+    "label": "Value",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Condition 4",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "operator_4",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Condition 4",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "right_4",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Condition 4",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "left_5",
+    "label": "Value",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Condition 5",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "operator_5",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Condition 5",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "right_5",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Condition 5",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "flow",
+  "menu": {
+   "group": "Flow",
+   "group_index": 6,
+   "order": 1
+  },
+  "menu_icon": "if",
+  "ui": {
+   "icon": "if",
+   "color": "branch",
+   "size": {
+    "width": 250,
+    "height": 104
+   },
+   "caption": {
+    "fn": "if_summary"
+   }
+  }
+ },
+ {
+  "kind": "switch",
+  "label": "Switch",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "case_1",
+    "label": "Case 1",
+    "visible_when": {
+     "fn": "switch_case_used"
+    },
+    "label_from": "switch_case_label"
+   },
+   {
+    "name": "case_2",
+    "label": "Case 2",
+    "visible_when": {
+     "fn": "switch_case_used"
+    },
+    "label_from": "switch_case_label"
+   },
+   {
+    "name": "case_3",
+    "label": "Case 3",
+    "visible_when": {
+     "fn": "switch_case_used"
+    },
+    "label_from": "switch_case_label"
+   },
+   {
+    "name": "case_4",
+    "label": "Case 4",
+    "visible_when": {
+     "fn": "switch_case_used"
+    },
+    "label_from": "switch_case_label"
+   },
+   {
+    "name": "case_5",
+    "label": "Case 5",
+    "visible_when": {
+     "fn": "switch_case_used"
+    },
+    "label_from": "switch_case_label"
+   },
+   {
+    "name": "case_6",
+    "label": "Case 6",
+    "visible_when": {
+     "fn": "switch_case_used"
+    },
+    "label_from": "switch_case_label"
+   },
+   {
+    "name": "else",
+    "label": "Else"
+   }
+  ],
+  "settings": [
+   {
+    "key": "value",
+    "label": "Value",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "placeholder": "${var.priority}",
+    "help": "Text, may hold ${node.NAME.output} or ${var.name}.",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_operator_1",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Case 1",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_1",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "help": "Text, may hold ${node.NAME.output} or ${var.name}. Empty (and an operator that needs a value): the case is unused and its output is hidden.",
+    "group": "Case 1",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_operator_2",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Case 2",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_2",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Case 2",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_operator_3",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Case 3",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_3",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Case 3",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_operator_4",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Case 4",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_4",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Case 4",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_operator_5",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Case 5",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_5",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Case 5",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_operator_6",
+    "label": "Operator",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "equals",
+    "stored_in": "config",
+    "options": [
+     "equals",
+     "not equals",
+     "contains",
+     "not contains",
+     "starts with",
+     "ends with",
+     "is empty",
+     "is not empty",
+     "greater than",
+     "less than",
+     "greater or equal",
+     "less or equal",
+     "is true",
+     "is false"
+    ],
+    "group": "Case 6",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_6",
+    "label": "Compare with",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "group": "Case 6",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "case_sensitive",
+    "label": "Case sensitive",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": true,
+    "stored_in": "config",
+    "help": "Off: texts are compared without regard to upper and lower case.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "switch",
+  "menu": {
+   "group": "Flow",
+   "group_index": 6,
+   "order": 2
+  },
+  "menu_icon": "switch",
+  "ui": {
+   "icon": "switch",
+   "color": "branch",
+   "caption": {
+    "fn": "switch_summary"
+   },
+   "size_fn": "switch_size",
+   "group_used_fn": "switch_group_used"
+  }
+ },
+ {
+  "kind": "agent",
+  "label": "Agent",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   },
+   {
+    "name": "tools",
+    "label": "Tools",
+    "side": "bottom"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "agent_id",
+    "label": "Agent",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 36,
+    "help": "The agent this node runs (managed under Agents).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "inputs",
+    "label": "Inputs",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "ticket = ${node.Fetch_ticket.output}",
+    "help": "One 'name = value' per line for the inputs the agent declares. The value is text and may hold ${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or ${card.name}; secrets cannot be used.",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "system_prompt_enabled",
+    "label": "Use system prompt",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "core",
+    "inherits": "agent"
+   },
+   {
+    "key": "system_prompt",
+    "label": "System prompt",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "max_length": 20000,
+    "section": "definition",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "user_prompt",
+    "label": "User prompt",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "max_length": 20000,
+    "section": "definition",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "provider_id",
+    "label": "Provider",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "max_length": 36,
+    "group": "Model & Generation",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "model",
+    "label": "Model",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "max_length": 200,
+    "group": "Model & Generation",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "temperature",
+    "label": "Temperature",
+    "type": "number",
+    "minimum": 0,
+    "maximum": 2,
+    "default": null,
+    "stored_in": "config",
+    "group": "Model & Generation",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "max_tokens",
+    "label": "Max tokens",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 8192,
+    "default": null,
+    "stored_in": "config",
+    "group": "Model & Generation",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "request_timeout_seconds",
+    "label": "Request timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 300,
+    "default": null,
+    "stored_in": "config",
+    "group": "Execution limits",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "total_timeout_seconds",
+    "label": "Time limit (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 1800,
+    "default": null,
+    "stored_in": "config",
+    "group": "Execution limits",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "retries",
+    "label": "Retries",
+    "type": "integer",
+    "minimum": 0,
+    "maximum": 4,
+    "default": null,
+    "stored_in": "config",
+    "group": "Execution limits",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "max_iterations",
+    "label": "Max iterations",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 500,
+    "default": null,
+    "stored_in": "config",
+    "help": "A safety net, not a goal (default 100). At the limit the agent writes its answer from what it has found, without tools.",
+    "group": "Execution limits",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "token_budget",
+    "label": "Token budget",
+    "type": "integer",
+    "minimum": 1000,
+    "maximum": 10000000,
+    "default": null,
+    "stored_in": "config",
+    "help": "The most tokens all requests of one run may use. Not set - no budget; at the budget the agent answers from what it has.",
+    "group": "Execution limits",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "tool_result_chars",
+    "label": "Tool result limit",
+    "type": "integer",
+    "minimum": 500,
+    "maximum": 100000,
+    "default": null,
+    "stored_in": "config",
+    "help": "How many characters of one tool result the model reads (default 12000); older results are shortened more. The step keeps the result.",
+    "group": "Execution limits",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "model",
+   "usage.total_tokens",
+   "finish_reason",
+   "iterations"
+  ],
+  "variables": null,
+  "behaviour": "flow",
+  "menu": {
+   "group": "AI",
+   "group_index": 1,
+   "order": 1
+  },
+  "menu_icon": "agent",
+  "ui": {
+   "icon": "agent",
+   "color": "agent",
+   "caption": {
+    "fn": "agent_summary"
+   },
+   "block": "agent"
+  }
+ },
+ {
+  "kind": "set",
+  "label": "Edit Fields",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "fields",
+    "label": "Fields",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "priority = ${node.Classify.output}",
+    "help": "One 'name = value' per line; each sets ${var.name} for later nodes (lowercase letters, digits, _). A value may hold ${node.NAME.output}, ${node.NAME.data.key}, ${var.name} or ${card.name}, but no secrets.",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "value_types",
+    "label": "Value types",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "text",
+    "stored_in": "config",
+    "options": [
+     "text",
+     "detect"
+    ],
+    "help": "text: every value is stored as text. detect: a value that is a number, true, false, null, a JSON object or a JSON list is stored as that.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": false,
+  "result_data": [],
+  "variables": {
+   "setting": "fields",
+   "format": "assignments"
+  },
+  "behaviour": "flow",
+  "menu": {
+   "group": "Data",
+   "group_index": 5,
+   "order": 1
+  },
+  "menu_icon": "pencil",
+  "ui": {
+   "icon": "pencil",
+   "color": "set",
+   "caption": {
+    "template": "{fields|field_names|short|default:no field yet}"
+   }
+  }
+ },
+ {
+  "kind": "github",
+  "label": "GitHub",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "secret",
+    "label": "Credential",
+    "type": "credential",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "credential_types": [
+     "github_pat"
+    ],
+    "help": "A GitHub access token (classic or fine-grained), kept in the credentials. Empty - no token (public data, a low rate limit).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "resource",
+    "label": "Resource",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "Repository",
+    "stored_in": "config",
+    "options": [
+     "Repository",
+     "Issue",
+     "Pull request",
+     "File",
+     "Organization",
+     "Release",
+     "Review",
+     "User"
+    ],
+    "disabled_options": [
+     "Organization",
+     "Release",
+     "Review",
+     "User"
+    ],
+    "line": "kind",
+    "help": "What the node works on. A greyed entry is not built yet.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "operation",
+    "label": "Operation",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "Get repository",
+    "stored_in": "config",
+    "options": [
+     "Get repository",
+     "List issues",
+     "List pull requests",
+     "Get license",
+     "Get profile",
+     "List popular paths",
+     "List referrers",
+     "Get issue",
+     "List comments",
+     "Create comment",
+     "Create issue",
+     "Edit issue",
+     "Lock issue",
+     "Get pull request",
+     "Get pull request diff",
+     "List pull request files",
+     "Create pull request",
+     "Update pull request",
+     "Get file",
+     "Create file",
+     "Edit file",
+     "Delete file",
+     "List organization repositories",
+     "Create release",
+     "Get release",
+     "List releases",
+     "Update release",
+     "Delete release",
+     "Create review",
+     "Get review",
+     "List reviews",
+     "Update review",
+     "List user repositories",
+     "Invite user"
+    ],
+    "option_labels": {
+     "Get pull request diff": "Get PR diff",
+     "List pull request files": "List PR files"
+    },
+    "disabled_options": [
+     "Get license",
+     "Get profile",
+     "List popular paths",
+     "List referrers",
+     "Create issue",
+     "Edit issue",
+     "Lock issue",
+     "Create pull request",
+     "Update pull request",
+     "Create file",
+     "Edit file",
+     "Delete file",
+     "List organization repositories",
+     "Create release",
+     "Get release",
+     "List releases",
+     "Update release",
+     "Delete release",
+     "Create review",
+     "Get review",
+     "List reviews",
+     "Update review",
+     "List user repositories",
+     "Invite user"
+    ],
+    "options_by": {
+     "setting": "resource",
+     "map": {
+      "Repository": [
+       "Get repository",
+       "List issues",
+       "List pull requests",
+       "Get license",
+       "Get profile",
+       "List popular paths",
+       "List referrers"
+      ],
+      "Issue": [
+       "Get issue",
+       "List comments",
+       "Create comment",
+       "Create issue",
+       "Edit issue",
+       "Lock issue"
+      ],
+      "Pull request": [
+       "Get pull request",
+       "Get pull request diff",
+       "List pull request files",
+       "Create pull request",
+       "Update pull request"
+      ],
+      "File": [
+       "Get file",
+       "Create file",
+       "Edit file",
+       "Delete file"
+      ],
+      "Organization": [
+       "List organization repositories"
+      ],
+      "Release": [
+       "Create release",
+       "Get release",
+       "List releases",
+       "Update release",
+       "Delete release"
+      ],
+      "Review": [
+       "Create review",
+       "Get review",
+       "List reviews",
+       "Update review"
+      ],
+      "User": [
+       "List user repositories",
+       "Invite user"
+      ]
+     }
+    },
+    "line": "kind",
+    "help": "What the node does with the resource. A greyed entry is not built yet.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "repository",
+    "label": "Repository",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 200,
+    "placeholder": "owner/name",
+    "help": "owner/name, for every operation. May hold ${node...} or ${var...}.",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "number",
+    "label": "Number",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "Get issue",
+      "List comments",
+      "Create comment",
+      "Get pull request",
+      "Get pull request diff",
+      "List pull request files"
+     ]
+    },
+    "max_length": 40,
+    "help": "The number of the issue or pull request (get, comments, files, diff).",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "path",
+    "label": "File path",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "Get file"
+     ]
+    },
+    "max_length": 500,
+    "placeholder": "docs/README.md",
+    "help": "Get file: the path in the repository (a folder lists its files).",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "ref",
+    "label": "Git reference",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "Get file"
+     ]
+    },
+    "max_length": 200,
+    "help": "Get file: empty is the default branch.",
+    "references": "context",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "state",
+    "label": "State",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "open",
+    "stored_in": "config",
+    "options": [
+     "open",
+     "closed",
+     "all"
+    ],
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "List issues",
+      "List pull requests"
+     ]
+    },
+    "help": "List issues and List pull requests.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "limit",
+    "label": "Limit",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 100,
+    "default": 30,
+    "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "List issues",
+      "List pull requests",
+      "List pull request files",
+      "List comments"
+     ]
+    },
+    "help": "The most items a list returns (one page, the newest first).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "comment",
+    "label": "Comment",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "Create comment"
+     ]
+    },
+    "max_length": 20000,
+    "help": "Create comment: the text, may hold ${node...} or ${var...}; no secrets.",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "allow_comments",
+    "label": "Allow comments",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "shown_when": {
+     "setting": "operation",
+     "values": [
+      "Create comment"
+     ]
+    },
+    "help": "Create comment writes to GitHub: it only runs when this is on. Every other operation reads.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 120,
+    "default": 30,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "flow",
+  "menu": {
+   "group": "Apps and data",
+   "group_index": 3,
+   "order": 1
+  },
+  "menu_icon": "github",
+  "ui": {
+   "icon": "github",
+   "color": "github",
+   "caption": {
+    "template": "{operation|default:Get repository}{?operation=Create comment&!allow_comments: (off)} · {repository|trim|short|default:no repository yet}"
+   },
+   "hint": "This node is for connecting to and working with GitHub, the remote."
+  }
+ },
+ {
+  "kind": "postgres",
+  "label": "Postgres",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "secret",
+    "label": "Connection secret",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "TICKETS_DB",
+    "help": "The name of a stored secret that holds postgresql://user:password@host:5432/db (add ?sslmode=require for TLS). The URL is never kept in the node.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "query",
+    "label": "Query",
+    "type": "code",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "SELECT id, title FROM tickets WHERE status = $1 LIMIT 20",
+    "help": "One SQL statement; values go in as $1, $2, ... (never ${...}). Stored in plain text, so no passwords.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "values",
+    "label": "Values",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "open",
+    "help": "One value per line (the first is $1, the second $2); the database converts the text to the type the query expects, and NULLIF($1, '') gives a NULL. ${node...} and ${var...} insert earlier results, no secrets.",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "allow_write",
+    "label": "Allow changes",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "Off: the statement runs in a read-only transaction that is rolled back, so any change is refused. On: it may change data and is committed; use a database role with only the privileges it needs.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "allow_private",
+    "label": "Private network",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "The database is on a private or local network. Counts only when the operator allows it too (OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS).",
+    "section": "definition",
+    "level": "advanced",
+    "inherits": null
+   },
+   {
+    "key": "max_rows",
+    "label": "Max rows",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 1000,
+    "default": 100,
+    "stored_in": "config",
+    "help": "More rows are left out and the result says it is truncated.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 120,
+    "default": 30,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "rows",
+   "truncated"
+  ],
+  "variables": null,
+  "behaviour": "flow",
+  "menu": {
+   "group": "Apps and data",
+   "group_index": 3,
+   "order": 2
+  },
+  "menu_icon": "database",
+  "ui": {
+   "icon": "database",
+   "color": "postgres",
+   "caption": {
+    "template": "{?allow_write:changes · }{query|first_line|short|default:no query yet}"
+   }
+  }
+ },
+ {
+  "kind": "sqlite",
+  "label": "SQLite",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "source",
+    "label": "Data source",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "app",
+    "stored_in": "config",
+    "options": [
+     "app"
+    ],
+    "option_labels": {
+     "app": "Application data"
+    },
+    "help": "Where the query reads. Application data is this application's own database, through the views v_guard_*.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "query",
+    "label": "Query",
+    "type": "code",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "SELECT lane, count(*) FROM v_guard_artifacts GROUP BY lane",
+    "help": "One read-only SQL statement on the views of the data source; values go in as ?1, ?2, ... (never ${...}). Anything that changes data is refused by the database itself.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "values",
+    "label": "Values",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "backlog",
+    "help": "One value per line (the first is ?1, the second ?2). ${node...} and ${var...} insert earlier results, no secrets.",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "blocked",
+    "label": "Blocked tables",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 2000,
+    "placeholder": "tasks.title",
+    "help": "Tables or columns this query may not read, one per line. Secrets, credentials, tokens, providers and settings are always blocked.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "max_rows",
+    "label": "Max rows",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 1000,
+    "default": 100,
+    "stored_in": "config",
+    "help": "More rows are left out and the result says it is truncated.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 120,
+    "default": 30,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "rows",
+   "truncated"
+  ],
+  "variables": null,
+  "behaviour": "flow",
+  "menu": {
+   "group": "Apps and data",
+   "group_index": 3,
+   "order": 3
+  },
+  "menu_icon": "database",
+  "ui": {
+   "icon": "database",
+   "color": "sqlite",
+   "caption": {
+    "template": "{query|first_line|short|default:no query yet}"
+   },
+   "hint": "This node only reads data of the application (runs, steps, tool calls, artifacts, lanes) through the views v_guard_*. It never writes."
+  }
+ },
+ {
+  "kind": "mcp_tool",
+  "label": "MCP Client Tool",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "description",
+    "label": "Description",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 1000,
+    "help": "Tells the model what the tool does and when to use it. The server's tools keep their own names and descriptions.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "url",
+    "label": "Endpoint",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 500,
+    "placeholder": "https://api.githubcopilot.com/mcp/",
+    "help": "The Streamable HTTP address of the MCP server. GitHub: https://api.githubcopilot.com/mcp/",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "secret",
+    "label": "Token secret",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "GITHUB_TOKEN",
+    "help": "The name of a stored secret, sent as 'Authorization: Bearer'. Empty: no token.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "allow_private",
+    "label": "Private network",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "The address is on a private or local network. Counts only when the operator allows it too (OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "tools_mode",
+    "label": "Tools to include",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "all",
+    "stored_in": "config",
+    "options": [
+     "all",
+     "selected",
+     "all_except"
+    ],
+    "help": "all: every tool of the server. selected: only the tools listed below. all_except: all but those.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "tool_names",
+    "label": "Tools",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 10000,
+    "placeholder": "get_issue",
+    "help": "One tool name of the server per line, for 'selected' and 'all_except'.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 300,
+    "default": 60,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 1
+  },
+  "menu_icon": "plug",
+  "ui": {
+   "icon": "plug",
+   "color": "mcp",
+   "caption": {
+    "template": "{url|host_path|default:no endpoint yet}"
+   }
+  }
+ },
+ {
+  "kind": "github_tool",
+  "label": "GitHub MCP",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "secret",
+    "label": "Credential",
+    "type": "credential",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "credential_types": [
+     "github_pat"
+    ],
+    "help": "A GitHub access token (classic or fine-grained), kept in the credentials. What the token may do on GitHub is what the agent may do.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "allow_write",
+    "label": "Allow writes",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "Off: the agent can only read (the connection is held to reading and the tools that change something are left out). On: it may also create and change issues, comments and more.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "tools_mode",
+    "label": "Tools to include",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "all",
+    "stored_in": "config",
+    "options": [
+     "all",
+     "selected",
+     "all_except"
+    ],
+    "option_labels": {
+     "all_except": "all except"
+    },
+    "help": "Every tool is described to the model with each request: fewer tools, a smaller prompt. Tools that change something stay out while Allow writes is off.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "tool_names",
+    "label": "Tools",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "shown_when": {
+     "setting": "tools_mode",
+     "values": [
+      "selected",
+      "all_except"
+     ]
+    },
+    "max_length": 10000,
+    "placeholder": "get_file_contents",
+    "help": "One tool name per line. A name the server does not have is no error, the step says so.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 300,
+    "default": 60,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 2
+  },
+  "menu_icon": "github",
+  "ui": {
+   "icon": "github",
+   "color": "github",
+   "caption": {
+    "template": "{?allow_write:can change}{?!allow_write:read only}"
+   },
+   "hint": "This node lets an agent work with GitHub, the remote, on its own - issues, pull requests, files, branches - through GitHub's MCP server."
+  }
+ },
+ {
+  "kind": "http_tool",
+  "label": "HTTP Request Tool",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "description",
+    "label": "Description",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 1000,
+    "help": "Tells the model what the tool does and when to use it. Name the parameters it needs below.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "method",
+    "label": "Method",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "GET",
+    "stored_in": "config",
+    "options": [
+     "GET",
+     "POST",
+     "PUT",
+     "PATCH",
+     "DELETE"
+    ],
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "url",
+    "label": "URL",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 2000,
+    "placeholder": "https://wttr.in/{city}?format=3",
+    "help": "{name} is a parameter the model fills (percent-encoded here). ${secret:NAME} and ${var.name} work as in the HTTP node, not in the scheme or host.",
+    "references": "all",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "headers",
+    "label": "Headers",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "Authorization: Bearer ${secret:API_TOKEN}",
+    "references": "all",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "body",
+    "label": "Body",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "help": "{name} is replaced by the model's value (escaped for a JSON string when the body is JSON), ${...} as in the HTTP node.",
+    "references": "all",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "parameters",
+    "label": "Parameters",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 5000,
+    "placeholder": "city: The city to look up",
+    "help": "One 'name: description' per line; the model fills them. Names: lowercase letters, digits and _.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "allow_private",
+    "label": "Private network",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "The address is on a private or local network. Counts only when the operator allows it too (OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 120,
+    "default": 30,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "success_status",
+    "label": "Success status",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "200-299",
+    "stored_in": "config",
+    "max_length": 100,
+    "help": "Another status is reported to the model as an error.",
+    "section": "definition",
+    "level": "advanced",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 2
+  },
+  "menu_icon": "http",
+  "ui": {
+   "icon": "http",
+   "color": "http",
+   "caption": {
+    "template": "{method|default:GET} {url|host_path|default:no URL yet}"
+   }
+  }
+ },
+ {
+  "kind": "code_tool",
+  "label": "Code Tool",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "description",
+    "label": "Description",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 1000,
+    "help": "Tells the model what the tool does and when to use it. Name the parameters it takes below.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "language",
+    "label": "Language",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "python",
+    "stored_in": "config",
+    "options": [
+     "sh",
+     "python"
+    ],
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "code",
+    "label": "Code",
+    "type": "code",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "help": "The model's arguments are the object 'input' in context.json in the working directory; what the code prints is the answer to the model. Runs with the rules of the Code node.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "secrets",
+    "label": "Secrets",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 2000,
+    "placeholder": "API_KEY",
+    "help": "One secret name per line, available as environment variables.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "parameters",
+    "label": "Parameters",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 5000,
+    "placeholder": "city: The city to look up",
+    "help": "One 'name: description' per line; the model fills them. Names: lowercase letters, digits and _.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 600,
+    "default": 30,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 3
+  },
+  "menu_icon": "code",
+  "ui": {
+   "icon": "code",
+   "color": "code",
+   "caption": {
+    "template": "{language|default:python} · {tool_name|default:@name}"
+   }
+  }
+ },
+ {
+  "kind": "postgres_tool",
+  "label": "Postgres Tool",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "description",
+    "label": "Description",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 1000,
+    "help": "Tells the model what the tool does and when to use it. Name the parameters the query takes below: the first is $1.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "secret",
+    "label": "Connection secret",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "TICKETS_DB",
+    "help": "The name of a stored secret that holds postgresql://user:password@host:5432/db.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "query",
+    "label": "Query",
+    "type": "code",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "SELECT id, title FROM tickets WHERE status = $1 LIMIT 20",
+    "help": "One SQL statement; values go in as $1, $2, ... (never ${...}). Stored in plain text, so no passwords.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "parameters",
+    "label": "Parameters",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 5000,
+    "placeholder": "city: The city to look up",
+    "help": "One 'name: description' per line; the model fills them. Names: lowercase letters, digits and _.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "allow_write",
+    "label": "Allow changes",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "Off: the statement runs in a read-only transaction that is rolled back, so any change is refused. On: it may change data and is committed; use a database role with only the privileges it needs.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "allow_private",
+    "label": "Private network",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "The address is on a private or local network. Counts only when the operator allows it too (OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "max_rows",
+    "label": "Max rows",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 1000,
+    "default": 100,
+    "stored_in": "config",
+    "help": "More rows are left out and the result says it is truncated.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 120,
+    "default": 30,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 4
+  },
+  "menu_icon": "database",
+  "ui": {
+   "icon": "database",
+   "color": "postgres",
+   "caption": {
+    "template": "{tool_name|default:@name} · {?allow_write:changes · }{query|first_line|short|default:no query yet}"
+   }
+  }
+ },
+ {
+  "kind": "sqlite_tool",
+  "label": "SQLite Tool",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "description",
+    "label": "Description",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 1000,
+    "help": "Tells the model what the tool does and when to use it. Name the parameters the query takes below: the first is ?1.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "source",
+    "label": "Data source",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "app",
+    "stored_in": "config",
+    "options": [
+     "app"
+    ],
+    "option_labels": {
+     "app": "Application data"
+    },
+    "help": "Where the query reads (the views v_guard_*).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "query",
+    "label": "Query",
+    "type": "code",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "placeholder": "SELECT status, step_count FROM v_guard_runs WHERE id = ?1",
+    "help": "One read-only SQL statement on the views of the data source; the parameters go in as ?1, ?2, ... in the order they are declared below.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "parameters",
+    "label": "Parameters",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 5000,
+    "placeholder": "city: The city to look up",
+    "help": "One 'name: description' per line; the model fills them. Names: lowercase letters, digits and _.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "blocked",
+    "label": "Blocked tables",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 2000,
+    "placeholder": "tasks.title",
+    "help": "Tables or columns this query may not read, one per line. Secrets, credentials, tokens, providers and settings are always blocked.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "max_rows",
+    "label": "Max rows",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 1000,
+    "default": 100,
+    "stored_in": "config",
+    "help": "More rows are left out and the result says it is truncated.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "timeout_seconds",
+    "label": "Timeout (seconds)",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 120,
+    "default": 30,
+    "stored_in": "config",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 5
+  },
+  "menu_icon": "database",
+  "ui": {
+   "icon": "database",
+   "color": "sqlite",
+   "caption": {
+    "template": "{tool_name|default:@name} · {query|first_line|short|default:no query yet}"
+   },
+   "hint": "This tool lets an agent read data of the application (runs, steps, tool calls, artifacts, lanes) through the views v_guard_*. It never writes."
+  }
+ },
+ {
+  "kind": "artifact",
+  "label": "Artifact",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "operation",
+    "label": "Operation",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "Get comments",
+    "stored_in": "config",
+    "options": [
+     "Get comments",
+     "Add comment"
+    ],
+    "help": "Get comments reads the newest comments of this run's artifact (output: a transcript; data.comments: the list). Add comment writes one under this node's name; no other artifact is ever touched.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "limit",
+    "label": "Newest comments",
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 100,
+    "default": 20,
+    "stored_in": "config",
+    "help": "Get comments: how many of the newest comments are read (oldest of them first).",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "max_chars",
+    "label": "Characters per comment",
+    "type": "integer",
+    "minimum": 20,
+    "maximum": 4000,
+    "default": 800,
+    "stored_in": "config",
+    "help": "Get comments: a longer comment is cut to this length (with a mark), so one long comment does not fill the run context.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "max_total",
+    "label": "Characters in total",
+    "type": "integer",
+    "minimum": 100,
+    "maximum": 4000,
+    "default": 3500,
+    "stored_in": "config",
+    "help": "Get comments: the transcript is at most this long; older comments are left out first, and the output says how many. A node's output is limited to 4 KiB.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "text",
+    "label": "Comment",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 20000,
+    "help": "Add comment: the text (plain text, line breaks are kept). May hold ${node...}, ${var...} or ${card...}; no secrets.",
+    "references": "context",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "comments",
+   "count"
+  ],
+  "variables": null,
+  "behaviour": "flow",
+  "menu": {
+   "group": "Data",
+   "group_index": 5,
+   "order": 2
+  },
+  "menu_icon": "message",
+  "ui": {
+   "icon": "message",
+   "color": "artifact",
+   "caption": {
+    "template": "{operation|default:Get comments}"
+   }
+  }
+ }
+]

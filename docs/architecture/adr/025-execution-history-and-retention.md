@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-013](013-execution-engine-and-runs.md) §3, §4  
-**Amended by:** [ADR-027](027-execution-flow-by-replay-over-the-frozen-snapshot.md), [ADR-028](028-global-executions-page-and-keyset-paging.md)  
+**Amended by:** [ADR-027](027-execution-flow-by-replay-over-the-frozen-snapshot.md), [ADR-028](028-global-executions-page-and-keyset-paging.md), [ADR-033](033-run-context.md), [ADR-057](057-per-artifact-history-policy-removed.md) (the per-artifact policy is removed)  
 **Implemented in:** migration 0023 (table `executions`, `run_node_results.execution_id`, `pipeline_runs.execution_id`, `tasks.history_keep_last`, `history_keep_hours`, `execution_seq`); `engine/history.py`, `engine/schemas.py`, `api/tasks.py`, `static/js/tasks/history-*.js`  
 **Affected chapters:** [05.01](../arc42/05-building-block-view/05.01-domain-model.md), [06.09](../arc42/06-runtime-view/06.09-history-retention-and-flow.md), [08.07](../arc42/08-cross-cutting-concepts/08.07-history-and-retention.md); guide [execution history](../../guides/execution-history.md)
 
@@ -35,7 +35,7 @@ With Code and HTTP nodes (ADR-021) there is output worth keeping and failures wo
 
 ## 4. Consequences
 
-- The database grows with snapshots and outputs, bounded by the policy; deleted rows free pages inside the file,
-  which does not shrink on its own.
+- The database grows with snapshots and outputs, bounded by the policy; deleted rows give their pages back to the
+  file system because the database runs with `auto_vacuum = FULL` (ADR-005, update of 2026-11-22).
 - Deleting an artifact deletes its executions (cascade).
 - A policy change applies at once, which can delete executions the previous policy kept.

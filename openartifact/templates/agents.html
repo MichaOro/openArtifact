@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/manifest_modal.html" import manifest_modal %}
+{% from "components/icons.html" import icon %}
+{% block title %}{{ t('page.agents') }} · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
+<link rel="stylesheet" href="/static/css/agents.css">
+<link rel="stylesheet" href="/static/css/management.css">{% endblock %}
+{% block content %}
+{{ alert(t('agents.list_page.agents_could_not_be_loaded')) }}
+<div class="action-row">
+    <button type="button" class="button button--primary" data-new-agent>{{ icon("plus") }} {{ t('agents.new_agent') }}</button>
+</div>
+<p class="ag-intro">{{ t('agents.an_agent_is_a_reusable_prompt') }} <strong>{{ t('common.agent') }}</strong> {{ t('agents.node_of_an_action_runs_it') }}</p>
+{# The list, its toolbar and the detail panel are drawn by components/management-page.js (ADR-069); static/js/agents/list-page.js says what an entry is. #}
+<div data-management data-kind="agent"></div>
+
+{{ manifest_modal("agent-modal", t('page.agents')) }}
+{{ confirm_modal("confirm-modal", t('dialog.delete_agent')) }}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/agents/list-page.js"></script>{% endblock %}

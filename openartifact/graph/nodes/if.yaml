@@ -1,0 +1,82 @@
+schema: 1
+kind: if
+label: If
+behaviour: flow
+produces_result: true
+guardable: true
+scopes:
+- action
+addable: true
+chain: true
+reference_keys:
+- left_1
+- right_1
+- left_2
+- right_2
+- left_3
+- right_3
+- left_4
+- right_4
+- left_5
+- right_5
+menu:
+  group: Flow
+  order: 1
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: 'yes'
+    label: 'Yes'
+  - name: 'no'
+    label: 'No'
+  - name: else
+    label: Else
+ui:
+  color: branch
+  icon: if
+  size:
+    width: 250
+    height: 104
+  caption:
+    fn: if_summary
+settings:
+- key: combine
+  label: Conditions
+  type: select
+  default: all
+  options:
+  - all
+  - any
+  help: 'all: every used condition must hold (and). any: one is enough (or).'
+  stored_in: config
+- use: case_sensitive
+- repeat: 5
+  settings:
+  - label: Value
+    type: text
+    default: ''
+    max_length: 500
+    stored_in: config
+    check: condition_text
+    references: context
+    key: left_{n}
+    group: Condition {n}
+    first:
+      placeholder: ${var.priority}
+      help: 'Text, may hold ${node.NAME.output} or ${var.name}. Empty: the row is unused.'
+  - use: operator
+    key: operator_{n}
+    group: Condition {n}
+  - label: Compare with
+    type: text
+    default: ''
+    max_length: 500
+    stored_in: config
+    check: condition_text
+    references: context
+    key: right_{n}
+    group: Condition {n}
+    first:
+      help: Ignored by is empty, is not empty, is true and is false.

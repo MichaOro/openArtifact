@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/modal.html" import modal %}
+{% from "components/icons.html" import icon %}
+{% block title %}{{ t('page.providers') }} · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
+<link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
+{% block content %}
+{{ alert(t('agents.providers_page.providers_could_not_be_loaded')) }}
+<div class="action-row">
+    <button type="button" class="button button--primary" data-new-provider>{{ icon("plus") }} {{ t('providers.new_provider') }}</button>
+</div>
+<p class="ag-intro">{{ t('providers.a_provider_is_where_agents_send') }}</p>
+<ul class="ag-providers" data-provider-list aria-label="{{ t('providers.llm_providers') }}"></ul>
+<p class="ge-empty glass" data-provider-empty hidden>{{ t('providers.no_provider_yet_add_openrouter_or') }}</p>
+
+{% call modal("provider-modal", t('common.provider')) %}
+<form class="task-form ag-provider-form" id="provider-modal-form" novalidate>
+    <div class="modal__body">
+        <div class="field" data-only-new>
+            <label class="field__label" for="pv-kind">{{ t('providers.kind') }}</label>
+            <select class="field__control" id="pv-kind" name="kind">
+                <option value="openai_compatible">{{ t('providers.openai_compatible_endpoint') }}</option>
+                <option value="openrouter">OpenRouter</option>
+            </select>
+        </div>
+        <div class="field">
+            <label class="field__label" for="pv-name">{{ t('common.name') }} <span class="field__required" aria-hidden="true">*</span></label>
+            <input class="field__control" id="pv-name" name="name" type="text" maxlength="60" required aria-required="true" autocomplete="off" data-autofocus>
+        </div>
+        <div class="field" data-custom>
+            <label class="field__label" for="pv-url">{{ t('providers.base_url') }} <span class="field__required" aria-hidden="true">*</span></label>
+            <input class="field__control" id="pv-url" name="base_url" type="text" maxlength="500" placeholder="https://llm.example.org/v1" autocomplete="off" spellcheck="false" aria-describedby="pv-url-help pv-url-warning">
+            <p class="field__help" id="pv-url-help">{{ t('providers.the_address_before') }} <code>/chat/completions</code>{{ t('providers.without_a_user_name_or_password') }}</p>
+            <p class="ag-warning" id="pv-url-warning" role="alert" hidden data-http-warning>{{ t('providers.this_address_uses_http_the_api') }}</p>
+        </div>
+        <div class="field">
+            <label class="field__label" for="pv-secret">{{ t('providers.secret_with_the_api_key') }}</label>
+            <input class="field__control" id="pv-secret" name="secret_name" type="text" maxlength="64" placeholder="OPENROUTER_API_KEY" autocomplete="off" spellcheck="false" list="pv-secrets" aria-describedby="pv-secret-help">
+            <datalist id="pv-secrets"></datalist>
+            <p class="field__help" id="pv-secret-help">{{ t('providers.the_name_of_a_stored_secret') }}</p>
+        </div>
+        <div class="field">
+            <label class="field__label" for="pv-key">{{ t('providers.api_key') }} <span class="field__hint">{{ t('providers.optional_stores_or_replaces_the_secret') }}</span></label>
+            <input class="field__control" id="pv-key" name="api_key" type="password" autocomplete="new-password" aria-describedby="pv-key-help">
+            <p class="field__help" id="pv-key-help">{{ t('providers.leave_empty_to_use_the_secret') }}</p>
+        </div>
+        <label class="ag-check" data-http-confirm hidden>
+            <input type="checkbox" name="allow_http">
+            <span>{{ t('providers.allow_unencrypted_connection_http_i_know') }}</span>
+        </label>
+        <div class="field" data-custom data-only-new>
+            <label class="field__label" for="pv-models">{{ t('providers.models_defined_by_hand') }} <span class="field__hint">{{ t('providers.one_per_line_needed_when_the') }}</span></label>
+            <textarea class="field__control field__control--lines" id="pv-models" name="models" rows="3" spellcheck="false"></textarea>
+        </div>
+        <label class="ag-check">
+            <input type="checkbox" name="is_default">
+            <span>{{ t('providers.default_provider_used_by_agents_that') }}</span>
+        </label>
+        <div class="ag-check-result" data-check-result hidden></div>
+        <p class="form-error" role="alert" hidden data-form-error></p>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-test>{{ t('providers.test_connection') }}</button>
+        <button type="button" class="button button--ghost" data-cancel>{{ t('common.cancel') }}</button>
+        <button type="submit" class="button button--primary" data-submit>
+            <span class="spinner" aria-hidden="true"></span>
+            <span data-submit-label>{{ t('providers.test_and_save') }}</span>
+        </button>
+    </footer>
+</form>
+{% endcall %}
+{{ confirm_modal("confirm-modal", t('common.delete')) }}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/agents/providers-page.js"></script>{% endblock %}

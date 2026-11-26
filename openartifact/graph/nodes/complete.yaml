@@ -1,0 +1,18 @@
+schema: 1
+kind: complete
+label: Complete
+behaviour: plain
+scopes:
+- pipeline
+fixed: true
+ending: true
+menu_icon: check
+ports:
+  inputs:
+  - name: in
+    label: Input
+ui:
+  color: complete
+  size:
+    width: 160
+    height: 56

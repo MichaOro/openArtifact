@@ -1,0 +1,70 @@
+schema: 1
+kind: http_tool
+label: HTTP Request Tool
+behaviour: tool
+scopes:
+- action
+addable: true
+tool: true
+menu:
+  group: Agent tools
+  order: 2
+ports:
+  outputs:
+  - name: tool
+    label: Tool
+    side: top
+ui:
+  color: http
+  icon: http
+  caption:
+    template: '{method|default:GET} {url|host_path|default:no URL yet}'
+settings:
+- use: tool_name
+- key: description
+  label: Description
+  type: lines
+  default: ''
+  max_length: 1000
+  help: Tells the model what the tool does and when to use it. Name the parameters it needs below.
+  stored_in: config
+- use: method
+- key: url
+  label: URL
+  type: text
+  default: ''
+  placeholder: https://wttr.in/{city}?format=3
+  help: '{name} is a parameter the model fills (percent-encoded here). ${secret:NAME} and ${var.name} work as in
+    the HTTP node, not in the scheme or host.'
+  stored_in: config
+  check: url
+  references: all
+- key: headers
+  label: Headers
+  type: lines
+  default: ''
+  placeholder: 'Authorization: Bearer ${secret:API_TOKEN}'
+  stored_in: config
+  check: text_references
+  references: all
+- key: body
+  label: Body
+  type: lines
+  default: ''
+  help: '{name} is replaced by the model''s value (escaped for a JSON string when the body is JSON), ${...} as in
+    the HTTP node.'
+  stored_in: config
+  check: text_references
+  references: all
+- use: parameters
+- use: allow_private
+- use: timeout_seconds
+- key: success_status
+  label: Success status
+  type: text
+  default: 200-299
+  max_length: 100
+  help: Another status is reported to the model as an error.
+  stored_in: config
+  check: status_spec
+  level: advanced

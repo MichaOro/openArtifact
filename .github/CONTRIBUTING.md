@@ -15,7 +15,6 @@ Thank you for your interest in OpenArtifact. This guide covers setup, the checks
 ## Setup
 
 ```bash
-cd apps/backend
 uv sync --all-extras                      # or: pip install -e ".[dev]"  (CI uses pip)
 printf 'OPENARTIFACT_DATA_DIR=./.data\nOPENARTIFACT_HOST=127.0.0.1\n' > .env   # /data is not writable on a workstation; the host defaults to 0.0.0.0
 uv run alembic upgrade head               # create the database
@@ -28,7 +27,7 @@ set `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` in `.env`. Never do that on a r
 
 ## Local Quality Checks
 
-Run these from `apps/backend` before opening a PR; CI runs the same:
+Run these from the repository root before opening a PR; CI runs the same:
 
 ```bash
 ruff check .                  # 1. lint
@@ -58,6 +57,21 @@ regular expression `usage` that matches *calls*, not the definition; an optional
 that must not count, such as tests). `tools/check_quarantine.py` (run by the `static` job of every CI run, and weekly; locally
 `python tools/check_quarantine.py`) fails once an entry has had no calls for 14 days: then remove the code and the entry.
 The file is empty today and should stay so: quarantine is a short waiting room, not a list of tolerated dead code. See ADR-014 §3.6 and [tools/README.md](../tools/README.md).
+
+## Interface: components, not one-offs (binding)
+
+For every contribution that touches the interface, from a person or an automated tool alike: **every control and every
+section of a window or page is a reusable component** from the catalog (add a missing one there first, never a
+feature-specific copy); **every window and overlay that asks for something is a form manifest** (`ui/forms/<name>.yaml` drawn by
+`FormView`, with the layout handle, [ADR-065](../docs/architecture/adr/065-every-window-is-a-form-manifest.md); a handmade one is a named
+exception listed in `tests/test_window_rule.py`); **windows are sized by their content** (as wide as necessary, as narrow as possible, two columns
+where there is room instead of an endless column); a window that saves carries its name in its title; colours only as
+tokens; **a change is saved on the user's act** (text on leaving the field or Enter, a choice when it changes, no autosave
+by keystroke or timer, nothing drawn again under a focused field: `static/js/editor/persist-policy.js`). **Navigation
+entries go through `NavigationRegistry`** (no hardcoded links in templates, no manual `active_nav` in routes; see
+[ADR-066](../docs/architecture/adr/066-modular-navigation.md)). The rules, their reasons and the checklist are in the
+[UI catalog](../docs/guides/ui-catalog.md) (*Binding rules for every contributor*) and
+[ADR-059](../docs/architecture/adr/059-one-catalog-of-ui-building-blocks.md).
 
 ## Code and comments
 

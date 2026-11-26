@@ -1,0 +1,78 @@
+"""What route handlers ask FastAPI for: the request's session and the services on ``app.state``."""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+from fastapi import Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from openartifact.activity.service import ActivityService
+from openartifact.agents.providers import ProviderService
+from openartifact.agents.service import AgentService
+from openartifact.artifact_fields.service import ArtifactFieldService
+from openartifact.comments.service import CommentService
+from openartifact.database import get_db_session
+from openartifact.engine.runner import RunEngine
+from openartifact.events import EventBus
+from openartifact.tasks.service import ArtifactService
+
+SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+
+
+def get_artifacts(request: Request) -> ArtifactService:
+    """The application's artifact service."""
+    service: ArtifactService = request.app.state.artifacts
+    return service
+
+
+def get_artifact_fields(request: Request) -> ArtifactFieldService:
+    """The application's artifact field service."""
+    service: ArtifactFieldService = request.app.state.artifact_fields
+    return service
+
+
+def get_activity(request: Request) -> ActivityService:
+    """The application's activity service."""
+    service: ActivityService = request.app.state.activity
+    return service
+
+
+def get_comments(request: Request) -> CommentService:
+    """The application's comment service."""
+    service: CommentService = request.app.state.comments
+    return service
+
+
+def get_agents(request: Request) -> AgentService:
+    """The application's agent service."""
+    service: AgentService = request.app.state.agents
+    return service
+
+
+def get_providers(request: Request) -> ProviderService:
+    """The application's LLM provider service."""
+    service: ProviderService = request.app.state.providers
+    return service
+
+
+def get_engine(request: Request) -> RunEngine:
+    """The application's execution engine."""
+    engine: RunEngine = request.app.state.engine
+    return engine
+
+
+def get_event_bus(request: Request) -> EventBus:
+    """The application's event bus."""
+    bus: EventBus = request.app.state.event_bus
+    return bus
+
+
+ServiceDep = Annotated[ArtifactService, Depends(get_artifacts)]
+FieldsDep = Annotated[ArtifactFieldService, Depends(get_artifact_fields)]
+CommentsDep = Annotated[CommentService, Depends(get_comments)]
+ActivityDep = Annotated[ActivityService, Depends(get_activity)]
+AgentsDep = Annotated[AgentService, Depends(get_agents)]
+ProvidersDep = Annotated[ProviderService, Depends(get_providers)]
+EngineDep = Annotated[RunEngine, Depends(get_engine)]
+EventBusDep = Annotated[EventBus, Depends(get_event_bus)]

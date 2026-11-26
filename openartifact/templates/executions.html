@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/icons.html" import icon %}
+{% from "components/modal.html" import modal %}
+{% block title %}{{ t('page.executions') }} · OpenArtifact{% endblock %}
+{% block page_styles %}
+<link rel="stylesheet" href="/static/css/history.css">
+<link rel="stylesheet" href="/static/css/executions.css">
+<link rel="stylesheet" href="/static/css/rule-builder.css">
+{% endblock %}
+{% block content %}
+{# The executions of all artifacts (behaviour in static/js/executions/page.js). The list is a real table:
+   every row has the same cells under column headers. Narrow screens show each row as a card. #}
+<div class="ex" data-executions data-page-size="{{ page_size }}">
+    {{ alert(t('executions.page.executions_could_not_be_loaded')) }}
+    <h2 class="visually-hidden">{{ t('common.executions') }}</h2>
+
+    <section class="ex-summary" aria-label="{{ t('executions.summary') }}">
+        <button type="button" class="ex-count glass" data-ui="custom" data-ui-reason="a statistic tile that filters the list" data-summary="running" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.running_now') }}</span></button>
+        <button type="button" class="ex-count glass" data-ui="custom" data-ui-reason="a statistic tile that filters the list" data-summary="failed_24h" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.failed_in_the_last_24_h') }}</span></button>
+        <button type="button" class="ex-count glass" data-ui="custom" data-ui-reason="a statistic tile that filters the list" data-summary="done_24h" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.done_in_the_last_24_h') }}</span></button>
+        <button type="button" class="ex-count glass" data-ui="custom" data-ui-reason="a statistic tile that filters the list" data-summary="total" aria-pressed="false"><span class="ex-count__value" data-summary-value>-</span><span class="ex-count__label">{{ t('executions.total') }}</span></button>
+    </section>
+
+    <form class="ex-filters glass" role="search" aria-label="{{ t('executions.filter_executions') }}" novalidate data-filters>
+        <details class="ex-filters__disclosure" open data-filters-disclosure>
+            <summary class="ex-filters__summary"><span>{{ t('executions.filters') }}</span><span class="ex-filters__active" data-filters-active></span></summary>
+            <div class="ex-filters__body">
+                <div class="field ex-field">
+                    <label class="field__label" for="ex-q">{{ t('executions.search') }}</label>
+                    <input class="field__control" id="ex-q" name="q" type="search" autocomplete="off" placeholder="{{ t('executions.artifact_title_number_note') }}">
+                </div>
+                <div class="field ex-field">
+                    <label class="field__label" for="ex-pipeline">{{ t('common.pipeline') }}</label>
+                    <input class="field__control" id="ex-pipeline" name="pipeline" type="text" autocomplete="off" placeholder="{{ t('executions.name_or_part_of_it') }}">
+                </div>
+                <fieldset class="ex-group">
+                    <legend class="ex-group__legend">{{ t('common.status') }}</legend>
+                    <div class="ex-group__items">
+                        {% for value, label in [("running", t('common.running')), ("done", t('common.done')), ("failed", t('common.failed')), ("stopped", t('common.stopped'))] %}
+                        <label class="ex-toggle history-chip" data-status="{{ value }}"><input type="checkbox" class="ex-toggle__input" name="status" value="{{ value }}"><span class="ex-toggle__tick" aria-hidden="true">{{ icon("check") }}</span><span>{{ label }}</span></label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <fieldset class="ex-group">
+                    <legend class="ex-group__legend">{{ t('executions.started_by') }}</legend>
+                    <div class="ex-group__items">
+                        {% for value, label in [("user", t('common.user')), ("api", t('common.api')), ("mcp", t('common.mcp')), ("system", t('common.system'))] %}
+                        <label class="ex-toggle history-chip"><input type="checkbox" class="ex-toggle__input" name="started_by" value="{{ value }}"><span class="ex-toggle__tick" aria-hidden="true">{{ icon("check") }}</span><span>{{ label }}</span></label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <fieldset class="ex-group">
+                    <legend class="ex-group__legend">{{ t('executions.started') }}</legend>
+                    <div class="ex-group__items">
+                        {% for value, label in [("1h", t('executions.last_hour')), ("24h", t('executions.24_hours')), ("7d", t('executions.7_days')), ("all", t('common.all'))] %}
+                        <label class="ex-toggle ex-toggle--range history-chip"><input type="radio" class="ex-toggle__input" name="range" value="{{ value }}"><span class="ex-toggle__tick" aria-hidden="true">{{ icon("check") }}</span><span>{{ label }}</span></label>
+                        {% endfor %}
+                    </div>
+                    <p class="ex-custom" data-custom hidden><span data-custom-text></span> <button type="button" class="button button--ghost button--sm" data-custom-clear>{{ t('executions.clear') }}</button></p>
+                </fieldset>
+                <div class="ex-filters__actions">
+                    <button type="button" class="button button--ghost button--sm" data-reset hidden>{{ t('executions.reset_filters') }}</button>
+                </div>
+            </div>
+        </details>
+    </form>
+
+    <div class="visually-hidden" role="status" aria-live="polite" data-live></div>
+    <div class="ex-bar">
+        <p class="ex-bar__count" role="status" aria-live="polite" data-count>{{ t('history.loading_executions') }}</p>
+        <div class="ex-bar__tools">
+            <button type="button" class="button button--primary button--sm" data-new hidden></button>
+            <button type="button" class="button button--ghost button--sm" data-retention aria-haspopup="dialog">{{ icon("settings") }} {{ t('executions.retention') }}</button>
+        </div>
+    </div>
+    {# The bulk bar (static/js/components/bulk-bar.js): shown while rows are selected. #}
+    <div class="bulk-bar glass" data-bulk role="region" aria-label="{{ t('executions.selected_executions') }}" hidden>
+        <span class="bulk-bar__count" data-bulk-count role="status" aria-live="polite"></span>
+        <button type="button" class="button button--ghost button--sm" data-bulk-all hidden></button>
+        <span class="bulk-bar__spacer"></span>
+        <button type="button" class="button button--ghost button--sm" data-bulk-clear>{{ t('executions.clear_selection') }}</button>
+        <button type="button" class="button button--danger button--sm" data-bulk-delete>{{ icon("trash") }}<span>{{ t('executions.delete_selected') }}</span></button>
+    </div>
+
+    <div class="ex-list" data-list aria-busy="true">
+        <div class="ex-scroll">
+        <table class="ex-table glass" data-table hidden>
+            <caption class="visually-hidden">{{ t('executions.executions_of_all_artifacts_newest_first') }}</caption>
+            <thead>
+                <tr>
+                    <th scope="col" class="ex-select"><input type="checkbox" class="check" data-select-all aria-label="{{ t('executions.select_all_shown_executions') }}"></th>
+                    <th scope="col">{{ t('common.status') }}</th>
+                    <th scope="col">{{ t('executions.artifact') }}</th>
+                    <th scope="col">{{ t('execution_flow.execution') }}</th>
+                    <th scope="col">{{ t('common.pipeline') }}</th>
+                    <th scope="col">{{ t('executions.started') }}</th>
+                    <th scope="col">{{ t('executions.duration') }}</th>
+                    <th scope="col">{{ t('executions.started_by') }}</th>
+                    <th scope="col">{{ t('common.steps') }}</th>
+                    <th scope="col">{{ t('executions.note') }}</th>
+                    <th scope="col"><span class="visually-hidden">{{ t('common.actions') }}</span></th>
+                </tr>
+            </thead>
+            <tbody data-rows tabindex="-1"></tbody>
+        </table>
+        </div>
+        <div class="ex-empty glass" data-empty-none hidden>
+            {{ icon("list") }}
+            <p class="ex-empty__title">{{ t('executions.no_executions_yet') }}</p>
+            <p>{{ t('executions.start_processing_an_artifact_on_the') }}</p>
+            <a class="button button--primary button--sm" href="/">{{ t('executions.go_to_the_board') }}</a>
+        </div>
+        <div class="ex-empty glass" data-empty-match hidden>
+            {{ icon("list") }}
+            <p class="ex-empty__title">{{ t('executions.no_execution_matches_these_filters') }}</p>
+            <button type="button" class="button button--ghost button--sm" data-reset>{{ t('executions.reset_filters') }}</button>
+        </div>
+        <div class="ex-more">
+            <button type="button" class="button button--ghost" data-more hidden>{{ t('executions.load_more') }}</button>
+        </div>
+    </div>
+</div>
+
+<template id="ex-row-template">
+    <tr class="ex-row">
+        <td class="ex-row__select"><input type="checkbox" class="check" data-select></td>
+        <td class="ex-row__status" data-label="{{ t('common.status') }}"><span class="history-chip"><span data-chip-icon></span><span data-chip-text></span></span></td>
+        <td class="ex-row__artifact" data-label="{{ t('executions.artifact') }}"><a class="ex-link" data-artifact></a></td>
+        <td class="ex-row__number" data-label="{{ t('execution_flow.execution') }}"><a class="ex-link ex-link--open" data-open></a></td>
+        <td class="ex-row__pipeline" data-label="{{ t('common.pipeline') }}"><a class="ex-link" data-pipeline-link hidden></a><span data-pipeline-text></span> <span class="ex-deleted" data-pipeline-gone hidden>{{ t('executions.deleted') }}</span></td>
+        <td class="ex-row__time" data-label="{{ t('executions.started') }}"><time data-time></time></td>
+        <td class="ex-row__duration" data-label="{{ t('executions.duration') }}" data-duration></td>
+        <td class="ex-row__origin" data-label="{{ t('executions.started_by') }}" data-origin></td>
+        <td class="ex-row__steps" data-label="{{ t('common.steps') }}" data-steps></td>
+        <td class="ex-row__note" data-label="{{ t('executions.note') }}"><span data-note></span></td>
+        <td class="ex-row__actions"><button type="button" class="icon-button icon-button--sm is-danger history-row__delete" data-delete></button></td>
+    </tr>
+</template>
+
+{% call modal("retention-modal", t('common.retention'), size="wide", reason="the rule builder: rows of conditions") %}
+<form class="task-form" id="retention-form" novalidate>
+    <div class="modal__body">
+        {# Two views in one frame: the list of rules (a switch each) and the rule that is open. #}
+        <div class="rl-view" data-view="list">
+            <p class="field__help">{{ t('executions.each_rule_says') }} <em>{{ t('executions.if') }}</em> {{ t('executions.conditions_hold_for_a_finished_execution') }} <em>{{ t('executions.then') }}</em> {{ t('executions.what_happens_to_it_the_rules') }}</p>
+            <div data-rules></div>
+        </div>
+        <div class="rl-view rl-detail" data-view="detail" hidden>
+            <div data-rule-editor></div>
+            <div class="rl-detail__foot"><button type="button" class="button button--ghost button--sm" data-done>{{ t('components.rule_list.done') }}</button></div>
+        </div>
+        <p class="field__help" data-rule-text></p>
+        <p class="ag-warning" data-preview role="status" hidden></p>
+        <p class="form-error" role="alert" hidden data-form-error></p>
+    </div>
+    <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-cancel>{{ t('common.cancel') }}</button>
+        <button type="submit" class="button button--primary" data-submit>
+            <span class="spinner" aria-hidden="true"></span>
+            <span data-submit-label>{{ t('common.save') }}</span>
+        </button>
+    </footer>
+</form>
+{% endcall %}
+{{ confirm_modal("confirm-modal", t('dialog.delete_execution'), note="data-delete-note") }}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/executions/page.js"></script>{% endblock %}

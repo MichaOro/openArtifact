@@ -1,0 +1,285 @@
+/* Agents, LLM providers, the agent node's inspector and the agent block of a step. Colours come from
+ * tokens.css only. Prefix: ag-. Lists reuse the ge- list of editor.css. */
+
+.ag-intro { margin: 0 0 var(--space-4); color: var(--color-text-muted); max-width: 52rem; }
+.ag-card code,
+.ag-intro code,
+.ag-provider-form code { font-family: var(--font-mono); font-size: 0.8125rem; }
+
+/* ── chips ───────────────────────────────────────────────────────────────────────────────────── */
+.ag-chips { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; }
+.ag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.ag-chip[data-tone="ok"] { border-color: var(--lane-hue-3); color: var(--lane-hue-3); }
+.ag-chip[data-tone="warn"] { border-color: var(--lane-hue-2); color: var(--lane-hue-2); }
+.ag-chip[data-tone="bad"] { border-color: var(--color-danger); color: var(--color-danger); }
+.ag-chip[data-tone="accent"] { border-color: var(--color-accent); color: var(--color-accent); }
+
+.ag-item { align-items: flex-start; flex-wrap: wrap; }
+.ag-item .icon-button,
+.ag-item .ag-chips { align-self: center; }
+.ag-item__hint { font-size: 0.75rem; color: var(--color-text-muted); }
+
+/* ── the agent editor ────────────────────────────────────────────────────────────────────────── */
+/* The agent editor (ADR-045): a header across the page, the tabs and the active area on the left, status and the
+   options accordion on the right; it uses the full width. */
+.ag-editor { display: grid; gap: var(--space-4); }
+.ag-editor[hidden] { display: none; }
+.ag-head { display: grid; gap: var(--space-2); }
+.ag-head__row { display: flex; align-items: flex-start; gap: var(--space-4); }
+.ag-head__row > .identity { flex: 1; }
+.ag-save { display: grid; gap: var(--space-2); justify-items: end; }
+/* the tabs sit above the active area only, so Status & info starts level with it */
+.ag-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  grid-template-areas: "tabs ." "main side";
+  gap: var(--space-3) var(--space-4);
+  align-items: start;
+}
+.ag-tabs { grid-area: tabs; justify-self: start; }
+.ag-card--panels { grid-area: main; min-width: 0; }
+.ag-side { grid-area: side; display: grid; gap: var(--space-4); align-content: start; }
+.ag-quick { display: grid; gap: var(--space-3); }
+.ag-quick[hidden] { display: none; }
+.ag-quick__values { display: grid; gap: var(--space-2); }
+.ag-quick__values:empty { display: none; }
+.ag-quick__run { justify-self: stretch; color: var(--color-accent); border-color: var(--accent-ring); }
+.ag-quick__run .icon { width: 1rem; height: 1rem; }
+.ag-quick .ag-pre { max-height: 14rem; }
+.ag-card--panels { padding: 0; }
+.ag-panel { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
+.ag-panel[hidden] { display: none; }
+/* a heading with the accent dot of the mock */
+.ag-panel__heading { display: flex; align-items: center; gap: var(--space-2); font-size: 1rem; font-weight: 600; }
+.ag-panel__heading::before { content: ""; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--color-accent); }
+.ag-panel__title { font-size: 0.9375rem; font-weight: 600; }
+.ag-panel__title:not(:first-child) { margin-top: var(--space-3); }
+.ag-save__buttons--start { justify-content: flex-start; }
+/* status and facts */
+.ag-facts { display: grid; margin: 0; }
+.ag-facts > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 2.5rem; border-bottom: 1px solid var(--glass-border); font-size: 0.875rem; }
+.ag-facts > div:last-child { border-bottom: 0; }
+.ag-facts dt { color: var(--color-text-secondary); }
+.ag-facts dd { margin: 0; text-align: right; }
+.ag-link { padding: 0; border: 0; background: none; color: var(--color-accent); font: inherit; text-decoration: underline; cursor: pointer; }
+.ag-status .ag-save__state { font-size: 0.8125rem; }
+
+/* ── the options accordion (components/options-panel.js) ── */
+.options-panel { display: grid; gap: var(--space-3); }
+.options-panel__toggle {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0 var(--space-2);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.options-panel__toggle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; border-radius: var(--radius-sm); }
+.options-panel__hint { grid-column: 1; font-size: 0.75rem; color: var(--color-text-muted); }
+.options-panel__chevron { grid-column: 2; grid-row: 1 / span 2; width: 1.1rem; height: 1.1rem; transition: transform var(--transition-fast); }
+.options-panel[data-state="open"] .options-panel__chevron { transform: rotate(180deg); }
+.options-panel__body[hidden] { display: none; }
+.options-panel__list { list-style: none; margin: 0; padding: 0; display: grid; }
+.options-panel__row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 2.75rem; border-top: 1px solid var(--glass-border); font-size: 0.875rem; }
+.options-panel__label { cursor: help; border-bottom: 1px dotted var(--color-text-muted); }
+@media (max-width: 1000px) {
+  .ag-head__row { flex-wrap: wrap; }
+  .ag-save { justify-items: start; }
+  .ag-workspace { grid-template-columns: 1fr; grid-template-areas: "tabs" "main" "side"; }
+}
+
+.ag-back { display: inline-flex; align-items: center; gap: var(--space-1); font-size: 0.8125rem; color: var(--color-text-secondary); text-decoration: none; justify-self: start; }
+.ag-back:hover { color: var(--color-accent); }
+.ag-back .icon { width: 1rem; height: 1rem; }
+
+.ag-card { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); }
+.ag-card h3 { font-size: 1rem; font-weight: 600; }
+.ag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--space-3); align-items: start; }
+.ag-grid:empty { display: none; }
+.ag-add { justify-self: start; }
+.ag-add .icon,
+.ag-save .icon { width: 1rem; height: 1rem; }
+.ag-inputs,
+.ag-versions,
+.ag-uses,
+.ag-problems,
+.ag-providers { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.ag-inputs:empty,
+.ag-problems:empty { display: none; }
+/* the inputs table: one grid for the head and the rows; the Description column only with .has-description */
+.ag-inputs-table {
+  /* the three choice columns are as wide as their longest choice (components/select-fit.js sets --ag-col-*): their text is never cut */
+  --ag-input-cols: minmax(5rem, 1.2fr) var(--ag-col-source, 6.5rem) var(--ag-col-type, 8.5rem) var(--ag-col-required, 6.5rem) minmax(4rem, 1fr) 2rem;
+  display: grid;
+  gap: var(--space-2);
+  --fg-cols: var(--ag-input-cols);
+}
+.ag-inputs-table.has-description { --ag-input-cols: minmax(5rem, 1.1fr) var(--ag-col-source, 6.5rem) var(--ag-col-type, 8.5rem) var(--ag-col-required, 6.5rem) minmax(4rem, 1fr) minmax(5rem, 1.3fr) 2rem; }
+.ag-inputs-head,
+.ag-input { align-items: center; }
+.ag-inputs-head { padding: 0 var(--space-1); font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); }
+.ag-inputs-table:not(.has-description) .ag-inputs-head__description,
+.ag-inputs-table:not(.has-description) .ag-input__description { display: none; }
+.ag-inputs-table:not(:has(.ag-input)) .ag-inputs-head { display: none; }
+.ag-input { padding: var(--space-1); }
+.ag-input__required option[value="required"] { color: var(--color-accent); }
+.ag-input__required:has(option[value="required"]:checked) { color: var(--color-accent); border-color: var(--accent-ring); background: var(--accent-soft); }
+.ag-check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; font-size: 0.875rem; }
+.ag-check input { width: 1.1rem; height: 1.1rem; accent-color: var(--color-accent); }
+.ag-save__state { font-size: 0.875rem; color: var(--color-text-secondary); }
+.ag-save__buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
+.ag-problems li,
+.ag-warning {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--lane-hue-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--lane-hue-2) 10%, transparent);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.ag-warning[hidden] { display: none; }
+.ag-notice { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border-left: 3px solid var(--color-accent); font-size: 0.875rem; }
+.ag-notice[hidden] { display: none; }
+.ag-notice ul { margin: 0; padding-left: 1.25rem; }
+.ag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+.ag-row__main { flex: 1; min-width: 12rem; overflow-wrap: anywhere; }
+.ag-row__meta { display: block; font-size: 0.75rem; color: var(--color-text-muted); }
+.ag-row a { color: var(--color-accent); }
+
+/* ── prompts, inputs and attempts as they were (preview, step detail) ────────────────────────── */
+.ag-preview,
+.ag-detail { display: grid; gap: var(--space-3); }
+.ag-preview[hidden] { display: none; }
+.ag-block { display: grid; gap: var(--space-1); }
+.ag-block__title { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.ag-pre {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  max-height: 22rem;
+  overflow: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-background) 40%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ag-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.ag-table th,
+.ag-table td { padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--glass-border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.ag-table th { font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; }
+.ag-table td[data-state="error"] { color: var(--color-danger); }
+.ag-table td[data-state="unset"],
+.ag-table td[data-state="pending"] { color: var(--color-text-muted); font-style: italic; }
+.ag-scroll { overflow-x: auto; }
+.ag-facts { font-size: 0.8125rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+
+/* ── providers ───────────────────────────────────────────────────────────────────────────────── */
+.ag-providers { gap: var(--space-4); }
+.ag-provider { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); }
+.ag-provider__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.ag-provider__name { font-size: 1.0625rem; font-weight: 600; overflow-wrap: anywhere; }
+.ag-provider__tools { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-left: auto; }
+.ag-provider__tools .icon { width: 1rem; height: 1rem; }
+.ag-provider__facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-3); font-size: 0.8125rem; }
+.ag-provider__facts dt { color: var(--color-text-muted); }
+.ag-provider__facts dd { margin: 0; overflow-wrap: anywhere; }
+.ag-models { display: grid; gap: var(--space-2); }
+.ag-models > summary { cursor: pointer; font-size: 0.875rem; font-weight: 500; }
+.ag-models__tools { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: end; }
+.ag-models__tools .field { flex: 1; min-width: 12rem; }
+.ag-model-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); max-height: 24rem; overflow: auto; }
+.ag-model { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); font-size: 0.8125rem; }
+.ag-model:hover { background: color-mix(in srgb, var(--color-text-primary) 5%, transparent); }
+.ag-model label { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); overflow-wrap: anywhere; cursor: pointer; }
+.ag-model input { width: 1.1rem; height: 1.1rem; accent-color: var(--color-accent); flex: none; }
+.ag-model__id { font-family: var(--font-mono); }
+.ag-model__label { color: var(--color-text-muted); }
+.ag-model[data-available="false"] .ag-model__id { text-decoration: line-through; }
+.ag-check-result { display: grid; gap: var(--space-1); font-size: 0.8125rem; }
+.ag-check-result[hidden] { display: none; }
+.ag-check-step { display: flex; gap: var(--space-2); align-items: baseline; overflow-wrap: anywhere; }
+.ag-check-step[data-ok="true"] { color: var(--lane-hue-3); }
+.ag-check-step[data-ok="false"] { color: var(--color-danger); }
+/* ── the agent node in the inspector ─────────────────────────────────────────────────────────── */
+.ag-node { display: flex; flex-direction: column; gap: var(--space-3); }
+.ag-node__status { font-size: 0.8125rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.ag-node__status a { color: var(--color-accent); }
+
+
+
+
+
+
+
+
+@media (max-width: 760px) {
+  .ag-card,
+  .ag-provider { padding: var(--space-3); }
+}
+
+/* a name that explains itself on hover (Quick test) */
+.ag-hint { cursor: help; border-bottom: 1px dotted var(--color-text-muted); }
+.ag-hint:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+/* the inputs table is a field group (css/forms.css .field-group): it breaks in pairs by its own width */
+.ag-panel__heading--next { margin-top: var(--space-3); }
+
+/* ── Versions & use (ADR-047): Used by on the left, the versions on the right ── */
+.ag-use-columns { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 1fr); gap: var(--space-4); align-items: start; }
+.ag-use,
+.ag-version {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  font-size: 0.875rem;
+}
+.ag-use { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
+.ag-use__main { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.ag-use__actions { display: flex; align-items: center; gap: var(--space-2); }
+.ag-use__actions .button .icon { width: 1rem; height: 1rem; }
+.ag-version__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.ag-version__again { justify-self: start; }
+#reference-modal .confirm-text__subject { display: block; margin-top: var(--space-2); }
+@media (max-width: 900px) { .ag-use-columns { grid-template-columns: 1fr; } }
+
+/* ── a version, read-only (ADR-049): a wide dialog that grows in ── */
+#version-modal .modal__panel {
+  animation: version-grow 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes version-grow { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #version-modal .modal__panel { animation: none; } }
+.ag-version-view { display: grid; gap: var(--space-3); max-height: min(70vh, 44rem); overflow: auto; }
+.ag-version-view [role="tabpanel"][hidden] { display: none; }
+.ag-version-view__panel { display: grid; gap: var(--space-3); }
+.ag-version__buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ag-version-view .tab-bar { justify-self: start; }
+.ag-node__stale { display: flex; align-items: flex-end; gap: var(--space-2); }
+.ag-node__stale .field { flex: 1; min-width: 0; }

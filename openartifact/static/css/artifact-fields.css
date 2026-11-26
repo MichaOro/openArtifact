@@ -1,0 +1,105 @@
+/* The editor of the artifact fields (ADR-044), opened from the board's menu. Colours come from tokens.css only.
+ * Prefix: at- (from the artifact types it replaced). */
+
+.at-editor__lead code { font-family: var(--font-mono); font-size: 0.8125rem; }
+.at-editor__removal { margin: 0; font-size: 0.8125rem; color: var(--color-danger); }
+.at-editor__removal[hidden] { display: none; }
+.board-menu { margin-left: var(--space-2); }
+
+.at-editor__lead { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); }
+.at-fields { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.at-field {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-background) 30%, transparent);
+}
+.at-field__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.at-field__title { font-weight: 600; overflow-wrap: anywhere; }
+.at-field__tools { display: flex; gap: var(--space-1); }
+.at-field__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--space-3); align-items: start; }
+.at-field__item--wide { grid-column: 1 / -1; }
+.at-check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; align-self: end; font-size: 0.875rem; }
+.at-check input { width: 1.1rem; height: 1.1rem; accent-color: var(--color-accent); }
+.at-add { align-self: flex-start; }
+.at-add .icon { width: 1rem; height: 1rem; }
+
+@media (max-width: 640px) {
+  .at-field { padding: var(--space-3); }
+  .at-item .ge-item__link { flex-basis: 100%; }
+  .at-item .button { margin-left: auto; }
+}
+
+/* ── the two panes (ADR-050): the fields on the left, the chosen one's settings on the right ── */
+.af-layout { display: grid; grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.af-fields { display: grid; gap: var(--space-2); align-content: start; }
+.af-list,
+.af-options__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.af-list:empty,
+.af-options__list:empty { display: none; }
+.af-item,
+.af-option { display: flex; align-items: center; gap: var(--space-1); border-radius: var(--radius-sm); }
+.af-item { border: 1px solid transparent; }
+.af-item.is-selected { border-color: var(--accent-ring); background: var(--accent-soft); }
+.af-item__main {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.af-item__main:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: var(--radius-sm); }
+.af-item:not(.is-selected) .af-item__main:hover { background: var(--glass-bg-hover); border-radius: var(--radius-sm); }
+.af-item__label { font-weight: 500; overflow-wrap: anywhere; }
+.af-item__type { font-size: 0.75rem; color: var(--color-text-muted); }
+.af-item__problem { color: var(--color-danger); font-weight: 700; }
+.af-grip { flex: none; color: var(--color-text-muted); cursor: grab; touch-action: none; }
+.af-grip:active { cursor: grabbing; }
+.is-dragging { opacity: 0.75; box-shadow: var(--shadow-card-hover); background: var(--color-glass-card); }
+.af-detail {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-background) 30%, transparent);
+}
+.af-detail__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--space-3); align-items: start; }
+.af-detail__empty { color: var(--color-text-muted); font-size: 0.875rem; }
+.af-options { display: grid; gap: var(--space-2); }
+.af-option { padding: 2px var(--space-1); border: 1px solid var(--glass-border); background: var(--glass-bg); }
+.af-option__text { flex: 1; min-width: 0; padding: var(--space-1); overflow-wrap: anywhere; }
+.af-option .inline-name--editing { flex: 1; flex-wrap: wrap; }
+.af-options .button,
+.af-fields .button,
+.af-remove { justify-self: start; }
+.af-options .button .icon,
+.af-fields .button .icon,
+.af-remove .icon { width: 1rem; height: 1rem; }
+.af-default-multi { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
+.af-discard { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-3); border: 1px solid var(--color-danger); border-radius: var(--radius-md); font-size: 0.875rem; }
+.af-discard[hidden] { display: none; }
+.af-unsaved { margin-right: auto; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.af-unsaved[hidden] { display: none; }
+@media (max-width: 720px) { .af-layout { grid-template-columns: 1fr; } }
+.af-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.af-head .at-editor__lead { flex: 1; }
+.af-empty { display: grid; justify-items: start; gap: var(--space-3); padding: var(--space-4); border: 1px dashed var(--glass-border); border-radius: var(--radius-md); color: var(--color-text-muted); font-size: 0.875rem; }
+.af-empty[hidden],
+.af-layout[hidden] { display: none; }
+.af-head .button .icon,
+.af-empty .button .icon { width: 1rem; height: 1rem; }
+
+/* The standard fields every artifact has (title, body): fixed rows above the list, with the reference a run reads them by */
+.af-standard { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: grid; gap: var(--space-1); }
+.af-standard__row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); padding: var(--space-1) var(--space-2); border: 1px dashed var(--glass-border); border-radius: var(--radius-sm); }
+.af-standard__label { font-weight: 500; }
+.af-standard__row code { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-secondary); }
+.af-standard__help { font-size: 0.75rem; color: var(--color-text-secondary); }

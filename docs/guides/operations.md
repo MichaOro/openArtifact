@@ -84,6 +84,7 @@ oa pull && oa up -d
 
 The entrypoint runs `alembic upgrade head` before the server starts and aborts the start when a
 migration fails: the container exits (and, with `restart: unless-stopped`, is restarted); `oa logs` shows why.
+The pages (HTML) are sent with `Cache-Control: no-cache` and the static files revalidate with their ETag, so a browser shows the new build after a reload, not the old one from its cache.
 After the update check `oa ps` (healthy), `curl http://localhost:2909/health` (the answer carries the
 version) and the start of the log (below).
 
@@ -203,18 +204,17 @@ rights of the application: treat the token like shell access to the container.
 Every start of an artifact is an execution that stores a frozen snapshot of the graphs it ran (JSON) and
 every step with its output (up to 1 MiB each). By default the 50 newest executions per artifact are kept
 (`OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP`; `0` keeps everything and lets the file grow with every run);
-an artifact can have its own policy (`PUT /api/v1/artifacts/{ref}/history-policy`, [Execution history](execution-history.md)).
-Deleting rows does **not** shrink the file: SQLite reuses the freed pages and the file stays as large as it
-has been. To give the space back, stop the application and run `VACUUM` on a copy, or on the volume with the
-container stopped:
+the retention rules (*Executions → Retention*) decide the rest ([Execution history](execution-history.md)).
+The database runs with `auto_vacuum = FULL`: deleting rows (an execution, its artifact, retention) returns the freed
+pages to the file system when the change is committed, so the file shrinks again (after the next WAL checkpoint,
+which the application does regularly and on shutdown). A new database is created in this mode. A database from an
+earlier version is converted **once** at the next start: the start-up migration step runs a single `VACUUM`, which
+rewrites the file, needs free space about the size of the database during the run and holds the file for that time
+(seconds for a small one). Take a [backup](#backup) before the first start of a new version if the database is large.
 
-```bash
-oa down
-oa run --rm --no-deps --entrypoint python openartifact -c 'import sqlite3; c = sqlite3.connect("/data/openartifact.db"); c.execute("VACUUM"); c.close()'
-oa up -d
-```
-
-`VACUUM` needs free space about the size of the database during the run, and the one-off container's temporary files go to its memory-backed `/tmp`: for a large database run it on a copy outside the container instead. Take a backup first.
+The setting is a property of the file: a restore of an old backup that was not converted is converted again at the
+next start. Deleting rows costs a little more CPU than before because the file is truncated; with a history of
+normal size this is not noticeable.
 
 ## One process, one volume
 

@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/form_modal.html" import form_modal %}
+{% from "components/icons.html" import icon %}
+{% from "components/leave_modal.html" import leave_modal %}
+{% from "components/modal.html" import modal %}
+{% block title %}{{ t('page.agent') }} · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
+<link rel="stylesheet" href="/static/css/agents.css">{% endblock %}
+{% block content %}
+{{ alert(t('agents.editor_page.agent_could_not_be_loaded')) }}
+<div class="ag-editor" data-agent-editor data-agent-ref="{{ agent_ref }}" hidden>
+    <header class="ag-head">
+        <a class="ag-back" href="/agents">{{ icon("chevrons-left") }} {{ t('agent_editor.agents') }}</a>
+        <div class="ag-head__row">
+            {# The identity of a resource (components.css .identity): icon, name with its badges, the description with the
+               edit button after its last line. Name and description are edited in place (InlineName); the button opens the
+               full dialog. #}
+            <div class="identity">
+                <span class="identity__icon" aria-hidden="true">{{ icon("agent") }}</span>
+                <div class="identity__text">
+                    <div class="identity__title">
+                        <h2 class="identity__name" data-agent-name></h2>
+                        <span class="ag-chips" data-chips></span>
+                    </div>
+                    <p class="identity__about"><span class="identity__description" data-agent-description></span><button type="button" class="icon-button icon-button--sm identity__edit" data-rename aria-label="{{ t('agent_editor.edit_the_name_and_the_description') }}" title="{{ t('agent_editor.edit_name_and_description') }}">{{ icon("pencil") }}</button></p>
+                </div>
+            </div>
+            <div class="ag-save" aria-labelledby="ag-save-title">
+                <h3 class="visually-hidden" id="ag-save-title">{{ t('common.draft') }}</h3>
+                <div class="ag-save__buttons">
+                    <button type="button" class="button button--ghost" data-save>{{ t('agent_editor.save_draft') }}</button>
+                    <button type="button" class="button button--ghost is-danger" data-discard>{{ icon("undo") }} {{ t('agent_editor.discard_draft') }}</button>
+                    <button type="button" class="button button--primary" data-publish>{{ t('agent_editor.publish') }}</button>
+                </div>
+            </div>
+        </div>
+        <ul class="ag-problems" data-problems aria-label="{{ t('agent_editor.what_publishing_would_refuse') }}"></ul>
+        <p class="form-error" role="alert" hidden data-save-error></p>
+    </header>
+
+    <div class="ag-notice glass" role="status" data-notice hidden></div>
+
+    <div class="ag-workspace">
+            {# Tabs (components/tabs.js): Prompts and Versions always; the others only while their option is on. #}
+            <div class="tab-bar ag-tabs" role="tablist" aria-label="{{ t('common.agent') }}" data-ag-tabs>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-prompts" data-tab="prompts" aria-controls="ag-panel-prompts" aria-selected="true">{{ icon("message") }}<span>{{ t('common.prompts') }}</span></button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-inputs" data-tab="inputs" aria-controls="ag-panel-inputs" aria-selected="false" hidden>{{ icon("layers") }}<span>{{ t('common.inputs') }}</span></button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-limits" data-tab="limits" aria-controls="ag-panel-limits" aria-selected="false" hidden>{{ icon("settings") }}<span>{{ t('common.model_and_limits') }}</span></button>
+                <button type="button" class="task-tab" role="tab" id="ag-tab-versions" data-tab="versions" aria-controls="ag-panel-versions" aria-selected="false">{{ icon("list") }}<span>{{ t('agent_editor.versions_use') }}</span></button>
+            </div>
+
+            <div class="ag-card ag-card--panels glass">
+            <section class="ag-panel" role="tabpanel" id="ag-panel-prompts" aria-labelledby="ag-tab-prompts">
+                <h3 class="ag-panel__heading"><span class="ag-hint" tabindex="0" title="{{ t('agent_editor.prompts_hint') }}">{{ t('common.prompts') }}</span></h3>
+                <p class="field__help">{{ t('agent_editor.define_what_the_model_is_asked') }} <code>${input.NAME}</code> {{ t('agent_editor.for_an_input') }}</p>
+                <div class="field">
+                    <label class="field__label" for="ag-user">{{ t('agent_editor.user_prompt') }} <span class="field__required" aria-hidden="true">*</span></label>
+                    <textarea class="field__control field__control--lines" id="ag-user" rows="8" maxlength="20000" spellcheck="false" aria-required="true" data-field="user_prompt"></textarea>
+                </div>
+                <div class="field" data-system-field hidden>
+                    <label class="field__label" for="ag-system">{{ t('agent_editor.system_prompt') }}</label>
+                    <textarea class="field__control field__control--lines" id="ag-system" rows="5" maxlength="20000" spellcheck="false" data-field="system_prompt"></textarea>
+                </div>
+            </section>
+
+            <section class="ag-panel" role="tabpanel" id="ag-panel-inputs" aria-labelledby="ag-tab-inputs" hidden>
+                <h3 class="ag-panel__heading"><span class="ag-hint" tabindex="0" title="{{ t('agent_editor.inputs_hint') }}">{{ t('common.inputs') }}</span></h3>
+                <p class="field__help">{{ t('agent_editor.define_the_inputs_this_agent_needs') }}</p>
+                {# A table of inputs; the Description column is there only while an input has a description. #}
+                <div class="ag-inputs-table field-group" data-inputs-table>
+                    <div class="ag-inputs-head field-group__head" aria-hidden="true">
+                        <span>{{ t('common.name') }} <span class="field__required">*</span></span><span>{{ t('agent_editor.comes_from') }}</span><span>{{ t('common.type') }}</span><span>{{ t('common.required') }}</span><span>{{ t('common.default') }}</span><span class="ag-inputs-head__description">{{ t('common.description') }}</span><span></span>
+                    </div>
+                    <ol class="ag-inputs" data-inputs aria-label="{{ t('common.inputs') }}"></ol>
+                </div>
+                <button type="button" class="button button--ghost button--sm ag-add" data-add-input>{{ icon("plus") }} {{ t('agent_editor.add_input') }}</button>
+            </section>
+
+            <section class="ag-panel" role="tabpanel" id="ag-panel-limits" aria-labelledby="ag-tab-limits" hidden>
+                {# components/settings-group.js: a setting is a field only once it is added; removing it is "not set". #}
+                <div class="settings-card" data-settings="model">
+                    <div class="settings-card__head">
+                        <span class="settings-card__icon" aria-hidden="true">{{ icon("layers") }}</span>
+                        <div class="settings-card__text">
+                            <h3 class="settings-card__title">{{ t('agent_editor.model_configuration') }}</h3>
+                            <p class="settings-card__lead">{{ t('agent_editor.the_default_provider_and_its_default') }}</p>
+                        </div>
+                        <button type="button" class="button button--ghost button--sm" data-settings-add aria-haspopup="menu">{{ icon("plus") }} {{ t('editor.settings_layout.add_setting') }} {{ icon("chevron-down") }}</button>
+                    </div>
+                    <div class="settings-card__fields" data-settings-fields></div>
+                </div>
+                <div class="settings-card" data-settings="limits">
+                    <div class="settings-card__head">
+                        <span class="settings-card__icon" aria-hidden="true">{{ icon("clock") }}</span>
+                        <div class="settings-card__text">
+                            <h3 class="settings-card__title">{{ t('agent_editor.execution_limits') }}</h3>
+                            <p class="settings-card__lead">{{ t('agent_editor.defaults_apply_node_time_limit') }}</p>
+                        </div>
+                        <button type="button" class="button button--ghost button--sm" data-settings-add aria-haspopup="menu">{{ icon("plus") }} {{ t('editor.settings_layout.add_setting') }} {{ icon("chevron-down") }}</button>
+                    </div>
+                    <div class="settings-card__fields" data-settings-fields></div>
+                </div>
+            </section>
+
+            <section class="ag-panel" role="tabpanel" id="ag-panel-versions" aria-labelledby="ag-tab-versions" hidden>
+                {# Two columns (ADR-047): where the agent is used, and its versions (compact, like Status & info). #}
+                <div class="ag-use-columns">
+                    <section class="settings-card ag-uses-card" aria-labelledby="ag-uses-title">
+                        <div>
+                            <h3 class="ag-panel__heading" id="ag-uses-title"><span class="ag-hint" tabindex="0" title="{{ t('agent_editor.the_agent_nodes_that_run_this') }}">{{ t('common.used_by') }}</span></h3>
+                            <p class="settings-card__lead">{{ t('agent_editor.agent_nodes_using_this_definition') }}</p>
+                        </div>
+                        <ul class="ag-uses" data-uses aria-label="{{ t('agent_editor.agent_nodes_that_use_this_agent') }}"></ul>
+                        <p class="settings-card__empty" data-uses-empty hidden>{{ t('agent_editor.this_agent_is_not_used_by') }}</p>
+                    </section>
+                    <section class="settings-card ag-versions-card" aria-labelledby="ag-versions-title">
+                        <div>
+                            <h3 class="ag-panel__heading" id="ag-versions-title"><span class="ag-hint" tabindex="0" title="{{ t('agent_editor.a_published_version_is_never_changed') }}">{{ t('agent_editor.versions') }}</span></h3>
+                            <p class="settings-card__lead">{{ t('agent_editor.published_versions_of_this_agent_newest') }}</p>
+                        </div>
+                        <ol class="ag-versions" data-versions aria-label="{{ t('agent_editor.versions_newest_first') }}"></ol>
+                        <p class="settings-card__empty" data-versions-empty hidden>{{ t('agent_editor.no_published_versions_yet') }}</p>
+                    </section>
+                </div>
+            </section>
+            </div>
+
+        <div class="ag-side">
+            <section class="ag-card glass ag-status" aria-labelledby="ag-status-title">
+                <h3 class="ag-panel__heading" id="ag-status-title">{{ t('agent_editor.status_info') }}</h3>
+                <dl class="ag-facts">
+                    <div><dt id="ag-active-label" title="{{ t('agent_editor.an_inactive_agent_is_not_run') }}">{{ t('common.active') }}</dt>
+                        <dd><button type="button" class="ge-switch" role="switch" aria-labelledby="ag-active-label" aria-describedby="ag-active-help" data-active>
+                            <span class="ge-switch__state"></span><span class="ge-switch__thumb"></span>
+                        </button>
+                        <span class="visually-hidden" id="ag-active-help">{{ t('agent_editor.an_inactive_agent_is_not_run') }}</span></dd></div>
+                    <div><dt>{{ t('common.version') }}</dt><dd data-fact-version></dd></div>
+                    <div><dt>{{ t('common.draft') }}</dt><dd data-fact-draft></dd></div>
+                    <div><dt>{{ t('common.used_by') }}</dt><dd><button type="button" class="ag-link" data-fact-uses></button></dd></div>
+                    <div><dt>{{ t('common.created') }}</dt><dd data-fact-created></dd></div>
+                    <div><dt>{{ t('common.updated') }}</dt><dd data-fact-updated></dd></div>
+                </dl>
+                <p class="ag-save__state" data-draft-state aria-live="polite"></p>
+            </section>
+            {# Options (components/options-panel.js): an accordion, closed whenever the page opens; a switch is part
+               of the draft, except Quick test, which only lives while the page is open. #}
+            <section class="ag-card glass options-panel" data-options aria-label="{{ t('common.options') }}">
+                <button type="button" class="options-panel__toggle" data-options-toggle aria-expanded="false">
+                    <span class="ag-panel__heading">{{ t('common.options') }}</span>
+                    <span class="options-panel__hint">{{ t('agent_editor.switch_on_what_this_agent_needs') }}</span>
+                    {{ icon("chevron-down", "options-panel__chevron") }}
+                </button>
+                <div class="options-panel__body" data-options-body hidden></div>
+            </section>
+            {# Quick test: only while its option is on; nothing of it is saved. #}
+            <section class="ag-card glass ag-quick" aria-labelledby="ag-quick-title" data-quick-test hidden>
+                <h3 class="ag-panel__heading" id="ag-quick-title"><span class="ag-hint" tabindex="0" title="{{ t('agent_editor.example_values_for_the_agent_s') }}">{{ t('agent_editor.quick_test') }}</span></h3>
+                <p class="field__help" data-quick-empty hidden>{{ t('agent_editor.this_agent_has_no_inputs_the') }}</p>
+                <div class="ag-quick__values" data-preview-values></div>
+                <button type="button" class="button button--ghost ag-quick__run" data-preview>{{ icon("play") }} {{ t('agent_editor.run_preview') }}</button>
+                <div class="ag-preview" data-preview-result hidden></div>
+            </section>
+        </div>
+    </div>
+</div>
+<p class="ge-empty glass" data-agent-missing hidden>{{ t('agent_editor.this_agent_does_not_exist') }} <a href="/agents">{{ t('agent_editor.back_to_the_agents') }}</a></p>
+
+{{ form_modal("name-modal", t('common.agent'), [
+    {"name": "name", "label": t('common.name'), "kind": "text", "required": True, "maxlength": 100},
+    {"name": "description", "label": t('common.description'), "kind": "textarea", "rows": 3, "maxlength": 2000, "hint": t('common.optional')},
+], submit=t('common.save')) }}
+{{ confirm_modal("confirm-modal", t('common.agent')) }}
+{{ confirm_modal("reference-modal", t('agents.editor_page.remove_agent_reference'), note="data-reference-note") }}
+{{ leave_modal("leave-modal") }}
+{# A published version, read-only (ADR-049): its areas as tabs, nothing to change. #}
+{% call modal("version-modal", t('common.version'), size="wide", reason="a published version, read-only: prompt and settings side by side") %}
+<div class="modal__body ag-version-view">
+    <p class="field__help" data-version-facts></p>
+    <div class="tab-bar" role="tablist" aria-label="{{ t('agent_editor.what_the_version_defined') }}" data-version-tabs>
+        <button type="button" class="task-tab" role="tab" id="ag-version-tab-prompts" data-tab="prompts" aria-controls="ag-version-prompts" aria-selected="true">{{ icon("message") }}<span>{{ t('common.prompts') }}</span></button>
+        <button type="button" class="task-tab" role="tab" id="ag-version-tab-inputs" data-tab="inputs" aria-controls="ag-version-inputs" aria-selected="false">{{ icon("layers") }}<span>{{ t('common.inputs') }}</span></button>
+        <button type="button" class="task-tab" role="tab" id="ag-version-tab-limits" data-tab="limits" aria-controls="ag-version-limits" aria-selected="false">{{ icon("settings") }}<span>{{ t('common.model_and_limits') }}</span></button>
+    </div>
+    <section role="tabpanel" id="ag-version-prompts" aria-labelledby="ag-version-tab-prompts" data-version-panel="prompts"></section>
+    <section role="tabpanel" id="ag-version-inputs" aria-labelledby="ag-version-tab-inputs" data-version-panel="inputs" hidden></section>
+    <section role="tabpanel" id="ag-version-limits" aria-labelledby="ag-version-tab-limits" data-version-panel="limits" hidden></section>
+    <p class="form-error" role="alert" hidden data-form-error></p>
+</div>
+<footer class="modal__footer">
+    <button type="button" class="button button--ghost" data-modal-close>{{ t('common.close') }}</button>
+    <button type="button" class="button button--primary" data-version-again>{{ t('agent_editor.publish_again') }}</button>
+</footer>
+{% endcall %}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/agents/editor-page.js"></script>{% endblock %}

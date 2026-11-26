@@ -1,0 +1,46 @@
+schema: 1
+kind: postgres_tool
+label: Postgres Tool
+behaviour: tool
+scopes:
+- action
+addable: true
+tool: true
+menu:
+  group: Agent tools
+  order: 4
+ports:
+  outputs:
+  - name: tool
+    label: Tool
+    side: top
+ui:
+  color: postgres
+  icon: database
+  caption:
+    template: '{tool_name|default:@name} · {?allow_write:changes · }{query|first_line|short|default:no query yet}'
+settings:
+- use: tool_name
+- key: description
+  label: Description
+  type: lines
+  default: ''
+  max_length: 1000
+  help: 'Tells the model what the tool does and when to use it. Name the parameters the query takes below: the first
+    is $1.'
+  stored_in: config
+- key: secret
+  label: Connection secret
+  type: text
+  default: ''
+  max_length: 64
+  placeholder: TICKETS_DB
+  help: The name of a stored secret that holds postgresql://user:password@host:5432/db.
+  stored_in: config
+  check: secret_name
+- use: query
+- use: parameters
+- use: allow_write
+- use: allow_private
+- use: max_rows
+- use: timeout_seconds

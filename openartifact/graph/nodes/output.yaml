@@ -1,0 +1,29 @@
+schema: 1
+kind: output
+label: Output
+behaviour: output
+scopes:
+- action
+fixed: true
+ending: true
+menu_icon: inbox
+ports:
+  inputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+    visible_when:
+      node: fail_enabled
+ui:
+  color: output
+  step_icon: check
+  size:
+    width: 250
+    height: 104
+  port_labels: true
+settings:
+- key: fail_enabled
+  label: On Fail
+  type: switch
+  default: false

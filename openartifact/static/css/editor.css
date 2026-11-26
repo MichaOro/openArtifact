@@ -1,0 +1,482 @@
+/* Pipeline and action lists and the editor. Colours come from tokens.css only.
+ * Prefix: ge- = graph editor (lists, canvas, nodes, ports, edges, inspector); components.css and
+ * execution.css reuse it for the canvas. */
+
+/* ── List ─────────────────────────────────────────────────────────── */
+.ge-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.ge-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+}
+.ge-item__link { flex: 1; min-width: 0; color: inherit; text-decoration: none; }
+.ge-item__link:hover .ge-item__name { color: var(--color-accent); }
+.ge-item__name { font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
+.ge-item__meta { font-size: 0.75rem; color: var(--color-text-muted); }
+.ge-chip {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  line-height: 1.5rem;
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+.ge-chip--guard { background: var(--chip-guard-bg); }
+.ge-chip[hidden] { display: none; }
+/* the guard library (guards.html): the search sits left of "New guard", a row wraps on a narrow screen */
+.ge-empty[hidden] { display: none; }
+.ge-empty { padding: var(--space-5); border-radius: var(--radius-md); color: var(--color-text-muted); }
+
+/* ── Editor ───────────────────────────────────────────────────────── */
+.ge-editor { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
+.ge-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+.ge-bar__spacer { flex: 1; }
+.ge-bar__state { display: inline-flex; align-items: center; }
+.ge-bar__zoom {
+  min-width: 3rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+.ge-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.ge-canvas { position: relative; display: flex; min-height: 0; min-width: 0; }
+.ge-canvas > .ge-viewport { flex: 1; min-width: 0; }
+.ge-add {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+.ge-add__menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: min(17rem, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+}
+.ge-add__menu[hidden] { display: none; }
+.ge-add__items { display: flex; flex-direction: column; max-height: min(26rem, 60vh); overflow-y: auto; }
+.ge-add__group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.ge-add__group:hover,
+.ge-add__group:focus-visible { background: var(--accent-soft); outline: none; }
+.ge-add__group .icon { width: 0.9rem; height: 0.9rem; flex: none; transition: transform var(--transition-fast); }
+.ge-add__group[aria-expanded="false"] .icon { transform: rotate(-90deg); }
+.ge-add__count { margin-left: auto; font-weight: 400; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.ge-add__group[aria-expanded="true"] ~ .ge-add__item { padding-left: var(--space-5); }
+.ge-add__empty { margin: var(--space-2) var(--space-3); font-size: 0.8125rem; color: var(--color-text-muted); }
+.ge-add__item {
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ge-add__item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.ge-add__tag { font-size: 0.6875rem; color: var(--color-text-muted); white-space: nowrap; }
+.ge-add__name { display: inline-flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; }
+.ge-add__name .icon { width: 1rem; height: 1rem; flex: none; }
+.ge-add__item:hover,
+.ge-add__item:focus-visible { background: var(--accent-soft); outline: none; }
+.ge-viewport {
+  position: relative;
+  overflow: hidden;
+  min-height: 24rem;
+  border-radius: var(--radius-lg);
+  touch-action: none;
+  cursor: grab;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--color-text-muted) 28%, transparent) 1px, transparent 1.5px);
+  background-size: 24px 24px;
+}
+.ge-viewport:active { cursor: grabbing; }
+/* the editor: the left button selects, only the right one drags the view */
+.ge-viewport.is-editor,
+.ge-viewport.is-editor:active { cursor: default; }
+.ge-viewport.is-editor.is-panning,
+.ge-viewport.is-editor.is-panning * { cursor: grabbing; }
+.ge-marquee {
+  position: absolute;
+  z-index: 5;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  pointer-events: none;
+}
+.ge-viewport:focus { outline: none; }
+.ge-viewport.is-connecting,
+.ge-viewport.is-connecting * { cursor: crosshair; }
+.ge-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.ge-edges { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+
+/* nodes; the colour of each kind is a token */
+.ge-node {
+  --node-color: var(--node-action);
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--node-color) 55%, var(--glass-border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--node-color) 14%, var(--color-surface));
+  box-shadow: var(--shadow-card);
+  cursor: grab;
+  user-select: none;
+  outline: none;
+}
+.ge-node:hover { border-color: var(--node-color); }
+.ge-node:focus-visible,
+.ge-node.is-selected {
+  border-color: var(--node-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--node-color) 35%, transparent), var(--shadow-card);
+}
+/* The look of a card is keyed by the BEHAVIOUR of its kind (data-behaviour, set from the manifest) and its colour is the manifest's
+   ui.color (--node-color, set in canvas.js from the token --node-<color>): there is no rule per kind (ADR-054). */
+.ge-node[data-behaviour="plain"],
+.ge-node[data-behaviour="action"],
+.ge-node[data-behaviour="pipeline"],
+.ge-node[data-behaviour="tool"] { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); }
+.ge-node[data-behaviour="flow"],
+.ge-node[data-behaviour="switch"] { display: flex; align-items: center; gap: var(--space-3); padding: 0 4.5rem 0 var(--space-4); } /* room for On Pass / On Fail */
+.ge-node__icon { flex: none; width: 1.25rem; height: 1.25rem; color: var(--node-color); }
+.ge-node[data-behaviour="flow"] .ge-node__kind,
+.ge-node[data-behaviour="switch"] .ge-node__kind { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ge-node[data-behaviour="output"] { padding: var(--space-3) var(--space-4); }
+.ge-node[data-behaviour="stage"] { background: var(--stage-bg); border-color: var(--stage-border); }
+.ge-node__text { display: flex; flex-direction: column; min-width: 0; }
+.ge-node__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ge-node__kind { font-size: 0.6875rem; color: var(--color-text-secondary); } /* secondary, not muted: on the tinted card the muted text fell under 4.5:1 (checked per kind in both themes) */
+
+/* --ge-stage-header is set by canvas.js from HEADER in node-types.js; 44px is only the fallback */
+.ge-stage__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--ge-stage-header, 44px);
+  padding: 0 var(--space-4);
+}
+.ge-stage__header .ge-node__name { flex: 1; min-width: 0; }
+.ge-stage__header .ge-node__kind { text-transform: uppercase; letter-spacing: 0.06em; color: var(--node-color); }
+.ge-stage__add { flex: none; } /* the "+" of a stage: an icon-button that opens the menu Action / Guard */
+.ge-stage__add:hover { border-color: var(--node-color); color: var(--color-text-primary); }
+.ge-stage__body { position: absolute; left: 0; right: 0; top: var(--ge-stage-header, 44px); bottom: 0; }
+
+/* ports */
+.ge-port {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid var(--node-color, var(--color-accent));
+  border-radius: 50%;
+  background: var(--color-background);
+  cursor: crosshair;
+  z-index: 2;
+}
+.ge-port:hover { background: var(--node-color); }
+.ge-port::before { content: ""; position: absolute; inset: -8px; border-radius: 50%; } /* a bigger hit area */
+.ge-port[data-label]::after {
+  content: attr(data-label);
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+/* ports are placed by their node's view (node-types.js); here only their colour and label side */
+.ge-port--pass { border-color: var(--edge-pass); }
+.ge-port--error,
+.ge-port--else,
+.ge-port--fail { border-color: var(--color-danger); }
+.ge-port--no { border-color: var(--color-text-secondary); }
+.ge-port--yes { border-color: var(--edge-pass); }
+.ge-port[data-side="right"]::after { right: 14px; white-space: nowrap; }
+.ge-port[data-side="left"]::after { left: 14px; white-space: nowrap; }
+/* the Tools port of an agent (bottom) and the port of a tool (top): ADR-040 */
+.ge-port[data-side="bottom"]::after { top: 16px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+.ge-port--tool,
+.ge-port--tools { border-style: dashed; }
+/* a stage has three points per side; only used ones show, all of them while hovering or connecting */
+.ge-node--stage > .ge-port { opacity: 0; pointer-events: none; }
+.ge-node--stage > .ge-port.is-used { opacity: 1; pointer-events: auto; }
+.ge-node--stage:hover > .ge-port,
+.ge-node--stage.is-selected > .ge-port,
+.is-connecting .ge-node--stage > .ge-port { opacity: 1; pointer-events: auto; }
+/* Grips to resize a stage (right edge, bottom edge, corner). A 24px hit area just inside the border (the bar under the stage and the ports sit outside or above it) around a quiet mark; below the ports (z-index 2) so a port wins where they overlap. No grips on the left or top: the actions' positions are relative to the stage. */
+.ge-resize { position: absolute; z-index: 1; opacity: 0; transition: opacity 120ms ease-out; }
+.ge-node--stage:hover > .ge-resize,
+.ge-node--stage.is-selected > .ge-resize,
+.ge-resize:focus-visible,
+.is-resizing .ge-resize { opacity: 1; }
+.ge-resize::after { content: ""; position: absolute; border-radius: 999px; background: var(--color-text-muted); transition: background 120ms; }
+.ge-resize:hover::after,
+.ge-resize:focus-visible::after,
+.is-resizing .ge-resize::after { background: var(--color-accent); }
+.ge-resize:focus-visible { outline: none; }
+.ge-resize--e { top: var(--ge-stage-header, 44px); bottom: 24px; right: 0; width: 24px; cursor: e-resize; }
+.ge-resize--e::after { top: 50%; right: 6px; width: 4px; height: 36px; margin-top: -18px; }
+.ge-resize--s { left: 24px; right: 24px; bottom: 0; height: 24px; cursor: s-resize; }
+.ge-resize--s::after { left: 50%; bottom: 6px; width: 36px; height: 4px; margin-left: -18px; }
+.ge-resize--se { right: 0; bottom: 0; width: 24px; height: 24px; cursor: se-resize; }
+.ge-resize--se::after { display: none; } /* the corner shows a glyph instead of the bar */
+.ge-resize--se .icon { position: absolute; right: 3px; bottom: 3px; width: 16px; height: 16px; color: var(--color-text-muted); pointer-events: none; transition: color 120ms; }
+.ge-resize--se:hover .icon,
+.ge-resize--se:focus-visible .icon,
+.is-resizing .ge-resize--se .icon { color: var(--color-accent); }
+/* the thin dashed line that shows a node settling level with a connected port */
+.ge-guide { stroke: var(--color-accent); stroke-width: 1; stroke-dasharray: 4 4; pointer-events: none; }
+.ge-port.is-valid { background: var(--accent-soft); border-color: var(--color-accent); transform: scale(1.35); }
+.ge-port.is-hover { background: var(--color-accent); }
+
+/* edges */
+.ge-edge__hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+.ge-edge__line { fill: none; stroke: var(--color-text-secondary); stroke-width: 2; pointer-events: none; }
+.ge-edge--pass .ge-edge__line { stroke: var(--edge-pass); }
+.ge-edge--yes .ge-edge__line { stroke: var(--edge-pass); }
+.ge-edge--error .ge-edge__line,
+.ge-edge--else .ge-edge__line,
+.ge-edge--fail .ge-edge__line { stroke: var(--color-danger); stroke-dasharray: 6 4; }
+.ge-edge:hover .ge-edge__line,
+.ge-edge.is-selected .ge-edge__line { stroke-width: 3; }
+/* the bar of a connection (hover or selected): a pencil for the line style and a bin; it keeps its size when the canvas zooms */
+.ge-edge-bar {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--color-glass-card);
+  box-shadow: var(--shadow-card-hover);
+  transform: translate(-50%, -50%) scale(var(--ge-inverse-zoom, 1));
+}
+.ge-edge-bar[hidden], .ge-edge-bar [hidden] { display: none; }
+/* the submenu hangs centred below the bar; its top padding is a bridge, so the pointer can cross to it */
+.ge-edge-bar__submenu { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); padding-top: var(--space-1); }
+.ge-edge-bar__choices {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--color-glass-card);
+  box-shadow: var(--shadow-card-hover);
+}
+.ge-edge-bar__style[aria-pressed="true"] { background: var(--accent-soft); color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+.ge-edge__line--draft { stroke: var(--color-accent); stroke-dasharray: 4 4; }
+.ge-edge--attachment .ge-edge__line { stroke: var(--color-text-muted); stroke-dasharray: 5 5; }
+.ge-arrow { fill: var(--color-text-secondary); }
+.ge-arrow--pass { fill: var(--edge-pass); }
+.ge-arrow--error { fill: var(--color-danger); }
+
+/* inspector (the size of its heading is in components.css) */
+/* the content of the settings dialog: roomy, the dialog scrolls when it is long */
+/* the heading of the settings is the node's name (renamed in place): the dialog has no title of its own, only its close button, on the heading's line */
+#node-modal .modal__title { display: none; } /* still names the dialog for assistive technology (aria-labelledby) */
+#node-modal .modal__panel { position: relative; }
+#node-modal .modal__header { position: absolute; top: var(--space-4); right: var(--space-4); z-index: 2; padding: 0; }
+#node-modal .modal__body { padding-top: var(--space-5); }
+#node-modal .ge-inspector__heading { padding-right: 2.5rem; }
+.ge-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.ge-inspector__heading p,
+.ge-inspector__note { font-size: 0.8125rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.ge-inspector__section { display: flex; flex-direction: column; gap: var(--space-3); }
+.ge-setting { display: flex; flex-direction: column; gap: var(--space-1); }
+.ge-inspector__section h3 {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ge-node,
+  .ge-port {
+    transition: box-shadow var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+  }
+}
+
+/* three equal buttons across the full width: New flush left with the select above, Delete flush right */
+.ge-actionbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-2); }
+.ge-actionbar .button { width: 100%; justify-content: center; gap: var(--space-1); padding: 0 var(--space-2); }
+.ge-actionbar .icon { width: 1rem; height: 1rem; }
+.ge-actionbar a.button[aria-disabled="true"] { pointer-events: none; }
+
+/* a label and its control on one line (the switches of the inspector) */
+.field--row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.field--row .field__label { margin: 0; }
+
+/* the conditions of an If node: one folded group per row */
+.ge-group { border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
+.ge-group[open] { display: flex; flex-direction: column; gap: var(--space-3); }
+.ge-group > summary { cursor: pointer; font-size: 0.8125rem; font-weight: 500; color: var(--color-text-secondary); }
+
+/* the bar under a node: Edit, Delete, a menu (canvas.js) */
+.ge-node-bar {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  z-index: 6;
+  display: none;
+  padding-top: 6px; /* bridges the gap, so the pointer can travel from the node to the bar */
+  transform: translateX(-50%) scale(var(--ge-inverse-zoom, 1));
+  transform-origin: top center;
+  cursor: default;
+}
+.ge-node-bar__inner { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--color-glass-card); box-shadow: var(--shadow-card-hover); }
+.ge-node:hover > .ge-node-bar,
+.ge-node:focus-within > .ge-node-bar,
+.ge-node.is-selected > .ge-node-bar { display: block; }
+.ge-node--stage:not(.is-selected) > .ge-node-bar { display: none; } /* a stage is large: its bar only while it is selected */
+.has-multi .ge-node.is-selected:not(:hover) > .ge-node-bar { display: none; }
+.is-panning .ge-node-bar, .is-connecting .ge-node-bar { display: none !important; }
+/* a port at the lower edge (the Agent's Tools) lies under the bar: while the pointer is on a port the bar steps aside, so a press there starts a connection */
+.ge-node:has(> .ge-port:hover) > .ge-node-bar { display: none; }
+
+/* the settings of a node: Definition and Behaviour (editor/settings-layout.js) */
+.ge-settings-wrap { container-type: inline-size; }
+.ge-settings { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+@container (min-width: 44rem) {
+  .ge-settings[data-columns="2"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); }
+}
+/* two columns need room (the container query above measures the dialog, which is no longer wide by itself): a node dialog
+   that shows both (inspector-panel.js sets is-wide) is at least this wide; an action's one select stays compact */
+#node-modal.is-wide .modal__panel { --dialog-min-w: 56rem; }
+.ge-settings__column { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.ge-settings__title { margin: 0; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary); }
+.ge-settings__group { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+.ge-settings__group-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+.ge-settings__add { align-self: flex-start; }
+.ge-settings__add .icon { width: 1rem; height: 1rem; }
+.ge-settings__reset { grid-column: 1 / -1; justify-self: start; }
+.ge-settings__pair .field__control { min-width: 0; width: 100%; }
+.ge-credential { display: flex; align-items: center; gap: var(--space-2); }
+.ge-credential .field__control { flex: 1 1 auto; min-width: 0; }
+.ge-settings__pair { display: flex; gap: var(--space-3); align-items: flex-start; }
+.ge-settings__pair > * { flex: 1 1 0; min-width: 0; } /* both share the width, the dialog stays narrow (the owner's sketch) */
+.ge-settings__line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.ge-settings__line .ge-settings__reset { grid-column: auto; }
+/* Add guard and Delete on one line at the right, as wide as their text, Delete last */
+.ge-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.ge-footer .button { gap: var(--space-1); }
+.ge-footer .icon { width: 1rem; height: 1rem; }
+.ge-advanced { border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
+.ge-advanced > summary { cursor: pointer; font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); }
+.ge-advanced[open] > summary { margin-bottom: var(--space-3); }
+.ge-advanced > .ge-setting + .ge-setting,
+.ge-advanced > .ge-optional + .ge-optional { margin-top: var(--space-3); }
+.ge-optional { position: relative; }
+.ge-optional__remove { position: absolute; top: 0; right: 0; }
+
+.ge-inspector__identity { display: flex; align-items: flex-start; gap: var(--space-3); }
+.ge-inspector__identity .ge-inspector__heading { flex: 1; min-width: 0; }
+.ge-inspector__icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: var(--radius-md); background: color-mix(in srgb, var(--node-color, var(--color-accent)) 18%, transparent); color: var(--node-color, var(--color-accent)); }
+.ge-inspector__icon .icon { width: 1.25rem; height: 1.25rem; }
+
+/* guards (ADR-060): one shield per scope that has guards attached (the pipeline's next to the "+" of the canvas, a
+ * stage's in its header, an action's as a badge on its card), the popup of a scope's guards and the guard editor. A guard
+ * is never a node of the canvas. */
+.ge-add__row { display: flex; align-items: center; gap: var(--space-1); }
+.ge-add__row .gd-shield[hidden] { display: none; }
+.gd-shield { flex: none; }
+/* on an action's card: a bare shield tucked into the top right corner (no frame; the hit area is the 24 px quiet icon button) */
+.gd-shield--node { position: absolute; top: 2px; right: 2px; z-index: 2; }
+.gd-popover { z-index: 30; gap: var(--space-2); min-width: 18rem; max-width: min(26rem, calc(100vw - 1rem)); max-height: min(70vh, 32rem); }
+.gd-popover[hidden] { display: none; }
+.gd-popover__search { flex: none; }
+.gd-popover__list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.gd-popover__list[hidden], .gd-popover__empty[hidden] { display: none; }
+.gd-popover__empty { margin: 0; padding: 0 var(--space-2); }
+.gd-popover__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.gd-popover__actions .button { flex: 0 1 auto; white-space: nowrap; }
+/* Variant "stack": the popup of a stage header or a card, which would cover them side by side (ui-catalog.md) */
+.gd-popover--stack { min-width: 0; width: max-content; } /* from a stage or a card: as wide as its buttons and list need, not a long empty bar */
+.gd-popover--stack .gd-popover__actions { flex-direction: column; align-items: flex-start; }
+.gd-popover--stack .gd-popover__actions .button { justify-content: flex-start; }
+.gd-attached--inner { flex-wrap: wrap; row-gap: 0; }
+.gd-attached__scope { flex: 1 0 100%; margin: 0; padding-left: var(--space-2); }
+.gd-popover__open-action { align-self: flex-start; }
+.gd-pick { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); }
+.gd-pick:hover { background: var(--accent-soft); }
+.gd-pick__text { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.gd-pick__name { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.gd-pick__summary { overflow: hidden; font-size: 0.75rem; color: var(--color-text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+.gd-attached { display: flex; align-items: center; gap: var(--space-2); padding-left: var(--space-1); }
+.gd-attached__name { flex: 1; min-width: 0; height: 2rem; }
+.gd-attached.is-off .gd-attached__name { text-decoration: line-through; color: var(--color-text-secondary); }
+.gd-names { margin: 0 0 var(--space-2); padding-left: var(--space-4); }
+.gd-names .is-off { text-decoration: line-through; color: var(--color-text-secondary); }
+.gd-used { margin: var(--space-1) 0 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.gd-used[hidden] { display: none; }
+#guard-modal .modal__header { align-items: flex-start; }
+.gd-actionbar { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; }
+.gd-form .modal__body { display: flex; flex-direction: column; gap: var(--space-2); }
+.modal__panel .gd-number { width: 6rem; min-width: 0; flex: none; } /* a count, not a text: narrower than the dialog's usual control */
+.gd-steps { display: flex; flex-direction: column; gap: var(--space-2); }
+.gd-step { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.modal__panel .gd-step select { width: auto; min-width: 8rem; }
+.gd-preview:empty { display: none; }
+.gd-delete { margin-right: auto; }
+
+/* The add menu opened at the pointer for a line released on the empty canvas (static/js/editor/connect-menu.js): the
+ * same menu as under the "+", fixed at the point, with a line that says where the line comes from. */
+.ge-add__menu.is-anchored { position: fixed; z-index: 30; }
+.ge-add__from {
+  margin: 0;
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--glass-border);
+  overflow-wrap: anywhere;
+}
+.ge-add__from[hidden] { display: none; }
+
+
+/* an input the agent fixes to the artifact, shown in the action's settings (agent-inspector.js) and the heading with its (i) */
+.ge-inspector__heading-tip { display: flex; align-items: center; gap: var(--space-2); }

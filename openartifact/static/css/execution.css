@@ -1,0 +1,207 @@
+/* The flow page of one execution (prefix ef- = execution flow; its canvas reuses ge-, its rows history-): the editor's canvas (editor.css), read-only, with the walk drawn on
+ * it, and a side panel. Colours come from tokens.css only. A state is never colour alone: every one
+ * has an icon and a word, what did not run is dashed as well as dimmed, a walked edge is thick and
+ * numbered. */
+
+.ef { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; overflow-y: auto; }
+.ef .alert-bar { margin-bottom: 0; }
+
+/* ── Header ──────────────────────────────────────────────────────── */
+.ef-head { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); }
+.ef-head__main { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.ef-head__title { font-size: 1.0625rem; font-weight: 600; overflow-wrap: anywhere; }
+.ef-head__back { margin-left: auto; }
+.ef-head__facts { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-5); font-size: 0.8125rem; }
+.ef-fact { display: flex; gap: var(--space-2); }
+.ef-fact dd { margin: 0; overflow-wrap: anywhere; }
+.ef-fact dt { color: var(--color-text-muted); }
+.ef-gone { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); padding: var(--space-5); border-radius: var(--radius-lg); }
+.ef-gone__title { font-size: 1.0625rem; }
+.ef-gone__title:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* ── Toolbar and breadcrumb ──────────────────────────────────────── */
+.ef-body { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
+.ef-body[hidden] { display: none; }
+.ef-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); }
+.ef-bar .button { gap: var(--space-1); }
+.ef-bar .button .icon { width: 1rem; height: 1rem; }
+.ef-crumbs ol { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-size: 0.8125rem; }
+.ef-crumb + .ef-crumb::before { content: "\203A"; margin-right: var(--space-1); color: var(--color-text-muted); }
+.ef-crumb[aria-current] { font-weight: 600; }
+.ef-crumb__link { color: var(--color-text-secondary); text-decoration: none; }
+.ef-crumb__link:hover { color: var(--color-accent); text-decoration: underline; }
+.ef-crumb__link:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.ef-crumb__stage { color: var(--color-text-muted); font-weight: 400; }
+
+/* ── Canvas and panel ────────────────────────────────────────────── */
+.ef-main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: var(--space-3); min-height: 30rem; }
+.ef-main > .ge-canvas { min-height: 0; }
+.ef-viewport .ge-node { cursor: default; }
+.ef-viewport .ge-node.has-child { cursor: pointer; }
+.ef-viewport .ge-node.has-child:hover .ge-node__name { text-decoration: underline; }
+.ef-viewport .ge-port { cursor: default; }
+.ef-viewport .ge-stage__add { display: none; }
+.ef-viewport .ge-node--stage > .ge-port { pointer-events: none; }
+
+/* what was walked */
+.ef-viewport .ge-node { transition: opacity var(--transition-fast); }
+.ef-viewport .ge-node.is-dim { opacity: 0.42; border-style: dashed; }
+.ef-viewport .ge-node.is-dim.is-selected,
+.ef-viewport .ge-node.is-dim:focus-visible { opacity: 0.8; }
+.ef-viewport .ge-node.ef-state-fail { border-color: var(--color-danger); border-width: 2px; }
+.ef-viewport .ge-node.ef-state-fail.is-selected,
+.ef-viewport .ge-node.ef-state-fail:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 35%, transparent), var(--shadow-card); }
+.ef-viewport .ge-node.ef-state-running { border-color: var(--node-color); border-width: 2px; }
+.ef-viewport .ge-node:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* a tool node an agent used: green when every call went well (red and working are the states above), and the line that ties it to
+   its agent takes the colour of what came of it; an unused tool stays dim and dashed */
+.ef-viewport .ge-node.ef-tool.ef-state-pass { border-color: var(--edge-pass); border-width: 2px; }
+.ef-viewport .ge-edge--attachment.is-tool-pass .ge-edge__line { stroke: var(--edge-pass); }
+.ef-viewport .ge-edge--attachment.is-tool-fail .ge-edge__line { stroke: var(--color-danger); }
+.ef-viewport .ge-edge--attachment.is-tool-running .ge-edge__line { stroke: var(--color-accent); }
+
+/* the corner badge: an icon and, if the node ran more than once, how often */
+.ef-badge {
+  --state: var(--color-text-muted);
+  position: absolute;
+  top: -0.6rem;
+  right: -0.5rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  padding: 0 0.3rem;
+  justify-content: center;
+  border: 1px solid var(--state);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--state) 22%, var(--color-surface));
+  color: var(--color-text-primary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+}
+.ef-badge[hidden] { display: none; }
+.ef-badge .icon { width: 0.8rem; height: 0.8rem; color: var(--state); }
+.ef-badge[data-state="pass"] { --state: var(--edge-pass); }
+.ef-badge[data-state="fail"] { --state: var(--color-danger); }
+.ef-badge[data-state="running"] { --state: var(--color-accent); }
+.ef-badge[data-state="stopped"] { --state: var(--lane-hue-2); }
+.ef-badge[data-state="skipped"] { --state: var(--color-text-muted); }
+
+/* edges: the walked ones are thick and numbered, the others faint */
+.ef-viewport .ge-edge.is-idle .ge-edge__line { opacity: 0.3; stroke-width: 1.5; }
+.ef-viewport .ge-edge.is-walked .ge-edge__line { stroke-width: 3.5; }
+.ef-bubbles circle { stroke: var(--color-surface); stroke-width: 1; pointer-events: none; }
+.ef-bubbles--pass circle { fill: var(--edge-pass); }
+.ef-bubbles--fail circle { fill: var(--color-danger); }
+.ef-edge__order circle { fill: var(--color-surface); stroke: var(--color-text-secondary); stroke-width: 1.5; }
+.ef-edge__order text { fill: var(--color-text-primary); font-size: 10px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ef-viewport .ge-node.ef-state-running { animation: ef-pulse 1.4s ease-in-out infinite; }
+  @keyframes ef-pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--node-color) 40%, transparent), var(--shadow-card); } }
+}
+
+/* ── Panel ───────────────────────────────────────────────────────── */
+.ef-panel { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; padding: var(--space-4); border-radius: var(--radius-lg); overflow-y: auto; }
+.ef-panel__head { display: flex; flex-direction: column; gap: var(--space-2); }
+.ef-panel__kind { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary); }
+.ef-panel__title { font-size: 1.0625rem; font-weight: 600; overflow-wrap: anywhere; }
+.ef-panel__title:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.ef-panel__chips { display: flex; gap: var(--space-2); }
+.ef-panel__section { display: flex; flex-direction: column; gap: var(--space-2); }
+.ef-panel__heading { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary); }
+.ef-panel__note { font-size: 0.8125rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.ef-detail__name { margin: 0; font-size: 0.9375rem; overflow-wrap: anywhere; }
+[data-panel-detail] { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+[data-panel-detail] .history-step { align-self: stretch; margin-left: 0; }
+
+/* the rounds of a running agent (components/live-rounds.js) */
+.live-rounds { align-self: stretch; display: flex; flex-direction: column; gap: var(--space-2); }
+.live-rounds__title { margin: 0; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary); }
+.live-rounds__facts { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.live-rounds__list { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.live-rounds__round { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--color-glass-card); }
+.live-rounds__round[data-state="running"] { border-color: var(--edge-running, var(--color-accent)); }
+.live-rounds__round[data-state="failed"] { border-color: var(--color-danger); }
+.live-rounds__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2); margin: 0; font-size: 0.8125rem; }
+.live-rounds__status { color: var(--color-text-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.live-rounds__text { margin: 0; font-size: 0.8125rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.live-rounds__calls { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.live-rounds__call { display: flex; align-items: center; gap: var(--space-2); font-size: 0.8125rem; font-family: var(--font-mono); }
+.live-rounds__tool { overflow-wrap: anywhere; }
+.live-rounds__time { margin-left: auto; color: var(--color-text-muted); font-size: 0.75rem; }
+.live-rounds__mark { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 1rem; height: 1rem; border-radius: 50%; color: var(--color-text-muted); }
+.live-rounds__mark .icon { width: 0.75rem; height: 0.75rem; }
+.live-rounds__call[data-state="ok"] .live-rounds__mark { color: var(--edge-pass); }
+.live-rounds__call[data-state="failed"] .live-rounds__mark { color: var(--color-danger); }
+.live-rounds__call[data-state="running"] .live-rounds__mark::before { content: ""; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--color-accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .live-rounds__call[data-state="running"] .live-rounds__mark::before { animation: live-rounds-pulse 1.2s ease-in-out infinite; }
+  @keyframes live-rounds-pulse { 50% { opacity: 0.35; transform: scale(0.7); } }
+}
+
+.ef-passes { display: flex; align-items: center; gap: var(--space-2); }
+.ef-passes__text { min-width: 6rem; text-align: center; font-size: 0.8125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.ef-path { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.ef-path__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); border: 1px solid transparent; border-left: 3px solid var(--lane-hue-3); border-radius: var(--radius-sm); }
+.ef-path__item[data-state="fail"] { border-left-color: var(--color-danger); }
+.ef-path__item[data-state="running"] { border-left-color: var(--color-accent); }
+.ef-path__item[data-state="stopped"] { border-left-color: var(--lane-hue-2); }
+.ef-path__item.is-selected { border-color: var(--color-accent); background: var(--accent-soft); }
+.ef-path__main {
+  flex: 1 1 12rem; /* never narrower than its name needs: the "Open pass" buttons of a step that ran several times wrap below it */
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ef-path__main:hover { background: var(--nav-hover-bg); }
+.ef-path__main:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.ef-path__seq { font-size: 0.75rem; font-variant-numeric: tabular-nums; color: var(--color-text-muted); }
+.ef-path__name { display: flex; flex-direction: column; min-width: 0; }
+.ef-path__label { font-weight: 500; font-size: 0.8125rem; overflow-wrap: break-word; }
+.ef-path__kind { font-size: 0.6875rem; color: var(--color-text-muted); }
+.ef-path__facts { grid-column: 2 / -1; font-size: 0.6875rem; color: var(--color-text-secondary); }
+.ef-path__state { line-height: 1.25rem; }
+.ef-path__open { flex: none; margin-right: var(--space-1); }
+.ef-path__main + .ef-path__open { margin-left: calc(1.25rem + var(--space-2) + var(--space-2)); } /* under the name, not under the number */
+
+@media (max-width: 900px) {
+  .ef-main { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .ef-main > .ge-canvas { min-height: 26rem; }
+  .ef-panel { overflow: visible; }
+}
+@media (max-width: 640px) {
+  .ef-head__back { margin-left: 0; }
+}
+
+/* what the guards did in the execution (ADR-060) */
+.ef-guards { display: flex; flex-direction: column; gap: var(--space-1); margin: var(--space-2) 0 0; padding: 0; list-style: none; font-size: 0.875rem; }
+.ef-guards__item { display: flex; align-items: baseline; gap: var(--space-1); }
+.ef-guards__item .icon { width: 0.875rem; height: 0.875rem; flex: none; align-self: center; color: var(--color-accent); }
+
+/* the shield of the guards in the read-only flow (components/guard-shield.js): green and pulsing while a guard is watching the place
+   now, grey while none is (all switched off, the place is not running, the run is over) */
+.ef-viewport .gd-shield { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: var(--radius-pill); color: var(--color-text-muted); pointer-events: auto; }
+.ef-viewport .gd-shield .icon { width: 0.9rem; height: 0.9rem; }
+.ef-viewport .gd-shield--node { right: auto; left: 2px; } /* the corner badge of the node sits top right */
+.ef-viewport .gd-shield[data-state="idle"] { color: var(--color-text-muted); opacity: 0.7; }
+.ef-viewport .gd-shield[data-state="active"] { color: var(--edge-pass); background: color-mix(in srgb, var(--edge-pass) 18%, transparent); }
+@media (prefers-reduced-motion: no-preference) {
+  .ef-viewport .gd-shield[data-state="active"] { animation: ef-shield-pulse 1.4s ease-in-out infinite; }
+  @keyframes ef-shield-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--edge-pass) 35%, transparent); } }
+}

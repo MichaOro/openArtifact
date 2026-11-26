@@ -1,0 +1,89 @@
+schema: 1
+kind: http
+label: HTTP request
+behaviour: flow
+produces_result: true
+timed: true
+result_data:
+- truncated
+guardable: true
+scopes:
+- action
+addable: true
+chain: true
+reference_keys:
+- url
+- headers
+- body
+menu:
+  group: Core
+  order: 2
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+    visible_when:
+      setting: on_failure
+      equals: error_output
+ui:
+  color: http
+  icon: http
+  caption:
+    template: '{method|default:GET} {url|host_path|default:no URL yet}'
+settings:
+- use: method
+- key: url
+  label: URL
+  type: text
+  default: ''
+  placeholder: https://example.org/hook
+  help: Use ${secret:NAME} for a stored secret and ${node.NAME.output} or ${var.NAME} for the result of an earlier
+    node or a variable in the path or the query (replaced text is percent-encoded there); not in the scheme or host.
+  stored_in: config
+  check: url
+  references: all
+- key: headers
+  label: Headers
+  type: lines
+  default: ''
+  placeholder: 'Name: value'
+  help: 'One ''Name: value'' per line, stored in plain text: put a secret in as ${secret:NAME}, for example ''Authorization:
+    Bearer ${secret:API_TOKEN}''. ${node.NAME.output} and ${var.NAME} insert an earlier result or variable.'
+  stored_in: config
+  check: text_references
+  references: all
+- key: body
+  label: Body
+  type: lines
+  default: ''
+  help: 'Sent as it is, stored in plain text: use ${secret:NAME} for a secret. ${node.NAME.output}, ${node.NAME.data.key}
+    and ${var.NAME} insert earlier results (NAME: the node''s name, _ for spaces).'
+  stored_in: config
+  check: text_references
+  references: all
+- key: timeout_seconds
+  label: Timeout (seconds)
+  type: integer
+  minimum: 1
+  maximum: 120
+  default: 30
+  stored_in: config
+  group: Execution limits
+  section: behaviour
+  level: optional
+- key: success_status
+  label: Success status
+  type: text
+  default: 200-299
+  max_length: 100
+  help: Comma-separated codes or ranges, for example 200-299, 404.
+  stored_in: config
+  check: status_spec
+  section: behaviour
+  level: advanced
+- use: on_failure

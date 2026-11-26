@@ -1,0 +1,64 @@
+{% from "components/modal.html" import modal %}
+{% from "components/form_modal.html" import dialog_form %}
+{% set ARTIFACT_FIELDS = [
+    {"name": "title", "label": t('artifact.title'), "kind": "text", "required": True, "maxlength": 255, "placeholder": t('artifact.title_placeholder')},
+    {"name": "body", "label": t('artifact.body'), "kind": "textarea", "maxlength": 10000, "rows": 6, "hint": t('common.optional'), "placeholder": t('artifact.body_placeholder')},
+] %}
+{% from "components/icons.html" import icon %}
+{% from "components/nav.html" import nav_items %}
+{% call modal("create-task-modal", t('dialog.create_artifact'), subtitle=True, size="artifact", reason="a form column and a rail, sized once from the content height") %}
+<div class="modal__layout">
+<section class="task-view" data-task-view data-tab="details" hidden>
+    <div class="task-tabs" role="tablist" aria-label="{{ t('create_task.artifact_sections') }}" data-tabs>
+        <button type="button" class="task-tab" role="tab" id="artifact-tab-details" data-tab="details"
+                aria-controls="artifact-panel-details" aria-selected="true">{{ t('common.details') }}</button>
+        <button type="button" class="task-tab" role="tab" id="artifact-tab-comments" data-tab="comments"
+                aria-controls="artifact-panel-comments" aria-selected="false" tabindex="-1">{{ t('common.comments') }}<span class="task-tab__badge" data-comments-count hidden></span></button>
+        <button type="button" class="task-tab" role="tab" id="artifact-tab-history" data-tab="history"
+                aria-controls="artifact-panel-history" aria-selected="false" tabindex="-1">{{ t('common.history') }}<span class="task-tab__badge" data-history-count hidden></span></button>
+    </div>
+    <div class="modal__body" role="tabpanel" id="artifact-panel-details" aria-labelledby="artifact-tab-details" tabindex="0">
+        <h3 class="task-view__title" data-view-title></h3>
+        <ul class="task-view__labels" data-view-labels hidden></ul>
+        <p class="task-view__body" data-view-body></p>
+        <p class="task-view__warning" role="status" data-view-warning hidden></p>
+    </div>
+    {% include "components/comments_panel.html" %}
+    {% include "components/history_panel.html" %}
+    <footer class="modal__footer">
+        <div class="modal__footer-start">
+            <button type="button" class="button button--ghost" data-view-back hidden>{{ t('common.back') }}</button>
+            <button type="button" class="button button--ghost card-run" data-card-action="run" data-state="idle" title="{{ t('create_task.start_processing') }}">
+                {{ icon("play") }}
+                <span data-run-label>{{ t('create_task.start_processing') }}</span>
+            </button>
+        </div>
+        <button type="button" class="button button--ghost" data-modal-close>{{ t('common.close') }}</button>
+        <button type="button" class="button button--primary" data-view-edit>{{ t('common.edit') }}</button>
+        <button type="submit" form="comment-form" class="button button--primary" aria-disabled="true" data-comments-send>
+            {{ icon("message") }}
+            <span>{{ t('comments.comment') }}</span>
+        </button>
+    </footer>
+</section>
+{% call dialog_form("create-task-modal", ARTIFACT_FIELDS) %}{% endcall %}
+<aside class="card-nav" id="card-nav" data-card-nav data-state="collapsed" aria-label="{{ t('create_task.artifact_details') }}" hidden>
+    <ul class="nav-list card-nav__fields">
+        {{ nav_items(rail.fields) }}
+    </ul>
+    {# The artifact fields (ADR-044): hidden until fields are defined; an entry with sub-entries like the main navigation. #}
+    <ul class="nav-list card-nav__custom" data-field-rail hidden>
+        {{ nav_items(rail.custom) }}
+    </ul>
+    <ul class="nav-list card-nav__actions">
+        {{ nav_items(rail.actions) }}
+    </ul>
+    <div class="card-nav__foot">
+        <button type="button" class="icon-button icon-button--sm card-nav__toggle" data-card-nav-toggle
+                aria-controls="card-nav" aria-expanded="false" aria-label="{{ t('create_task.expand_artifact_details') }}">
+            {{ icon("chevrons-right") }}
+        </button>
+    </div>
+</aside>
+</div>
+{% endcall %}

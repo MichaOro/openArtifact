@@ -1,7 +1,0 @@
-{# The alert bar of a page (behaviour in static/js/components/alert-bar.js): a message, optionally with Retry. #}
-{% macro alert(text="") -%}
-<div class="alert-bar glass" role="alert" hidden data-alert>
-    <span data-alert-text>{{ text }}</span>
-    <button type="button" class="button button--ghost button--sm" data-alert-retry>Retry</button>
-</div>
-{%- endmacro %}

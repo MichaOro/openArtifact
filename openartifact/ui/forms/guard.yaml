@@ -1,0 +1,102 @@
+# The form of the guard editor (ADR-060, ADR-062): when a guard fires and what it does. The window around it (the title
+# with the name, "Used in N places", Save and Cancel) is a component of its own.
+schema: 1
+name: guard
+columns: 2
+width: 50
+sections:
+  - key: trigger
+    title: Trigger
+    column: 1
+    fields:
+      - key: trigger.type
+        widget: choice
+        label: Trigger
+        hide_label: true
+        options:
+          - {value: event, label: On an event}
+          - {value: interval, label: Every few seconds}
+      - key: trigger.events
+        widget: chips
+        label: Events
+        required: true
+        help: The flow waits for the guard at these events and goes on as it decides.
+        visible_when: {field: trigger.type, equals: event}
+        options:
+          - {value: enter, label: Entered (each round)}
+          - {value: pass, label: An action passed}
+          - {value: error, label: An action erred}
+          - {value: leave, label: Left}
+          - {value: fail, label: The run fails}
+      - key: trigger.every_seconds
+        widget: number
+        label: Check every (seconds)
+        min: 1
+        default: 60
+        help: >-
+          The running action keeps running while the guard checks; it fires once the condition has held for the given
+          time and not again within the quiet time.
+        visible_when: {field: trigger.type, equals: interval}
+      - key: trigger.for_seconds
+        widget: number
+        label: Held for (seconds)
+        min: 0
+        default: 0
+        advanced: true
+        visible_when: {field: trigger.type, equals: interval}
+      - key: trigger.cooldown_seconds
+        widget: number
+        label: Quiet after firing (seconds)
+        min: 0
+        default: 0
+        advanced: true
+        visible_when: {field: trigger.type, equals: interval}
+  - key: then
+    title: Then
+    column: 2
+    fields:
+      - key: consequence
+        widget: select
+        label: Consequence
+        config: {options_from_code: consequences}
+      - key: fallback
+        widget: select
+        label: If its action fails
+        help: Its action passing lets the run continue; failing does this.
+        visible_when: {field: consequence, equals: run_action}
+        options:
+          - {value: pause, label: Pause the run}
+          - {value: abort, label: Abort the run}
+          - {value: continue, label: Continue (only record it)}
+  - key: condition
+    title: Condition
+    column: full
+    fields:
+      - key: when
+        widget: rule-tree
+        label: Condition
+        hide_label: true
+        config: {schema: guard}
+  - key: escalation
+    title: Escalation steps
+    column: 1
+    fields:
+      - key: escalation
+        widget: escalation-steps
+        label: Escalation steps
+        hide_label: true
+        help: >-
+          From a firing of the guard on, it fires only every N rounds (or N seconds) after its last firing. Without
+          steps it fires whenever the condition holds.
+  - key: logic
+    title: Logic
+    column: 2
+    fields:
+      - key: action_id
+        widget: action-picker
+        label: Action
+        hide_label: true
+        config: {depends_on: [consequence, action_id]}
+        help: >-
+          With “Run the guard's action” the guard runs an action of its own when it fires: an ordinary action
+          definition, edited in the action editor. Its On Pass lets the run go on, its On Error does the fallback.

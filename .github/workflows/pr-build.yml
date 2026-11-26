@@ -12,7 +12,11 @@ on:
     paths:
       - "Dockerfile"
       - ".dockerignore"
-      - "apps/backend/**"
+      - "openartifact/**"
+      - "tests/**"
+      - "alembic/**"
+      - "alembic.ini"
+      - "pyproject.toml"
       - "deploy/**"
       - "scripts/**"
       - "tools/smoke_container.sh"

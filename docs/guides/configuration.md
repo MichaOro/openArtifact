@@ -2,8 +2,8 @@
 
 Every setting is an environment variable with the prefix `OPENARTIFACT_`. The application reads them
 from the process environment and, outside Docker, from a `.env` file in its working directory
-(`apps/backend/.env` for a local run). The single source of names, defaults and bounds is
-[`config.py`](../../apps/backend/openartifact/config.py); a variable it does not know is ignored. A
+(`.env` at the repository root for a local run). The single source of names, defaults and bounds is
+[`config.py`](../../openartifact/config.py); a variable it does not know is ignored. A
 value outside its bounds, or one of the wrong type, stops the start with an error that names the variable.
 
 With Docker Compose the variables go into `deploy/.env` (copy of [`deploy/.env.example`](../../deploy/.env.example));
@@ -37,6 +37,11 @@ The database is SQLite in WAL mode and stays so ([ADR-020](../architecture/adr/0
 | `OPENARTIFACT_SECRET_KEY` | string | `change-me-in-production` | at least 32 characters when a token is set or credentials are stored | Signs the session cookie **and is the source of the key that encrypts stored credentials** (AES-256-GCM, key derived with HKDF). Required as soon as a token is set: an empty or default key stops the start. **Never change it once credentials are stored: every stored credential becomes unreadable** (there is no re-encryption); it also signs every browser out. Generate: `openssl rand -hex 32`. See [Credentials](credentials.md). |
 | `OPENARTIFACT_API_TOKEN` | string | *(empty)* | at least 32 characters when set | The one access token (`openssl rand -hex 32`); a shorter one stops the start. Set: the whole application asks for it (sign-in page, `Authorization: Bearer`). Empty: pages and browser API are open, `/api/v1` and `/mcp` answer `401`, Code nodes are refused (see `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN`), credentials cannot be stored, and the log warns at startup. See [Sign in and use the API](integration.md). |
 | `OPENARTIFACT_ALLOWED_HOSTS` | string | *(empty)* | comma-separated; `*.example.org` allowed | Host names the application answers to, for example `oa.example.com, *.example.org`. Any other `Host` header gets `400`. Empty: no check. `/health` is always reachable, so container health checks work. Protects against DNS rebinding. |
+| `OPENARTIFACT_OIDC_ISSUER`, `OPENARTIFACT_OIDC_CLIENT_ID`, `OPENARTIFACT_OIDC_CLIENT_SECRET` | text | empty | all three or none | Single sign-on through OpenID Connect next to the API token (ADR-043): the provider's address (its `/.well-known/openid-configuration` is read), the client it knows this application as, and the client secret. Needs `OPENARTIFACT_API_TOKEN` and a list of who may come in. See [Reverse proxy](reverse-proxy.md) for an Authelia example. |
+| `OPENARTIFACT_OIDC_ALLOWED_EMAILS`, `OPENARTIFACT_OIDC_ALLOWED_USERS`, `OPENARTIFACT_OIDC_ALLOWED_GROUPS` | comma separated | empty | at least one when SSO is on | Who may sign in with SSO: verified e-mail addresses, user names (`preferred_username` or `sub`), groups. One match is enough. |
+| `OPENARTIFACT_OIDC_SCOPES` | text | `openid profile email groups` | | What the sign-in asks the provider for. |
+| `OPENARTIFACT_OIDC_BUTTON_LABEL` | text | `Sign in with SSO` | | The text of the button on the sign-in page. |
+| `OPENARTIFACT_PUBLIC_URL` | URL | empty | | The public address of this application when the redirect address cannot be taken from the request (`https://oa.example.org`); the provider must list `<it>/login/sso/callback` as a redirect URI. |
 | `OPENARTIFACT_COOKIE_SECURE` | `auto` / `true` / `false` | `auto` | the three values | `auto`: the session cookie is `Secure` (and named `__Host-oa_session`) when the request scheme is `https`. `true`: always (and HSTS is sent even if the proxy does not forward the scheme); right behind a TLS-terminating proxy. `false`: never. The application sends `Strict-Transport-Security` whenever the request is https. See [Reverse proxy](reverse-proxy.md). |
 | `OPENARTIFACT_MAX_REQUEST_BYTES` | integer | `1048576` | at least 1 | Largest request body in bytes (1 MiB); a larger one gets `413`. The sign-in form has its own cap of 4096 bytes. |
 | `OPENARTIFACT_CSP_SCRIPT_UNSAFE_INLINE` | boolean | `false` | | Opt-out only: adds `'unsafe-inline'` to the `script-src` of the Content-Security-Policy. The pages have no inline scripts, so the default policy is `script-src 'self'`. Leave it off. |
@@ -47,12 +52,21 @@ The database is SQLite in WAL mode and stays so ([ADR-020](../architecture/adr/0
 |----------|------|---------|--------|---------|
 | `OPENARTIFACT_MAX_CONCURRENT_RUNS` | integer | `8` | at least 1 | Pipeline runs that may be active at the same time; a further start gets `429`. |
 | `OPENARTIFACT_MAX_SSE_SUBSCRIBERS` | integer | `50` | at least 1 | Open live-update streams (browser tabs); a further one gets `503`. |
+| `OPENARTIFACT_GUARD_MIN_INTERVAL_SECONDS` | number | `30` | 0.1 to 86400 | The shortest interval an interval guard may check at; a guard asking for less is refused (`422`) ([Guards](guards.md)). |
+| `OPENARTIFACT_GUARD_MAX_FIRINGS` | integer | `20` | 1 to 10000 | Firings of one guard on one scope in one run; the next one is skipped and the cap is recorded once. |
+| `OPENARTIFACT_GUARD_TIMEOUT_SECONDS` | number | `600` | 0.1 to 86400 | How long a guard (its condition and its own action) may take; then it is recorded as failed and the flow goes on. |
+| `OPENARTIFACT_HEARTBEAT_MIN_SPACING_SECONDS` | number | `1` | 0 to 3600 | The shortest spacing of two heartbeats of one execution; a closer one gets `429`. |
+| `OPENARTIFACT_CARD_SWEEP_INTERVAL_SECONDS` | number | `900` | 0 to 86400 | How often the card rules archive and delete cards (also whenever rules are saved); `0`: only then. |
+
+The limits of a single execution (how many steps, how much time) are not environment variables: they are set on
+*Settings > Run limits* in the web interface or with `PUT /api/v1/settings/run-limits`, take effect for the executions
+that start afterwards and are kept in the database ([ADR-039](../architecture/adr/039-edit-fields-switch-rules-and-run-limits.md)).
 
 ## Execution history
 
 | Variable | Type | Default | Bounds | Meaning |
 |----------|------|---------|--------|---------|
-| `OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP` | integer | `50` | 0 to 100000 | How many executions of an artifact are kept when its owner has set no retention policy of its own; the oldest finished ones beyond that are deleted (a running one and the newest one are never deleted by retention). `0` keeps all of them: the database then grows with every run (step outputs of up to 1 MiB each), so use it only with a policy per artifact. See [Execution history](execution-history.md) and [Database size](operations.md#database-size-and-history-retention). |
+| `OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP` | integer | `50` | 0 to 100000 | The operator's guard: how many executions of an artifact are kept at most (there is no per-artifact policy; the retention rules add to this); the oldest finished ones beyond that are deleted (a running one and the newest one are never deleted by retention). `0` keeps all of them: the database then grows with every run (step outputs of up to 1 MiB each), so use it only with a policy per artifact. See [Execution history](execution-history.md) and [Database size](operations.md#database-size-and-history-retention). |
 
 ## Code and HTTP nodes
 
@@ -66,7 +80,8 @@ The database is SQLite in WAL mode and stays so ([ADR-020](../architecture/adr/0
 | `OPENARTIFACT_CODE_FILE_SIZE_LIMIT_MB` | integer | `64` | 1 to 10240 | Largest file in MiB a Code node's process may write (`RLIMIT_FSIZE`). |
 | `OPENARTIFACT_CODE_OPEN_FILES_LIMIT` | integer | `256` | 16 to 65536 | Open files of a Code node's process (`RLIMIT_NOFILE`). |
 | `OPENARTIFACT_HTTP_RESPONSE_LIMIT_BYTES` | integer | `1048576` | at least 1 | Largest response body (bytes) an HTTP node reads; the rest is cut off. |
-| `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS` | boolean | `false` | | Whether HTTP nodes may call loopback, private, link-local and carrier-grade NAT addresses. Off by default (protects the host network); self-hosters calling their own services switch it on. Metadata, unspecified and multicast addresses stay blocked. A Code node is not bound by this: it reaches whatever the application reaches. |
+| `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS` | boolean | `false` | | Whether HTTP nodes, GitHub nodes and Postgres nodes may call loopback, private, link-local and carrier-grade NAT addresses (a Postgres node also needs its own *Private network* switch). Off by default (protects the host network); self-hosters calling their own services switch it on. Metadata, unspecified and multicast addresses stay blocked. A Code node is not bound by this: it reaches whatever the application reaches. |
+| `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS` | boolean | `false` | | Whether an MCP Client Tool, an HTTP Request Tool or a Postgres Tool of an agent may be on a loopback, private or link-local address (a service on this host or in the internal network). It is the operator's half of the permission: the tool must also have its own *Private network* switch on. An LLM provider needs no setting (ADR-042). Independent of `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS`: it does not open HTTP nodes. Metadata, unspecified and multicast addresses stay blocked. See [Agents and LLM providers](agents.md). |
 
 The limits do not replace each other: in the container the memory limit (`mem_limit`, 1 GiB) and the process
 limit (`pids_limit`, 256) apply to the whole container, the `CODE_*` limits to one Code process. See
@@ -119,7 +134,7 @@ FORWARDED_ALLOW_IPS=172.18.0.1
 OPENARTIFACT_BIND=127.0.0.1
 ```
 
-## Example `.env` for a local run (`apps/backend/.env`)
+## Example `.env` for a local run (at the repository root)
 
 ```ini
 OPENARTIFACT_HOST=127.0.0.1

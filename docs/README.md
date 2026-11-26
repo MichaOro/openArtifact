@@ -9,7 +9,7 @@ Index of everything under `docs/`. The product is described in the [repository R
 | New to the project | [Repository README](../README.md), then [Concepts](guides/concepts.md) |
 | Operating it | [Security for operators](guides/security.md), [Operate the Docker deployment](guides/operations.md), [Configuration reference](guides/configuration.md) |
 | Using the API or MCP | [Sign in and use the API and MCP](guides/integration.md), [API reference](guides/api-reference.md), [Credentials](guides/credentials.md) |
-| Developing | [CONTRIBUTING](../.github/CONTRIBUTING.md), [Extending the application](guides/extending.md), [Testing](guides/testing.md), [backend README](../apps/backend/README.md) |
+| Developing | [CONTRIBUTING](../.github/CONTRIBUTING.md), [Extending the application](guides/extending.md), [Testing](guides/testing.md), [Development](guides/development.md) |
 | Reviewing the architecture | [arc42 chapter 4](architecture/arc42/04-solution-strategy.md) (built and planned), [chapter 5](architecture/arc42/05-building-block-view/README.md), [chapter 8](architecture/arc42/08-cross-cutting-concepts/README.md), [chapter 11](architecture/arc42/11-risks-and-technical-debt.md), the [ADRs](architecture/adr/) |
 
 To report a vulnerability: [SECURITY.md](../SECURITY.md).
@@ -25,11 +25,15 @@ How to run, use, change and test the application.
 | [Configuration reference](guides/configuration.md) | Every `OPENARTIFACT_*` setting, the compose-only variables, `FORWARDED_ALLOW_IPS` |
 | [Sign in and use the API and MCP](guides/integration.md) | Token, browser sign-in, `curl` against `/api/v1`, MCP client setup |
 | [API reference](guides/api-reference.md) | The operations of the browser and integration APIs and the MCP tools, generated from the OpenAPI schema |
+| [The UI catalog](guides/ui-catalog.md) | The one definition of buttons and the other components, the tokens for light and dark, contrast rules, how to extend it |
 | [Execution nodes](guides/execution-nodes.md) | Timer, Code, HTTP and Output nodes: settings, limits, what is and is not isolated |
+| [Agents and LLM providers](guides/agents.md) | Providers and models, agents with drafts and versions, the Agent node, what an execution keeps, limits |
 | [Credentials](guides/credentials.md) | The credential store: API, references from nodes, limits, backup |
+| [Guards](guides/guards.md) | The guard library and attaching guards to a pipeline, stage or action: the shield, triggers, conditions, consequences, heartbeat, limits, templates |
 | [Execution history](guides/execution-history.md) | Recording, retention, the flow view, the global executions page, the API |
 | [Operate the Docker deployment](guides/operations.md) | Start, update, health, backup and restore of the SQLite volume |
 | [Run behind a reverse proxy](guides/reverse-proxy.md) | nginx and Caddy, TLS, `Host`, forwarded headers, cookie, limits |
+| [Languages (i18n)](guides/i18n.md) | Switching the language, adding one, what is not translated |
 | [Extending the application](guides/extending.md) | A new node kind, a new navigation entry |
 | [Testing](guides/testing.md) | Unit and browser tests, coverage, quality checks |
 | [CI/CD and releases](guides/CI-CD.md) | Pipelines, image name and tags, release procedure |

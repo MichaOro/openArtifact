@@ -1,0 +1,348 @@
+"""The tools of an agent node for one run (ADR-040): what the model is told, and calling them.
+
+:class:`Toolbox` holds the tools as the model sees them: OpenAI function tools with names that are valid
+and unique (a name two tools share gets the tool node's name in front). :meth:`Toolbox.call` never
+raises: an unknown tool, arguments that are not a JSON object, or a tool that fails become an
+``Error: ...`` text the model reads (as n8n does). Results are cut to :data:`TOOL_RESULT_LIMIT_BYTES`.
+
+:func:`open_toolbox` builds the toolbox from the tools frozen into the snapshot: it connects to the MCP
+servers (their tools listed and filtered) and builds the HTTP Request and Code tools; it raises
+:class:`ToolboxError` when a tool cannot be used, so the node fails before its first request.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import json
+import re
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from contextlib import AsyncExitStack, asynccontextmanager
+from dataclasses import dataclass, field
+from typing import Any
+
+from openartifact.agents.mcp_client import McpToolError, open_mcp
+from openartifact.agents.tool_config import default_tool_name
+from openartifact.credentials.refs import mask_text
+from openartifact.models import NodeKind
+
+TOOL_RESULT_LIMIT_BYTES = 16 * 1024
+CUT_NOTE = "\n[cut: the result is longer than 16 KiB]"
+_INVALID = re.compile(r"[^A-Za-z0-9_-]+")
+
+Run = Callable[[dict[str, Any]], Awaitable[str]]
+
+
+class ToolboxError(Exception):
+    """A tool of the node cannot be used (the message names the tool node)."""
+
+
+@dataclass
+class Tool:
+    """One tool for the model. ``name`` is the tool's own name; ``prefix`` (the tool node's name for
+    the model) goes in front only when another tool has the same name."""
+
+    name: str
+    description: str
+    parameters: dict[str, Any]
+    run: Run
+    prefix: str = ""
+    #: The tool node it came from (id and name): a node can offer many tools (an MCP server), and the run shows the state
+    #: of the node, so every call says whose it is.
+    node_id: str = ""
+    node_name: str = ""
+    #: The name the model calls it by, set by the toolbox.
+    called: str = field(default="", init=False)
+
+
+@dataclass
+class ToolCallRecord:
+    """One tool call as the history keeps it."""
+
+    id: str
+    tool: str
+    arguments: str
+    result: str
+    error: bool
+    duration_ms: int
+    #: The tool node the call belongs to (empty for a call of a tool that does not exist, and in records of before).
+    node_id: str = ""
+    node_name: str = ""
+
+    def to_data(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "tool": self.tool,
+            "arguments": cut(self.arguments),
+            "result": self.result,
+            "error": self.error,
+            "duration_ms": self.duration_ms,
+            "node_id": self.node_id,
+            "node_name": self.node_name,
+        }
+
+
+def args_key(arguments: str) -> str:
+    """A short fingerprint of the arguments of a tool call (the same arguments give the same key, whatever the order of the keys or
+    the spaces): the guards tell "the same call again" from "the same tool for other things" by it. It is a hash, never the text."""
+    try:
+        text = json.dumps(
+            json.loads(arguments), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        )
+    except ValueError:
+        text = arguments.strip()
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
+def cut(text: str) -> str:
+    """``text`` within :data:`TOOL_RESULT_LIMIT_BYTES` (UTF-8), with a note when it was longer."""
+    raw = text.encode("utf-8")
+    if len(raw) <= TOOL_RESULT_LIMIT_BYTES:
+        return text
+    return raw[: TOOL_RESULT_LIMIT_BYTES - len(CUT_NOTE)].decode("utf-8", "ignore") + CUT_NOTE
+
+
+def _valid(name: str) -> str:
+    return _INVALID.sub("_", name).strip("_")[:64] or "tool"
+
+
+def _parameters(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """A JSON schema of an object, as the function tools of OpenAI want it."""
+    found = dict(schema)
+    if found.get("type") != "object":
+        return {"type": "object", "properties": {}}
+    found.setdefault("properties", {})
+    return found
+
+
+class Toolbox:
+    """The tools of one agent node run, by the names the model calls them."""
+
+    def __init__(
+        self,
+        tools: Sequence[Tool],
+        mask: Callable[[str], str] | None = None,
+        notes: Sequence[str] = (),
+    ) -> None:
+        #: What the run says about the tools it could not offer as asked (a wanted tool the server does not have); the step shows it.
+        self.notes = list(notes)
+        #: Masks the run's secret values in every answer (returned or raised) before the model reads it.
+        self._mask = mask or (lambda text: text)
+        own = [_valid(t.name) for t in tools]
+        shared = {n for n in own if own.count(n) > 1}
+        self._tools: dict[str, Tool] = {}
+        for tool, name in zip(tools, own, strict=True):
+            if name in shared and tool.prefix:
+                name = _valid(f"{tool.prefix}_{name}")
+            base, number = name, 2
+            while name in self._tools:
+                name = f"{base[:60]}_{number}"
+                number += 1
+            tool.called = name
+            self._tools[name] = tool
+
+    def __bool__(self) -> bool:
+        return bool(self._tools)
+
+    def schemas(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": tool.description,
+                    "parameters": _parameters(tool.parameters),
+                },
+            }
+            for name, tool in self._tools.items()
+        ]
+
+    def node_of(self, name: str) -> tuple[str, str]:
+        """The tool node (id, name) the tool called ``name`` came from; empty when there is no such tool."""
+        tool = self._tools.get(name)
+        return (tool.node_id, tool.node_name) if tool else ("", "")
+
+    async def call_within(
+        self, call_id: str, name: str, arguments: str, seconds: float
+    ) -> ToolCallRecord:
+        """:meth:`call`, but a call that does not answer within ``seconds`` becomes an error text for the model (the tool is
+        stopped): a tool that hangs does not hold the run until the time limit of the node."""
+        began = time.monotonic()
+        try:
+            async with asyncio.timeout(seconds):
+                return await self.call(call_id, name, arguments)
+        except TimeoutError:
+            node_id, node_name = self.node_of(name)
+            return ToolCallRecord(
+                call_id,
+                name,
+                arguments,
+                f"Error: the tool {name} did not answer within {max(1, round(seconds))} s",
+                True,
+                round((time.monotonic() - began) * 1000),
+                node_id,
+                node_name,
+            )
+
+    async def call(self, call_id: str, name: str, arguments: str) -> ToolCallRecord:
+        """Run one call of the model; the outcome is always a text for the model."""
+        began = time.monotonic()
+        node_id, node_name = self.node_of(name)
+
+        def record(result: str, error: bool) -> ToolCallRecord:
+            duration = round((time.monotonic() - began) * 1000)
+            return ToolCallRecord(
+                call_id,
+                name,
+                arguments,
+                cut(self._mask(result)),
+                error,
+                duration,
+                node_id,
+                node_name,
+            )
+
+        tool = self._tools.get(name)
+        if tool is None:
+            return record(f"Error: there is no tool named {name}", True)
+        try:
+            parsed = json.loads(arguments) if arguments.strip() else {}
+        except ValueError:
+            return record("Error: the arguments are not valid JSON", True)
+        if not isinstance(parsed, dict):
+            return record("Error: the arguments are not a JSON object", True)
+        try:
+            result = await tool.run(parsed)
+        except Exception as error:  # a tool's failure is the model's to handle
+            return record(f"Error: the tool failed ({type(error).__name__}: {error})", True)
+        return record(result, result.startswith("Error:"))
+
+
+@dataclass(frozen=True)
+class ToolContext:
+    """What tools need from the run: the resolved secrets and the operator's permissions."""
+
+    secrets: Mapping[str, str]
+    allow_private_networks: bool
+    limits: Any = None
+    view: Any = None
+
+
+#: Builders of tools that run here (HTTP Request Tool, Code Tool), by kind: see ``agents/local_tools.py``.
+LocalBuilder = Callable[[Mapping[str, Any], ToolContext], Tool]
+LOCAL_TOOLS: dict[str, LocalBuilder] = {}
+
+
+def secret_names(tools: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The secrets the frozen tools use (resolved and masked by the engine like every secret)."""
+    from openartifact.agents import local_tools
+
+    names: list[str] = []
+    for tool in tools:
+        config = tool.get("config") or {}
+        if tool.get("kind") in (NodeKind.MCP_TOOL, NodeKind.GITHUB_TOOL):
+            found = [str(config.get("secret") or "").strip()]
+        else:
+            found = local_tools.secret_names(str(tool.get("kind")), config)
+        names.extend(n for n in found if n and n not in names)
+    return names
+
+
+@asynccontextmanager
+async def open_toolbox(
+    tools: Sequence[Mapping[str, Any]], context: ToolContext
+) -> AsyncIterator[Toolbox]:
+    """The toolbox of the frozen ``tools``, with the MCP servers connected for the time of the block."""
+    from openartifact.agents import local_tools  # registers the local builders
+
+    del local_tools
+    async with AsyncExitStack() as stack:
+        built: list[Tool] = []
+        notes: list[str] = []
+        for frozen in tools:
+            config = frozen.get("config") or {}
+            label, prefix = str(frozen.get("name") or "tool"), str(frozen.get("tool_name") or "")
+            kind = str(frozen.get("kind"))
+            if kind in (NodeKind.MCP_TOOL, NodeKind.GITHUB_TOOL):
+                secret = str(config.get("secret") or "").strip()
+                github = kind == NodeKind.GITHUB_TOOL
+                try:
+                    server = await stack.enter_async_context(
+                        open_mcp(
+                            _github_mcp_config(config) if github else config,
+                            context.secrets.get(secret) if secret else None,
+                            allow_private=context.allow_private_networks
+                            if github
+                            else bool(config.get("allow_private"))
+                            and context.allow_private_networks,
+                            # GitHub's server enforces read-only itself when asked; the tools it marks as changing are also left out
+                            headers=_github_mcp_headers(config) if github else None,
+                            read_only=github and not config.get("allow_write"),
+                        )
+                    )
+                except McpToolError as error:
+                    raise ToolboxError(f"Tool {label}: {error.message}") from None
+                if server.missing:
+                    notes.append(
+                        f"Tool {label}: the server has no tool named {', '.join(server.missing)}"
+                    )
+                if server.held_back:
+                    notes.append(
+                        f"Tool {label}: {', '.join(server.held_back)} not offered (it changes something and Allow writes is off)"
+                    )
+                for offered in server.tools:
+                    built.append(
+                        Tool(
+                            offered.name,
+                            offered.description,
+                            offered.input_schema,
+                            _mcp_call(server.call, offered.name),
+                            prefix=prefix,
+                            node_id=str(frozen.get("node_id") or ""),
+                            node_name=label,
+                        )
+                    )
+                continue
+            builder = LOCAL_TOOLS.get(kind)
+            if builder is None:
+                raise ToolboxError(f"Tool {label}: a {kind} cannot be used by an agent")
+            try:
+                tool = builder(frozen, context)
+            except ValueError as error:
+                raise ToolboxError(f"Tool {label}: {error}") from None
+            tool.prefix = default_tool_name(
+                label
+            )  # its own name is the Tool name; on a clash the node's goes in front
+            tool.node_id, tool.node_name = str(frozen.get("node_id") or ""), label
+            built.append(tool)
+        values = [v for v in context.secrets.values() if v]
+        yield Toolbox(
+            built, mask=(lambda text: mask_text(text, values)) if values else None, notes=notes
+        )
+
+
+#: Where the GitHub MCP node connects: GitHub's own MCP server (the node has no address setting).
+GITHUB_MCP_URL = "https://api.githubcopilot.com/mcp/"
+
+
+def _github_mcp_config(config: Mapping[str, Any]) -> dict[str, Any]:
+    """The settings of an MCP connection for a GitHub MCP node: the fixed address and the node's *Tools to include*."""
+    return {
+        "url": GITHUB_MCP_URL,
+        "tools_mode": config.get("tools_mode") or "all",
+        "tool_names": config.get("tool_names") or "",
+        "timeout_seconds": config.get("timeout_seconds") or 60,
+    }
+
+
+def _github_mcp_headers(config: Mapping[str, Any]) -> dict[str, str]:
+    """What GitHub's server needs to hold the connection to reading: it then offers and runs read tools only."""
+    return {} if config.get("allow_write") else {"X-MCP-Readonly": "true"}
+
+
+def _mcp_call(call: Callable[[str, Mapping[str, Any]], Awaitable[str]], name: str) -> Run:
+    async def run(arguments: dict[str, Any]) -> str:
+        return await call(name, arguments)
+
+    return run

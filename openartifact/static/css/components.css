@@ -1,0 +1,939 @@
+/* Reusable components. Colours come exclusively from tokens.css. */
+
+/* ── Lane colours: an element with data-lane-hue="N" gets --lane-color (token --lane-hue-N) ── */
+[data-lane-hue="1"] { --lane-color: var(--lane-hue-1); }
+[data-lane-hue="2"] { --lane-color: var(--lane-hue-2); }
+[data-lane-hue="3"] { --lane-color: var(--lane-hue-3); }
+[data-lane-hue="4"] { --lane-color: var(--lane-hue-4); }
+[data-lane-hue="5"] { --lane-color: var(--lane-hue-5); }
+[data-lane-hue="6"] { --lane-color: var(--lane-hue-6); }
+[data-lane-hue="7"] { --lane-color: var(--lane-hue-7); }
+[data-lane-hue="8"] { --lane-color: var(--lane-hue-8); }
+
+/* ── Glass primitive ─────────────────────────────────────────────── */
+.glass {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-edge), var(--shadow-card);
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  backdrop-filter: blur(var(--blur-glass));
+  transition: background var(--transition-fast), box-shadow var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.glass:hover {
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--glass-edge), var(--shadow-card-hover);
+}
+
+/* ── App shell ───────────────────────────────────────────────────── */
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  transition: grid-template-columns var(--transition-base);
+}
+:root[data-sidebar="collapsed"] .app-shell {
+  grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr);
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────── */
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-3);
+  background: var(--surface-glass);
+  border-right: 1px solid var(--glass-border);
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--color-highlight) calc(var(--edge-strength) * 0.3), transparent);
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  backdrop-filter: blur(var(--blur-glass));
+  overflow: hidden;
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 2.5rem;
+  padding: 0 var(--space-2);
+}
+.sidebar__logo {
+  display: grid;
+  place-items: center;
+  width: 2rem; height: 2rem;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.sidebar__logo .icon { width: 1.1rem; height: 1.1rem; }
+.sidebar__name { font-weight: 600; letter-spacing: -0.01em; }
+
+.sidebar__nav { flex: 1; }
+.nav-list { display: flex; flex-direction: column; gap: var(--space-1); }
+
+/* The section the user is in is outlined as one group around its entry and sub-entries; the current
+   sub-entry keeps the stronger "current" highlight inside it. */
+.nav-section {
+  padding: var(--space-1);
+  margin-inline: calc(-1 * (var(--space-1) + 1px)); /* icons stay in line with the other entries */
+  border: 1px solid var(--nav-group-border);
+  border-radius: var(--radius-md);
+  background: var(--nav-group-bg);
+}
+.nav-section > .nav-list { margin-top: var(--space-1); }
+/* expanded: sub-entries are clearly indented under Pipeline (collapsed, the icons stay in one column) */
+:root:not([data-sidebar="collapsed"]) .sidebar .nav-section > .nav-list { margin-left: 1.5rem; padding-left: var(--space-1); border-left: 1px solid var(--nav-group-border); }
+/* Opening the group: the box fades in and grows downwards, then the entries appear one after the other
+   (about 0.25 s apart, at most ~0.75 s for all of them, however many there are). */
+@media (prefers-reduced-motion: no-preference) {
+  .nav-section.is-entering { animation: nav-section-in 630ms ease-out both; }
+  .nav-section.is-entering > .nav-list { overflow: hidden; animation: nav-sub-grow 720ms cubic-bezier(0.3, 0.7, 0.2, 1) 270ms both; }
+  .nav-section.is-entering > .nav-list > li {
+    animation: nav-item-in 350ms cubic-bezier(0.2, 0.8, 0.2, 1) calc(810ms + var(--i) * min(250ms, calc(750ms / var(--n)))) both;
+  }
+}
+@keyframes nav-section-in { from { border-color: transparent; background: transparent; } }
+@keyframes nav-sub-grow { from { max-height: 0; } to { max-height: calc(var(--n) * 2.75rem); } }
+@keyframes nav-item-in { from { opacity: 0; transform: translateY(-0.5rem) scale(0.96); } to { opacity: 1; transform: none; } }
+.nav-link--section { color: var(--color-text-primary); }
+.nav-link--section .icon { color: var(--color-accent); }
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 2.75rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.nav-link:hover { background: var(--nav-hover-bg); color: var(--color-text-primary); }
+.nav-link[aria-current="page"] {
+  background: var(--nav-current-bg);
+  color: var(--color-accent);
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+.nav-link[aria-current="page"] .icon { color: var(--color-accent); }
+
+/* Labels fade + collapse; icons stay put */
+.sidebar__name,
+.nav-link__label,
+.sidebar__footer-text {
+  overflow: hidden;
+  transition: opacity var(--transition-base), max-width var(--transition-base);
+  max-width: 12rem;
+}
+/* scoped to .sidebar: other navs (dialog rail) have their own collapsed state */
+:root[data-sidebar="collapsed"] .sidebar .sidebar__name,
+:root[data-sidebar="collapsed"] .sidebar .nav-link__label,
+:root[data-sidebar="collapsed"] .sidebar .sidebar__footer-text {
+  opacity: 0;
+  max-width: 0;
+}
+
+.sidebar__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+/* The toggle never moves: it sits in the same column as the nav icons whether the sidebar is
+   collapsed or expanded (nav-link padding + half an icon = 1.375rem; the button's own centre
+   is 1.25rem), so the user can click it repeatedly without moving the mouse. */
+.sidebar__footer { justify-content: flex-start; }
+.sidebar-toggle { margin-left: 0.125rem; }
+.sidebar__footer-text { margin-left: auto; }
+
+/* ── Icon button ─────────────────────────────────────────────────── */
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem; height: 2.5rem;
+  flex: none;
+  cursor: pointer;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-highlight) calc(var(--edge-strength) * 0.6), transparent);
+  color: var(--color-text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.icon-button:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--accent-soft);
+  border-color: var(--btn-outline-border-hover);
+  color: var(--btn-outline-text);
+}
+.sidebar-toggle .icon { transition: transform var(--transition-base); }
+:root[data-sidebar="collapsed"] .sidebar-toggle .icon { transform: rotate(180deg); }
+
+/* Theme toggle shows the icon of the theme it will switch to */
+.theme-toggle .icon--sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon--sun { display: block; }
+:root[data-theme="dark"] .theme-toggle .icon--moon { display: none; }
+
+/* ── Main + header ───────────────────────────────────────────────── */
+/* The shell is as high as the window, so the main area scrolls (its header stays on top) and the
+   sidebar next to it never moves: with the document scrolling, a long page took the sidebar along. */
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; }
+
+.app-header__tools { display: flex; align-items: center; gap: var(--space-2); }
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: var(--header-height);
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--surface-glass);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-highlight) calc(var(--edge-strength) * 0.25), transparent);
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  backdrop-filter: blur(var(--blur-glass));
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.app-header__title,
+.modal__title { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
+.task-view__title,
+.ge-inspector__heading h2 { font-size: 1.0625rem; font-weight: 600; overflow-wrap: anywhere; }
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The row of creating buttons at the top right of a page's content (New action, Add lane, ...). */
+.action-row { display: flex; justify-content: flex-end; margin-bottom: var(--space-4); }
+.action-row--slim { margin-bottom: var(--space-3); }
+
+/* ── Kanban ──────────────────────────────────────────────────────── */
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+/* More than three lanes: they keep a readable width and the board scrolls sideways */
+.board:has(.lane:nth-child(4)) {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(17rem, 1fr);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: var(--space-2);
+}
+
+.lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-width: 0;
+  min-height: 0;
+}
+.lane--drop-target {
+  border-color: var(--color-accent);
+  background: var(--glass-fill-hover);
+  box-shadow: var(--glass-edge), 0 0 0 3px var(--accent-soft), var(--shadow-card-hover);
+}
+.lane__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-1);
+}
+/* while the name is edited it gets the whole header */
+.lane__header:has(.inline-name--editing) > :not(.lane__title) { display: none; }
+.lane__title {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+/* the coloured dot before a lane name, in the rail and in the pickers */
+.lane__title::before,
+.card-nav__value::before,
+.popover__option[data-lane-hue]::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--lane-color, var(--color-accent));
+}
+.lane__count {
+  min-width: 1.5rem;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--lane-color, var(--color-accent)) 22%, transparent);
+  color: var(--color-text-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  text-align: center;
+}
+.lane__cards {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* room so focus rings and shadows of the cards are not clipped by the scroll container */
+  padding: 4px;
+  margin: -4px;
+}
+
+.icon-button--sm { width: 2rem; height: 2rem; border-radius: var(--radius-sm); }
+/* Quiet icon button (catalog, ADR-059): no frame and no fill, the icon alone; a quiet fill on hover. The 24 px box is the hit
+   area even though nothing is drawn around the icon (the focus ring is the global one). */
+.icon-button--xs { width: 1.5rem; height: 1.5rem; border-radius: var(--radius-sm); }
+.icon-button--xs .icon { width: 1rem; height: 1rem; }
+.icon-button--quiet { border-color: transparent; background: transparent; box-shadow: none; color: var(--btn-quiet-text); }
+.icon-button--quiet:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--accent-soft); border-color: transparent; color: var(--btn-quiet-text-hover); }
+.icon-button--sm .icon { width: 1rem; height: 1rem; }
+
+/* A quiet label that is not a control, such as "Soon" beside a menu entry that holds a place for something coming (ADR-059) */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--color-text-primary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+
+/* Subtle buttons at the right end of the lane header (add artifact, options) */
+.lane__add,
+.lane__menu {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--color-text-muted);
+}
+/* the name: one line with an ellipsis (the full title is in its title attribute) */
+.lane__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lane__name.inline-name--editing { flex: 1; overflow: visible; flex-wrap: wrap; white-space: normal; text-transform: none; letter-spacing: normal; }
+
+/* a name edited in place (inspector heading, page title) */
+.inline-name { cursor: text; border-radius: var(--radius-sm); }
+.inline-name:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.inline-name--editing { display: flex; align-items: center; gap: var(--space-1); }
+.inline-name__input {
+  flex: 1;
+  min-width: 0;
+  height: 2rem;
+  padding: 0 var(--space-2);
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.inline-name__input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+.inline-name--editing .icon-button .icon { width: 1rem; height: 1rem; }
+.inline-name__check { color: var(--color-accent); }
+.inline-name__error { flex: 1 1 100%; margin: 0; font-size: 0.75rem; font-weight: 400; letter-spacing: normal; text-transform: none; color: var(--color-danger); }
+
+/* Task card: lighter, more opaque than the lane so it reads as a separate layer */
+.task-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-fill-hover);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-highlight) calc(var(--edge-strength) * 0.6), transparent),
+    0 1px 2px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) * 0.5), transparent),
+    0 6px 14px -8px color-mix(in srgb, var(--shadow-color) var(--shadow-strength), transparent);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.task-card:hover { border-color: var(--glass-border-hover); }
+.task-card__content { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+/* Delete: revealed on hover/focus, always visible where there is no hover (touch) */
+.task-card__delete {
+  margin: calc(var(--space-1) * -1) calc(var(--space-1) * -1) 0 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--color-text-muted);
+  opacity: 0;
+}
+.task-card:hover .task-card__delete,
+.task-card:focus-within .task-card__delete,
+.task-card__delete:focus-visible { opacity: 1; }
+@media (hover: none) { .task-card__delete { opacity: 1; } }
+
+/* Touch: the card itself is the handle. Vertical swipes stay native (scroll the lane),
+   horizontal swipes are left to the drag controller (a card moves between lanes sideways). */
+@media (hover: none), (pointer: coarse) {
+  .task-card { touch-action: pan-y; }
+}
+
+/* Drag & drop states */
+.task-card--placeholder { opacity: 0.35; }
+.task-card--ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 200;
+  margin: 0;
+  pointer-events: none;
+  cursor: grabbing;
+  opacity: 0.96;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-highlight) calc(var(--edge-strength) * 0.6), transparent),
+    0 18px 40px -10px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) + 12%), transparent);
+  will-change: transform;
+}
+body.is-dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+/* Snap points would fight the edge auto-scroll while a card is being dragged */
+body.is-dragging .board { scroll-snap-type: none; }
+body.is-dragging * { cursor: grabbing !important; }
+.task-card--new { animation: card-in 220ms ease-out; }
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.task-card__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.task-card__body {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* Long text must not blow up the lane */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
+}
+.task-card__body[hidden] { display: none; }
+.task-card__meta { font-size: 0.6875rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.task-card__meta[hidden] { display: none; }
+.task-card__run { font-size: 0.6875rem; font-weight: 600; color: var(--color-accent); overflow-wrap: anywhere; }
+.task-card__run[hidden] { display: none; }
+.task-card__run[data-status="failed"] { color: var(--color-danger); }
+.task-card__run[data-status="stopped"], .task-card__run[data-status="done"] { color: var(--color-text-muted); }
+.task-card--locked { cursor: default; }
+
+/* What the rules of a lane and of the board make of a card (ADR-071, marks): done = the title struck through and muted,
+   the body stays readable (its colour is raised from muted to secondary against the dimming); labels = small chips; colour =
+   a fill or a border in one of the tones; archived (only in the preview of an archive rule) = a dashed outline. The same
+   rules draw the dialog's title and the previews of the rules editor. */
+.task-card--done:not(.task-card--placeholder) { opacity: 0.75; }
+.task-card--done .task-card__title, .task-view__title--done { text-decoration: line-through; color: var(--color-text-muted); }
+.task-card--done .task-card__body { color: var(--color-text-secondary); }
+.task-card__labels, .task-view__labels { display: flex; flex-wrap: wrap; gap: 0.25rem; list-style: none; margin: 0.25rem 0 0; padding: 0; }
+.task-card__labels[hidden], .task-view__labels[hidden] { display: none; }
+.card-label {
+  font-size: 0.6875rem; font-weight: 600; line-height: 1.3; padding: 0 0.4rem; border-radius: 999px;
+  color: var(--card-tone, var(--color-text-secondary));
+  border: 1px solid color-mix(in srgb, var(--card-tone, var(--color-text-secondary)) 60%, transparent);
+  background: color-mix(in srgb, var(--card-tone, transparent) 14%, transparent);
+}
+[data-tone="green"], [data-colour-tone="green"] { --card-tone: var(--card-tone-green); }
+[data-tone="red"], [data-colour-tone="red"] { --card-tone: var(--card-tone-red); }
+[data-tone="yellow"], [data-colour-tone="yellow"] { --card-tone: var(--card-tone-yellow); }
+[data-tone="blue"], [data-colour-tone="blue"] { --card-tone: var(--card-tone-blue); }
+[data-tone="neutral"], [data-colour-tone="neutral"] { --card-tone: var(--card-tone-neutral); }
+[data-colour-mode="fill"] { background-image: linear-gradient(color-mix(in srgb, var(--card-tone) 18%, transparent), color-mix(in srgb, var(--card-tone) 18%, transparent)); }
+[data-colour-mode="border"] { box-shadow: inset 0 0 0 2px var(--card-tone); }
+.task-card--archived { outline: 2px dashed var(--color-text-muted); outline-offset: -2px; }
+
+/* Resolved reference highlight in board preview (A7) */
+.task-card__body .resolved-ref {
+  background: var(--color-resolved-ref-bg);
+  color: var(--color-resolved-ref-text);
+  border-radius: var(--radius-sm);
+  padding: 0 0.125rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.alert-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+}
+.alert-bar[hidden] { display: none; }
+.alert-bar[data-tone="info"] { color: var(--color-text-primary); }
+/* the calm message floats above an open window, in the popover layer (a window's backdrop would cover the bar) */
+.alert-bar[popover]:popover-open {
+  position: fixed;
+  inset: var(--space-4) auto auto 50%;
+  translate: -50% 0;
+  margin: 0;
+  max-width: min(92vw, 44rem);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-3);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-highlight) calc(var(--sheen-strength) * 0.3), transparent);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+.empty-state .icon { width: 1.5rem; height: 1.5rem; opacity: 0.75; }
+.lane__cards:empty { display: none; }
+.lane__cards:not(:empty) + .empty-state { display: none; }
+
+button.nav-link { width: 100%; border: 0; background: transparent; font: inherit; cursor: pointer; text-align: left; }
+
+/* ── Popover menu (lane picker) ───────────────────────────────────── */
+.popover {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 12rem;
+  max-width: 18rem;
+  max-height: min(55vh, 20rem);
+  overflow-y: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-glass-card) 96%, var(--color-background));
+  box-shadow: var(--shadow-card-hover);
+  animation: popover-in 140ms ease-out;
+}
+.popover__caption {
+  flex: none;
+  padding: var(--space-1) var(--space-3) var(--space-1);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+.popover__option {
+  display: flex;
+  flex: none; /* a long list scrolls; without this every row is squeezed to 0 px, as they hide their overflow */
+  align-items: center;
+  height: 2.5rem;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.popover__option[aria-selected="true"] { font-weight: 600; background: var(--accent-soft); }
+.popover__option[data-lane-hue]::before {
+  flex: none;
+  margin-right: var(--space-2);
+}
+.popover__option:hover,
+.popover__option:focus-visible { background: var(--accent-soft); outline: none; }
+/* "#" reference menu inside the body field: compact rows, the number stays quiet */
+.popover--reference { min-width: 14rem; max-width: min(24rem, 90vw); }
+.popover__option--reference { height: 2rem; }
+.popover__option--reference .popover__icon { flex: none; width: 1rem; height: 1rem; margin-right: var(--space-2); color: var(--color-text-secondary); }
+.popover__number {
+  flex: none;
+  min-width: 2.25rem;
+  margin-right: var(--space-2);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+/* the suggestions for ${...} references of the node editor: the text, then what it is */
+.popover--suggest { z-index: 40; max-width: min(26rem, calc(100vw - 1rem)); font-family: var(--font-mono); }
+.popover--suggest .popover__detail { margin: 0 0 0 auto; padding-left: var(--space-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-sans, inherit); }
+@keyframes popover-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* ── Menu button's menu (lane options) ─────────────────────────────── */
+.menu {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 11rem;
+  padding: var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-glass-card) 96%, var(--color-background));
+  box-shadow: var(--shadow-card-hover);
+  animation: popover-in 140ms ease-out;
+}
+.menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 2.5rem;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+.menu__item .icon { width: 1rem; height: 1rem; flex: none; }
+.menu__item:hover,
+.menu__item:focus-visible { background: var(--accent-soft); outline: none; }
+.menu__item[aria-disabled="true"] { color: var(--color-text-muted); opacity: 0.6; cursor: not-allowed; }
+.menu__item[aria-disabled="true"]:hover,
+.menu__item[aria-disabled="true"]:focus-visible { background: transparent; }
+.menu__item[aria-disabled="true"]:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.menu__hint {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  width: max-content;
+  max-width: 15rem;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card-hover);
+  font-size: 0.75rem;
+  color: var(--color-text-primary);
+}
+.menu__hint[hidden] { display: none; }
+
+/* ── Narrow: the sidebar never takes width from the board ─────────
+   The grid column stays at the collapsed width; an expanded sidebar overlays the board.
+   (Media query must match `narrowQuery` in theme.js.) */
+@media (max-width: 640px), (max-height: 500px) and (max-width: 960px) {
+  .app-shell,
+  :root[data-sidebar="expanded"] .app-shell {
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr);
+  }
+  .sidebar {
+    justify-self: start;
+    width: var(--sidebar-width-collapsed);
+    z-index: 30;
+    transition: width var(--transition-base), box-shadow var(--transition-base);
+  }
+  :root[data-sidebar="expanded"] .sidebar {
+    width: var(--sidebar-width);
+    background: color-mix(in srgb, var(--color-surface) 94%, var(--color-background));
+    box-shadow: 0 0 48px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-strength) + 12%), transparent);
+  }
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+
+/* Narrow (portrait phones, small tablets): lanes become a horizontal swipe board with
+   snap points; the next lane peeks in so it is obvious that there is more. */
+@media (max-width: 960px) {
+  .board,
+  .board:has(.lane:nth-child(4)) {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: min(calc(100% - 2.5rem), 22rem);
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 0;
+    padding-bottom: var(--space-2);
+  }
+  .lane { scroll-snap-align: start; }
+}
+
+@media (max-width: 640px) {
+  :root { --sidebar-width-collapsed: 3.5rem; }
+  .content { padding: var(--space-3); }
+  .app-header { padding: 0 var(--space-3); }
+  .sidebar { padding-inline: var(--space-2); }
+}
+
+/* Narrow landscape (phones on their side): height is the scarce resource. */
+@media (max-height: 500px) {
+  :root {
+    --header-height: 3rem;
+    --sidebar-width-collapsed: 3.5rem;
+  }
+  .app-header { padding: 0 var(--space-4); }
+  .app-header__title { font-size: 1rem; }
+  .content { padding: var(--space-3); }
+  .sidebar { gap: var(--space-3); padding: var(--space-2); }
+  .sidebar__brand { height: 2rem; }
+  .nav-link { height: 2.25rem; }
+  .lane { gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); }
+  .lane__title { font-size: 0.75rem; }
+  .empty-state { padding: var(--space-3); flex-direction: row; gap: var(--space-3); }
+  .alert-bar { margin-bottom: var(--space-2); padding: var(--space-2) var(--space-3); }
+}
+
+/* ── Fallback: no backdrop-filter → more opaque fill so text stays readable ── */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .icon-button {
+    background: color-mix(in srgb, var(--color-glass-card) 94%, var(--color-background));
+  }
+  .sidebar,
+  .app-header {
+    background: color-mix(in srgb, var(--color-surface) 96%, var(--color-background));
+  }
+}
+
+/* sign-in page (templates/login.html) */
+.signin { min-height: 100vh; display: grid; place-items: center; padding: var(--space-4); }
+.signin__card { width: min(24rem, 100%); padding: var(--space-5); border-radius: var(--radius-lg); display: grid; gap: var(--space-4); }
+.signin__brand { display: flex; align-items: center; gap: var(--space-3); font-weight: 600; }
+.signin__brand .sidebar__logo { display: inline-grid; }
+
+
+/* ── Tabs (components/tabs.js): the artifact dialog, the agent editor ─────────────────────────── */
+.task-tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--glass-border);
+}
+.task-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: -1px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.task-tab:hover { color: var(--color-text-primary); }
+.task-tab[aria-selected="true"] { color: var(--color-text-primary); border-bottom-color: var(--color-accent); }
+.task-tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: var(--radius-sm); }
+.task-tab[hidden] { display: none; }
+
+/* A bar of tabs with icons (components/tabs.js): one definition for every page; it wraps instead of scrolling. */
+.tab-bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: var(--space-1);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+}
+.tab-bar .task-tab {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 0;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.tab-bar .task-tab .icon { width: 1rem; height: 1rem; }
+.tab-bar .task-tab[aria-selected="true"] { background: var(--accent-soft); color: var(--color-text-primary); box-shadow: inset 0 -2px 0 var(--color-accent); }
+
+/* A card of optional settings (components/settings-group.js): a head with an icon, title, lead and "Add setting";
+   the settings that are added, two per row where there is room, each with its bin. */
+.settings-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-background) 25%, transparent);
+}
+.settings-card__head { display: flex; align-items: flex-start; gap: var(--space-3); }
+.settings-card__icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--color-accent);
+}
+.settings-card__icon .icon { width: 1.2rem; height: 1.2rem; }
+.settings-card__text { flex: 1; min-width: 0; }
+.settings-card__title { font-size: 1rem; font-weight: 600; }
+.settings-card__lead { font-size: 0.8125rem; color: var(--color-text-secondary); }
+.settings-card__head .button .icon { width: 1rem; height: 1rem; }
+.settings-card__fields { display: grid; gap: var(--space-2); } /* one setting per row: a list */
+.settings-card__fields:empty { display: none; }
+.settings-card__empty { font-size: 0.8125rem; color: var(--color-text-muted); }
+.settings-card__empty[hidden] { display: none; }
+.setting { display: grid; grid-template-columns: 10rem minmax(0, 24rem) auto; align-items: center; gap: var(--space-2) var(--space-3); }
+.setting__label { font-size: 0.875rem; font-weight: 500; }
+.setting__label[title] { cursor: help; }
+.setting__remove { color: var(--color-text-muted); }
+@media (max-width: 640px) { .setting { grid-template-columns: 1fr auto; } .setting__label { grid-column: 1 / -1; } }
+
+/* ── The identity of a resource (agent today; pipelines and actions can use it): an icon, the name with its
+   badges, and the description with the edit button right after its last line. The description has a fixed
+   maximum width of its own (--identity-text-width), not tied to anything next to it. ── */
+.identity { display: flex; align-items: flex-start; gap: var(--space-4); min-width: 0; }
+.identity__icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--color-accent);
+}
+.identity__icon .icon { width: 1.6rem; height: 1.6rem; }
+.identity__text { display: grid; gap: var(--space-1); min-width: 0; }
+.identity__title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.identity__name { font-size: 1.375rem; font-weight: 600; overflow-wrap: anywhere; }
+.identity__about { margin: 0; max-width: var(--identity-text-width); color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.identity__description { white-space: pre-wrap; }
+.identity__description.inline-name--empty { color: var(--color-text-muted); font-style: italic; }
+.identity__description.inline-name--editing { display: flex; width: 100%; }
+/* inline after the last line, its bottom on the line's bottom */
+.identity__edit { display: inline-flex; vertical-align: bottom; margin-left: var(--space-2); width: 1.75rem; height: 1.75rem; color: var(--color-text-muted); }
+.identity__edit .icon { width: 0.95rem; height: 0.95rem; }
+.identity__about:has(.inline-name--editing) .identity__edit { display: none; }
+.inline-name__input--lines { min-height: 4.5rem; resize: vertical; line-height: 1.5; }
+
+/* A sub-entry list that floats beside the icon of a collapsed rail (components/nav-group.js): the look of a menu. */
+.nav-popover {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 15rem;
+  max-height: calc(100vh - 2 * var(--space-4));
+  margin: 0;
+  padding: var(--space-3);
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-glass-card) 96%, var(--color-background));
+  box-shadow: var(--shadow-card-hover);
+  animation: popover-in 140ms ease-out;
+}
+.nav-popover[hidden] { display: none; }
+
+/* The bar above a list while rows are selected (components/bulk-bar.js) */
+.bulk-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); }
+.bulk-bar[hidden] { display: none; }
+.bulk-bar__count { font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bulk-bar__spacer { flex: 1; }
+.bulk-bar .icon { width: 1rem; height: 1rem; }
+
+/* The checkbox of lists (class "check"): a rounded square, filled in the accent colour with a tick when checked, with a
+ * dash when only some are (a header checkbox). One look wherever rows can be selected. */
+input.check {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  border: 2px solid var(--color-text-secondary);
+  border-radius: 0.35rem;
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+input.check:hover:not(:disabled) { border-color: var(--color-accent); }
+input.check:checked,
+input.check:indeterminate { border-color: var(--color-accent); background: var(--color-accent); }
+input.check::after { content: ""; position: absolute; inset: 0; margin: auto; opacity: 0; }
+input.check:checked::after {
+  width: 0.35rem;
+  height: 0.65rem;
+  margin-top: 0.1rem;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  rotate: 45deg;
+  opacity: 1;
+}
+input.check:indeterminate::after { width: 0.6rem; height: 0; border-top: 2px solid #fff; opacity: 1; }
+input.check:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+input.check:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.menu__item > span:first-of-type { flex: 1; }
+.menu__key { margin-left: var(--space-4); padding: 0 var(--space-1); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); font: inherit; font-size: 0.6875rem; color: var(--color-text-muted); white-space: nowrap; }
+
+/* A setting that has a parent supplying its value (components/override-row.js) */
+.ov { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-surface) 70%, transparent); }
+.ov[data-state="overridden"],
+.ov[data-state="editing"] { border-color: var(--accent-ring, var(--color-accent)); }
+.ov__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.ov__label { flex: 1 1 9rem; font-size: 0.8125rem; font-weight: 600; }
+.ov__value { margin: 0; font-size: 0.8125rem; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov .field__error { margin: 0; }
+.ov .field__status { font-size: 0.75rem; color: var(--color-text-muted); }
+
+/* A folded list (components/fold-list.js): the separator is one button with a vertical line through its middle, like the hidden comments of
+   a long issue */
+.fold-separator { position: relative; display: grid; place-items: center; padding: var(--space-2) 0; list-style: none; }
+.fold-separator::before { content: ""; position: absolute; inset: 0 auto 0 50%; width: 0; border-left: 2px dotted var(--glass-border-hover, var(--glass-border)); transform: translateX(-1px); }
+.fold-separator .fold-separator__button { position: relative; background: var(--color-surface); } /* hides the line behind the words */

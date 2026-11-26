@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "components/alert.html" import alert %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/guard_modal.html" import guard_modal %}
+{% from "components/icons.html" import icon %}
+{% block title %}{{ t('page.guards') }} · OpenArtifact{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="/static/css/editor.css">
+<link rel="stylesheet" href="/static/css/rule-builder.css">
+<link rel="stylesheet" href="/static/css/management.css">{% endblock %}
+{% block content %}
+{# The guard library (ADR-060, ADR-069; static/js/guards/library-page.js): the list, its toolbar and the detail panel are drawn by
+   components/management-page.js; this page says what a guard is. A guard is edited in the guard editor and attached in the pipeline editor. #}
+{{ alert(t('guards.load_error')) }}
+<div class="action-row">
+    <button type="button" class="button button--primary" data-new-guard aria-haspopup="menu" aria-expanded="false">{{ icon("plus") }} {{ t('guards.new_menu') }}</button>
+</div>
+<div data-management data-guards></div>
+
+{{ guard_modal() }}
+{{ confirm_modal("confirm-modal", t('common.delete')) }}
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/guards/library-page.js"></script>{% endblock %}

@@ -35,7 +35,6 @@ Open <http://localhost:2909> and sign in with the token. `curl http://localhost:
 ## Development
 
 ```bash
-cd apps/backend
 uv sync --all-extras                  # or: pip install -e ".[dev]"
 printf 'OPENARTIFACT_DATA_DIR=./.data\nOPENARTIFACT_HOST=127.0.0.1\n' > .env
 uv run alembic upgrade head           # create the database
@@ -44,7 +43,7 @@ uv run openartifact                   # http://localhost:2909
 
 `OPENARTIFACT_HOST` defaults to `0.0.0.0`; bind to loopback on a workstation, especially without a token. In open mode (no
 token) Code nodes are refused; for local work only, add `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` to `.env`. Checks, tests
-and conventions: [CONTRIBUTING](.github/CONTRIBUTING.md) and [apps/backend/README.md](apps/backend/README.md). The interactive
+and conventions: [CONTRIBUTING](.github/CONTRIBUTING.md) and the [development guide](docs/guides/development.md). The interactive
 API documentation of a running instance is at `/api/docs`.
 
 ## Concepts
@@ -70,12 +69,19 @@ More with examples: [Concepts](docs/guides/concepts.md). Terms of the architectu
   ([execution nodes](docs/guides/execution-nodes.md)); the run engine executes stages and actions in-process.
 - Code nodes run shell or Python as a child process with CPU, memory, process, file and output limits; HTTP nodes refuse
   loopback, private and metadata addresses unless you allow them.
+- Agents: reusable prompts with declared inputs, a draft and published versions (rollback included), run by an Agent
+  node that asks a model of OpenRouter or an OpenAI-compatible endpoint; tools attached below the node (an MCP server
+  such as GitHub's, an HTTP request, code) let the model act in a bounded loop, as in n8n; the prompts as sent, the
+  tool calls, the tokens and every attempt are in the history ([agents](docs/guides/agents.md)).
+- GitHub node (read a repository, issues, pull requests, files and comments; comment, behind its own switch) and Postgres
+  node (one SQL statement with bound parameters, read-only by default, the rows as a list), also as a Postgres Tool for
+  agents ([execution nodes](docs/guides/execution-nodes.md)).
 - Credential store: secrets are encrypted in the database and referenced by name from nodes, never returned by the API
   ([Credentials](docs/guides/credentials.md); API only, there is no UI for it yet).
 - Execution history per artifact with steps and outputs, retention policy (default keep 50), delete and clear
   ([Execution history](docs/guides/execution-history.md)).
 - Flow view of one execution and a global executions page (`/executions`) across all artifacts, with filters and summary.
-- Integration API (`/api/v1`) and an MCP server (`/mcp`, 14 tools) with token authentication
+- Integration API (`/api/v1`) and an MCP server (`/mcp`, 19 tools) with token authentication
   ([Sign in and use the API and MCP](docs/guides/integration.md), [API reference](docs/guides/api-reference.md)).
 
 Planned and not implemented: AI agent nodes, Git and webhook connectors, extension packaging. The authoritative list is
@@ -103,8 +109,8 @@ Frontend: Jinja2 templates, CSS design tokens and vanilla JavaScript, no build s
 
 ## Status and limitations
 
-- Pre-release, version `0.1.x`. The application's own data stays in SQLite; PostgreSQL may later come only as a data source
-  through a connector layer, not as the application database.
+- Pre-release, version `0.1.x`. The application's own data stays in SQLite; PostgreSQL comes only as a data source
+  (the Postgres node and tool), not as the application database.
 - **No sandbox for Code nodes.** Code runs as the application's user, with resource limits, without network or file system
   isolation. The application is hardened against Code reading its parent's environment (API token and secret key), but anyone who
   may edit a pipeline can run code in the container. Give edit access only to people you trust.

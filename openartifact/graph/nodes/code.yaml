@@ -1,0 +1,84 @@
+schema: 1
+kind: code
+label: Code
+behaviour: flow
+produces_result: true
+timed: true
+variables:
+  setting: sets_variables
+  format: lines
+guardable: true
+scopes:
+- action
+addable: true
+chain: true
+menu:
+  group: Core
+  order: 1
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+    visible_when:
+      setting: on_failure
+      equals: error_output
+ui:
+  color: code
+  icon: code
+  caption:
+    template: '{language|default:sh} · {code|first_line|default:no code yet}'
+settings:
+- key: language
+  label: Language
+  type: select
+  default: sh
+  options:
+  - sh
+  - python
+  stored_in: config
+- key: code
+  label: Code
+  type: code
+  default: ''
+  max_length: 20000
+  help: 'Plain text, so no secrets here; ${...} is not replaced in code. The run context is the file context.json, and a last
+    line {"ok": true, "vars": {"name": "value"}} sets variables.'
+  stored_in: config
+- key: secrets
+  label: Secrets
+  type: lines
+  default: ''
+  max_length: 2000
+  placeholder: API_KEY
+  help: One secret name per line; each is an environment variable of that name, like $API_KEY. A missing secret fails the
+    node.
+  stored_in: config
+  check: secret_names
+  level: advanced
+- key: sets_variables
+  label: Sets variables
+  type: lines
+  default: ''
+  max_length: 2000
+  placeholder: ticket_priority
+  help: 'Optional: the variables this code sets, one per line, as in "vars". They feed the suggestions; a difference is noted
+    in the step and does not fail the node.'
+  stored_in: config
+  check: variable_names
+  level: advanced
+- key: timeout_seconds
+  label: Timeout (seconds)
+  type: integer
+  minimum: 1
+  maximum: 600
+  default: 30
+  stored_in: config
+  group: Execution limits
+  section: behaviour
+  level: optional
+- use: on_failure
