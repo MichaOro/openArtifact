@@ -13,8 +13,8 @@ const setting = description.find((d) => d.kind === "context").settings.find((s) 
 const specs = setting.sources;
 
 test("the specs of the server are what the editor offers, in the order of the menu", () => {
-  assert.deepEqual(specs.map((s) => s.key), ["card", "fields", "comments", "parent", "children", "siblings", "nodes", "executions"]);
-  assert.equal(setting.max_sources, 8);
+  assert.deepEqual(specs.map((s) => s.key), ["card", "fields", "comments", "parent", "children", "siblings", "nodes", "handovers", "executions"]);
+  assert.equal(setting.max_sources, 9);
 });
 
 test("the default list of the editor is the default of the setting (a node whose list was never saved builds from it)", () => {
@@ -32,8 +32,8 @@ test("a new entry starts with every option its source takes at the default", () 
 
 test("a source can be added once: what is in the list is no longer offered", () => {
   const list = [{ source: "card" }, { source: "comments", count: 20 }];
-  assert.deepEqual(unused(list, specs).map((s) => s.key), ["fields", "parent", "children", "siblings", "nodes", "executions"]);
-  assert.deepEqual(unused([], specs).length, 8);
+  assert.deepEqual(unused(list, specs).map((s) => s.key), ["fields", "parent", "children", "siblings", "nodes", "handovers", "executions"]);
+  assert.deepEqual(unused([], specs).length, 9);
 });
 
 test("add, remove and move return a new list and never change the one they were given", () => {

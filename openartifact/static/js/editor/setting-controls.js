@@ -9,6 +9,7 @@ import { DurationInput } from "../components/duration-input.js";
 import { describeDuration } from "../components/duration-model.js";
 import { describeSize } from "../components/size-model.js";
 import { SizeInput } from "../components/size-input.js";
+import { SchemaFields } from "../components/schema-fields.js";
 import { icon } from "../components/icons.js";
 import { Modal } from "../components/modal.js";
 import { request } from "../http.js";
@@ -807,6 +808,49 @@ class SourcesControl extends SettingControl {
   }
 }
 
+/** The fields of a Hand Over Tool (ADR-080): the shared list editor (components/schema-fields.js) as one setting with one value, the list.
+ * A choice (add, remove, move, a type, "required") saves at once, a typed text when its field is left or confirmed; a list that does not
+ * fit says why in plain words and is not sent (the rules are components/schema-fields-model.js, the server's the same). */
+class FieldsControl extends SettingControl {
+  static kind = "toggle"; // the rows bind their own events (a composite), not the wrapper
+  static row = false;
+
+  createInput(value) {
+    const box = element("div", "ge-fields");
+    box.dataset.focusKey = `setting-${this.setting.key}`;
+    this.editor = new SchemaFields({
+      fields: Array.isArray(value) ? value : [],
+      types: this.setting.field_types ?? undefined,
+      limits: this.setting.field_limits ?? undefined,
+      max: this.setting.max_fields ?? undefined,
+      label: this.setting.label,
+      onInput: () => this.markDirty(),
+      onSettle: () => this.commit(),
+    });
+    box.append(this.editor.element);
+    return box;
+  }
+
+  labelTarget() {
+    return this.editor.element.querySelector(".sf__add");
+  }
+
+  read() {
+    return JSON.stringify(this.editor.value());
+  }
+
+  parse(raw) {
+    const problem = this.editor.problem();
+    if (problem) throw new Error(problem);
+    const saved = Array.isArray(this.saved) ? this.saved : null;
+    return saved && JSON.stringify(saved) === raw ? saved : JSON.parse(raw); // the stored list itself when nothing changed
+  }
+
+  isDirty() {
+    return this.read() !== this.baseline;
+  }
+}
+
 const CONTROLS = {
   credential: CredentialControl,
   integer: IntegerControl,
@@ -819,6 +863,7 @@ const CONTROLS = {
   retry: RetryControl,
   size: SizeControl,
   sources: SourcesControl,
+  fields: FieldsControl,
 };
 
 /** The control for a setting; a type this editor does not know is shown as plain text. */

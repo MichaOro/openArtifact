@@ -19,11 +19,17 @@ export function stepDuration(step) {
 /** "On Pass", "Exit code: 0", "0.4 s" ... as one line. */
 function stepFacts(step) {
   const facts = [step.port ? `Port: ${PORTS[step.port] ?? step.port.replace(/^case_(\d)$/, "Case $1")}` : null, step.exit_code != null ? `Exit code: ${step.exit_code}` : null, stepDuration(step)];
-  if (step.kind === "agent") facts.push(...agentFacts(step.data)); // model, tokens and attempts at a glance
+  if (step.kind === "agent") facts.push(...agentFacts(step.data), ...handoverFacts(step.data)); // model, tokens and attempts at a glance, the documents handed over
   if (step.kind === "context") facts.push(...contextFacts(step.data)); // how full the package is
   if (step.data?.output_truncated) facts.push(t("tasks.history_step.output_cut_at_limit_step"));
   if (step.attempts > 1) facts.push(t("tasks.history_step.tries_fact", { n: step.attempts })); // Retry on fail (ADR-073)
   return facts.filter(Boolean);
+}
+
+/** "Handed over: Review" for an agent step whose Hand Over Tools accepted a document (ADR-080); the documents are in the data below. */
+export function handoverFacts(data) {
+  const names = data?.handovers ? Object.keys(data.handovers) : [];
+  return names.length ? [t("tasks.history_step.handed_over", { names: names.join(", ") })] : [];
 }
 
 /** "Package 5.1 KiB of 8 KiB (about 1,300 tokens)" for a Build Context step (ADR-078); nothing for data that is not its. */

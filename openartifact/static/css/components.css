@@ -982,3 +982,36 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 .task-view__body del, .comment__body del, .task-card__body del, .md-preview del, .ct__text del { text-decoration: line-through; }
 .task-view__body ul, .comment__body ul, .task-card__body ul, .md-preview ul, .ct__text ul { margin: var(--space-1) 0; padding-left: 1.25rem; list-style: disc; white-space: normal; }
 .task-view__body ul ul, .comment__body ul ul, .task-card__body ul ul, .md-preview ul ul, .ct__text ul ul { margin: 0; list-style: circle; }
+
+/* The editor of a flat list of fields (components/schema-fields.js, ADR-080): one row each, laid out on a grid that works in the narrow
+   window of a node: the handle (the icon alone, not a button), the name and the bin on the first line, the type and "required" on the
+   second, then the description and, for a choice, its values, each on a line of its own; every control gives way (min-width 0), so
+   nothing lies over the bin (ADR-074) and nothing runs out of the window */
+.sf { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.sf__list { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.sf__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "grip name bin" "type type required" "description description description" "choices choices choices";
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) 0 var(--space-2);
+  border-bottom: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+}
+.sf__row:last-child { border-bottom: 0; }
+.sf__grip { grid-area: grip; border-color: transparent; background: transparent; box-shadow: none; color: var(--color-text-muted); cursor: grab; touch-action: none; }
+.sf__grip:hover:not(:disabled) { border-color: transparent; background: transparent; box-shadow: none; color: var(--color-text-secondary); }
+.sf__grip:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; color: var(--color-text-secondary); }
+.sf__grip:active, .sf__row.is-dragging .sf__grip { cursor: grabbing; }
+.sf__row.is-dragging { opacity: 0.75; box-shadow: var(--shadow-card-hover); background: var(--color-glass-card); }
+.sf__name { grid-area: name; min-width: 0; width: 100%; box-sizing: border-box; }
+.sf__bin { grid-area: bin; justify-self: end; }
+.sf__type { grid-area: type; min-width: 0; width: 100%; box-sizing: border-box; }
+.sf__required { grid-area: required; display: inline-flex; align-items: center; gap: var(--space-1); font-size: 0.8125rem; color: var(--color-text-secondary); white-space: nowrap; }
+.sf__description { grid-area: description; min-width: 0; width: 100%; box-sizing: border-box; }
+.sf__choices { grid-area: choices; min-width: 0; width: 100%; box-sizing: border-box; }
+.sf__add { align-self: flex-start; }
+/* a modal gives every control a minimum width of 16 rem; the controls of a row give way to the width of the window instead */
+.sf .sf__row .field__control { min-width: 0; }
