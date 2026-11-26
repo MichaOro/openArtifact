@@ -52,6 +52,21 @@
 .mg__list[data-view="list"] .mg-card__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); margin-top: 0; }
 .mg__list[data-view="list"] .mg-card__actions { position: static; }
 .mg__list[data-view="list"] .mg-card__text { display: none; }
+/* The rows of the archive (ADR-069 addendum 13): two lines in a grid, the title at the left and the number at the right on the first line, the lane
+   it came from at the left and the day of archiving at the right under them. The parts are the ones of the card (name, the chip row with the number,
+   facts, date); the foot gives its children to the grid. The tiles of the archive keep the layout of every other page. */
+.mg[data-page="archive"] .mg__list[data-view="list"] .mg-card { grid-template-columns: minmax(0, 1fr); }
+.mg[data-page="archive"] .mg__list[data-view="list"] .mg-card__body { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name number" "lane date"; align-items: baseline; gap: var(--space-1) var(--space-4); }
+.mg[data-page="archive"] .mg__list[data-view="list"] .mg-card__foot { display: contents; }
+.mg[data-page="archive"] .mg__list[data-view="list"] .mg-card__name { grid-area: name; text-align: left; }
+.mg[data-page="archive"] .mg__list[data-view="list"] .mg-card__chips { grid-area: number; justify-self: end; flex-wrap: nowrap; }
+.mg[data-page="archive"] .mg__list[data-view="list"] .mg-card__facts { grid-area: lane; justify-self: start; max-width: 100%; }
+.mg[data-page="archive"] .mg__list[data-view="list"] .mg-card__date { grid-area: date; justify-self: end; }
+/* on a narrow screen the title may take two lines; every row then has the same height (room for two title lines and the second line), so the
+   page size, which measures the first row, stays right */
+@media (max-width: 40rem) {
+  .mg[data-page="archive"] .mg__list[data-view="list"] .mg-card__name { -webkit-line-clamp: 2; line-height: 1.25; min-height: 2.5em; align-self: start; }
+}
 .mg-chip { display: inline-flex; align-items: center; gap: var(--space-1); white-space: nowrap; max-width: 100%; }
 .mg-chip .icon { width: 0.8rem; height: 0.8rem; }
 .mg-tag { padding: 0 var(--space-2); border: 1px solid var(--glass-border); border-radius: var(--radius-pill); font-size: 0.75rem; line-height: 1.4rem; color: var(--color-text-secondary); }

@@ -1424,7 +1424,7 @@
  "archive.tab_comments": "Comments",
  "archive.tab_history": "History",
  "archive.tab_context": "Context",
- "archive.lane": "Lane",
+ "archive.lane": "From lane",
  "archive.lane_gone": "(lane no longer exists)",
  "archive.parent": "Parent",
  "archive.parent_unknown": "(not on the board)",

@@ -92,3 +92,104 @@ def test_a_card_is_archived_by_hand_from_the_rail_of_its_dialog(board: Board) ->
         t for t in board.api.get("/api/tasks?archived=only").json() if t["title"] == "Archive me"
     )
     assert task["archived_at"] is not None
+
+
+_BOXES = """(root) => {
+  const box = (sel) => { const e = root.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return {l: r.left, r: r.right, t: r.top, b: r.bottom}; };
+  const row = root.getBoundingClientRect();
+  const style = getComputedStyle(root);
+  return {
+    row: {l: row.left, r: row.right, t: row.top, b: row.bottom},
+    padRight: parseFloat(style.paddingRight), padLeft: parseFloat(style.paddingLeft),
+    name: box('.mg-card__name'), number: box('.mg-card__chips .mg-chip'),
+    lane: box('.mg-card__facts'), date: box('.mg-card__date'),
+  };
+}"""
+
+
+def _archived(board: Board, title: str, lane: str = "backlog") -> dict[str, Any]:
+    task = board.create(title, status=lane)
+    _archive(board, task)
+    return task
+
+
+def _open_archive(board: Board, view: str) -> Any:
+    board.open()
+    _menu(board, "Show archive")
+    archive = board.page.locator("[data-archive-view]")
+    expect(archive).to_be_visible()
+    board.page.get_by_role("button", name=view, exact=True).click()
+    return archive
+
+
+def test_an_archive_row_has_the_title_and_number_on_one_line_and_the_lane_and_day_below(
+    board: Board,
+) -> None:
+    _archived(board, "A title that is long enough to be a title of a real card")
+    archive = _open_archive(board, "List")
+    row = archive.locator(".mg-card").first
+    expect(row).to_be_visible()
+    m = row.evaluate(_BOXES)
+    right = m["row"]["r"] - m["padRight"]
+    left = m["row"]["l"] + m["padLeft"]
+    assert m["name"]["l"] <= left + 2, f"the title starts at the left of the row: {m}"
+    assert abs(m["number"]["r"] - right) <= 2, f"the number is flush right: {m}"
+    assert m["number"]["l"] > m["name"]["l"], "the number stands to the right of the title"
+    assert abs(m["number"]["t"] - m["name"]["t"]) < 12, "the number is on the line of the title"
+    assert m["lane"]["t"] >= m["name"]["b"] - 2, f"the lane is below the title: {m}"
+    assert abs(m["lane"]["l"] - m["name"]["l"]) <= 2, "the lane starts under the title"
+    assert abs(m["date"]["r"] - right) <= 2, f"the day of archiving is flush right: {m}"
+    assert m["date"]["t"] >= m["number"]["b"] - 2, "the day stands under the number"
+    expect(row.locator(".mg-card__facts")).to_have_text("From lane: Backlog")
+    expect(row.locator(".mg-card__date")).to_contain_text("Archived")
+
+
+def test_the_lane_of_an_archived_card_says_from_lane_in_tiles_and_in_the_context(
+    board: Board,
+) -> None:
+    _archived(board, "A card from the backlog")
+    archive = _open_archive(board, "Cards")
+    tile = archive.locator(".mg-card").first
+    expect(tile.locator(".mg-card__facts")).to_have_text("From lane: Backlog")
+    tile.click()
+    panel = archive.locator(".mg__panel")
+    panel.get_by_role("tab", name="Context").click()
+    context = panel.get_by_role("tabpanel", name="Context")
+    expect(context.locator("dt").first).to_have_text("From lane")
+    expect(context.locator("dd").first).to_have_text("Backlog")
+
+
+def test_a_card_whose_lane_is_gone_says_so_instead_of_showing_nothing(board: Board) -> None:
+    _archived(board, "From a lane that no longer exists")
+
+    def without_lane(route: Any) -> None:
+        response = route.fetch()
+        items = response.json()
+        for item in items:
+            item["archived_from_lane"] = None  # what the API sends when the lane is gone
+        route.fulfill(response=response, json=items)
+
+    board.page.route("**/api/tasks?archived=only*", without_lane)
+    archive = _open_archive(board, "Cards")
+    expect(archive.locator(".mg-card__facts").first).to_have_text(
+        "From lane: (lane no longer exists)"
+    )
+
+
+def test_archive_rows_do_not_overlap_at_a_narrow_width(board: Board) -> None:
+    _archived(board, "A very long title " * 6)
+    board.page.set_viewport_size({"width": 390, "height": 800})
+    archive = _open_archive(board, "List")
+    row = archive.locator(".mg-card").first
+    expect(row).to_be_visible()
+    m = row.evaluate(_BOXES)
+    for a, b in (("name", "number"), ("lane", "date"), ("name", "lane"), ("number", "date")):
+        x, y = m[a], m[b]
+        overlap = (
+            x["l"] < y["r"] - 1
+            and y["l"] < x["r"] - 1
+            and x["t"] < y["b"] - 1
+            and y["t"] < x["b"] - 1
+        )
+        assert not overlap, f"{a} and {b} overlap: {m}"
+    assert m["number"]["r"] <= m["row"]["r"] + 1 and m["date"]["r"] <= m["row"]["r"] + 1

@@ -126,6 +126,7 @@ export class ManagementPage {
   #build() {
     const c = this.config;
     this.root.classList.add("mg");
+    this.root.dataset.page = c.name; // a page may style its own rows (the archive: ADR-069 addendum 13)
     const main = make("div", "mg__main");
     // the toolbar: row one is search, order and "Per page [12] [cards][list]" and never changes; a page with tabs puts the tabs and the filter in a
     // row of their own below it, so search and order stay where they are while the tabs are clicked through
