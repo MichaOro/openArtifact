@@ -80,7 +80,7 @@ The most used routes (all 24 are listed with errors in the [API reference](api-r
 | `POST /api/v1/artifacts/{ref}/run` | Start (body optional) |
 | `POST /api/v1/artifacts/{ref}/run/stop` | Stop; the artifact keeps its stage and action |
 | `GET /api/v1/artifacts/{ref}/run/results` | Every step inside action definitions, with complete outputs |
-| `GET /api/v1/executions`, `.../artifacts/{ref}/executions[/{id}[/flow\|/context]]` | History, see [below](#executions-and-history); the execution carries its run `context` |
+| `GET /api/v1/executions`, `.../artifacts/{ref}/executions[/{id}[/flow\|/context\|/position]]` | History, see [below](#executions-and-history); the execution carries its run `context` |
 | `GET`, `PUT`, `DELETE /api/v1/secrets[/{name}]` | Credentials, see [below](#credentials) |
 
 Artifact fields, so a script can give a card the facts a pipeline branches on:
@@ -224,6 +224,8 @@ Tools (14; all go through the same service as the browser and the REST API; argu
 | `list_all_executions(status?, started_by?, pipeline?, query?, since?, until?, limit?, cursor?)` | All executions with the filters and keyset paging above |
 | `get_execution(artifact, execution)` | One execution with all steps |
 | `get_execution_flow(artifact, execution, outputs?)` | Frozen graphs, walked path, steps |
+| `get_execution_position(artifact, execution)` | Where the execution is and what leaves that node ([neighbours and position](api-reference.md#neighbours-and-position)) |
+| `get_graph_neighbours(graph, kind?, version?)` | Predecessors and successors of every node of a pipeline or an action |
 | `list_secrets()` | Names and dates of credentials |
 
 A refused call returns the reason as the tool's error text. An artifact created through MCP records

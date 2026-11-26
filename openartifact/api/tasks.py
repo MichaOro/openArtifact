@@ -23,6 +23,7 @@ from openartifact.api.deps import ServiceDep
 from openartifact.api.schemas import DeletedCount
 from openartifact.comments.service import author_of
 from openartifact.engine.flow_schemas import ExecutionFlow
+from openartifact.engine.neighbour_schemas import ExecutionPosition
 from openartifact.engine.schemas import (
     ExecutionDetail,
     ExecutionList,
@@ -223,6 +224,23 @@ async def get_execution_flow(
     the path it walked through them. Step outputs are left out (``output_length`` says how long they
     are) unless ``outputs=true``; ``.../steps/{step_id}`` has one step whole."""
     return await service.execution_flow(task_id, execution_id, outputs)
+
+
+@router.get(
+    "/{task_id}/executions/{execution_id}/position",
+    response_model=ExecutionPosition,
+    summary="Where an execution of a task is",
+    responses=errors(404, 422),
+)
+async def get_execution_position(
+    task_id: str, execution_id: str, service: ServiceDep
+) -> ExecutionPosition:
+    """Where the execution is, made from the same frozen graphs as its flow: ``at`` (the root pipeline down to the node it is in:
+    while it runs the node it waits in, once it ended the node it ended in), ``next`` (the connections that leave that node: which
+    port leads where), ``afterwards`` (those of the nodes around it, innermost first) and ``path`` (what was walked, visit by visit,
+    with each node's state and the recorded steps without their outputs). ``execution.status`` is ``running``, ``done``, ``failed`` or
+    ``stopped``."""
+    return await service.execution_position(task_id, execution_id)
 
 
 @router.get(

@@ -43,6 +43,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
 | GET | `/api/v1/pipelines` | Pipelines with their stages in running order and the actions of each stage (the ids to start with) | |
+| GET | `/api/v1/pipelines/{ref}/neighbours`, `/api/v1/actions/{ref}/neighbours` | Every node with its predecessors and successors (`?version=published` (default) \| `draft` \| a number); `ref` is the id, URL name or name | 404, 422 |
 | GET | `/api/v1/lanes` | The board lanes in order: `status` (the key artifacts use), `key` (DOM form), `title`, `position`, `hue`, `style` (`normal` or `finished`), `artifact_count`, `deletable` | |
 | POST | `/api/v1/lanes` | Add a lane: body `{"title": "Review"}`; 1 to 40 characters, no control characters, different from the other lanes (ignoring case); at most 12 lanes; appended at the end; `201`, answers the lanes | 422 |
 | PUT | `/api/v1/lanes/{status}` | Change a lane (its key stays): body `{"title"?: "Review", "style"?: "finished"}`, at least one; same title rules; `style` is `normal` or `finished` (an unknown one is 422 and lists them); answers the lanes | 404, 422 |
@@ -63,6 +64,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/context` | The run context alone (variables, latest result of each node; text from outside) | 404 |
 | DELETE | `/api/v1/artifacts/{ref}/executions/{execution_id}` | Delete one execution; `204` | 404, 409 (still running) |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/flow` | The graphs as frozen at the start, the path walked through them, the steps (`?outputs=true` adds step outputs) | 404 |
+| GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/position` | Where the execution is: `at`, `next`, `afterwards`, `path` (see [Neighbours and position](#neighbours-and-position)) | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id}` | One step with its complete output | 404 |
 | GET | `/api/v1/artifacts/{ref}/activity` | What changed on the artifact and who did it, newest first, in pages: `limit` 1 to 200 (default 50), `before` = the `next` cursor of the previous page; a delete action on executions is one `run` entry, a comment is a `comment` entry (its id, never its text); executions that still exist are not repeated | 404, 422 |
 | GET | `/api/v1/artifacts/{ref}/comments` | The artifact's comments, oldest first (plain text; `author`, `author_kind`, `execution_id`) | 404 |
@@ -264,6 +266,7 @@ values together are at most 4 KiB. The refusal for a typo:
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/context` | The run context alone | 404 |
 | DELETE | `/api/tasks/{task_id}/executions/{execution_id}` | Delete one; `204` | 404, 409 (running) |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/flow` | Frozen graphs, walked path, steps | 404 |
+| GET | `/api/tasks/{task_id}/executions/{execution_id}/position` | Where the execution is (see [Neighbours and position](#neighbours-and-position)) | 404 |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/steps/{step_id}` | One step with complete output | 404 |
 
 ### Activity
@@ -319,9 +322,38 @@ is saved at once.
 | PATCH | `/api/{kind}/{graph_id}/edges/{edge_id}` | Change how a connection is drawn | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}/edges/{edge_id}` | Remove; `204` | 404 |
 | GET | `/api/pipelines/{graph_id}/stages` | The stages in running order with their actions | 404 |
+| GET | `/api/{kind}/{graph_id}/neighbours` | Every node with its predecessors and successors (`?version=published` (default) \| `draft` \| a number; see [Neighbours and position](#neighbours-and-position)) | 404, 422 |
 | GET | `/api/node-types` | The kinds of nodes: ports, settings (with `group` and `references` hints for the inspector), links (the editor draws from this); texts in the language of the request (cookie `oa_lang`, else `Accept-Language`) where a translation exists, stored values unchanged | |
 
 `{kind}` is `pipelines` or `actions`.
+
+#### Neighbours and position
+
+Two read-only views answer *what leads to what* and *where is it now*, from the same data the pages draw: the connections of the graph
+editor and the frozen graphs of the flow view. What you see on the page you can ask for, and the other way round.
+
+`GET /api/pipelines/{id}/neighbours` (and `/api/actions/{id}/neighbours`, `/api/v1/...` with the id, URL name or name) returns
+every node (a pipeline: trigger, stages, actions, called pipelines, the end; an action definition: its nodes) with `predecessors` and
+`successors`. A link names the node on the other end (`node_id`, `name` as the editor writes it, `kind`), the connector it hangs on
+(`port`, `port_label` such as *On Pass*, *On Error*, *On Fail*) and its sort (`connection`: `next`, `pass`, `failure`, `branch`, `tool`,
+`stage`). Every connection of the graph appears once as a successor and once as a predecessor. `?version=` is `published` (default:
+what executions run, the draft while nothing is published), `draft` (what the editor shows) or the number of a published version; the
+answer names the one it used in `version` (`{"source", "number"}`).
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$OA/api/v1/pipelines/review/neighbours?version=draft"
+# {"graph": {...}, "version": {"source": "draft", "number": null}, "nodes": [
+#   {"id": "...", "name": "Check", "kind": "action", "stage_name": "Review",
+#    "predecessors": [{"node_id": "...", "name": "Review", "port": "start", "port_label": "Start", "connection": "stage", ...}],
+#    "successors":   [{"node_id": "...", "name": "Review", "port": "pass", "port_label": "On Pass", "connection": "pass", ...}]}, ...]}
+```
+
+`GET .../executions/{id}/position` says where one execution is, made from its flow: `execution.status` (`running`, `done`, `failed`,
+`stopped`), `at` (from the root pipeline down to the node it is in: while it runs the node it waits in, once it ended the node it
+ended in), `next` (the connections that leave that node: which port leads where, *On Pass → X*, *On Fail → Y*), `afterwards` (the same
+for the nodes around it, innermost first: what the action's own node leads to) and `path` (what was walked, visit by visit, each node
+with its state `pass`, `fail`, `running` or `stopped` and the recorded steps without outputs; at most the newest 200 visits,
+`truncated` says so). MCP: `get_graph_neighbours` and `get_execution_position`.
 
 ### Other
 
@@ -362,6 +394,8 @@ Pipeline, stage and action are given by name.
 | `list_all_executions` | `status?`, `started_by?`, `pipeline?`, `query?`, `since?`, `until?`, `limit` (1 to 200), `cursor?` | All artifacts' executions with filters; `next_cursor` goes into `cursor`; includes the `summary` |
 | `get_execution` | `artifact`, `execution` | One execution with all steps |
 | `get_execution_flow` | `artifact`, `execution`, `outputs=false` | Frozen graphs, visits, reached nodes, steps |
+| `get_execution_position` | `artifact`, `execution` | Where it is: `at`, `next` (which port leads where), `afterwards`, `path`; read only |
+| `get_graph_neighbours` | `graph` (id, URL name or name), `kind=pipeline`, `version=published` | Every node with predecessors and successors and the connector of each link; read only |
 | `list_secrets` | | Names and dates of the credentials a node may use as `${secret:NAME}` |
 | `list_agents` | | The agents: name, description, active, published version, number of nodes; read only |
 | `get_agent` | `agent` (name or id) | One agent: published configuration, draft, versions; read only |

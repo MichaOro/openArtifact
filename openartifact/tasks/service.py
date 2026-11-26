@@ -44,6 +44,8 @@ from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.flow import build_flow
 from openartifact.engine.flow_schemas import ExecutionFlow
 from openartifact.engine.history import Changes, labels_of
+from openartifact.engine.neighbour_schemas import ExecutionPosition, GraphNeighbours
+from openartifact.engine.neighbours import graph_neighbours, position_of
 from openartifact.engine.runner import RunEngine
 from openartifact.engine.schemas import (
     ExecutionDetail,
@@ -59,6 +61,7 @@ from openartifact.engine.targets import TargetError, resolve_target
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.publishing import graph_for_run
+from openartifact.graph.repository import GraphRepository
 from openartifact.models import (
     ArtifactField,
     CreatedBy,
@@ -443,6 +446,34 @@ class ArtifactService:
                 guard_state,
                 await self._attachments_enabled(session, row.snapshot),
             )
+
+    async def execution_position(self, ref: str, execution_id: str) -> ExecutionPosition:
+        """Where an execution is, from its frozen graphs: the place, what leaves it and the path walked (the flow's data, ADR-069 add. 2)."""
+        return position_of(await self.execution_flow(ref, execution_id, False))
+
+    async def graph_neighbours(
+        self, kind: GraphKind, ref: str, version: str = "published"
+    ) -> GraphNeighbours:
+        """The neighbours of a pipeline or an action definition given by id, URL name or name; 404 when there is none (or that version)."""
+        async with self._session() as session:
+            wanted = ref.strip().lower()
+            graph = next(
+                (
+                    g
+                    for g in await GraphRepository(session).list_all(kind)
+                    if wanted in (g.id.lower(), (g.slug or "").lower(), g.name.lower())
+                ),
+                None,
+            )
+            if graph is None:
+                raise ArtifactError(404, f"{kind.value.capitalize()} not found")
+            try:
+                found = await graph_neighbours(session, graph, version)
+            except ValueError as error:
+                raise ArtifactError(422, str(error)) from error
+            if found is None:
+                raise ArtifactError(404, f"Version {version} not found")
+            return found
 
     @staticmethod
     async def _attachments_enabled(session: AsyncSession, snapshot_json: str) -> dict[str, bool]:

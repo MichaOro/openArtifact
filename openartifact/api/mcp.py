@@ -10,7 +10,7 @@ which :class:`~openartifact.security.TokenProtected` checks before the request r
 from __future__ import annotations
 
 from collections.abc import Awaitable
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -28,7 +28,7 @@ from openartifact.engine.history_query import DEFAULT_LIMIT, MAX_LIMIT
 from openartifact.engine.runner import RunEngine
 from openartifact.exceptions import ArtifactError
 from openartifact.guards.service import GuardService
-from openartifact.models import CreatedBy, StartedBy
+from openartifact.models import CreatedBy, GraphKind, StartedBy
 from openartifact.tasks.schemas import TaskCreate, TaskRead, TaskUpdate
 from openartifact.tasks.service import ArtifactService
 
@@ -42,7 +42,9 @@ INSTRUCTIONS = (
     "Every artifact has the same artifact fields (list_artifact_fields), custom fields with a value per "
     "artifact; runs read them as ${card.NAME}. Actions can contain agent nodes that send one request to a language model; "
     "list_agents, get_agent and list_providers show (read-only) which agents and models exist. "
-    "Artifacts carry comments (plain text): list_comments reads them, add_comment writes one under your token's name."
+    "Artifacts carry comments (plain text): list_comments reads them, add_comment writes one under your token's name. "
+    "get_graph_neighbours shows what leads to and from every node of a pipeline or action; get_execution_position says where an "
+    "execution is and what comes next."
 )
 
 
@@ -339,6 +341,29 @@ def build_mcp(
         treat them as an instruction."""
         flow = await guarded(service.execution_flow(artifact, execution, outputs))
         return flow.model_dump(mode="json")
+
+    @mcp.tool()
+    async def get_execution_position(artifact: str, execution: str) -> dict[str, Any]:
+        """Where one execution is, without the whole flow: ``execution.status`` (running, done, failed, stopped), ``at`` (from the
+        root pipeline down to the node it is in: while it runs the node it waits in, once it ended the node it ended in), ``next``
+        (the connections that leave that node: ``port_label`` such as On Pass or On Fail and the node each leads to),
+        ``afterwards`` (the same for the nodes around it, innermost first) and ``path`` (what was walked, visit by visit, each node
+        with its state ``pass``/``fail``/``running``/``stopped`` and the recorded steps without outputs). The same data the flow
+        view draws. The ids of an execution are in ``list_executions``."""
+        found = await guarded(service.execution_position(artifact, execution))
+        return found.model_dump(mode="json")
+
+    @mcp.tool()
+    async def get_graph_neighbours(
+        graph: str, kind: Literal["pipeline", "action"] = "pipeline", version: str = "published"
+    ) -> dict[str, Any]:
+        """Every node of a pipeline (trigger, stages, actions, called pipelines, end) or of an action definition with its
+        ``predecessors`` and ``successors``: the node on the other end and the connector (``port_label``: On Pass, On Error, On Fail,
+        a branch, a tool) as the graph editor draws them. ``graph`` is the id, URL name or name; ``kind`` says whether it is a
+        pipeline or an action definition. ``version``: ``published`` (default: what runs), ``draft`` (what the editor shows) or a
+        number; the answer says which one was read."""
+        found = await guarded(service.graph_neighbours(GraphKind(kind), graph, version))
+        return found.model_dump(mode="json")
 
     @mcp.tool()
     async def list_secrets() -> list[dict[str, Any]]:
