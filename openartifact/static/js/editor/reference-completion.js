@@ -11,7 +11,10 @@ const NODE_FIELDS = [
   ["output", t("editor.reference_completion.text_node_wrote")],
   ["exit_code", t("editor.reference_completion.exit_code")],
   ["outcome", t("editor.reference_completion.pass_fail")],
+  ["success", t("editor.reference_completion.true_or_false")],
   ["reason", t("editor.reference_completion.why_failed")],
+  ["attempts", t("editor.reference_completion.tries")],
+  ["duration_ms", t("editor.reference_completion.milliseconds")],
   ["data.", t("editor.reference_completion.its_data_then_key")],
 ];
 const MAX_SUGGESTIONS = 40;

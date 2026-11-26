@@ -25,7 +25,7 @@ VIEWS: dict[str, str] = {
         "final_action_name, status, started_by, step_count, created_at, started_at, finished_at FROM executions"
     ),
     "v_guard_steps": (
-        "SELECT id, execution_id, seq, node_id, node_name, kind, outcome, port, exit_code, reason, started_at, finished_at "
+        "SELECT id, execution_id, seq, node_id, node_name, kind, outcome, (outcome = 'pass') AS success, port, exit_code, reason, started_at, finished_at "
         "FROM run_node_results"
     ),
     "v_guard_tool_calls": (

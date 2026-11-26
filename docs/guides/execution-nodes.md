@@ -46,22 +46,42 @@ abandoned.
 
 ## Results
 
-Every executed node leaves one step with these fields (all visible in the History tab and the flow view, and
-returned by the API under the execution):
+Every executed node leaves one step (visible in the History tab and the flow view, and returned by the API under the
+execution) and, in the run context, one entry with the same **core**, whatever its kind (the result contract, ADR-072):
 
-| Field | Timer | Code | HTTP |
-|-------|-------|------|------|
-| `outcome` | always `pass` | `pass` or `fail` | `pass` or `fail` |
-| `port` | `out` | `pass` or `fail` | `pass` or `fail` |
-| `exit_code` | none | the process exit code (negative: ended by a signal) | none |
-| `output` | none | stdout, then `[stderr]` and stderr | the response body |
-| `reason` | none | why it failed; may come from the code | why it failed |
-| `data` | none | an object the code reported, at most 16384 characters of JSON | `status`, `content_type`, `truncated` |
-| duration | the wait | wall time | wall time |
+| Field | Type | Meaning |
+|-------|------|---------|
+| `success` | `true` / `false` | the node succeeded; the engine sets it from `outcome`, a kind does not have to |
+| `outcome` | `pass` / `fail` | the port it leaves by (a node that chooses its branch, If and Switch, passes when it could decide) |
+| `reason` | text or `null` | why it failed (or a note on a pass); a sentence for people, cut at 1000 characters |
+| `output` | text | what the node produced as text; at most 4 KiB in the context, the step has all |
+| `data` | object or `null` | the extras of the kind (the table below) |
+| `attempts` | whole number | how many tries it took: 1, or more with *Retry on fail* (see Retry on fail) |
+| `duration_ms` | whole number | wall time of the step in milliseconds, all tries and the waits between them |
+| `exit_code` | number or `null` | only where a kind has one (Code) |
 
-A `reason` is a sentence for people, cut at 1000 characters. Output is text: anything the code prints or the
-server answers ends up in it (and in the history, and in whatever agent reads it), so treat it as untrusted.
-Used secrets are masked in all of these ([Credentials](credentials.md)).
+`success` reads as the text `true` or `false` in a reference, so a condition on it is `${(HTTP: ping).success}` *is true*; a
+context stored before the contract has no `success` or `attempts`: they are derived from `outcome` and 1. Nothing was taken
+away: `outcome`, `exit_code`, `reason`, `output` and `data.key` mean what they always meant.
+
+What each kind puts in `output` and `data` (the rest of the core is the same for all):
+
+| Kind | `output` | `data` |
+|------|----------|--------|
+| Timer | none | none |
+| Code | stdout, then `[stderr]` and stderr; `exit_code` is the process exit code (negative: ended by a signal) | an object the code reported, at most 16384 characters of JSON |
+| HTTP | the response body | `status`, `content_type`, `truncated` |
+| Postgres, SQLite | the rows as JSON | `rows`, `columns`, `row_count`, `truncated` |
+| GitHub | the answer as JSON (a list: the items) | the object, or `items`, `count`, `truncated`; a diff: `diff`, `truncated` |
+| Artifact | what the node did, or the comments | `id` (comment added), or `comments`, `count`, `left_out` |
+| Edit Fields (Set) | none | `fields` (the names set) |
+| If | the port chosen | `condition` (`true`, `false`, `null` when undecidable), `rows` |
+| Switch | the port chosen | `value`, `matched`, `cases` |
+| Agent | the final answer | `model`, `usage`, `finish_reason`, `iterations`, ... ([Agents](agents.md)) |
+
+A `reason` is a sentence for people. Output is text: anything the code prints or the server answers ends up in it (and in
+the history, and in whatever agent reads it), so treat it as untrusted. Used secrets are masked in all of these
+([Credentials](credentials.md)). Guards read the step as `v_guard_steps` (`success`, `attempts` and the rest, below).
 
 ## The run context and references
 
@@ -72,10 +92,10 @@ server restart and is shown in the History tab ([Execution history](execution-hi
 ```json
 {"vars": {"user": "bob"},
  "card": {"urgency": "high", "tier": "gold"},
- "nodes": {"Fetch_user": {"name": "Fetch user", "kind": "http", "outcome": "pass", "port": "pass",
+ "nodes": {"Fetch_user": {"name": "Fetch user", "kind": "http", "success": true, "outcome": "pass", "port": "pass",
                           "exit_code": null, "output": "{\"id\": 7}", "reason": null,
                           "data": {"status": 200, "content_type": "application/json", "truncated": false},
-                          "at": "2026-11-22T10:00:00.000Z"}}}
+                          "attempts": 1, "duration_ms": 212, "at": "2026-11-22T10:00:00.000Z"}}}
 ```
 
 **References.** In an HTTP node's URL, headers and body:
@@ -83,7 +103,9 @@ server restart and is shown in the History tab ([Execution history](execution-hi
 | Reference | Value |
 |-----------|-------|
 | `${(Node name).output}` | the node's output (a node keeps at most 4 KiB of it in the context; the step has all) |
+| `${(Node name).success}` | `true` or `false`: did the node succeed (use it with *is true* / *is false*) |
 | `${(Node name).exit_code}`, `.outcome`, `.reason` | exit code, `pass` or `fail`, the reason (`null` text when there is none) |
+| `${(Node name).attempts}`, `.duration_ms` | the number of tries, the milliseconds it took |
 | `${(Node name).data}` | the node's data as compact JSON |
 | `${(Node name).data.key.sub.0}` | one value in the data; numbers index lists |
 | `${var.name}` | a variable |
@@ -518,7 +540,7 @@ API, MCP and the interface). Safe by construction (ADR-068):
 | View | One row per | Columns |
 |---|---|---|
 | `v_guard_runs` | execution | `id`, `task_id`, `number`, `pipeline_name`, `started_stage_name`, `started_action_name`, `final_stage_name`, `final_action_name`, `status`, `started_by`, `step_count`, `created_at`, `started_at`, `finished_at` |
-| `v_guard_steps` | step (a node that ran) | `id`, `execution_id`, `seq`, `node_id`, `node_name`, `kind`, `outcome`, `port`, `exit_code`, `reason`, `started_at`, `finished_at` |
+| `v_guard_steps` | step (a node that ran) | `id`, `execution_id`, `seq`, `node_id`, `node_name`, `kind`, `outcome`, `success` (1 or 0), `port`, `exit_code`, `reason`, `started_at`, `finished_at` |
 | `v_guard_tool_calls` | tool call of a *finished* Agent step | `execution_id`, `step_id`, `step_name`, `step_seq`, `turn`, `tool`, `tool_node`, `arguments` (first 200 characters), `is_error`, `duration_ms` |
 | `v_guard_artifacts` | artifact (card) | `id`, `number`, `title`, `lane`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`, `created_by`, `created_at`, `updated_at` |
 | `v_guard_lanes` | lane | `key`, `title`, `position` |

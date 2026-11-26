@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field, replace
@@ -1016,7 +1017,11 @@ class RunEngine:
                         "node", current["id"], current["name"], inside, definition["name"]
                     )
                 )
+            timer = time.monotonic()
             result = await executor.run(current, self._limits, run_view)
+            result.duration_ms = int(
+                (time.monotonic() - timer) * 1000
+            )  # the result contract (ADR-072)
             if result.outcome == "pass" and result.variables:
                 try:
                     run_view.context.set_vars(result.variables)

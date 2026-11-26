@@ -1461,5 +1461,8 @@
  "executions.page.stop_subject_it_ends_as_stopped": "Stop {subject}? It ends as Stopped.",
  "executions.page.steps_already_done_stay": "Steps already done stay in its history.",
  "executions.page.stop_too_late": "It is no longer running (it just ended or was just started). The list was refreshed.",
- "tasks.history_row.stop_subject": "Stop {subject}"
+ "tasks.history_row.stop_subject": "Stop {subject}",
+ "editor.reference_completion.true_or_false": "true if it succeeded",
+ "editor.reference_completion.tries": "number of tries",
+ "editor.reference_completion.milliseconds": "how long it took (ms)"
 }

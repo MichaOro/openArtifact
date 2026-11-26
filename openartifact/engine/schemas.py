@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, model_validator
 
 from openartifact.engine.context import RunContext
 from openartifact.graph.node_types import step_icon
@@ -196,14 +196,26 @@ class ContextNodeRead(BaseModel):
 
     name: str
     kind: str
+    #: The result contract (ADR-072): ``success`` is ``outcome == "pass"``, ``attempts`` the tries, ``duration_ms`` the wall time.
+    success: bool
     outcome: str
     port: str | None
     exit_code: int | None
     output: str
     reason: str | None
     data: dict[str, Any] | None
+    attempts: int = 1
+    duration_ms: int | None = None
     at: UtcDateTime
     truncated: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _contract(cls, value: Any) -> Any:
+        """A context stored before the contract has no ``success``: it is derived from ``outcome``."""
+        if isinstance(value, dict) and "success" not in value:
+            return {**value, "success": value.get("outcome") == "pass"}
+        return value
 
 
 class RunContextRead(BaseModel):
