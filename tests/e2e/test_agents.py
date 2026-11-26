@@ -846,7 +846,9 @@ def test_the_inputs_are_reordered_by_their_handle_and_the_order_is_saved(
     chrome = grips.first.evaluate(
         "e => { const s = getComputedStyle(e); return [s.borderTopColor, s.backgroundColor, s.boxShadow]; }"
     )
-    assert chrome[0] == "rgba(0, 0, 0, 0)" and chrome[1] == "rgba(0, 0, 0, 0)" and chrome[2] == "none", chrome
+    assert (
+        chrome[0] == "rgba(0, 0, 0, 0)" and chrome[1] == "rgba(0, 0, 0, 0)" and chrome[2] == "none"
+    ), chrome
     assert _input_names(rows) == ["a", "b", "c"]
     expect(editor.locator("[data-save]")).to_be_disabled()  # nothing changed yet
     # the keyboard: the handle of "a" down one place
