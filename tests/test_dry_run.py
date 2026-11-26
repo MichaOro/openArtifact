@@ -18,6 +18,7 @@ from alembic import command
 from openartifact.agents.tools import Tool, Toolbox
 from openartifact.app import _create_app
 from openartifact.config import Settings
+from openartifact.engine import guard_views
 from tests.helpers import (
     alembic_config,
     build_pipeline,
@@ -543,6 +544,9 @@ def test_migration_0066_marks_every_row_that_exists_as_a_real_run_and_goes_down_
     at_revision: Callable[[str], Path],
 ) -> None:
     path = at_revision("0065")
+    guard_views.install(
+        path
+    )  # a running installation has them: they stand on the table the migration rebuilds
     with sqlite3.connect(path) as conn:
         conn.execute(
             "INSERT INTO tasks (id, title, status, position, number) VALUES ('t1', 'T', 'done', 1, 1)"
@@ -556,7 +560,9 @@ def test_migration_0066_marks_every_row_that_exists_as_a_real_run_and_goes_down_
             "VALUES ('e1', 't1', 1, 'P', 'done', 'user', 0, '2026-11-26 10:00:00', '2026-11-26 10:00:00')"
         )
     command.upgrade(alembic_config(), "0066")
+    guard_views.install(path)  # the next start makes the views again, now with the new column
     with sqlite3.connect(path) as conn:
+        assert conn.execute("SELECT dry_run FROM v_guard_runs").fetchall() == [(0,)]
         assert conn.execute("SELECT dry_run FROM pipeline_runs").fetchall() == [(0,)]
         assert conn.execute("SELECT dry_run FROM executions").fetchall() == [(0,)]
         conn.execute("UPDATE executions SET dry_run = 1")
