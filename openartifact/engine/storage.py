@@ -88,6 +88,15 @@ PRUNED_FLAG = "data_pruned"
 STEP_OUTPUT_CHARS = 256 * 1024
 RUN_OUTPUT_CHARS = 1024 * 1024
 _MIB = 1024 * 1024
+#: What the page shows in a field the user has not set (the value stored then is ``None``), and the number a switch gives when it is
+#: switched on. The first is what the engine does anyway (the operator's number of executions, today's limits), the second is a
+#: suggestion the user changes.
+ON_VALUES: dict[str, int] = {
+    "storage_step_data_days": 30,
+    "storage_run_data_mib": 1024,
+    "storage_clean_interval_hours": 24,
+    "storage_warn_mib": 1024,
+}
 _CHUNK = 500
 #: ``length`` of a JSON column in bytes; ``null`` (the JSON value) counts as empty.
 _DETAIL_BYTES = (
@@ -625,11 +634,23 @@ class Cleaner:
             last = json.loads(row.value) if row is not None else None
         except ValueError:
             last = None
+        interval = policy.clean_interval_hours
+        since = self._started
+        if last is not None:
+            with contextlib.suppress(ValueError, KeyError, TypeError):
+                since = datetime.fromisoformat(last["at"])
         return {
             "db": await asyncio.to_thread(info, self.db_path, policy.warn_bytes),
             "run_data_bytes": data,
             "last_clean": last,
-            "interval_hours": policy.clean_interval_hours,
+            "interval_hours": interval,
+            "next_clean_at": (since + timedelta(hours=interval)).isoformat() if interval else None,
+            "defaults": {
+                "storage_keep_executions": self.history.default_keep,
+                "storage_step_output_kib": STEP_OUTPUT_CHARS // 1024,
+                "storage_run_output_kib": RUN_OUTPUT_CHARS // 1024,
+            },
+            "on_values": dict(ON_VALUES),
         }
 
     async def due(self, now: datetime | None = None) -> bool:

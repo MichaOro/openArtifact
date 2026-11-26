@@ -428,6 +428,32 @@ def test_the_status_shows_the_file_the_pages_the_biggest_tables_and_the_warning(
     assert status["interval_hours"] == 6 and status["db"]["warn_bytes"] == 1024 * 1024
 
 
+def test_the_status_names_what_an_empty_field_stands_for_and_when_the_cleaner_runs_next(
+    client: TestClient,
+) -> None:
+    """The page shows the engine's own value in a field the user has not set, and a number for a limit that is switched on."""
+    status = client.get(STORAGE).json()
+    assert status["defaults"] == {
+        "storage_keep_executions": 50,  # the operator's number of executions per artifact
+        "storage_step_output_kib": 256,  # today's limits, the most possible
+        "storage_run_output_kib": 1024,
+    }
+    assert status["on_values"] == {
+        "storage_step_data_days": 30,
+        "storage_run_data_mib": 1024,
+        "storage_clean_interval_hours": 24,
+        "storage_warn_mib": 1024,
+    }
+    assert status["next_clean_at"] is None  # the cleaner is off while no interval is set
+    _set(client, storage_clean_interval_hours=5)
+    first = datetime.fromisoformat(client.get(STORAGE).json()["next_clean_at"])
+    assert first - datetime.now(UTC) <= timedelta(hours=5, minutes=1)
+    assert first - datetime.now(UTC) > timedelta(hours=4)
+    client.post(f"{STORAGE}/clean")  # a pass moves the next one to its own time plus the interval
+    second = datetime.fromisoformat(client.get(STORAGE).json()["next_clean_at"])
+    assert second >= first
+
+
 def test_the_warning_shows_when_the_file_is_larger_than_the_threshold(client: TestClient) -> None:
     assert storage.info(_db(client), 1)["over_warning"] is True
     assert storage.info(_db(client), 10**12)["over_warning"] is False

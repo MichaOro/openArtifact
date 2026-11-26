@@ -144,6 +144,12 @@ class StorageStatusRead(BaseModel):
     run_data_bytes: int
     last_clean: dict[str, Any] | None
     interval_hours: int | None
+    #: When the background cleaner runs next (``None`` while it is off).
+    next_clean_at: str | None = None
+    #: What a field the user has not set stands for (the settings key to a number): the engine's own value.
+    defaults: dict[str, int] = {}
+    #: The number a switch of a limit that is off gives when it is switched on.
+    on_values: dict[str, int] = {}
 
 
 class StorageReportRead(BaseModel):

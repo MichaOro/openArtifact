@@ -40,7 +40,13 @@ BUILT_IN_WIDGETS: tuple[str, ...] = (
 )
 #: Widgets the application registers in the browser for what the built-in ones cannot be (a rule tree, rows of steps, a
 #: picker of an action). A third party adds one with :func:`register_widget`.
-CUSTOM_WIDGETS: set[str] = {"rule-tree", "escalation-steps", "action-picker"}
+CUSTOM_WIDGETS: set[str] = {
+    "rule-tree",
+    "escalation-steps",
+    "action-picker",
+    "limit",
+    "optional-number",
+}
 KEY = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$")
 NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -129,6 +135,8 @@ class SectionSpec(_Strict):
     column: Literal[1, 2, "auto", "full"] = "auto"
     #: How much room it takes when the columns are balanced (default: its number of fields).
     weight: int | None = Field(default=None, ge=1, le=20)
+    #: The tab of the page the section belongs to (a page that has tabs draws the form once per tab); ``None``: not in a tab.
+    tab: str | None = None
     fields: list[FieldSpec] = Field(min_length=1)
 
     @model_validator(mode="after")
