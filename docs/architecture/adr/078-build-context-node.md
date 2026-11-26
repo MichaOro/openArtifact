@@ -63,5 +63,5 @@ left out, and why.
 - A new kind needs a migration for the kind check (0060) and a new setting type needs an editor control; both follow the earlier kinds
   (ADR-055, ADR-073).
 - The editor's lists of kinds (the tests that name them) and the golden files of the node views know the new kind.
-- Handover files as JSON with a schema are not part of this: they stay on card #127.
+- Handover documents (named JSON documents with a schema) are a separate piece: [ADR-080](080-hand-over-tool.md).
 - A later source is one entry in `context_sources.py`, one branch in `read_sources` and its texts.

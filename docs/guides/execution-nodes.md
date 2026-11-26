@@ -75,6 +75,7 @@ What each kind puts in `output` and `data` (the rest of the core is the same for
 | GitHub | the answer as JSON (a list: the items) | the object, or `items`, `count`, `truncated`; a diff: `diff`, `truncated` |
 | Artifact | what the node did, or the comments | `id` (comment added), or `comments`, `count`, `left_out` |
 | Build Context | the package: one section per source ([below](#build-context-node)); the context keeps all of it, up to the node's size limit | `included`, `omitted`, `size_bytes`, `limit_bytes`, `approx_tokens` |
+| Hand Over Tool | the document as JSON (stored by the agent node, not run as a step; [Agents](agents.md#hand-over-tool)) | the document's fields, as the tool node's fields define them |
 | Edit Fields (Set) | none | `fields` (the names set) |
 | If | the port chosen | `condition` (`true`, `false`, `null` when undecidable), `rows` |
 | Switch | the port chosen | `value`, `matched`, `cases` |
@@ -432,6 +433,7 @@ those two.
 | Child cards | the cards that belong to it, by number | number, 1 to 50 (20); title only, or title and text |
 | Sibling cards | the other cards of the same parent, by number | number, 1 to 50 (20); title only, or title and text |
 | Results of earlier nodes | the output of the nodes you name (names, one per line, at most 10) that already ran in this execution; the run keeps at most 4 KiB of a node's output | the names |
+| Handover documents | the documents agents handed over in this execution through a [Hand Over Tool](agents.md#hand-over-tool): `### name`, then `field: value` per line; none named means all, oldest first | the names of the tool nodes (optional, at most 10) |
 | Earlier executions | the last finished executions of this card (not the running one): `#n status, time, started by, pipeline`, the note and the output of the last step that produced text | number, 1 to 10 (3) |
 
 Archived cards are not used as related cards. There is no *depends on* source: the application has no such relation, only parent and children.

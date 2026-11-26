@@ -138,6 +138,7 @@ agent takes any number of tools; a tool belongs to one agent.
 | **GitHub MCP** | the tools of GitHub's MCP server (a fixed address), read-only until *Allow writes* is on | credential (a GitHub access token), *Allow writes*, *Tools to include* (`all`, `selected`, `all except`) with one tool name per line, tool name, timeout |
 | **HTTP Request Tool** | one function with the parameters you declare | tool name and description, method, URL, headers, body, parameters (`name: description` per line), timeout (1 to 120 s, 30), success status |
 | **Execute Command Tool** | one function with the parameters you declare | tool name and description, language (`sh`, `python`), code, secrets, parameters, timeout (1 to 600 s, 30) |
+| **Hand Over Tool** | one function whose parameters are the fields you define: the model hands over a document, the server checks it ([below](#hand-over-tool)) | tool name and description, *Fields* (name, type, required, description; a choice has values), *Size limit* (1 to 64 KiB, 16 KiB) |
 | **Postgres Tool** | one function: your SQL statement, with the parameters you declare | tool name and description, secret with the connection URL, query, parameters, *Allow changes*, *Private network*, max rows (1 to 1000, 100), timeout (1 to 120 s, 30) |
 
 - **Fewer tools, a smaller prompt.** The description of **every** tool the model is offered goes with each request. GitHub's server
@@ -219,6 +220,30 @@ agent takes any number of tools; a tool belongs to one agent.
   `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS=true` *and* the tool's *Private network* switch. Cloud metadata addresses are
   always refused and the connection goes to the checked address. An HTTP Request Tool follows no redirect; the MCP
   client follows one only within the endpoint's origin, and every request is checked again.
+
+### Hand Over Tool
+
+A model that must answer in a shape (a verdict, a score, a list of reasons) is better asked to **fill in fields** than to write text that someone parses
+afterwards ([ADR-080](../architecture/adr/080-hand-over-tool.md)). The *Hand Over Tool* gives the model one function whose parameters are exactly the
+fields you define. The server checks every call:
+
+- A field has a **name** (lowercase letters, digits and `_`), a **type** (*Text*, *Number*, *True or false*, *Choice* with its values, *List of texts*), *Required*
+  or not, and a **description** the model reads. The list is **flat**: no field holds another object. At most 30 fields; the whole document at most
+  *Size limit* (default 16 KiB).
+- A call that does not fit (a required field missing, a wrong type, a value that is not one of a choice, a field that is not in the list, a document that is too big)
+  is **refused** and the model gets all that is wrong in one answer, `Error: the document was not accepted: 'passed' must be true or false; 'verdict' is required.
+  Call the tool again with a corrected document.` It may try again; every call stays in the step.
+- A call that fits answers `handed over`. **The last accepted document counts.** It is stored in the run under the name of the tool node, so a later node reads it as
+  `${(Review).data.passed}` (or `${node.Review.data.passed}`), and `${(Review).success}` is true. `attempts` is the number of calls the model needed. The agent's step
+  names it (*Handed over: Review*) and shows the document in its data.
+- A **Build Context** node can take the documents as a source (*Handover documents*), so a later agent gets what an earlier one handed over.
+- What the model hands over is **text from outside**: it is stored and pasted as it is and never read for `${...}` references, and the check never executes anything.
+  A step that was never handed anything has no document: a reference to it says the node has not run.
+
+*Example:* an agent reviews a change. Its Hand Over Tool "Review" has the fields `passed` (true or false, required), `verdict` (choice: approve, reject; required) and
+`reasons` (list of texts). The next node is an If node with the condition `${(Review).data.passed}` *is true*; its *On Fail* goes on to the node that asks for rework.
+
+A step that is not an agent cannot write a document yet: the tool is the only writer.
 
 ## 5. What an execution keeps
 

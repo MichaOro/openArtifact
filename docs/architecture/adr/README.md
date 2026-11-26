@@ -88,6 +88,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [076](076-stop-switch.md) | The emergency stop: one global switch that blocks every execution | Accepted | 2026-11-26 | amends ADR-062, ADR-028 |
 | [077](077-markdown-in-long-texts.md) | Markdown in the long texts: stored as written, a small subset (bold, italic, strikethrough, bullet lists) drawn by one safe renderer, a bar under the field | Accepted | 2026-11-26 | amends ADR-055, ADR-059, ADR-064 |
 | [078](078-build-context-node.md) | The Build Context node: one package for an agent from the card, its neighbours and earlier results, within a size limit, with a list of what went in and what was left out | Accepted | 2026-11-26 | amends ADR-054, ADR-053, ADR-072 |
+| [080](080-hand-over-tool.md) | The Hand Over Tool: a model hands over a document with the fields you define, the server checks every call, a later node reads it as the result of the tool node | Accepted | 2026-11-26 | amends ADR-040, ADR-054, ADR-072, ADR-078 |
 
 ## Notes
 
