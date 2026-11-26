@@ -15,6 +15,11 @@ export function displayName(node) {
   return typeOf(node).displayName(node);
 }
 
+/** The same name in two parts for the card: what the user named and the system's number of a placement (or null). */
+export function nameParts(node) {
+  return typeOf(node).nameParts(node);
+}
+
 /** Node size in world units. */
 export function sizeOf(node) {
   return typeOf(node).size(node);

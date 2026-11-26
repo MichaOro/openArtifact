@@ -9,7 +9,7 @@
  *    takes every node it touches; Shift adds) and moves the selected nodes together; wheel or the zoom buttons zoom;
  *  - read-only: dragging the background with the left button pans;
  *  - click a node or an edge to select it. */
-import { EDGE_STYLES, actionsOf, clampInStage, boxOf, displayName, canConnectFrom, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, slotPairs, snapY } from "./geometry.js";
+import { EDGE_STYLES, actionsOf, clampInStage, boxOf, displayName, nameParts, canConnectFrom, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, slotPairs, snapY } from "./geometry.js";
 import { icon } from "../components/icons.js";
 import { FAILING_PORTS, HEADER, typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
@@ -198,6 +198,21 @@ export class Canvas {
     if (type.labelled(port)) el.dataset.label = label;
   }
 
+  /** The name on the card: the system's number first and muted (when the same action is placed more than once), then the name; one line, cut with an
+   * ellipsis by the stylesheet, the whole name in the tooltip (ADR-082). A card without a number holds the name as plain text. */
+  #drawName(el, node) {
+    const { label, number } = nameParts(node);
+    el.title = displayName(node);
+    if (!number) {
+      el.textContent = label;
+      return;
+    }
+    const mark = document.createElement("span");
+    mark.className = "ge-node__number";
+    mark.textContent = `#${number}`;
+    el.replaceChildren(mark, document.createTextNode(` ${label}`));
+  }
+
   #updateNode(node, el) {
     const type = typeOf(node);
     const { width, height } = sizeOf(node);
@@ -205,7 +220,7 @@ export class Canvas {
     el.style.top = `${node.y}px`;
     el.style.width = `${width}px`;
     el.style.height = `${height}px`;
-    el.querySelector(".ge-node__name").textContent = displayName(node);
+    this.#drawName(el.querySelector(".ge-node__name"), node);
     el.setAttribute("aria-label", `${type.label}: ${displayName(node)}`);
     const caption = el.querySelector(".ge-node__kind");
     const text = type.caption(node);

@@ -148,7 +148,8 @@ def test_the_same_action_placed_three_times_is_told_apart_by_its_number(
     page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
     names = page.locator(".ge-node--action .ge-node__name")
     expect(names).to_have_count(3)
-    assert sorted(names.all_inner_texts()) == ["Check #1", "Check #2", "Check #3"]
+    # the number comes first and quiet, then the name (owner's decision on the card's title, ADR-082 addendum)
+    assert sorted(names.all_inner_texts()) == ["#1 Check", "#2 Check", "#3 Check"]
 
 
 def test_the_reference_list_inserts_the_id_and_shows_the_name_and_a_rename_changes_nothing(

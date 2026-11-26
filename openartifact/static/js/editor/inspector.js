@@ -5,17 +5,25 @@ import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
 import { field } from "./field.js";
 import { agentBlock } from "./agent-inspector.js";
-import { displayName } from "./geometry.js";
+import { displayName, nameParts } from "./geometry.js";
 import { typeOf } from "./node-types.js";
 import { buildSettings } from "./settings-layout.js";
 import { t } from "../i18n.js";
 
 /** Title and caption; `rename` ({label, onCommit}) makes the title editable in place. */
-export function heading(text, caption, rename = null) {
+export function heading(text, caption, rename = null, number = null) {
   const wrap = document.createElement("div");
   wrap.className = "ge-inspector__heading";
   const title = document.createElement("h2");
-  title.textContent = text;
+  if (number && !rename) {
+    // the system's number of a placement (ADR-082): first and quiet, not part of what the user may edit
+    const mark = document.createElement("span");
+    mark.className = "ge-inspector__number";
+    mark.textContent = `#${number}`;
+    title.append(mark, document.createTextNode(` ${text}`));
+  } else {
+    title.textContent = number ? `#${number} ${text}` : text;
+  }
   title.dataset.focusKey = "title";
   wrap.append(title);
   if (rename) new InlineName(title, rename);
@@ -62,7 +70,8 @@ export class InspectorBlocks {
   title(node) {
     const type = typeOf(node);
     const rename = type.renamable(node) ? { label: `${type.label} name`, onCommit: (name) => this.editor.renameNode(node, name) } : null;
-    const head = heading(displayName(node), type.subtitle(node), rename);
+    const { label, number } = nameParts(node);
+    const head = heading(rename ? displayName(node) : label, type.subtitle(node), rename, rename ? null : number);
     const glyph = type.constructor.icon;
     if (!glyph) return head;
     // the icon of the node's kind in its colour, as on the canvas
