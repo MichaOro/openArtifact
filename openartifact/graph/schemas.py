@@ -277,6 +277,29 @@ class PublishCheck(BaseModel):
     warnings: int
 
 
+class GraphContract(BaseModel):
+    """The inputs and outputs of an action or a pipeline **as the version that runs declares them** (ADR-083 add. 2): the published version,
+    else the draft of a graph that was never published. While the draft has changes, the pipelines that use the graph keep this contract."""
+
+    graph_id: str
+    kind: str = Field(description="`action` or `pipeline`.")
+    version: int | None = Field(
+        description="The published version number; `null` while nothing is published."
+    )
+    running: Literal["published", "draft"] = Field(
+        description="Which version the contract comes from: `draft` only for a graph that was never published (the engine runs its draft then)."
+    )
+    draft_changed: bool = Field(
+        description="The draft differs from the published version: a newer contract waits for Publish."
+    )
+    inputs: list[dict[str, Any]] = Field(
+        description="What the Trigger declares: `name`, `type`, `required`, `default`, `description`."
+    )
+    outputs: list[dict[str, Any]] = Field(
+        description="What the Output (action) or Complete (pipeline) declares: `name`, `type`, `value`, `description`."
+    )
+
+
 class PublishRequest(BaseModel):
     """The body of a publish. ``acknowledge`` says the caller has seen the findings and publishes anyway."""
 

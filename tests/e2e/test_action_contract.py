@@ -58,6 +58,9 @@ def test_the_trigger_has_a_window_with_the_inputs_and_a_default_is_saved_at_once
     name = dialog.get_by_label("Name of field 1")
     name.fill("who")
     name.press("Enter")
+    # the default is not on the compact row: the row menu adds it (owner decision of 2026-11-26)
+    dialog.locator(".sf__more").click()
+    page.get_by_role("menu").get_by_role("menuitem", name="Add default value").click()
     default = dialog.locator(".sf__extra")
     default.fill("Ann")
     default.press("Enter")
@@ -107,13 +110,19 @@ def test_the_node_that_runs_an_action_has_one_row_per_input_and_saves_the_mappin
     dialog = page.locator(DIALOG)
     who = dialog.get_by_label(re.compile(r"^who"))
     expect(who).to_be_visible()
-    expect(dialog.get_by_label(re.compile(r"^times"))).to_have_attribute(
-        "placeholder", "Default: 2"
-    )
+    expect(who).to_have_attribute(
+        "placeholder", "who"
+    )  # the name of the input, faint, until a value overrides it
+    times = dialog.get_by_label(re.compile(r"^times"))
+    # the name of the input sits in the value field faintly until a value or a reference overrides it; the default is said at the label
+    expect(times).to_have_attribute("placeholder", "times")
+    expect(times).to_have_value("")
+    expect(dialog.locator(".ge-mapping__default")).to_have_text(" · Default: 2")
     expect(dialog.locator(".ge-mapping__required")).to_have_count(1)  # only "who" is required
     who.fill("${card.title}")
     who.press("Enter")
     eventually(lambda: _config(api, pipeline, "action")["input_values"], {"who": "${card.title}"})
+    expect(who).to_have_value("${card.title}")  # a typed value overrides the ghost
 
 
 def test_an_action_without_inputs_shows_no_mapping(
@@ -152,7 +161,10 @@ def test_the_same_action_placed_three_times_is_told_apart_by_its_number(
     assert sorted(names.all_inner_texts()) == ["#1 Check", "#2 Check", "#3 Check"]
 
 
-def test_the_reference_list_inserts_the_id_and_shows_the_name_and_a_rename_changes_nothing(
+UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def test_a_field_shows_the_name_of_a_node_never_its_id_and_a_rename_changes_the_display_not_the_storage(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     action = post(api, "/api/actions", name="Refs")
@@ -168,6 +180,9 @@ def test_the_reference_list_inserts_the_id_and_shows_the_name_and_a_rename_chang
     expect(option).to_be_visible()  # the list shows the name, not an id
     option.click()
     page.locator(".popover--suggest").get_by_text("(Fetch).output").click()
+    # what the field holds is the name form: no id appears while the user works
+    expect(field).to_have_value("http://example.test/${node:Fetch.output}")
+    assert not UUID.search(field.input_value())
     field.press("Enter")
     stored = f"http://example.test/${{node:{fetch['id']}.output}}"
     eventually(
@@ -177,24 +192,73 @@ def test_the_reference_list_inserts_the_id_and_shows_the_name_and_a_rename_chang
             if n["id"] == reader["id"]
         ],
         [stored],
-    )
-    expect(page.locator(DIALOG).locator("[data-references]:not([hidden])")).to_have_text(
-        "Reads: http://example.test/${(Fetch).output}"
-    )
+    )  # storage, API and MCP keep the id
+    expect(field).to_have_value(
+        "http://example.test/${node:Fetch.output}"
+    )  # and the field still shows the name after the save
     api.patch(
         f"{graph_url(action)}/nodes/{fetch['id']}", json={"name": "Download"}
     ).raise_for_status()
     page.reload()
     page.locator(f'.ge-node[data-node-id="{reader["id"]}"]').dblclick(position={"x": 30, "y": 5})
-    expect(page.locator(DIALOG).locator("[data-references]:not([hidden])")).to_have_text(
-        "Reads: http://example.test/${(Download).output}"
-    )  # the text still holds the id; the name shown is the new one
+    shown = page.locator(DIALOG).get_by_label("URL")
+    expect(shown).to_have_value(
+        "http://example.test/${node:Download.output}"
+    )  # the display follows the rename
+    assert not UUID.search(shown.input_value())
     assert (
         next(n for n in api.get(graph_url(action)).json()["nodes"] if n["id"] == reader["id"])[
             "config"
         ]["url"]
         == stored
+    )  # the storage did not change
+    # a save of the field with an edit next to the reference keeps the id in storage
+    shown.fill("http://example.test/${node:Download.output}?x=1")
+    shown.press("Enter")
+    eventually(
+        lambda: next(
+            n for n in api.get(graph_url(action)).json()["nodes"] if n["id"] == reader["id"]
+        )["config"]["url"],
+        f"http://example.test/${{node:{fetch['id']}.output}}?x=1",
     )
+
+
+def test_a_mapping_field_of_a_placement_never_shows_an_id(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _declared_action(api)
+    pipeline = post(api, "/api/pipelines", name="Flow ids")
+    stage = node(api, pipeline, "stage", name="Stage")
+    connect(api, pipeline, kind_of(api, pipeline, "trigger"), "out", stage, "start")
+    first = node(api, pipeline, "action", stage_id=stage["id"], x=24, y=48)
+    second = node(api, pipeline, "action", stage_id=stage["id"], x=24, y=130)
+    for placed in (first, second):
+        api.patch(
+            f"{graph_url(pipeline)}/nodes/{placed['id']}", json={"definition_id": definition["id"]}
+        ).raise_for_status()
+    stored = f"${{node:{first['id']}.data.greeting}}"
+    api.patch(
+        f"{graph_url(pipeline)}/nodes/{second['id']}",
+        json={"config": {"input_values": {"who": stored}}},
+    ).raise_for_status()
+    page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
+    _open_settings(page, second)
+    who = page.locator(DIALOG).get_by_label(re.compile(r"^who"))
+    shown = who.input_value()
+    assert shown == "${node:Greet #1.data.greeting}", shown  # the placement as its card calls it
+    assert not UUID.search(shown)
+    who.fill(shown + " today")
+    who.press("Enter")
+    eventually(
+        lambda: next(
+            n for n in api.get(graph_url(pipeline)).json()["nodes"] if n["id"] == second["id"]
+        )["config"]["input_values"]["who"],
+        stored + " today",
+    )  # after the save and a reload the API still holds the id form
+    page.reload()
+    _open_settings(page, second)
+    again = page.locator(DIALOG).get_by_label(re.compile(r"^who")).input_value()
+    assert again == "${node:Greet #1.data.greeting} today" and not UUID.search(again)
 
 
 def test_a_duplicated_stage_reads_its_own_copy_of_the_action_before_it(
@@ -246,3 +310,46 @@ def test_a_duplicated_stage_reads_its_own_copy_of_the_action_before_it(
         n for n in api.get(graph_url(pipeline)).json()["nodes"] if n["id"] == second["id"]
     )
     assert original["config"]["input_values"]["who"] == f"${{node:{first['id']}.data.greeting}}"
+
+
+def test_a_new_input_of_an_action_draft_is_not_shown_at_the_placement_until_it_is_published(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _declared_action(api)
+    api.post(
+        f"/api/actions/{definition['id']}/publish", json={"acknowledge": True}
+    ).raise_for_status()
+    pipeline = post(api, "/api/pipelines", name="Flow")
+    stage = node(api, pipeline, "stage", name="Stage")
+    connect(api, pipeline, kind_of(api, pipeline, "trigger"), "out", stage, "start")
+    action = node(api, pipeline, "action", stage_id=stage["id"], x=24, y=48)
+    api.patch(
+        f"{graph_url(pipeline)}/nodes/{action['id']}", json={"definition_id": definition["id"]}
+    ).raise_for_status()
+    # the draft of the action gets a third input (typed in its Trigger, not published)
+    inputs = _config(api, definition, "trigger")["inputs"]
+    api.patch(
+        f"{graph_url(definition)}/nodes/{kind_of(api, definition, 'trigger')['id']}",
+        json={
+            "config": {"inputs": [*inputs, {"name": "topic", "type": "text", "required": False}]}
+        },
+    ).raise_for_status()
+    page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
+    _open_settings(page, action)
+    dialog = page.locator(DIALOG)
+    expect(dialog.get_by_label(re.compile(r"^who"))).to_be_visible()
+    expect(dialog.get_by_label(re.compile(r"^topic"))).to_have_count(0)  # what runs has two inputs
+    # Publish: the editor that is open reads the contract again, the row appears without a reload
+    api.post(
+        f"/api/actions/{definition['id']}/publish", json={"acknowledge": True}
+    ).raise_for_status()
+    expect(dialog.get_by_label(re.compile(r"^topic"))).to_be_visible()
+    # a draft that is thrown away brings the published contract back
+    api.patch(
+        f"{graph_url(definition)}/nodes/{kind_of(api, definition, 'trigger')['id']}",
+        json={"config": {"inputs": inputs}},
+    ).raise_for_status()
+    api.post(f"/api/actions/{definition['id']}/draft/discard").raise_for_status()
+    expect(
+        dialog.get_by_label(re.compile(r"^topic"))
+    ).to_be_visible()  # the published version has it

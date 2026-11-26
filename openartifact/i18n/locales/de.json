@@ -2325,7 +2325,6 @@
  "editor.reference_completion.gone": "gelöschter Knoten",
  "editor.reference.inputs.one": "1 Input dieses Graphen",
  "editor.reference.inputs.other": "{count} Inputs dieses Graphen",
- "editor.setting_controls.refers_to": "Liest:",
  "components.schema_fields.default_placeholder": "Standardwert (optional)",
  "components.schema_fields.default_label": "Standardwert von {name}",
  "components.schema_fields.value_placeholder": "Wert: ein Text oder ${…}-Verweise",
@@ -2414,5 +2413,12 @@
  "agents.view.answer_accepted": "Aufruf {n}: angenommen",
  "agents.view.answer_repaired": "Die Antwort wurde einmal korrigiert.",
  "tasks.history_step.answer_reported": "Antwort gemeldet",
- "tasks.history_step.answer_repaired": "Antwort gemeldet, einmal korrigiert"
+ "tasks.history_step.answer_repaired": "Antwort gemeldet, einmal korrigiert",
+ "components.schema_fields.more": "Aktionen für {name}",
+ "components.schema_fields.menu.add_description": "Beschreibung hinzufügen",
+ "components.schema_fields.menu.remove_description": "Beschreibung entfernen",
+ "components.schema_fields.menu.add_default": "Standardwert hinzufügen",
+ "components.schema_fields.menu.remove_default": "Standardwert entfernen",
+ "components.schema_fields.menu.delete": "Löschen",
+ "components.schema_fields.description_wide_placeholder": "Beschreibung"
 }

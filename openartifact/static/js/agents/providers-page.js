@@ -177,7 +177,7 @@ function modelRow(provider, model) {
   row.dataset.available = String(model.available);
   row.dataset.modelId = model.model_id;
   const label = el("label");
-  const box = Object.assign(el("input"), { type: "checkbox", checked: model.enabled });
+  const box = Object.assign(el("input", "check"), { type: "checkbox", checked: model.enabled });
   box.setAttribute("aria-label", t("agents.providers_page.use_model_model_id", { model_id: model.model_id }));
   box.addEventListener("change", () => act(() => updateModel(provider.id, model.id, { enabled: box.checked })));
   label.append(box, el("span", "ag-model__id", model.model_id));

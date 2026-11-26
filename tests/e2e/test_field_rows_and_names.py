@@ -1,6 +1,6 @@
 """The two looks the owner asked for after testing ADR-082/083: the name of a numbered placement on its card (the number first and quiet, the
 name cut with an ellipsis before the port labels) and the field list of the Trigger, Output and Complete windows as one row per field under
-column heads (ADR-083, addendum)."""
+column heads and, after the owner's second look, as compact rows with a three-dot menu (ADR-083, addenda 1 and 2)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
+from tests.e2e.helpers import eventually
 from tests.helpers import graph_url, kind_of, node, post
 
 DIALOG = "#node-modal"
@@ -21,7 +22,7 @@ BOXES = """(root) => {
   const q = (sel) => { const e = root.querySelector(sel); return e ? box(e) : null; };
   return {
     grip: q('.sf__grip'), name: q('.sf__name'), type: q('.sf__type'), required: q('.sf__required .sf__check'),
-    description: q('.sf__description'), extra: q('.sf__extra'), bin: q('.sf__bin'),
+    description: q('.sf__description'), extra: q('.sf__extra'), more: q('.sf__more'),
   };
 }"""
 
@@ -186,68 +187,147 @@ def _trigger_inputs(api: httpx.Client) -> dict[str, Any]:
     return action
 
 
-def test_the_trigger_window_draws_one_row_per_input_under_column_heads(
-    page: Page, base_url: str, api: httpx.Client
-) -> None:
-    action = _trigger_inputs(api)
-    page.set_viewport_size({"width": 1280, "height": 900})
+def _open_trigger(page: Page, base_url: str, action: dict[str, Any]) -> Locator:
     page.goto(f"{base_url}/actions/{action['slug']}")
     page.locator(".ge-node--trigger").dblclick(position={"x": 20, "y": 5})
     dialog = page.locator(DIALOG)
     expect(dialog.locator(".sf--wide")).to_have_count(1)
     _still(page)
+    return dialog
+
+
+def _stored_inputs(api: httpx.Client, action: dict[str, Any]) -> list[dict[str, Any]]:
+    config = kind_of(api, action, "trigger")["config"] or {}
+    return list(config.get("inputs", []))
+
+
+def test_the_trigger_window_is_small_and_each_input_is_one_compact_row_under_column_heads(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    action = _trigger_inputs(api)
+    page.set_viewport_size({"width": 1280, "height": 900})
+    dialog = _open_trigger(page, base_url, action)
     heads = dialog.locator(".sf__head .sf__h")
-    assert heads.all_inner_texts() == ["Name *", "Type", "Required", "Description", "Default"]
+    assert heads.all_inner_texts() == ["Name *", "Type", "Required"]
     rows = dialog.locator(".sf__row")
     expect(rows).to_have_count(2)
+    panel = dialog.locator(".modal__panel").bounding_box()
+    assert panel and panel["width"] <= 640, panel  # the owner's mock: a small window
     head_boxes = {
         part: dialog.locator(f".sf__h--{part}").bounding_box()
-        for part in ("name", "type", "required", "description", "extra")
+        for part in ("name", "type", "required")
     }
     for index in range(2):
-        row = rows.nth(index)
-        boxes = row.evaluate(BOXES)
-        order = ["grip", "name", "type", "required", "description", "extra", "bin"]
-        # one row: the same height band, left to right in the order of the columns, nothing over anything else
+        boxes = rows.nth(index).evaluate(BOXES)
+        order = ["grip", "name", "type", "required", "more"]
         tops = [boxes[n]["t"] + boxes[n]["h"] / 2 for n in order]
-        assert max(tops) - min(tops) <= 8, (index, tops)
+        assert max(tops) - min(tops) <= 8, (index, tops)  # one band
         lefts = [boxes[n]["l"] for n in order]
         assert lefts == sorted(lefts), (index, lefts)
         _no_overlap(boxes, order)
-        # the columns are those of the heads
-        for part in ("name", "type", "description", "extra"):
+        for part in ("name", "type"):
             head = head_boxes[part]
-            assert head
-            assert abs(boxes[part]["l"] - head["x"]) <= 2, (part, boxes[part], head)
-    # the text for a model is not here, and no default placeholder repeats the head
-    expect(rows.nth(0).locator(".sf__description")).not_to_have_attribute(
-        "placeholder", "What the model puts here"
+            assert head and abs(boxes[part]["l"] - head["x"]) <= 2, (part, boxes[part], head)
+    # the bin is in the menu: nothing at the end of the row
+    expect(dialog.locator(".sf__bin")).to_have_count(0)
+    # what a field has is shown, nothing else
+    first, second = rows.nth(0), rows.nth(1)
+    expect(first.locator(".sf__description")).to_have_value("The person")
+    expect(first.locator(".sf__extra")).to_have_count(0)
+    expect(second.locator(".sf__description")).to_have_count(0)
+    expect(second.locator(".sf__extra")).to_have_value("a")
+    # the text for a model is not here, and the description sits on a line of its own under the name
+    assert (
+        first.locator(".sf__description").get_attribute("placeholder") != "What the model puts here"
     )
-    assert (rows.nth(0).locator(".sf__description").get_attribute("placeholder") or "") == ""
+    description = first.locator(".sf__description").bounding_box()
+    name = first.locator(".sf__name").bounding_box()
+    assert description and name
+    assert description["y"] >= name["y"] + name["height"] - 1
+    assert abs(description["x"] - name["x"]) <= 2
     # the values of a choice are a line of their own under the row
-    expect(rows.nth(1).locator(".sf__choices")).to_be_visible()
-    choices = rows.nth(1).locator(".sf__choices").bounding_box()
-    name = rows.nth(1).locator(".sf__name").bounding_box()
-    assert choices and name and choices["y"] >= name["y"] + name["height"] - 1
+    expect(second.locator(".sf__choices")).to_be_visible()
+
+
+def test_the_row_menu_adds_and_removes_the_description_and_the_default_and_deletes_the_field(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    action = post(api, "/api/actions", name="Menu rows")
+    api.patch(
+        f"{graph_url(action)}/nodes/{kind_of(api, action, 'trigger')['id']}",
+        json={"config": {"inputs": [{"name": "who", "type": "text", "required": False}]}},
+    ).raise_for_status()
+    page.set_viewport_size({"width": 1280, "height": 900})
+    dialog = _open_trigger(page, base_url, action)
+    row = dialog.locator(".sf__row").first
+    expect(row.locator(".sf__description")).to_have_count(0)
+    expect(row.locator(".sf__extra")).to_have_count(
+        0
+    )  # the window stays small until the menu adds them
+    more = row.locator(".sf__more")
+    menu = page.get_by_role("menu")
+    items = menu.get_by_role("menuitem")
+
+    def open_menu() -> None:
+        more.click()
+        expect(menu).to_be_visible()
+
+    open_menu()
+    assert items.all_inner_texts() == ["Add description", "Add default value", "Delete"]
+    items.filter(has_text="Add description").click()
+    description = row.locator(".sf__description")
+    expect(description).to_be_visible()
+    expect(description).to_be_focused()
+    description.fill("The person")
+    description.press("Enter")
+    eventually(lambda: _stored_inputs(api, action)[0].get("description"), "The person")
+    open_menu()
+    assert items.all_inner_texts() == ["Remove description", "Add default value", "Delete"]
+    items.filter(has_text="Add default value").click()
+    default = row.locator(".sf__extra")
+    expect(default).to_be_focused()
+    default.fill("anna")
+    default.press("Enter")
+    eventually(lambda: _stored_inputs(api, action)[0].get("default"), "anna")
+    open_menu()
+    items.filter(has_text="Remove default value").click()
+    expect(row.locator(".sf__extra")).to_have_count(0)
+    eventually(lambda: _stored_inputs(api, action)[0].get("default") or "", "")
+    open_menu()
+    items.filter(has_text="Remove description").click()
+    expect(row.locator(".sf__description")).to_have_count(0)
+    eventually(lambda: _stored_inputs(api, action)[0].get("description") or "", "")
+    # the keyboard: the menu button opens with Enter, the arrow keys move, Escape closes and gives the focus back
+    more.focus()
+    page.keyboard.press("Enter")
+    expect(menu).to_be_visible()
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Escape")
+    expect(menu).to_be_hidden()
+    expect(more).to_be_focused()
+    # Delete is in the menu and removes the field
+    open_menu()
+    items.filter(has_text="Delete").click()
+    expect(dialog.locator(".sf__row")).to_have_count(0)
+    eventually(lambda: _stored_inputs(api, action), [])
 
 
 def test_the_keyboard_goes_through_a_row_in_the_order_of_its_columns(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     action = _trigger_inputs(api)
-    page.goto(f"{base_url}/actions/{action['slug']}")
-    page.locator(".ge-node--trigger").dblclick(position={"x": 20, "y": 5})
-    first = page.locator(f"{DIALOG} .sf__row").first
+    dialog = _open_trigger(page, base_url, action)
+    first = dialog.locator(".sf__row").first
     first.locator(".sf__name").focus()
     seen = []
-    for _ in range(5):
+    for _ in range(4):
         page.keyboard.press("Tab")
         seen.append(
             page.evaluate(
                 "document.activeElement.className.split(' ').find(c => c.startsWith('sf__'))"
             )
         )
-    assert seen == ["sf__type", "sf__check", "sf__description", "sf__extra", "sf__bin"], seen
+    assert seen == ["sf__type", "sf__check", "sf__more", "sf__description"], seen
 
 
 def test_in_a_narrow_window_the_rows_are_stacked_again_without_overlap(
@@ -255,15 +335,12 @@ def test_in_a_narrow_window_the_rows_are_stacked_again_without_overlap(
 ) -> None:
     action = _trigger_inputs(api)
     page.set_viewport_size({"width": 390, "height": 900})
-    page.goto(f"{base_url}/actions/{action['slug']}")
-    page.locator(".ge-node--trigger").dblclick(position={"x": 20, "y": 5})
-    dialog = page.locator(DIALOG)
+    dialog = _open_trigger(page, base_url, action)
     expect(dialog.locator(".sf__row").first).to_be_visible()
     expect(dialog.locator(".sf__head")).to_be_hidden()
-    _still(page)
     boxes = dialog.locator(".sf__row").first.evaluate(BOXES)
     assert boxes["description"]["t"] >= boxes["name"]["b"] - 1, "the description is under the name"
-    _no_overlap(boxes, ["grip", "name", "type", "required", "description", "extra", "bin"])
+    _no_overlap(boxes, ["grip", "name", "type", "required", "description", "extra", "more"])
 
 
 def test_the_output_window_has_no_required_column_and_names_the_value_column(
@@ -281,9 +358,56 @@ def test_the_output_window_has_no_required_column_and_names_the_value_column(
     expect(dialog.locator(".sf__row").first).to_be_visible()
     _still(page)
     heads: Locator = dialog.locator(".sf__head .sf__h")
-    assert heads.all_inner_texts() == ["Name *", "Type", "Description", "Value"]
+    assert heads.all_inner_texts() == ["Name *", "Type", "Value"]
     boxes = dialog.locator(".sf__row").first.evaluate(BOXES)
-    _no_overlap(boxes, ["grip", "name", "type", "description", "extra", "bin"])
-    assert boxes["extra"]["l"] > boxes["description"]["l"], (
-        "the value is the last column before the bin"
+    _no_overlap(boxes, ["grip", "name", "type", "extra", "more"])
+    assert boxes["extra"]["l"] > boxes["type"]["l"], "the value is the last column before the menu"
+    # an output always has its value on the row; the menu keeps the description and the deletion
+    more = dialog.locator(".sf__more").first
+    more.click()
+    assert page.get_by_role("menu").get_by_role("menuitem").all_inner_texts() == [
+        "Add description",
+        "Delete",
+    ]
+
+
+def test_the_required_box_is_the_shared_checkbox_and_toggles_by_key_and_by_its_label(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    action = _trigger_inputs(api)
+    page.set_viewport_size({"width": 1280, "height": 900})
+    dialog = _open_trigger(page, base_url, action)
+    rows = dialog.locator(".sf__row")
+    box = rows.nth(0).locator("label.ck input.check.ck__input")
+    expect(box).to_have_count(
+        1
+    )  # the shared component: a label around the native input, not a bare native box
+    looks = box.evaluate(
+        "e => { const s = getComputedStyle(e); return {appearance: s.appearance, radius: s.borderTopLeftRadius, bg: s.backgroundColor}; }"
     )
+    assert looks["appearance"] == "none" and looks["radius"] != "0px", looks
+    accent = page.evaluate(
+        "() => { const d = document.createElement('div'); d.style.background = 'var(--color-accent)'; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; }"
+    )
+    assert looks["bg"] == accent, (
+        looks,
+        accent,
+    )  # checked: filled in the accent colour (purple), the tick is drawn on it
+    empty = (
+        rows.nth(1).locator("input.sf__check").evaluate("e => getComputedStyle(e).backgroundColor")
+    )
+    assert empty == "rgba(0, 0, 0, 0)", empty  # unchecked: an empty square with a soft border
+    # the keyboard: Space toggles it
+    second = rows.nth(1).locator("input.sf__check")
+    second.focus()
+    page.keyboard.press("Space")
+    expect(second).to_be_checked()
+    eventually(lambda: _stored_inputs(api, action)[1].get("required"), True)
+    # the text of the label is part of the box in the stacked layout: a click on it toggles
+    page.set_viewport_size({"width": 390, "height": 900})
+    _still(page)
+    text = rows.nth(1).locator(".ck__text")
+    expect(text).to_be_visible()
+    text.click()
+    expect(second).not_to_be_checked()
+    eventually(lambda: _stored_inputs(api, action)[1].get("required"), False)

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-const { applyCompletion, candidatesFor, filterCandidates, nodeKey, nodeLabel, openReference, readableReferences, suggestionsFor } = await import("../../openartifact/static/js/editor/reference-completion.js");
+const { applyCompletion, candidatesFor, filterCandidates, nodeKey, nodeLabel, openReference, suggestionsFor } = await import("../../openartifact/static/js/editor/reference-completion.js");
 
 // what the server says about each kind (the manifests): which kinds leave a result, their data keys and the variables they set
 const { readFileSync } = await import("node:fs");
@@ -47,14 +47,14 @@ test("candidates list the nodes with results, the declared variables once, and s
   assert.ok(withSecrets.includes("secret:API_KEY"));
 });
 
-test("a node is inserted by its id and listed by its name, so a rename changes no reference (ADR-082)", () => {
+test("a node is listed and inserted by its name (the field shows names, never ids), the id is what is stored (ADR-082 add. 1)", () => {
   const all = candidatesFor(NODES, { kinds });
   const output = all.find((c) => c.label === "(Fetch user).output");
-  assert.equal(output.insert, "node:a.output");
-  assert.equal(output.head, "node:a.");
+  assert.equal(output.insert, "node:Fetch user.output");
+  assert.equal(output.head, "node:Fetch user.");
   assert.equal(output.headLabel, "(Fetch user).");
-  const renamed = candidatesFor([{ ...NODES[0], name: "Download" }], { kinds }).find((c) => c.insert === "node:a.output");
-  assert.equal(renamed.label, "(Download).output", "the id stays, the list shows the new name");
+  const renamed = candidatesFor([{ ...NODES[0], name: "Download" }], { kinds }).find((c) => c.insert === "node:Download.output");
+  assert.equal(renamed.label, "(Download).output", "a rename shows at once: the name is only shown, reference-names.js turns it into the id when the field is saved");
 });
 
 test("a node of an action that is placed more than once is listed with its number", () => {
@@ -72,22 +72,15 @@ test("the declared inputs of the graph are offered as input.NAME and a placement
   const contracts = (node) => (node.definition_id === "d1" ? { outputs: ["greeting", "count"] } : null);
   const all = candidatesFor(nodes, { kinds, contracts });
   assert.deepEqual(all.filter((c) => c.head === "input.").map((c) => c.insert), ["input.who"]);
-  const placement = all.filter((c) => c.head === "node:p1.");
+  const placement = all.filter((c) => c.head === "node:Greet #1.");
   assert.deepEqual(placement.map(shown), ["(Greet #1).outcome", "(Greet #1).success", "(Greet #1).reason", "(Greet #1).attempts", "(Greet #1).duration_ms", "(Greet #1).data.", "(Greet #1).data.greeting", "(Greet #1).data.count"]);
-  assert.ok(!all.some((c) => c.head === "node:p2."), "an action without a contract leaves no result to read");
+  assert.ok(!all.some((c) => c.head === "node:Nothing."), "an action without a contract leaves no result to read");
 });
 
-test("a text with ids is shown with the names the nodes have now, and a deleted node says so", () => {
-  const nodes = [{ id: "11111111-1111-4111-8111-111111111111", name: "Fetch user" }];
-  assert.equal(readableReferences("a ${node:11111111-1111-4111-8111-111111111111.data.id} b", nodes), "a ${(Fetch user).data.id} b");
-  assert.equal(readableReferences("${node:22222222-2222-4222-8222-222222222222.output}", nodes), "${(deleted node).output}");
-  assert.equal(readableReferences("plain ${card.title}", nodes), "plain ${card.title}");
-});
-
-test("two nodes with one name are both offered, each by its own id (ADR-082)", () => {
+test("two nodes with one name are both offered, told apart by (1) and (2), never by an id (ADR-082 add. 1)", () => {
   const twice = [{ id: "1", kind: "code", name: "Same" }, { id: "2", kind: "http", name: "Same" }];
   const outputs = candidatesFor(twice, { kinds }).filter((c) => c.insert.endsWith(".output"));
-  assert.deepEqual(outputs.map((c) => c.insert), ["node:1.output", "node:2.output"]);
+  assert.deepEqual(outputs.map((c) => c.insert), ["node:Same (1).output", "node:Same (2).output"]);
 });
 
 test("filtering is case-insensitive, prefix matches first, and bounded", () => {
@@ -95,7 +88,7 @@ test("filtering is case-insensitive, prefix matches first, and bounded", () => {
   assert.equal(filterCandidates(all, "").length, all.length);
   const hits = filterCandidates(all, "(ping").map(shown);
   assert.deepEqual(hits.slice(0, 2), ["(Ping).output", "(Ping).exit_code"]);
-  assert.deepEqual(filterCandidates(all, "node:b.").slice(0, 2).map(shown), ["(Ping).output", "(Ping).exit_code"], "the id form finds it too");
+  assert.deepEqual(filterCandidates(all, "node:Ping.").slice(0, 2).map(shown), ["(Ping).output", "(Ping).exit_code"], "the form with the node: head finds it too");
   const loose = filterCandidates(all, "score").map((c) => c.insert);
   assert.deepEqual(loose, ["var.score"]);
   assert.deepEqual(filterCandidates(all, "zzz"), []);
@@ -136,21 +129,23 @@ test("a name with blanks and a colon stays open while its parenthesis is typed, 
   assert.deepEqual(openReference("${(Code: hello).da", 18), { start: 0, query: "(Code: hello).da" });
   assert.equal(openReference("${(Code: hello).data x", 22), null); // blanks after the name end it
   assert.equal(openReference("${(Code\nx", 9), null);
+  assert.deepEqual(openReference("${node:Fetch user.ou", 20), { start: 0, query: "node:Fetch user.ou" }, "a name with blanks in the node: form stays open");
+  assert.equal(openReference("${node:Fetch user.output x", 26), null);
   const odd = candidatesFor([{ id: "1", kind: "code", name: "Say (hi)" }], { kinds }).map(shown);
-  assert.ok(odd.includes("node:1.output"), "a name the list cannot spell is shown by its id form");
+  assert.ok(odd.includes("node:Say (hi).output"), "a name the list cannot spell in parentheses is shown in the node: form");
 });
 
 test("suggestions lead in steps: groups and nodes first, then what is behind the one chosen", () => {
   const all = candidatesFor(NODES, { kinds, secrets: ["API_KEY"], allowSecrets: true, cardFields: [{ name: "repo", label: "repo" }, { name: "date", label: "Date" }] });
   const first = suggestionsFor(all, "").map(shown);
   assert.deepEqual(first, ["card.", "var.", "secret:", "(Fetch user).", "(Ping).", "(Decide).", "(Other)."]);
-  assert.deepEqual(suggestionsFor(all, "").filter((c) => c.label).map((c) => c.insert), ["node:a.", "node:b.", "node:d.", "node:e."], "a group is inserted by the id of the node");
+  assert.deepEqual(suggestionsFor(all, "").filter((c) => c.label).map((c) => c.insert), ["node:Fetch user.", "node:Ping.", "node:Decide.", "node:Other."], "a group is inserted by the name of the node");
   assert.ok(suggestionsFor(all, "").every((c) => c.complete === false), "choosing one goes on to the next step");
   assert.deepEqual(suggestionsFor(all, "card.").map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number", "card.repo", "card.date"]);
   assert.deepEqual(suggestionsFor(all, "card.d").map((c) => c.insert), ["card.date"]);
   assert.deepEqual(suggestionsFor(all, "(Fetch user).").map(shown), ["(Fetch user).output", "(Fetch user).exit_code", "(Fetch user).outcome", "(Fetch user).success", "(Fetch user).reason", "(Fetch user).attempts", "(Fetch user).duration_ms", "(Fetch user).data."]);
   assert.deepEqual(suggestionsFor(all, "(Fetch user).ou").map(shown), ["(Fetch user).output", "(Fetch user).outcome"]);
-  assert.deepEqual(suggestionsFor(all, "node:a.ou").map(shown), ["(Fetch user).output", "(Fetch user).outcome"], "once the id head is inserted the same list follows");
+  assert.deepEqual(suggestionsFor(all, "node:Fetch user.ou").map(shown), ["(Fetch user).output", "(Fetch user).outcome"], "once the node: head is inserted the same list follows");
   assert.deepEqual(suggestionsFor(all, "var.").map((c) => c.insert), ["var.priority", "var.score"]);
   assert.deepEqual(suggestionsFor(all, "secret:").map((c) => c.insert), ["secret:API_KEY"]);
   assert.deepEqual(suggestionsFor(all, "pin").map(shown), ["(Ping)."], "typing a part of a name finds the node");

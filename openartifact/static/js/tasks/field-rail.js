@@ -114,7 +114,7 @@ export class FieldRail {
       const chosen = new Set(Array.isArray(value) ? value : []);
       for (const option of field.options) {
         const wrap = element("label", "card-field__choice");
-        const box = element("input");
+        const box = element("input", "check");
         box.type = "checkbox";
         box.value = option;
         box.checked = chosen.has(option);

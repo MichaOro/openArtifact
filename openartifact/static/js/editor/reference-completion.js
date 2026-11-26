@@ -49,6 +49,11 @@ export function openReference(text, caret) {
     const close = query.indexOf(")");
     return /[}\n]/.test(query) || (close >= 0 && /\s/.test(query.slice(close + 1))) ? null : { start, query };
   }
+  if (query.startsWith("node:")) {
+    // a node by its name (ADR-082 add. 1): the name may hold blanks; the reference ends at the first blank after the field has begun
+    const dot = query.lastIndexOf(".");
+    return /[}\n]/.test(query) || (dot >= 0 && /\s/.test(query.slice(dot + 1))) ? null : { start, query };
+  }
   return /[}\s]/.test(query) ? null : { start, query };
 }
 
@@ -72,14 +77,15 @@ export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecre
   for (const trigger of nodes.filter((n) => n.kind === "trigger")) {
     for (const spec of trigger.config?.inputs ?? []) out.push({ insert: `input.${spec.name}`, detail: spec.description ? `${t("editor.reference_completion.an_input")}: ${spec.description}` : t("editor.reference_completion.an_input"), complete: true, head: "input." });
   }
+  const labels = labelsFor(nodes); // what a reference shows of a node: its name as the card shows it (reference-names.js turns it into the id when the field is saved)
   for (const node of nodes) {
     if (node.id === exceptId || !node.id) continue;
     // a node that leaves a result by its kind, or an action/pipeline node whose definition declares inputs or outputs (ADR-083)
     const contract = contracts(node);
     if (!kinds(node.kind)?.produces_result && !contract) continue;
-    // a node is named by its id (ADR-082): a rename changes no reference. The list shows its name as the editor shows it.
+    // a node is stored by its id (ADR-082: a rename changes no reference) and shown by its name: the field gets `node:<name>.field`, never the id
     const name = nodeLabel(node);
-    const head = `node:${node.id}.`;
+    const head = `node:${labels.get(node.id)}.`;
     const headLabel = /[()}\r\n]/.test(name) || !name ? head : `(${name}).`;
     const label = (field) => `${headLabel}${field}`;
     for (const [field, detail] of NODE_FIELDS) {
@@ -114,14 +120,25 @@ export function nodeLabel(node) {
   return node.placement_number ? `${base} #${node.placement_number}` : base;
 }
 
-/** `text` with every `${node:ID.field}` shown by the node's current name, `${(Name).field}`: what a reader sees under a field whose
- * text holds ids. A reference to a node that is not there says so. */
-export function readableReferences(text, nodes) {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  return String(text ?? "").replace(/\$\{node:([0-9a-f-]{36})\.([^}\r\n]{1,200})\}/g, (_, id, rest) => {
-    const found = byId.get(id);
-    return found ? `\${(${nodeLabel(found)}).${rest}}` : `\${(${t("editor.reference_completion.gone")}).${rest}}`;
-  });
+/** What the editor calls a node inside a reference: its label without the characters that would end or break a reference. */
+function clean(label) {
+  return String(label ?? "").replace(/\s*[}\r\n]+\s*/g, " ").trim();
+}
+
+/** The unique display label of every node, by id (`Map`): the label as the card shows it; nodes that share a label are told apart by ` (1)`,
+ * ` (2)` ... in the order of the nodes (so the bare shared label names none of them: typed by hand it is left alone for the check to report). */
+export function labelsFor(nodes) {
+  const bases = nodes.filter((n) => n?.id).map((n) => [n.id, clean(nodeLabel(n)) || clean(n.name) || "node"]);
+  const total = new Map();
+  for (const [, base] of bases) total.set(base, (total.get(base) ?? 0) + 1);
+  const seen = new Map();
+  const labels = new Map();
+  for (const [id, base] of bases) {
+    const count = (seen.get(base) ?? 0) + 1;
+    seen.set(base, count);
+    labels.set(id, total.get(base) > 1 ? `${base} (${count})` : base);
+  }
+  return labels;
 }
 
 /**

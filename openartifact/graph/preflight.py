@@ -33,6 +33,8 @@ from openartifact.engine.context import (
 )
 from openartifact.engine.fields import FieldsError, parse_fields
 from openartifact.graph.content import graph_of
+from openartifact.graph.contract import consumer_findings
+from openartifact.graph.publishing import graph_for_run
 from openartifact.models import Graph, NodeKind, Secret
 
 Level = Literal["error", "warning"]
@@ -309,7 +311,9 @@ async def check(session: AsyncSession, graph_id: str) -> list[Finding]:
         for n in content["nodes"]
         if n.get("definition_id") and n["kind"] in (NodeKind.ACTION, NodeKind.PIPELINE)
     }
-    definitions = {i: await graph_of(session, i) for i in sorted(definition_ids)}
+    # what a placement is checked against is the contract of the version that RUNS (published, else the draft: graph/contract.py), not the
+    # draft of the action that may be half edited
+    definitions = {i: await graph_for_run(session, i) for i in sorted(definition_ids)}
     fields = {spec.name for spec in await field_specs(session)}
     secrets = set(await session.scalars(select(Secret.name)))
     others = (await session.execute(select(Graph.id, Graph.kind).where(Graph.id != graph_id))).all()
@@ -325,4 +329,8 @@ async def check(session: AsyncSession, graph_id: str) -> list[Finding]:
     for node in content["nodes"]:
         checker.check_node(node)
         checker.check_mapping(node)
-    return sorted(checker.findings, key=lambda f: (f.level != "error", f.node_name, f.code))
+    found = sorted(checker.findings, key=lambda f: (f.level != "error", f.node_name, f.code))
+    # publishing this graph changes its contract for the graphs that run it: said as warnings, the owner decides
+    for item in await consumer_findings(session, graph_id):
+        found.append(Finding("warning", item["code"], None, item["where"], item["message"]))
+    return found

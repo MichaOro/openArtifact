@@ -47,7 +47,7 @@
             <p class="field__help" id="pv-key-help">{{ t('providers.leave_empty_to_use_the_secret') }}</p>
         </div>
         <label class="ag-check" data-http-confirm hidden>
-            <input type="checkbox" name="allow_http">
+            <input type="checkbox" class="check" name="allow_http">
             <span>{{ t('providers.allow_unencrypted_connection_http_i_know') }}</span>
         </label>
         <div class="field" data-custom data-only-new>
@@ -55,7 +55,7 @@
             <textarea class="field__control field__control--lines" id="pv-models" name="models" rows="3" spellcheck="false"></textarea>
         </div>
         <label class="ag-check">
-            <input type="checkbox" name="is_default">
+            <input type="checkbox" class="check" name="is_default">
             <span>{{ t('providers.default_provider_used_by_agents_that') }}</span>
         </label>
         <div class="ag-check-result" data-check-result hidden></div>

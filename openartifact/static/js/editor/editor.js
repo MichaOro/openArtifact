@@ -12,7 +12,7 @@ import { ActionMenu } from "../components/action-menu.js";
 import { icon } from "../components/icons.js";
 import { AddMenu } from "./add-menu.js";
 import { getAgent } from "../agents/api.js";
-import { createGraph, listGraphs, loadGraph } from "./api.js";
+import { createGraph, listGraphs, loadContract, loadGraph } from "./api.js";
 import { Canvas } from "./canvas.js";
 import { copyOf, pastePlan, remappedConfig } from "./clipboard.js";
 import { ConnectMenu } from "./connect-menu.js";
@@ -28,7 +28,7 @@ import { EditorGuards } from "./guards.js";
 import { nodeWindowStructure } from "./node-layout.js";
 import { addableIn, loadNodeTypes, placeholderOf, typeOf } from "./node-types.js";
 import { forgetOpened } from "./settings-layout.js";
-import { followGraphChanges, needsReload, noticeText } from "./error-output-sync.js";
+import { followContracts, followGraphChanges, needsReload, noticeText } from "./error-output-sync.js";
 import { t, tn } from "../i18n.js";
 
 export class GraphEditor {
@@ -111,6 +111,7 @@ export class GraphEditor {
     this.connectMenu = new ConnectMenu({ addMenu, scope: this.model.kind, nodes: this.nodes, onChoose: (choice) => this.#addFromPort(choice), purpose: () => this.model.graph?.purpose ?? null });
     this.#setUpGuards(root);
     followGraphChanges(this.model.id, () => this.load()); // a definition or a use changed elsewhere (ADR-061 addendum)
+    followContracts((graphId) => this.#contractChanged(graphId)); // an action this pipeline places was published or its draft discarded (ADR-083 add. 2)
     root.querySelector("[data-zoom-in]").addEventListener("click", () => this.canvas.zoomBy(1.2));
     root.querySelector("[data-zoom-out]").addEventListener("click", () => this.canvas.zoomBy(1 / 1.2));
     root.querySelector("[data-zoom-fit]").addEventListener("click", () => this.canvas.fit());
@@ -154,8 +155,9 @@ export class GraphEditor {
     }
   }
 
-  /** The inputs and outputs the action definitions of this pipeline declare (ADR-083), by definition id: what the reference list offers of a
-   * placement and what its mapping rows ask. A definition that cannot be read is simply not in it. */
+  /** The inputs and outputs the action definitions of this pipeline declare (ADR-083), by definition id, as the version that RUNS declares them
+   * (published, not the draft: ADR-083 add. 2): what the reference list offers of a placement and what its mapping rows ask. A definition that
+   * cannot be read is simply not in it. */
   async #loadContracts() {
     this.contracts = new Map();
     if (this.model.isAction) return;
@@ -163,10 +165,9 @@ export class GraphEditor {
     const found = new Map(placed.map((n) => [n.definition_id, n.kind]));
     await Promise.allSettled(
       [...found].map(async ([id, kind]) => {
-        const { nodes } = await loadGraph(kind, id);
-        const trigger = nodes.find((n) => n.kind === "trigger");
-        const end = nodes.find((n) => n.kind === (kind === "action" ? "output" : "complete"));
-        this.contracts.set(id, { inputs: trigger?.config?.inputs ?? [], outputs: (end?.config?.outputs ?? []).map((o) => o.name) });
+        // the contract of the version that RUNS: the published one while the action has unpublished changes (ADR-083 add. 2)
+        const found = await loadContract(kind, id);
+        this.contracts.set(id, { inputs: found.inputs ?? [], outputs: (found.outputs ?? []).map((o) => o.name) });
       }),
     );
   }
@@ -191,6 +192,14 @@ export class GraphEditor {
     const own = node.config?.answer_format;
     if (Array.isArray(own)) return own.map((f) => f.name);
     return this.answerFormats?.get(node.config?.agent_id) ?? [];
+  }
+
+  /** An action this pipeline places was published, or its draft was discarded: read the contracts again and draw the open window anew, so the
+   * mapping rows show the inputs of what runs now. Nothing else of the editor moves. */
+  async #contractChanged(graphId) {
+    if (this.model.isAction || !this.contracts?.has(graphId)) return;
+    await this.#loadContracts();
+    this.inspector.render(this.selection);
   }
 
   /** What an action or pipeline node reads as a contract: `{outputs}` when what it runs declares inputs or outputs, else null. */

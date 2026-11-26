@@ -1610,7 +1610,6 @@
  "editor.reference_completion.gone": "deleted node",
  "editor.reference.inputs.one": "1 input of this graph",
  "editor.reference.inputs.other": "{count} inputs of this graph",
- "editor.setting_controls.refers_to": "Reads:",
  "components.schema_fields.default_placeholder": "Default (optional)",
  "components.schema_fields.default_label": "Default of {name}",
  "components.schema_fields.value_placeholder": "Value: a text, or ${…} references",
@@ -1677,5 +1676,12 @@
  "agents.view.answer_accepted": "Call {n}: accepted",
  "agents.view.answer_repaired": "The answer was corrected once.",
  "tasks.history_step.answer_reported": "Answer reported",
- "tasks.history_step.answer_repaired": "Answer reported, corrected once"
+ "tasks.history_step.answer_repaired": "Answer reported, corrected once",
+ "components.schema_fields.more": "Actions for {name}",
+ "components.schema_fields.menu.add_description": "Add description",
+ "components.schema_fields.menu.remove_description": "Remove description",
+ "components.schema_fields.menu.add_default": "Add default value",
+ "components.schema_fields.menu.remove_default": "Remove default value",
+ "components.schema_fields.menu.delete": "Delete",
+ "components.schema_fields.description_wide_placeholder": "Description"
 }

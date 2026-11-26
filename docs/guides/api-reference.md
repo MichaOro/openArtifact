@@ -488,6 +488,7 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `agents.changed` | `{}` | an agent was created, changed, published or deleted: reload `GET /api/agents` |
 | `providers.changed` | `{}` | a provider or one of its models changed: reload `GET /api/providers` |
 | `settings.changed` | `{"run_limits": {...}}`, `{"personal": {...}}` or `{"stop": {...}}` (as the matching `GET /api/settings/...`) | the run limits, the personal settings or the emergency stop (or whether it is offered) were changed |
+| `graph.contract_changed` | `{"graph_id"}` | an action or pipeline was published, a version published again, or its draft discarded: what the pipelines that use it see as its inputs and outputs changes (ADR-083 add. 2); an open pipeline editor reads the contracts again |
 | `graph.changed` | `{"graph_ids": [...]}` | other pipelines or action definitions changed through a node (the error output is shared by a definition and its uses): an open editor shows one of them loads it again |
 | `board.resync` | `{}` | other tasks got new positions or lost their parent: reload the board |
 | `run.updated` | the run state (as `GET /api/runs`) | a run starts, advances or ends |
