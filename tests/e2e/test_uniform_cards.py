@@ -39,6 +39,9 @@ def _pipelines(api: httpx.Client) -> None:
 
 
 def _agents(api: httpx.Client) -> None:
+    # the server is shared by the tests of a worker: agents other tests left would be more cards than these three
+    for left in api.get("/api/agents").json():
+        api.delete(f"/api/agents/{left['id']}")
     for name, extra in (
         (LONG, {"description": "A text long enough for two lines and more " * 4}),
         ("Short", {}),

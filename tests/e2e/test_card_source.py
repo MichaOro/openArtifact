@@ -232,6 +232,9 @@ def test_a_mapping_key_the_agent_no_longer_declares_is_shown_with_a_remove_butto
     field.press("Enter")
     # the save of the field must have landed before the second writer comes, else it overwrites it (a wrong order)
     eventually(lambda: _mapping(api, action), "t = ${card.title}")
+    page.wait_for_load_state(
+        "networkidle"
+    )  # no write of the dialog is still on its way when the second writer comes
     nodes = api.get(graph_url(action)).json()["nodes"]
     node = next(n for n in nodes if n["kind"] == "agent")
     api.patch(
