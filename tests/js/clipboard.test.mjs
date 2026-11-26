@@ -82,3 +82,16 @@ test("a tool copied without its agent remembers the agent", () => {
   assert.deepEqual(copyOf(nodes, edges, ["tl"], "action").attached, { tl: "ag" });
   assert.deepEqual(copyOf(nodes, edges, ["tl", "ag"], "action").attached, {}, "with its agent the connection is copied instead");
 });
+
+test("a paste turns the ids a copied node holds into the ids of the copies, and leaves other ids alone (ADR-082)", async () => {
+  const { remapReferences, remappedConfig } = await import("../../openartifact/static/js/editor/clipboard.js");
+  const old = "11111111-1111-4111-8111-111111111111";
+  const other = "22222222-2222-4222-8222-222222222222";
+  const fresh = "33333333-3333-4333-8333-333333333333";
+  const ids = new Map([[old, fresh]]);
+  assert.equal(remapReferences(`http://x/\${node:${old}.output}/\${node:${other}.output}`, ids), `http://x/\${node:${fresh}.output}/\${node:${other}.output}`);
+  assert.deepEqual(remapReferences({ input_values: { who: `\${node:${old}.data.greeting}` }, list: [`\${node:${old}.output}`, 3, null] }, ids), { input_values: { who: `\${node:${fresh}.data.greeting}` }, list: [`\${node:${fresh}.output}`, 3, null] });
+  assert.deepEqual(remappedConfig({ url: `\${node:${old}.output}`, timeout: 30 }, ids), { url: `\${node:${fresh}.output}` }, "only what changes");
+  assert.equal(remappedConfig({ url: "plain" }, ids), null);
+  assert.equal(remappedConfig(undefined, ids), null);
+});

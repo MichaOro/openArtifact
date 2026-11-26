@@ -194,3 +194,54 @@ def test_the_reference_list_inserts_the_id_and_shows_the_name_and_a_rename_chang
         ]["url"]
         == stored
     )
+
+
+def test_a_duplicated_stage_reads_its_own_copy_of_the_action_before_it(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _declared_action(api)
+    pipeline = post(api, "/api/pipelines", name="Flow copy")
+    stage = node(api, pipeline, "stage", name="Stage")
+    connect(api, pipeline, kind_of(api, pipeline, "trigger"), "out", stage, "start")
+    first = node(api, pipeline, "action", stage_id=stage["id"], x=24, y=48)
+    second = node(api, pipeline, "action", stage_id=stage["id"], x=24, y=140)
+    for action in (first, second):
+        api.patch(
+            f"{graph_url(pipeline)}/nodes/{action['id']}",
+            json={"definition_id": definition["id"]},
+        ).raise_for_status()
+    connect(api, pipeline, stage, "start", first, "in")
+    connect(api, pipeline, first, "pass", second, "in")
+    api.patch(
+        f"{graph_url(pipeline)}/nodes/{second['id']}",
+        json={"config": {"input_values": {"who": f"${{node:{first['id']}.data.greeting}}"}}},
+    ).raise_for_status()
+    page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
+    page.locator(".ge-node--stage .ge-stage__header").click(position={"x": 80, "y": 20})
+    page.keyboard.press("Control+d")
+    expect(page.locator(".ge-node--stage")).to_have_count(2)
+    expect(page.locator(".ge-node--action")).to_have_count(4)
+
+    def copies() -> list[dict[str, Any]]:
+        nodes = api.get(graph_url(pipeline)).json()["nodes"]
+        return [
+            n for n in nodes if n["kind"] == "action" and n["id"] not in (first["id"], second["id"])
+        ]
+
+    eventually(
+        lambda: (
+            len(copies()) == 2
+            and all(n["config"].get("input_values") is not None for n in copies())
+        ),
+        True,
+    )
+    mapped = [n for n in copies() if n["config"]["input_values"]]
+    assert len(mapped) == 1
+    copied_first = next(n for n in copies() if n is not mapped[0] and n["id"] != mapped[0]["id"])
+    assert mapped[0]["config"]["input_values"]["who"] == (
+        f"${{node:{copied_first['id']}.data.greeting}}"
+    )  # the copy of the second reads the copy of the first, not the original
+    original = next(
+        n for n in api.get(graph_url(pipeline)).json()["nodes"] if n["id"] == second["id"]
+    )
+    assert original["config"]["input_values"]["who"] == f"${{node:{first['id']}.data.greeting}}"

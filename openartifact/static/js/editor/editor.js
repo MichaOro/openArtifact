@@ -13,7 +13,7 @@ import { icon } from "../components/icons.js";
 import { AddMenu } from "./add-menu.js";
 import { createGraph, listGraphs, loadGraph } from "./api.js";
 import { Canvas } from "./canvas.js";
-import { copyOf, pastePlan } from "./clipboard.js";
+import { copyOf, pastePlan, remappedConfig } from "./clipboard.js";
 import { ConnectMenu } from "./connect-menu.js";
 import { choosePort, connectionFor, placement, replacedEdges } from "./connect-plan.js";
 import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextToolPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
@@ -745,6 +745,11 @@ export class GraphEditor {
         Object.assign(node, Object.keys(extra).length ? await this.model.updateNode(node.id, extra) : {});
         this.nodes.set(node.id, node);
         made.set(item.key, node.id);
+      }
+      // the copy reads its own copy of a node it refers to, not the original (ADR-082): ids in the settings follow the new nodes
+      for (const item of plan.items) {
+        const changed = remappedConfig(item.config, made);
+        if (changed) Object.assign(this.nodes.get(made.get(item.key)), await this.model.updateNode(made.get(item.key), { config: changed }));
       }
       for (const link of plan.edges) {
         const edge = await this.model.connect({ source_id: made.get(link.source), source_port: link.source_port, source_slot: link.source_slot, target_id: made.get(link.target), target_port: link.target_port, target_slot: link.target_slot, style: link.style });
