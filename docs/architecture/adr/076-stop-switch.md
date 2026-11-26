@@ -55,7 +55,7 @@ switch, for execution as a whole.
 - STOP is a blunt instrument by design: it does not distinguish reading from writing. That needs the effect declaration (card #125); then a
   finer mode can build on the same state.
 - The abort uses the stop that exists, so what a stop does to a running Execute Command (the process group ends) or an agent step is what it did.
-- A restart while the emergency stop is on keeps it on: the executions that were running are closed as `interrupted` as always, and nothing starts until somebody
+- A restart while the emergency stop is on keeps it on: the executions that were running are closed as `stopped` with the note `Interrupted by restart` as always, and nothing starts until somebody
   switches the emergency stop off.
 
 ## Addendum 1 (2026-11-26): the name, the greyed Start, the stored note

@@ -68,6 +68,8 @@ RUN_OUTPUT_LIMIT_CHARS = 1024 * 1024
 RESULT_OUTPUT_LIMIT_CHARS = 256 * 1024
 REMOVED_OUTPUT = "[output removed: the results of this execution are limited]"
 OUTPUT_CUT_MARK = "[output truncated]"
+#: The note of a run (and its execution) that was still running when the application restarted (``recover``, ADR-013).
+INTERRUPTED_NOTE = "Interrupted by restart"
 #: Steps a run read carries (the newest); ``results`` of the run has them all.
 RUN_READ_RESULTS = 200
 #: How a time limit in minutes becomes seconds (one place, so a test can make a minute short).
@@ -623,14 +625,14 @@ class RunEngine:
             )
             for run in runs:
                 run.status = RunStatus.STOPPED
-                run.note = "interrupted"
+                run.note = INTERRUPTED_NOTE
                 await self._pause_running_stages(session, run.id)
                 await self._close_execution(session, run)
             # executions that no run points to any more (a crash in between) are closed the same way
             await session.execute(
                 update(Execution)
                 .where(Execution.status == RunStatus.RUNNING)
-                .values(status=RunStatus.STOPPED, note="interrupted", finished_at=utcnow())
+                .values(status=RunStatus.STOPPED, note=INTERRUPTED_NOTE, finished_at=utcnow())
             )
             await session.commit()
         await (

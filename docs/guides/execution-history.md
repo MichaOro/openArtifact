@@ -13,7 +13,7 @@ flow) is in [Concepts](concepts.md).
   is shown as "Execution #7 of artifact #12".
 - **Status:** `running`, then `done`, `failed` or `stopped`. A `failed` execution carries a note that says
   where ("X failed", "X has no On Pass connection", "The pipeline does not come to an end"). `stopped` is a
-  user stop, `interrupted` (when the application restarts, every execution that was still running is closed as
+  user stop, `Interrupted by restart` (when the application restarts, every execution that was still running is closed as
   stopped with that note, because its process is gone) or `EMERGENCY STOP` (the global switch aborted it, see below).
 - **Origin** (`started_by`): `user` (the browser), `api` (the integration API), `mcp` (the MCP server) or
   `system`.

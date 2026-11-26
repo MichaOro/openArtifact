@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -152,8 +153,8 @@ def test_recover_closes_running_executions_as_interrupted(migrated_settings: Set
     with TestClient(_create_app(migrated_settings)) as client:
         items = _executions(client, task)["items"]
         assert [(e["number"], e["status"], e["note"]) for e in items] == [
-            (2, "stopped", "interrupted"),
-            (1, "stopped", "interrupted"),
+            (2, "stopped", "Interrupted by restart"),
+            (1, "stopped", "Interrupted by restart"),
         ]
         assert all(e["finished_at"] for e in items)
         assert client.get("/api/runs").json()[0]["status"] == "stopped"
@@ -756,3 +757,52 @@ def test_migration_0024_allows_api_and_mcp_and_downgrades_to_system(
         }
         assert "api" not in {r[0] for r in conn.execute("SELECT started_by FROM executions")}
     command.upgrade(cfg, "head")
+
+
+# ── migration 0064: the restart note says what happened ───────────────
+
+
+def test_migration_0064_renames_only_the_exact_old_restart_note_and_goes_down_again(
+    at_revision: Callable[[str], Path],
+) -> None:
+    path = at_revision("0063")
+    with sqlite3.connect(path) as conn:
+        for number in (1, 2, 3):
+            conn.execute(
+                "INSERT INTO tasks (id, title, status, position, number) VALUES (?, 'T', 'done', ?, ?)",
+                (f"t{number}", number, number),
+            )
+        for run_id, task_id, note in (
+            ("r1", "t1", "interrupted"),
+            ("r2", "t2", "interrupted twice"),
+            ("r3", "t3", "EMERGENCY STOP"),
+        ):
+            conn.execute(
+                "INSERT INTO pipeline_runs (id, task_id, status, started_by, snapshot, note) "
+                "VALUES (?, ?, 'stopped', 'user', '{}', ?)",
+                (run_id, task_id, note),
+            )
+        for number, note in ((1, "interrupted"), (2, "stopped")):
+            conn.execute(
+                "INSERT INTO executions (id, task_id, number, pipeline_name, status, note, started_by, step_count, created_at, started_at) "
+                "VALUES (?, 't1', ?, 'P', 'stopped', ?, 'user', 0, '2026-11-26 10:00:00', '2026-11-26 10:00:00')",
+                (f"e{number}", number, note),
+            )
+    command.upgrade(alembic_config(), "0064")
+    with sqlite3.connect(path) as conn:
+        runs = dict(conn.execute("SELECT id, note FROM pipeline_runs"))
+        executions = dict(conn.execute("SELECT id, note FROM executions"))
+    assert runs == {
+        "r1": "Interrupted by restart",
+        "r2": "interrupted twice",
+        "r3": "EMERGENCY STOP",
+    }  # only the exact old text
+    assert executions == {"e1": "Interrupted by restart", "e2": "stopped"}
+    command.downgrade(alembic_config(), "0063")
+    with sqlite3.connect(path) as conn:
+        assert conn.execute("SELECT note FROM pipeline_runs WHERE id = 'r1'").fetchone() == (
+            "interrupted",
+        )
+        assert conn.execute("SELECT note FROM executions WHERE id = 'e1'").fetchone() == (
+            "interrupted",
+        )

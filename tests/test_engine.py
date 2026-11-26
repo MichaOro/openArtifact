@@ -558,7 +558,7 @@ def test_a_restart_stops_the_runs_that_were_running_and_unlocks_their_artifacts(
 
     with TestClient(_create_app(migrated_settings)) as second:
         run = run_of(second, task)
-        assert (run["status"], run["note"]) == ("stopped", "interrupted")
+        assert (run["status"], run["note"]) == ("stopped", "Interrupted by restart")
         assert [s["status"] for s in run["stages"]] == ["pending"]
         assert run["stage_name"] == "Stage 1"  # it can be started again where it was
         url = f"/api/tasks/{task['id']}"
