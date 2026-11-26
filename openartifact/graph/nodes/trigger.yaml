@@ -14,3 +14,11 @@ ports:
     label: Next
 ui:
   color: trigger
+settings:
+- key: inputs
+  label: Inputs
+  type: fields
+  field_extra: default
+  default: []
+  help: 'What this graph takes from the one that runs it: a name, a type, whether it must be given, and a default. Inside, a node reads an input as ${input.name}. The one that runs it gives each input a value; a required input without a value fails the run with a message that names it. Without inputs nothing changes: the nodes read the run context as before.'
+  stored_in: config

@@ -57,6 +57,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from openartifact.credentials.refs import in_scheme_or_host
+from openartifact.graph import field_schema
 
 if TYPE_CHECKING:
     from openartifact.engine.results import NodeResult
@@ -112,17 +113,19 @@ _ID_REFERENCE = re.compile(
 )
 _VAR_REFERENCE = re.compile(r"var\.(?P<name>[a-z][a-z0-9_]{0,63})")
 _CARD_REFERENCE = re.compile(r"card\.(?P<name>[a-z][a-z0-9_]{0,31})")
+#: An input of the action or pipeline that is running (ADR-083): ``input.name``.
+_INPUT_REFERENCE = re.compile(r"input\.(?P<name>[a-z][a-z0-9_]{0,31})")
 #: What looks like a context reference; :func:`parse` then decides strictly whether it is one.
-CANDIDATE = re.compile(r"\$\{((?:(?:node|var|card)\.|node:|\()[^}\r\n]{0,400})\}")
+CANDIDATE = re.compile(r"\$\{((?:(?:node|var|card|input)\.|node:|\()[^}\r\n]{0,400})\}")
 #: One pass over a text for both kinds of references (so that no replaced value is scanned again).
 _ANY = re.compile(
-    r"\$\{(?:secret:([^}\r\n]{0,80})|((?:(?:node|var|card)\.|node:|\()[^}\r\n]{0,400}))\}"
+    r"\$\{(?:secret:([^}\r\n]{0,80})|((?:(?:node|var|card|input)\.|node:|\()[^}\r\n]{0,400}))\}"
 )
 _FIELDS = "output, exit_code, outcome, reason, success, attempts, duration_ms, data"
 SYNTAX_HINT = (
     "use ${(Node name).output}, ${node:ID.output}, ${node.NAME.output}, ${node.NAME.exit_code}, ${node.NAME.outcome}, ${node.NAME.reason}, "
     "${node.NAME.success}, ${node.NAME.attempts}, ${node.NAME.duration_ms}, "
-    "${node.NAME.data.key}, ${var.name} or ${card.name}"
+    "${node.NAME.data.key}, ${input.name}, ${var.name} or ${card.name}"
 )
 
 
@@ -242,6 +245,9 @@ class RunContext:
         raw_vars, raw_nodes, raw_card = data.get("vars"), data.get("nodes"), data.get("card")
         self.vars: dict[str, Any] = dict(raw_vars) if isinstance(raw_vars, dict) else {}
         self.card: dict[str, Any] = dict(raw_card) if isinstance(raw_card, dict) else {}
+        raw_inputs = data.get("inputs")
+        #: The inputs of the action or pipeline that is running now (ADR-083); empty while it declares none.
+        self.inputs: dict[str, Any] = dict(raw_inputs) if isinstance(raw_inputs, dict) else {}
         self.nodes: dict[str, dict[str, Any]] = (
             {k: dict(v) for k, v in raw_nodes.items() if isinstance(v, dict)}
             if isinstance(raw_nodes, dict)
@@ -263,7 +269,10 @@ class RunContext:
         return cls(data if isinstance(data, dict) else None)
 
     def to_data(self) -> dict[str, Any]:
-        return {"vars": self.vars, "card": self.card, "nodes": self.nodes}
+        data: dict[str, Any] = {"vars": self.vars, "card": self.card, "nodes": self.nodes}
+        if self.inputs:  # the shape of a context that was stored before inputs stays as it was
+            data["inputs"] = self.inputs
+        return data
 
     def dumps(self) -> str:
         return _json(self.to_data())
@@ -425,7 +434,7 @@ class NodeIndex:
 
 @dataclass(frozen=True)
 class Reference:
-    """A parsed ``${node...}``, ``${var...}`` or ``${card...}``: ``kind`` is ``node``, ``var`` or ``card``."""
+    """A parsed ``${node...}``, ``${var...}``, ``${card...}`` or ``${input...}``: ``kind`` is ``node``, ``var``, ``card`` or ``input``."""
 
     kind: str
     name: str  # the node key or the variable name ("" for a node named by its id)
@@ -440,6 +449,8 @@ def parse(body: str) -> Reference:
         return Reference("var", match["name"])
     if match := _CARD_REFERENCE.fullmatch(body):
         return Reference("card", match["name"])
+    if match := _INPUT_REFERENCE.fullmatch(body):
+        return Reference("input", match["name"])
     if by_id := _ID_REFERENCE.fullmatch(body):
         id_path = tuple(by_id["path"].split(".")[1:]) if by_id["path"] else ()
         if id_path and by_id["field"] != "data":
@@ -485,6 +496,11 @@ def resolve(ref: Reference, context: RunContext, index: NodeIndex) -> Any:
         if ref.name not in context.vars:
             raise ContextError(f"variable '{ref.name}' is not set")
         return context.vars[ref.name]
+    if ref.kind == "input":
+        if ref.name not in context.inputs:
+            known = ", ".join(context.inputs) or "none"
+            raise ContextError(f"there is no input '{ref.name}' here (the inputs are: {known})")
+        return context.inputs[ref.name]
     if ref.kind == "card":
         if ref.name == "text" and "title" in context.card:
             return card_text(context.card)
@@ -556,7 +572,9 @@ class RunView:
                     ref = parse(match[2])
                     found = resolve(ref, self.context, self.index)
                     # a field the artifact has but nobody filled is empty text, not "null" (ADR-064)
-                    value = "" if ref.kind == "card" and found is None else _render(found)
+                    value = (
+                        "" if ref.kind in ("card", "input") and found is None else _render(found)
+                    )
                 except ContextError as error:
                     raise ContextError(f"{match[0]}: {error}") from error
             return quote(value, safe="") if percent_encode else value
@@ -565,6 +583,61 @@ class RunView:
 
     def dumps(self) -> str:
         return self.context.dumps()
+
+
+def bind_inputs(
+    node: Mapping[str, Any],
+    definition_name: str,
+    declared: list[dict[str, Any]],
+    view: RunView,
+) -> dict[str, Any]:
+    """The inputs an action or pipeline node gives to what it runs (ADR-083): for each declared input the value the node maps (a text with
+    references, worked out in the context of the run), else the default, else nothing; a required input without a value, or a value that
+    does not fit the type, fails with a message that names the input. ``None`` stands for an optional input that has no value.
+
+    Raises :class:`ContextError`.
+    """
+    mapped = (node.get("config") or {}).get("input_values") or {}
+    bound: dict[str, Any] = {}
+    problems: list[str] = []
+    for spec in declared:
+        name = spec["name"]
+        text = str(mapped.get(name) or "")
+        if not text.strip():
+            text = str(spec.get("default") or "")
+        if not text.strip():
+            if spec["required"]:
+                problems.append(f"input '{name}' is required and has no value")
+            else:
+                bound[name] = None
+            continue
+        try:
+            bound[name] = field_schema.coerce(spec, view.render(text))
+        except (ContextError, ValueError) as error:
+            problems.append(f"input '{name}': {error}")
+    if problems:
+        raise ContextError(f"{definition_name}: {'; '.join(problems)}")
+    return bound
+
+
+def build_outputs(declared: list[dict[str, Any]], view: RunView) -> dict[str, Any] | None:
+    """What an action or pipeline hands back where it ends (ADR-083): for each declared output the value (a text with references) worked
+    out and read as the output's type; ``None`` when nothing is declared. A value that cannot be worked out fails with a message that
+    names the output.
+
+    Raises :class:`ContextError`.
+    """
+    if not declared:
+        return None
+    outputs: dict[str, Any] = {}
+    for spec in declared:
+        name = spec["name"]
+        try:
+            text = view.render(str(spec.get("value") or ""))
+            outputs[name] = field_schema.coerce(spec, text) if text.strip() else None
+        except (ContextError, ValueError) as error:
+            raise ContextError(f"output '{name}': {error}") from error
+    return outputs
 
 
 def check_url_placement(url: str) -> None:

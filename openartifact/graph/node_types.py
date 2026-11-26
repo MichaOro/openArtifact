@@ -35,6 +35,9 @@ from openartifact.graph.validators import (
 )
 from openartifact.models import GraphKind, NodeKind
 
+#: The inputs one action or pipeline node can map.
+MAX_MAPPING = field_schema.MAX_FIELDS
+
 if TYPE_CHECKING:
     from openartifact.graph.rules import Endpoint
 
@@ -212,6 +215,8 @@ class Setting:
     #: The parent a value that is not set comes from (``"agent"``), when there really is one; ``None``: not
     #: set means the setting's own default.
     inherits: str | None = None
+    #: A ``fields`` setting: the one more text each field carries (``"default"`` of an input, ``"value"`` of an output; ADR-083).
+    field_extra: str | None = None
 
     def __post_init__(self) -> None:
         if self.section not in SECTIONS:
@@ -259,7 +264,9 @@ class Setting:
         if self.type == "sources":
             data.update(context_sources.describe())
         if self.type == "fields":
-            data.update(field_schema.describe())
+            data.update(field_schema.describe(self.field_extra))
+        if self.type == "mapping":
+            data["max_mapping"] = MAX_MAPPING
         if self.type in _DEFAULT_MAX_LENGTH:
             data["max_length"] = self.max_length or _DEFAULT_MAX_LENGTH[self.type]
         if self.placeholder is not None:
@@ -274,6 +281,25 @@ class Setting:
         data["level"] = self.level
         data["inherits"] = self.inherits
         return data
+
+    def _mapping(self, value: Any) -> dict[str, str]:
+        """A ``mapping``: what an action or pipeline node gives to the inputs of what it runs (ADR-083), input name to a text that may
+        hold references; an empty text is the same as none."""
+        if not isinstance(value, dict):
+            raise SettingError(f"'{self.key}' must be an object of input name: value")
+        if len(value) > MAX_MAPPING:
+            raise SettingError(f"'{self.key}' maps at most {MAX_MAPPING} inputs")
+        stored: dict[str, str] = {}
+        for name, text in value.items():
+            if not isinstance(name, str) or not field_schema.NAME.fullmatch(name):
+                raise SettingError(f"'{self.key}': '{str(name)[:40]}' is no input name")
+            if not isinstance(text, str) or len(text) > field_schema.MAX_EXTRA_CHARS:
+                raise SettingError(
+                    f"'{self.key}': the value of '{name}' is a text of at most {field_schema.MAX_EXTRA_CHARS} characters"
+                )
+            if text != "":
+                stored[name] = text
+        return stored
 
     def _retry(self, value: Any) -> dict[str, Any]:
         problem = retry_error(value)
@@ -316,9 +342,11 @@ class Setting:
                 raise SettingError(str(error)) from error
         if self.type == "fields":
             try:
-                return field_schema.normalise(value)
+                return field_schema.normalise(value, self.field_extra)
             except ValueError as error:
                 raise SettingError(str(error)) from error
+        if self.type == "mapping":
+            return self._mapping(value)
         if self.type == "size":
             low, high = self.minimum or 0, self.maximum
             if not _whole(value) or value < low or (high is not None and value > high):

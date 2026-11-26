@@ -33,7 +33,15 @@ from openartifact.comments.schemas import Author
 from openartifact.database import SessionOpener
 from openartifact.engine import code_registry, stop_switch
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
-from openartifact.engine.context import ContextError, NodeIndex, RunContext, RunView, check_card
+from openartifact.engine.context import (
+    ContextError,
+    NodeIndex,
+    RunContext,
+    RunView,
+    bind_inputs,
+    build_outputs,
+    check_card,
+)
 from openartifact.engine.executors import EXECUTORS, Limits
 from openartifact.engine.history import Changes, ExecutionHistory, utcnow
 from openartifact.engine.limits import RunLimits, load_limits
@@ -77,6 +85,15 @@ SECONDS_PER_MINUTE = 60
 _UNSET: Any = object()
 #: How long ``set_stop`` waits for starts that are on their way (they take milliseconds).
 _START_WAIT_SECONDS = 10.0
+
+
+def _declared(graph: Mapping[str, Any], kind: NodeKind, key: str) -> list[dict[str, Any]]:
+    """The inputs (of its Trigger) or outputs (of its Output or Complete) an action or pipeline declares; ``[]`` when it declares none (ADR-083)."""
+    for node in graph["nodes"]:
+        if node["kind"] == kind:
+            value = (node.get("config") or {}).get(key)
+            return [dict(f) for f in value] if isinstance(value, list) else []
+    return []
 
 
 def _cut(result: NodeResult) -> NodeResult:
@@ -153,6 +170,8 @@ class _Walk:
     path: str = ""
     #: What an interval guard decided while the flow ran (the job was cancelled for it).
     interrupt: Verdict | None = None
+    #: The outputs the Output node of the action definition that just ended handed back (ADR-083); ``None`` when it declares none.
+    outputs: dict[str, Any] | None = None
 
     def step(self) -> None:
         """Count a step; actions and the nodes of their definitions count against the same limit, so a
@@ -1030,7 +1049,51 @@ class RunEngine:
         if not node["definition_id"]:
             return True, ""
         definition = walk.snapshot["definitions"][node["definition_id"]]
-        return await self._run_definition(node["definition_id"], definition, walk, None)
+        declared_in = _declared(definition, NodeKind.TRIGGER, "inputs")
+        declared_out = _declared(definition, NodeKind.OUTPUT, "outputs")
+        if (
+            not declared_in and not declared_out
+        ):  # no contract: the nodes read the run context as before
+            return await self._run_definition(node["definition_id"], definition, walk, None)
+        view = RunView(walk.context, walk.index, walk.task_id, walk.execution_id)
+        try:
+            bound = bind_inputs(node, definition["name"], declared_in, view)
+        except ContextError as error:
+            await self._place_result(walk, node, False, str(error), None)
+            return False, str(error)
+        earlier, walk.context.inputs, walk.outputs = walk.context.inputs, bound, None
+        try:
+            passed, reason = await self._run_definition(
+                node["definition_id"], definition, walk, None
+            )
+            outputs = walk.outputs if passed else None
+        finally:
+            walk.context.inputs, walk.outputs = earlier, None
+        await self._place_result(walk, node, passed, reason, outputs)
+        return passed, reason
+
+    async def _place_result(
+        self,
+        walk: _Walk,
+        node: dict[str, Any],
+        passed: bool,
+        reason: str,
+        outputs: dict[str, Any] | None,
+    ) -> None:
+        """Store the result of an action node that runs a definition with a contract (ADR-083): its outputs are the ``data``, read by the
+        node's id (``${node:ID.data.name}``); the context is written at once, a later step may be far away."""
+        result = NodeResult(
+            "pass" if passed else "fail", reason=None if passed else (reason or None), data=outputs
+        )
+        walk.context.record(node, result, Ports.PASS if passed else Ports.FAIL)
+        if walk.execution_id is not None:
+            async with self._session() as session:
+                await session.execute(
+                    update(Execution)
+                    .where(Execution.id == walk.execution_id)
+                    .values(context=walk.context.dumps())
+                )
+                await session.commit()
 
     def _action_failed(self, node: dict[str, Any], reason: str, walk: _Walk) -> str:
         """The connector a failed action leaves by, by its setting *If the action fails* (ADR-061): ``fail`` stops the
@@ -1081,6 +1144,13 @@ class RunEngine:
             started = datetime.now(UTC)
             if current["kind"] == NodeKind.OUTPUT:
                 passed = edge["target_port"] == Ports.PASS
+                if record and passed:
+                    try:  # what the action hands back (ADR-083): worked out where it ends, inside its own inputs
+                        walk.outputs = build_outputs(
+                            _declared(definition, NodeKind.OUTPUT, "outputs"), run_view
+                        )
+                    except ContextError as error:
+                        passed, reason = False, str(error)
                 outcome = "pass" if passed else "fail"
                 if record:
                     await self._record(walk, definition_id, current, outcome, None, None, started)

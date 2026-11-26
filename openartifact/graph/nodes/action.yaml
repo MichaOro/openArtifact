@@ -33,3 +33,9 @@ settings:
   label: Retry on fail
   help: Runs the action again when it fails, all its nodes; the run does not start over. Writes in it (HTTP, Postgres, GitHub)
     can happen twice.
+- key: input_values
+  label: Inputs
+  type: mapping
+  default: {}
+  help: 'The value of each input of what this node runs: a text, a card field (${card.name}) or a reference to the outputs of an earlier node (${node:ID.data.name}). An input left empty uses its default; a required one without a value fails.'
+  stored_in: config

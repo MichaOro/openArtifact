@@ -199,6 +199,8 @@ class ContextNodeRead(BaseModel):
 
     name: str
     kind: str
+    #: The id of the node that ran (ADR-082): what ``${node:ID...}`` names; ``None`` in a context stored before ids.
+    id: str | None = None
     #: The result contract (ADR-072): ``success`` is ``outcome == "pass"``, ``attempts`` the tries, ``duration_ms`` the wall time.
     success: bool
     outcome: str
@@ -230,6 +232,8 @@ class RunContextRead(BaseModel):
 
     vars: dict[str, Any]
     card: dict[str, Any] = {}
+    #: The inputs of the action or pipeline that was running when the context was read (ADR-083); empty when it has none.
+    inputs: dict[str, Any] = {}
     nodes: dict[str, ContextNodeRead]
 
     @classmethod

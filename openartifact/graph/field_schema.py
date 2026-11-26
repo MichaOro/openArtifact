@@ -46,9 +46,51 @@ TYPE_LABELS = {
 }
 
 
-def describe() -> dict[str, Any]:
-    """What an editor needs to draw the list: the types, the bounds."""
+def coerce(field: Mapping[str, Any], text: str) -> Any:
+    """The value a text stands for in the type of ``field`` (an input given as text, an output built from references);
+    :class:`ValueError` says in plain words why it does not fit. A text field keeps the text; a number is read as a whole or decimal
+    number; a boolean is ``true`` or ``false``; a choice is one of its values; a list is a JSON list of texts or one text per line."""
+    name, kind = field["name"], field["type"]
+    if kind == "text":
+        if len(text) > MAX_TEXT_CHARS:
+            raise ValueError(f"'{name}' is longer than {MAX_TEXT_CHARS} characters")
+        return text
+    if kind == "number":
+        try:
+            number = float(text.strip())
+        except ValueError:
+            raise ValueError(f"'{name}' must be a number, not '{text[:40]}'") from None
+        if number != number or number in (float("inf"), float("-inf")):
+            raise ValueError(f"'{name}' must be a finite number")
+        return int(number) if number.is_integer() else number
+    if kind == "boolean":
+        lowered = text.strip().lower()
+        if lowered not in ("true", "false"):
+            raise ValueError(f"'{name}' must be true or false, not '{text[:40]}'")
+        return lowered == "true"
+    if kind == "choice":
+        if text not in field["choices"]:
+            raise ValueError(f"'{name}' must be one of: {', '.join(field['choices'])}")
+        return text
+    items: Any
+    stripped = text.strip()
+    if stripped.startswith("["):
+        try:
+            items = json.loads(stripped)
+        except ValueError:
+            raise ValueError(f"'{name}' must be a list of texts") from None
+    else:
+        items = [line for line in text.splitlines() if line.strip()]
+    problem = _problem(field, items)
+    if problem:
+        raise ValueError(problem)
+    return items
+
+
+def describe(extra: str | None = None) -> dict[str, Any]:
+    """What an editor needs to draw the list: the types, the bounds (and which extra text a field carries)."""
     return {
+        **({"field_extra": extra} if extra else {}),
         "field_types": list(TYPES),
         "max_fields": MAX_FIELDS,
         "field_limits": {
@@ -70,8 +112,16 @@ def _number(value: Any) -> bool:
     )  # not NaN
 
 
-def normalise(value: Any) -> list[dict[str, Any]]:
-    """The list as it is stored; :class:`ValueError` with a plain message when it is no list of fields."""
+#: A list of fields may carry one more text per field: the default of an input (``default``) or the value of an output (``value``), ADR-083.
+EXTRAS = ("default", "value")
+MAX_EXTRA_CHARS = 2000
+
+
+def normalise(value: Any, extra: str | None = None) -> list[dict[str, Any]]:
+    """The list as it is stored; :class:`ValueError` with a plain message when it is no list of fields.
+
+    With ``extra`` (``"default"`` or ``"value"``) every field may carry that one more text, kept as written (it may hold references).
+    """
     if not isinstance(value, list):
         raise ValueError("The fields must be a list")
     if len(value) > MAX_FIELDS:
@@ -81,9 +131,17 @@ def normalise(value: Any) -> list[dict[str, Any]]:
     for position, item in enumerate(value, start=1):
         if not isinstance(item, Mapping):
             raise ValueError(f"Field {position} must be an object")
-        extra = sorted(set(item) - {"name", "type", "required", "description", "choices"})
-        if extra:
-            raise ValueError(f"Field {position} has no option '{extra[0][:40]}'")
+        allowed = {
+            "name",
+            "type",
+            "required",
+            "description",
+            "choices",
+            *([extra] if extra else []),
+        }
+        unknown = sorted(set(item) - allowed)
+        if unknown:
+            raise ValueError(f"Field {position} has no option '{unknown[0][:40]}'")
         name = item.get("name")
         if not isinstance(name, str) or not NAME.fullmatch(name):
             raise ValueError(
@@ -126,14 +184,21 @@ def normalise(value: Any) -> list[dict[str, Any]]:
             entry["choices"] = cleaned
         elif choices not in (None, []):
             raise ValueError(f"Field '{name}': only a choice has values")
+        if extra and item.get(extra) not in (None, ""):
+            text = item[extra]
+            if not isinstance(text, str) or len(text) > MAX_EXTRA_CHARS:
+                raise ValueError(
+                    f"Field '{name}': the {extra} is a text of at most {MAX_EXTRA_CHARS} characters"
+                )
+            entry[extra] = text
         stored.append(entry)
     return stored
 
 
-def fields_error(value: Any) -> str | None:
+def fields_error(value: Any, extra: str | None = None) -> str | None:
     """Why ``value`` is no list of fields (plain words), or ``None``."""
     try:
-        normalise(value)
+        normalise(value, extra)
     except ValueError as error:
         return str(error)
     return None

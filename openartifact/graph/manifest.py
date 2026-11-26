@@ -127,6 +127,7 @@ class SettingSpec(_Strict):
             "retry",
             "sources",
             "fields",
+            "mapping",
         ]
         | None
     ) = None
@@ -154,6 +155,8 @@ class SettingSpec(_Strict):
     section: Literal["definition", "behaviour"] | None = None
     level: Literal["core", "optional", "advanced"] | None = None
     inherits: str | None = None
+    #: A ``fields`` setting: the one more text each field carries (``default`` of an input, ``value`` of an output; ADR-083).
+    field_extra: Literal["default", "value"] | None = None
     #: Fields only the first copy of a repeated block has (a help text is said once, not five times).
     first: dict[str, Any] | None = None
 
