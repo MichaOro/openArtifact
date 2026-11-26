@@ -1663,6 +1663,5 @@
  "storage.shrink_help": "VACUUM: needs free space the size of the database and holds it briefly.",
  "storage.next_pass": "next pass",
  "storage.in": "in {time}",
- "storage.due_now": "due now",
- "storage.cleaner_change": "Change"
+ "storage.due_now": "due now"
 }

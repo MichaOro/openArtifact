@@ -302,13 +302,11 @@ def test_the_cleaner_has_a_switch_with_its_interval_and_the_database_column_show
     page.goto(f"{base_url}/settings/personal#storage")
     cleaner = page.locator("[data-storage-facts] dd").nth(4)
     expect(cleaner).to_contain_text("off")
-    expect(cleaner.get_by_role("link", name="Change")).to_be_visible()
-    cleaner.get_by_role(
-        "link", name="Change"
-    ).click()  # takes the focus to the setting on the same page
+    expect(cleaner.get_by_role("link")).to_have_count(
+        0
+    )  # the switch is on the same page: no link to it
     expect(page.locator("#st-panel-storage")).to_be_visible()
     switch = page.locator('button[data-field-key="storage_clean_interval_hours"]')
-    expect(switch).to_be_focused()
     expect(switch).to_have_attribute("aria-checked", "false")
     switch.click()
     expect(page.locator('input[data-field-key="storage_clean_interval_hours"]')).to_have_value("24")

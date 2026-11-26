@@ -37,7 +37,6 @@
 .st-plan__total { font-weight: 600; }
 
 /* The database column of the Data storage tab: the facts as a two-column list, the biggest tables with their sizes on the right, the three actions in a row at the bottom, left (what each does is its tooltip). */
-.st-link { color: var(--color-accent); }
 .st-tablelist { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: 0.875rem; max-width: 24rem; }
 .st-tablelist__row { display: flex; justify-content: space-between; gap: var(--space-4); padding: 2px 0; border-bottom: 1px solid var(--glass-border); }
 .st-tablelist__name { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--color-text-secondary); min-width: 0; overflow-wrap: anywhere; }

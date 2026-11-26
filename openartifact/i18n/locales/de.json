@@ -2398,6 +2398,5 @@
  "storage.shrink_help": "VACUUM: braucht freien Platz in der Größe der Datenbank und hält sie kurz an.",
  "storage.next_pass": "nächster Durchlauf",
  "storage.in": "in {time}",
- "storage.due_now": "jetzt fällig",
- "storage.cleaner_change": "Ändern"
+ "storage.due_now": "jetzt fällig"
 }

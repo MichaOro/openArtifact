@@ -90,7 +90,7 @@ The owner asked for sub-navigation like the agent page, default values instead o
 The owner looked at the tabs and wanted fewer places and a calmer page.
 
 - **One view:** the *Database* tab is gone. *Data storage* shows the limits on the left and the database on the right (one column below 64 rem); the facts, the biggest tables and the
-  three actions are the right column. A link to `#database` (the old tab) opens *Data storage*. The facts' *Change* link takes the focus to the cleaner's switch on the same page.
+  three actions are the right column. A link to `#database` (the old tab) opens *Data storage*. The facts show the cleaner's state (off, or every N hours with the next pass) as text only: its switch is on the same page, so there is no link to it.
 - **The actions:** *Preview*, *Clean now* and *Shrink database* sit at the bottom of the database column, left-aligned, in that order; *Clean now* stays the primary button. What each does
   is a tooltip on hover and on keyboard focus (`attachTip` of `info-tip.js`, the same tooltip as the (i); the button is tied to it with `aria-describedby`, on touch the text stays its
   accessible description). Only results ("Nothing to clean...", "Saved.") are shown as text. The introductions are narrow (24 rem at most, about two thirds of the card), so they wrap once more.

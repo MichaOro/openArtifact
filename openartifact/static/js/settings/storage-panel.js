@@ -86,16 +86,8 @@ export class StoragePanel {
     const cleaner = element("dd", "");
     if (status.interval_hours) {
       const next = status.next_clean_at ? `, ${t("storage.next_pass")} ${untilText(status.next_clean_at)}` : "";
-      cleaner.append(`${plural("storage.every_hours", status.interval_hours)}${next} `);
-    } else cleaner.append(`${t("storage.cleaner_off")} `);
-    const link = element("a", "st-link", t("storage.cleaner_change"));
-    link.href = "#storage";
-    // the switch is on the same page now: "Change" takes the focus to it
-    link.addEventListener("click", (event) => {
-      event.preventDefault();
-      document.querySelector('[data-field-key="storage_clean_interval_hours"]')?.focus();
-    });
-    cleaner.append(link);
+      cleaner.append(`${plural("storage.every_hours", status.interval_hours)}${next}`);
+    } else cleaner.append(t("storage.cleaner_off"));
     const rows = [
       [t("storage.file"), human(db.file_bytes)],
       [t("storage.wal"), human(db.wal_bytes)],
