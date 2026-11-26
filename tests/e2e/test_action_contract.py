@@ -110,13 +110,19 @@ def test_the_node_that_runs_an_action_has_one_row_per_input_and_saves_the_mappin
     dialog = page.locator(DIALOG)
     who = dialog.get_by_label(re.compile(r"^who"))
     expect(who).to_be_visible()
-    expect(dialog.get_by_label(re.compile(r"^times"))).to_have_attribute(
-        "placeholder", "Default: 2"
-    )
+    expect(who).to_have_attribute(
+        "placeholder", "who"
+    )  # the name of the input, faint, until a value overrides it
+    times = dialog.get_by_label(re.compile(r"^times"))
+    # the name of the input sits in the value field faintly until a value or a reference overrides it; the default is said at the label
+    expect(times).to_have_attribute("placeholder", "times")
+    expect(times).to_have_value("")
+    expect(dialog.locator(".ge-mapping__default")).to_have_text(" · Default: 2")
     expect(dialog.locator(".ge-mapping__required")).to_have_count(1)  # only "who" is required
     who.fill("${card.title}")
     who.press("Enter")
     eventually(lambda: _config(api, pipeline, "action")["input_values"], {"who": "${card.title}"})
+    expect(who).to_have_value("${card.title}")  # a typed value overrides the ghost
 
 
 def test_an_action_without_inputs_shows_no_mapping(
@@ -249,3 +255,46 @@ def test_a_duplicated_stage_reads_its_own_copy_of_the_action_before_it(
         n for n in api.get(graph_url(pipeline)).json()["nodes"] if n["id"] == second["id"]
     )
     assert original["config"]["input_values"]["who"] == f"${{node:{first['id']}.data.greeting}}"
+
+
+def test_a_new_input_of_an_action_draft_is_not_shown_at_the_placement_until_it_is_published(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _declared_action(api)
+    api.post(
+        f"/api/actions/{definition['id']}/publish", json={"acknowledge": True}
+    ).raise_for_status()
+    pipeline = post(api, "/api/pipelines", name="Flow")
+    stage = node(api, pipeline, "stage", name="Stage")
+    connect(api, pipeline, kind_of(api, pipeline, "trigger"), "out", stage, "start")
+    action = node(api, pipeline, "action", stage_id=stage["id"], x=24, y=48)
+    api.patch(
+        f"{graph_url(pipeline)}/nodes/{action['id']}", json={"definition_id": definition["id"]}
+    ).raise_for_status()
+    # the draft of the action gets a third input (typed in its Trigger, not published)
+    inputs = _config(api, definition, "trigger")["inputs"]
+    api.patch(
+        f"{graph_url(definition)}/nodes/{kind_of(api, definition, 'trigger')['id']}",
+        json={
+            "config": {"inputs": [*inputs, {"name": "topic", "type": "text", "required": False}]}
+        },
+    ).raise_for_status()
+    page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
+    _open_settings(page, action)
+    dialog = page.locator(DIALOG)
+    expect(dialog.get_by_label(re.compile(r"^who"))).to_be_visible()
+    expect(dialog.get_by_label(re.compile(r"^topic"))).to_have_count(0)  # what runs has two inputs
+    # Publish: the editor that is open reads the contract again, the row appears without a reload
+    api.post(
+        f"/api/actions/{definition['id']}/publish", json={"acknowledge": True}
+    ).raise_for_status()
+    expect(dialog.get_by_label(re.compile(r"^topic"))).to_be_visible()
+    # a draft that is thrown away brings the published contract back
+    api.patch(
+        f"{graph_url(definition)}/nodes/{kind_of(api, definition, 'trigger')['id']}",
+        json={"config": {"inputs": inputs}},
+    ).raise_for_status()
+    api.post(f"/api/actions/{definition['id']}/draft/discard").raise_for_status()
+    expect(
+        dialog.get_by_label(re.compile(r"^topic"))
+    ).to_be_visible()  # the published version has it

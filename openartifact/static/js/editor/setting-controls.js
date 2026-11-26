@@ -898,7 +898,11 @@ class MappingControl extends SettingControl {
       input.spellcheck = false;
       input.maxLength = 2000;
       input.value = given[spec.name] ?? "";
-      input.placeholder = spec.default ? `${t("editor.setting_controls.mapping_default")}: ${spec.default}` : spec.description || t(`components.schema_fields.type.${spec.type}`);
+      // the name of the input sits in the value field faintly (a placeholder) until the user types a value or a reference, which overrides it;
+      // the default and the description are said next to the label
+      input.placeholder = spec.name;
+      if (spec.default) label.append(element("span", "ge-mapping__default", ` · ${t("editor.setting_controls.mapping_default")}: ${spec.default}`));
+      label.title = [spec.description, spec.default ? `${t("editor.setting_controls.mapping_default")}: ${spec.default}` : ""].filter(Boolean).join("\n");
       input.id = `mapping-${this.setting.key}-${spec.name}`;
       label.htmlFor = input.id;
       input.addEventListener("input", () => this.markDirty());

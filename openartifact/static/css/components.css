@@ -1095,6 +1095,6 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 .ge-mapping { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 .ge-mapping__row { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ge-mapping__label { font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); }
-.ge-mapping__required { font-weight: 400; color: var(--color-text-muted); }
+.ge-mapping__required, .ge-mapping__default { font-weight: 400; color: var(--color-text-muted); }
 .ge-mapping__input { min-width: 0; width: 100%; box-sizing: border-box; }
 .ge-mapping .field__control { min-width: 0; }

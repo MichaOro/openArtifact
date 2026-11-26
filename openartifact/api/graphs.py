@@ -23,6 +23,7 @@ from openartifact.engine.executors import CODE_DISABLED_REASON
 from openartifact.engine.neighbour_schemas import GraphNeighbours
 from openartifact.engine.neighbours import graph_neighbours
 from openartifact.exceptions import ArtifactError
+from openartifact.graph import contract as graph_contract
 from openartifact.graph import preflight, publishing, versions
 from openartifact.graph.content import graph_of
 from openartifact.graph.localize import localize
@@ -34,6 +35,7 @@ from openartifact.graph.schemas import (
     EdgeRead,
     EdgeUpdate,
     FindingRead,
+    GraphContract,
     GraphCreate,
     GraphDetail,
     GraphListRead,
@@ -98,6 +100,11 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
     """The router of one kind of graph: ``pipeline`` at ``/api/pipelines``, ``action`` at ``/api/actions``."""
     label = _LABELS[kind]
     router = APIRouter(prefix=f"/api/{kind}s", tags=[f"{kind}s"], responses=GATED)
+
+    def _announce_contract(request: Request, graph_id: str) -> None:
+        """A publication or a discarded draft changes what the pipelines that use this graph see as its inputs and outputs (ADR-083 add. 2):
+        an editor that shows such a pipeline reads the contract again."""
+        request.app.state.event_bus.publish("graph.contract_changed", {"graph_id": graph_id})
 
     async def _graph(repo: GraphRepository, graph_id: str) -> Graph:
         graph = await repo.get(graph_id)
@@ -330,6 +337,23 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             warnings=sum(1 for f in found if f.level == "warning"),
         )
 
+    @router.get(
+        "/{graph_id}/contract",
+        response_model=GraphContract,
+        name=f"contract_of_{kind}",
+        summary=f"The inputs and outputs of the version of a {kind} that runs",
+        responses=errors(404, 422),
+    )
+    async def graph_contract_of(graph_id: str, session: SessionDep) -> GraphContract:
+        """What the pipelines that use this graph see (ADR-083 add. 2): the contract of the **published** version, the draft's only while
+        nothing is published (the engine runs the draft then). While the draft has changes `draft_changed` is true and the newer contract waits
+        for Publish; Discard draft brings the published one back."""
+        graph = await _graph(GraphRepository(session), graph_id)
+        found = await graph_contract.contract_of(session, graph.id)
+        if found is None:
+            raise HTTPException(404, "No such graph")
+        return GraphContract(**found)
+
     @router.post(
         "/{graph_id}/publish",
         response_model=PublishedGraph,
@@ -338,7 +362,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         responses=errors(404, 409, 422, write=True),
     )
     async def publish_graph(
-        graph_id: str, session: SessionDep, body: PublishRequest | None = None
+        graph_id: str, request: Request, session: SessionDep, body: PublishRequest | None = None
     ) -> PublishedGraph:
         """Publish the draft as a new version; executions that start from now on use it. 409 when the draft equals the published
         version (nothing new to publish), and 409 with ``findings`` when the check (``GET .../check``) found something and the body
@@ -356,6 +380,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
                 )
         version = await publishing.publish(session, graph, "user")
         await session.commit()
+        _announce_contract(request, graph.id)
         return await _published(session, graph, version)
 
     @router.post(
@@ -373,6 +398,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         graph = await _graph(repo, graph_id)
         report = await publishing.discard_draft(session, graph)
         await session.commit()
+        _announce_contract(request, graph.id)
         if report.graphs:
             request.app.state.event_bus.publish(
                 "graph.changed", {"graph_ids": sorted(report.graphs)}
@@ -386,12 +412,15 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         summary=f"Publish an earlier version of a {kind} again",
         responses=errors(404, 409, 422, write=True),
     )
-    async def republish_graph(graph_id: str, number: int, session: SessionDep) -> PublishedGraph:
+    async def republish_graph(
+        graph_id: str, number: int, request: Request, session: SessionDep
+    ) -> PublishedGraph:
         """Publish an earlier version again (a rollback): a new version with that version's content, the history stays and the draft is
         not touched. 409 when it is the published one already."""
         graph = await _graph(GraphRepository(session), graph_id)
         version = await publishing.republish(session, graph, number, "user")
         await session.commit()
+        _announce_contract(request, graph.id)
         return await _published(session, graph, version)
 
     @router.patch(

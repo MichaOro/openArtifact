@@ -28,6 +28,8 @@ export const discardGraphDraft = (kind, id) => send("POST", `${base(kind, id)}/d
 export const republishGraph = (kind, id, number) => send("POST", `${base(kind, id)}/versions/${number}/republish`);
 
 export const loadGraph = (kind, id) => request(base(kind, id));
+/** The inputs and outputs of the version of a graph that RUNS (published, else the draft of a never published one; ADR-083 add. 2). */
+export const loadContract = (kind, id) => request(`${base(kind, id)}/contract`);
 export const addNode = (kind, id, node) => send("POST", `${base(kind, id)}/nodes`, node);
 export const updateNode = (kind, id, nodeId, fields) => send("PATCH", `${base(kind, id)}/nodes/${encodeURIComponent(nodeId)}`, fields);
 export const deleteNode = (kind, id, nodeId) => send("DELETE", `${base(kind, id)}/nodes/${encodeURIComponent(nodeId)}`);

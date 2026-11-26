@@ -46,3 +46,19 @@ export function followGraphChanges(graphId, reload) {
     onClosed: () => {},
   });
 }
+
+/**
+ * Follow a publication or a discarded draft of another graph (`graph.contract_changed`, ADR-083 add. 2): what a pipeline editor shows as the
+ * inputs and outputs of an action is the contract of the version that runs, and that changes then.
+ * @param {(graphId: string) => void} onChange called with the id of the graph whose contract may have changed
+ * @returns {() => void} stop following
+ */
+export function followContracts(onChange) {
+  return connectEvents({
+    onEvent: (type, data) => {
+      if (type === "graph.contract_changed" && typeof data.graph_id === "string") onChange(data.graph_id);
+    },
+    onOpen: () => {},
+    onClosed: () => {},
+  });
+}
