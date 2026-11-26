@@ -48,6 +48,9 @@ class Tool:
     parameters: dict[str, Any]
     run: Run
     prefix: str = ""
+    #: The tool changes something outside the run (ADR-086): a dry run does not run it and tells the model so. Unknown counts as
+    #: changing; the builders of the kinds that only read say ``False``.
+    writes: bool = True
     #: The tool node it came from (id and name): a node can offer many tools (an MCP server), and the run shows the state
     #: of the node, so every call says whose it is.
     node_id: str = ""
@@ -124,9 +127,12 @@ class Toolbox:
         tools: Sequence[Tool],
         mask: Callable[[str], str] | None = None,
         notes: Sequence[str] = (),
+        dry_run: bool = False,
     ) -> None:
         #: What the run says about the tools it could not offer as asked (a wanted tool the server does not have); the step shows it.
         self.notes = list(notes)
+        #: A dry run (ADR-086): a tool that changes something is not run, the model is told it was a dry run.
+        self._dry_run = dry_run
         #: Masks the run's secret values in every answer (returned or raised) before the model reads it.
         self._mask = mask or (lambda text: text)
         own = [_valid(t.name) for t in tools]
@@ -227,6 +233,11 @@ class Toolbox:
             return record("Error: the arguments are not valid JSON", True)
         if not isinstance(parsed, dict):
             return record("Error: the arguments are not a JSON object", True)
+        if self._dry_run and tool.writes:
+            return record(
+                f"Dry run: {name} was not executed, it changes something. Go on as if it had worked.",
+                False,
+            )
         try:
             result = await tool.run(parsed)
         except Exception as error:  # a tool's failure is the model's to handle
@@ -244,6 +255,8 @@ class ToolContext:
     view: Any = None
     #: Where the Hand Over Tools of the node put the documents they accepted (``agents/handover.py``); ``None`` outside a run.
     handovers: Any = None
+    #: The run is a dry run (ADR-086): the tools that change something are not run.
+    dry_run: bool = False
 
 
 #: Builders of tools that run here (HTTP Request Tool, Code Tool), by kind: see ``agents/local_tools.py``.
@@ -315,6 +328,7 @@ async def open_toolbox(
                             offered.description,
                             offered.input_schema,
                             _mcp_call(server.call, offered.name),
+                            writes=not offered.read_only,  # a tool the server does not announce as read only changes something
                             prefix=prefix,
                             node_id=str(frozen.get("node_id") or ""),
                             node_name=label,
@@ -348,7 +362,10 @@ async def open_toolbox(
             built.append(tool)
         values = [v for v in context.secrets.values() if v]
         yield Toolbox(
-            built, mask=(lambda text: mask_text(text, values)) if values else None, notes=notes
+            built,
+            mask=(lambda text: mask_text(text, values)) if values else None,
+            notes=notes,
+            dry_run=context.dry_run,
         )
 
 

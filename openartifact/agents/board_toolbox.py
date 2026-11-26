@@ -88,6 +88,7 @@ def board_tools(
                 function.description,
                 function.parameters,
                 _runner(function),
+                writes=name in WRITE_TOOLS,
                 prefix=prefix,
                 node_id=str(frozen.get("node_id") or ""),
                 node_name=label,

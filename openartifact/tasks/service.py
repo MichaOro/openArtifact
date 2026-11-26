@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -389,10 +389,17 @@ class ArtifactService:
         until: str | None = None,
         limit: int = history_query.DEFAULT_LIMIT,
         cursor: str | None = None,
+        dry_run: str | None = None,
     ) -> ExecutionsPage:
         """The executions of all artifacts, newest first, one page (see ``engine/history_query.py``)."""
         flt = history_query.ExecutionFilter.parse(
-            status=status, started_by=started_by, pipeline=pipeline, q=q, since=since, until=until
+            status=status,
+            started_by=started_by,
+            pipeline=pipeline,
+            q=q,
+            since=since,
+            until=until,
+            dry_run=dry_run,
         )
         async with self._session() as session:
             return await history_query.list_executions(
@@ -836,8 +843,13 @@ class ArtifactService:
         stage_id: str | None = None,
         action_id: str | None = None,
         started_by: StartedBy = StartedBy.USER,
+        *,
+        dry_run: bool = False,
+        inputs: Mapping[str, Any] | None = None,
+        version: str | None = None,
     ) -> RunRead:
-        """Start processing; without a choice, with the pipeline, stage and action the artifact has."""
+        """Start processing; without a choice, with the pipeline, stage and action the artifact has. A dry run (ADR-086) skips what
+        writes and leaves the artifact's own target as it is."""
         async with self._session() as session:
             task = await self._task(session, ref)
             self.forbid_archived(task)
@@ -849,7 +861,16 @@ class ArtifactService:
             before = _target_of(task)
         if pipeline_id is None:
             raise ArtifactError(422, "Choose a pipeline first")
-        run = await self._engine.start(task_id, pipeline_id, stage_id, action_id, started_by)
+        run = await self._engine.start(
+            task_id,
+            pipeline_id,
+            stage_id,
+            action_id,
+            started_by,
+            dry_run=dry_run,
+            inputs=inputs,
+            version=version,
+        )
         # the engine re-targets the artifact in the transaction that claims its run
         async with self._session() as session:
             task = await self._task(session, task_id)

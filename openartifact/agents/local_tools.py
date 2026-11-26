@@ -37,6 +37,7 @@ from openartifact.engine.postgres_runner import PostgresError, bind_values, run_
 from openartifact.engine.sqlite_runner import APP_SOURCE, SqliteError, blocked_names
 from openartifact.engine.sqlite_runner import run_query as run_sqlite_query
 from openartifact.graph import field_schema
+from openartifact.graph.effects import writes as writes_of
 from openartifact.graph.node_types import parse_status_spec
 from openartifact.models import NodeKind
 
@@ -177,6 +178,7 @@ def build_http_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
         str(config.get("description") or ""),
         _schema(declared),
         run,
+        writes=writes_of(NodeKind.HTTP_TOOL, config),
     )
 
 
@@ -220,6 +222,7 @@ def build_code_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
         str(config.get("description") or ""),
         _schema(declared),
         run,
+        writes=writes_of(NodeKind.CODE_TOOL, config),
     )
 
 
@@ -274,6 +277,7 @@ def build_postgres_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool
         str(config.get("description") or ""),
         _schema(declared),
         run,
+        writes=writes_of(NodeKind.POSTGRES_TOOL, config),
     )
 
 
@@ -324,6 +328,7 @@ def build_sqlite_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
         str(config.get("description") or ""),
         _schema(declared),
         run,
+        writes=False,
     )
 
 
@@ -362,6 +367,7 @@ def build_handover_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool
         str(config.get("description") or ""),
         field_schema.json_schema(fields),
         run,
+        writes=False,
     )
 
 

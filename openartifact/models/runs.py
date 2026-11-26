@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     ForeignKey,
     Index,
     Integer,
@@ -50,6 +51,8 @@ class PipelineRun(Base):
     execution_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("executions.id", ondelete="SET NULL"), nullable=True, default=None
     )
+    #: The current run is a dry run (ADR-086, migration 0066): nothing was written outside it.
+    dry_run: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
@@ -98,6 +101,9 @@ class Execution(Base):
     status: Mapped[str] = mapped_column(String(16))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_by: Mapped[str] = mapped_column(String(16))
+    #: A dry run (ADR-086, migration 0066): a run under real conditions that skipped everything that writes; the list shows it with a chip and
+    #: the counters of real runs leave it out.
+    dry_run: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     step_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     snapshot: Mapped[str] = mapped_column(Text, default="{}", server_default="{}", deferred=True)
     context: Mapped[str] = mapped_column(Text, default="{}", server_default="{}", deferred=True)

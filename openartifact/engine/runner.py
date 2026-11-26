@@ -31,13 +31,14 @@ from openartifact.activity import recorder as activity
 from openartifact.artifact_fields.service import card_of
 from openartifact.comments.schemas import Author
 from openartifact.database import SessionOpener
-from openartifact.engine import code_registry, stop_switch
+from openartifact.engine import code_registry, dry_run, stop_switch
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
 from openartifact.engine.context import (
     ContextError,
     NodeIndex,
     RunContext,
     RunView,
+    bind_given,
     bind_inputs,
     build_outputs,
     check_card,
@@ -54,6 +55,7 @@ from openartifact.engine.targets import TargetError, load_pipeline, pick_start
 from openartifact.engine.telemetry import TelemetrySource
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
+from openartifact.graph.effects import writes
 from openartifact.graph.node_types import FailureMode, Ports
 from openartifact.guards.monitor import GuardSettings, Monitor, Verdict
 from openartifact.models import (
@@ -176,6 +178,11 @@ class _Walk:
     interrupt: Verdict | None = None
     #: The outputs the Output node of the action definition that just ended handed back (ADR-083); ``None`` when it declares none.
     outputs: dict[str, Any] | None = None
+    #: The run is a dry run (ADR-086): what writes is skipped, a timer does not wait, the tools of an agent that change something answer
+    #: that it was a dry run.
+    dry_run: bool = False
+    #: The values given at the start for the inputs of the entry action (``{"action_id", "values"}``, already checked), used once.
+    entry_inputs: dict[str, Any] | None = None
 
     def step(self) -> None:
         """Count a step; actions and the nodes of their definitions count against the same limit, so a
@@ -216,7 +223,13 @@ class _GuardHooks:
         inputs["guard_execution"] = walk.execution_id or ""
         inputs["guard_task"] = walk.task_id
         context.set_vars(inputs)
-        view = RunView(context, NodeIndex.of_graphs([definition]), walk.task_id, walk.execution_id)
+        view = RunView(
+            context,
+            NodeIndex.of_graphs([definition]),
+            walk.task_id,
+            walk.execution_id,
+            walk.dry_run,
+        )
         return await self._engine._run_definition(definition_id, definition, walk, view)
 
     async def interrupt(self, verdict: Verdict) -> None:
@@ -320,6 +333,7 @@ class RunEngine:
             resume_action_id=None if nested else run.action_id,
             status=RunStatus(run.status),
             started_by=StartedBy(run.started_by),
+            dry_run=bool(run.dry_run),
             note=run.note,
             stage_id=run.stage_id,
             stage_name=labels.get(run.stage_id or ""),
@@ -391,12 +405,25 @@ class RunEngine:
         stage_id: str | None = None,
         action_id: str | None = None,
         started_by: StartedBy = StartedBy.USER,
+        *,
+        dry_run: bool = False,
+        inputs: Mapping[str, Any] | None = None,
+        version: str | None = None,
     ) -> RunRead:
         """Start (or restart) the artifact in a pipeline, at a stage and action (default: the first).
 
         Stages before the starting stage count as done: those the artifact has passed keep that
         status, the others are marked ``skipped``.
+
+        ``dry_run`` (ADR-086): a run under real conditions that skips what writes; it leaves the artifact's own target (pipeline, stage,
+        action) as it is. ``version`` (``draft`` or ``published``, dry runs only) says which version of the graphs it freezes:
+        ``None`` is the published one. ``inputs`` are values for the declared inputs of the entry: the action's when ``action_id`` is
+        given, else the pipeline's own (dry runs only).
         """
+        if not dry_run and (inputs is not None or version is not None):
+            raise ArtifactError(422, "inputs and version are for a dry run")
+        if version not in (None, "draft", "published"):
+            raise ArtifactError(422, "version is draft or published")
         # Everything up to the registration of the background task happens for one artifact at a time:
         # the check below runs before the first await, so a second start cannot slip in.
         if self._stopped:
@@ -409,7 +436,9 @@ class RunEngine:
             )
         self._starting.add(task_id)
         try:
-            return await self._start(task_id, pipeline_id, stage_id, action_id, started_by)
+            return await self._start(
+                task_id, pipeline_id, stage_id, action_id, started_by, dry_run, inputs, version
+            )
         finally:
             self._starting.discard(task_id)
 
@@ -420,6 +449,9 @@ class RunEngine:
         stage_id: str | None,
         action_id: str | None,
         started_by: StartedBy,
+        dry_run: bool = False,
+        inputs: Mapping[str, Any] | None = None,
+        version: str | None = None,
     ) -> RunRead:
         async with self._session() as session:
             task = await session.get(Task, task_id)
@@ -430,7 +462,7 @@ class RunEngine:
                 raise ArtifactError(409, "The artifact is already being processed")
             try:
                 pipeline = await load_pipeline(session, pipeline_id)
-                snapshot = await build_snapshot(session, pipeline)
+                snapshot = await build_snapshot(session, pipeline, draft=version == "draft")
                 snapshot["limits"] = (await load_limits(session))[
                     0
                 ].to_data()  # frozen for this run
@@ -439,6 +471,9 @@ class RunEngine:
                 index, entry, first_action = pick_start(chain, stage_id, action_id)
             except (TargetError, NestingError) as error:
                 raise ArtifactError(422, str(error)) from error
+            start_inputs: dict[str, Any] | None = None
+            if inputs is not None:
+                start_inputs = self._entry_inputs(snapshot, inputs, action_id)
 
             card = await card_of(session, task)
             try:
@@ -447,9 +482,17 @@ class RunEngine:
                 raise ArtifactError(422, str(error)) from error
 
             run, previous = await self._claim(session, task_id, run, pipeline_id, started_by)
-            # the artifact keeps what it was started with, so the next start offers the same
+            if run.dry_run:
+                previous = {}  # the stage states of a dry run say nothing about what the artifact has passed
+            # the artifact keeps what it was started with, so the next start offers the same; a dry run leaves it as it is
             at_action = first_action if entry["kind"] == NodeKind.STAGE else None
-            task.pipeline_id, task.stage_id, task.action_id = pipeline_id, entry["id"], at_action
+            if not dry_run:
+                task.pipeline_id, task.stage_id, task.action_id = (
+                    pipeline_id,
+                    entry["id"],
+                    at_action,
+                )
+            run.dry_run = dry_run
             run.pipeline_id = pipeline_id
             run.created_at = datetime.now(UTC)  # the row is reused: this is when this run began
             run.status = RunStatus.RUNNING
@@ -468,7 +511,10 @@ class RunEngine:
                 stage_id=entry["id"],
                 action_id=at_action,
                 started_by=started_by,
-                context=RunContext.initial(card),
+                context=RunContext({"card": dict(card), "inputs": start_inputs})
+                if start_inputs and action_id is None
+                else RunContext.initial(card),
+                dry_run=dry_run,
             )
             run.execution_id = execution.id
             changes.updated.append(ExecutionRead.of(execution))
@@ -502,6 +548,32 @@ class RunEngine:
         self.history.publish(changes)
         self._jobs[task_id] = asyncio.create_task(self._execute(task_id, execution_id))
         return result
+
+    @staticmethod
+    def _entry_inputs(
+        snapshot: dict[str, Any], inputs: Mapping[str, Any], action_id: str | None
+    ) -> dict[str, Any]:
+        """The values a dry run was given for the inputs of its entry, checked like a mapping (ADR-086, ADR-083): of the action it starts at
+        when one is named (kept in the snapshot, used by that action once), else of the pipeline's own Trigger (returned, they become the
+        inputs of the context). 422 when the entry declares no inputs, a name is unknown, a required input is missing or a value does not fit."""
+        try:
+            if action_id is not None:
+                node = next((n for n in snapshot["nodes"] if n["id"] == action_id), None)
+                definition = snapshot["definitions"].get((node or {}).get("definition_id") or "")
+                if definition is None:
+                    raise ContextError("that action has no definition to give inputs to")
+                declared = _declared(definition, NodeKind.TRIGGER, "inputs")
+                if not declared:
+                    raise ContextError(f"{definition['name']} declares no inputs")
+                bound = bind_given(definition["name"], declared, inputs)
+                snapshot["entry_inputs"] = {"action_id": action_id, "values": bound}
+                return bound
+            declared = _declared(snapshot, NodeKind.TRIGGER, "inputs")
+            if not declared:
+                raise ContextError(f"{snapshot['name']} declares no inputs")
+            return bind_given(snapshot["name"], declared, inputs)
+        except ContextError as error:
+            raise ArtifactError(422, str(error)) from error
 
     async def _claim(
         self,
@@ -866,6 +938,8 @@ class RunEngine:
                 )
                 walk.limits = RunLimits.of_snapshot(walk.snapshot)
                 walk.storage = StorageLimits.of_snapshot(walk.snapshot)
+                walk.dry_run = bool(run.dry_run)
+                walk.entry_inputs = walk.snapshot.get("entry_inputs")
                 stage_id, action_id, run_pipeline = run.stage_id, run.action_id, run.pipeline_id
                 walk.context = RunContext.loads(
                     await session.scalar(
@@ -989,7 +1063,7 @@ class RunEngine:
             await self._walk(walk, called, inner, 0, None, depth + 1, entry["pipeline_id"])
             return
         node = next((n for n in graph["nodes"] if n["id"] == entry["id"]), entry)
-        view = RunView(walk.context, walk.index, walk.task_id, walk.execution_id)
+        view = RunView(walk.context, walk.index, walk.task_id, walk.execution_id, walk.dry_run)
         try:
             bound = bind_inputs(node, called["name"], declared_in, view)
         except ContextError as error:
@@ -1097,9 +1171,16 @@ class RunEngine:
             not declared_in and not declared_out
         ):  # no contract: the nodes read the run context as before
             return await self._run_definition(node["definition_id"], definition, walk, None)
-        view = RunView(walk.context, walk.index, walk.task_id, walk.execution_id)
+        view = RunView(walk.context, walk.index, walk.task_id, walk.execution_id, walk.dry_run)
         try:
-            bound = bind_inputs(node, definition["name"], declared_in, view)
+            given = walk.entry_inputs
+            if given is not None and given["action_id"] == node["id"]:
+                bound = dict(
+                    given["values"]
+                )  # a dry run's own values for the entry action, used once
+                walk.entry_inputs = None
+            else:
+                bound = bind_inputs(node, definition["name"], declared_in, view)
         except ContextError as error:
             await self._place_result(walk, node, False, str(error), None)
             return False, str(error)
@@ -1161,7 +1242,9 @@ class RunEngine:
         With ``view`` it is a guard's own action (ADR-060): it reads and writes that view's context, its steps are not
         recorded and count against a limit of their own, not the run's."""
         record = view is None
-        run_view = view or RunView(walk.context, walk.index, walk.task_id, walk.execution_id)
+        run_view = view or RunView(
+            walk.context, walk.index, walk.task_id, walk.execution_id, walk.dry_run
+        )
         nodes = {n["id"]: n for n in definition["nodes"]}
         current = next(n for n in definition["nodes"] if n["kind"] == NodeKind.TRIGGER)
         now = datetime.now(UTC)
@@ -1214,8 +1297,13 @@ class RunEngine:
                     )
                 )
             timer = time.monotonic()
+            runner = executor.run
+            if run_view.dry_run and writes(str(current["kind"]), current.get("config")):
+                runner = (
+                    dry_run.skipped
+                )  # what writes is not run; the step says what it would have done (ADR-086)
             result, earlier = await tried(
-                partial(executor.run, current, self._limits, run_view),
+                partial(runner, current, self._limits, run_view),
                 lambda r: (r.reason or "The node failed") if r.outcome == "fail" else None,
                 retry_of(current) if executor.by_outcome else None,  # Retry on fail (ADR-073)
             )

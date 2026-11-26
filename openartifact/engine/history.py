@@ -108,6 +108,7 @@ class ExecutionHistory:
         action_id: str | None,
         started_by: str,
         context: RunContext,
+        dry_run: bool = False,
     ) -> Execution:
         """Add a running execution with the next number of the artifact and its first context (not committed)."""
         labels = labels_of(snapshot)
@@ -127,6 +128,7 @@ class ExecutionHistory:
             final_action_name=labels.get(action_id or ""),
             status=RunStatus.RUNNING,
             started_by=started_by,
+            dry_run=dry_run,
             snapshot=json.dumps(snapshot),
             context=context.dumps(),
             created_at=now,

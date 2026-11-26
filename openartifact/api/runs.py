@@ -46,7 +46,16 @@ async def start_run(task_id: str, service: ServiceDep, payload: RunStart | None 
     Stages before the starting stage count as done. Publishes ``run.updated`` on every step.
     """
     body = payload or RunStart()
-    return await service.start(task_id, body.pipeline_id, body.stage_id, body.action_id)
+    return await service.start(
+        task_id,
+        body.pipeline_id,
+        body.stage_id,
+        body.action_id,
+        dry_run=body.dry_run,
+        inputs=body.inputs,
+        # from the editor a dry run tests what is being edited unless it says otherwise
+        version=body.version or ("draft" if body.dry_run else None),
+    )
 
 
 @router.post(

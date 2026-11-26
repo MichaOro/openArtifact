@@ -36,7 +36,11 @@ class NestingError(ValueError):
 
 
 async def _collect(
-    session: AsyncSession, root: dict[str, Any], graph: dict[str, Any], path: tuple[str, ...]
+    session: AsyncSession,
+    root: dict[str, Any],
+    graph: dict[str, Any],
+    path: tuple[str, ...],
+    draft: bool = False,
 ) -> None:
     """Add the action definitions and the called pipelines (recursively) of ``graph`` to ``root``."""
     for node in graph["nodes"]:
@@ -44,24 +48,27 @@ async def _collect(
         if not target:
             continue
         if node["kind"] == NodeKind.ACTION and target not in root["definitions"]:
-            root["definitions"][target] = await graph_for_run(session, target)
+            root["definitions"][target] = await graph_for_run(session, target, draft=draft)
         elif node["kind"] == NodeKind.PIPELINE:
             if target in path:
                 raise NestingError("The pipeline calls itself")
             if len(path) >= MAX_NESTING:
                 raise NestingError("Pipelines are nested too deeply")
             if target not in root["pipelines"]:
-                called = await graph_for_run(session, target)
+                called = await graph_for_run(session, target, draft=draft)
                 root["pipelines"][target] = called
-                await _collect(session, root, called, (*path, target))
+                await _collect(session, root, called, (*path, target), draft)
 
 
-async def build_snapshot(session: AsyncSession, graph: Graph) -> dict[str, Any]:
-    """The pipeline's graph plus the called pipelines and action definitions it uses, frozen."""
-    snapshot = await graph_for_run(session, graph.id)
+async def build_snapshot(
+    session: AsyncSession, graph: Graph, *, draft: bool = False
+) -> dict[str, Any]:
+    """The pipeline's graph plus the called pipelines and action definitions it uses, frozen: each in the version that runs, or with
+    ``draft`` (a dry run that tests what is being edited, ADR-086) each in its draft."""
+    snapshot = await graph_for_run(session, graph.id, draft=draft)
     snapshot["definitions"] = {}
     snapshot["pipelines"] = {}
-    await _collect(session, snapshot, snapshot, (graph.id,))
+    await _collect(session, snapshot, snapshot, (graph.id,), draft)
     await freeze_agents(session, snapshot)  # agent nodes keep the version they start with
     await freeze_guards(session, snapshot)
     return snapshot

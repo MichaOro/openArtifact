@@ -621,7 +621,7 @@ API, MCP and the interface). Safe by construction (ADR-068):
 
 | View | One row per | Columns |
 |---|---|---|
-| `v_guard_runs` | execution | `id`, `task_id`, `number`, `pipeline_name`, `started_stage_name`, `started_action_name`, `final_stage_name`, `final_action_name`, `status`, `started_by`, `step_count`, `created_at`, `started_at`, `finished_at` |
+| `v_guard_runs` | execution | `id`, `task_id`, `number`, `pipeline_name`, `started_stage_name`, `started_action_name`, `final_stage_name`, `final_action_name`, `status`, `started_by`, `dry_run`, `step_count`, `created_at`, `started_at`, `finished_at` |
 | `v_guard_steps` | step (a node that ran) | `id`, `execution_id`, `seq`, `node_id`, `node_name`, `kind`, `outcome`, `success` (1 or 0), `attempts`, `port`, `exit_code`, `reason`, `started_at`, `finished_at` |
 | `v_guard_tool_calls` | tool call of a *finished* Agent step | `execution_id`, `step_id`, `step_name`, `step_seq`, `turn`, `tool`, `tool_node`, `arguments` (first 200 characters), `is_error`, `duration_ms` |
 | `v_guard_artifacts` | artifact (card) | `id`, `number`, `title`, `lane`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`, `created_by`, `created_at`, `updated_at` |
