@@ -64,10 +64,12 @@ def test_the_menu_offers_if_and_switch_after_http(
             "HTTP Request Tool",
             "Execute Command Tool",
             "Postgres Tool",
+            "OpenArtifact MCP Tool",  # ADR-079
+            "Hand Over Tool",  # ADR-080
         ],
         "Apps and data": ["GitHub", "Postgres"],
         "Core": ["Execute Command", "HTTP request"],
-        "Data": ["Edit Fields", "Artifact"],
+        "Data": ["Edit Fields", "Artifact", "Build Context"],  # Build Context: ADR-078
         "Flow": ["If", "Switch", "Timer"],
     }
 
@@ -259,7 +261,9 @@ def test_typing_a_reference_suggests_and_the_keyboard_accepts(
     expect(listbox.get_by_role("option", name="exit_code")).to_have_count(0)
     # choosing a node shows what is behind it
     url.press_sequentially("(Decide).")
-    expect(_options(page)).to_have_count(4 + 1)  # the If node's own result: 5 fields
+    expect(_options(page)).to_have_count(
+        7 + 1
+    )  # the If node's own result: the seven fields of the result contract (output, exit_code, outcome, success, reason, attempts, duration_ms; ADR-072) and its data
     url.fill("https://example.org/${(Fetch")
     expect(_options(page)).to_have_count(1)
     url.press("Enter")
