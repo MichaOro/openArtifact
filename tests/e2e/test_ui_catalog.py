@@ -32,6 +32,7 @@ CATALOG_CLASSES = {
     "info-tip",  # the (i) that opens the explanation of a field (components/info-tip.js)
     "layout-handle",  # the handle on the top edge of a manifest window (components/window-layout.js, ADR-063)
     "lw-grip",  # the grip of a section or field in the arrange view (components/layout-arrange.js)
+    "ge-state",  # the mark "Draft" / "v3 published" of the editor's toolbar as the trigger of its popup (editor/publication-control.js)
 }
 
 MEASURE = """

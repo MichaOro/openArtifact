@@ -49,7 +49,7 @@ not suggestions, and a change that breaks one is sent back.
 ## Rules
 
 1. **Use a catalog component.** A `<button>` carries `button`, `icon-button`, `chip-button`, `ge-switch` (an on/off
-   switch, `switch.js`), `task-tab`, `nav-link`, `menu__item`, `popover__option`, `info-tip`, `layout-handle` or `lw-grip`. The rare exception carries `data-ui="custom"` and `data-ui-reason="why"`.
+   switch, `switch.js`), `task-tab`, `nav-link`, `menu__item`, `popover__option`, `info-tip`, `layout-handle`, `lw-grip` or `ge-state`. The rare exception carries `data-ui="custom"` and `data-ui-reason="why"`.
 2. **No colour in a component.** Colours come from the tokens in `static/css/tokens.css` (`var(--color-text-primary)`,
    `var(--btn-outline-border)` ...), never from a literal. Both themes define the tokens; a component that only uses them
    works in both.
@@ -76,6 +76,7 @@ not suggestions, and a change that breaks one is sent back.
 | Icon only | `icon-button` (small: `icon-button icon-button--sm`) | A command with an icon and no text. It needs an accessible name: `aria-label` (or a visible tooltip name). |
 | Layout handle | `layout-handle` | The pill with nine dots on the top edge of a manifest window (ADR-063): `--layout-accent`, `--layout-accent-hover`, `--layout-on-accent` (a colour family of its own, so it is never taken for a "..." menu). 24 px high, the global focus ring. Its menu is `menu menu--layout`. |
 | Layout grip | `lw-grip` | The grip of a section or a field in the arrange view: icon only, coloured `--layout-accent-hover` (5.8:1 on the card), a quiet fill on hover, moves with the pointer or the arrow keys. |
+| Status chip as a trigger | `ge-state` | The mark "Draft" / "v3 published" in the toolbar of the pipeline and action editor (`editor/publication-control.js`, ADR-070 addendum): no chrome of its own, the status chip (tinted pill) and a small arrow; it is a button only while there is something to publish or discard, and opens the popup `pub-popover` (a `popover` with `button--primary` Publish and `button--ghost` Discard draft, an inline `field__error` for a refusal). Hover and open darken the chip; the focus ring is the global one. |
 | Icon only, quiet | `icon-button icon-button--quiet icon-button--xs` | An icon with no frame and no fill (24 px hit area, a quiet fill on hover and the global focus ring): the guard shield on a card, a stage header and next to the canvas "+". Needs an accessible name. Colours: `--btn-quiet-text`, `--btn-quiet-text-hover`. |
 | Icon only, destructive | `icon-button is-danger` | A delete icon: it turns red on hover and focus. |
 | Chip (toggle) | `chip-button` with `aria-pressed="true|false"` | A filter or a switch among a few: *All / Comments / Executions / Changes*. |

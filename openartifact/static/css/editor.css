@@ -40,6 +40,18 @@
 }
 .ge-bar__spacer { flex: 1; }
 .ge-bar__state { display: inline-flex; align-items: center; }
+/* the mark as a control while there is something to publish or discard: no button chrome, the chip and a small arrow */
+.ge-state { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; border-radius: var(--radius-pill); }
+.ge-state__caret { width: 0.8rem; height: 0.8rem; color: var(--color-text-secondary); }
+.ge-state:hover .ge-chip, .ge-state[aria-expanded="true"] .ge-chip { background: color-mix(in srgb, var(--color-accent) 28%, transparent); }
+.ge-state:hover .ge-state__caret, .ge-state[aria-expanded="true"] .ge-state__caret { color: var(--color-accent); }
+/* its popup */
+.pub-popover { z-index: 30; gap: var(--space-2); min-width: 16rem; max-width: min(22rem, calc(100vw - 1rem)); }
+.pub-popover[hidden] { display: none; }
+.pub-popover__note { margin: 0; text-transform: none; letter-spacing: normal; }
+.pub-popover__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.pub-popover__error { margin: 0; }
+.pub-popover__error[hidden] { display: none; }
 .ge-bar__zoom {
   min-width: 3rem;
   text-align: center;
