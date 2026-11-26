@@ -36,8 +36,13 @@ export class InspectorPanel {
     this.element.closest("dialog")?.classList.toggle("is-wide", Boolean(this.element.querySelector('.ge-settings[data-columns="2"]')));
     const control = key ? this.element.querySelector(`[data-focus-key="${key}"]`) : null;
     // a block that draws itself later (the agent's settings) puts the focus back when it is there: remember where it was
-    if (key && !control) this.element.dataset.refocus = key;
-    else delete this.element.dataset.refocus;
+    // (a second draw while the focus is already gone keeps it: it is forgotten once used or after three seconds)
+    if (key && !control) {
+      this.element.dataset.refocus = key;
+      this.element.dataset.refocusAt = String(Date.now());
+    } else if (control) {
+      delete this.element.dataset.refocus;
+    }
     if (!control) return this.onDrawn?.();
     control.focus();
     if (caret && typeof control.setSelectionRange === "function") {

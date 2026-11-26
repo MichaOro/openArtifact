@@ -121,9 +121,9 @@ class AgentBlock {
       }),
     ));
     const panel = this.element.closest("[data-refocus]");
-    const wanted = focusKey ? `agent-${focusKey}` : panel?.dataset.refocus; // the panel drew while this block was still on its way
+    const fresh = panel && Date.now() - Number(panel.dataset.refocusAt) < 3000;
+    const wanted = focusKey ? `agent-${focusKey}` : fresh ? panel.dataset.refocus : null; // the panel drew while this block was still on its way
     if (wanted) this.element.querySelector(`[data-focus-key="${wanted}"]`)?.focus();
-    if (panel) delete panel.dataset.refocus;
   }
 
   /** The agent's side of the settings: what is in effect, as the server resolves it. */
