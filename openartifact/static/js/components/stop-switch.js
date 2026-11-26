@@ -1,4 +1,4 @@
-/* The STOP switch of the Executions page (ADR-076): the label "STOP" and an on/off switch in the red of the trash button
+/* The emergency stop of the Executions page (ADR-076): the label "STOP" and an on/off switch in the red of the trash button
  * (the specialisation of `switch.js`: `.ge-switch--danger`). Turning it on asks first, naming how many executions run and
  * will be aborted; turning it off does not ask. It shows only while the feature is offered (or while STOP is on, so a stop is
  * never stuck behind a hidden switch). The state is stop-state.js, the question is the page's shared confirm dialog. */
@@ -24,6 +24,9 @@ export class StopSwitch {
     this.button = createSwitch(label.id);
     this.button.classList.add("ge-switch--danger");
     this.button.title = t("stop.switch_title");
+    // the short visible label stays "STOP"; what a screen reader says is the full name
+    this.button.removeAttribute("aria-labelledby");
+    this.button.setAttribute("aria-label", t("stop.switch_aria"));
     root.replaceChildren(label, this.button);
     this.switch = new Switch(this.button, { onChange: (on) => this.#changed(on) });
     this.unsubscribe = subscribeStop((state) => this.#show(state));

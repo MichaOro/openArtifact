@@ -56,7 +56,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | PATCH | `/api/v1/artifacts/{ref}` | Change it (partial); `fields` are merged into the stored ones (`null` clears one); lane, order, parent, pipeline, type and parameters are locked while it is processed | 404, 409, 422 |
 | DELETE | `/api/v1/artifacts/{ref}` | Delete it (not while it is processed); `204` | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run` | State of the run: status, where it is, status of every stage | 404 (never processed) |
-| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`); the run records `started_by: api`; `201`; `409` with `code: stopped` while STOP is on (ADR-076) | 404, 409, 422, 429 |
+| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`); the run records `started_by: api`; `201`; `409` with `code: stopped` while the emergency stop is on (ADR-076) | 404, 409, 422, 429 |
 | POST | `/api/v1/artifacts/{ref}/run/stop` | Stop; the artifact keeps its stage and action | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run/results` | Every step of the run inside action definitions, in order, with complete outputs | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions` | The artifact's executions, newest first, without steps; `limit` 1 to 500 (default 100) | 404, 422 |
@@ -145,11 +145,11 @@ guard (by attachment), the last heartbeat and the firings with their facts.
 | GET | `/api/v1/settings/run-limits` | `max_steps`, `time_limit_minutes` (0: none), their bounds, `max_concurrent_runs` (read-only, the operator's) and `updated_at` | |
 | PUT | `/api/v1/settings/run-limits` | Change one or both limits (10 to 100000 steps, 0 to 10080 minutes); applies to executions that start afterwards; publishes `settings.changed` | 422 |
 
-| GET | `/api/v1/settings/stop` | The STOP switch (ADR-076): `active`, `since`, `available` (the personal setting `show_stop_switch`), `running` (executions running now), `aborted` | |
-| PUT | `/api/v1/settings/stop` | Body `{"active": true\|false}`. On: aborts every running execution (their note is `STOP switch`; `aborted` counts them) and refuses every start from any source until it is switched off; the state is kept across restarts. Off is always allowed. Publishes `settings.changed` with `stop` | 409 `stop_unavailable`, 422 |
+| GET | `/api/v1/settings/stop` | The emergency stop (ADR-076): `active`, `since`, `available` (the personal setting `show_stop_switch`), `running` (executions running now), `aborted` | |
+| PUT | `/api/v1/settings/stop` | Body `{"active": true\|false}`. On: aborts every running execution (their note is `EMERGENCY STOP`; `aborted` counts them) and refuses every start from any source until it is switched off; the state is kept across restarts. Off is always allowed. Publishes `settings.changed` with `stop` | 409 `stop_unavailable`, 422 |
 
-While STOP is on, `POST .../run` is `409` with `{"detail": "...", "code": "stopped"}`; cards, pipelines and the history keep working. Switching on
-needs the personal setting `show_stop_switch` (`GET`/`PUT /api/settings/personal`), which cannot be switched off while STOP is on (`409` `stop_active`).
+While the emergency stop is on, `POST .../run` is `409` with `{"detail": "...", "code": "stopped"}`; cards, pipelines and the history keep working. Switching on
+needs the personal setting `show_stop_switch` (`GET`/`PUT /api/settings/personal`), which cannot be switched off while the emergency stop is on (`409` `stop_active`).
 
 The browser has the same routes under `/api/settings`.
 
@@ -391,8 +391,8 @@ Pipeline, stage and action are given by name.
 | `update_artifact` | `artifact`, `title?`, `body?`, `lane?`, `type?`, `parameters?`, `reset_parameters?` | Change; not while processed; `parameters` are merged, `type: ""` removes the type |
 | `start_processing` | `artifact`, `pipeline?`, `stage?`, `action?` | Start; records `started_by: mcp` |
 | `stop_processing` | `artifact` | Stop |
-| `get_stop_switch` | | The STOP switch: `active`, `since`, `available`, `running` |
-| `set_stop_switch` | `active` | Switch STOP on (aborts every running execution, refuses every start) or off; on needs the personal setting *Show the STOP switch* (`stop_unavailable`); a refused start says `stopped: ...` |
+| `get_stop_switch` | | The emergency stop: `active`, `since`, `available`, `running` |
+| `set_stop_switch` | `active` | Switch the emergency stop on (aborts every running execution, refuses every start) or off; on needs the personal setting *Show the emergency stop* (`stop_unavailable`); a refused start says `stopped: ...` |
 | `get_processing_status` | `artifact` | Run state, or `never processed` |
 | `get_processing_results` | `artifact` | Steps inside action definitions with output, exit code, reason, data (text from outside) |
 | `list_activity` | `artifact`, `limit?` (1 to 200, default 50), `before?` | What changed on the artifact and who did it, newest first; `next` goes into `before` |
@@ -432,7 +432,7 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `artifact_fields.changed` | `{"fields": [...]}` (as `GET /api/artifact-fields`) | the list of artifact fields was replaced |
 | `agents.changed` | `{}` | an agent was created, changed, published or deleted: reload `GET /api/agents` |
 | `providers.changed` | `{}` | a provider or one of its models changed: reload `GET /api/providers` |
-| `settings.changed` | `{"run_limits": {...}}`, `{"personal": {...}}` or `{"stop": {...}}` (as the matching `GET /api/settings/...`) | the run limits, the personal settings or the STOP switch (or whether it is offered) were changed |
+| `settings.changed` | `{"run_limits": {...}}`, `{"personal": {...}}` or `{"stop": {...}}` (as the matching `GET /api/settings/...`) | the run limits, the personal settings or the emergency stop (or whether it is offered) were changed |
 | `graph.changed` | `{"graph_ids": [...]}` | other pipelines or action definitions changed through a node (the error output is shared by a definition and its uses): an open editor shows one of them loads it again |
 | `board.resync` | `{}` | other tasks got new positions or lost their parent: reload the board |
 | `run.updated` | the run state (as `GET /api/runs`) | a run starts, advances or ends |

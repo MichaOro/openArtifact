@@ -1,21 +1,24 @@
-"""The STOP switch (ADR-076): no execution starts and every running one is aborted while it is on."""
+"""The emergency stop (ADR-076): no execution starts and every running one is aborted while it is on."""
 
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 import threading
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
+from alembic import command
 from openartifact.app import _create_app
 from openartifact.config import Settings
 from openartifact.engine import stop_switch
 from openartifact.engine.runner import RunEngine
-from tests.helpers import build_pipeline, make_task, run_of, wait_for_run
+from tests.helpers import alembic_config, build_pipeline, make_task, run_of, wait_for_run
 from tests.test_execution_nodes import _definition, _start, _use
 from tests.test_mcp import _call as mcp_call
 
@@ -63,7 +66,7 @@ def test_switching_on_needs_the_setting_and_says_which(api: TestClient) -> None:
     refused = api.put("/api/settings/stop", json={"active": True})
     assert refused.status_code == 409
     assert refused.json()["code"] == "stop_unavailable"
-    assert 'switch on "Show the STOP switch"' in refused.json()["detail"]
+    assert 'switch on "Show the emergency stop"' in refused.json()["detail"]
     assert api.get("/api/settings/stop").json()["active"] is False  # nothing was switched on
     _offer(api)
     assert _stop(api, True)["active"] is True
@@ -95,7 +98,7 @@ def test_the_switch_cannot_be_hidden_while_stop_is_on(api: TestClient) -> None:
     refused = api.put("/api/settings/personal", json={"show_stop_switch": False})
     assert refused.status_code == 409
     assert refused.json()["code"] == "stop_active"
-    assert "switch STOP off before you hide the switch" in refused.json()["detail"]
+    assert "switch it off before you hide it" in refused.json()["detail"]
     assert api.get("/api/settings/personal").json()["show_stop_switch"] is True
     _stop(api, False)
     assert api.put("/api/settings/personal", json={"show_stop_switch": False}).status_code == 200
@@ -163,6 +166,9 @@ def test_everything_but_the_execution_keeps_working(api: TestClient) -> None:
 
 
 def test_switching_on_aborts_every_running_execution_with_its_note(api: TestClient) -> None:
+    assert (
+        stop_switch.NOTE == "EMERGENCY STOP"
+    )  # the name the user sees, in capitals, not the old 'STOP switch'
     _offer(api)
     runs = [_long_run(api) for _ in range(2)]
     assert api.get("/api/settings/stop").json()["running"] == 2
@@ -275,10 +281,59 @@ def test_mcp_reads_and_sets_the_switch_under_the_same_rules(api: TestClient) -> 
     is_error, state = mcp_call(api, "get_stop_switch")
     assert is_error is False and state["active"] is False and state["available"] is False
     is_error, text = mcp_call(api, "set_stop_switch", active=True)
-    assert is_error is True and "stop_unavailable: The STOP switch is switched off" in text
+    assert is_error is True and "stop_unavailable: The emergency stop is switched off" in text
     _offer(api)
     is_error, state = mcp_call(api, "set_stop_switch", active=True)
     assert is_error is False and state["active"] is True
     assert api.get("/api/settings/stop").json()["active"] is True
     is_error, state = mcp_call(api, "set_stop_switch", active=False)
     assert is_error is False and state["active"] is False
+
+
+# ── migration 0061: the stored note carries the new name ──────────────
+
+
+def test_migration_0061_renames_only_the_old_note_of_runs_and_executions_and_goes_down_again(
+    at_revision: Callable[[str], Path],
+) -> None:
+    path = at_revision("0060")
+    with sqlite3.connect(path) as conn:
+        for number in (1, 2, 3):  # one run per artifact: a run each for three artifacts
+            conn.execute(
+                "INSERT INTO tasks (id, title, status, position, number) VALUES (?, 'T', 'done', ?, ?)",
+                (f"t{number}", number, number),
+            )
+        for run_id, task_id, note in (
+            ("r1", "t1", "STOP switch"),
+            ("r2", "t2", "interrupted"),
+            ("r3", "t3", "STOP switch off by hand"),
+        ):
+            conn.execute(
+                "INSERT INTO pipeline_runs (id, task_id, status, started_by, snapshot, note) "
+                "VALUES (?, ?, 'stopped', 'user', '{}', ?)",
+                (run_id, task_id, note),
+            )
+        for number, note in ((1, "STOP switch"), (2, "interrupted")):
+            conn.execute(
+                "INSERT INTO executions (id, task_id, number, pipeline_name, status, note, started_by, step_count, created_at, started_at) "
+                "VALUES (?, 't1', ?, 'P', 'stopped', ?, 'user', 0, '2026-11-26 10:00:00', '2026-11-26 10:00:00')",
+                (f"e{number}", number, note),
+            )
+    command.upgrade(alembic_config(), "0061")
+    with sqlite3.connect(path) as conn:
+        runs = dict(conn.execute("SELECT id, note FROM pipeline_runs"))
+        executions = dict(conn.execute("SELECT id, note FROM executions"))
+    assert runs == {
+        "r1": "EMERGENCY STOP",
+        "r2": "interrupted",
+        "r3": "STOP switch off by hand",
+    }  # only the exact old text
+    assert executions == {"e1": "EMERGENCY STOP", "e2": "interrupted"}
+    command.downgrade(alembic_config(), "0060")
+    with sqlite3.connect(path) as conn:
+        assert conn.execute("SELECT note FROM pipeline_runs WHERE id = 'r1'").fetchone() == (
+            "STOP switch",
+        )
+        assert conn.execute("SELECT note FROM executions WHERE id = 'e1'").fetchone() == (
+            "STOP switch",
+        )

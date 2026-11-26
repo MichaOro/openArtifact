@@ -210,7 +210,7 @@ never removed by it.
 
 **STOP.** The global switch (ADR-076) that blocks execution as a whole: while it is on, every running execution is aborted and no
 execution starts from any source (browser, API, MCP); everything else, cards, pipelines, actions and guards, keeps working. It is
-offered by the personal setting *Show the STOP switch*, kept across restarts and shown by a banner on every page. A guard or the stop
+offered by the personal setting *Show the emergency stop*, kept across restarts and shown by a banner on every page. A guard or the stop
 button ends one run; STOP ends all of them and keeps any from starting.
 
 ## UI conventions

@@ -6,6 +6,7 @@ import { icon } from "../components/icons.js";
 import { listGraphs } from "../editor/api.js";
 import { listStages, startRun, stopRun } from "./api.js";
 import { t } from "../i18n.js";
+import { currentStop, subscribeStop } from "../components/stop-state.js";
 
 /** The name of each level a run is started from, as the aria label of its field says it. */
 const LEVEL_LABEL = { pipeline: () => t("common.pipeline"), stage: () => t("nav.stage.label"), action: () => t("nav.action.label") };
@@ -47,6 +48,8 @@ export class ProcessingPanel {
       this.fields[key].addEventListener("click", (event) => this.#pick(key, event.currentTarget));
     }
     this.button.addEventListener("click", () => this.#toggle());
+    // the emergency stop (ADR-076) is the page's shared state (banner and Executions switch read it too): Start is greyed while it is on
+    subscribeStop(() => this.render());
   }
 
   isLocked(taskId) {
@@ -153,11 +156,12 @@ export class ProcessingPanel {
       el.setAttribute("aria-disabled", String(locked));
     });
     const canStart = Boolean(draft.pipeline && draft.stage);
+    const stopped = currentStop()?.active === true; // the server still refuses a start (409 stopped), this only says so first
     this.button.dataset.state = locked ? "running" : "idle";
     this.button.classList.toggle("is-danger", locked); // Stop is a destructive look, from the catalog
-    this.button.disabled = !locked && !canStart;
+    this.button.disabled = !locked && (!canStart || stopped);
     this.buttonLabel.textContent = locked ? t("tasks.processing.stop_processing") : t("create_task.start_processing");
-    this.button.title = locked ? t("tasks.processing.stop_processing") : canStart ? t("create_task.start_processing") : t("tasks.processing.choose_pipeline_first");
+    this.button.title = locked ? t("tasks.processing.stop_processing") : stopped ? t("stop.start_disabled") : canStart ? t("create_task.start_processing") : t("tasks.processing.choose_pipeline_first");
     this.buttonIcon.replaceWith(icon(locked ? "stop" : "play"));
     this.buttonIcon = this.button.querySelector(".icon");
   }

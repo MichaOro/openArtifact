@@ -14,7 +14,7 @@ flow) is in [Concepts](concepts.md).
 - **Status:** `running`, then `done`, `failed` or `stopped`. A `failed` execution carries a note that says
   where ("X failed", "X has no On Pass connection", "The pipeline does not come to an end"). `stopped` is a
   user stop, `interrupted` (when the application restarts, every execution that was still running is closed as
-  stopped with that note, because its process is gone) or `STOP switch` (the global switch aborted it, see below).
+  stopped with that note, because its process is gone) or `EMERGENCY STOP` (the global switch aborted it, see below).
 - **Origin** (`started_by`): `user` (the browser), `api` (the integration API), `mcp` (the MCP server) or
   `system`.
 - **The pipeline** by id and by name (a copy: the pipeline may later be renamed or deleted; the history
@@ -83,16 +83,17 @@ They are published after the database commit. The stream does not replay: a brow
 loads the current state again when it reconnects. The step list of a running execution follows the run's
 own `run.updated` events.
 
-## The STOP switch
+## The emergency stop
 
 One switch on the Executions page, next to *Retention*, stops all execution at once (ADR-076). It is offered only when you switch on *Show
-the STOP switch* in Settings > Personal. **Switching it on** asks first (it says how many executions run and will be aborted), then aborts
-every running execution (they end as `stopped` with the note `STOP switch`) and **refuses every start** from every source: the browser,
+the emergency stop* in Settings > Personal. **Switching it on** asks first (it says how many executions run and will be aborted), then aborts
+every running execution (they end as `stopped` with the note `EMERGENCY STOP`) and **refuses every start** from every source: the browser,
 the API, MCP, anything automatic. A banner at the top of every page says *Pipeline processing is stopped* while it is on, in every open tab.
 Cards, pipelines, actions, guards and this history keep working; only execution is blocked. It stays on until somebody switches it off (also
 across a restart of the server); switching off asks nothing. The API and MCP can read and set it (`GET`/`PUT /api/v1/settings/stop`,
 `get_stop_switch`, `set_stop_switch`; [API reference](api-reference.md)); setting it on there needs the same personal setting. A start that
-is refused answers `409` with `code: stopped`.
+is refused answers `409` with `code: stopped`; the *Start processing* button of a card is greyed (tooltip *Emergency stop is on: processing is stopped*)
+while it is on, also in an open dialog.
 
 In the list, a **running row shows the stop button where other rows show the trash**: a running execution cannot be deleted, so the trash is
 not drawn there.

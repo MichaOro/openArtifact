@@ -109,9 +109,9 @@ version) and the start of the log (below).
 
 ## Stopping all execution (STOP)
 
-When a run, an agent or a script goes wrong, the **STOP switch** ([execution history](execution-history.md#the-stop-switch)) aborts every
+When a run, an agent or a script goes wrong, the **emergency stop** ([execution history](execution-history.md#the-emergency-stop)) aborts every
 running execution and refuses every start until it is switched off; the state is kept in the database, so a restart of the container keeps
-it. It is a personal setting (*Settings > Personal > Show the STOP switch*, off by default) and can be set from the browser, with
+it. It is a personal setting (*Settings > Personal > Show the emergency stop*, off by default) and can be set from the browser, with
 `PUT /api/v1/settings/stop` (`{"active": true}`) or through MCP; whoever holds a token can switch it, like any other write. Switching it **on**
 needs the setting, switching it **off** never does. To stop in the middle of the night from outside: `curl -X PUT -H "Authorization: Bearer
 $TOKEN" -H "Content-Type: application/json" -d '{"active": true}' http://127.0.0.1:2909/api/v1/settings/stop`.

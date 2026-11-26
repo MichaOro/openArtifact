@@ -1,4 +1,4 @@
-/* The STOP switch's state in the browser (ADR-076): one copy per page that the banner, the switch of the Executions page and
+/* The emergency stop's state in the browser (ADR-076): one copy per page that the banner, the switch of the Executions page and
  * anything else subscribe to. It is read from `GET /api/settings/stop`, set with `PUT`, and follows `settings.changed` with a
  * `stop` part, so every open tab shows the same. */
 import { request } from "../http.js";
