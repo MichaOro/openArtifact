@@ -94,6 +94,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [082](082-references-by-id-and-the-publish-check.md) | References by the id of a node, numbered placements (Name #n) and the check before publishing: errors and warnings in a confirmation window | Accepted | 2026-11-26 | amends ADR-033, ADR-070 |
 | [083](083-inputs-and-outputs-of-actions.md) | Inputs on the Trigger, outputs on the Output: the node that runs an action maps the inputs and its outputs are its result, read by its id | Accepted | 2026-11-26 | amends ADR-033, ADR-072, ADR-054 |
 | [084](084-data-storage.md) | Data storage: limits the user sets in Settings, Personal (all empty by default), a pass that does exactly what its preview shows, step data emptied but never cards, comments or history, the log truncated and Shrink database | Accepted | 2026-11-26 | amends ADR-052, ADR-066 |
+| [085](085-answer-format-of-an-agent.md) | The answer format of an agent: the final answer as a checked document (flat fields, the module of the Hand Over Tool), a report tool, one repair, the fields as the node's data | Accepted | 2026-11-26 | amends ADR-040, ADR-047, ADR-054, ADR-072, ADR-080 |
 
 ## Notes
 

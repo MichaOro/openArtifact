@@ -141,8 +141,23 @@ export function detailView(detail) {
   wrap.append(el("p", "ag-facts", overrides.length ? t("agents.view.set_by_node", { fields: overrides.map(fieldLabel).join(", ") }) : "The node used the agent's settings as they are."));
   if (detail.system_prompt != null) wrap.append(block(t("agents.view.system_prompt_as_sent"), detail.system_prompt));
   if (detail.user_prompt != null) wrap.append(block(t("agents.view.user_prompt_as_sent"), detail.user_prompt));
-  for (const part of [inputsTable(detail.inputs), toolCallsTable(detail.turns), attemptsTable(detail.attempts)]) if (part) wrap.append(part);
+  for (const part of [inputsTable(detail.inputs), answerView(detail.answer), toolCallsTable(detail.turns), attemptsTable(detail.attempts)]) if (part) wrap.append(part);
   return wrap;
+}
+
+/** What the answer format did in this step (ADR-085), in plain words: every call of the report tool, whether the server accepted it and,
+ * when not, what was wrong. Null for a step of an agent without an answer format. */
+export function answerView(answer) {
+  if (!answer || !answer.calls) return null;
+  const host = el("div", "ag-answer-view");
+  host.append(el("h4", "ag-answer-view__title", t("agents.view.answer_title")));
+  const list = el("ol", "ag-answer-view__calls");
+  const refused = answer.refused ?? [];
+  refused.forEach((problems, index) => list.append(el("li", "", t("agents.view.answer_refused", { n: index + 1, problems: problems.join("; ") }))));
+  if (answer.document) list.append(el("li", "", t("agents.view.answer_accepted", { n: refused.length + 1 })));
+  host.append(list);
+  if (refused.length && answer.document) host.append(el("p", "ag-facts", t("agents.view.answer_repaired")));
+  return host;
 }
 
 /** A version's configuration in a few lines (the versions list of the agent page). */

@@ -79,7 +79,7 @@ What each kind puts in `output` and `data` (the rest of the core is the same for
 | Edit Fields (Set) | none | `fields` (the names set) |
 | If | the port chosen | `condition` (`true`, `false`, `null` when undecidable), `rows` |
 | Switch | the port chosen | `value`, `matched`, `cases` |
-| Agent | the final answer | `model`, `usage`, `finish_reason`, `iterations`, ... ([Agents](agents.md)) |
+| Agent | the final answer; with an [answer format](agents.md#2-write-and-publish-an-agent) the checked document as JSON | `model`, `usage`, `finish_reason`, `iterations`, ... and, with an answer format, its fields (`passed`, ...), `repaired`, `answer_calls` ([Agents](agents.md)) |
 
 A `reason` is a sentence for people. Output is text: anything the code prints or the server answers ends up in it (and in
 the history, and in whatever agent reads it), so treat it as untrusted. Used secrets are masked in all of these

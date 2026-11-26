@@ -4,7 +4,7 @@
  * What is in effect is asked from the server (POST /api/agents/{id}/preview with the node), which resolves it the
  * same way a run does, so the panel never computes inheritance itself. */
 import { getAgent, listAgents, listProviders, previewAgent } from "../agents/api.js";
-import { formatMapping, mappingRows, preview as oneLine, showValue, usableModels } from "../agents/model.js"; // `oneLine`: `preview` is also a name of the server's answer here
+import { fieldNames, formatMapping, mappingRows, preview as oneLine, showValue, usableModels } from "../agents/model.js"; // `oneLine`: `preview` is also a name of the server's answer here
 import { el, problemList } from "../agents/view.js";
 import { icon } from "../components/icons.js";
 import { infoTip } from "../components/info-tip.js";
@@ -133,7 +133,7 @@ class AgentBlock {
     return {
       source: t("common.agent"),
       state: (key) => states.get(key) ?? null,
-      show: (setting, value) => oneLine(showValue(this.#shown(setting.key, value, providers), setting.type === "lines" ? "lines" : "")),
+      show: (setting, value) => (Array.isArray(value) ? fieldNames(value) : oneLine(showValue(this.#shown(setting.key, value, providers), setting.type === "lines" ? "lines" : ""))),
       // a provider and a model are stored by id and chosen from lists the page knows
       setting: (setting) => {
         if (setting.key === "provider_id") return { ...setting, type: "select", choices: providers.map((p) => [p.id, p.name]), emptyLabel: "Choose a provider" };

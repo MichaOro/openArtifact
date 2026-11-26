@@ -63,6 +63,11 @@
                     <label class="field__label" for="ag-system">{{ t('agent_editor.system_prompt') }}</label>
                     <textarea class="field__control field__control--lines" id="ag-system" rows="5" maxlength="20000" spellcheck="false" data-field="system_prompt"></textarea>
                 </div>
+                <div class="field ag-answer" data-answer-format-field>
+                    <span class="field__label" id="ag-answer-label">{{ t('agent_editor.answer_format') }}</span>
+                    <p class="field__help" id="ag-answer-help">{{ t('agent_editor.answer_format_help') }}</p>
+                    <div data-answer-format aria-labelledby="ag-answer-label" aria-describedby="ag-answer-help"></div>
+                </div>
             </section>
 
             <section class="ag-panel" role="tabpanel" id="ag-panel-inputs" aria-labelledby="ag-tab-inputs" hidden>

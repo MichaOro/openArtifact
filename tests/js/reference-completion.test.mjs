@@ -188,3 +188,16 @@ test("a kind offers the keys of data it declares, and the variables it sets come
   assert.ok(inserts.includes("(Postgres).data.rows"));
   for (const variable of ["var.score", "var.tag", "var.level", "var.owner"]) assert.ok(inserts.includes(variable), variable);
 });
+
+test("an agent node with an answer format offers its fields as data, other nodes offer none of them (ADR-085)", () => {
+  const nodes = [
+    { id: "a", kind: "agent", name: "Review" },
+    { id: "s", kind: "set", name: "Edit" },
+  ];
+  const answers = (node) => (node.kind === "agent" ? ["passed", "verdict"] : []);
+  const inserts = candidatesFor(nodes, { kinds, answers }).map(shown);
+  assert.ok(inserts.includes("(Review).data.passed") && inserts.includes("(Review).data.verdict"));
+  assert.ok(inserts.includes("(Review).data.iterations"), "what an agent leaves anyway stays");
+  assert.ok(!inserts.some((i) => i.startsWith("(Edit).data.passed")), "only the agent node");
+  assert.ok(!candidatesFor(nodes, { kinds }).map(shown).includes("(Review).data.passed"), "without a format nothing is added");
+});

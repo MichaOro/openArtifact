@@ -11,6 +11,7 @@ import { KEYS, readJson, removeStorage, writeJson } from "../storage.js";
 import { ActionMenu } from "../components/action-menu.js";
 import { icon } from "../components/icons.js";
 import { AddMenu } from "./add-menu.js";
+import { getAgent } from "../agents/api.js";
 import { createGraph, listGraphs, loadGraph } from "./api.js";
 import { Canvas } from "./canvas.js";
 import { copyOf, pastePlan, remappedConfig } from "./clipboard.js";
@@ -135,6 +136,7 @@ export class GraphEditor {
     try {
       await this.model.load();
       await this.#loadContracts();
+      await this.#loadAnswerFormats();
       this.addMenu.setPurpose(this.model.graph?.purpose ?? null); // an action for guards offers the kinds for guards
       this.alert.hide();
       this.#showTitle();
@@ -167,6 +169,28 @@ export class GraphEditor {
         this.contracts.set(id, { inputs: trigger?.config?.inputs ?? [], outputs: (end?.config?.outputs ?? []).map((o) => o.name) });
       }),
     );
+  }
+
+  /** The answer format of each agent an agent node of this graph runs (ADR-085), by agent id: its published format, as far as the reference
+   * list offers `data.NAME` of such a node. An agent that cannot be read is simply not in it. */
+  async #loadAnswerFormats() {
+    this.answerFormats = new Map();
+    const ids = new Set([...this.nodes.values()].filter((n) => n.kind === "agent" && n.config?.agent_id).map((n) => n.config.agent_id));
+    await Promise.allSettled(
+      [...ids].map(async (id) => {
+        const detail = await getAgent(id);
+        this.answerFormats.set(id, (detail.published?.answer_format ?? []).map((f) => f.name));
+      }),
+    );
+  }
+
+  /** The names of the fields an agent node reports as its data: its own format when it sets one (an empty one switches the agent's off),
+   * else the agent's. */
+  #answersOf(node) {
+    if (node.kind !== "agent") return [];
+    const own = node.config?.answer_format;
+    if (Array.isArray(own)) return own.map((f) => f.name);
+    return this.answerFormats?.get(node.config?.agent_id) ?? [];
   }
 
   /** What an action or pipeline node reads as a contract: `{outputs}` when what it runs declares inputs or outputs, else null. */
@@ -466,6 +490,7 @@ export class GraphEditor {
     this.model.dropHiddenEdges(node); // connections at ports that are gone with it (e.g. no On Fail)
     this.canvas.sync();
     this.alert.hide();
+    if (node.kind === "agent" && setting.key === "agent_id") await this.#loadAnswerFormats(); // the reference list follows the agent chosen
     await this.#announce(updated);
     return null;
   }
@@ -780,7 +805,7 @@ export class GraphEditor {
   #blockActions() {
     return {
       saveSetting: (node, setting, value) => this.#saveSetting(node, setting, value),
-      suggestions: (node) => ({ nodes: () => [...this.nodes.values()], exceptId: node.id, contracts: (n) => this.#contractOf(n), node, inputsOf: (n) => this.contracts?.get(n.definition_id)?.inputs ?? [] }),
+      suggestions: (node) => ({ nodes: () => [...this.nodes.values()], exceptId: node.id, contracts: (n) => this.#contractOf(n), answers: (n) => this.#answersOf(n), node, inputsOf: (n) => this.contracts?.get(n.definition_id)?.inputs ?? [] }),
       link: (node, targetId) => this.#link(node, targetId),
       askNew: (node) => this.#askNew(node),
       linkUrl: (node) => this.#linkUrl(node, node.definition_slug),

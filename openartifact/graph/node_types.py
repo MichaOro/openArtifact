@@ -217,6 +217,7 @@ class Setting:
     inherits: str | None = None
     #: A ``fields`` setting: the one more text each field carries (``"default"`` of an input, ``"value"`` of an output; ADR-083).
     field_extra: str | None = None
+    field_reserved: str | None = None
 
     def __post_init__(self) -> None:
         if self.section not in SECTIONS:
@@ -342,7 +343,11 @@ class Setting:
                 raise SettingError(str(error)) from error
         if self.type == "fields":
             try:
-                return field_schema.normalise(value, self.field_extra)
+                return field_schema.normalise(
+                    value,
+                    self.field_extra,
+                    field_schema.RESERVED_NAMES.get(self.field_reserved or "", ()),
+                )
             except ValueError as error:
                 raise SettingError(str(error)) from error
         if self.type == "mapping":

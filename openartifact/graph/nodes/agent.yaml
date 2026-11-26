@@ -181,5 +181,13 @@ settings:
   section: behaviour
   level: optional
   inherits: agent
+- key: answer_format
+  label: Answer format
+  type: fields
+  field_reserved: agent_data
+  help: The shape of the final answer. The model reports these fields through a tool and the server checks them; they become the node's data.
+  stored_in: config
+  level: optional
+  inherits: agent
 - use: on_failure
 - use: retry

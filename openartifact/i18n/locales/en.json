@@ -1669,5 +1669,13 @@
  "components.schema_fields.head.required": "Required",
  "components.schema_fields.head.description": "Description",
  "components.schema_fields.head.default": "Default",
- "components.schema_fields.head.value": "Value"
+ "components.schema_fields.head.value": "Value",
+ "agent_editor.answer_format": "Answer format",
+ "agent_editor.answer_format_help": "Optional. The model gives its final answer through a tool with these fields; the server checks it, and the checked fields become the data of the agent node. Without fields the answer is free text.",
+ "agents.view.answer_title": "Answer format",
+ "agents.view.answer_refused": "Call {n}: not accepted: {problems}",
+ "agents.view.answer_accepted": "Call {n}: accepted",
+ "agents.view.answer_repaired": "The answer was corrected once.",
+ "tasks.history_step.answer_reported": "Answer reported",
+ "tasks.history_step.answer_repaired": "Answer reported, corrected once"
 }

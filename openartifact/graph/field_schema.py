@@ -119,10 +119,33 @@ EXTRAS = ("default", "value")
 MAX_EXTRA_CHARS = 2000
 
 
-def normalise(value: Any, extra: str | None = None) -> list[dict[str, Any]]:
+#: Field names a list may not use because the result it becomes the data of already has them (``reserved`` of :func:`normalise`, the
+#: ``field_reserved`` of a setting): the answer format of an agent (ADR-085) puts its fields next to the data of the agent's own run.
+RESERVED_NAMES: dict[str, tuple[str, ...]] = {
+    "agent_data": (
+        "agent_id",
+        "agent_version",
+        "provider",
+        "model",
+        "usage",
+        "finish_reason",
+        "attempts",
+        "status",
+        "iterations",
+        "tools",
+        "repaired",
+        "answer_calls",
+    )
+}
+
+
+def normalise(
+    value: Any, extra: str | None = None, reserved: tuple[str, ...] = ()
+) -> list[dict[str, Any]]:
     """The list as it is stored; :class:`ValueError` with a plain message when it is no list of fields.
 
     With ``extra`` (``"default"`` or ``"value"``) every field may carry that one more text, kept as written (it may hold references).
+    A name in ``reserved`` is refused (see :data:`RESERVED_NAMES`).
     """
     if not isinstance(value, list):
         raise ValueError("The fields must be a list")
@@ -148,6 +171,10 @@ def normalise(value: Any, extra: str | None = None) -> list[dict[str, Any]]:
         if not isinstance(name, str) or not NAME.fullmatch(name):
             raise ValueError(
                 f"Field {position}: the name is lowercase letters, digits and _, starting with a letter (at most 32 characters)"
+            )
+        if name in reserved:
+            raise ValueError(
+                f"The field name '{name}' is used by the agent's own data: choose another name"
             )
         if name in seen:
             raise ValueError(f"The field '{name}' is there twice")

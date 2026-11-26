@@ -16,6 +16,11 @@ import { controllerValue, groupsOf, optionLabel, planSettings, shaped } from "./
 import { typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
 
+/** Whether an inherited value is there to be shown: not unset, not empty text, not an empty list (an agent without an answer format). */
+function hasValue(value) {
+  return value !== null && value !== undefined && value !== "" && !(Array.isArray(value) && value.length === 0);
+}
+
 const menu = new ActionMenu();
 /** Optional settings added (and overrides being made) that store nothing yet, by node: they live until the dialog closes. */
 const opened = new Map();
@@ -111,7 +116,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     const state = inheritance.state(setting.key);
     const overridden = Boolean(state?.overridden);
     const inherited = state?.inherited;
-    const has = inherited !== null && inherited !== undefined && inherited !== "";
+    const has = hasValue(inherited);
     return overrideRow({
       key: setting.key,
       label: setting.label,
@@ -184,7 +189,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     button.addEventListener("click", () => {
       const items = available.map((setting) => {
         const state = inheritance?.state(setting.key);
-        const text = state && state.inherited != null && state.inherited !== "" ? inheritance.show(setting, state.inherited) : null;
+        const text = state && hasValue(state.inherited) ? inheritance.show(setting, state.inherited) : null;
         return { label: optionLabel(setting, text), icon: "plus", onSelect: () => {
           open().add(setting.key);
           redraw();
