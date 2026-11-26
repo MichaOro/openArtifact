@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from openartifact import personal_settings
 from openartifact.api.contract import GATED, errors
@@ -31,8 +31,22 @@ PERSONAL = (
     "Personal preferences of the user (a single-user system): ``mark_resolved_references`` (default off) marks the text "
     "a ``${card.x}`` reference stands for, in the artifact dialog and on the board's cards; ``show_stop_switch`` (default off) "
     "offers the emergency stop (``/settings/stop``), and cannot be switched off while the emergency stop is on. Which settings exist and "
-    "their defaults are declared in the form manifest ``ui/forms/personal.yaml``. A change takes effect at once."
+    "their defaults are declared in the form manifest ``ui/forms/personal.yaml``. A change takes effect at once. The ``storage_*`` "
+    "settings are the *Data storage* limits (ADR-084): all default to ``null`` (the operator's default or the limit of today, or off), "
+    "and ``null`` clears one."
 )
+
+
+#: The *Data storage* settings with their bounds and what they are called in an error (ADR-084); ``None`` clears one.
+STORAGE_BOUNDS: dict[str, tuple[int, int, str]] = {
+    "storage_keep_executions": (0, 100000, "Executions kept per artifact (0 keeps all)"),
+    "storage_step_data_days": (1, 36500, "Empty step outputs after (days)"),
+    "storage_run_data_mib": (1, 1000000, "Limit for the data of all executions (MiB)"),
+    "storage_step_output_kib": (1, 256, "Longest stored output of a step (KiB)"),
+    "storage_run_output_kib": (1, 1024, "Longest stored output of an execution (KiB)"),
+    "storage_clean_interval_hours": (1, 8760, "Clean automatically every (hours)"),
+    "storage_warn_mib": (1, 10000000, "Warn when the database is larger than (MiB)"),
+}
 
 
 def _default(name: str) -> Any:
@@ -45,6 +59,13 @@ class PersonalSettingsRead(BaseModel):
 
     mark_resolved_references: bool = _default("mark_resolved_references")
     show_stop_switch: bool = _default("show_stop_switch")
+    storage_keep_executions: int | None = _default("storage_keep_executions")
+    storage_step_data_days: int | None = _default("storage_step_data_days")
+    storage_run_data_mib: int | None = _default("storage_run_data_mib")
+    storage_step_output_kib: int | None = _default("storage_step_output_kib")
+    storage_run_output_kib: int | None = _default("storage_run_output_kib")
+    storage_clean_interval_hours: int | None = _default("storage_clean_interval_hours")
+    storage_warn_mib: int | None = _default("storage_warn_mib")
 
 
 class PersonalSettingsWrite(BaseModel):
@@ -54,6 +75,22 @@ class PersonalSettingsWrite(BaseModel):
 
     mark_resolved_references: bool | None = None
     show_stop_switch: bool | None = None
+    storage_keep_executions: int | None = None
+    storage_step_data_days: int | None = None
+    storage_run_data_mib: int | None = None
+    storage_step_output_kib: int | None = None
+    storage_run_output_kib: int | None = None
+    storage_clean_interval_hours: int | None = None
+    storage_warn_mib: int | None = None
+
+    @model_validator(mode="after")
+    def _bounds(self) -> PersonalSettingsWrite:
+        """The limits of the *Data storage* settings, in plain words (``None`` clears a setting)."""
+        for name, (low, high, what) in STORAGE_BOUNDS.items():
+            value = getattr(self, name)
+            if value is not None and not low <= value <= high:
+                raise ValueError(f"{what}: use a number from {low} to {high}, or leave it empty")
+        return self
 
 
 class StopWrite(BaseModel):
