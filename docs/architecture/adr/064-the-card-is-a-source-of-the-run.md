@@ -82,3 +82,7 @@ mapped ran with empty inputs and the model answered that "the text is empty". Pr
 - A run's inputs no longer depend on the author having defined a field for title and body.
 - `${card.title}` in an old node that meant a custom field called `title` was migrated; the downgrade reverses it.
 - Date fields do not exist (kinds: text, number, yes/no, choice); a date is a text field and stays as typed.
+
+## Update (2026-11-26): Markdown in the long texts
+
+The body is drawn as Markdown (bold, italic, strikethrough, bullet lists), with the `#12` links and the marks of filled in references inside the formatting; Edit shows the text as written and has the Markdown bar ([ADR-077](077-markdown-in-long-texts.md)).

@@ -81,6 +81,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [069](069-management-pages.md) | Management pages: one way to use the pages of pipelines, actions, agents and guards (click selects and shows the panel, double click and the pencil open, the bin asks first, keys), one frame component, a picture of the graph laid out from its structure (a row or a column), description and tags for pipelines and actions | Accepted | 2026-11-25 | amends ADR-059, ADR-065 |
 | [070](070-versions-of-actions-and-pipelines.md) | Versions of pipelines and actions: a draft and published versions (frozen copies of the graph), publish and publish again in the panel, executions read the published version and fall back to the draft | Accepted | 2026-11-25 | amends ADR-015, ADR-067, ADR-069 |
 | [071](071-card-rules.md) | Card rules: when a condition holds for a card, a lane or the board sets it as done, hides (archives) it, deletes an archived one, gives it a label or a colour; marks are derived when read, archive and delete are done by a sweeper with safeguards | Accepted | 2026-11-25 | amends ADR-036, ADR-052, ADR-060 |
+| [077](077-markdown-in-long-texts.md) | Markdown in the long texts: stored as written, a small subset (bold, italic, strikethrough, bullet lists) drawn by one safe renderer, a bar under the field | Accepted | 2026-11-26 | amends ADR-055, ADR-059, ADR-064 |
 
 ## Notes
 
