@@ -173,7 +173,7 @@ cover the same ground except for the static checks (`python tools/check_links.py
 quote the glob; they take a few seconds and need no npm packages).
 
 `tools/test_audit.sh` runs all of it in one go and reports start, end, duration and result per section (about
-35 minutes; `--fast` skips coverage and runs the Python tests in parallel). See [tools/README](../../tools/README.md).
+35 minutes; `--fast` skips coverage and runs the Python tests in parallel; `--ci` runs them as the GitHub workflow does: one after the other on two cores, the browser tests with traces of failed tests, to find what only the slow runner shows). See [tools/README](../../tools/README.md).
 
 ## Writing tests
 

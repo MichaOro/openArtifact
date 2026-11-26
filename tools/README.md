@@ -13,10 +13,10 @@ Development tooling, standard library only.
   tmpfs `/tmp`, no capabilities, `no-new-privileges`, a throw-away token and key on a random local port), imports
   every module, waits for `/health` and expects 401 on `/api/tasks` without and 200 with the token. Run by the
   `docker` job in CI; needs only Docker and curl.
-- `test_audit.sh [--fast] [DIR]` — runs every check and test section in turn (ruff, mypy, links, i18n, quarantine,
+- `test_audit.sh [--fast | --ci] [DIR]` — runs every check and test section in turn (ruff, mypy, links, i18n, quarantine,
   JavaScript, Python under coverage, browser tests) and writes a report with start, end, duration and exit code per
   section, plus one log per section, to DIR (default: a new temporary directory; nothing goes into the repository).
-  `--fast` runs the Python tests in parallel without coverage. Exit code 1 if any section failed.
+  `--fast` runs the Python tests in parallel without coverage. `--ci` runs Python and browser tests one after the other on two cores (`taskset`), the browser tests with `--tracing retain-on-failure` (traces in DIR/traces), as the workflow does. Exit code 1 if any section failed.
 
 An entry's `usage` is a regular expression that matches calls, not the definition. The script reads
 the tracked `.py`, `.js`, `.html`, `.css`, `.toml`, `.yml` and `.sh` files (`git ls-files`; a file walk
