@@ -101,6 +101,74 @@ class StopWrite(BaseModel):
     active: bool
 
 
+class StorageCategoryRead(BaseModel):
+    """What one kind of limit would delete or empty: how many entries and how many bytes."""
+
+    key: str
+    label: str
+    entries: int
+    bytes: int
+
+
+class StoragePlanRead(BaseModel):
+    """What a cleaning pass does now (the preview is exactly this)."""
+
+    categories: list[StorageCategoryRead]
+    entries: int
+    bytes: int
+
+
+class StorageTableRead(BaseModel):
+    name: str
+    bytes: int | None
+    rows: int | None
+
+
+class StorageInfoRead(BaseModel):
+    """The database file: its size and the log's, the pages, the biggest tables."""
+
+    file_bytes: int
+    wal_bytes: int
+    page_size: int
+    pages: int
+    free_pages: int
+    free_bytes: int
+    tables: list[StorageTableRead]
+    tables_by: str
+    warn_bytes: int | None
+    over_warning: bool
+
+
+class StorageStatusRead(BaseModel):
+    db: StorageInfoRead
+    run_data_bytes: int
+    last_clean: dict[str, Any] | None
+    interval_hours: int | None
+
+
+class StorageReportRead(BaseModel):
+    """What a pass did: the plan it carried out, the file before and after, and whether the write-ahead log is empty now."""
+
+    plan: StoragePlanRead
+    wal: dict[str, Any]
+    before: dict[str, int]
+    after: dict[str, int]
+    at: str
+
+
+class ShrinkRead(BaseModel):
+    before: dict[str, int]
+    after: dict[str, int]
+    wal: dict[str, Any]
+
+
+STORAGE = (
+    "Data storage (ADR-084). Limits are the personal settings ``storage_*``; all are empty by default and then change nothing. "
+    "What a user can see or fetch is removed only by those limits and the retention rules; cards, comments and activity never. "
+    "A running execution is never touched."
+)
+
+
 STOP = (
     "The emergency stop (ADR-076): while ``active`` no execution starts from any source (browser, API, MCP) and every execution "
     "that runs is aborted when the switch goes on (``aborted`` counts them). A refused start is ``409`` with ``code`` "
@@ -289,5 +357,63 @@ def build_settings_router(
             state = await service.stop_switch_state()
             bus.publish("settings.changed", {"stop": state.model_dump(mode="json")})
         return result
+
+    # ── Data storage ─────────────────────────────────────────────────────
+
+    @router.get(
+        "/storage",
+        response_model=StorageStatusRead,
+        name=f"{tag}get_storage",
+        summary="Get the size of the database and the state of the cleaner",
+        description=STORAGE
+        + " The size of the file and of its write-ahead log, the free pages, the biggest tables, the data of all executions, the "
+        "last pass and the interval of the background cleaner.",
+    )
+    async def get_storage(request: Request) -> StorageStatusRead:
+        return StorageStatusRead(**await request.app.state.storage.status())
+
+    @router.post(
+        "/storage/preview",
+        response_model=StoragePlanRead,
+        name=f"{tag}preview_storage",
+        summary="Preview a cleaning pass",
+        description=STORAGE
+        + " What a pass would delete or empty now, per kind, in entries and bytes; nothing is changed.",
+        responses=errors(write=True),
+    )
+    async def preview_storage(request: Request) -> StoragePlanRead:
+        return StoragePlanRead(**(await request.app.state.storage.preview()).to_data())
+
+    @router.post(
+        "/storage/clean",
+        response_model=StorageReportRead,
+        name=f"{tag}clean_storage",
+        summary="Clean now",
+        description=STORAGE
+        + " Carries out exactly what the preview shows, then truncates the write-ahead log. ``409`` ``busy`` while a pass runs.",
+        responses=errors(409, write=True),
+    )
+    async def clean_storage(request: Request) -> StorageReportRead:
+        report = await request.app.state.storage.clean()
+        return StorageReportRead(
+            plan=StoragePlanRead(**report.plan),
+            wal=report.wal,
+            before=report.before,
+            after=report.after,
+            at=report.at,
+        )
+
+    @router.post(
+        "/storage/shrink",
+        response_model=ShrinkRead,
+        name=f"{tag}shrink_storage",
+        summary="Shrink the database",
+        description=STORAGE
+        + " Rewrites the file (VACUUM): it needs about as much free disk space as the file and its log take and holds the database "
+        "for a moment; take a backup first. ``409`` ``not_enough_space`` when the disk has less free, ``409`` ``busy`` while a pass runs.",
+        responses=errors(409, write=True),
+    )
+    async def shrink_storage(request: Request) -> ShrinkRead:
+        return ShrinkRead(**await request.app.state.storage.shrink())
 
     return router

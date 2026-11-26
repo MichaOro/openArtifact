@@ -178,8 +178,12 @@ class ExecutionHistory:
     # ── retention and deleting ────────────────────────────────────────
 
     async def prune(self, session: AsyncSession, task: Task, changes: Changes) -> int:
-        """Delete the executions beyond the operator's guard (the newest ``default_keep`` stay); returns how many."""
-        keep_last = self.default_keep
+        """Delete the executions beyond the number kept per artifact (the user's setting *Executions kept per artifact*, else the
+        operator's guard ``default_keep``; the newest stay); returns how many."""
+        from openartifact.engine.storage import STORAGE_LIMIT, load_policy
+
+        policy = await load_policy(session)
+        keep_last = policy.keep(self.default_keep)
         if keep_last <= 0:
             return 0
         rows = (
@@ -194,7 +198,13 @@ class ExecutionHistory:
             for rank, row in enumerate(rows, start=1)
             if rank > keep_last and rank != 1 and row.status != RunStatus.RUNNING
         ]
-        await self.remove(session, task.id, doomed, changes, GUARD)
+        await self.remove(
+            session,
+            task.id,
+            doomed,
+            changes,
+            GUARD if policy.keep_executions is None else STORAGE_LIMIT,
+        )
         return len(doomed)
 
     async def apply_rules(self, session: AsyncSession, changes: Changes) -> int:

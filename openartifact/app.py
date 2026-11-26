@@ -53,6 +53,7 @@ from openartifact.engine import guard_views
 from openartifact.engine.cards_gateway import SqlCardsGateway
 from openartifact.engine.executors import Limits
 from openartifact.engine.runner import RunEngine
+from openartifact.engine.storage import Cleaner
 from openartifact.engine.telemetry import Telemetry
 from openartifact.events import EventBus
 from openartifact.exceptions import (
@@ -143,8 +144,12 @@ def _create_app(settings: Settings) -> FastAPI:
         sweeping = (
             asyncio.create_task(sweeper()) if settings.card_sweep_interval_seconds > 0 else None
         )
+        cleaning = asyncio.create_task(
+            app.state.storage.loop()
+        )  # runs a pass when the user's interval has passed
         async with app.state.mcp_app.router.lifespan_context(app.state.mcp_app):
             yield
+        cleaning.cancel()
         if sweeping is not None:
             sweeping.cancel()
 
@@ -212,6 +217,13 @@ def _create_app(settings: Settings) -> FastAPI:
         ),
         telemetry=app.state.telemetry,
     )
+    #: The data storage pass, the shrink and the numbers the Data storage section shows (ADR-084).
+    app.state.storage = Cleaner(
+        database.new_session,
+        app.state.engine.history,
+        settings.data_dir / settings.database_filename,
+        app.state.event_bus,
+    )
     app.state.guards = GuardService(
         database.new_session, app.state.event_bus, settings.guard_min_interval_seconds
     )
@@ -245,6 +257,7 @@ def _create_app(settings: Settings) -> FastAPI:
         app.state.activity,
         app.state.guards,
         app.state.engine,
+        app.state.storage,
     ).streamable_http_app(stateless_http=True, json_response=True, host="0.0.0.0")
     app.router.routes.append(Route("/mcp", endpoint=TokenProtected(app.state.mcp_app, settings)))
 

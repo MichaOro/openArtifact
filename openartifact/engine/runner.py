@@ -49,6 +49,7 @@ from openartifact.engine.results import NodeResult
 from openartifact.engine.retry import retry_of, tried
 from openartifact.engine.schemas import ExecutionRead, NodeResultRead, RunRead, RunStageRead
 from openartifact.engine.snapshot import NestingError, build_snapshot
+from openartifact.engine.storage import StorageLimits, cut_detail, load_policy
 from openartifact.engine.targets import TargetError, load_pipeline, pick_start
 from openartifact.engine.telemetry import TelemetrySource
 from openartifact.events import EventBus
@@ -96,13 +97,14 @@ def _declared(graph: Mapping[str, Any], kind: NodeKind, key: str) -> list[dict[s
     return []
 
 
-def _cut(result: NodeResult) -> NodeResult:
-    """``result`` with its output cut to the limit of a step, marked in the text, the data and the reason."""
-    note = f"Note: the output was cut at {RESULT_OUTPUT_LIMIT_CHARS // 1024} Ki characters"
+def _cut(result: NodeResult, limit: int | None = None) -> NodeResult:
+    """``result`` with its output cut to the limit of a step (today's, or the user's lower one: ADR-084), marked in the text, the
+    data and the reason."""
+    limit = RESULT_OUTPUT_LIMIT_CHARS if limit is None else limit
+    note = f"Note: the output was cut at {limit // 1024} Ki characters"
     return replace(
         result,
-        output=result.output[: RESULT_OUTPUT_LIMIT_CHARS - len(OUTPUT_CUT_MARK) - 1]
-        + f"\n{OUTPUT_CUT_MARK}",
+        output=result.output[: limit - len(OUTPUT_CUT_MARK) - 1] + f"\n{OUTPUT_CUT_MARK}",
         data={**(result.data or {}), "output_truncated": True},
         reason=f"{result.reason}; {note[6:]}" if result.reason else note,
     )
@@ -165,6 +167,8 @@ class _Walk:
     index: NodeIndex = field(default_factory=NodeIndex)
     #: The limits the execution froze at its start (Settings > Run limits).
     limits: RunLimits = field(default_factory=RunLimits)
+    #: What the execution stores of its steps, frozen at its start (the user's *Data storage* limits, ADR-084).
+    storage: StorageLimits = field(default_factory=StorageLimits)
     #: The guards of the execution (ADR-060) and the path of pipeline nodes that leads to where the walk is.
     monitor: Monitor | None = None
     path: str = ""
@@ -430,6 +434,7 @@ class RunEngine:
                 snapshot["limits"] = (await load_limits(session))[
                     0
                 ].to_data()  # frozen for this run
+                snapshot["storage"] = (await load_policy(session)).limits().to_data()
                 chain = pipeline_chain(snapshot["nodes"], snapshot["edges"])
                 index, entry, first_action = pick_start(chain, stage_id, action_id)
             except (TargetError, NestingError) as error:
@@ -860,6 +865,7 @@ class RunEngine:
                     task_id, execution_id, json.loads(run.snapshot), pipeline_id=run.pipeline_id
                 )
                 walk.limits = RunLimits.of_snapshot(walk.snapshot)
+                walk.storage = StorageLimits.of_snapshot(walk.snapshot)
                 stage_id, action_id, run_pipeline = run.stage_id, run.action_id, run.pipeline_id
                 walk.context = RunContext.loads(
                     await session.scalar(
@@ -1224,8 +1230,21 @@ class RunEngine:
             "Node %s (%s) of artifact %s: %s", node["id"], node["kind"], walk.task_id, outcome
         )
         walk.seq += 1
-        if result is not None and len(result.output) > RESULT_OUTPUT_LIMIT_CHARS:
-            result = _cut(result)  # never silently: the text, the data and the reason say so
+        step_limit = min(
+            walk.storage.step_output_chars, RESULT_OUTPUT_LIMIT_CHARS
+        )  # the user's limit never exceeds the hard one
+        if result is not None and len(result.output) > step_limit:
+            result = _cut(
+                result, step_limit
+            )  # never silently: the text, the data and the reason say so
+        if result is not None and result.detail:
+            detail, cut = cut_detail(result.detail, step_limit)
+            if (
+                cut
+            ):  # a long text of the step's details (a prompt, a tool result) is cut and says so
+                result = replace(
+                    result, detail=detail, data={**(result.data or {}), "detail_truncated": cut}
+                )
         output = result.output if result else ""
         changes: dict[str, Any] = {"step_count": Execution.step_count + 1}
         if result is not None:  # the context is the node's result, as it is stored (masked, capped)
@@ -1272,14 +1291,20 @@ class RunEngine:
                 update(Execution).where(Execution.id == walk.execution_id).values(**changes)
             )
             if output and walk.execution_id is not None:
-                await self._trim_outputs(session, walk.execution_id)
+                await self._trim_outputs(
+                    session,
+                    walk.execution_id,
+                    min(walk.storage.run_output_chars, RUN_OUTPUT_LIMIT_CHARS),
+                )
             await session.commit()
         if result is not None:  # the steps without output show up with the next save of the run
             await self._publish(walk.task_id)
 
     @staticmethod
-    async def _trim_outputs(session: AsyncSession, execution_id: str) -> None:
-        """Keep all outputs of the execution within ``RUN_OUTPUT_LIMIT_CHARS``: the oldest go first."""
+    async def _trim_outputs(
+        session: AsyncSession, execution_id: str, limit: int = RUN_OUTPUT_LIMIT_CHARS
+    ) -> None:
+        """Keep all outputs of the execution within ``limit`` (today's ``RUN_OUTPUT_LIMIT_CHARS`` or the user's lower one): the oldest go first."""
         rows = (
             (
                 await session.execute(
@@ -1293,11 +1318,9 @@ class RunEngine:
         )
         total = sum(len(r.output) for r in rows)
         for row in rows[:-1]:
-            if total <= RUN_OUTPUT_LIMIT_CHARS:
+            if total <= limit:
                 break
             total -= len(row.output) - len(REMOVED_OUTPUT)
             row.output = REMOVED_OUTPUT
-        if (
-            total > RUN_OUTPUT_LIMIT_CHARS
-        ):  # the newest alone is too long (cannot be: it is bounded)
-            rows[-1].output = rows[-1].output[:RUN_OUTPUT_LIMIT_CHARS]
+        if total > limit:  # the newest alone is too long (cannot be: it is bounded)
+            rows[-1].output = rows[-1].output[:limit]
