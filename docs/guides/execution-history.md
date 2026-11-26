@@ -41,8 +41,13 @@ Retention keeps the history from growing without bound. What to keep is decided 
 panel and its API). Besides the rules there is one guard for the operator:
 
 - **The operator's guard:** `OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP`, **50**: at most that many executions are
-  kept per artifact (`0` means no limit at all). It is not shown in the UI and cannot be changed per artifact; it
-  only keeps an unattended installation from growing without bound. Age never deletes anything by itself.
+  kept per artifact (`0` means no limit at all). It cannot be changed per artifact; it only keeps an unattended
+  installation from growing without bound. The user can set **Executions kept per artifact** in *Settings → Personal →
+  Data storage* (ADR-084): when it is set it replaces the operator's number (`0` keeps all). Age never deletes anything by itself.
+- **Data storage limits** (the same section): step outputs and details of finished executions older than N days, or beyond a size
+  limit for all executions, can be *emptied* (the execution, its steps and their results stay; each emptied step says
+  `data.data_pruned`), and the longest output a step stores can be lowered. A **Preview** shows what a pass would do and **Clean now**
+  (or the background cleaner on the interval the user set) does exactly that; see [operations](operations.md#database-size-and-history-retention).
 - **The newest execution is never removed by retention** and **a running execution is never removed** (it counts toward the
   number kept). You can delete the newest one by hand.
 - Retention runs when it has something new to decide: when an execution **starts**, when one **ends**, and when the
