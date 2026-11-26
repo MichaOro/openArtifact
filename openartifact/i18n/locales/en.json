@@ -1664,5 +1664,11 @@
  "storage.next_pass": "next pass",
  "storage.in": "in {time}",
  "storage.due_now": "due now",
- "storage.cleaner_change": "Change"
+ "storage.cleaner_change": "Change",
+ "components.schema_fields.head.name": "Name *",
+ "components.schema_fields.head.type": "Type",
+ "components.schema_fields.head.required": "Required",
+ "components.schema_fields.head.description": "Description",
+ "components.schema_fields.head.default": "Default",
+ "components.schema_fields.head.value": "Value"
 }

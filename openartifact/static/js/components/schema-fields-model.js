@@ -88,3 +88,19 @@ export function listProblem(list, limits = LIMITS, max = MAX_FIELDS) {
   }
   return null;
 }
+
+/** The columns of a field list laid out as one row per field (the wide variant): the columns that are there, in the order of the keyboard, the
+ * CSS grid template that gives each its width, and the two strings of areas (the row, and the line of a choice's values under it). Pure, so the
+ * plan is tested on its own; the component only hands it to the stylesheet. */
+const WIDTHS = { grip: "2rem", name: "minmax(7rem, 1.2fr)", type: "8.5rem", required: "5.5rem", description: "minmax(8rem, 2fr)", extra: "minmax(8rem, 1.4fr)", bin: "2rem" };
+
+export function rowPlan({ showRequired = true, extra = null } = {}) {
+  const columns = ["grip", "name", "type", ...(showRequired ? ["required"] : []), "description", ...(extra ? ["extra"] : []), "bin"];
+  const inner = columns.length - 2; // the columns between the handle and the bin
+  return {
+    columns,
+    template: columns.map((c) => WIDTHS[c]).join(" "),
+    row: `"${columns.join(" ")}"`,
+    choices: `"${[".", ...Array(inner).fill("choices"), "."].join(" ")}"`,
+  };
+}

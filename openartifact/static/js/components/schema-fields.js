@@ -11,7 +11,7 @@
 import { icon } from "./icons.js";
 import { Sortable } from "./sortable.js";
 import { t } from "../i18n.js";
-import { addField, listProblem, moveField, parseChoices, removeField, setProp, LIMITS, MAX_FIELDS, TYPES } from "./schema-fields-model.js";
+import { addField, listProblem, moveField, parseChoices, removeField, rowPlan, setProp, LIMITS, MAX_FIELDS, TYPES } from "./schema-fields-model.js";
 
 function element(tag, className, text = null) {
   const el = document.createElement(tag);
@@ -23,14 +23,17 @@ function element(tag, className, text = null) {
 export class SchemaFields {
   /**
    * @param {{fields?: object[], types?: string[], limits?: object, max?: number, label?: string, extra?: "default"|"value"|null,
-   *   showRequired?: boolean, decorate?: (input: HTMLInputElement, kind: string) => void, onInput?: () => void, onSettle?: () => void}} options
+   *   showRequired?: boolean, wide?: boolean, decorate?: (input: HTMLInputElement, kind: string) => void, onInput?: () => void, onSettle?: () => void}} options
    *   `label`: the accessible name of the list; `extra`: one more text each field carries, the default of an input or the value of an
    *   output (ADR-083); `showRequired`: whether a field has the "required" box (an output has not); `decorate`: called with each extra
-   *   text field (the editor adds the reference suggestions to the value of an output)
+   *   text field (the editor adds the reference suggestions to the value of an output); `wide`: one row per field with the column heads above
+   *   (the Trigger, Output and Complete windows; rowPlan in the model), the text for a model dropped, and the stacked layout when the window
+   *   is narrow; without it the compact layout of a narrow node window (the Hand Over Tool)
    */
-  constructor({ fields = [], types = TYPES, limits = LIMITS, max = MAX_FIELDS, label = "", extra = null, showRequired = true, decorate = null, onInput = () => {}, onSettle = () => {} } = {}) {
+  constructor({ fields = [], types = TYPES, limits = LIMITS, max = MAX_FIELDS, label = "", extra = null, showRequired = true, wide = false, decorate = null, onInput = () => {}, onSettle = () => {} } = {}) {
     this.extra = extra;
     this.showRequired = showRequired;
+    this.wide = wide;
     this.decorate = decorate;
     this.types = types;
     this.limits = limits;
@@ -38,7 +41,21 @@ export class SchemaFields {
     this.onInput = onInput;
     this.onSettle = onSettle;
     this.list = fields.map((field) => ({ ...field }));
-    this.element = element("div", "sf");
+    this.element = element("div", wide ? "sf sf--wide" : "sf");
+    if (wide) {
+      const plan = rowPlan({ showRequired, extra });
+      this.element.style.setProperty("--sf-cols", plan.template);
+      this.element.style.setProperty("--sf-row", plan.row);
+      this.element.style.setProperty("--sf-row-2", plan.choices);
+      this.head = element("div", "sf__head");
+      this.head.setAttribute("aria-hidden", "true"); // the inputs name themselves; the heads only tell a seeing user what each column is
+      for (const column of plan.columns) {
+        if (column === "grip" || column === "bin") continue;
+        const label = element("span", `sf__h sf__h--${column}`, t(`components.schema_fields.head.${column === "extra" ? extra : column}`));
+        label.style.gridArea = column;
+        this.head.append(label);
+      }
+    }
     this.rows = element("ul", "sf__list");
     if (label) this.rows.setAttribute("aria-label", label);
     this.add = element("button", "button button--ghost button--sm sf__add");
@@ -47,6 +64,7 @@ export class SchemaFields {
     this.add.addEventListener("click", () => this.addRow());
     this.live = element("p", "visually-hidden");
     this.live.setAttribute("aria-live", "polite");
+    if (this.head) this.element.append(this.head);
     this.element.append(this.rows, this.add, this.live);
     new Sortable(this.rows, { handle: ".sf__grip", onMove: (from, to, by) => this.moveRow(from, to, by) });
     this.draw();
@@ -98,7 +116,7 @@ export class SchemaFields {
       this.list = setProp(this.list, index, "required", box.checked);
       this.settle();
     });
-    required.append(box, element("span", "", t("components.schema_fields.required")));
+    required.append(box, element("span", "sf__required-text", t("components.schema_fields.required")));
     required.hidden = !this.showRequired;
     const bin = element("button", "icon-button icon-button--sm sf__bin");
     bin.type = "button";
@@ -108,18 +126,20 @@ export class SchemaFields {
     bin.addEventListener("click", () => this.removeRow(index));
     const description = this.typed("input", "sf__description", field.description ?? "", (value) => this.change(index, "description", value));
     description.maxLength = this.limits.description_chars;
-    description.placeholder = t("components.schema_fields.description_placeholder");
+    if (!this.wide) description.placeholder = t("components.schema_fields.description_placeholder"); // what a model puts there: not said where no model answers
     description.setAttribute("aria-label", t("components.schema_fields.description_label", { name }));
-    item.append(grip, nameInput, bin, type, required, description);
+    if (this.wide) item.append(grip, nameInput, type, required, description); // the order of the keyboard is the order of the columns, the bin last
+    else item.append(grip, nameInput, bin, type, required, description);
     if (this.extra) {
       const extra = this.typed("input", "sf__extra", field[this.extra] ?? "", (value) => this.change(index, this.extra, value));
       extra.maxLength = 2000;
       extra.spellcheck = false;
-      extra.placeholder = t(`components.schema_fields.${this.extra}_placeholder`);
+      if (!this.wide) extra.placeholder = t(`components.schema_fields.${this.extra}_placeholder`);
       extra.setAttribute("aria-label", t(`components.schema_fields.${this.extra}_label`, { name }));
       this.decorate?.(extra, this.extra);
       item.append(extra);
     }
+    if (this.wide) item.append(bin);
     if (field.type === "choice") {
       const values = this.typed("input", "sf__choices", (field.choices ?? []).join(", "), (value) => this.change(index, "choices", parseChoices(value)));
       values.placeholder = t("components.schema_fields.choices_placeholder");

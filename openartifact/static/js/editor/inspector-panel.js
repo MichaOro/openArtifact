@@ -17,8 +17,13 @@ export class InspectorPanel {
     new MutationObserver(() => this.#widen()).observe(element, { childList: true, subtree: true });
   }
 
+  /** Two columns of settings, or a field list in one row per field (the Trigger, Output and Complete windows, ADR-083), need the wide window. */
+  #needsRoom() {
+    return Boolean(this.element.querySelector('.ge-settings[data-columns="2"], .sf--wide'));
+  }
+
   #widen() {
-    if (this.element.querySelector('.ge-settings[data-columns="2"]')) this.element.closest("dialog")?.classList.add("is-wide");
+    if (this.#needsRoom()) this.element.closest("dialog")?.classList.add("is-wide");
   }
 
   /** @param {{type: "node"|"edge", id: string}|null} selection a node (anything else shows nothing) */
@@ -34,7 +39,7 @@ export class InspectorPanel {
     this.element.closest("dialog")?.querySelector("[data-node-version]")?.remove(); // an agent node brings its own badge
     this.element.replaceChildren(...this.#content(selection));
     // a node with settings for both columns gets the wide dialog
-    this.element.closest("dialog")?.classList.toggle("is-wide", Boolean(this.element.querySelector('.ge-settings[data-columns="2"]')));
+    this.element.closest("dialog")?.classList.toggle("is-wide", this.#needsRoom());
     const control = key ? this.element.querySelector(`[data-focus-key="${key}"]`) : null;
     // a block that draws itself later (the agent's settings) puts the focus back when it is there: remember where it was
     // (a second draw while the focus is already gone keeps it: it is forgotten once used or after three seconds)
