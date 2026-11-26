@@ -84,6 +84,7 @@ class NodeKind(enum.StrEnum):
     SQLITE = "sqlite"
     SQLITE_TOOL = "sqlite_tool"
     ARTIFACT = "artifact"
+    CONTEXT = "context"
 
 
 class ProviderKind(enum.StrEnum):

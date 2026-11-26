@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from openartifact.graph import context_sources
 from openartifact.graph.manifest import (
     NODES_DIR,
     PortSpec,
@@ -255,6 +256,8 @@ class Setting:
                 "wait_ms": [0, RETRY_MAX_WAIT_MS, RETRY_DEFAULT_WAIT_MS],
                 "total_wait_ms": RETRY_MAX_TOTAL_WAIT_MS,
             }
+        if self.type == "sources":
+            data.update(context_sources.describe())
         if self.type in _DEFAULT_MAX_LENGTH:
             data["max_length"] = self.max_length or _DEFAULT_MAX_LENGTH[self.type]
         if self.placeholder is not None:
@@ -304,6 +307,11 @@ class Setting:
             return value
         if self.type == "retry":
             return self._retry(value)
+        if self.type == "sources":
+            try:
+                return context_sources.normalise(value)
+            except ValueError as error:
+                raise SettingError(str(error)) from error
         if self.type == "size":
             low, high = self.minimum or 0, self.maximum
             if not _whole(value) or value < low or (high is not None and value > high):

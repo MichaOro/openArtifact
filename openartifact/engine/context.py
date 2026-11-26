@@ -187,11 +187,11 @@ def check_vars(raw: Any) -> dict[str, Any]:
 # ── the context ──────────────────────────────────────────────────────
 
 
-def _cap_output(text: str) -> tuple[str, bool]:
+def _cap_output(text: str, limit: int = NODE_OUTPUT_LIMIT_BYTES) -> tuple[str, bool]:
     raw = text.encode("utf-8")
-    if len(raw) <= NODE_OUTPUT_LIMIT_BYTES:
+    if len(raw) <= limit:
         return text, False
-    kept = raw[:NODE_OUTPUT_LIMIT_BYTES].decode("utf-8", errors="ignore")
+    kept = raw[:limit].decode("utf-8", errors="ignore")
     return f"{kept}\n{TRUNCATED_MARK}", True
 
 
@@ -263,7 +263,7 @@ class RunContext:
 
     def record(self, node: Mapping[str, Any], result: NodeResult, port: str | None) -> None:
         """Store the result of a node that ran under its key; an earlier result of the key is replaced."""
-        output, cut = _cap_output(result.output)
+        output, cut = _cap_output(result.output, result.keep_bytes or NODE_OUTPUT_LIMIT_BYTES)
         entry: dict[str, Any] = {
             "name": node["name"],
             "kind": str(node["kind"]),

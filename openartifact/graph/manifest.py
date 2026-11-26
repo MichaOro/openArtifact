@@ -29,7 +29,7 @@ NODES_DIR = Path(__file__).parent / "nodes"
 BEHAVIOURS = ("plain", "flow", "stage", "action", "pipeline", "output", "tool", "switch")
 #: The functions of the editor a manifest may name (``tests/js/node-types.test.mjs`` checks that every one exists there).
 CLIENT_FUNCTIONS: dict[str, tuple[str, ...]] = {
-    "caption": ("if_summary", "switch_summary", "agent_summary"),
+    "caption": ("if_summary", "switch_summary", "agent_summary", "context_summary"),
     "visible": ("switch_case_used",),
     "label": ("switch_case_label",),
     "size": ("switch_size",),
@@ -125,6 +125,7 @@ class SettingSpec(_Strict):
             "select",
             "credential",
             "retry",
+            "sources",
         ]
         | None
     ) = None

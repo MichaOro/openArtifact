@@ -49,6 +49,7 @@ from openartifact.config import DEFAULT_SECRET_KEY, Settings, get_settings
 from openartifact.credentials.service import CredentialService
 from openartifact.credentials.store import SecretStore
 from openartifact.engine import guard_views
+from openartifact.engine.cards_gateway import SqlCardsGateway
 from openartifact.engine.executors import Limits
 from openartifact.engine.runner import RunEngine
 from openartifact.engine.telemetry import Telemetry
@@ -191,6 +192,7 @@ def _create_app(settings: Settings) -> FastAPI:
             app.state.comments,
             app.state.credentials.settings_of,
             publish,
+            SqlCardsGateway(database.new_session),
         ),
         history_default_keep=settings.execution_history_default_keep,
         guards=GuardSettings(

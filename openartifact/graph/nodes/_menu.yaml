@@ -31,6 +31,7 @@ kinds:
 - postgres_tool
 - sqlite_tool
 - artifact
+- context
 # Entries of the "+" menu that are not kinds of nodes. `scopes` says in which editors the entry is offered; `soon`
 # marks a place held for something that is coming. Guard (ADR-060) opens the Guard window: a guard of the pipeline
 # (from this menu), of a stage (its "+") or of an action (its node menu); it is never a node of the canvas. An action

@@ -1,0 +1,74 @@
+schema: 1
+kind: context
+label: Build Context
+behaviour: flow
+produces_result: true
+timed: true
+result_data:
+- included
+- omitted
+- size_bytes
+- limit_bytes
+- approx_tokens
+guardable: true
+scopes:
+- action
+addable: true
+chain: true
+menu:
+  group: Data
+  order: 3
+ports:
+  inputs:
+  - name: in
+    label: Input
+  outputs:
+  - name: pass
+    label: On Pass
+  - name: fail
+    label: On Fail
+    visible_when:
+      setting: on_failure
+      equals: error_output
+ui:
+  color: context
+  icon: layers
+  caption:
+    fn: context_summary
+  hint: Builds one package of text for an agent from the card and what is around it. It only reads, it never changes anything.
+settings:
+- key: sources
+  label: Sources
+  type: sources
+  default:
+  - source: card
+  - source: comments
+    count: 20
+  help: What the package is made of, in the order of its importance. When the size limit runs out, the sources further down give way
+    first (the card's own title and text are cut last). The step shows what went in and what was left out. Card text, comments and
+    results are pasted as they are and never read for ${...} references.
+  stored_in: config
+- key: size_limit
+  label: Size limit
+  type: size
+  minimum: 1024
+  maximum: 32768
+  default: 8192
+  help: The most the whole package takes, headings included (bytes of UTF-8 text). Roughly four bytes make a token of English text,
+    so 8 KiB is about 2,000 tokens. A bigger package gives the agent more to read and costs more; a smaller one costs less and may
+    leave out what it needs.
+  stored_in: config
+  section: behaviour
+- key: item_limit
+  label: Longest item
+  type: size
+  minimum: 256
+  maximum: 16384
+  default: 2048
+  help: >-
+    One comment, card or result is cut to this size (with the mark "…[cut]") before it is weighed, so a single long item does not fill the
+    package. The card's own text is not an item; it is cut last, only when the whole limit is reached.
+  stored_in: config
+  section: behaviour
+  level: optional
+- use: on_failure

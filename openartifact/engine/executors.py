@@ -33,6 +33,7 @@ from openartifact.engine.artifact_runner import CommentsGateway, run_artifact
 from openartifact.engine.branching import evaluate_if, evaluate_switch
 from openartifact.engine.code_runner import CodeLimits, run_code
 from openartifact.engine.context import RunView
+from openartifact.engine.context_builder import CardsGateway, run_context
 from openartifact.engine.fields import run_set
 from openartifact.engine.github_runner import run_github
 from openartifact.engine.http_runner import run_http
@@ -76,6 +77,8 @@ class Limits:
     llm_allow_private_networks: bool = False
     #: The comments of artifacts, for the Artifact node (ADR-055); ``None``: the node fails.
     comments: CommentsGateway | None = None
+    #: The parent, children, siblings and earlier executions of a card, for the Build Context node (ADR-078); ``None``: those sources fail.
+    cards: CardsGateway | None = None
     #: The settings of a credential that are no secret, by its name (the address of a GitHub server); ``None``: none.
     credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None
     #: The SQLite databases a SQLite node may read, by name (``engine/sqlite_runner.py``, ADR-068): the application's own
@@ -93,6 +96,7 @@ class Limits:
         comments: CommentsGateway | None = None,
         credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None,
         publish: Callable[[str, dict[str, Any]], object] | None = None,
+        cards: CardsGateway | None = None,
     ) -> Limits:
         return cls(
             settings.code_nodes_enabled,
@@ -110,6 +114,7 @@ class Limits:
             and not settings.code_nodes_without_token,
             llm_allow_private_networks=settings.llm_allow_private_networks,
             comments=comments,
+            cards=cards,
             credential_settings=credential_settings,
             data_sources={
                 APP_SOURCE: application_source(settings.data_dir / settings.database_filename)
@@ -329,6 +334,13 @@ async def _artifact(
     )
 
 
+async def _context(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
+    """Build the package of the node's sources within its size limit (``engine/context_builder.py``, ADR-078); no secret."""
+    return await run_context(
+        node["config"], view=view or RunView(), cards=limits.cards, comments=limits.comments
+    )
+
+
 async def _timer(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     started = time.monotonic()
     await asyncio.sleep(node["seconds"] or 0)
@@ -409,3 +421,4 @@ register_executor(NodeKind.POSTGRES, _postgres)
 register_executor(NodeKind.SQLITE, _sqlite)
 register_executor(NodeKind.GITHUB, _github)
 register_executor(NodeKind.ARTIFACT, _artifact)
+register_executor(NodeKind.CONTEXT, _context)

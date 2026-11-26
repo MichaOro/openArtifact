@@ -36,6 +36,9 @@ class NodeResult:
     attempts: int = 1
     #: Wall time of the step in milliseconds, all tries and the waits between them: the engine measures it (a kind need not).
     duration_ms: int | None = None
+    #: How many bytes of ``output`` the run context keeps for later nodes (the step keeps all); ``None``: the context's own limit for a node
+    #: (4 KiB). The Build Context node asks for the size of its package (ADR-078).
+    keep_bytes: int | None = None
 
     @property
     def success(self) -> bool:

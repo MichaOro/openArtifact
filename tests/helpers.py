@@ -49,7 +49,9 @@ def node(client: Any, graph: dict[str, Any], kind: str, **extra: Any) -> dict[st
 
 
 #: The kinds whose error output (``fail`` on a node, ``error`` on an action) is there only with *If it fails: Error output*.
-_ERROR_OUTPUT_KINDS = {"action", "code", "http", "github", "postgres", "artifact", "agent", "set"}
+_ERROR_OUTPUT_KINDS = {
+    "action", "code", "http", "github", "postgres", "artifact", "context", "agent", "set",
+}  # fmt: skip
 
 
 def connect(

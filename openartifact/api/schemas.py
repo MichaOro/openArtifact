@@ -61,6 +61,9 @@ class SettingRead(BaseModel):
     credential_types: list[str] | None = None
     #: The bounds of a ``retry`` setting (ADR-073): ``max_tries`` and ``wait_ms`` as ``[min, max, default]``, ``total_wait_ms``.
     limits: dict[str, Any] | None = None
+    #: The sources a ``sources`` setting (the Build Context node, ADR-078) offers, each with its options, and how many a list holds.
+    sources: list[dict[str, Any]] | None = None
+    max_sources: int | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None
