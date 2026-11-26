@@ -26,7 +26,7 @@ settings:
   type: switch
   default: false
   level: optional
-  help: 'Off: the agent can only read; the tools that change something are left out. On: it may also create, change, move, archive and comment cards and start or stop their processing. Nothing is ever deleted.'
+  help: "Off: the agent can only read. On: it may also create, change, move, archive and comment cards and start or stop them; nothing is ever deleted."
   stored_in: config
 - key: tools_mode
   label: Tools to include

@@ -89,10 +89,14 @@ def test_the_shipped_sidebar_and_rail() -> None:
         "stage",
         "action",
     ]
-    assert [i.key for i in rail["actions"]] == [
-        "archive",
-        "delete",
-    ]  # the archive action was added (ADR-071 UI)
+    assert (
+        [i.key for i in rail["actions"]]
+        == [
+            "archive",
+            "delete",
+            "unarchive",
+        ]
+    )  # the archive action was added (ADR-071 UI); the read-only dialog of an archived card adds "Remove from archive" (ADR-071 add. 4)
 
 
 @pytest.mark.parametrize(

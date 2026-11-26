@@ -3264,7 +3264,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "help": "Off: the agent can only read; the tools that change something are left out. On: it may also create, change, move, archive and comment cards and start or stop their processing. Nothing is ever deleted.",
+    "help": "Off: the agent can only read. On: it may also create, change, move, archive and comment cards and start or stop them; nothing is ever deleted.",
     "section": "definition",
     "level": "optional",
     "inherits": null
@@ -4109,7 +4109,7 @@
      ],
      "choice_chars": 60
     },
-    "help": "The fields of the document, flat (no field holds another object). The model hands over exactly these. A document with a missing required field, a wrong type, a value outside a choice or a field that is not listed is refused, and the answer says why. The last accepted document counts; every call stays in the step.",
+    "help": "The document's fields, flat: the model hands over exactly these. A missing, wrongly typed or unlisted field is refused with the reason; the last accepted document counts.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -4473,7 +4473,7 @@
      }
     ],
     "max_sources": 9,
-    "help": "What the package is made of, in the order of its importance. When the size limit runs out, the sources further down give way first (the card's own title and text are cut last). The step shows what went in and what was left out. Card text, comments and results are pasted as they are and never read for ${...} references.",
+    "help": "The package's parts, most important first; sources further down give way first when the size limit runs out. Card text and results are pasted as they are, never read for references.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -4486,7 +4486,7 @@
     "maximum": 32768,
     "default": 8192,
     "stored_in": "config",
-    "help": "The most the whole package takes, headings included (bytes of UTF-8 text). Roughly four bytes make a token of English text, so 8 KiB is about 2,000 tokens. A bigger package gives the agent more to read and costs more; a smaller one costs less and may leave out what it needs.",
+    "help": "The most the whole package takes, in bytes (about four bytes per token). A bigger package gives the agent more to read and costs more.",
     "section": "behaviour",
     "level": "core",
     "inherits": null
@@ -4499,7 +4499,7 @@
     "maximum": 16384,
     "default": 2048,
     "stored_in": "config",
-    "help": "One comment, card or result is cut to this size (with the mark \"…[cut]\") before it is weighed, so a single long item does not fill the package. The card's own text is not an item; it is cut last, only when the whole limit is reached.",
+    "help": "A single comment, card or result is cut to this size so one long item cannot fill the package. The card's own text is cut last.",
     "section": "behaviour",
     "level": "optional",
     "inherits": null

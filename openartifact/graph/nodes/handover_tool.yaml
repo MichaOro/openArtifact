@@ -34,7 +34,7 @@ settings:
   label: Fields
   type: fields
   default: []
-  help: 'The fields of the document, flat (no field holds another object). The model hands over exactly these. A document with a missing required field, a wrong type, a value outside a choice or a field that is not listed is refused, and the answer says why. The last accepted document counts; every call stays in the step.'
+  help: "The document's fields, flat: the model hands over exactly these. A missing, wrongly typed or unlisted field is refused with the reason; the last accepted document counts."
   stored_in: config
 - key: max_bytes
   label: Size limit
