@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { canReset, defaultOf, isOn, onValueOf, shown, switched, toStored } from "../../openartifact/static/js/components/limit-model.js";
+import { canReset, defaultOf, isOn, onValueOf, shown, switched, textAfterBlur, toStored, zeroHintShown } from "../../openartifact/static/js/components/limit-model.js";
 
 test("a field nobody set shows its default, and a set one shows its number", () => {
   assert.equal(shown(null, 50), 50);
@@ -41,4 +41,21 @@ test("the default and the suggestion come from the page first, then from the man
   assert.equal(onValueOf(field, { on_values: { storage_keep_executions: 12 } }), 12);
   assert.equal(onValueOf(field, {}), 24);
   assert.equal(onValueOf({ key: "x", config: {}, min: 3 }, {}), 3);
+});
+
+test("an emptied field is the default again when the user leaves it, and never 0", () => {
+  assert.equal(textAfterBlur("", null, 50), "50", "an empty field shows the default");
+  assert.equal(textAfterBlur("  ", null, 50), "50");
+  assert.equal(textAfterBlur("", 7, 50), "7", "a stored number stays what it is");
+  assert.equal(textAfterBlur("12", null, 50), "12", "a typed number is kept");
+  assert.equal(textAfterBlur("0", null, 50), "0", "0 typed on purpose is kept");
+  assert.notEqual(textAfterBlur("", null, 50), "0");
+});
+
+test("the hint that 0 keeps everything shows only for a field that says what its 0 means and while it holds 0", () => {
+  assert.equal(zeroHintShown("0", true), true);
+  assert.equal(zeroHintShown("0", false), false, "a field without that meaning shows no hint");
+  assert.equal(zeroHintShown("3", true), false);
+  assert.equal(zeroHintShown("", true), false, "an empty field is not 0");
+  assert.equal(zeroHintShown(undefined, true), false);
 });

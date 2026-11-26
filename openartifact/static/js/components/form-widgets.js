@@ -13,7 +13,7 @@
  * widget is a group the label names (role="group", aria-labelledby). */
 import { icon } from "./icons.js";
 import { t } from "../i18n.js";
-import { canReset, defaultOf, isOn, onValueOf, shown, switched, toStored } from "./limit-model.js";
+import { canReset, defaultOf, isOn, onValueOf, shown, switched, textAfterBlur, toStored, zeroHintShown } from "./limit-model.js";
 import { createSwitch, Switch } from "./switch.js";
 
 const registry = new Map();
@@ -174,10 +174,19 @@ registerWidget("limit", (ctx) => {
   const row = make("div", "fv-limit");
   const reset = make("button", "chip-button fv-limit__reset", t("components.limit.reset"));
   reset.type = "button";
+  // a field that says what its 0 means (config.zero_hint: "executions") shows it while it holds 0
+  const hint = ctx.field.config?.zero_hint ? make("span", "fv-limit__hint", t(`components.limit.zero_${ctx.field.config.zero_hint}`)) : null;
   const { line, input } = numberBox(ctx, ctx.id, shown(stored, fallback), (typed) => {
     stored = toStored(typed, fallback);
     reset.hidden = !canReset(stored, fallback);
+    if (hint) hint.hidden = !zeroHintShown(input.value, true);
     ctx.set(stored);
+  });
+  if (hint) hint.hidden = !zeroHintShown(input.value, true);
+  // leaving an emptied field puts the default back: it stays unset (null), it is never 0
+  input.addEventListener("blur", () => {
+    input.value = textAfterBlur(input.value, stored, fallback);
+    if (hint) hint.hidden = !zeroHintShown(input.value, true);
   });
   reset.hidden = !canReset(stored, fallback);
   reset.setAttribute("aria-label", `${t("components.limit.reset")}: ${ctx.field.label}`);
@@ -186,9 +195,10 @@ registerWidget("limit", (ctx) => {
     input.value = String(fallback);
     reset.hidden = true;
     ctx.set(null);
+    if (hint) hint.hidden = true;
     input.focus();
   });
-  row.append(line, reset);
+  row.append(line, reset, ...(hint ? [hint] : []));
   return { el: row, control: input };
 });
 

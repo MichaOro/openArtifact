@@ -1,5 +1,5 @@
 # The form of the Personal settings page (ADR-062): display preferences and the data storage limits of the single user.
-# The page has tabs (General, Data storage, Database): a section names its tab. The window around it is a component of its own.
+# The page has tabs (General, Data storage; the database facts and actions sit in the second one): a section names its tab. The window around it is a component of its own.
 schema: 1
 name: personal
 columns: 1
@@ -40,6 +40,7 @@ sections:
         config:
           unit: executions
           default_value: 50
+          zero_hint: executions
       - key: storage_step_output_kib
         widget: limit
         label: "Longest stored output of a step"

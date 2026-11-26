@@ -308,4 +308,5 @@ textarea.field__control--lines { resize: vertical; }
 .fv-limit__input { width: 7rem; min-width: 0; }
 .fv-limit__unit { color: var(--color-text-muted); font-size: 0.8125rem; white-space: nowrap; }
 .fv-limit__number { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.fv-limit__number[hidden], .fv-limit__reset[hidden] { display: none; }
+.fv-limit__number[hidden], .fv-limit__reset[hidden], .fv-limit__hint[hidden] { display: none; }
+.fv-limit__hint { color: var(--color-text-muted); font-size: 0.8125rem; }

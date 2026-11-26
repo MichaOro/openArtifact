@@ -84,3 +84,16 @@ The owner asked for sub-navigation like the agent page, default values instead o
 - **The *Database* tab:** the facts as a two-column list, the biggest tables with their sizes on the right, and *Preview*, *Clean now* and *Shrink database* in a row with a line under each
   saying what it does. The messages (nothing to clean, what a pass did) and the questions before cleaning and shrinking are as before.
 - **API:** `GET /api/settings/storage` gains `next_clean_at`, `defaults` and `on_values`. Nothing else changes.
+
+## Addendum 2: one view for the limits and the database, the actions' tooltips, 0 (card #100, second round)
+
+The owner looked at the tabs and wanted fewer places and a calmer page.
+
+- **One view:** the *Database* tab is gone. *Data storage* shows the limits on the left and the database on the right (one column below 64 rem); the facts, the biggest tables and the
+  three actions are the right column. A link to `#database` (the old tab) opens *Data storage*. The facts' *Change* link takes the focus to the cleaner's switch on the same page.
+- **The actions:** *Preview*, *Clean now* and *Shrink database* sit at the bottom of the database column, left-aligned, in that order; *Clean now* stays the primary button. What each does
+  is a tooltip on hover and on keyboard focus (`attachTip` of `info-tip.js`, the same tooltip as the (i); the button is tied to it with `aria-describedby`, on touch the text stays its
+  accessible description). Only results ("Nothing to clean...", "Saved.") are shown as text. The introductions are narrow (24 rem at most, about two thirds of the card), so they wrap once more.
+- **0 means everything:** a field that is emptied is the default again (stored as `null`, the field shows the default when it is left); an empty field is never turned into 0 (the spin
+  buttons of an empty number field start at its minimum, which is 0 for a count, and 0 keeps every execution). `0` is stored only when the user types it, and the field then says
+  *0 keeps every execution* (`config.zero_hint` in the form manifest). Stored data is not touched.

@@ -40,3 +40,14 @@ export function onValueOf(field, context) {
   const own = context?.on_values?.[field.key];
   return Number.isFinite(own) ? own : (field.config?.on_value ?? field.min ?? 1);
 }
+
+/** The text a field shows once the user has left it: an emptied field is the default again (it never stays empty, and an empty field
+ * never turns into 0: the spin buttons of an empty number field start at the minimum, which is 0 for a count). */
+export function textAfterBlur(typedText, stored, fallback) {
+  return String(typedText ?? "").trim() === "" ? String(shown(stored, fallback) ?? "") : typedText;
+}
+
+/** Whether the hint that 0 keeps everything is shown: the field says what its 0 means, and it holds 0. */
+export function zeroHintShown(text, hasHint) {
+  return Boolean(hasHint) && String(text ?? "").trim() !== "" && Number(text) === 0;
+}
