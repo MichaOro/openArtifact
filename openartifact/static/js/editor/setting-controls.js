@@ -18,7 +18,7 @@ import { field } from "./field.js";
 import { bindPersist, registerDirty, trackSave } from "./persist-policy.js";
 import { addSource, listProblem, moveSource, parseNames, removeSource, setOption, specOf, unused } from "./sources-model.js";
 import { suggestReferences } from "./reference-suggest.js";
-import { readableReferences } from "./reference-completion.js";
+import { ReferenceNames } from "./reference-names.js";
 import { t, tn } from "../i18n.js";
 
 const INDENT = "  ";
@@ -62,7 +62,10 @@ class SettingControl {
     this.save = save;
     this.busy = false;
     this.again = false;
+    // a text that takes references shows the names of the nodes where the value holds their ids (reference-names.js) and saves the ids
+    this.names = suggest && setting.references && this.constructor.suggests ? new ReferenceNames(() => suggest.nodes()) : null;
     this.input = this.createInput(value);
+    if (this.names && typeof this.input.value === "string") this.input.value = this.names.display(this.input.value);
     this.input.dataset.focusKey = `setting-${setting.key}`;
     if (this.constructor.kind !== "toggle")
       bindPersist(this.input, this.constructor.kind, (event) => {
@@ -75,20 +78,6 @@ class SettingControl {
     this.suggest = suggest && setting.references && this.constructor.suggests ? suggest : null;
     if (this.suggest) suggestReferences(this.input, this.suggest, { allowSecrets: setting.references === "all" });
     this.element = this.build();
-    this.refs = element("p", "field__meta ge-refs");
-    this.refs.dataset.references = "";
-    this.element.append(this.refs);
-    this.showReferences();
-    if (this.suggest) this.input.addEventListener("input", () => this.showReferences());
-  }
-
-  /** Under a field whose text names nodes by their ids (ADR-082) a line says which nodes they are now, by name: the id is for the
-   * machine, the name for the reader, and a rename shows here at once. Nothing is shown while the text holds no id. */
-  showReferences() {
-    const text = this.suggest ? this.input.value : "";
-    const readable = text.includes("${node:") ? readableReferences(text, this.suggest.nodes()) : "";
-    this.refs.textContent = readable ? `${t("editor.setting_controls.refers_to")} ${readable}` : "";
-    this.refs.hidden = !readable;
   }
 
   /** The editable element (an input, a textarea, a select ...). */
@@ -179,6 +168,7 @@ class SettingControl {
     let value;
     try {
       value = this.parse(this.read());
+      if (this.names && typeof value === "string") value = this.names.stored(value); // the ids go to the server, what the user reads stays the names
     } catch (error) {
       this.fail(error.message);
       return;
@@ -846,6 +836,8 @@ class FieldsControl extends SettingControl {
       decorate: (input, kind) => {
         if (kind === "value" && this.source) suggestReferences(input, this.source, { allowSecrets: false });
       },
+      // the value of an output is shown with the names of the nodes it refers to, never their ids (ADR-082 add. 1)
+      names: this.setting.field_extra === "value" && this.source ? new ReferenceNames(() => this.source.nodes()) : null,
       onInput: () => this.markDirty(),
       onSettle: () => this.commit(),
     });
@@ -885,6 +877,7 @@ class MappingControl extends SettingControl {
     const box = element("div", "ge-mapping");
     box.dataset.focusKey = `setting-${this.setting.key}`;
     const given = value && typeof value === "object" ? value : {};
+    this.names = this.source?.nodes ? new ReferenceNames(() => this.source.nodes()) : null; // a row shows the names of the nodes it refers to, never ids
     this.rows = new Map();
     const inputs = this.source?.inputsOf?.(this.source.node) ?? [];
     for (const spec of inputs) {
@@ -897,7 +890,7 @@ class MappingControl extends SettingControl {
       input.autocomplete = "off";
       input.spellcheck = false;
       input.maxLength = 2000;
-      input.value = given[spec.name] ?? "";
+      input.value = this.names ? this.names.display(given[spec.name] ?? "") : (given[spec.name] ?? "");
       // the name of the input sits in the value field faintly (a placeholder) until the user types a value or a reference, which overrides it;
       // the default and the description are said next to the label
       input.placeholder = spec.name;
@@ -926,7 +919,7 @@ class MappingControl extends SettingControl {
   /** The filled rows as the server stores them. */
   value() {
     const out = {};
-    for (const [name, input] of this.rows) if (input.value.trim() !== "") out[name] = input.value;
+    for (const [name, input] of this.rows) if (input.value.trim() !== "") out[name] = this.names ? this.names.stored(input.value) : input.value;
     return out;
   }
 

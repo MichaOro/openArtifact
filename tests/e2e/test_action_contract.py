@@ -161,7 +161,10 @@ def test_the_same_action_placed_three_times_is_told_apart_by_its_number(
     assert sorted(names.all_inner_texts()) == ["#1 Check", "#2 Check", "#3 Check"]
 
 
-def test_the_reference_list_inserts_the_id_and_shows_the_name_and_a_rename_changes_nothing(
+UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def test_a_field_shows_the_name_of_a_node_never_its_id_and_a_rename_changes_the_display_not_the_storage(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     action = post(api, "/api/actions", name="Refs")
@@ -177,6 +180,9 @@ def test_the_reference_list_inserts_the_id_and_shows_the_name_and_a_rename_chang
     expect(option).to_be_visible()  # the list shows the name, not an id
     option.click()
     page.locator(".popover--suggest").get_by_text("(Fetch).output").click()
+    # what the field holds is the name form: no id appears while the user works
+    expect(field).to_have_value("http://example.test/${node:Fetch.output}")
+    assert not UUID.search(field.input_value())
     field.press("Enter")
     stored = f"http://example.test/${{node:{fetch['id']}.output}}"
     eventually(
@@ -186,24 +192,73 @@ def test_the_reference_list_inserts_the_id_and_shows_the_name_and_a_rename_chang
             if n["id"] == reader["id"]
         ],
         [stored],
-    )
-    expect(page.locator(DIALOG).locator("[data-references]:not([hidden])")).to_have_text(
-        "Reads: http://example.test/${(Fetch).output}"
-    )
+    )  # storage, API and MCP keep the id
+    expect(field).to_have_value(
+        "http://example.test/${node:Fetch.output}"
+    )  # and the field still shows the name after the save
     api.patch(
         f"{graph_url(action)}/nodes/{fetch['id']}", json={"name": "Download"}
     ).raise_for_status()
     page.reload()
     page.locator(f'.ge-node[data-node-id="{reader["id"]}"]').dblclick(position={"x": 30, "y": 5})
-    expect(page.locator(DIALOG).locator("[data-references]:not([hidden])")).to_have_text(
-        "Reads: http://example.test/${(Download).output}"
-    )  # the text still holds the id; the name shown is the new one
+    shown = page.locator(DIALOG).get_by_label("URL")
+    expect(shown).to_have_value(
+        "http://example.test/${node:Download.output}"
+    )  # the display follows the rename
+    assert not UUID.search(shown.input_value())
     assert (
         next(n for n in api.get(graph_url(action)).json()["nodes"] if n["id"] == reader["id"])[
             "config"
         ]["url"]
         == stored
+    )  # the storage did not change
+    # a save of the field with an edit next to the reference keeps the id in storage
+    shown.fill("http://example.test/${node:Download.output}?x=1")
+    shown.press("Enter")
+    eventually(
+        lambda: next(
+            n for n in api.get(graph_url(action)).json()["nodes"] if n["id"] == reader["id"]
+        )["config"]["url"],
+        f"http://example.test/${{node:{fetch['id']}.output}}?x=1",
     )
+
+
+def test_a_mapping_field_of_a_placement_never_shows_an_id(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _declared_action(api)
+    pipeline = post(api, "/api/pipelines", name="Flow ids")
+    stage = node(api, pipeline, "stage", name="Stage")
+    connect(api, pipeline, kind_of(api, pipeline, "trigger"), "out", stage, "start")
+    first = node(api, pipeline, "action", stage_id=stage["id"], x=24, y=48)
+    second = node(api, pipeline, "action", stage_id=stage["id"], x=24, y=130)
+    for placed in (first, second):
+        api.patch(
+            f"{graph_url(pipeline)}/nodes/{placed['id']}", json={"definition_id": definition["id"]}
+        ).raise_for_status()
+    stored = f"${{node:{first['id']}.data.greeting}}"
+    api.patch(
+        f"{graph_url(pipeline)}/nodes/{second['id']}",
+        json={"config": {"input_values": {"who": stored}}},
+    ).raise_for_status()
+    page.goto(f"{base_url}/pipelines/{pipeline['slug']}")
+    _open_settings(page, second)
+    who = page.locator(DIALOG).get_by_label(re.compile(r"^who"))
+    shown = who.input_value()
+    assert shown == "${node:Greet #1.data.greeting}", shown  # the placement as its card calls it
+    assert not UUID.search(shown)
+    who.fill(shown + " today")
+    who.press("Enter")
+    eventually(
+        lambda: next(
+            n for n in api.get(graph_url(pipeline)).json()["nodes"] if n["id"] == second["id"]
+        )["config"]["input_values"]["who"],
+        stored + " today",
+    )  # after the save and a reload the API still holds the id form
+    page.reload()
+    _open_settings(page, second)
+    again = page.locator(DIALOG).get_by_label(re.compile(r"^who")).input_value()
+    assert again == "${node:Greet #1.data.greeting} today" and not UUID.search(again)
 
 
 def test_a_duplicated_stage_reads_its_own_copy_of_the_action_before_it(

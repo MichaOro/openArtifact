@@ -2325,7 +2325,6 @@
  "editor.reference_completion.gone": "gelöschter Knoten",
  "editor.reference.inputs.one": "1 Input dieses Graphen",
  "editor.reference.inputs.other": "{count} Inputs dieses Graphen",
- "editor.setting_controls.refers_to": "Liest:",
  "components.schema_fields.default_placeholder": "Standardwert (optional)",
  "components.schema_fields.default_label": "Standardwert von {name}",
  "components.schema_fields.value_placeholder": "Wert: ein Text oder ${…}-Verweise",

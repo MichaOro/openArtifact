@@ -1610,7 +1610,6 @@
  "editor.reference_completion.gone": "deleted node",
  "editor.reference.inputs.one": "1 input of this graph",
  "editor.reference.inputs.other": "{count} inputs of this graph",
- "editor.setting_controls.refers_to": "Reads:",
  "components.schema_fields.default_placeholder": "Default (optional)",
  "components.schema_fields.default_label": "Default of {name}",
  "components.schema_fields.value_placeholder": "Value: a text, or ${…} references",

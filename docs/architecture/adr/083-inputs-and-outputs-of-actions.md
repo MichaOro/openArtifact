@@ -54,3 +54,26 @@ description, default or value, bin). The text "What the model puts here" and the
 text for a model belongs to the Hand Over Tool, where it stays). The window gets the wide size (`is-wide`, 56 rem) when it holds such a list. In a window narrower than
 44 rem (a container query on the list) the stacked layout is back, so nothing lies over anything at any width. The values of a choice stay a line of their own under
 the row.
+
+## Addendum 2: compact rows with a menu, and the contract is the one of the version that runs
+
+**Compact rows.** Addendum 1 drew a description and a default column in every row; the Trigger, Output and Complete windows became too wide for what they hold. The
+wide variant now draws **one compact row per field**: handle, *Name \**, *Type*, *Required* (the shared Checkbox), the value of an output, and a **⋮ button**. The
+description and the default of an input are not columns: the ⋮ menu (`ActionMenu`, `role=menu`) offers *Add description*, *Add default value* (inputs only) and
+*Delete*; an added one is a line under the row and its item then reads *Remove …* (removing clears the value). The bin is in the menu. The keyboard: Tab to ⋮,
+Enter or Space opens, the arrows move, Escape closes. Below 28 rem (a container query on the list) the row stacks. The Hand Over Tool keeps its compact layout
+without the menu. This replaces the column list of addendum 1; the container threshold there (44 rem) is now 28 rem.
+
+**The contract is read from the version that runs.** What a placement shows as inputs and outputs, what the check validates mappings against and what a run
+requires is the contract of the version an execution uses (ADR-070, `graph_for_run`): the published one, and for a graph never published its draft. One server
+function, `graph/contract.py` (`contract_of`, answered by `GET /api/{kind}/{graph_id}/contract` with `running` `published` or `draft`, `version`, `draft_changed`),
+serves the editor, `preflight.check` and the run. While the draft of an action is edited the pipelines keep the published contract; it changes when the action is
+published, republished or its draft discarded, which publishes the event `graph.contract_changed` so an open pipeline editor reads it again. This corrects the
+first version of this ADR, where the editor read the draft.
+
+**Publish warns about the users.** Publishing an action or pipeline whose contract changes adds warnings (never errors; the owner decides) naming the graphs that
+use it: `contract_input_removed` (a placement still gives a value to a removed input), `contract_input_new` (a placement has no value for a new required input),
+`contract_output_removed` (an output a graph may read is gone). Nothing is reported while the graph was never published.
+
+**Names ghosted.** At a placement each declared input is a mapping row whose placeholder is the input's name; a typed value overrides it, the default is shown
+muted beside the label.

@@ -58,3 +58,14 @@ and the name stops before them. The node's window shows the number in front of t
 edited. A node the user names is edited as a whole: the existing limit of 255 characters stands (the API refuses a longer name with 422; the owner
 suggested about 200, and the larger limit that was already there is kept so no stored name becomes invalid). Menus, dialogs, the reference list and the
 flow keep saying `Name #n`. `NodeView.nameParts` gives the two parts, `displayName` the whole.
+
+## Addendum 2: the editor never shows an id
+
+Storage, the API and MCP keep the id form `${node:<uuid>.field}`; that is unchanged. The user, however, never reads a uuid in the editor: every field that takes
+references (mapping rows, the value of an output, the settings of the HTTP, Agent, Set, If/Switch, Artifact, GitHub, Postgres and SQLite nodes) shows
+`${node:<name>.field}`, the name as the card shows it (`Test: Code und HTTP #4` for a numbered placement), and the reference list inserts that form. It is a way of
+showing text, done by two pure conversions in the editor (`editor/reference-names.js`): **id to name** when a value is loaded, **name to id** when it is saved,
+both through the nodes of the graph as they are now, so a rename changes the display and not the stored text. Names that nodes share are told apart by ` (1)`,
+` (2)`. A name that is ambiguous or names no node stays as typed (the publish check reports it). An id that no node has any more is shown as `(deleted node)` and goes
+back to its own id on save: a save never destroys a reference. The old form `${(Name).field}` stays valid and is shown as written. The line *Reads: …* under a
+field is gone, the field itself now says it. The check before publishing reads the draft as data and is not changed.

@@ -31,19 +31,22 @@ let rowMenu = null; // one menu for every list of the page (made when it is firs
 export class SchemaFields {
   /**
    * @param {{fields?: object[], types?: string[], limits?: object, max?: number, label?: string, extra?: "default"|"value"|null,
-   *   showRequired?: boolean, wide?: boolean, decorate?: (input: HTMLInputElement, kind: string) => void, onInput?: () => void, onSettle?: () => void}} options
+   *   showRequired?: boolean, wide?: boolean, decorate?: (input: HTMLInputElement, kind: string) => void,
+   *   names?: {display: (text: string) => string, stored: (text: string) => string}|null, onInput?: () => void, onSettle?: () => void}} options
    *   `label`: the accessible name of the list; `extra`: one more text each field carries, the default of an input or the value of an
    *   output (ADR-083); `showRequired`: whether a field has the "required" box (an output has not); `decorate`: called with each extra
-   *   text field (the editor adds the reference suggestions to the value of an output); `wide`: the compact one-row-per-field layout with
+   *   text field (the editor adds the reference suggestions to the value of an output); `names`: the field shows `display(value)` and the list
+   *   keeps `stored(typed)` (the editor shows the name of a node where the value holds its id, ADR-082 add. 1); `wide`: the compact one-row-per-field layout with
    *   the column heads above and the row menu (the Trigger, Output and Complete windows; rowPlan in the model), the text for a model
    *   dropped, and the stacked layout when the window is narrow; without it the compact layout of a narrow node window (the Hand Over Tool:
    *   its description is what the model reads, so it stays on its row, and its bin stays at the row)
    */
-  constructor({ fields = [], types = TYPES, limits = LIMITS, max = MAX_FIELDS, label = "", extra = null, showRequired = true, wide = false, decorate = null, onInput = () => {}, onSettle = () => {} } = {}) {
+  constructor({ fields = [], types = TYPES, limits = LIMITS, max = MAX_FIELDS, label = "", extra = null, showRequired = true, wide = false, decorate = null, names = null, onInput = () => {}, onSettle = () => {} } = {}) {
     this.extra = extra;
     this.showRequired = showRequired;
     this.wide = wide;
     this.decorate = decorate;
+    this.names = names;
     this.types = types;
     this.limits = limits;
     this.max = max;
@@ -181,7 +184,8 @@ export class SchemaFields {
   }
 
   extraInput(field, index, name) {
-    const extra = this.typed("input", "sf__extra", field[this.extra] ?? "", (value) => this.change(index, this.extra, value));
+    const shown = field[this.extra] ?? "";
+    const extra = this.typed("input", "sf__extra", this.names ? this.names.display(shown) : shown, (value) => this.change(index, this.extra, this.names ? this.names.stored(value) : value));
     extra.maxLength = 2000;
     extra.spellcheck = false;
     if (!this.wide) extra.placeholder = t(`components.schema_fields.${this.extra}_placeholder`);
