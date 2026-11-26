@@ -22,7 +22,11 @@ STORAGE = {
     "storage_clean_interval_hours": None,
     "storage_warn_mib": None,
 }  # the Data storage settings (ADR-084): all empty by default
-OFF = {"mark_resolved_references": False, "show_stop_switch": False, **STORAGE}  # every setting at its default
+OFF = {
+    "mark_resolved_references": False,
+    "show_stop_switch": False,
+    **STORAGE,
+}  # every setting at its default
 
 
 def test_the_models_and_the_manifest_declare_the_same_settings() -> None:
@@ -122,7 +126,9 @@ def test_with_the_setting_the_server_tells_filled_in_text_from_written_text(
     assert client.get(f"/api/tasks/{plain['id']}").json()["body_resolved_segments"] is None
 
 
-def test_every_data_storage_setting_is_empty_by_default_so_nothing_changes(client: TestClient) -> None:
+def test_every_data_storage_setting_is_empty_by_default_so_nothing_changes(
+    client: TestClient,
+) -> None:
     """ADR-084: a user who never opens the section gets today's behaviour (every limit empty)."""
     body = client.get(URL).json()
     assert {k: v for k, v in body.items() if k.startswith("storage_")} == STORAGE
@@ -150,6 +156,12 @@ def test_a_data_storage_limit_outside_its_bounds_is_refused_in_plain_words(
 
 
 def test_a_data_storage_limit_is_stored_and_null_clears_it(client: TestClient) -> None:
-    assert client.put(URL, json={"storage_step_output_kib": 64}).json()["storage_step_output_kib"] == 64
+    assert (
+        client.put(URL, json={"storage_step_output_kib": 64}).json()["storage_step_output_kib"]
+        == 64
+    )
     assert client.get(URL).json()["storage_step_output_kib"] == 64
-    assert client.put(URL, json={"storage_step_output_kib": None}).json()["storage_step_output_kib"] is None
+    assert (
+        client.put(URL, json={"storage_step_output_kib": None}).json()["storage_step_output_kib"]
+        is None
+    )
