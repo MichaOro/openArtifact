@@ -224,7 +224,8 @@ class _Checker:
     ) -> None:
         name = _label(target)
         definition = self.definitions.get(str(target.get("definition_id") or ""))
-        outputs = _declared(definition, NodeKind.OUTPUT, "outputs")
+        ends = NodeKind.COMPLETE if target["kind"] == "pipeline" else NodeKind.OUTPUT
+        outputs = _declared(definition, ends, "outputs")
         inputs = _declared(definition, NodeKind.TRIGGER, "inputs")
         if not outputs and not inputs:
             self.add(
@@ -273,7 +274,7 @@ class _Checker:
     # ── the inputs a node maps ────────────────────────────────────────
 
     def check_mapping(self, node: Mapping[str, Any]) -> None:
-        if node["kind"] != NodeKind.ACTION or not node.get("definition_id"):
+        if node["kind"] not in PLACEMENT_KINDS or not node.get("definition_id"):
             return
         definition = self.definitions.get(str(node["definition_id"]))
         declared = _declared(definition, NodeKind.TRIGGER, "inputs")
@@ -296,7 +297,7 @@ class _Checker:
                     "warning",
                     "input_unknown",
                     node,
-                    f"'{name}' gives a value to '{given_name}', which the action does not declare",
+                    f"'{name}' gives a value to '{given_name}', which the {node['kind']} does not declare",
                 )
 
 

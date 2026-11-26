@@ -157,20 +157,21 @@ export class GraphEditor {
   async #loadContracts() {
     this.contracts = new Map();
     if (this.model.isAction) return;
-    const ids = [...new Set([...this.nodes.values()].filter((n) => n.kind === "action" && n.definition_id).map((n) => n.definition_id))];
+    const placed = [...this.nodes.values()].filter((n) => (n.kind === "action" || n.kind === "pipeline") && n.definition_id);
+    const found = new Map(placed.map((n) => [n.definition_id, n.kind]));
     await Promise.allSettled(
-      ids.map(async (id) => {
-        const { nodes } = await loadGraph("action", id);
+      [...found].map(async ([id, kind]) => {
+        const { nodes } = await loadGraph(kind, id);
         const trigger = nodes.find((n) => n.kind === "trigger");
-        const output = nodes.find((n) => n.kind === "output");
-        this.contracts.set(id, { inputs: trigger?.config?.inputs ?? [], outputs: (output?.config?.outputs ?? []).map((o) => o.name) });
+        const end = nodes.find((n) => n.kind === (kind === "action" ? "output" : "complete"));
+        this.contracts.set(id, { inputs: trigger?.config?.inputs ?? [], outputs: (end?.config?.outputs ?? []).map((o) => o.name) });
       }),
     );
   }
 
-  /** What an action node reads as a contract: `{outputs}` when its definition declares inputs or outputs, else null. */
+  /** What an action or pipeline node reads as a contract: `{outputs}` when what it runs declares inputs or outputs, else null. */
   #contractOf(node) {
-    const found = node.kind === "action" && node.definition_id ? this.contracts?.get(node.definition_id) : null;
+    const found = (node.kind === "action" || node.kind === "pipeline") && node.definition_id ? this.contracts?.get(node.definition_id) : null;
     return found && (found.inputs.length || found.outputs.length) ? { outputs: found.outputs } : null;
   }
 

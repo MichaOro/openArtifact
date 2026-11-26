@@ -213,3 +213,65 @@ def test_the_settings_of_the_contract_say_what_is_wrong() -> None:
     assert node_type("trigger").merge_config(None, {"inputs": [{"name": "a", "default": "1"}]})
     with pytest.raises(SettingError, match="Field 1 has no option 'value'"):
         node_type("trigger").merge_config(None, {"inputs": [{"name": "a", "value": "1"}]})
+
+
+def test_a_called_pipeline_takes_inputs_and_hands_back_outputs_like_an_action(
+    ctx_client: TestClient,
+) -> None:
+    greet = _greeting_action(ctx_client, INPUTS, OUTPUTS)
+    inner, placed = _stage_with(ctx_client, greet, [{"who": "${input.who}"}])
+    trigger, complete = (
+        kind_of(ctx_client, inner, "trigger"),
+        kind_of(ctx_client, inner, "complete"),
+    )
+    for found, key, value in (
+        (trigger, "inputs", [{"name": "who", "type": "text", "required": True}]),
+        (
+            complete,
+            "outputs",
+            [
+                {
+                    "name": "msg",
+                    "type": "text",
+                    "value": f"${{node:{placed[0]['id']}.data.greeting}}",
+                }
+            ],
+        ),
+    ):
+        response = ctx_client.patch(
+            f"{graph_url(inner)}/nodes/{found['id']}", json={"config": {key: value}}
+        )
+        assert response.status_code == 200, response.text
+    outer = post(ctx_client, "/api/pipelines", name="Outer")
+    caller = node(ctx_client, outer, "pipeline", name="Call")
+    connect(ctx_client, outer, kind_of(ctx_client, outer, "trigger"), "out", caller, "in")
+    connect(ctx_client, outer, caller, "out", kind_of(ctx_client, outer, "complete"), "in")
+    ctx_client.patch(
+        f"{graph_url(outer)}/nodes/{caller['id']}",
+        json={"definition_id": inner["id"], "config": {"input_values": {"who": "Ann"}}},
+    ).raise_for_status()
+    nodes = _run(ctx_client, outer)["context"]["nodes"]
+    entry = next(e for e in nodes.values() if e.get("id") == caller["id"])
+    assert entry["kind"] == "pipeline" and entry["success"] is True
+    assert entry["data"] == {
+        "msg": "Hello Ann x2"
+    }  # the inner action got 'who' from the pipeline's input
+
+
+def test_a_called_pipeline_without_its_required_input_fails_the_run_and_names_it(
+    ctx_client: TestClient,
+) -> None:
+    inner = post(ctx_client, "/api/pipelines", name="Inner")
+    ctx_client.patch(
+        f"{graph_url(inner)}/nodes/{kind_of(ctx_client, inner, 'trigger')['id']}",
+        json={"config": {"inputs": [{"name": "who", "type": "text", "required": True}]}},
+    ).raise_for_status()
+    outer = post(ctx_client, "/api/pipelines", name="Outer needs")
+    caller = node(ctx_client, outer, "pipeline", name="Call")
+    connect(ctx_client, outer, kind_of(ctx_client, outer, "trigger"), "out", caller, "in")
+    connect(ctx_client, outer, caller, "out", kind_of(ctx_client, outer, "complete"), "in")
+    ctx_client.patch(
+        f"{graph_url(outer)}/nodes/{caller['id']}", json={"definition_id": inner["id"]}
+    ).raise_for_status()
+    run = _run(ctx_client, outer, "failed")
+    assert run["note"] == "Inner: input 'who' is required and has no value"

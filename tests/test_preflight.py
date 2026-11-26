@@ -241,3 +241,28 @@ def test_saving_a_draft_is_never_checked(client: TestClient) -> None:
         json={"config": {"url": "http://example.test/${secret:NOPE}/${(Nobody).output}"}},
     )
     assert saved.status_code == 200  # the draft may be wrong: only what is published runs
+
+
+def test_a_pipeline_node_is_checked_like_an_action_node(client: TestClient) -> None:
+    inner = post(client, "/api/pipelines", name="Inner check")
+    client.patch(
+        f"{graph_url(inner)}/nodes/{kind_of(client, inner, 'trigger')['id']}",
+        json={"config": {"inputs": [{"name": "who", "type": "text", "required": True}]}},
+    ).raise_for_status()
+    outer = post(client, "/api/pipelines", name="Outer check")
+    caller = node(client, outer, "pipeline", name="Call")
+    connect(client, outer, kind_of(client, outer, "trigger"), "out", caller, "in")
+    client.patch(
+        f"{graph_url(outer)}/nodes/{caller['id']}", json={"definition_id": inner["id"]}
+    ).raise_for_status()
+    found = _findings(client, outer, "pipelines")
+    assert [(f["level"], f["code"], f["node_id"]) for f in found] == [
+        ("error", "input_not_given", caller["id"])
+    ]
+    client.patch(
+        f"{graph_url(outer)}/nodes/{caller['id']}",
+        json={"config": {"input_values": {"who": "Ann", "extra": "x"}}},
+    ).raise_for_status()
+    assert [(f["level"], f["code"]) for f in _findings(client, outer, "pipelines")] == [
+        ("warning", "input_unknown")
+    ]

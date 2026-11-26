@@ -949,7 +949,7 @@ class RunEngine:
                 await self._guarded(
                     monitor.enter("pipeline", called["id"], called["name"], walk.path)
                 )
-                await self._walk(walk, called, inner, 0, None, depth + 1, entry["pipeline_id"])
+                await self._walk_called(walk, graph, entry, called, inner, depth)
                 await self._guarded(monitor.leave("pipeline", called["id"], walk.path))
                 walk.path = outer
             else:
@@ -965,6 +965,42 @@ class RunEngine:
                 await self._guarded(monitor.leave("stage", entry["id"], walk.path))
             if top:
                 await self._save(walk.task_id, stage_state=(entry["id"], StageStatus.PASSED))
+
+    async def _walk_called(
+        self,
+        walk: _Walk,
+        graph: dict[str, Any],
+        entry: dict[str, Any],
+        called: dict[str, Any],
+        inner: list[dict[str, Any]],
+        depth: int,
+    ) -> None:
+        """Run a called pipeline (ADR-083): with a contract its inputs are the ones the pipeline node maps, its Complete's outputs are the
+        result of the pipeline node; without one it is walked as it always was."""
+        declared_in = _declared(called, NodeKind.TRIGGER, "inputs")
+        declared_out = _declared(called, NodeKind.COMPLETE, "outputs")
+        if not declared_in and not declared_out:
+            await self._walk(walk, called, inner, 0, None, depth + 1, entry["pipeline_id"])
+            return
+        node = next((n for n in graph["nodes"] if n["id"] == entry["id"]), entry)
+        view = RunView(walk.context, walk.index, walk.task_id, walk.execution_id)
+        try:
+            bound = bind_inputs(node, called["name"], declared_in, view)
+        except ContextError as error:
+            await self._place_result(walk, node, False, str(error), None)
+            raise _RunFailedError(str(error)) from error
+        earlier, walk.context.inputs = walk.context.inputs, bound
+        try:
+            await self._walk(walk, called, inner, 0, None, depth + 1, entry["pipeline_id"])
+            outputs = build_outputs(
+                declared_out, view
+            )  # where the pipeline ends, with its own inputs
+        except ContextError as error:
+            await self._place_result(walk, node, False, str(error), None)
+            raise _RunFailedError(str(error)) from error
+        finally:
+            walk.context.inputs = earlier
+        await self._place_result(walk, node, True, "", outputs)
 
     async def _run_actions(
         self,

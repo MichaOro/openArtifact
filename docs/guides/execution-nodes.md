@@ -211,8 +211,8 @@ An action definition can say what it needs and what it gives (ADR-083). Both are
   action can take the outputs of the first and the second.
 
 The result of a node that ran a definition with a contract carries the result contract (`success`, `outcome`, `reason`, `attempts`); a node that ran a definition
-without one has no result of its own. A pipeline node and the Complete of a pipeline have the same two settings; the run of a called pipeline does not use
-them yet.
+without one has no result of its own. A called pipeline works the same way: it declares its inputs on its Trigger and its outputs on its **Complete**, the pipeline node that calls it
+maps the inputs, and the outputs are the `data` of that pipeline node.
 
 ## Execute Command node
 

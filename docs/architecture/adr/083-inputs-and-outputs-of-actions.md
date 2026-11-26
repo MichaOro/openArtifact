@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-033](033-run-context.md) (a run's context gets the inputs of the action that runs), [ADR-072](072-result-contract.md) (an action node leaves a result of its own), [ADR-054](054-node-kinds-as-yaml-manifests.md) (settings `fields` with an extra text and `mapping`)  
-**Implemented in:** `graph/nodes/trigger.yaml`, `output.yaml`, `complete.yaml`, `action.yaml`, `pipeline.yaml`, `graph/field_schema.py` (`extra`, `coerce`), `graph/node_types.py` (`mapping`), `engine/context.py` (`bind_inputs`, `build_outputs`, `${input.name}`), `engine/runner.py` (`_run_action`, `_place_result`), `static/js/components/schema-fields.js`, `editor/setting-controls.js` (`MappingControl`)  
+**Implemented in:** `graph/nodes/trigger.yaml`, `output.yaml`, `complete.yaml`, `action.yaml`, `pipeline.yaml`, `graph/field_schema.py` (`extra`, `coerce`), `graph/node_types.py` (`mapping`), `engine/context.py` (`bind_inputs`, `build_outputs`, `${input.name}`), `engine/runner.py` (`_run_action`, `_walk_called`, `_place_result`), `static/js/components/schema-fields.js`, `editor/setting-controls.js` (`MappingControl`)  
 **Affected chapters:** guides [execution nodes](../../guides/execution-nodes.md), [concepts](../../guides/concepts.md)
 
 ## 1. Context
@@ -33,8 +33,9 @@ the first and the second are one definition.
   with `output 'x': …`. Only the declared outputs are visible from outside, not the inner nodes.
 - **Same definition, own results.** The result is kept by the id of the placement, so three placements of one definition have three results; the
   context also shows the `inputs` of the action that is running while it runs.
-- Not built: pipelines as callers (the setting exists on the pipeline node and the Complete; the run of a called pipeline does not use it yet),
-  an earlier run of a placement, and mock data for a test run (they follow with the dry run).
+- **A pipeline is the same.** A called pipeline declares its inputs on its Trigger and its outputs on its Complete; the pipeline node that calls it maps the
+  inputs (`input_values`) and the outputs become the `data` of the pipeline node (`_walk_called`), evaluated where the called pipeline ends, with its inputs.
+- Not built: an earlier run of a placement, and mock data for a test run (they follow with the dry run).
 
 ## 3. Consequences
 
