@@ -117,6 +117,42 @@ def test_a_report_that_does_not_fit_twice_fails_the_node_and_the_flow_stops(
     assert "Use" not in {s["node_name"] for s in found["steps"].values()}  # the next node never ran
 
 
+def test_an_if_node_branches_on_a_field_of_the_answer(api: TestClient, llm: FakeLlm) -> None:
+    make_provider(api, llm)
+    agent = make_agent(api)
+    action = post(api, "/api/actions", name="Branch")
+    trigger, output = kind_of(api, action, "trigger"), kind_of(api, action, "output")
+    for edge in api.get(graph_url(action)).json()["edges"]:
+        api.delete(f"{graph_url(action)}/edges/{edge['id']}")
+    ask = node(
+        api,
+        action,
+        "agent",
+        name="Ask",
+        config={"agent_id": agent["id"], "inputs": "ticket = T-1", "answer_format": FORMAT},
+    )
+    decide = node(
+        api,
+        action,
+        "if",
+        name="Decide",
+        config={"left_1": "${(Ask).data.passed}", "operator_1": "equals", "right_1": "true"},
+    )
+    went = node(api, action, "set", name="Went", config={"fields": "route = yes"})
+    connect(api, action, trigger, "out", ask, "in")
+    connect(api, action, ask, "pass", decide, "in")
+    connect(api, action, decide, "yes", went, "in")
+    connect(api, action, went, "pass", output, "pass")
+    pipeline = build_pipeline(api, stages=1)
+    link(api, pipeline, pipeline["stages"][0][1], action)
+    llm.script = [(200, tool_answer(("c1", "report_result", GOOD)))]
+    found = run(api, pipeline)
+    assert found["context"]["vars"] == {
+        "route": "yes"
+    }  # ${(Ask).data.passed} is true: the yes path
+    assert found["context"]["nodes"]["Decide"]["port"] == "yes"
+
+
 def test_a_text_answer_gets_one_reminder_then_the_report_counts(
     api: TestClient, llm: FakeLlm
 ) -> None:

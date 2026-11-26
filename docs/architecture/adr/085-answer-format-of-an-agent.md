@@ -4,7 +4,7 @@
 **Date:** 2026-11-26  
 **Supersedes:** —  
 **Superseded by:** —  
-**Amends:** [ADR-040](040-agent-tools.md) (the loop ends with a report instead of free text), [ADR-047](047-agent-versions.md) (a new setting of the agent), [ADR-054](054-node-kinds-as-yaml-manifests.md) (the `fields` setting may refuse reserved names), [ADR-072](072-result-contract.md) (what `data` of an agent holds), [ADR-080](080-hand-over-tool.md) (its schema module and editor are reused)  
+**Amends:** [ADR-040](040-agent-tools.md) (the loop ends with a report instead of free text), [ADR-047](047-agent-versions-and-use.md) (a new setting of the agent), [ADR-054](054-node-kinds-as-yaml-manifests.md) (the `fields` setting may refuse reserved names), [ADR-072](072-result-contract.md) (what `data` of an agent holds), [ADR-080](080-hand-over-tool.md) (its schema module and editor are reused)  
 **Amended by:** —  
 **Implemented in:** `agents/answer_format.py` (the report tool, the sink, the reminder), `agents/loop.py` (the ending of the loop, the reminder, the repair, the final request), `agents/runtime.py`, `agents/tools.py` (`Toolbox.add`, `schemas(only=)`), `agents/schemas.py` (`AgentConfig.answer_format`), `graph/field_schema.py` (`RESERVED_NAMES`), `graph/nodes/agent.yaml` (the setting `answer_format`), `static/js/agents/editor-page.js`, `static/js/editor/` (the reference list), `static/js/agents/view.js`  
 **Affected chapters:** guides [agents](../../guides/agents.md), [execution nodes](../../guides/execution-nodes.md), [api reference](../../guides/api-reference.md)
