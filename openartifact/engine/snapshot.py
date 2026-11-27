@@ -101,13 +101,15 @@ def wrap_action(definition: dict[str, Any]) -> dict[str, Any]:
 
     def edge(source: str, port: str, target: str, target_port: str) -> dict[str, Any]:
         return {
-            "id": _wrapper_id(action_id, f"{source}>{target}"), "style": None, "source_slot": None, "target_slot": None,
+            "id": _wrapper_id(action_id, f"{source}>{target}"), "style": "curved", "source_slot": 0, "target_slot": 0,
             "source_id": source, "source_port": port, "target_id": target, "target_port": target_port,
         }  # fmt: skip
 
     name = str(definition["name"])
     return {
-        "id": action_id,
+        "id": _wrapper_id(
+            action_id, "pipeline"
+        ),  # not the action's own id: the flow keeps its graphs by id, and the action is one of them
         "name": name,
         "kind": "pipeline",
         "standalone": action_id,

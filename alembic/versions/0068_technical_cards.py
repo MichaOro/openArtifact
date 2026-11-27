@@ -4,9 +4,9 @@ Revision ID: 0068
 Revises: 0067
 Create Date: 2026-11-27
 
-``tasks.technical`` (false for every card that exists). The views the guard actions read stand on ``tasks`` and ``executions`` and are made
-again at every start, after the migrations; SQLite refuses to rebuild a table that a view reads, so both directions drop them first (the
-lesson of 0066 and 0067); the next start makes them again.
+``tasks.technical`` (false for every card that exists). Added with a plain ``ADD COLUMN``, never a rebuild of ``tasks``: executions, comments,
+activity and runs point at it with ``ON DELETE CASCADE``. The views the guard actions read stand on ``tasks`` and are made again at every
+start, after the migrations; both directions drop them first (the lesson of 0066 and 0067); the next start makes them again.
 """
 
 from collections.abc import Sequence
@@ -35,16 +35,17 @@ def _drop_guard_views() -> None:
 
 
 def upgrade() -> None:
+    # a plain ADD COLUMN: the table is not rebuilt (a rebuild of ``tasks`` would drop it with the executions, comments and runs that
+    # point at it with ON DELETE CASCADE); the views are dropped anyway so that nothing reads the table while it changes
     _drop_guard_views()
-    op.execute("DROP TABLE IF EXISTS _alembic_tmp_tasks")
-    with op.batch_alter_table("tasks") as batch:
-        batch.add_column(
-            sa.Column("technical", sa.Boolean(), nullable=False, server_default=sa.text("0"))
-        )
+    op.add_column(
+        "tasks", sa.Column("technical", sa.Boolean(), nullable=False, server_default=sa.text("0"))
+    )
 
 
 def downgrade() -> None:
     _drop_guard_views()
-    op.execute("DELETE FROM tasks WHERE technical = 1")
-    with op.batch_alter_table("tasks") as batch:
-        batch.drop_column("technical")
+    op.execute(
+        "DELETE FROM tasks WHERE technical = 1"
+    )  # the hidden cards and, by cascade, their executions
+    op.execute("ALTER TABLE tasks DROP COLUMN technical")
