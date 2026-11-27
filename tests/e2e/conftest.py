@@ -135,6 +135,12 @@ def _reset_lanes(client: httpx.Client) -> None:
             client.put(f"/api/lanes/{key}", json={"title": f"~{key}"}).raise_for_status()
         for key, title in DEFAULT_LANES:
             client.put(f"/api/lanes/{key}", json={"title": title}).raise_for_status()
+    # the order too (a test may have moved a lane, ADR-092): the three defaults first, in their order
+    keys_now = [lane["status"] for lane in client.get("/api/lanes").json()]
+    if keys_now != [key for key, _ in DEFAULT_LANES]:
+        client.post(
+            "/api/lanes/order", json={"lanes": [key for key, _ in DEFAULT_LANES]}
+        ).raise_for_status()
 
 
 @pytest.fixture

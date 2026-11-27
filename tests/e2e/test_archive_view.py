@@ -243,6 +243,8 @@ def test_a_card_whose_lane_is_gone_says_so_instead_of_showing_nothing(board: Boa
     expect(archive.locator(".mg-card__facts").first).to_have_text(
         "From lane: (lane no longer exists)"
     )
+    # the stub may still be answering a request when the test ends: let it finish quietly instead of failing the next test
+    board.page.unroute_all(behavior="ignoreErrors")
 
 
 def test_archive_rows_do_not_overlap_at_a_narrow_width(board: Board) -> None:
