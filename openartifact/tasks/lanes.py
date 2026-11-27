@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from uuid import uuid4
 
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -83,6 +84,7 @@ async def effective_lanes(session: AsyncSession) -> list[LaneRead]:
     )
     return [
         LaneRead(
+            id=lane.uuid,
             status=lane.key,
             key=lane.key.replace("_", "-"),
             title=lane.title,
@@ -101,12 +103,38 @@ async def lane_keys(session: AsyncSession) -> list[str]:
     return [lane.key for lane in await _rows(session)]
 
 
-async def require_lane(session: AsyncSession, key: str) -> str:
-    """``key`` if the lane exists, else a :class:`LaneError` (422) that lists the valid keys."""
-    keys = await lane_keys(session)
-    if key not in keys:
-        raise LaneError(422, f"Unknown lane '{key}'. Valid lanes: {', '.join(keys)}")
-    return key
+def _unknown(value: str, rows: list[Lane]) -> LaneError:
+    return LaneError(
+        422, f"Unknown lane '{value}'. Lanes: {', '.join(lane.title for lane in rows)}"
+    )
+
+
+def pick_lane(rows: list[Lane], value: str) -> Lane | None:
+    """The lane a value names, or ``None``: its **name** (the title: trimmed, case ignored; titles are unique), else its **id** (the uuid), else,
+    for the interfaces that always took it, its old **key** (the storage value, generated once from the first title: after a rename it says
+    nothing). A value that fits several is taken in that order, so a lane's name wins over another lane's old key."""
+    wanted = value.strip()
+    by_name = next((r for r in rows if r.title.casefold() == wanted.casefold()), None)
+    if by_name is not None:
+        return by_name
+    by_id = next((r for r in rows if r.uuid and r.uuid.casefold() == wanted.casefold()), None)
+    if by_id is not None:
+        return by_id
+    return next((r for r in rows if r.key == wanted), None)
+
+
+async def resolve_lane(session: AsyncSession, value: str) -> Lane:
+    """The lane a name, an id or an old key stands for; else a :class:`LaneError` (422) that lists the lanes by name."""
+    rows = await _rows(session)
+    lane = pick_lane(rows, value)
+    if lane is None:
+        raise _unknown(value, rows)
+    return lane
+
+
+async def require_lane(session: AsyncSession, value: str) -> str:
+    """The **key** (what ``tasks.status`` holds) of the lane a name, an id or an old key stands for; else a :class:`LaneError` (422)."""
+    return (await resolve_lane(session, value)).key
 
 
 async def first_lane(session: AsyncSession) -> str:
@@ -130,6 +158,7 @@ async def create_lane(session: AsyncSession, title: str) -> list[LaneRead]:
     session.add(
         Lane(
             key=key_for(chosen, {lane.key for lane in lanes}),
+            uuid=str(uuid4()),
             title=chosen,
             position=max((lane.position for lane in lanes), default=-1) + 1,
         )
@@ -150,9 +179,10 @@ async def update_lane(
     Raises :class:`LaneError`: 404 unknown, 422 for nothing to change, a bad title or an unknown style.
     """
     lanes = await _rows(session)
-    lane = next((row for row in lanes if row.key == key), None)
+    lane = pick_lane(lanes, key)
     if lane is None:
         raise LaneError(404, f"Unknown lane '{key}'")
+    key = lane.key
     if title is None and style is None:
         raise LaneError(422, "Give a title, a style, or both.")
     if style is not None and style not in LANE_STYLES:
@@ -178,9 +208,10 @@ async def delete_lane(session: AsyncSession, key: str) -> list[LaneRead]:
     The foreign key ``ON DELETE RESTRICT`` is the safety net when an artifact moves in concurrently.
     """
     lanes = await _rows(session)
-    lane = next((row for row in lanes if row.key == key), None)
+    lane = pick_lane(lanes, key)
     if lane is None:
         raise LaneError(404, f"Unknown lane '{key}'")
+    key = lane.key
     if len(lanes) == 1:
         raise LaneError(409, "The last lane cannot be deleted.")
     in_lane = await session.scalar(

@@ -20,16 +20,18 @@ TITLE_RULES = (
     "differs from the other lanes' titles (ignoring case), else 422."
 )
 LANES_DESCRIPTION = (
-    "The lanes in board order: ``status`` (the key artifacts carry), ``key`` (its DOM form), ``title``, "
-    "``position``, ``hue``, ``style`` (``normal`` or ``finished``: how its cards are drawn), "
-    "``artifact_count`` and ``deletable`` (empty and not the last lane)."
+    "The lanes in board order: ``id`` (a uuid: never changes, says nothing, survives a rename), ``title`` (the name the user gives), "
+    "``status`` (the key artifacts carry in storage: made once from the first title, it no longer matches the title after a rename; kept for the web page), "
+    "``key`` (its DOM form), ``position``, ``hue``, ``style`` (``normal`` or ``finished``: how its cards are drawn), "
+    "``artifact_count`` and ``deletable`` (empty and not the last lane). Wherever a lane is named (a card's ``status``, the lane in a path) "
+    "its title, its ``id`` or its ``status`` key is taken, in that order."
 )
 CREATE_DESCRIPTION = (
     f"Append a lane. {TITLE_RULES} A board has at most {MAX_LANES} lanes (422). Returns the lanes "
     "and publishes ``board.lanes``."
 )
 UPDATE_DESCRIPTION = (
-    "Change a lane's ``title`` and/or ``style`` (its ``status`` key stays); at least one is required "
+    "Change a lane's ``title`` and/or ``style`` (its ``id`` and ``status`` key stay); at least one is required "
     f"(422). {TITLE_RULES} ``style`` is one of {', '.join(f'``{s}``' for s in LANE_STYLES)}: in a "
     "``finished`` lane the card titles are struck through and dimmed, nothing else changes. Returns "
     "the lanes and publishes ``board.lanes``."

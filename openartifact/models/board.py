@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from sqlalchemy import (
     Boolean,
@@ -105,6 +106,9 @@ class Lane(Base):
     __tablename__ = "lanes"
 
     key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    #: The id of the lane in the interfaces (migration 0069, ADR-090): never changes, says nothing, survives a rename. ``key`` stays the
+    #: storage value of ``tasks.status`` and is generated once from the first title: after a rename it no longer matches the title.
+    uuid: Mapped[str] = mapped_column(String(36), default=lambda: str(uuid4()), server_default="")
     title: Mapped[str] = mapped_column(String(40, collation="NOCASE"))
     position: Mapped[int] = mapped_column(Integer)
     #: How the lane draws its cards: ``normal`` or ``finished`` (migration 0032, ``LANE_STYLES``).
@@ -115,6 +119,7 @@ class Lane(Base):
 
 
 Index("ux_lanes_title", Lane.title, unique=True)
+Index("ux_lanes_uuid", Lane.uuid, unique=True)
 
 
 class TaskNumberSeq(Base):

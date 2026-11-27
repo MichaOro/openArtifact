@@ -205,8 +205,8 @@ Tools (39; all go through the same service as the browser and the REST API; argu
 | Tool | Purpose |
 |------|---------|
 | `list_pipelines` | Pipelines with stages and actions |
-| `list_lanes` | The current lanes with their keys, titles and styles (read only; lanes are managed in the browser or over REST) |
-| `list_artifacts(lane?, parent?, archived?, brief?, limit?, offset?)` | Artifacts in board order, optionally one lane (a key from `list_lanes`) or the children of a card; `brief` for short records, `limit` and `offset` to page |
+| `list_lanes` | The current lanes with their name, id (a uuid), style, count and position (read only; lanes are managed in the browser or over REST); everywhere a tool takes a `lane` it takes the name or the id |
+| `list_artifacts(lane?, parent?, archived?, brief?, limit?, offset?)` | Artifacts in board order, optionally one lane (its name or id from `list_lanes`) or the children of a card; `brief` for short records, `limit` and `offset` to page |
 | `count_artifacts(lane?, archived?)` | How many cards there are |
 | `search_artifacts(query, lane?, archived?, limit?)` | Cards by a part of the title or text, or by number |
 | `get_artifact(artifact)` | One artifact by number (`12` or `#12`) or id |
