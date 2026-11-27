@@ -1,6 +1,7 @@
 /* The Mock tab of a node's window (ADR-087): the result the node hands over in a dry run instead of running. A switch (*Mock active*) and a form: outcome,
  * output, data (JSON) and reason. *Use the result of the last run* takes what the node left in its newest real run. Every change is saved at once, in the draft
  * only (a published version and a real run never hold a mock); a mistake in the data text is told in a plain line and nothing is sent until it is right. */
+import { attachCopy } from "../components/copy-button.js";
 import { Switch, createSwitch } from "../components/switch.js";
 import { icon } from "../components/icons.js";
 import { field } from "./field.js";
@@ -57,12 +58,14 @@ export function mockPanel(node, editor) {
   reason.type = "text";
   reason.dataset.focusKey = "mock-reason";
 
+  const copies = []; // the copy buttons of the output and the data: refreshed when a fill sets them without an input event
   const fill = (state) => {
     outcome.value = state.outcome;
     output.value = state.output;
     data.value = state.data;
     reason.value = state.reason;
     toggle.on = state.enabled;
+    for (const copy of copies) copy.refresh();
   };
   const toggle = new Switch(button, { onChange: () => save() });
 
@@ -120,5 +123,6 @@ export function mockPanel(node, editor) {
     error,
     bar,
   );
+  copies.push(attachCopy(output, undefined, { always: true }), attachCopy(data, undefined, { always: true })); // the whole result in one click
   return wrap;
 }

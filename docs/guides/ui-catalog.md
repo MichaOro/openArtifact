@@ -144,6 +144,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | The status bar in the corner of the editor's canvas: the eye of the observe mode, the shield of the guards and the "+" in a fixed order, an entry only while it is active | `status-bar.js` (a variant of `icon-list.js`: entries with a key, an order and `visible`; the arrangement is `icon-list-model.js`), the popup of an entry is `status-popup.js` (title, facts, note, buttons); the icons `eye` (observing) and `hand` (starts refused) |
 | The small icons in the top right corner of a node card: the mock pin and the shield of the guards | `card-icons.js` (`placeCardIcon(card, key, order, element)`; the places are `CARD_ORDER`, a variant of `icon-list.js`, the arrangement is `icon-list-model.js`); the look is the quiet icon button (`icon-button--quiet icon-button--xs`) with its hover | 
 | The Back button of the execution page | `execution/back-link.js` (`?from=board`, `executions`, `card:<n>`, `action:<slug>`, `pipeline:<slug>`: a whitelist, never an address); a link to an execution adds it with `withOrigin` (ADR-089) |
+| The copy button of a long text: a quiet 24 px icon button in the top right corner of the text block, so a long output, a prompt or the body of a card is copied whole without scrolling | `copy-button.js` (`attachCopy(block, getText?, {always?})` wraps the block in a `.copy-host`; `copyText(text)` is the one place that writes to the clipboard: the Clipboard API, then a hidden field and the copy command, else a plain message); the rules are `copy-model.js` (`shouldOffer`, `blockText`). Used for: the Output and Data blocks of a step (History tab and flow panel), the blocks of an agent step (prompts, answer), the body and title of a card (read view and fields), the prompt fields of the agent page, every multi-line setting of a node window (prompt override, body, code) and the Output and Data of the Mock tab |
 | Optional items of a form behind "+ Add" | the Add button with the shared menu (`action-menu.js`), the items in a list of the model (`OPTIONAL_ITEMS` in `editor/dry-run-model.js`), each with a remove control (the test card of the Dry run tab) |
 | A page that manages definitions (list of cards or rows, toolbar, detail panel with tabs) | `management-page.js` (`ManagementPage`, `chip`, `make`), styled by `management.css` (`.mg-*`); see "Management pages" below |
 | A long list that hides its middle (the versions of an agent: the newest two and the first stay behind "Show more versions (N)", a dotted vertical line through the button; the hidden ones open and close, `aria-expanded`) | `fold-list.js` (`foldEntries` for the entries, `foldSeparator` for the button), styled by `.fold-separator` in `components.css` |
@@ -340,3 +341,19 @@ styling it yourself.
 - [ ] Icon-only controls have an accessible name.
 - [ ] `tests/e2e/test_ui_catalog.py` passes; a new page or dialog is added to its list; a new variant is added to its matrix.
 - [ ] You looked at it in the light and in the dark theme.
+
+## The copy button
+
+One component copies a long text whole (`components/copy-button.js`); a block that has long text gets it with one line, `attachCopy(block)`.
+
+- **Where it sits:** inside the block, at its top right, 24 x 24 px with the glyph centred (the rule of the icon buttons). The block is wrapped in a `.copy-host`; the host does not scroll, the block
+  inside may, so the button **stays in view while a long block scrolls**. A copy button never covers text: the block gets right padding (`.has-copy`) while the button is shown.
+- **What it copies:** the full text, not what is visible: the whole output of a step however far it has scrolled, the Markdown of a body as written (not the drawn headings), the pretty-printed JSON of the
+  Data block, the current value of a field (also one that is being edited). It copies what the page shows; a masked value is never read.
+- **When it is there (the visibility rule, `shouldOffer`):** the text is not empty and has more than one line or at least 80 characters. A short single line (a name, a number, a one-line title) has no
+  button: selecting it is quicker. A field the user fills with prose (a prompt, a body, code, the output of a mock) passes `always`: it has the button as soon as it holds something. The button follows the
+  text: it appears and disappears as a field is typed in or a block is filled.
+- **What it says:** after a click the icon is a tick for 1.5 seconds and its name is "Copied" (announced politely for a screen reader); where the clipboard is not allowed (an insecure page, a denied
+  permission) it shows "Copying is not possible here" for a moment instead of failing silently.
+- **One writer:** `copyText` is the only code that writes to the clipboard: the text "Copy" buttons of a long text (`clamped-text.js`), of the run context and of the token window use it too.
+- **Not in a header:** step headers and status rows have none; the button belongs to a text block.

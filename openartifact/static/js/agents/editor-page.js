@@ -25,6 +25,7 @@ import { formatTime } from "../tasks/history-format.js";
 import { agentUses, discardDraft, getVersion, removeAgentReference, getAgent, listProviders, previewAgent, publishAgent, republishVersion, saveDraft, updateAgent } from "./api.js";
 import { ARTIFACT_PARTS, agentChips, fieldLabel, optionsOf, partOf, partText, providerInEffect, sampleHint, sourceOf, usableModels } from "./model.js";
 import { inputsView, limitsView, promptsView } from "./version-view.js";
+import { attachCopy } from "../components/copy-button.js";
 import { chip, configFacts, el, previewView, problemList } from "./view.js";
 import { t, tn } from "../i18n.js";
 
@@ -38,6 +39,7 @@ const $ = (selector) => root.querySelector(selector);
 const control = (key) => root.querySelector(`[data-field="${key}"]`);
 // The prompts are Markdown by convention and go to the model as they are written (ADR-077); the bar only helps to write them.
 for (const key of ["user_prompt", "system_prompt"]) new MarkdownBar(control(key));
+const promptCopies = ["user_prompt", "system_prompt"].map((key) => attachCopy(control(key), undefined, { always: true })); // the whole prompt in one click
 
 // The answer format (ADR-085): the shape of the final answer as a flat list of fields; the editor is the one of the Hand Over Tool.
 const answerFormat = new SchemaFields({ label: t("agent_editor.answer_format"), onInput: () => changed(), onSettle: () => changed() });
@@ -351,6 +353,7 @@ function fillForm(config) {
   }
   control("system_prompt").value = config.system_prompt;
   control("user_prompt").value = config.user_prompt;
+  for (const copy of promptCopies) copy.refresh(); // the fields were filled without an input event
   $("[data-inputs]").replaceChildren(...config.inputs.map((input) => inputRow(input)));
   showDescriptionColumn();
   answerFormat.list = (config.answer_format ?? []).map((field) => ({ ...field }));
