@@ -1,4 +1,7 @@
-/* The rounds of an agent node while it runs (the flow page, the panel of the running agent): each request to the model with the start
+/* IN QUARANTINE (ADR-019): the Execution Trace (execution/trace-view.js) draws the rounds now, newest first, for a working and for a
+ * finished agent; this component is not used any more and stays until the next clean-up.
+ *
+ * The rounds of an agent node while it runs (the flow page, the panel of the running agent): each request to the model with the start
  * of its answer and the tokens, and under it the calls it made, working, ok or failed. It is drawn from the events of the run
  * (execution/visit-model.js `noteAgentTurn`, `noteAgentCall`), so it only holds names, counts and states, never an argument or a
  * result; the step shows those when it is done. Everything is text (textContent).

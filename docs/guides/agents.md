@@ -246,9 +246,9 @@ agent takes any number of tools; a tool belongs to one agent.
 - **After a timeout the next attempt gets more time** (1.5 times the one before, at most 300 s): a model that did not answer
   a large prompt in 60 s will not in the same time again. The time limit of the node covers every request and every tool
   call; each request keeps its retries (section 6).
-- **Live.** While the agent runs the flow page shows its **rounds** in the panel of the selected agent node (*Rounds so far*:
-  each request with the start of its answer, the tokens and the calls it made, working, done or failed; a final answer
-  after a limit is marked). The events behind it (`agent.turn`, `agent.tool_call` with the round) carry names, counts and
+- **Live.** While the agent runs the flow page shows its **rounds** in the *Trace* register of the panel of the selected agent node (the
+  newest round first, the latest three, *Show more*, the first round last: each request with the start of its answer, the tokens and
+  the calls it made, working, done or failed; a final answer after a limit is marked). The events behind it (`agent.turn`, `agent.tool_call` with the round) carry names, counts and
   states only. A page opened in the middle of a run shows the rounds from then on; the finished step has the whole story.
 - **A failing tool does not fail the node.** An unknown tool, arguments that are not a JSON object, an HTTP error or a
   failing script go back to the model as a text starting with `Error:`, and the model may try something else. A tool

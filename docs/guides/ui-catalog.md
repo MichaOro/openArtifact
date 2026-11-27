@@ -318,6 +318,11 @@ Used now: the status bar of the canvas (eye of the observe mode, stop sign, shie
 
 **The skip marker** (`components/skip-marker.js`, pure part `skip-marker-model.js`): a node card on the flow page whose step a dry run (or an observed run) skipped shows the *fast forward (two arrows)* icon, the "wind forward" of old recorders, as the first entry of the card's list, left of the mock pin and the shield. Its tooltip says what the node would have done (*Skipped in a dry run: would have waited 3 s*; German *Im Dry run übersprungen: hätte …*). The same icon (small, with that text as its title) stands beside the state of the step in the path list, and a button with the shared tooltip beside the outcome in the step detail of the history. **Dimmed means "not reached":** a skipped node was passed in the flow, so it keeps the look of a node that ran; only a node the run never came to is dimmed and dashed. **The skip marker and the mock pin never meet on a node:** a node that handed over a mock was processed, not skipped, and a step an observed run could not see (`data.not_observable`) has neither.
 
+**The Execution Trace** (the right area of the execution page, `execution/flow-panel.js`; the rounds are `execution/trace-view.js` over the pure `trace-model.js`): three registers with the shared `Tabs`
+(*Overview*: path, details, the output of the step; *Trace*: only for an agent step; *Context*: the run context), the chosen one in the address (`#overview`, `#trace`, `#context`) and kept while other
+nodes are selected (a node without rounds shows Overview). Trace: the **newest round first**, three shown, *Show N more rounds* (a chunk of twenty), **the first round last** as an anchor; a round is an
+accordion row (`details`) that is open while it works or has a failure; a **Live** pill (paused when scrolled away), a search and a filter (all, errors, tool calls). Events are names, states and times, no message texts.
+
 **A third variant** costs: a whitelist and an order table in a `defineVariant` call, a size (the button class), a host element with its anchoring CSS, and one `add` per entry. No new arrangement code.
 
 ## Exceptions that exist today

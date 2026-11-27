@@ -256,6 +256,8 @@ async def run_turns(
             return None
         done = outcome.completion
         turn["text"], turn["finish_reason"] = done.text, done.finish_reason
+        # the tokens of this round: the Execution Trace shows them per round
+        turn["tokens"] = done.usage().get("total_tokens")
         data["usage"] = detail["usage"] = summed(data["usage"], done.usage())
         data["finish_reason"] = detail["finish_reason"] = done.finish_reason
         tell(

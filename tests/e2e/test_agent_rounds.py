@@ -52,6 +52,10 @@ def test_the_rounds_of_a_running_agent_grow_in_its_panel_and_a_limit_ends_in_an_
     page = signed_in
     page.goto(f"{agents_url}/artifacts/{task['number']}/executions/{run['execution_id']}?visit=1")
     page.locator(".ge-node--agent").first.click()
+    # the rounds are in the Trace register of the panel (owner decision: Execution Trace registers); it shows once the first round is heard
+    trace_tab = page.get_by_role("tab", name="Trace")
+    expect(trace_tab).to_be_visible(timeout=20000)
+    trace_tab.click()
     live = page.locator("[data-live-rounds]")
     expect(live).to_be_visible(timeout=20000)
     expect(live.locator(".live-rounds__round").first).to_contain_text("Round 1")
@@ -66,7 +70,13 @@ def test_the_rounds_of_a_running_agent_grow_in_its_panel_and_a_limit_ends_in_an_
     step = next(r for r in done["node_results"] if r["kind"] == "agent")
     assert step["outcome"] == "pass" and step["output"] == "Partial answer from what was found."
     assert re.search(r"the limit of 2 iterations was reached", step["reason"] or "")
-    # once it is done the live rounds are gone: the step holds the whole story
+    # once it is done the Live pill is gone and the Trace tells the same story from the finished step (owner decision: the same Trace for a
+    # finished agent), the newest round first
     page.reload()
     page.locator(".ge-node--agent").first.click()
-    expect(page.locator("[data-live-rounds]")).to_have_count(0)
+    finished = page.locator("[data-trace]")
+    expect(finished).to_be_visible(timeout=20000)
+    expect(page.locator("[data-trace-live]")).to_have_count(0)
+    expect(finished.locator(".live-rounds__round").first).to_contain_text(
+        "Final answer (the limit of 2 iterations)"
+    )
