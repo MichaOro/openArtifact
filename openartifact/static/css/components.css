@@ -501,7 +501,7 @@ body.is-dragging * { cursor: grabbing !important; }
 .task-card__labels, .task-view__labels { display: flex; flex-wrap: wrap; gap: 0.25rem; list-style: none; margin: 0.25rem 0 0; padding: 0; }
 .task-card__labels[hidden], .task-view__labels[hidden] { display: none; }
 .card-label {
-  font-size: 0.6875rem; font-weight: 600; line-height: 1.3; padding: 0 0.4rem; border-radius: 999px;
+  font-size: 0.6875rem; font-weight: 600; line-height: 1.3; padding: 0 0.4rem; border-radius: var(--radius-pill);
   color: var(--card-tone, var(--color-text-secondary));
   border: 1px solid color-mix(in srgb, var(--card-tone, var(--color-text-secondary)) 60%, transparent);
   background: color-mix(in srgb, var(--card-tone, transparent) 14%, transparent);
@@ -955,12 +955,12 @@ input.check:checked::after {
   width: 0.35rem;
   height: 0.65rem;
   margin-top: 0.1rem;
-  border: solid #fff;
+  border: solid var(--color-on-accent);
   border-width: 0 2px 2px 0;
   rotate: 45deg;
   opacity: 1;
 }
-input.check:indeterminate::after { width: 0.6rem; height: 0; border-top: 2px solid #fff; opacity: 1; }
+input.check:indeterminate::after { width: 0.6rem; height: 0; border-top: 2px solid var(--color-on-accent); opacity: 1; }
 input.check:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 /* The shared Checkbox (components/checkbox.js): the label around the native box; the look is `input.check` above, the base of every checkbox.
