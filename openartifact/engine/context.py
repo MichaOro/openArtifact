@@ -50,7 +50,7 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections.abc import Callable, Collection, Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -73,24 +73,33 @@ MAX_VARS = 100
 MAX_DEPTH = 3
 TRUNCATED_MARK = "[output truncated]"
 REMOVED_OUTPUT = "[output removed: the context is limited]"
-#: Kinds of nodes that have no result of their own (no key in the context, no reference to them).
-_NO_RESULT = frozenset(
-    {
-        "trigger",
-        "output",
-        "stage",
-        "action",
-        "complete",
-        "pipeline",
-        "mcp_tool",
-        "github_tool",
-        "openartifact_tool",
-        "http_tool",
-        "code_tool",
-        "postgres_tool",
-        "sqlite_tool",
-    }
-)
+#: Kinds of nodes that have no result of their own (no key in the context, no reference to them): the kinds whose manifest says
+#: ``produces_result: false`` (the trigger, the stage, an action or pipeline placement, the output, the complete node and the tool kinds: a tool
+#: belongs to the agent that calls it and has no step of its own). No kind is named here: a new one needs only its manifest.
+
+
+class _NoResultKinds:
+    """The kinds without a result as a lazy set read from the manifests when asked, so the answer needs no list that a new kind would join."""
+
+    def __contains__(self, kind: object) -> bool:
+        from openartifact.graph.node_types import NODE_TYPES
+        from openartifact.models.enums import NodeKind
+
+        try:
+            return not NODE_TYPES[NodeKind(str(kind))].produces_result
+        except (KeyError, ValueError):
+            return False
+
+    def __iter__(self) -> Iterator[str]:
+        from openartifact.graph.node_types import NODE_TYPES
+
+        yield from sorted(str(k.value) for k, t in NODE_TYPES.items() if not t.produces_result)
+
+    def __len__(self) -> int:
+        return sum(1 for _ in self)
+
+
+_NO_RESULT = _NoResultKinds()
 
 #: Public name of the same set (the check before a graph is published reads it).
 NO_RESULT_KINDS = _NO_RESULT
