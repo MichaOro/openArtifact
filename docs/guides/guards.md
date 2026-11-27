@@ -123,6 +123,11 @@ while a run goes). A click opens the popup of that scope's guards:
 The card of an action in a pipeline counts the guards inside its definition as well ("3 guards configured": its own and
 the ones in the action), so a stall guard on an Agent node shows up in the pipeline too.
 
+**Guards inside an action are shown in the pipeline but detached in the action.** A guard that sits inside an action belongs to that
+action and watches it in every pipeline that uses it, so a pipeline cannot switch or detach it. The popup of the card and the *Guards*
+section of its window (under "In the action "<name>"") list it, say so in one line and link to the action ("Open the action"); there the
+shield of the action editor detaches it. *Add guard* on the card still attaches a guard to this placement only.
+
 Arrow keys move between the controls of the popup, Escape closes it and returns to the shield. A guard is never a node
 of the canvas; deleting a stage or an action detaches the guards attached to it (their definitions stay).
 
