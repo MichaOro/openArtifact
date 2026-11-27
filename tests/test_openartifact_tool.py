@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from alembic import command
-from openartifact.api.board_tool_names import BOARD_TOOLS, READ_TOOLS, WRITE_TOOLS
+from openartifact.agents.board_tool_names import BOARD_TOOLS, READ_TOOLS, WRITE_TOOLS
 from openartifact.app import _create_app
 from openartifact.config import Settings
 from tests.agent_support import (

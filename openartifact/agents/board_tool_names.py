@@ -1,5 +1,8 @@
 """The names of the board tools, apart from the tools themselves (``api/board_tools.py``) so that a setting rule can check a name
-without loading the services (ADR-079)."""
+without loading the services (ADR-079).
+
+It lives in ``agents`` (the agent tool node is the domain that consumes the names), not in ``api``: the API depends on the domain,
+never the reverse (``tests/test_import_structure.py``)."""
 
 from __future__ import annotations
 

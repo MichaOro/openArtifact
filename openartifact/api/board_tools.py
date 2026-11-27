@@ -21,7 +21,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from openartifact.activity.schemas import PAGE_MAX
 from openartifact.activity.service import ActivityService
-from openartifact.api.board_tool_names import BOARD_TOOLS, READ_TOOLS, WRITE_TOOLS
+from openartifact.agents.board_tool_names import BOARD_TOOLS, READ_TOOLS, WRITE_TOOLS
 from openartifact.api.contract import ARTIFACT_EXECUTIONS_MAX_LIMIT
 from openartifact.artifact_fields.service import ArtifactFieldService
 from openartifact.comments.schemas import AUTHOR_MAX_LENGTH, BODY_MAX_LENGTH, Author
