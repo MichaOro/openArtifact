@@ -12,6 +12,7 @@
  * implementation for every scope: only the scope's type and id differ. */
 import { icon } from "../components/icons.js";
 import { shieldButton, updateShield } from "../components/guard-shield.js";
+import { CARD_ORDER, cardIcon, placeCardIcon, removeCardIcon } from "../components/card-icons.js";
 import { Modal } from "../components/modal.js";
 import { request } from "../http.js";
 import { t } from "../i18n.js";
@@ -134,9 +135,10 @@ export class EditorGuards {
     const host = type === "stage" ? el.querySelector(".ge-stage__header") : el;
     if (!host) return;
     const count = this.count(type, node.id) + this.#inner(type, node.id).inner.length;
-    let shield = host.querySelector(":scope > [data-guard-shield]");
+    let shield = type === "stage" ? host.querySelector(":scope > [data-guard-shield]") : cardIcon(host, "guard");
     if (!count) {
-      shield?.remove();
+      if (type === "stage") shield?.remove();
+      else removeCardIcon(host, "guard");
       return;
     }
     const name = this.hooks.scopeName(type, node.id);
@@ -145,13 +147,12 @@ export class EditorGuards {
       return;
     }
     shield = shieldButton(count, name);
-    if (type !== "stage") shield.classList.add("gd-shield--node");
     shield.addEventListener("click", (event) => {
       event.stopPropagation();
       this.list(type, node.id, shield);
     });
     if (type === "stage") host.insertBefore(shield, host.querySelector("[data-stage-add]"));
-    else host.append(shield);
+    else placeCardIcon(host, "guard", CARD_ORDER.guard, shield); // the card's icon list: the mock pin sits left of it
   }
 
   #drawRootShield() {

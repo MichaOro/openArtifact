@@ -457,7 +457,9 @@
 .ge-add__row [data-status-entry][hidden] { display: none; }
 .gd-shield { flex: none; }
 /* on an action's card: a bare shield tucked into the top right corner (no frame; the hit area is the 24 px quiet icon button) */
-.gd-shield--node { position: absolute; top: 2px; right: 2px; z-index: 2; }
+.gd-shield--node { position: absolute; top: 2px; right: 2px; z-index: 2; } /* the read-only flow only (flow-view.js) */
+/* The icons of a node card (components/card-icons.js): one row anchored at the top right, growing to the left, no gaps */
+.ge-node__icons { position: absolute; top: 2px; right: 2px; z-index: 2; display: flex; flex-direction: row; align-items: center; gap: 2px; }
 .gd-popover { z-index: 30; gap: var(--space-2); min-width: 18rem; max-width: min(26rem, calc(100vw - 1rem)); max-height: min(70vh, 32rem); }
 .gd-popover[hidden] { display: none; }
 .gd-popover__search { flex: none; }
@@ -587,24 +589,8 @@
 .ge-dry__add { justify-self: start; }
 
 /* Mock data (ADR-087): the pin on a card whose mock is switched on, and the Mock tab of the node's window. */
-.ge-node__pin {
-  position: absolute;
-  top: -9px;
-  right: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-.ge-node__pin .icon { width: 12px; height: 12px; }
-.ge-node__pin:hover, .ge-node__pin:focus-visible { color: var(--color-text-primary); }
+/* the pin is a quiet icon button like the shield (icon-button--quiet: the same hover tint), in the card's icon list */
+.ge-node__pin { flex: none; }
 .ge-mock { display: flex; flex-direction: column; gap: var(--space-3); }
 .ge-mock__switch { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .ge-mock__text { width: 100%; box-sizing: border-box; resize: vertical; }

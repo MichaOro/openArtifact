@@ -1,19 +1,19 @@
 /* What shows a mock outside its tab (ADR-087): the pin on the card of a node whose mock is switched on, and the pencil beside the close button of the
  * node's window that opens the Mock tab. Both are made here once and only toggled afterwards. */
 import { icon } from "../components/icons.js";
+import { CARD_ORDER, cardIcon, placeCardIcon, removeCardIcon } from "../components/card-icons.js";
 import { t } from "../i18n.js";
 
-/** The pin on a card: present while the node's mock is switched on; it opens the window at the Mock tab. */
+/** The pin on a card: in the card's icon list while the node's mock is switched on (left of the guard's shield); it opens the window at the Mock tab. */
 export function drawPin(el, active, onOpen) {
-  let pin = el.querySelector(":scope > [data-mock-pin]");
   if (!active) {
-    pin?.remove();
+    removeCardIcon(el, "mock");
     return;
   }
-  if (pin) return;
-  pin = document.createElement("button");
+  if (cardIcon(el, "mock")) return;
+  const pin = document.createElement("button");
   pin.type = "button";
-  pin.className = "ge-node__pin";
+  pin.className = "icon-button icon-button--quiet icon-button--xs ge-node__pin"; // the look and the hover of the guard's shield
   pin.dataset.mockPin = "";
   pin.title = t("editor.mock.pin_tooltip");
   pin.setAttribute("aria-label", t("editor.mock.pin_tooltip"));
@@ -24,7 +24,7 @@ export function drawPin(el, active, onOpen) {
     event.stopPropagation();
     onOpen();
   });
-  el.append(pin);
+  placeCardIcon(el, "mock", CARD_ORDER.mock, pin);
 }
 
 /** The pencil beside the close button of the window: shown for a node that takes a mock; `onOpen` opens the Mock tab. */
