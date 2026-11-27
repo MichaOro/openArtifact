@@ -35,14 +35,28 @@ test("only what was filled in is sent: an empty field is left to the declared de
 
 test("a graph that declares no inputs sends none (the server refuses inputs for it)", () => {
   assert.equal(m.inputsToSend([], { who: "Ann" }), undefined);
-  const body = m.runBody({ target: { pipeline_id: "p1" }, fields: [], entered: {}, version: "draft" });
-  assert.deepEqual(body, { pipeline_id: "p1", version: "draft" });
+  const body = m.runBody({ fields: [], entered: {}, version: "draft" });
+  assert.deepEqual(body, { version: "draft" }, "no card, no inputs: the body is the version only");
 });
 
-test("a run of an action starts at the place a pipeline puts it", () => {
-  const target = { pipeline_id: "p1", stage_id: "s1", action_id: "a1" };
-  const body = m.runBody({ target, fields: m.formFields(INPUTS), entered: { who: "Ann" }, version: "published" });
-  assert.deepEqual(body, { pipeline_id: "p1", version: "published", stage_id: "s1", action_id: "a1", inputs: { who: "Ann" } });
+test("the body of a start names the version, the inputs and, only when one was added, the card", () => {
+  const body = m.runBody({ fields: m.formFields(INPUTS), entered: { who: "Ann" }, version: "published", taskId: "t1" });
+  assert.deepEqual(body, { version: "published", task_id: "t1", inputs: { who: "Ann" } });
+  assert.equal("task_id" in m.runBody({ fields: [], entered: {}, version: "draft", taskId: null }), false);
+});
+
+test("the graph is in the address of the start, the check and the hidden card", () => {
+  assert.deepEqual(m.dryRunUrls("g 1"), {
+    start: "/api/graphs/g%201/dry-run",
+    check: "/api/graphs/g%201/dry-run/check",
+    card: "/api/graphs/g%201/dry-run-card",
+  });
+});
+
+test("the rows and the Stop belong to the chosen card, else to the hidden card of the graph, else to none", () => {
+  assert.equal(m.listedCard("chosen", "hidden"), "chosen");
+  assert.equal(m.listedCard(null, "hidden"), "hidden");
+  assert.equal(m.listedCard(null, null), null);
 });
 
 test("the cards are those of the board that are not archived, by number, with the lane beside them", () => {
@@ -66,14 +80,6 @@ test("the remembered card is used only while it is still among the options", () 
   assert.notEqual(m.cardKey("g1"), m.cardKey("g2"), "one memory per graph");
 });
 
-test("the place of an action: the remembered one, else the first, none when no pipeline puts it", () => {
-  const placements = [{ action_id: "a1", pipeline_name: "P", stage_name: "S" }, { action_id: "a2", pipeline_name: "Q", stage_name: "T" }];
-  assert.equal(m.chooseTarget(placements, "a2").action_id, "a2");
-  assert.equal(m.chooseTarget(placements, "gone").action_id, "a1");
-  assert.equal(m.chooseTarget([], "a1"), null);
-  assert.equal(m.placementLabel(placements[1]), "Q · T");
-});
-
 test("the server's refusals read in plain words", () => {
   assert.match(m.startErrorText({ code: "stopped", status: 409 }), /emergency stop is on/);
   assert.match(m.startErrorText({ status: 409 }), /being processed/);
@@ -82,21 +88,28 @@ test("the server's refusals read in plain words", () => {
   assert.deepEqual(m.problemLines([" a ", "", "b"]), ["a", "b"]);
 });
 
-test("a step says what it would have done when it was skipped, and why it failed when it did", () => {
-  const rows = m.stepRows([
-    { id: "3", seq: 3, kind: "output", outcome: "pass", node_name: "Output" },
-    { id: "2", seq: 2, kind: "artifact", outcome: "pass", node_name: "Say hello", data: { dry_run: true, would_have: "added this comment" } },
-    { id: "1", seq: 1, kind: "trigger", outcome: "pass", node_name: "Trigger" },
-    { id: "4", seq: 4, kind: "set", outcome: "fail", node_name: "Say", reason: "no result", data: null },
-  ]);
-  assert.deepEqual(rows.map((r) => r.name), ["Say hello", "Say"], "the trigger and a passing output say nothing");
-  assert.equal(rows[0].skipped, true);
-  assert.equal(rows[0].text, "Would have added this comment");
-  assert.equal(rows[1].text, "no result");
+test("the address of the execution in the history and of all dry runs", () => {
+  assert.equal(m.historyUrl(12, "e 1"), "/artifacts/12/executions/e%201");
+  assert.equal(m.allDryRunsUrl, "/executions?dry_run=only");
 });
 
-test("the status words and the address of the execution in the history", () => {
-  assert.equal(m.statusLabel("done"), "Done");
-  assert.equal(m.statusLabel("running"), "Running");
-  assert.equal(m.historyUrl(12, "e 1"), "/artifacts/12/executions/e%201");
+test("the tab lists the newest dry runs of this graph on the card, five at most", () => {
+  const run = (n, extra = {}) => ({ id: `e${n}`, dry_run: true, pipeline_id: "p1", started_at: `2026-11-27T08:0${n}:00Z`, status: "done", ...extra });
+  const all = [run(1), run(2), run(3), run(4), run(5), run(6), run(7, { dry_run: false }), run(8, { pipeline_id: "other" })];
+  assert.deepEqual(m.listedRuns(all, "p1").map((e) => e.id), ["e6", "e5", "e4", "e3", "e2"], "no real run, no other pipeline, newest first");
+  assert.equal(m.listedRuns(all, null).length, 5, "without a graph the list is not narrowed");
+  assert.deepEqual(m.listedRuns(undefined, "p1"), []);
+});
+
+test("the running dry run is the one the Start button becomes a Stop for", () => {
+  assert.equal(m.runningRun([{ id: "a", status: "done" }, { id: "b", status: "running" }]).id, "b");
+  assert.equal(m.runningRun([{ id: "a", status: "stopped" }]), null);
+  assert.equal(m.runningRun(undefined), null);
+});
+
+test("the + Add menu offers the optional items that are not on the form yet, the test card first and for now alone", () => {
+  assert.deepEqual(m.OPTIONAL_ITEMS.map((i) => i.key), ["card"]);
+  assert.deepEqual(m.availableItems(new Set()).map((i) => i.key), ["card"]);
+  assert.deepEqual(m.availableItems(new Set(["card"])), []);
+  for (const item of m.OPTIONAL_ITEMS) assert.ok(item.labelKey && item.icon, "every item names its label and its icon");
 });

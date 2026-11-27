@@ -3,6 +3,7 @@
  * saving an edit returns to it. Adds to the base only what is artifact-specific: the view, the
  * number, the lane chip, the rail's parent/lane fields and the draft. Where a saved artifact
  * goes is delegated via createTask/updateTask/onSaved, so this module never touches the board. */
+import { attachCopy } from "../components/copy-button.js";
 import { FormDialog } from "../components/form-dialog.js";
 import { Tabs } from "../components/tabs.js";
 import { drawLabels } from "./card-marks.js";
@@ -64,6 +65,14 @@ export class ArtifactDialog extends FormDialog {
     this.view = root.querySelector("[data-task-view]");
     this.viewTitle = root.querySelector("[data-view-title]");
     this.viewBody = root.querySelector("[data-view-body]");
+    this.viewPanel = this.viewTitle.parentElement; // taken before the copy button wraps the title
+    // the whole title and body in one click: the read-only view copies the text as written (Markdown source), the fields their current value
+    this.copies = [
+      attachCopy(this.viewTitle, () => this.editing?.title ?? ""),
+      attachCopy(this.viewBody, () => this.editing?.body ?? ""),
+      attachCopy(this.titleInput),
+      attachCopy(this.bodyInput),
+    ];
     this.viewLabels = root.querySelector("[data-view-labels]");
     this.viewWarning = root.querySelector("[data-view-warning]");
     this.warned = null; // the notes of the last save, for the artifact they belong to
@@ -163,6 +172,12 @@ export class ArtifactDialog extends FormDialog {
   }
 
   /** Switch from the read-only view to the form. */
+  /** The fields are set without an input event: the copy buttons of title and body look again at what they hold. */
+  setValues(values) {
+    super.setValues(values);
+    for (const copy of this.copies ?? []) copy.refresh();
+  }
+
   startEdit() {
     const task = this.editing;
     if (!task || this.mode !== "view" || this.readOnly) return;
@@ -283,7 +298,7 @@ export class ArtifactDialog extends FormDialog {
     this.viewTitle.textContent = task.title;
     this.viewTitle.classList.toggle("task-view__title--done", Boolean(task.marks?.done)); // the rules of the lane and the board (ADR-071)
     drawLabels(this.viewLabels, task.marks?.labels ?? []);
-    const panel = this.viewTitle.parentElement; // the colour of the rules frames the details, as it does the card on the board
+    const panel = this.viewPanel; // the colour of the rules frames the details, as it does the card on the board
     if (task.marks?.colour) Object.assign(panel.dataset, { colourTone: task.marks.colour.tone, colourMode: task.marks.colour.mode });
     else delete panel.dataset.colourTone, delete panel.dataset.colourMode;
 
@@ -294,6 +309,9 @@ export class ArtifactDialog extends FormDialog {
     const notes = warningsFor(this.warned, task);
     this.viewWarning.hidden = notes.length === 0;
     this.viewWarning.textContent = notes.length ? [t("tasks.body.saved_with_notes"), ...notes].join("\n") : "";
+    // the copy buttons of the read-only title and body look at the new text NOW, not when the observer's microtask runs: they reserve room at the
+    // right (`.has-copy`), which changes how the text wraps, and the dialog is measured right after this (#fit)
+    for (const copy of this.copies.slice(0, 2)) copy.refresh();
   }
 
   /** The legend in the foot of the rail (next to its expand button), made once. */

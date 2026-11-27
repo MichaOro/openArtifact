@@ -56,7 +56,12 @@ def _task(client: TestClient, status: str | None = None, title: str = "A") -> di
 
 
 def test_the_default_lanes(client: TestClient) -> None:
-    assert client.get("/api/lanes").json() == [
+    lanes = client.get("/api/lanes").json()
+    ids = [
+        lane.pop("id") for lane in lanes
+    ]  # a uuid each, never shown in the web page (ADR-090); the rest is as it was
+    assert len(set(ids)) == 3 and all(len(i) == 36 for i in ids)
+    assert lanes == [
         {
             "status": "backlog",
             "key": "backlog",
@@ -263,10 +268,10 @@ def test_artifacts_can_be_created_in_and_moved_to_a_custom_lane(client: TestClie
 def test_an_unknown_lane_key_is_422_and_lists_the_valid_ones(client: TestClient) -> None:
     created = client.post("/api/tasks", json={"title": "x", "status": "sideways"})
     assert created.status_code == 422
-    assert "Valid lanes: backlog, in_progress, done" in created.json()["detail"]
+    assert "Unknown lane 'sideways'. Lanes: Backlog, In Progress, Done" in created.json()["detail"]
     task = _task(client)
-    moved = client.patch(f"/api/tasks/{task['id']}", json={"status": "Backlog"})
-    assert moved.status_code == 422 and "Valid lanes" in moved.json()["detail"]
+    moved = client.patch(f"/api/tasks/{task['id']}", json={"status": "sideways"})
+    assert moved.status_code == 422 and "Unknown lane" in moved.json()["detail"]
     assert client.patch(f"/api/tasks/{task['id']}", json={"status": None}).status_code == 422
 
 
@@ -397,19 +402,16 @@ def test_the_mcp_tools_follow_the_current_lanes(secured: TestClient) -> None:
     _restyle(secured, "done", style="finished")
     result = _mcp(secured, "list_lanes")
     lanes = [json.loads(item["text"]) for item in result["content"]]
-    assert [(lane["status"], lane["title"]) for lane in lanes] == [
-        ("backlog", "Backlog"),
-        ("in_progress", "Doing"),
-        ("done", "Done"),
-        ("review", "Review"),
-    ]
+    assert [lane["name"] for lane in lanes] == ["Backlog", "Doing", "Done", "Review"], (
+        "the tools speak names: the key `in_progress` of the lane now called Doing is not shown (ADR-090)"
+    )
     assert [lane["style"] for lane in lanes] == ["normal", "normal", "finished", "normal"]
     created = _mcp(secured, "create_artifact", title="x", lane="review")
-    assert json.loads(created["content"][0]["text"])["status"] == "review"
+    assert json.loads(created["content"][0]["text"])["lane"] == "Review"
     default = _mcp(secured, "create_artifact", title="y")
-    assert json.loads(default["content"][0]["text"])["status"] == "backlog"
+    assert json.loads(default["content"][0]["text"])["lane"] == "Backlog"
     bad = _mcp(secured, "update_artifact", artifact="1", lane="sideways")
-    assert bad["isError"] and "Valid lanes: backlog, in_progress, done, review" in str(bad)
+    assert bad["isError"] and "Lanes: Backlog, Doing, Done, Review" in str(bad)
     listing = secured.post("/mcp", json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     tools = {tool["name"]: tool for tool in listing.json()["result"]["tools"]}
     assert "list_lanes" in tools

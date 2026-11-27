@@ -12,6 +12,7 @@ An agent cannot be deleted while an agent node refers to it (409, with the nodes
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
 from collections.abc import Mapping
@@ -445,6 +446,7 @@ class AgentService:
             else:
                 number, config = None, AgentConfig.loads(agent.draft)
             node_config: dict[str, Any] = {}
+            graph_inputs: list[str] = []
             if request.node_id:
                 node = await session.get(GraphNode, request.node_id)
                 if node is None or node.kind != NodeKind.AGENT.value:
@@ -452,6 +454,7 @@ class AgentService:
                 node_config = node_type(node.kind).effective_config(node.config)
                 if node_config.get("agent_id") != agent.id:
                     raise ArtifactError(422, "The node refers to another agent")
+                graph_inputs = await _graph_input_names(session, node.graph_id)
             providers = await load_providers(session)
             card_fields = {spec.name for spec in await field_specs(session)}
         config = config.effective()
@@ -478,12 +481,12 @@ class AgentService:
         )
         if not user.strip():
             problems.append("The user prompt is empty")
-        problems += prompt_problems(user, declared, "User prompt")
+        problems += prompt_problems(user, declared, "User prompt", graph_inputs)
         problems += card_problems(f"{user}\n{system}", card_fields)
         card_view = RunView(RunContext.initial(request.card)) if request.card else None
         shown_system = None
         if value["system_prompt_enabled"] and system.strip():
-            problems += prompt_problems(system, declared, "System prompt")
+            problems += prompt_problems(system, declared, "System prompt", graph_inputs)
             shown_system = fill(system, states, preview=True, view=card_view)
         provider, model, found = pick_provider(data, node_config, providers)
         return PreviewRead(
@@ -523,6 +526,23 @@ async def artifact_inputs_mapped(session: AsyncSession, agent_id: str, text: str
     return [n for n in _artifact_names(config.effective()) if mapped.get(n, "").strip()]
 
 
+async def _graph_input_names(session: AsyncSession, graph_id: str) -> list[str]:
+    """The names the Trigger of the graph declares as inputs (the draft as it stands): a prompt of an agent node may use them (ADR-089 add.)."""
+    config = await session.scalar(
+        select(GraphNode.config).where(
+            GraphNode.graph_id == graph_id, GraphNode.kind == NodeKind.TRIGGER.value
+        )
+    )
+    try:
+        loaded = json.loads(config) if isinstance(config, str) else (config or {})
+    except ValueError:
+        return []
+    declared = loaded.get("inputs") if isinstance(loaded, dict) else None
+    return [
+        str(spec["name"]) for spec in declared or [] if isinstance(spec, dict) and spec.get("name")
+    ]
+
+
 def _artifact_names(config: AgentConfig) -> list[str]:
     """The inputs of the agent that come from the artifact (fixed by the definition, ADR-064)."""
     return [i.name for i in config.inputs if i.source == "artifact"]
@@ -558,9 +578,10 @@ async def node_hints(session: AsyncSession, node: GraphNode) -> list[str]:
         return [*hints, f"Input mapping: {error}"]
     hints += input_problems(resolve_inputs(data["inputs"], mapping, None))
     declared = [i.name for i in published.inputs]
+    graph_inputs = await _graph_input_names(session, node.graph_id)
     for key, what in (("user_prompt", "User prompt"), ("system_prompt", "System prompt")):
         if config.get(key) is not None:
-            hints += prompt_problems(str(config[key]), declared, what)
+            hints += prompt_problems(str(config[key]), declared, what, graph_inputs)
     own = {k: config.get(k) for k in ("user_prompt", "system_prompt")}
     hints += unused_inputs(
         mapping,

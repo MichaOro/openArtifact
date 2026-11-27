@@ -1,13 +1,16 @@
 /* The filters of the global execution list as a value that lives in the URL's query string, so a reload,
  * a shared link and the browser's Back button restore them.
  *
- * URL names are the API's: status, started_by (comma separated), pipeline, q, since, until, dry_run (only | exclude). `range`
+ * URL names are the API's: status, started_by (comma separated), pipeline, q, since, until, dry_run (only | exclude) and observed (only). `range`
  * (1h, 24h, 7d) is a relative since that is worked out when the list is fetched, so a reloaded link means
- * "the last 24 hours" again. `page_size` (tests) passes through untouched. */
+ * "the last 24 hours" again. `page_size` (tests) passes through untouched.
+ *
+ * The kind (`dryRun`): "exclude" (the real runs), "only" (the dry runs started by hand), "observed" (the runs of an observed pipeline, ADR-088). An observed
+ * run is a dry run for the server, so "only" also asks it to leave the observed ones out (`observed=exclude`): the two kinds are apart in the list. */
 
 export const STATUSES = ["running", "done", "failed", "stopped"];
 export const ORIGINS = ["user", "api", "mcp", "system"];
-export const DRY_RUN = ["only", "exclude"];
+export const DRY_RUN = ["only", "exclude", "observed"];
 export const RANGES = { "1h": 3600, "24h": 86400, "7d": 7 * 86400 };
 
 const csv = (value, allowed) => [...new Set((value ?? "").split(",").map((v) => v.trim().toLowerCase()))].filter((v) => allowed.includes(v));
@@ -37,7 +40,7 @@ export class Filters {
       since: p.get("since") ?? "",
       until: p.get("until") ?? "",
       pageSize: p.get("page_size") ?? "",
-      dryRun: p.get("dry_run") ?? "",
+      dryRun: p.get("observed") === "only" ? "observed" : (p.get("dry_run") ?? ""),
     });
   }
 
@@ -67,7 +70,8 @@ export class Filters {
     if (this.startedBy.length) p.set("started_by", this.startedBy.join(","));
     if (this.pipeline) p.set("pipeline", this.pipeline);
     if (this.q) p.set("q", this.q);
-    if (this.dryRun) p.set("dry_run", this.dryRun);
+    if (this.dryRun === "observed") p.set("observed", "only");
+    else if (this.dryRun) p.set("dry_run", this.dryRun);
     if (this.range) p.set("range", this.range);
     else {
       if (this.since) p.set("since", this.since);
@@ -85,7 +89,9 @@ export class Filters {
     if (this.startedBy.length) p.set("started_by", this.startedBy.join(","));
     if (this.pipeline) p.set("pipeline", this.pipeline);
     if (this.q) p.set("q", this.q);
-    if (this.dryRun) p.set("dry_run", this.dryRun);
+    if (this.dryRun === "observed") p.set("observed", "only");
+    else if (this.dryRun) p.set("dry_run", this.dryRun);
+    if (this.dryRun === "only") p.set("observed", "exclude");
     const since = this.range ? new Date(now - RANGES[this.range] * 1000).toISOString() : this.since;
     if (since) p.set("since", since);
     if (!this.range && this.until) p.set("until", this.until);
@@ -99,7 +105,9 @@ export class Filters {
   mayInclude(execution, now = Date.now()) {
     if (this.status.length && !this.status.includes(execution.status)) return false;
     if (this.startedBy.length && !this.startedBy.includes(execution.started_by)) return false;
-    if (this.dryRun && Boolean(execution.dry_run) !== (this.dryRun === "only")) return false;
+    if (this.dryRun === "exclude" && execution.dry_run) return false;
+    if (this.dryRun === "only" && (!execution.dry_run || execution.observed)) return false;
+    if (this.dryRun === "observed" && !execution.observed) return false;
     if (this.pipeline) {
       const name = (execution.pipeline_name ?? "").toLowerCase();
       if (execution.pipeline_id !== this.pipeline && !name.includes(this.pipeline.toLowerCase())) return false;

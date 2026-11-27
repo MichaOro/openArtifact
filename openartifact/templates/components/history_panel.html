@@ -35,20 +35,7 @@
         <p class="history__empty" data-detail-empty hidden>{{ t('history.this_execution_has_no_steps') }}</p>
     </section>
 </div>
-<template id="history-row-template">
-    <li class="history-row">
-        <button type="button" class="history-row__open">
-            <span class="history-chip"><span data-chip-icon></span><span data-chip-text></span></span>
-            <span class="history-row__number"><span data-row-number></span> <span class="history-flag" data-row-dry hidden>{{ t('executions.dry_run') }}</span></span>
-            <time class="history-row__time" data-row-time></time>
-            <span class="history-row__duration" data-row-duration></span>
-            <span class="history-row__pipeline" data-row-pipeline></span>
-            <span class="history-row__meta" data-row-meta></span>
-            <span class="history-row__note" data-row-note hidden></span>
-        </button>
-        <button type="button" class="icon-button icon-button--sm is-danger history-row__delete" data-row-delete></button>
-    </li>
-</template>
+{% include "components/history_row_template.html" %}
 <template id="activity-row-template">
     <li class="history-event">
         <div class="history-event__body">

@@ -350,6 +350,30 @@ def test_a_dry_run_tests_the_draft_unless_it_asks_for_the_published_version(
     assert outputs == {"draft": "two", "published": "one"}
 
 
+def test_a_draft_dry_run_follows_the_draft_of_the_pipeline_and_of_the_action_it_places(
+    api: TestClient,
+) -> None:
+    """Both graphs are published, then both are edited: the pipeline's draft puts another action in its stage and that action's draft
+    changed its text. Draft runs what the editor shows (the new wiring, the new text), published runs what was published."""
+    first = _definition(api, "code", language="sh", code="echo first", read_only=True)
+    second = _definition(api, "code", language="sh", code="echo second", read_only=True)
+    pipeline = build_pipeline(api, stages=1)
+    _use(api, pipeline, first)
+    for graph in (first, second, pipeline):
+        assert api.post(f"{graph_url(graph)}/publish").status_code in (200, 201)
+    _use(api, pipeline, second)  # the pipeline's draft now runs the other action
+    api.patch(
+        f"{graph_url(second)}/nodes/{second['node']['id']}",
+        json={"config": {"code": "echo edited"}},
+    )  # and that action's draft is edited after its publish
+    outputs: dict[str, str] = {}
+    for label, body in (("draft", {"version": "draft"}), ("published", {"version": "published"})):
+        task = make_task(api)
+        _dry(api, pipeline, task, **body)
+        outputs[label] = _steps(wait_for_run(api, task, "done"), "code")[0]["output"].strip()
+    assert outputs == {"draft": "edited", "published": "first"}
+
+
 def test_through_the_integration_api_a_dry_run_defaults_to_the_published_version(
     api: TestClient,
 ) -> None:

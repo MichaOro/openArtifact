@@ -4,11 +4,13 @@
  * changes anything on the server. */
 import { AlertBar } from "../components/alert-bar.js";
 import { icon } from "../components/icons.js";
+import { drawRunFlag } from "../components/run-flag.js";
 import { sentenceOf } from "../tasks/activity-model.js";
 import { loadNodeTypes } from "../editor/node-types.js";
 import { connectEvents } from "../tasks/events.js";
 import { executionSeconds, formatDuration, formatTime, originLabel, setChip } from "../tasks/history-format.js";
 import { RunningClock } from "../tasks/history-row.js";
+import { backTarget } from "./back-link.js";
 import { Breadcrumb } from "./breadcrumb.js";
 import { loadContext, loadFlow, loadStep, loadTask } from "./flow-client.js";
 import { FlowPanel } from "./flow-panel.js";
@@ -148,7 +150,32 @@ class FlowPage {
   }
 
   #url(visit) {
-    return visit.parent === null ? window.location.pathname : `${window.location.pathname}?visit=${visit.index}`;
+    const query = new URLSearchParams();
+    if (visit.parent !== null) query.set("visit", String(visit.index));
+    const from = new URLSearchParams(window.location.search).get("from");
+    if (from) query.set("from", from); // where the user came from stays with the page (ADR-089)
+    const text = query.toString();
+    return text ? `${window.location.pathname}?${text}` : window.location.pathname;
+  }
+
+  /** The Back buttons lead to where the user came from (`?from=`, a whitelisted word); the name of an action or pipeline is the one that ran. */
+  #renderBack() {
+    const target = backTarget(new URLSearchParams(window.location.search).get("from"));
+    const name = this.model?.execution?.pipeline_name ?? "";
+    const texts = {
+      board: () => t("execution_flow.back_to_the_board"),
+      executions: () => t("execution_flow.back_to_executions"),
+      card: () => t("execution_flow.back_to_the_card"),
+      action: () => t("execution_flow.back_to_the_action", { name }),
+      pipeline: () => t("execution_flow.back_to_the_pipeline", { name }),
+    };
+    const unnamed = target.named && !name; // an editor whose name is not known: the board
+    const href = unnamed ? "/" : target.href;
+    const label = unnamed ? texts.board() : texts[target.kind]();
+    for (const link of root.querySelectorAll("[data-back]")) {
+      link.href = href;
+      link.textContent = label;
+    }
   }
 
   /** Go to a visit (a step down, another pass, a breadcrumb item); the browser's Back returns. */
@@ -233,13 +260,14 @@ class FlowPage {
 
   #renderHead() {
     const { execution } = this.model;
+    this.#renderBack();
     const artifact = this.task ? `#${this.task.number} ${this.task.title}` : null;
     root.querySelector("[data-head-title]").textContent = `Execution #${execution.number}${artifact ? ` of ${artifact}` : ""}`;
     document.title = `Execution #${execution.number}${artifact ? ` · ${artifact}` : ""} · OpenArtifact`;
     const chip = root.querySelector("[data-head-chip]");
     chip.hidden = false;
     setChip(chip, execution.status);
-    root.querySelector("[data-head-dry]").hidden = !execution.dry_run; // a dry run says so (ADR-086)
+    drawRunFlag(root.querySelector("[data-head-dry]"), execution); // a dry run or an observed run says so (ADR-086, ADR-088)
     const startedAt = [execution.started_stage_name, execution.started_action_name].filter(Boolean).join(" › ");
     const rows = [
       [t("common.pipeline"), execution.pipeline_name],

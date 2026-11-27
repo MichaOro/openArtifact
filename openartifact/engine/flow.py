@@ -174,6 +174,32 @@ class _Replay:
         self.visits: list[_Visit] = []
         self.start = start
 
+    def run_standalone(self, action_id: str) -> None:
+        """A dry run of one action by itself (ADR-089): the root of the flow is the action's own graph, one visit through it, from its
+        Trigger to its Output; the wrapper the engine walks is not drawn."""
+        definition = self.graphs[action_id]
+        steps = [s for group in self.groups for s in group]
+        visit = _Visit(action_id, 0, None, None, steps=steps)
+        self.visits.append(visit)
+        for step, following in pairwise(steps):
+            edge = edge_from(definition["edges"], step.node_id, step.port or "")
+            if edge and edge["target_id"] == following.node_id:
+                visit.add_edge(edge)
+        visit.nodes = [s.node_id for s in steps]
+        last = steps[-1] if steps else None
+        if last is not None and last.kind == NodeKind.OUTPUT:
+            visit.outcome = "pass" if last.outcome == "pass" else "fail"
+            visit.left_port = "pass" if last.outcome == "pass" else "error"
+        else:
+            visit.outcome = self._open_outcome()
+            if last is not None and self.status == RunStatus.RUNNING:
+                # the run is in the node the last step's edge leads to, as in a run through a pipeline (`_definition`): it is drawn as
+                # working, and the edge to it carries the bubbles
+                onward = edge_from(definition["edges"], last.node_id, last.port or "")
+                if onward is not None:
+                    visit.add_edge(onward)
+                    visit.nodes.append(onward["target_id"])
+
     def _open_outcome(self) -> Outcome:
         """The outcome of a visit the steps do not finish."""
         if self.status == RunStatus.RUNNING:
@@ -365,8 +391,17 @@ def build_flow(
     root_id = snapshot.get("id") or execution.pipeline_id or "root"
     snapshot.setdefault("name", execution.pipeline_name)
     graphs = _graphs(snapshot, root_id)
-    replay = _Replay(graphs, root_id, steps, execution.status, start)
-    replay.run()
+    standalone = snapshot.get("standalone")
+    if (
+        standalone and standalone in graphs
+    ):  # one action run by itself: its own graph is the root (ADR-089)
+        graphs.pop(root_id, None)
+        root_id = str(standalone)
+        replay = _Replay(graphs, root_id, steps, execution.status, start)
+        replay.run_standalone(root_id)
+    else:
+        replay = _Replay(graphs, root_id, steps, execution.status, start)
+        replay.run()
     visits = _finish(replay.visits, execution)
     reached: dict[str, FlowReached] = {}
     for visit in visits:

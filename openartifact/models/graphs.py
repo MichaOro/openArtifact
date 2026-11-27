@@ -35,6 +35,7 @@ class Graph(Base):
         description: What it is for, in a sentence or two (empty when nobody wrote one).
         tags: Short labels to find it by (a JSON list of text).
         published_number: The version executions use (ADR-070); ``None``: nothing published, the draft runs.
+        observe_state: The counters and the decisions of the observe mode of a pipeline (ADR-088).
         created_at: Creation timestamp (UTC).
         updated_at: Last modification timestamp (UTC).
     """
@@ -51,6 +52,9 @@ class Graph(Base):
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
     published_number: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    #: The observation of a pipeline that is under way and what the owner decided about its end (ADR-088, migration 0067); the setting itself
+    #: is part of the published version. ``None``: nothing is being observed.
+    observe_state: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC),

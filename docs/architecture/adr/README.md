@@ -97,6 +97,9 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [085](085-answer-format-of-an-agent.md) | The answer format of an agent: the final answer as a checked document (flat fields, the module of the Hand Over Tool), a report tool, one repair, the fields as the node's data | Accepted | 2026-11-26 | amends ADR-040, ADR-047, ADR-054, ADR-072, ADR-080 |
 | [086](086-dry-run.md) | The dry run: a run under real conditions that skips what writes; every node kind declares its effect (none, read, write, mixed); skipped steps say what they would have done; draft or published version | Accepted | 2026-11-26 | amends ADR-054, ADR-070, ADR-076 |
 | [087](087-mock-data-for-the-dry-run.md) | Mock data: a node of the draft hands over a stored result in a dry run (never in a real run or a published version); from the last run or a history step; test cases for the Trigger | Accepted | 2026-11-27 | amends ADR-086, ADR-070 |
+| [089](089-card-less-dry-run-and-action-by-itself.md) | A dry run needs no card (a hidden technical card per graph), an action's dry run runs the action by itself up to its Output, and the execution page's Back button knows where it was opened from | Accepted | 2026-11-27 | amends ADR-086, ADR-087 |
+| [088](088-observe-mode.md) | Observe mode: a pipeline whose every run is a dry run, set with a publication; the end blocks starts until the owner releases or observes again; a node that waits for a skipped write ends the run as done | Accepted | 2026-11-27 | amends ADR-086, ADR-070, ADR-082 |
+| [090](090-lane-ids-and-names.md) | A lane has an id (uuid) and a name (its title); the key it was made from says nothing after a rename: MCP speaks names and ids, an unknown lane is an error that lists the lanes | Accepted | 2026-11-27 | amends ADR-011, ADR-036 |
 
 ## Notes
 

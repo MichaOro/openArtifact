@@ -40,7 +40,7 @@ async def plan(session: AsyncSession, rules: CardRules, now: datetime) -> Plan:
     result = Plan()
     if not any(r.action in ("archive", "delete") for r in _all(rules)):
         return result
-    tasks = list((await session.scalars(select(Task))).all())
+    tasks = list((await session.scalars(select(Task).where(Task.technical.is_(False)))).all())
     facts = await card_rules.load_facts(session, tasks, now)
     for task in tasks:
         if task.archived_at is None:
@@ -108,7 +108,11 @@ async def preview(
     now = now or datetime.now(UTC)
     tasks = [
         t
-        for t in (await session.scalars(select(Task).order_by(Task.number))).all()
+        for t in (
+            await session.scalars(
+                select(Task).where(Task.technical.is_(False)).order_by(Task.number)
+            )
+        ).all()
         if (lane is None or t.status == lane)
         and ((t.archived_at is not None) == (rule.action == "delete"))
     ]

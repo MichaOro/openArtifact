@@ -6,9 +6,10 @@
  * does the same for the mouse; the artifact and pipeline links and the stop and delete buttons keep their own meaning. */
 import { setChip, plural } from "../tasks/history-format.js";
 import { fillDeleteButton, fillStopButton, fillDuration, fillOrigin, fillTime, RunningClock } from "../tasks/history-row.js";
+import { drawRunFlag } from "../components/run-flag.js";
 import { t } from "../i18n.js";
 
-export const flowUrl = (e) => `/artifacts/${e.task.number}/executions/${encodeURIComponent(e.id)}`;
+export const flowUrl = (e) => `/artifacts/${e.task.number}/executions/${encodeURIComponent(e.id)}?from=executions`;
 export const artifactUrl = (e) => `/?artifact=${e.task.number}`;
 export const pipelineUrl = (e) => `/pipelines/${encodeURIComponent(e.pipeline_id)}`;
 
@@ -171,7 +172,7 @@ export class ExecutionTable {
     fillTime(row.querySelector("[data-time]"), e.started_at);
     fillDuration(row.querySelector("[data-duration]"), e);
     fillOrigin(row.querySelector("[data-origin]"), e.started_by);
-    row.querySelector("[data-dry]").hidden = !e.dry_run;
+    drawRunFlag(row.querySelector("[data-dry]"), e);
     row.querySelector("[data-steps]").textContent = String(e.step_count);
     row.querySelector("[data-steps]").title = plural(e.step_count, "step");
     const note = row.querySelector("[data-note]");

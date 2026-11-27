@@ -113,6 +113,8 @@ class RunRead(BaseModel):
     started_by: StartedBy
     #: A dry run (ADR-086): nothing that writes was executed.
     dry_run: bool = False
+    #: The run was started by the observe mode of its pipeline (ADR-088); it is also a dry run.
+    observed: bool = False
     note: str | None
     stage_id: str | None
     stage_name: str | None
@@ -154,6 +156,8 @@ class ExecutionRead(BaseModel):
     started_by: StartedBy
     #: A dry run (ADR-086): shown with a chip, filterable, left out of the counters of real runs.
     dry_run: bool = False
+    #: Started by the observe mode of the pipeline (ADR-088): also a dry run, shown as *Observed*.
+    observed: bool = False
     started_at: UtcDateTime
     finished_at: UtcDateTime | None
     duration_seconds: float | None
@@ -178,6 +182,7 @@ class ExecutionRead(BaseModel):
             final_action_name=row.final_action_name,
             started_by=StartedBy(row.started_by),
             dry_run=bool(row.dry_run),
+            observed=bool(row.observed),
             started_at=row.started_at,
             finished_at=finished,
             duration_seconds=(

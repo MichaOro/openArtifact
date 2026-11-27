@@ -84,7 +84,11 @@ class TaskRepository:
     async def list_all(self) -> Sequence[Task]:
         """Return all tasks in board order: by lane, then position (ties: newest first)."""
         result = await self._session.execute(
-            select(Task).order_by(Task.status, Task.position, Task.created_at.desc(), Task.id)
+            select(Task)
+            .where(
+                Task.technical.is_(False)
+            )  # the hidden card of a card-less dry run is not on the board (ADR-089)
+            .order_by(Task.status, Task.position, Task.created_at.desc(), Task.id)
         )
         return result.scalars().all()
 

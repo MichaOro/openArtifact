@@ -69,7 +69,7 @@ def test_a_card_is_archived_and_taken_out_again_with_the_reason_of_a_refusal(
 ) -> None:
     _create(api, title="Old", status="in_progress")
     archived = _ok(_tool(api, "archive_artifact", artifact="#1"))
-    assert archived["archived_at"] is not None and archived["archived_from_status"] == "in_progress"
+    assert archived["archived_at"] is not None and archived["archived_from_lane"] == "In Progress"
     assert _content(_tool(api, "list_artifacts")) == []
     assert [c["number"] for c in _content(_tool(api, "list_artifacts", archived="only"))] == [1]
 
@@ -77,7 +77,7 @@ def test_a_card_is_archived_and_taken_out_again_with_the_reason_of_a_refusal(
     assert twice["isError"] and "archived" in _text(twice)
 
     back = _ok(_tool(api, "unarchive_artifact", artifact="1"))
-    assert back["archived_at"] is None and back["status"] == "in_progress"
+    assert back["archived_at"] is None and back["lane"] == "In Progress"
     again = _tool(api, "unarchive_artifact", artifact="1")
     assert again["isError"] and "not archived" in _text(again)
 
@@ -137,7 +137,7 @@ def test_a_bulk_call_has_a_cap_and_a_known_lane(api: TestClient) -> None:
     empty = _tool(api, "move_artifacts", artifacts=[], lane="done")
     assert empty["isError"] and "at least one card" in _text(empty)
     unknown = _tool(api, "move_artifacts", artifacts=["1"], lane="sideways")
-    assert unknown["isError"] and "Unknown lane 'sideways'. Available: " in _text(unknown)
+    assert unknown["isError"] and "Unknown lane 'sideways'. Lanes: " in _text(unknown)
     assert _lane(api, 1) == "backlog"
 
 
@@ -167,6 +167,7 @@ def test_the_list_pages_filters_and_can_be_brief(api: TestClient) -> None:
         "number",
         "title",
         "lane",
+        "lane_id",
         "parent",
         "archived",
         "archived_at",
@@ -174,7 +175,7 @@ def test_the_list_pages_filters_and_can_be_brief(api: TestClient) -> None:
         "updated_at",
         "processing",
     }
-    assert (brief[1]["lane"], brief[1]["parent"], brief[0]["parent"]) == ("in_progress", 1, None)
+    assert (brief[1]["lane"], brief[1]["parent"], brief[0]["parent"]) == ("In Progress", 1, None)
     children = _content(_tool(api, "list_artifacts", parent="#1", brief=True))
     assert sorted(c["number"] for c in children) == [2, 3]
     whole = _content(_tool(api, "list_artifacts", brief=True))

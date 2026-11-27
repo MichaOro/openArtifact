@@ -7,6 +7,7 @@
 import { CredentialDialog } from "../components/credential-dialog.js";
 import { DurationInput } from "../components/duration-input.js";
 import { describeDuration } from "../components/duration-model.js";
+import { attachCopy } from "../components/copy-button.js";
 import { describeSize } from "../components/size-model.js";
 import { SizeInput } from "../components/size-input.js";
 import { SchemaFields } from "../components/schema-fields.js";
@@ -473,6 +474,7 @@ class LinesControl extends SettingControl {
     this.count = element("span", "field__meta");
     box.querySelector(".field__head").append(this.count); // the count sits on the label's line, to the right
     this.updateCount();
+    this.copy = attachCopy(this.input, () => this.input.value, { always: true }); // the whole text in one click: a prompt, a body, code
     return box;
   }
 

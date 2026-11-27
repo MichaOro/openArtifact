@@ -104,3 +104,18 @@ test("the row menu offers add or remove for the description (and the default of 
   assert.deepEqual(menuPlan({ extra: "default", shown: { description: true, extra: true } }).map((e) => e.on), [true, true, false], "shown entries offer removing");
   assert.deepEqual(menuPlan({ extra: "value", shown: { description: false, extra: true } }).map((e) => e.key), ["description", "delete"], "an output has no default to add");
 });
+
+test("when some row shows a description or a default, they are columns of the inline layout, to the right of the compact row", async () => {
+  const { rowPlan } = await import("../../openartifact/static/js/components/schema-fields-model.js");
+  const none = rowPlan({ showRequired: true, extra: "default" });
+  assert.equal(none.isInline, false, "nothing shown: the list stays compact");
+  const both = rowPlan({ showRequired: true, extra: "default", inline: { description: true, extra: true } });
+  assert.deepEqual(both.inlineColumns, ["grip", "name", "type", "required", "extra", "description", "more"]);
+  assert.equal(both.inlineRow, '"grip name type required extra description more"');
+  assert.equal(both.inlineChoices, '". choices choices choices choices choices ."');
+  assert.equal(both.isInline, true);
+  const onlyDescription = rowPlan({ showRequired: false, extra: "value", inline: { description: true, extra: true } });
+  assert.deepEqual(onlyDescription.inlineColumns, ["grip", "name", "type", "extra", "description", "more"], "an output's value is a column already; its description comes after it");
+  const noDefaultColumnForOutputs = rowPlan({ showRequired: true, extra: null, inline: { extra: true } });
+  assert.equal(noDefaultColumnForOutputs.isInline, false, "no default without a default setting");
+});

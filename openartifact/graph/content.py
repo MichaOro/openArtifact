@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.graph.mock import CASES_KEY, MOCK_KEY
 from openartifact.graph.node_types import node_type
+from openartifact.graph.observe import stored_observe
 from openartifact.graph.placements import KEY
 from openartifact.graph.repository import GraphRepository
 from openartifact.models import Graph, GraphEdge, GraphNode
@@ -57,7 +58,7 @@ async def graph_of(session: AsyncSession, graph_id: str, *, mocks: bool = False)
     nodes, edges = await repo.graph(graph_id)
     described = await repo.describe(nodes)
     graph = await session.get(Graph, graph_id)
-    return {
+    content: dict[str, Any] = {
         "id": graph_id,
         "name": graph.name if graph else "",
         "kind": graph.kind if graph else "",
@@ -66,3 +67,10 @@ async def graph_of(session: AsyncSession, graph_id: str, *, mocks: bool = False)
         ],
         "edges": [_edge(e) for e in edges],
     }
+    if graph is not None and graph.kind == "pipeline":
+        # the observe mode (ADR-088) is part of the publication: carried only when set, so a graph that never had one keeps its fingerprint
+        trigger = next((n for n in nodes if n.kind == "trigger"), None)
+        observe = stored_observe(trigger.config if trigger else None)
+        if observe is not None:
+            content["observe"] = observe
+    return content

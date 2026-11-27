@@ -23,6 +23,14 @@ async def load_pipeline(session: AsyncSession, pipeline_id: str) -> Graph:
     return pipeline
 
 
+async def load_action(session: AsyncSession, action_id: str) -> Graph:
+    """The action definition with this id (a pipeline is not one)."""
+    action = await session.get(Graph, action_id)
+    if action is None or action.kind != GraphKind.ACTION:
+        raise TargetError("That action does not exist")
+    return action
+
+
 def pick_start(
     chain: list[dict[str, Any]], stage_id: str | None, action_id: str | None
 ) -> tuple[int, dict[str, Any], str | None]:

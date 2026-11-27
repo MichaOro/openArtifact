@@ -30,6 +30,7 @@ from openartifact.api.lanes import (
     LANES_DESCRIPTION,
     UPDATE_DESCRIPTION,
 )
+from openartifact.api.observe import build_observe_router
 from openartifact.api.schemas import PipelineChainRead
 from openartifact.api.secrets import StoreDep
 from openartifact.artifact_fields.schemas import ArtifactFieldsRead, ArtifactFieldsWrite
@@ -51,6 +52,7 @@ from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, GraphKind, StartedBy
 from openartifact.security import require_api_token
 from openartifact.tasks.schemas import (
+    DryRunStart,
     LaneRead,
     LaneUpdate,
     LaneWrite,
@@ -70,6 +72,7 @@ router.include_router(build_comments_router("/artifacts", "api", ["integration A
 router.include_router(build_activity_router("/artifacts", ["integration API"]))
 router.include_router(build_guards_router("", ["integration API"], editor=False))
 router.include_router(build_heartbeat_router("", ["integration API"]))
+router.include_router(build_observe_router("", ["integration API"], "api"))
 
 
 @router.get(
@@ -275,7 +278,8 @@ async def get_run_results(ref: str, service: ServiceDep) -> list[NodeResultRead]
     responses=errors(404, 409, 422, 429, write=True, body=True),
 )
 async def start_run(ref: str, service: ServiceDep, payload: RunStart | None = None) -> RunRead:
-    """Start processing. Without a body it starts with the pipeline, stage and action the artifact has."""
+    """Start processing. Without a body it starts with the pipeline, stage and action the artifact has. A pipeline in the observe mode
+    (ADR-088) runs as a dry run (``observed: true``); once its observation has ended the start is 409 ``observation_ended``."""
     body = payload or RunStart()
     return await service.start(
         ref,
@@ -286,6 +290,32 @@ async def start_run(ref: str, service: ServiceDep, payload: RunStart | None = No
         dry_run=body.dry_run,
         inputs=body.inputs,
         version=body.version,  # the published version unless the caller asks for the draft
+        definition_id=body.definition_id,
+    )
+
+
+@router.post(
+    "/graphs/{ref}/dry-run",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RunRead,
+    summary="Start a dry run of a pipeline or an action, with or without a card",
+    responses=errors(404, 409, 422, 429, write=True, body=True),
+)
+async def start_dry_run(
+    ref: str, service: ServiceDep, payload: DryRunStart | None = None
+) -> RunRead:
+    """A dry run of the pipeline (``ref``: id, slug or name), or of the action definition by itself from its Trigger to its Output
+    (ADR-089). ``task_id`` names a card to run it on; without one it belongs to the hidden card of the graph. The published version
+    runs unless ``version`` is ``draft``."""
+    body = payload or DryRunStart()
+    return await service.start_dry_run(
+        ref,
+        task_ref=body.task_id,
+        stage_id=body.stage_id,
+        action_id=body.action_id,
+        inputs=body.inputs,
+        version=body.version or "published",
+        started_by=StartedBy.API,
     )
 
 
@@ -316,6 +346,7 @@ async def list_all_executions(
     since: str | None = None,
     until: str | None = None,
     dry_run: str | None = None,
+    observed: str | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     cursor: str | None = None,
 ) -> ExecutionsPage:
@@ -327,6 +358,7 @@ async def list_all_executions(
         since=since,
         until=until,
         dry_run=dry_run,
+        observed=observed,
         limit=limit,
         cursor=cursor,
     )

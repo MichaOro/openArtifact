@@ -196,6 +196,24 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The title of an action, an agent and the other flow cards reserves TWO lines, always: the card keeps its height whether the name needs one or two,
+   a one-line name leaves the second line empty, a longer one is cut with an ellipsis at the end of the second. The kind label under it has its own
+   air (the gap), so it never touches the second line, used or not (ADR-054 addendum, owner's decision: the cards of the pipeline view). */
+.ge-node[data-behaviour="action"] .ge-node__text,
+.ge-node[data-behaviour="flow"] .ge-node__text,
+.ge-node[data-behaviour="switch"] .ge-node__text { gap: 0.3rem; }
+.ge-node[data-behaviour="action"] .ge-node__name,
+.ge-node[data-behaviour="flow"] .ge-node__name,
+.ge-node[data-behaviour="switch"] .ge-node__name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.15;
+  min-height: 2.3em;
+}
 /* the system's number of a placement (ADR-082): first, quieter than the name (secondary text keeps 4.5:1 on the tinted card), and not the user's to change */
 .ge-node__number { font-weight: 400; font-size: 0.75rem; color: var(--color-text-secondary); }
 /* an action card draws On Pass / On Error inside its right edge: the name stops before them (cut with an ellipsis), it never runs into the labels */
@@ -407,6 +425,8 @@
 #node-modal.is-wide .modal__panel { --dialog-min-w: 56rem; }
 /* a window with a compact field list (Trigger, Output, Complete): small, the row is handle, name, type, required and the menu */
 #node-modal.has-fields .modal__panel { --dialog-min-w: 34rem; }
+/* a field list that shows descriptions or defaults as columns (components.css, .sf--inline) asks for the width of one line */
+#node-modal.has-fields:has(.sf--inline) .modal__panel { --dialog-min-w: min(62rem, calc(100vw - 2rem)); }
 .ge-settings__column { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .ge-settings__title { margin: 0; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary); }
 .ge-settings__group { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
@@ -451,9 +471,13 @@
  * is never a node of the canvas. */
 .ge-add__row { display: flex; align-items: center; gap: var(--space-1); }
 .ge-add__row .gd-shield[hidden] { display: none; }
+/* the entries of the status bar (components/status-bar.js): a hidden one takes no room, so the others close up */
+.ge-add__row [data-status-entry][hidden] { display: none; }
 .gd-shield { flex: none; }
 /* on an action's card: a bare shield tucked into the top right corner (no frame; the hit area is the 24 px quiet icon button) */
-.gd-shield--node { position: absolute; top: 2px; right: 2px; z-index: 2; }
+.gd-shield--node { position: absolute; top: 2px; right: 2px; z-index: 2; } /* the read-only flow only (flow-view.js) */
+/* The icons of a node card (components/card-icons.js): one row anchored at the top right, growing to the left, no gaps */
+.ge-node__icons { position: absolute; top: 2px; right: 2px; z-index: 2; display: flex; flex-direction: row; align-items: center; gap: 2px; }
 .gd-popover { z-index: 30; gap: var(--space-2); min-width: 18rem; max-width: min(26rem, calc(100vw - 1rem)); max-height: min(70vh, 32rem); }
 .gd-popover[hidden] { display: none; }
 .gd-popover__search { flex: none; }
@@ -574,34 +598,17 @@
 .ge-dry__hint { font-size: 0.8125rem; color: var(--color-text-muted); }
 .ge-dry__error { margin: 0; font-size: 0.8125rem; color: var(--color-danger); }
 .ge-dry__result { display: grid; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--glass-border); }
-.ge-dry__resulthead { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
-.ge-dry__resulthead[data-status="failed"] strong { color: var(--color-danger); }
-.ge-dry__steps { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); font-size: 0.8125rem; }
-.ge-dry__step { padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-text-muted) 10%, transparent); }
-.ge-dry__step[data-outcome="fail"] { background: color-mix(in srgb, var(--color-danger) 14%, transparent); }
-.ge-dry__stepoutcome { color: var(--color-text-secondary); }
-.ge-dry__steptext { margin: 0; overflow-wrap: anywhere; color: var(--color-text-secondary); }
+.ge-dry__result[hidden], .ge-dry__card[hidden], .ge-dry__add[hidden] { display: none; }
+/* The rows are the rows of the artifact's History tab (history-row-template); the stop is the Start button, so a row has no bin here */
+.ge-dry__runs .history-row__delete { display: none; }
+.ge-dry__runs .history-row { grid-template-columns: minmax(0, 1fr); }
 .ge-dry__history { font-size: 0.8125rem; justify-self: start; }
+.ge-dry__cardhead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.ge-dry__add { justify-self: start; }
 
 /* Mock data (ADR-087): the pin on a card whose mock is switched on, and the Mock tab of the node's window. */
-.ge-node__pin {
-  position: absolute;
-  top: -9px;
-  right: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-.ge-node__pin .icon { width: 12px; height: 12px; }
-.ge-node__pin:hover, .ge-node__pin:focus-visible { color: var(--color-text-primary); }
+/* the pin is a quiet icon button like the shield (icon-button--quiet: the same hover tint), in the card's icon list */
+.ge-node__pin { flex: none; }
 .ge-mock { display: flex; flex-direction: column; gap: var(--space-3); }
 .ge-mock__switch { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .ge-mock__text { width: 100%; box-sizing: border-box; resize: vertical; }
@@ -610,3 +617,20 @@
 .ge-cases { display: flex; flex-direction: column; gap: var(--space-2); }
 .ge-cases__row { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .ge-mock__bar { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* The Observe section of the Dry run tab (editor/observe-panel.js, ADR-088) and the popup of the eye in the status bar. */
+.ge-observe { display: grid; gap: var(--space-2); padding-bottom: var(--space-3); border-bottom: 1px solid var(--glass-border); }
+.ge-observe__head { display: flex; align-items: center; gap: var(--space-2); }
+.ge-observe__title { font-weight: 600; }
+.ge-observe__lead, .ge-observe__note { margin: 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.ge-observe__limits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2) var(--space-3); }
+.ge-observe__limits[hidden], .ge-observe__error[hidden] { display: none; }
+.ge-observe__limits .ge-observe__note { grid-column: 1 / -1; }
+.ge-observe__limit .field__control { min-width: 0; width: 100%; }
+.ge-observe__error { margin: 0; font-size: 0.8125rem; color: var(--color-danger); }
+.status-popup { z-index: 30; gap: var(--space-2); min-width: 16rem; max-width: min(24rem, calc(100vw - 1rem)); }
+.status-popup[hidden], .status-popup__error[hidden] { display: none; }
+.status-popup__facts { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 0.8125rem; }
+.status-popup__note { margin: 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.status-popup__error { margin: 0; font-size: 0.8125rem; color: var(--color-danger); }
+.status-popup__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }

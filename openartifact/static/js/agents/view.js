@@ -1,6 +1,7 @@
 /* DOM building blocks shared by the agent pages, the agent node's inspector and the agent block of a
  * step. Everything is text (textContent, never innerHTML): prompts, values and provider messages come
  * from users and from outside. */
+import { attachCopy } from "../components/copy-button.js";
 import { fieldLabel, inputStateText, seconds, showValue, toolCallRows } from "./model.js";
 import { t } from "../i18n.js";
 
@@ -23,7 +24,7 @@ export function block(title, text) {
   const pre = el("pre", "ag-pre", text);
   pre.tabIndex = 0;
   pre.setAttribute("aria-label", title);
-  wrap.append(el("p", "ag-block__title", title), pre);
+  wrap.append(el("p", "ag-block__title", title), attachCopy(pre).host); // a long prompt or answer can be copied whole
   return wrap;
 }
 

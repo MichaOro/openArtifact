@@ -47,10 +47,13 @@ def placeholders(text: str) -> list[str]:
     return list(dict.fromkeys(PLACEHOLDER.findall(text)))
 
 
-def prompt_problems(text: str, declared: Sequence[str] | None, what: str) -> list[str]:
+def prompt_problems(
+    text: str, declared: Sequence[str] | None, what: str, graph_inputs: Sequence[str] = ()
+) -> list[str]:
     """Why ``text`` cannot be a prompt of an agent that declares ``declared`` (empty: it can).
 
-    ``declared`` ``None`` checks the form only (a node's own prompt: its agent says which inputs exist).
+    ``declared`` ``None`` checks the form only (a node's own prompt: its agent says which inputs exist). ``graph_inputs`` are the inputs
+    the Trigger of the graph the node sits in declares: a prompt of the node may use them too, the agent's own inputs come first.
     """
     found: list[str] = []
     for match in _FOREIGN.finditer(text):
@@ -66,12 +69,14 @@ def prompt_problems(text: str, declared: Sequence[str] | None, what: str) -> lis
                 f"{what}: {match[0][:60]} is not a valid placeholder: input names are lowercase "
                 "letters, digits and _, start with a letter and have at most 32 characters"
             )
-        elif declared is not None and name[1] not in declared:
+        elif declared is not None and name[1] not in declared and name[1] not in graph_inputs:
             has = (
                 f"it declares: {', '.join(declared)}"
                 if declared
                 else "this agent declares no inputs: declare one on the agent, then map it in the node"
             )
+            if graph_inputs:
+                has += f"; the Trigger of this graph declares: {', '.join(graph_inputs)}"
             found.append(f"{what}: ${{input.{name[1]}}} is not a declared input ({has})")
     return list(dict.fromkeys(found))
 
@@ -264,6 +269,12 @@ def fill(
                     return match[0]
                 raise RenderError(str(error)) from error
         state = by_name.get(match[1])
+        if state is None and view is not None and match[1] in view.context.inputs:
+            # not an input of the agent but one of the graph the node runs in (its Trigger): it stays reachable, the agent's own inputs win (ADR-089 add.)
+            try:
+                return view.render(match[0])
+            except ContextError as error:
+                raise RenderError(str(error)) from error
         if state is None or state.value is None or state.state == "error":
             if preview or (state is not None and state.state == "pending"):
                 return match[0]

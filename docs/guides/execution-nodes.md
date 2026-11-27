@@ -234,12 +234,16 @@ A dry run runs a pipeline under real conditions and skips everything that writes
 | write | other HTTP methods, Artifact *Add comment*, other GitHub operations, Postgres with *Allow changes*, Execute Command without *Read only*, and anything not declared | skipped |
 | mixed | Agent, MCP Tool, GitHub Tool and OpenArtifact Tool with changes allowed | runs; the tools it calls that change something are answered with "Dry run: ... was not executed" |
 
-**In the editor:** double-click the **Trigger** of a pipeline or of an action definition and open the tab *Dry run* (*Testlauf*). Choose a test card (a searchable list of the
-cards of the board; the last choice is remembered for the graph in your browser), fill in the inputs the Trigger declares (an empty field uses its default, shown faintly; a
-required one is marked), choose *Draft* (the default) or *Published*, and read the check under the form: it says in plain words what would stop the run (a missing required
-input, a reference that names something that is not there). *Start dry run* is locked while the emergency stop is on, while no card is chosen and for an action that no
-pipeline places (*Place this action in a pipeline to run it*; an action runs through a pipeline that places it). The result shows the status with the *Dry run* mark and the
-steps, with *Would have ...* for what was skipped, and *Open in history* leads to the execution. The card is not changed, and the Output node has no such tab.
+**In the editor:** double-click the **Trigger** of a pipeline or of an action definition and open the tab *Dry run* (*Testlauf*). Fill in the inputs the Trigger declares (an empty
+field uses its default, shown faintly; a required one is marked), choose *Draft* (the default: what you see in the editor, including edits you have not published, in the pipeline
+and in every action it places) or *Published*, and read the check under the form: it says in plain words what would stop the run (a missing required input, a reference that names
+something that is not there). A card is optional (ADR-089): **Add** opens a small menu, *Test card* puts a searchable list of the cards of the board on the form (the last choice is
+remembered for the graph in your browser; the X beside it takes it off); without one the run belongs to a hidden card of the graph that is in no list or count of the board.
+An **action runs by itself**, from its Trigger to its Output, whether or not a pipeline places it (it does not enter a pipeline, and *Draft* runs its own draft). *Start dry run* is
+locked only while the emergency stop is on. A dry run shows as **one row** under the form, like a run in the artifact's History tab (status, number, the
+*Dry run* flag, time, duration); the latest five are listed, the row follows the run until it ends, and while it runs the button is *Stop processing*. A click on the row opens
+the execution in the history (its *Back* button returns to this editor), with the steps (*Would have ...* for what was skipped); *All dry runs in the history* lists them all. The card is not changed, and the Output node
+has no such tab.
 
 A skipped step passes and says what it would have done in `reason` and in `data` (`dry_run: true`, `would_have`). It has no result: a later node that reads `.output`,
 `.exit_code` or another `data` field of it fails with a message that names the node and suggests mock data. `success` and `data.dry_run` can be read.
@@ -262,6 +266,31 @@ switch. It is for the nodes that leave a result of their own (not Trigger, Outpu
 
 API: `PATCH /api/{actions|pipelines}/{id}/nodes/{node_id}` takes `mock` (the object, or `null` to remove it) and, on a Trigger, `cases` (`[{"name", "inputs"}]`); the node answers with them.
 `GET .../nodes/{node_id}/last-result` returns the newest stored result of a real run as `{found, outcome, output, reason, data}`.
+
+### Observe mode
+
+A pipeline can be **observed** (ADR-088): every run of it, from any start (a card, the API, the MCP tool, a rule), is a dry run that nobody asked for by hand. It reads
+real data and writes nothing; the run and its execution carry `observed: true` beside `dry_run: true`, and the counters of real runs leave it out. Use it to watch a new
+pipeline on real cards before it changes anything.
+
+- **Set with a publication.** The setting is `{enabled, days, runs}` (days 1 to 365, runs 1 to 100000, either, both or none = until it is switched off). It is kept in the
+  draft and goes live with the next publication, with the others of that version (it is part of the version and of *Changed draft*); the publish check names it
+  (*Observe mode will be switched on with this publication*). A pipeline that was never published and a draft are never observed.
+- **A pipeline called by another follows the outer run** and does not read or count its own mode; a call of a pipeline whose observation has ended fails with the reason.
+- **Mocks are not used** (they are in no published version). The emergency stop still refuses every start; a manual dry run is neither refused by an ended observation nor
+  counted.
+- **The end.** After the days or runs of the setting every start is refused (`409`, `observation_ended`, with the reason) until the owner decides: **release** (the pipeline
+  runs for real from now on, until a publication changes the mode) or **observe again** (counters from zero, with a new limit). Both are immediate, need no publication and are
+  recorded (the last twenty decisions with who and when).
+- **What cannot be observed.** A node that needs the result of a skipped write does not fail the run and does not take On Fail: its step says *Not observable from here*
+  (`data.not_observable`) and the run ends there as **done** with that in its note.
+
+**In the editor.** The switch *Observe* (German *Beobachten*) is at the top of the *Dry run* tab of the pipeline's Trigger window (an action has none: it is tried with a dry
+run), with the optional *Stop after (days)* and *Stop after (runs)*; it changes the draft and says *Applies when you publish* and, while the draft differs, what is live now.
+While the published mode observes, an **open eye** sits in the corner of the canvas beside the shield and the plus (order: eye, shield, plus; an entry that is not active is not
+there and the others close up): its popup shows since when, how many runs and when it ends, and offers *Stop observing* (a change of the draft, applied by a publication) and
+*Open settings*. While the observation has **ended**, a stop sign takes the eye's place: its popup gives the reason and the two decisions *Release* and *Observe again*, which act
+at once. The pipelines list shows the chip *Observing* (*Beobachtet*) or *Starts refused*.
 
 ## Execute Command node
 

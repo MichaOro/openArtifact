@@ -24,7 +24,7 @@ export function isEdited(comment) {
 /** The page of the execution a run comment came from, or null (any other comment, or an execution of no artifact). */
 export function runLink(comment, number) {
   if (comment.author_kind !== "run" || !comment.execution_id || number == null) return null;
-  return `/artifacts/${encodeURIComponent(number)}/executions/${encodeURIComponent(comment.execution_id)}`;
+  return `/artifacts/${encodeURIComponent(number)}/executions/${encodeURIComponent(comment.execution_id)}?from=card:${encodeURIComponent(number)}`;
 }
 
 /** "1 comment", "3 comments". */

@@ -3,7 +3,9 @@
  * the #history-step-template (templates/components/history_step_template.html). */
 import { agentFacts } from "../agents/model.js";
 import { detailView } from "../agents/view.js";
+import { attachCopy } from "../components/copy-button.js";
 import { icon } from "../components/icons.js";
+import { skipMarker } from "../components/skip-marker.js";
 import { mockOfStep } from "../editor/mock-model.js";
 import { formatBytes } from "../editor/sources-model.js";
 import { request } from "../http.js";
@@ -102,8 +104,12 @@ export function fillStep(template, step, open = new Set(), { loadDetail = null }
   factsEl.hidden = facts.length === 0;
 
   const reason = item.querySelector("[data-step-reason]");
-  reason.textContent = step.reason ? t("tasks.history_step.reason_reason", { reason: step.reason }) : "";
+  // a step an observed run could not see (ADR-088) is passed: its line says so quietly, it is no reason of a failure
+  const quiet = Boolean(step.data?.not_observable);
+  reason.textContent = step.reason ? (quiet ? step.reason : t("tasks.history_step.reason_reason", { reason: step.reason })) : "";
   reason.hidden = !step.reason;
+  if (quiet) reason.dataset.notObservable = "";
+  else delete reason.dataset.notObservable;
 
   // the flow page leaves the output out and loads it when the block is opened (output_length says there is one)
   fillBlock(item.querySelector("[data-step-output]"), `${step.id}:output`, step.output, open, step.output || step.output_length > 0);
@@ -111,10 +117,21 @@ export function fillStep(template, step, open = new Set(), { loadDetail = null }
   const data = step.data == null ? "" : JSON.stringify(step.data, null, 2);
   fillBlock(item.querySelector("[data-step-data]"), `${step.id}:data`, data, open, Boolean(data));
   fillMock(item, step, loadDetail);
+  fillSkip(item, step);
   fillContext(item.querySelector("[data-step-context]"), step);
   fillAgent(item.querySelector("[data-step-agent]"), step, open, loadDetail);
   fillTries(item.querySelector("[data-step-tries]"), step, open, loadDetail);
   return item;
+}
+
+/** The skip marker beside the outcome of a step a dry run (or an observed run) skipped: the icon with what it would have done as its tooltip. The
+ * wording of the step stays as it was; a mocked step never has it (ADR-086 addendum 3). */
+function fillSkip(item, step) {
+  const slot = item.querySelector("[data-step-skip]");
+  if (!slot) return; // a page with an older template
+  const marker = skipMarker(step);
+  slot.replaceChildren(...(marker ? [marker] : []));
+  slot.hidden = !marker;
 }
 
 /** The kinds that take no mock (the server refuses them as well). */
@@ -202,5 +219,7 @@ function fillBlock(details, key, text, open, present) {
   details.hidden = !present;
   details.dataset.key = key;
   details.open = open.has(key);
-  details.querySelector("pre").textContent = text;
+  const pre = details.querySelector("pre");
+  pre.textContent = text;
+  attachCopy(pre); // the whole output or data, however far the block has scrolled
 }

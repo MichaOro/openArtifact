@@ -145,8 +145,9 @@ def test_a_row_opens_its_flow_by_mouse_and_by_keyboard(
     first = executions(api, made["a"])[-1]  # A#1
     rows = _open(page, secured_url)
     link = rows.nth(3).locator("[data-open]")
+    # the link says it was opened from the list of executions, so Back returns there (ADR-089)
     expect(link).to_have_attribute(
-        "href", f"/artifacts/{made['a']['number']}/executions/{first['id']}"
+        "href", f"/artifacts/{made['a']['number']}/executions/{first['id']}?from=executions"
     )
     rows.nth(3).locator(".ex-row__time").click()  # anywhere on the row
     expect(page).to_have_url(re.compile(rf"/artifacts/{made['a']['number']}/executions/"))

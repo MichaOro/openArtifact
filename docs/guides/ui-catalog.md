@@ -45,6 +45,7 @@ not suggestions, and a change that breaks one is sent back.
    no manual `active_nav` strings in routes. Every page registers its entry via
    `registry.register(NavLinkEntry(...))` (see [ADR-066](../architecture/adr/066-modular-navigation.md)).
    A test enforces this (`tests/test_navigation_modularity.py`).
+7. **Flexible icon lists have one rule:** fixed order, only the active entries are shown, never a gap, right-anchored and growing to the left, one hover (see *Flexible icon lists* below).
 
 ## Rules
 
@@ -81,7 +82,7 @@ not suggestions, and a change that breaks one is sent back.
 | Icon only, destructive | `icon-button is-danger` | A delete icon: it turns red on hover and focus. |
 | Chip (toggle) | `chip-button` with `aria-pressed="true|false"` | A filter or a switch among a few: *All / Comments / Executions / Changes*. |
 | Chip (small action) | `chip-button` without `aria-pressed` | A compact action in a tight place. |
-| Flag (mark) | `history-flag` | A small tinted pill that marks a row: *Dry run* / *Testlauf* next to the execution number in the history (ADR-086); hidden unless the execution is a dry run. |
+| Flag (mark) | `history-flag` (`components/run-flag.js`: `drawRunFlag`) | A small tinted pill that marks a row: *Dry run* / *Testlauf* next to the execution number in the history (ADR-086), or *Observed* / *Beobachtet* (its own tint, `data-kind="observed"`) for a run of an observed pipeline (ADR-088), which says only that; hidden unless the execution is a dry run or observed. |
 
 Sizes: the default is 2.5 rem high; `button--sm` (and every `.action-row`) is 2 rem. `button--md` brings one button back to
 the full size inside a compact container.
@@ -139,6 +140,12 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A dialog | `modal.js` with `templates/components/modal.html`; a question: `confirm-dialog.js`; input fields: `form-dialog.js`; a dialog that runs a request: `action-dialog.js` |
 | A tab list | `tabs.js` (`.task-tabs` / `.task-tab`); a tab with `disabled` is a place held for what is not built (greyed, skipped by the keys). The window of a Trigger uses it for *Inputs* and *Dry run* (`InspectorBlocks.triggerTabs`, ADR-086 addendum); the tab chosen is kept by the editor, not in the address, because the window is not an address. The window of every node that leaves a result uses it for *Settings* and *Mock* (`InspectorBlocks.mockTabs`, ADR-087); a pencil beside the close button and the pin on the card open the Mock tab |
 | A list of cards to choose one from | `combobox.js` (the test card of the Dry run tab: options by number and title, the lane as the description; `editor/dry-run-panel.js`) |
+| A row of an execution list | `history-row-template` (`components/history_row_template.html`) filled by `HistoryList` (`tasks/history-list.js`): the artifact's History tab and the dry runs in the Trigger window's Dry run tab (no bin there) |
+| The status bar in the corner of the editor's canvas: the eye of the observe mode, the shield of the guards and the "+" in a fixed order, an entry only while it is active | `status-bar.js` (a variant of `icon-list.js`: entries with a key, an order and `visible`; the arrangement is `icon-list-model.js`), the popup of an entry is `status-popup.js` (title, facts, note, buttons); the icons `eye` (observing) and `hand` (starts refused) |
+| The small icons in the top right corner of a node card: the mock pin and the shield of the guards | `card-icons.js` (`placeCardIcon(card, key, order, element)`; the places are `CARD_ORDER`, a variant of `icon-list.js`, the arrangement is `icon-list-model.js`); the look is the quiet icon button (`icon-button--quiet icon-button--xs`) with its hover | 
+| The Back button of the execution page | `execution/back-link.js` (`?from=board`, `executions`, `card:<n>`, `action:<slug>`, `pipeline:<slug>`: a whitelist, never an address); a link to an execution adds it with `withOrigin` (ADR-089) |
+| The copy button of a long text: a quiet 24 px icon button in the top right corner of the text block, so a long output, a prompt or the body of a card is copied whole without scrolling | `copy-button.js` (`attachCopy(block, getText?, {always?})` wraps the block in a `.copy-host`; `copyText(text)` is the one place that writes to the clipboard: the Clipboard API, then a hidden field and the copy command, else a plain message); the rules are `copy-model.js` (`shouldOffer`, `blockText`). Used for: the Output and Data blocks of a step (History tab and flow panel), the blocks of an agent step (prompts, answer), the body and title of a card (read view and fields), the prompt fields of the agent page, every multi-line setting of a node window (prompt override, body, code) and the Output and Data of the Mock tab |
+| Optional items of a form behind "+ Add" | the Add button with the shared menu (`action-menu.js`), the items in a list of the model (`OPTIONAL_ITEMS` in `editor/dry-run-model.js`), each with a remove control (the test card of the Dry run tab) |
 | A page that manages definitions (list of cards or rows, toolbar, detail panel with tabs) | `management-page.js` (`ManagementPage`, `chip`, `make`), styled by `management.css` (`.mg-*`); see "Management pages" below |
 | A long list that hides its middle (the versions of an agent: the newest two and the first stay behind "Show more versions (N)", a dotted vertical line through the button; the hidden ones open and close, `aria-expanded`) | `fold-list.js` (`foldEntries` for the entries, `foldSeparator` for the button), styled by `.fold-separator` in `components.css` |
 | A select whose text is never cut (as wide as its longest choice, also in a grid column or a narrow window) | `select-fit.js` (`fitSelect(select, {extra})` sets `--select-min` for `select.field__control[data-fit]`; `fitColumn(table, "--name", selects)` makes a column of selects as wide as the widest) |
@@ -282,6 +289,37 @@ with its reason, and an exception that is not needed any more is removed):
 A value that is long in itself is never shown whole: a row that names what a setting inherits (a prompt of thousands of
 characters) shows a one-line preview and the whole text in its tooltip (`preview` in `agents/model.js`).
 
+## Cards of the pipeline view
+
+The cards on the canvas have a size and a title rule, so a column of them looks calm (the owner's decision after a comparison of widths):
+
+- **Sizes:** an **action** card is 228 x 76 px (`ui.size` in `graph/nodes/action.yaml`). The flow cards (agent, code, http, set, github, postgres, sqlite, artifact, context, switch)
+  keep the size of their behaviour (250 x 84, an `if` 250 x 104); the plain ones (Trigger, Timer, Complete), the tools and the pipeline card keep theirs too. The ports are placed from the size, so a change of
+  a size moves the ports and the edges with it, and the stage's slot heights follow (`slotHeights`).
+- **The title reserves two lines, always:** on an action card and on the flow and switch cards the name has a fixed height of two lines (`min-height: 2.3em`, `line-clamp: 2`), so a card does not change its
+  height whether the name needs one line or two; a one-line name leaves the second line empty and a longer one is cut with an ellipsis at its end. The kind label (`Action`, the caption of a flow card)
+  stands under the title block with a gap of 0.3 rem, so it never touches the second line, used or not. The whole name stays the tooltip (ADR-082).
+- **The icon list** (mock pin, shield) lies in the top right corner, beside the title text and not over it: the card keeps its right padding for it and for the port labels.
+- Stage cards (their header), tools and the Output card are not part of this rule: their names stay on one line.
+
+## Flexible icon lists
+
+A row of small icons whose members come and go (the corner of the canvas, the corner of a node card) follows **one rule**, so that nobody invents another:
+
+- **Fixed order:** every entry has its own place in the order (`order`), not a slot. A new entry takes its place between the others, never at the end by accident.
+- **Only what is active is shown:** an entry that is not active is not in the list at all. With four possible entries of which only the second and the fourth are active, those two sit next to each other: **no gap, no placeholder** for the first and the third.
+- **Anchored at the right edge, growing to the left:** the right-most entry (the shield on a card, the "+" in the canvas corner) keeps its place; the others are added on its left.
+- **Declarative entries:** an entry is a line (key, order, visibility, icon, label, what a click does); another icon costs one line. One base, `components/icon-list.js` (the pure logic is `icon-list-model.js`), serves every such list; a list is a **variant** of it.
+- **One hover:** the icons are quiet icon buttons (`icon-button--quiet`), whose hover tint shows that they can be clicked; no list has its own hover. The glyph sits in the **centre** of a square hit area (24 px on a card, 40 px in the canvas corner): `.icon-button` has no padding of its own (the browser's 1px 6px is wider than the content of a 24 px button and pushed the glyph 3 px to the right); `tests/e2e/test_icon_list_glyphs.py` measures it for every variant, normal and hover.
+
+**One base, thin variants.** `IconList` (`icon-list.js`) holds the entries, the order and the no-gap rule; a variant (`defineVariant` in `icon-list-model.js`) says only what differs: a `name`, the **whitelist** `allow` of the keys the list may show (any other key is refused with an error that names the allowed ones, so a misspelled or foreign key cannot slip in), the **order table** `order` (key to place), what an inactive entry is (`inactive: "hide"` keeps it in the page with `hidden`, `"detach"` takes it out), the data attributes of an entry's element, the CSS class of a button the list makes (the size) and, outside the variant, the **host** (the element the CSS anchors at the right edge: the canvas corner's row, the card's `.ge-node__icons`).
+
+Used now: the status bar of the canvas (eye of the observe mode, stop sign, shield, "+": the variant `STATUS_BAR` in `status-bar.js`) and the node card (skip marker of a dry run, mock pin, shield: the variant `CARD_ICONS` in `card-icons.js`).
+
+**The skip marker** (`components/skip-marker.js`, pure part `skip-marker-model.js`): a node card on the flow page whose step a dry run (or an observed run) skipped shows the *fast forward (two arrows)* icon, the "wind forward" of old recorders, as the first entry of the card's list, left of the mock pin and the shield. Its tooltip says what the node would have done (*Skipped in a dry run: would have waited 3 s*; German *Im Dry run übersprungen: hätte …*). The same icon (small, with that text as its title) stands beside the state of the step in the path list, and a button with the shared tooltip beside the outcome in the step detail of the history. **Dimmed means "not reached":** a skipped node was passed in the flow, so it keeps the look of a node that ran; only a node the run never came to is dimmed and dashed. **The skip marker and the mock pin never meet on a node:** a node that handed over a mock was processed, not skipped, and a step an observed run could not see (`data.not_observable`) has neither.
+
+**A third variant** costs: a whitelist and an order table in a `defineVariant` call, a size (the button class), a host element with its anchoring CSS, and one `add` per entry. No new arrangement code.
+
 ## Exceptions that exist today
 
 | Where | Why it is not a catalog component |
@@ -305,3 +343,21 @@ styling it yourself.
 - [ ] Icon-only controls have an accessible name.
 - [ ] `tests/e2e/test_ui_catalog.py` passes; a new page or dialog is added to its list; a new variant is added to its matrix.
 - [ ] You looked at it in the light and in the dark theme.
+
+## The copy button
+
+One component copies a long text whole (`components/copy-button.js`); a block that has long text gets it with one line, `attachCopy(block)`.
+
+- **Where it sits:** inside the block, at its top right, 24 x 24 px with the glyph centred (the rule of the icon buttons). The block is wrapped in a `.copy-host`; the host does not scroll, the block
+  inside may, so the button **stays in view while a long block scrolls**. A copy button never covers text: the block gets right padding (`.has-copy`) while the button is shown.
+- **What it copies:** the full text, not what is visible: the whole output of a step however far it has scrolled, the Markdown of a body as written (not the drawn headings), the pretty-printed JSON of the
+  Data block, the current value of a field (also one that is being edited). It copies what the page shows; a masked value is never read.
+- **When it is there (the visibility rule, `shouldOffer`):** the text is not empty and has more than one line or at least 80 characters. A short single line (a name, a number, a one-line title) has no
+  button: selecting it is quicker. A field the user fills with prose (a prompt, a body, code, the output of a mock) passes `always`: it has the button as soon as it holds something. The button follows the
+  text: it appears and disappears as a field is typed in or a block is filled.
+- **What it says:** after a click the icon is a tick for 1.5 seconds and its name is "Copied" (announced politely for a screen reader); where the clipboard is not allowed (an insecure page, a denied
+  permission) it shows "Copying is not possible here" for a moment instead of failing silently.
+- **One writer:** `copyText` is the only code that writes to the clipboard: the text "Copy" buttons of a long text (`clamped-text.js`), of the run context and of the token window use it too.
+- **Not in a header:** step headers and status rows have none; the button belongs to a text block.
+
+**The line from a tool to its agent** (`attachmentPath` in `editor/geometry.js`, the same for every tool kind, in the editor and on the flow page): a tool below its agent keeps the short curve from the top of the tool up to the agent's *Tools* port; a tool above or beside it goes round, above both cards, past both on the nearer side and up to the port from underneath. A line never runs through a card (ADR-079, addendum 1).

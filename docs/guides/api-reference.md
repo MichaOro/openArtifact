@@ -56,7 +56,8 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | PATCH | `/api/v1/artifacts/{ref}` | Change it (partial); `fields` are merged into the stored ones (`null` clears one); lane, order, parent, pipeline, type and parameters are locked while it is processed | 404, 409, 422 |
 | DELETE | `/api/v1/artifacts/{ref}` | Delete it (not while it is processed); `204` | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run` | State of the run: status, where it is, status of every stage | 404 (never processed) |
-| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`, and for a dry run `dry_run`, `inputs`, `version`: see [execution nodes](execution-nodes.md#dry-run-testlauf)); the run records `started_by: api`; `201`; `409` with `code: stopped` while the emergency stop is on (ADR-076) | 404, 409, 422, 429 |
+| POST | `/api/v1/graphs/{ref}/dry-run` | As `/api/graphs/{ref}/dry-run`, started as `api`; the **published** version runs unless `version` is `draft` (ADR-089) | 404, 409, 422, 429 |
+| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`, and for a dry run `dry_run`, `inputs`, `version`, and with `dry_run` `definition_id` to run one action by itself: see [execution nodes](execution-nodes.md#dry-run-testlauf)); the run records `started_by: api`; `201`; `409` with `code: stopped` while the emergency stop is on (ADR-076) | 404, 409, 422, 429 |
 | POST | `/api/v1/artifacts/{ref}/run/stop` | Stop; the artifact keeps its stage and action | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run/results` | Every step of the run inside action definitions, in order, with complete outputs | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions` | The artifact's executions, newest first, without steps; `limit` 1 to 500 (default 100) | 404, 422 |
@@ -145,6 +146,22 @@ The browser has the same routes under `/api/guards` and `/api/guard-attachments`
 `GET /api/rules/schemas` (and `/api/rules/schemas/{purpose}`) lists the fields, operators and consequences of the rule
 system (`retention`, `guard`, the planned `lane`). The flow of an execution carries `guards`: the counters per scope and
 guard (by attachment), the last heartbeat and the firings with their facts.
+
+### Observe mode of a pipeline (ADR-088)
+
+A pipeline in the **observe mode** runs every start, from any door, as a dry run that changes nothing (`dry_run: true`, `observed: true` in the answer of the start and in the
+run and the execution). The mode is set in the **draft** and goes live with a **publication**; after its `days` or `runs` every start is refused until the owner decides
+(**release**, or **observe again**). The same routes exist under `/api/pipelines/{ref}/observe` for the editor; `ref` is the pipeline's id, slug or name. Release and
+observe again are immediate and recorded in `state.events` (who: `user`, `api` or `mcp`).
+
+| Method | Path | Purpose | Errors |
+|--------|------|---------|--------|
+| GET | `/api/v1/pipelines/{ref}/observe` | `draft` and `published` (`{enabled, days, runs}` or `null`), `draft_differs` and `state`: `enabled`, `observing`, `ended`, `released`, `days`, `runs`, `runs_done`, `started_at`, `ends_at`, `reason`, the last decisions in `events` | 404, 409 (a name fits several) |
+| PUT | `/api/v1/pipelines/{ref}/observe` | `{"enabled": bool, "days?": 1-365, "runs?": 1-100000, "publish?": bool}`: set the **draft** (nothing that runs changes); with `publish: true` the pipeline is published in the same call, refused (`409`, `draft_has_other_changes`, nothing changed) when the draft holds other unpublished changes | 404, 409, 422 |
+| POST | `/api/v1/pipelines/{ref}/observe/release` | The pipeline runs for real from now on, until a publication changes the mode; immediate | 404, 409 (the published version has no mode, or released already) |
+| POST | `/api/v1/pipelines/{ref}/observe/again` | `{"days?", "runs?"}`: observe again from now, counters from zero, with that limit (none: the published setting's); immediate | 404, 409 (the published version has no mode), 422 |
+
+A start of a pipeline whose observation has ended answers `409` with the code `observation_ended` and the reason; a call of such a pipeline from another fails the call with it.
 
 ### Settings (`/api/v1/settings`)
 
@@ -279,6 +296,9 @@ values together are at most 4 KiB. The refusal for a typo:
 | GET | `/api/runs/{task_id}/results` | Steps inside action definitions with complete outputs | 404 |
 | POST | `/api/tasks/{task_id}/run` | Start; stages before the starting stage count as done; `dry_run`, `inputs`, `version` for a dry run (the draft by default); `201` | 404, 409, 422, 429 |
 | POST | `/api/tasks/{task_id}/dry-run/check` | What would refuse a dry run started with the same body as the start (`pipeline_id`, `stage_id`, `action_id`, `inputs`, `version`, default `draft`): `{"problems": [text]}`, empty when nothing is in the way; reads only, starts nothing (ADR-086) | 404, 422 |
+| POST | `/api/graphs/{ref}/dry-run` | A dry run of a pipeline, or of an action by itself (from its Trigger to its Output), by id, slug or name (ADR-089). Body optional: `task_id` (a card, id or number; without one the run belongs to the graph's hidden card, made on first use and in no list of the board), `stage_id`, `action_id` (pipelines), `inputs`, `version` (`draft` by default). `201`; `409` while the emergency stop is on | 404, 409, 422, 429 |
+| POST | `/api/graphs/{ref}/dry-run/check` | What would refuse that start, `{"problems": [text]}`; reads only | 404, 422 |
+| GET | `/api/graphs/{ref}/dry-run-card` | The hidden card of the graph, `{task_id, number}`, `null`s until a card-less dry run made it; its executions are `GET /api/tasks/{task_id}/executions` | 404 |
 | GET | `/api/actions/{action_id}/placements` | Where a pipeline puts the action definition (`pipeline_id`, `pipeline_name`, `stage_id`, `stage_name`, `action_id`): where a dry run of the action starts; empty when none does | 404 |
 | POST | `/api/tasks/{task_id}/run/stop` | Stop | 404, 409 |
 
@@ -429,15 +449,15 @@ execution.
 | Tool | Arguments | Purpose |
 |------|-----------|---------|
 | `list_pipelines` | | Pipelines with stages and actions |
-| `list_lanes` | | The current lanes (`status`, `title`, `style`, `artifact_count`, `deletable`); read only. The keys are what `lane` takes |
-| `list_artifacts` | `lane?`, `parent?`, `include_archived?`, `archived?` (`exclude` default, `include`, `only`), `brief?`, `limit?` (1 to 500), `offset?` | Artifacts in board order; `lane`: a key from `list_lanes`; `parent`: a number, only its children. Without paging arguments it answers the whole list as before. With `brief` each card is a short record (`number`, `title`, `lane`, `parent` (a number), `archived`, `archived_at`, `created_at`, `updated_at`, `processing`): the full cards carry the text and are too large for a long list. *Tidy up* |
+| `list_lanes` | | The current lanes: `name` (what `lane` takes), `id` (a uuid: stable, says nothing, survives a rename; `lane` takes it too), `style`, `artifact_count`, `position`, `deletable`; read only. A card says `lane` (the name) and `lane_id`; an unknown lane is an error that lists the names ([ADR-090](../architecture/adr/090-lane-ids-and-names.md)) |
+| `list_artifacts` | `lane?`, `parent?`, `include_archived?`, `archived?` (`exclude` default, `include`, `only`), `brief?`, `limit?` (1 to 500), `offset?` | Artifacts in board order; `lane`: the name or id of a lane from `list_lanes`; `parent`: a number, only its children. Without paging arguments it answers the whole list as before. With `brief` each card is a short record (`number`, `title`, `lane`, `parent` (a number), `archived`, `archived_at`, `created_at`, `updated_at`, `processing`): the full cards carry the text and are too large for a long list. *Tidy up* |
 | `count_artifacts` | `lane?`, `archived?` | `{total, lane, archived}`: how many cards there are (how far to page). *Tidy up* |
 | `search_artifacts` | `query`, `lane?`, `archived?`, `limit?` (1 to 200, default 50) | Cards whose title or text contains `query` (ignoring case) or whose number it is: short records plus `match` (`number`, `title`, `body`) and, for a text match, a `snippet`. Titles first. *Tidy up* |
 | `get_artifact` | `artifact` | One artifact; `parent` is its parent's number, `processing` says whether it is being processed now |
 | `get_artifacts` | `artifacts` (at most 20), `with_comments?`, `comments_limit?` (1 to 100, default 20), `body_chars?` | Several cards in one call, each as `get_artifact` gives it; with `with_comments` the newest comments (oldest first); with `body_chars` the text cut to that many characters (`body_truncated`). A card that cannot be read is an entry with `artifact` and `error`. *Tidy up* |
 | `archive_artifact` | `artifact` | Put one card into the archive ([card rules](../architecture/adr/071-card-rules.md)): `409 archived` when it already is, a refusal while it is being processed. *Tidy up* |
 | `unarchive_artifact` | `artifact` | Take one card out of the archive: back into its lane, at the top. Refused when it is not archived. *Tidy up* |
-| `move_artifacts` | `artifacts` (at most 50), `lane`, `dry_run?` | Move cards into a lane (a key from `list_lanes`); archived cards and cards being processed are refused with the reason, a card already there is `ok`. The cards land at the end of the lane in the order given. *Tidy up* |
+| `move_artifacts` | `artifacts` (at most 50), `lane`, `dry_run?` | Move cards into a lane (its name or id, see `list_lanes`); archived cards and cards being processed are refused with the reason, a card already there is `ok`. The cards land at the end of the lane in the order given. *Tidy up* |
 | `archive_artifacts` | `artifacts` (at most 50), `dry_run?` | Archive cards; refused with the reason: already archived, being processed. *Tidy up* |
 | `set_parent` | `artifacts` (at most 50), `parent?`, `dry_run?` | Make cards the children of the card `parent` (its number), or take them out of their parent when it is left out; refused: archived, being processed, the card itself, a cycle. *Tidy up* |
 | `set_fields` | `artifacts` (at most 50), `fields`, `dry_run?` | Set the same field values (`{name: value}`, `null` clears one) on cards; an unknown name is an error of the call, a value that does not fit is the card's reason. With `dry_run` the names are checked and the values when it is done for real. *Tidy up* |
@@ -468,6 +488,10 @@ execution.
 | `list_providers` | | The LLM providers with their models and the last connection test; never a key; read only |
 | `list_guards` | `pipeline?` (name or id) | The guard library: each definition (its draft: trigger, condition, consequence, escalation, scope types; `published_version`; `draft_changed`) with its attachments (where, on or off, `guard_published`); with `pipeline` only the guards attached to it. MCP cannot create, change or publish a guard |
 | `set_guard_enabled` | `guard` (an attachment's id, or the guard's name or id when it is attached in one place), `enabled`, `pipeline?` | Switch a guard on or off where it is attached (off acts on running executions at once) |
+| `get_observe_mode` | `pipeline` (id, URL name or name) | The observe mode: draft, published, `draft_differs` and the state of the observation; read only (ADR-088) |
+| `set_observe_mode` | `pipeline`, `enabled`, `days?`, `runs?`, `publish?` | Set the mode in the draft; with `publish` also publish, refused (`draft_has_other_changes`) when the draft has other unpublished changes |
+| `release_observe_block` | `pipeline` | The pipeline runs for real from now on (immediate, recorded as `mcp`) |
+| `observe_again` | `pipeline`, `days?`, `runs?` | Observe again from now, with that limit or the published setting's (immediate, recorded) |
 | `heartbeat` | `execution_id`, `note?` | Restart the stall clock of a running execution |
 
 Not available through MCP, on purpose: deleting cards, lanes or executions, creating, renaming or deleting lanes, creating, changing, publishing or deleting agents and providers, writing or deleting credentials, changing

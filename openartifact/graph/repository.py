@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from openartifact.artifact_fields.service import field_specs
 from openartifact.engine.context import NodeIndex, node_key, problems, references_in
 from openartifact.graph import mock as mock_module
+from openartifact.graph import observe as observe_module
 from openartifact.graph import placements
 from openartifact.graph.node_types import (
     NODE_TYPES,
@@ -297,7 +298,9 @@ class GraphRepository:
         ).all():
             uses.append({"kind": "guard", "name": guard_name, "href": "/guards", "detail": ""})
         artifacts = await self._session.scalar(
-            select(func.count()).select_from(Task).where(Task.pipeline_id == graph.id)
+            select(func.count())
+            .select_from(Task)
+            .where(Task.pipeline_id == graph.id, Task.technical.is_(False))
         )
         executions = await self._session.scalar(
             select(func.count()).select_from(Execution).where(Execution.pipeline_id == graph.id)
@@ -385,7 +388,12 @@ class GraphRepository:
         )
 
     async def delete(self, graph: Graph) -> None:
-        """Delete the graph; its nodes and edges go with it (foreign key cascade)."""
+        """Delete the graph; its nodes and edges go with it (foreign key cascade), and so does the hidden technical card that holds its
+        card-less dry runs with their executions (ADR-089): nobody could reach them any more."""
+        for card in await self._session.scalars(
+            select(Task).where(Task.technical.is_(True), Task.pipeline_id == graph.id)
+        ):
+            await self._session.delete(card)
         await self._session.delete(graph)
         await self._session.flush()
 
@@ -444,6 +452,27 @@ class GraphRepository:
         """Mark the graph as changed (its nodes or edges changed)."""
         graph.updated_at = datetime.now(UTC)
         await self._session.flush()
+
+    async def set_observe(self, graph: Graph, setting: dict[str, Any] | None) -> None:
+        """Set the draft's observe mode (ADR-088), kept in its Trigger's config; ``None`` removes it. It takes effect with the next publication."""
+        if graph.kind != "pipeline":
+            raise NodeError("Only a pipeline has an observe mode")
+        trigger = next(
+            (n for n in (await self.graph(graph.id))[0] if n.kind == NodeKind.TRIGGER.value), None
+        )
+        if trigger is None:
+            raise NodeError("The pipeline has no Trigger")
+        try:
+            cleaned = None if setting is None else observe_module.clean_observe(setting)
+        except observe_module.ObserveError as error:
+            raise NodeError(str(error)) from error
+        config = dict(trigger.config or {})
+        if cleaned is None:
+            config.pop(observe_module.OBSERVE_KEY, None)
+        else:
+            config[observe_module.OBSERVE_KEY] = cleaned
+        trigger.config = config
+        await self.touch(graph)
 
     # ── nodes ─────────────────────────────────────────────────────────
 
@@ -939,6 +968,10 @@ class GraphRepository:
                 )
             )
         await self._session.flush()
+        if (
+            graph.kind == "pipeline"
+        ):  # the observe mode is part of a version (ADR-088): the draft takes the version's
+            await self.set_observe(graph, content.get("observe"))
         outputs = await self._outputs(graph.id)
         has_fail = any(n.fail_enabled for n in outputs)
         if has_fail != had_fail and outputs:

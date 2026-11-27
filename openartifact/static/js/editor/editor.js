@@ -20,6 +20,11 @@ import { choosePort, connectionFor, placement, replacedEdges } from "./connect-p
 import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextToolPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
 import { GraphModel } from "./graph-model.js";
 import { DryRunPanel } from "./dry-run-panel.js";
+import { StatusBar } from "../components/status-bar.js";
+import { LAST } from "../components/icon-list-model.js";
+import { StatusPopup } from "../components/status-popup.js";
+import { ObserveBar } from "./observe-bar.js";
+import { ObserveStore } from "./observe-store.js";
 import { PublicationControl } from "./publication-control.js";
 import { lastResult } from "./api.js";
 import { mockActive, mockable } from "./mock-model.js";
@@ -116,6 +121,7 @@ export class GraphEditor {
     // a line released on the empty canvas opens the same menu at the pointer (connect-menu.js)
     this.addMenu = addMenu;
     this.connectMenu = new ConnectMenu({ addMenu, scope: this.model.kind, nodes: this.nodes, onChoose: (choice) => this.#addFromPort(choice), purpose: () => this.model.graph?.purpose ?? null });
+    this.#setUpBar(root);
     this.#setUpGuards(root);
     followGraphChanges(this.model.id, () => this.load()); // a definition or a use changed elsewhere (ADR-061 addendum)
     followContracts((graphId) => this.#contractChanged(graphId)); // an action this pipeline places was published or its draft discarded (ADR-083 add. 2)
@@ -154,6 +160,7 @@ export class GraphEditor {
       if (fit) this.canvas.fit();
       this.#renderInspector();
       this.guards?.load(); // after a node went, the guards attached to it went too
+      this.observe?.refresh(); // the draft may differ from the published mode now
       if (!this.opened) this.#onFirstLoad();
       this.opened = true;
     } catch (error) {
@@ -463,6 +470,7 @@ export class GraphEditor {
         const { graph } = await loadGraph(this.model.kind, this.model.id);
         Object.assign(this.model.graph, { published_version: graph.published_version, draft_changed: graph.draft_changed });
         this.#showPublication();
+        this.observe?.refresh();
       } catch {
         /* the mark keeps what it showed: it is a hint, not the editor's state */
       }
@@ -636,7 +644,34 @@ export class GraphEditor {
       confirm: (message, action, options = {}) => this.confirm.open({ message, onConfirm: action, ...options }),
       showError: (message) => this.alert.show(message, { autoHide: 6000 }),
       redraw: () => this.canvas.sync(),
+      bar: this.bar,
     });
+  }
+
+  /** The status bar in the corner of the canvas (components/status-bar.js): the eye of the observe mode (a pipeline only), the shield of the guards and the "+" menu,
+   * in this order and only while active; the "+" is always the last. */
+  #setUpBar(root) {
+    this.bar = new StatusBar(root.querySelector(".ge-add__row"));
+    this.bar.add({ key: "guard", order: 20, element: root.querySelector("[data-pipeline-shield]"), visible: false });
+    this.bar.add({ key: "add", order: LAST, element: root.querySelector("[data-add-menu]"), visible: true });
+    if (this.model.isAction) return;
+    this.observe = new ObserveStore(this.model.id);
+    this.observeBar = new ObserveBar({
+      bar: this.bar,
+      popup: new StatusPopup(),
+      store: this.observe,
+      openSettings: () => this.#openObserveSettings(),
+      draftChanged: () => this.#refreshPublication(),
+    });
+  }
+
+  /** The Trigger window at its Dry run tab, where the observe mode is set. */
+  #openObserveSettings() {
+    const trigger = [...this.nodes.values()].find((node) => node.kind === "trigger");
+    if (!trigger) return;
+    this.dryRunTab = "dry-run";
+    this.nodeTab = "settings";
+    this.#openSettings(trigger);
   }
 
   /** The menu of a node: opened by a right click (at the pointer) or by the "..." of its bar (under it). */
@@ -894,6 +929,8 @@ export class GraphEditor {
       kind: this.model.kind,
       id: this.model.id,
       contract: async () => (await loadContract(this.model.kind, this.model.id)).inputs ?? [],
+      observe: this.observe ?? null,
+      draftChanged: () => this.#refreshPublication(),
     });
     return this.dryRun.show(node.config?.inputs ?? [], { list: () => this.nodes.get(node.id)?.cases ?? [], save: (cases) => this.#saveCases(node, cases) });
   }

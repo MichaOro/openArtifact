@@ -9,6 +9,8 @@ import { typeOf } from "../editor/node-types.js";
 import { addBubbles, FAILING_PORTS } from "./flow-bubbles.js";
 import { placeState, shieldTitle } from "./flow-guards.js";
 import { nameOf } from "./visit-model.js";
+import { CARD_ORDER, cardIcon, placeCardIcon, removeCardIcon } from "../components/card-icons.js";
+import { skipMarker, skipText } from "../components/skip-marker.js";
 import { plural, t } from "../i18n.js";
 
 /** state -> [word for people, word of the aria label, icon] */
@@ -117,7 +119,21 @@ export class FlowView {
     const facts = [word, calls, info.step?.exit_code != null ? t("execution.flow_panel.exit_code_exit_code", { exit_code: info.step.exit_code }) : null, info.passes > 1 ? `${info.passes} passes` : null, info.passes ? t("execution.flow_panel.enter_opens") : null];
     el.setAttribute("aria-label", `${typeOf(node).label}: ${nameOf(node)}, ${facts.filter(Boolean).join(", ")}`);
     el.title = info.state === "not-run" ? t("execution.flow_view.not_run") : calls ?? "";
+    this.#decorateSkip(node, el, info);
     this.#decorateGuard(node, el);
+  }
+
+  /** A node a dry run skipped is drawn like one that ran (it was passed in the flow: dimmed means not reached) and carries the skip marker in the
+   * card's icon list, with what it would have done as its tooltip; a node that handed over a mock has no such marker (ADR-086 addendum 3). */
+  #decorateSkip(node, el, info) {
+    const text = node.kind === "stage" ? null : skipText(info.step);
+    const marker = cardIcon(el, "skipped");
+    if (!text) {
+      if (marker) removeCardIcon(el, "skipped");
+      return;
+    }
+    if (marker?.getAttribute("aria-label") === text) return;
+    placeCardIcon(el, "skipped", CARD_ORDER.skipped, skipMarker(info.step));
   }
 
   /** The shield of the editor, read-only, where a guard watches: green and pulsing while one is watching now, else grey. */

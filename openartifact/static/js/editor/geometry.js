@@ -74,7 +74,7 @@ const TIGHT = 48; // a forward connection with less room than this would bend to
  * cutting across them (rounded for curved and elbow, with sharp corners for straight).
  */
 export function edgePath(from, to, fromBox, toBox, { routed = true, style = "curved", attachment = false } = {}) {
-  if (attachment) return attachmentPath(from, to);
+  if (attachment) return attachmentPath(from, to, fromBox, toBox, { routed, style });
   const dx = to.x - from.x;
   const level = Math.abs(to.y - from.y) < 1; // a straight run needs no room to bend: it is drawn as it is
   if (routed && dx < TIGHT && !(dx > 0 && level)) {
@@ -91,10 +91,28 @@ export function edgePath(from, to, fromBox, toBox, { routed = true, style = "cur
   return `M ${from.x} ${from.y} C ${from.x + reach} ${from.y}, ${to.x - reach} ${to.y}, ${to.x} ${to.y}`;
 }
 
-/** A tool's attachment: from the top of the tool up to the bottom of the agent, whatever the style. */
-function attachmentPath(from, to) {
-  const reach = Math.min(Math.max(Math.abs(from.y - to.y) / 2, 32), 160);
-  return `M ${from.x} ${from.y} C ${from.x} ${from.y - reach}, ${to.x} ${to.y + reach}, ${to.x} ${to.y}`;
+/** How far below the bottom of the agent the tool's top must be for the short direct line (a tool lower than this hangs below its agent). */
+const HANG = 24;
+
+/**
+ * A tool's attachment (the same for every tool kind): from the attachment port at the top of the tool to the port at the bottom of the agent.
+ * A tool that hangs BELOW its agent takes the short line up (a curve, whatever the style). A tool that is above its agent, or beside it with its
+ * top higher than the agent's bottom, would make that line run through a card: the line then goes round, up above both cards, out to the side
+ * that is nearer (past both cards), down below both and back to the agent's port from underneath. Rounded for curved and elbow, sharp corners for
+ * straight. While a connection is dragged (`routed` false, one box) the direct line stays: there is no second card yet.
+ */
+export function attachmentPath(from, to, fromBox, toBox, { routed = true, style = "curved" } = {}) {
+  if (!routed || !fromBox || !toBox || from.y - to.y >= HANG) {
+    const reach = Math.min(Math.max(Math.abs(from.y - to.y) / 2, 32), 160);
+    return `M ${from.x} ${from.y} C ${from.x} ${from.y - reach}, ${to.x} ${to.y + reach}, ${to.x} ${to.y}`;
+  }
+  const top = Math.min(fromBox.y, toBox.y) - DETOUR;
+  const low = Math.max(fromBox.y + fromBox.height, toBox.y + toBox.height) + DETOUR;
+  const right = Math.max(fromBox.x + fromBox.width, toBox.x + toBox.width) + DETOUR;
+  const left = Math.min(fromBox.x, toBox.x) - DETOUR;
+  const side = right - Math.max(from.x, to.x) <= Math.min(from.x, to.x) - left ? right : left;
+  const points = [from, { x: from.x, y: top }, { x: side, y: top }, { x: side, y: low }, { x: to.x, y: low }, to];
+  return polyline(points, style === "straight" ? 0 : CORNER);
 }
 
 /** A polyline whose inner corners are replaced by quadratic curves of the given radius. */

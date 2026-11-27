@@ -42,6 +42,7 @@ from openartifact.engine.context import (
     bind_inputs,
     build_outputs,
     check_card,
+    depends_on_skipped,
 )
 from openartifact.engine.executors import EXECUTORS, Limits
 from openartifact.engine.history import Changes, ExecutionHistory, utcnow
@@ -49,18 +50,19 @@ from openartifact.engine.limits import RunLimits, load_limits
 from openartifact.engine.results import NodeResult
 from openartifact.engine.retry import retry_of, tried
 from openartifact.engine.schemas import ExecutionRead, NodeResultRead, RunRead, RunStageRead
-from openartifact.engine.snapshot import NestingError, build_snapshot
+from openartifact.engine.snapshot import NestingError, build_action_snapshot, build_snapshot
 from openartifact.engine.storage import StorageLimits, cut_detail, load_policy
-from openartifact.engine.targets import TargetError, load_pipeline, pick_start
+from openartifact.engine.targets import TargetError, load_action, load_pipeline, pick_start
 from openartifact.engine.telemetry import TelemetrySource
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
-from openartifact.graph import preflight
+from openartifact.graph import observe_state, preflight
 from openartifact.graph.effects import writes
 from openartifact.graph.node_types import FailureMode, Ports
 from openartifact.guards.monitor import GuardSettings, Monitor, Verdict
 from openartifact.models import (
     Execution,
+    Graph,
     GuardAttachment,
     NodeKind,
     PipelineRun,
@@ -145,6 +147,17 @@ class _RunFailedError(Exception):
     """The run cannot go on (shown as the note of a failed run)."""
 
 
+class _ObservationEndedError(Exception):
+    """An observed run (ADR-088) reached a node that needs what a skipped write would have produced: it cannot be observed any further, so
+    the run ends there as done, with this text as its note. It is not a failure and it does not take On Fail."""
+
+
+def _not_observable(name: str) -> _ObservationEndedError:
+    return _ObservationEndedError(
+        f"Observed up to '{name}': from there on the run needs what a skipped step would have produced, so it cannot be observed any further"
+    )
+
+
 class _RunPausedError(Exception):
     """A guard paused the run: it ends ``stopped`` with the reason as its note and can be started again."""
 
@@ -182,6 +195,8 @@ class _Walk:
     #: The run is a dry run (ADR-086): what writes is skipped, a timer does not wait, the tools of an agent that change something answer
     #: that it was a dry run.
     dry_run: bool = False
+    #: The run was started by the observe mode of its pipeline (ADR-088): also a dry run; a node that waits for a skipped write ends it as done.
+    observed: bool = False
     #: The values given at the start for the inputs of the entry action (``{"action_id", "values"}``, already checked), used once.
     entry_inputs: dict[str, Any] | None = None
 
@@ -335,6 +350,7 @@ class RunEngine:
             status=RunStatus(run.status),
             started_by=StartedBy(run.started_by),
             dry_run=bool(run.dry_run),
+            observed=bool(run.observed),
             note=run.note,
             stage_id=run.stage_id,
             stage_name=labels.get(run.stage_id or ""),
@@ -410,8 +426,12 @@ class RunEngine:
         dry_run: bool = False,
         inputs: Mapping[str, Any] | None = None,
         version: str | None = None,
+        definition_id: str | None = None,
     ) -> RunRead:
         """Start (or restart) the artifact in a pipeline, at a stage and action (default: the first).
+
+        ``definition_id`` (a dry run only, ADR-089): run that action definition by itself, from its Trigger to its Output, instead of a
+        pipeline (``pipeline_id`` is then the definition's id too, it names what ran).
 
         Stages before the starting stage count as done: those the artifact has passed keep that
         status, the others are marked ``skipped``.
@@ -423,6 +443,8 @@ class RunEngine:
         """
         if not dry_run and (inputs is not None or version is not None):
             raise ArtifactError(422, "inputs and version are for a dry run")
+        if not dry_run and definition_id is not None:
+            raise ArtifactError(422, "an action to run by itself is for a dry run")
         if version not in (None, "draft", "published"):
             raise ArtifactError(422, "version is draft or published")
         # Everything up to the registration of the background task happens for one artifact at a time:
@@ -438,7 +460,15 @@ class RunEngine:
         self._starting.add(task_id)
         try:
             return await self._start(
-                task_id, pipeline_id, stage_id, action_id, started_by, dry_run, inputs, version
+                task_id,
+                pipeline_id,
+                stage_id,
+                action_id,
+                started_by,
+                dry_run,
+                inputs,
+                version,
+                definition_id,
             )
         finally:
             self._starting.discard(task_id)
@@ -453,6 +483,7 @@ class RunEngine:
         dry_run: bool = False,
         inputs: Mapping[str, Any] | None = None,
         version: str | None = None,
+        definition_id: str | None = None,
     ) -> RunRead:
         async with self._session() as session:
             task = await session.get(Task, task_id)
@@ -462,8 +493,21 @@ class RunEngine:
             if run is not None and run.status == RunStatus.RUNNING:
                 raise ArtifactError(409, "The artifact is already being processed")
             try:
-                pipeline = await load_pipeline(session, pipeline_id)
-                snapshot = await build_snapshot(session, pipeline, draft=version == "draft")
+                if (
+                    definition_id is not None
+                ):  # one action by itself: its own nodes up to its Output (ADR-089)
+                    pipeline_id = definition_id
+                    snapshot = await build_action_snapshot(
+                        session, await load_action(session, definition_id), draft=version == "draft"
+                    )
+                    stage_id = action_id = None
+                    if inputs is not None:
+                        action_id = snapshot["nodes"][2][
+                            "id"
+                        ]  # the wrapper's placement of the action
+                else:
+                    pipeline = await load_pipeline(session, pipeline_id)
+                    snapshot = await build_snapshot(session, pipeline, draft=version == "draft")
                 snapshot["limits"] = (await load_limits(session))[
                     0
                 ].to_data()  # frozen for this run
@@ -475,6 +519,15 @@ class RunEngine:
             start_inputs: dict[str, Any] | None = None
             if inputs is not None:
                 start_inputs = self._entry_inputs(snapshot, inputs, action_id)
+
+            observed = False
+            if not dry_run:  # a start that is not a manual dry run is observed when the pipeline's published version says so (ADR-088)
+                graph = await session.get(Graph, pipeline_id)
+                if graph is not None:
+                    observed = await observe_state.admit(session, graph)
+            dry_run = dry_run or observed  # an observed run is a dry run nobody asked for by hand
+            if observed:
+                snapshot["observed"] = True
 
             card = await card_of(session, task)
             try:
@@ -494,6 +547,7 @@ class RunEngine:
                     at_action,
                 )
             run.dry_run = dry_run
+            run.observed = observed
             run.pipeline_id = pipeline_id
             run.created_at = datetime.now(UTC)  # the row is reused: this is when this run began
             run.status = RunStatus.RUNNING
@@ -516,6 +570,7 @@ class RunEngine:
                 if start_inputs and action_id is None
                 else RunContext.initial(card),
                 dry_run=dry_run,
+                observed=observed,
             )
             run.execution_id = execution.id
             changes.updated.append(ExecutionRead.of(execution))
@@ -552,12 +607,13 @@ class RunEngine:
 
     async def check_start(
         self,
-        task_id: str,
+        task_id: str | None,
         pipeline_id: str,
         stage_id: str | None = None,
         action_id: str | None = None,
         inputs: Mapping[str, Any] | None = None,
         version: str | None = None,
+        definition_id: str | None = None,
     ) -> list[str]:
         """What would refuse a dry run started like this, in plain words (empty: nothing found). Reads only and starts nothing: the same
         build of the snapshot, the same choice of the start, the same check of the inputs as :meth:`start`, and for the draft the check
@@ -565,12 +621,21 @@ class RunEngine:
         if version not in (None, "draft", "published"):
             return ["version is draft or published"]
         async with self._session() as session:
-            task = await session.get(Task, task_id)
-            if task is None:
+            task = await session.get(Task, task_id) if task_id else None
+            if task is None and task_id:
                 raise ArtifactError(404, "Artifact not found")
             try:
-                pipeline = await load_pipeline(session, pipeline_id)
-                snapshot = await build_snapshot(session, pipeline, draft=version == "draft")
+                if definition_id is not None:
+                    pipeline_id = definition_id
+                    snapshot = await build_action_snapshot(
+                        session, await load_action(session, definition_id), draft=version == "draft"
+                    )
+                    stage_id = action_id = None
+                    if inputs is not None:
+                        action_id = snapshot["nodes"][2]["id"]
+                else:
+                    pipeline = await load_pipeline(session, pipeline_id)
+                    snapshot = await build_snapshot(session, pipeline, draft=version == "draft")
                 chain = pipeline_chain(snapshot["nodes"], snapshot["edges"])
                 pick_start(chain, stage_id, action_id)
             except (TargetError, NestingError) as error:
@@ -581,10 +646,11 @@ class RunEngine:
                     self._entry_inputs(snapshot, inputs, action_id)
                 except ArtifactError as error:
                     found.append(error.message)
-            try:
-                check_card(await card_of(session, task))
-            except ContextError as error:
-                found.append(str(error))
+            if task is not None:  # without a card (ADR-089) there is nothing to be too large
+                try:
+                    check_card(await card_of(session, task))
+                except ContextError as error:
+                    found.append(str(error))
             if version == "draft":
                 used = [pipeline_id, *snapshot["definitions"], *snapshot["pipelines"]]
                 for graph_id in dict.fromkeys(used):
@@ -875,7 +941,9 @@ class RunEngine:
             """The artifacts in each lane (``lane.<lane>`` facts): looked up only when a guard's condition names one."""
             async with self._session() as session:
                 rows = await session.execute(
-                    select(Task.status, func.count()).group_by(Task.status)
+                    select(Task.status, func.count())
+                    .where(Task.technical.is_(False))
+                    .group_by(Task.status)
                 )
                 return {f"lane.{status}": count for status, count in rows}
 
@@ -985,6 +1053,7 @@ class RunEngine:
                 walk.limits = RunLimits.of_snapshot(walk.snapshot)
                 walk.storage = StorageLimits.of_snapshot(walk.snapshot)
                 walk.dry_run = bool(run.dry_run)
+                walk.observed = bool(run.observed)
                 walk.entry_inputs = walk.snapshot.get("entry_inputs")
                 stage_id, action_id, run_pipeline = run.stage_id, run.action_id, run.pipeline_id
                 walk.context = RunContext.loads(
@@ -1026,6 +1095,10 @@ class RunEngine:
                 await self._pause(task_id, interrupt.note)
             else:
                 await self._fail(task_id, interrupt.note, walk)
+        except (
+            _ObservationEndedError
+        ) as end:  # not a failure: what could be observed was observed (ADR-088)
+            await self._save(task_id, status=RunStatus.DONE, note=str(end))
         except _RunPausedError as paused:
             await self._pause(task_id, str(paused))
         except _RunFailedError as failure:
@@ -1069,6 +1142,7 @@ class RunEngine:
                 await self._save(
                     walk.task_id, stage_id=entry["id"], action_id=None, stage_state=running
                 )
+                await self._check_called_observation(entry["pipeline_id"])
                 inner = pipeline_chain(called["nodes"], called["edges"])
                 outer, walk.path = walk.path, f"{walk.path}/{entry['id']}"
                 monitor = cast(Monitor, walk.monitor)
@@ -1092,6 +1166,20 @@ class RunEngine:
             if top:
                 await self._save(walk.task_id, stage_state=(entry["id"], StageStatus.PASSED))
 
+    async def _check_called_observation(self, pipeline_id: str | None) -> None:
+        """A called pipeline whose observation has ended waits for the owner's decision like a start does (ADR-088): the call fails with that
+        reason. Its own mode is not read otherwise: a called pipeline follows the run that calls it."""
+        if not pipeline_id:
+            return
+        async with self._session() as session:
+            graph = await session.get(Graph, pipeline_id)
+            if graph is None:
+                return
+            setting = await observe_state.published_setting(session, graph)
+            found = observe_state.status_of(graph, setting) if setting is not None else None
+        if found is not None and found["ended"]:
+            raise _RunFailedError(str(found["reason"]))
+
     async def _walk_called(
         self,
         walk: _Walk,
@@ -1113,6 +1201,8 @@ class RunEngine:
         try:
             bound = bind_inputs(node, called["name"], declared_in, view)
         except ContextError as error:
+            if walk.observed and depends_on_skipped(str(error)):
+                raise _not_observable(node["name"]) from error
             await self._place_result(walk, node, False, str(error), None)
             raise _RunFailedError(str(error)) from error
         earlier, walk.context.inputs = walk.context.inputs, bound
@@ -1122,6 +1212,8 @@ class RunEngine:
                 declared_out, view
             )  # where the pipeline ends, with its own inputs
         except ContextError as error:
+            if walk.observed and depends_on_skipped(str(error)):
+                raise _not_observable(node["name"]) from error
             await self._place_result(walk, node, False, str(error), None)
             raise _RunFailedError(str(error)) from error
         finally:
@@ -1228,6 +1320,8 @@ class RunEngine:
             else:
                 bound = bind_inputs(node, definition["name"], declared_in, view)
         except ContextError as error:
+            if walk.observed and depends_on_skipped(str(error)):
+                raise _not_observable(node["name"]) from error
             await self._place_result(walk, node, False, str(error), None)
             return False, str(error)
         earlier, walk.context.inputs, walk.outputs = walk.context.inputs, bound, None
@@ -1321,6 +1415,8 @@ class RunEngine:
                             _declared(definition, NodeKind.OUTPUT, "outputs"), run_view
                         )
                     except ContextError as error:
+                        if walk.observed and depends_on_skipped(str(error)):
+                            raise _not_observable(current["name"]) from error
                         passed, reason = False, str(error)
                 outcome = "pass" if passed else "fail"
                 if record:
@@ -1364,6 +1460,21 @@ class RunEngine:
             result.duration_ms = int(
                 (time.monotonic() - timer) * 1000
             )  # the result contract (ADR-072)
+            if (
+                record
+                and walk.observed
+                and result.outcome == "fail"
+                and depends_on_skipped(result.reason)
+            ):  # it needed what a skipped write would have produced: an observed run ends here as done (ADR-088)
+                result = NodeResult(
+                    "pass",
+                    reason=f"Not observable from here: {result.reason}",
+                    data={"not_observable": True},
+                    attempts=result.attempts,
+                    duration_ms=result.duration_ms,
+                )
+                await self._record(walk, definition_id, current, "pass", None, result, started)
+                raise _not_observable(current["name"])
             if result.outcome == "pass" and result.variables:
                 try:
                     run_view.context.set_vars(result.variables)

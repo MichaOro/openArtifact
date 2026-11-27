@@ -19,7 +19,7 @@
             <h2 class="ef-head__title" data-head-title>{{ t('execution_flow.execution') }}</h2>
             <span class="history-chip" data-head-chip hidden><span data-chip-icon></span><span data-chip-text></span></span>
             <span class="history-flag" data-head-dry hidden>{{ t('executions.dry_run') }}</span>
-            <a class="button button--ghost button--sm ef-head__back" href="/">{{ t('execution_flow.back_to_the_board') }}</a>
+            <a class="button button--ghost button--sm ef-head__back" href="/" data-back>{{ t('execution_flow.back_to_the_board') }}</a>
         </div>
         <dl class="history-facts ef-head__facts" data-head-facts></dl>
         <ol class="ef-guards" data-head-guards aria-label="{{ t('execution_flow.guard_firings') }}" hidden></ol>
@@ -27,7 +27,7 @@
     <section class="ef-gone glass" data-gone hidden>
         <h2 class="ef-gone__title" data-gone-title tabindex="-1">{{ t('execution_flow.this_execution_does_not_exist') }}</h2>
         <p data-gone-text>{{ t('execution_flow.it_was_deleted_or_the_link') }}</p>
-        <a class="button button--primary button--sm" href="/">{{ t('execution_flow.back_to_the_board') }}</a>
+        <a class="button button--primary button--sm" href="/" data-back>{{ t('execution_flow.back_to_the_board') }}</a>
     </section>
     <div class="ef-body" data-body hidden>
         <div class="ef-bar glass" role="toolbar" aria-label="{{ t('execution_flow.flow_tools') }}">

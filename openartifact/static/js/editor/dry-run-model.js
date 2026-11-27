@@ -3,6 +3,7 @@
  * The rules themselves (which input is missing, which value fits, what the draft refers to that is not there) are the server's; this only
  * puts what the user typed into the shape the server takes and the server's words on the screen. */
 import { t } from "../i18n.js";
+import { withOrigin } from "../execution/back-link.js";
 
 /** The localStorage key under which the card last chosen for a graph is kept (a browser's own memory, nothing on the server). */
 export const cardKey = (graphId) => `oa-dry-run-card-${graphId}`;
@@ -62,15 +63,25 @@ export function inputsToSend(fields, entered) {
   return out;
 }
 
-/** The body of the check and of the start: where the run starts (the pipeline, and for an action the place it is put), what it is given and which version. */
-export function runBody({ target, fields, entered, version }) {
-  const body = { pipeline_id: target.pipeline_id, version };
-  if (target.stage_id) body.stage_id = target.stage_id;
-  if (target.action_id) body.action_id = target.action_id;
+/** The body of the check and of the start (`/api/graphs/{id}/dry-run`, ADR-089): the graph is in the address, so the body is the version, the
+ * inputs it is given and, when one was added with "+ Add", the card it runs on; without a card the run belongs to the graph's hidden card. */
+export function runBody({ fields, entered, version, taskId = null }) {
+  const body = { version };
+  if (taskId) body.task_id = taskId;
   const inputs = inputsToSend(fields, entered);
   if (inputs !== undefined) body.inputs = inputs;
   return body;
 }
+
+/** The addresses of a graph's dry run: the start, the check before it and the hidden card its card-less runs belong to. */
+export const dryRunUrls = (graphId) => ({
+  start: `/api/graphs/${encodeURIComponent(graphId)}/dry-run`,
+  check: `/api/graphs/${encodeURIComponent(graphId)}/dry-run/check`,
+  card: `/api/graphs/${encodeURIComponent(graphId)}/dry-run-card`,
+});
+
+/** The card whose executions the tab lists and whose run the Stop stops: the chosen one, else the hidden card of the graph, else none yet. */
+export const listedCard = (chosenId, hiddenId) => chosenId || hiddenId || null;
 
 /** The text of the check before the start: nothing found, or what would refuse the run, one line each. */
 export function problemLines(problems) {
@@ -85,35 +96,29 @@ export function startErrorText(error) {
   return error?.message || t("editor.dry_run.error_unknown");
 }
 
-/** The word for a run's status. */
-export function statusLabel(status) {
-  return { running: t("common.running"), done: t("common.done"), failed: t("common.failed"), stopped: t("common.stopped") }[status] ?? status;
+/** The page of the execution in the history, which shows the run with its mark: where a click on the row of a dry run leads. */
+export const historyUrl = (taskNumber, executionId, from = null) => withOrigin(`/artifacts/${taskNumber}/executions/${encodeURIComponent(executionId)}`, from);
+
+/** The list of the global execution history narrowed to dry runs: where "All dry runs" leads. */
+export const allDryRunsUrl = "/executions?dry_run=only";
+
+/** How many dry runs the tab lists (the newest); the rest is in the history. */
+export const LISTED_RUNS = 5;
+
+/** The dry runs of this graph on the card, newest first: a dry run of this graph (a pipeline's own, or an action's by itself, ADR-089). */
+export function listedRuns(executions, pipelineId) {
+  return [...(executions ?? [])]
+    .filter((e) => e.dry_run && (!pipelineId || e.pipeline_id === pipelineId))
+    .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
+    .slice(0, LISTED_RUNS);
 }
 
-/** One line of the result: the step's name, how it ended, and for a skipped writing step what it would have done. */
-export function stepRow(step) {
-  const skipped = Boolean(step.data?.dry_run);
-  const would = skipped && step.data.would_have ? t("editor.dry_run.would_have", { what: step.data.would_have }) : "";
-  const text = would || (step.outcome === "fail" ? (step.reason ?? "") : "");
-  return { id: step.id, name: step.node_name, outcome: step.outcome, skipped, text };
-}
+/** The dry run that is running now (the one the Start button turns into a Stop for), or null. */
+export const runningRun = (runs) => (runs ?? []).find((e) => e.status === "running") ?? null;
 
-/** The steps of the result in order. The Trigger that starts an action and an Output that passes say nothing new: they are left out, an Output that fails stays. */
-export function stepRows(results) {
-  return [...(results ?? [])]
-    .filter((step) => step.kind !== "trigger" && !(step.kind === "output" && step.outcome !== "fail"))
-    .sort((a, b) => a.seq - b.seq)
-    .map(stepRow);
-}
+/** What the form may be given besides what it always has (Inputs, Version, Start). One entry per item: add one here and the
+ * "+ Add" menu offers it; the panel draws it with its own builder under the same key. `labelKey` is the menu entry and the field's name. */
+export const OPTIONAL_ITEMS = [{ key: "card", labelKey: "editor.dry_run.card_label", icon: "plus" }];
 
-/** The page of the execution in the history, which shows the run with its mark. */
-export const historyUrl = (taskNumber, executionId) => `/artifacts/${taskNumber}/executions/${encodeURIComponent(executionId)}`;
-
-/** The way to run an action definition: the places a pipeline puts it; none means it cannot run alone. */
-export function chooseTarget(placements, savedActionId) {
-  if (!placements.length) return null;
-  return placements.find((p) => p.action_id === savedActionId) ?? placements[0];
-}
-
-/** The label of a place an action is put in. */
-export const placementLabel = (placement) => `${placement.pipeline_name} · ${placement.stage_name}`;
+/** The items not on the form yet, in the order of the list. */
+export const availableItems = (shown) => OPTIONAL_ITEMS.filter((item) => !shown.has(item.key));

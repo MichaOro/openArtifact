@@ -140,7 +140,7 @@ instructions. What is kept is decided by the retention rules (`GET` / `PUT /api/
 without steps. Filters, all optional: `status` and `started_by` (comma lists: `status=failed,stopped`,
 `started_by=api,mcp`), `pipeline` (an id, or part of the name), `q` (part of the title, pipeline name or
 note, or an artifact number such as `12` or `#12`), `since` and `until` (ISO 8601, inclusive; without an
-offset UTC). `limit` is 1 to 200 (default 50). An invalid value is `422`.
+offset UTC), `dry_run` (`only` or `exclude`) and `observed` (`only` or `exclude`: the runs of an observed pipeline, which are dry runs too, ADR-088). `limit` is 1 to 200 (default 50). An invalid value is `422`.
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" \
@@ -205,8 +205,8 @@ Tools (39; all go through the same service as the browser and the REST API; argu
 | Tool | Purpose |
 |------|---------|
 | `list_pipelines` | Pipelines with stages and actions |
-| `list_lanes` | The current lanes with their keys, titles and styles (read only; lanes are managed in the browser or over REST) |
-| `list_artifacts(lane?, parent?, archived?, brief?, limit?, offset?)` | Artifacts in board order, optionally one lane (a key from `list_lanes`) or the children of a card; `brief` for short records, `limit` and `offset` to page |
+| `list_lanes` | The current lanes with their name, id (a uuid), style, count and position (read only; lanes are managed in the browser or over REST); everywhere a tool takes a `lane` it takes the name or the id |
+| `list_artifacts(lane?, parent?, archived?, brief?, limit?, offset?)` | Artifacts in board order, optionally one lane (its name or id from `list_lanes`) or the children of a card; `brief` for short records, `limit` and `offset` to page |
 | `count_artifacts(lane?, archived?)` | How many cards there are |
 | `search_artifacts(query, lane?, archived?, limit?)` | Cards by a part of the title or text, or by number |
 | `get_artifact(artifact)` | One artifact by number (`12` or `#12`) or id |

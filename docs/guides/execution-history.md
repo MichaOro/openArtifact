@@ -18,7 +18,12 @@ flow) is in [Concepts](concepts.md).
 - **Dry runs** carry `dry_run: true` and a chip (*Dry run*, *Testlauf*) in the lists. They are real executions of the history (numbered,
   kept and deleted like the others) that skipped everything that writes, see [execution nodes](execution-nodes.md#dry-run-testlauf).
   The global list filters them with `dry_run=only` or `dry_run=exclude`; the counters *failed* and *done in 24 hours* count real runs only,
-  *running* and *total* count all.
+  *running* and *total* count all. A skipped step shows the *fast forward* icon (two arrows) with what it would have done as its tooltip, in the step and (drawn like a node that ran,
+  not dimmed) on its card in the flow; a node that handed over a mock has no such icon.
+- **Observed runs** (ADR-088) are the runs of a pipeline in the observe mode: dry runs that nobody started by hand. They carry `observed: true` beside `dry_run: true`, are counted like dry
+  runs and show the flag *Observed* (*Beobachtet*) **instead of** *Dry run*. The global list filters them with `observed=only` or `observed=exclude` (both are dry runs for `dry_run`);
+  the *Kind* filter of the executions page offers *Any*, *Real runs*, *Dry runs* (started by hand: the page asks for `dry_run=only&observed=exclude`) and *Observed*. A step an observed
+  run could not see (it needs the result of a skipped write) is passed and says *Not observable from here: ...* quietly, and the run's note says *Observed up to ...*.
 - **Origin** (`started_by`): `user` (the browser), `api` (the integration API), `mcp` (the MCP server) or
   `system`.
 - **The pipeline** by id and by name (a copy: the pipeline may later be renamed or deleted; the history

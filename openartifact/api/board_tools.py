@@ -67,9 +67,20 @@ async def guarded[T](call: Awaitable[T]) -> T:
         raise McpError(f"{error.code}: {error.message}" if error.code else error.message) from error
 
 
+def card_record(card: TaskRead) -> dict[str, Any]:
+    """A card as an agent reads it: ``lane`` is the **name** of the lane (what the user sees) and ``lane_id`` its id (ADR-090). The
+    storage key of the lane (``status``) says nothing after a rename and is not shown; ``archived_from_lane`` is a name too."""
+    data = card.model_dump(mode="json")
+    for key in ("status", "archived_from_status", "lane_name", "lane_id"):
+        data.pop(key, None)
+    data["lane"] = card.lane_name
+    data["lane_id"] = card.lane_id
+    return data
+
+
 async def shown(*artifacts: TaskRead) -> list[dict[str, Any]]:
-    """The artifacts as JSON."""
-    return [a.model_dump(mode="json") for a in artifacts]
+    """The artifacts as JSON (see :func:`card_record`)."""
+    return [card_record(a) for a in artifacts]
 
 
 def _reason(error: ArtifactError) -> str:
@@ -139,10 +150,26 @@ class BoardTools:
         return await self._service.pipelines()
 
     async def list_lanes(self) -> list[dict[str, Any]]:
-        """The current board lanes in order: ``status`` (the key the other tools take as ``lane``), ``title``
-        (what the user sees), ``style`` (``normal`` or ``finished``), ``artifact_count`` and ``deletable``. Read only: lanes are managed in the browser
-        or through the REST API."""
-        return [lane.model_dump(mode="json") for lane in await self._service.lanes()]
+        """The current board lanes in order: ``name`` (what the user calls the lane: the other tools take it as ``lane``), ``id``
+        (a uuid: stable, says nothing, survives a rename; ``lane`` takes it too), ``style`` (``normal`` or ``finished``),
+        ``artifact_count``, ``position`` and ``deletable``. Lanes are named and renamed freely by the user, so the name is the
+        meaning, not its position or an old key. Read only: lanes are managed in the browser or through the REST API."""
+        return [
+            {
+                "name": lane.title,
+                "id": lane.id,
+                "style": lane.style,
+                "artifact_count": lane.artifact_count,
+                "position": lane.position,
+                "deletable": lane.deletable,
+            }
+            for lane in await self._service.lanes()
+        ]
+
+    async def _lane_key(self, lane: str | None) -> str | None:
+        """The storage key of the lane a tool call names (its name or id), or ``None`` for no filter; an unknown one is an error that
+        lists the lanes by name."""
+        return None if lane is None else (await guarded(self._service.lane(lane))).status
 
     async def list_artifact_fields(self) -> list[dict[str, Any]]:
         """The fields every artifact has: ``name``, ``label``, ``kind`` (text, number, boolean, choice),
@@ -158,7 +185,8 @@ class BoardTools:
             {
                 "number": a.number,
                 "title": a.title,
-                "lane": a.status,
+                "lane": a.lane_name,
+                "lane_id": a.lane_id,
                 "parent": numbers.get(a.parent_id) if a.parent_id else None,
                 "archived": a.archived_at is not None,
                 "archived_at": a.archived_at.isoformat() if a.archived_at else None,
@@ -179,8 +207,8 @@ class BoardTools:
         offset: int = 0,
         parent: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Artifacts (cards) in board order; ``lane`` (a key from list_lanes) and ``parent`` (the number of a card: only its
-        children) filter. Cards that were archived are left out unless ``include_archived`` or ``archived``: ``exclude`` (the board,
+        """Artifacts (cards) in board order; ``lane`` (the name of a lane or its id, see list_lanes) and ``parent`` (the number of
+        a card: only its children) filter. An unknown lane is an error that lists the lanes. Cards that were archived are left out unless ``include_archived`` or ``archived``: ``exclude`` (the board,
         default), ``include`` (both) or ``only`` (the archive; the newest archived first). ``limit`` (1 to 500) and ``offset`` page
         the answer (``count_artifacts`` says how many there are in all). With ``brief`` each card is a short record (``number``,
         ``title``, ``lane``, ``parent`` (a number), ``archived``, ``archived_at``, ``created_at``, ``updated_at``, ``processing``):
@@ -192,10 +220,11 @@ class BoardTools:
         if offset < 0:
             raise McpError("offset cannot be negative")
         parent_id = (await guarded(self._service.get(parent))).id if parent else None
+        lane_key = await self._lane_key(lane)
         found = [
             a
             for a in await self._service.list_all(mode)
-            if (lane is None or a.status == lane)
+            if (lane_key is None or a.status == lane_key)
             and (parent_id is None or a.parent_id == parent_id)
         ]
         found = found[offset:] if limit is None else found[offset : offset + limit]
@@ -206,12 +235,16 @@ class BoardTools:
         lane: str | None = None,
         archived: Literal["exclude", "include", "only"] = "exclude",
     ) -> dict[str, Any]:
-        """How many artifacts there are: ``total``, optionally of one ``lane`` (a key from list_lanes) and with ``archived`` as in
-        ``list_artifacts``. Use it to know how far to page."""
+        """How many artifacts there are: ``total``, optionally of one ``lane`` (its name or id, see list_lanes; an unknown one is an
+        error) and with ``archived`` as in ``list_artifacts``. Use it to know how far to page."""
+        lane_key = await self._lane_key(lane)
         found = [
-            a for a in await self._service.list_all(archived) if lane is None or a.status == lane
+            a
+            for a in await self._service.list_all(archived)
+            if lane_key is None or a.status == lane_key
         ]
-        return {"total": len(found), "lane": lane, "archived": archived}
+        named_lane = None if lane is None else (await guarded(self._service.lane(lane))).title
+        return {"total": len(found), "lane": named_lane, "archived": archived}
 
     async def search_artifacts(
         self,
@@ -231,9 +264,10 @@ class BoardTools:
             raise McpError("limit must be 1 to 200")
         needle = wanted.lower()
         number = wanted.lstrip("#")
+        lane_key = await self._lane_key(lane)
         hits: list[tuple[int, TaskRead, str, str | None]] = []
         for card in await self._service.list_all(archived):
-            if lane is not None and card.status != lane:
+            if lane_key is not None and card.status != lane_key:
                 continue
             body = card.body or ""
             if number.isdigit() and card.number == int(number):
@@ -363,12 +397,13 @@ class BoardTools:
         limit: int = DEFAULT_LIMIT,
         cursor: str | None = None,
         dry_run: str | None = None,
+        observed: str | None = None,
     ) -> dict[str, Any]:
         """The executions of ALL artifacts, newest first, without steps, with each artifact's number and
         title. Filters (all optional): ``status`` (comma separated: running, done, failed, stopped),
         ``started_by`` (user, api, mcp, system), ``pipeline`` (id, or part of its name), ``query`` (part of
         the title, pipeline name or note, or an artifact number), ``since`` / ``until`` (ISO 8601, UTC).
-        ``dry_run`` is ``only`` or ``exclude`` (dry runs skip what writes). ``limit`` is 1 to 200 (default 50); pass
+        ``dry_run`` is ``only`` or ``exclude`` (dry runs skip what writes); ``observed`` is ``only`` or ``exclude`` (the runs of an observed pipeline, which are dry runs too). ``limit`` is 1 to 200 (default 50); pass
         ``next_cursor`` as ``cursor`` for the next page. ``summary`` counts running, failed and done (24 h, real runs only)
         and all executions."""
         if not 1 <= limit <= MAX_LIMIT:
@@ -383,6 +418,7 @@ class BoardTools:
             limit=limit,
             cursor=cursor,
             dry_run=dry_run,
+            observed=observed,
         )
         return (await guarded(page)).model_dump(mode="json")
 
@@ -439,7 +475,7 @@ class BoardTools:
         action: str | None = None,
         fields: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Create an artifact (card). ``lane`` is a key from list_lanes (default: the first lane); ``parent`` is the number of
+        """Create an artifact (card). ``lane`` is the name of a lane or its id, see list_lanes (default: the first lane); ``parent`` is the number of
         another artifact; ``pipeline`` (by name) is where it starts, with the first stage and its first
         action unless ``stage`` and ``action`` (by name) say otherwise. ``fields`` ({name: value}, see
         ``list_artifact_fields``) are checked now and the error names the field; defaults fill the rest.
@@ -500,7 +536,9 @@ class BoardTools:
         """Start processing an artifact. Without a choice it starts with the pipeline, stage and action it has.
         Stages before the starting stage count as done. ``dry_run`` runs it under real conditions but skips everything that writes
         (the artifact stays as it is); ``inputs`` are values for the declared inputs of the entry (of the action when ``action`` is
-        given, else of the pipeline); ``version`` is ``published`` (default) or ``draft``. The last two are for a dry run only."""
+        given, else of the pipeline); ``version`` is ``published`` (default) or ``draft``. The last two are for a dry run only. A pipeline in the observe mode runs every
+        start as a dry run: the answer says ``dry_run: true, observed: true``; once its observation has ended the start is refused
+        (``observation_ended``) until the owner releases it or observes again (``release_observe_block``, ``observe_again``)."""
         pipeline_id, stage_id, action_id = await self._target(pipeline, stage, action)
         run = await guarded(
             self._service.start(
@@ -512,6 +550,32 @@ class BoardTools:
                 dry_run=dry_run,
                 inputs=inputs,
                 version=version,
+            )
+        )
+        return run.model_dump(mode="json")
+
+    async def dry_run_graph(
+        self,
+        graph: str,
+        artifact: str | None = None,
+        stage: str | None = None,
+        action: str | None = None,
+        inputs: dict[str, Any] | None = None,
+        version: str | None = None,
+    ) -> dict[str, Any]:
+        """A dry run of a pipeline, or of an action by itself (from its Trigger to its Output), skipping everything that writes.
+        ``graph`` is the pipeline's or the action's id, slug or name. ``artifact`` is the card to run it on (its number); left out, it
+        belongs to the hidden card of the graph and the answer's ``task_id`` is where its executions are listed. ``inputs`` are values for the
+        declared inputs; ``version`` is ``published`` (default) or ``draft``. Follow it with ``get_execution``."""
+        run = await guarded(
+            self._service.start_dry_run(
+                graph,
+                task_ref=artifact,
+                stage_id=stage,
+                action_id=action,
+                inputs=inputs,
+                version=version or "published",
+                started_by=self._started_by,
             )
         )
         return run.model_dump(mode="json")
@@ -603,26 +667,25 @@ class BoardTools:
     async def move_artifacts(
         self, artifacts: list[str], lane: str, dry_run: bool = False
     ) -> dict[str, Any]:
-        """Move up to 50 cards into a lane (a key from ``list_lanes``) in one call. Every card is done on its own: ``results`` has
+        """Move up to 50 cards into a lane (its name or id, see ``list_lanes``) in one call. Every card is done on its own: ``results`` has
         one entry per card with ``ok`` or the plain ``reason`` it was refused (archived, or being processed), and a refusal does not
         stop the others. With ``dry_run`` nothing changes and the answer says what would happen. A card already in the lane is
         ``ok`` and stays."""
-        keys = [lane_.status for lane_ in await self._service.lanes()]
-        if lane not in keys:
-            raise McpError(f"Unknown lane '{lane}'. Available: {', '.join(keys)}")
+        target = await guarded(self._service.lane(lane))
+        key = target.status
 
         async def check(card: TaskRead) -> str | None:
             if card.archived_at is not None:
                 return "archived: take it out of the archive first"
-            if card.status != lane and await self._processing(card):
+            if card.status != key and await self._processing(card):
                 return "The artifact is being processed"
             return None
 
         async def act(card: TaskRead) -> None:
-            if card.status != lane:
-                await self._service.update(card.id, TaskUpdate(status=lane), actor=self._actor())
+            if card.status != key:
+                await self._service.update(card.id, TaskUpdate(status=key), actor=self._actor())
 
-        return await self._each(artifacts, dry_run, check, act, {"to": lane})
+        return await self._each(artifacts, dry_run, check, act, {"to": target.title})
 
     async def archive_artifacts(
         self, artifacts: list[str], dry_run: bool = False

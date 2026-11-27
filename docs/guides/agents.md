@@ -57,7 +57,7 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
 
 - **Prompts.** The user prompt is required; the system prompt is switched on in *Options*. A prompt uses `${input.NAME}` and
   nothing else: `${node...}`, `${var...}`, `${card...}` and `${secret:...}` are refused. That keeps an agent independent
-  of any pipeline. Every input has a **source** (ADR-064): a *Value*
+  of any pipeline. A prompt in the node of an action or pipeline may also use an input the Trigger of that graph declares (`${input.NAME}` is the agent's own input first; ADR-089 add. 1). Every input has a **source** (ADR-064): a *Value*
   (the agent node of an action gives it: typed text, or a reference such as `${card.title}`, `${card.NAME}` of a field or any
   other) or the *Artifact* (a part of the card the run belongs to: *Title*, *Body*, *Title and body*, *Number* or
   *Comments*, all comments oldest first with author and time). An input from the artifact is fixed here, in the agent: the

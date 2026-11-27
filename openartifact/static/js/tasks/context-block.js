@@ -1,6 +1,7 @@
 /* The run context as a collapsible, read-only block (a <details> with the JSON as text and a copy
  * button). Used by the History tab (the context comes with the execution) and the flow page (it is
  * loaded when the block is opened). Everything is text (textContent). */
+import { copyText } from "../components/copy-button.js";
 import { contextSummary, formatContext } from "./context-format.js";
 import { t } from "../i18n.js";
 
@@ -26,12 +27,7 @@ export function contextBlock({ key, open = false, onOpen }) {
   copy.className = "button button--ghost button--sm";
   copy.textContent = t("credentials.copy");
   copy.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(pre.textContent);
-      copy.textContent = t("credentials.credentials_page.copied");
-    } catch {
-      copy.textContent = t("tasks.context_block.copy_failed");
-    }
+    copy.textContent = (await copyText(pre.textContent)) ? t("credentials.credentials_page.copied") : t("tasks.context_block.copy_failed");
     window.setTimeout(() => (copy.textContent = t("credentials.copy")), 1500);
   });
   details.append(summary, pre, copy);

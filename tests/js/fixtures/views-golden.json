@@ -121,7 +121,7 @@
      "labelled": false,
      "local": {
       "x": 0,
-      "y": 90
+      "y": 94
      }
     },
     {
@@ -134,7 +134,7 @@
      "labelled": false,
      "local": {
       "x": 300,
-      "y": 90
+      "y": 94
      }
     },
     {
@@ -173,7 +173,7 @@
      "labelled": false,
      "local": {
       "x": 0,
-      "y": 110
+      "y": 106
      }
     },
     {
@@ -186,7 +186,7 @@
      "labelled": false,
      "local": {
       "x": 300,
-      "y": 110
+      "y": 106
      }
     }
    ],
@@ -267,7 +267,7 @@
      "labelled": false,
      "local": {
       "x": 0,
-      "y": 90
+      "y": 94
      }
     },
     {
@@ -280,7 +280,7 @@
      "labelled": false,
      "local": {
       "x": 420,
-      "y": 90
+      "y": 94
      }
     },
     {
@@ -319,7 +319,7 @@
      "labelled": false,
      "local": {
       "x": 0,
-      "y": 170
+      "y": 166
      }
     },
     {
@@ -332,7 +332,7 @@
      "labelled": false,
      "local": {
       "x": 420,
-      "y": 170
+      "y": 166
      }
     }
    ],
@@ -393,8 +393,8 @@
   {
    "node": {},
    "size": {
-    "width": 190,
-    "height": 68
+    "width": 228,
+    "height": 76
    },
    "caption": "Empty action",
    "subtitle": "Empty action",
@@ -412,7 +412,7 @@
      "labelled": false,
      "local": {
       "x": 0,
-      "y": 34
+      "y": 38
      }
     },
     {
@@ -424,8 +424,8 @@
      "label": "On Pass",
      "labelled": true,
      "local": {
-      "x": 190,
-      "y": 34
+      "x": 228,
+      "y": 38
      }
     },
     {
@@ -437,8 +437,8 @@
      "label": "On Error",
      "labelled": true,
      "local": {
-      "x": 190,
-      "y": 34
+      "x": 228,
+      "y": 38
      }
     }
    ],
@@ -503,8 +503,8 @@
     }
    },
    "size": {
-    "width": 190,
-    "height": 68
+    "width": 228,
+    "height": 76
    },
    "caption": "Action",
    "subtitle": "Action",
@@ -522,7 +522,7 @@
      "labelled": false,
      "local": {
       "x": 0,
-      "y": 34
+      "y": 38
      }
     },
     {
@@ -534,8 +534,8 @@
      "label": "On Pass",
      "labelled": true,
      "local": {
-      "x": 190,
-      "y": 34
+      "x": 228,
+      "y": 38
      }
     },
     {
@@ -547,8 +547,8 @@
      "label": "On Error",
      "labelled": true,
      "local": {
-      "x": 190,
-      "y": 34
+      "x": 228,
+      "y": 38
      }
     }
    ],
@@ -612,8 +612,8 @@
     }
    },
    "size": {
-    "width": 190,
-    "height": 68
+    "width": 228,
+    "height": 76
    },
    "caption": "Action",
    "subtitle": "Action",
@@ -631,7 +631,7 @@
      "labelled": false,
      "local": {
       "x": 0,
-      "y": 34
+      "y": 38
      }
     },
     {
@@ -643,8 +643,8 @@
      "label": "On Pass",
      "labelled": true,
      "local": {
-      "x": 190,
-      "y": 22.666666666666668
+      "x": 228,
+      "y": 25.333333333333332
      }
     },
     {
@@ -656,8 +656,8 @@
      "label": "On Error",
      "labelled": true,
      "local": {
-      "x": 190,
-      "y": 45.333333333333336
+      "x": 228,
+      "y": 50.666666666666664
      }
     }
    ],
