@@ -1,12 +1,11 @@
 /* The Guards page (ADR-060, ADR-069): the guard library as a management page. Cards or rows (name, what fires it, its condition in
  * words, its consequence, where it is used, whether it is a draft or which version is published), a detail panel (Overview, Usage,
- * Versions, Preview); "New guard" (a menu: a blank one or one from a template: Stall, Runtime, Health guard); a double click or the
+ * Versions, Preview); "New guard" (a blank one, opened in the editor); a double click or the
  * pencil opens a guard in the guard editor; Delete is refused, with the reason, while it is used somewhere. Guards are attached to a
  * pipeline, a stage or an action in the pipeline editor; a definition has no on/off of its own (an attachment has). A definition is
  * edited as a draft; only a published version applies (ADR-081): the Versions tab publishes, shows an earlier version read-only (in
  * the Overview) and publishes it again. `?open=<id>` opens one (the way back from its action). The frame is
  * components/management-page.js; the sentences are guards/model.js (the same the guard editor uses). */
-import { ActionMenu } from "../components/action-menu.js";
 import { AlertBar } from "../components/alert-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { ManagementPage, cardBody, chip, make } from "../components/management-page.js";
@@ -27,7 +26,6 @@ const newButton = document.querySelector("[data-new-guard]");
 
 const banner = new AlertBar();
 const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
-const menu = new ActionMenu();
 const editor = new GuardEditor(new Modal(document.getElementById("guard-modal")), {
   actionUrl: (actionId, guardId) => `/actions/${encodeURIComponent(actionId)}?guard=${encodeURIComponent(guardId)}`,
   confirm: (message, action, options = {}) => confirm.open({ message, onConfirm: action, ...options }),
@@ -35,11 +33,8 @@ const editor = new GuardEditor(new Modal(document.getElementById("guard-modal"))
   onDeleted: () => load(),
 });
 
-const ORDER = ["stall", "runtime", "agent_quiet", "health", "agent_health"]; // the templates from the simplest on (rules only first, then the ones with an action)
-
 let guards = [];
 let schema = null;
-let templates = [];
 let actionNames = new Map(); // guard action id -> name
 
 async function open(guard) {
@@ -229,15 +224,13 @@ const page = new ManagementPage(root, {
 
 async function load() {
   try {
-    const [found, serverSchema, shipped, actions] = await Promise.all([
+    const [found, serverSchema, actions] = await Promise.all([
       request("/api/guards"),
       loadSchema(),
-      templates.length ? templates : request("/api/guards/templates"),
       request("/api/actions?purpose=guard"),
     ]);
     guards = found;
     schema = model.builderSchema(serverSchema);
-    templates = shipped;
     actionNames = new Map(actions.map((a) => [a.id, a.name]));
     banner.hide();
     page.setItems(guards);
@@ -246,29 +239,7 @@ async function load() {
   }
 }
 
-async function fromTemplate(key) {
-  try {
-    const made = await request("/api/guards/from-template", {
-      method: "POST",
-      body: JSON.stringify({ template: key, name: t(`guards.template.${key}`), description: t(`guards.template.${key}_summary`) }),
-    });
-    await load();
-    await open(made);
-  } catch (error) {
-    banner.show(error.detail ?? t("guards.template_failed"), { autoHide: 6000 });
-  }
-}
-
-newButton.addEventListener("click", () =>
-  menu.toggle(
-    newButton,
-    [
-      { label: t("guards.new_blank"), icon: "shield", onSelect: () => editor.openNew().catch((error) => banner.show(error.message, { autoHide: 6000 })) },
-      ...[...templates].sort((a, b) => ORDER.indexOf(a.key) - ORDER.indexOf(b.key)).map((tpl) => ({ label: t("guards.from_template", { name: t(`guards.template.${tpl.key}`) }), icon: "layers", onSelect: () => fromTemplate(tpl.key) })),
-    ],
-    t("guards.new_menu"),
-  ),
-);
+newButton.addEventListener("click", () => editor.openNew().catch((error) => banner.show(error.message, { autoHide: 6000 })));
 banner.onRetry(load);
 
 await load();

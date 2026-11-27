@@ -301,17 +301,6 @@ class AttachmentCreate(BaseModel):
         return str(self.graph_id or self.pipeline_id)
 
 
-class FromTemplate(BaseModel):
-    """A definition made from a shipped template (Stall, Runtime, Health guard)."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    template: str = Field(min_length=1, max_length=40)
-    name: str | None = Field(default=None, min_length=1, max_length=MAX_NAME)
-    #: the template's summary when left out (the editor sends it in the reader's language)
-    description: str | None = Field(default=None, max_length=MAX_DESCRIPTION)
-
-
 class PreviewRequest(BaseModel):
     """The condition being edited, evaluated over the running scopes of the definition's attachments."""
 

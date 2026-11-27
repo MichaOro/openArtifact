@@ -1,4 +1,4 @@
-"""Guards as stored (ADR-060): the library of guard definitions and their attachments; the templates.
+"""Guards as stored (ADR-060): the library of guard definitions and their attachments.
 
 A **definition** is what a guard is: its trigger, condition, escalation, consequence, fallback and its own action (for
 ``run_action``, an ordinary action definition edited in the action editor; a definition saved with ``run_action`` and
@@ -19,9 +19,6 @@ import json
 import uuid
 from collections import defaultdict
 from collections.abc import Sequence
-from functools import cache
-from pathlib import Path
-from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,9 +28,7 @@ from openartifact.engine.snapshot import definition_data
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import node_type
-from openartifact.graph.repository import GraphRepository, NodeError
-from openartifact.graph.rules import EdgeError
-from openartifact.graph.schemas import EdgeCreate, NodeCreate, NodeUpdate
+from openartifact.graph.repository import GraphRepository
 from openartifact.guards import versions as guard_versions
 from openartifact.guards.schemas import (
     DEFINITION_SCOPES,
@@ -58,19 +53,8 @@ from openartifact.models import (
     NodeKind,
 )
 
-TEMPLATES = Path(__file__).parent / "templates"
 MAX_GUARDS_PER_PIPELINE = 100  # per graph that holds scopes
 MAX_DEFINITIONS = 1000
-
-
-@cache
-def templates() -> dict[str, dict[str, Any]]:
-    """The guard templates shipped with the application (``guards/templates/*.json``), by key."""
-    found = {}
-    for path in sorted(TEMPLATES.glob("*.json")):
-        data = json.loads(path.read_text(encoding="utf-8"))
-        found[data["key"]] = data
-    return found
 
 
 #: What names a graph or a node: ``(holder id) -> (name, kind)``, ``(node id) -> name`` and ``(guard id) -> published number``.
@@ -285,35 +269,6 @@ class GuardService:
             await session.delete(row)
             await session.commit()
         self._changed(guard_id=guard_id)
-
-    async def from_template(
-        self,
-        key: str,
-        name: str | None = None,
-        description: str | None = None,
-        via: str = "user",
-    ) -> GuardDefinitionRead:
-        """A definition made from a template, with its own action when the template has one. It is published as version 1 at once:
-        a template is a finished guard, not a draft."""
-        template = templates().get(key)
-        if template is None:
-            raise ArtifactError(404, "Guard template not found")
-        action_id = None
-        if "action" in template:
-            async with self._session() as session:
-                action_id = (await self._build_action(session, template["action"])).id
-                await session.commit()
-        data = GuardDefinitionCreate.model_validate(
-            {
-                **template["guard"],
-                "name": name or template["name"],
-                "description": template["summary"] if description is None else description,
-                "scope_types": template["scope_types"],
-                "action_id": action_id,
-            }
-        )
-        created = await self.create(data)
-        return (await self.publish(created.id, via)).guard
 
     # ── versions (ADR-081) ───────────────────────────────────────────
 
@@ -626,47 +581,6 @@ class GuardService:
     @staticmethod
     async def _new_action(session: AsyncSession, name: str) -> Graph:
         return await GraphRepository(session).create(name[:255], GraphKind.ACTION, "guard")
-
-    async def _build_action(self, session: AsyncSession, spec: dict[str, Any]) -> Graph:
-        """An action definition from a template: its nodes, connected as the template says."""
-        repo = GraphRepository(session)
-        graph = await repo.create(spec["name"], GraphKind.ACTION, "guard")
-        nodes, edges = await repo.graph(graph.id)
-        for edge in edges:  # the default trigger -> output connection is replaced by the template's
-            await repo.disconnect(edge)
-        refs = {"trigger": next(n for n in nodes if n.kind == NodeKind.TRIGGER)}
-        refs["output"] = next(n for n in nodes if n.kind == NodeKind.OUTPUT)
-        try:
-            if spec.get("fail_enabled"):
-                await repo.update_node(refs["output"], NodeUpdate(fail_enabled=True))
-            for node in spec["nodes"]:
-                refs[node["ref"]] = await repo.add_node(
-                    graph,
-                    NodeCreate(
-                        kind=NodeKind(node["kind"]),
-                        name=node["name"],
-                        x=node.get("x", 0),
-                        y=node.get("y", 0),
-                        config=node.get("config"),
-                    ),
-                )
-            for source, source_port, target, target_port in spec["edges"]:
-                await repo.connect(
-                    graph,
-                    EdgeCreate(
-                        source_id=refs[source].id,
-                        source_port=source_port,
-                        target_id=refs[target].id,
-                        target_port=target_port,
-                    ),
-                )
-        except (
-            NodeError,
-            EdgeError,
-            ValueError,
-        ) as error:  # a template that does not fit the node kinds
-            raise ArtifactError(422, f"The template's action cannot be built: {error}") from error
-        return graph
 
     def _changed(self, *, guard_id: str, graph_id: str | None = None) -> None:
         data = {"guard_id": guard_id}

@@ -295,27 +295,39 @@ def test_the_board_is_looked_up_only_when_a_condition_names_a_lane() -> None:
     assert full.firings == [], "a pipeline with something in its backlog is healthy"
 
 
-# ── the templates of the owner's examples ────────────────────────────
+# ── a guard on the facts of an agent ────────────────────────────
 
 
-def test_the_quiet_and_storm_template_is_rules_only_and_the_health_template_brings_a_guard_action_with_the_sqlite_node(
-    client: Any,
-) -> None:
+def test_a_guard_on_the_quiet_and_storm_facts_is_rules_only(client: Any) -> None:
+    """The facts of an agent (idle, repeat) are usable in a definition made directly: the conditions of the removed 'Agent quiet and
+    storm' template, five minutes of quiet or the same call ten times."""
     from tests.helpers import post
 
-    quiet = post(client, "/api/guards/from-template", template="agent_quiet")
+    quiet = post(
+        client,
+        "/api/guards",
+        name="Agent quiet and storm guard",
+        scope_types=["action", "stage", "pipeline", "definition", "node"],
+        trigger={
+            "type": "interval",
+            "every_seconds": 60,
+            "for_seconds": 0,
+            "cooldown_seconds": 600,
+        },
+        when={
+            "type": "group",
+            "mode": "any",
+            "items": [
+                {"type": "condition", "field": "agent.idle", "op": "at_least", "value": 300},
+                {"type": "condition", "field": "agent.repeat", "op": "at_least", "value": 10},
+            ],
+        },
+        consequence="pause",
+        fallback="pause",
+        escalation=[],
+    )
     assert quiet["consequence"] == "pause" and quiet["action_id"] is None
     fields = {i["field"] for i in quiet["when"]["items"]}
     assert quiet["when"]["mode"] == "any" and fields == {"agent.idle", "agent.repeat"}
     idle = next(i for i in quiet["when"]["items"] if i["field"] == "agent.idle")
     assert idle["value"] == 300, "five minutes"
-    health = post(client, "/api/guards/from-template", template="agent_health")
-    assert health["consequence"] == "run_action" and health["fallback"] == "abort"
-    action = client.get(f"/api/actions/{health['action_id']}").json()
-    assert action["graph"]["purpose"] == "guard", "the action of a guard is a guard action"
-    by_kind = {n["kind"]: n for n in action["nodes"]}
-    assert {"sqlite", "agent", "code"} <= set(by_kind)
-    assert "v_guard_tool_calls" in by_kind["sqlite"]["config"]["query"]
-    assert by_kind["sqlite"]["config"]["values"] == "${var.guard_execution}"
-    names = {e["source_id"]: e for e in action["edges"]}
-    assert len(action["edges"]) >= 6 and names

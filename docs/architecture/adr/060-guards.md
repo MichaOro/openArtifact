@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-052](052-retention-rules-and-rule-builder.md) (one rule system), [ADR-058](058-activity-log-of-artifacts.md) (the `guard` entry), [ADR-039](039-edit-fields-switch-rules-and-run-limits.md) (limits of a run)  
-**Implemented in:** `rules/tree.py`, `rules/catalog.py`, `api/rules.py`; `guards/schemas.py`, `guards/monitor.py`, `guards/service.py`, `guards/templates/*.json`, `api/guards.py`, `api/mcp.py`; `engine/runner.py` (the monitor in the walk, `_GuardHooks`, `heartbeat`, `preview_guard`), `engine/snapshot.py` (`freeze_guards`), `engine/flow.py`; `models/guards.py`, migrations `0046` and `0047` (the library, §4); `static/js/guards/` (`model.js`, `editor-window.js`, `guard-popover.js`, `library-page.js`), `templates/guards.html`, `templates/components/guard_modal.html`, `static/js/editor/guards.js`, `components/rule-model.js`, `components/rule-builder.js`, `tasks/activity-model.js`, `execution/flow-page.js`  
+**Implemented in:** `rules/tree.py`, `rules/catalog.py`, `api/rules.py`; `guards/schemas.py`, `guards/monitor.py`, `guards/service.py`, `api/guards.py`, `api/mcp.py`; `engine/runner.py` (the monitor in the walk, `_GuardHooks`, `heartbeat`, `preview_guard`), `engine/snapshot.py` (`freeze_guards`), `engine/flow.py`; `models/guards.py`, migrations `0046` and `0047` (the library, §4); `static/js/guards/` (`model.js`, `editor-window.js`, `guard-popover.js`, `library-page.js`), `templates/guards.html`, `templates/components/guard_modal.html`, `static/js/editor/guards.js`, `components/rule-model.js`, `components/rule-builder.js`, `tasks/activity-model.js`, `execution/flow-page.js`  
 **Affected chapters:** guide [Guards](../../guides/guards.md), [API reference](../../guides/api-reference.md), [integration](../../guides/integration.md), [execution history](../../guides/execution-history.md), [configuration](../../guides/configuration.md); arc42 5.3, 5.6
 
 ## 1. Context
@@ -127,8 +127,7 @@ has a live preview: how many running scopes the condition holds for now, with th
 - A guard on a hot loop costs one evaluation per event and one small `UPDATE` of `guard_state` per change; an interval
   guard one task per active scope.
 - An event guard with `run_action` blocks the flow for as long as its action runs (bounded by the timeout).
-- Guard templates (Stall, Runtime, Health) ship as JSON in `guards/templates/` and are created through `POST
-  /api/guards/from-template`; the global JSON import layer (cards MUST 31-33) does not exist yet and can take them over.
+- ~~Guard templates (Stall, Runtime, Health) ship as JSON in `guards/templates/`~~ **Removed (2026-11-27), see the last addendum.**
 - `notify` and `handover` wait for cards #93 and #95.
 
 ## 4. Addendum 2026-11-24: the guard library (definitions and attachments)
@@ -167,8 +166,7 @@ actions: defined once in a library and reused.
   renamed in place (ADR-059 addendum 2026-11-24), the parts *Settings* and *Logic* (its action: choose, New, Edit);
   in the pipeline editor the *Guard* entries open "Add a guard" (attach from the library or make a new one) and every
   scope with attachments shows **one shield** (tooltip "N guards configured", never "active") whose popup lists the
-  attached guards by name with their switch and Detach. The templates are library entries made through *New → From
-  template*; the editor has no template row.
+  attached guards by name with their switch and Detach. (Templates existed here until 2026-11-27: *New guard* now makes a blank definition, see the last addendum.)
 
 ### 4.3 Migration 0047
 
@@ -278,3 +276,18 @@ the check before a start (§4.4).
 A definition has a draft and published versions ([ADR-081](081-guard-versions.md)): the sentence above that a change to a definition acts on every place it is attached
 to is now true of a **publication**, not of a save. A save changes the draft; only the published version applies, and an execution freezes it when it starts.
 A new definition watches nothing until it is published. Switching an attachment on or off is not part of a version and still acts on running executions at once.
+
+## Addendum (2026-11-27): the shipped templates are removed
+
+The templates (Stall, Runtime, Health guard, and Agent quiet and storm / Agent health) were files shipped with the application
+(`guards/templates/*.json`) and read by `GET /api/guards/templates` and `POST /api/guards/from-template`. The user could neither define nor
+change them, and their content was fixed, so they promised more than they gave. **Templates removed (2026-11-27): they could not be defined or
+changed by the user and shipped fixed content; a guard is made blank.**
+
+- *New guard* on the Guards page is a plain button that opens the editor with a blank definition (its name is typed first); nothing is stored until
+  it is saved. The two routes (REST and `/api/v1`), the template files, the builder of a template's action and the menu are gone.
+- **Guards made from a template earlier stay as they are:** they are ordinary definitions in the library (no field of a definition points to a
+  template), with their versions and attachments.
+- The conditions the templates held are plain definitions and can be written in the editor or posted to `POST /api/guards` (see the examples in
+  the guide). A user-defined template (a definition saved as a starting point) may come with the JSON import layer; it is not built.
+
