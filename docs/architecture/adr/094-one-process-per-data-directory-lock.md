@@ -59,11 +59,14 @@ works across NFS clients.
   old container is stopped before the new one starts (compose's default recreate), so an update is not affected.
 - **Operator-visible:** a second container or process on the same volume exits at start with the message above. A
   container with `restart: unless-stopped` is restarted by Docker and refused again until the first one ends.
-- **Not covered:** the image's entrypoint runs `alembic upgrade head` *before* the application and outside the lock,
-  so a second container still runs the migrations against the live database before it is refused. The lock
-  protects only processes that go through the application's lifespan (the `openartifact` command only starts the
-  server; Alembic does not take the lock). A file system that silently accepts `flock` without sharing it between machines (some FUSE or
+- **Migrations:** the image's entrypoint runs `alembic upgrade head` through `python -m openartifact.process_lock`,
+  which holds the same lock while the command runs and exits with status 3 without running it when another process
+  holds it: a second container is refused before it migrates the database the first one serves. The lock is
+  released between the migration and the start of the server; a process that slips into that moment is refused by
+  the one that took it first. Alembic run by hand outside the image does not take the lock.
+- **Not covered:** a file system that silently accepts `flock` without sharing it between machines (some FUSE or
   virtualised mounts) gives no protection across those machines.
 - **Tests:** `tests/test_process_lock.py` covers the refusal (in-process and from another process), the release
   after shutdown, after a failed start and after `SIGKILL`, the untouched `running` run of the other process, the
-  shared lock within one process, and the warning paths.
+  shared lock within one process, the warning paths, and the migration step (its command runs inside the lock, is
+  not run while another process holds it, and its exit status is passed on).

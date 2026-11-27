@@ -13,7 +13,7 @@
 │  │ openartifact container (UID 1000, read-only root fs,          │  │
 │  │   cap_drop ALL, no-new-privileges, pids 256, memory limit)    │  │
 │  │                                                               │  │
-│  │   docker-entrypoint.sh: alembic upgrade head                  │  │
+│  │   docker-entrypoint.sh: alembic upgrade head (under the lock) │  │
 │  │   → openartifact (uvicorn, one process, port 2909)            │  │
 │  │        │  sh / python -I child processes of Execute Command nodes        │  │
 │  │        │  (own process group, rlimits, same user)             │  │

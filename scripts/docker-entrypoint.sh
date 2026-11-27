@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────
 # OpenArtifact Docker entrypoint
 #
-# 1. Run Alembic migrations to initialize or upgrade the database
+# 1. Run Alembic migrations to initialize or upgrade the database (under the data directory lock)
 # 2. Start the application (the openartifact command)
 #
 # All configuration via OPENARTIFACT_ environment variables.
@@ -20,9 +20,16 @@ echo ""
 echo "--- Running database migrations ---"
 cd /app
 
-if alembic upgrade head; then
+# Under the lock of the data directory (ADR-094): while another OpenArtifact process uses it, this
+# container is refused here, before it migrates the database that process serves.
+if python -m openartifact.process_lock alembic upgrade head; then
     echo "Migrations completed successfully."
 else
+    status=$?
+    if [ "$status" -eq 3 ]; then
+        echo "ERROR: The data directory is in use by another OpenArtifact process. Aborting startup." >&2
+        exit 3
+    fi
     echo "ERROR: Database migration failed. Aborting startup." >&2
     exit 1
 fi

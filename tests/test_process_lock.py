@@ -194,3 +194,45 @@ def test_a_platform_without_fcntl_starts_with_a_warning(
     ):
         assert not process_lock._held
     assert "This platform has no fcntl" in caplog.text
+
+
+def _run_locked(data_dir: Path, *command: str) -> subprocess.CompletedProcess[str]:
+    """``python -m openartifact.process_lock COMMAND`` with the data directory of the settings set to ``data_dir``."""
+    return subprocess.run(
+        [sys.executable, "-m", "openartifact.process_lock", *command],
+        cwd=ROOT,
+        env={**os.environ, "OPENARTIFACT_DATA_DIR": str(data_dir)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
+def test_the_migration_step_runs_its_command_under_the_lock(tmp_path: Path) -> None:
+    """The image's migration step (``scripts/docker-entrypoint.sh``) holds the lock while its command runs."""
+    probe = (
+        "import fcntl, os, sys; fd = os.open(sys.argv[1], os.O_RDONLY)\n"
+        "try: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
+        "except BlockingIOError: sys.exit(7)\n"
+        "sys.exit(0)"
+    )
+    done = _run_locked(
+        tmp_path, sys.executable, "-c", probe, str(tmp_path / process_lock.LOCK_FILENAME)
+    )
+    assert done.returncode == 7, done.stderr  # the command saw the lock taken: it ran inside it
+
+
+def test_the_migration_step_is_refused_while_another_process_holds_the_lock(
+    tmp_path: Path, holder: Holder
+) -> None:
+    holder(tmp_path)
+    marker = tmp_path / "ran"
+    refused = _run_locked(tmp_path, sys.executable, "-c", f"open({str(marker)!r}, 'w')")
+    assert refused.returncode == process_lock.REFUSED_STATUS
+    assert "is in use by another OpenArtifact process" in refused.stderr
+    assert not marker.exists(), "the command ran although the directory is in use"
+
+
+def test_the_migration_step_passes_on_the_exit_status_of_its_command(tmp_path: Path) -> None:
+    assert _run_locked(tmp_path, sys.executable, "-c", "raise SystemExit(5)").returncode == 5
+    assert _run_locked(tmp_path).returncode == 2  # no command: usage

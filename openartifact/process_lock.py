@@ -17,6 +17,10 @@ engine of :mod:`openartifact.database`.
 Where locking is not possible (a file system without lock support, a platform without ``fcntl``, a lock
 file that cannot be created) the application logs a warning and starts without the lock: availability
 over enforcement.
+
+``python -m openartifact.process_lock COMMAND ...`` runs a command while holding the lock (the image runs its
+migrations this way, ``scripts/docker-entrypoint.sh``): a second container is refused before it migrates the
+database the first one serves.
 """
 
 from __future__ import annotations
@@ -24,6 +28,8 @@ from __future__ import annotations
 import errno
 import logging
 import os
+import subprocess
+import sys
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -128,3 +134,28 @@ def hold(data_dir: Path) -> Iterator[None]:
         yield
     finally:
         _release(key)
+
+
+#: Exit status of :func:`main` when another process holds the lock (uvicorn exits with 3 after a failed startup too).
+REFUSED_STATUS = 3
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run ``argv`` while holding the lock of the settings' data directory; its exit status, or
+    :data:`REFUSED_STATUS` without running it when another process holds the lock."""
+    from openartifact.config import get_settings  # the settings only when run as a command
+
+    command = sys.argv[1:] if argv is None else argv
+    if not command:
+        sys.stderr.write("usage: python -m openartifact.process_lock COMMAND [ARG ...]\n")
+        return 2
+    try:
+        with hold(get_settings().data_dir):
+            return subprocess.call(command)
+    except ConfigurationError as error:
+        sys.stderr.write(f"ERROR: {error}\n")
+        return REFUSED_STATUS
+
+
+if __name__ == "__main__":
+    sys.exit(main())

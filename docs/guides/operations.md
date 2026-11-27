@@ -101,8 +101,8 @@ git pull && oa up -d --build
 oa pull && oa up -d
 ```
 
-The entrypoint runs `alembic upgrade head` before the server starts and aborts the start when a
-migration fails: the container exits (and, with `restart: unless-stopped`, is restarted); `oa logs` shows why.
+The entrypoint runs `alembic upgrade head` (under the lock of the data directory, [below](#one-process-one-volume))
+before the server starts and aborts the start when a migration fails: the container exits (and, with `restart: unless-stopped`, is restarted); `oa logs` shows why.
 The pages (HTML) are sent with `Cache-Control: no-cache` and the static files revalidate with their ETag, so a browser shows the new build after a reload, not the old one from its cache.
 After the update check `oa ps` (healthy), `curl http://localhost:2909/health` (the answer carries the
 version) and the start of the log (below).
@@ -288,6 +288,7 @@ one, so an update or a recreate is not refused. The lock ends with the process h
 OOM kill included); the file stays in the volume, is empty and needs no cleanup — do not delete it while the
 application runs.
 
-Two limits: the entrypoint's migrations (`alembic upgrade head`) run before the application takes the lock, so a
-second container still migrates the database before it is refused; and on a file system without lock support
-the application logs "cannot be locked ... starting without the lock" and starts without the protection.
+The entrypoint's migrations (`alembic upgrade head`) hold the same lock (`python -m openartifact.process_lock`), so a
+second container is refused before it migrates the database: its log shows "The data directory is in use by another
+OpenArtifact process" and it exits with status 3. One limit: on a file system without lock support the application
+logs "cannot be locked ... starting without the lock" and starts without the protection.
