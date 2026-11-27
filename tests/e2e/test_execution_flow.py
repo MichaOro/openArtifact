@@ -413,12 +413,16 @@ def test_open_flow_in_the_history_tab_goes_to_the_page(
     dialog.row(1).locator(".history-row__open").click()
     link = dialog.detail.locator("[data-detail-flow]")
     execution = execution_of(api, task)
+    # the link says it was opened from the card, so the page's Back button returns there (ADR-089)
     expect(link).to_have_attribute(
-        "href", f"/artifacts/{task['number']}/executions/{execution['id']}"
+        "href",
+        f"/artifacts/{task['number']}/executions/{execution['id']}?from=card:{task['number']}",
     )
     link.click()
     expect(page).to_have_url(
-        re.compile(rf"/artifacts/{task['number']}/executions/{execution['id']}$")
+        re.compile(
+            rf"/artifacts/{task['number']}/executions/{execution['id']}\?from=card:{task['number']}$"
+        )
     )
     expect(page.locator(".ge-node--stage")).to_have_count(1)
     expect(page.locator("[data-head-title]")).to_have_text(

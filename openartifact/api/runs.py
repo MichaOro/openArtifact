@@ -143,7 +143,7 @@ async def check_graph_dry_run(
     "/graphs/{ref}/dry-run-card",
     response_model=DryRunCard,
     summary="The hidden card the card-less dry runs of a graph belong to",
-    responses=errors(404),
+    responses=errors(404, 422),
 )
 async def graph_dry_run_card(ref: str, service: ServiceDep) -> DryRunCard:
     """Where the executions of the dry runs started without a card are listed (``/api/tasks/{task_id}/executions``); ``null`` while no
