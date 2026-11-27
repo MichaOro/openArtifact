@@ -8,9 +8,19 @@ scopes:
 fixed: true
 chain: true
 menu_icon: play
+effect:
+  default: none
 ports:
   outputs:
   - name: out
     label: Next
 ui:
   color: trigger
+settings:
+- key: inputs
+  label: Inputs
+  type: fields
+  field_extra: default
+  default: []
+  help: "What this graph takes from the one that runs it: name, type, required, default. A node inside reads one as ${input.name}; a required input without a value fails the run."
+  stored_in: config

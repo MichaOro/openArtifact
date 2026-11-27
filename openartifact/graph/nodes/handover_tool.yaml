@@ -10,6 +10,8 @@ tool: true
 menu:
   group: Agent tools
   order: 6
+effect:
+  default: none
 ports:
   outputs:
   - name: tool
@@ -34,7 +36,7 @@ settings:
   label: Fields
   type: fields
   default: []
-  help: "The document's fields, flat: the model hands over exactly these. A missing, wrongly typed or unlisted field is refused with the reason; the last accepted document counts."
+  help: "The fields of the document, flat (no field holds an object). The model hands over exactly these; a document with a missing, mistyped or unlisted field is refused with the reason."
   stored_in: config
 - key: max_bytes
   label: Size limit

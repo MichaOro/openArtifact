@@ -28,6 +28,8 @@ URL). Every start leaves an execution in the history.
 
 ## Terms
 
+**Mock data.** The result a node of the draft hands over in a dry run instead of running (outcome, output, data, reason). A real run and a published version never hold or use it (ADR-087). See [execution nodes](execution-nodes.md#mock-data).
+
 **Artifact.** The unit of work: a card on the board with a title, a body, a lane (the board starts with Backlog, In Progress and Done; lanes can be added, renamed by clicking the name or through the lane's menu, deleted when they are empty, and given a look in their Settings: a *finished* lane shows its cards' titles struck through; the API names a lane by its unchanging key, e.g. `backlog`, `in_progress`, `done`), an optional parent and a
 permanent number (`#12`, never reused; `#12` in another artifact's body is a link). An artifact is processed by
 at most one run at a time. While that run is running the artifact is locked: its lane, parent, target, type and parameters cannot be
@@ -147,6 +149,11 @@ the first action; its end is fed by the last actions and leads on.
 connect to the next action or to the end of the stage. An action does nothing by itself: it runs the action
 definition it is linked to. An action without a definition is an empty shell: it passes at once and leaves no
 step in the history. What a failure does is the setting **If the action fails** in the action's settings: *Stop the run* (the default: the run fails there), *Continue* (goes on through On Pass) or *Error output* (the **On Error** connector, which is shown only with this value). Nodes inside an action have the same three values ([ADR-061](../architecture/adr/061-what-a-failure-does.md)). The action's error output and the *On Fail* of its definition's Output are one state: switching one on switches the other on, switching it off disconnects what was connected (the editor says how many), and all uses of the definition follow.
+
+**Placement and its number.** An action in a stage is a *placement* of an action definition. The same definition can be placed more than once: each placement has an id of
+its own (what a reference names, `${node:<id>…}`) and, while it is placed more than once in that pipeline, a number in its label, `Check #1`, `Check #2`: a new one takes the
+lowest free number, the others keep theirs. A definition can declare inputs (on its Trigger) and outputs (on its Output); the placement maps the inputs and its outputs are its
+result ([inputs and outputs](execution-nodes.md#inputs-and-outputs-of-an-action)).
 
 **Action definition.** What an action does, as a graph of its own: a trigger, then **execution nodes**, then an
 **Output**. The Output has an **On Pass** connector and, if switched on, an **On Fail** connector; the node

@@ -34,7 +34,7 @@ should use `/api/v1` and MCP. Open without a token: `/health`, `/login`, `/logou
 
 Errors are JSON `{"detail": "..."}`. The columns "Errors" below list the statuses specific to a route in
 addition to these. The OpenAPI schema (`/api/docs`, `/openapi.json`) declares them per route and lists the
-190 operations of the API only (the HTML pages are not part of it); `tests/test_openapi.py` guards the contract.
+248 operations of the API only (the HTML pages are not part of it); `tests/test_openapi.py` guards the contract.
 
 ## Integration API (`/api/v1`)
 
@@ -56,7 +56,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | PATCH | `/api/v1/artifacts/{ref}` | Change it (partial); `fields` are merged into the stored ones (`null` clears one); lane, order, parent, pipeline, type and parameters are locked while it is processed | 404, 409, 422 |
 | DELETE | `/api/v1/artifacts/{ref}` | Delete it (not while it is processed); `204` | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run` | State of the run: status, where it is, status of every stage | 404 (never processed) |
-| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`); the run records `started_by: api`; `201`; `409` with `code: stopped` while the emergency stop is on (ADR-076) | 404, 409, 422, 429 |
+| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`, and for a dry run `dry_run`, `inputs`, `version`: see [execution nodes](execution-nodes.md#dry-run-testlauf)); the run records `started_by: api`; `201`; `409` with `code: stopped` while the emergency stop is on (ADR-076) | 404, 409, 422, 429 |
 | POST | `/api/v1/artifacts/{ref}/run/stop` | Stop; the artifact keeps its stage and action | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run/results` | Every step of the run inside action definitions, in order, with complete outputs | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions` | The artifact's executions, newest first, without steps; `limit` 1 to 500 (default 100) | 404, 422 |
@@ -91,7 +91,7 @@ Guide: [Agents and LLM providers](agents.md).
 | GET | `/api/v1/agents/{ref}` | One agent by id or name: `draft`, `published`, `versions`, `problems` (what publishing would refuse) | 404 |
 | PATCH | `/api/v1/agents/{ref}` | `name`, `description`, `active` | 404, 409, 422 |
 | DELETE | `/api/v1/agents/{ref}` | Delete with its versions; `204` | 404, 409 (agent nodes refer to it) |
-| PUT | `/api/v1/agents/{ref}/draft` | Replace the draft (the configuration); changes no execution | 404, 422 |
+| PUT | `/api/v1/agents/{ref}/draft` | Replace the draft (the configuration, among it `answer_format`, a list of fields for the final answer, ADR-085); changes no execution | 404, 422 |
 | POST | `/api/v1/agents/{ref}/draft/discard` | Draft back to the published version | 404, 409 (nothing published) |
 | POST | `/api/v1/agents/{ref}/publish` | Publish the draft as a new version; answers `version`, `changed`, `overriding` | 404, 422 (not complete) |
 | GET | `/api/v1/agents/{ref}/versions` | Every version with its configuration, newest first | 404 |
@@ -114,7 +114,10 @@ Guide: [Agents and LLM providers](agents.md).
 ### Guards and heartbeat (ADR-060)
 
 A guard is a **definition** of the guard library; it watches nothing until it is **attached** to a pipeline, a stage or
-an action ([Guards](guards.md)).
+an action ([Guards](guards.md)). A definition has a **draft** (the fields below, what `PATCH` changes) and numbered **published versions**
+([ADR-081](../architecture/adr/081-guard-versions.md)): only the published version applies, runs freeze it when they start, and a definition nobody
+published watches nothing (`published_version` is `null`; `draft_changed` says that the draft differs from the published version). Switching an
+attachment on or off is not part of a version and acts at once.
 
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
@@ -123,8 +126,13 @@ an action ([Guards](guards.md)).
 | GET | `/api/v1/guards/templates` | The templates (Stall, Runtime, Health guard) | — |
 | POST | `/api/v1/guards/from-template` | `template`, `name?`, `description?`: the template as a definition, with its own action where it has one; `201` | 404, 422 |
 | GET | `/api/v1/guards/{id}` | One definition | 404 |
-| PATCH | `/api/v1/guards/{id}` | Change; a field left out keeps its value; acts on every place it is attached to (from the next start) | 404, 422 (also: `scope_types` narrowed below where it is attached) |
-| DELETE | `/api/v1/guards/{id}` | Delete (its own action stays); `204` | 404, 409 (attached somewhere: detach it first) |
+| PATCH | `/api/v1/guards/{id}` | Change the **draft**; a field left out keeps its value; nothing changes for runs until it is published | 404, 422 (also: `scope_types` narrowed below where it is attached) |
+| GET | `/api/v1/guards/{id}/versions` | The published versions, newest first: `number`, `name`, `published_at`, `published_via` (`user`, `api`), `source_number` (a version made by publishing an earlier one again), `current` (the one runs use) | 404 |
+| GET | `/api/v1/guards/{id}/versions/{number}` | One version with what it held (`guard`: name, description, scope types, trigger, `when`, consequence, fallback, escalation, `action_id`), to show it read-only | 404 |
+| POST | `/api/v1/guards/{id}/publish` | Make the draft a new version (`guard` as it is now and the `version`); runs that start from now on use it | 404, 409 (the draft equals the published version), 422 (a guard that runs an action has none) |
+| POST | `/api/v1/guards/{id}/versions/{number}/republish` | Publish an earlier version again (a new version with its content; the draft is not touched) | 404, 409 (it is the published one already) |
+| POST | `/api/v1/guards/{id}/draft/discard` | The draft becomes the published version again; answers the definition | 404, 409 (nothing published, or the draft equals the version), 422 (that version's scope types no longer cover where it is attached) |
+| DELETE | `/api/v1/guards/{id}` | Delete (its own action stays; its versions go with it); `204` | 404, 409 (attached somewhere: detach it first) |
 | GET | `/api/v1/guard-attachments?pipeline_id=` | Where guards are attached: `id`, `guard_id`, `name`, `graph_id` (the graph that holds the scope), `pipeline_id` (the same for a pipeline's scopes, `null` for an action definition's), `holder_kind` (`pipeline` or `action`), `holder_name`, `scope_type`, `scope_id`, `scope_name`, `enabled`; `pipeline_id` is any graph that holds scopes, `inner=true` adds the attachments inside the action definitions a pipeline uses | 422 |
 | POST | `/api/v1/guard-attachments` | Attach: `guard_id`, `graph_id` (the pipeline or action definition that holds the scope; `pipeline_id` is the old name for it), `scope_type` (`pipeline`, `stage`, `action` in a pipeline; `definition`, `node` in an action definition), `scope_id` (left out for `pipeline` and `definition`; a node's id otherwise), `enabled?`; `201` | 404 (guard, pipeline), 409 (attached there already), 422 (a scope the guard may not watch, or not part of the pipeline; a guard on a guard) |
 | GET | `/api/v1/guard-attachments/{id}` | One attachment | 404 |
@@ -150,6 +158,18 @@ guard (by attachment), the last heartbeat and the firings with their facts.
 
 While the emergency stop is on, `POST .../run` is `409` with `{"detail": "...", "code": "stopped"}`; cards, pipelines and the history keep working. Switching on
 needs the personal setting `show_stop_switch` (`GET`/`PUT /api/settings/personal`), which cannot be switched off while the emergency stop is on (`409` `stop_active`).
+
+**Data storage** (ADR-084; the limits are the personal settings `storage_*`, all `null` by default; `null` clears one):
+
+| Method | Path | Purpose | Errors |
+|--------|------|---------|--------|
+| GET | `/api/v1/settings/storage` | The database file and its write-ahead log in bytes, pages, free pages, the biggest tables (`dbstat`, else row counts), `run_data_bytes`, `last_clean`, `interval_hours` and `next_clean_at` of the cleaner, `warn_bytes` and `over_warning`; `defaults` (what a field nobody set stands for: the operator's executions kept, 256 and 1024 KiB) and `on_values` (the number a limit that is off starts with when it is switched on) | |
+| POST | `/api/v1/settings/storage/preview` | What a pass would delete or empty now, per kind (`executions_keep`, `executions_rules`, `step_data_age`, `step_data_size`) with `entries` and `bytes`; changes nothing | |
+| POST | `/api/v1/settings/storage/clean` | Carries out exactly that plan, then truncates the write-ahead log; answers the plan, `before` and `after` sizes and `wal` | 409 `busy` |
+| POST | `/api/v1/settings/storage/shrink` | `VACUUM`: rewrites the file; answers `before`, `after` and `wal` | 409 `not_enough_space`, 409 `busy` |
+
+A running execution, cards, comments and their history are never touched. `PUT /api/settings/personal` takes the limits (a number outside its
+bounds is `422` with the bounds in plain words).
 
 The browser has the same routes under `/api/settings`.
 
@@ -178,7 +198,7 @@ Every step and every node in the run `context` has the result contract ([ADR-072
 An agent node's settings are keys of its `config` (`PATCH /api/actions/{id}/nodes/{node_id}`): `agent_id`, `inputs`
 (`name = value` per line) and the overrides `system_prompt_enabled`, `system_prompt`, `user_prompt`, `provider_id`,
 `model`, `temperature`, `max_tokens`, `request_timeout_seconds`, `total_timeout_seconds`, `retries`, `max_iterations`,
-`token_budget`, `tool_result_chars`;
+`token_budget`, `tool_result_chars`, `answer_format` (a list of fields, ADR-085; an empty list switches the agent's format off for the node);
 `null` resets one. `warnings` in the answer says what would make the node fail.
 
 Tools (ADR-040, ADR-041) are nodes of the kinds `mcp_tool`, `http_tool`, `code_tool` and `postgres_tool` with their settings in `config`
@@ -257,7 +277,9 @@ values together are at most 4 KiB. The refusal for a typo:
 |--------|------|---------|--------|
 | GET | `/api/runs` | The state of every artifact that was processed | |
 | GET | `/api/runs/{task_id}/results` | Steps inside action definitions with complete outputs | 404 |
-| POST | `/api/tasks/{task_id}/run` | Start; stages before the starting stage count as done; `201` | 404, 409, 422, 429 |
+| POST | `/api/tasks/{task_id}/run` | Start; stages before the starting stage count as done; `dry_run`, `inputs`, `version` for a dry run (the draft by default); `201` | 404, 409, 422, 429 |
+| POST | `/api/tasks/{task_id}/dry-run/check` | What would refuse a dry run started with the same body as the start (`pipeline_id`, `stage_id`, `action_id`, `inputs`, `version`, default `draft`): `{"problems": [text]}`, empty when nothing is in the way; reads only, starts nothing (ADR-086) | 404, 422 |
+| GET | `/api/actions/{action_id}/placements` | Where a pipeline puts the action definition (`pipeline_id`, `pipeline_name`, `stage_id`, `stage_name`, `action_id`): where a dry run of the action starts; empty when none does | 404 |
 | POST | `/api/tasks/{task_id}/run/stop` | Stop | 404, 409 |
 
 ### Executions and history
@@ -322,16 +344,31 @@ is saved at once.
 | PATCH | `/api/{kind}/{graph_id}` | Rename | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}` | Delete with everything in it; `204` | 404 |
 | POST | `/api/{kind}/{graph_id}/nodes` | Add a stage, an action, a node or an execution node; `201` | 404, 422 |
-| PATCH | `/api/{kind}/{graph_id}/nodes/{node_id}` | Rename, move, resize, change settings (`config`). The answer carries `notices` (`definition_on`: the action definition got On Fail too, with `definition` and `uses`; `definition_stays_on`: other uses still need it; `disconnected`: `count`, `inner` and `places` (`graph`, `stage`, `node`, `count`) of the connections that went with a connector) and `reload` (other nodes of this graph changed too). `config.retry` is *Retry on fail* (`{"enabled", "max_tries" 2 to 10, "wait_ms" 0 to 600000}`, all the waits of a node at most 30 minutes; `null` takes it away; [ADR-073](../architecture/adr/073-retry-on-fail.md)), offered by `code`, `http`, `agent`, `postgres`, `sqlite`, `github`, `artifact` and `action`; a value outside the bounds is `422` with the reason. Setting `on_failure` away from `error_output`, or switching an Output's `fail_enabled` off, **disconnects** what was connected at that connector and reports it (ADR-061 §4); the error output of an action and its definition's On Fail are one state, so a change on one side reaches every use | 404, 422 |
+| PATCH | `/api/{kind}/{graph_id}/nodes/{node_id}` | Rename, move, resize, change settings (`config`), set or remove the node's mock (`mock`, `null` removes it) and a Trigger's test cases (`cases`), both kept in the draft only (ADR-087). The answer carries `notices` (`definition_on`: the action definition got On Fail too, with `definition` and `uses`; `definition_stays_on`: other uses still need it; `disconnected`: `count`, `inner` and `places` (`graph`, `stage`, `node`, `count`) of the connections that went with a connector) and `reload` (other nodes of this graph changed too). `config.retry` is *Retry on fail* (`{"enabled", "max_tries" 2 to 10, "wait_ms" 0 to 600000}`, all the waits of a node at most 30 minutes; `null` takes it away; [ADR-073](../architecture/adr/073-retry-on-fail.md)), offered by `code`, `http`, `agent`, `postgres`, `sqlite`, `github`, `artifact` and `action`; a value outside the bounds is `422` with the reason. Setting `on_failure` away from `error_output`, or switching an Output's `fail_enabled` off, **disconnects** what was connected at that connector and reports it (ADR-061 §4); the error output of an action and its definition's On Fail are one state, so a change on one side reaches every use | 404, 422 |
+| GET | `/api/{kind}/{graph_id}/nodes/{node_id}/last-result` | The newest stored result of the node in a **real** run, as a mock takes it: `found`, `outcome`, `output`, `reason`, `data` (ADR-087) | 404 |
 | DELETE | `/api/{kind}/{graph_id}/nodes/{node_id}` | Delete with its edges; `204` | 404 |
 | POST | `/api/{kind}/{graph_id}/edges` | Connect an output port to an input port (the output's previous edge is replaced); `201`. A connection at a port that is not there is `422`: the error output (On Fail of a node, On Error of an action) exists only with the config value `on_failure: error_output` ([ADR-061](../architecture/adr/061-what-a-failure-does.md)) | 404, 422 |
 | PATCH | `/api/{kind}/{graph_id}/edges/{edge_id}` | Change how a connection is drawn | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}/edges/{edge_id}` | Remove; `204` | 404 |
 | GET | `/api/pipelines/{graph_id}/stages` | The stages in running order with their actions | 404 |
 | GET | `/api/{kind}/{graph_id}/neighbours` | Every node with its predecessors and successors (`?version=published` (default) \| `draft` \| a number; see [Neighbours and position](#neighbours-and-position)) | 404, 422 |
+| GET | `/api/{kind}/{graph_id}/check` | What publishing the draft would run into (ADR-082): `findings` (each `level` `error` or `warning`, `code`, `node_id`, `node_name`, `message`), `errors` and `warnings`; reads only, runs nothing; see [The check before publishing](#the-check-before-publishing) | 404, 422 |
+| GET | `/api/{kind}/{graph_id}/versions` | The published versions, newest first (`current`: the one executions use) | 404 |
+| POST | `/api/{kind}/{graph_id}/publish` | Publish the draft as a new version. Body `{"acknowledge": true}` (optional) publishes although the check found something; without it findings answer `409` with code `findings` and the list in `findings` | 404, 409 (nothing new, or findings), 422 |
+| POST | `/api/{kind}/{graph_id}/draft/discard` | Throw the draft away: it is the published version again | 404, 409 (nothing published, or equal) |
 | GET | `/api/node-types` | The kinds of nodes: ports, settings (with `group` and `references` hints for the inspector), links (the editor draws from this); texts in the language of the request (cookie `oa_lang`, else `Accept-Language`) where a translation exists, stored values unchanged | |
 
 `{kind}` is `pipelines` or `actions`.
+
+#### The check before publishing
+
+Only what is published runs, so a draft may be wrong and saving a draft never checks. Publishing asks first. `GET /api/{kind}/{graph_id}/check`
+reads the draft as data (it runs nothing) and answers what it found, errors first: **errors** cannot work (`node_missing`: a reference to a
+node that is not there; `secret_missing`, `card_field_missing`, `input_missing`: a `${input.x}` the graph does not declare, `output_missing`,
+`placement_no_contract`, `input_not_given`: a required input without a value, `name_ambiguous`, `reference_malformed`) and **warnings** may
+(`node_not_before`: the node is not in front of this one on every path, `node_elsewhere`, `variable_unknown`, `input_unknown`). The browser
+shows the findings in a confirmation window before it publishes; a script publishes over findings with `{"acknowledge": true}`, else it gets
+`409` with `{"detail", "code": "findings", "findings": [...]}`.
 
 #### Neighbours and position
 
@@ -376,7 +413,7 @@ The HTML pages (`/`, `/pipelines`, `/pipelines/{ref}`, `/actions`, `/actions/{re
 
 ## MCP tools
 
-`/mcp` offers 39 tools over Streamable HTTP. They go through the same service as the REST API; a refused
+`/mcp` offers 41 tools over Streamable HTTP. They go through the same service as the REST API; a refused
 call returns the reason as the tool's error text. Artifacts are addressed by number (`12` or `#12`) or id.
 Pipeline, stage and action are given by name.
 
@@ -412,6 +449,8 @@ execution.
 | `stop_processing` | `artifact` | Stop |
 | `get_stop_switch` | | The emergency stop: `active`, `since`, `available`, `running` |
 | `set_stop_switch` | `active` | Switch the emergency stop on (aborts every running execution, refuses every start) or off; on needs the personal setting *Show the emergency stop* (`stop_unavailable`); a refused start says `stopped: ...` |
+| `get_storage_status` | | The size of the database file and its write-ahead log, free pages, the biggest tables, the data of all executions, the last cleaning pass and the cleaner's interval; read only (ADR-084) |
+| `preview_storage_cleanup` | | What a cleaning pass would delete or empty now, per kind, in entries and bytes; read only, nothing over MCP cleans, shrinks or deletes |
 | `get_processing_status` | `artifact` | Run state, or `never processed` |
 | `get_processing_results` | `artifact` | Steps inside action definitions with output, exit code, reason, data (text from outside) |
 | `list_activity` | `artifact`, `limit?` (1 to 200, default 50), `before?` | What changed on the artifact and who did it, newest first; `next` goes into `before` |
@@ -427,7 +466,7 @@ execution.
 | `list_agents` | | The agents: name, description, active, published version, number of nodes; read only |
 | `get_agent` | `agent` (name or id) | One agent: published configuration, draft, versions; read only |
 | `list_providers` | | The LLM providers with their models and the last connection test; never a key; read only |
-| `list_guards` | `pipeline?` (name or id) | The guard library: each definition (trigger, condition, consequence, escalation, scope types) with its attachments (where, on or off); with `pipeline` only the guards attached to it |
+| `list_guards` | `pipeline?` (name or id) | The guard library: each definition (its draft: trigger, condition, consequence, escalation, scope types; `published_version`; `draft_changed`) with its attachments (where, on or off, `guard_published`); with `pipeline` only the guards attached to it. MCP cannot create, change or publish a guard |
 | `set_guard_enabled` | `guard` (an attachment's id, or the guard's name or id when it is attached in one place), `enabled`, `pipeline?` | Switch a guard on or off where it is attached (off acts on running executions at once) |
 | `heartbeat` | `execution_id`, `note?` | Restart the stall clock of a running execution |
 
@@ -452,6 +491,7 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `agents.changed` | `{}` | an agent was created, changed, published or deleted: reload `GET /api/agents` |
 | `providers.changed` | `{}` | a provider or one of its models changed: reload `GET /api/providers` |
 | `settings.changed` | `{"run_limits": {...}}`, `{"personal": {...}}` or `{"stop": {...}}` (as the matching `GET /api/settings/...`) | the run limits, the personal settings or the emergency stop (or whether it is offered) were changed |
+| `graph.contract_changed` | `{"graph_id"}` | an action or pipeline was published, a version published again, or its draft discarded: what the pipelines that use it see as its inputs and outputs changes (ADR-083 add. 2); an open pipeline editor reads the contracts again |
 | `graph.changed` | `{"graph_ids": [...]}` | other pipelines or action definitions changed through a node (the error output is shared by a definition and its uses): an open editor shows one of them loads it again |
 | `board.resync` | `{}` | other tasks got new positions or lost their parent: reload the board |
 | `run.updated` | the run state (as `GET /api/runs`) | a run starts, advances or ends |

@@ -137,6 +137,8 @@ class McpTool:
     name: str
     description: str
     input_schema: dict[str, Any]
+    #: The server announces it as read only (``readOnlyHint`` true): a dry run runs it; any other tool counts as changing something.
+    read_only: bool = False
 
 
 @dataclass
@@ -326,7 +328,12 @@ async def _connected(
             ]
         offered = _included([t.name for t in listed], config)
         tools = [
-            McpTool(t.name, t.description or "", dict(t.input_schema or {"type": "object"}))
+            McpTool(
+                t.name,
+                t.description or "",
+                dict(t.input_schema or {"type": "object"}),
+                getattr(t.annotations, "read_only_hint", None) is True,
+            )
             for t in listed
             if t.name in offered
         ]

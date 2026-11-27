@@ -6,6 +6,8 @@ scopes:
 - pipeline
 links_to: action
 menu_icon: action
+effect:
+  default: none
 ports:
   inputs:
   - name: in
@@ -33,3 +35,9 @@ settings:
   label: Retry on fail
   help: Runs the action again when it fails, all its nodes; the run does not start over. Writes in it (HTTP, Postgres, GitHub)
     can happen twice.
+- key: input_values
+  label: Inputs
+  type: mapping
+  default: {}
+  help: "A value for each input of what this node runs: text, a card field (${card.name}) or the output of an earlier node. Empty uses the default; a required input without one fails."
+  stored_in: config

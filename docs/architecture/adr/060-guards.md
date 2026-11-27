@@ -273,3 +273,8 @@ the check before a start (§4.4).
   (`execution/flow-guards.js`). The tooltip says "2 guards, 1 active", names the guards and the ones that fired in this run.
 - A guard that was not switched on at the start is not in the frozen run and leaves no shield.
 
+## Addendum (2026-11-26): draft and published versions
+
+A definition has a draft and published versions ([ADR-081](081-guard-versions.md)): the sentence above that a change to a definition acts on every place it is attached
+to is now true of a **publication**, not of a save. A save changes the draft; only the published version applies, and an execution freezes it when it starts.
+A new definition watches nothing until it is published. Switching an attachment on or off is not part of a version and still acts on running executions at once.

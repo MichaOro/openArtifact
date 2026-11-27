@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     AfterValidator,
@@ -101,6 +101,40 @@ class RunStart(BaseModel):
     pipeline_id: str | None = None
     stage_id: str | None = None
     action_id: str | None = None
+    #: A dry run (ADR-086): everything that writes is skipped, the artifact stays as it is. ``inputs`` are values for the declared inputs
+    #: of the entry (the action's when ``action_id`` is given, else the pipeline's own); ``version`` says which version of the graphs
+    #: runs (``draft`` or ``published``). Both are for a dry run only.
+    dry_run: bool = False
+    inputs: dict[str, Any] | None = None
+    version: Literal["draft", "published"] | None = None
+
+
+class DryRunCheck(BaseModel):
+    """Body of ``POST /api/tasks/{id}/dry-run/check``: what a dry run would be started with (the fields of :class:`RunStart`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pipeline_id: str
+    stage_id: str | None = None
+    action_id: str | None = None
+    inputs: dict[str, Any] | None = None
+    version: Literal["draft", "published"] | None = None
+
+
+class DryRunProblems(BaseModel):
+    """What would refuse the dry run, in plain words; empty when nothing was found."""
+
+    problems: list[str]
+
+
+class DryRunTarget(BaseModel):
+    """One place an action definition is placed in a pipeline: where a dry run of the action starts."""
+
+    pipeline_id: str
+    pipeline_name: str
+    stage_id: str
+    stage_name: str
+    action_id: str
 
 
 class TaskRead(BaseModel):

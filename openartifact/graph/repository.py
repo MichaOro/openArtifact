@@ -13,7 +13,9 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.artifact_fields.service import field_specs
-from openartifact.engine.context import NodeIndex, node_key, problems
+from openartifact.engine.context import NodeIndex, node_key, problems, references_in
+from openartifact.graph import mock as mock_module
+from openartifact.graph import placements
 from openartifact.graph.node_types import (
     NODE_TYPES,
     FailureMode,
@@ -431,7 +433,12 @@ class GraphRepository:
         )
         keys = {node_key(name) for (name,) in others}
         fields = {spec.name for spec in await field_specs(self._session)}
-        return problems(text, local, lambda key: key in keys, fields)
+        wanted = {r.node_id for _, r, _ in references_in(text) if r is not None and r.node_id}
+        known: set[str] = set()
+        if wanted:
+            rows = await self._session.execute(select(GraphNode.id).where(GraphNode.id.in_(wanted)))
+            known = {row_id for (row_id,) in rows}
+        return problems(text, local, lambda key: key in keys, fields, lambda i: i in known)
 
     async def touch(self, graph: Graph) -> None:
         """Mark the graph as changed (its nodes or edges changed)."""
@@ -484,7 +491,32 @@ class GraphRepository:
         await self._session.flush()
         return node
 
-    async def update_node(self, node: GraphNode, data: NodeUpdate) -> SyncReport:
+    def _keep_mock(self, node: GraphNode, data: NodeUpdate, secrets: set[str] | None) -> None:
+        """Store or remove the mock and the test cases of a node (ADR-087): in the config under their own keys, validated."""
+        sent = data.model_fields_set
+        config = dict(node.config or {})
+        try:
+            if "mock" in sent:
+                if data.mock is None:
+                    config.pop(mock_module.MOCK_KEY, None)
+                else:
+                    config[mock_module.MOCK_KEY] = mock_module.clean_mock(
+                        node.kind, data.mock, secrets
+                    )
+            if "cases" in sent:
+                if data.cases is None:
+                    config.pop(mock_module.CASES_KEY, None)
+                elif node.kind != NodeKind.TRIGGER.value:
+                    raise mock_module.MockError("Only a Trigger holds test cases")
+                else:
+                    config[mock_module.CASES_KEY] = mock_module.clean_cases(data.cases, secrets)
+        except mock_module.MockError as error:
+            raise NodeError(str(error)) from error
+        node.config = config
+
+    async def update_node(
+        self, node: GraphNode, data: NodeUpdate, secrets: set[str] | None = None
+    ) -> SyncReport:
         """Rename, move or (stages) resize a node, or change its settings.
 
         The error output is one state of an action definition (its Output's *On Fail*) and its uses (*If the action
@@ -503,6 +535,8 @@ class GraphRepository:
             raise NodeError(f"A {node.kind} has no setting '{key}'")
         previous_mode = _mode(node)
         previous_fail = node.fail_enabled
+        if {"mock", "cases"} & sent:
+            self._keep_mock(node, data, secrets)
         if data.config is not None:
             merged = _merged_config(kind_type, node.config, data.config)
             dropped = await self._drop_hidden_edges(node, kind_type, merged)
@@ -737,7 +771,54 @@ class GraphRepository:
             if calls and await self._calls(definition_id, graph.id):
                 raise NodeError("A pipeline cannot call itself, not even through other pipelines")
         node.definition_id = definition_id
+        node.config = await self._numbered(node, definition_id)
         await self._session.flush()
+
+    async def _numbered(self, node: GraphNode, definition_id: str | None) -> dict[str, Any]:
+        """The node's config with its placement number (ADR-082): the lowest free number of this definition among the action nodes of the
+        graph, or none while it runs nothing. The number never shows as a setting."""
+        config = {k: v for k, v in (node.config or {}).items() if k != placements.KEY}
+        if definition_id is None or node.kind != NodeKind.ACTION.value:
+            return config
+        rows = await self._session.execute(
+            select(GraphNode.config).where(
+                GraphNode.graph_id == node.graph_id,
+                GraphNode.kind == NodeKind.ACTION.value,
+                GraphNode.definition_id == definition_id,
+                GraphNode.id != node.id,
+            )
+        )
+        config[placements.KEY] = placements.lowest_free(
+            (c or {}).get(placements.KEY) for (c,) in rows
+        )
+        return config
+
+    async def placement_numbers(self, nodes: Sequence[GraphNode]) -> dict[str, int]:
+        """The placement numbers (ADR-082) of the action nodes among ``nodes``, worked out against all action nodes of their graphs."""
+        graph_ids = {
+            n.graph_id for n in nodes if n.kind == NodeKind.ACTION.value and n.definition_id
+        }
+        if not graph_ids:
+            return {}
+        rows = await self._session.scalars(
+            select(GraphNode)
+            .where(
+                GraphNode.graph_id.in_(graph_ids),
+                GraphNode.kind == NodeKind.ACTION.value,
+                GraphNode.definition_id.is_not(None),
+            )
+            .order_by(GraphNode.created_at, GraphNode.id)
+        )
+        everything = [
+            {
+                "id": n.id,
+                "kind": n.kind,
+                "definition_id": n.definition_id,
+                "number": (n.config or {}).get(placements.KEY),
+            }
+            for n in rows
+        ]
+        return placements.numbers_of(everything)
 
     async def _calls(self, start_id: str, wanted_id: str) -> bool:
         """Whether the pipeline ``start_id`` is, or (through its pipeline nodes) calls, ``wanted_id``."""
@@ -837,6 +918,11 @@ class GraphRepository:
             row.config = dict(data.get("config") or {})
             definition = data.get("definition_id")
             row.definition_id = definition if definition in known else None
+            if row.definition_id and isinstance(data.get("number"), int):
+                row.config = {
+                    **row.config,
+                    placements.KEY: data["number"],
+                }  # the number the version was published with
             await self._session.flush()
         for edge in content.get("edges", []):
             self._session.add(

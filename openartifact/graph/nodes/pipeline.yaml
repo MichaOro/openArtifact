@@ -11,6 +11,8 @@ menu:
   group: Structure
   order: 2
 menu_icon: pipeline
+effect:
+  default: none
 ports:
   inputs:
   - name: in
@@ -23,3 +25,10 @@ ui:
   size:
     width: 200
     height: 64
+settings:
+- key: input_values
+  label: Inputs
+  type: mapping
+  default: {}
+  help: "A value for each input of what this node runs: text, a card field (${card.name}) or the output of an earlier node. Empty uses the default; a required input without one fails."
+  stored_in: config

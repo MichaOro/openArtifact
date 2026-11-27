@@ -12,6 +12,8 @@
  * and returns {el, control?}: `control` is the element the label belongs to (an input, a select); without it the
  * widget is a group the label names (role="group", aria-labelledby). */
 import { icon } from "./icons.js";
+import { t } from "../i18n.js";
+import { canReset, defaultOf, isOn, onValueOf, shown, switched, textAfterBlur, toStored, zeroHintShown } from "./limit-model.js";
 import { createSwitch, Switch } from "./switch.js";
 
 const registry = new Map();
@@ -140,6 +142,97 @@ registerWidget("switch", (ctx) => {
   const toggle = new Switch(button, { onChange: (on) => ctx.set(on) });
   toggle.on = Boolean(ctx.value);
   return { el: button, control: button };
+});
+
+/** The word after a number: a unit the manifest names (`config.unit`: executions, KiB, MiB, days, hours). */
+function unitText(field) {
+  const unit = field.config?.unit ?? "";
+  if (unit === "days") return t("components.limit.days");
+  if (unit === "hours") return t("components.limit.hours");
+  if (unit === "executions") return t("components.limit.executions");
+  return unit;
+}
+
+/** A number input with its unit behind it; `onNumber(value|null)` is called while the user types. */
+function numberBox(ctx, id, value, onNumber) {
+  const line = make("span", "fv-limit__box");
+  const input = Object.assign(make("input", "field__control fv-number fv-limit__input"), { type: "number", step: ctx.field.step ?? 1, id });
+  if (ctx.field.min !== undefined) input.min = String(ctx.field.min);
+  if (ctx.field.max !== undefined) input.max = String(ctx.field.max);
+  input.value = value === null || value === undefined ? "" : String(value);
+  input.dataset.fieldKey = ctx.field.key;
+  input.addEventListener("input", () => onNumber(input.value === "" ? null : Math.round(Number(input.value) * 1e6) / 1e6));
+  line.append(input, make("span", "fv-limit__unit", unitText(ctx.field)));
+  return { line, input };
+}
+
+/** A number that has a default (the operator's, or today's limit): the field shows the default as its value, typing the default back
+ * stores nothing, and "Reset to default" appears while another number is stored. */
+registerWidget("limit", (ctx) => {
+  const fallback = defaultOf(ctx.field, ctx.context);
+  let stored = ctx.value ?? null;
+  const row = make("div", "fv-limit");
+  const reset = make("button", "chip-button fv-limit__reset", t("components.limit.reset"));
+  reset.type = "button";
+  // a field that says what its 0 means (config.zero_hint: "executions") shows it while it holds 0
+  const hint = ctx.field.config?.zero_hint ? make("span", "fv-limit__hint", t(`components.limit.zero_${ctx.field.config.zero_hint}`)) : null;
+  const { line, input } = numberBox(ctx, ctx.id, shown(stored, fallback), (typed) => {
+    stored = toStored(typed, fallback);
+    reset.hidden = !canReset(stored, fallback);
+    if (hint) hint.hidden = !zeroHintShown(input.value, true);
+    ctx.set(stored);
+  });
+  if (hint) hint.hidden = !zeroHintShown(input.value, true);
+  // leaving an emptied field puts the default back: it stays unset (null), it is never 0
+  input.addEventListener("blur", () => {
+    input.value = textAfterBlur(input.value, stored, fallback);
+    if (hint) hint.hidden = !zeroHintShown(input.value, true);
+  });
+  reset.hidden = !canReset(stored, fallback);
+  reset.setAttribute("aria-label", `${t("components.limit.reset")}: ${ctx.field.label}`);
+  reset.addEventListener("click", () => {
+    stored = null;
+    input.value = String(fallback);
+    reset.hidden = true;
+    ctx.set(null);
+    if (hint) hint.hidden = true;
+    input.focus();
+  });
+  row.append(line, reset, ...(hint ? [hint] : []));
+  return { el: row, control: input };
+});
+
+/** A limit that is off by default: a switch, and once it is on the number with its unit (the number the page suggests first). */
+registerWidget("optional-number", (ctx) => {
+  const onValue = onValueOf(ctx.field, ctx.context);
+  let stored = ctx.value ?? null;
+  const row = make("div", "fv-limit fv-limit--optional");
+  const button = createSwitch();
+  button.id = ctx.id;
+  button.dataset.fieldKey = ctx.field.key;
+  const box = make("span", "fv-limit__number");
+  const draw = () => {
+    const every = ctx.field.config?.every ? make("span", "fv-limit__unit", t("components.limit.every")) : null;
+    const { line } = numberBox(ctx, `${ctx.id}-number`, stored, (typed) => {
+      if (typed === null) return; // an emptied field stores nothing: the switch is still on, the last number stays stored until a new one is typed
+      stored = typed;
+      ctx.set(stored);
+    });
+    line.firstChild.setAttribute("aria-label", ctx.field.label);
+    box.replaceChildren(...(every ? [every] : []), line);
+    box.hidden = !isOn(stored);
+  };
+  const toggle = new Switch(button, {
+    onChange: (on) => {
+      stored = switched(on, onValue);
+      draw();
+      ctx.set(stored);
+    },
+  });
+  toggle.on = isOn(stored);
+  draw();
+  row.append(button, box);
+  return { el: row, control: button };
 });
 
 registerWidget("readonly", (ctx) => ({ el: make("p", "fv-readonly", ctx.value === undefined || ctx.value === null ? "" : String(ctx.value)), control: null }));

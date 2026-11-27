@@ -49,7 +49,11 @@ def _guard(client: httpx.Client, name: str = "Round guard", **extra: Any) -> dic
     }
     response = client.post("/api/guards", json=body)
     response.raise_for_status()
-    guard: dict[str, Any] = response.json()
+    created: dict[str, Any] = response.json()
+    # a new definition is a draft and watches nothing (ADR-081): these tests are about guards that watch, so they publish it
+    published = client.post(f"/api/guards/{created['id']}/publish")
+    published.raise_for_status()
+    guard: dict[str, Any] = published.json()["guard"]
     return guard
 
 
@@ -165,7 +169,9 @@ def test_a_template_becomes_a_library_guard_in_the_editor_titled_by_its_name_wit
     expect(item.locator(".mg-card__name")).to_have_text("Stall guard")
     # what fires it, its condition in words, its consequence and where it is used: chips and one line (before: one summary line)
     chips = item.locator(".mg-card__chips .ge-chip")
-    expect(chips).to_have_text(["Every 1 minute", "Pause the run"])
+    expect(chips).to_have_text(
+        ["Every 1 minute", "Pause the run", "v1 published"]
+    )  # a template is published version 1
     # the condition in words is the card's middle text (the uniform cards of ADR-069), the facts line holds where it is used
     expect(item.locator(".mg-card__text")).to_have_text(
         "Time without progress is at least 15 minutes"
@@ -282,7 +288,7 @@ def test_a_used_guard_cannot_be_deleted_until_it_is_detached(
     item.locator("[data-edit]").click()
     window = _window(page)
     expect(window.locator("[data-guard-used]")).to_have_text(
-        "Used in 1 place. A change affects all of them."
+        "Used in 1 place. Only the published version applies."
     )
     window.locator("[data-delete]").click(force=True)
     expect(window.locator("[data-form-error]")).to_have_text(
@@ -392,7 +398,7 @@ def test_a_stage_guard_is_attached_from_its_plus_and_its_shield_popup_switches_d
     window = _window(page)
     expect(window.locator(".modal__title")).to_have_text(f"Guard {DASH} Round guard")
     expect(window.locator("[data-guard-used]")).to_have_text(
-        "Used in 1 place. A change affects all of them."
+        "Used in 1 place. Only the published version applies."
     )
     expect(window).not_to_contain_text("Start from")
     page.keyboard.press("Escape")

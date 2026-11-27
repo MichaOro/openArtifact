@@ -4,13 +4,14 @@
  * What is in effect is asked from the server (POST /api/agents/{id}/preview with the node), which resolves it the
  * same way a run does, so the panel never computes inheritance itself. */
 import { getAgent, listAgents, listProviders, previewAgent } from "../agents/api.js";
-import { formatMapping, mappingRows, preview as oneLine, showValue, usableModels } from "../agents/model.js"; // `oneLine`: `preview` is also a name of the server's answer here
+import { fieldNames, formatMapping, mappingRows, preview as oneLine, showValue, usableModels } from "../agents/model.js"; // `oneLine`: `preview` is also a name of the server's answer here
 import { el, problemList } from "../agents/view.js";
 import { icon } from "../components/icons.js";
 import { infoTip } from "../components/info-tip.js";
 import { field } from "./field.js";
 import { rememberAgents } from "./node-types.js";
 import { persistText, whenFieldFree } from "./persist-policy.js";
+import { ReferenceNames } from "./reference-names.js";
 import { suggestReferences } from "./reference-suggest.js";
 import { buildSettings } from "./settings-layout.js";
 import { t } from "../i18n.js";
@@ -133,7 +134,7 @@ class AgentBlock {
     return {
       source: t("common.agent"),
       state: (key) => states.get(key) ?? null,
-      show: (setting, value) => oneLine(showValue(this.#shown(setting.key, value, providers), setting.type === "lines" ? "lines" : "")),
+      show: (setting, value) => (Array.isArray(value) ? fieldNames(value) : oneLine(showValue(this.#shown(setting.key, value, providers), setting.type === "lines" ? "lines" : ""))),
       // a provider and a model are stored by id and chosen from lists the page knows
       setting: (setting) => {
         if (setting.key === "provider_id") return { ...setting, type: "select", choices: providers.map((p) => [p.id, p.name]), emptyLabel: "Choose a provider" };
@@ -217,7 +218,7 @@ class AgentBlock {
     error.setAttribute("role", "alert");
     error.hidden = true;
     const commit = async () => {
-      const mapping = Object.fromEntries([...fields].map(([name, input]) => [name, input.value]));
+      const mapping = Object.fromEntries([...fields].map(([name, input]) => [name, input.names ? input.names.stored(input.value) : input.value]));
       const message = await this.save("inputs", formatMapping(mapping) || null, { redraw: false });
       error.textContent = message ?? "";
       error.hidden = !message;
@@ -229,7 +230,11 @@ class AgentBlock {
       const input = Object.assign(el("input", "field__control"), { type: "text", value, autocomplete: "off", spellcheck: false });
       input.dataset.focusKey = `agent-input-${focusName}`;
       const suggest = this.editor.suggestions?.(this.node);
-      if (suggest) suggestReferences(input, suggest, { allowSecrets: false });
+      if (suggest) {
+        input.names = new ReferenceNames(() => suggest.nodes()); // the field shows the names of the nodes it refers to, never their ids
+        input.value = input.names.display(value);
+        suggestReferences(input, suggest, { allowSecrets: false });
+      }
       persistText(input, async () => commit(), { unsavedText });
       fields.set(focusName, input);
       return input;

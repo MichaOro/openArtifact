@@ -1,8 +1,10 @@
 /* The Guards page (ADR-060, ADR-069): the guard library as a management page. Cards or rows (name, what fires it, its condition in
- * words, its consequence, where it is used), a detail panel (Overview, Usage, Preview); "New guard" (a menu: a blank one or one from a
- * template: Stall, Runtime, Health guard); a double click or the pencil opens a guard in the guard editor; Delete is refused, with the
- * reason, while it is used somewhere. Guards are attached to a pipeline, a stage or an action in the pipeline editor; a definition has
- * no on/off of its own (an attachment has). `?open=<id>` opens one (the way back from its action). The frame is
+ * words, its consequence, where it is used, whether it is a draft or which version is published), a detail panel (Overview, Usage,
+ * Versions, Preview); "New guard" (a menu: a blank one or one from a template: Stall, Runtime, Health guard); a double click or the
+ * pencil opens a guard in the guard editor; Delete is refused, with the reason, while it is used somewhere. Guards are attached to a
+ * pipeline, a stage or an action in the pipeline editor; a definition has no on/off of its own (an attachment has). A definition is
+ * edited as a draft; only a published version applies (ADR-081): the Versions tab publishes, shows an earlier version read-only (in
+ * the Overview) and publishes it again. `?open=<id>` opens one (the way back from its action). The frame is
  * components/management-page.js; the sentences are guards/model.js (the same the guard editor uses). */
 import { ActionMenu } from "../components/action-menu.js";
 import { AlertBar } from "../components/alert-bar.js";
@@ -10,10 +12,15 @@ import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { ManagementPage, cardBody, chip, make } from "../components/management-page.js";
 import { Modal } from "../components/modal.js";
 import * as rules from "../components/rule-model.js";
+import { publicationChip, renderVersions } from "../editor/versions-tab.js";
 import { request } from "../http.js";
 import { t } from "../i18n.js";
 import { GuardEditor, loadSchema } from "./editor-window.js";
 import * as model from "./model.js";
+
+const calls = model.versionCalls((url, method) => request(url, { method }));
+// the version the Overview shows instead of the draft, by guard (the Versions tab's "Show")
+const shownVersion = new Map();
 
 const root = document.querySelector("[data-management]");
 const newButton = document.querySelector("[data-new-guard]");
@@ -55,7 +62,7 @@ function card(guard) {
     title: guard.name,
     text: conditionText(guard),
     textTitle: conditionText(guard),
-    chips: [triggerChip(guard), consequenceChip(guard)],
+    chips: [triggerChip(guard), consequenceChip(guard), publicationChip(guard)],
     facts: [used],
   });
 }
@@ -65,7 +72,32 @@ function fact(list, label, value) {
   list.append(make("dt", "", label), Object.assign(make("dd"), { textContent: value }));
 }
 
+/** The Overview: the draft as the editor has it, or, after "Show" in the Versions tab, an earlier version read-only (a note says which,
+ * and a way back to the draft). */
 function overview(body, guard) {
+  const number = shownVersion.get(guard.id) ?? null;
+  if (number === null) {
+    drawOverview(body, guard, false);
+    return;
+  }
+  const note = make("p", "mg-showing");
+  note.append(document.createTextNode(t("graph_versions.showing", { number })));
+  const back = make("button", "button button--ghost button--sm", t("graph_versions.back_to_draft"));
+  back.type = "button";
+  back.dataset.backToDraft = "";
+  back.addEventListener("click", () => {
+    shownVersion.delete(guard.id);
+    page.refreshPanel();
+  });
+  note.append(back);
+  body.append(note);
+  calls
+    .version(guard.id, number)
+    .then((found) => drawOverview(body, { ...guard, ...found.guard }, true))
+    .catch(() => body.append(make("p", "mg-card__facts", t("graph_versions.load_error"))));
+}
+
+function drawOverview(body, guard, readOnly) {
   const list = make("dl", "mg-facts");
   fact(list, t("guards.panel.trigger"), model.triggerText(guard.trigger));
   fact(list, t("guards.panel.condition"), conditionText(guard));
@@ -86,13 +118,33 @@ function overview(body, guard) {
   if (guard.escalation?.length) fact(list, t("guards.panel.escalation"), guard.escalation.map(model.escalationText).join("; "));
   fact(list, t("graph_list.description"), guard.description || "–");
   fact(list, t("guards.panel.used"), model.usedText(guard.used_by));
+  body.append(list);
+  if (readOnly) return; // an earlier version is only shown; the draft is what is opened and changed
   const actions = make("div", "action-row");
   const edit = make("button", "button button--primary button--sm", t("graph_list.open"));
   edit.type = "button";
   edit.dataset.openGuard = "";
   edit.addEventListener("click", () => open(guard));
   actions.append(edit);
-  body.append(list, actions);
+  body.append(actions);
+}
+
+function versionsTab(body, guard) {
+  renderVersions(body, guard, {
+    api: calls,
+    texts: model.versionWords,
+    confirm: (options) => confirm.open(options),
+    shown: shownVersion.get(guard.id) ?? null,
+    onShow: (number) => {
+      shownVersion.set(guard.id, number);
+      page.panelTab = "overview";
+      page.refreshPanel();
+    },
+    onChanged: async () => {
+      shownVersion.delete(guard.id);
+      await load();
+    },
+  });
 }
 
 function usage(body, guard) {
@@ -107,6 +159,7 @@ function usage(body, guard) {
     link.href = place.href;
     item.append(link);
     if (!attachment.enabled) item.append(chip(t("guards.panel.off")));
+    if (model.isInactive(attachment)) item.append(chip(t("guards.panel.not_published")));
     list.append(item);
   }
   if (!list.children.length) list.append(make("li", "mg-card__facts", t("guards.unused")));
@@ -154,10 +207,11 @@ const page = new ManagementPage(root, {
     placeholder: t("guards.select_one"),
     icon: () => "shield",
     title: (guard) => guard.name,
-    chips: (guard) => [triggerChip(guard), consequenceChip(guard)],
+    chips: (guard) => [triggerChip(guard), consequenceChip(guard), publicationChip(guard)],
     tabs: () => [
       { key: "overview", label: t("graph_list.tab_overview"), render: overview },
       { key: "usage", label: t("graph_list.tab_usage"), render: usage },
+      { key: "versions", label: t("guards.tab_versions"), render: versionsTab },
       { key: "preview", label: t("guards.panel.tab_preview"), render: previewTab },
     ],
   },

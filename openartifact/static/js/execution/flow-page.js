@@ -239,6 +239,7 @@ class FlowPage {
     const chip = root.querySelector("[data-head-chip]");
     chip.hidden = false;
     setChip(chip, execution.status);
+    root.querySelector("[data-head-dry]").hidden = !execution.dry_run; // a dry run says so (ADR-086)
     const startedAt = [execution.started_stage_name, execution.started_action_name].filter(Boolean).join(" › ");
     const rows = [
       [t("common.pipeline"), execution.pipeline_name],
@@ -274,7 +275,7 @@ class FlowPage {
         const item = document.createElement("li");
         item.className = "ef-guards__item";
         const name = document.createElement("strong");
-        name.textContent = firing.guard;
+        name.textContent = firing.guard_version ? `${firing.guard} v${firing.guard_version}` : firing.guard;
         item.append(icon("shield"), name, document.createTextNode(` ${sentenceOf({ kind: "guard", data: firing })}`));
         return item;
       }),

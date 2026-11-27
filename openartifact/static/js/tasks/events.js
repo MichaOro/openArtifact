@@ -6,7 +6,7 @@
  * own code, and a browser keeps only six connections per host open across all tabs): the connection closes when the last
  * caller has gone. A custom URL gets a connection of its own. */
 
-const EVENT_TYPES = ["task.created", "task.updated", "task.moved", "task.deleted", "board.resync", "board.lanes", "run.updated", "execution.updated", "execution.deleted", "comment.created", "comment.updated", "comment.deleted", "activity.created", "artifact_fields.changed", "agents.changed", "providers.changed", "settings.changed", "graph.changed", "agent.tool_call", "agent.turn"];
+const EVENT_TYPES = ["task.created", "task.updated", "task.moved", "task.deleted", "board.resync", "board.lanes", "run.updated", "execution.updated", "execution.deleted", "comment.created", "comment.updated", "comment.deleted", "activity.created", "artifact_fields.changed", "agents.changed", "providers.changed", "settings.changed", "graph.changed", "graph.contract_changed", "agent.tool_call", "agent.turn"];
 
 /** The one connection of the page to the default URL: the source, who listens, and whether it has opened. */
 let hub = null;

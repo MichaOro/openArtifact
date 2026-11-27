@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.agents.service import artifact_inputs_mapped
@@ -22,9 +23,12 @@ from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.executors import CODE_DISABLED_REASON
 from openartifact.engine.neighbour_schemas import GraphNeighbours
 from openartifact.engine.neighbours import graph_neighbours
-from openartifact.graph import publishing, versions
+from openartifact.exceptions import ArtifactError
+from openartifact.graph import contract as graph_contract
+from openartifact.graph import preflight, publishing, versions
 from openartifact.graph.content import graph_of
 from openartifact.graph.localize import localize
+from openartifact.graph.mock import CASES_KEY, MOCK_KEY
 from openartifact.graph.node_types import NODE_TYPES, node_type
 from openartifact.graph.repository import GraphRepository, NodeError, PurposeError
 from openartifact.graph.rules import EdgeError
@@ -32,6 +36,8 @@ from openartifact.graph.schemas import (
     EdgeCreate,
     EdgeRead,
     EdgeUpdate,
+    FindingRead,
+    GraphContract,
     GraphCreate,
     GraphDetail,
     GraphListRead,
@@ -40,13 +46,24 @@ from openartifact.graph.schemas import (
     GraphUses,
     GraphVersionDetail,
     GraphVersionRead,
+    LastResult,
     NodeCreate,
     NodeRead,
     NodeUpdate,
+    PublishCheck,
     PublishedGraph,
+    PublishRequest,
 )
 from openartifact.i18n.web import language_for
-from openartifact.models import Graph, GraphKind, GraphNode, GraphVersion, NodeKind
+from openartifact.models import (
+    Execution,
+    Graph,
+    GraphKind,
+    GraphNode,
+    GraphVersion,
+    NodeKind,
+    RunNodeResult,
+)
 from openartifact.ui import layout as ui_layout
 
 _LABELS: dict[GraphKind, str] = {GraphKind.PIPELINE: "Pipeline", GraphKind.ACTION: "Action"}
@@ -77,9 +94,13 @@ def _invalid(error: ValueError) -> HTTPException:
 async def _node_reads(repo: GraphRepository, nodes: Sequence[GraphNode]) -> list[NodeRead]:
     """Nodes as the API returns them, linked actions with their definition's name and On Fail."""
     described = await repo.describe(nodes)
+    numbers = await repo.placement_numbers(nodes)
     reads = [NodeRead.model_validate(n) for n in nodes]
     for read, node in zip(reads, nodes, strict=True):
         read.config = node_type(node.kind).effective_config(node.config)
+        read.placement_number = numbers.get(node.id)
+        read.mock = (node.config or {}).get(MOCK_KEY)
+        read.cases = (node.config or {}).get(CASES_KEY)
         if read.id in described:
             link = described[read.id]
             read.definition_name = link.name
@@ -92,6 +113,11 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
     """The router of one kind of graph: ``pipeline`` at ``/api/pipelines``, ``action`` at ``/api/actions``."""
     label = _LABELS[kind]
     router = APIRouter(prefix=f"/api/{kind}s", tags=[f"{kind}s"], responses=GATED)
+
+    def _announce_contract(request: Request, graph_id: str) -> None:
+        """A publication or a discarded draft changes what the pipelines that use this graph see as its inputs and outputs (ADR-083 add. 2):
+        an editor that shows such a pipeline reads the contract again."""
+        request.app.state.event_bus.publish("graph.contract_changed", {"graph_id": graph_id})
 
     async def _graph(repo: GraphRepository, graph_id: str) -> Graph:
         graph = await repo.get(graph_id)
@@ -306,6 +332,41 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             stages=pipeline_chain(nodes, edges) if kind == GraphKind.PIPELINE else None,
         )
 
+    @router.get(
+        "/{graph_id}/check",
+        response_model=PublishCheck,
+        name=f"check_{kind}",
+        summary=f"Check the draft of a {kind} before it is published",
+        responses=errors(404, 422),
+    )
+    async def check_graph(graph_id: str, session: SessionDep) -> PublishCheck:
+        """What publishing the draft would run into (ADR-082): every reference that names something that is not there, a secret that
+        does not exist, a required input without a value (errors), and what may not work (warnings). Reads only, runs nothing."""
+        graph = await _graph(GraphRepository(session), graph_id)
+        found = [FindingRead(**f.as_dict()) for f in await preflight.check(session, graph.id)]
+        return PublishCheck(
+            findings=found,
+            errors=sum(1 for f in found if f.level == "error"),
+            warnings=sum(1 for f in found if f.level == "warning"),
+        )
+
+    @router.get(
+        "/{graph_id}/contract",
+        response_model=GraphContract,
+        name=f"contract_of_{kind}",
+        summary=f"The inputs and outputs of the version of a {kind} that runs",
+        responses=errors(404, 422),
+    )
+    async def graph_contract_of(graph_id: str, session: SessionDep) -> GraphContract:
+        """What the pipelines that use this graph see (ADR-083 add. 2): the contract of the **published** version, the draft's only while
+        nothing is published (the engine runs the draft then). While the draft has changes `draft_changed` is true and the newer contract waits
+        for Publish; Discard draft brings the published one back."""
+        graph = await _graph(GraphRepository(session), graph_id)
+        found = await graph_contract.contract_of(session, graph.id)
+        if found is None:
+            raise HTTPException(404, "No such graph")
+        return GraphContract(**found)
+
     @router.post(
         "/{graph_id}/publish",
         response_model=PublishedGraph,
@@ -313,12 +374,26 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         summary=f"Publish a {kind}",
         responses=errors(404, 409, 422, write=True),
     )
-    async def publish_graph(graph_id: str, session: SessionDep) -> PublishedGraph:
+    async def publish_graph(
+        graph_id: str, request: Request, session: SessionDep, body: PublishRequest | None = None
+    ) -> PublishedGraph:
         """Publish the draft as a new version; executions that start from now on use it. 409 when the draft equals the published
-        version (nothing new to publish)."""
+        version (nothing new to publish), and 409 with ``findings`` when the check (``GET .../check``) found something and the body
+        does not say ``{"acknowledge": true}``: the caller has seen the findings and publishes anyway (ADR-082)."""
         graph = await _graph(GraphRepository(session), graph_id)
+        if not (body and body.acknowledge) and await publishing.would_change(session, graph):
+            found = await preflight.check(session, graph.id)
+            if found:
+                raise ArtifactError(
+                    409,
+                    f"The check found {len(found)} thing(s) to look at before publishing; "
+                    "publish again with acknowledge to publish anyway",
+                    code="findings",
+                    extra={"findings": [f.as_dict() for f in found]},
+                )
         version = await publishing.publish(session, graph, "user")
         await session.commit()
+        _announce_contract(request, graph.id)
         return await _published(session, graph, version)
 
     @router.post(
@@ -336,6 +411,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         graph = await _graph(repo, graph_id)
         report = await publishing.discard_draft(session, graph)
         await session.commit()
+        _announce_contract(request, graph.id)
         if report.graphs:
             request.app.state.event_bus.publish(
                 "graph.changed", {"graph_ids": sorted(report.graphs)}
@@ -349,12 +425,15 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         summary=f"Publish an earlier version of a {kind} again",
         responses=errors(404, 409, 422, write=True),
     )
-    async def republish_graph(graph_id: str, number: int, session: SessionDep) -> PublishedGraph:
+    async def republish_graph(
+        graph_id: str, number: int, request: Request, session: SessionDep
+    ) -> PublishedGraph:
         """Publish an earlier version again (a rollback): a new version with that version's content, the history stays and the draft is
         not touched. 409 when it is the published one already."""
         graph = await _graph(GraphRepository(session), graph_id)
         version = await publishing.republish(session, graph, number, "user")
         await session.commit()
+        _announce_contract(request, graph.id)
         return await _published(session, graph, version)
 
     @router.patch(
@@ -455,8 +534,17 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             (payload.config or {}).get("agent_id", (node.config or {}).get("agent_id")),
             payload.config,
         )
+        known: set[str] = set()
+        if (
+            payload.mock is not None or payload.cases is not None
+        ):  # no secret may end up in a mock (ADR-087)
+            store = request.app.state.secret_store
+            try:
+                known = set((await store.resolve([s.name for s in await store.names()])).values())
+            except Exception:  # secrets not available: only the reference form is checked
+                known = set()
         try:
-            report = await repo.update_node(node, payload)
+            report = await repo.update_node(node, payload, known)
         except NodeError as error:
             raise _invalid(error) from error
         await repo.touch(graph)
@@ -471,6 +559,41 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         if node.kind == NodeKind.AGENT:
             read.warnings += await agent_node_hints(session, node)
         return read
+
+    @router.get(
+        "/{graph_id}/nodes/{node_id}/last-result",
+        response_model=LastResult,
+        name=f"last_result_of_{kind}_node",
+        summary="The newest stored result of a node (the source of a mock)",
+        responses=errors(404, 422),
+    )
+    async def last_result(graph_id: str, node_id: str, session: SessionDep) -> LastResult:
+        """The result the node left in its newest step of a **real** run (a dry run's skipped or mocked step is no real data), as a mock takes it
+        (ADR-087): ``found`` is false while it never ran."""
+        repo = GraphRepository(session)
+        await _graph(repo, graph_id)
+        node = await repo.get_node(graph_id, node_id)
+        if node is None:
+            raise _not_found("Node")
+        row = (
+            await session.execute(
+                select(RunNodeResult)
+                .join(Execution, Execution.id == RunNodeResult.execution_id)
+                .where(RunNodeResult.node_id == node_id, Execution.dry_run.is_(False))
+                .order_by(RunNodeResult.started_at.desc(), RunNodeResult.seq.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            return LastResult(found=False)
+        data = {k: v for k, v in (row.data or {}).items() if k not in ("mock", "dry_run")}
+        return LastResult(
+            found=True,
+            outcome="fail" if row.outcome == "fail" else "pass",
+            output=row.output or "",
+            reason=row.reason or "",
+            data=data,
+        )
 
     @router.delete(
         "/{graph_id}/nodes/{node_id}",

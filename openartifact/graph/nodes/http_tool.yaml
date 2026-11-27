@@ -9,6 +9,13 @@ tool: true
 menu:
   group: Agent tools
   order: 2
+effect:
+  default: write
+  setting: method
+  reading:
+  - GET
+  - HEAD
+  - OPTIONS
 ports:
   outputs:
   - name: tool

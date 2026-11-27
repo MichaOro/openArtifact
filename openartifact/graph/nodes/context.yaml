@@ -18,6 +18,8 @@ chain: true
 menu:
   group: Data
   order: 3
+effect:
+  default: read
 ports:
   inputs:
   - name: in
@@ -44,7 +46,7 @@ settings:
   - source: card
   - source: comments
     count: 20
-  help: "The package's parts, most important first; sources further down give way first when the size limit runs out. Card text and results are pasted as they are, never read for references."
+  help: "What the package is made of, in order of importance: when the limit runs out, the sources further down give way first. The step shows what went in and what was left out."
   stored_in: config
 - key: size_limit
   label: Size limit
@@ -52,7 +54,7 @@ settings:
   minimum: 1024
   maximum: 32768
   default: 8192
-  help: "The most the whole package takes, in bytes (about four bytes per token). A bigger package gives the agent more to read and costs more."
+  help: "The most the whole package takes, headings included (bytes of UTF-8 text); about 4 bytes make a token. A bigger package gives the agent more to read and costs more."
   stored_in: config
   section: behaviour
 - key: item_limit
@@ -61,7 +63,7 @@ settings:
   minimum: 256
   maximum: 16384
   default: 2048
-  help: "A single comment, card or result is cut to this size so one long item cannot fill the package. The card's own text is cut last."
+  help: "One comment, card or result is cut to this size (marked …[cut]) before it is weighed, so one long item cannot fill the package. The card's own text is cut last."
   stored_in: config
   section: behaviour
   level: optional

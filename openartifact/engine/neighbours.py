@@ -36,6 +36,7 @@ from openartifact.engine.neighbour_schemas import (
 from openartifact.graph import versions
 from openartifact.graph.content import graph_of
 from openartifact.graph.node_types import Ports, node_type
+from openartifact.graph.placements import numbers_of
 from openartifact.models import Graph
 
 Raw = Mapping[str, Any]
@@ -77,7 +78,9 @@ def connection_of(port: str) -> Connection:
 
 def display_name(node: Raw) -> str:
     """What the editor calls a node: an action or pipeline node carries the name of what it links to (its ``label``)."""
-    return str(node.get("definition_name") or node.get("label") or node.get("name") or "")
+    name = str(node.get("definition_name") or node.get("label") or node.get("name") or "")
+    number = node.get("placement_number")
+    return f"{name} #{number}" if number else name
 
 
 def _order(kind: str, port: str) -> int:
@@ -104,6 +107,13 @@ def _link(edge: Raw, other: Raw, port_owner: Raw) -> Link:
 
 def links_of(nodes: Sequence[Raw], edges: Sequence[Raw]) -> dict[str, NodeNeighbours]:
     """The predecessors and successors of every node, by node id. An edge to or from a node that is not in ``nodes`` is left out."""
+    numbers = numbers_of(
+        nodes
+    )  # "Check #2": the same definition placed more than once is told apart (ADR-082)
+    nodes = [
+        {**n, "placement_number": numbers.get(str(n["id"]), n.get("placement_number"))}
+        for n in nodes
+    ]
     by_id = {str(n["id"]): n for n in nodes}
     successors: dict[str, list[tuple[Raw, Raw]]] = defaultdict(list)
     predecessors: dict[str, list[tuple[Raw, Raw]]] = defaultdict(list)

@@ -353,8 +353,17 @@ async def _context(node: dict[str, Any], limits: Limits, view: RunView | None = 
 
 
 async def _timer(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
+    seconds = node["seconds"] or 0
+    if (
+        view is not None and view.dry_run
+    ):  # a dry run does not wait (ADR-086): the step says how long it would have
+        return NodeResult(
+            "pass",
+            reason=f"Dry run: would have waited {seconds} s",
+            data={"dry_run": True, "would_have": f"waited {seconds} s", "skipped_seconds": seconds},
+        )
     started = time.monotonic()
-    await asyncio.sleep(node["seconds"] or 0)
+    await asyncio.sleep(seconds)
     return NodeResult("pass", duration=time.monotonic() - started)
 
 
@@ -413,6 +422,7 @@ async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = No
             limits=limits,
             view=run_view,
             handovers=handovers,
+            dry_run=run_view.dry_run,
         )
         result = await run_agent_node(
             node,

@@ -9,6 +9,10 @@ tool: true
 menu:
   group: Agent tools
   order: 3
+effect:
+  default: write
+  flag: read_only
+  flag_true: read
 ports:
   outputs:
   - name: tool
@@ -60,4 +64,11 @@ settings:
   minimum: 1
   maximum: 600
   default: 30
+  stored_in: config
+- key: read_only
+  label: Read only
+  type: switch
+  default: false
+  level: optional
+  help: Tick it when this code only reads and changes nothing. A dry run then runs it; otherwise it skips it as a change.
   stored_in: config

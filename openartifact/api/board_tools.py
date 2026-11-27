@@ -362,13 +362,15 @@ class BoardTools:
         until: str | None = None,
         limit: int = DEFAULT_LIMIT,
         cursor: str | None = None,
+        dry_run: str | None = None,
     ) -> dict[str, Any]:
         """The executions of ALL artifacts, newest first, without steps, with each artifact's number and
         title. Filters (all optional): ``status`` (comma separated: running, done, failed, stopped),
         ``started_by`` (user, api, mcp, system), ``pipeline`` (id, or part of its name), ``query`` (part of
         the title, pipeline name or note, or an artifact number), ``since`` / ``until`` (ISO 8601, UTC).
-        ``limit`` is 1 to 200 (default 50); pass ``next_cursor`` as ``cursor`` for the next page. ``summary`` counts
-        running, failed and done (24 h) and all executions."""
+        ``dry_run`` is ``only`` or ``exclude`` (dry runs skip what writes). ``limit`` is 1 to 200 (default 50); pass
+        ``next_cursor`` as ``cursor`` for the next page. ``summary`` counts running, failed and done (24 h, real runs only)
+        and all executions."""
         if not 1 <= limit <= MAX_LIMIT:
             raise McpError(f"limit must be between 1 and {MAX_LIMIT}")
         page = self._service.all_executions(
@@ -380,6 +382,7 @@ class BoardTools:
             until=until,
             limit=limit,
             cursor=cursor,
+            dry_run=dry_run,
         )
         return (await guarded(page)).model_dump(mode="json")
 
@@ -490,13 +493,25 @@ class BoardTools:
         pipeline: str | None = None,
         stage: str | None = None,
         action: str | None = None,
+        dry_run: bool = False,
+        inputs: dict[str, Any] | None = None,
+        version: str | None = None,
     ) -> dict[str, Any]:
         """Start processing an artifact. Without a choice it starts with the pipeline, stage and action it has.
-        Stages before the starting stage count as done."""
+        Stages before the starting stage count as done. ``dry_run`` runs it under real conditions but skips everything that writes
+        (the artifact stays as it is); ``inputs`` are values for the declared inputs of the entry (of the action when ``action`` is
+        given, else of the pipeline); ``version`` is ``published`` (default) or ``draft``. The last two are for a dry run only."""
         pipeline_id, stage_id, action_id = await self._target(pipeline, stage, action)
         run = await guarded(
             self._service.start(
-                artifact, pipeline_id, stage_id, action_id, started_by=self._started_by
+                artifact,
+                pipeline_id,
+                stage_id,
+                action_id,
+                started_by=self._started_by,
+                dry_run=dry_run,
+                inputs=inputs,
+                version=version,
             )
         )
         return run.model_dump(mode="json")

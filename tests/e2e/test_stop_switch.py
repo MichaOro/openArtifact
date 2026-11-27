@@ -246,6 +246,9 @@ def test_the_personal_page_offers_the_switch_and_will_not_hide_it_while_stop_is_
     eventually(lambda: api.get(PERSONAL).json()["show_stop_switch"], True)
     api.put(STOP, json={"active": True}).raise_for_status()
     setting.uncheck()
-    expect(page.locator("[data-form-error]")).to_contain_text("switch it off before you hide it")
+    # the page has a second confirm dialog since ADR-084 (its own form-error line): the form's line is the one inside the settings card
+    expect(page.locator("[data-personal-settings] [data-form-error]")).to_contain_text(
+        "switch it off before you hide it"
+    )
     expect(setting).to_be_checked()  # the form shows what the server holds
     assert api.get(PERSONAL).json()["show_stop_switch"] is True

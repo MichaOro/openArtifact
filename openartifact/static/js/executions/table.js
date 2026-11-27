@@ -171,6 +171,7 @@ export class ExecutionTable {
     fillTime(row.querySelector("[data-time]"), e.started_at);
     fillDuration(row.querySelector("[data-duration]"), e);
     fillOrigin(row.querySelector("[data-origin]"), e.started_by);
+    row.querySelector("[data-dry]").hidden = !e.dry_run;
     row.querySelector("[data-steps]").textContent = String(e.step_count);
     row.querySelector("[data-steps]").title = plural(e.step_count, "step");
     const note = row.querySelector("[data-note]");

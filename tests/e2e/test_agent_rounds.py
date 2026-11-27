@@ -44,7 +44,8 @@ def test_the_rounds_of_a_running_agent_grow_in_its_panel_and_a_limit_ends_in_an_
     llm.script = [
         (200, _asks(("c1", "sleeper", {})), {}, 4.0),
         (200, _asks(("c2", "sleeper", {})), {}, 1.0),
-        (200, completion("Partial answer from what was found.")),
+        # the final request answers after a pause, so the panel shows "Final answer" long enough for a slow machine to see it
+        (200, completion("Partial answer from what was found."), {}, 3.0),
     ]
     task = _start(api, pipeline)
     run = _run(api, task, ("running", "done", "failed"))

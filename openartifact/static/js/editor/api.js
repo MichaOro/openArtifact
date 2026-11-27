@@ -19,15 +19,22 @@ export const deleteGraph = (kind, id) => send("DELETE", base(kind, id));
 // versions (ADR-070): the list, one version with its frozen graph, publish the draft, publish an earlier version again
 export const versionsOf = (kind, id) => request(`${base(kind, id)}/versions`);
 export const versionOf = (kind, id, number) => request(`${base(kind, id)}/versions/${number}`);
-export const publishGraph = (kind, id) => send("POST", `${base(kind, id)}/publish`);
+/** `acknowledge`: publish although the check found something (the caller has seen the findings, ADR-082); without it the server refuses. */
+export const publishGraph = (kind, id, acknowledge = false) => send("POST", `${base(kind, id)}/publish`, acknowledge ? { acknowledge: true } : undefined);
+/** What publishing the draft would run into (ADR-082): `{findings: [{level, code, node_id, node_name, message}], errors, warnings}`. */
+export const checkGraph = (kind, id) => request(`${base(kind, id)}/check`);
 /** Throw the changes of the draft away: it is the published version again (answers the graph as it is now). */
 export const discardGraphDraft = (kind, id) => send("POST", `${base(kind, id)}/draft/discard`);
 export const republishGraph = (kind, id, number) => send("POST", `${base(kind, id)}/versions/${number}/republish`);
 
 export const loadGraph = (kind, id) => request(base(kind, id));
+/** The inputs and outputs of the version of a graph that RUNS (published, else the draft of a never published one; ADR-083 add. 2). */
+export const loadContract = (kind, id) => request(`${base(kind, id)}/contract`);
 export const addNode = (kind, id, node) => send("POST", `${base(kind, id)}/nodes`, node);
 export const updateNode = (kind, id, nodeId, fields) => send("PATCH", `${base(kind, id)}/nodes/${encodeURIComponent(nodeId)}`, fields);
 export const deleteNode = (kind, id, nodeId) => send("DELETE", `${base(kind, id)}/nodes/${encodeURIComponent(nodeId)}`);
 export const connect = (kind, id, edge) => send("POST", `${base(kind, id)}/edges`, edge);
 export const restyleEdge = (kind, id, edgeId, style) => send("PATCH", `${base(kind, id)}/edges/${encodeURIComponent(edgeId)}`, { style });
 export const disconnect = (kind, id, edgeId) => send("DELETE", `${base(kind, id)}/edges/${encodeURIComponent(edgeId)}`);
+/** The newest stored result of a node of a real run, in the shape of a mock (ADR-087): `{found, outcome, output, reason, data}`. */
+export const lastResult = (kind, id, nodeId) => request(`${base(kind, id)}/nodes/${encodeURIComponent(nodeId)}/last-result`);

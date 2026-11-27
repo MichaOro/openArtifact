@@ -111,6 +111,8 @@ class RunRead(BaseModel):
     resume_action_id: str | None
     status: RunStatus
     started_by: StartedBy
+    #: A dry run (ADR-086): nothing that writes was executed.
+    dry_run: bool = False
     note: str | None
     stage_id: str | None
     stage_name: str | None
@@ -150,6 +152,8 @@ class ExecutionRead(BaseModel):
     final_stage_name: str | None
     final_action_name: str | None
     started_by: StartedBy
+    #: A dry run (ADR-086): shown with a chip, filterable, left out of the counters of real runs.
+    dry_run: bool = False
     started_at: UtcDateTime
     finished_at: UtcDateTime | None
     duration_seconds: float | None
@@ -173,6 +177,7 @@ class ExecutionRead(BaseModel):
             final_stage_name=row.final_stage_name,
             final_action_name=row.final_action_name,
             started_by=StartedBy(row.started_by),
+            dry_run=bool(row.dry_run),
             started_at=row.started_at,
             finished_at=finished,
             duration_seconds=(
@@ -199,6 +204,8 @@ class ContextNodeRead(BaseModel):
 
     name: str
     kind: str
+    #: The id of the node that ran (ADR-082): what ``${node:ID...}`` names; ``None`` in a context stored before ids.
+    id: str | None = None
     #: The result contract (ADR-072): ``success`` is ``outcome == "pass"``, ``attempts`` the tries, ``duration_ms`` the wall time.
     success: bool
     outcome: str
@@ -230,6 +237,8 @@ class RunContextRead(BaseModel):
 
     vars: dict[str, Any]
     card: dict[str, Any] = {}
+    #: The inputs of the action or pipeline that was running when the context was read (ADR-083); empty when it has none.
+    inputs: dict[str, Any] = {}
     nodes: dict[str, ContextNodeRead]
 
     @classmethod

@@ -3,19 +3,30 @@
  * kind, the choice of what it links to, and one action row New · Edit · Delete. */
 import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
+import { Tabs } from "../components/tabs.js";
 import { field } from "./field.js";
 import { agentBlock } from "./agent-inspector.js";
-import { displayName } from "./geometry.js";
+import { displayName, nameParts } from "./geometry.js";
 import { typeOf } from "./node-types.js";
 import { buildSettings } from "./settings-layout.js";
+import { mockPanel } from "./mock-panel.js";
+import { mockable } from "./mock-model.js";
 import { t } from "../i18n.js";
 
 /** Title and caption; `rename` ({label, onCommit}) makes the title editable in place. */
-export function heading(text, caption, rename = null) {
+export function heading(text, caption, rename = null, number = null) {
   const wrap = document.createElement("div");
   wrap.className = "ge-inspector__heading";
   const title = document.createElement("h2");
-  title.textContent = text;
+  if (number && !rename) {
+    // the system's number of a placement (ADR-082): first and quiet, not part of what the user may edit
+    const mark = document.createElement("span");
+    mark.className = "ge-inspector__number";
+    mark.textContent = `#${number}`;
+    title.append(mark, document.createTextNode(` ${text}`));
+  } else {
+    title.textContent = number ? `#${number} ${text}` : text;
+  }
   title.dataset.focusKey = "title";
   wrap.append(title);
   if (rename) new InlineName(title, rename);
@@ -32,6 +43,13 @@ export function note(text) {
   p.className = "ge-inspector__note";
   p.textContent = text;
   return p;
+}
+
+function wrapAll(children) {
+  const wrap = document.createElement("div");
+  wrap.className = "ge-dry-inputs";
+  wrap.append(...children);
+  return wrap;
 }
 
 function section(title, ...children) {
@@ -62,7 +80,8 @@ export class InspectorBlocks {
   title(node) {
     const type = typeOf(node);
     const rename = type.renamable(node) ? { label: `${type.label} name`, onCommit: (name) => this.editor.renameNode(node, name) } : null;
-    const head = heading(displayName(node), type.subtitle(node), rename);
+    const { label, number } = nameParts(node);
+    const head = heading(rename ? displayName(node) : label, type.subtitle(node), rename, rename ? null : number);
     const glyph = type.constructor.icon;
     if (!glyph) return head;
     // the icon of the node's kind in its colour, as on the canvas
@@ -84,6 +103,100 @@ export class InspectorBlocks {
   settings(node) {
     if (!typeOf(node).settings.length) return null;
     return section(null, buildSettings({ node, editor: this.editor, suggest: this.editor.suggestions?.(node) ?? null }));
+  }
+
+  /**
+   * The window of a Trigger: the tab *Inputs* (what `inner` holds, the settings as before) and the tab *Dry run* (dry-run-panel.js). A graph for
+   * guards has no dry run, so its window stays as it was. The tab chosen stays chosen while the window is drawn again and when it is opened again.
+   * @param {object} node the trigger @param {(HTMLElement|null)[]} inner what the Inputs tab holds
+   */
+  triggerTabs(node, inner) {
+    const content = inner.filter(Boolean);
+    const dry = this.editor.dryRunPanel?.(node);
+    if (!dry) return content.length === 1 ? content[0] : wrapAll(content);
+    const chosen = this.editor.dryRunTab?.() === "dry-run" ? "dry-run" : "inputs";
+    const strip = document.createElement("div");
+    strip.className = "task-tabs ge-dry-tabs";
+    strip.setAttribute("role", "tablist");
+    strip.setAttribute("aria-label", t("editor.dry_run.tabs_label"));
+    const panels = {};
+    const make = (name, label, body) => {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "task-tab";
+      tab.id = `trigger-tab-${name}`;
+      tab.dataset.tab = name;
+      tab.dataset.focusKey = `trigger-tab-${name}`;
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-controls", `trigger-panel-${name}`);
+      tab.setAttribute("aria-selected", String(name === chosen));
+      if (name !== chosen) tab.tabIndex = -1;
+      tab.textContent = label;
+      strip.append(tab);
+      const panel = document.createElement("div");
+      panel.id = `trigger-panel-${name}`;
+      panel.className = "ge-dry-panel";
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", tab.id);
+      panel.hidden = name !== chosen;
+      panel.append(body);
+      panels[name] = panel;
+    };
+    make("inputs", t("editor.dry_run.tab_inputs"), wrapAll(content));
+    make("dry-run", t("editor.dry_run.tab_dry_run"), dry);
+    const wrap = document.createElement("div");
+    wrap.className = "ge-dry-tabbed";
+    wrap.append(strip, panels.inputs, panels["dry-run"]);
+    // the tab list needs its panels in the document: it is made as soon as the window has put this in
+    queueMicrotask(() => {
+      if (wrap.isConnected) new Tabs(strip, (name) => this.editor.setDryRunTab?.(name));
+    });
+    return wrap;
+  }
+
+  /**
+   * The window of a node that leaves a result (ADR-087): the tab *Settings* (what `sections` holds) and the tab *Mock* (mock-panel.js). The tab chosen
+   * stays chosen while the window is drawn again; the pencil beside the close button of the window opens the Mock tab.
+   * @param {object} node @param {HTMLElement[]} sections the settings window as it was
+   */
+  mockTabs(node, sections) {
+    if (!mockable(typeOf(node), node) || !this.editor.saveMock) return sections;
+    const chosen = this.editor.nodeTab?.() === "mock" ? "mock" : "settings";
+    const strip = document.createElement("div");
+    strip.className = "task-tabs ge-dry-tabs";
+    strip.setAttribute("role", "tablist");
+    strip.setAttribute("aria-label", t("editor.mock.tabs_label"));
+    const wrap = document.createElement("div");
+    wrap.className = "ge-dry-tabbed";
+    const bodies = { settings: wrapAll(sections.filter(Boolean)), mock: mockPanel(node, this.editor) };
+    bodies.settings.className = "ge-node-settings";
+    wrap.append(strip);
+    for (const [name, label] of [["settings", t("editor.mock.tab_settings")], ["mock", t("editor.mock.tab_mock")]]) {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "task-tab";
+      tab.id = `node-tab-${name}`;
+      tab.dataset.tab = name;
+      tab.dataset.focusKey = `node-tab-${name}`;
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-controls", `node-panel-${name}`);
+      tab.setAttribute("aria-selected", String(name === chosen));
+      if (name !== chosen) tab.tabIndex = -1;
+      tab.textContent = label;
+      strip.append(tab);
+      const panel = document.createElement("div");
+      panel.id = `node-panel-${name}`;
+      panel.className = "ge-dry-panel";
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", tab.id);
+      panel.hidden = name !== chosen;
+      panel.append(bodies[name]);
+      wrap.append(panel);
+    }
+    queueMicrotask(() => {
+      if (wrap.isConnected) new Tabs(strip, (name) => this.editor.setNodeTab?.(name));
+    });
+    return [wrap];
   }
 
   /** An agent node: its agent, the input mapping and the settings with their overrides (agent-inspector.js). */

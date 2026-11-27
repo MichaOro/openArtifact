@@ -6,13 +6,15 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from openartifact.graph.mock import CASES_KEY, MOCK_KEY
 from openartifact.graph.node_types import node_type
+from openartifact.graph.placements import KEY
 from openartifact.graph.repository import GraphRepository
 from openartifact.models import Graph, GraphEdge, GraphNode
 
 
-def _node(node: GraphNode, label: str) -> dict[str, Any]:
-    return {
+def _node(node: GraphNode, label: str, mocks: bool = False) -> dict[str, Any]:
+    data: dict[str, Any] = {
         "id": node.id,
         "kind": node.kind,
         "stage_id": node.stage_id,
@@ -21,12 +23,18 @@ def _node(node: GraphNode, label: str) -> dict[str, Any]:
         "definition_id": node.definition_id,
         "seconds": node.seconds,
         "config": node_type(node.kind).effective_config(node.config),
+        "number": (node.config or {}).get(KEY),
         "x": node.x,
         "y": node.y,
         "width": node.width,
         "height": node.height,
         "fail_enabled": node.fail_enabled,
     }
+    if mocks:  # the draft of a dry run only (ADR-087): never in a published version or the snapshot of a real run
+        stored = node.config or {}
+        data["mock"] = stored.get(MOCK_KEY)
+        data["cases"] = stored.get(CASES_KEY)
+    return data
 
 
 def _edge(edge: GraphEdge) -> dict[str, Any]:
@@ -42,8 +50,9 @@ def _edge(edge: GraphEdge) -> dict[str, Any]:
     }
 
 
-async def graph_of(session: AsyncSession, graph_id: str) -> dict[str, Any]:
-    """Id, name, kind, nodes (an action labelled with its definition's name) and edges of a graph as dicts."""
+async def graph_of(session: AsyncSession, graph_id: str, *, mocks: bool = False) -> dict[str, Any]:
+    """Id, name, kind, nodes (an action labelled with its definition's name) and edges of a graph as dicts. With ``mocks`` the nodes carry
+    their mock and test cases (ADR-087): only the draft of a dry run (and the publish check) asks for them."""
     repo = GraphRepository(session)
     nodes, edges = await repo.graph(graph_id)
     described = await repo.describe(nodes)
@@ -52,6 +61,8 @@ async def graph_of(session: AsyncSession, graph_id: str) -> dict[str, Any]:
         "id": graph_id,
         "name": graph.name if graph else "",
         "kind": graph.kind if graph else "",
-        "nodes": [_node(n, described[n.id].name if n.id in described else n.name) for n in nodes],
+        "nodes": [
+            _node(n, described[n.id].name if n.id in described else n.name, mocks) for n in nodes
+        ],
         "edges": [_edge(e) for e in edges],
     }

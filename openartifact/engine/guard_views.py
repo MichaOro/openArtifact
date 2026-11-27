@@ -5,7 +5,7 @@ a table behind a view only has to keep the view working, and the views are made 
 ======================  =========================================================================================================
 View                    What it holds
 ======================  =========================================================================================================
-``v_guard_runs``        One row per execution: its artifact, pipeline, status, who started it, step count, the times.
+``v_guard_runs``        One row per execution: its artifact, pipeline, status, who started it, whether it is a dry run, step count, the times.
 ``v_guard_steps``       One row per step of an execution (a node that ran): node, kind, outcome, success, tries, port, reason, the times.
 ``v_guard_tool_calls``  One row per tool call of an Agent step: the tool, its node, the first 200 characters of the arguments,
                         whether it failed, its duration (only for finished steps).
@@ -22,7 +22,7 @@ from pathlib import Path
 VIEWS: dict[str, str] = {
     "v_guard_runs": (
         "SELECT id, task_id, number, pipeline_name, started_stage_name, started_action_name, final_stage_name, "
-        "final_action_name, status, started_by, step_count, created_at, started_at, finished_at FROM executions"
+        "final_action_name, status, started_by, dry_run, step_count, created_at, started_at, finished_at FROM executions"
     ),
     "v_guard_steps": (
         "SELECT id, execution_id, seq, node_id, node_name, kind, outcome, (outcome = 'pass') AS success, attempts, port, exit_code, reason, started_at, finished_at "

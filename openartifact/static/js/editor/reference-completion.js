@@ -49,6 +49,11 @@ export function openReference(text, caret) {
     const close = query.indexOf(")");
     return /[}\n]/.test(query) || (close >= 0 && /\s/.test(query.slice(close + 1))) ? null : { start, query };
   }
+  if (query.startsWith("node:")) {
+    // a node by its name (ADR-082 add. 1): the name may hold blanks; the reference ends at the first blank after the field has begun
+    const dot = query.lastIndexOf(".");
+    return /[}\n]/.test(query) || (dot >= 0 && /\s/.test(query.slice(dot + 1))) ? null : { start, query };
+  }
   return /[}\s]/.test(query) ? null : { start, query };
 }
 
@@ -57,27 +62,39 @@ export function openReference(text, caret) {
  * @param {{id: string, kind: string, name: string, config?: object}[]} nodes the nodes of the graph being edited
  * @param {{exceptId?: string, secrets?: string[], allowSecrets?: boolean, cardFields?: {name: string, label: string}[], kinds?: (kind: string) => object|undefined}} options
  *   `exceptId`: the node being edited (it cannot read its own result); `secrets`: names only;
+ *   `answers`: the names of the fields of the answer format an agent node reports (ADR-085), offered as its `data.NAME`;
  *   `cardFields`: the artifact fields, offered as `card.NAME` (ADR-044); `kinds`: the description of a kind (what the server
  *   says: `produces_result`, `result_data`, `variables`); a node of a kind that is not described or leaves no result is not offered
  * @returns {{insert: string, detail: string, complete: boolean, head: string, kind?: string}[]} `insert` is what goes between
  *   "${" and "}"; `complete` is false when the user continues typing (a data path); `head` is the group it belongs to
  *   ("card.", "var.", "secret:", or the node as "(Name)."), see `suggestionsFor`
  */
-export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecrets = false, cardFields = [], kinds = () => undefined } = {}) {
+export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecrets = false, cardFields = [], kinds = () => undefined, contracts = () => null, answers = () => [] } = {}) {
   const out = [];
   for (const name of CARD_BUILT_INS) out.push({ insert: `card.${name}`, detail: t(`editor.reference_completion.card_${name}`), complete: true, head: "card." });
   for (const field of cardFields) out.push({ insert: `card.${field.name}`, detail: t("editor.reference_completion.label_field_artifact", { label: field.label }), complete: true, head: "card." });
-  const seen = new Set();
+  // the declared inputs of the graph being edited (its Trigger): `${input.NAME}` (ADR-083)
+  for (const trigger of nodes.filter((n) => n.kind === "trigger")) {
+    for (const spec of trigger.config?.inputs ?? []) out.push({ insert: `input.${spec.name}`, detail: spec.description ? `${t("editor.reference_completion.an_input")}: ${spec.description}` : t("editor.reference_completion.an_input"), complete: true, head: "input." });
+  }
+  const labels = labelsFor(nodes); // what a reference shows of a node: its name as the card shows it (reference-names.js turns it into the id when the field is saved)
   for (const node of nodes) {
-    if (node.id === exceptId || !kinds(node.kind)?.produces_result) continue;
-    const key = nodeKey(node.name);
-    if (seen.has(key)) continue; // two nodes with one name: the reference would be ambiguous, so it is not offered
-    seen.add(key);
-    // a node is spelled by its name as the editor shows it; a name the reference cannot hold (a bracket) by its key
-    const name = node.name.trim();
-    const head = /[()}\r\n]/.test(name) || !name ? `node.${key}.` : `(${name}).`;
-    for (const [field, detail] of NODE_FIELDS) out.push({ insert: `${head}${field}`, detail: `${node.name}: ${detail}`, complete: !field.endsWith("."), head, kind: node.kind });
-    for (const path of kinds(node.kind).result_data ?? []) out.push({ insert: `${head}data.${path}`, detail: `${node.name}: ${t("editor.reference_completion.its_data_path", { path })}`, complete: true, head, kind: node.kind });
+    if (node.id === exceptId || !node.id) continue;
+    // a node that leaves a result by its kind, or an action/pipeline node whose definition declares inputs or outputs (ADR-083)
+    const contract = contracts(node);
+    if (!kinds(node.kind)?.produces_result && !contract) continue;
+    // a node is stored by its id (ADR-082: a rename changes no reference) and shown by its name: the field gets `node:<name>.field`, never the id
+    const name = nodeLabel(node);
+    const head = `node:${labels.get(node.id)}.`;
+    const headLabel = /[()}\r\n]/.test(name) || !name ? head : `(${name}).`;
+    const label = (field) => `${headLabel}${field}`;
+    for (const [field, detail] of NODE_FIELDS) {
+      if (contract && ["exit_code", "output"].includes(field)) continue; // an action leaves its outputs as data, not text or an exit code
+      out.push({ insert: `${head}${field}`, label: label(field), detail: `${name}: ${detail}`, complete: !field.endsWith("."), head, headLabel, kind: node.kind });
+    }
+    // an agent node with an answer format also leaves the fields of the format as data (ADR-085)
+    const paths = [...(contract ? contract.outputs : (kinds(node.kind).result_data ?? [])), ...(answers(node) ?? [])];
+    for (const path of paths) out.push({ insert: `${head}data.${path}`, label: label(`data.${path}`), detail: `${name}: ${t("editor.reference_completion.its_data_path", { path })}`, complete: true, head, headLabel, kind: node.kind });
   }
   const variables = new Set();
   for (const node of nodes) {
@@ -96,6 +113,34 @@ export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecre
   return out;
 }
 
+/** What the editor calls a node in the list: its name (an action or pipeline node the name of what it runs, with its number when that
+ * is placed more than once, ADR-082). */
+export function nodeLabel(node) {
+  const base = String(node.definition_name ?? node.name ?? "").trim();
+  return node.placement_number ? `${base} #${node.placement_number}` : base;
+}
+
+/** What the editor calls a node inside a reference: its label without the characters that would end or break a reference. */
+function clean(label) {
+  return String(label ?? "").replace(/\s*[}\r\n]+\s*/g, " ").trim();
+}
+
+/** The unique display label of every node, by id (`Map`): the label as the card shows it; nodes that share a label are told apart by ` (1)`,
+ * ` (2)` ... in the order of the nodes (so the bare shared label names none of them: typed by hand it is left alone for the check to report). */
+export function labelsFor(nodes) {
+  const bases = nodes.filter((n) => n?.id).map((n) => [n.id, clean(nodeLabel(n)) || clean(n.name) || "node"]);
+  const total = new Map();
+  for (const [, base] of bases) total.set(base, (total.get(base) ?? 0) + 1);
+  const seen = new Map();
+  const labels = new Map();
+  for (const [id, base] of bases) {
+    const count = (seen.get(base) ?? 0) + 1;
+    seen.set(base, count);
+    labels.set(id, total.get(base) > 1 ? `${base} (${count})` : base);
+  }
+  return labels;
+}
+
 /**
  * The suggestions for what was typed, in steps so that a long list never opens at once: first the groups
  * (card fields, variables, secrets) and the nodes, each one choice that goes on; once one is chosen (its head is
@@ -103,17 +148,18 @@ export function candidatesFor(nodes, { exceptId = null, secrets = [], allowSecre
  * @param {ReturnType<typeof candidatesFor>} all
  */
 export function suggestionsFor(all, query) {
-  const opened = all.filter((c) => c.head && query.startsWith(c.head)).sort((a, b) => b.head.length - a.head.length)[0]?.head;
+  const typed = (c) => (c.head && query.startsWith(c.head)) || (c.headLabel && query.startsWith(c.headLabel));
+  const opened = all.filter(typed).sort((a, b) => b.head.length - a.head.length)[0]?.head;
   if (opened) return filterCandidates(all.filter((c) => c.head === opened), query);
   const heads = new Map();
   for (const c of all) {
-    const group = heads.get(c.head) ?? { head: c.head, count: 0, kind: c.kind };
+    const group = heads.get(c.head) ?? { head: c.head, headLabel: c.headLabel, count: 0, kind: c.kind };
     group.count += 1;
     heads.set(c.head, group);
   }
-  const labels = { "card.": () => t("editor.reference.card_of_run"), "var.": (n) => tn("editor.reference.variables", n), "secret:": (n) => tn("editor.reference.secrets", n) };
-  const groups = [...heads.values()].map((g) => ({ insert: g.head, detail: labels[g.head]?.(g.count) ?? `${g.kind} node`, complete: false, head: "", icon: g.head === "card." ? "card" : undefined }));
-  const order = (g) => ["card.", "var.", "secret:"].indexOf(g.insert);
+  const labels = { "card.": () => t("editor.reference.card_of_run"), "var.": (n) => tn("editor.reference.variables", n), "secret:": (n) => tn("editor.reference.secrets", n), "input.": (n) => tn("editor.reference.inputs", n) };
+  const groups = [...heads.values()].map((g) => ({ insert: g.head, label: g.headLabel, detail: labels[g.head]?.(g.count) ?? `${g.kind} node`, complete: false, head: "", icon: g.head === "card." ? "card" : undefined }));
+  const order = (g) => ["card.", "input.", "var.", "secret:"].indexOf(g.insert);
   const fixed = groups.filter((g) => order(g) >= 0).sort((a, b) => order(a) - order(b));
   return filterCandidates([...fixed, ...groups.filter((g) => order(g) < 0)], query);
 }
@@ -124,9 +170,10 @@ export function filterCandidates(candidates, query) {
   const starts = [];
   const contains = [];
   for (const candidate of candidates) {
-    const at = candidate.insert.toLowerCase().indexOf(wanted);
-    if (at === 0) starts.push(candidate);
-    else if (at > 0) contains.push(candidate);
+    // what is typed matches the name form the list shows as well as the text that is inserted
+    const at = [candidate.insert, candidate.label].filter(Boolean).map((text) => text.toLowerCase().indexOf(wanted)).filter((i) => i >= 0);
+    if (!at.length) continue;
+    (at.includes(0) ? starts : contains).push(candidate);
   }
   return [...starts, ...contains].slice(0, MAX_SUGGESTIONS);
 }

@@ -16,6 +16,11 @@ import { controllerValue, groupsOf, optionLabel, planSettings, shaped } from "./
 import { typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
 
+/** Whether an inherited value is there to be shown: not unset, not empty text, not an empty list (an agent without an answer format). */
+function hasValue(value) {
+  return value !== null && value !== undefined && value !== "" && !(Array.isArray(value) && value.length === 0);
+}
+
 const menu = new ActionMenu();
 /** Optional settings added (and overrides being made) that store nothing yet, by node: they live until the dialog closes. */
 const opened = new Map();
@@ -47,7 +52,10 @@ const TITLES = { definition: t("editor.node_types.definition"), behaviour: t("ed
 export function buildSettings({ node, editor, suggest, skip = [], extras = [], inheritance = null }) {
   const type = typeOf(node);
   const titles = { ...TITLES, ...(type.layout?.titles ?? {}) };
-  const plan = planSettings(type.settings, node, { skip, sections: type.layout?.sections, added: opened.get(node.id) ?? new Set() });
+  // a node that runs a definition without inputs has nothing to map (ADR-083): the setting is not drawn
+  const hasInputs = (suggest?.inputsOf?.(node) ?? []).length > 0;
+  const unmapped = type.settings.filter((s) => s.type === "mapping" && !hasInputs).map((s) => s.key);
+  const plan = planSettings(type.settings, node, { skip: [...skip, ...unmapped], sections: type.layout?.sections, added: opened.get(node.id) ?? new Set() });
   const order = new Map(type.settings.map((s, i) => [s.key, i]));
   const redraw = () => (inheritance ? inheritance.refresh() : editor.refresh());
   const open = () => {
@@ -108,7 +116,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     const state = inheritance.state(setting.key);
     const overridden = Boolean(state?.overridden);
     const inherited = state?.inherited;
-    const has = inherited !== null && inherited !== undefined && inherited !== "";
+    const has = hasValue(inherited);
     return overrideRow({
       key: setting.key,
       label: setting.label,
@@ -181,7 +189,7 @@ export function buildSettings({ node, editor, suggest, skip = [], extras = [], i
     button.addEventListener("click", () => {
       const items = available.map((setting) => {
         const state = inheritance?.state(setting.key);
-        const text = state && state.inherited != null && state.inherited !== "" ? inheritance.show(setting, state.inherited) : null;
+        const text = state && hasValue(state.inherited) ? inheritance.show(setting, state.inherited) : null;
         return { label: optionLabel(setting, text), icon: "plus", onSelect: () => {
           open().add(setting.key);
           redraw();

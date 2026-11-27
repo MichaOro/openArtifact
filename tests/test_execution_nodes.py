@@ -172,6 +172,7 @@ def test_a_new_node_has_the_defaults_and_stores_what_was_set(client: TestClient)
             "output_limit_bytes": None,  # optional settings of the manifest (ADR-075, ADR-073): not set means the default
             "retry": None,
             "on_failure": "fail",
+            "read_only": False,  # the effect declaration of ADR-086: a dry run skips the command unless it is ticked as only reading
         }
     )
     node = _node(client, action, "http", config={"url": "https://example.org", "method": "POST"})
@@ -195,6 +196,7 @@ def test_config_is_merged_per_key_and_null_resets_a_key(client: TestClient) -> N
         "output_limit_bytes": None,
         "retry": None,
         "on_failure": "fail",
+        "read_only": False,
     }
     config = client.patch(url, json={"config": {"timeout_seconds": None}}).json()["config"]
     assert config["timeout_seconds"] == 30 and config["code"] == "echo 1"

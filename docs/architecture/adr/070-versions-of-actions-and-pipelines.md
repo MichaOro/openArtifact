@@ -75,3 +75,15 @@ the graph editor.
   with `graph.changed`.
 - **Unsaved edits.** The editor saves every change at once, so there is no unsaved graph. Text typed into a field and not left yet is saved first.
 - The agent editor keeps its own header buttons (*Save draft*, *Discard draft*, *Publish*): it does not use this mark.
+
+## Addendum 2 (2026-11-26): guards get the same
+
+The guard library has a draft and published versions in the same words (*Draft*, *v3 published*, *Draft has changes*, *Publish*, *Publish again*, *Discard
+draft*) and the same popup on the chip ([ADR-081](081-guard-versions.md)). One difference: a graph that was never published runs its draft, a guard that was never
+published watches nothing.
+
+## Addendum (2026-11-26): publishing asks the check first
+
+*Publish* (the popup on the Draft mark and the Versions tab) first asks `GET …/check` ([ADR-082](082-references-by-id-and-the-publish-check.md)): a reference to a node that is not there, a missing
+secret, a required input without a value (errors) and what may not work (warnings). With findings a confirmation window lists them and publishes only after *Publish anyway*;
+the API answers 409 `findings` unless the body says `{"acknowledge": true}`. Saving a draft never checks: only what is published runs.

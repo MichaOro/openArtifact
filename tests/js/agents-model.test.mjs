@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  fieldNames,
   optionsOf,
   sampleHint,
   toolCallRows,
@@ -208,4 +209,12 @@ test("the page names the limits an agent sets, and only while its own limits are
   assert.deepEqual(limitRows({ limits_enabled: false, max_iterations: 100 }), [], "switched off: the defaults apply");
   assert.deepEqual(limitRows({ max_iterations: 100 }), [["max_iterations", 100]], "an agent from before the switch: any limit that differs counts");
   assert.deepEqual(limitRows({}), []);
+});
+
+test("the fields of an answer format are one short line, cut with an ellipsis when long (ADR-085)", () => {
+  assert.equal(fieldNames([{ name: "passed" }, { name: "verdict" }, { name: "reasons" }]), "passed, verdict, reasons");
+  assert.equal(fieldNames([]), "");
+  assert.equal(fieldNames(undefined), "");
+  const long = fieldNames(Array.from({ length: 30 }, (_, i) => ({ name: `field_${i}` })), 40);
+  assert.ok(long.length <= 40 && long.endsWith("…"), long);
 });

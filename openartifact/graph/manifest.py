@@ -127,6 +127,7 @@ class SettingSpec(_Strict):
             "retry",
             "sources",
             "fields",
+            "mapping",
         ]
         | None
     ) = None
@@ -154,6 +155,10 @@ class SettingSpec(_Strict):
     section: Literal["definition", "behaviour"] | None = None
     level: Literal["core", "optional", "advanced"] | None = None
     inherits: str | None = None
+    #: A ``fields`` setting: the one more text each field carries (``default`` of an input, ``value`` of an output; ADR-083).
+    field_extra: Literal["default", "value"] | None = None
+    #: A ``fields`` setting: the names its fields may not use (a key of ``field_schema.RESERVED_NAMES``; ADR-085).
+    field_reserved: Literal["agent_data"] | None = None
     #: Fields only the first copy of a repeated block has (a help text is said once, not five times).
     first: dict[str, Any] | None = None
 
@@ -266,6 +271,31 @@ class PlaceholderSpec(_Strict):
     soon: bool = True
 
 
+class EffectSpec(_Strict):
+    """What a node of the kind does to the world outside its run (ADR-086), which a dry run needs to know: it skips what writes.
+
+    ``default`` is the effect: ``none`` (the node only works on the run's own context), ``read``, ``write`` or ``mixed`` (decided by the
+    tools it offers: an Agent, an MCP server). A kind whose effect depends on a setting names it: ``setting`` with ``reading``, the
+    values that only read (any other value, or none, counts as writing: unknown is writing); or ``flag``, a switch of the node, with
+    ``flag_true``, the effect while it is on. A kind with no ``effect`` at all counts as writing."""
+
+    default: Literal["none", "read", "write", "mixed"]
+    setting: str | None = None
+    reading: list[str] = Field(default_factory=list)
+    flag: str | None = None
+    flag_true: Literal["none", "read", "write", "mixed"] | None = None
+
+    @model_validator(mode="after")
+    def _shape(self) -> EffectSpec:
+        if self.setting is not None and self.flag is not None:
+            raise ValueError("name either setting or flag, not both")
+        if (self.setting is None) != (not self.reading):
+            raise ValueError("setting and reading belong together")
+        if (self.flag is None) != (self.flag_true is None):
+            raise ValueError("flag and flag_true belong together")
+        return self
+
+
 class NodeManifest(_Strict):
     """What a file in ``graph/nodes/`` says about one kind of node."""
 
@@ -282,6 +312,8 @@ class NodeManifest(_Strict):
         default_factory=lambda: cast(list[Literal["pipeline", "guard"]], ["pipeline", "guard"]),
         min_length=1,
     )
+    #: What the kind does outside its run (a dry run skips what writes, ADR-086); none declared counts as writing.
+    effect: EffectSpec | None = None
     #: The right a person needs to use the kind (a hook for planned per-person rights; nothing evaluates it yet).
     requires: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_.:-]*$")
     fixed: bool = False

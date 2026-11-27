@@ -11,14 +11,19 @@ import { KEYS, readJson, removeStorage, writeJson } from "../storage.js";
 import { ActionMenu } from "../components/action-menu.js";
 import { icon } from "../components/icons.js";
 import { AddMenu } from "./add-menu.js";
-import { createGraph, listGraphs, loadGraph } from "./api.js";
+import { getAgent } from "../agents/api.js";
+import { createGraph, listGraphs, loadContract, loadGraph } from "./api.js";
 import { Canvas } from "./canvas.js";
-import { copyOf, pastePlan } from "./clipboard.js";
+import { copyOf, pastePlan, remappedConfig } from "./clipboard.js";
 import { ConnectMenu } from "./connect-menu.js";
 import { choosePort, connectionFor, placement, replacedEdges } from "./connect-plan.js";
 import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextToolPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
 import { GraphModel } from "./graph-model.js";
+import { DryRunPanel } from "./dry-run-panel.js";
 import { PublicationControl } from "./publication-control.js";
+import { lastResult } from "./api.js";
+import { mockActive, mockable } from "./mock-model.js";
+import { drawPencil, drawPin } from "./mock-chrome.js";
 import { InspectorBlocks, joinFooter } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
 import { flushDirty } from "./persist-policy.js";
@@ -27,7 +32,7 @@ import { EditorGuards } from "./guards.js";
 import { nodeWindowStructure } from "./node-layout.js";
 import { addableIn, loadNodeTypes, placeholderOf, typeOf } from "./node-types.js";
 import { forgetOpened } from "./settings-layout.js";
-import { followGraphChanges, needsReload, noticeText } from "./error-output-sync.js";
+import { followContracts, followGraphChanges, needsReload, noticeText } from "./error-output-sync.js";
 import { t, tn } from "../i18n.js";
 
 export class GraphEditor {
@@ -93,7 +98,10 @@ export class GraphEditor {
         onZoom: (zoom) => (this.zoomLabel.textContent = `${Math.round(zoom * 100)}%`),
         onNodeAction: (action, node, button) => this.#nodeAction(action, node, button),
         onNodeMenu: (node, point) => this.#openNodeMenu(node, point),
-        onNodeDrawn: (node, el) => this.guards?.decorate(node, el),
+        onNodeDrawn: (node, el) => {
+          this.guards?.decorate(node, el);
+          this.#drawMockPin(node, el);
+        },
       },
     });
     this.menu = new ActionMenu();
@@ -110,6 +118,7 @@ export class GraphEditor {
     this.connectMenu = new ConnectMenu({ addMenu, scope: this.model.kind, nodes: this.nodes, onChoose: (choice) => this.#addFromPort(choice), purpose: () => this.model.graph?.purpose ?? null });
     this.#setUpGuards(root);
     followGraphChanges(this.model.id, () => this.load()); // a definition or a use changed elsewhere (ADR-061 addendum)
+    followContracts((graphId) => this.#contractChanged(graphId)); // an action this pipeline places was published or its draft discarded (ADR-083 add. 2)
     root.querySelector("[data-zoom-in]").addEventListener("click", () => this.canvas.zoomBy(1.2));
     root.querySelector("[data-zoom-out]").addEventListener("click", () => this.canvas.zoomBy(1 / 1.2));
     root.querySelector("[data-zoom-fit]").addEventListener("click", () => this.canvas.fit());
@@ -134,6 +143,8 @@ export class GraphEditor {
   async load({ fit = false } = {}) {
     try {
       await this.model.load();
+      await this.#loadContracts();
+      await this.#loadAnswerFormats();
       this.addMenu.setPurpose(this.model.graph?.purpose ?? null); // an action for guards offers the kinds for guards
       this.alert.hide();
       this.#showTitle();
@@ -149,6 +160,59 @@ export class GraphEditor {
       if (error.status === 404 && !this.model.isAction) removeStorage(KEYS.lastPipeline);
       this.#showError(error.status === 404 ? t("editor.editor.pipeline_action_does_not_exist") : t("editor.editor.could_not_be_loaded"), true);
     }
+  }
+
+  /** The inputs and outputs the action definitions of this pipeline declare (ADR-083), by definition id, as the version that RUNS declares them
+   * (published, not the draft: ADR-083 add. 2): what the reference list offers of a placement and what its mapping rows ask. A definition that
+   * cannot be read is simply not in it. */
+  async #loadContracts() {
+    this.contracts = new Map();
+    if (this.model.isAction) return;
+    const placed = [...this.nodes.values()].filter((n) => (n.kind === "action" || n.kind === "pipeline") && n.definition_id);
+    const found = new Map(placed.map((n) => [n.definition_id, n.kind]));
+    await Promise.allSettled(
+      [...found].map(async ([id, kind]) => {
+        // the contract of the version that RUNS: the published one while the action has unpublished changes (ADR-083 add. 2)
+        const found = await loadContract(kind, id);
+        this.contracts.set(id, { inputs: found.inputs ?? [], outputs: (found.outputs ?? []).map((o) => o.name) });
+      }),
+    );
+  }
+
+  /** The answer format of each agent an agent node of this graph runs (ADR-085), by agent id: its published format, as far as the reference
+   * list offers `data.NAME` of such a node. An agent that cannot be read is simply not in it. */
+  async #loadAnswerFormats() {
+    this.answerFormats = new Map();
+    const ids = new Set([...this.nodes.values()].filter((n) => n.kind === "agent" && n.config?.agent_id).map((n) => n.config.agent_id));
+    await Promise.allSettled(
+      [...ids].map(async (id) => {
+        const detail = await getAgent(id);
+        this.answerFormats.set(id, (detail.published?.answer_format ?? []).map((f) => f.name));
+      }),
+    );
+  }
+
+  /** The names of the fields an agent node reports as its data: its own format when it sets one (an empty one switches the agent's off),
+   * else the agent's. */
+  #answersOf(node) {
+    if (node.kind !== "agent") return [];
+    const own = node.config?.answer_format;
+    if (Array.isArray(own)) return own.map((f) => f.name);
+    return this.answerFormats?.get(node.config?.agent_id) ?? [];
+  }
+
+  /** An action this pipeline places was published, or its draft was discarded: read the contracts again and draw the open window anew, so the
+   * mapping rows show the inputs of what runs now. Nothing else of the editor moves. */
+  async #contractChanged(graphId) {
+    if (this.model.isAction || !this.contracts?.has(graphId)) return;
+    await this.#loadContracts();
+    this.inspector.render(this.selection);
+  }
+
+  /** What an action or pipeline node reads as a contract: `{outputs}` when what it runs declares inputs or outputs, else null. */
+  #contractOf(node) {
+    const found = (node.kind === "action" || node.kind === "pipeline") && node.definition_id ? this.contracts?.get(node.definition_id) : null;
+    return found && (found.inputs.length || found.outputs.length) ? { outputs: found.outputs } : null;
   }
 
   /** Opened from a node of a pipeline: offer the way back; back in a pipeline: select that node again. */
@@ -215,6 +279,7 @@ export class GraphEditor {
       window.location.assign(this.#linkUrl(node, node.definition_slug));
       return;
     }
+    this.nodeTab = "settings"; // a window opened by a double click starts at the settings (the pin and the pencil open the Mock tab)
     this.#openSettings(node);
   }
 
@@ -222,6 +287,10 @@ export class GraphEditor {
   #openSettings(node) {
     if (this.selection?.id !== node.id) this.select({ type: "node", id: node.id });
     this.layoutKind = node.kind;
+    drawPencil(this.settingsModal.dialog, mockable(typeOf(node), node), () => {
+      this.nodeTab = "mock";
+      this.#renderSettings();
+    });
     this.layout.setWindow(typeOf(node).settings?.length ? `nodes/${node.kind}` : null);
     this.settingsModal.dialog.querySelector(".modal__title").textContent = typeOf(node).label;
     forgetOpened(node.id); // what was added but never given a value is not kept
@@ -378,7 +447,7 @@ export class GraphEditor {
     const mark = this.root.querySelector("[data-publication]");
     if (!mark) return;
     mark.hidden = false;
-    this.publication ??= new PublicationControl(mark, { kind: this.model.kind, id: this.model.id, beforeAct: () => flushDirty(), onChanged: () => this.load() });
+    this.publication ??= new PublicationControl(mark, { kind: this.model.kind, id: this.model.id, beforeAct: () => flushDirty(), onChanged: () => this.load(), confirmFindings: (options) => this.#askFindings(options) });
     this.publication.update(this.model.graph);
     if (!this.model.onChange) {
       this.model.onChange = () => this.#refreshPublication();
@@ -442,6 +511,7 @@ export class GraphEditor {
     this.model.dropHiddenEdges(node); // connections at ports that are gone with it (e.g. no On Fail)
     this.canvas.sync();
     this.alert.hide();
+    if (node.kind === "agent" && setting.key === "agent_id") await this.#loadAnswerFormats(); // the reference list follows the agent chosen
     await this.#announce(updated);
     return null;
   }
@@ -518,6 +588,15 @@ export class GraphEditor {
       onClose: () => this.canvas.viewport.focus({ preventScroll: true }), // the node that had focus is gone
     });
     return undefined;
+  }
+
+  /** The window before a publish over findings (ADR-082): resolves true when the user publishes anyway, false when the window is closed. */
+  #askFindings(options) {
+    return new Promise((resolve) => {
+      let confirmed = false;
+      this.confirm.open({ ...options, onConfirm: async () => (confirmed = true) });
+      this.confirm.modal.dialog.addEventListener("close", () => resolve(confirmed), { once: true });
+    });
   }
 
   // ── the bar, the menu and the keys of a node ───────────────────────
@@ -714,6 +793,11 @@ export class GraphEditor {
         this.nodes.set(node.id, node);
         made.set(item.key, node.id);
       }
+      // the copy reads its own copy of a node it refers to, not the original (ADR-082): ids in the settings follow the new nodes
+      for (const item of plan.items) {
+        const changed = remappedConfig(item.config, made);
+        if (changed) Object.assign(this.nodes.get(made.get(item.key)), await this.model.updateNode(made.get(item.key), { config: changed }));
+      }
       for (const link of plan.edges) {
         const edge = await this.model.connect({ source_id: made.get(link.source), source_port: link.source_port, source_slot: link.source_slot, target_id: made.get(link.target), target_port: link.target_port, target_slot: link.target_slot, style: link.style });
         this.edges.set(edge.id, edge);
@@ -742,7 +826,7 @@ export class GraphEditor {
   #blockActions() {
     return {
       saveSetting: (node, setting, value) => this.#saveSetting(node, setting, value),
-      suggestions: (node) => ({ nodes: () => [...this.nodes.values()], exceptId: node.id }),
+      suggestions: (node) => ({ nodes: () => [...this.nodes.values()], exceptId: node.id, contracts: (n) => this.#contractOf(n), answers: (n) => this.#answersOf(n), node, inputsOf: (n) => this.contracts?.get(n.definition_id)?.inputs ?? [] }),
       link: (node, targetId) => this.#link(node, targetId),
       askNew: (node) => this.#askNew(node),
       linkUrl: (node) => this.#linkUrl(node, node.definition_slug),
@@ -753,7 +837,65 @@ export class GraphEditor {
       showError: (message) => this.#showError(message),
       refresh: () => this.#renderInspector(),
       renameNode: (node, name) => this.#rename(node, name),
+      saveMock: (node, mock) => this.#saveMock(node, mock),
+      lastResult: (node) => lastResult(this.model.kind, this.model.id, node.id),
+      saveCases: (node, cases) => this.#saveCases(node, cases),
+      nodeTab: () => this.nodeTab,
+      setNodeTab: (name) => {
+        this.nodeTab = name;
+      },
+      dryRunPanel: (node) => this.#dryRunPanel(node),
+      dryRunTab: () => this.dryRunTab,
+      setDryRunTab: (name) => {
+        this.dryRunTab = name;
+      },
     };
+  }
+
+  /** Store (or with `null` remove) the mock of a node in the draft (ADR-087); resolves to null, or to why the server refused it. */
+  async #saveMock(node, mock) {
+    try {
+      const updated = await this.model.updateNode(node.id, { mock });
+      for (const holder of new Set([node, this.nodes.get(node.id)])) if (holder) holder.mock = updated.mock;
+    } catch (error) {
+      return error.detail ?? Object.values(error.fieldErrors ?? {})[0] ?? error.message;
+    }
+    this.canvas.sync(); // the pin on the card follows the switch
+    this.alert.hide();
+    return null;
+  }
+
+  /** Store the test cases of a Trigger in the draft (ADR-087); resolves to null, or to why the server refused them. */
+  async #saveCases(node, cases) {
+    try {
+      const updated = await this.model.updateNode(node.id, { cases });
+      for (const holder of new Set([node, this.nodes.get(node.id)])) if (holder) holder.cases = updated.cases;
+    } catch (error) {
+      return error.detail ?? Object.values(error.fieldErrors ?? {})[0] ?? error.message;
+    }
+    return null;
+  }
+
+  /** The pin on the card of a node whose mock is switched on: the dry run uses a stored result there. */
+  #drawMockPin(node, el) {
+    drawPin(el, mockable(typeOf(node), node) && mockActive(node), () => this.#openMockOf(node));
+  }
+
+  /** The pin on a card opens the window of the node at its Mock tab. */
+  #openMockOf(node) {
+    this.nodeTab = "mock";
+    this.#openSettings(node);
+  }
+
+  /** The panel of the Dry run tab of the Trigger window (ADR-086), one for the page; none for a graph for guards (they run on their own, not on a card). */
+  #dryRunPanel(node) {
+    if (this.model.graph?.purpose === "guard") return null;
+    this.dryRun ??= new DryRunPanel({
+      kind: this.model.kind,
+      id: this.model.id,
+      contract: async () => (await loadContract(this.model.kind, this.model.id)).inputs ?? [],
+    });
+    return this.dryRun.show(node.config?.inputs ?? [], { list: () => this.nodes.get(node.id)?.cases ?? [], save: (cases) => this.#saveCases(node, cases) });
   }
 
   /** The things a node may link to, fetched once until something new is created. */

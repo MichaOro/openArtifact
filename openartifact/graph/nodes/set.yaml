@@ -16,6 +16,8 @@ reference_keys:
 menu:
   group: Data
   order: 1
+effect:
+  default: none
 ports:
   inputs:
   - name: in

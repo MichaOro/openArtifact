@@ -25,6 +25,7 @@
  * What the entries are and what the panel says is the page's; how they are laid out, selected and moved through is this component's. */
 import { ActionMenu } from "./action-menu.js";
 import { icon } from "./icons.js";
+import { MINIMUM, baseOf, choices, firstOf, fit, pageOf, sizeOf, stepOf, usableStep } from "./page-size.js";
 import { Tabs } from "./tabs.js";
 import { readJson, writeJson } from "../storage.js";
 import { t } from "../i18n.js";
@@ -87,18 +88,37 @@ function iconButton(glyph, label, className = "") {
   return button;
 }
 
+/** The nearest ancestor that scrolls (the area of the page), or the document. */
+function scrollParent(el) {
+  for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+    const overflow = getComputedStyle(node).overflowY;
+    if (overflow === "auto" || overflow === "scroll") return node;
+  }
+  return document.scrollingElement ?? document.documentElement;
+}
+
 export class ManagementPage {
   constructor(root, config) {
-    this.config = { pageSizes: [12, 24, 48], ...config };
+    this.config = { ...config };
     this.root = root;
     this.items = [];
     this.selectedKey = null;
-    this.prefs = { view: "cards", sort: this.config.sorts[0].key, size: this.config.pageSizes[0], ...(readJson(`oa-management-${config.name}`) ?? {}) };
+    const stored = readJson(`oa-management-${config.name}`) ?? {};
+    // what the browser remembers is the STEP of the page size (1, 2 or 4 times the base, page-size.js), never a number of entries: an old
+    // stored `size` is not a step and falls back to the first
+    this.prefs = { view: stored.view ?? "cards", sort: stored.sort ?? this.config.sorts[0].key, step: stepOf(stored.step) };
+    this.base = MINIMUM; // the entries that fit the room of the list (measured, #fit); never fewer than 12
+    this.fitted = null; // the view the base was measured for
+    this.resizeTimer = null;
     this.tab = config.tabs?.[0]?.key ?? null;
     this.search = "";
     this.tag = null;
     this.page = 0;
     this.#build();
+    // the base follows the room: the width of the page (also a turned tablet) and the height of the window; measured again after a short pause
+    const later = () => this.#later();
+    if (typeof ResizeObserver === "function") new ResizeObserver(later).observe(this.root);
+    window.addEventListener("resize", later);
   }
 
   // ── structure ───────────────────────────────────────────────────────
@@ -106,6 +126,7 @@ export class ManagementPage {
   #build() {
     const c = this.config;
     this.root.classList.add("mg");
+    this.root.dataset.page = c.name; // a page may style its own rows (the archive: ADR-069 addendum 13)
     const main = make("div", "mg__main");
     // the toolbar: row one is search, order and "Per page [12] [cards][list]" and never changes; a page with tabs puts the tabs and the filter in a
     // row of their own below it, so search and order stay where they are while the tabs are clicked through
@@ -174,13 +195,14 @@ export class ManagementPage {
       }),
     );
     this.viewToggle.append(...Object.values(this.viewButtons));
-    // the page size sits in the toolbar next to the switch between cards and list (the pager below keeps the range and the pages)
+    // the page size sits in the toolbar next to the switch between cards and list (the pager below keeps the range and the pages); its choices
+    // are the base and twice and four times the base (drawn by #pager, because the base follows the room)
     const sizeLabel = make("label", "mg__size");
     this.sizeSelect = make("select", "field__control");
-    for (const n of this.config.pageSizes) this.sizeSelect.append(new Option(String(n), String(n)));
     this.sizeSelect.addEventListener("change", () => {
-      this.prefs.size = Number(this.sizeSelect.value);
-      this.page = 0;
+      const before = this.#size();
+      this.prefs.step = stepOf(this.sizeSelect.value);
+      this.page = pageOf(firstOf(this.page, before), this.#size()); // the first entry on the screen stays on the page
       this.#save();
       this.render();
     });
@@ -207,7 +229,72 @@ export class ManagementPage {
   }
 
   #save() {
-    writeJson(`oa-management-${this.config.name}`, { view: this.prefs.view, sort: this.prefs.sort, size: this.prefs.size });
+    writeJson(`oa-management-${this.config.name}`, { view: this.prefs.view, sort: this.prefs.sort, step: this.prefs.step });
+  }
+
+  // ── the page size follows the room ──────────────────────────────────
+
+  /** The entries of one page: the base times the chosen step (a step the base no longer has a choice for moves to the largest there is). */
+  #size() {
+    return sizeOf(this.base, usableStep(this.base, this.prefs.step));
+  }
+
+  /** The visible height of the list from its top down to the bottom of the area that scrolls, less the pager and the padding below. */
+  #roomBelow() {
+    const scroller = scrollParent(this.list);
+    const own = scroller === document.scrollingElement;
+    const box = own ? { top: 0, bottom: window.innerHeight } : scroller.getBoundingClientRect();
+    const topInside = this.list.getBoundingClientRect().top - box.top + (scroller.scrollTop || 0);
+    const pager = this.pager.offsetHeight || 32;
+    const gap = parseFloat(getComputedStyle(this.list.parentElement).rowGap) || 0;
+    const padding = own ? 0 : parseFloat(getComputedStyle(scroller).paddingBottom) || 0;
+    return box.bottom - box.top - topInside - pager - gap - padding;
+  }
+
+  /** The base for the room the list has now: the cards are 19 rem by 11 rem (read from the page, not guessed), so columns and rows are exact;
+   *  in the list view a row is as high as the first row (56 px until there is one). Nothing to measure (hidden, no size): the minimum. */
+  #measure() {
+    const width = this.list.clientWidth;
+    if (!(width > 0)) return MINIMUM;
+    const style = getComputedStyle(this.list);
+    const gapX = parseFloat(style.columnGap) || 0;
+    const gapY = parseFloat(style.rowGap) || 0;
+    const room = this.#roomBelow();
+    if (this.prefs.view === "list") {
+      const row = this.list.firstElementChild?.offsetHeight || 56;
+      return baseOf(1, fit(room, row, gapY));
+    }
+    const probe = make("div");
+    probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;width:var(--mg-card-w);height:var(--mg-card-h)";
+    this.root.append(probe);
+    const card = probe.getBoundingClientRect();
+    probe.remove();
+    return baseOf(fit(width, card.width, gapX), fit(room, card.height, gapY));
+  }
+
+  /** Takes a new base: the first entry on the screen stays on the page. Returns whether the size of a page changed. */
+  #take(base) {
+    if (base === this.base) return false;
+    const before = this.#size();
+    const first = firstOf(this.page, before);
+    this.base = base;
+    this.page = pageOf(first, this.#size());
+    return this.#size() !== before;
+  }
+
+  /** Before a drawing: measure once per view (the cards and the rows are measured differently). */
+  #fit() {
+    if (this.fitted === this.prefs.view) return;
+    this.fitted = this.prefs.view;
+    this.#take(this.#measure());
+  }
+
+  /** The room changed (window, turned screen): measure again after a short pause, and draw again only when the size of a page changed. */
+  #later() {
+    clearTimeout(this.resizeTimer);
+    this.resizeTimer = setTimeout(() => {
+      if (this.#take(this.#measure())) this.render();
+    }, 150);
   }
 
   // ── data ────────────────────────────────────────────────────────────
@@ -238,8 +325,11 @@ export class ManagementPage {
 
   render() {
     const c = this.config;
+    this.#fit();
     const all = this.visible();
-    const size = this.prefs.size;
+    const size = this.#size();
+    this.root.dataset.base = String(this.base);
+    this.root.dataset.size = String(size);
     const pages = Math.max(1, Math.ceil(all.length / size));
     this.page = Math.min(this.page, pages - 1);
     const shown = all.slice(this.page * size, (this.page + 1) * size);
@@ -262,6 +352,11 @@ export class ManagementPage {
     this.empty.hidden = all.length > 0;
     this.#pager(all.length, pages);
     this.refreshPanel();
+    // in the list view the row height is known only now: measure once more when the rows are there (and the size of a page changes)
+    if (this.prefs.view === "list" && this.list.firstElementChild && this.listMeasured !== this.list.firstElementChild.offsetHeight) {
+      this.listMeasured = this.list.firstElementChild.offsetHeight;
+      this.#later();
+    }
   }
 
   #entry(item, focusable) {
@@ -301,7 +396,7 @@ export class ManagementPage {
   }
 
   #pager(total, pages) {
-    const size = this.prefs.size;
+    const size = this.#size();
     const from = total ? this.page * size + 1 : 0;
     const to = Math.min(total, (this.page + 1) * size);
     const info = make("span", "mg__count", t("components.management.range", { from, to, total }));
@@ -311,7 +406,8 @@ export class ManagementPage {
     next.disabled = this.page >= pages - 1;
     prev.addEventListener("click", () => this.#go(this.page - 1));
     next.addEventListener("click", () => this.#go(this.page + 1));
-    this.sizeSelect.value = String(size);
+    this.sizeSelect.replaceChildren(...choices(this.base).map((c) => new Option(String(c.size), String(c.step))));
+    this.sizeSelect.value = String(usableStep(this.base, this.prefs.step));
     this.pager.replaceChildren(info, ...(pages > 1 ? [prev, make("span", "mg__page", `${this.page + 1} / ${pages}`), next] : []));
   }
 

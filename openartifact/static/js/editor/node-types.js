@@ -81,8 +81,15 @@ export class NodeView {
     return this.ui.size ?? this.constructor.size;
   }
 
+  /** The name apart from its number: `label` is what the user named (or the definition's name), `number` the system's count of the same
+   * action placed more than once in one pipeline (ADR-082), or null. The card draws the number first and muted, the label cut with an ellipsis. */
+  nameParts(node) {
+    return { label: node.definition_name ?? node.name, number: node.placement_number || null };
+  }
+
   displayName(node) {
-    return node.definition_name ?? node.name;
+    const { label, number } = this.nameParts(node);
+    return number ? `${label} #${number}` : label; // the whole name, as menus, dialogs and the references list say it
   }
 
   /** The small line under the name: the manifest's template or function, else (null: none) the kind's label when the name differs. */
@@ -285,6 +292,15 @@ class PipelineNodeView extends NodeView {
   }
 }
 
+/** The Trigger: its window has two tabs, the inputs it declares and a dry run of the graph (ADR-086). An Output node has no such tab: it only gives data out. */
+class TriggerView extends NodeView {
+  static kind = "trigger";
+
+  sections(node, blocks) {
+    return [blocks.triggerTabs(node, [blocks.settings(node), blocks.actions(node, { remove: !this.fixed })])];
+  }
+}
+
 class OutputView extends NodeView {
   /** The connectors sit below the name, On Pass above On Fail. */
   portLocal(node, port) {
@@ -319,6 +335,8 @@ const VIEWS = new Map();
 export function registerView(View) {
   VIEWS.set(View.kind, View);
 }
+
+registerView(TriggerView);
 
 const TYPES = new Map();
 

@@ -229,10 +229,31 @@ rights of the application: treat the token like shell access to the container.
 
 ## Database size and history retention
 
-Every start of an artifact is an execution that stores a frozen snapshot of the graphs it ran (JSON) and
-every step with its output (up to 1 MiB each). By default the 50 newest executions per artifact are kept
-(`OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP`; `0` keeps everything and lets the file grow with every run);
-the retention rules (*Executions → Retention*) decide the rest ([Execution history](execution-history.md)).
+Every start of an artifact is an execution that stores a frozen snapshot of the graphs it ran (JSON), every step with its
+output (up to 256 KiB each, 1 MiB per execution), the details of agent steps and the run context. By default the 50 newest
+executions per artifact are kept (`OPENARTIFACT_EXECUTION_HISTORY_DEFAULT_KEEP`; `0` keeps everything and lets the file grow
+with every run); the retention rules (*Executions → Retention*) decide the rest ([Execution history](execution-history.md)).
+
+**The limits are the user's.** *Settings → Personal* has two tabs (ADR-084, addenda 1 and 2): *General* and *Data storage*. The *Data
+storage* tab shows the seven limits on the left and the database on the right. **Nothing changes until the user changes a field:** a field nobody set shows its default (the operator's value above
+for the executions kept per artifact, 256 KiB and 1024 KiB for the longest stored output of a step and of an execution) and is stored as *not set*;
+step outputs and details emptied after N days, a size limit for the data of all executions (MiB), the background cleaner (every N hours) and a warning
+size for the file are **switches, off by default**. The database column shows the size of the database file and its write-ahead log, the free pages,
+the biggest tables, the data of all executions, whether the cleaner is on and when it runs next, and the last pass, with *Preview*, *Clean now* and
+*Shrink database* at its bottom (what each does is its tooltip). A count of executions that is emptied returns to its default; `0` is stored only when typed, and the field then says it keeps every execution.
+
+- **Preview** shows what a pass would delete or empty, per kind, in entries and bytes; nothing changes. **Clean now** asks first and
+  does exactly that, then truncates the write-ahead log. The background cleaner does the same when its interval has passed. A pass
+  deletes only what the user's limits and retention rules hit; **cards, comments and their history are never deleted**, nor a running
+  execution. Emptied steps keep their row and result and say `data_pruned`.
+- **Visible data** (what the interface, API or MCP shows: executions, steps, credentials' history, ...) is removed only by those limits and
+  rules; the only **technical** data that grows is the write-ahead log and free pages, which every pass deals with. The full list is in
+  [ADR-084](../architecture/adr/084-data-storage.md).
+- **Shrink database** (`VACUUM`) rewrites the file so unused space goes back to the disk. It needs about as much free disk space as the
+  file and its log take, holds the database for a moment, and is refused when the disk has less. Take a [backup](#backup) first.
+- `GET`/`POST /api/settings/storage[/preview|/clean|/shrink]` (also under `/api/v1`) and two read-only MCP tools (`get_storage_status`,
+  `preview_storage_cleanup`) show the numbers; nothing over MCP deletes.
+
 The database runs with `auto_vacuum = FULL`: deleting rows (an execution, its artifact, retention) returns the freed
 pages to the file system when the change is committed, so the file shrinks again (after the next WAL checkpoint,
 which the application does regularly and on shutdown). A new database is created in this mode. A database from an

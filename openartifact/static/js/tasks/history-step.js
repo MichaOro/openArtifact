@@ -4,7 +4,9 @@
 import { agentFacts } from "../agents/model.js";
 import { detailView } from "../agents/view.js";
 import { icon } from "../components/icons.js";
+import { mockOfStep } from "../editor/mock-model.js";
 import { formatBytes } from "../editor/sources-model.js";
+import { request } from "../http.js";
 import { formatDuration, secondsBetween, setChip } from "./history-format.js";
 import { t } from "../i18n.js";
 
@@ -19,7 +21,7 @@ export function stepDuration(step) {
 /** "On Pass", "Exit code: 0", "0.4 s" ... as one line. */
 function stepFacts(step) {
   const facts = [step.port ? `Port: ${PORTS[step.port] ?? step.port.replace(/^case_(\d)$/, "Case $1")}` : null, step.exit_code != null ? `Exit code: ${step.exit_code}` : null, stepDuration(step)];
-  if (step.kind === "agent") facts.push(...agentFacts(step.data), ...handoverFacts(step.data)); // model, tokens and attempts at a glance, the documents handed over
+  if (step.kind === "agent") facts.push(...agentFacts(step.data), ...handoverFacts(step.data), ...answerFacts(step.data)); // model, tokens and attempts at a glance, the documents handed over
   if (step.kind === "context") facts.push(...contextFacts(step.data)); // how full the package is
   if (step.data?.output_truncated) facts.push(t("tasks.history_step.output_cut_at_limit_step"));
   if (step.attempts > 1) facts.push(t("tasks.history_step.tries_fact", { n: step.attempts })); // Retry on fail (ADR-073)
@@ -30,6 +32,12 @@ function stepFacts(step) {
 export function handoverFacts(data) {
   const names = data?.handovers ? Object.keys(data.handovers) : [];
   return names.length ? [t("tasks.history_step.handed_over", { names: names.join(", ") })] : [];
+}
+
+/** "Answer reported" or "Answer reported, corrected once" for an agent step with an answer format (ADR-085); the fields are in the data below. */
+export function answerFacts(data) {
+  if (!data || !data.answer_calls) return [];
+  return [data.repaired ? t("tasks.history_step.answer_repaired") : t("tasks.history_step.answer_reported")];
 }
 
 /** "Package 5.1 KiB of 8 KiB (about 1,300 tokens)" for a Build Context step (ADR-078); nothing for data that is not its. */
@@ -102,10 +110,37 @@ export function fillStep(template, step, open = new Set(), { loadDetail = null }
   item.querySelector("[data-step-truncated]").hidden = !step.output_truncated;
   const data = step.data == null ? "" : JSON.stringify(step.data, null, 2);
   fillBlock(item.querySelector("[data-step-data]"), `${step.id}:data`, data, open, Boolean(data));
+  fillMock(item, step, loadDetail);
   fillContext(item.querySelector("[data-step-context]"), step);
   fillAgent(item.querySelector("[data-step-agent]"), step, open, loadDetail);
   fillTries(item.querySelector("[data-step-tries]"), step, open, loadDetail);
   return item;
+}
+
+/** The kinds that take no mock (the server refuses them as well). */
+const NO_MOCK = new Set(["trigger", "output", "complete", "stage", "action", "pipeline", "if", "switch", "timer"]);
+
+/** The *Mock* flag of a step that handed over a mock, and *Keep as mock* on a step with a real result: it sets that result as the mock of the node in the
+ * current DRAFT of the action (ADR-087). A step a dry run skipped or mocked has no real result, so it offers nothing. */
+function fillMock(item, step, loadDetail) {
+  const flag = item.querySelector("[data-step-mock]");
+  if (flag) flag.hidden = !step.data?.mock;
+  const box = item.querySelector("[data-step-keep]");
+  if (!box) return; // a page with an older template
+  const real = !NO_MOCK.has(step.kind) && !step.data?.mock && !step.data?.dry_run && Boolean(step.definition_id) && Boolean(step.node_id);
+  box.hidden = !real;
+  if (!real) return;
+  const note = box.querySelector("[data-step-keep-note]");
+  box.querySelector("[data-step-keep-mock]").addEventListener("click", async () => {
+    note.textContent = "";
+    try {
+      const full = loadDetail ? await loadDetail(step) : step; // the list may leave the output out
+      await request(`/api/actions/${encodeURIComponent(step.definition_id)}/nodes/${encodeURIComponent(step.node_id)}`, { method: "PATCH", body: JSON.stringify({ mock: mockOfStep({ ...step, ...full }) }) });
+      note.textContent = t("tasks.history_step.mock_kept");
+    } catch (error) {
+      note.textContent = t("tasks.history_step.mock_not_kept", { reason: error.detail ?? error.message });
+    }
+  });
 }
 
 /** A node that was tried again (*Retry on fail*, ADR-073) lists its tries when the block is opened: the failed ones with their

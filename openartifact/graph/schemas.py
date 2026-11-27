@@ -112,6 +112,11 @@ class NodeUpdate(_Strict):
     definition_id: str | None = None
     seconds: Seconds | None = None
     config: dict[str, Any] | None = None
+    #: The mock of a node: the result it hands over in a dry run (``enabled``, ``outcome``, ``output``, ``data``, ``reason``); ``null`` removes it
+    #: (ADR-087). Kept in the draft only.
+    mock: dict[str, Any] | None = None
+    #: The test cases of a Trigger: ``[{name, inputs}]``; ``null`` removes them (ADR-087). Kept in the draft only.
+    cases: list[dict[str, Any]] | None = None
 
 
 EdgeStyle = Literal["curved", "straight", "elbow"]
@@ -228,6 +233,12 @@ class NodeRead(BaseModel):
     definition_name: str | None = None
     definition_slug: str | None = None
     definition_fail_enabled: bool | None = None
+    #: The number of this placement while the same action definition is placed more than once in the pipeline ("Check #2", ADR-082);
+    #: ``None`` for a single placement and for every other node. A label for people: references name the node by its id.
+    placement_number: int | None = None
+    #: The mock of this node (the draft's, ADR-087) and, on a Trigger, its test cases; ``None`` while there are none.
+    mock: dict[str, Any] | None = None
+    cases: list[dict[str, Any]] | None = None
     #: Hints about the node's ``${node...}`` / ``${var...}`` references (unknown or ambiguous node
     #: names, malformed references) on a node just created or changed; the node is saved anyway.
     warnings: list[str] = Field(default_factory=list)
@@ -252,6 +263,68 @@ class EdgeRead(BaseModel):
     style: str
     source_slot: int
     target_slot: int
+
+
+class LastResult(BaseModel):
+    """The newest stored result of a node of a real run, in the shape of a mock (ADR-087)."""
+
+    found: bool
+    outcome: Literal["pass", "fail"] = "pass"
+    output: str = ""
+    reason: str = ""
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class FindingRead(BaseModel):
+    """One thing the check before publishing found (ADR-082): an ``error`` cannot work, a ``warning`` may."""
+
+    level: Literal["error", "warning"]
+    code: str = Field(
+        description="A stable word (``node_missing``, ``secret_missing``, ``input_not_given`` ...)."
+    )
+    node_id: str | None = Field(description="The node it is about.")
+    node_name: str = Field(description="The name the editor shows for that node.")
+    message: str = Field(description="What is wrong, in plain words.")
+
+
+class PublishCheck(BaseModel):
+    """The check of a draft: its findings, errors first (``GET .../check``)."""
+
+    findings: list[FindingRead]
+    errors: int
+    warnings: int
+
+
+class GraphContract(BaseModel):
+    """The inputs and outputs of an action or a pipeline **as the version that runs declares them** (ADR-083 add. 2): the published version,
+    else the draft of a graph that was never published. While the draft has changes, the pipelines that use the graph keep this contract."""
+
+    graph_id: str
+    kind: str = Field(description="`action` or `pipeline`.")
+    version: int | None = Field(
+        description="The published version number; `null` while nothing is published."
+    )
+    running: Literal["published", "draft"] = Field(
+        description="Which version the contract comes from: `draft` only for a graph that was never published (the engine runs its draft then)."
+    )
+    draft_changed: bool = Field(
+        description="The draft differs from the published version: a newer contract waits for Publish."
+    )
+    inputs: list[dict[str, Any]] = Field(
+        description="What the Trigger declares: `name`, `type`, `required`, `default`, `description`."
+    )
+    outputs: list[dict[str, Any]] = Field(
+        description="What the Output (action) or Complete (pipeline) declares: `name`, `type`, `value`, `description`."
+    )
+
+
+class PublishRequest(BaseModel):
+    """The body of a publish. ``acknowledge`` says the caller has seen the findings and publishes anyway."""
+
+    acknowledge: bool = Field(
+        default=False,
+        description="Publish although the check found something. Without it a draft with findings is refused with 409 and the findings.",
+    )
 
 
 class PublishedGraph(BaseModel):

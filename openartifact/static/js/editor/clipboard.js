@@ -90,3 +90,25 @@ export function pastePlan(copy, { offset, names, stageFor, allowed = null }) {
   const made = new Set(items.map((i) => i.key));
   return { items, skipped, edges: copy.edges.filter((e) => made.has(e.source) && made.has(e.target)) };
 }
+
+/**
+ * `value` (a setting, any depth) with every `node:OLD` of a reference (`${node:OLD.output}`, ADR-082) turned into `node:NEW` for the nodes
+ * of `idMap` (old id to new id): what a paste makes of the references between the nodes it copies, so the copy reads its own copy, not the
+ * original. A reference to a node that was not copied stays as it is.
+ */
+export function remapReferences(value, idMap) {
+  if (typeof value === "string") return value.replace(/node:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/g, (all, id) => (idMap.has(id) ? `node:${idMap.get(id)}` : all));
+  if (Array.isArray(value)) return value.map((item) => remapReferences(item, idMap));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, remapReferences(item, idMap)]));
+  return value;
+}
+
+/** The settings of `config` that a paste changes (`{key: new value}`), or null when it changes none. */
+export function remappedConfig(config, idMap) {
+  const changed = {};
+  for (const [key, value] of Object.entries(config ?? {})) {
+    const next = remapReferences(value, idMap);
+    if (JSON.stringify(next) !== JSON.stringify(value)) changed[key] = next;
+  }
+  return Object.keys(changed).length ? changed : null;
+}

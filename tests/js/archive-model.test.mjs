@@ -39,7 +39,7 @@ test("the context is the lane it came from, the parent and the fields that are s
   const task = { archived_from_lane: "Backlog", parent_id: "p1", fields: { secret: "bye", empty: "", other: 2 }, pipeline_id: "x", stage_id: "y", action_id: "z" };
   const rows = contextRows(task, [{ name: "secret", label: "Secret" }], "Mother");
   assert.deepEqual(rows, [
-    { label: "Lane", value: "Backlog" },
+    { label: "From lane", value: "Backlog" },
     { label: "Parent", value: "Mother" },
     { label: "Secret", value: "bye" },
     { label: "other", value: "2" },

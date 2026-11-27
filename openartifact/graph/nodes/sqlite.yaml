@@ -20,6 +20,8 @@ reference_keys:
 menu:
   group: Apps and data
   order: 3
+effect:
+  default: read
 ports:
   inputs:
   - name: in

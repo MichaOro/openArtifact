@@ -33,6 +33,8 @@ class FlowNode(BaseModel):
     definition_id: str | None
     definition_name: str | None
     definition_fail_enabled: bool | None
+    #: "Check #2": the number of this placement while its definition is placed more than once in the pipeline (ADR-082), else ``None``.
+    placement_number: int | None = None
 
 
 class FlowEdge(BaseModel):

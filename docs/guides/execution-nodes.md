@@ -79,7 +79,7 @@ What each kind puts in `output` and `data` (the rest of the core is the same for
 | Edit Fields (Set) | none | `fields` (the names set) |
 | If | the port chosen | `condition` (`true`, `false`, `null` when undecidable), `rows` |
 | Switch | the port chosen | `value`, `matched`, `cases` |
-| Agent | the final answer | `model`, `usage`, `finish_reason`, `iterations`, ... ([Agents](agents.md)) |
+| Agent | the final answer; with an [answer format](agents.md#2-write-and-publish-an-agent) the checked document as JSON | `model`, `usage`, `finish_reason`, `iterations`, ... and, with an answer format, its fields (`passed`, ...), `repaired`, `answer_calls` ([Agents](agents.md)) |
 
 A `reason` is a sentence for people. Output is text: anything the code prints or the server answers ends up in it (and in
 the history, and in whatever agent reads it), so treat it as untrusted. Used secrets are masked in all of these
@@ -110,8 +110,15 @@ server restart and is shown in the History tab ([Execution history](execution-hi
 | `${(Node name).attempts}`, `.duration_ms` | the number of tries, the milliseconds it took |
 | `${(Node name).data}` | the node's data as compact JSON |
 | `${(Node name).data.key.sub.0}` | one value in the data; numbers index lists |
+| `${node:ID.output}`, `${node:ID.data.key}` ... | the same fields of a node named by its **id** (ADR-082): the editor inserts this form and shows the name; a rename changes nothing, and two nodes of one name are told apart |
+| `${input.name}` | an input of the action that is running (ADR-083): declared on its Trigger, given by the node that runs it |
 | `${var.name}` | a variable |
 | `${card.name}` | a parameter of the artifact (see [below](#card-parameters-card-the-artifact-fields)) |
+
+A node is best written by its **id**, `${node:<uuid>.output}`: the reference list of the editor inserts it and shows the node's name (`(Fetch).output`),
+and a line under the field says which nodes the ids are now (`Reads: …`). The same action definition placed more than once in a pipeline is shown as
+`Name #1`, `#2`, `#3` (the lowest free number; the number appears only while it is placed more than once) and each placement has its own id, so each
+has its own result. The name forms below keep working while the name is unique.
 
 A node is written by its name **as the editor shows it**, in parentheses: `${(Code: hello).output}`. The name may hold
 blanks and punctuation, only `(`, `)` and `}` are not possible in it. The older spelling `${node.NAME.output}` stays valid:
@@ -187,6 +194,74 @@ permanently. Changes the script makes to it are not read back.
 output, then their data, then are dropped; variables are never dropped). It is built from the masked results, so
 a secret a node printed is `***` in it and in `context.json`. The values are text from outside (responses, script
 output), so treat them as untrusted, like any output.
+
+## Inputs and outputs of an action
+
+An action definition can say what it needs and what it gives (ADR-083). Both are optional: a definition that declares nothing runs as before.
+
+- **Inputs** are declared in the window of its **Trigger**: a list of fields with a name, a type (text, number, true or false, choice, list), *required*
+  and a default. Inside the definition a node reads an input as `${input.name}` (an optional input with no value reads as empty text).
+- **Outputs** are declared in the window of its **Output** node: a name, a type and a value (a text, or references such as `${(Fetch).output}` or
+  `${input.who}`). When the action ends on *On Pass* the values are worked out and become the `data` of the node that ran it; a value that cannot be
+  worked out fails the action and names the output.
+- **The node that runs the action** (in a pipeline) shows one row per declared input and takes a text, a card field (`${card.title}`) or the output of an
+  earlier node (`${node:<id>.data.greeting}`; pick it from the list). A row left empty uses the default of the input; a required one without a value
+  fails the run: `Greet: input 'who' is required and has no value`. A value that does not fit the type fails with the input and the value.
+- **Outputs are read by the id of that node.** The same definition placed twice, or three times, gives each placement its own outputs, so the third
+  action can take the outputs of the first and the second.
+
+The result of a node that ran a definition with a contract carries the result contract (`success`, `outcome`, `reason`, `attempts`); a node that ran a definition
+without one has no result of its own. A called pipeline works the same way: it declares its inputs on its Trigger and its outputs on its **Complete**, the pipeline node that calls it
+maps the inputs, and the outputs are the `data` of that pipeline node.
+
+## Dry run (Testlauf)
+
+A dry run runs a pipeline under real conditions and skips everything that writes (ADR-086). Start it with `dry_run: true` in the start of a run
+(`POST /api/tasks/{id}/run`, `POST /api/v1/artifacts/{ref}/run`, the MCP tool `start_processing`). Besides `dry_run` the start takes:
+
+- `inputs`: values for the declared inputs of the entry, checked like a mapping (422 for a missing, unknown or unfitting value). With `action_id` they are the inputs of
+  that action's Trigger, without it those of the pipeline's own Trigger. The values are text: they are never read for `${...}`.
+- `version`: `draft` or `published`. The editor's start defaults to the draft, the Integration API and MCP to the published version.
+
+`inputs` and `version` without `dry_run` are 422. The emergency stop blocks a dry run like any start. The artifact's own pipeline, stage and action stay as they were.
+
+**What every node kind does outside its run (its effect):**
+
+| Effect | Kinds | In a dry run |
+|--------|-------|--------------|
+| none | Trigger, Output, If, Switch, Edit Fields, Timer, Action, Pipeline, Stage, Complete, Hand Over Tool | runs (a Timer does not wait and records `skipped_seconds`) |
+| read | Build Context, SQLite, SQLite Tool, HTTP / HTTP Tool with GET, HEAD or OPTIONS, Artifact *Get comments*, GitHub read operations, Postgres without *Allow changes*, Execute Command (and its tool) with *Read only* | runs |
+| write | other HTTP methods, Artifact *Add comment*, other GitHub operations, Postgres with *Allow changes*, Execute Command without *Read only*, and anything not declared | skipped |
+| mixed | Agent, MCP Tool, GitHub Tool and OpenArtifact Tool with changes allowed | runs; the tools it calls that change something are answered with "Dry run: ... was not executed" |
+
+**In the editor:** double-click the **Trigger** of a pipeline or of an action definition and open the tab *Dry run* (*Testlauf*). Choose a test card (a searchable list of the
+cards of the board; the last choice is remembered for the graph in your browser), fill in the inputs the Trigger declares (an empty field uses its default, shown faintly; a
+required one is marked), choose *Draft* (the default) or *Published*, and read the check under the form: it says in plain words what would stop the run (a missing required
+input, a reference that names something that is not there). *Start dry run* is locked while the emergency stop is on, while no card is chosen and for an action that no
+pipeline places (*Place this action in a pipeline to run it*; an action runs through a pipeline that places it). The result shows the status with the *Dry run* mark and the
+steps, with *Would have ...* for what was skipped, and *Open in history* leads to the execution. The card is not changed, and the Output node has no such tab.
+
+A skipped step passes and says what it would have done in `reason` and in `data` (`dry_run: true`, `would_have`). It has no result: a later node that reads `.output`,
+`.exit_code` or another `data` field of it fails with a message that names the node and suggests mock data. `success` and `data.dry_run` can be read.
+
+### Mock data
+
+A **mock** is the complete result a node hands over in a dry run instead of running (ADR-087): `outcome` (`pass`/`fail`), `output`, `data` (a JSON object) and `reason`, with a
+switch. It is for the nodes that leave a result of their own (not Trigger, Output, Complete, Stage, Action, Pipeline, If, Switch, Timer).
+
+- **Where:** double-click a node and open the tab *Mock* (or click the pencil beside the close button, or the pin on the card). Switch *Mock active* on and fill the form, or
+  press *Use the result of the last run* to take what the node left in its newest real run. On a step of the history or the flow page, *Keep as mock* sets that step's result as the
+  mock of the node in the draft.
+- **What it does:** in a dry run the node is **not run** (no call, no tokens, no write): its step carries the stored result with `data.mock = true` and the flag *Mock*. A
+  failing mock leaves by *On Fail* like a failed node. Later nodes read it as any result (`${(Name).output}`, `.data.id`). A writing node without a mock is skipped as before.
+- **Where it is not used:** a real run never uses a mock, and a mock is kept in the **draft** only: it is in no published version (so a dry run of the *Published* version has
+  none, and setting a mock does not make the draft count as changed). The check before publishing warns that N mocks stay behind; it does not block.
+- **Rules:** no secrets (`${secret:...}` and the values of stored secrets are refused), the text is never read for `${...}`, at most 64 KiB; the data must be a JSON object.
+- **Test cases:** the *Dry run* tab of the Trigger window lists named sets of inputs (*Test cases*, up to 20); *Save as test case* stores the inputs as typed, choosing one fills the
+  inputs. They are kept on the Trigger in the draft.
+
+API: `PATCH /api/{actions|pipelines}/{id}/nodes/{node_id}` takes `mock` (the object, or `null` to remove it) and, on a Trigger, `cases` (`[{"name", "inputs"}]`); the node answers with them.
+`GET .../nodes/{node_id}/last-result` returns the newest stored result of a real run as `{found, outcome, output, reason, data}`.
 
 ## Execute Command node
 
@@ -595,7 +670,7 @@ API, MCP and the interface). Safe by construction (ADR-068):
 
 | View | One row per | Columns |
 |---|---|---|
-| `v_guard_runs` | execution | `id`, `task_id`, `number`, `pipeline_name`, `started_stage_name`, `started_action_name`, `final_stage_name`, `final_action_name`, `status`, `started_by`, `step_count`, `created_at`, `started_at`, `finished_at` |
+| `v_guard_runs` | execution | `id`, `task_id`, `number`, `pipeline_name`, `started_stage_name`, `started_action_name`, `final_stage_name`, `final_action_name`, `status`, `started_by`, `dry_run`, `step_count`, `created_at`, `started_at`, `finished_at` |
 | `v_guard_steps` | step (a node that ran) | `id`, `execution_id`, `seq`, `node_id`, `node_name`, `kind`, `outcome`, `success` (1 or 0), `attempts`, `port`, `exit_code`, `reason`, `started_at`, `finished_at` |
 | `v_guard_tool_calls` | tool call of a *finished* Agent step | `execution_id`, `step_id`, `step_name`, `step_seq`, `turn`, `tool`, `tool_node`, `arguments` (first 200 characters), `is_error`, `duration_ms` |
 | `v_guard_artifacts` | artifact (card) | `id`, `number`, `title`, `lane`, `parent_id`, `pipeline_id`, `stage_id`, `action_id`, `created_by`, `created_at`, `updated_at` |

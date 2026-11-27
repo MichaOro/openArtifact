@@ -6,9 +6,10 @@ from fastapi import APIRouter
 
 from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import EngineDep, ServiceDep, SessionDep
+from openartifact.engine import dry_run
 from openartifact.engine.schemas import NodeResultRead, RunRead
 from openartifact.exceptions import ArtifactError
-from openartifact.tasks.schemas import RunStart
+from openartifact.tasks.schemas import DryRunCheck, DryRunProblems, DryRunTarget, RunStart
 
 router = APIRouter(prefix="/api", tags=["runs"], responses=GATED)
 
@@ -46,7 +47,49 @@ async def start_run(task_id: str, service: ServiceDep, payload: RunStart | None 
     Stages before the starting stage count as done. Publishes ``run.updated`` on every step.
     """
     body = payload or RunStart()
-    return await service.start(task_id, body.pipeline_id, body.stage_id, body.action_id)
+    return await service.start(
+        task_id,
+        body.pipeline_id,
+        body.stage_id,
+        body.action_id,
+        dry_run=body.dry_run,
+        inputs=body.inputs,
+        # from the editor a dry run tests what is being edited unless it says otherwise
+        version=body.version or ("draft" if body.dry_run else None),
+    )
+
+
+@router.post(
+    "/tasks/{task_id}/dry-run/check",
+    response_model=DryRunProblems,
+    summary="Check a dry run before it is started",
+    responses=errors(404, 422, write=True, body=True),
+)
+async def check_dry_run(task_id: str, body: DryRunCheck, engine: EngineDep) -> DryRunProblems:
+    """What would refuse a dry run started with these values, in plain words (ADR-086): the start that does not exist, an input that is
+    missing or does not fit, a reference of the draft that names something that is not there. Reads only, starts nothing."""
+    return DryRunProblems(
+        problems=await engine.check_start(
+            task_id,
+            body.pipeline_id,
+            body.stage_id,
+            body.action_id,
+            body.inputs,
+            body.version or "draft",
+        )
+    )
+
+
+@router.get(
+    "/actions/{action_id}/placements",
+    response_model=list[DryRunTarget],
+    summary="Where an action definition is placed in a pipeline",
+    responses=errors(404, 422),
+)
+async def action_placements(action_id: str, session: SessionDep) -> list[DryRunTarget]:
+    """The pipelines, stages and actions that run this action definition (by the version that runs): where a dry run of the action starts.
+    Empty when no pipeline places it."""
+    return [DryRunTarget(**p) for p in await dry_run.placements_of_action(session, action_id)]
 
 
 @router.post(

@@ -213,6 +213,9 @@ class AttachmentRead(BaseModel):
     scope_id: str
     scope_name: str = ""
     enabled: bool
+    #: Whether its definition has a published version: an attachment to a definition that was never published is allowed but
+    #: watches nothing until it is published (ADR-081).
+    guard_published: bool = True
     created_at: UtcDateTime
 
 
@@ -227,11 +230,41 @@ class GuardDefinitionRead(BaseModel):
     fallback: str
     escalation: list[dict[str, Any]]
     action_id: str | None
-    #: How many places it is attached to (a change acts on all of them; it cannot be deleted while used)
+    #: How many places it is attached to (it cannot be deleted while used)
     used_by: int
     attachments: list[AttachmentRead]
+    #: The version executions use (ADR-081); ``None``: never published, the guard watches nothing yet. The fields above are the
+    #: draft, which is what the editor changes.
+    published_version: int | None = None
+    #: Whether the draft differs from the published version (``False`` while nothing is published)
+    draft_changed: bool = False
     created_at: UtcDateTime
     updated_at: UtcDateTime
+
+
+class GuardVersionRead(BaseModel):
+    """A published version of a definition. ``source_number``: the version it repeats (a rollback), else ``None``; ``current``:
+    executions use it."""
+
+    number: int
+    name: str = ""
+    published_at: UtcDateTime
+    published_via: str
+    source_number: int | None
+    current: bool
+
+
+class GuardVersionDetail(GuardVersionRead):
+    """A version with what it held (``guard``: the definition's fields as they were published), to show it read-only."""
+
+    guard: dict[str, Any]
+
+
+class PublishedGuard(BaseModel):
+    """What publishing answers: the definition as it is now and the version that was made."""
+
+    guard: GuardDefinitionRead
+    version: GuardVersionRead
 
 
 class AttachmentCreate(BaseModel):

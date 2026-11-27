@@ -30,6 +30,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from openartifact.agents.answer_format import REMINDER, AnswerRun, rendering
 from openartifact.agents.client import Completion, Endpoint
 from openartifact.agents.completion import Complete, Sleep, run_completion
 from openartifact.agents.context_window import (
@@ -65,6 +66,14 @@ WRAP_UP_PROMPT = (
 FAILED_PROMPT = (
     "The last request could not be answered ({error}). Do not call any tool now. Answer with what you have found so far, "
     "and say clearly what is still missing or uncertain."
+)
+ANSWER_WRAP_UP_PROMPT = (
+    "You have reached {reason}. Give your final answer now by calling the tool {tool} with what you have found so far "
+    "(use the fields for what is missing or uncertain as far as they allow). Do not call any other tool."
+)
+ANSWER_FAILED_PROMPT = (
+    "The last request could not be answered ({error}). Give your final answer now by calling the tool {tool} with what you have "
+    "found so far. Do not call any other tool."
 )
 REPEAT_NOTE = (
     "Note: this is the same call with the same arguments as the {count} before; the result will be the same. "
@@ -144,9 +153,11 @@ async def run_turns(
     complete: Complete,
     sleep: Sleep,
     signal: Signal | None = None,
+    answer: AnswerRun | None = None,
 ) -> NodeResult:
     """The turns of the node (see the module docstring). ``messages`` is the whole conversation and grows; ``detail`` and ``data``
-    are filled for the step."""
+    are filled for the step. With ``answer`` (the answer format, ADR-085) the node ends with a checked document the model reported
+    through the report tool, not with free text."""
     total = float(settings["total_timeout_seconds"])
     budget = Budget(
         total,
@@ -163,7 +174,13 @@ async def run_turns(
     )  # a wanted tool the server does not have
     if notes:
         detail["tool_notes"] = list(notes)  # kept in the step even when the run ends in an error
-    state: dict[str, Any] = {"last": None, "repeats": 0, "same_result": 0, "last_result": None}
+    state: dict[str, Any] = {
+        "last": None,
+        "repeats": 0,
+        "same_result": 0,
+        "last_result": None,
+        "reminded": False,
+    }
 
     def tell(event: str, payload: dict[str, Any]) -> None:
         if signal is not None:
@@ -178,6 +195,13 @@ async def run_turns(
             data["tools"] = (
                 used  # the step says which tool nodes were used and how often (the flow shows their state)
             )
+        if answer is not None:
+            detail["answer"] = {
+                "tool": answer.tool,
+                "calls": answer.sink.calls,
+                "refused": answer.sink.refused,
+                "document": answer.sink.document,
+            }
         result.duration = time.monotonic() - started
         return result
 
@@ -257,16 +281,29 @@ async def run_turns(
             older_chars=WRAP_UP_OLDER_CHARS,
             hints=None,
         )
-        asked = (
-            FAILED_PROMPT.format(error=_clip(failure, 200))
-            if failure
-            else WRAP_UP_PROMPT.format(reason=reason)
-        )
+        if answer is not None:
+            asked = (
+                ANSWER_FAILED_PROMPT.format(error=_clip(failure, 200), tool=answer.tool)
+                if failure
+                else ANSWER_WRAP_UP_PROMPT.format(reason=reason, tool=answer.tool)
+            )
+        else:
+            asked = (
+                FAILED_PROMPT.format(error=_clip(failure, 200))
+                if failure
+                else WRAP_UP_PROMPT.format(reason=reason)
+            )
         view.append({"role": "user", "content": asked})
         grace = min(float(settings["request_timeout_seconds"]), WRAP_UP_GRACE_SECONDS)
         allowed = max(budget.left(), grace)
         what = "a failed request" if failure else reason
-        done = await ask(view, tools=None, allowed=allowed, limit=allowed, wrap_up=what)
+        done = await ask(
+            view,
+            tools=box.schemas(only=answer.tool) if answer is not None else None,
+            allowed=allowed,
+            limit=allowed,
+            wrap_up=what,
+        )
         cause = (
             f"A request failed ({_clip(failure, 200)})"
             if failure
@@ -275,12 +312,61 @@ async def run_turns(
         if done is None:
             last = detail["turns"][-1].get("error") or "the request failed"
             return fail(f"{cause}, and the final answer could not be written: {last}")
+        if answer is not None:
+            # the final request offered the report tool only: its call is the answer (one try, no repair here)
+            reported = next((c for c in done.tool_calls if c.name == answer.tool), None)
+            if reported is None:
+                return fail(
+                    f"{cause}, and the agent did not report a result with the tool {answer.tool}"
+                )
+            await report(done, reported)
+            if answer.sink.document is None:
+                return fail(
+                    f"{cause}, and the answer did not fit the answer format: "
+                    + "; ".join((answer.sink.refused or [["it was not accepted"]])[-1])
+                )
+            notes.append(
+                f"{cause[:1].lower()}{cause[1:]}: this answer was reported from what the agent had found by then and may be incomplete"
+            )
+            return conclude_answer()
         if not done.text.strip():
             return fail(f"{cause}, and the model wrote no final answer")
         notes.append(
             f"{cause[:1].lower()}{cause[1:]}: this answer was written without tools from what the agent had found by then and may be incomplete"
         )
         return conclude(done)
+
+    def conclude_answer() -> NodeResult:
+        """The step ends with the document the model reported (ADR-085): its fields are the node's data, its text the output."""
+        assert answer is not None and answer.sink.document is not None
+        document = answer.sink.document
+        data.update(document)
+        data["repaired"] = answer.sink.repaired
+        data["answer_calls"] = answer.sink.calls
+        if answer.sink.repaired:
+            notes.append("the answer was corrected once: " + "; ".join(answer.sink.refused[0]))
+        return finish(
+            NodeResult(
+                "pass",
+                output=rendering(document),
+                reason=("Note: " + "; ".join(notes)) if notes else None,
+                data=data,
+                detail=detail,
+            )
+        )
+
+    async def report(done: Completion, call: Any) -> None:
+        """Run the call of the report tool of the last request (the final one: no more tools follow) and keep it in the step."""
+        assert answer is not None
+        before = answer.sink.calls
+        record = await box.call_within(
+            call.id, call.name, call.arguments, min(max(budget.left(), 0.0), TOOL_CALL_SECONDS)
+        )
+        if record.error and answer.sink.calls == before:
+            answer.sink.refuse(
+                record.result
+            )  # the arguments were no JSON object: the tool never saw the call
+        detail["turns"][-1]["tool_calls"].append(record.to_data())
 
     def conclude(done: Completion) -> NodeResult:
         if not done.text.strip():
@@ -336,8 +422,19 @@ async def run_turns(
                 return await wrap_up("a request that failed", failure=error)
             return fail(error)
         if not done.tool_calls:
-            return conclude(done)
-        if len(detail["turns"]) >= budget.iterations:
+            if answer is None:
+                return conclude(done)
+            # the answer format asks for the tool: a text answer gets one reminder, then the step fails
+            if state["reminded"]:
+                return fail(
+                    f"The agent did not report a result: it answered in text although its answer format asks for the tool {answer.tool}"
+                )
+            state["reminded"] = True
+            messages.append({"role": "assistant", "content": done.text.strip() or "(no answer)"})
+            messages.append({"role": "user", "content": REMINDER.format(tool=answer.tool)})
+            continue
+        reporting = answer is not None and any(c.name == answer.tool for c in done.tool_calls)
+        if len(detail["turns"]) >= budget.iterations and not reporting:
             return await wrap_up(
                 budget.reason(len(detail["turns"]), used_tokens()) or "the iteration limit"
             )
@@ -371,9 +468,15 @@ async def run_turns(
             }
             if node_id:
                 tell("tool_call", {"state": "started", **base})
+            reports = answer is not None and call.name == answer.tool
+            seen = answer.sink.calls if answer is not None else 0
             record = await box.call_within(
                 call.id, call.name, call.arguments, min(max(budget.left(), 0.0), TOOL_CALL_SECONDS)
             )
+            if reports and answer is not None and record.error and answer.sink.calls == seen:
+                answer.sink.refuse(
+                    record.result
+                )  # the arguments were no JSON object: the tool never saw the call
             if node_id:
                 tell(
                     "tool_call",
@@ -386,6 +489,14 @@ async def run_turns(
                 )
             turn["tool_calls"].append(record.to_data())
             messages.append({"role": "tool", "tool_call_id": call.id, "content": record.result})
+            if answer is not None and reports:
+                if answer.sink.document is not None:
+                    return conclude_answer()  # the checked answer ends the node: no further request
+                if len(answer.sink.refused) >= 2:
+                    return fail(
+                        "The answer did not fit the answer format, also after one correction: "
+                        + "; ".join(answer.sink.refused[-1])
+                    )
             stalled = watch(call.id, call.name, call.arguments, record.result) or stalled
         reason = stalled or budget.reason(len(detail["turns"]), used_tokens())
         if reason:

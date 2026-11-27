@@ -12,6 +12,7 @@ that follow (an offset would). The filters, all optional and combined with AND:
 * ``q``: case-insensitive substring of the artifact's title, the pipeline name or the note; if it is a
   number (``12`` or ``#12``) the artifact with that number matches too.
 * ``since`` / ``until``: ISO 8601 times on ``started_at``, both inclusive; a time without an offset is UTC.
+* ``dry_run``: ``only`` (the dry runs, ADR-086), ``exclude`` (the real runs) or left out (both).
 """
 
 from __future__ import annotations
@@ -91,6 +92,8 @@ class ExecutionFilter:
     q: str | None
     since: datetime | None
     until: datetime | None
+    #: ``True``: only dry runs, ``False``: only real runs, ``None``: both.
+    dry_run: bool | None = None
 
     @classmethod
     def parse(
@@ -102,8 +105,12 @@ class ExecutionFilter:
         q: str | None = None,
         since: str | None = None,
         until: str | None = None,
+        dry_run: str | None = None,
     ) -> ExecutionFilter:
         """The filter from the raw query values; a value that makes no sense is a 422."""
+        wanted = (dry_run or "").strip().lower()
+        if wanted not in ("", "only", "exclude"):
+            raise ArtifactError(422, "dry_run: use only or exclude")
         return cls(
             statuses=_choice(status, RunStatus, "status"),
             started_by=_choice(started_by, StartedBy, "started_by"),
@@ -111,6 +118,7 @@ class ExecutionFilter:
             q=(q or "").strip() or None,
             since=_time(since, "since"),
             until=_time(until, "until"),
+            dry_run={"only": True, "exclude": False}.get(wanted),
         )
 
     def conditions(self) -> list[ColumnElement[bool]]:
@@ -136,6 +144,8 @@ class ExecutionFilter:
             if digits.isascii() and digits.isdigit():
                 options.append(Task.number == int(digits))
             found.append(or_(*options))
+        if self.dry_run is not None:
+            found.append(Execution.dry_run.is_(self.dry_run))
         if self.since is not None:
             found.append(Execution.started_at >= self.since.astimezone(UTC).replace(tzinfo=None))
         if self.until is not None:
@@ -167,13 +177,14 @@ def _base() -> Select[Execution, int, str, bool]:
 
 
 async def summary(session: AsyncSession, now: datetime) -> ExecutionsSummary:
-    """The counters of the strip above the list (see :class:`ExecutionsSummary`)."""
+    """The counters of the strip above the list (see :class:`ExecutionsSummary`). *Running* and *total* count every execution;
+    *failed* and *done in the last 24 hours* count the real runs only: a dry run (ADR-086) is no failure of a pipeline."""
     since = (now - timedelta(hours=24)).astimezone(UTC).replace(tzinfo=None)
 
     def count(status: str, recent: bool = False) -> ColumnElement[int]:
         cond = Execution.status == status
         if recent:
-            cond = and_(cond, Execution.started_at >= since)
+            cond = and_(cond, Execution.started_at >= since, Execution.dry_run.is_(False))
         return func.coalesce(func.sum(cond.cast(Integer)), 0)
 
     row = (

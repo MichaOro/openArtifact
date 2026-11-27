@@ -156,3 +156,40 @@ wrong and its stages were not there. It is now drawn from the graph as the API g
 - `structureOfGraph`, `structureOfChain` and `layoutPreview` are replaced by `sceneOfGraph` and `layoutScene`; the panel loads the graph itself
   (the stage chain `/stages` is no longer needed for the picture, the versions' `nodes` and `edges` serve the same way).
 
+
+## 12. Addendum (2026-11-26): the page size follows the room
+
+Before, "Per page" offered 12, 24 and 48 whatever the screen was, so a large screen showed one block of cards, empty room below it and a pager.
+The page size now comes from the room of the list (`components/management-page.js`, the maths in `components/page-size.js`, no DOM there).
+
+- **The base is what fits.** The card has a fixed size (19 rem by 11 rem, §10) and the gap is known, so the count is exact: columns = whole cards that
+  fit the width of the list, rows = whole rows that fit the height from the top of the list down to the bottom of the area that scrolls (less the pager
+  and the padding below); base = columns times rows. A half row is never drawn. The size of a card is read from the page (a hidden probe with
+  `--mg-card-w` and `--mg-card-h`), not guessed. The room of the panel is reserved (§6), so the width does not change when an entry is selected.
+- **Never fewer than 12.** A phone has one column and loads 12 (the page scrolls); an area that cannot be measured (hidden, no size) gives 12.
+- **The "Per page" choices are steps of the base:** the base, twice and four times the base (18, 36 and 72; 24, 48 and 96; 12, 24 and 48 on a phone).
+  The default is the base. No choice is larger than 500, the most the server gives in one request (the lists of the pages are cut in the browser; the
+  archive reads up to 500 cards, ADR-071): a base of 300 offers 300 and 500, a clamped size appears once.
+- **The browser remembers the step, not the number.** `localStorage` key `oa-management-<page>` holds `{view, sort, step}` with `step` 1, 2 or 4, per kind of
+  page, no setting on the server. A value stored before (a number of entries as `size`) is not a step and the first step is used. A step that has no
+  choice of its own any more (a base at the maximum) moves to the largest choice there is.
+- **The list view** (rows) uses the same rule with the height of its rows (the first row is measured; 56 px until there is one; one column) and the same
+  minimum of 12. The rows are measured after they are drawn and the base is corrected once if that changes the page size.
+- **Window and turned screens:** the base is measured again 150 ms after the size of the page or the window changed, and the page is drawn again only when
+  the size of a page really changed (no refetch: the pages hold their list in the browser). The first entry on the screen stays on the page: the new page is
+  the one that holds the entry that was first before.
+- **With twice or four times the base the page scrolls**; the pager sticks to the lower edge of the area (`position: sticky`), so "Next" is always in reach.
+- **Everything is in `ManagementPage`**: Actions, Pipelines, Agents, Guards and the archive of the board get it; no page passes a number of entries
+  any more (the option `pageSizes` is gone). The component sets `data-base` and `data-size` on its root, which the tests read.
+
+## 13. Addendum (2026-11-26): the rows of the archive, and the lane a card came from
+
+- **Two lines in the list view of the archive.** The title stands at the left and the number (`#29`) at the right end of the first line; under them the lane the
+  card came from stands at the left and the day of archiving (`Archived ...`) at the right. The layout is CSS only (a grid over the parts of the card: name,
+  chip row, facts, date; the foot gives its children to the grid) and is scoped by `data-page="archive"`, which `ManagementPage` now sets on its root from the
+  page name. The rows of Actions, Pipelines, Agents and Guards share the component but hold other content (chips, tags, actions) and keep their layout.
+- **The wording says where the card came from, not where it is.** A card in the archive is not in a lane any more: the label is "From lane" (German "Aus Spalte",
+  as the German texts call lanes), in the rows, the tiles and the Context tab. A lane that no longer exists (`archived_from_lane` is null) says so
+  ("(lane no longer exists)") instead of showing nothing.
+- **Row height stays constant** so the page size, which measures the first row (§12), stays right: the title is one line (the whole title in its tooltip); on a
+  screen narrower than 40 rem it may take two lines and every row has room for two.

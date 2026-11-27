@@ -157,7 +157,7 @@
 .ag-input__required option[value="required"] { color: var(--color-accent); }
 .ag-input__required:has(option[value="required"]:checked) { color: var(--color-accent); border-color: var(--accent-ring); background: var(--accent-soft); }
 .ag-check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; font-size: 0.875rem; }
-.ag-check input { width: 1.1rem; height: 1.1rem; accent-color: var(--color-accent); }
+.ag-check input { flex: none; }
 .ag-save__state { font-size: 0.875rem; color: var(--color-text-secondary); }
 .ag-save__buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
 .ag-problems li,
@@ -234,7 +234,7 @@
 .ag-model { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); font-size: 0.8125rem; }
 .ag-model:hover { background: color-mix(in srgb, var(--color-text-primary) 5%, transparent); }
 .ag-model label { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); overflow-wrap: anywhere; cursor: pointer; }
-.ag-model input { width: 1.1rem; height: 1.1rem; accent-color: var(--color-accent); flex: none; }
+.ag-model input { flex: none; }
 .ag-model__id { font-family: var(--font-mono); }
 .ag-model__label { color: var(--color-text-muted); }
 .ag-model[data-available="false"] .ag-model__id { text-decoration: line-through; }

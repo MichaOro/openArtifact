@@ -5,6 +5,7 @@
 {% call modal(id, title) %}
 <div class="modal__body">
     <p class="confirm-text" data-confirm-message></p>
+    <ul class="confirm-items" data-confirm-items hidden></ul>
     {% if note %}<p class="confirm-text" data-confirm-note {{ note }} hidden></p>{% endif %}
     <p class="form-error" role="alert" hidden data-form-error></p>
 </div>

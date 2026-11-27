@@ -4,13 +4,17 @@ A :class:`GuardDefinition` is what a guard *is* (its trigger, condition, escalat
 defined once and reused. A :class:`GuardAttachment` says *where* it watches (a pipeline, one of its stages or one of
 its actions; a whole action definition or one node of it) and whether it is switched on there. A change to a
 definition acts on every place it is attached to.
+
+A definition has a **draft** (its own columns, what the editor changes) and numbered **published versions**
+(:class:`GuardVersion`, a frozen copy of the definition, ADR-081). Only a published version is in effect: an execution freezes the
+published version of every guard that applies to it when it starts. A definition that was never published watches nothing.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, ForeignKey, String, Text, true
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from openartifact.database import Base
@@ -37,6 +41,7 @@ class GuardDefinition(Base):
         fallback: What follows when the guard's own action fails: ``pause``, ``abort`` or ``continue``.
         escalation: JSON list of steps ``{"from_firing", "every_runs" | "every_seconds"}``.
         action_id: The guard's own action (an action definition), run by ``run_action``.
+        published_number: The version executions use (``None``: never published, the guard watches nothing yet).
     """
 
     __tablename__ = "guard_definitions"
@@ -55,10 +60,35 @@ class GuardDefinition(Base):
     action_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("graphs.id", ondelete="SET NULL"), nullable=True, default=None
     )
+    published_number: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
+
+
+class GuardVersion(Base):
+    """A published version of a guard definition: a frozen copy of what it is (ADR-081). Rows are written once and never changed.
+
+    ``number`` counts per definition from 1 and is never reused. ``content`` is the JSON of ``guards.versions.content_of`` (name,
+    description, scope types, trigger, condition, consequence, fallback, escalation and the guard's own action). ``fingerprint``
+    hashes it, so the draft can be told from the published version. ``source_number`` is set when the version was made by
+    publishing an earlier one again. ``published_via`` is ``user`` (the browser) or ``api``.
+    """
+
+    __tablename__ = "guard_versions"
+    __table_args__ = (UniqueConstraint("guard_id", "number", name="ux_guard_versions_number"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    guard_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("guard_definitions.id", ondelete="CASCADE"), index=True
+    )
+    number: Mapped[int] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    source_number: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    published_via: Mapped[str] = mapped_column(String(16))
+    published_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
 
 class GuardAttachment(Base):

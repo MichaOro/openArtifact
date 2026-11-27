@@ -22,7 +22,40 @@
     "label": "Next"
    }
   ],
-  "settings": [],
+  "settings": [
+   {
+    "key": "inputs",
+    "label": "Inputs",
+    "type": "fields",
+    "minimum": null,
+    "maximum": null,
+    "default": [],
+    "stored_in": "config",
+    "field_types": [
+     "text",
+     "number",
+     "boolean",
+     "choice",
+     "list"
+    ],
+    "max_fields": 30,
+    "field_limits": {
+     "name_chars": 32,
+     "description_chars": 300,
+     "choices": [
+      2,
+      20
+     ],
+     "choice_chars": 60
+    },
+    "field_extra": "default",
+    "field_required": true,
+    "help": "What this graph takes from the one that runs it: name, type, required, default. A node inside reads one as ${input.name}; a required input without a value fails the run.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   }
+  ],
   "links_to": null,
   "tool": false,
   "guardable": false,
@@ -175,6 +208,20 @@
     "section": "behaviour",
     "level": "optional",
     "inherits": null
+   },
+   {
+    "key": "input_values",
+    "label": "Inputs",
+    "type": "mapping",
+    "minimum": null,
+    "maximum": null,
+    "default": {},
+    "stored_in": "config",
+    "max_mapping": 30,
+    "help": "A value for each input of what this node runs: text, a card field (${card.name}) or the output of an earlier node. Empty uses the default; a required input without one fails.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
    }
   ],
   "links_to": "action",
@@ -223,7 +270,22 @@
     "label": "Next"
    }
   ],
-  "settings": [],
+  "settings": [
+   {
+    "key": "input_values",
+    "label": "Inputs",
+    "type": "mapping",
+    "minimum": null,
+    "maximum": null,
+    "default": {},
+    "stored_in": "config",
+    "max_mapping": 30,
+    "help": "A value for each input of what this node runs: text, a card field (${card.name}) or the output of an earlier node. Empty uses the default; a required input without one fails.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   }
+  ],
   "links_to": "pipeline",
   "tool": false,
   "guardable": false,
@@ -268,7 +330,39 @@
    }
   ],
   "outputs": [],
-  "settings": [],
+  "settings": [
+   {
+    "key": "outputs",
+    "label": "Outputs",
+    "type": "fields",
+    "minimum": null,
+    "maximum": null,
+    "default": [],
+    "stored_in": "config",
+    "field_types": [
+     "text",
+     "number",
+     "boolean",
+     "list"
+    ],
+    "max_fields": 30,
+    "field_limits": {
+     "name_chars": 32,
+     "description_chars": 300,
+     "choices": [
+      2,
+      20
+     ],
+     "choice_chars": 60
+    },
+    "field_extra": "value",
+    "field_required": false,
+    "help": "What this pipeline hands back: a name, a type and a value (text or references like ${input.who}). Worked out where it ends, it becomes the data of the node that called it.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   }
+  ],
   "links_to": null,
   "tool": false,
   "guardable": false,
@@ -387,6 +481,37 @@
     "maximum": null,
     "default": false,
     "stored_in": "column",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "outputs",
+    "label": "Outputs",
+    "type": "fields",
+    "minimum": null,
+    "maximum": null,
+    "default": [],
+    "stored_in": "config",
+    "field_types": [
+     "text",
+     "number",
+     "boolean",
+     "list"
+    ],
+    "max_fields": 30,
+    "field_limits": {
+     "name_chars": 32,
+     "description_chars": 300,
+     "choices": [
+      2,
+      20
+     ],
+     "choice_chars": 60
+    },
+    "field_extra": "value",
+    "field_required": false,
+    "help": "What this action hands back: a name, a type and a value (text or references like ${input.who}). Worked out when it ends On Pass, it becomes the data of the node that ran it.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -531,6 +656,19 @@
     "stored_in": "config",
     "help": "The most this node keeps of its output and its errors, each; the rest is cut off. Never above the limit of the instance (64 KiB unless changed).",
     "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "read_only",
+    "label": "Read only",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "Tick it when this code only reads and changes nothing. A dry run then runs it; otherwise it skips it as a change.",
+    "section": "definition",
     "level": "optional",
     "inherits": null
    },
@@ -1839,6 +1977,37 @@
     "help": "How many characters of one tool result the model reads (default 12000); older results are shortened more. The step keeps the result.",
     "group": "Execution limits",
     "section": "behaviour",
+    "level": "optional",
+    "inherits": "agent"
+   },
+   {
+    "key": "answer_format",
+    "label": "Answer format",
+    "type": "fields",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "field_types": [
+     "text",
+     "number",
+     "boolean",
+     "choice",
+     "list"
+    ],
+    "max_fields": 30,
+    "field_limits": {
+     "name_chars": 32,
+     "description_chars": 300,
+     "choices": [
+      2,
+      20
+     ],
+     "choice_chars": 60
+    },
+    "field_required": true,
+    "help": "The shape of the final answer. The model reports these fields through a tool and the server checks them; they become the node's data.",
+    "section": "definition",
     "level": "optional",
     "inherits": "agent"
    },
@@ -3264,7 +3433,7 @@
     "maximum": null,
     "default": false,
     "stored_in": "config",
-    "help": "Off: the agent can only read. On: it may also create, change, move, archive and comment cards and start or stop them; nothing is ever deleted.",
+    "help": "Off: the agent only reads. On: it may also create, change, move, archive and comment cards and start or stop processing; nothing is ever deleted.",
     "section": "definition",
     "level": "optional",
     "inherits": null
@@ -3669,6 +3838,19 @@
     "stored_in": "config",
     "section": "definition",
     "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "read_only",
+    "label": "Read only",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "Tick it when this code only reads and changes nothing. A dry run then runs it; otherwise it skips it as a change.",
+    "section": "definition",
+    "level": "optional",
     "inherits": null
    }
   ],
@@ -4109,7 +4291,8 @@
      ],
      "choice_chars": 60
     },
-    "help": "The document's fields, flat: the model hands over exactly these. A missing, wrongly typed or unlisted field is refused with the reason; the last accepted document counts.",
+    "field_required": true,
+    "help": "The fields of the document, flat (no field holds an object). The model hands over exactly these; a document with a missing, mistyped or unlisted field is refused with the reason.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -4473,7 +4656,7 @@
      }
     ],
     "max_sources": 9,
-    "help": "The package's parts, most important first; sources further down give way first when the size limit runs out. Card text and results are pasted as they are, never read for references.",
+    "help": "What the package is made of, in order of importance: when the limit runs out, the sources further down give way first. The step shows what went in and what was left out.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -4486,7 +4669,7 @@
     "maximum": 32768,
     "default": 8192,
     "stored_in": "config",
-    "help": "The most the whole package takes, in bytes (about four bytes per token). A bigger package gives the agent more to read and costs more.",
+    "help": "The most the whole package takes, headings included (bytes of UTF-8 text); about 4 bytes make a token. A bigger package gives the agent more to read and costs more.",
     "section": "behaviour",
     "level": "core",
     "inherits": null
@@ -4499,7 +4682,7 @@
     "maximum": 16384,
     "default": 2048,
     "stored_in": "config",
-    "help": "A single comment, card or result is cut to this size so one long item cannot fill the package. The card's own text is cut last.",
+    "help": "One comment, card or result is cut to this size (marked …[cut]) before it is weighed, so one long item cannot fill the package. The card's own text is cut last.",
     "section": "behaviour",
     "level": "optional",
     "inherits": null

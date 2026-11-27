@@ -274,9 +274,12 @@ def test_a_preview_cannot_know_the_run_and_takes_example_values() -> None:
 
 
 def test_prompts_are_filled_in_one_pass() -> None:
-    states = resolve_inputs(
-        SPECS[:3], {"ticket": "${var.lang}", "note": "${input.ticket} $1 \\1"}, _view()
+    # a value that holds the text of a reference is pasted as it is and never read again; it comes from a variable because in a mapping
+    # `${input.NAME}` now names an input of the action (ADR-083), so the text can no longer be written there directly
+    view = RunView(
+        RunContext({"vars": {"lang": "German", "note": "${input.ticket} $1 \\1"}}), NodeIndex()
     )
+    states = resolve_inputs(SPECS[:3], {"ticket": "${var.lang}", "note": "${var.note}"}, view)
     assert (
         fill("A ${input.ticket} B ${input.context} C ${input.note} ${input.ticket}", states)
         == "A German B none C ${input.ticket} $1 \\1 German"

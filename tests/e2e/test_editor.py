@@ -533,7 +533,7 @@ def test_create_an_action_definition_from_the_navigation(
         ],
         "Apps and data": ["GitHub", "Postgres"],
         "Core": ["Execute Command", "HTTP request"],
-        "Data": ["Edit Fields", "Artifact", "Build Context"],  # Build Context: ADR-078
+        "Data": ["Edit Fields", "Artifact", "Build Context"],  # ADR-078
         "Flow": ["If", "Switch", "Timer"],
     }
 

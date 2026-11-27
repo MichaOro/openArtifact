@@ -17,6 +17,10 @@ copy of the artifact's parameters when it starts, so changing the artifact later
 that exists: every parameter of the artifact's type is a key (``null`` when it has no value), an artifact
 without a type has none.
 
+``${node:ID.output}`` (and every other field, ``${node:ID.data.key}``) names a node by its **id** (ADR-082): the id of a placed node or of the
+placement of an action in a pipeline. The name is only a label: a rename changes no reference, and two nodes with the same name (an action used
+three times in a pipeline) are told apart. The editor inserts this form and shows the node's current name.
+
 ``NAME`` is the node's name as the editor shows it, with every character outside ``A-Z a-z 0-9 _ -``
 replaced by ``_`` (so ``Fetch user`` is ``Fetch_user``). References are replaced literally by text: a value
 is never evaluated and never scanned for references again (a response that contains ``${var.x}`` or
@@ -53,6 +57,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from openartifact.credentials.refs import in_scheme_or_host
+from openartifact.graph import field_schema
 
 if TYPE_CHECKING:
     from openartifact.engine.results import NodeResult
@@ -87,6 +92,12 @@ _NO_RESULT = frozenset(
     }
 )
 
+#: Public name of the same set (the check before a graph is published reads it).
+NO_RESULT_KINDS = _NO_RESULT
+
+#: The nodes of a pipeline that run something and so can have a result of their own, named by their id (ADR-082, ADR-083).
+PLACEMENT_KINDS = frozenset({"action", "pipeline"})
+
 VAR_NAME = re.compile(r"[a-z][a-z0-9_]{0,63}")
 _NODE_REFERENCE = re.compile(
     r"node\.(?P<key>[A-Za-z0-9_-]{1,255})\.(?P<field>output|exit_code|outcome|reason|data|success|attempts|duration_ms)"
@@ -97,17 +108,27 @@ _NAMED_NODE_REFERENCE = re.compile(
     r"\((?P<name>[^()}\r\n]{1,255})\)\.(?P<field>output|exit_code|outcome|reason|data|success|attempts|duration_ms)"
     r"(?P<path>(?:\.[A-Za-z0-9_-]{1,64}){0,8})"
 )
+#: A node by its id (ADR-082): ``node:<uuid>.output``, ``node:<uuid>.data.key``.
+_UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+_ID_REFERENCE = re.compile(
+    rf"node:(?P<id>{_UUID})\.(?P<field>output|exit_code|outcome|reason|data|success|attempts|duration_ms)"
+    r"(?P<path>(?:\.[A-Za-z0-9_-]{1,64}){0,8})"
+)
 _VAR_REFERENCE = re.compile(r"var\.(?P<name>[a-z][a-z0-9_]{0,63})")
 _CARD_REFERENCE = re.compile(r"card\.(?P<name>[a-z][a-z0-9_]{0,31})")
+#: An input of the action or pipeline that is running (ADR-083): ``input.name``.
+_INPUT_REFERENCE = re.compile(r"input\.(?P<name>[a-z][a-z0-9_]{0,31})")
 #: What looks like a context reference; :func:`parse` then decides strictly whether it is one.
-CANDIDATE = re.compile(r"\$\{((?:(?:node|var|card)\.|\()[^}\r\n]{0,400})\}")
+CANDIDATE = re.compile(r"\$\{((?:(?:node|var|card|input)\.|node:|\()[^}\r\n]{0,400})\}")
 #: One pass over a text for both kinds of references (so that no replaced value is scanned again).
-_ANY = re.compile(r"\$\{(?:secret:([^}\r\n]{0,80})|((?:(?:node|var|card)\.|\()[^}\r\n]{0,400}))\}")
+_ANY = re.compile(
+    r"\$\{(?:secret:([^}\r\n]{0,80})|((?:(?:node|var|card|input)\.|node:|\()[^}\r\n]{0,400}))\}"
+)
 _FIELDS = "output, exit_code, outcome, reason, success, attempts, duration_ms, data"
 SYNTAX_HINT = (
-    "use ${(Node name).output}, ${node.NAME.output}, ${node.NAME.exit_code}, ${node.NAME.outcome}, ${node.NAME.reason}, "
+    "use ${(Node name).output}, ${node:ID.output}, ${node.NAME.output}, ${node.NAME.exit_code}, ${node.NAME.outcome}, ${node.NAME.reason}, "
     "${node.NAME.success}, ${node.NAME.attempts}, ${node.NAME.duration_ms}, "
-    "${node.NAME.data.key}, ${var.name} or ${card.name}"
+    "${node.NAME.data.key}, ${input.name}, ${var.name} or ${card.name}"
 )
 
 
@@ -227,6 +248,9 @@ class RunContext:
         raw_vars, raw_nodes, raw_card = data.get("vars"), data.get("nodes"), data.get("card")
         self.vars: dict[str, Any] = dict(raw_vars) if isinstance(raw_vars, dict) else {}
         self.card: dict[str, Any] = dict(raw_card) if isinstance(raw_card, dict) else {}
+        raw_inputs = data.get("inputs")
+        #: The inputs of the action or pipeline that is running now (ADR-083); empty while it declares none.
+        self.inputs: dict[str, Any] = dict(raw_inputs) if isinstance(raw_inputs, dict) else {}
         self.nodes: dict[str, dict[str, Any]] = (
             {k: dict(v) for k, v in raw_nodes.items() if isinstance(v, dict)}
             if isinstance(raw_nodes, dict)
@@ -248,7 +272,10 @@ class RunContext:
         return cls(data if isinstance(data, dict) else None)
 
     def to_data(self) -> dict[str, Any]:
-        return {"vars": self.vars, "card": self.card, "nodes": self.nodes}
+        data: dict[str, Any] = {"vars": self.vars, "card": self.card, "nodes": self.nodes}
+        if self.inputs:  # the shape of a context that was stored before inputs stays as it was
+            data["inputs"] = self.inputs
+        return data
 
     def dumps(self) -> str:
         return _json(self.to_data())
@@ -265,6 +292,7 @@ class RunContext:
     def record(self, node: Mapping[str, Any], result: NodeResult, port: str | None) -> None:
         """Store the result of a node that ran under its key; an earlier result of the key is replaced."""
         output, cut = _cap_output(result.output, result.keep_bytes or NODE_OUTPUT_LIMIT_BYTES)
+        node_id = node.get("id")
         entry: dict[str, Any] = {
             "name": node["name"],
             "kind": str(node["kind"]),
@@ -281,7 +309,17 @@ class RunContext:
         }
         if cut:
             entry["truncated"] = True
+        if isinstance(node_id, str) and node_id:
+            entry["id"] = node_id
         key = node_key(str(node["name"]))
+        earlier = self.nodes.get(key)
+        if (
+            isinstance(node_id, str)
+            and node_id
+            and earlier is not None
+            and earlier.get("id") not in (None, node_id)
+        ):
+            key = f"{key}~{node_id[:8]}"  # another node of the same name: both results are kept (ADR-082)
         self.nodes.pop(key, None)  # the order of the keys is the order of recency
         self.nodes[key] = entry
         for (
@@ -290,6 +328,16 @@ class RunContext:
         ) in result.recorded:  # what the node handed over under the name of another node (ADR-080)
             self.record(other, other_result, "out")
         self._fit()
+
+    def entry_of(self, node_id: str, name: str = "") -> dict[str, Any] | None:
+        """The latest result of the node with this id; a context stored before ids (no ``id`` in its entries) answers by
+        the node's key, which is the name it had."""
+        for key in reversed(list(self.nodes)):
+            if self.nodes[key].get("id") == node_id:
+                return self.nodes[key]
+        if name and (legacy := self.nodes.get(node_key(name))) is not None and "id" not in legacy:
+            return legacy
+        return None
 
     def _fit(self) -> None:
         """Make the context fit its limit: the oldest results lose output, then data, then go."""
@@ -324,6 +372,8 @@ class NodeDefinition:
     where: str
 
     def describe(self) -> str:
+        if self.kind in PLACEMENT_KINDS:
+            return f'"{self.name}" ({self.kind}) in pipeline "{self.where}"'
         return f'"{self.name}" ({self.kind}) in action "{self.where}"'
 
 
@@ -332,11 +382,20 @@ class NodeIndex:
     """The nodes of a frozen pipeline by key, to tell which node a name stands for."""
 
     by_key: dict[str, list[NodeDefinition]] = field(default_factory=dict)
+    #: Every node a reference may name by its id (ADR-082): the result-bearing nodes of the action definitions and the
+    #: placements (action and pipeline nodes) of the pipelines.
+    by_id: dict[str, NodeDefinition] = field(default_factory=dict)
 
     @classmethod
-    def of_graphs(cls, graphs: Iterable[Mapping[str, Any]]) -> NodeIndex:
-        """The result-bearing nodes of action definitions (``{"name", "nodes"}`` graphs)."""
+    def of_graphs(
+        cls,
+        graphs: Iterable[Mapping[str, Any]],
+        placements: Iterable[Mapping[str, Any]] = (),
+    ) -> NodeIndex:
+        """The result-bearing nodes of action definitions (``{"name", "nodes"}`` graphs) by name and by id; the placements of
+        ``placements`` (pipeline graphs) by id only (a name does not reach them)."""
         by_key: dict[str, list[NodeDefinition]] = {}
+        by_id: dict[str, NodeDefinition] = {}
         for graph in graphs:
             for node in graph["nodes"]:
                 if str(node["kind"]) in _NO_RESULT:
@@ -345,11 +404,22 @@ class NodeIndex:
                     node["id"], node["name"], str(node["kind"]), str(graph.get("name", ""))
                 )
                 by_key.setdefault(node_key(node["name"]), []).append(found)
-        return cls(by_key)
+                by_id[node["id"]] = found
+        for graph in placements:
+            for node in graph["nodes"]:
+                if str(node["kind"]) in PLACEMENT_KINDS:
+                    by_id[node["id"]] = NodeDefinition(
+                        node["id"],
+                        str(node.get("name") or node.get("label") or ""),
+                        str(node["kind"]),
+                        str(graph.get("name", "")),
+                    )
+        return cls(by_key, by_id)
 
     @classmethod
     def of_snapshot(cls, snapshot: Mapping[str, Any]) -> NodeIndex:
-        return cls.of_graphs(snapshot.get("definitions", {}).values())
+        pipelines = [snapshot, *snapshot.get("pipelines", {}).values()]
+        return cls.of_graphs(snapshot.get("definitions", {}).values(), pipelines)
 
     def lookup(self, key: str) -> NodeDefinition:
         """The one node with this key; :class:`ContextError` if there is none or more than one."""
@@ -367,12 +437,13 @@ class NodeIndex:
 
 @dataclass(frozen=True)
 class Reference:
-    """A parsed ``${node...}``, ``${var...}`` or ``${card...}``: ``kind`` is ``node``, ``var`` or ``card``."""
+    """A parsed ``${node...}``, ``${var...}``, ``${card...}`` or ``${input...}``: ``kind`` is ``node``, ``var``, ``card`` or ``input``."""
 
     kind: str
-    name: str  # the node key or the variable name
+    name: str  # the node key or the variable name ("" for a node named by its id)
     field: str = ""
     path: tuple[str, ...] = ()
+    node_id: str = ""  # the id of a node named by ``${node:ID...}`` (ADR-082)
 
 
 def parse(body: str) -> Reference:
@@ -381,6 +452,13 @@ def parse(body: str) -> Reference:
         return Reference("var", match["name"])
     if match := _CARD_REFERENCE.fullmatch(body):
         return Reference("card", match["name"])
+    if match := _INPUT_REFERENCE.fullmatch(body):
+        return Reference("input", match["name"])
+    if by_id := _ID_REFERENCE.fullmatch(body):
+        id_path = tuple(by_id["path"].split(".")[1:]) if by_id["path"] else ()
+        if id_path and by_id["field"] != "data":
+            raise ContextError(f"malformed reference ${{{body[:80]}}}: {SYNTAX_HINT}")
+        return Reference("node", "", by_id["field"], id_path, by_id["id"])
     match = _NODE_REFERENCE.fullmatch(body)
     if match is None and (named := _NAMED_NODE_REFERENCE.fullmatch(body)):
         path = tuple(named["path"].split(".")[1:]) if named["path"] else ()
@@ -415,12 +493,38 @@ def _walk(value: Any, path: tuple[str, ...], where: str) -> Any:
     return value
 
 
+#: What a dry run skips leaves no data of the node's own, and the next node that needs it is told (ADR-086).
+SKIPPED_IN_DRY_RUN = (
+    'node "{node}" was skipped in the dry run, so it has no result: use mock data for it'
+)
+#: The keys a skipped node does leave: the marker and what it would have done.
+_DRY_RUN_KEYS = ("dry_run", "would_have")
+
+
+def _skipped_in_dry_run(entry: Mapping[str, Any], ref: Reference) -> str | None:
+    """The message when ``ref`` asks a node that a dry run skipped for something it did not produce (its output, its exit code, or a
+    key of its data); ``None`` for what it does leave (``success``, ``outcome``, ``reason``, ``attempts`` and the dry-run marker)."""
+    data = entry.get("data")
+    if not (isinstance(data, dict) and data.get("dry_run") is True):
+        return None
+    if ref.field in ("output", "exit_code") or (
+        ref.field == "data" and ref.path and ref.path[0] not in _DRY_RUN_KEYS
+    ):
+        return SKIPPED_IN_DRY_RUN
+    return None
+
+
 def resolve(ref: Reference, context: RunContext, index: NodeIndex) -> Any:
     """The value a reference stands for; :class:`ContextError` if it cannot be resolved."""
     if ref.kind == "var":
         if ref.name not in context.vars:
             raise ContextError(f"variable '{ref.name}' is not set")
         return context.vars[ref.name]
+    if ref.kind == "input":
+        if ref.name not in context.inputs:
+            known = ", ".join(context.inputs) or "none"
+            raise ContextError(f"there is no input '{ref.name}' here (the inputs are: {known})")
+        return context.inputs[ref.name]
     if ref.kind == "card":
         if ref.name == "text" and "title" in context.card:
             return card_text(context.card)
@@ -429,10 +533,25 @@ def resolve(ref: Reference, context: RunContext, index: NodeIndex) -> Any:
                 f'the artifact has no field "{ref.name}" (it has: {_known_card_names(context.card)})'
             )
         return context.card[ref.name]
-    index.lookup(ref.name)  # unknown or ambiguous names fail even if something ran under the key
-    entry = context.nodes.get(ref.name)
+    if ref.node_id:
+        found = index.by_id.get(ref.node_id)
+        if found is None:
+            raise ContextError(
+                "the node this reference names does not exist any more in the pipeline (it was deleted or belongs to another pipeline)"
+            )
+        label = found.name
+        entry = context.entry_of(ref.node_id, found.name)
+    else:
+        index.lookup(
+            ref.name
+        )  # unknown or ambiguous names fail even if something ran under the key
+        label = ref.name
+        entry = context.nodes.get(ref.name)
     if entry is None:
-        raise ContextError(f'node "{ref.name}" has not run yet')
+        raise ContextError(f'node "{label}" has not run yet')
+    skipped = _skipped_in_dry_run(entry, ref)
+    if skipped:
+        raise ContextError(skipped.format(node=label))
     value = entry.get(ref.field)
     if (
         value is None and ref.field == "success"
@@ -443,8 +562,8 @@ def resolve(ref: Reference, context: RunContext, index: NodeIndex) -> Any:
     if ref.field != "data":
         return value
     if ref.path and value is None:
-        raise ContextError(f'node "{ref.name}" has no data')
-    return _walk(value, ref.path, f'the data of node "{ref.name}"')
+        raise ContextError(f'node "{label}" has no data')
+    return _walk(value, ref.path, f'the data of node "{label}"')
 
 
 @dataclass(frozen=True)
@@ -456,6 +575,8 @@ class RunView:
     #: The artifact and the execution the run belongs to (for the nodes that act on their own card).
     task_id: str | None = None
     execution_id: str | None = None
+    #: The run is a dry run (ADR-086): what writes is skipped, a timer does not wait.
+    dry_run: bool = False
 
     def render(
         self,
@@ -480,7 +601,9 @@ class RunView:
                     ref = parse(match[2])
                     found = resolve(ref, self.context, self.index)
                     # a field the artifact has but nobody filled is empty text, not "null" (ADR-064)
-                    value = "" if ref.kind == "card" and found is None else _render(found)
+                    value = (
+                        "" if ref.kind in ("card", "input") and found is None else _render(found)
+                    )
                 except ContextError as error:
                     raise ContextError(f"{match[0]}: {error}") from error
             return quote(value, safe="") if percent_encode else value
@@ -489,6 +612,103 @@ class RunView:
 
     def dumps(self) -> str:
         return self.context.dumps()
+
+
+def bind_inputs(
+    node: Mapping[str, Any],
+    definition_name: str,
+    declared: list[dict[str, Any]],
+    view: RunView,
+) -> dict[str, Any]:
+    """The inputs an action or pipeline node gives to what it runs (ADR-083): for each declared input the value the node maps (a text with
+    references, worked out in the context of the run), else the default, else nothing; a required input without a value, or a value that
+    does not fit the type, fails with a message that names the input. ``None`` stands for an optional input that has no value.
+
+    Raises :class:`ContextError`.
+    """
+    mapped = (node.get("config") or {}).get("input_values") or {}
+    return _bind(
+        declared, lambda name: str(mapped.get(name) or ""), view.render, definition_name, []
+    )
+
+
+def bind_given(
+    definition_name: str, declared: list[dict[str, Any]], given: Mapping[str, Any]
+) -> dict[str, Any]:
+    """The inputs of a run that someone gave from outside (the ``inputs`` of a dry run, ADR-086): the same rules as a mapping (the default
+    for a missing one, a required one must have a value, a value must fit its type), but the values are taken as they are and never read
+    for ``${...}`` references. A name the definition does not declare is refused.
+
+    Raises :class:`ContextError`.
+    """
+    known = {spec["name"] for spec in declared}
+    problems = [
+        f"there is no input '{name}' (the inputs are: {', '.join(sorted(known)) or 'none'})"
+        for name in given
+        if name not in known
+    ]
+    return _bind(
+        declared, lambda name: _given_text(given.get(name)), str, definition_name, problems
+    )
+
+
+def _given_text(value: Any) -> str:
+    """A value handed in as JSON, as the text a typed input is read from."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _bind(
+    declared: list[dict[str, Any]],
+    text_of: Callable[[str], str],
+    render: Callable[[str], str],
+    definition_name: str,
+    problems: list[str],
+) -> dict[str, Any]:
+    bound: dict[str, Any] = {}
+    for spec in declared:
+        name = spec["name"]
+        text = text_of(name)
+        if not text.strip():
+            text = str(spec.get("default") or "")
+        if not text.strip():
+            if spec["required"]:
+                problems.append(f"input '{name}' is required and has no value")
+            else:
+                bound[name] = None
+            continue
+        try:
+            bound[name] = field_schema.coerce(spec, render(text))
+        except (ContextError, ValueError) as error:
+            problems.append(f"input '{name}': {error}")
+    if problems:
+        raise ContextError(f"{definition_name}: {'; '.join(problems)}")
+    return bound
+
+
+def build_outputs(declared: list[dict[str, Any]], view: RunView) -> dict[str, Any] | None:
+    """What an action or pipeline hands back where it ends (ADR-083): for each declared output the value (a text with references) worked
+    out and read as the output's type; ``None`` when nothing is declared. A value that cannot be worked out fails with a message that
+    names the output.
+
+    Raises :class:`ContextError`.
+    """
+    if not declared:
+        return None
+    outputs: dict[str, Any] = {}
+    for spec in declared:
+        name = spec["name"]
+        try:
+            text = view.render(str(spec.get("value") or ""))
+            outputs[name] = field_schema.coerce(spec, text) if text.strip() else None
+        except (ContextError, ValueError) as error:
+            raise ContextError(f"output '{name}': {error}") from error
+    return outputs
 
 
 def check_url_placement(url: str) -> None:
@@ -524,6 +744,7 @@ def problems(
     local: NodeIndex,
     elsewhere: Callable[[str], bool],
     card_fields: Collection[str] | None = None,
+    id_exists: Callable[[str], bool] | None = None,
 ) -> list[str]:
     """Hints about the context references of a setting, for the time it is saved (it is still saved).
 
@@ -539,6 +760,13 @@ def problems(
         elif ref.kind == "card":
             if card_fields is not None:
                 hints += card_problems(shown, card_fields)
+        elif ref.kind == "node" and ref.node_id:
+            if (
+                ref.node_id not in local.by_id
+                and id_exists is not None
+                and not id_exists(ref.node_id)
+            ):
+                hints.append(f"{shown}: no node has this id (it was deleted?)")
         elif ref.kind == "node":
             if len({d.node_id for d in local.by_key.get(ref.name, [])}) > 1:
                 try:

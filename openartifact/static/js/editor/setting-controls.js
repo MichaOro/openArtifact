@@ -18,6 +18,7 @@ import { field } from "./field.js";
 import { bindPersist, registerDirty, trackSave } from "./persist-policy.js";
 import { addSource, listProblem, moveSource, parseNames, removeSource, setOption, specOf, unused } from "./sources-model.js";
 import { suggestReferences } from "./reference-suggest.js";
+import { ReferenceNames } from "./reference-names.js";
 import { t, tn } from "../i18n.js";
 
 const INDENT = "  ";
@@ -57,10 +58,14 @@ class SettingControl {
     this.setting = setting;
     this.end = end;
     this.saved = unsaved ? NOT_SAVED : value;
+    this.source = suggest; // what the graph offers a control (its nodes, the inputs a placement maps), also for controls that take no suggestions
     this.save = save;
     this.busy = false;
     this.again = false;
+    // a text that takes references shows the names of the nodes where the value holds their ids (reference-names.js) and saves the ids
+    this.names = suggest && setting.references && this.constructor.suggests ? new ReferenceNames(() => suggest.nodes()) : null;
     this.input = this.createInput(value);
+    if (this.names && typeof this.input.value === "string") this.input.value = this.names.display(this.input.value);
     this.input.dataset.focusKey = `setting-${setting.key}`;
     if (this.constructor.kind !== "toggle")
       bindPersist(this.input, this.constructor.kind, (event) => {
@@ -70,9 +75,8 @@ class SettingControl {
     this.baseline = this.read();
     this.input.addEventListener("input", () => this.markDirty());
     registerDirty({ isDirty: () => this.isDirty(), commit: () => this.commit(), element: this.input });
-    if (suggest && setting.references && this.constructor.suggests) {
-      suggestReferences(this.input, suggest, { allowSecrets: setting.references === "all" });
-    }
+    this.suggest = suggest && setting.references && this.constructor.suggests ? suggest : null;
+    if (this.suggest) suggestReferences(this.input, this.suggest, { allowSecrets: setting.references === "all" });
     this.element = this.build();
   }
 
@@ -164,6 +168,7 @@ class SettingControl {
     let value;
     try {
       value = this.parse(this.read());
+      if (this.names && typeof value === "string") value = this.names.stored(value); // the ids go to the server, what the user reads stays the names
     } catch (error) {
       this.fail(error.message);
       return;
@@ -824,6 +829,15 @@ class FieldsControl extends SettingControl {
       limits: this.setting.field_limits ?? undefined,
       max: this.setting.max_fields ?? undefined,
       label: this.setting.label,
+      extra: this.setting.field_extra ?? null,
+      showRequired: this.setting.field_required !== false,
+      wide: this.setting.field_extra != null, // the Trigger, Output and Complete windows: one row per field (the Hand Over Tool has no extra and stays compact)
+      // the value of an output may name nodes and inputs: the reference list helps there too
+      decorate: (input, kind) => {
+        if (kind === "value" && this.source) suggestReferences(input, this.source, { allowSecrets: false });
+      },
+      // the value of an output is shown with the names of the nodes it refers to, never their ids (ADR-082 add. 1)
+      names: this.setting.field_extra === "value" && this.source ? new ReferenceNames(() => this.source.nodes()) : null,
       onInput: () => this.markDirty(),
       onSettle: () => this.commit(),
     });
@@ -851,7 +865,75 @@ class FieldsControl extends SettingControl {
   }
 }
 
+/** What an action or pipeline node gives to the inputs of what it runs (ADR-083): one row per declared input of its definition, each a text
+ * (or a reference to a card field or to the outputs of an earlier node) with the reference list. A row left empty uses the default of the
+ * input; a required one without a value fails the run, and the publish check says so. The rows come from the definition (`source.inputsOf`),
+ * the stored value is `{name: text}` with only the filled rows. */
+class MappingControl extends SettingControl {
+  static kind = "toggle"; // the rows bind their own events (a composite), not the wrapper
+  static row = false;
+
+  createInput(value) {
+    const box = element("div", "ge-mapping");
+    box.dataset.focusKey = `setting-${this.setting.key}`;
+    const given = value && typeof value === "object" ? value : {};
+    this.names = this.source?.nodes ? new ReferenceNames(() => this.source.nodes()) : null; // a row shows the names of the nodes it refers to, never ids
+    this.rows = new Map();
+    const inputs = this.source?.inputsOf?.(this.source.node) ?? [];
+    for (const spec of inputs) {
+      const row = element("div", "ge-mapping__row");
+      const label = element("label", "ge-mapping__label");
+      label.textContent = spec.name;
+      if (spec.required) label.append(element("span", "ge-mapping__required", ` ${t("editor.setting_controls.mapping_required")}`));
+      const input = element("input", "field__control ge-mapping__input");
+      input.type = "text";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.maxLength = 2000;
+      input.value = this.names ? this.names.display(given[spec.name] ?? "") : (given[spec.name] ?? "");
+      // the name of the input sits in the value field faintly (a placeholder) until the user types a value or a reference, which overrides it;
+      // the default and the description are said next to the label
+      input.placeholder = spec.name;
+      if (spec.default) label.append(element("span", "ge-mapping__default", ` · ${t("editor.setting_controls.mapping_default")}: ${spec.default}`));
+      label.title = [spec.description, spec.default ? `${t("editor.setting_controls.mapping_default")}: ${spec.default}` : ""].filter(Boolean).join("\n");
+      input.id = `mapping-${this.setting.key}-${spec.name}`;
+      label.htmlFor = input.id;
+      input.addEventListener("input", () => this.markDirty());
+      input.addEventListener("change", () => this.commit());
+      if (this.source) suggestReferences(input, this.source, { allowSecrets: false });
+      row.append(label, input);
+      box.append(row);
+      this.rows.set(spec.name, input);
+    }
+    return box;
+  }
+
+  labelTarget() {
+    return this.rows.values().next().value ?? null;
+  }
+
+  read() {
+    return JSON.stringify(this.value());
+  }
+
+  /** The filled rows as the server stores them. */
+  value() {
+    const out = {};
+    for (const [name, input] of this.rows) if (input.value.trim() !== "") out[name] = this.names ? this.names.stored(input.value) : input.value;
+    return out;
+  }
+
+  parse() {
+    return this.value();
+  }
+
+  isDirty() {
+    return this.read() !== this.baseline;
+  }
+}
+
 const CONTROLS = {
+  mapping: MappingControl,
   credential: CredentialControl,
   integer: IntegerControl,
   number: NumberControl,

@@ -9,6 +9,10 @@ tool: true
 menu:
   group: Agent tools
   order: 6
+effect:
+  default: read
+  flag: allow_write
+  flag_true: mixed
 ports:
   outputs:
   - name: tool
@@ -26,7 +30,7 @@ settings:
   type: switch
   default: false
   level: optional
-  help: "Off: the agent can only read. On: it may also create, change, move, archive and comment cards and start or stop them; nothing is ever deleted."
+  help: "Off: the agent only reads. On: it may also create, change, move, archive and comment cards and start or stop processing; nothing is ever deleted."
   stored_in: config
 - key: tools_mode
   label: Tools to include

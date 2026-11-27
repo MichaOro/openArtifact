@@ -84,7 +84,8 @@ export class ArchiveView {
       span.append(document.createTextNode(before), make("b", "", value));
       return span;
     };
-    const facts = [task.archived_from_lane ? part(task.archived_from_lane, `${t("archive.lane")}: `) : null].filter(Boolean);
+    // where the card came from, not where it is (it is in the archive); a lane that no longer exists says so
+    const facts = [part(task.archived_from_lane ?? t("archive.lane_gone"), `${t("archive.lane")}: `)];
     return cardBody({
       title: task.title,
       text: task.preview ?? task.body,

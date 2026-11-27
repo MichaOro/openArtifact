@@ -7,6 +7,8 @@ scopes:
 fixed: true
 ending: true
 menu_icon: check
+effect:
+  default: none
 ports:
   inputs:
   - name: in
@@ -16,3 +18,11 @@ ui:
   size:
     width: 160
     height: 56
+settings:
+- key: outputs
+  label: Outputs
+  type: fields
+  field_extra: value
+  default: []
+  help: "What this pipeline hands back: a name, a type and a value (text or references like ${input.who}). Worked out where it ends, it becomes the data of the node that called it."
+  stored_in: config

@@ -15,6 +15,10 @@ chain: true
 menu:
   group: Core
   order: 1
+effect:
+  default: write
+  flag: read_only
+  flag_true: read
 ports:
   inputs:
   - name: in
@@ -92,5 +96,12 @@ settings:
   stored_in: config
   section: behaviour
   level: optional
+- key: read_only
+  label: Read only
+  type: switch
+  default: false
+  level: optional
+  help: Tick it when this code only reads and changes nothing. A dry run then runs it; otherwise it skips it as a change.
+  stored_in: config
 - use: on_failure
 - use: retry

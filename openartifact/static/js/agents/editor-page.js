@@ -17,6 +17,7 @@ import { Modal } from "../components/modal.js";
 import { OptionsPanel } from "../components/options-panel.js";
 import { SettingsGroup, numberSetting } from "../components/settings-group.js";
 import { Sortable } from "../components/sortable.js";
+import { SchemaFields } from "../components/schema-fields.js";
 import { Switch } from "../components/switch.js";
 import { Tabs } from "../components/tabs.js";
 import { connectEvents } from "../tasks/events.js";
@@ -37,6 +38,10 @@ const $ = (selector) => root.querySelector(selector);
 const control = (key) => root.querySelector(`[data-field="${key}"]`);
 // The prompts are Markdown by convention and go to the model as they are written (ADR-077); the bar only helps to write them.
 for (const key of ["user_prompt", "system_prompt"]) new MarkdownBar(control(key));
+
+// The answer format (ADR-085): the shape of the final answer as a flat list of fields; the editor is the one of the Hand Over Tool.
+const answerFormat = new SchemaFields({ label: t("agent_editor.answer_format"), onInput: () => changed(), onSettle: () => changed() });
+$("[data-answer-format]").append(answerFormat.element);
 
 const NUMBERS = ["temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations", "token_budget", "tool_result_chars"];
 const ORIGINS = { user: t("agents.editor_page.browser"), api: t("agents.editor_page.through_api") };
@@ -308,6 +313,7 @@ function readConfig() {
     system_prompt: control("system_prompt").value,
     user_prompt: control("user_prompt").value,
     inputs: readInputs(),
+    answer_format: answerFormat.value(),
     ...modelGroup.read(), // a setting that is not added is null: not set, the default applies
     ...limitsGroup.read(),
   };
@@ -347,6 +353,8 @@ function fillForm(config) {
   control("user_prompt").value = config.user_prompt;
   $("[data-inputs]").replaceChildren(...config.inputs.map((input) => inputRow(input)));
   showDescriptionColumn();
+  answerFormat.list = (config.answer_format ?? []).map((field) => ({ ...field }));
+  answerFormat.draw();
   modelGroup.load(config);
   limitsGroup.load(config);
   fillModelSelects(config.provider_id, config.model);
@@ -583,7 +591,9 @@ function showPublished(result, lead) {
 
 function fail(error) {
   const box = $("[data-save-error]");
-  box.textContent = error ? (error.detail ?? error.message) : "";
+  // a field the server refused says why (the answer format: a name the agent's own data uses), not only "check your input"
+  const refused = Object.values(error?.fieldErrors ?? {})[0];
+  box.textContent = error ? (error.detail ?? (refused ? String(refused).replace(/^Value error, /, "") : error.message)) : "";
   box.hidden = !error;
 }
 

@@ -24,6 +24,7 @@ from openartifact.models import (
     Graph,
     GuardAttachment,
     GuardDefinition,
+    GuardVersion,
     NodeKind,
 )
 
@@ -35,7 +36,11 @@ class NestingError(ValueError):
 
 
 async def _collect(
-    session: AsyncSession, root: dict[str, Any], graph: dict[str, Any], path: tuple[str, ...]
+    session: AsyncSession,
+    root: dict[str, Any],
+    graph: dict[str, Any],
+    path: tuple[str, ...],
+    draft: bool = False,
 ) -> None:
     """Add the action definitions and the called pipelines (recursively) of ``graph`` to ``root``."""
     for node in graph["nodes"]:
@@ -43,24 +48,27 @@ async def _collect(
         if not target:
             continue
         if node["kind"] == NodeKind.ACTION and target not in root["definitions"]:
-            root["definitions"][target] = await graph_for_run(session, target)
+            root["definitions"][target] = await graph_for_run(session, target, draft=draft)
         elif node["kind"] == NodeKind.PIPELINE:
             if target in path:
                 raise NestingError("The pipeline calls itself")
             if len(path) >= MAX_NESTING:
                 raise NestingError("Pipelines are nested too deeply")
             if target not in root["pipelines"]:
-                called = await graph_for_run(session, target)
+                called = await graph_for_run(session, target, draft=draft)
                 root["pipelines"][target] = called
-                await _collect(session, root, called, (*path, target))
+                await _collect(session, root, called, (*path, target), draft)
 
 
-async def build_snapshot(session: AsyncSession, graph: Graph) -> dict[str, Any]:
-    """The pipeline's graph plus the called pipelines and action definitions it uses, frozen."""
-    snapshot = await graph_for_run(session, graph.id)
+async def build_snapshot(
+    session: AsyncSession, graph: Graph, *, draft: bool = False
+) -> dict[str, Any]:
+    """The pipeline's graph plus the called pipelines and action definitions it uses, frozen: each in the version that runs, or with
+    ``draft`` (a dry run that tests what is being edited, ADR-086) each in its draft."""
+    snapshot = await graph_for_run(session, graph.id, draft=draft)
     snapshot["definitions"] = {}
     snapshot["pipelines"] = {}
-    await _collect(session, snapshot, snapshot, (graph.id,))
+    await _collect(session, snapshot, snapshot, (graph.id,), draft)
     await freeze_agents(session, snapshot)  # agent nodes keep the version they start with
     await freeze_guards(session, snapshot)
     return snapshot
@@ -68,23 +76,39 @@ async def build_snapshot(session: AsyncSession, graph: Graph) -> dict[str, Any]:
 
 async def freeze_guards(session: AsyncSession, snapshot: dict[str, Any]) -> None:
     """The switched-on guard attachments of the pipeline, of the pipelines it calls and of the action definitions the run
-    uses (the whole action and its nodes), each with its definition (``guards``), and the guards' own actions
-    (``guard_definitions``, apart from ``definitions`` so their node names never clash with the run's references). A
-    change to a definition or to an attachment after the start does not reach the run."""
+    uses (the whole action and its nodes), each with the **published version** of its definition (``guards``; ``version`` says
+    which), and the guards' own actions (``guard_definitions``, apart from ``definitions`` so their node names never clash with the
+    run's references). A definition that was never published watches nothing (ADR-081). A change to a definition, a publication or
+    a change of an attachment after the start does not reach the run; only switching an attachment off does, at once, through the
+    monitor's live check. A snapshot frozen before ADR-081 holds the definitions as they were and has no ``version``."""
     pipelines = [snapshot["id"], *snapshot.get("pipelines", {}), *snapshot.get("definitions", {})]
     rows = (
         await session.execute(
-            select(GuardAttachment, GuardDefinition)
+            select(GuardAttachment, GuardDefinition, GuardVersion)
             .join(GuardDefinition, GuardDefinition.id == GuardAttachment.guard_id)
+            .join(
+                GuardVersion,
+                (GuardVersion.guard_id == GuardDefinition.id)
+                & (GuardVersion.number == GuardDefinition.published_number),
+            )
             .where(GuardAttachment.graph_id.in_(pipelines), GuardAttachment.enabled.is_(True))
             .order_by(GuardDefinition.name, GuardAttachment.id)
         )
     ).all()
-    snapshot["guards"] = [guard_data(definition, attachment) for attachment, definition in rows]
+    found = [
+        (attachment, definition, json.loads(version.content), version.number)
+        for attachment, definition, version in rows
+    ]
+    found.sort(key=lambda f: (str(f[2].get("name", "")), f[0].id))
+    snapshot["guards"] = [
+        guard_data(definition.id, content, attachment, number)
+        for attachment, definition, content, number in found
+    ]
     bodies: dict[str, Any] = {}
-    for _attachment, definition in rows:
-        if definition.action_id and definition.action_id not in bodies:
-            bodies[definition.action_id] = await graph_for_run(session, definition.action_id)
+    for _attachment, _definition, content, _number in found:
+        action_id = content.get("action_id")
+        if action_id and action_id not in bodies:
+            bodies[action_id] = await graph_for_run(session, action_id)
     snapshot["guard_definitions"] = bodies
     await freeze_agents(session, {"definitions": bodies})
 
@@ -105,24 +129,26 @@ def definition_data(row: GuardDefinition) -> dict[str, Any]:
     }
 
 
-def guard_data(definition: GuardDefinition, attachment: GuardAttachment) -> dict[str, Any]:
-    """A guard as the engine carries it: one attachment with its definition. ``id`` is the attachment's (the
-    counters and the live on/off check are per place), ``guard_id`` the definition's and ``definition_id`` its own
-    action (the key frozen executions have always had)."""
-    data = definition_data(definition)
+def guard_data(
+    guard_id: str, content: dict[str, Any], attachment: GuardAttachment, version: int | None
+) -> dict[str, Any]:
+    """A guard as the engine carries it: one attachment with its published definition (``content``, what ``guards/versions.py``
+    holds). ``id`` is the attachment's (the counters and the live on/off check are per place), ``guard_id`` the definition's,
+    ``version`` the published version it froze and ``definition_id`` its own action (the key frozen executions have always had)."""
     return {
         "id": attachment.id,
-        "guard_id": definition.id,
+        "guard_id": guard_id,
+        "version": version,
         "graph_id": attachment.graph_id,
         "pipeline_id": attachment.graph_id,
-        "name": definition.name,
+        "name": content.get("name", ""),
         "scope_type": attachment.scope_type,
         "scope_id": attachment.scope_id,
-        "trigger": data["trigger"],
-        "when": data["when"],
-        "consequence": definition.consequence,
-        "fallback": definition.fallback,
-        "escalation": data["escalation"],
-        "definition_id": definition.action_id,
+        "trigger": content.get("trigger", {}),
+        "when": content.get("when", {}),
+        "consequence": content.get("consequence", "pause"),
+        "fallback": content.get("fallback", "pause"),
+        "escalation": content.get("escalation", []),
+        "definition_id": content.get("action_id"),
         "enabled": attachment.enabled,
     }

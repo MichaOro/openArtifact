@@ -7,6 +7,8 @@ scopes:
 fixed: true
 ending: true
 menu_icon: inbox
+effect:
+  default: none
 ports:
   inputs:
   - name: pass
@@ -27,3 +29,10 @@ settings:
   label: On Fail
   type: switch
   default: false
+- key: outputs
+  label: Outputs
+  type: fields
+  field_extra: value
+  default: []
+  help: "What this action hands back: a name, a type and a value (text or references like ${input.who}). Worked out when it ends On Pass, it becomes the data of the node that ran it."
+  stored_in: config

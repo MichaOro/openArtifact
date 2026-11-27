@@ -300,3 +300,13 @@ textarea.field__control--lines { resize: vertical; }
   .field-group--long .field-group__row { grid-template-columns: minmax(0, 1fr); }
   .field-group__end { justify-self: start; }
 }
+
+/* The limits of the Data storage settings (widgets `limit` and `optional-number`, form-widgets.js): the number with its unit behind it,
+   "Reset to default" after it, or a switch with the number once it is on. Nothing is wider than its column (min-width 0). */
+.fv-limit { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; }
+.fv-limit__box { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.fv-limit__input { width: 7rem; min-width: 0; }
+.fv-limit__unit { color: var(--color-text-muted); font-size: 0.8125rem; white-space: nowrap; }
+.fv-limit__number { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.fv-limit__number[hidden], .fv-limit__reset[hidden], .fv-limit__hint[hidden] { display: none; }
+.fv-limit__hint { color: var(--color-text-muted); font-size: 0.8125rem; }
