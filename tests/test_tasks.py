@@ -61,6 +61,8 @@ def test_create_task_returns_201_with_all_fields(client: TestClient) -> None:
             "action_id",
             "archived_at",
             "archived_from_lane",
+            "lane_name",
+            "lane_id",
             "archived_from_status",
             "marks",
             "created_by",
@@ -107,7 +109,7 @@ def test_title_is_trimmed_and_blank_body_becomes_null(client: TestClient) -> Non
         {"title": ""},
         {"title": "   "},
         {"title": "x" * 256},
-        {"title": "ok", "status": "BACKLOG"},
+        {"title": "ok", "status": "backlog_2"},
         {"title": "ok", "status": "review"},
         {"title": "ok", "body": "x" * 10_001},
         {"title": "ok", "unexpected": 1},
@@ -165,7 +167,7 @@ def test_move_unknown_task_is_404(client: TestClient) -> None:
     assert client.patch("/api/tasks/nope", json={"status": "done"}).status_code == 404
 
 
-@pytest.mark.parametrize("payload", [{}, {"status": "review"}, {"status": "DONE"}])
+@pytest.mark.parametrize("payload", [{}, {"status": "review"}, {"status": "done_3"}])
 def test_move_rejects_invalid_payload(client: TestClient, payload: dict[str, object]) -> None:
     task = _create(client)
     assert client.patch(f"/api/tasks/{task['id']}", json=payload).status_code == 422

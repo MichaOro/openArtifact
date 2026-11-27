@@ -179,6 +179,7 @@ class ArtifactService:
                 tasks = tasks[offset:]
             card_marks = await card_rules.marks_for(session, tasks)
             titles = await self._lane_titles(session)
+            named = await self._lane_names(session)
             refs = any(has_references(t.body) for t in tasks)
             specs = await field_specs(session) if refs else []
             marks = refs and await personal_settings.marks_resolved_references(session)
@@ -186,6 +187,7 @@ class ArtifactService:
             for read in reads:
                 read.marks = card_marks.get(read.id)
                 read.archived_from_lane = titles.get(read.archived_from_status or "")
+                read.lane_id, read.lane_name = named.get(read.status, (None, None))
             return reads
 
     async def processing_ids(self) -> set[str]:
@@ -218,6 +220,9 @@ class ArtifactService:
             read.marks = (await card_rules.marks_for(session, [task])).get(task.id)
             read.archived_from_lane = (await self._lane_titles(session)).get(
                 task.archived_from_status or ""
+            )
+            read.lane_id, read.lane_name = (await self._lane_names(session)).get(
+                task.status, (None, None)
             )
             return read
 
@@ -263,6 +268,9 @@ class ArtifactService:
         read.archived_from_lane = (await self._lane_titles(session)).get(
             task.archived_from_status or ""
         )
+        read.lane_id, read.lane_name = (await self._lane_names(session)).get(
+            task.status, (None, None)
+        )
         if has_references(task.body):
             read.warnings = unknown_references(task.body, set(body_card(specs, task)))
         return read
@@ -271,6 +279,15 @@ class ArtifactService:
         """The board lanes in order."""
         async with self._session() as session:
             return await lane_rules.effective_lanes(session)
+
+    async def lane(self, value: str) -> LaneRead:
+        """The lane a name, an id or an old key stands for (ADR-090); 422 with the names of the lanes when it is none."""
+        async with self._session() as session:
+            try:
+                key = await lane_rules.require_lane(session, value)
+            except lane_rules.LaneError as error:
+                raise ArtifactError(error.code, error.message) from error
+            return next(x for x in await lane_rules.effective_lanes(session) if x.status == key)
 
     async def create_lane(self, title: str) -> list[LaneRead]:
         """Append a lane; publishes ``board.lanes``."""
@@ -282,11 +299,19 @@ class ArtifactService:
         """Change a lane's title and/or style; publishes ``board.lanes``."""
 
         async def change(session: AsyncSession) -> list[LaneRead]:
-            lanes = await lane_rules.update_lane(session, status, title, style)
+            try:
+                key = (
+                    await lane_rules.resolve_lane(session, status)
+                ).key  # before a rename in this very call changes the name
+            except lane_rules.LaneError:
+                key = status  # update_lane below answers the 404
+            lanes = await lane_rules.update_lane(
+                session, status, title, style
+            )  # resolved once more inside: the value as given
             if (
                 style is not None
             ):  # the old switch is the rule *Set card as done* without a condition (ADR-071)
-                await card_rules.set_lane_finished(session, status, style == "finished")
+                await card_rules.set_lane_finished(session, key, style == "finished")
                 await session.commit()
             return lanes
 
@@ -631,7 +656,7 @@ class ArtifactService:
                 await self._forbid_while_processing(session, task.id)
             if payload.status is not None:
                 try:
-                    await lane_rules.require_lane(session, payload.status)
+                    payload.status = await lane_rules.require_lane(session, payload.status)
                 except lane_rules.LaneError as error:
                     raise ArtifactError(error.code, error.message) from error
             start_at = None
@@ -746,20 +771,20 @@ class ArtifactService:
         """The rules of one lane (404 for an unknown lane)."""
         async with self._session() as session:
             try:
-                await lane_rules.require_lane(session, lane)
+                key = await lane_rules.require_lane(session, lane)
             except lane_rules.LaneError as error:
-                raise ArtifactError(404, f"Unknown lane '{lane}'") from error
-            return (await card_rules.load_rules(session)).lanes.get(lane, [])
+                raise ArtifactError(404, error.message) from error
+            return (await card_rules.load_rules(session)).lanes.get(key, [])
 
     async def save_lane_rules(self, lane: str, rules: list[Rule]) -> list[Rule]:
         """Replace the rules of one lane (404 for an unknown lane, 422 for an action a lane does not offer); a sweep follows."""
         async with self._session() as session:
             try:
-                await lane_rules.require_lane(session, lane)
+                lane = await lane_rules.require_lane(session, lane)
                 stored = await card_rules.save_lane_rules(session, lane, rules)
             except lane_rules.LaneError as error:
                 raise ArtifactError(
-                    404 if error.code == 422 else error.code, f"Unknown lane '{lane}'"
+                    404 if error.code == 422 else error.code, error.message
                 ) from error
             except ValueError as error:
                 raise ArtifactError(422, str(error)) from error
@@ -790,9 +815,9 @@ class ArtifactService:
         async with self._session() as session:
             if lane is not None:
                 try:
-                    await lane_rules.require_lane(session, lane)
+                    lane = await lane_rules.require_lane(session, lane)
                 except lane_rules.LaneError as error:
-                    raise ArtifactError(404, f"Unknown lane '{lane}'") from error
+                    raise ArtifactError(404, error.message) from error
             return await card_sweeper.preview(session, rule, lane)
 
     async def sweep(self, dry_run: bool = False) -> card_sweeper.Plan:
@@ -1022,6 +1047,13 @@ class ArtifactService:
     @staticmethod
     async def _lane_titles(session: AsyncSession) -> dict[str, str]:
         return {lane.status: lane.title for lane in await lane_rules.effective_lanes(session)}
+
+    @staticmethod
+    async def _lane_names(session: AsyncSession) -> dict[str, tuple[str, str]]:
+        """Storage key -> (id, name) of every lane: how a card says which lane it is in (ADR-090)."""
+        return {
+            lane.status: (lane.id, lane.title) for lane in await lane_rules.effective_lanes(session)
+        }
 
     @staticmethod
     async def _title_of(session: AsyncSession, task_id: str | None) -> str | None:

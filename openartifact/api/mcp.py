@@ -33,7 +33,7 @@ __all__ = ["INSTRUCTIONS", "McpError", "build_mcp"]
 INSTRUCTIONS = (
     "OpenArtifact is a Kanban board whose cards (artifacts) are processed by pipelines. "
     "The board has user-defined lanes (they can be added, renamed and deleted); list_lanes shows the "
-    "current ones: the key to give as ``lane`` and the title. "
+    "current ones: the name to give as ``lane`` (or its id); a lane's name is its meaning, there are no fixed lanes. "
     "Use list_pipelines to see the pipelines with their stages and actions, create_artifact to add a "
     "card (optionally with a parent and the pipeline it starts with), start_processing to run it "
     "through its pipeline and get_processing_status to follow it. Artifacts are addressed by number. "

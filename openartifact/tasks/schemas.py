@@ -187,6 +187,9 @@ class TaskRead(BaseModel):
     #: The lane key the card was archived from, and that lane's title now (``null`` when the lane is gone): where it goes back to.
     archived_from_status: str | None = None
     archived_from_lane: str | None = None
+    #: The lane the card is in, by name and by id (ADR-090): ``status`` stays the storage key the web page uses; after a rename it says nothing.
+    lane_name: str | None = None
+    lane_id: str | None = None
     #: What the card rules say about the card right now (derived when it is read, never stored): ``{"done": bool, "labels":
     #: [{"text", "tone"}], "colour": {"tone", "mode"} | null}``; ``null`` when no rule says anything.
     marks: CardMarks | None = None
@@ -216,8 +219,10 @@ class TaskRead(BaseModel):
 class LaneRead(BaseModel):
     """A board lane: ``status`` is the key artifacts carry, ``title`` what the user sees."""
 
+    #: The id of the lane (a uuid, ADR-090): never changes, says nothing, survives a rename. Interfaces for agents speak names and ids.
+    id: str
     status: str
-    #: DOM-friendly form of ``status`` (``in-progress``).
+    #: DOM-friendly form of ``status`` (``in-progress``): for the web page only.
     key: str
     title: str
     #: Order on the board, ascending (gaps are possible after a deletion).

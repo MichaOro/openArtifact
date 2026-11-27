@@ -109,7 +109,7 @@ async def create_task(payload: TaskCreate, service: ServiceDep) -> TaskRead:
     """Create a task in the given lane.
 
     ``title`` is required (1-255 chars after trimming), ``body`` is optional, ``status`` is a lane
-    key (``GET /api/lanes``; left out: the first lane, an unknown key is 422 and lists the valid ones,
+    (its name, its id or its key, ``GET /api/lanes``; left out: the first lane, an unknown one is 422 and lists the lanes by name,
     409 if the lane was deleted meanwhile); ``parent_id`` makes it a child; ``pipeline_id`` (with
     ``stage_id`` and ``action_id``, default the first ones) says where it starts; ``fields``
     gives it values of the artifact fields (checked now: 422 with one ``Field NAME: ...`` sentence per
