@@ -21,7 +21,7 @@ import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, ne
 import { GraphModel } from "./graph-model.js";
 import { DryRunPanel } from "./dry-run-panel.js";
 import { StatusBar } from "../components/status-bar.js";
-import { LAST } from "../components/status-bar-model.js";
+import { LAST } from "../components/icon-list-model.js";
 import { StatusPopup } from "../components/status-popup.js";
 import { ObserveBar } from "./observe-bar.js";
 import { ObserveStore } from "./observe-store.js";

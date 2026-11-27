@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-const { arrange, shownKeys, LAST } = await import("../../openartifact/static/js/components/status-bar-model.js");
+const { arrange, shownKeys, LAST } = await import("../../openartifact/static/js/components/icon-list-model.js");
 const { barVisibility, facts, liveNote, liveState, parseLimit, settingOf } = await import("../../openartifact/static/js/editor/observe-model.js");
 
 const read = (state, extra = {}) => ({
