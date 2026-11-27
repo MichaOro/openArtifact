@@ -285,7 +285,8 @@ def test_a_tool_connection_is_deleted_from_the_bar_and_by_the_keyboard(
     page.mouse.click(*page.evaluate(POINT_ON, [remaining, 0.3]))  # select it, then the key
     page.keyboard.press("Delete")
     expect(page.locator(".ge-edge--attachment")).to_have_count(0)
-    assert not [e for e in _edges(api, action) if e["target_port"] == "tools"]
+    # the canvas drops the line at once, the server's delete follows: wait for it, as for the two lines above (line 231)
+    eventually(lambda: [e for e in _edges(api, action) if e["target_port"] == "tools"], [])
 
 
 def test_the_flow_page_draws_a_tool_connection_in_its_chosen_style(
