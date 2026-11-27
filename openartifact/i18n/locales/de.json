@@ -662,6 +662,7 @@
  "editor.setting_controls.tab_indents_press_escape_then": "Tab rückt ein. Drücke Escape und dann Tab, um das Feld zu verlassen.",
  "editor.setting_controls.too_long": " (zu lang)",
  "editor.setting_controls.value_not_available": "{value} (nicht verfügbar)",
+ "editor.setting_controls.wip": "{name} | WIP",
  "editor.settings_layout.add_setting": "Einstellung hinzufügen",
  "editor.settings_layout.advanced": "Erweitert",
  "editor.settings_layout.behaviour": "Verhalten",

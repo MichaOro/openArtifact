@@ -232,6 +232,10 @@ def test_the_github_dialog_pairs_resource_and_operation_and_draws_only_what_the_
     # what is not built yet is shown greyed and cannot be chosen
     expect(resource.locator("option", has_text="Release")).to_be_disabled()
     expect(operation.locator("option", has_text="Get license")).to_be_disabled()
+    # and says so in its name: "<name> | WIP" (work in progress), so it is spotted at a glance
+    expect(resource.locator("option", has_text="Release")).to_have_text("Release | WIP")
+    expect(operation.locator("option", has_text="Get license")).to_have_text("Get license | WIP")
+    expect(resource.locator("option", has_text="Issue").first).not_to_contain_text("WIP")
     # choosing a resource moves the operation to one that fits, and draws that operation's settings
     resource.select_option("Issue")
     expect(operation).to_have_value("Get issue")

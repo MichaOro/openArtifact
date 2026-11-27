@@ -602,6 +602,7 @@
  "editor.setting_controls.tab_indents_press_escape_then": "Tab indents. Press Escape, then Tab to leave the field.",
  "editor.setting_controls.too_long": " (too long)",
  "editor.setting_controls.value_not_available": "{value} (not available)",
+ "editor.setting_controls.wip": "{name} | WIP",
  "editor.settings_layout.add_setting": "Add setting",
  "editor.settings_layout.advanced": "Advanced",
  "editor.settings_layout.behaviour": "Behaviour",

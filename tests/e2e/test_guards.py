@@ -152,6 +152,10 @@ def test_new_guard_opens_a_blank_editor_in_one_click_and_the_templates_are_gone(
     expect(sections).to_have_count(
         5
     )  # the form is drawn from the manifest: trigger, then, condition, escalation, logic
+    # a consequence that is not built yet is greyed and says so in its name: "<name> | WIP" (work in progress)
+    consequence = window.locator("[data-field-key=consequence]")
+    expect(consequence.locator("option", has_text="Notify")).to_have_text("Notify | WIP")
+    expect(consequence.locator("option", has_text="Notify")).to_be_disabled()
     for key, title in {
         "trigger": "Trigger",
         "then": "Then",

@@ -538,8 +538,9 @@ class SelectControl extends SettingControl {
     if (this.setting.emptyLabel) select.append(new Option(this.setting.emptyLabel, ""));
     const off = this.setting.disabled_options ?? [];
     for (const [id, text] of choices) {
-      const option = new Option(text, id);
-      option.disabled = off.includes(id); // a reminder of what is not built yet: shown, not selectable
+      const unbuilt = off.includes(id);
+      const option = new Option(unbuilt ? t("editor.setting_controls.wip", { name: text }) : text, id); // "<name> | WIP": work in progress
+      option.disabled = unbuilt; // a reminder of what is not built yet: shown, not selectable
       select.append(option);
     }
     if (value && !choices.some(([id]) => id === value)) select.append(new Option(t("editor.setting_controls.value_not_available", { value }), value));

@@ -234,7 +234,7 @@ export class GuardEditor {
     const consequences = this.serverSchema.consequences;
     const options = consequences.map((c) => ({
       value: c.key,
-      label: c.available ? t(`guards.consequence.${c.key}`) : `${t(`guards.consequence.${c.key}`)} (${t(`guards.needs.${c.key}`)})`,
+      label: c.available ? t(`guards.consequence.${c.key}`) : t("editor.setting_controls.wip", { name: t(`guards.consequence.${c.key}`) }), // "<name> | WIP": what it needs is in the help text below
       disabled: !c.available,
     }));
     const unavailable = consequences.filter((c) => !c.available).map((c) => t(`guards.needs.${c.key}`));
