@@ -109,7 +109,7 @@ export function menuPlan({ extra = null, shown }) {
  * choice's values). The row is compact: handle, name, type, "required" (not for an output), the value of an output (an output always has one)
  * and the menu; the rest comes on lines of its own when a row has it. Pure, so the plan is tested on its own; the component only hands it to
  * the stylesheet. */
-const WIDTHS = { grip: "2rem", name: "minmax(5.5rem, 1.2fr)", type: "8.5rem", required: "5.5rem", extra: "minmax(6rem, 1.4fr)", more: "2rem" };
+const WIDTHS = { grip: "2rem", name: "minmax(5.5rem, 1.2fr)", type: "8.5rem", required: "3.75rem", extra: "minmax(6rem, 1.4fr)", more: "2rem" };
 
 export function rowPlan({ showRequired = true, extra = null } = {}) {
   const columns = ["grip", "name", "type", ...(showRequired ? ["required"] : []), ...(extra === "value" ? ["extra"] : []), "more"];

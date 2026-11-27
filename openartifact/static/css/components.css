@@ -1065,14 +1065,17 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 /* The wide variant (Trigger, Output and Complete windows, ADR-083): one row per field under a row of column heads; the columns and their
    areas come from rowPlan (schema-fields-model.js) as --sf-cols, --sf-row and --sf-row-2 on the list. It needs the room of its window
    (container query): in a narrower one the stacked layout above stays. The head is only for the eye (aria-hidden), the inputs name themselves. */
-.sf--wide { container-type: inline-size; }
+.sf--wide { container-type: inline-size; --sf-box: 2.7rem; }
 .sf__head { display: none; }
 @container (min-width: 28rem) {
   .sf--wide .sf__head,
   .sf--wide .sf__row { grid-template-columns: var(--sf-cols); gap: var(--space-1) var(--space-2); align-items: center; }
   .sf--wide .sf__head { display: grid; grid-template-areas: var(--sf-row); padding: 0 0 var(--space-1); font-size: 0.75rem; color: var(--color-text-secondary); border-bottom: 1px solid var(--glass-border); }
   .sf--wide .sf__row { grid-template-areas: var(--sf-row) var(--sf-row-d) var(--sf-row-e) var(--sf-row-c); row-gap: 0; }
-  .sf--wide .sf__line { margin-top: var(--space-1); }
+  .sf--wide .sf__line { margin-top: var(--space-2); }
+  .sf--wide .sf__row { padding-bottom: var(--space-3); }
+  .sf--wide .sf__required input.check { width: var(--sf-box); height: var(--sf-box); border-radius: 0.55rem; } /* the box is as tall as the fields beside it */
+  .sf--wide .sf__required input.check:checked::after { width: 0.5rem; height: 0.9rem; margin-top: 0.5rem; border-width: 0 3px 3px 0; }
   .sf--wide .sf__more { grid-area: more; justify-self: center; }
   .sf--wide .sf__h { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sf--wide .sf__h--required { text-align: center; }
