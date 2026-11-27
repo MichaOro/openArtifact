@@ -1788,5 +1788,6 @@
  "editor.observe.again": "Observe again",
  "graph_list.chip_observing": "Observing",
  "graph_list.chip_observe_ended": "Starts refused",
- "executions.observed": "Observed"
+ "executions.observed": "Observed",
+ "execution.skip_marker.title": "Skipped in a dry run: would have {what}"
 }

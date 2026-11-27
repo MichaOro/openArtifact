@@ -63,7 +63,8 @@ def _centred(name: str, measured: dict[str, Any]) -> None:
             "what is drawn is centred in the button",
             m,
         )
-    assert measured["normal"]["width"] == measured["hover"]["width"], (
+    # (a card on the flow page is drawn scaled to fit: the widths are fractions of a pixel then, and equal up to the float noise of the scaling)
+    assert abs(measured["normal"]["width"] - measured["hover"]["width"]) < 0.01, (
         name,
         "the hit area does not change on hover",
     )

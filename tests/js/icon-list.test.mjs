@@ -104,7 +104,7 @@ test("the two variants: the canvas corner keeps the plus last, the card has the 
   assert.ok(STATUS_BAR.order.ended < STATUS_BAR.order.observe && STATUS_BAR.order.observe < STATUS_BAR.order.guard && STATUS_BAR.order.guard < STATUS_BAR.order.add);
   assert.equal(STATUS_BAR.order.add, model.LAST);
   assert.ok(CARD_ORDER.mock < CARD_ORDER.guard);
-  assert.deepEqual([...CARD_ICONS.allow], ["mock", "guard"]);
+  assert.deepEqual([...CARD_ICONS.allow], ["skipped", "mock", "guard"]); // the skip marker of a dry run joined the card (ADR-086 addendum 3)
   assert.throws(() => model.placeOf(CARD_ICONS, "observe"), /icon list "node card": "observe" is not allowed here/);
   assert.throws(() => model.placeOf(STATUS_BAR, "mock"), /icon list "status bar": "mock" is not allowed here/);
 });

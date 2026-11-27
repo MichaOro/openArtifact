@@ -109,3 +109,14 @@ page already has. The engine, the API and the rules of the start are unchanged; 
   pipelines, `build_snapshot(..., draft=True)` down to `graph_for_run(..., draft=True)`), including edits made after the last publish: the wiring of the stage, the settings
   of a node, the mapping of an input. *Published* freezes the published versions of all of them (a graph never published counts by its draft). The same choice is made by the
   check before the start. Pinned by `test_a_draft_dry_run_follows_the_draft_of_the_pipeline_and_of_the_action_it_places` (both graphs published, then both edited).
+
+## Addendum 3: a skipped node is drawn as passed through, with a marker
+
+A node that a dry run (or an observed run) skips is not a node the run did not reach, so the flow page no longer treats the two alike in the eye: **dimmed and dashed stays for
+"not reached"**, a skipped node keeps the look of one that ran. What tells it apart is a marker: the *skip forward* icon, the first entry of the card's icon list (left of the
+mock pin and of the shield of the guards, the shield stays right-most), with a tooltip that says what it would have done (*Skipped in a dry run: would have waited 3 s*). The same
+icon stands beside the state of the step in the path list and beside the outcome in the step detail. A step is skipped when it carries `data.dry_run` and `data.would_have`
+(unchanged); a node that handed over a mock (`data.mock`, ADR-087) was processed and has no marker, so the marker and the mock pin never meet, and a step an observed run could not
+see (`data.not_observable`, ADR-088) has none either. Only the visual treatment changed: the status, the wording and the data of a skipped step are as before. Implemented in
+`components/skip-marker.js`, `skip-marker-model.js`, `execution/flow-view.js`, `execution/flow-panel.js` and `tasks/history-step.js`; pinned by `tests/e2e/test_skip_marker.py` and
+`tests/js/skip-marker.test.mjs`.

@@ -3,6 +3,7 @@
  * selected one. Everything shown is text (textContent): names, outputs and reasons come from what ran. */
 import { icon } from "../components/icons.js";
 import { liveRounds } from "../components/live-rounds.js";
+import { skipText } from "../components/skip-marker.js";
 import { typeOf } from "../editor/node-types.js";
 import { contextBlock } from "../tasks/context-block.js";
 import { formatDuration, formatTime, secondsBetween, setChip } from "../tasks/history-format.js";
@@ -156,7 +157,11 @@ export class FlowPanel {
     const name = el("span", "ef-path__name");
     name.append(el("span", "ef-path__label", nameOf(node)), el("span", "ef-path__kind", kind.label));
     const facts = [exit && exit.replace("exit code", "exit"), took].filter(Boolean).join(" · ");
-    main.append(seq, name, this.#stateChip(entry.state), ...(facts ? [el("span", "ef-path__facts", facts)] : []));
+    const skipLabel = skipText(entry.step);
+    if (skipLabel) main.setAttribute("aria-label", `${main.getAttribute("aria-label")}, ${skipLabel}`);
+    const stateLine = el("span", "ef-path__stateline"); // the skip marker (if any) and the state, one cell of the row
+    stateLine.append(...(skipLabel ? [this.#skipMark(skipLabel)] : []), this.#stateChip(entry.state));
+    main.append(seq, name, stateLine, ...(facts ? [el("span", "ef-path__facts", facts)] : []));
     main.addEventListener("click", () => this.handlers.onSelect(entry.id));
     li.append(main);
 
@@ -169,6 +174,16 @@ export class FlowPanel {
       li.append(open);
     }
     return li;
+  }
+
+  /** The skip marker of a step a dry run skipped, next to its state: the icon, with the tooltip as its title (the row's accessible name says it as well). */
+  #skipMark(text) {
+    const mark = el("span", "ef-path__skip");
+    mark.dataset.skipMarker = "";
+    mark.title = text;
+    mark.setAttribute("aria-hidden", "true");
+    mark.append(icon("skip-forward"));
+    return mark;
   }
 
   #stateChip(state) {
