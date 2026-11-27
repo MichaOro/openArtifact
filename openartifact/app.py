@@ -17,7 +17,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from starlette.routing import Route
 
-from openartifact import database
+from openartifact import database, process_lock
 from openartifact.activity.service import ActivityService
 from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
@@ -82,7 +82,18 @@ def _create_app(settings: Settings) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-        """Application lifespan: startup and shutdown events."""
+        """Application lifespan: the data directory's lock around startup, serving and shutdown.
+
+        The lock comes first, so a second process on the same data directory is refused before it
+        recovers runs (ADR-094); it is released however the rest ends.
+        """
+        with process_lock.hold(settings.data_dir):
+            async with serve(app):
+                yield
+
+    @asynccontextmanager
+    async def serve(app: FastAPI) -> AsyncGenerator[None, None]:
+        """Startup and shutdown events."""
         # ── Startup ──────────────────────────────────────────
         logger.info(
             "Starting OpenArtifact %s on %s:%d",
