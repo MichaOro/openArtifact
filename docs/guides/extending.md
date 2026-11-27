@@ -285,15 +285,20 @@ state from the REST API.
 
 1. **Publish after the commit**, from the service or engine that changed the data:
    `bus.publish("thing.updated", {...})` with a JSON-serialisable payload (`model_dump(mode="json")`).
-   The existing types are `task.created`, `task.updated`, `task.moved`, `task.deleted`, `board.resync`,
-   `run.updated`, `execution.updated` and `execution.deleted`. Name events `noun.verb`, send enough data to
-   update the view without a second request, and never put secrets or outputs in them.
+   The existing types are listed in the docstring of `stream_events` (`api/events.py`). Name events
+   `noun.verb`, pass the name as a string literal or a module constant (the contract test reads it from the
+   code), send enough data to update the view without a second request, and never put secrets or outputs
+   in them.
 2. **Subscribe in the browser.** Add the type to `EVENT_TYPES` in `static/js/tasks/events.js` (the client
-   only listens to the types in that list) and handle it in the `onEvent` callback of the page that cares
-   (`tasks/main.js`, `executions/page.js`, `execution/flow-page.js`).
+   only listens to the types in that list; the browser drops any other name without a trace) and handle it
+   in the `onEvent` callback of the page that cares (`tasks/main.js`, `executions/page.js`,
+   `execution/flow-page.js`), comparing `type === "thing.updated"`. An event no page needs goes into
+   `SERVER_ONLY` of `tests/test_event_contract.py` with the reason instead.
 3. **Document it** in the docstring of `api/events.py` and in the arc42 chapter on the event stream.
-4. **Test it.** Server: the `published` fixture of `tests/conftest.py` records every published event;
-   assert on it. Browser: wait for the effect, not for a time (see the [testing guide](testing.md#waiting)).
+4. **Test it.** `tests/test_event_contract.py` fails when a published name is missing from `EVENT_TYPES`,
+   when `EVENT_TYPES` names something nothing publishes, or when a page handles a name that is not listened
+   to. Server: the `published` fixture of `tests/conftest.py` records every published event; assert on it.
+   Browser: wait for the effect, not for a time (see the [testing guide](testing.md#waiting)).
 
 ## Use the UI catalog
 

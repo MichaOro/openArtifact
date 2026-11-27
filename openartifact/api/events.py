@@ -25,22 +25,48 @@ router = APIRouter(prefix="/api", tags=["events"], responses=GATED)
     },
 )
 async def stream_events(bus: EventBusDep) -> StreamingResponse:
-    """Stream board events: ``task.created``, ``task.updated``, ``task.moved``, ``task.deleted``,
-    ``board.resync``, ``board.lanes`` (``{"lanes": [...]}``: the lanes, after one was added, renamed, restyled or deleted; those
-    changes never move artifacts),
-    ``run.updated`` (the state of a run, see ``GET /api/runs``),
-    ``execution.updated`` (``{"task_id", "execution"}``: the summary of an execution, when it starts
-    and whenever its status changes) and ``execution.deleted`` (``{"task_id", "id"}``: by hand,
-    by retention or by the operator's guard; each leaves a trace in the activity) and ``comment.created`` / ``comment.updated`` (the comment)
-    and ``comment.deleted`` (``{"id", "task_id"}``) and ``activity.created`` (an entry of the artifact's activity, see
-    ``GET /api/tasks/{ref}/activity``) and ``agent.tool_call`` (``{"task_id", "execution_id", "agent_node_id",
-    "tool_node_id", "tool_node_name", "tool", "state", "ok", "duration_ms"}``: a tool call of an agent node of a running
-    execution started (``state`` ``started``) or ended (``finished``, with ``ok`` and ``duration_ms``); names and states only,
-    never arguments or results; the flow page shows the tool node working; ``turn`` is the round of the agent it belongs to) and
-    ``agent.turn`` (``{"task_id", "execution_id", "agent_node_id", "turn", "state", "text", "finish_reason", "tokens",
-    "total_tokens", "tool_calls", "wrap_up", "error"}``: a request of an agent node to its model started (``started``, ``wrap_up``
-    names the limit when it is the final answer without tools) or ended (``finished``: the first 300 characters of the answer, the
-    tokens of the request and in all, the number of tool calls it asked for, or ``error``); the flow page shows the rounds).
+    """Stream the application's events, each with its ``event:`` name and a JSON ``data:`` payload. The browser listens
+    to every name in this first list (``EVENT_TYPES`` in ``static/js/tasks/events.js``; ``tests/test_event_contract.py``
+    keeps that list equal to what the server publishes and the pages handle):
+
+    - ``task.created``, ``task.updated``, ``task.moved`` (lane or position only): the artifact; ``task.deleted``
+      (``{"id"}``).
+    - ``board.resync`` (``{}``): reload the list (positions renumbered, a parent deleted, the card rules applied).
+    - ``board.updated`` (``{"archived", "deleted"}``, with ``"restored"`` when a card left the archive): a card was
+      archived by hand or taken out of the archive, or the sweep of the card rules archived or deleted cards;
+      ``board.resync`` follows.
+    - ``board.lanes`` (``{"lanes": [...]}``): the lanes, after one was added, renamed, restyled or deleted; those changes
+      never move artifacts.
+    - ``cards.rules.changed`` (``{}``): the card rules of a lane or of the board were saved; ``board.resync`` follows.
+    - ``artifact_fields.changed``: the artifact fields after they were saved (as ``GET /api/artifact-fields``).
+    - ``run.updated``: the state of a run, see ``GET /api/runs``.
+    - ``execution.updated`` (``{"task_id", "execution"}``): the summary of an execution, when it starts and whenever its
+      status changes; ``execution.deleted`` (``{"task_id", "id"}``): by hand, by retention or by the operator's guard;
+      each leaves a trace in the activity.
+    - ``comment.created`` / ``comment.updated`` (the comment) and ``comment.deleted`` (``{"id", "task_id"}``).
+    - ``activity.created``: an entry of the artifact's activity, see ``GET /api/tasks/{ref}/activity``.
+    - ``agents.changed`` and ``providers.changed`` (``{}``): an agent or a model provider changed.
+    - ``credentials.changed`` (``{"id", "name", "action"}``): a credential was created, updated, rotated, revoked,
+      enabled, disabled, tested or deleted.
+    - ``settings.changed``: one of ``{"run_limits"}``, ``{"retention"}``, ``{"personal"}``, ``{"stop"}`` (the STOP
+      switch) or ``{"ui_layout"}``, with the new value.
+    - ``storage.cleaned`` (``{"at", "entries"}``): a pass of the background storage cleaner ended.
+    - ``graph.changed`` (``{"graph_ids"}``): other graphs whose nodes or edges changed with an edit (open editors
+      reload); ``graph.contract_changed`` (``{"graph_id"}``): a publication or a discarded draft changed the inputs and
+      outputs the pipelines that use the graph see.
+    - ``agent.tool_call`` (``{"task_id", "execution_id", "agent_node_id", "tool_node_id", "tool_node_name", "tool",
+      "state", "ok", "duration_ms"}``): a tool call of an agent node of a running execution started (``state``
+      ``started``) or ended (``finished``, with ``ok`` and ``duration_ms``); names and states only, never arguments or
+      results; the flow page shows the tool node working; ``turn`` is the round of the agent it belongs to.
+    - ``agent.turn`` (``{"task_id", "execution_id", "agent_node_id", "turn", "state", "text", "finish_reason",
+      "tokens", "total_tokens", "tool_calls", "wrap_up", "error"}``): a request of an agent node to its model started
+      (``started``, ``wrap_up`` names the limit when it is the final answer without tools) or ended (``finished``: the
+      first 300 characters of the answer, the tokens of the request and in all, the number of tool calls it asked for,
+      or ``error``); the flow page shows the rounds.
+
+    Also on the stream, but no page listens to them: ``guards.changed`` (``{"guard_id"}``, with ``"graph_id"`` and its old name
+    ``"pipeline_id"`` for an attachment) and ``guard.fired`` (``{"task_id", "execution_id"}`` and the firing; the pages show the
+    ``activity.created`` entry published with it).
 
     Clients that (re)connect should reload ``GET /api/tasks`` to resync, because
     events that happened while disconnected are not replayed.
