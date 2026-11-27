@@ -45,6 +45,7 @@ not suggestions, and a change that breaks one is sent back.
    no manual `active_nav` strings in routes. Every page registers its entry via
    `registry.register(NavLinkEntry(...))` (see [ADR-066](../architecture/adr/066-modular-navigation.md)).
    A test enforces this (`tests/test_navigation_modularity.py`).
+7. **Flexible icon lists have one rule:** fixed order, only the active entries are shown, never a gap, right-anchored and growing to the left, one hover (see *Flexible icon lists* below).
 
 ## Rules
 
@@ -141,6 +142,7 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A list of cards to choose one from | `combobox.js` (the test card of the Dry run tab: options by number and title, the lane as the description; `editor/dry-run-panel.js`) |
 | A row of an execution list | `history-row-template` (`components/history_row_template.html`) filled by `HistoryList` (`tasks/history-list.js`): the artifact's History tab and the dry runs in the Trigger window's Dry run tab (no bin there) |
 | The status bar in the corner of the editor's canvas: the eye of the observe mode, the shield of the guards and the "+" in a fixed order, an entry only while it is active | `status-bar.js` (entries with a key, an order and `visible`; the arrangement is `status-bar-model.js`), the popup of an entry is `status-popup.js` (title, facts, note, buttons); the icons `eye` (observing) and `hand` (starts refused) |
+| The small icons in the top right corner of a node card: the mock pin and the shield of the guards | `card-icons.js` (`placeCardIcon(card, key, order, element)`; the places are `CARD_ORDER`, the arrangement is the one of `status-bar-model.js`); the look is the quiet icon button (`icon-button--quiet icon-button--xs`) with its hover | 
 | Optional items of a form behind "+ Add" | the Add button with the shared menu (`action-menu.js`), the items in a list of the model (`OPTIONAL_ITEMS` in `editor/dry-run-model.js`), each with a remove control (the test card of the Dry run tab) |
 | A page that manages definitions (list of cards or rows, toolbar, detail panel with tabs) | `management-page.js` (`ManagementPage`, `chip`, `make`), styled by `management.css` (`.mg-*`); see "Management pages" below |
 | A long list that hides its middle (the versions of an agent: the newest two and the first stay behind "Show more versions (N)", a dotted vertical line through the button; the hidden ones open and close, `aria-expanded`) | `fold-list.js` (`foldEntries` for the entries, `foldSeparator` for the button), styled by `.fold-separator` in `components.css` |
@@ -284,6 +286,18 @@ with its reason, and an exception that is not needed any more is removed):
 
 A value that is long in itself is never shown whole: a row that names what a setting inherits (a prompt of thousands of
 characters) shows a one-line preview and the whole text in its tooltip (`preview` in `agents/model.js`).
+
+## Flexible icon lists
+
+A row of small icons whose members come and go (the corner of the canvas, the corner of a node card) follows **one rule**, so that nobody invents another:
+
+- **Fixed order:** every entry has its own place in the order (`order`), not a slot. A new entry takes its place between the others, never at the end by accident.
+- **Only what is active is shown:** an entry that is not active is not in the list at all. With four possible entries of which only the second and the fourth are active, those two sit next to each other: **no gap, no placeholder** for the first and the third.
+- **Anchored at the right edge, growing to the left:** the right-most entry (the shield on a card, the "+" in the canvas corner) keeps its place; the others are added on its left.
+- **Declarative entries:** an entry is a line (key, order, visibility, icon, label, what a click does); another icon costs one line. The pure arrangement is `status-bar-model.js`, used by both lists.
+- **One hover:** the icons are quiet icon buttons (`icon-button--quiet`), whose hover tint shows that they can be clicked; no list has its own hover.
+
+Used now: the status bar of the canvas (eye of the observe mode, shield, "+": `status-bar.js`) and the node card (mock pin, shield: `card-icons.js`).
 
 ## Exceptions that exist today
 
