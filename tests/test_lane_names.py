@@ -238,3 +238,21 @@ def test_migration_0069_is_not_disturbed_by_the_empty_copy_a_failed_start_left_b
     command.upgrade(alembic_config(), "0069")
     with sqlite3.connect(path) as conn:
         assert conn.execute("SELECT COUNT(*) FROM lanes WHERE uuid != ''").fetchone()[0] == 3
+
+
+def test_a_key_the_web_page_sends_is_not_taken_for_another_lanes_title(api: TestClient) -> None:
+    """The web page sends the old key of the lane a card is dropped on. The lane made as ``done`` is titled MVP and another lane is titled
+    DONE (key ``done_2``): dropping a card on MVP must put it in MVP, not in the lane whose title only looks like the key."""
+    lanes = _board(api)
+    card = api.post("/api/tasks", json={"title": "Dropped", "status": "Optional"}).json()
+    moved = api.patch(f"/api/tasks/{card['id']}", json={"status": "done"})
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["status"] == lanes["MVP"]["status"] == "done"
+    by_title = api.patch(f"/api/tasks/{card['id']}", json={"status": "DONE"})
+    assert by_title.json()["status"] == lanes["DONE"]["status"] == "done_2", (
+        "the title as typed still works"
+    )
+    lowercase_title = api.patch(f"/api/tasks/{card['id']}", json={"status": "must have"})
+    assert lowercase_title.json()["status"] == "in_progress", (
+        "a title with another case still works"
+    )

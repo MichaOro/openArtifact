@@ -26,9 +26,9 @@ That is not a mistake of the agent: the interface gave it a name that lies and t
 - **The key stays storage.** `tasks.status` keeps the key, so nothing is migrated and the web page works as before. The key appears in no interface for
   agents (MCP). In REST it stays where it was (`status` of a card and of a lane, the path of `/api/lanes/{status}`) because the web page and existing
   scripts use it; REST gains `id` on a lane and `lane_id` and `lane_name` on a card, additively.
-- **One resolver** (`resolve_lane` in `tasks/lanes.py`) turns what a caller gives into a lane. In this order: the **name** (trimmed, case ignored), the
-  **id**, the **old key**. A value that fits more than one is taken in that order, so a lane called `done` wins over another lane whose old key is `done`
-  (its id still reaches that other lane). An unknown value is an error that lists the lanes **by name**:
+- **One resolver** (`resolve_lane` in `tasks/lanes.py`) turns what a caller gives into a lane. A value that fits more than one lane is taken in this
+  order (corrected 2026-11-27, see addendum 1): a **title exactly as typed**, the **old key** exactly as stored, the **id**, a **title with trimming and case
+  ignored**. An unknown value is an error that lists the lanes **by name**:
   `Unknown lane 'in-progress'. Lanes: Optional, Must have, MVP, DONE, Platform` (422 in REST, an error text in MCP), never an empty answer.
   The old key is accepted everywhere the resolver is used, so no script that sends a key breaks; the tools do not show it any more.
 - **MCP speaks names and ids.** `list_lanes` answers `name`, `id`, `style`, `artifact_count`, `position`, `deletable` (no `status`, no `key`, no `hue`). A card
@@ -53,3 +53,10 @@ That is not a mistake of the agent: the interface gave it a name that lies and t
 ## 4. Not in this decision
 
 Changing the web page's `data-lane` (the key stays its DOM address), making the guards address lanes by name or id, and removing the key from REST.
+
+## Addendum 1: a key is not a lookalike title (2026-11-27)
+
+The first order put a title (case ignored) before the old key. The board's lanes are `Optional` (key `backlog`), `Must have`, `MVP` (key `done`) and `DONE`
+(key `done_2`): the web page sends the key of the lane a card is dropped on, so dropping a card on *MVP* sent `done`, which matched the **title** *DONE* and the
+card landed in the wrong lane. Now an exact title wins, then an exact key, then the id, then a title with another case: `done` (as the page sends it) is MVP,
+`DONE` (as typed) is the lane titled DONE, `must have` still finds *Must have*. A test covers it (`test_a_key_the_web_page_sends_is_not_taken_for_another_lanes_title`).
