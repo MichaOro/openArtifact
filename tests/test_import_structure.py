@@ -202,16 +202,14 @@ def _in_layer(module: str, layers: tuple[str, ...]) -> bool:
 def test_the_source_is_found_and_the_imports_are_resolved() -> None:
     imports = _all_imports()
     assert len(_sources()) > 100, "the package's modules were not found"
-    # ``from package import module`` loads the package and the module.
-    assert Import("openartifact.graph.validators", "openartifact.agents", 15, True) in imports
-    assert (
-        Import("openartifact.graph.validators", "openartifact.agents.tool_config", 15, True)
-        in imports
-    )
-    assert (
-        Import("openartifact.graph.validators", "openartifact.agents.board_tool_names", 16, True)
-        in imports
-    )
+    # ``from package import module`` loads the package and the module (lines left out: they move with every edit).
+    edges = {(imp.importer, imp.target, imp.module_level) for imp in imports}
+    validators = "openartifact.graph.validators"
+    assert {
+        (validators, "openartifact.agents", True),
+        (validators, "openartifact.agents.tool_config", True),
+        (validators, "openartifact.agents.board_tool_names", True),
+    } <= edges
     assert any(not imp.module_level for imp in imports), (
         "the function-local imports were not told apart"
     )
