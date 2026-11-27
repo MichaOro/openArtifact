@@ -218,7 +218,7 @@ class ExecutionsPage {
     if (type === "execution.deleted") {
       this.pending.delete(data.id);
       if (this.table.get(data.id)) {
-        this.#removeRow(this.table.get(data.id));
+        this.#removeRow(this.table.get(data.id), { announce: false });
       }
       this.#refreshCounts();
       return;
@@ -360,8 +360,10 @@ class ExecutionsPage {
     });
   }
 
-  /** Drop the row everywhere; returns the id of the row to focus next. */
-  #removeRow(execution) {
+  /** Drop the row everywhere; returns the id of the row to focus next. Only a deletion made here is announced: one that
+   * arrives as an event (retention, another tab) would replace what this page has just said (e.g. "1 execution deleted by
+   * the rules"). */
+  #removeRow(execution, { announce = true } = {}) {
     this.deleted.add(execution.id);
     const next = this.table.neighbour(execution.id);
     this.table.remove(execution.id);
@@ -369,7 +371,7 @@ class ExecutionsPage {
     this.total = Math.max(0, this.total - 1);
     this.knownTotal = Math.max(0, (this.knownTotal ?? 1) - 1);
     this.#render();
-    this.#announce(t("executions.page.execution_number_number2_deleted", { number: execution.number, number2: execution.task.number }));
+    if (announce) this.#announce(t("executions.page.execution_number_number2_deleted", { number: execution.number, number2: execution.task.number }));
     this.#refreshCounts();
     return next;
   }
