@@ -59,6 +59,9 @@ honoured on a local file system).
 
 - **Easier:** an overlapping start can no longer stop the running instance's runs. With `docker compose up -d` the
   old container is stopped before the new one starts (compose's default recreate), so an update is not affected.
+- **Relied on:** an in-process lock is enough to serialise a read-merge-write of the database, because no other process
+  writes the same data. The first use: changes to the nodes of one graph run one after the other (`api/graphs.py`,
+  `_graph_writes`), so two settings saved at once both stay (`tests/test_node_update_concurrency.py`).
 - **Operator-visible:** a second container or process on the same volume exits at start with the message above. A
   container with `restart: unless-stopped` is restarted by Docker and refused again until the first one ends.
 - **Migrations:** the image's entrypoint runs `alembic upgrade head` through `python -m openartifact.process_lock`,
