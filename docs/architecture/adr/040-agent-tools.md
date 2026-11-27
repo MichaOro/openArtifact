@@ -111,3 +111,25 @@ the node gets a protection of its own that never loses the work.
 - Not built: persistence of the events and their retention (card #100), the guard figures built from them (card #103), shortening of
   the tool *definitions* sent with every request (the GitHub MCP server offers about forty; they are most of the 15,000 tokens of each
   request), a summary instead of a cut for older results.
+
+## Addendum 1: the Execution Trace (card #155)
+
+The long list *Rounds so far* in the side panel of the flow page grew without end on a long run and was drawn only while the agent worked.
+The right area of the execution page is now the **Execution Trace**: three registers (the shared `Tabs`), kept in the address (`#overview`,
+`#trace`, `#context`).
+
+- **Overview**: the path, the details of the selected node and the output of its step (what the panel showed before, in one register).
+- **Trace**: only for a selected agent step, working or finished (the register is not there for other nodes). The rounds, **the newest first**: the
+  latest three, "Show N more rounds" (a chunk of twenty per click; only what is shown is drawn) and **the first round always last**, as an anchor
+  (it holds the request), also while rounds in between are hidden. A round is an accordion row (status, "Round n", the tools as chips, tokens,
+  time); the working round and a round with a failure are open. Open, a round lists its events: the model request (model, tokens), each tool call
+  (identical consecutive ones as one, `get_artifacts ×3`, with the time added up) and "Result returned to the agent" or the error text of a
+  failed call, and the answer. A working agent has a **Live** pill (it says *Paused* when the user has scrolled away and goes back with a click),
+  a search over tool names and errors and a filter (all events, only errors, only tool calls). The rounds of a working agent come from the events
+  (as before); the rounds of a finished one from the step's `detail.turns`, read when the register is shown. **No message, argument or result texts** are
+  shown in this stage: the step keeps them, a later stage shows them (card #156).
+- **Context**: the run context (what *Run context* was) in a register of its own, with its Copy button.
+- **One addition to what is stored**: a turn of the step's `detail` now also keeps its `tokens` (the events carried them, the step did not), so a
+  finished Trace can show the tokens per round. Older executions show no tokens per round.
+- `components/live-rounds.js` (the old list) is in quarantine; its words ("Round n", "Final answer (the limit ...)") live on in the Trace.
+

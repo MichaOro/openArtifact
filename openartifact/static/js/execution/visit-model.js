@@ -50,7 +50,7 @@ function roundOf(live, event) {
   live.set(event.agent_node_id, agent);
   let round = agent.rounds.find((r) => r.turn === event.turn);
   if (!round) {
-    round = { turn: event.turn, state: "running", text: "", tokens: null, error: null, wrapUp: null, calls: [] };
+    round = { turn: event.turn, state: "running", text: "", tokens: null, error: null, wrapUp: null, startedAt: Date.now(), ms: null, calls: [] };
     agent.rounds.push(round);
     agent.rounds.sort((a, b) => a.turn - b.turn);
   }
@@ -64,6 +64,7 @@ export function noteAgentTurn(live, event) {
     round.wrapUp = event.wrap_up ?? null;
   } else {
     round.state = event.error ? "failed" : "done";
+    round.ms = Date.now() - (round.startedAt ?? Date.now()); // the time the round took, as this page saw it
     round.error = event.error ?? null;
     round.text = event.text ?? "";
     round.tokens = event.tokens ?? null;

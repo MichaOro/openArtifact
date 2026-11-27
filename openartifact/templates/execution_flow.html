@@ -60,19 +60,32 @@
                         <button type="button" class="icon-button icon-button--sm" data-pass-next aria-label="{{ t('execution_flow.next_pass') }}">{{ icon("chevrons-right") }}</button>
                     </div>
                 </header>
-                <section class="ef-panel__section" aria-labelledby="ef-path-heading">
-                    <h3 class="ef-panel__heading" id="ef-path-heading">{{ t('execution_flow.path') }}</h3>
-                    <ol class="ef-path" data-panel-path></ol>
-                    <p class="ef-panel__note" data-panel-path-empty hidden>{{ t('execution_flow.nothing_ran_in_this_pass') }}</p>
-                </section>
-                <section class="ef-panel__section" aria-labelledby="ef-context-heading">
-                    <h3 class="ef-panel__heading" id="ef-context-heading">{{ t('execution_flow.run_context') }}</h3>
-                    <div data-panel-context></div>
-                </section>
-                <section class="ef-panel__section" aria-labelledby="ef-detail-heading">
-                    <h3 class="ef-panel__heading" id="ef-detail-heading">{{ t('common.details') }}</h3>
-                    <div data-panel-detail></div>
-                </section>
+                {# The Execution Trace: registers (components/tabs.js); the chosen one is kept in the address (#overview, #trace, #context). #}
+                <div class="tab-bar ef-tabs" role="tablist" aria-label="{{ t('execution_flow.panel_registers') }}" data-panel-tabs>
+                    <button type="button" class="task-tab" role="tab" id="ef-tab-overview" data-tab="overview" aria-controls="ef-tabpanel-overview" aria-selected="true"><span>{{ t('execution_flow.tab_overview') }}</span></button>
+                    <button type="button" class="task-tab" role="tab" id="ef-tab-trace" data-tab="trace" aria-controls="ef-tabpanel-trace" aria-selected="false" hidden><span>{{ t('execution_flow.tab_trace') }}</span></button>
+                    <button type="button" class="task-tab" role="tab" id="ef-tab-context" data-tab="context" aria-controls="ef-tabpanel-context" aria-selected="false"><span>{{ t('execution_flow.tab_context') }}</span></button>
+                </div>
+                <div class="ef-tabpanel" role="tabpanel" id="ef-tabpanel-overview" aria-labelledby="ef-tab-overview">
+                    <section class="ef-panel__section" aria-labelledby="ef-path-heading">
+                        <h3 class="ef-panel__heading" id="ef-path-heading">{{ t('execution_flow.path') }}</h3>
+                        <ol class="ef-path" data-panel-path></ol>
+                        <p class="ef-panel__note" data-panel-path-empty hidden>{{ t('execution_flow.nothing_ran_in_this_pass') }}</p>
+                    </section>
+                    <section class="ef-panel__section" aria-labelledby="ef-detail-heading">
+                        <h3 class="ef-panel__heading" id="ef-detail-heading">{{ t('common.details') }}</h3>
+                        <div data-panel-detail></div>
+                    </section>
+                </div>
+                <div class="ef-tabpanel" role="tabpanel" id="ef-tabpanel-trace" aria-labelledby="ef-tab-trace" hidden>
+                    <div data-panel-trace></div>
+                </div>
+                <div class="ef-tabpanel" role="tabpanel" id="ef-tabpanel-context" aria-labelledby="ef-tab-context" hidden>
+                    <section class="ef-panel__section" aria-labelledby="ef-context-heading">
+                        <h3 class="ef-panel__heading" id="ef-context-heading">{{ t('execution_flow.run_context') }}</h3>
+                        <div data-panel-context></div>
+                    </section>
+                </div>
             </aside>
         </div>
     </div>
