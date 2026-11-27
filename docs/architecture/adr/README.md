@@ -103,6 +103,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [091](091-board-search.md) | The board has a search by title and number (never the body): a client-side filter, `#154` is the number, the query is in the address, a card made by hand stays shown |
 | [092](092-reorder-the-lanes.md) | The lanes can be reordered in a mode of the board (menu *Reorganize lanes*): handles above the lanes, only lanes move, saved by `POST /api/lanes/order`, MCP stays read-only |
 | [093](093-kinds-of-connection-are-data.md) | One pipeline for every connection: the kinds of connection (flow, a tool's attachment, later ones) are rows of a table; the tool connection gets the bar and the three line styles; a test keeps kind checks out of the common code |
+| [094](094-one-process-per-data-directory-lock.md) | One process per data directory: an exclusive `flock` on `openartifact.lock`, taken before recovery and held for the app's life; a second process is refused at start, a file system without locks only warns | Accepted | 2026-11-27 | amends ADR-020 |
 
 ## Notes
 

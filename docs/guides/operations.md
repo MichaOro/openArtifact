@@ -270,3 +270,24 @@ normal size this is not noticeable.
 The application keeps its live-update bus, its run engine and its guards in memory of one process. Run
 exactly one container per volume. Starting a second one against the same volume breaks SSE fan-out and the
 run limits and risks write conflicts.
+
+The application enforces this with an exclusive lock on `openartifact.lock` in the data directory (`/data` in the
+container), taken at start before anything else and held until it ends. A second container or process on the same
+volume does not start; its log ends with (the message is one line) and it exits with status 3:
+
+```
+openartifact.exceptions.ConfigurationError: The data directory /data is in use by another OpenArtifact process
+(it holds the lock on /data/openartifact.lock). Only one process may use a data directory: stop the other process
+or container first.
+ERROR:    Application startup failed. Exiting.
+```
+
+The running instance is not affected. With `restart: unless-stopped` Docker restarts the refused container
+and it is refused again until the first one ends. `oa up -d` stops the old container before it starts the new
+one, so an update or a recreate is not refused. The lock ends with the process however it ends (a kill or an
+OOM kill included); the file stays in the volume, is empty and needs no cleanup — do not delete it while the
+application runs.
+
+Two limits: the entrypoint's migrations (`alembic upgrade head`) run before the application takes the lock, so a
+second container still migrates the database before it is refused; and on a file system without lock support
+the application logs "cannot be locked ... starting without the lock" and starts without the protection.
