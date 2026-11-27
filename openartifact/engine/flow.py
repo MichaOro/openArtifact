@@ -192,6 +192,13 @@ class _Replay:
             visit.left_port = "pass" if last.outcome == "pass" else "error"
         else:
             visit.outcome = self._open_outcome()
+            if last is not None and self.status == RunStatus.RUNNING:
+                # the run is in the node the last step's edge leads to, as in a run through a pipeline (`_definition`): it is drawn as
+                # working, and the edge to it carries the bubbles
+                onward = edge_from(definition["edges"], last.node_id, last.port or "")
+                if onward is not None:
+                    visit.add_edge(onward)
+                    visit.nodes.append(onward["target_id"])
 
     def _open_outcome(self) -> Outcome:
         """The outcome of a visit the steps do not finish."""
