@@ -121,7 +121,7 @@ execution (not while it runs: `409`) and clear all finished executions of the ar
 
 **The flow page and its Execution Trace.** The right area of the execution page has three registers: **Overview** (the path through the nodes, the details of the
 selected node and the output of its step), **Trace** (for an agent: its rounds) and **Context** (the run context). The Trace shows the **newest round on top**, the
-latest three open to read, *Show N more rounds* for the ones between and the **first round at the bottom** (it holds the request). The round that works and a
+latest three open to read, *Show more rounds* (no counts: the highest round number says how many there are) for the ones between and the **first round at the bottom** (it holds the request). The round that works and a
 round that failed are open; a **Live** pill follows a working agent (*Paused* once you scrolled away). A search and a filter narrow the rounds. A finished
 agent shows the same Trace. The text of the agent's messages is not shown yet. The register you chose is in the address (`#trace`).
 
