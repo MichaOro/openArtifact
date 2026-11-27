@@ -46,9 +46,8 @@ published (*Draft*, *v3 published*, *Draft has changes*), the condition in words
 15 minutes") and **Used in N places**. The search finds a guard by its name, its description or its trigger and condition; the
 order is by name or by how often it is used.
 
-- **New guard** opens a menu: **Blank guard** (an empty definition in the guard editor) or **From template: Stall guard /
-  Runtime guard / Health guard** (the template becomes a library entry at once, with its own action where it has one,
-  and opens in the editor).
+- **New guard** opens an empty definition in the guard editor (its name is typed first; nothing is stored until you save). There are no
+  shipped templates.
 - A **click** selects a guard and shows its details on the right; a **double click**, the **pencil** and **Enter** open it in the
   **guard editor**. The arrow keys move through the list. On a narrow screen the details rise from the bottom.
 - The **detail panel** has four tabs: **Overview** (what fires it, the condition as a sentence, the consequence, the guard's own
@@ -66,7 +65,7 @@ A guard has a **draft** and numbered **published versions**, like a pipeline, an
 the guard is attached.
 
 - A **new guard is a draft and watches nothing** until you publish it. You can attach it before; the attachment is inactive (the window says
-  *Not published yet*, the Usage tab *Not published*). A guard made from a template is published as version 1 at once.
+  *Not published yet*, the Usage tab *Not published*).
 - **Save** in the guard window (*Save draft*) saves the **draft**. It changes nothing for executions.
 - **Publish** makes the draft a new version; executions that **start from then on** use it. An execution that is already running **keeps the
   version it started with**: a save, a publication or a rollback does not reach it.
@@ -158,7 +157,7 @@ The window's title is **Guard – NAME**: the name is renamed in place (click it
 Escape leaves only the field; a guard needs a name, an empty one is refused with a hint). Under the title it says in how
 many places the guard is used: **only the published version applies** there (a save is a draft; see *Draft and published versions* above), and, for
 a guard nobody published, that it watches nothing yet. Beside it the **mark of the draft** (*Draft*, *v3 published*) opens the popup *Publish* /
-*Discard draft*. There is no Name row and no template row (templates are in the page's *New guard* menu).
+*Discard draft*. There is no Name row: a guard is defined in this editor (*New guard* opens it blank).
 
 The form is a manifest (`ui/forms/guard.yaml`, [ADR-062](../architecture/adr/062-configuration-windows-as-data.md)) drawn by
 `form-view.js`: on a wide window **Trigger** and **Then** side by side, **Condition** across the whole width, **Escalation steps**
@@ -216,21 +215,21 @@ detail of an agent step is only stored when it is done. The event log written du
 | Continue | Only recorded |
 | Run the guard's action | Its own action runs with the facts as `${var.guard_runs}`, `guard_idle`, `guard_elapsed`, `guard_errors`, `guard_passes`, `guard_last_status`, `guard_firing`, `guard_name` (Execute Command nodes read them in `context.json`); On Pass continues, On Error does the fallback. It works on a copy of the run's context, its steps are not steps of the execution, and nothing watches it. Saving a guard with this consequence and no action makes an empty one; the *Logic* part chooses, makes and opens it |
 
-## Writing a guard: three examples (the templates)
+## Writing a guard: three examples
 
-*New guard* → *From template* puts one of them into the library; attach it where it should watch.
+*New guard* opens the editor blank; these are three definitions to write there (attach each where it should watch). There are no shipped
+templates: a guard is what you define.
 
-| Template | Can watch | Trigger | Condition | Then |
+| Example | Can watch | Trigger | Condition | Then |
 |----------|-------|---------|-----------|------|
 | **Stall guard** | action, stage, pipeline | every 60 s, quiet 10 min after firing | time without progress ≥ 15 min | pause |
 | **Runtime guard** | action, stage, pipeline | every 60 s | time in the scope ≥ 1 h | abort |
 | **Health guard** | stage | entered | rounds ≥ 5, steps: from firing 1 every 5 rounds, from firing 2 every 3 rounds | run its action; if it fails: pause |
 
-The Health guard's action has two nodes: an **agent** *Judge progress* (choose the agent; its prompt asks for one JSON
-object `{"gain": 0..1, "improving": …, "reason": …}` judging whether the latest round improved the work enough) and a
-**Code** node *Marginal gain* that reads the judgement from `context.json`, declares and sets the result field `gain`, and
-passes only when `gain ≥ 0.05` (change `MIN_GAIN` to suit the work). Too little gain fails the action, and the fallback
-pauses the run.
+A guard that judges by a guard action (the Health guard) needs an action of purpose *guard*: for example an **agent** *Judge progress*
+(its prompt asks for one JSON object `{"gain": 0..1, "improving": …, "reason": …}`) and a **Code** node *Marginal gain* that reads the
+judgement from `context.json`, declares and sets the result field `gain`, and passes only when `gain ≥ 0.05`. Too little gain fails the action,
+and the fallback pauses the run.
 
 ### Judging the health of an agent: the examples
 
@@ -245,10 +244,9 @@ pauses the run.
 | The pipeline runs but the **backlog is empty** | `lane.backlog` equals 0 |
 | Any of these | a group *any* of the conditions; *all* for a combination |
 
-The templates **Agent quiet and storm guard** (rules only: pauses the run at 5 minutes of quiet or 10 identical calls) and **Agent health guard**
-(when quiet, a call repeated 5 times or 5 failed calls, a guard action judges: the **SQLite** node reads the recent tool calls
+A guard of rules only (pauses the run at 5 minutes of quiet or 10 identical calls) and a guard with a guard action (when quiet, a call repeated 5 times or 5 failed calls, the action judges: a **SQLite** node reads the recent tool calls
 of the execution from `v_guard_tool_calls`, an agent judges them, an Execute Command node turns the verdict into pass or fail; *unhealthy* aborts the run)
-show both. In the guard's action the facts are variables with the dots written as underscores (`${var.guard_agent_idle}`,
+are both written by hand. In the guard's action the facts are variables with the dots written as underscores (`${var.guard_agent_idle}`,
 `${var.guard_agent_repeat}`, `${var.guard_lane_backlog}`) and `${var.guard_execution}` / `${var.guard_task}` name the execution and the artifact, so a SQLite
 node can ask `WHERE execution_id = ?1` with the value `${var.guard_execution}`. A guard action that passes means *healthy*; one that fails with a
 reason means *unhealthy*, and the guard's fallback (abort or pause) follows; in a pipeline the error output of the node can take the run
@@ -302,7 +300,6 @@ their names and the guards that fired in this run.
 |-----------------|------|
 | `GET /api/v1/guards?pipeline_id=` | The library: each definition with `used_by` and its `attachments` (with `pipeline_id`: only the guards attached to that pipeline) |
 | `POST /api/v1/guards` | Create a definition (`name`, `description?`, `scope_types?`, `trigger`, `when`, `consequence`, `fallback`, `escalation`, `action_id`) |
-| `GET /api/v1/guards/templates`, `POST /api/v1/guards/from-template` | The templates; make one into a definition (`template`, `name?`, `description?`) |
 | `GET`, `PATCH`, `DELETE /api/v1/guards/{id}` | Read, change (acts on every place it is attached to), delete (`409` while attached; its action stays) |
 | `GET /api/v1/guard-attachments?pipeline_id=` | Where guards are attached: `pipeline_id` is any graph that holds scopes (a pipeline or an action definition); `inner=true` adds the attachments inside the action definitions a pipeline uses. Each row has `graph_id`, `holder_kind`, `holder_name`, `scope_type`, `scope_id`, `scope_name` |
 | `POST /api/v1/guard-attachments` | Attach: `guard_id`, `graph_id` (the pipeline or action definition that holds the scope; `pipeline_id` is the old name), `scope_type` (`pipeline`, `stage`, `action` of a pipeline; `definition`, `node` of an action definition), `scope_id` (left out for `pipeline` and `definition`), `enabled?`; `422` for a scope the guard may not watch or that is not part of the pipeline, `409` when it is attached there already |

@@ -117,7 +117,7 @@ export class GuardPopover {
       create.type = "button";
       create.dataset.focusKey = "new";
       create.dataset.newGuard = "";
-      create.append(icon("plus"), document.createTextNode(t("guards.new_menu")));
+      create.append(icon("plus"), document.createTextNode(t("guards.new_guard")));
       create.addEventListener("click", () => {
         this.close({ restoreFocus: false });
         this.actions.create();

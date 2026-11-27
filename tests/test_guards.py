@@ -1,6 +1,6 @@
 """Guards (ADR-060) through the application: the library of definitions and their attachments, a looping stage with a
 round guard and its escalation table, an interval guard that stops a stalled Code node, the heartbeat, the safety
-rules, the templates, the frozen definition of a running execution and the migration of 0046's guards (0047)."""
+rules, the frozen definition of a running execution and the migration of 0046's guards (0047)."""
 
 from __future__ import annotations
 
@@ -508,29 +508,41 @@ def test_the_preview_counts_the_running_scopes_it_would_fire_on(client: TestClie
     client.post(f"/api/tasks/{task['id']}/stop")
 
 
-def test_the_templates_make_library_guards_and_the_health_guard_brings_its_judging_action(
+def test_a_guard_limited_to_stages_refuses_another_scope_and_the_template_routes_are_gone(
     client: TestClient,
 ) -> None:
+    """A definition made directly (the shipped templates were removed on the owner's decision) keeps what the old template test
+    checked about attaching: its scope types are enforced."""
     pipeline, stage = _looping_pipeline(client)
-    listed = {t["key"]: t for t in client.get(f"{GUARDS}/templates").json()}
-    assert set(listed) == {"stall", "runtime", "health", "agent_quiet", "agent_health"}
-    health = post(client, f"{GUARDS}/from-template", template="health")
+    health = post(
+        client,
+        GUARDS,
+        name="Health guard",
+        scope_types=["stage"],
+        trigger={
+            "type": "interval",
+            "every_seconds": 60,
+            "for_seconds": 0,
+            "cooldown_seconds": 600,
+        },
+        when=_group(_at_least("runs", 5)),
+        consequence="pause",
+        fallback="pause",
+        escalation=[
+            {"from_firing": 1, "every_runs": 5},
+            {"from_firing": 2, "every_runs": 3},
+        ],
+    )
     assert (health["name"], health["consequence"], health["fallback"]) == (
         "Health guard",
-        "run_action",
+        "pause",
         "pause",
     )
     assert health["scope_types"] == ["stage"] and health["used_by"] == 0
-    assert health["description"] == listed["health"]["summary"]
     assert health["escalation"] == [
         {"from_firing": 1, "every_runs": 5},
         {"from_firing": 2, "every_runs": 3},
     ]
-    action = client.get(f"/api/actions/{health['action_id']}").json()
-    names = {n["name"] for n in action["nodes"]}
-    assert {"Judge progress", "Marginal gain"} <= names
-    judge = next(n for n in action["nodes"] if n["name"] == "Judge progress")
-    assert '"gain"' in judge["config"]["user_prompt"]
     _attach(client, health, pipeline, "stage", stage["id"])
     wrong = client.post(
         ATTACHMENTS,
@@ -542,22 +554,16 @@ def test_the_templates_make_library_guards_and_the_health_guard_brings_its_judgi
         },
     )
     assert wrong.status_code == 422 and "watches a stage, not a action" in wrong.text
-    stall = post(
-        client,
-        f"{GUARDS}/from-template",
-        template="stall",
-        name="Stall watch",
-        description="Mein Text",
+    # the shipped templates are gone: neither route exists any more (the owner's decision, ADR-060 addendum)
+    assert client.get(f"{GUARDS}/templates").status_code in (404, 405, 422)
+    assert client.post(f"{GUARDS}/from-template", json={"template": "stall"}).status_code in (
+        404,
+        405,
     )
-    assert (stall["name"], stall["description"], stall["trigger"]["type"]) == (
-        "Stall watch",
-        "Mein Text",
-        "interval",
-    )
-    missing = client.post(f"{GUARDS}/from-template", json={"template": "nope"})
-    assert missing.status_code == 404 and "Guard template not found" in missing.text
-    v1 = client.post("/api/v1/guards/from-template", json={"template": "runtime"})
-    assert v1.status_code == 201 and v1.json()["consequence"] == "abort"
+    assert client.post(
+        "/api/v1/guards/from-template", json={"template": "runtime"}
+    ).status_code in (404, 405)
+    assert client.get("/api/v1/guards/templates").status_code in (404, 405, 422)
 
 
 def test_a_running_execution_keeps_the_definition_it_started_with_and_the_next_one_takes_the_change(

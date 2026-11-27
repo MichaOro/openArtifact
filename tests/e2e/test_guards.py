@@ -1,4 +1,4 @@
-"""Guards in the browser (ADR-060): the guard library (its page under Pipeline next to Actions, New from a template,
+"""Guards in the browser (ADR-060): the guard library (its page under Pipeline next to Actions, New guard,
 the guard editor with "Guard - NAME" (an en dash) renamed in place, no Name and no Start from row, the Logic part with its action,
 Delete refused while used), attaching in the pipeline editor (the Guard entries open "Add a guard"), ONE shield per scope
 with its plural tooltip and its popup (names, on/off, Detach, a name opens the editor), the rule builder's field select is
@@ -129,29 +129,25 @@ def test_actions_and_guards_are_two_sub_entries_of_the_pipeline_section(
     expect(page).to_have_url(f"{base_url}/actions")  # the existing route stays
 
 
-def test_a_template_becomes_a_library_guard_in_the_editor_titled_by_its_name_without_name_or_start_rows(
+def test_new_guard_opens_a_blank_editor_in_one_click_and_the_templates_are_gone(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
+    """Owner's decision (templates removed, ADR-060 addendum): the button is a plain button, not a menu of a blank guard and
+    templates; one click opens the editor with a blank definition whose name is typed first. Nothing is stored until it is saved."""
     page.goto(f"{base_url}/guards")
-    page.get_by_role("button", name="New guard").click()
-    menu = page.get_by_role("menu", name="New guard")
-    expect(menu.get_by_role("menuitem")).to_have_text(
-        [
-            "Blank guard",
-            "From template: Stall guard",
-            "From template: Runtime guard",
-            "From template: Agent quiet and storm guard",
-            "From template: Health guard",
-            "From template: Agent health guard",
-        ]
-    )
-    menu.get_by_role("menuitem", name="From template: Stall guard").click()
+    button = page.get_by_role("button", name="New guard")
+    expect(button).not_to_have_attribute("aria-haspopup", "menu")
+    button.click()
+    expect(page.get_by_role("menu")).to_have_count(
+        0
+    )  # no menu: no 'Blank guard', no 'From template'
     window = _window(page)
-    title = window.locator(".modal__title")
-    expect(title).to_have_text(f"Guard {DASH} Stall guard")
-    expect(window.locator("[data-guard-used]")).to_have_text("Not used yet")
+    expect(window).to_be_visible()
     expect(window).not_to_contain_text("Start from")
-    expect(window.get_by_label("Name", exact=True)).to_have_count(0)
+    expect(
+        window.get_by_role("textbox", name="Guard name")
+    ).to_be_visible()  # the title starts as its name field
+    expect(window.locator("[data-guard-used]")).to_have_text("Not used yet")
     sections = window.locator("[data-section]")
     expect(sections).to_have_count(
         5
@@ -165,20 +161,44 @@ def test_a_template_becomes_a_library_guard_in_the_editor_titled_by_its_name_wit
     }.items():
         expect(window.locator(f"[data-section={key}] .fv-section__title")).to_contain_text(title)
     window.get_by_role("button", name="Cancel").click()
+    assert api.get("/api/guards").json() == []  # a blank guard that was never saved is not stored
+    # the two template routes no longer exist
+    assert api.get("/api/guards/templates").status_code in (404, 405, 422)
+    assert api.post("/api/guards/from-template", json={"template": "stall"}).status_code in (
+        404,
+        405,
+    )
+
+
+def test_a_published_guard_card_shows_what_fires_it_its_condition_in_words_and_where_it_is_used(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    _guard(
+        api,
+        "Stall guard",
+        trigger={
+            "type": "interval",
+            "every_seconds": 60,
+            "for_seconds": 0,
+            "cooldown_seconds": 600,
+        },
+        when={
+            "type": "group",
+            "mode": "all",
+            "items": [{"type": "condition", "field": "idle", "op": "at_least", "value": 900}],
+        },
+    )
+    page.goto(f"{base_url}/guards")
     item = page.locator(".mg-card")
     expect(item.locator(".mg-card__name")).to_have_text("Stall guard")
     # what fires it, its condition in words, its consequence and where it is used: chips and one line (before: one summary line)
     chips = item.locator(".mg-card__chips .ge-chip")
-    expect(chips).to_have_text(
-        ["Every 1 minute", "Pause the run", "v1 published"]
-    )  # a template is published version 1
+    expect(chips).to_have_text(["Every 1 minute", "Pause the run", "v1 published"])
     # the condition in words is the card's middle text (the uniform cards of ADR-069), the facts line holds where it is used
     expect(item.locator(".mg-card__text")).to_have_text(
         "Time without progress is at least 15 minutes"
     )
     expect(item.locator("[data-used]")).to_have_text("Not used yet")
-    [stored] = api.get("/api/guards").json()
-    assert (stored["name"], stored["trigger"]["every_seconds"]) == ("Stall guard", 60)
 
 
 def test_the_title_renames_the_guard_in_place_and_refuses_an_empty_name(

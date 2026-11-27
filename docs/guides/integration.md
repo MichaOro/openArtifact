@@ -279,12 +279,14 @@ The Host check, cookie flags and body limit are described in [Reverse proxy](rev
 ## Guards and the heartbeat
 
 Guards ([Guards](guards.md)) are a library: the definitions are managed under `/api/v1/guards` (list with
-`used_by`, create, from a template, change, delete, which is refused with `409` while the guard is attached) and
+`used_by`, create, change, delete, which is refused with `409` while the guard is attached) and
 attached, switched on or off and detached under `/api/v1/guard-attachments`:
 
 ```bash
-GUARD=$(curl -s -X POST "$BASE/api/v1/guards/from-template" -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"template": "stall"}' | jq -r .id)
+GUARD=$(curl -s -X POST "$BASE/api/v1/guards" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Stall guard", "trigger": {"type": "interval", "every_seconds": 60}, "when": {"type": "group", "mode": "all", "items": [{"type": "condition", "field": "idle", "op": "at_least", "value": 900}]}, "consequence": "pause"}' | jq -r .id)
+curl -s -X POST "$BASE/api/v1/guards/$GUARD/publish" -H "Authorization: Bearer $TOKEN" > /dev/null
 curl -s -X POST "$BASE/api/v1/guard-attachments" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d "{\"guard_id\": \"$GUARD\", \"graph_id\": \"$PIPELINE\", \"scope_type\": \"pipeline\"}"
 ```
