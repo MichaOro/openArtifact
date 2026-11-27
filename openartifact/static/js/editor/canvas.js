@@ -12,6 +12,7 @@
 import { EDGE_STYLES, actionsOf, clampInStage, boxOf, displayName, nameParts, canConnectFrom, edgePath, fitStage, minStageSize, originOf, portPoint, sizeOf, slotPairs, snapY } from "./geometry.js";
 import { icon } from "../components/icons.js";
 import { FAILING_PORTS, HEADER, typeOf } from "./node-types.js";
+import { kindOfEdge, kindOfPort } from "./edge-kinds.js";
 import { t } from "../i18n.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -245,11 +246,11 @@ export class Canvas {
       const source = this.nodes.get(edge.source_id);
       const target = this.nodes.get(edge.target_id);
       if (!source || !target) continue;
-      const attachment = edge.target_port === "tools"; // a tool hangs below its agent: dashed, no arrow
-      const d = edgePath(portPoint(source, edge.source_port, this.nodes, edge.source_slot), portPoint(target, edge.target_port, this.nodes, edge.target_slot), boxOf(source, this.nodes), boxOf(target, this.nodes), { style: edge.style, attachment });
-      const group = svg("g", { class: `ge-edge ge-edge--${attachment ? "attachment" : edge.source_port}`, "data-edge-id": edge.id });
+      const kind = kindOfEdge(edge); // what differs between kinds of connection is data (edge-kinds.js)
+      const d = edgePath(portPoint(source, edge.source_port, this.nodes, edge.source_slot), portPoint(target, edge.target_port, this.nodes, edge.target_slot), boxOf(source, this.nodes), boxOf(target, this.nodes), { style: edge.style, kind });
+      const group = svg("g", { class: `ge-edge ge-edge--${kind.cssName(edge)}`, "data-edge-id": edge.id });
       if (this.selection?.type === "edge" && this.selection.id === edge.id) group.classList.add("is-selected");
-      const line = svg("path", attachment ? { class: "ge-edge__line", d } : { class: "ge-edge__line", d, "marker-end": `url(#ge-arrow-${FAILING_PORTS.includes(edge.source_port) ? "error" : "pass"})` });
+      const line = svg("path", kind.arrow ? { class: "ge-edge__line", d, "marker-end": `url(#ge-arrow-${FAILING_PORTS.includes(edge.source_port) ? "error" : "pass"})` } : { class: "ge-edge__line", d });
       group.append(...(this.readOnly ? [line] : [svg("path", { class: "ge-edge__hit", d }), line]));
       this.edgeLayer.append(group);
       this.handlers.onEdgeDrawn?.(edge, group);
@@ -377,9 +378,12 @@ export class Canvas {
     bar.style.left = `${middle.x}px`;
     bar.style.top = `${middle.y}px`;
     bar.style.setProperty("--ge-inverse-zoom", String(1 / this.view.zoom)); // the bar keeps its size when the canvas zooms
-    const attachment = edge.target_port === "tools"; // a tool's line has no style to choose
-    bar.querySelector(".ge-edge-bar__pencil").hidden = attachment;
-    for (const choice of bar.querySelectorAll(".ge-edge-bar__style")) choice.setAttribute("aria-pressed", String((edge.style || "curved") === choice.dataset.style));
+    const { styles } = kindOfEdge(edge); // the line styles this kind of connection offers (edge-kinds.js)
+    bar.querySelector(".ge-edge-bar__pencil").hidden = styles.length < 2;
+    for (const choice of bar.querySelectorAll(".ge-edge-bar__style")) {
+      choice.hidden = !styles.includes(choice.dataset.style);
+      choice.setAttribute("aria-pressed", String((edge.style || "curved") === choice.dataset.style));
+    }
     bar.hidden = false;
   }
 
@@ -606,8 +610,8 @@ export class Canvas {
     if (!g || event.pointerId !== g.pointerId) return;
     if (g.type === "connect") {
       const to = this.#toWorld(event);
-      const attachment = g.port === "tool" || g.port === "tools";
-      g.line.setAttribute("d", g.reverse ? edgePath(to, g.from, g.box, g.box, { routed: false, attachment }) : edgePath(g.from, to, g.box, g.box, { routed: false, attachment }));
+      const kind = kindOfPort(g.port);
+      g.line.setAttribute("d", g.reverse ? edgePath(to, g.from, g.box, g.box, { routed: false, kind }) : edgePath(g.from, to, g.box, g.box, { routed: false, kind }));
       const over = document.elementFromPoint(event.clientX, event.clientY)?.closest(".ge-port.is-valid");
       this.viewport.querySelectorAll(".ge-port.is-hover").forEach((el) => el.classList.toggle("is-hover", el === over));
       over?.classList.add("is-hover");
@@ -650,7 +654,7 @@ export class Canvas {
   #levelPairs(node, moving) {
     const pairs = [];
     for (const edge of this.edges.values()) {
-      if (edge.target_port === "tools") continue; // a tool hangs below its agent
+      if (!kindOfEdge(edge).levelsPorts) continue; // a tool hangs below its agent: its ports are not levelled with the others
       const ends = edge.source_id === node.id ? ["source", "target"] : edge.target_id === node.id ? ["target", "source"] : null;
       if (!ends) continue;
       const other = this.nodes.get(edge[`${ends[1]}_id`]);

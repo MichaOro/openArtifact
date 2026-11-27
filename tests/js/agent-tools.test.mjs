@@ -5,6 +5,7 @@ import { loadTypes } from "./support.mjs";
 const JS = new URL("../../openartifact/static/js/editor/", import.meta.url).href;
 const { loadNodeTypes, typeOf } = await import(`${JS}node-types.js`);
 const g = await import(`${JS}geometry.js`);
+const { EDGE_KINDS } = await import(`${JS}edge-kinds.js`);
 
 before(() => loadTypes(loadNodeTypes));
 
@@ -46,11 +47,17 @@ test("an attachment is a vertical curve from the top of the tool up to the agent
   const from = { x: 200, y: 300 };
   const to = { x: 225, y: 184 };
   const box = { x: 0, y: 0, width: 10, height: 10 };
-  const d = g.edgePath(from, to, box, box, { attachment: true });
+  const d = g.edgePath(from, to, box, box, { kind: EDGE_KINDS.attachment });
   assert.match(d, /^M 200 300 C 200 (\d+(\.\d+)?), 225 (\d+(\.\d+)?), 225 184$/);
   const [, up, down] = d.match(/C 200 ([\d.]+), 225 ([\d.]+)/).map(Number);
   assert.ok(up < 300 && down > 184, d); // leaves upwards, arrives from below
-  assert.equal(g.edgePath(from, to, box, box, { attachment: true, style: "elbow" }), d); // one look for every style
+  // the styles are honoured now (the owner's decision, ADR-093): the same ends, a different line
+  const straight = g.edgePath(from, to, box, box, { kind: EDGE_KINDS.attachment, style: "straight" });
+  const elbow = g.edgePath(from, to, box, box, { kind: EDGE_KINDS.attachment, style: "elbow" });
+  assert.match(straight, /^M 200 300 L 225 184$/);
+  assert.match(elbow, /^M 200 300 .* 225 184$/);
+  assert.notEqual(elbow, d);
+  assert.notEqual(elbow, straight);
 });
 
 test("tool cards say what they reach, never a query string", () => {

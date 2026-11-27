@@ -3,6 +3,7 @@
  * (the DOM and the saving are connect-menu.js and the editor). The rules are the editor's own: `canConnectFrom`. */
 import { HEADER, FAILING_PORTS, typeOf } from "./node-types.js";
 import { canConnectFrom, clampInStage, displayName, nextToolPosition, portPoint } from "./geometry.js";
+import { isAttachmentTarget } from "./edge-kinds.js";
 
 export const STRAIGHT_SNAP = 16; // world units: closer than this to the level of the dragged port the line is made straight
 
@@ -58,7 +59,7 @@ export function kindsFor(scope, stage, addable) {
  * (relative to the stage, kept inside its inner border). `release` is a point of the canvas (world units).
  */
 export function placement({ origin, kind, release, nodes, edges, stage }) {
-  if (typeOf(kind).tool && origin.port === "tools") {
+  if (typeOf(kind).tool && isAttachmentTarget(origin.port)) {
     const spot = nextToolPosition(nodes, edges, origin.node.id);
     if (spot) return { kind, x: spot.x, y: spot.y };
   }

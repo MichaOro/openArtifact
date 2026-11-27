@@ -8,6 +8,7 @@ import { request } from "../http.js";
 import { renderCaption } from "./caption.js";
 import { FUNCTIONS, agentNames, switchCaseUsed } from "./view-functions.js";
 import { t } from "../i18n.js";
+import { isAttachmentTarget } from "./edge-kinds.js";
 
 export { agentNames, switchCaseUsed };
 export const HEADER = 44; // stage header height
@@ -165,7 +166,7 @@ export class NodeView {
   /** May `source.sourcePort` (a node of this kind) feed `target.targetPort`? */
   canFeed(source, sourcePort, target, targetPort) {
     if (target.id === source.id) return false;
-    if (targetPort === "tools") return false; // only a tool attaches there (ToolView)
+    if (isAttachmentTarget(targetPort)) return false; // only a tool attaches there (ToolView)
     if (target.kind === "action") return false;
     return !(target.kind === "stage" && targetPort !== "start");
   }
@@ -317,7 +318,7 @@ class ToolView extends NodeView {
   }
 
   canFeed(source, sourcePort, target, targetPort) {
-    return target.kind === "agent" && targetPort === "tools";
+    return target.kind === "agent" && isAttachmentTarget(targetPort);
   }
 
   /** The name the model calls it by (empty: the node's name). */
