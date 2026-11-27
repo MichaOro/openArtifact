@@ -77,8 +77,8 @@ More with examples: [Concepts](docs/guides/concepts.md). Terms of the architectu
   node (one SQL statement with bound parameters, read-only by default, the rows as a list), also as a Postgres Tool for
   agents ([execution nodes](docs/guides/execution-nodes.md)).
 - Credential store: secrets are encrypted in the database and referenced by name from nodes, never returned by the API;
-  the page *Settings › Credentials* (`/settings/credentials`) lists access tokens and the credentials for other systems
-  ([Credentials](docs/guides/credentials.md)).
+  named secrets are stored through the API, the managed credentials (access tokens, credentials for other systems) on
+  the page *Settings › Credentials* (`/settings/credentials`) ([Credentials](docs/guides/credentials.md)).
 - Execution history per artifact with steps and outputs, retention policy (default keep 50), delete and clear
   ([Execution history](docs/guides/execution-history.md)).
 - Flow view of one execution and a global executions page (`/executions`) across all artifacts, with filters and summary.

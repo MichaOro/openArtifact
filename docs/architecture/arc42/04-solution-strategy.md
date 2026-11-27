@@ -65,7 +65,7 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | If and Switch nodes (a rule per Switch case), Edit Fields node, editor suggestions for references | Built | ADR-034, ADR-039 |
 | Artifact fields (global custom fields, set in the dialog's rail) | Built | ADR-044 (replaced ADR-035) |
 | User-defined lanes with a card look per lane; one UI language (primary, destructive, neutral) | Built | ADR-011, ADR-036 |
-| Credential store | Built: API and the page *Settings › Credentials* (`/settings/credentials`; access tokens and credentials for other systems); the provider dialog can also store an API key | ADR-024, ADR-037 |
+| Credential store | Built: named secrets through the API (the provider dialog can store an API key); managed credentials (access tokens, credentials for other systems) on the page *Settings › Credentials* (`/settings/credentials`, ADR-051) | ADR-024, ADR-037 |
 | Execution history per artifact with retention policy | Built | ADR-025 |
 | Flow view of an execution (read-only, frozen snapshot) | Built | ADR-027 |
 | Global executions page and API | Built | ADR-028 |
