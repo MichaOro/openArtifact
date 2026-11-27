@@ -388,7 +388,12 @@ class GraphRepository:
         )
 
     async def delete(self, graph: Graph) -> None:
-        """Delete the graph; its nodes and edges go with it (foreign key cascade)."""
+        """Delete the graph; its nodes and edges go with it (foreign key cascade), and so does the hidden technical card that holds its
+        card-less dry runs with their executions (ADR-089): nobody could reach them any more."""
+        for card in await self._session.scalars(
+            select(Task).where(Task.technical.is_(True), Task.pipeline_id == graph.id)
+        ):
+            await self._session.delete(card)
         await self._session.delete(graph)
         await self._session.flush()
 

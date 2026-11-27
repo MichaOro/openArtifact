@@ -246,3 +246,21 @@ def test_migration_0068_adds_the_column_and_keeps_every_card_and_what_hangs_on_i
         assert conn.execute("SELECT id FROM tasks").fetchall() == [("t1",)]
         assert conn.execute("SELECT id FROM executions").fetchall() == [("e1",)]
     command.upgrade(alembic_config(), "head")
+
+
+def test_deleting_a_graph_deletes_its_hidden_card_and_the_card_less_dry_runs(
+    api: TestClient,
+) -> None:
+    """Nobody could reach them any more: the hidden card and its executions would stay in the list of all executions for good."""
+    action = _echo(api)
+    started = _by_itself(api, action)
+    wait_for_run(api, {"id": started["task_id"]}, "done")
+    assert (
+        api.get(f"/api/graphs/{action['id']}/dry-run-card").json()["task_id"] == started["task_id"]
+    )
+    assert api.get("/api/executions").json()["items"], (
+        "the dry run is in the list of all executions"
+    )
+    assert api.delete(f"/api/actions/{action['id']}").status_code == 204
+    assert api.get("/api/executions").json()["items"] == []
+    assert api.get(f"/api/tasks/{started['task_id']}").status_code == 404
