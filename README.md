@@ -35,7 +35,7 @@ Open <http://localhost:2909> and sign in with the token. `curl http://localhost:
 ## Development
 
 ```bash
-uv sync --all-extras                  # or: pip install -e ".[dev]"
+uv sync --all-extras                  # installs uv.lock; or, not locked: pip install -e ".[dev]"
 printf 'OPENARTIFACT_DATA_DIR=./.data\nOPENARTIFACT_HOST=127.0.0.1\n' > .env
 uv run alembic upgrade head           # create the database
 uv run openartifact                   # http://localhost:2909

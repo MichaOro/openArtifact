@@ -7,7 +7,7 @@ SQLite database. Every command below runs from the repository root.
 ## Setup
 
 ```bash
-uv sync --all-extras              # or: pip install -e ".[dev]"  (CI uses pip)
+uv sync --all-extras              # installs uv.lock, as CI does; or, not locked: pip install -e ".[dev]"
 printf 'OPENARTIFACT_DATA_DIR=./.data\nOPENARTIFACT_HOST=127.0.0.1\n' > .env   # /data is not writable on a workstation; the host defaults to 0.0.0.0
 uv run alembic upgrade head       # create or migrate the database
 uv run openartifact               # http://localhost:2909
@@ -30,6 +30,7 @@ development only. Conventions, the full check list and the commit style: [CONTRI
 | `uv run coverage run -m pytest && uv run coverage report` | Tests with coverage; fails below 95 % (what CI runs) |
 | `uv run alembic upgrade head` | Run database migrations |
 | `uv run alembic revision --autogenerate -m "msg"` | Create a migration; `alembic check` reports drift between models and migrations |
+| `uv lock` | Update `uv.lock` after changing dependencies in `pyproject.toml`; CI, the image and `uv sync` install from it, and `uv lock --check` fails on a stale lock |
 
 Details of the tests: [testing guide](testing.md).
 

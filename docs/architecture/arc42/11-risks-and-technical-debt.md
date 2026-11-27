@@ -45,7 +45,6 @@ No intentional technical debt has been introduced beyond the items below, which 
 | Pipeline editor: stages only grow, no undo, no live sync between tabs, edges routed only for loops | See ADR-012 §2.4 |
 | Access is one shared token; no scopes, no per-client tokens, no audit log beyond `created_by` / `started_by` and the execution history | Planned with the settings area (ADR-016 §3.5) |
 | `style-src` allows `'unsafe-inline'` (inline `style` attributes) | Tighten when the UI no longer sets them |
-| Python dependencies are not locked and the base image is a floating tag | Open (CI/CD guide) |
 | No key rotation for credentials, no credential UI | See risks 12 and 18 |
 | The quarantine mechanism (`quarantine.json`, a weekly check, removal after 14 days without use; ADR-014 §3.6) | In use as a process; one entry since 2026-11-23 (`engine/context.py` `_FIELDS`, found by a review of unused names) |
 | Pushed `fix:` history from the bootstrap phase | Kept as is; no history rewrite on `main` |
@@ -53,7 +52,9 @@ No intentional technical debt has been introduced beyond the items below, which 
 Closed since the previous version of this chapter: loop protection and a time limit per execution (*Settings > Run
 limits*, ADR-039) and the duplicated step bound of replay and engine (one constant now); one run per artifact (the history now lives in `executions`, ADR-025; the run row stays the
 current state), the unused project and work-item model with its repositories (removed, ADR-032), the release tag check (a tag must equal
-`openartifact/version.py`, checked in the release workflow).
+`openartifact/version.py`, checked in the release workflow), unlocked Python dependencies and a floating base image (`uv.lock`
+is installed by local development, CI and the image, CI checks it against `pyproject.toml`, and the Dockerfile pins its base
+images by digest; see the [CI/CD guide](../../guides/CI-CD.md)).
 
 **Trade-offs that stand:**
 

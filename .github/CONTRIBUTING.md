@@ -15,7 +15,7 @@ Thank you for your interest in OpenArtifact. This guide covers setup, the checks
 ## Setup
 
 ```bash
-uv sync --all-extras                      # or: pip install -e ".[dev]"  (CI uses pip)
+uv sync --all-extras                      # installs uv.lock, as CI does; or, not locked: pip install -e ".[dev]"
 printf 'OPENARTIFACT_DATA_DIR=./.data\nOPENARTIFACT_HOST=127.0.0.1\n' > .env   # /data is not writable on a workstation; the host defaults to 0.0.0.0
 uv run alembic upgrade head               # create the database
 uv run openartifact                       # http://localhost:2909
@@ -39,6 +39,7 @@ pytest -m e2e                 # 5. browser tests (Playwright, needs `playwright 
 
 CI runs the unit tests once, under coverage, so a coverage failure also fails the test step; a change must not lower the gate. It additionally checks JavaScript syntax (`node --check`), Markdown links (`python tools/check_links.py`), the quarantine file and, in a built image, the container smoke test (`tools/smoke_container.sh`). All checks must pass, the browser tests included. Details, the browser-test fixtures and where tests live: [testing guide](../docs/guides/testing.md).
 A change to the models needs an Alembic migration; `alembic check` (run by `tests/test_migrations.py`) fails on drift.
+A change to the dependencies in `pyproject.toml` needs `uv lock` in the same commit; CI (`uv lock --check`) fails on a stale `uv.lock`.
 
 ## Vocabulary
 

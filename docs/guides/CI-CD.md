@@ -20,7 +20,7 @@ All checks run automatically. No manual intervention is required for development
 | PR to main | `main` | CI (static checks, lint, type check, tests, browser tests) and the PR image build |
 | Push to main | `main` | CI + Docker build + container smoke test |
 | Version tag (`v0.1.0`, the `v` is required) | — | Release workflow |
-| Weekly (Monday), pyproject changes | — | Dependency audit and quarantine check |
+| Weekly (Monday), changes to `pyproject.toml` or `uv.lock` | — | Dependency audit and quarantine check |
 
 CI and the PR build are path-filtered: they run only when the change touches one of the paths listed at the
 top of `.github/workflows/ci.yml` (the backend, the Dockerfile, `deploy/`, `scripts/`, `tools/`, the
@@ -30,11 +30,16 @@ filters of `ci.yml` and `pr-build.yml`.
 
 ### Stages
 
+Every job that needs the Python dependencies installs them from `uv.lock` (`astral-sh/setup-uv` with the uv
+release pinned in `ci.yml`, then `uv sync --frozen --all-extras`) and runs the tools with `uv run --no-sync`,
+so CI, a local `uv sync` and the image use the same versions.
+
 1. **static** — needs no Python dependencies: JavaScript syntax check of every file under `static/js`, the
    relative links of all Markdown files (`python tools/check_links.py`) and the quarantine file
    (`python tools/check_quarantine.py`; `quarantine.json` is empty at the moment, so any entry added to it
    starts the 14-day clock).
-2. **lint** (job `lint`) — `ruff check .` and `ruff format --check .`
+2. **lint** (job `lint`) — `uv lock --check` (fails when `pyproject.toml` changed without `uv lock`), then
+   `ruff check .` and `ruff format --check .`
 3. **type-check** — `mypy .` (strict mode)
 4. **test** — `coverage run -m pytest`, run **once** under coverage, then `coverage report` (fails below
    `fail_under = 95`) and `coverage xml` (uploaded as an artifact). Browser tests excluded. See the
@@ -53,8 +58,8 @@ filters of `ci.yml` and `pr-build.yml`.
 | `.github/workflows/ci.yml` | Main CI pipeline (jobs `static`, `lint`, `type-check`, `test`, `e2e`, `docker`) |
 | `.github/workflows/release.yml` | Version-tagged release; refuses a tag that differs from `version.py` |
 | `.github/workflows/pr-build.yml` | PR preview build (no push, no `packages` permission) |
-| `.github/workflows/audit.yml` | `pip-audit` of the installed runtime dependencies; weekly, on dependency changes and by hand |
-| `.github/dependabot.yml` | Weekly update pull requests for pip (`pyproject.toml` at the root), the Dockerfile base image and GitHub Actions |
+| `.github/workflows/audit.yml` | `pip-audit` of the locked runtime dependencies (exported from `uv.lock`, as the image installs them); weekly, on dependency changes and by hand |
+| `.github/dependabot.yml` | Weekly update pull requests for uv (`uv.lock` and `pyproject.toml` at the root), the Dockerfile base images (tag and digest) and GitHub Actions |
 | `.github/workflows/quarantine.yml` | Weekly: fails when quarantined code (`quarantine.json`) has been unused for 14 days, as a reminder to remove it (`tools/check_quarantine.py`, ADR-014 §3.6) |
 
 ## Docker Build
@@ -75,8 +80,10 @@ filters of `ci.yml` and `pr-build.yml`.
 
 ### Build Process
 
-1. **Stage 1 (builder):** `python:3.12-slim`, install dependencies from `pyproject.toml`
-2. **Stage 2 (runtime):** `python:3.12-slim`, copy wheels + source, non-root user
+1. **Stage 1 (builder):** `python:3.12-slim` pinned by digest; `uv export --frozen` writes the runtime part of
+   `uv.lock` with hashes, `pip install --require-hashes` installs exactly that, then the package itself (uv is
+   mounted from the pinned `ghcr.io/astral-sh/uv` image for this step only)
+2. **Stage 2 (runtime):** the same `python:3.12-slim` digest, copy the installed packages, non-root user; no uv
 
 ### Image Labels
 
@@ -199,12 +206,13 @@ The following GitHub repository settings must be configured for CI/CD to work:
 
 ### CI Fails — Python Tests
 
-- Run locally: `ruff check . && ruff format --check . && mypy . && pytest` (from the repository root)
+- Run locally: `uv sync --all-extras`, then `uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest` (from the repository root)
+- `uv lock --check` fails: run `uv lock` and commit `uv.lock` with the `pyproject.toml` change
 - Check async test setup (pytest-asyncio)
 
 ### Docker Build Fails — Dependencies
 
-- Verify `pyproject.toml` dependencies are resolvable
+- The build installs `uv.lock` with `--frozen`: a stale lock is caught by `uv lock --check` in CI; run `uv lock`
 - Check that the Python version is 3.12 (`requires-python`)
 
 ### Release Fails — GHCR Permissions
