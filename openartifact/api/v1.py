@@ -52,6 +52,7 @@ from openartifact.exceptions import ArtifactError
 from openartifact.models import CreatedBy, GraphKind, StartedBy
 from openartifact.security import require_api_token
 from openartifact.tasks.schemas import (
+    DryRunStart,
     LaneRead,
     LaneUpdate,
     LaneWrite,
@@ -289,6 +290,32 @@ async def start_run(ref: str, service: ServiceDep, payload: RunStart | None = No
         dry_run=body.dry_run,
         inputs=body.inputs,
         version=body.version,  # the published version unless the caller asks for the draft
+        definition_id=body.definition_id,
+    )
+
+
+@router.post(
+    "/graphs/{ref}/dry-run",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RunRead,
+    summary="Start a dry run of a pipeline or an action, with or without a card",
+    responses=errors(404, 409, 422, 429, write=True, body=True),
+)
+async def start_dry_run(
+    ref: str, service: ServiceDep, payload: DryRunStart | None = None
+) -> RunRead:
+    """A dry run of the pipeline (``ref``: id, slug or name), or of the action definition by itself from its Trigger to its Output
+    (ADR-089). ``task_id`` names a card to run it on; without one it belongs to the hidden card of the graph. The published version
+    runs unless ``version`` is ``draft``."""
+    body = payload or DryRunStart()
+    return await service.start_dry_run(
+        ref,
+        task_ref=body.task_id,
+        stage_id=body.stage_id,
+        action_id=body.action_id,
+        inputs=body.inputs,
+        version=body.version or "published",
+        started_by=StartedBy.API,
     )
 
 

@@ -9,7 +9,7 @@ import { fillDeleteButton, fillStopButton, fillDuration, fillOrigin, fillTime, R
 import { drawRunFlag } from "../components/run-flag.js";
 import { t } from "../i18n.js";
 
-export const flowUrl = (e) => `/artifacts/${e.task.number}/executions/${encodeURIComponent(e.id)}`;
+export const flowUrl = (e) => `/artifacts/${e.task.number}/executions/${encodeURIComponent(e.id)}?from=executions`;
 export const artifactUrl = (e) => `/?artifact=${e.task.number}`;
 export const pipelineUrl = (e) => `/pipelines/${encodeURIComponent(e.pipeline_id)}`;
 

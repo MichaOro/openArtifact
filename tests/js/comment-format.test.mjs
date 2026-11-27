@@ -18,7 +18,7 @@ test("a comment is edited only when its text changed after it was written", () =
 
 test("only a run comment with an execution links to it, by the artifact's number", () => {
   const run = comment("r", "2026-11-23T10:00:00Z", { author_kind: "run", execution_id: "e/1" });
-  assert.equal(runLink(run, 12), "/artifacts/12/executions/e%2F1");
+  assert.equal(runLink(run, 12), "/artifacts/12/executions/e%2F1?from=card:12", "the page says it was opened from the card, so its Back button returns there (ADR-089)");
   assert.equal(runLink({ ...run, execution_id: null }, 12), null);
   assert.equal(runLink({ ...run, author_kind: "user" }, 12), null);
   assert.equal(runLink(run, null), null);

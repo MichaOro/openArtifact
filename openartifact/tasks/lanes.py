@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -73,7 +73,13 @@ async def effective_lanes(session: AsyncSession) -> list[LaneRead]:
     """The lanes in board order with their artifact counts."""
     rows = await _rows(session)
     counts = dict(
-        (await session.execute(select(Task.status, func.count()).group_by(Task.status))).all()
+        (
+            await session.execute(
+                select(Task.status, func.count())
+                .where(Task.technical.is_(False))
+                .group_by(Task.status)
+            )
+        ).all()
     )
     return [
         LaneRead(
@@ -177,9 +183,17 @@ async def delete_lane(session: AsyncSession, key: str) -> list[LaneRead]:
         raise LaneError(404, f"Unknown lane '{key}'")
     if len(lanes) == 1:
         raise LaneError(409, "The last lane cannot be deleted.")
-    in_lane = await session.scalar(select(func.count()).select_from(Task).where(Task.status == key))
+    in_lane = await session.scalar(
+        select(func.count()).select_from(Task).where(Task.status == key, Task.technical.is_(False))
+    )
     if in_lane:
         raise LaneError(409, NOT_EMPTY_MESSAGE)
+    # the hidden cards of dry runs go to another lane with the lane that holds them (ADR-089)
+    other = next((row.key for row in lanes if row.key != key), None)
+    if other is not None:
+        await session.execute(
+            update(Task).where(Task.status == key, Task.technical.is_(True)).values(status=other)
+        )
     await session.delete(lane)
     try:
         await session.commit()

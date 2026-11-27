@@ -8,6 +8,7 @@ import { ActionMenu } from "../components/action-menu.js";
 import { Combobox } from "../components/combobox.js";
 import { icon } from "../components/icons.js";
 import { currentStop, followStop, subscribeStop } from "../components/stop-state.js";
+import { editorOrigin } from "../execution/back-link.js";
 import { request } from "../http.js";
 import { t } from "../i18n.js";
 import { readJson, writeJson } from "../storage.js";
@@ -20,13 +21,13 @@ import {
   availableItems,
   cardKey,
   cardOptions,
-  chooseTarget,
   controlOf,
+  dryRunUrls,
   formFields,
   historyUrl,
+  listedCard,
   listedRuns,
   placeholderOf,
-  placementLabel,
   problemLines,
   rememberedCard,
   runBody,
@@ -52,9 +53,9 @@ export class DryRunPanel {
     this.uid = `dry-${(counter += 1)}`;
     this.entered = {}; // input name -> what was typed; kept across redraws of the window
     this.version = "draft";
-    this.taskId = null;
-    this.target = null; // where the run starts (an action definition: the place a pipeline puts it)
-    this.placements = null;
+    this.taskId = null; // the card chosen with "+ Add"; without one the dry runs belong to the graph's hidden card (ADR-089)
+    this.hidden = { task_id: null, number: null };
+    this.urls = dryRunUrls(graph.id);
     this.running = false; // a start is on its way
     this.runs = []; // the dry runs listed (executions of this graph on the card)
     this.shown = new Set(); // the optional items on the form ("card")
@@ -67,7 +68,7 @@ export class DryRunPanel {
     followStop();
     connectEvents({
       onEvent: (type, data) => {
-        if (type === "run.updated" && this.taskId && data.task_id === this.taskId) this.#scheduleRuns();
+        if (type === "run.updated" && this.#listTaskId() && data.task_id === this.#listTaskId()) this.#scheduleRuns();
         if (type === "graph.changed" || type === "graph.contract_changed") this.#scheduleCheck();
       },
       onOpen: () => this.#loadRuns(), // what happened while the stream was away is read again
@@ -90,24 +91,6 @@ export class DryRunPanel {
   #build() {
     const id = (name) => `${this.uid}-${name}`;
     const lead = make("p", "ge-dry__lead", this.graph.kind === "action" ? t("editor.dry_run.lead_action") : t("editor.dry_run.lead_pipeline"));
-    this.placeBox = make("div", "field ge-dry__place");
-    this.placeBox.hidden = true;
-    this.placeSelect = make("select", "field__control");
-    this.placeSelect.id = id("place");
-    this.placeSelect.dataset.focusKey = "dry-place";
-    this.placeSelect.addEventListener("change", () => {
-      this.target = this.placements.find((p) => p.action_id === this.placeSelect.value) ?? null;
-      this.#loadRuns();
-      this.#scheduleCheck();
-      this.#syncStart();
-    });
-    const placeLabel = make("label", "field__label", t("editor.dry_run.place_label"));
-    placeLabel.htmlFor = this.placeSelect.id;
-    this.placeBox.append(placeLabel, this.placeSelect);
-    this.placeMissing = make("p", "ge-dry__note", t("editor.dry_run.place_missing"));
-    this.placeMissing.hidden = true;
-    this.placeMissing.setAttribute("role", "status");
-
     this.cardBox = make("div", "field ge-dry__card");
     this.cardBox.hidden = true;
     const cardHead = make("div", "ge-dry__cardhead");
@@ -230,7 +213,7 @@ export class DryRunPanel {
     this.casesBox.append(this.casesPick, caseRow, this.caseError);
 
     if (this.graph.observe) this.element.append(new ObservePanel(this.graph.observe, { changed: () => this.graph.draftChanged?.() }).element);
-    this.element.append(lead, this.placeBox, this.placeMissing, this.cardBox, this.cardNote, this.addButton, this.casesBox, this.inputsBox, versionBox, this.checkLine, actions, this.errorLine, this.result);
+    this.element.append(lead, this.cardBox, this.cardNote, this.addButton, this.casesBox, this.inputsBox, versionBox, this.checkLine, actions, this.errorLine, this.result);
     this.#setFields([]);
     this.#syncStart();
   }
@@ -257,23 +240,23 @@ export class DryRunPanel {
       this.cardFailed = true;
       this.#drawItems();
     }
-    if (this.graph.kind === "action") await this.#loadPlacements();
+    await this.#loadHidden();
     this.#syncStart();
   }
 
-  async #loadPlacements() {
+  /** The hidden card of this graph, when a card-less dry run made it: its executions are the rows when no card is chosen. */
+  async #loadHidden() {
     try {
-      this.placements = await request(`/api/actions/${encodeURIComponent(this.graph.id)}/placements`);
+      this.hidden = await request(this.urls.card);
     } catch {
-      this.placements = [];
+      this.hidden = { task_id: null, number: null };
     }
-    const saved = readJson(`${cardKey(this.graph.id)}-place`);
-    this.target = chooseTarget(this.placements, saved);
-    this.placeMissing.hidden = this.placements.length > 0;
-    this.placeBox.hidden = this.placements.length < 2;
-    this.placeSelect.replaceChildren(...this.placements.map((p) => Object.assign(new Option(placementLabel(p), p.action_id), { selected: p.action_id === this.target?.action_id })));
     this.#loadRuns();
     this.#scheduleCheck();
+  }
+
+  #listTaskId() {
+    return listedCard(this.taskId, this.hidden.task_id);
   }
 
   #pickCard(taskId) {
@@ -452,23 +435,15 @@ export class DryRunPanel {
   }
 
   #body() {
-    return runBody({ target: this.target ?? { pipeline_id: this.graph.id }, fields: this.fields, entered: this.entered, version: this.version });
-  }
-
-  #ready() {
-    return Boolean(this.taskId) && (this.graph.kind === "pipeline" || Boolean(this.target));
+    return runBody({ fields: this.fields, entered: this.entered, version: this.version, taskId: this.taskId });
   }
 
   async #check() {
-    if (!this.#ready()) {
-      this.checkLine.replaceChildren();
-      return;
-    }
     const turn = (this.checkTurn += 1);
     this.checkLine.textContent = t("editor.dry_run.checking");
     let problems;
     try {
-      problems = problemLines((await request(`/api/tasks/${encodeURIComponent(this.taskId)}/dry-run/check`, { method: "POST", body: JSON.stringify(this.#body()) })).problems);
+      problems = problemLines((await request(this.urls.check, { method: "POST", body: JSON.stringify(this.#body()) })).problems);
     } catch (error) {
       if (turn !== this.checkTurn) return;
       this.checkLine.textContent = startErrorText(error);
@@ -495,8 +470,6 @@ export class DryRunPanel {
     if (active) reason = "";
     else if (stopped) reason = t("editor.dry_run.hint_stopped");
     else if (this.running) reason = t("editor.dry_run.hint_running");
-    else if (this.graph.kind === "action" && this.placements && !this.target) reason = t("editor.dry_run.place_missing");
-    else if (!this.taskId) reason = t("editor.dry_run.hint_no_card");
     // While a dry run runs the button is the Stop, as the processing button of an artifact is (ADR-086 addendum 2)
     this.startButton.disabled = Boolean(reason);
     this.startButton.classList.toggle("is-danger", Boolean(active));
@@ -516,8 +489,8 @@ export class DryRunPanel {
     this.running = true;
     this.#syncStart();
     try {
-      const body = { ...this.#body(), dry_run: true };
-      await request(`/api/tasks/${encodeURIComponent(this.taskId)}/run`, { method: "POST", body: JSON.stringify(body) });
+      await request(this.urls.start, { method: "POST", body: JSON.stringify(this.#body()) });
+      if (!this.taskId) await this.#loadHidden(); // the first run without a card makes the graph's hidden card: its number is what a row opens
     } catch (error) {
       this.errorLine.textContent = startErrorText(error);
       this.errorLine.hidden = false;
@@ -531,10 +504,11 @@ export class DryRunPanel {
   }
 
   async #stop() {
-    if (!this.taskId) return;
+    const taskId = this.#listTaskId();
+    if (!taskId) return;
     this.errorLine.hidden = true;
     try {
-      await stopRun(this.taskId);
+      await stopRun(taskId);
     } catch (error) {
       this.errorLine.textContent = error?.message || t("editor.dry_run.error_unknown");
       this.errorLine.hidden = false;
@@ -544,18 +518,13 @@ export class DryRunPanel {
 
   // ── the dry runs as rows ─────────────────────────────────────
 
-  /** The pipeline whose dry runs are listed: this one, or the one that places the action. */
-  #pipelineId() {
-    return this.graph.kind === "pipeline" ? this.graph.id : (this.target?.pipeline_id ?? null);
-  }
-
   #scheduleRuns() {
     window.clearTimeout(this.runsTimer);
     this.runsTimer = window.setTimeout(() => this.#loadRuns(), 250);
   }
 
   async #loadRuns() {
-    const taskId = this.taskId;
+    const taskId = this.#listTaskId();
     if (!taskId) {
       this.runs = [];
       this.#drawRuns();
@@ -568,9 +537,9 @@ export class DryRunPanel {
     } catch {
       return;
     }
-    if (taskId !== this.taskId) return; // another card was chosen meanwhile
+    if (taskId !== this.#listTaskId()) return; // another card was chosen meanwhile
     this.task = this.tasks?.find((task) => task.id === taskId) ?? null;
-    this.runs = listedRuns(all, this.#pipelineId());
+    this.runs = listedRuns(all, this.graph.id);
     this.#drawRuns();
     this.#syncStart();
     // the events say when a step is done; a safety net reads again while a run is running, so a missed event never leaves the row at "Running"
@@ -585,7 +554,7 @@ export class DryRunPanel {
 
   /** A click on a row goes where the artifact's list goes: the execution in the history. */
   #open(execution) {
-    const number = this.task?.number ?? this.tasks?.find((task) => task.id === execution.task_id)?.number;
-    if (number) window.location.assign(historyUrl(number, execution.id));
+    const number = this.task?.number ?? this.tasks?.find((task) => task.id === execution.task_id)?.number ?? (execution.task_id === this.hidden.task_id ? this.hidden.number : null);
+    if (number) window.location.assign(historyUrl(number, execution.id, editorOrigin(window.location.pathname))); // the Back button there returns to this editor
   }
 }

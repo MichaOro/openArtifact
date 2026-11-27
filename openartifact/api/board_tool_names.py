@@ -29,6 +29,7 @@ WRITE_TOOLS = (
     "create_artifact",
     "update_artifact",
     "start_processing",
+    "dry_run_graph",
     "stop_processing",
     "add_comment",
     "archive_artifact",

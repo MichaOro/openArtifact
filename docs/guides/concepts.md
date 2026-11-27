@@ -30,6 +30,8 @@ URL). Every start leaves an execution in the history.
 
 **Mock data.** The result a node of the draft hands over in a dry run instead of running (outcome, output, data, reason). A real run and a published version never hold or use it (ADR-087). See [execution nodes](execution-nodes.md#mock-data).
 
+**Hidden card.** A dry run started without a card belongs to a technical card of its graph that is in no list, count or rule of the board; an action's dry run runs the action by itself, from its Trigger to its Output (ADR-089). See [execution nodes](execution-nodes.md#dry-run-testlauf).
+
 **Observe mode.** A pipeline whose published version says so runs every start as a dry run that nobody asked for by hand (flag `observed`); it is set with a publication, ends after its days or runs by refusing starts until the owner releases it or observes again (ADR-088). See [execution nodes](execution-nodes.md#observe-mode).
 
 **Artifact.** The unit of work: a card on the board with a title, a body, a lane (the board starts with Backlog, In Progress and Done; lanes can be added, renamed by clicking the name or through the lane's menu, deleted when they are empty, and given a look in their Settings: a *finished* lane shows its cards' titles struck through; the API names a lane by its unchanging key, e.g. `backlog`, `in_progress`, `done`), an optional parent and a

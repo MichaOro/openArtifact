@@ -76,6 +76,9 @@ class Task(Base):
     created_by: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
     execution_seq: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     field_values: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
+    #: A technical card (migration 0068, ADR-089): the hidden card the dry runs of a graph that was started without a card belong to. It is
+    #: in no list, count or rule of the board (``tasks/technical.py``); its executions are like any card's.
+    technical: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     #: When a card rule (or the user) archived it: it is then left out of the board's list (ADR-071); ``None``: visible.
     archived_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None, index=True)
     #: The lane key the card was in when it was archived (no foreign key: the lane may be gone when it comes back).

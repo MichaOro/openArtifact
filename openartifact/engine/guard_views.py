@@ -38,7 +38,7 @@ VIEWS: dict[str, str] = {
     ),
     "v_guard_artifacts": (
         "SELECT id, number, title, status AS lane, parent_id, pipeline_id, stage_id, action_id, created_by, created_at, "
-        "updated_at FROM tasks"
+        "updated_at FROM tasks WHERE technical = 0"
     ),
     "v_guard_lanes": "SELECT key, title, position FROM lanes",
 }

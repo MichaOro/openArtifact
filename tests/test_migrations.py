@@ -211,6 +211,7 @@ def test_migration_creates_tasks_table_and_enforces_status(migrated_settings: Se
             "created_by",
             "execution_seq",
             "field_values",
+            "technical",
             "created_at",
             "updated_at",
         }

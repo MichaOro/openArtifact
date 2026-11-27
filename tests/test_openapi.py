@@ -79,6 +79,7 @@ GET /api/events -> -
 GET /api/executions -> ExecutionsPage
 GET /api/forms -> FormRead[]
 GET /api/forms/{name} -> FormRead
+GET /api/graphs/{ref}/dry-run-card -> DryRunCard
 GET /api/guard-attachments -> AttachmentRead[]
 GET /api/guard-attachments/{attachment_id} -> AttachmentRead
 GET /api/guards -> GuardDefinitionRead[]
@@ -206,6 +207,8 @@ POST /api/credentials/{ref}/revoke -> CredentialRead
 POST /api/credentials/{ref}/rotate -> CredentialCreated
 POST /api/credentials/{ref}/test -> CredentialRead
 POST /api/executions/delete -> ExecutionsDeleted
+POST /api/graphs/{ref}/dry-run -> RunRead
+POST /api/graphs/{ref}/dry-run/check -> DryRunProblems
 POST /api/guard-attachments -> AttachmentRead
 POST /api/guards -> GuardDefinitionRead
 POST /api/guards/from-template -> GuardDefinitionRead
@@ -251,6 +254,7 @@ POST /api/v1/artifacts/{ref}/run -> RunRead
 POST /api/v1/artifacts/{ref}/run/stop -> RunRead
 POST /api/v1/artifacts/{ref}/unarchive -> TaskRead
 POST /api/v1/executions/{execution_id}/heartbeat -> HeartbeatRead
+POST /api/v1/graphs/{ref}/dry-run -> RunRead
 POST /api/v1/guard-attachments -> AttachmentRead
 POST /api/v1/guards -> GuardDefinitionRead
 POST /api/v1/guards/from-template -> GuardDefinitionRead

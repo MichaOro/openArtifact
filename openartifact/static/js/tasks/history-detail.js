@@ -94,7 +94,8 @@ export class HistoryDetail {
 
   /** Where the read-only flow of the execution is shown (a page of its own; the same URL the global menu will use). */
   flowHref(execution) {
-    return `/artifacts/${encodeURIComponent(this.taskNumber ?? execution.task_id)}/executions/${encodeURIComponent(execution.id)}`;
+    const base = `/artifacts/${encodeURIComponent(this.taskNumber ?? execution.task_id)}/executions/${encodeURIComponent(execution.id)}`;
+    return this.taskNumber ? `${base}?from=card:${encodeURIComponent(this.taskNumber)}` : base; // the card's history leads back to the card
   }
 
   /** The summary list: a term and its value (text or a node) per line. */

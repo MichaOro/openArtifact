@@ -97,11 +97,11 @@ page already has. The engine, the API and the rules of the start are unchanged; 
   event stream (re)opens, and every three seconds while a run is running as a safety net, so the row and the button follow a run to its end without a reload.
 - **Stop in the same place.** While a listed dry run is running, the *Start dry run* button is the stop button (*Stop processing*, the danger look, the stop icon): the same
   action as the processing button of an artifact (`stopRun`, `POST /api/tasks/{id}/run/stop`). The row then shows *Stopped*. Only dry runs of this tab are stopped from here.
-- **The test card is an optional item behind "+ Add".** The form always has *Runs in* (an action), the *Test cases*, the *Inputs*, the *Version* and the start. The button
+- **The test card is an optional item behind "+ Add".** The form always has (ADR-089: no *Runs in* any more) the *Test cases*, the *Inputs*, the *Version* and the start. The button
   *Add* opens the shared menu with the items that are not on the form yet; *Test card* is the only one today and a small list in `dry-run-model.js` (`OPTIONAL_ITEMS`: key, label,
   icon) is where the next one is added (its builder goes into the panel under the same key). A card chosen once is remembered per graph and is on the form again the next time;
   the X beside it takes the field off again and forgets the card.
-- **A card is still needed to run.** A run belongs to a card in the engine, not only in the form: an execution has a task (`executions.task_id`, its number counts per task, the
+- **A card is still needed to run.** *(Superseded by [ADR-089](089-card-less-dry-run-and-action-by-itself.md): a dry run needs no card, and an action runs by itself.)* A run belongs to a card in the engine, not only in the form: an execution has a task (`executions.task_id`, its number counts per task, the
   history page is the card's), one run exists per card, and the references to the card (`${card...}`) and the nodes that write on it need one. A dry run without a card would mean a
   card that is not on the board (or a nullable `task_id` through the executions, the views and every list), which this change does not do. So the start stays locked with the
   reason *Add a test card first (Add)* until a card is on the form.
