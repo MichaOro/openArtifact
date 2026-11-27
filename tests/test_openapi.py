@@ -214,6 +214,7 @@ POST /api/guards/{guard_id}/draft/discard -> GuardDefinitionRead
 POST /api/guards/{guard_id}/publish -> PublishedGuard
 POST /api/guards/{guard_id}/versions/{number}/republish -> PublishedGuard
 POST /api/lanes -> LaneRead[]
+POST /api/lanes/order -> LaneRead[]
 POST /api/lanes/{status}/rules/preview -> CardPreviewRead
 POST /api/pipelines -> GraphRead
 POST /api/pipelines/{graph_id}/draft/discard -> GraphDetail
@@ -258,6 +259,7 @@ POST /api/v1/guards/{guard_id}/draft/discard -> GuardDefinitionRead
 POST /api/v1/guards/{guard_id}/publish -> PublishedGuard
 POST /api/v1/guards/{guard_id}/versions/{number}/republish -> PublishedGuard
 POST /api/v1/lanes -> LaneRead[]
+POST /api/v1/lanes/order -> LaneRead[]
 POST /api/v1/pipelines/{ref}/observe/again -> ObserveRead
 POST /api/v1/pipelines/{ref}/observe/release -> ObserveRead
 POST /api/v1/providers -> ProviderRead

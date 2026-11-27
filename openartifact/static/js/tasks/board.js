@@ -30,6 +30,8 @@ export class Board {
     this.liveRegion = document.querySelector("[data-live-region]");
 
     this.loaded = false;
+    /** The mode that reorders the lanes (ADR-092): the lanes show their handles and the cards stay where they are. */
+    this.reordering = false;
     /** The board search (ADR-091): the plan from board-search-model.js, or null while nothing is typed; `kept` are cards that stay shown. */
     this.filter = null;
     /** Called after a card was added, changed or removed (the search updates its line and keeps the focus sensible). */
@@ -117,7 +119,28 @@ export class Board {
     }
     for (const [status, lane] of this.lanes) if (!shown.has(status)) lane.section.remove();
     this.lanes = shown;
+    this.#arrangeLanes();
     this.#updateCounts();
+  }
+
+  /** The lanes stand in the order of `this.lanes` (the server's order): a lane that moved is moved in the page, the others stay. */
+  #arrangeLanes() {
+    let at = this.element.firstElementChild;
+    for (const { section } of this.lanes.values()) {
+      if (section === at) at = at.nextElementSibling;
+      else this.element.insertBefore(section, at);
+    }
+  }
+
+  /** The lanes' statuses as they stand in the page now, left to right (what a drag of a lane made). */
+  laneOrder() {
+    return [...this.element.querySelectorAll(":scope > .lane")].map((section) => section.dataset.status);
+  }
+
+  /** The reorder mode on or off: the board makes room for the handles above its lanes (CSS) and cards cannot be moved. */
+  setReordering(on) {
+    this.reordering = on;
+    this.element.classList.toggle("board--reorder", on);
   }
 
   #adopt(section) {
@@ -152,6 +175,7 @@ export class Board {
     add.dataset.status = status;
     add.dataset.laneTitle = title;
     add.setAttribute("aria-label", t("tasks.board.add_artifact_title", { title }));
+    section.querySelector("[data-lane-grip]")?.setAttribute("aria-label", t("lane.move_title", { title }));
     section.querySelector("[data-lane-menu]").setAttribute("aria-label", t("tasks.board.options_lane_title", { title }));
     lane.list.setAttribute("aria-label", t("tasks.board.lane_artifacts", { title }));
   }

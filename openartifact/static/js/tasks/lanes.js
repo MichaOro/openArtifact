@@ -15,6 +15,8 @@ export const addLane = (title) => send("/api/lanes", "POST", { title });
 /** Change a lane's title and/or style ({title, style}); resolves to the lanes. */
 export const updateLane = (status, changes) => send(lanePath(status), "PUT", changes);
 export const renameLane = (status, title) => updateLane(status, { title });
+/** Put the lanes in this order (statuses, every lane once); resolves to the lanes (ADR-092). */
+export const reorderLanes = (order) => send("/api/lanes/order", "POST", { lanes: order });
 export const deleteLane = (status) => send(lanePath(status), "DELETE");
 
 export class LaneControls {

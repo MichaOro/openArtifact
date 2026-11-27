@@ -46,6 +46,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | GET | `/api/v1/pipelines/{ref}/neighbours`, `/api/v1/actions/{ref}/neighbours` | Every node with its predecessors and successors (`?version=published` (default) \| `draft` \| a number); `ref` is the id, URL name or name | 404, 422 |
 | GET | `/api/v1/lanes` | The board lanes in order: `status` (the key artifacts use), `key` (DOM form), `title`, `position`, `hue`, `style` (`normal` or `finished`), `artifact_count`, `deletable` | |
 | POST | `/api/v1/lanes` | Add a lane: body `{"title": "Review"}`; 1 to 40 characters, no control characters, different from the other lanes (ignoring case); at most 12 lanes; appended at the end; `201`, answers the lanes | 422 |
+| POST | `/api/v1/lanes/order` | Put the lanes in a new order: body `{"lanes": ["Review", "Backlog", ...]}`, every lane exactly once by title, id or key (422 says which is unknown, named twice or missing); `position` becomes 0 to n-1, `hue` follows the place; publishes `board.lanes`; the FIRST lane is where an artifact goes when none is given | 422 |
 | PUT | `/api/v1/lanes/{status}` | Change a lane (its key stays): body `{"title"?: "Review", "style"?: "finished"}`, at least one; same title rules; `style` is `normal` or `finished` (an unknown one is 422 and lists them); answers the lanes | 404, 422 |
 | DELETE | `/api/v1/lanes/{status}` | Delete a lane: `409` "A lane can only be deleted when it contains no artifacts." while it holds artifacts, and for the last lane; answers the remaining lanes | 404, 409 |
 | GET | `/api/v1/artifact-fields` | The artifact fields every artifact has, each with `artifact_count` (see [Artifact fields](#artifact-fields)) | |
@@ -234,6 +235,7 @@ match the integration API where the names match.
 |--------|------|---------|--------|
 | GET | `/api/lanes` | The lanes in board order: `[{"status": "in_progress", "key": "in-progress", "title": "Review", "position": 1, "hue": 2, "style": "normal", "artifact_count": 0, "deletable": true}, ...]` | |
 | POST | `/api/lanes` | Add a lane (body `{"title": string}`, same rules as `POST /api/v1/lanes`); `201`; publishes `board.lanes` | 422 |
+| POST | `/api/lanes/order` | Put the lanes in a new order: body `{"lanes": [...]}`, every lane exactly once, each by title, id or `status` key; `position` becomes 0 to n-1, the answer is the lanes, publishes `board.lanes`; the first lane is where a card goes when none is named | 422 |
 | PUT | `/api/lanes/{status}` | Change: body `{"title"?: string, "style"?: "normal"\|"finished"}` (at least one); answers the lanes; publishes `board.lanes` | 404, 422 |
 | DELETE | `/api/lanes/{status}` | Delete an empty lane (not the last); answers the lanes; publishes `board.lanes` | 404, 409 |
 | POST | `/api/tasks/{id}/archive`, `/api/tasks/{id}/unarchive` (also `/api/v1/artifacts/{ref}/...`) | Archive by hand (the card remembers its lane; read-only, every change is 409 `archived`; 409 while processed) / back to the top of its lane (the first lane if that is gone) | 404, 409 |
