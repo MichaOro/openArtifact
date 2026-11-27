@@ -7,6 +7,7 @@
  * stays unique ("Fetch copy", "Fetch copy 2"), because a reference finds a node by its name. */
 
 import { t } from "../i18n.js";
+import { kindOfEdge } from "./edge-kinds.js";
 const FIXED = new Set(["trigger", "output", "complete"]);
 const COPY_SUFFIX = / copy( \d+)?$/;
 
@@ -50,7 +51,7 @@ export function copyOf(nodes, edges, ids, scope) {
       .filter((e) => inside.has(e.source_id) && inside.has(e.target_id))
       .map((e) => ({ source: e.source_id, source_port: e.source_port, source_slot: e.source_slot, target: e.target_id, target_port: e.target_port, target_slot: e.target_slot, style: e.style })),
     // a tool copied without its agent remembers the agent it hung on (a paste in the same graph attaches it again)
-    attached: Object.fromEntries(edges.filter((e) => e.target_port === "tools" && inside.has(e.source_id) && !inside.has(e.target_id)).map((e) => [e.source_id, e.target_id])),
+    attached: Object.fromEntries(edges.filter((e) => kindOfEdge(e).hangs && inside.has(e.source_id) && !inside.has(e.target_id)).map((e) => [e.source_id, e.target_id])),
   };
 }
 

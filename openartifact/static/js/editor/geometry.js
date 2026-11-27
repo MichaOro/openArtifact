@@ -2,6 +2,7 @@
  * them; what a kind of node looks like and may connect to comes from its view (node-types.js). */
 import { FIRST_ROW, HEADER, PAD, STAGE_MARGIN, slotHeights, typeOf } from "./node-types.js";
 import { t } from "../i18n.js";
+import { EDGE_KINDS, kindOfEdge } from "./edge-kinds.js";
 
 export { PAD, STAGE_MARGIN }; // PAD: unit of spacing; STAGE_MARGIN: the band between a stage's outer and inner border
 export const ACTION_GAP = 64; // space between neighbouring actions
@@ -73,8 +74,8 @@ const TIGHT = 48; // a forward connection with less room than this would bend to
  * room to bend, leaves to the right, runs below both nodes and comes in from the left instead of
  * cutting across them (rounded for curved and elbow, with sharp corners for straight).
  */
-export function edgePath(from, to, fromBox, toBox, { routed = true, style = "curved", attachment = false } = {}) {
-  if (attachment) return attachmentPath(from, to, fromBox, toBox, { routed, style });
+export function edgePath(from, to, fromBox, toBox, { routed = true, style = "curved", kind = EDGE_KINDS.flow } = {}) {
+  if (kind.route === "hang") return attachmentPath(from, to, fromBox, toBox, { routed, style }); // the route of the kind (edge-kinds.js)
   const dx = to.x - from.x;
   const level = Math.abs(to.y - from.y) < 1; // a straight run needs no room to bend: it is drawn as it is
   if (routed && dx < TIGHT && !(dx > 0 && level)) {
@@ -96,13 +97,19 @@ const HANG = 24;
 
 /**
  * A tool's attachment (the same for every tool kind): from the attachment port at the top of the tool to the port at the bottom of the agent.
- * A tool that hangs BELOW its agent takes the short line up (a curve, whatever the style). A tool that is above its agent, or beside it with its
+ * A tool that hangs BELOW its agent takes the short line up in the chosen style (a curve, a straight line, or up, across and up with rounded
+ * corners). A tool that is above its agent, or beside it with its
  * top higher than the agent's bottom, would make that line run through a card: the line then goes round, up above both cards, out to the side
  * that is nearer (past both cards), down below both and back to the agent's port from underneath. Rounded for curved and elbow, sharp corners for
  * straight. While a connection is dragged (`routed` false, one box) the direct line stays: there is no second card yet.
  */
 export function attachmentPath(from, to, fromBox, toBox, { routed = true, style = "curved" } = {}) {
   if (!routed || !fromBox || !toBox || from.y - to.y >= HANG) {
+    if (style === "straight") return polyline([from, to], 0);
+    if (style === "elbow") {
+      const middle = from.y + (to.y - from.y) / 2;
+      return polyline([from, { x: from.x, y: middle }, { x: to.x, y: middle }, to], CORNER);
+    }
     const reach = Math.min(Math.max(Math.abs(from.y - to.y) / 2, 32), 160);
     return `M ${from.x} ${from.y} C ${from.x} ${from.y - reach}, ${to.x} ${to.y + reach}, ${to.x} ${to.y}`;
   }
@@ -157,7 +164,7 @@ export function nextToolPosition(nodes, edges, selectedId) {
   const agents = [...nodes.values()].filter((n) => n.kind === "agent");
   const agent = nodes.get(selectedId)?.kind === "agent" ? nodes.get(selectedId) : agents[agents.length - 1];
   if (!agent) return null;
-  const tools = [...edges.values()].filter((e) => e.target_id === agent.id && e.target_port === "tools").map((e) => nodes.get(e.source_id)).filter(Boolean);
+  const tools = [...edges.values()].filter((e) => e.target_id === agent.id && kindOfEdge(e).hangs).map((e) => nodes.get(e.source_id)).filter(Boolean);
   const x = tools.length ? Math.max(...tools.map((t) => t.x + sizeOf(t).width)) + ACTION_GAP / 2 : agent.x;
   return { agentId: agent.id, x, y: agent.y + sizeOf(agent).height + TOOL_GAP };
 }

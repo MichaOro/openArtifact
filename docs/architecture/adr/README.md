@@ -102,6 +102,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [090](090-lane-ids-and-names.md) | A lane has an id (uuid) and a name (its title); the key it was made from says nothing after a rename: MCP speaks names and ids, an unknown lane is an error that lists the lanes | Accepted | 2026-11-27 | amends ADR-011, ADR-036 |
 | [091](091-board-search.md) | The board has a search by title and number (never the body): a client-side filter, `#154` is the number, the query is in the address, a card made by hand stays shown |
 | [092](092-reorder-the-lanes.md) | The lanes can be reordered in a mode of the board (menu *Reorganize lanes*): handles above the lanes, only lanes move, saved by `POST /api/lanes/order`, MCP stays read-only |
+| [093](093-kinds-of-connection-are-data.md) | One pipeline for every connection: the kinds of connection (flow, a tool's attachment, later ones) are rows of a table; the tool connection gets the bar and the three line styles; a test keeps kind checks out of the common code |
 
 ## Notes
 

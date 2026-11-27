@@ -6,6 +6,7 @@ import { icon } from "../components/icons.js";
 import { shieldButton, updateShield } from "../components/guard-shield.js";
 import { Canvas } from "../editor/canvas.js";
 import { typeOf } from "../editor/node-types.js";
+import { kindOfEdge } from "../editor/edge-kinds.js";
 import { addBubbles, FAILING_PORTS } from "./flow-bubbles.js";
 import { placeState, shieldTitle } from "./flow-guards.js";
 import { nameOf } from "./visit-model.js";
@@ -157,7 +158,7 @@ export class FlowView {
   }
 
   #decorateEdge(edge, group) {
-    if (edge.target_port === "tools") return this.#decorateToolEdge(edge, group);
+    if (kindOfEdge(edge).flowDecoration === "tool") return this.#decorateToolEdge(edge, group);
     const order = this.walk?.edgeOrder.get(edge.id);
     group.classList.toggle("is-walked", order !== undefined);
     group.classList.toggle("is-idle", order === undefined);
