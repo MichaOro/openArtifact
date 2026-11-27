@@ -5,8 +5,8 @@
 import { IconList } from "./icon-list.js";
 import { defineVariant } from "./icon-list-model.js";
 
-/** The places of the icons on a card, left to right: the mock pin, then the shield of the guards (the right-most, where it always was). */
-export const CARD_ORDER = { mock: 10, guard: 20 };
+/** The places of the icons on a card, left to right: the skip marker of a dry run (the flow page; it never comes with the mock pin: a mocked node is not skipped), the mock pin, then the shield of the guards (the right-most, where it always was). */
+export const CARD_ORDER = { skipped: 5, mock: 10, guard: 20 };
 
 /** What a card's corner allows. */
 export const CARD_ICONS = defineVariant({

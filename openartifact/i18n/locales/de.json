@@ -2529,5 +2529,6 @@
  "editor.observe.again": "Erneut beobachten",
  "graph_list.chip_observing": "Beobachtet",
  "graph_list.chip_observe_ended": "Starts abgelehnt",
- "executions.observed": "Beobachtet"
+ "executions.observed": "Beobachtet",
+ "execution.skip_marker.title": "Im Dry run übersprungen: hätte {what}"
 }

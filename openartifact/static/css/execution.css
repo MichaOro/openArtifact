@@ -177,6 +177,9 @@
 .ef-path__kind { font-size: 0.6875rem; color: var(--color-text-muted); }
 .ef-path__facts { grid-column: 2 / -1; font-size: 0.6875rem; color: var(--color-text-secondary); }
 .ef-path__state { line-height: 1.25rem; }
+.ef-path__stateline { display: inline-flex; align-items: center; gap: var(--space-1); }
+.ef-path__skip { display: inline-flex; align-items: center; color: var(--color-text-secondary); }
+.ef-path__skip .icon { width: 0.875rem; height: 0.875rem; }
 .ef-path__open { flex: none; margin-right: var(--space-1); }
 .ef-path__main + .ef-path__open { margin-left: calc(1.25rem + var(--space-2) + var(--space-2)); } /* under the name, not under the number */
 

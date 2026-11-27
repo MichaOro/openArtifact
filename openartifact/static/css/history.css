@@ -151,6 +151,8 @@
 }
 .history-step[data-outcome="fail"] { border-left-color: var(--color-danger); }
 .history-step__head { display: flex; align-items: center; gap: var(--space-2); }
+.history-step__skip { display: inline-flex; flex: none; }
+.history-step__skip[hidden] { display: none; }
 .history-step__seq { min-width: 1.25rem; font-variant-numeric: tabular-nums; color: var(--color-text-muted); }
 .history-step__kind { display: inline-flex; color: var(--color-text-secondary); }
 .history-step__kind .icon { width: 1rem; height: 1rem; }

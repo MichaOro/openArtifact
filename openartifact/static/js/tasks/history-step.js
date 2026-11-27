@@ -4,6 +4,7 @@
 import { agentFacts } from "../agents/model.js";
 import { detailView } from "../agents/view.js";
 import { icon } from "../components/icons.js";
+import { skipMarker } from "../components/skip-marker.js";
 import { mockOfStep } from "../editor/mock-model.js";
 import { formatBytes } from "../editor/sources-model.js";
 import { request } from "../http.js";
@@ -115,10 +116,21 @@ export function fillStep(template, step, open = new Set(), { loadDetail = null }
   const data = step.data == null ? "" : JSON.stringify(step.data, null, 2);
   fillBlock(item.querySelector("[data-step-data]"), `${step.id}:data`, data, open, Boolean(data));
   fillMock(item, step, loadDetail);
+  fillSkip(item, step);
   fillContext(item.querySelector("[data-step-context]"), step);
   fillAgent(item.querySelector("[data-step-agent]"), step, open, loadDetail);
   fillTries(item.querySelector("[data-step-tries]"), step, open, loadDetail);
   return item;
+}
+
+/** The skip marker beside the outcome of a step a dry run (or an observed run) skipped: the icon with what it would have done as its tooltip. The
+ * wording of the step stays as it was; a mocked step never has it (ADR-086 addendum 3). */
+function fillSkip(item, step) {
+  const slot = item.querySelector("[data-step-skip]");
+  if (!slot) return; // a page with an older template
+  const marker = skipMarker(step);
+  slot.replaceChildren(...(marker ? [marker] : []));
+  slot.hidden = !marker;
 }
 
 /** The kinds that take no mock (the server refuses them as well). */
