@@ -12,6 +12,7 @@ import { sceneOfGraph } from "../components/preview-layout.js";
 import { KEYS, readJson, removeStorage } from "../storage.js";
 import { createGraph, deleteGraph, listGraphs, loadGraph, updateGraph, usesOf, versionOf } from "./api.js";
 import { loadNodeTypes, typeOf } from "./node-types.js";
+import { formatDateTime as when, formatDay as day } from "../tasks/history-format.js";
 import { publicationChip, publicationOf, publicationText, renderVersions } from "./versions-tab.js";
 import { t } from "../i18n.js";
 
@@ -23,9 +24,6 @@ const banner = new AlertBar();
 const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
 const dialog = new ManifestDialog(new Modal(document.getElementById("graph-modal")), { form: noun, confirm: (options) => confirm.open(options) });
 
-const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-/** The day only, for a card: its one line of facts has no room for the time (the panel has both). */
-const day = (iso) => new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
 const editorUrl = (graph) => `${path}/${encodeURIComponent(graph.slug)}`;
 
 /** The sidebar's "Pipeline" must not reopen a pipeline that is gone. */

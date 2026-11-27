@@ -11,9 +11,7 @@ import { SORTS, contextRows, searchText } from "./archive-model.js";
 import { listArchive, unarchiveTask, getTask } from "./api.js";
 import { kindOf } from "./comment-format.js";
 import { listComments } from "./comments-api.js";
-
-const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-const day = (iso) => new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
+import { formatDateTime as when, formatDay as day } from "./history-format.js";
 
 export class ArchiveView {
   /**

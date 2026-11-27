@@ -8,6 +8,7 @@ import { ManagementPage, cardBody, chip, make } from "../components/management-p
 import { ManifestDialog } from "../components/manifest-dialog.js";
 import { Modal } from "../components/modal.js";
 import { connectEvents } from "../tasks/events.js";
+import { formatDateTime as when, formatDay as day } from "../tasks/history-format.js";
 import { agentUses, createAgent, deleteAgent, getAgent, listAgents, listProviders, updateAgent } from "./api.js";
 import { agentChips, fieldLabel, limitRows, optionsOf, showValue, useText } from "./model.js";
 import { t, tn } from "../i18n.js";
@@ -17,9 +18,6 @@ const banner = new AlertBar();
 const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
 const dialog = new ManifestDialog(new Modal(document.getElementById("agent-modal")), { form: "agent", confirm: (options) => confirm.open(options) });
 
-const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-/** The day only, for a card: its one line of facts has no room for the time (the panel has both). */
-const day = (iso) => new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
 const editorUrl = (agent) => `/agents/${encodeURIComponent(agent.id)}`;
 const toneOf = { ok: "ok", warn: "warn", bad: "bad", accent: "accent", "": null };
 
