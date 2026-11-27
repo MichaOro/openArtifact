@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from playwright.sync_api import expect
 
 from tests.e2e.helpers import Board, Dialog
@@ -276,6 +277,29 @@ def test_a_medium_artifact_leaves_no_empty_space_below_the_text(board: Board) ->
     spare = body.evaluate("el => el.clientHeight - el.scrollHeight")
     assert 0 <= spare <= 48, f"{spare}px empty below the text, panel {_size(dialog)}"
     assert _size(dialog)[1] < 1400 * 0.9
+
+
+@pytest.mark.parametrize("width", [1312, 1180])
+def test_the_copy_button_on_the_body_does_not_make_the_details_overflow(
+    board: Board, width: int
+) -> None:
+    """The button reserves room at the right of the body (`.has-copy`), which changes how the text wraps: it has to be there when the dialog is
+    measured, or the measured height is too small for the text and the details area scrolls."""
+    board.page.set_viewport_size({"width": width, "height": 1400})
+    board.create(
+        "Plan",
+        body="A line of text that is long enough to wrap in a narrow card. " * 3 + "Item\n" * 28,
+    )
+    dialog = board.open().open_card("Plan")
+    dialog.settle()
+    expect(dialog.root.locator("[data-view-body].has-copy")).to_have_count(
+        1
+    )  # the button is on the body
+    body = dialog.root.locator("#artifact-panel-details")
+    spare = body.evaluate("el => el.clientHeight - el.scrollHeight")
+    assert spare >= 0, (
+        f"the details overflow by {-spare}px with the copy button, panel {_size(dialog)}"
+    )
 
 
 def test_the_size_is_identical_in_view_and_edit_and_after_saving(board: Board) -> None:
