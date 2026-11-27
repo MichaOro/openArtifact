@@ -50,9 +50,9 @@ from openartifact.engine.limits import RunLimits, load_limits
 from openartifact.engine.results import NodeResult
 from openartifact.engine.retry import retry_of, tried
 from openartifact.engine.schemas import ExecutionRead, NodeResultRead, RunRead, RunStageRead
-from openartifact.engine.snapshot import NestingError, build_snapshot
+from openartifact.engine.snapshot import NestingError, build_action_snapshot, build_snapshot
 from openartifact.engine.storage import StorageLimits, cut_detail, load_policy
-from openartifact.engine.targets import TargetError, load_pipeline, pick_start
+from openartifact.engine.targets import TargetError, load_action, load_pipeline, pick_start
 from openartifact.engine.telemetry import TelemetrySource
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
@@ -426,8 +426,12 @@ class RunEngine:
         dry_run: bool = False,
         inputs: Mapping[str, Any] | None = None,
         version: str | None = None,
+        definition_id: str | None = None,
     ) -> RunRead:
         """Start (or restart) the artifact in a pipeline, at a stage and action (default: the first).
+
+        ``definition_id`` (a dry run only, ADR-089): run that action definition by itself, from its Trigger to its Output, instead of a
+        pipeline (``pipeline_id`` is then the definition's id too, it names what ran).
 
         Stages before the starting stage count as done: those the artifact has passed keep that
         status, the others are marked ``skipped``.
@@ -439,6 +443,8 @@ class RunEngine:
         """
         if not dry_run and (inputs is not None or version is not None):
             raise ArtifactError(422, "inputs and version are for a dry run")
+        if not dry_run and definition_id is not None:
+            raise ArtifactError(422, "an action to run by itself is for a dry run")
         if version not in (None, "draft", "published"):
             raise ArtifactError(422, "version is draft or published")
         # Everything up to the registration of the background task happens for one artifact at a time:
@@ -454,7 +460,15 @@ class RunEngine:
         self._starting.add(task_id)
         try:
             return await self._start(
-                task_id, pipeline_id, stage_id, action_id, started_by, dry_run, inputs, version
+                task_id,
+                pipeline_id,
+                stage_id,
+                action_id,
+                started_by,
+                dry_run,
+                inputs,
+                version,
+                definition_id,
             )
         finally:
             self._starting.discard(task_id)
@@ -469,6 +483,7 @@ class RunEngine:
         dry_run: bool = False,
         inputs: Mapping[str, Any] | None = None,
         version: str | None = None,
+        definition_id: str | None = None,
     ) -> RunRead:
         async with self._session() as session:
             task = await session.get(Task, task_id)
@@ -478,8 +493,21 @@ class RunEngine:
             if run is not None and run.status == RunStatus.RUNNING:
                 raise ArtifactError(409, "The artifact is already being processed")
             try:
-                pipeline = await load_pipeline(session, pipeline_id)
-                snapshot = await build_snapshot(session, pipeline, draft=version == "draft")
+                if (
+                    definition_id is not None
+                ):  # one action by itself: its own nodes up to its Output (ADR-089)
+                    pipeline_id = definition_id
+                    snapshot = await build_action_snapshot(
+                        session, await load_action(session, definition_id), draft=version == "draft"
+                    )
+                    stage_id = action_id = None
+                    if inputs is not None:
+                        action_id = snapshot["nodes"][2][
+                            "id"
+                        ]  # the wrapper's placement of the action
+                else:
+                    pipeline = await load_pipeline(session, pipeline_id)
+                    snapshot = await build_snapshot(session, pipeline, draft=version == "draft")
                 snapshot["limits"] = (await load_limits(session))[
                     0
                 ].to_data()  # frozen for this run
@@ -579,12 +607,13 @@ class RunEngine:
 
     async def check_start(
         self,
-        task_id: str,
+        task_id: str | None,
         pipeline_id: str,
         stage_id: str | None = None,
         action_id: str | None = None,
         inputs: Mapping[str, Any] | None = None,
         version: str | None = None,
+        definition_id: str | None = None,
     ) -> list[str]:
         """What would refuse a dry run started like this, in plain words (empty: nothing found). Reads only and starts nothing: the same
         build of the snapshot, the same choice of the start, the same check of the inputs as :meth:`start`, and for the draft the check
@@ -592,12 +621,21 @@ class RunEngine:
         if version not in (None, "draft", "published"):
             return ["version is draft or published"]
         async with self._session() as session:
-            task = await session.get(Task, task_id)
-            if task is None:
+            task = await session.get(Task, task_id) if task_id else None
+            if task is None and task_id:
                 raise ArtifactError(404, "Artifact not found")
             try:
-                pipeline = await load_pipeline(session, pipeline_id)
-                snapshot = await build_snapshot(session, pipeline, draft=version == "draft")
+                if definition_id is not None:
+                    pipeline_id = definition_id
+                    snapshot = await build_action_snapshot(
+                        session, await load_action(session, definition_id), draft=version == "draft"
+                    )
+                    stage_id = action_id = None
+                    if inputs is not None:
+                        action_id = snapshot["nodes"][2]["id"]
+                else:
+                    pipeline = await load_pipeline(session, pipeline_id)
+                    snapshot = await build_snapshot(session, pipeline, draft=version == "draft")
                 chain = pipeline_chain(snapshot["nodes"], snapshot["edges"])
                 pick_start(chain, stage_id, action_id)
             except (TargetError, NestingError) as error:
@@ -608,10 +646,11 @@ class RunEngine:
                     self._entry_inputs(snapshot, inputs, action_id)
                 except ArtifactError as error:
                     found.append(error.message)
-            try:
-                check_card(await card_of(session, task))
-            except ContextError as error:
-                found.append(str(error))
+            if task is not None:  # without a card (ADR-089) there is nothing to be too large
+                try:
+                    check_card(await card_of(session, task))
+                except ContextError as error:
+                    found.append(str(error))
             if version == "draft":
                 used = [pipeline_id, *snapshot["definitions"], *snapshot["pipelines"]]
                 for graph_id in dict.fromkeys(used):
@@ -902,7 +941,9 @@ class RunEngine:
             """The artifacts in each lane (``lane.<lane>`` facts): looked up only when a guard's condition names one."""
             async with self._session() as session:
                 rows = await session.execute(
-                    select(Task.status, func.count()).group_by(Task.status)
+                    select(Task.status, func.count())
+                    .where(Task.technical.is_(False))
+                    .group_by(Task.status)
                 )
                 return {f"lane.{status}": count for status, count in rows}
 

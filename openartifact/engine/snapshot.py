@@ -13,6 +13,7 @@ frozen before those fields existed lack them; :mod:`openartifact.engine.flow` fi
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Any
 
 from sqlalchemy import select
@@ -70,6 +71,80 @@ async def build_snapshot(
     snapshot["pipelines"] = {}
     await _collect(session, snapshot, snapshot, (graph.id,), draft)
     await freeze_agents(session, snapshot)  # agent nodes keep the version they start with
+    await freeze_guards(session, snapshot)
+    return snapshot
+
+
+_STANDALONE = uuid.UUID("5d0b2c1e-6a53-4c8e-9f0a-4f6f8f3b7a11")
+
+
+def _wrapper_id(action_id: str, part: str) -> str:
+    return str(uuid.uuid5(_STANDALONE, f"{action_id}:{part}"))
+
+
+def wrap_action(definition: dict[str, Any]) -> dict[str, Any]:
+    """The pipeline-shaped root of a dry run of one action definition (ADR-089): a Trigger, one stage holding one placement of the
+    action, and a Complete, with the ids made from the action's id so the same run always has the same ones. The engine walks it like
+    any pipeline, so the run is the action's own nodes, from its Trigger to its Output, and nothing around it. The wrapper is never
+    stored as a graph; it exists in the snapshot of the run (``standalone`` names the action)."""
+    action_id = str(definition["id"])
+    trigger, stage, place, complete = (
+        _wrapper_id(action_id, part) for part in ("trigger", "stage", "action", "complete")
+    )
+
+    def node(node_id: str, kind: str, name: str, **more: Any) -> dict[str, Any]:
+        base: dict[str, Any] = {
+            "id": node_id, "kind": kind, "stage_id": None, "name": name, "label": name, "definition_id": None, "seconds": None,
+            "config": {}, "number": None, "x": 0.0, "y": 0.0, "width": None, "height": None, "fail_enabled": False,
+        }  # fmt: skip
+        return base | more
+
+    def edge(source: str, port: str, target: str, target_port: str) -> dict[str, Any]:
+        return {
+            "id": _wrapper_id(action_id, f"{source}>{target}"), "style": None, "source_slot": None, "target_slot": None,
+            "source_id": source, "source_port": port, "target_id": target, "target_port": target_port,
+        }  # fmt: skip
+
+    name = str(definition["name"])
+    return {
+        "id": action_id,
+        "name": name,
+        "kind": "pipeline",
+        "standalone": action_id,
+        "nodes": [
+            node(trigger, NodeKind.TRIGGER, "Trigger", x=0.0, y=40.0),
+            node(stage, NodeKind.STAGE, "Dry run", x=160.0, y=0.0, width=360.0, height=160.0),
+            node(
+                place,
+                NodeKind.ACTION,
+                name,
+                stage_id=stage,
+                definition_id=action_id,
+                x=24.0,
+                y=48.0,
+            ),
+            node(complete, NodeKind.COMPLETE, "Complete", x=600.0, y=40.0),
+        ],
+        "edges": [
+            edge(trigger, "out", stage, "in"),
+            edge(stage, "end", complete, "in"),
+            edge(place, "pass", complete, "in"),
+        ],
+    }
+
+
+async def build_action_snapshot(
+    session: AsyncSession, action: Graph, *, draft: bool = False
+) -> dict[str, Any]:
+    """The snapshot of a dry run of one action definition (ADR-089): the wrapper of :func:`wrap_action` plus the definition in the version
+    asked for (its draft, or the version that runs) and what that uses (called pipelines are not part of an action; its agents and
+    guards are frozen like a pipeline's)."""
+    definition = await graph_for_run(session, action.id, draft=draft)
+    snapshot = wrap_action(definition)
+    snapshot["definitions"] = {}
+    snapshot["pipelines"] = {}
+    await _collect(session, snapshot, snapshot, (action.id,), draft)
+    await freeze_agents(session, snapshot)
     await freeze_guards(session, snapshot)
     return snapshot
 

@@ -518,6 +518,32 @@ class BoardTools:
         )
         return run.model_dump(mode="json")
 
+    async def dry_run_graph(
+        self,
+        graph: str,
+        artifact: str | None = None,
+        stage: str | None = None,
+        action: str | None = None,
+        inputs: dict[str, Any] | None = None,
+        version: str | None = None,
+    ) -> dict[str, Any]:
+        """A dry run of a pipeline, or of an action by itself (from its Trigger to its Output), skipping everything that writes.
+        ``graph`` is the pipeline's or the action's id, slug or name. ``artifact`` is the card to run it on (its number); left out, it
+        belongs to the hidden card of the graph and the answer's ``task_id`` is where its executions are listed. ``inputs`` are values for the
+        declared inputs; ``version`` is ``published`` (default) or ``draft``. Follow it with ``get_execution``."""
+        run = await guarded(
+            self._service.start_dry_run(
+                graph,
+                task_ref=artifact,
+                stage_id=stage,
+                action_id=action,
+                inputs=inputs,
+                version=version or "published",
+                started_by=self._started_by,
+            )
+        )
+        return run.model_dump(mode="json")
+
     async def stop_processing(self, artifact: str) -> dict[str, Any]:
         """Stop processing an artifact; it keeps its stage and action. An error if it is not being processed."""
         return (await guarded(self._service.stop(artifact))).model_dump(mode="json")

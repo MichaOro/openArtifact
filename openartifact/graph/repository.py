@@ -298,7 +298,9 @@ class GraphRepository:
         ).all():
             uses.append({"kind": "guard", "name": guard_name, "href": "/guards", "detail": ""})
         artifacts = await self._session.scalar(
-            select(func.count()).select_from(Task).where(Task.pipeline_id == graph.id)
+            select(func.count())
+            .select_from(Task)
+            .where(Task.pipeline_id == graph.id, Task.technical.is_(False))
         )
         executions = await self._session.scalar(
             select(func.count()).select_from(Execution).where(Execution.pipeline_id == graph.id)

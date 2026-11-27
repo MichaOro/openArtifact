@@ -107,6 +107,28 @@ class RunStart(BaseModel):
     dry_run: bool = False
     inputs: dict[str, Any] | None = None
     version: Literal["draft", "published"] | None = None
+    #: A dry run only (ADR-089): the action definition to run by itself, from its Trigger to its Output, instead of a pipeline.
+    definition_id: str | None = None
+
+
+class DryRunStart(BaseModel):
+    """Body of ``POST /api/graphs/{graph}/dry-run``: a dry run of a pipeline or of an action definition by itself, on a card of the board
+    (``task_id``, an id or number) or, left out, on the hidden card of the graph (ADR-089)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str | None = None
+    stage_id: str | None = None
+    action_id: str | None = None
+    inputs: dict[str, Any] | None = None
+    version: Literal["draft", "published"] | None = None
+
+
+class DryRunCard(BaseModel):
+    """The hidden card the dry runs of a graph belong to when they were started without a card: ``null`` while none was made."""
+
+    task_id: str | None = None
+    number: int | None = None
 
 
 class DryRunCheck(BaseModel):
@@ -114,11 +136,12 @@ class DryRunCheck(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    pipeline_id: str
+    pipeline_id: str | None = None
     stage_id: str | None = None
     action_id: str | None = None
     inputs: dict[str, Any] | None = None
     version: Literal["draft", "published"] | None = None
+    definition_id: str | None = None
 
 
 class DryRunProblems(BaseModel):

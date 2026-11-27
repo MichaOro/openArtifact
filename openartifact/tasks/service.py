@@ -75,7 +75,7 @@ from openartifact.models import (
     StartedBy,
     Task,
 )
-from openartifact.tasks import card_rules, card_sweeper
+from openartifact.tasks import card_rules, card_sweeper, technical
 from openartifact.tasks import lanes as lane_rules
 from openartifact.tasks.card_rules import Rule
 from openartifact.tasks.repository import ParentError, PlacementError, TaskRepository
@@ -199,7 +199,7 @@ class ArtifactService:
     async def count_cards(self, archived: str) -> int:
         """How many cards a list with this ``archived`` value holds in all (before paging)."""
         async with self._session() as session:
-            query = select(func.count()).select_from(Task)
+            query = select(func.count()).select_from(Task).where(Task.technical.is_(False))
             if archived == "only":
                 query = query.where(Task.archived_at.is_not(None))
             elif archived == "exclude":
@@ -836,6 +836,83 @@ class ArtifactService:
 
     # ── processing ────────────────────────────────────────────────────
 
+    @staticmethod
+    async def _graph_of_ref(session: AsyncSession, ref: str) -> Graph:
+        """A pipeline or an action definition by id, slug or name (what the integration API and MCP are given)."""
+        wanted = ref.strip().lower()
+        for kind in (GraphKind.PIPELINE, GraphKind.ACTION):
+            for graph in await GraphRepository(session).list_all(kind):
+                if wanted in (graph.id.lower(), (graph.slug or "").lower(), graph.name.lower()):
+                    return graph
+        raise ArtifactError(404, "Pipeline or action not found")
+
+    async def dry_run_card(self, graph_ref: str) -> tuple[str | None, int | None]:
+        """The hidden card the card-less dry runs of this graph belong to, as (id, number), or (None, None) while none was made (ADR-089)."""
+        async with self._session() as session:
+            graph = await self._graph_of_ref(session, graph_ref)
+            card = await technical.existing_card_of_graph(session, graph.id)
+            return (card.id, card.number) if card else (None, None)
+
+    async def check_dry_run(
+        self,
+        graph_ref: str,
+        *,
+        task_ref: str | None = None,
+        stage_id: str | None = None,
+        action_id: str | None = None,
+        inputs: Mapping[str, Any] | None = None,
+        version: str | None = None,
+    ) -> list[str]:
+        """What would refuse the dry run of this pipeline or action (by itself) started like this, in plain words; reads only."""
+        async with self._session() as session:
+            graph = await self._graph_of_ref(session, graph_ref)
+            task_id = (await self._task(session, task_ref)).id if task_ref else None
+            by_itself = graph.kind == GraphKind.ACTION
+        return await self._engine.check_start(
+            task_id,
+            graph.id,
+            None if by_itself else stage_id,
+            None if by_itself else action_id,
+            inputs,
+            version or "draft",
+            definition_id=graph.id if by_itself else None,
+        )
+
+    async def start_dry_run(
+        self,
+        graph_ref: str,
+        *,
+        task_ref: str | None = None,
+        stage_id: str | None = None,
+        action_id: str | None = None,
+        inputs: Mapping[str, Any] | None = None,
+        version: str | None = None,
+        started_by: StartedBy = StartedBy.USER,
+    ) -> RunRead:
+        """A dry run (ADR-086) of a pipeline, or of an action definition by itself (ADR-089: its own nodes up to its Output), on the card
+        ``task_ref`` or, without one, on the hidden card of the graph, made when it is first needed. ``version`` is ``draft`` or
+        ``published`` (the caller's default)."""
+        async with self._session() as session:
+            graph = await self._graph_of_ref(session, graph_ref)
+            if task_ref:
+                task = await self._task(session, task_ref)
+                self.forbid_archived(task)
+            else:
+                task = await technical.card_of_graph(session, graph)
+                await session.commit()
+            task_id, by_itself = task.id, graph.kind == GraphKind.ACTION
+        return await self.start(
+            task_id,
+            graph.id,
+            None if by_itself else stage_id,
+            None if by_itself else action_id,
+            started_by,
+            dry_run=True,
+            inputs=inputs,
+            version=version,
+            definition_id=graph.id if by_itself else None,
+        )
+
     async def start(
         self,
         ref: str,
@@ -847,12 +924,15 @@ class ArtifactService:
         dry_run: bool = False,
         inputs: Mapping[str, Any] | None = None,
         version: str | None = None,
+        definition_id: str | None = None,
     ) -> RunRead:
         """Start processing; without a choice, with the pipeline, stage and action the artifact has. A dry run (ADR-086) skips what
-        writes and leaves the artifact's own target as it is."""
+        writes and leaves the artifact's own target as it is; with ``definition_id`` it runs that action by itself (ADR-089)."""
         async with self._session() as session:
             task = await self._task(session, ref)
             self.forbid_archived(task)
+            if definition_id is not None:
+                pipeline_id = definition_id
             if pipeline_id is None:
                 pipeline_id = task.pipeline_id
                 stage_id = stage_id or task.stage_id
@@ -870,6 +950,7 @@ class ArtifactService:
             dry_run=dry_run,
             inputs=inputs,
             version=version,
+            definition_id=definition_id,
         )
         # the engine re-targets the artifact in the transaction that claims its run
         async with self._session() as session:
