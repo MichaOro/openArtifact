@@ -181,5 +181,7 @@ def test_a_comment_written_by_a_run_links_to_its_execution(board: Board) -> None
     expect(anchor).to_be_visible()
     execution = board.api.get(f"/api/tasks/{task['id']}/executions").json()["items"][0]
     expect(anchor).to_have_attribute(
-        "href", f"/artifacts/{task['number']}/executions/{execution['id']}"
+        "href",
+        # the link names where it came from, so the execution page's Back button returns to this card (ADR-089)
+        f"/artifacts/{task['number']}/executions/{execution['id']}?from=card:{task['number']}",
     )
