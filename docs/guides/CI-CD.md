@@ -47,9 +47,11 @@ so CI, a local `uv sync` and the image use the same versions.
 5. **e2e** — `pytest -m e2e` (Playwright, headless Chromium, traces of failures are uploaded)
 6. **docker** — builds the image and runs `tools/smoke_container.sh` against it (push to main only; the job
    has read-only permissions). The smoke test starts the image **as deployed**: read-only root file system,
-   tmpfs `/tmp`, `--cap-drop ALL`, an API token and a secret key, as the compose file does. It checks `/health`
-   (200 without a token), that `/` and `/api/info` answer `401` without the token and `200` with it, and
-   removes the container.
+   tmpfs `/tmp`, `--cap-drop ALL`, `no-new-privileges`, an API token and a secret key, as the compose file does.
+   It first imports every module of the application in a throw-away container, then starts the container
+   `openartifact-smoke-<pid>` on a random free port of `127.0.0.1` with a tmpfs `/data`, waits up to 30 seconds
+   for `/health` to answer, and checks that `/api/tasks` answers `401` without a token, `200` with the bearer
+   token and `401` with a wrong one. The container is removed when the script exits.
 
 ### Workflow Files
 
@@ -228,7 +230,9 @@ The following GitHub repository settings must be configured for CI/CD to work:
 
 ### Smoke Test Fails
 
-- Check container logs: `docker logs openartifact-smoke`
+- The script prints the last 40 lines of the container's log when a check fails; the container
+  (`openartifact-smoke-<pid>`) is removed on exit, so `docker logs` afterwards finds nothing
+- A module that fails to import (a missing runtime dependency) fails the first step
 - Migration must succeed before the server starts
-- Verify port 2909 is not already in use
+- The host port is chosen at random, so a port in use is not the cause
 - The container runs read-only with a tmpfs `/tmp`: a change that writes elsewhere than `/data` and `/tmp` fails here first

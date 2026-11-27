@@ -65,11 +65,11 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | If and Switch nodes (a rule per Switch case), Edit Fields node, editor suggestions for references | Built | ADR-034, ADR-039 |
 | Artifact fields (global custom fields, set in the dialog's rail) | Built | ADR-044 (replaced ADR-035) |
 | User-defined lanes with a card look per lane; one UI language (primary, destructive, neutral) | Built | ADR-011, ADR-036 |
-| Credential store | Built as API; no page of its own (the provider dialog can store an API key) | ADR-024, ADR-037 |
+| Credential store | Built: API and the page *Settings › Credentials* (`/settings/credentials`; access tokens and credentials for other systems); the provider dialog can also store an API key | ADR-024, ADR-037 |
 | Execution history per artifact with retention policy | Built | ADR-025 |
 | Flow view of an execution (read-only, frozen snapshot) | Built | ADR-027 |
 | Global executions page and API | Built | ADR-028 |
-| Integration API (`/api/v1`) and MCP server (19 tools) | Built | ADR-016 |
+| Integration API (`/api/v1`) and MCP server (the tools depend on the configuration, see the [API reference](../../guides/api-reference.md)) | Built | ADR-016 |
 | Access protection and request hardening | Built | ADR-016, ADR-017 |
 | Settings area: LLM providers, run limits (steps and time per execution) | Built (ADR-037, ADR-039); separate tokens are not built, the number of parallel runs stays an environment variable | ADR-039 |
 | Human-in-the-loop (a `waiting` status), automatic starts by the system | Not built (`started_by` knows `system`, nothing sets it) | |
@@ -77,7 +77,8 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Tools for agents: MCP Client Tool (remote Streamable HTTP, e.g. GitHub), HTTP Request Tool and Execute Command Tool as nodes attached below the Agent node, a loop bounded by max iterations, tool calls in the history | Built; no memory, multi-agent runs, approval before a tool call, local MCP servers | ADR-040 |
 | GitHub node (read and comment) and Postgres as a node and as a tool for agents: bound parameters, read-only enforced by the server, bounded results, the connection URL a secret | Built; one page of a list, one statement per call, a connection per call, no query the model writes itself | ADR-041 |
 | Git, notifications, PostgreSQL as a data source, connector layer | Not built | ADR-020 |
-| Node versions, reordering and colouring of lanes, priorities, tags, due dates, assignees | Not built | |
+| Reordering of lanes | Built | ADR-092 |
+| Node versions, a colour chosen per lane (a lane takes its colour from its place on the board), priorities, tags, due dates, assignees | Not built | |
 | Third-party extensions (manifest, contract version, pages) | Not built | ADR-014 §3.5 |
 | Keyboard creation of graph connections, screen-reader use of the editor | Not built; known limitation | ADR-030, chapter 11 |
 | Rate limiting, per-session revocation, key rotation for secrets | Not built | chapter 11 |
@@ -98,5 +99,5 @@ This is the one place that says what exists. The bootstrap work packages (WP-00 
 | Pipeline and action editor | List and canvas: trigger, stages with one start and end, actions, connections by dragging (curved, straight or elbow; three attachment points per stage side); hovering or selecting a connection shows a small bar on it with a bin (delete) and a pencil (the three line styles as pictograms with a tooltip), next to the inspector's buttons; a double click on an action (or a pipeline node) opens what it links to, like Edit; changes saved at once; inspector with settings per node kind including Code and HTTP (ADR-012, ADR-014, ADR-022) |
 | Processing | Start and stop at a chosen pipeline, stage and action; the card is locked while it runs; state pushed by SSE (ADR-013) |
 | History tab, flow page, executions page | List, detail with steps, retention editor, delete and clear; read-only flow on the editor canvas with drill-in; global list with filters and summary |
-| Not implemented | Priorities, tags, due dates, assignees; reordering lanes; a page for credentials; keyboard creation of graph connections |
+| Not implemented | Priorities, tags, due dates, assignees; keyboard creation of graph connections |
 | Never used | HTMX, Tailwind CSS, Alpine.js (ADR-010) |

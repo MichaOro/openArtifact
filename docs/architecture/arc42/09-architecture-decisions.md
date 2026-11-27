@@ -3,9 +3,13 @@
 ## Overview of Decisions
 
 Architecture decisions are documented as Architecture Decision Records (ADRs) in the [`docs/architecture/adr/`](../adr/)
-directory. The table lists every ADR with its status and its relations to the others; the ADR files are the source, the
-header lines of each ADR and this table are kept in step. An accepted ADR keeps its text: when reality changes, a dated
-`Update` section is added at the end and the relation lines are filled on both ADRs ([template](../adr/TEMPLATE.md)).
+directory. The index of every ADR, with its status and its relations to the others, is
+[`docs/architecture/adr/README.md`](../adr/README.md); the ADR files are the source. An accepted ADR keeps its text:
+when reality changes, a dated `Update` section is added at the end and the relation lines are filled on both ADRs
+([template](../adr/TEMPLATE.md)).
+
+The table below lists only the early decisions (ADR-001 to ADR-036) as they stood when it was last kept; the
+[index](../adr/README.md) is current, for these too.
 
 | # | ADR | Status | Relations |
 |---|-----|--------|-----------|
