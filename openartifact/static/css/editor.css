@@ -196,6 +196,24 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The title of an action, an agent and the other flow cards reserves TWO lines, always: the card keeps its height whether the name needs one or two,
+   a one-line name leaves the second line empty, a longer one is cut with an ellipsis at the end of the second. The kind label under it has its own
+   air (the gap), so it never touches the second line, used or not (ADR-054 addendum, owner's decision: the cards of the pipeline view). */
+.ge-node[data-behaviour="action"] .ge-node__text,
+.ge-node[data-behaviour="flow"] .ge-node__text,
+.ge-node[data-behaviour="switch"] .ge-node__text { gap: 0.3rem; }
+.ge-node[data-behaviour="action"] .ge-node__name,
+.ge-node[data-behaviour="flow"] .ge-node__name,
+.ge-node[data-behaviour="switch"] .ge-node__name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.15;
+  min-height: 2.3em;
+}
 /* the system's number of a placement (ADR-082): first, quieter than the name (secondary text keeps 4.5:1 on the tinted card), and not the user's to change */
 .ge-node__number { font-weight: 400; font-size: 0.75rem; color: var(--color-text-secondary); }
 /* an action card draws On Pass / On Error inside its right edge: the name stops before them (cut with an ellipsis), it never runs into the labels */
