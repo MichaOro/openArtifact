@@ -1,5 +1,5 @@
-# Known vulnerabilities in the declared runtime dependencies (pip-audit), weekly and when the
-# dependency list changes. The ranges from pyproject.toml are resolved fresh, as in the image.
+# Known vulnerabilities in the locked runtime dependencies (pip-audit), weekly and when the
+# dependency list or the lock changes. The set is exported from uv.lock, as in the image.
 name: Audit
 
 on:
@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - "pyproject.toml"
+      - "uv.lock"
       - ".github/workflows/audit.yml"
 
 permissions:
@@ -24,13 +25,16 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - name: Declared runtime dependencies
+      - uses: astral-sh/setup-uv@v10.4.0
+        with:
+          version: "0.13.9"
+          python-version: "3.12"
+      - name: Locked runtime dependencies
         run: |
-          # The list from pyproject.toml, the same one the Dockerfile installs.
-          python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))" > "$RUNNER_TEMP/requirements.txt"
-          cat "$RUNNER_TEMP/requirements.txt"
+          # The runtime part of uv.lock with hashes, the same list the Dockerfile installs (also printed to the log).
+          uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file "$RUNNER_TEMP/requirements.txt"
       - name: Audit them
         run: |
           pip install --no-cache-dir pip-audit
-          # -r resolves the declared ranges in a throw-away environment and audits what comes out.
-          pip-audit -r "$RUNNER_TEMP/requirements.txt" --progress-spinner off
+          # -r installs the pinned, hashed list in a throw-away environment and audits what comes out.
+          pip-audit -r "$RUNNER_TEMP/requirements.txt" --require-hashes --progress-spinner off

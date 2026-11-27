@@ -17,6 +17,7 @@ on:
       - "alembic/**"
       - "alembic.ini"
       - "pyproject.toml"
+      - "uv.lock"
       - "deploy/**"
       - "scripts/**"
       - "tools/smoke_container.sh"
