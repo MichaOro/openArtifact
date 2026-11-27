@@ -13,3 +13,10 @@ had arrived (the run context holds it while the action runs); the prompt could n
 - **What stays:** nothing else of the run is readable in a prompt (`${node...}`, `${var...}`, `${secret:...}` are still refused): an agent still does not depend on the nodes of a
   pipeline, only on the declared inputs of its graph.
 - **Implemented in:** `agents/render.py` (`fill`, `prompt_problems`), `agents/service.py` (`_graph_input_names`). Test: `tests/test_trigger_input_in_agent_prompt.py`.
+
+## Addendum 2: the flow of a running dry run shows the node that works
+
+The flow of an action's dry run (the action by itself, no pipeline around it) is replayed from the steps of the action alone. A node that works has no step of its own yet, so the
+replay has to say the run is in the node the edge of the last finished step leads to, as the replay of a run through a pipeline does (`_definition` in `engine/flow.py`). It did
+not, so while an agent or an HTTP node worked the flow drew it faded, no bubbles ran along the edge and the path list ended at the Trigger. `run_standalone` now adds that edge and node while
+the run is `running`. A pipeline dry run and an observed run replay like any pipeline run and were not affected.
