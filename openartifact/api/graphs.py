@@ -25,7 +25,7 @@ from openartifact.engine.neighbour_schemas import GraphNeighbours
 from openartifact.engine.neighbours import graph_neighbours
 from openartifact.exceptions import ArtifactError
 from openartifact.graph import contract as graph_contract
-from openartifact.graph import preflight, publishing, versions
+from openartifact.graph import observe_state, preflight, publishing, versions
 from openartifact.graph.content import graph_of
 from openartifact.graph.localize import localize
 from openartifact.graph.mock import CASES_KEY, MOCK_KEY
@@ -109,6 +109,19 @@ async def _node_reads(repo: GraphRepository, nodes: Sequence[GraphNode]) -> list
     return reads
 
 
+async def _observe_mark(
+    session: AsyncSession, graph: Graph
+) -> Literal["observing", "ended"] | None:
+    """What the list says of a pipeline's observe mode (ADR-088): ``observing``, ``ended`` or nothing."""
+    if graph.kind != GraphKind.PIPELINE:
+        return None
+    setting = await observe_state.published_setting(session, graph)
+    if setting is None:
+        return None
+    status_ = observe_state.status_of(graph, setting)
+    return "ended" if status_["ended"] else "observing" if status_["observing"] else None
+
+
 def build_graph_router(kind: GraphKind) -> APIRouter:
     """The router of one kind of graph: ``pipeline`` at ``/api/pipelines``, ``action`` at ``/api/actions``."""
     label = _LABELS[kind]
@@ -165,6 +178,7 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
                 update={
                     "node_count": counts.get(g.id, 0),
                     "draft_changed": await publishing.draft_changed(session, g),
+                    "observe": await _observe_mark(session, g),
                 }
             )
             for g in graphs

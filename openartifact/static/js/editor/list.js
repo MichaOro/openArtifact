@@ -43,7 +43,15 @@ function sceneOf(graph) {
 }
 
 const purposeChip = (graph) => (kind === "action" ? (graph.purpose === "guard" ? chip(t("graph.action.chip_guard"), { glyph: "shield", tone: "guard" }) : chip(t("graph.action.chip_pipeline"), { glyph: "action" })) : null);
-const chipsOf = (graph) => [purposeChip(graph), publicationChip(graph)].filter(Boolean);
+/** The chip of the observe mode of a pipeline (ADR-088): the open eye while its runs are observed, the stop sign while the observation has ended. */
+function observeChip(graph) {
+  if (graph.observe !== "observing" && graph.observe !== "ended") return null;
+  const ended = graph.observe === "ended";
+  const el = chip(ended ? t("graph_list.chip_observe_ended") : t("graph_list.chip_observing"), { glyph: ended ? "hand" : "eye" });
+  el.dataset.observe = graph.observe;
+  return el;
+}
+const chipsOf = (graph) => [purposeChip(graph), publicationChip(graph), observeChip(graph)].filter(Boolean);
 
 function card(graph) {
   // no picture on a card: the graph is in the panel (tab Graph), which keeps the cards calm

@@ -54,7 +54,7 @@
                 <fieldset class="ex-group">
                     <legend class="ex-group__legend">{{ t('executions.kind') }}</legend>
                     <div class="ex-group__items">
-                        {% for value, label in [("all", t('executions.any_kind')), ("exclude", t('executions.real_runs')), ("only", t('executions.dry_runs'))] %}
+                        {% for value, label in [("all", t('executions.any_kind')), ("exclude", t('executions.real_runs')), ("only", t('executions.dry_runs')), ("observed", t('executions.observed'))] %}
                         <label class="ex-toggle ex-toggle--range history-chip"><input type="radio" class="ex-toggle__input" name="dry_run" value="{{ value }}"><span class="ex-toggle__tick" aria-hidden="true">{{ icon("check") }}</span><span>{{ label }}</span></label>
                         {% endfor %}
                     </div>

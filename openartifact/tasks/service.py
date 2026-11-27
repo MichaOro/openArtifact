@@ -390,6 +390,7 @@ class ArtifactService:
         limit: int = history_query.DEFAULT_LIMIT,
         cursor: str | None = None,
         dry_run: str | None = None,
+        observed: str | None = None,
     ) -> ExecutionsPage:
         """The executions of all artifacts, newest first, one page (see ``engine/history_query.py``)."""
         flt = history_query.ExecutionFilter.parse(
@@ -400,6 +401,7 @@ class ArtifactService:
             since=since,
             until=until,
             dry_run=dry_run,
+            observed=observed,
         )
         async with self._session() as session:
             return await history_query.list_executions(

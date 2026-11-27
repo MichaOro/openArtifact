@@ -284,6 +284,13 @@ pipeline on real cards before it changes anything.
 - **What cannot be observed.** A node that needs the result of a skipped write does not fail the run and does not take On Fail: its step says *Not observable from here*
   (`data.not_observable`) and the run ends there as **done** with that in its note.
 
+**In the editor.** The switch *Observe* (German *Beobachten*) is at the top of the *Dry run* tab of the pipeline's Trigger window (an action has none: it is tried with a dry
+run), with the optional *Stop after (days)* and *Stop after (runs)*; it changes the draft and says *Applies when you publish* and, while the draft differs, what is live now.
+While the published mode observes, an **open eye** sits in the corner of the canvas beside the shield and the plus (order: eye, shield, plus; an entry that is not active is not
+there and the others close up): its popup shows since when, how many runs and when it ends, and offers *Stop observing* (a change of the draft, applied by a publication) and
+*Open settings*. While the observation has **ended**, a stop sign takes the eye's place: its popup gives the reason and the two decisions *Release* and *Observe again*, which act
+at once. The pipelines list shows the chip *Observing* (*Beobachtet*) or *Starts refused*.
+
 ## Execute Command node
 
 Runs shell or Python text stored in the node. It was called *Code* before ADR-075: the kind is still `code` in stored actions and in the

@@ -4,6 +4,7 @@
 import { originLabel, plural, setChip } from "./history-format.js";
 import { fillDeleteButton, fillDuration, fillOrigin, fillTime, placeByTime, RunningClock } from "./history-row.js";
 import { markerOf } from "./activity-model.js";
+import { drawRunFlag } from "../components/run-flag.js";
 import { setMarker } from "./history-marker.js";
 
 export class HistoryList {
@@ -101,7 +102,7 @@ export class HistoryList {
     setMarker(row, markerOf({ type: "execution", execution: e }));
     setChip(row.querySelector(".history-chip"), e.status);
     row.querySelector("[data-row-number]").textContent = `#${e.number}`;
-    row.querySelector("[data-row-dry]").hidden = !e.dry_run;
+    drawRunFlag(row.querySelector("[data-row-dry]"), e);
     fillTime(row.querySelector("[data-row-time]"), e.started_at);
     this.#duration(row, e);
     row.querySelector("[data-row-pipeline]").textContent = e.pipeline_name ?? "";

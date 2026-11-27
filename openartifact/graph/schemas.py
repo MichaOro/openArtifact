@@ -191,6 +191,9 @@ class GraphListRead(GraphRead):
     """A pipeline or action in the list: with the number of its nodes (the management pages draw it on the card)."""
 
     node_count: int = 0
+    #: A pipeline only: ``observing`` while its published version has the observe mode on and runs are observed, ``ended`` while the
+    #: observation is over and starts are refused (ADR-088); ``None`` otherwise. The management page shows a chip for it.
+    observe: Literal["observing", "ended"] | None = None
 
 
 class GraphUse(BaseModel):

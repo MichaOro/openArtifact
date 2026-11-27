@@ -73,6 +73,7 @@
   white-space: nowrap;
 }
 .history-flag[hidden] { display: none; }
+.history-flag[data-kind="observed"] { --chip: var(--lane-hue-2); } /* an observed run (ADR-088): its own tint beside the dry run's */
 .history-chip[data-status="running"] { --chip: var(--color-accent); }
 .history-chip[data-status="done"],
 .history-chip[data-status="pass"] { --chip: var(--lane-hue-3); }
@@ -159,6 +160,7 @@
 .history-step__facts,
 .history-step__reason { font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .history-step__reason { color: var(--color-text-primary); }
+.history-step__reason[data-not-observable] { color: var(--color-text-secondary); font-style: italic; } /* a step an observed run could not see: passed, a quiet line */
 .history-step__block summary { cursor: pointer; font-size: 0.75rem; color: var(--color-text-secondary); }
 .history-context > .button { margin-top: var(--space-1); }
 .history-step__block summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
