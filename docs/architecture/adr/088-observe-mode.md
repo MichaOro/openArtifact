@@ -73,7 +73,7 @@ A mode per stage or per action, an observe mode that writes into a sandbox, and 
   *Live now: observing / the observation ended / not observing*. A change of the draft makes the *Draft* mark of the editor follow at once. Switching **on** happens only here.
 - **The status bar.** The corner of the canvas (the shield and the plus) is one small list, `components/status-bar.js`: entries with a key, an `order` and `visible`, drawn in
   that order, **the plus always last**, an entry that is not active takes no room (no gap) and one that appears takes its own place, not the end. The order of the elements in the
-  page is the order on the screen, so the keyboard follows it. The pure arrangement is `status-bar-model.js`; more entries are one `add`. The shield of the guards moved into it
+  page is the order on the screen, so the keyboard follows it. The list is a variant of the shared base `icon-list.js` (pure logic `icon-list-model.js`, also used by the card's icons); more entries are one `add` and a key in the variant's whitelist. The shield of the guards moved into it
   without changing what it does (its visibility is `bar.set("guard", count > 0)`): order **eye (10), shield (20), plus (last)**, and the stop sign (5) left of the eye's place.
 - **The eye** (`editor/observe-bar.js`, icon `eye`) is there only while the **published** mode is observing; there is no closed eye. Its popup (`components/status-popup.js`) says
   since when, how many runs of how many, and when it ends, and offers *Stop observing* (it asks first, then sets `enabled: false` in the draft; the popup then says *Switched off in the

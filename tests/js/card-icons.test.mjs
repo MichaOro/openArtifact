@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 const { CARD_ORDER } = await import("../../openartifact/static/js/components/card-icons.js");
-const { shownKeys } = await import("../../openartifact/static/js/components/status-bar-model.js");
+const { shownKeys } = await import("../../openartifact/static/js/components/icon-list-model.js");
 
 const entries = (active) => [
   { key: "a", order: 5, visible: active.includes("a") },
