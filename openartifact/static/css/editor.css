@@ -407,6 +407,8 @@
 #node-modal.is-wide .modal__panel { --dialog-min-w: 56rem; }
 /* a window with a compact field list (Trigger, Output, Complete): small, the row is handle, name, type, required and the menu */
 #node-modal.has-fields .modal__panel { --dialog-min-w: 34rem; }
+/* a field list that shows descriptions or defaults as columns (components.css, .sf--inline) asks for the width of one line */
+#node-modal.has-fields:has(.sf--inline) .modal__panel { --dialog-min-w: min(62rem, calc(100vw - 2rem)); }
 .ge-settings__column { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .ge-settings__title { margin: 0; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary); }
 .ge-settings__group { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }

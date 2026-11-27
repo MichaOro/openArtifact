@@ -56,20 +56,9 @@ export class SchemaFields {
     this.shown = this.list.map((field) => shownOf(field, extra)); // what each row shows besides the compact row: kept apart from the data
     this.element = element("div", wide ? "sf sf--wide" : "sf");
     if (wide) {
-      const plan = rowPlan({ showRequired, extra });
-      this.element.style.setProperty("--sf-cols", plan.template);
-      this.element.style.setProperty("--sf-row", plan.row);
-      this.element.style.setProperty("--sf-row-d", plan.description);
-      this.element.style.setProperty("--sf-row-e", plan.extra);
-      this.element.style.setProperty("--sf-row-c", plan.choices);
       this.head = element("div", "sf__head");
       this.head.setAttribute("aria-hidden", "true"); // the inputs name themselves; the heads only tell a seeing user what each column is
-      for (const column of plan.columns) {
-        if (column === "grip" || column === "more") continue;
-        const label = element("span", `sf__h sf__h--${column}`, t(`components.schema_fields.head.${column === "extra" ? extra : column}`));
-        label.style.gridArea = column;
-        this.head.append(label);
-      }
+      this.layout();
     }
     this.rows = element("ul", "sf__list");
     if (label) this.rows.setAttribute("aria-label", label);
@@ -96,7 +85,31 @@ export class SchemaFields {
     return found ? t(`components.schema_fields.problem.${found.code}`, found.params) : null;
   }
 
+  /** The columns of the wide list (the plan), and the column heads: which optional texts some row shows decides whether they are columns of
+   * the row when the window has the room (the dialog widens then, see `sf--inline`) or lines under it. */
+  layout() {
+    const inline = { description: this.shown.some((s) => s?.description), extra: this.shown.some((s) => s?.extra) };
+    const plan = rowPlan({ showRequired: this.showRequired, extra: this.extra, inline });
+    const style = this.element.style;
+    style.setProperty("--sf-cols", plan.template);
+    style.setProperty("--sf-row", plan.row);
+    style.setProperty("--sf-row-d", plan.description);
+    style.setProperty("--sf-row-e", plan.extra);
+    style.setProperty("--sf-row-c", plan.choices);
+    style.setProperty("--sf-cols-i", plan.inlineTemplate);
+    style.setProperty("--sf-row-i", plan.inlineRow);
+    style.setProperty("--sf-row-ci", plan.inlineChoices);
+    this.element.classList.toggle("sf--inline", plan.isInline);
+    const inlineOnly = (column) => column === "description" || (column === "extra" && this.extra === "default");
+    this.head.replaceChildren(...plan.inlineColumns.filter((c) => c !== "grip" && c !== "more").map((column) => {
+      const label = element("span", `sf__h sf__h--${column}${inlineOnly(column) ? " sf__h--inline" : ""}`, t(`components.schema_fields.head.${column === "extra" ? this.extra : column}`));
+      label.style.gridArea = column;
+      return label;
+    })); // the heads of the texts that are columns only in the inline layout are hidden in the stacked one
+  }
+
   draw() {
+    if (this.wide) this.layout();
     this.rows.replaceChildren(...this.list.map((field, index) => this.row(field, index)));
     this.add.disabled = this.list.length >= this.max;
   }

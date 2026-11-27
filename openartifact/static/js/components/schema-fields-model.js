@@ -109,16 +109,29 @@ export function menuPlan({ extra = null, shown }) {
  * choice's values). The row is compact: handle, name, type, "required" (not for an output), the value of an output (an output always has one)
  * and the menu; the rest comes on lines of its own when a row has it. Pure, so the plan is tested on its own; the component only hands it to
  * the stylesheet. */
-const WIDTHS = { grip: "2rem", name: "minmax(5.5rem, 1.2fr)", type: "8.5rem", required: "3.75rem", extra: "minmax(6rem, 1.4fr)", more: "2rem" };
+const WIDTHS = { grip: "2rem", name: "minmax(5.5rem, 1.2fr)", type: "8.5rem", required: "3.75rem", extra: "minmax(6rem, 1.4fr)", description: "minmax(9rem, 1.8fr)", more: "2rem" };
 
-export function rowPlan({ showRequired = true, extra = null } = {}) {
+/** `inline` says which of the optional texts some row of the list shows ({description, extra}): when the room allows, those become columns of
+ * the row (to the right of the compact row, a column for every row, empty where a row has none), so a row stays one line; `inlineTemplate`,
+ * `inlineRow` and `inlineChoices` are that layout, the plain ones the stacked layout of a narrow window. */
+export function rowPlan({ showRequired = true, extra = null, inline = {} } = {}) {
   const columns = ["grip", "name", "type", ...(showRequired ? ["required"] : []), ...(extra === "value" ? ["extra"] : []), "more"];
   const inner = columns.length - 2; // the columns between the handle and the menu
   const line = (area) => `"${[".", ...Array(inner).fill(area), "."].join(" ")}"`;
+  const inlineColumns = [...columns.slice(0, -1)];
+  if (extra === "default" && inline.extra) inlineColumns.push("extra");
+  if (inline.description) inlineColumns.push("description");
+  inlineColumns.push("more");
+  const innerInline = inlineColumns.length - 2;
   return {
     columns,
+    inlineColumns,
     template: columns.map((c) => WIDTHS[c]).join(" "),
     row: `"${columns.join(" ")}"`,
+    inlineTemplate: inlineColumns.map((c) => WIDTHS[c]).join(" "),
+    inlineRow: `"${inlineColumns.join(" ")}"`,
+    inlineChoices: `"${[".", ...Array(innerInline).fill("choices"), "."].join(" ")}"`,
+    isInline: inlineColumns.length > columns.length,
     description: line("description"),
     extra: line(extra === "default" ? "extra" : "."), // the default of an input gets a line; the value of an output is a column of the row (an area may not be in two places)
     choices: line("choices"),

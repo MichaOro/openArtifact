@@ -1075,12 +1075,24 @@ input.check:disabled { opacity: 0.4; cursor: not-allowed; }
   .sf--wide .sf__line { margin-top: var(--space-2); }
   .sf--wide .sf__row { padding-bottom: var(--space-3); }
   .sf--wide .sf__required input.check { width: var(--sf-box); height: var(--sf-box); border-radius: 0.55rem; } /* the box is as tall as the fields beside it */
-  .sf--wide .sf__required input.check:checked::after { width: 0.5rem; height: 0.9rem; margin-top: 0.5rem; border-width: 0 3px 3px 0; }
+  .sf--wide .sf__required input.check:checked::after { width: 0.65rem; height: 1.15rem; margin-top: 0.55rem; border-width: 0 4px 4px 0; }
   .sf--wide .sf__more { grid-area: more; justify-self: center; }
   .sf--wide .sf__h { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sf--wide .sf__h--required { text-align: center; }
   .sf--wide .sf__required { justify-self: center; gap: 0; }
   .sf--wide .sf__required .ck__text { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } /* the head says it */
+}
+/* With the room (a window as wide as the inline layout needs: the dialog widens to it, see below) the description and the default of the rows
+   are columns to the right of the compact row, one line per field and no wrapping; narrower, they stay the lines under the row. */
+.sf__h--inline { display: none; }
+@container (min-width: 44rem) {
+  .sf--inline .sf__head,
+  .sf--inline .sf__row { grid-template-columns: var(--sf-cols-i); }
+  .sf--inline .sf__head { grid-template-areas: var(--sf-row-i); }
+  .sf--inline .sf__row { grid-template-areas: var(--sf-row-i) var(--sf-row-ci); }
+  .sf--inline .sf__h--inline { display: block; }
+  .sf--inline .sf__line { margin-top: 0; }
+  .sf--inline .sf__choices { margin-top: var(--space-2); }
 }
 /* a modal gives every control a minimum width of 16 rem; the controls of a row give way to the width of the window instead */
 .sf .sf__row .field__control { min-width: 0; }

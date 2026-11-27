@@ -77,3 +77,12 @@ use it: `contract_input_removed` (a placement still gives a value to a removed i
 
 **Names ghosted.** At a placement each declared input is a mapping row whose placeholder is the input's name; a typed value overrides it, the default is shown
 muted beside the label.
+
+## Addendum 3: what a row shows beside the compact row is a column when the window has room
+
+Seen in use, the description and default lines under a row made the list look cramped. Now, when any row of the list shows a description or a default (the row menu),
+those are **columns of the same row**, to the right of the compact row (`Default`, `Description`, each with a column head; a row that has none leaves its cell empty),
+so a field stays one line without wrapping, and the Trigger, Output and Complete window **widens** to hold them (`#node-modal:has(.sf--inline)`, at most 62 rem and never
+wider than the screen). When the list is narrower than 44 rem (a small screen) they stay the lines under the row of Addendum 2. `rowPlan` returns both layouts
+(`inlineColumns`, `inlineRow`, `isInline`); the list decides from the rows' `shown` state and redraws its heads. The "Required" box is as tall as the fields beside it
+(2.7 rem, a square), its column is 3.75 rem wide and its tick is larger.

@@ -204,7 +204,18 @@ def _stored_inputs(api: httpx.Client, action: dict[str, Any]) -> list[dict[str, 
 def test_the_trigger_window_is_small_and_each_input_is_one_compact_row_under_column_heads(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
-    action = _trigger_inputs(api)
+    action = post(api, "/api/actions", name="Compact")
+    api.patch(
+        f"{graph_url(action)}/nodes/{kind_of(api, action, 'trigger')['id']}",
+        json={
+            "config": {
+                "inputs": [
+                    {"name": "who", "type": "text", "required": True},
+                    {"name": "when", "type": "text"},
+                ]
+            }
+        },
+    ).raise_for_status()
     page.set_viewport_size({"width": 1280, "height": 900})
     dialog = _open_trigger(page, base_url, action)
     heads = dialog.locator(".sf__head .sf__h")
@@ -212,7 +223,9 @@ def test_the_trigger_window_is_small_and_each_input_is_one_compact_row_under_col
     rows = dialog.locator(".sf__row")
     expect(rows).to_have_count(2)
     panel = dialog.locator(".modal__panel").bounding_box()
-    assert panel and panel["width"] <= 640, panel  # the owner's mock: a small window
+    assert panel and panel["width"] <= 640, (
+        panel
+    )  # the owner's mock: a small window while no row shows a description or a default
     head_boxes = {
         part: dialog.locator(f".sf__h--{part}").bounding_box()
         for part in ("name", "type", "required")
@@ -230,22 +243,78 @@ def test_the_trigger_window_is_small_and_each_input_is_one_compact_row_under_col
             assert head and abs(boxes[part]["l"] - head["x"]) <= 2, (part, boxes[part], head)
     # the bin is in the menu: nothing at the end of the row
     expect(dialog.locator(".sf__bin")).to_have_count(0)
-    # what a field has is shown, nothing else
+    expect(dialog.locator(".sf__description")).to_have_count(0)
+    expect(dialog.locator(".sf__extra")).to_have_count(0)
+
+
+def test_a_description_and_a_default_are_columns_of_the_same_row_and_the_window_widens_to_hold_them(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    """The owner's decision after seeing the stacked lines: with room, what a row shows besides the compact row sits to its right, in one
+    line without wrapping, and the dialog gets wider for it (the cards of narrower screens keep the stacked lines, next test)."""
+    action = _trigger_inputs(api)
+    page.set_viewport_size({"width": 1280, "height": 900})
+    dialog = _open_trigger(page, base_url, action)
+    assert dialog.locator(".sf__head .sf__h").all_inner_texts() == [
+        "Name *",
+        "Type",
+        "Required",
+        "Default",
+        "Description",
+    ]
+    rows = dialog.locator(".sf__row")
     first, second = rows.nth(0), rows.nth(1)
     expect(first.locator(".sf__description")).to_have_value("The person")
     expect(first.locator(".sf__extra")).to_have_count(0)
     expect(second.locator(".sf__description")).to_have_count(0)
     expect(second.locator(".sf__extra")).to_have_value("a")
-    # the text for a model is not here, and the description sits on a line of its own under the name
+    panel = dialog.locator(".modal__panel").bounding_box()
+    assert panel and panel["width"] >= 880, panel  # wider than the compact window
+    for index, row in enumerate((first, second)):
+        boxes = row.evaluate(BOXES)
+        assert boxes["name"]["l"] < boxes["type"]["l"]
+        shown = ".sf__description" if index == 0 else ".sf__extra"
+        box = row.locator(shown).bounding_box()
+        name = row.locator(".sf__name").bounding_box()
+        assert box and name
+        assert box["x"] > name["x"] + name["width"], (
+            index,
+            box,
+            name,
+        )  # to the right of the compact row
+        assert abs((box["y"] + box["height"] / 2) - (name["y"] + name["height"] / 2)) <= 8, (
+            index,
+            box,
+            name,
+        )  # in the same line
+    heads = {
+        part: dialog.locator(f".sf__h--{part}").bounding_box() for part in ("description", "extra")
+    }
+    description = first.locator(".sf__description").bounding_box()
     assert (
-        first.locator(".sf__description").get_attribute("placeholder") != "What the model puts here"
+        description
+        and heads["description"]
+        and abs(description["x"] - heads["description"]["x"]) <= 2
     )
+    # the values of a choice are a line of their own under the row
+    expect(second.locator(".sf__choices")).to_be_visible()
+
+
+def test_in_a_window_too_narrow_for_columns_a_description_and_a_default_stay_on_lines_under_the_row(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    action = _trigger_inputs(api)
+    page.set_viewport_size({"width": 700, "height": 900})
+    dialog = _open_trigger(page, base_url, action)
+    rows = dialog.locator(".sf__row")
+    first, second = rows.nth(0), rows.nth(1)
+    expect(first.locator(".sf__description")).to_have_value("The person")
+    expect(second.locator(".sf__extra")).to_have_value("a")
     description = first.locator(".sf__description").bounding_box()
     name = first.locator(".sf__name").bounding_box()
     assert description and name
     assert description["y"] >= name["y"] + name["height"] - 1
     assert abs(description["x"] - name["x"]) <= 2
-    # the values of a choice are a line of their own under the row
     expect(second.locator(".sf__choices")).to_be_visible()
 
 
