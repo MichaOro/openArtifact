@@ -309,6 +309,9 @@ export class ArtifactDialog extends FormDialog {
     const notes = warningsFor(this.warned, task);
     this.viewWarning.hidden = notes.length === 0;
     this.viewWarning.textContent = notes.length ? [t("tasks.body.saved_with_notes"), ...notes].join("\n") : "";
+    // the copy buttons of the read-only title and body look at the new text NOW, not when the observer's microtask runs: they reserve room at the
+    // right (`.has-copy`), which changes how the text wraps, and the dialog is measured right after this (#fit)
+    for (const copy of this.copies.slice(0, 2)) copy.refresh();
   }
 
   /** The legend in the foot of the rail (next to its expand button), made once. */
