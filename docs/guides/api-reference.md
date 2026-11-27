@@ -56,7 +56,8 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | PATCH | `/api/v1/artifacts/{ref}` | Change it (partial); `fields` are merged into the stored ones (`null` clears one); lane, order, parent, pipeline, type and parameters are locked while it is processed | 404, 409, 422 |
 | DELETE | `/api/v1/artifacts/{ref}` | Delete it (not while it is processed); `204` | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run` | State of the run: status, where it is, status of every stage | 404 (never processed) |
-| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`, and for a dry run `dry_run`, `inputs`, `version`: see [execution nodes](execution-nodes.md#dry-run-testlauf)); the run records `started_by: api`; `201`; `409` with `code: stopped` while the emergency stop is on (ADR-076) | 404, 409, 422, 429 |
+| POST | `/api/v1/graphs/{ref}/dry-run` | As `/api/graphs/{ref}/dry-run`, started as `api`; the **published** version runs unless `version` is `draft` (ADR-089) | 404, 409, 422, 429 |
+| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`, and for a dry run `dry_run`, `inputs`, `version`, and with `dry_run` `definition_id` to run one action by itself: see [execution nodes](execution-nodes.md#dry-run-testlauf)); the run records `started_by: api`; `201`; `409` with `code: stopped` while the emergency stop is on (ADR-076) | 404, 409, 422, 429 |
 | POST | `/api/v1/artifacts/{ref}/run/stop` | Stop; the artifact keeps its stage and action | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run/results` | Every step of the run inside action definitions, in order, with complete outputs | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions` | The artifact's executions, newest first, without steps; `limit` 1 to 500 (default 100) | 404, 422 |
@@ -295,6 +296,9 @@ values together are at most 4 KiB. The refusal for a typo:
 | GET | `/api/runs/{task_id}/results` | Steps inside action definitions with complete outputs | 404 |
 | POST | `/api/tasks/{task_id}/run` | Start; stages before the starting stage count as done; `dry_run`, `inputs`, `version` for a dry run (the draft by default); `201` | 404, 409, 422, 429 |
 | POST | `/api/tasks/{task_id}/dry-run/check` | What would refuse a dry run started with the same body as the start (`pipeline_id`, `stage_id`, `action_id`, `inputs`, `version`, default `draft`): `{"problems": [text]}`, empty when nothing is in the way; reads only, starts nothing (ADR-086) | 404, 422 |
+| POST | `/api/graphs/{ref}/dry-run` | A dry run of a pipeline, or of an action by itself (from its Trigger to its Output), by id, slug or name (ADR-089). Body optional: `task_id` (a card, id or number; without one the run belongs to the graph's hidden card, made on first use and in no list of the board), `stage_id`, `action_id` (pipelines), `inputs`, `version` (`draft` by default). `201`; `409` while the emergency stop is on | 404, 409, 422, 429 |
+| POST | `/api/graphs/{ref}/dry-run/check` | What would refuse that start, `{"problems": [text]}`; reads only | 404, 422 |
+| GET | `/api/graphs/{ref}/dry-run-card` | The hidden card of the graph, `{task_id, number}`, `null`s until a card-less dry run made it; its executions are `GET /api/tasks/{task_id}/executions` | 404 |
 | GET | `/api/actions/{action_id}/placements` | Where a pipeline puts the action definition (`pipeline_id`, `pipeline_name`, `stage_id`, `stage_name`, `action_id`): where a dry run of the action starts; empty when none does | 404 |
 | POST | `/api/tasks/{task_id}/run/stop` | Stop | 404, 409 |
 

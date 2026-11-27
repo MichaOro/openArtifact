@@ -385,7 +385,9 @@ def build_flow(
     snapshot.setdefault("name", execution.pipeline_name)
     graphs = _graphs(snapshot, root_id)
     standalone = snapshot.get("standalone")
-    if standalone and standalone in graphs:  # one action run by itself: its own graph is the root (ADR-089)
+    if (
+        standalone and standalone in graphs
+    ):  # one action run by itself: its own graph is the root (ADR-089)
         graphs.pop(root_id, None)
         root_id = str(standalone)
         replay = _Replay(graphs, root_id, steps, execution.status, start)
