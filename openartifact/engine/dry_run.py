@@ -12,7 +12,7 @@ step the way the real run would, so the dry run does not hide a mistake behind t
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -100,6 +100,28 @@ async def placements_of_action(session: AsyncSession, definition_id: str) -> lis
                     }
                 )
     return found
+
+
+def has_mock(node: dict[str, Any]) -> bool:
+    """Whether the node of a dry run hands over its stored mock instead of running (ADR-087): the snapshot of the DRAFT carries it, a
+    published version and the snapshot of a real run never do."""
+    mock = node.get("mock")
+    return isinstance(mock, dict) and mock.get("enabled") is True
+
+
+async def mocked(node: dict[str, Any], limits: Any, view: RunView | None = None) -> NodeResult:
+    """The result of a node that has a mock: what was stored, as the node's own result. The node is not run (no call, no tokens, no write); the
+    text is never read for ``${...}``. A failing mock leaves by On Fail like a failed node. ``data.mock`` marks the step."""
+    mock = node.get("mock") or {}
+    data = dict(mock.get("data") or {})
+    data["mock"] = True
+    outcome: Literal["pass", "fail"] = "fail" if mock.get("outcome") == "fail" else "pass"
+    reason = str(mock.get("reason") or "")
+    if outcome == "fail" and not reason:
+        reason = "Mock data: the stored result is a failure"
+    return NodeResult(
+        outcome, output=str(mock.get("output") or ""), reason=reason or None, data=data
+    )
 
 
 async def skipped(node: dict[str, Any], limits: Any, view: RunView | None = None) -> NodeResult:

@@ -58,6 +58,7 @@ GET /api/actions/{graph_id} -> GraphDetail
 GET /api/actions/{graph_id}/check -> PublishCheck
 GET /api/actions/{graph_id}/contract -> GraphContract
 GET /api/actions/{graph_id}/neighbours -> GraphNeighbours
+GET /api/actions/{graph_id}/nodes/{node_id}/last-result -> LastResult
 GET /api/actions/{graph_id}/uses -> GraphUses
 GET /api/actions/{graph_id}/versions -> GraphVersionRead[]
 GET /api/actions/{graph_id}/versions/{number} -> GraphVersionDetail
@@ -94,6 +95,7 @@ GET /api/pipelines/{graph_id} -> GraphDetail
 GET /api/pipelines/{graph_id}/check -> PublishCheck
 GET /api/pipelines/{graph_id}/contract -> GraphContract
 GET /api/pipelines/{graph_id}/neighbours -> GraphNeighbours
+GET /api/pipelines/{graph_id}/nodes/{node_id}/last-result -> LastResult
 GET /api/pipelines/{graph_id}/stages -> ChainEntryRead[]
 GET /api/pipelines/{graph_id}/uses -> GraphUses
 GET /api/pipelines/{graph_id}/versions -> GraphVersionRead[]

@@ -4,12 +4,16 @@
         <div class="history-step__head">
             <span class="history-step__seq" data-step-seq></span>
             <span class="history-step__kind" data-step-kind-icon></span>
-            <span class="history-step__name"><span data-step-name></span> <span class="history-step__kind-text" data-step-kind></span></span>
+            <span class="history-step__name"><span data-step-name></span> <span class="history-step__kind-text" data-step-kind></span> <span class="history-flag" data-step-mock hidden>{{ t('tasks.history_step.mock_flag') }}</span></span>
             <span class="history-chip" data-step-outcome><span data-chip-icon></span><span data-chip-text></span></span>
         </div>
         <p class="history-step__where" data-step-where hidden></p>
         <p class="history-step__facts" data-step-facts></p>
         <p class="history-step__reason" data-step-reason hidden></p>
+        <p class="history-step__keep" data-step-keep hidden>
+            <button type="button" class="button button--ghost button--sm" data-step-keep-mock>{{ t('tasks.history_step.keep_mock') }}</button>
+            <span class="field__help" data-step-keep-note role="status"></span>
+        </p>
         <div class="history-step__context" data-step-context hidden>
             <p class="history-step__context-title" data-step-context-title></p>
             <ul class="history-step__context-list" data-step-context-included></ul>

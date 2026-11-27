@@ -305,7 +305,7 @@ class _Checker:
 
 async def check(session: AsyncSession, graph_id: str) -> list[Finding]:
     """The findings for the draft of the graph ``graph_id`` (an action or a pipeline), errors first. Reads only."""
-    content = await graph_of(session, graph_id)
+    content = await graph_of(session, graph_id, mocks=True)
     definition_ids = {
         str(n["definition_id"])
         for n in content["nodes"]
@@ -330,6 +330,17 @@ async def check(session: AsyncSession, graph_id: str) -> list[Finding]:
         checker.check_node(node)
         checker.check_mapping(node)
     found = sorted(checker.findings, key=lambda f: (f.level != "error", f.node_name, f.code))
+    mocks = sum(1 for n in content["nodes"] if (n.get("mock") or {}).get("enabled"))
+    if mocks:  # a mock lives in the draft only (ADR-087): the owner should know it stays behind
+        found.append(
+            Finding(
+                "warning",
+                "mocks_not_published",
+                None,
+                content["name"],
+                f"{mocks} mock(s) are set in this draft; they are not published and a real run never uses them",
+            )
+        )
     # publishing this graph changes its contract for the graphs that run it: said as warnings, the owner decides
     for item in await consumer_findings(session, graph_id):
         found.append(Finding("warning", item["code"], None, item["where"], item["message"]))

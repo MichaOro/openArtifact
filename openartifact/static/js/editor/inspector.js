@@ -9,6 +9,8 @@ import { agentBlock } from "./agent-inspector.js";
 import { displayName, nameParts } from "./geometry.js";
 import { typeOf } from "./node-types.js";
 import { buildSettings } from "./settings-layout.js";
+import { mockPanel } from "./mock-panel.js";
+import { mockable } from "./mock-model.js";
 import { t } from "../i18n.js";
 
 /** Title and caption; `rename` ({label, onCommit}) makes the title editable in place. */
@@ -150,6 +152,51 @@ export class InspectorBlocks {
       if (wrap.isConnected) new Tabs(strip, (name) => this.editor.setDryRunTab?.(name));
     });
     return wrap;
+  }
+
+  /**
+   * The window of a node that leaves a result (ADR-087): the tab *Settings* (what `sections` holds) and the tab *Mock* (mock-panel.js). The tab chosen
+   * stays chosen while the window is drawn again; the pencil beside the close button of the window opens the Mock tab.
+   * @param {object} node @param {HTMLElement[]} sections the settings window as it was
+   */
+  mockTabs(node, sections) {
+    if (!mockable(typeOf(node), node) || !this.editor.saveMock) return sections;
+    const chosen = this.editor.nodeTab?.() === "mock" ? "mock" : "settings";
+    const strip = document.createElement("div");
+    strip.className = "task-tabs ge-dry-tabs";
+    strip.setAttribute("role", "tablist");
+    strip.setAttribute("aria-label", t("editor.mock.tabs_label"));
+    const wrap = document.createElement("div");
+    wrap.className = "ge-dry-tabbed";
+    const bodies = { settings: wrapAll(sections.filter(Boolean)), mock: mockPanel(node, this.editor) };
+    bodies.settings.className = "ge-node-settings";
+    wrap.append(strip);
+    for (const [name, label] of [["settings", t("editor.mock.tab_settings")], ["mock", t("editor.mock.tab_mock")]]) {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "task-tab";
+      tab.id = `node-tab-${name}`;
+      tab.dataset.tab = name;
+      tab.dataset.focusKey = `node-tab-${name}`;
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-controls", `node-panel-${name}`);
+      tab.setAttribute("aria-selected", String(name === chosen));
+      if (name !== chosen) tab.tabIndex = -1;
+      tab.textContent = label;
+      strip.append(tab);
+      const panel = document.createElement("div");
+      panel.id = `node-panel-${name}`;
+      panel.className = "ge-dry-panel";
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", tab.id);
+      panel.hidden = name !== chosen;
+      panel.append(bodies[name]);
+      wrap.append(panel);
+    }
+    queueMicrotask(() => {
+      if (wrap.isConnected) new Tabs(strip, (name) => this.editor.setNodeTab?.(name));
+    });
+    return [wrap];
   }
 
   /** An agent node: its agent, the input mapping and the settings with their overrides (agent-inspector.js). */

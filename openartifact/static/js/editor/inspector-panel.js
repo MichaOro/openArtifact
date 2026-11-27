@@ -76,7 +76,7 @@ export class InspectorPanel {
     if (selection?.type !== "node" || !nodes.has(selection.id)) return [];
     const node = nodes.get(selection.id);
     const type = typeOf(node);
-    return [this.blocks.title(node), ...(type.unavailable ? [switchedOffNotice()] : []), ...type.sections(node, this.blocks).filter(Boolean)];
+    return [this.blocks.title(node), ...(type.unavailable ? [switchedOffNotice()] : []), ...this.blocks.mockTabs(node, type.sections(node, this.blocks).filter(Boolean))];
   }
 }
 

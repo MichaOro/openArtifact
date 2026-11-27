@@ -36,3 +36,5 @@ export const deleteNode = (kind, id, nodeId) => send("DELETE", `${base(kind, id)
 export const connect = (kind, id, edge) => send("POST", `${base(kind, id)}/edges`, edge);
 export const restyleEdge = (kind, id, edgeId, style) => send("PATCH", `${base(kind, id)}/edges/${encodeURIComponent(edgeId)}`, { style });
 export const disconnect = (kind, id, edgeId) => send("DELETE", `${base(kind, id)}/edges/${encodeURIComponent(edgeId)}`);
+/** The newest stored result of a node of a real run, in the shape of a mock (ADR-087): `{found, outcome, output, reason, data}`. */
+export const lastResult = (kind, id, nodeId) => request(`${base(kind, id)}/nodes/${encodeURIComponent(nodeId)}/last-result`);

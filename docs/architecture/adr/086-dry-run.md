@@ -44,7 +44,7 @@ real conditions (the branches, the inputs, the reads) but changes nothing, and t
 
 - A new node kind has to declare its effect or it is skipped in every dry run (the safe side); the manifest test checks the declaration.
 - A step of a dry run proves the conditions and the reads, not the result of a write; the missing-result rule makes that visible instead of hiding it.
-- Not decided here: mock data for skipped nodes (card #140).
+- A node can have mock data in the draft, which a dry run hands over instead of running or skipping it (ADR-087).
 
 ## 4. Addendum: the Dry run tab of the Trigger window
 

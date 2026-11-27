@@ -4,7 +4,9 @@
 import { agentFacts } from "../agents/model.js";
 import { detailView } from "../agents/view.js";
 import { icon } from "../components/icons.js";
+import { mockOfStep } from "../editor/mock-model.js";
 import { formatBytes } from "../editor/sources-model.js";
+import { request } from "../http.js";
 import { formatDuration, secondsBetween, setChip } from "./history-format.js";
 import { t } from "../i18n.js";
 
@@ -108,10 +110,37 @@ export function fillStep(template, step, open = new Set(), { loadDetail = null }
   item.querySelector("[data-step-truncated]").hidden = !step.output_truncated;
   const data = step.data == null ? "" : JSON.stringify(step.data, null, 2);
   fillBlock(item.querySelector("[data-step-data]"), `${step.id}:data`, data, open, Boolean(data));
+  fillMock(item, step, loadDetail);
   fillContext(item.querySelector("[data-step-context]"), step);
   fillAgent(item.querySelector("[data-step-agent]"), step, open, loadDetail);
   fillTries(item.querySelector("[data-step-tries]"), step, open, loadDetail);
   return item;
+}
+
+/** The kinds that take no mock (the server refuses them as well). */
+const NO_MOCK = new Set(["trigger", "output", "complete", "stage", "action", "pipeline", "if", "switch", "timer"]);
+
+/** The *Mock* flag of a step that handed over a mock, and *Keep as mock* on a step with a real result: it sets that result as the mock of the node in the
+ * current DRAFT of the action (ADR-087). A step a dry run skipped or mocked has no real result, so it offers nothing. */
+function fillMock(item, step, loadDetail) {
+  const flag = item.querySelector("[data-step-mock]");
+  if (flag) flag.hidden = !step.data?.mock;
+  const box = item.querySelector("[data-step-keep]");
+  if (!box) return; // a page with an older template
+  const real = !NO_MOCK.has(step.kind) && !step.data?.mock && !step.data?.dry_run && Boolean(step.definition_id) && Boolean(step.node_id);
+  box.hidden = !real;
+  if (!real) return;
+  const note = box.querySelector("[data-step-keep-note]");
+  box.querySelector("[data-step-keep-mock]").addEventListener("click", async () => {
+    note.textContent = "";
+    try {
+      const full = loadDetail ? await loadDetail(step) : step; // the list may leave the output out
+      await request(`/api/actions/${encodeURIComponent(step.definition_id)}/nodes/${encodeURIComponent(step.node_id)}`, { method: "PATCH", body: JSON.stringify({ mock: mockOfStep({ ...step, ...full }) }) });
+      note.textContent = t("tasks.history_step.mock_kept");
+    } catch (error) {
+      note.textContent = t("tasks.history_step.mock_not_kept", { reason: error.detail ?? error.message });
+    }
+  });
 }
 
 /** A node that was tried again (*Retry on fail*, ADR-073) lists its tries when the block is opened: the failed ones with their

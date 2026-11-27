@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.artifact_fields.service import field_specs
 from openartifact.engine.context import NodeIndex, node_key, problems, references_in
+from openartifact.graph import mock as mock_module
 from openartifact.graph import placements
 from openartifact.graph.node_types import (
     NODE_TYPES,
@@ -490,7 +491,32 @@ class GraphRepository:
         await self._session.flush()
         return node
 
-    async def update_node(self, node: GraphNode, data: NodeUpdate) -> SyncReport:
+    def _keep_mock(self, node: GraphNode, data: NodeUpdate, secrets: set[str] | None) -> None:
+        """Store or remove the mock and the test cases of a node (ADR-087): in the config under their own keys, validated."""
+        sent = data.model_fields_set
+        config = dict(node.config or {})
+        try:
+            if "mock" in sent:
+                if data.mock is None:
+                    config.pop(mock_module.MOCK_KEY, None)
+                else:
+                    config[mock_module.MOCK_KEY] = mock_module.clean_mock(
+                        node.kind, data.mock, secrets
+                    )
+            if "cases" in sent:
+                if data.cases is None:
+                    config.pop(mock_module.CASES_KEY, None)
+                elif node.kind != NodeKind.TRIGGER.value:
+                    raise mock_module.MockError("Only a Trigger holds test cases")
+                else:
+                    config[mock_module.CASES_KEY] = mock_module.clean_cases(data.cases, secrets)
+        except mock_module.MockError as error:
+            raise NodeError(str(error)) from error
+        node.config = config
+
+    async def update_node(
+        self, node: GraphNode, data: NodeUpdate, secrets: set[str] | None = None
+    ) -> SyncReport:
         """Rename, move or (stages) resize a node, or change its settings.
 
         The error output is one state of an action definition (its Output's *On Fail*) and its uses (*If the action
@@ -509,6 +535,8 @@ class GraphRepository:
             raise NodeError(f"A {node.kind} has no setting '{key}'")
         previous_mode = _mode(node)
         previous_fail = node.fail_enabled
+        if {"mock", "cases"} & sent:
+            self._keep_mock(node, data, secrets)
         if data.config is not None:
             merged = _merged_config(kind_type, node.config, data.config)
             dropped = await self._drop_hidden_edges(node, kind_type, merged)

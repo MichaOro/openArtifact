@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.agents.service import artifact_inputs_mapped
@@ -27,6 +28,7 @@ from openartifact.graph import contract as graph_contract
 from openartifact.graph import preflight, publishing, versions
 from openartifact.graph.content import graph_of
 from openartifact.graph.localize import localize
+from openartifact.graph.mock import CASES_KEY, MOCK_KEY
 from openartifact.graph.node_types import NODE_TYPES, node_type
 from openartifact.graph.repository import GraphRepository, NodeError, PurposeError
 from openartifact.graph.rules import EdgeError
@@ -44,6 +46,7 @@ from openartifact.graph.schemas import (
     GraphUses,
     GraphVersionDetail,
     GraphVersionRead,
+    LastResult,
     NodeCreate,
     NodeRead,
     NodeUpdate,
@@ -52,7 +55,15 @@ from openartifact.graph.schemas import (
     PublishRequest,
 )
 from openartifact.i18n.web import language_for
-from openartifact.models import Graph, GraphKind, GraphNode, GraphVersion, NodeKind
+from openartifact.models import (
+    Execution,
+    Graph,
+    GraphKind,
+    GraphNode,
+    GraphVersion,
+    NodeKind,
+    RunNodeResult,
+)
 from openartifact.ui import layout as ui_layout
 
 _LABELS: dict[GraphKind, str] = {GraphKind.PIPELINE: "Pipeline", GraphKind.ACTION: "Action"}
@@ -88,6 +99,8 @@ async def _node_reads(repo: GraphRepository, nodes: Sequence[GraphNode]) -> list
     for read, node in zip(reads, nodes, strict=True):
         read.config = node_type(node.kind).effective_config(node.config)
         read.placement_number = numbers.get(node.id)
+        read.mock = (node.config or {}).get(MOCK_KEY)
+        read.cases = (node.config or {}).get(CASES_KEY)
         if read.id in described:
             link = described[read.id]
             read.definition_name = link.name
@@ -521,8 +534,17 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             (payload.config or {}).get("agent_id", (node.config or {}).get("agent_id")),
             payload.config,
         )
+        known: set[str] = set()
+        if (
+            payload.mock is not None or payload.cases is not None
+        ):  # no secret may end up in a mock (ADR-087)
+            store = request.app.state.secret_store
+            try:
+                known = set((await store.resolve([s.name for s in await store.names()])).values())
+            except Exception:  # secrets not available: only the reference form is checked
+                known = set()
         try:
-            report = await repo.update_node(node, payload)
+            report = await repo.update_node(node, payload, known)
         except NodeError as error:
             raise _invalid(error) from error
         await repo.touch(graph)
@@ -537,6 +559,41 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         if node.kind == NodeKind.AGENT:
             read.warnings += await agent_node_hints(session, node)
         return read
+
+    @router.get(
+        "/{graph_id}/nodes/{node_id}/last-result",
+        response_model=LastResult,
+        name=f"last_result_of_{kind}_node",
+        summary="The newest stored result of a node (the source of a mock)",
+        responses=errors(404, 422),
+    )
+    async def last_result(graph_id: str, node_id: str, session: SessionDep) -> LastResult:
+        """The result the node left in its newest step of a **real** run (a dry run's skipped or mocked step is no real data), as a mock takes it
+        (ADR-087): ``found`` is false while it never ran."""
+        repo = GraphRepository(session)
+        await _graph(repo, graph_id)
+        node = await repo.get_node(graph_id, node_id)
+        if node is None:
+            raise _not_found("Node")
+        row = (
+            await session.execute(
+                select(RunNodeResult)
+                .join(Execution, Execution.id == RunNodeResult.execution_id)
+                .where(RunNodeResult.node_id == node_id, Execution.dry_run.is_(False))
+                .order_by(RunNodeResult.started_at.desc(), RunNodeResult.seq.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            return LastResult(found=False)
+        data = {k: v for k, v in (row.data or {}).items() if k not in ("mock", "dry_run")}
+        return LastResult(
+            found=True,
+            outcome="fail" if row.outcome == "fail" else "pass",
+            output=row.output or "",
+            reason=row.reason or "",
+            data=data,
+        )
 
     @router.delete(
         "/{graph_id}/nodes/{node_id}",
