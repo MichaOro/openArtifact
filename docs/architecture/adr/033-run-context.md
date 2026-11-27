@@ -62,3 +62,7 @@ them without a scripting language.
   with `auto_vacuum = FULL` (ADR-005, update of 2026-11-22), gives its space back to the file system.
 - Follow-ups: editor autocomplete for references, the If/Switch nodes, card parameters, the agent, resuming a stopped run
   with its context.
+
+## Addendum (2026-11-26): the result contract
+
+Every node entry in the context has the same core, `success` (derived from `outcome`), `attempts` and `duration_ms` among it, and the references `${(Node).success}`, `.attempts` and `.duration_ms` read them: [ADR-072](072-result-contract.md). A context stored before it answers (`success` from `outcome`, `attempts` 1).

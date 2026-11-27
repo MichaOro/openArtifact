@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.content import graph_of
+from openartifact.graph.repository import GraphRepository, SyncReport
 from openartifact.graph.versions import current_version, fingerprint, get_version, next_number
 from openartifact.models import Graph, GraphVersion
 
@@ -81,3 +82,16 @@ async def republish(session: AsyncSession, graph: Graph, number: int, via: str) 
     graph.published_number = version.number
     await session.flush()
     return version
+
+
+async def discard_draft(session: AsyncSession, graph: Graph) -> SyncReport:
+    """Throw the changes of the draft away: it becomes the published version again (ADR-070 addendum). 409 while nothing is published
+    (there is no version to go back to) and when the draft equals the published version (nothing to discard)."""
+    version = await current_version(session, graph)
+    if version is None:
+        raise ArtifactError(409, "Nothing is published yet: there is no version to go back to")
+    if fingerprint(await graph_of(session, graph.id)) == version.fingerprint:
+        raise ArtifactError(
+            409, f"The draft equals version {version.number}: there is nothing to discard"
+        )
+    return await GraphRepository(session).restore(graph, json.loads(version.content))

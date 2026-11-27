@@ -34,7 +34,17 @@ at most one run at a time. While that run is running the artifact is locked: its
 changed and it cannot be deleted (title and body stay editable); stopping the run releases it. In the
 code and the API an artifact is a `task`.
 
-**Comments.** Every artifact has comments (the *Comments* tab of its dialog, with a count): plain text, oldest first, newest last,
+**Text fields are Markdown.** The long texts (the text of an artifact, a comment, the user and the system prompt of an agent) are stored as written and are Markdown by convention; the API, the MCP server and the model get the text unchanged. A bar under the field writes the marks for you (heading, bold, italic, strikethrough, lists, quote, code, code block, link; Ctrl+B, Ctrl+I, Ctrl+K; *Preview* shows the result; the link button asks for the text and the address). Where a text is read (the artifact dialog, a comment, the archive) it is drawn; the first words of a card on the board are plain lines (no blocks, no links). The prompts are shown as written, the way the model gets them. What is drawn:
+
+- `# Title`, `## Title` … `###### Title` (a blank after the hashes: `##Title` stays text), `**bold**` or `__bold__`, `*italic*` or `_italic_`, `~~gone~~`, `` `code` ``;
+- a fence of three backticks (and a language name) above and below lines for a code block; `> quoted` for a quote; `---` for a rule;
+- `- item`, `* item` or `1. item` for lists (indent a sub item by two or more spaces, three levels below the first);
+- `[words](https://example.org)` or a bare `https://` address for a link (http, https and mailto only; it opens in a new tab);
+- a table: a header row, a row of dashes (`:--`, `:-:`, `--:` set the alignment) and the rows, with pipes between the cells.
+
+Not drawn, shown as typed: images, HTML, footnotes, task lists. A text that has none of these marks reads as it always did; `#12` is still a link to a card, `${card.x}` is a placeholder, and a mark never starts inside a word (`2*3*4`, `snake_case`) or beside a blank (`2 * 3 * 4`). Links, code and tables are safe: nothing in a text is ever markup ([ADR-077](../architecture/adr/077-markdown-in-long-texts.md)).
+
+**Comments.** Every artifact has comments (the *Comments* tab of its dialog, with a count): Markdown text (see *Text fields are Markdown* above), oldest first, newest last,
 with a box at the bottom (its label left and the hint right on one line; Ctrl+Enter or the *Comment* button in the footer next to *Close* sends). A comment shows who wrote it: a round, shaded avatar whose icon tells the way (the browser, API, MCP, a run, the system; its tooltip and accessible name say which) and the name beside it, *You* for the browser, the name of the token for *API* or *MCP*, the node's name for a *Run* (an Artifact node of a pipeline, linked to its execution). The dialog's tabs are Details, Comments, History. Any comment can be edited (it
 then says "edited") or deleted; deleting the artifact deletes them. Pipelines read and write them with the
 [Artifact node](execution-nodes.md#artifact-node). There is no user management yet, so "You" is every person in the browser.
@@ -52,9 +62,9 @@ artifact is processed. Removing a field removes its values; a change that stored
 ([details](execution-nodes.md#card-parameters-card-the-artifact-fields)). Title, body, number and id are there too (`${card.title}`, ...), and `${card.text}` is all of it as one text (ADR-064). A body may use them too (`${card.test}`, `${card.title}`): only the original is stored, the artifact dialog and the board show the finished text Edit shows the original, and a run reads the finished text.
 
 **Run context.** The values an execution keeps while it runs: the artifact's parameters as they were when it started
-(`card`), variables a Code node sets and the latest result of
+(`card`), variables an Execute Command node sets and the latest result of
 every node that ran. Later nodes use them through references such as `${node.Fetch_user.output}`, `${var.user}` and
-`${card.urgency}` (HTTP nodes) or the file `context.json` (Code nodes). It is stored with the execution and shown in its history
+`${card.urgency}` (HTTP nodes) or the file `context.json` (Execute Command nodes). It is stored with the execution and shown in its history
 ([execution nodes](execution-nodes.md#the-run-context-and-references)).
 
 **Pipeline.** What an artifact runs through: a trigger, a main line of stages (and pipeline nodes) and a
@@ -165,7 +175,7 @@ stays, the draft is not touched). A pipeline follows the published versions of i
 | Agent | Asks a language model for an [agent](agents.md); the tools attached below it can be called by the model | On Pass or On Fail |
 | GitHub | Reads GitHub (repository, issues, pull requests, files, comments) and, if allowed, comments, without a model | On Pass or On Fail |
 | Postgres | Runs one SQL statement on a Postgres database, read-only unless changes are allowed; returns the rows as a list | On Pass or On Fail |
-| MCP Client Tool, HTTP Request Tool, Code Tool, Postgres Tool | A tool of an Agent node, attached to its *Tools* port; runs only when the model calls it | none (attached, not part of the flow) |
+| MCP Client Tool, HTTP Request Tool, Execute Command Tool, Postgres Tool | A tool of an Agent node, attached to its *Tools* port; runs only when the model calls it | none (attached, not part of the flow) |
 
 Details in the [execution nodes guide](execution-nodes.md). Further kinds are added through a registry
 ([Extending](extending.md)).
@@ -207,6 +217,11 @@ replayed from the snapshot and the steps; it is not stored separately.
 **Retention.** The rule that removes old executions: per artifact by count (keep the last N) and/or age (keep
 the last H hours), with an application default of 50 executions. The newest execution and a running one are
 never removed by it.
+
+**STOP.** The global switch (ADR-076) that blocks execution as a whole: while it is on, every running execution is aborted and no
+execution starts from any source (browser, API, MCP); everything else, cards, pipelines, actions and guards, keeps working. It is
+offered by the personal setting *Show the emergency stop*, kept across restarts and shown by a banner on every page. A guard or the stop
+button ends one run; STOP ends all of them and keeps any from starting.
 
 ## UI conventions
 

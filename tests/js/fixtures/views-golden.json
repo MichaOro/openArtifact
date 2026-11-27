@@ -54,7 +54,8 @@
     "out>github-1:in": true,
     "out>postgres-1:in": true,
     "out>sqlite-1:in": true,
-    "out>artifact-1:in": true
+    "out>artifact-1:in": true,
+    "out>context-1:in": true
    }
   }
  ],
@@ -218,6 +219,7 @@
     "start>postgres-1:in": false,
     "start>sqlite-1:in": false,
     "start>artifact-1:in": false,
+    "start>context-1:in": false,
     "end>stage-1:start": false,
     "end>stage-1:end": false,
     "end>action-1:in": false,
@@ -236,7 +238,8 @@
     "end>github-1:in": true,
     "end>postgres-1:in": true,
     "end>sqlite-1:in": true,
-    "end>artifact-1:in": true
+    "end>artifact-1:in": true,
+    "end>context-1:in": true
    }
   },
   {
@@ -362,6 +365,7 @@
     "start>postgres-1:in": false,
     "start>sqlite-1:in": false,
     "start>artifact-1:in": false,
+    "start>context-1:in": false,
     "end>stage-1:start": false,
     "end>stage-1:end": false,
     "end>action-1:in": false,
@@ -380,7 +384,8 @@
     "end>github-1:in": true,
     "end>postgres-1:in": true,
     "end>sqlite-1:in": true,
-    "end>artifact-1:in": true
+    "end>artifact-1:in": true,
+    "end>context-1:in": true
    }
   }
  ],
@@ -466,6 +471,7 @@
     "pass>postgres-1:in": false,
     "pass>sqlite-1:in": false,
     "pass>artifact-1:in": false,
+    "pass>context-1:in": false,
     "error>stage-1:start": false,
     "error>stage-1:end": true,
     "error>action-1:in": true,
@@ -484,7 +490,8 @@
     "error>github-1:in": false,
     "error>postgres-1:in": false,
     "error>sqlite-1:in": false,
-    "error>artifact-1:in": false
+    "error>artifact-1:in": false,
+    "error>context-1:in": false
    }
   },
   {
@@ -574,6 +581,7 @@
     "pass>postgres-1:in": false,
     "pass>sqlite-1:in": false,
     "pass>artifact-1:in": false,
+    "pass>context-1:in": false,
     "error>stage-1:start": false,
     "error>stage-1:end": true,
     "error>action-1:in": true,
@@ -592,7 +600,8 @@
     "error>github-1:in": false,
     "error>postgres-1:in": false,
     "error>sqlite-1:in": false,
-    "error>artifact-1:in": false
+    "error>artifact-1:in": false,
+    "error>context-1:in": false
    }
   },
   {
@@ -681,6 +690,7 @@
     "pass>postgres-1:in": false,
     "pass>sqlite-1:in": false,
     "pass>artifact-1:in": false,
+    "pass>context-1:in": false,
     "error>stage-1:start": false,
     "error>stage-1:end": true,
     "error>action-1:in": true,
@@ -699,7 +709,8 @@
     "error>github-1:in": false,
     "error>postgres-1:in": false,
     "error>sqlite-1:in": false,
-    "error>artifact-1:in": false
+    "error>artifact-1:in": false,
+    "error>context-1:in": false
    }
   }
  ],
@@ -771,7 +782,8 @@
     "out>github-1:in": true,
     "out>postgres-1:in": true,
     "out>sqlite-1:in": true,
-    "out>artifact-1:in": true
+    "out>artifact-1:in": true,
+    "out>context-1:in": true
    }
   },
   {
@@ -844,7 +856,8 @@
     "out>github-1:in": true,
     "out>postgres-1:in": true,
     "out>sqlite-1:in": true,
-    "out>artifact-1:in": true
+    "out>artifact-1:in": true,
+    "out>context-1:in": true
    }
   }
  ],
@@ -918,7 +931,8 @@
     "out>github-1:in": true,
     "out>postgres-1:in": true,
     "out>sqlite-1:in": true,
-    "out>artifact-1:in": true
+    "out>artifact-1:in": true,
+    "out>context-1:in": true
    }
   },
   {
@@ -990,7 +1004,8 @@
     "out>github-1:in": true,
     "out>postgres-1:in": true,
     "out>sqlite-1:in": true,
-    "out>artifact-1:in": true
+    "out>artifact-1:in": true,
+    "out>context-1:in": true
    }
   }
  ],
@@ -1108,8 +1123,8 @@
     "height": 84
    },
    "caption": "sh · no code yet",
-   "subtitle": "Code",
-   "displayName": "Code",
+   "subtitle": "Execute Command",
+   "displayName": "Execute Command",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -1182,6 +1197,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -1200,7 +1216,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -1215,8 +1232,8 @@
     "height": 84
    },
    "caption": "python · print('hi')",
-   "subtitle": "Code",
-   "displayName": "Code",
+   "subtitle": "Execute Command",
+   "displayName": "Execute Command",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -1289,6 +1306,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -1307,7 +1325,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -1321,8 +1340,8 @@
     "height": 84
    },
    "caption": "sh · echo one",
-   "subtitle": "Code",
-   "displayName": "Code",
+   "subtitle": "Execute Command",
+   "displayName": "Execute Command",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -1395,6 +1414,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -1413,7 +1433,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -1428,8 +1449,8 @@
     "height": 84
    },
    "caption": "sh · x",
-   "subtitle": "Code",
-   "displayName": "Code",
+   "subtitle": "Execute Command",
+   "displayName": "Execute Command",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -1502,6 +1523,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": true,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -1520,7 +1542,8 @@
     "fail>github-1:in": true,
     "fail>postgres-1:in": true,
     "fail>sqlite-1:in": true,
-    "fail>artifact-1:in": true
+    "fail>artifact-1:in": true,
+    "fail>context-1:in": true
    }
   },
   {
@@ -1535,8 +1558,8 @@
     "height": 84
    },
    "caption": "sh · x",
-   "subtitle": "Code",
-   "displayName": "Code",
+   "subtitle": "Execute Command",
+   "displayName": "Execute Command",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -1609,6 +1632,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -1627,7 +1651,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   }
  ],
@@ -1713,6 +1738,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -1731,7 +1757,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -1820,6 +1847,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -1838,7 +1866,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -1926,6 +1955,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -1944,7 +1974,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -2032,6 +2063,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": true,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -2050,7 +2082,8 @@
     "fail>github-1:in": true,
     "fail>postgres-1:in": true,
     "fail>sqlite-1:in": true,
-    "fail>artifact-1:in": true
+    "fail>artifact-1:in": true,
+    "fail>context-1:in": true
    }
   }
  ],
@@ -2149,6 +2182,7 @@
     "yes>postgres-1:in": true,
     "yes>sqlite-1:in": true,
     "yes>artifact-1:in": true,
+    "yes>context-1:in": true,
     "no>stage-1:start": true,
     "no>stage-1:end": false,
     "no>action-1:in": false,
@@ -2168,6 +2202,7 @@
     "no>postgres-1:in": true,
     "no>sqlite-1:in": true,
     "no>artifact-1:in": true,
+    "no>context-1:in": true,
     "else>stage-1:start": true,
     "else>stage-1:end": false,
     "else>action-1:in": false,
@@ -2186,7 +2221,8 @@
     "else>github-1:in": true,
     "else>postgres-1:in": true,
     "else>sqlite-1:in": true,
-    "else>artifact-1:in": true
+    "else>artifact-1:in": true,
+    "else>context-1:in": true
    }
   },
   {
@@ -2289,6 +2325,7 @@
     "yes>postgres-1:in": true,
     "yes>sqlite-1:in": true,
     "yes>artifact-1:in": true,
+    "yes>context-1:in": true,
     "no>stage-1:start": true,
     "no>stage-1:end": false,
     "no>action-1:in": false,
@@ -2308,6 +2345,7 @@
     "no>postgres-1:in": true,
     "no>sqlite-1:in": true,
     "no>artifact-1:in": true,
+    "no>context-1:in": true,
     "else>stage-1:start": true,
     "else>stage-1:end": false,
     "else>action-1:in": false,
@@ -2326,7 +2364,8 @@
     "else>github-1:in": true,
     "else>postgres-1:in": true,
     "else>sqlite-1:in": true,
-    "else>artifact-1:in": true
+    "else>artifact-1:in": true,
+    "else>context-1:in": true
    }
   },
   {
@@ -2431,6 +2470,7 @@
     "yes>postgres-1:in": true,
     "yes>sqlite-1:in": true,
     "yes>artifact-1:in": true,
+    "yes>context-1:in": true,
     "no>stage-1:start": true,
     "no>stage-1:end": false,
     "no>action-1:in": false,
@@ -2450,6 +2490,7 @@
     "no>postgres-1:in": true,
     "no>sqlite-1:in": true,
     "no>artifact-1:in": true,
+    "no>context-1:in": true,
     "else>stage-1:start": true,
     "else>stage-1:end": false,
     "else>action-1:in": false,
@@ -2468,7 +2509,8 @@
     "else>github-1:in": true,
     "else>postgres-1:in": true,
     "else>sqlite-1:in": true,
-    "else>artifact-1:in": true
+    "else>artifact-1:in": true,
+    "else>context-1:in": true
    }
   },
   {
@@ -2571,6 +2613,7 @@
     "yes>postgres-1:in": true,
     "yes>sqlite-1:in": true,
     "yes>artifact-1:in": true,
+    "yes>context-1:in": true,
     "no>stage-1:start": true,
     "no>stage-1:end": false,
     "no>action-1:in": false,
@@ -2590,6 +2633,7 @@
     "no>postgres-1:in": true,
     "no>sqlite-1:in": true,
     "no>artifact-1:in": true,
+    "no>context-1:in": true,
     "else>stage-1:start": true,
     "else>stage-1:end": false,
     "else>action-1:in": false,
@@ -2608,7 +2652,8 @@
     "else>github-1:in": true,
     "else>postgres-1:in": true,
     "else>sqlite-1:in": true,
-    "else>artifact-1:in": true
+    "else>artifact-1:in": true,
+    "else>context-1:in": true
    }
   }
  ],
@@ -2759,6 +2804,7 @@
     "case_1>postgres-1:in": false,
     "case_1>sqlite-1:in": false,
     "case_1>artifact-1:in": false,
+    "case_1>context-1:in": false,
     "case_2>stage-1:start": false,
     "case_2>stage-1:end": false,
     "case_2>action-1:in": false,
@@ -2778,6 +2824,7 @@
     "case_2>postgres-1:in": false,
     "case_2>sqlite-1:in": false,
     "case_2>artifact-1:in": false,
+    "case_2>context-1:in": false,
     "case_3>stage-1:start": false,
     "case_3>stage-1:end": false,
     "case_3>action-1:in": false,
@@ -2797,6 +2844,7 @@
     "case_3>postgres-1:in": false,
     "case_3>sqlite-1:in": false,
     "case_3>artifact-1:in": false,
+    "case_3>context-1:in": false,
     "case_4>stage-1:start": false,
     "case_4>stage-1:end": false,
     "case_4>action-1:in": false,
@@ -2816,6 +2864,7 @@
     "case_4>postgres-1:in": false,
     "case_4>sqlite-1:in": false,
     "case_4>artifact-1:in": false,
+    "case_4>context-1:in": false,
     "case_5>stage-1:start": false,
     "case_5>stage-1:end": false,
     "case_5>action-1:in": false,
@@ -2835,6 +2884,7 @@
     "case_5>postgres-1:in": false,
     "case_5>sqlite-1:in": false,
     "case_5>artifact-1:in": false,
+    "case_5>context-1:in": false,
     "case_6>stage-1:start": false,
     "case_6>stage-1:end": false,
     "case_6>action-1:in": false,
@@ -2854,6 +2904,7 @@
     "case_6>postgres-1:in": false,
     "case_6>sqlite-1:in": false,
     "case_6>artifact-1:in": false,
+    "case_6>context-1:in": false,
     "else>stage-1:start": true,
     "else>stage-1:end": false,
     "else>action-1:in": false,
@@ -2872,7 +2923,8 @@
     "else>github-1:in": true,
     "else>postgres-1:in": true,
     "else>sqlite-1:in": true,
-    "else>artifact-1:in": true
+    "else>artifact-1:in": true,
+    "else>context-1:in": true
    }
   },
   {
@@ -3027,6 +3079,7 @@
     "case_1>postgres-1:in": true,
     "case_1>sqlite-1:in": true,
     "case_1>artifact-1:in": true,
+    "case_1>context-1:in": true,
     "case_2>stage-1:start": true,
     "case_2>stage-1:end": false,
     "case_2>action-1:in": false,
@@ -3046,6 +3099,7 @@
     "case_2>postgres-1:in": true,
     "case_2>sqlite-1:in": true,
     "case_2>artifact-1:in": true,
+    "case_2>context-1:in": true,
     "case_3>stage-1:start": false,
     "case_3>stage-1:end": false,
     "case_3>action-1:in": false,
@@ -3065,6 +3119,7 @@
     "case_3>postgres-1:in": false,
     "case_3>sqlite-1:in": false,
     "case_3>artifact-1:in": false,
+    "case_3>context-1:in": false,
     "case_4>stage-1:start": false,
     "case_4>stage-1:end": false,
     "case_4>action-1:in": false,
@@ -3084,6 +3139,7 @@
     "case_4>postgres-1:in": false,
     "case_4>sqlite-1:in": false,
     "case_4>artifact-1:in": false,
+    "case_4>context-1:in": false,
     "case_5>stage-1:start": false,
     "case_5>stage-1:end": false,
     "case_5>action-1:in": false,
@@ -3103,6 +3159,7 @@
     "case_5>postgres-1:in": false,
     "case_5>sqlite-1:in": false,
     "case_5>artifact-1:in": false,
+    "case_5>context-1:in": false,
     "case_6>stage-1:start": false,
     "case_6>stage-1:end": false,
     "case_6>action-1:in": false,
@@ -3122,6 +3179,7 @@
     "case_6>postgres-1:in": false,
     "case_6>sqlite-1:in": false,
     "case_6>artifact-1:in": false,
+    "case_6>context-1:in": false,
     "else>stage-1:start": true,
     "else>stage-1:end": false,
     "else>action-1:in": false,
@@ -3140,7 +3198,8 @@
     "else>github-1:in": true,
     "else>postgres-1:in": true,
     "else>sqlite-1:in": true,
-    "else>artifact-1:in": true
+    "else>artifact-1:in": true,
+    "else>context-1:in": true
    }
   },
   {
@@ -3297,6 +3356,7 @@
     "case_1>postgres-1:in": true,
     "case_1>sqlite-1:in": true,
     "case_1>artifact-1:in": true,
+    "case_1>context-1:in": true,
     "case_2>stage-1:start": true,
     "case_2>stage-1:end": false,
     "case_2>action-1:in": false,
@@ -3316,6 +3376,7 @@
     "case_2>postgres-1:in": true,
     "case_2>sqlite-1:in": true,
     "case_2>artifact-1:in": true,
+    "case_2>context-1:in": true,
     "case_3>stage-1:start": true,
     "case_3>stage-1:end": false,
     "case_3>action-1:in": false,
@@ -3335,6 +3396,7 @@
     "case_3>postgres-1:in": true,
     "case_3>sqlite-1:in": true,
     "case_3>artifact-1:in": true,
+    "case_3>context-1:in": true,
     "case_4>stage-1:start": false,
     "case_4>stage-1:end": false,
     "case_4>action-1:in": false,
@@ -3354,6 +3416,7 @@
     "case_4>postgres-1:in": false,
     "case_4>sqlite-1:in": false,
     "case_4>artifact-1:in": false,
+    "case_4>context-1:in": false,
     "case_5>stage-1:start": false,
     "case_5>stage-1:end": false,
     "case_5>action-1:in": false,
@@ -3373,6 +3436,7 @@
     "case_5>postgres-1:in": false,
     "case_5>sqlite-1:in": false,
     "case_5>artifact-1:in": false,
+    "case_5>context-1:in": false,
     "case_6>stage-1:start": false,
     "case_6>stage-1:end": false,
     "case_6>action-1:in": false,
@@ -3392,6 +3456,7 @@
     "case_6>postgres-1:in": false,
     "case_6>sqlite-1:in": false,
     "case_6>artifact-1:in": false,
+    "case_6>context-1:in": false,
     "else>stage-1:start": true,
     "else>stage-1:end": false,
     "else>action-1:in": false,
@@ -3410,7 +3475,8 @@
     "else>github-1:in": true,
     "else>postgres-1:in": true,
     "else>sqlite-1:in": true,
-    "else>artifact-1:in": true
+    "else>artifact-1:in": true,
+    "else>context-1:in": true
    }
   },
   {
@@ -3569,6 +3635,7 @@
     "case_1>postgres-1:in": true,
     "case_1>sqlite-1:in": true,
     "case_1>artifact-1:in": true,
+    "case_1>context-1:in": true,
     "case_2>stage-1:start": true,
     "case_2>stage-1:end": false,
     "case_2>action-1:in": false,
@@ -3588,6 +3655,7 @@
     "case_2>postgres-1:in": true,
     "case_2>sqlite-1:in": true,
     "case_2>artifact-1:in": true,
+    "case_2>context-1:in": true,
     "case_3>stage-1:start": true,
     "case_3>stage-1:end": false,
     "case_3>action-1:in": false,
@@ -3607,6 +3675,7 @@
     "case_3>postgres-1:in": true,
     "case_3>sqlite-1:in": true,
     "case_3>artifact-1:in": true,
+    "case_3>context-1:in": true,
     "case_4>stage-1:start": true,
     "case_4>stage-1:end": false,
     "case_4>action-1:in": false,
@@ -3626,6 +3695,7 @@
     "case_4>postgres-1:in": true,
     "case_4>sqlite-1:in": true,
     "case_4>artifact-1:in": true,
+    "case_4>context-1:in": true,
     "case_5>stage-1:start": true,
     "case_5>stage-1:end": false,
     "case_5>action-1:in": false,
@@ -3645,6 +3715,7 @@
     "case_5>postgres-1:in": true,
     "case_5>sqlite-1:in": true,
     "case_5>artifact-1:in": true,
+    "case_5>context-1:in": true,
     "case_6>stage-1:start": true,
     "case_6>stage-1:end": false,
     "case_6>action-1:in": false,
@@ -3664,6 +3735,7 @@
     "case_6>postgres-1:in": true,
     "case_6>sqlite-1:in": true,
     "case_6>artifact-1:in": true,
+    "case_6>context-1:in": true,
     "else>stage-1:start": true,
     "else>stage-1:end": false,
     "else>action-1:in": false,
@@ -3682,7 +3754,8 @@
     "else>github-1:in": true,
     "else>postgres-1:in": true,
     "else>sqlite-1:in": true,
-    "else>artifact-1:in": true
+    "else>artifact-1:in": true,
+    "else>context-1:in": true
    }
   }
  ],
@@ -3768,6 +3841,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -3786,7 +3860,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -3874,6 +3949,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -3892,7 +3968,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -3980,6 +4057,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -3998,7 +4076,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   }
  ],
@@ -4097,6 +4176,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -4115,7 +4195,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -4216,6 +4297,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -4234,7 +4316,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -4338,6 +4421,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -4356,7 +4440,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -4460,6 +4545,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -4478,7 +4564,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   }
  ],
@@ -4564,6 +4651,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -4582,7 +4670,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -4671,6 +4760,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -4689,7 +4779,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -4779,6 +4870,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -4797,7 +4889,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -4886,6 +4979,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -4904,7 +4998,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   }
  ],
@@ -4990,6 +5085,7 @@
     "pass>postgres-1:in": false,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -5008,7 +5104,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -5096,6 +5193,7 @@
     "pass>postgres-1:in": false,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -5114,7 +5212,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -5203,6 +5302,7 @@
     "pass>postgres-1:in": false,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -5221,7 +5321,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   }
  ],
@@ -5307,6 +5408,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": false,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -5325,7 +5427,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -5413,6 +5516,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": false,
     "pass>artifact-1:in": true,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -5431,7 +5535,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   }
  ],
@@ -5490,7 +5595,8 @@
     "tool>github-1:in": false,
     "tool>postgres-1:in": false,
     "tool>sqlite-1:in": false,
-    "tool>artifact-1:in": false
+    "tool>artifact-1:in": false,
+    "tool>context-1:in": false
    }
   },
   {
@@ -5551,7 +5657,8 @@
     "tool>github-1:in": false,
     "tool>postgres-1:in": false,
     "tool>sqlite-1:in": false,
-    "tool>artifact-1:in": false
+    "tool>artifact-1:in": false,
+    "tool>context-1:in": false
    }
   }
  ],
@@ -5610,7 +5717,8 @@
     "tool>github-1:in": false,
     "tool>postgres-1:in": false,
     "tool>sqlite-1:in": false,
-    "tool>artifact-1:in": false
+    "tool>artifact-1:in": false,
+    "tool>context-1:in": false
    }
   },
   {
@@ -5672,7 +5780,8 @@
     "tool>github-1:in": false,
     "tool>postgres-1:in": false,
     "tool>sqlite-1:in": false,
-    "tool>artifact-1:in": false
+    "tool>artifact-1:in": false,
+    "tool>context-1:in": false
    }
   }
  ],
@@ -5683,9 +5792,9 @@
     "width": 200,
     "height": 64
    },
-   "caption": "python · Code Tool",
-   "subtitle": "Code Tool",
-   "displayName": "Code Tool",
+   "caption": "python · Execute Command Tool",
+   "subtitle": "Execute Command Tool",
+   "displayName": "Execute Command Tool",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -5731,7 +5840,8 @@
     "tool>github-1:in": false,
     "tool>postgres-1:in": false,
     "tool>sqlite-1:in": false,
-    "tool>artifact-1:in": false
+    "tool>artifact-1:in": false,
+    "tool>context-1:in": false
    }
   },
   {
@@ -5746,8 +5856,8 @@
     "height": 64
    },
    "caption": "sh · run_it",
-   "subtitle": "Code Tool",
-   "displayName": "Code Tool",
+   "subtitle": "Execute Command Tool",
+   "displayName": "Execute Command Tool",
    "renamable": true,
    "icon": "code",
    "ports": [
@@ -5793,7 +5903,8 @@
     "tool>github-1:in": false,
     "tool>postgres-1:in": false,
     "tool>sqlite-1:in": false,
-    "tool>artifact-1:in": false
+    "tool>artifact-1:in": false,
+    "tool>context-1:in": false
    }
   }
  ],
@@ -5879,6 +5990,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": false,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -5897,7 +6009,8 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   },
   {
@@ -5985,6 +6098,7 @@
     "pass>postgres-1:in": true,
     "pass>sqlite-1:in": true,
     "pass>artifact-1:in": false,
+    "pass>context-1:in": true,
     "fail>stage-1:start": false,
     "fail>stage-1:end": false,
     "fail>action-1:in": false,
@@ -6003,7 +6117,342 @@
     "fail>github-1:in": false,
     "fail>postgres-1:in": false,
     "fail>sqlite-1:in": false,
-    "fail>artifact-1:in": false
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
+   }
+  }
+ ],
+ "context": [
+  {
+   "node": {},
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "Title and body, Comments",
+   "subtitle": "Build Context",
+   "displayName": "Build Context",
+   "renamable": true,
+   "icon": "layers",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "pass>sqlite-1:in": true,
+    "pass>artifact-1:in": true,
+    "pass>context-1:in": false,
+    "fail>stage-1:start": false,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": false,
+    "fail>complete-1:in": false,
+    "fail>timer-1:in": false,
+    "fail>output-1:pass": false,
+    "fail>output-1:fail": false,
+    "fail>code-1:in": false,
+    "fail>http-1:in": false,
+    "fail>if-1:in": false,
+    "fail>switch-1:in": false,
+    "fail>agent-1:in": false,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": false,
+    "fail>github-1:in": false,
+    "fail>postgres-1:in": false,
+    "fail>sqlite-1:in": false,
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "sources": [
+      {
+       "source": "card"
+      },
+      {
+       "source": "comments",
+       "count": 5
+      },
+      {
+       "source": "executions",
+       "count": 3
+      }
+     ]
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "Title and body, Comments +1 more",
+   "subtitle": "Build Context",
+   "displayName": "Build Context",
+   "renamable": true,
+   "icon": "layers",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "pass>sqlite-1:in": true,
+    "pass>artifact-1:in": true,
+    "pass>context-1:in": false,
+    "fail>stage-1:start": false,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": false,
+    "fail>complete-1:in": false,
+    "fail>timer-1:in": false,
+    "fail>output-1:pass": false,
+    "fail>output-1:fail": false,
+    "fail>code-1:in": false,
+    "fail>http-1:in": false,
+    "fail>if-1:in": false,
+    "fail>switch-1:in": false,
+    "fail>agent-1:in": false,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": false,
+    "fail>github-1:in": false,
+    "fail>postgres-1:in": false,
+    "fail>sqlite-1:in": false,
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
+   }
+  },
+  {
+   "node": {
+    "config": {
+     "sources": []
+    }
+   },
+   "size": {
+    "width": 250,
+    "height": 84
+   },
+   "caption": "no source yet",
+   "subtitle": "Build Context",
+   "displayName": "Build Context",
+   "renamable": true,
+   "icon": "layers",
+   "ports": [
+    {
+     "name": "in",
+     "slot": 0,
+     "direction": "input",
+     "side": "left",
+     "visible": true,
+     "label": "Input",
+     "labelled": false,
+     "local": {
+      "x": 0,
+      "y": 42
+     }
+    },
+    {
+     "name": "pass",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": true,
+     "label": "On Pass",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    },
+    {
+     "name": "fail",
+     "slot": 0,
+     "direction": "output",
+     "side": "right",
+     "visible": false,
+     "label": "On Fail",
+     "labelled": true,
+     "local": {
+      "x": 250,
+      "y": 42
+     }
+    }
+   ],
+   "groups": {
+    "Condition 1": null,
+    "Condition 2": null,
+    "Case 1": null,
+    "Case 2": null,
+    "Case 3": null,
+    "Model & Generation": null,
+    "Other": null
+   },
+   "feeds": {
+    "pass>stage-1:start": true,
+    "pass>stage-1:end": false,
+    "pass>action-1:in": false,
+    "pass>pipeline-1:in": true,
+    "pass>complete-1:in": true,
+    "pass>timer-1:in": true,
+    "pass>output-1:pass": true,
+    "pass>output-1:fail": true,
+    "pass>code-1:in": true,
+    "pass>http-1:in": true,
+    "pass>if-1:in": true,
+    "pass>switch-1:in": true,
+    "pass>agent-1:in": true,
+    "pass>agent-1:tools": false,
+    "pass>set-1:in": true,
+    "pass>github-1:in": true,
+    "pass>postgres-1:in": true,
+    "pass>sqlite-1:in": true,
+    "pass>artifact-1:in": true,
+    "pass>context-1:in": false,
+    "fail>stage-1:start": false,
+    "fail>stage-1:end": false,
+    "fail>action-1:in": false,
+    "fail>pipeline-1:in": false,
+    "fail>complete-1:in": false,
+    "fail>timer-1:in": false,
+    "fail>output-1:pass": false,
+    "fail>output-1:fail": false,
+    "fail>code-1:in": false,
+    "fail>http-1:in": false,
+    "fail>if-1:in": false,
+    "fail>switch-1:in": false,
+    "fail>agent-1:in": false,
+    "fail>agent-1:tools": false,
+    "fail>set-1:in": false,
+    "fail>github-1:in": false,
+    "fail>postgres-1:in": false,
+    "fail>sqlite-1:in": false,
+    "fail>artifact-1:in": false,
+    "fail>context-1:in": false
    }
   }
  ],
@@ -6062,7 +6511,8 @@
     "tool>github-1:in": false,
     "tool>postgres-1:in": false,
     "tool>sqlite-1:in": false,
-    "tool>artifact-1:in": false
+    "tool>artifact-1:in": false,
+    "tool>context-1:in": false
    }
   },
   {
@@ -6124,7 +6574,8 @@
     "tool>github-1:in": false,
     "tool>postgres-1:in": false,
     "tool>sqlite-1:in": false,
-    "tool>artifact-1:in": false
+    "tool>artifact-1:in": false,
+    "tool>context-1:in": false
    }
   },
   {
@@ -6186,7 +6637,8 @@
     "tool>github-1:in": false,
     "tool>postgres-1:in": false,
     "tool>sqlite-1:in": false,
-    "tool>artifact-1:in": false
+    "tool>artifact-1:in": false,
+    "tool>context-1:in": false
    }
   }
  ]

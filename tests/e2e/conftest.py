@@ -44,7 +44,8 @@ def _serve(data_dir: Path, **settings: str) -> Iterator[str]:
         "OPENARTIFACT_DATA_DIR": str(data_dir),
         "OPENARTIFACT_HOST": "127.0.0.1",
         "OPENARTIFACT_PORT": str(port),
-        "OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN": "true",  # the open-mode test servers run Code nodes
+        "OPENARTIFACT_CODE_NODES_ENABLED": "true",  # off by default (ADR-075); the test servers run Execute Command nodes
+        "OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN": "true",  # the open-mode test servers run Execute Command nodes
         **{f"OPENARTIFACT_{k.upper()}": v for k, v in settings.items()},
     }
     subprocess.run(

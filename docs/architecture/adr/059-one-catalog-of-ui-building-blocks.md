@@ -130,3 +130,7 @@ it, including the agent block's override fields and the input mapping:
 
 Not decided here: bringing other windows in line (listed in the [UI catalog](../../guides/ui-catalog.md), rule 5); the
 owner runs that conformity review.
+
+## Update (2026-11-26): Markdown in the long texts
+
+The Markdown bar (`markdown-bar.js`) and the Markdown renderer (`markdown.js`) are catalog components ([ADR-077](077-markdown-in-long-texts.md)).

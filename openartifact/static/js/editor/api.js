@@ -20,6 +20,8 @@ export const deleteGraph = (kind, id) => send("DELETE", base(kind, id));
 export const versionsOf = (kind, id) => request(`${base(kind, id)}/versions`);
 export const versionOf = (kind, id, number) => request(`${base(kind, id)}/versions/${number}`);
 export const publishGraph = (kind, id) => send("POST", `${base(kind, id)}/publish`);
+/** Throw the changes of the draft away: it is the published version again (answers the graph as it is now). */
+export const discardGraphDraft = (kind, id) => send("POST", `${base(kind, id)}/draft/discard`);
 export const republishGraph = (kind, id, number) => send("POST", `${base(kind, id)}/versions/${number}/republish`);
 
 export const loadGraph = (kind, id) => request(base(kind, id));

@@ -1,17 +1,28 @@
 #!/usr/bin/env bash
 # Full test-suite audit: every section with start, end, duration, exit code and result line.
-#   tools/test_audit.sh [--fast] [OUTPUT_DIR]
+#   tools/test_audit.sh [--fast | --ci] [OUTPUT_DIR]
 # The report is OUTPUT_DIR/audit.md, the full output of each section OUTPUT_DIR/NN-<section>.log.
 # OUTPUT_DIR defaults to a new directory under $TMPDIR (or /tmp); nothing is written into the repository.
 # Default: the Python tests run one after the other under coverage (about half an hour, measures the 95 % bar).
 # --fast: the Python tests run in parallel (-n 4) without coverage (a few minutes).
+# --ci: as the GitHub workflow runs them, to find locally what only the slow runner shows: Python tests and browser tests one
+#   after the other (no -n), on two cores (taskset -c 0,1, like the 2 vCPU of the runner), the browser tests with
+#   "--tracing retain-on-failure" (traces of failed tests in OUTPUT_DIR/traces, to open with `playwright show-trace`).
+#   Takes longer than the default mode (about 45 minutes for Python and 20 for the browser). Not the same: the runner also has a
+#   Postgres for the tests that need one (OA_TEST_POSTGRES_URL), set it to run them here too.
 # Needs the development dependencies (ruff, mypy, pytest, pytest-xdist, coverage, playwright) and node.
 # The exit code is 1 when any section failed.
 set -u
 cd "$(dirname "$0")/.."
 
 FAST=0
+CI=0
 if [ "${1:-}" = "--fast" ]; then FAST=1; shift; fi
+if [ "${1:-}" = "--ci" ]; then CI=1; shift; fi
+TWO=""
+if [ "$CI" = 1 ]; then
+  command -v taskset > /dev/null 2>&1 && TWO="taskset -c 0,1 "  # two cores, like the runner (skipped where taskset is missing)
+fi
 OUT=${1:-$(mktemp -d "${TMPDIR:-/tmp}/openartifact-audit-XXXXXX")}
 mkdir -p "$OUT"
 REPORT="$OUT/audit.md"
@@ -23,7 +34,7 @@ FAILED=0
   echo
   echo "- Started: $(date '+%Y-%m-%d %H:%M:%S %Z')"
   echo "- Commit: $(git rev-parse --short HEAD) on $(git rev-parse --abbrev-ref HEAD), $(git status --short | wc -l) changed files in the working tree"
-  echo "- Host: $(nproc) cores, mode: $([ $FAST = 1 ] && echo fast || echo full)"
+  echo "- Host: $(nproc) cores, mode: $([ $FAST = 1 ] && echo fast || { [ $CI = 1 ] && echo "ci (serial, ${TWO:+two cores, }traces)" || echo full; })"
   echo
   echo "| # | Section | Start | End | Duration | Exit | Result |"
   echo "|---|---|---|---|---|---|---|"
@@ -54,10 +65,14 @@ section "JS unit tests"    "node --test 'tests/js/*.test.mjs'"
 if [ $FAST = 1 ]; then
   section "Python tests"   "python3 -m pytest -n 4 -p no:cacheprovider -q"
 else
-  section "Python tests with coverage" "coverage run -m pytest -p no:cacheprovider -q"
+  section "Python tests with coverage" "${TWO}coverage run -m pytest -p no:cacheprovider $([ $CI = 1 ] && echo '-v --tb=short' || echo -q)"
   section "coverage report" "coverage report --skip-empty --sort=cover | head -40"
 fi
-section "E2E browser tests" "python3 -m pytest -m e2e -n 3 -p no:cacheprovider -q"
+if [ $CI = 1 ]; then
+  section "E2E browser tests" "${TWO}python3 -m pytest -m e2e -p no:cacheprovider -v --tb=short --tracing retain-on-failure --output '$OUT/traces'"
+else
+  section "E2E browser tests" "python3 -m pytest -m e2e -n 3 -p no:cacheprovider -q"
+fi
 
 T1=$(date +%s)
 {

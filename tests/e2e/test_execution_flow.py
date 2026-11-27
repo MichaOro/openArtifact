@@ -121,8 +121,8 @@ def test_a_failing_action_shows_the_failure_and_the_error_edge(
     expect(_item(page, "Verify")).to_have_attribute("data-state", "fail")
     expect(_item(page, "Verify")).to_contain_text("Failed")
     verify.click()  # into the definition: the Code node failed with exit code 1
-    expect(_node(page, "Code: verify")).to_have_attribute(
-        "aria-label", "Code: verify, failed, exit code 1"
+    expect(_node(page, "Execute Command: verify")).to_have_attribute(
+        "aria-label", "Execute Command: verify, failed, exit code 1"
     )
     expect(page.locator("[data-panel-chips]")).to_have_text("Fail")
 
@@ -185,7 +185,7 @@ def test_an_action_that_ran_twice_has_passes_to_switch_between(
     _node(page, "Action: Flaky").click()
     expect(page.locator("[data-pass-text]")).to_have_text("Pass 1 of 2")
     expect(_crumbs(page).last).to_contain_text("(pass 1 of 2)")
-    code = _node(page, "Code: flaky")
+    code = _node(page, "Execute Command: flaky")
     expect(code).to_have_class(_state("fail"))
     expect(page.locator("[data-panel-chips]")).to_have_text("Fail")
     expect(page.locator("[data-pass-prev]")).to_be_disabled()
@@ -304,7 +304,7 @@ def test_the_place_is_in_the_url_and_reload_and_back_restore_it(
     expect(page).to_have_url(re.compile(r"\?visit=2$"))
     page.reload()
     expect(_crumbs(page)).to_have_count(3)
-    expect(_node(page, "Code: inner work")).to_be_visible()
+    expect(_node(page, "Execute Command: inner work")).to_be_visible()
     page.go_back()
     expect(page).to_have_url(re.compile(r"\?visit=1$"))
     expect(_crumbs(page)).to_have_text(["Outer flow", "Inner flow"])
@@ -352,11 +352,11 @@ def test_canvas_nodes_are_focusable_and_labelled_and_enter_opens_them(
     compile_.focus()
     page.keyboard.press("Enter")
     expect(_crumbs(page)).to_have_count(2)
-    expect(_node(page, "Code: compile")).to_have_attribute(
-        "aria-label", "Code: compile, passed, exit code 0"
+    expect(_node(page, "Execute Command: compile")).to_have_attribute(
+        "aria-label", "Execute Command: compile, passed, exit code 0"
     )
     page.locator("[data-viewport]").focus()
-    _node(page, "Code: compile").focus()
+    _node(page, "Execute Command: compile").focus()
     page.keyboard.press("Escape")
     expect(_crumbs(page)).to_have_count(1)
 

@@ -23,7 +23,7 @@ docker compose -f deploy/docker-compose.yml ps
 Set `OPENARTIFACT_API_TOKEN` (at least 32 characters, `openssl rand -hex 32`) and a secret key of your own in `deploy/.env`.
 With a token the whole application asks for it: browsers get a sign-in page, scripts and agents send
 `Authorization: Bearer <token>` (also for `/api/v1` and `/mcp`). Without a token the application is open, `/api/v1` and
-`/mcp` are closed, and Code nodes and credentials are unavailable. The application refuses to start with a short token, or with a token
+`/mcp` are closed, and Execute Command nodes and credentials are unavailable. The application refuses to start with a short token, or with a token
 and a secret key that is missing, the default or shorter than 32 characters. Do not change the secret key later: it encrypts the stored
 credentials, which become unreadable. See [Security](../docs/guides/security.md), [Credentials](../docs/guides/credentials.md),
 ADR-016, ADR-017, [SECURITY.md](../SECURITY.md) and the [guide](../docs/guides/integration.md).
@@ -50,17 +50,17 @@ Everything else in `deploy/.env` is an `OPENARTIFACT_*` application setting ([co
 
 | Setting | Effect |
 |---------|--------|
-| `read_only: true` and `tmpfs: /tmp` | the root file system is read-only; only the volume `/data` and a memory-backed `/tmp` (Code nodes work there) are writable |
+| `read_only: true` and `tmpfs: /tmp` | the root file system is read-only; only the volume `/data` and a memory-backed `/tmp` (Execute Command nodes work there) are writable |
 | `cap_drop: ALL` | no Linux capabilities |
 | `security_opt: no-new-privileges` | a process cannot gain privileges |
 | `pids_limit: 256` | at most 256 processes and threads in the container |
 | `mem_limit: 1g` | memory limit of the container (`/tmp` counts against it) |
-| user `1000` (Dockerfile) | the application and the Code nodes it starts run unprivileged |
+| user `1000` (Dockerfile) | the application and the Execute Command nodes it starts run unprivileged |
 | published on `127.0.0.1` | not reachable from the network unless `OPENARTIFACT_BIND` says so |
 
-This is the reference: a `docker run` of the image should pass the same flags. Code nodes run inside this
+This is the reference: a `docker run` of the image should pass the same flags. Execute Command nodes run inside this
 container with the rights of the application and are no sandbox; see
-[Operate the Docker deployment](../docs/guides/operations.md#code-nodes-in-the-container) and
+[Operate the Docker deployment](../docs/guides/operations.md#execute-command-nodes-in-the-container) and
 [Execution nodes](../docs/guides/execution-nodes.md).
 
 ## Where to read on

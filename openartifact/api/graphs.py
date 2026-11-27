@@ -19,6 +19,9 @@ from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import SessionDep
 from openartifact.api.schemas import ChainEntryRead, NodeTypeRead
 from openartifact.engine.chain import pipeline_chain
+from openartifact.engine.executors import CODE_DISABLED_REASON
+from openartifact.engine.neighbour_schemas import GraphNeighbours
+from openartifact.engine.neighbours import graph_neighbours
 from openartifact.graph import publishing, versions
 from openartifact.graph.content import graph_of
 from openartifact.graph.localize import localize
@@ -183,6 +186,35 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             edges=[EdgeRead.model_validate(e) for e in edges],
         )
 
+    @router.get(
+        "/{graph_id}/neighbours",
+        response_model=GraphNeighbours,
+        name=f"get_{kind}_neighbours",
+        summary=f"The predecessors and successors of every node of a {kind}",
+        responses=errors(404, 422),
+    )
+    async def get_neighbours(
+        graph_id: str,
+        session: SessionDep,
+        version: Annotated[
+            str,
+            Query(
+                pattern=r"^(published|draft|[0-9]{1,9})$",
+                description="``published`` (default): what executions run, the draft while nothing is published; ``draft``: what the "
+                "editor shows; or the number of a published version.",
+            ),
+        ] = "published",
+    ) -> GraphNeighbours:
+        """Every node (for a pipeline the trigger, stages, actions, called pipelines and the end; for an action definition its nodes) with
+        the nodes that lead to it (``predecessors``) and the ones it leads to (``successors``), each with the connector it hangs on
+        (*On Pass*, *On Error*, *On Fail*, a branch, a tool) as the editor draws it. Every connection of the graph appears once as a
+        successor and once as a predecessor. ``version`` says which state is read; the answer names the one used."""
+        graph = await _graph(GraphRepository(session), graph_id)
+        found = await graph_neighbours(session, graph, version)
+        if found is None:
+            raise _not_found(f"Version {version}")
+        return found
+
     if kind == GraphKind.PIPELINE:
 
         @router.get(
@@ -288,6 +320,27 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         version = await publishing.publish(session, graph, "user")
         await session.commit()
         return await _published(session, graph, version)
+
+    @router.post(
+        "/{graph_id}/draft/discard",
+        response_model=GraphDetail,
+        name=f"discard_{kind}_draft",
+        summary=f"Discard the draft of a {kind}",
+        responses=errors(404, 409, 422, write=True),
+    )
+    async def discard_draft(graph_id: str, request: Request, session: SessionDep) -> GraphDetail:
+        """Throw the changes since the published version away: the draft becomes that version again (nodes, connections, settings).
+        What an execution runs does not change. 409 while nothing is published and when the draft equals the published version.
+        Answers the graph as it is now."""
+        repo = GraphRepository(session)
+        graph = await _graph(repo, graph_id)
+        report = await publishing.discard_draft(session, graph)
+        await session.commit()
+        if report.graphs:
+            request.app.state.event_bus.publish(
+                "graph.changed", {"graph_ids": sorted(report.graphs)}
+            )
+        return await get_graph(graph_id, session)
 
     @router.post(
         "/{graph_id}/versions/{number}/republish",
@@ -507,6 +560,9 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
 pipelines_router = build_graph_router(GraphKind.PIPELINE)
 actions_router = build_graph_router(GraphKind.ACTION)
 
+#: The kinds that run text as a child process of the application: the node and the tool of an agent.
+EXECUTE_COMMAND_KINDS = frozenset({"code", "code_tool"})
+
 node_types_router = APIRouter(prefix="/api", tags=["node-types"], responses=GATED)
 
 
@@ -525,4 +581,10 @@ async def list_node_types(request: Request, session: SessionDep) -> list[dict[st
         ui_layout.apply_layout(f"nodes/{t.kind}", t.describe(), saved.get(f"nodes/{t.kind}"))
         for t in NODE_TYPES.values()
     ]
+    if (
+        not request.app.state.settings.code_nodes_enabled
+    ):  # Execute Command nodes are switched off on this instance (ADR-075)
+        for entry in described:
+            if entry["kind"] in EXECUTE_COMMAND_KINDS:
+                entry["unavailable"] = CODE_DISABLED_REASON
     return localize(described, language_for(request))

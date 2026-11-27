@@ -1,0 +1,48 @@
+schema: 1
+kind: handover_tool
+label: Hand Over Tool
+behaviour: tool
+produces_result: true
+scopes:
+- action
+addable: true
+tool: true
+menu:
+  group: Agent tools
+  order: 6
+ports:
+  outputs:
+  - name: tool
+    label: Tool
+    side: top
+ui:
+  color: context
+  icon: layers
+  hint: This tool lets an agent hand over a result as a document with the fields you define. The server checks every call; a document that does not fit goes back to the agent with the exact reason, and it may try again. A later node reads the accepted document as ${(Name of this node).data.field}.
+  caption:
+    template: '{tool_name|default:@name}'
+settings:
+- use: tool_name
+- key: description
+  label: Description
+  type: lines
+  default: Hand over the result as a document. Call it when you are done, with every required field filled in; if the answer says what is wrong, call it again with a corrected document.
+  max_length: 1000
+  help: Tells the model what the tool is for and when to use it. The fields below, with their descriptions, are what the model fills in.
+  stored_in: config
+- key: fields
+  label: Fields
+  type: fields
+  default: []
+  help: "The document's fields, flat: the model hands over exactly these. A missing, wrongly typed or unlisted field is refused with the reason; the last accepted document counts."
+  stored_in: config
+- key: max_bytes
+  label: Size limit
+  type: size
+  minimum: 1024
+  maximum: 65536
+  default: 16384
+  help: The most one document takes (bytes of UTF-8 JSON). A bigger one is refused with a message that says so.
+  stored_in: config
+  section: behaviour
+  level: optional

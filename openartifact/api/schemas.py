@@ -59,6 +59,15 @@ class SettingRead(BaseModel):
     shown_when: dict[str, Any] | None = None
     line: str | None = None
     credential_types: list[str] | None = None
+    #: The bounds of a ``retry`` setting (ADR-073): ``max_tries`` and ``wait_ms`` as ``[min, max, default]``, ``total_wait_ms``.
+    limits: dict[str, Any] | None = None
+    #: The sources a ``sources`` setting (the Build Context node, ADR-078) offers, each with its options, and how many a list holds.
+    sources: list[dict[str, Any]] | None = None
+    max_sources: int | None = None
+    #: What a ``fields`` setting (a schema of flat fields, ADR-080) offers: the types, how many fields, the bounds of a field.
+    field_types: list[str] | None = None
+    max_fields: int | None = None
+    field_limits: dict[str, Any] | None = None
     max_length: int | None = None
     placeholder: str | None = None
     help: str | None = None
@@ -76,7 +85,7 @@ class NodeTypeRead(BaseModel):
     kind: str
     label: str
     scopes: list[str]
-    #: In which kind of action definition it may be used (``pipeline``, ``guard``; ADR-067) and the right it needs (card #99; not
+    #: In which kind of action definition it may be used (``pipeline``, ``guard``; ADR-067) and the right it needs (planned per-person rights; not
     #: evaluated yet).
     purposes: list[str] = ["pipeline", "guard"]
     requires: str | None = None
@@ -92,6 +101,9 @@ class NodeTypeRead(BaseModel):
     tool: bool = False
     #: A guard may be attached to a node of this kind inside an action definition (ADR-060).
     guardable: bool = False
+    #: Why the kind cannot run on this instance (an Execute Command node while ``OPENARTIFACT_CODE_NODES_ENABLED`` is off, ADR-075);
+    #: ``None``: it can. The kind stays listed and its nodes stay editable; the editor says so.
+    unavailable: str | None = None
     #: The node leaves ``output`` and ``data`` for later nodes; its duration is worth showing; the keys of ``data`` it always
     #: leaves; the setting that holds the run variables it sets (``{setting, format}``).
     produces_result: bool = False

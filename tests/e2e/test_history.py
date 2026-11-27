@@ -9,7 +9,17 @@ from typing import Any
 import httpx
 from playwright.sync_api import ConsoleMessage, Page, Route, expect
 
-from tests.e2e.helpers import Board, Dialog, echo_pipeline, executions, start, wait_executions
+from tests.e2e.helpers import (
+    Board,
+    Dialog,
+    echo_pipeline,
+    ending_in_failure,
+    executions,
+    run_started,
+    slow_flow,
+    start,
+    wait_executions,
+)
 from tests.helpers import slow_pipeline
 
 
@@ -157,6 +167,45 @@ def test_the_origin_is_a_label_and_an_unknown_one_is_shown_as_it_is(
     expect(dialog.row(1).locator("[data-row-meta]")).to_contain_text("API")
     expect(dialog.row(2).locator("[data-row-meta]")).to_contain_text("MCP")
     expect(dialog.row(3).locator("[data-row-meta]")).to_contain_text("future")
+
+
+def test_the_note_of_a_failed_and_of_a_stopped_execution_shows_in_the_list_the_detail_and_the_executions_page(
+    board: Board, api: httpx.Client
+) -> None:
+    task = board.create("Item")
+    run_started(api, task, echo_pipeline(api))  # #1 done: no note
+    run_started(api, task, ending_in_failure(api))  # #2 failed: a note that says where
+    slow = slow_flow(api, seconds=60)
+    start(api, task, slow)
+    wait_executions(api, task, ["running", "failed", "done"])
+    api.post(f"/api/tasks/{task['id']}/run/stop").raise_for_status()
+    wait_executions(api, task, ["stopped", "failed", "done"])  # #3 stopped by hand
+    notes = {e["number"]: e["note"] for e in executions(api, task)}
+    assert notes[1] is None
+    assert notes[3] == "stopped"
+    assert notes[2] and "failed" in notes[2], "the server keeps the reason of the failure"
+    dialog = _open(board)
+    for number in (2, 3):  # the row of the run says why it ended
+        shown = dialog.row(number).locator("[data-row-note]")
+        expect(shown).to_be_visible()  # to_have_text alone would pass for a hidden element
+        expect(shown).to_have_text(notes[number])
+    expect(dialog.row(1).locator("[data-row-note]")).to_be_hidden()  # a done run has no note
+    dialog.row(2).locator(".history-row__open").click()  # the detail says it as well
+    expect(dialog.detail.locator("[data-detail-note]")).to_be_visible()
+    expect(dialog.detail.locator("[data-detail-note]")).to_have_text(notes[2])
+    dialog.detail.locator("[data-detail-back]").click()
+    dialog.row(1).locator(".history-row__open").click()
+    expect(dialog.detail.locator("[data-detail-note]")).to_be_hidden()
+    dialog.detail.locator("[data-detail-back]").click()
+    board.page.goto(f"{board.base_url}/executions")  # and the list of all executions says the same
+    rows = board.page.locator(".ex-row")
+    expect(rows).to_have_count(3)
+    for number in (2, 3):
+        row = rows.filter(has=board.page.locator("[data-open]", has_text=f"#{number}"))
+        expect(row.locator("[data-note]")).to_be_visible()
+        expect(row.locator("[data-note]")).to_have_text(notes[number])
+    done = rows.filter(has=board.page.locator("[data-open]", has_text="#1"))
+    expect(done.locator("[data-note]")).to_have_text("")
 
 
 def test_a_running_execution_cannot_be_deleted_and_flips_to_stopped(

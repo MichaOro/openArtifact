@@ -94,10 +94,14 @@ def test_an_optional_setting_is_added_kept_and_taken_away(
     timeout.fill("12")
     timeout.press("Enter")
     eventually(lambda: _config(api, definition, "http")["timeout_seconds"], 12)
-    # "If the node fails" is optional too: both are set before nothing is left to add
+    # "If the node fails" and "Retry on fail" (ADR-073) are optional too: all three are set before nothing is left to add
     add_setting(page, "If the node fails")
     dialog.get_by_label("If the node fails", exact=True).select_option(label="Continue")
     eventually(lambda: _config(api, definition, "http")["on_failure"], "continue")
+    add_setting(
+        page, "Retry on fail"
+    )  # an added retry starts on and is stored at once, so it is there when the node is reopened
+    eventually(lambda: (_config(api, definition, "http").get("retry") or {}).get("enabled"), True)
 
     page.keyboard.press("Escape")  # reopened: a configured optional setting is there without asking
     page.locator(".ge-node--http").dblclick(position={"x": 30, "y": 5})
@@ -295,3 +299,39 @@ def test_the_github_mcp_node_shows_its_tool_list_only_for_selected_and_all_excep
     expect(dialog.get_by_label("Tools", exact=True)).to_have_count(
         0
     )  # the list goes, what was written stays stored
+
+
+def test_the_openartifact_mcp_tool_has_no_credential_and_no_address_and_keeps_its_settings(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    definition = _open(page, base_url, api, "openartifact_tool")
+    dialog = page.locator("#node-modal")
+    for label in ("Credential", "URL", "Timeout (seconds)"):
+        expect(dialog.get_by_label(label, exact=True)).to_have_count(
+            0
+        )  # it calls the application's own tools, in this process
+    expect(dialog.locator(".ge-inspector__icon")).to_have_attribute(
+        "title", re.compile("OpenArtifact")
+    )
+    # read only until it is allowed
+    add_setting(page, "Allow writes")
+    writes = dialog.get_by_label("Allow writes", exact=True)
+    expect(writes).not_to_be_checked()
+    writes.check()
+    eventually(lambda: _config(api, definition, "openartifact_tool")["allow_write"], True)
+    # the tool list is there only for selected and all except
+    add_setting(page, "Tools to include")
+    mode = dialog.get_by_label("Tools to include", exact=True)
+    expect(mode).to_have_value("all")
+    expect(dialog.get_by_label("Tools", exact=True)).to_have_count(0)
+    mode.select_option(label="selected")
+    names = dialog.get_by_label("Tools", exact=True)
+    names.fill("list_artifacts\nmove_artifacts")
+    names.press("Tab")
+    eventually(
+        lambda: {
+            k: _config(api, definition, "openartifact_tool").get(k)
+            for k in ("tools_mode", "tool_names")
+        },
+        {"tools_mode": "selected", "tool_names": "list_artifacts\nmove_artifacts"},
+    )

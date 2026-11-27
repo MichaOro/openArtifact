@@ -11,10 +11,12 @@ import { foldEntries, foldSeparator } from "../components/fold-list.js";
 import { icon } from "../components/icons.js";
 import { InlineName } from "../components/inline-name.js";
 import { LeaveGuard } from "../components/leave-guard.js";
+import { MarkdownBar } from "../components/markdown-bar.js";
 import { fitColumn, fitSelect, refitWhenFontsLoad } from "../components/select-fit.js";
 import { Modal } from "../components/modal.js";
 import { OptionsPanel } from "../components/options-panel.js";
 import { SettingsGroup, numberSetting } from "../components/settings-group.js";
+import { Sortable } from "../components/sortable.js";
 import { Switch } from "../components/switch.js";
 import { Tabs } from "../components/tabs.js";
 import { connectEvents } from "../tasks/events.js";
@@ -33,6 +35,8 @@ const nameDialog = new FormDialog(new Modal(document.getElementById("name-modal"
 const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
 const $ = (selector) => root.querySelector(selector);
 const control = (key) => root.querySelector(`[data-field="${key}"]`);
+// The prompts are Markdown by convention and go to the model as they are written (ADR-077); the bar only helps to write them.
+for (const key of ["user_prompt", "system_prompt"]) new MarkdownBar(control(key));
 
 const NUMBERS = ["temperature", "max_tokens", "request_timeout_seconds", "total_timeout_seconds", "retries", "max_iterations", "token_budget", "tool_result_chars"];
 const ORIGINS = { user: t("agents.editor_page.browser"), api: t("agents.editor_page.through_api") };
@@ -227,7 +231,12 @@ function inputRow(input = { name: "", source: "value", type: "string", required:
       `Input ${name.value || ""}`.trim(),
     );
   });
-  row.append(name, source, type, required, fallback, description, more);
+  const grip = el("button", "icon-button icon-button--sm ag-input__grip");
+  grip.type = "button";
+  grip.setAttribute("aria-label", t("agents.editor_page.drag_input"));
+  grip.title = t("agents.editor_page.drag_input_help");
+  grip.append(icon("grip"));
+  row.append(grip, name, source, type, required, fallback, description, more);
   if (input.description) setDescription(row, input.description, { quiet: true });
   name.addEventListener("change", renderSamples);
   return row;
@@ -245,6 +254,21 @@ function setDescription(row, text, { quiet = false } = {}) {
   showDescriptionColumn();
   if (!quiet) changed();
 }
+
+/** The rows are the data: a drag has moved the row already, the arrow keys ask for it. Either way the order is a change of the draft. */
+function moveInput(from, to, by) {
+  const list = $("[data-inputs]");
+  const row = list.children[by === "key" ? from : to];
+  if (by === "key") list.insertBefore(row, list.children[to + (to > from ? 1 : 0)] ?? null);
+  row.querySelector(".ag-input__grip").focus();
+  const live = $("[data-inputs-live]");
+  live.textContent = "";
+  const name = row.querySelector('[data-input="name"]').value || t("agents.editor_page.input_unnamed");
+  window.setTimeout(() => (live.textContent = t("agents.editor_page.input_moved", { name, position: to + 1, total: list.children.length })), 0);
+  changed();
+  renderSamples();
+}
+new Sortable($("[data-inputs]"), { handle: ".ag-input__grip", onMove: moveInput });
 
 function removeInput(row) {
   row.remove();

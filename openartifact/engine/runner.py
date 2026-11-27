@@ -15,10 +15,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any, cast
 
 from sqlalchemy import CursorResult, delete, func, select, update
@@ -29,13 +31,14 @@ from openartifact.activity import recorder as activity
 from openartifact.artifact_fields.service import card_of
 from openartifact.comments.schemas import Author
 from openartifact.database import SessionOpener
-from openartifact.engine import code_registry
+from openartifact.engine import code_registry, stop_switch
 from openartifact.engine.chain import edge_from, locate, pipeline_chain
 from openartifact.engine.context import ContextError, NodeIndex, RunContext, RunView, check_card
 from openartifact.engine.executors import EXECUTORS, Limits
 from openartifact.engine.history import Changes, ExecutionHistory, utcnow
 from openartifact.engine.limits import RunLimits, load_limits
 from openartifact.engine.results import NodeResult
+from openartifact.engine.retry import retry_of, tried
 from openartifact.engine.schemas import ExecutionRead, NodeResultRead, RunRead, RunStageRead
 from openartifact.engine.snapshot import NestingError, build_snapshot
 from openartifact.engine.targets import TargetError, load_pipeline, pick_start
@@ -65,11 +68,15 @@ RUN_OUTPUT_LIMIT_CHARS = 1024 * 1024
 RESULT_OUTPUT_LIMIT_CHARS = 256 * 1024
 REMOVED_OUTPUT = "[output removed: the results of this execution are limited]"
 OUTPUT_CUT_MARK = "[output truncated]"
+#: The note of a run (and its execution) that was still running when the application restarted (``recover``, ADR-013).
+INTERRUPTED_NOTE = "Interrupted by restart"
 #: Steps a run read carries (the newest); ``results`` of the run has them all.
 RUN_READ_RESULTS = 200
 #: How a time limit in minutes becomes seconds (one place, so a test can make a minute short).
 SECONDS_PER_MINUTE = 60
 _UNSET: Any = object()
+#: How long ``set_stop`` waits for starts that are on their way (they take milliseconds).
+_START_WAIT_SECONDS = 10.0
 
 
 def _cut(result: NodeResult) -> NodeResult:
@@ -247,6 +254,8 @@ class RunEngine:
         # artifacts whose start has not reached its background task
         self._starting: set[str] = set()
         self._jobs: dict[str, asyncio.Task[None]] = {}
+        #: The emergency stop (ADR-076) as this process last saw it: no execution starts while it is on.
+        self._stopped = False
         self.guard_settings = guards or GuardSettings()
         #: The guard monitor of every execution that runs, by execution id (heartbeats, previews).
         self.monitors: dict[str, tuple[str, Monitor]] = {}
@@ -367,6 +376,8 @@ class RunEngine:
         """
         # Everything up to the registration of the background task happens for one artifact at a time:
         # the check below runs before the first await, so a second start cannot slip in.
+        if self._stopped:
+            raise ArtifactError(409, stop_switch.MESSAGE, stop_switch.CODE)
         if task_id in self._starting or task_id in self._jobs:
             raise ArtifactError(409, "The artifact is already being processed")
         if len(self._starting) + len(self._jobs) >= self._max_runs:
@@ -455,6 +466,11 @@ class RunEngine:
                 )
             await self.history.prune(session, task, changes)
             await self.history.apply_rules(session, changes)
+            # The last word before the run is real: STOP (ADR-076) is read in this very transaction, so a start that is
+            # on its way when the switch goes on either sees it here (nothing is written) or is a run that the switch
+            # aborts, because ``set_stop`` waits for the starts on their way before it looks for runs.
+            if self._stopped or (await stop_switch.load(session))[0]:
+                raise ArtifactError(409, stop_switch.MESSAGE, stop_switch.CODE)
             await session.commit()
             result = await self.read(session, run)
             execution_id = execution.id
@@ -512,8 +528,11 @@ class RunEngine:
             await session.execute(delete(RunStage).where(RunStage.run_id == run.id))
         return run, previous
 
-    async def stop(self, task_id: str) -> RunRead:
-        """Stop a running artifact; it stays at its stage and action and can be started again."""
+    async def stop(self, task_id: str, note: str = "stopped") -> RunRead:
+        """Stop a running artifact; it stays at its stage and action and can be started again.
+
+        ``note`` is what the run and its execution say about the end (the emergency stop gives its own).
+        """
         if task_id in self._starting:
             raise ArtifactError(409, "The artifact is just being started")
         job = self._jobs.pop(task_id, None)
@@ -525,7 +544,7 @@ class RunEngine:
             if run is None or run.status != RunStatus.RUNNING:
                 raise ArtifactError(409, "The artifact is not being processed")
             run.status = RunStatus.STOPPED
-            run.note = "stopped"
+            run.note = note
             await self._pause_running_stages(session, run.id)
             changes = await self._close_execution(session, run)
             await session.commit()
@@ -533,6 +552,59 @@ class RunEngine:
         self._bus.publish("run.updated", result.model_dump(mode="json"))
         self.history.publish(changes)
         return result
+
+    # ── the emergency stop (ADR-076) ─────────────────────────────────────
+
+    async def stop_active(self) -> bool:
+        """Whether the emergency stop is on (read from the database; this also refreshes what the process remembers)."""
+        async with self._session() as session:
+            self._stopped = (await stop_switch.load(session))[0]
+        return self._stopped
+
+    async def running_count(self) -> int:
+        """How many executions run now."""
+        async with self._session() as session:
+            return int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(PipelineRun)
+                    .where(PipelineRun.status == RunStatus.RUNNING)
+                )
+                or 0
+            )
+
+    async def set_stop(self, active: bool) -> int:
+        """Switch the emergency stop on or off; on: abort every execution that runs. Returns how many were aborted.
+
+        Order matters for the race with a start that is on its way: the state is written first, then the process
+        remembers it, then the starts that have not finished are waited for (each of them either refuses itself or
+        has registered its run), and only then the runs are looked for and stopped.
+        """
+        async with self._session() as session:
+            await stop_switch.store(session, active, utcnow())
+            await session.commit()
+        self._stopped = active
+        if not active:
+            return 0
+        deadline = time.monotonic() + _START_WAIT_SECONDS
+        while self._starting and time.monotonic() < deadline:
+            await asyncio.sleep(0.02)
+        async with self._session() as session:
+            running = set(
+                (
+                    await session.execute(
+                        select(PipelineRun.task_id).where(PipelineRun.status == RunStatus.RUNNING)
+                    )
+                ).scalars()
+            )
+        aborted = 0
+        for task_id in sorted(running | set(self._jobs)):
+            try:
+                await self.stop(task_id, note=stop_switch.NOTE)
+                aborted += 1
+            except ArtifactError:  # it ended by itself in the meantime
+                continue
+        return aborted
 
     async def recover(self) -> None:
         """After a restart no run is running any more; the ones that were are stopped.
@@ -553,16 +625,19 @@ class RunEngine:
             )
             for run in runs:
                 run.status = RunStatus.STOPPED
-                run.note = "interrupted"
+                run.note = INTERRUPTED_NOTE
                 await self._pause_running_stages(session, run.id)
                 await self._close_execution(session, run)
             # executions that no run points to any more (a crash in between) are closed the same way
             await session.execute(
                 update(Execution)
                 .where(Execution.status == RunStatus.RUNNING)
-                .values(status=RunStatus.STOPPED, note="interrupted", finished_at=utcnow())
+                .values(status=RunStatus.STOPPED, note=INTERRUPTED_NOTE, finished_at=utcnow())
             )
             await session.commit()
+        await (
+            self.stop_active()
+        )  # STOP survives the restart: the switch stays on until somebody switches it off
 
     async def _close_execution(self, session: AsyncSession, run: PipelineRun) -> Changes:
         """Bring the run's execution in line with the run, then apply the retention policy."""
@@ -903,7 +978,17 @@ class RunEngine:
                 await self._guarded(
                     monitor.enter("definition", str(definition_id), node["label"], inside)
                 )
-            passed, reason = await self._run_action(node, walk)
+            (passed, reason), earlier = await tried(
+                partial(self._run_action, node, walk),
+                lambda r: None if r[0] else (r[1] or "The action failed"),
+                retry_of(node) if node.get("definition_id") else None,  # Retry on fail (ADR-073)
+            )
+            if earlier and not passed:
+                reason = (
+                    f"{reason} (after {len(earlier) + 1} tries)"
+                    if reason
+                    else f"after {len(earlier) + 1} tries"
+                )
             await self._guarded(
                 monitor.ended(action, passed, str(definition_id) if watched else None)
             )
@@ -1016,7 +1101,18 @@ class RunEngine:
                         "node", current["id"], current["name"], inside, definition["name"]
                     )
                 )
-            result = await executor.run(current, self._limits, run_view)
+            timer = time.monotonic()
+            result, earlier = await tried(
+                partial(executor.run, current, self._limits, run_view),
+                lambda r: (r.reason or "The node failed") if r.outcome == "fail" else None,
+                retry_of(current) if executor.by_outcome else None,  # Retry on fail (ADR-073)
+            )
+            result.attempts = len(earlier) + 1
+            if earlier:  # the failed tries before the last: what only the step shows
+                result.detail = {**(result.detail or {}), "tries": earlier}
+            result.duration_ms = int(
+                (time.monotonic() - timer) * 1000
+            )  # the result contract (ADR-072)
             if result.outcome == "pass" and result.variables:
                 try:
                     run_view.context.set_vars(result.variables)
@@ -1096,6 +1192,7 @@ class RunEngine:
                     reason=result.reason if result else None,
                     data=result.data if result else None,
                     detail=result.detail if result else None,
+                    attempts=result.attempts if result else 1,
                     started_at=started,
                     finished_at=datetime.now(UTC),
                 )

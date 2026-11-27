@@ -173,5 +173,7 @@ class RunNodeResult(Base):
     detail: Mapped[dict[str, Any] | None] = mapped_column(
         JSON, nullable=True, default=None, deferred=True
     )
+    #: How many tries the node took (*Retry on fail*, ADR-073, migration 0059); the failed tries before the last are in ``detail["tries"]``.
+    attempts: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     started_at: Mapped[datetime] = mapped_column()
     finished_at: Mapped[datetime] = mapped_column()

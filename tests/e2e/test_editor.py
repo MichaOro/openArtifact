@@ -526,12 +526,14 @@ def test_create_an_action_definition_from_the_navigation(
             "MCP Client Tool",
             "GitHub MCP",
             "HTTP Request Tool",
-            "Code Tool",
+            "Execute Command Tool",
             "Postgres Tool",
+            "OpenArtifact MCP Tool",  # ADR-079
+            "Hand Over Tool",  # ADR-080
         ],
         "Apps and data": ["GitHub", "Postgres"],
-        "Core": ["Code", "HTTP request"],
-        "Data": ["Edit Fields", "Artifact"],
+        "Core": ["Execute Command", "HTTP request"],
+        "Data": ["Edit Fields", "Artifact", "Build Context"],  # Build Context: ADR-078
         "Flow": ["If", "Switch", "Timer"],
     }
 

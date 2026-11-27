@@ -54,6 +54,7 @@ DELETE /api/v1/secrets/{name} -> -
 DELETE /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/actions -> GraphListRead[]
 GET /api/actions/{graph_id} -> GraphDetail
+GET /api/actions/{graph_id}/neighbours -> GraphNeighbours
 GET /api/actions/{graph_id}/uses -> GraphUses
 GET /api/actions/{graph_id}/versions -> GraphVersionRead[]
 GET /api/actions/{graph_id}/versions/{number} -> GraphVersionDetail
@@ -85,6 +86,7 @@ GET /api/lanes/{status}/rules -> RulesAnswer
 GET /api/node-types -> NodeTypeRead[]
 GET /api/pipelines -> GraphListRead[]
 GET /api/pipelines/{graph_id} -> GraphDetail
+GET /api/pipelines/{graph_id}/neighbours -> GraphNeighbours
 GET /api/pipelines/{graph_id}/stages -> ChainEntryRead[]
 GET /api/pipelines/{graph_id}/uses -> GraphUses
 GET /api/pipelines/{graph_id}/versions -> GraphVersionRead[]
@@ -100,6 +102,7 @@ GET /api/secrets/{name}/uses -> SecretUse[]
 GET /api/settings/personal -> PersonalSettingsRead
 GET /api/settings/retention -> RulesRead
 GET /api/settings/run-limits -> RunLimitsRead
+GET /api/settings/stop -> StopState
 GET /api/tasks -> TaskRead[]
 GET /api/tasks/{ref}/activity -> ActivityPage
 GET /api/tasks/{ref}/comments -> CommentRead[]
@@ -108,9 +111,11 @@ GET /api/tasks/{task_id}/executions -> ExecutionList
 GET /api/tasks/{task_id}/executions/{execution_id} -> ExecutionDetail
 GET /api/tasks/{task_id}/executions/{execution_id}/context -> RunContextRead
 GET /api/tasks/{task_id}/executions/{execution_id}/flow -> ExecutionFlow
+GET /api/tasks/{task_id}/executions/{execution_id}/position -> ExecutionPosition
 GET /api/tasks/{task_id}/executions/{execution_id}/steps/{step_id} -> ExecutionStepRead
 GET /api/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/ui-layouts/{kind}/{name}/export -> -
+GET /api/v1/actions/{ref}/neighbours -> GraphNeighbours
 GET /api/v1/agents -> AgentRead[]
 GET /api/v1/agents/{ref} -> AgentDetail
 GET /api/v1/agents/{ref}/uses -> AgentUse[]
@@ -125,6 +130,7 @@ GET /api/v1/artifacts/{ref}/executions -> ExecutionList
 GET /api/v1/artifacts/{ref}/executions/{execution_id} -> ExecutionDetail
 GET /api/v1/artifacts/{ref}/executions/{execution_id}/context -> RunContextRead
 GET /api/v1/artifacts/{ref}/executions/{execution_id}/flow -> ExecutionFlow
+GET /api/v1/artifacts/{ref}/executions/{execution_id}/position -> ExecutionPosition
 GET /api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id} -> ExecutionStepRead
 GET /api/v1/artifacts/{ref}/run -> RunRead
 GET /api/v1/artifacts/{ref}/run/results -> NodeResultRead[]
@@ -136,12 +142,14 @@ GET /api/v1/guards/templates -> TemplateRead[]
 GET /api/v1/guards/{guard_id} -> GuardDefinitionRead
 GET /api/v1/lanes -> LaneRead[]
 GET /api/v1/pipelines -> PipelineChainRead[]
+GET /api/v1/pipelines/{ref}/neighbours -> GraphNeighbours
 GET /api/v1/providers -> ProviderRead[]
 GET /api/v1/providers/{ref} -> ProviderRead
 GET /api/v1/secrets -> SecretRead[]
 GET /api/v1/settings/personal -> PersonalSettingsRead
 GET /api/v1/settings/retention -> RulesRead
 GET /api/v1/settings/run-limits -> RunLimitsRead
+GET /api/v1/settings/stop -> StopState
 GET /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 GET /api/v1/ui-layouts/{kind}/{name}/export -> -
 GET /health -> HealthRead
@@ -165,6 +173,7 @@ PATCH /api/v1/guards/{guard_id} -> GuardDefinitionRead
 PATCH /api/v1/providers/{ref} -> ProviderRead
 PATCH /api/v1/providers/{ref}/models/{model_id} -> ProviderRead
 POST /api/actions -> GraphRead
+POST /api/actions/{graph_id}/draft/discard -> GraphDetail
 POST /api/actions/{graph_id}/edges -> EdgeRead
 POST /api/actions/{graph_id}/nodes -> NodeRead
 POST /api/actions/{graph_id}/publish -> PublishedGraph
@@ -189,6 +198,7 @@ POST /api/guards/preview -> GuardPreview
 POST /api/lanes -> LaneRead[]
 POST /api/lanes/{status}/rules/preview -> CardPreviewRead
 POST /api/pipelines -> GraphRead
+POST /api/pipelines/{graph_id}/draft/discard -> GraphDetail
 POST /api/pipelines/{graph_id}/edges -> EdgeRead
 POST /api/pipelines/{graph_id}/nodes -> NodeRead
 POST /api/pipelines/{graph_id}/publish -> PublishedGraph
@@ -238,6 +248,7 @@ PUT /api/secrets/{name} -> SecretRead
 PUT /api/settings/personal -> PersonalSettingsRead
 PUT /api/settings/retention -> RulesSaved
 PUT /api/settings/run-limits -> RunLimitsRead
+PUT /api/settings/stop -> StopState
 PUT /api/ui-layouts/{kind}/{name} -> LayoutRead
 PUT /api/v1/agents/{ref}/draft -> AgentDetail
 PUT /api/v1/artifact-fields -> ArtifactFieldsRead
@@ -247,6 +258,7 @@ PUT /api/v1/secrets/{name} -> SecretRead
 PUT /api/v1/settings/personal -> PersonalSettingsRead
 PUT /api/v1/settings/retention -> RulesSaved
 PUT /api/v1/settings/run-limits -> RunLimitsRead
+PUT /api/v1/settings/stop -> StopState
 PUT /api/v1/ui-layouts/{kind}/{name} -> LayoutRead
 """.splitlines()
 

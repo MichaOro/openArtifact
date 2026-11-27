@@ -100,8 +100,9 @@ def test_the_inputs_show_every_choice_in_full_and_break_in_pairs_when_the_table_
         inputs=[{"name": "text", "source": "artifact", "part": "title_body"}],
     )
     page = signed_in
-    # wide: one line of six; narrower: pairs (2, 2, 2); narrowest: one column (a pair would cut a choice)
-    for width, columns in ((1500, 6), (900, 2), (700, 1)):
+    # wide: one line of seven (the handle of the row, then the six controls); narrower: pairs (2, 2, 2), the handle
+    # leaves the grid and sits at the row's edge; narrowest: one column (a pair would cut a choice)
+    for width, columns in ((1500, 7), (900, 2), (700, 1)):
         page.set_viewport_size({"width": width, "height": 900})
         editor = _editor(page, agents_url, agent)
         _tab(editor, "Inputs")

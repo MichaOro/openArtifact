@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from openartifact.agents import tools as agent_tools
+from openartifact.agents.handover import HandoverSink
 from openartifact.agents.runtime import run_node as run_agent_node
 from openartifact.comments.schemas import Author
 from openartifact.config import Settings
@@ -33,6 +34,7 @@ from openartifact.engine.artifact_runner import CommentsGateway, run_artifact
 from openartifact.engine.branching import evaluate_if, evaluate_switch
 from openartifact.engine.code_runner import CodeLimits, run_code
 from openartifact.engine.context import RunView
+from openartifact.engine.context_builder import CardsGateway, run_context
 from openartifact.engine.fields import run_set
 from openartifact.engine.github_runner import run_github
 from openartifact.engine.http_runner import run_http
@@ -44,7 +46,14 @@ from openartifact.models import NodeKind
 
 logger = logging.getLogger(__name__)
 
-OPEN_MODE_CODE_REASON = "Code nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
+OPEN_MODE_CODE_REASON = (
+    "Execute Command nodes need OPENARTIFACT_API_TOKEN: the application is open without it"
+)
+#: The reason of an Execute Command node (and the Execute Command Tool of an agent) while the instance has them switched off.
+CODE_DISABLED_REASON = (
+    "Execute Command nodes are switched off on this instance: set OPENARTIFACT_CODE_NODES_ENABLED=true "
+    "in the environment and restart to switch them on"
+)
 
 #: Gives the values of secrets by name; raises :class:`SecretResolveError`.
 SecretResolver = Callable[[Sequence[str]], Awaitable[dict[str, str]]]
@@ -69,6 +78,8 @@ class Limits:
     llm_allow_private_networks: bool = False
     #: The comments of artifacts, for the Artifact node (ADR-055); ``None``: the node fails.
     comments: CommentsGateway | None = None
+    #: The parent, children, siblings and earlier executions of a card, for the Build Context node (ADR-078); ``None``: those sources fail.
+    cards: CardsGateway | None = None
     #: The settings of a credential that are no secret, by its name (the address of a GitHub server); ``None``: none.
     credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None
     #: The SQLite databases a SQLite node may read, by name (``engine/sqlite_runner.py``, ADR-068): the application's own
@@ -77,6 +88,9 @@ class Limits:
     #: Told what a running node does that others may want to see (``agent.tool_call``: the event type and its data); the
     #: application hands it to the event bus. ``None``: nobody listens.
     publish: Callable[[str, dict[str, Any]], object] | None = None
+    #: The board tools an agent's OpenArtifact MCP Tool node calls (``api/board_tools.py``, ADR-079): gives the tools when a run
+    #: needs them (the services do not exist yet when the engine is made); ``None``: such a node fails before its first request.
+    board: Callable[[], Any] | None = None
 
     @classmethod
     def from_settings(
@@ -86,6 +100,8 @@ class Limits:
         comments: CommentsGateway | None = None,
         credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None,
         publish: Callable[[str, dict[str, Any]], object] | None = None,
+        cards: CardsGateway | None = None,
+        board: Callable[[], Any] | None = None,
     ) -> Limits:
         return cls(
             settings.code_nodes_enabled,
@@ -103,11 +119,13 @@ class Limits:
             and not settings.code_nodes_without_token,
             llm_allow_private_networks=settings.llm_allow_private_networks,
             comments=comments,
+            cards=cards,
             credential_settings=credential_settings,
             data_sources={
                 APP_SOURCE: application_source(settings.data_dir / settings.database_filename)
             },
             publish=publish,
+            board=board,
         )
 
 
@@ -157,6 +175,11 @@ def _masked(result: NodeResult, values: dict[str, str]) -> NodeResult:
         result.variables = mask_data(result.variables, used)
     if result.detail is not None:
         result.detail = mask_data(result.detail, used)
+    for (
+        _,
+        other,
+    ) in result.recorded:  # what the node handed over is masked like the rest of its result
+        _masked(other, values)
     return result
 
 
@@ -176,9 +199,18 @@ async def _with_secrets(
         return _masked(result, values)
 
 
+def node_output_limit(config: dict[str, Any], instance_limit: int) -> int:
+    """What an Execute Command node keeps of its output: its own ``output_limit_bytes`` when it has one, never more than the
+    limit of the instance (``OPENARTIFACT_CODE_OUTPUT_LIMIT_BYTES``), which stays the ceiling (ADR-075)."""
+    own = config.get("output_limit_bytes")
+    if isinstance(own, int) and not isinstance(own, bool) and own > 0:
+        return min(own, instance_limit)
+    return instance_limit
+
+
 async def _code(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     if not limits.code_nodes_enabled:
-        return failed("Code nodes are disabled")
+        return failed(CODE_DISABLED_REASON)
     if limits.code_blocked_in_open_mode:
         return failed(OPEN_MODE_CODE_REASON)
     config = node["config"]
@@ -192,7 +224,7 @@ async def _code(node: dict[str, Any], limits: Limits, view: RunView | None = Non
             config["language"],
             config["code"],
             config["timeout_seconds"],
-            limits.code_output_limit_bytes,
+            node_output_limit(config, limits.code_output_limit_bytes),
             env=values,
             limits=limits.code,
             node_id=str(node.get("id") or ""),
@@ -313,6 +345,13 @@ async def _artifact(
     )
 
 
+async def _context(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
+    """Build the package of the node's sources within its size limit (``engine/context_builder.py``, ADR-078); no secret."""
+    return await run_context(
+        node["config"], view=view or RunView(), cards=limits.cards, comments=limits.comments
+    )
+
+
 async def _timer(node: dict[str, Any], limits: Limits, view: RunView | None = None) -> NodeResult:
     started = time.monotonic()
     await asyncio.sleep(node["seconds"] or 0)
@@ -367,10 +406,15 @@ async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = No
     run_view = view or RunView()
 
     async def run(values: dict[str, str]) -> NodeResult:
+        handovers = HandoverSink()  # the documents the node's Hand Over Tools accept (ADR-080)
         context = agent_tools.ToolContext(
-            values, limits.llm_allow_private_networks, limits=limits, view=run_view
+            values,
+            limits.llm_allow_private_networks,
+            limits=limits,
+            view=run_view,
+            handovers=handovers,
         )
-        return await run_agent_node(
+        result = await run_agent_node(
             node,
             run_view,
             values.get(name) if name else None,
@@ -378,6 +422,11 @@ async def _agent(node: dict[str, Any], limits: Limits, view: RunView | None = No
             comments=limits.comments,
             on_event=_agent_events(limits, run_view),
         )
+        documents = handovers.documents()
+        if documents:
+            result.recorded = handovers.recorded()
+            result.data = {**(result.data or {}), "handovers": documents}
+        return result
 
     return await _with_secrets(list(dict.fromkeys(names)), limits, run)
 
@@ -393,3 +442,4 @@ register_executor(NodeKind.POSTGRES, _postgres)
 register_executor(NodeKind.SQLITE, _sqlite)
 register_executor(NodeKind.GITHUB, _github)
 register_executor(NodeKind.ARTIFACT, _artifact)
+register_executor(NodeKind.CONTEXT, _context)

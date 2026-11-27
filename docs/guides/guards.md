@@ -164,7 +164,7 @@ guard runs no action of its own and offers **Run an action when it fires**.
 | Times this guard fired (`guard.runs`) | Its firings on this scope in this run |
 | Last action (`last_status`) | passed, erred, none yet |
 | Cost (`cost`) | Only when a node reports a cost (none does yet): a condition on it never fires today |
-| Result field (`var.NAME`) | A numeric run variable, e.g. one a Code node declares and sets (`"vars": {"gain": 0.02}`) |
+| Result field (`var.NAME`) | A numeric run variable, e.g. one an Execute Command node declares and sets (`"vars": {"gain": 0.02}`) |
 | Agent rounds / Tool calls of the agents / Failed tool calls (`agent.turns`, `agent.tool_calls`, `agent.tool_errors`) | What the agents of the execution have done so far |
 | Same tool call in a row (`agent.repeat`) | How often the last tool call was made with the **same arguments** in a row (the end of the streak) |
 | Same tool in a row (`agent.same_tool`) | How often the last **tool** was called in a row, whatever its arguments |
@@ -186,7 +186,7 @@ detail of an agent step is only stored when it is done. The event log written du
 | Pause the run | The run stops with the reason (`Paused by guard …`) and stays where it is; start it again to resume |
 | Abort the run | The run fails with the reason (`Aborted by guard …`); a running action is stopped |
 | Continue | Only recorded |
-| Run the guard's action | Its own action runs with the facts as `${var.guard_runs}`, `guard_idle`, `guard_elapsed`, `guard_errors`, `guard_passes`, `guard_last_status`, `guard_firing`, `guard_name` (Code nodes read them in `context.json`); On Pass continues, On Error does the fallback. It works on a copy of the run's context, its steps are not steps of the execution, and nothing watches it. Saving a guard with this consequence and no action makes an empty one; the *Logic* part chooses, makes and opens it |
+| Run the guard's action | Its own action runs with the facts as `${var.guard_runs}`, `guard_idle`, `guard_elapsed`, `guard_errors`, `guard_passes`, `guard_last_status`, `guard_firing`, `guard_name` (Execute Command nodes read them in `context.json`); On Pass continues, On Error does the fallback. It works on a copy of the run's context, its steps are not steps of the execution, and nothing watches it. Saving a guard with this consequence and no action makes an empty one; the *Logic* part chooses, makes and opens it |
 
 ## Writing a guard: three examples (the templates)
 
@@ -219,7 +219,7 @@ pauses the run.
 
 The templates **Agent quiet and storm guard** (rules only: pauses the run at 5 minutes of quiet or 10 identical calls) and **Agent health guard**
 (when quiet, a call repeated 5 times or 5 failed calls, a guard action judges: the **SQLite** node reads the recent tool calls
-of the execution from `v_guard_tool_calls`, an agent judges them, a Code node turns the verdict into pass or fail; *unhealthy* aborts the run)
+of the execution from `v_guard_tool_calls`, an agent judges them, an Execute Command node turns the verdict into pass or fail; *unhealthy* aborts the run)
 show both. In the guard's action the facts are variables with the dots written as underscores (`${var.guard_agent_idle}`,
 `${var.guard_agent_repeat}`, `${var.guard_lane_backlog}`) and `${var.guard_execution}` / `${var.guard_task}` name the execution and the artifact, so a SQLite
 node can ask `WHERE execution_id = ?1` with the value `${var.guard_execution}`. A guard action that passes means *healthy*; one that fails with a

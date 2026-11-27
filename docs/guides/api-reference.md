@@ -43,6 +43,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
 | GET | `/api/v1/pipelines` | Pipelines with their stages in running order and the actions of each stage (the ids to start with) | |
+| GET | `/api/v1/pipelines/{ref}/neighbours`, `/api/v1/actions/{ref}/neighbours` | Every node with its predecessors and successors (`?version=published` (default) \| `draft` \| a number); `ref` is the id, URL name or name | 404, 422 |
 | GET | `/api/v1/lanes` | The board lanes in order: `status` (the key artifacts use), `key` (DOM form), `title`, `position`, `hue`, `style` (`normal` or `finished`), `artifact_count`, `deletable` | |
 | POST | `/api/v1/lanes` | Add a lane: body `{"title": "Review"}`; 1 to 40 characters, no control characters, different from the other lanes (ignoring case); at most 12 lanes; appended at the end; `201`, answers the lanes | 422 |
 | PUT | `/api/v1/lanes/{status}` | Change a lane (its key stays): body `{"title"?: "Review", "style"?: "finished"}`, at least one; same title rules; `style` is `normal` or `finished` (an unknown one is 422 and lists them); answers the lanes | 404, 422 |
@@ -55,7 +56,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | PATCH | `/api/v1/artifacts/{ref}` | Change it (partial); `fields` are merged into the stored ones (`null` clears one); lane, order, parent, pipeline, type and parameters are locked while it is processed | 404, 409, 422 |
 | DELETE | `/api/v1/artifacts/{ref}` | Delete it (not while it is processed); `204` | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run` | State of the run: status, where it is, status of every stage | 404 (never processed) |
-| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`); the run records `started_by: api`; `201` | 404, 409, 422, 429 |
+| POST | `/api/v1/artifacts/{ref}/run` | Start processing; body optional (`pipeline_id`, `stage_id`, `action_id`); the run records `started_by: api`; `201`; `409` with `code: stopped` while the emergency stop is on (ADR-076) | 404, 409, 422, 429 |
 | POST | `/api/v1/artifacts/{ref}/run/stop` | Stop; the artifact keeps its stage and action | 404, 409 |
 | GET | `/api/v1/artifacts/{ref}/run/results` | Every step of the run inside action definitions, in order, with complete outputs | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions` | The artifact's executions, newest first, without steps; `limit` 1 to 500 (default 100) | 404, 422 |
@@ -63,9 +64,10 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/context` | The run context alone (variables, latest result of each node; text from outside) | 404 |
 | DELETE | `/api/v1/artifacts/{ref}/executions/{execution_id}` | Delete one execution; `204` | 404, 409 (still running) |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/flow` | The graphs as frozen at the start, the path walked through them, the steps (`?outputs=true` adds step outputs) | 404 |
+| GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/position` | Where the execution is: `at`, `next`, `afterwards`, `path` (see [Neighbours and position](#neighbours-and-position)) | 404 |
 | GET | `/api/v1/artifacts/{ref}/executions/{execution_id}/steps/{step_id}` | One step with its complete output | 404 |
 | GET | `/api/v1/artifacts/{ref}/activity` | What changed on the artifact and who did it, newest first, in pages: `limit` 1 to 200 (default 50), `before` = the `next` cursor of the previous page; a delete action on executions is one `run` entry, a comment is a `comment` entry (its id, never its text); executions that still exist are not repeated | 404, 422 |
-| GET | `/api/v1/artifacts/{ref}/comments` | The artifact's comments, oldest first (plain text; `author`, `author_kind`, `execution_id`) | 404 |
+| GET | `/api/v1/artifacts/{ref}/comments` | The artifact's comments, oldest first (Markdown text, stored as written; `author`, `author_kind`, `execution_id`) | 404 |
 | POST | `/api/v1/artifacts/{ref}/comments` | Add a comment `{"body", "author"?}` (1 to 65536 characters); `201`. The author is the managed token's name; only the environment token may pass `author`. Publishes `comment.created` | 404, 422 |
 | PATCH | `/api/v1/artifacts/{ref}/comments/{comment_id}` | Change the text `{"body"}`; publishes `comment.updated` | 404, 422 |
 | DELETE | `/api/v1/artifacts/{ref}/comments/{comment_id}` | Delete a comment; `204`; publishes `comment.deleted` | 404 |
@@ -143,6 +145,12 @@ guard (by attachment), the last heartbeat and the firings with their facts.
 | GET | `/api/v1/settings/run-limits` | `max_steps`, `time_limit_minutes` (0: none), their bounds, `max_concurrent_runs` (read-only, the operator's) and `updated_at` | |
 | PUT | `/api/v1/settings/run-limits` | Change one or both limits (10 to 100000 steps, 0 to 10080 minutes); applies to executions that start afterwards; publishes `settings.changed` | 422 |
 
+| GET | `/api/v1/settings/stop` | The emergency stop (ADR-076): `active`, `since`, `available` (the personal setting `show_stop_switch`), `running` (executions running now), `aborted` | |
+| PUT | `/api/v1/settings/stop` | Body `{"active": true\|false}`. On: aborts every running execution (their note is `EMERGENCY STOP`; `aborted` counts them) and refuses every start from any source until it is switched off; the state is kept across restarts. Off is always allowed. Publishes `settings.changed` with `stop` | 409 `stop_unavailable`, 422 |
+
+While the emergency stop is on, `POST .../run` is `409` with `{"detail": "...", "code": "stopped"}`; cards, pipelines and the history keep working. Switching on
+needs the personal setting `show_stop_switch` (`GET`/`PUT /api/settings/personal`), which cannot be switched off while the emergency stop is on (`409` `stop_active`).
+
 The browser has the same routes under `/api/settings`.
 
 ### Window layouts (`/api/v1/ui-layouts`, ADR-063)
@@ -163,7 +171,9 @@ same routes under `/api/ui-layouts`.
 
 A step read alone (`GET /api/v1/artifacts/{ref}/executions/{id}/steps/{step_id}`) carries `detail` for an agent step:
 the prompts as sent, the inputs, the overrides, every attempt and, per request (`turns`), the tool calls with their
-arguments and results (cut to 16 KiB). Lists carry `detail: null`.
+arguments and results (cut to 16 KiB). A step of a node that was tried again (*Retry on fail*, [ADR-073](../architecture/adr/073-retry-on-fail.md)) has `attempts` (the tries; 1 otherwise, in lists too) and, read alone, `detail.tries`: the failed tries before the last one as `{try, reason, duration_ms}`. Lists carry `detail: null`.
+
+Every step and every node in the run `context` has the result contract ([ADR-072](../architecture/adr/072-result-contract.md)): `success`, `outcome`, `reason`, `output`, `data`, `attempts` and, in the context, `duration_ms`.
 
 An agent node's settings are keys of its `config` (`PATCH /api/actions/{id}/nodes/{node_id}`): `agent_id`, `inputs`
 (`name = value` per line) and the overrides `system_prompt_enabled`, `system_prompt`, `user_prompt`, `provider_id`,
@@ -262,6 +272,7 @@ values together are at most 4 KiB. The refusal for a typo:
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/context` | The run context alone | 404 |
 | DELETE | `/api/tasks/{task_id}/executions/{execution_id}` | Delete one; `204` | 404, 409 (running) |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/flow` | Frozen graphs, walked path, steps | 404 |
+| GET | `/api/tasks/{task_id}/executions/{execution_id}/position` | Where the execution is (see [Neighbours and position](#neighbours-and-position)) | 404 |
 | GET | `/api/tasks/{task_id}/executions/{execution_id}/steps/{step_id}` | One step with complete output | 404 |
 
 ### Activity
@@ -311,15 +322,44 @@ is saved at once.
 | PATCH | `/api/{kind}/{graph_id}` | Rename | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}` | Delete with everything in it; `204` | 404 |
 | POST | `/api/{kind}/{graph_id}/nodes` | Add a stage, an action, a node or an execution node; `201` | 404, 422 |
-| PATCH | `/api/{kind}/{graph_id}/nodes/{node_id}` | Rename, move, resize, change settings (`config`). The answer carries `notices` (`definition_on`: the action definition got On Fail too, with `definition` and `uses`; `definition_stays_on`: other uses still need it; `disconnected`: `count`, `inner` and `places` (`graph`, `stage`, `node`, `count`) of the connections that went with a connector) and `reload` (other nodes of this graph changed too). Setting `on_failure` away from `error_output`, or switching an Output's `fail_enabled` off, **disconnects** what was connected at that connector and reports it (ADR-061 §4); the error output of an action and its definition's On Fail are one state, so a change on one side reaches every use | 404, 422 |
+| PATCH | `/api/{kind}/{graph_id}/nodes/{node_id}` | Rename, move, resize, change settings (`config`). The answer carries `notices` (`definition_on`: the action definition got On Fail too, with `definition` and `uses`; `definition_stays_on`: other uses still need it; `disconnected`: `count`, `inner` and `places` (`graph`, `stage`, `node`, `count`) of the connections that went with a connector) and `reload` (other nodes of this graph changed too). `config.retry` is *Retry on fail* (`{"enabled", "max_tries" 2 to 10, "wait_ms" 0 to 600000}`, all the waits of a node at most 30 minutes; `null` takes it away; [ADR-073](../architecture/adr/073-retry-on-fail.md)), offered by `code`, `http`, `agent`, `postgres`, `sqlite`, `github`, `artifact` and `action`; a value outside the bounds is `422` with the reason. Setting `on_failure` away from `error_output`, or switching an Output's `fail_enabled` off, **disconnects** what was connected at that connector and reports it (ADR-061 §4); the error output of an action and its definition's On Fail are one state, so a change on one side reaches every use | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}/nodes/{node_id}` | Delete with its edges; `204` | 404 |
 | POST | `/api/{kind}/{graph_id}/edges` | Connect an output port to an input port (the output's previous edge is replaced); `201`. A connection at a port that is not there is `422`: the error output (On Fail of a node, On Error of an action) exists only with the config value `on_failure: error_output` ([ADR-061](../architecture/adr/061-what-a-failure-does.md)) | 404, 422 |
 | PATCH | `/api/{kind}/{graph_id}/edges/{edge_id}` | Change how a connection is drawn | 404, 422 |
 | DELETE | `/api/{kind}/{graph_id}/edges/{edge_id}` | Remove; `204` | 404 |
 | GET | `/api/pipelines/{graph_id}/stages` | The stages in running order with their actions | 404 |
+| GET | `/api/{kind}/{graph_id}/neighbours` | Every node with its predecessors and successors (`?version=published` (default) \| `draft` \| a number; see [Neighbours and position](#neighbours-and-position)) | 404, 422 |
 | GET | `/api/node-types` | The kinds of nodes: ports, settings (with `group` and `references` hints for the inspector), links (the editor draws from this); texts in the language of the request (cookie `oa_lang`, else `Accept-Language`) where a translation exists, stored values unchanged | |
 
 `{kind}` is `pipelines` or `actions`.
+
+#### Neighbours and position
+
+Two read-only views answer *what leads to what* and *where is it now*, from the same data the pages draw: the connections of the graph
+editor and the frozen graphs of the flow view. What you see on the page you can ask for, and the other way round.
+
+`GET /api/pipelines/{id}/neighbours` (and `/api/actions/{id}/neighbours`, `/api/v1/...` with the id, URL name or name) returns
+every node (a pipeline: trigger, stages, actions, called pipelines, the end; an action definition: its nodes) with `predecessors` and
+`successors`. A link names the node on the other end (`node_id`, `name` as the editor writes it, `kind`), the connector it hangs on
+(`port`, `port_label` such as *On Pass*, *On Error*, *On Fail*) and its sort (`connection`: `next`, `pass`, `failure`, `branch`, `tool`,
+`stage`). Every connection of the graph appears once as a successor and once as a predecessor. `?version=` is `published` (default:
+what executions run, the draft while nothing is published), `draft` (what the editor shows) or the number of a published version; the
+answer names the one it used in `version` (`{"source", "number"}`).
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$OA/api/v1/pipelines/review/neighbours?version=draft"
+# {"graph": {...}, "version": {"source": "draft", "number": null}, "nodes": [
+#   {"id": "...", "name": "Check", "kind": "action", "stage_name": "Review",
+#    "predecessors": [{"node_id": "...", "name": "Review", "port": "start", "port_label": "Start", "connection": "stage", ...}],
+#    "successors":   [{"node_id": "...", "name": "Review", "port": "pass", "port_label": "On Pass", "connection": "pass", ...}]}, ...]}
+```
+
+`GET .../executions/{id}/position` says where one execution is, made from its flow: `execution.status` (`running`, `done`, `failed`,
+`stopped`), `at` (from the root pipeline down to the node it is in: while it runs the node it waits in, once it ended the node it
+ended in), `next` (the connections that leave that node: which port leads where, *On Pass → X*, *On Fail → Y*), `afterwards` (the same
+for the nodes around it, innermost first: what the action's own node leads to) and `path` (what was walked, visit by visit, each node
+with its state `pass`, `fail`, `running` or `stopped` and the recorded steps without outputs; at most the newest 200 visits,
+`truncated` says so). MCP: `get_graph_neighbours` and `get_execution_position`.
 
 ### Other
 
@@ -336,21 +376,42 @@ The HTML pages (`/`, `/pipelines`, `/pipelines/{ref}`, `/actions`, `/actions/{re
 
 ## MCP tools
 
-`/mcp` offers 22 tools over Streamable HTTP. They go through the same service as the REST API; a refused
+`/mcp` offers 39 tools over Streamable HTTP. They go through the same service as the REST API; a refused
 call returns the reason as the tool's error text. Artifacts are addressed by number (`12` or `#12`) or id.
 Pipeline, stage and action are given by name.
+
+The tools for the board and its cards (pipelines, lanes, artifacts, comments, activity, executions, the neighbours of a graph) are one
+set that an agent also has in a run: the node **OpenArtifact MCP Tool** offers them in this process, read only until *Allow writes* is
+on ([agents guide](agents.md#4-tools), [ADR-079](../architecture/adr/079-openartifact-mcp-tool.md)). The tools for the STOP switch, the
+secrets, the agents, the providers, the guards and the heartbeat are only here. The tools that change several cards (`move_artifacts`, `archive_artifacts`,
+`set_parent`, `set_fields`, `add_comments`) take up to 50 cards in a call and do every card on its own: the answer has `dry_run`, `ok`,
+`failed` and `results`, one entry per card with `artifact` (the number), `ok` and, when it was refused, the plain `reason` (archived, being
+processed, ...); a refusal does not stop the others, and with `dry_run` nothing changes. Nothing here deletes a card, a lane or an
+execution.
 
 | Tool | Arguments | Purpose |
 |------|-----------|---------|
 | `list_pipelines` | | Pipelines with stages and actions |
 | `list_lanes` | | The current lanes (`status`, `title`, `style`, `artifact_count`, `deletable`); read only. The keys are what `lane` takes |
-| `list_artifacts` | `lane?` | Artifacts in board order; `lane`: a key from `list_lanes` |
-| `get_artifact` | `artifact` | One artifact |
+| `list_artifacts` | `lane?`, `parent?`, `include_archived?`, `archived?` (`exclude` default, `include`, `only`), `brief?`, `limit?` (1 to 500), `offset?` | Artifacts in board order; `lane`: a key from `list_lanes`; `parent`: a number, only its children. Without paging arguments it answers the whole list as before. With `brief` each card is a short record (`number`, `title`, `lane`, `parent` (a number), `archived`, `archived_at`, `created_at`, `updated_at`, `processing`): the full cards carry the text and are too large for a long list. *Tidy up* |
+| `count_artifacts` | `lane?`, `archived?` | `{total, lane, archived}`: how many cards there are (how far to page). *Tidy up* |
+| `search_artifacts` | `query`, `lane?`, `archived?`, `limit?` (1 to 200, default 50) | Cards whose title or text contains `query` (ignoring case) or whose number it is: short records plus `match` (`number`, `title`, `body`) and, for a text match, a `snippet`. Titles first. *Tidy up* |
+| `get_artifact` | `artifact` | One artifact; `parent` is its parent's number, `processing` says whether it is being processed now |
+| `get_artifacts` | `artifacts` (at most 20), `with_comments?`, `comments_limit?` (1 to 100, default 20), `body_chars?` | Several cards in one call, each as `get_artifact` gives it; with `with_comments` the newest comments (oldest first); with `body_chars` the text cut to that many characters (`body_truncated`). A card that cannot be read is an entry with `artifact` and `error`. *Tidy up* |
+| `archive_artifact` | `artifact` | Put one card into the archive ([card rules](../architecture/adr/071-card-rules.md)): `409 archived` when it already is, a refusal while it is being processed. *Tidy up* |
+| `unarchive_artifact` | `artifact` | Take one card out of the archive: back into its lane, at the top. Refused when it is not archived. *Tidy up* |
+| `move_artifacts` | `artifacts` (at most 50), `lane`, `dry_run?` | Move cards into a lane (a key from `list_lanes`); archived cards and cards being processed are refused with the reason, a card already there is `ok`. The cards land at the end of the lane in the order given. *Tidy up* |
+| `archive_artifacts` | `artifacts` (at most 50), `dry_run?` | Archive cards; refused with the reason: already archived, being processed. *Tidy up* |
+| `set_parent` | `artifacts` (at most 50), `parent?`, `dry_run?` | Make cards the children of the card `parent` (its number), or take them out of their parent when it is left out; refused: archived, being processed, the card itself, a cycle. *Tidy up* |
+| `set_fields` | `artifacts` (at most 50), `fields`, `dry_run?` | Set the same field values (`{name: value}`, `null` clears one) on cards; an unknown name is an error of the call, a value that does not fit is the card's reason. With `dry_run` the names are checked and the values when it is done for real. *Tidy up* |
+| `add_comments` | `artifacts` (at most 50), `text`, `dry_run?` | The same comment on cards, for example the note that they were bundled into another one; archived cards cannot be commented. *Tidy up* |
 | `list_artifact_fields` | | The artifact fields (kind, default, allowed values, limits); `create_artifact` and `update_artifact` take `fields`; read only |
 | `create_artifact` | `title`, `body?`, `lane?`, `parent?`, `pipeline?`, `stage?`, `action?`, `type?`, `parameters?` | Create; not started; records `created_by: mcp`; `type` is a name or id, `parameters` is `{name: value}` checked now |
 | `update_artifact` | `artifact`, `title?`, `body?`, `lane?`, `type?`, `parameters?`, `reset_parameters?` | Change; not while processed; `parameters` are merged, `type: ""` removes the type |
 | `start_processing` | `artifact`, `pipeline?`, `stage?`, `action?` | Start; records `started_by: mcp` |
 | `stop_processing` | `artifact` | Stop |
+| `get_stop_switch` | | The emergency stop: `active`, `since`, `available`, `running` |
+| `set_stop_switch` | `active` | Switch the emergency stop on (aborts every running execution, refuses every start) or off; on needs the personal setting *Show the emergency stop* (`stop_unavailable`); a refused start says `stopped: ...` |
 | `get_processing_status` | `artifact` | Run state, or `never processed` |
 | `get_processing_results` | `artifact` | Steps inside action definitions with output, exit code, reason, data (text from outside) |
 | `list_activity` | `artifact`, `limit?` (1 to 200, default 50), `before?` | What changed on the artifact and who did it, newest first; `next` goes into `before` |
@@ -360,6 +421,8 @@ Pipeline, stage and action are given by name.
 | `list_all_executions` | `status?`, `started_by?`, `pipeline?`, `query?`, `since?`, `until?`, `limit` (1 to 200), `cursor?` | All artifacts' executions with filters; `next_cursor` goes into `cursor`; includes the `summary` |
 | `get_execution` | `artifact`, `execution` | One execution with all steps |
 | `get_execution_flow` | `artifact`, `execution`, `outputs=false` | Frozen graphs, visits, reached nodes, steps |
+| `get_execution_position` | `artifact`, `execution` | Where it is: `at`, `next` (which port leads where), `afterwards`, `path`; read only |
+| `get_graph_neighbours` | `graph` (id, URL name or name), `kind=pipeline`, `version=published` | Every node with predecessors and successors and the connector of each link; read only |
 | `list_secrets` | | Names and dates of the credentials a node may use as `${secret:NAME}` |
 | `list_agents` | | The agents: name, description, active, published version, number of nodes; read only |
 | `get_agent` | `agent` (name or id) | One agent: published configuration, draft, versions; read only |
@@ -368,7 +431,7 @@ Pipeline, stage and action are given by name.
 | `set_guard_enabled` | `guard` (an attachment's id, or the guard's name or id when it is attached in one place), `enabled`, `pipeline?` | Switch a guard on or off where it is attached (off acts on running executions at once) |
 | `heartbeat` | `execution_id`, `note?` | Restart the stall clock of a running execution |
 
-Not available through MCP, on purpose: creating, changing, publishing or deleting agents and providers, writing or deleting credentials, deleting executions, changing
+Not available through MCP, on purpose: deleting cards, lanes or executions, creating, renaming or deleting lanes, creating, changing, publishing or deleting agents and providers, writing or deleting credentials, changing
 retention rules and reading one step's complete output (`get_execution` returns all steps).
 
 ## Server-sent events (`GET /api/events`)
@@ -388,7 +451,7 @@ while a client is disconnected are not replayed: a client that (re)connects relo
 | `artifact_fields.changed` | `{"fields": [...]}` (as `GET /api/artifact-fields`) | the list of artifact fields was replaced |
 | `agents.changed` | `{}` | an agent was created, changed, published or deleted: reload `GET /api/agents` |
 | `providers.changed` | `{}` | a provider or one of its models changed: reload `GET /api/providers` |
-| `settings.changed` | `{"run_limits": {...}}` (as `GET /api/settings/run-limits`) | the run limits were changed |
+| `settings.changed` | `{"run_limits": {...}}`, `{"personal": {...}}` or `{"stop": {...}}` (as the matching `GET /api/settings/...`) | the run limits, the personal settings or the emergency stop (or whether it is offered) were changed |
 | `graph.changed` | `{"graph_ids": [...]}` | other pipelines or action definitions changed through a node (the error output is shared by a definition and its uses): an open editor shows one of them loads it again |
 | `board.resync` | `{}` | other tasks got new positions or lost their parent: reload the board |
 | `run.updated` | the run state (as `GET /api/runs`) | a run starts, advances or ends |

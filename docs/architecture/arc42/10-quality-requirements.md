@@ -21,9 +21,9 @@ Scenarios for executing nodes, credentials and history (each is checked by tests
 | Priority | Quality | Scenario | Checked by |
 |----------|---------|----------|-----------|
 | Must | Security | A stored credential appears in no API response, no event, no log line and no step result, even when the node prints it: not as it is, percent-encoded, Base64 or JSON-escaped. | `test_secrets.py`, `test_logging_config.py` |
-| Must | Security | Without an API token and an own secret key of at least 32 characters, saving a credential (`PUT /api/secrets/{name}`) is refused with `409`, and in open mode a Code node fails with an explanation unless `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN` is set. | `test_secrets.py`, `test_code_runner.py`, `test_config.py` |
+| Must | Security | Without an API token and an own secret key of at least 32 characters, saving a credential (`PUT /api/secrets/{name}`) is refused with `409`, and in open mode an Execute Command node fails with an explanation unless `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN` is set. | `test_secrets.py`, `test_code_runner.py`, `test_config.py` |
 | Must | Execution safety | An HTTP node whose host resolves to a cloud metadata address, or (by default) to a private or loopback address, sends nothing; a redirect is not followed. | `test_http_runner.py` |
-| Must | Reliability | A Code node that does not end is stopped after its `timeout_seconds` (at most 600) together with every process it started; a node over its CPU, memory, file or process limit fails with a reason instead of running unlimited; after a hard kill of the application the next start ends the orphans and removes their temp directories. | `test_code_runner.py`, `test_code_hardening.py` |
+| Must | Reliability | An Execute Command node that does not end is stopped after its `timeout_seconds` (at most 600) together with every process it started; a node over its CPU, memory, file or process limit fails with a reason instead of running unlimited; after a hard kill of the application the next start ends the orphans and removes their temp directories. | `test_code_runner.py`, `test_code_hardening.py` |
 | Should | Traceability | Every start, restart included, creates an execution with its origin (`user`, `api` or `mcp`); after retention the newest execution of an artifact always remains; a policy change takes effect at once. | `test_history.py`, `test_engine.py` |
 | Should | Maintainability | A new kind of execution node is a registered `NodeType` class, an executor and a view class; node settings live in the JSON `config`, so no column migration is needed. | `test_execution_nodes.py`, `test_graphs.py` |
 | Should | Performance | The global executions list pages with a keyset cursor: the cost of a page does not depend on how deep it is, and a page does not repeat or skip rows when executions are inserted or deleted meanwhile (index `ix_executions_started_at`). | `test_history_global.py` |
@@ -46,7 +46,7 @@ OpenArtifact Quality
 │   ├── Request hardening, hardened container
 │   └── Credentials encrypted at rest, masked everywhere
 ├── Safety of execution (Must)
-│   ├── Code nodes: limits, process group, token required, off switch (no sandbox)
+│   ├── Execute Command nodes: limits, process group, token required, off switch (no sandbox)
 │   ├── HTTP nodes: address checks, no redirects, size and time bounds
 │   └── Fail closed: a limit that cannot be applied fails the node
 ├── Maintainability (Must)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, model_validator
 
 from openartifact.engine.context import RunContext
 from openartifact.graph.node_types import step_icon
@@ -54,6 +54,8 @@ class NodeResultRead(BaseModel):
     #: What only one step shows (an agent's prompts as sent, its inputs and every attempt). Filled
     #: when a single step is read, ``None`` in every list.
     detail: dict[str, Any] | None = None
+    #: How many tries the node took (*Retry on fail*, ADR-073): 1 for a node that ran once.
+    attempts: int = 1
     started_at: UtcDateTime
     finished_at: UtcDateTime
 
@@ -88,6 +90,7 @@ class NodeResultRead(BaseModel):
             reason=row.reason,
             data=row.data,
             detail=detail,
+            attempts=row.attempts,
             started_at=row.started_at,
             finished_at=row.finished_at,
         )
@@ -196,20 +199,32 @@ class ContextNodeRead(BaseModel):
 
     name: str
     kind: str
+    #: The result contract (ADR-072): ``success`` is ``outcome == "pass"``, ``attempts`` the tries, ``duration_ms`` the wall time.
+    success: bool
     outcome: str
     port: str | None
     exit_code: int | None
     output: str
     reason: str | None
     data: dict[str, Any] | None
+    attempts: int = 1
+    duration_ms: int | None = None
     at: UtcDateTime
     truncated: bool = False
 
+    @model_validator(mode="before")
+    @classmethod
+    def _contract(cls, value: Any) -> Any:
+        """A context stored before the contract has no ``success``: it is derived from ``outcome``."""
+        if isinstance(value, dict) and "success" not in value:
+            return {**value, "success": value.get("outcome") == "pass"}
+        return value
+
 
 class RunContextRead(BaseModel):
-    """The context of an execution: ``vars`` set by Code nodes and ``nodes``, the latest result of each
+    """The context of an execution: ``vars`` set by Execute Command nodes and ``nodes``, the latest result of each
     node by its key (the node's name with characters outside ``A-Za-z0-9_-`` as ``_``). Read it with
-    ``${var.NAME}`` and ``${node.KEY.output}`` in HTTP nodes, or from ``context.json`` in Code nodes.
+    ``${var.NAME}`` and ``${node.KEY.output}`` in HTTP nodes, or from ``context.json`` in Execute Command nodes.
     ``card`` is a copy of the artifact's parameters taken when the execution started
     (``${card.NAME}``); it does not follow later changes of the artifact."""
 

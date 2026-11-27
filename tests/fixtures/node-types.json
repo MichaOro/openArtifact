@@ -149,6 +149,32 @@
     "section": "behaviour",
     "level": "optional",
     "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Runs the action again when it fails, all its nodes; the run does not start over. Writes in it (HTTP, Postgres, GitHub) can happen twice.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
    }
   ],
   "links_to": "action",
@@ -388,7 +414,7 @@
  },
  {
   "kind": "code",
-  "label": "Code",
+  "label": "Execute Command",
   "scopes": [
    "action"
   ],
@@ -447,7 +473,7 @@
     "default": "",
     "stored_in": "config",
     "max_length": 20000,
-    "help": "Plain text, so no secrets here; ${...} is not replaced in code. The run context is the file context.json, and a last line {\"ok\": true, \"vars\": {\"name\": \"value\"}} sets variables.",
+    "help": "Not a sandbox: it runs as the application's user, and the text is stored as it is (no secrets here, no ${...}). The run context is context.json; a last line {\"ok\": true, \"vars\": {\"name\": \"value\"}} sets variables.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -496,6 +522,19 @@
     "inherits": null
    },
    {
+    "key": "output_limit_bytes",
+    "label": "Output limit",
+    "type": "size",
+    "minimum": 1024,
+    "maximum": 67108864,
+    "default": null,
+    "stored_in": "config",
+    "help": "The most this node keeps of its output and its errors, each; the rest is cut off. Never above the limit of the instance (64 KiB unless changed).",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
     "key": "on_failure",
     "label": "If the node fails",
     "type": "select",
@@ -514,6 +553,32 @@
      "error_output": "Error output"
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
     "section": "behaviour",
     "level": "optional",
     "inherits": null
@@ -692,6 +757,32 @@
      "error_output": "Error output"
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
     "section": "behaviour",
     "level": "optional",
     "inherits": null
@@ -1773,6 +1864,32 @@
     "section": "behaviour",
     "level": "optional",
     "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
    }
   ],
   "links_to": null,
@@ -2344,6 +2461,32 @@
     "section": "behaviour",
     "level": "optional",
     "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
    }
   ],
   "links_to": null,
@@ -2524,6 +2667,32 @@
     "section": "behaviour",
     "level": "optional",
     "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
    }
   ],
   "links_to": null,
@@ -2695,6 +2864,32 @@
      "error_output": "Error output"
     },
     "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
     "section": "behaviour",
     "level": "optional",
     "inherits": null
@@ -3038,6 +3233,125 @@
   }
  },
  {
+  "kind": "openartifact_tool",
+  "label": "OpenArtifact MCP Tool",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "allow_write",
+    "label": "Allow writes",
+    "type": "switch",
+    "minimum": null,
+    "maximum": null,
+    "default": false,
+    "stored_in": "config",
+    "help": "Off: the agent can only read. On: it may also create, change, move, archive and comment cards and start or stop them; nothing is ever deleted.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "tools_mode",
+    "label": "Tools to include",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "all",
+    "stored_in": "config",
+    "options": [
+     "all",
+     "selected",
+     "all_except"
+    ],
+    "option_labels": {
+     "all_except": "all except"
+    },
+    "help": "Every tool is described to the model with each request: fewer tools, a smaller prompt. Tools that change something stay out while Allow writes is off.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "tool_names",
+    "label": "Tools",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "shown_when": {
+     "setting": "tools_mode",
+     "values": [
+      "selected",
+      "all_except"
+     ]
+    },
+    "max_length": 10000,
+    "placeholder": "list_artifacts",
+    "help": "One tool name per line, for example list_artifacts, get_artifacts, move_artifacts. A name that is not a tool is refused with the list of the tools.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": false,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 6
+  },
+  "menu_icon": "board",
+  "ui": {
+   "icon": "board",
+   "color": "artifact",
+   "caption": {
+    "template": "{?allow_write:can change}{?!allow_write:read only}"
+   },
+   "hint": "This node lets an agent work with the OpenArtifact board itself - read cards, comments and executions, tidy up (move, archive, bundle) and, when allowed, create and change cards. It runs inside the application, with no address and no token."
+  }
+ },
+ {
   "kind": "http_tool",
   "label": "HTTP Request Tool",
   "scopes": [
@@ -3234,7 +3548,7 @@
  },
  {
   "kind": "code_tool",
-  "label": "Code Tool",
+  "label": "Execute Command Tool",
   "scopes": [
    "action"
   ],
@@ -3310,7 +3624,7 @@
     "default": "",
     "stored_in": "config",
     "max_length": 20000,
-    "help": "The model's arguments are the object 'input' in context.json in the working directory; what the code prints is the answer to the model. Runs with the rules of the Code node.",
+    "help": "The model's arguments are 'input' in context.json; what the code prints is the answer. Not a sandbox: it runs as the application's user.",
     "section": "definition",
     "level": "core",
     "inherits": null
@@ -3718,6 +4032,126 @@
   }
  },
  {
+  "kind": "handover_tool",
+  "label": "Hand Over Tool",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": false,
+  "ending": false,
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "tool",
+    "label": "Tool",
+    "side": "top"
+   }
+  ],
+  "settings": [
+   {
+    "key": "tool_name",
+    "label": "Tool name",
+    "type": "text",
+    "minimum": null,
+    "maximum": null,
+    "default": "",
+    "stored_in": "config",
+    "max_length": 64,
+    "placeholder": "get_weather",
+    "help": "The name the model calls it by (letters, digits, _ and -). Empty: the node's name.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "description",
+    "label": "Description",
+    "type": "lines",
+    "minimum": null,
+    "maximum": null,
+    "default": "Hand over the result as a document. Call it when you are done, with every required field filled in; if the answer says what is wrong, call it again with a corrected document.",
+    "stored_in": "config",
+    "max_length": 1000,
+    "help": "Tells the model what the tool is for and when to use it. The fields below, with their descriptions, are what the model fills in.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "fields",
+    "label": "Fields",
+    "type": "fields",
+    "minimum": null,
+    "maximum": null,
+    "default": [],
+    "stored_in": "config",
+    "field_types": [
+     "text",
+     "number",
+     "boolean",
+     "choice",
+     "list"
+    ],
+    "max_fields": 30,
+    "field_limits": {
+     "name_chars": 32,
+     "description_chars": 300,
+     "choices": [
+      2,
+      20
+     ],
+     "choice_chars": 60
+    },
+    "help": "The document's fields, flat: the model hands over exactly these. A missing, wrongly typed or unlisted field is refused with the reason; the last accepted document counts.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "max_bytes",
+    "label": "Size limit",
+    "type": "size",
+    "minimum": 1024,
+    "maximum": 65536,
+    "default": 16384,
+    "stored_in": "config",
+    "help": "The most one document takes (bytes of UTF-8 JSON). A bigger one is refused with a message that says so.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": true,
+  "guardable": false,
+  "produces_result": true,
+  "timed": false,
+  "result_data": [],
+  "variables": null,
+  "behaviour": "tool",
+  "menu": {
+   "group": "Agent tools",
+   "group_index": 2,
+   "order": 6
+  },
+  "menu_icon": "layers",
+  "ui": {
+   "icon": "layers",
+   "color": "context",
+   "caption": {
+    "template": "{tool_name|default:@name}"
+   },
+   "hint": "This tool lets an agent hand over a result as a document with the fields you define. The server checks every call; a document that does not fit goes back to the agent with the exact reason, and it may try again. A later node reads the accepted document as ${(Name of this node).data.field}."
+  }
+ },
+ {
   "kind": "artifact",
   "label": "Artifact",
   "scopes": [
@@ -3846,6 +4280,32 @@
     "section": "behaviour",
     "level": "optional",
     "inherits": null
+   },
+   {
+    "key": "retry",
+    "label": "Retry on fail",
+    "type": "retry",
+    "minimum": null,
+    "maximum": null,
+    "default": null,
+    "stored_in": "config",
+    "limits": {
+     "max_tries": [
+      2,
+      10,
+      3
+     ],
+     "wait_ms": [
+      0,
+      600000,
+      1000
+     ],
+     "total_wait_ms": 1800000
+    },
+    "help": "Tries this node again when it fails; the run does not start over. A write that is tried again (HTTP, Postgres, GitHub) can happen twice.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
    }
   ],
   "links_to": null,
@@ -3871,6 +4331,230 @@
    "caption": {
     "template": "{operation|default:Get comments}"
    }
+  }
+ },
+ {
+  "kind": "context",
+  "label": "Build Context",
+  "scopes": [
+   "action"
+  ],
+  "purposes": [
+   "guard",
+   "pipeline"
+  ],
+  "requires": null,
+  "fixed": false,
+  "addable": true,
+  "chain": true,
+  "ending": false,
+  "inputs": [
+   {
+    "name": "in",
+    "label": "Input"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "pass",
+    "label": "On Pass"
+   },
+   {
+    "name": "fail",
+    "label": "On Fail",
+    "visible_when": {
+     "setting": "on_failure",
+     "equals": "error_output"
+    }
+   }
+  ],
+  "settings": [
+   {
+    "key": "sources",
+    "label": "Sources",
+    "type": "sources",
+    "minimum": null,
+    "maximum": null,
+    "default": [
+     {
+      "source": "card"
+     },
+     {
+      "source": "comments",
+      "count": 20
+     }
+    ],
+    "stored_in": "config",
+    "sources": [
+     {
+      "key": "card",
+      "label": "Title and body",
+      "help": "The number, the title and the text of the card the run belongs to. It is reserved first: when space is short, the other sources give way before this one is cut."
+     },
+     {
+      "key": "fields",
+      "label": "Fields",
+      "help": "The values of the card's own fields (name and value, one per line); a field nobody filled is left out."
+     },
+     {
+      "key": "comments",
+      "label": "Comments",
+      "help": "The newest comments of the card, oldest of them first; older ones are left out first, and the package says how many.",
+      "count": [
+       1,
+       100,
+       20
+      ]
+     },
+     {
+      "key": "parent",
+      "label": "Parent card",
+      "help": "The card this card belongs to, if it has one (archived cards are not used).",
+      "detail": [
+       "title",
+       "text"
+      ]
+     },
+     {
+      "key": "children",
+      "label": "Child cards",
+      "help": "The cards that belong to this card, by number; the last ones are left out first (archived cards are not used).",
+      "count": [
+       1,
+       50,
+       20
+      ],
+      "detail": [
+       "title",
+       "text"
+      ]
+     },
+     {
+      "key": "siblings",
+      "label": "Sibling cards",
+      "help": "The other cards of the same parent, by number; the last ones are left out first (archived cards are not used).",
+      "count": [
+       1,
+       50,
+       20
+      ],
+      "detail": [
+       "title",
+       "text"
+      ]
+     },
+     {
+      "key": "nodes",
+      "label": "Results of earlier nodes",
+      "help": "The output of nodes of this run that already ran, picked by their name (a node of this run's actions). A node that has not run is listed as left out. The run keeps at most 4 KiB of a node's output.",
+      "names": {
+       "max": 10,
+       "max_chars": 200
+      }
+     },
+     {
+      "key": "handovers",
+      "label": "Handover documents",
+      "help": "The documents agents handed over in this run through a Hand Over Tool, as fields and values. Name the tool nodes to use only those; none named means all of them, oldest first.",
+      "names": {
+       "max": 10,
+       "max_chars": 200
+      }
+     },
+     {
+      "key": "executions",
+      "label": "Earlier executions",
+      "help": "The last finished executions of this card (not the running one): how each ended, why, and the output of its last step that produced text. Older ones are left out first.",
+      "count": [
+       1,
+       10,
+       3
+      ]
+     }
+    ],
+    "max_sources": 9,
+    "help": "The package's parts, most important first; sources further down give way first when the size limit runs out. Card text and results are pasted as they are, never read for references.",
+    "section": "definition",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "size_limit",
+    "label": "Size limit",
+    "type": "size",
+    "minimum": 1024,
+    "maximum": 32768,
+    "default": 8192,
+    "stored_in": "config",
+    "help": "The most the whole package takes, in bytes (about four bytes per token). A bigger package gives the agent more to read and costs more.",
+    "section": "behaviour",
+    "level": "core",
+    "inherits": null
+   },
+   {
+    "key": "item_limit",
+    "label": "Longest item",
+    "type": "size",
+    "minimum": 256,
+    "maximum": 16384,
+    "default": 2048,
+    "stored_in": "config",
+    "help": "A single comment, card or result is cut to this size so one long item cannot fill the package. The card's own text is cut last.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   },
+   {
+    "key": "on_failure",
+    "label": "If the node fails",
+    "type": "select",
+    "minimum": null,
+    "maximum": null,
+    "default": "fail",
+    "stored_in": "config",
+    "options": [
+     "fail",
+     "continue",
+     "error_output"
+    ],
+    "option_labels": {
+     "fail": "Stop the run",
+     "continue": "Continue",
+     "error_output": "Error output"
+    },
+    "help": "Stop the run ends the action as failed; Continue goes on through On Pass and keeps the error as data. Error output goes on through On Fail, which shows only then.",
+    "section": "behaviour",
+    "level": "optional",
+    "inherits": null
+   }
+  ],
+  "links_to": null,
+  "tool": false,
+  "guardable": true,
+  "produces_result": true,
+  "timed": true,
+  "result_data": [
+   "included",
+   "omitted",
+   "size_bytes",
+   "limit_bytes",
+   "approx_tokens"
+  ],
+  "variables": null,
+  "behaviour": "flow",
+  "menu": {
+   "group": "Data",
+   "group_index": 5,
+   "order": 3
+  },
+  "menu_icon": "layers",
+  "ui": {
+   "icon": "layers",
+   "color": "context",
+   "caption": {
+    "fn": "context_summary"
+   },
+   "hint": "Builds one package of text for an agent from the card and what is around it. It only reads, it never changes anything."
   }
  }
 ]

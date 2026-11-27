@@ -7,6 +7,8 @@ import { ActionMenu } from "../components/action-menu.js";
 import { AlertBar } from "../components/alert-bar.js";
 import { avatar } from "../components/avatar.js";
 import { icon } from "../components/icons.js";
+import { MarkdownBar } from "../components/markdown-bar.js";
+import { renderMarkdown } from "../components/markdown.js";
 import { addComment, deleteComment, listComments, updateComment } from "./comments-api.js";
 import { canSend, countText, inOrder, isEdited, kindOf, runLink, withComment } from "./comment-format.js";
 import { collapseComments, isHiddenComment, COLLAPSED } from "./activity-model.js";
@@ -48,6 +50,7 @@ export class CommentsTab {
     this.empty = root.querySelector("[data-comments-empty]");
     this.form = root.querySelector("[data-comments-form]");
     this.input = root.querySelector("[data-comments-input]");
+    this.bar = new MarkdownBar(this.input, { hint: null }); // Markdown (ADR-077); the hint line of the field says it
     this.send = root.closest("[data-task-view]").querySelector("[data-comments-send]"); // in the dialog footer, next to Close
     this.error = root.querySelector("[data-comments-error]");
     this.scroller = root.querySelector("[data-comments-scroll]");
@@ -87,6 +90,7 @@ export class CommentsTab {
       this.expanded = false;
       this.editingId = null;
       this.input.value = "";
+      this.bar.reset();
       this.#setError("");
       this.alert.hide();
       this.#render();
@@ -246,7 +250,7 @@ export class CommentsTab {
     if (this.editingId === comment.id) {
       body.replaceChildren(this.#editor(comment));
     } else {
-      body.textContent = comment.body; // plain text: line breaks by CSS (white-space: pre-wrap), never markup
+      body.replaceChildren(renderMarkdown(comment.body)); // Markdown (ADR-077): line breaks by CSS (white-space: pre-wrap); built from text nodes, never markup
     }
     return row;
   }
@@ -276,6 +280,7 @@ export class CommentsTab {
     save.textContent = t("common.save");
     actions.append(cancel, save);
     form.append(area, error, actions);
+    new MarkdownBar(area);
     const stop = () => {
       this.editingId = null;
       this.#render();
@@ -377,6 +382,7 @@ export class CommentsTab {
       const made = await addComment(this.taskId, this.input.value);
       this.comments = withComment(this.comments, made); // the event may be here already: same id, same row
       this.input.value = "";
+      this.bar.reset();
       this.#render({ scroll: true });
       this.input.focus();
     } catch (error) {

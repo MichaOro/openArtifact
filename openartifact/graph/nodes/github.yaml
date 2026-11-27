@@ -296,3 +296,4 @@ settings:
 - use: timeout_seconds
   level: optional
 - use: on_failure
+- use: retry

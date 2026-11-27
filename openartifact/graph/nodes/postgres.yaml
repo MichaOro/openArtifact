@@ -68,3 +68,4 @@ settings:
 - use: max_rows
 - use: timeout_seconds
 - use: on_failure
+- use: retry

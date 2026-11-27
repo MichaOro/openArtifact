@@ -17,6 +17,9 @@
 }
 .card-nav__divider { height: 1px; margin: var(--space-1) var(--space-2); background: var(--glass-border); }
 .card-nav [data-locked="true"] { opacity: 0.5; pointer-events: none; }
+/* the read-only window of an archived card (artifact-dialog.js): what writes is gone, the rail's values stay readable */
+[data-readonly] :is(.comments__form, [data-comments-send], .comment__more) { display: none; }
+.card-nav [data-card-field]:disabled { opacity: 1; cursor: default; }
 /* fields at the top; actions and the toggle at the bottom */
 .card-nav__actions { margin-top: auto; }
 /* icon | text: the icon column sits right next to the form and stays put; the labels fade in to

@@ -72,6 +72,8 @@
         <p class="ex-bar__count" role="status" aria-live="polite" data-count>{{ t('history.loading_executions') }}</p>
         <div class="ex-bar__tools">
             <button type="button" class="button button--primary button--sm" data-new hidden></button>
+            {# The emergency stop (ADR-076; static/js/components/stop-switch.js): drawn there while the personal setting offers it. #}
+            <span class="stop-switch" id="ex-stop" data-stop-switch hidden></span>
             <button type="button" class="button button--ghost button--sm" data-retention aria-haspopup="dialog">{{ icon("settings") }} {{ t('executions.retention') }}</button>
         </div>
     </div>
@@ -135,7 +137,7 @@
         <td class="ex-row__origin" data-label="{{ t('executions.started_by') }}" data-origin></td>
         <td class="ex-row__steps" data-label="{{ t('common.steps') }}" data-steps></td>
         <td class="ex-row__note" data-label="{{ t('executions.note') }}"><span data-note></span></td>
-        <td class="ex-row__actions"><button type="button" class="icon-button icon-button--sm is-danger history-row__delete" data-delete></button></td>
+        <td class="ex-row__actions"><button type="button" class="icon-button icon-button--sm is-danger history-row__stop" data-stop hidden></button><button type="button" class="icon-button icon-button--sm is-danger history-row__delete" data-delete></button></td>
     </tr>
 </template>
 

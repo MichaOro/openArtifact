@@ -39,7 +39,7 @@ test("registerView replaces the view of a kind for kinds loaded afterwards", asy
 
 test("addableIn lists the addable kinds of one scope, in server order", () => {
   assert.deepEqual(addableIn("pipeline").map((t) => t.kind), ["stage", "pipeline"]);
-  assert.deepEqual(addableIn("action").map((t) => t.kind), ["timer", "code", "http", "if", "switch", "agent", "set", "github", "postgres", "sqlite", "mcp_tool", "github_tool", "http_tool", "code_tool", "postgres_tool", "sqlite_tool", "artifact", "note"]);
+  assert.deepEqual(addableIn("action").map((t) => t.kind), ["timer", "code", "http", "if", "switch", "agent", "set", "github", "postgres", "sqlite", "mcp_tool", "github_tool", "openartifact_tool", "http_tool", "code_tool", "postgres_tool", "sqlite_tool", "handover_tool", "artifact", "context", "note"]);
   assert.deepEqual(addableIn("elsewhere"), []);
 });
 
@@ -76,7 +76,7 @@ test("the code caption is the language and the first non-empty line", () => {
   assert.equal(code.caption(node("code", { config: { language: "python", code: "\n  \n  print(1)\nx" } })), "python · print(1)");
   assert.equal(code.caption(node("code", { config: { language: "python", code: "  " } })), "python · no code yet");
   assert.equal(code.caption(node("code", { config: undefined })), "sh · no code yet");
-  assert.equal(code.subtitle(), "Code");
+  assert.equal(code.subtitle(), "Execute Command");
 });
 
 test("the http caption never shows the query string, the fragment or credentials", () => {
@@ -254,10 +254,16 @@ test("the kinds of the add menu are grouped in a fixed order, and a kind nobody 
   assert.equal(groups.flatMap((g) => g.types).length, KINDS.length, "nothing is lost");
 });
 
+test("a kind the instance has switched off keeps its reason in the search results, so the menu can mark it (ADR-075)", () => {
+  const kinds = KINDS.map((t) => (t.kind === "code" ? { ...t, unavailable: "switched off here" } : t));
+  assert.equal(searchAddable(kinds, "code").find((t) => t.kind === "code").unavailable, "switched off here");
+  assert.equal(searchAddable(kinds, "http").find((t) => t.kind === "http").unavailable, undefined, "a kind that can run says nothing");
+});
+
 test("searching looks at the elements only, by name or kind, ignoring case, and says which cluster each is in", () => {
   assert.deepEqual(searchAddable(KINDS, "git").map((t) => t.kind), ["github_tool", "github"]); // the GitHub MCP node is found by its name too
   assert.deepEqual(searchAddable(KINDS, "HTTP").map((t) => t.kind), ["http_tool", "http"], "in the order of the clusters: the tool before the core kind");
-  assert.deepEqual(searchAddable(KINDS, "mcp").map((t) => t.kind), ["mcp_tool", "github_tool"]); // the kind matches, and the GitHub MCP node by its name
+  assert.deepEqual(searchAddable(KINDS, "mcp").map((t) => t.kind), ["mcp_tool", "github_tool", "openartifact_tool"]); // the kind matches, and the GitHub MCP node and the OpenArtifact MCP Tool by their names
   assert.deepEqual(searchAddable(KINDS, "  CODE "), searchAddable(KINDS, "code"));
   assert.deepEqual(searchAddable(KINDS, "flow"), [], "a cluster's name is no search term: the clusters only help to find your way");
   assert.deepEqual(searchAddable(KINDS, "zzz"), []);

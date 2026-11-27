@@ -786,6 +786,89 @@ class GraphRepository:
             n.id: by_definition[n.definition_id] for n in nodes if n.definition_id in by_definition
         }
 
+    async def restore(self, graph: Graph, content: dict[str, Any]) -> SyncReport:
+        """Make the draft the graph of ``content`` (a published version): *Discard draft* (ADR-070 addendum).
+
+        Nodes that are in the version stay the rows they are (same id, so the guards attached to them stay) and take its values;
+        nodes that are not in it go (with the guards attached to them), nodes only the version has are made again, and the
+        connections are replaced. The error output is one state of an action definition and its uses (ADR-061 addendum): a
+        definition whose *On Fail* changes is carried to its uses, and a restored use is made to agree with its definition, in
+        this same transaction, exactly as an edit of a node does. A link to a definition that no longer exists is left empty.
+        """
+        report = SyncReport()
+        nodes, _ = await self.graph(graph.id)
+        before = {n.id: n for n in nodes}
+        wanted = {str(n["id"]): n for n in content.get("nodes", [])}
+        had_fail = any(n.fail_enabled for n in nodes if n.kind == NodeKind.OUTPUT.value)
+        gone = [i for i in before if i not in wanted]
+        if gone:
+            await self._session.execute(
+                delete(GuardAttachment).where(
+                    GuardAttachment.graph_id == graph.id, GuardAttachment.scope_id.in_(gone)
+                )
+            )
+        await self._session.execute(delete(GraphEdge).where(GraphEdge.graph_id == graph.id))
+        if gone:
+            await self._session.execute(delete(GraphNode).where(GraphNode.id.in_(gone)))
+            for node_id in gone:
+                self._session.expunge(before.pop(node_id))
+        await self._session.flush()
+        known = set(
+            await self._session.scalars(
+                select(Graph.id).where(
+                    Graph.id.in_(
+                        {str(n["definition_id"]) for n in wanted.values() if n.get("definition_id")}
+                    )
+                )
+            )
+        )
+        # a stage is stored before the actions inside it
+        ordered = sorted(wanted.values(), key=lambda n: n.get("stage_id") is not None)
+        for data in ordered:
+            row = before.get(str(data["id"]))
+            if row is None:
+                row = GraphNode(id=str(data["id"]), graph_id=graph.id)
+                self._session.add(row)
+            row.kind, row.stage_id, row.name = data["kind"], data.get("stage_id"), data["name"]
+            row.x, row.y = data.get("x") or 0.0, data.get("y") or 0.0
+            row.width, row.height = data.get("width"), data.get("height")
+            row.fail_enabled = bool(data.get("fail_enabled"))
+            row.seconds = data.get("seconds")
+            row.config = dict(data.get("config") or {})
+            definition = data.get("definition_id")
+            row.definition_id = definition if definition in known else None
+            await self._session.flush()
+        for edge in content.get("edges", []):
+            self._session.add(
+                GraphEdge(
+                    id=str(edge["id"]),
+                    graph_id=graph.id,
+                    source_id=edge["source_id"],
+                    source_port=edge["source_port"],
+                    target_id=edge["target_id"],
+                    target_port=edge["target_port"],
+                    style=edge.get("style") or "curved",
+                    source_slot=edge.get("source_slot") or 0,
+                    target_slot=edge.get("target_slot") or 0,
+                )
+            )
+        await self._session.flush()
+        outputs = await self._outputs(graph.id)
+        has_fail = any(n.fail_enabled for n in outputs)
+        if has_fail != had_fail and outputs:
+            await self._sync_definition(outputs[0], report)
+        uses = await self._session.scalars(
+            select(GraphNode).where(
+                GraphNode.graph_id == graph.id, GraphNode.kind == NodeKind.ACTION.value
+            )
+        )
+        for use in list(uses):
+            await self._sync_use(use, _mode(use), True, report)
+        report.graphs.discard(graph.id)
+        await self.touch(graph)
+        await self._touch_ids(report.graphs)
+        return report
+
     async def delete_node(self, graph: Graph, node: GraphNode) -> None:
         """Delete a node; its actions (for a stage) and edges go with it (cascade)."""
         kind = NodeKind(node.kind)

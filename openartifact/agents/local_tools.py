@@ -21,6 +21,7 @@ from urllib.parse import quote
 
 import httpx
 
+from openartifact.agents.handover import HANDOVER_KIND
 from openartifact.agents.tool_config import parse_parameters
 from openartifact.agents.tools import LOCAL_TOOLS, Tool, ToolContext
 from openartifact.credentials.refs import SecretReferenceError, names_in, parse_name_lines
@@ -35,6 +36,7 @@ from openartifact.engine.http_runner import (
 from openartifact.engine.postgres_runner import PostgresError, bind_values, run_query
 from openartifact.engine.sqlite_runner import APP_SOURCE, SqliteError, blocked_names
 from openartifact.engine.sqlite_runner import run_query as run_sqlite_query
+from openartifact.graph import field_schema
 from openartifact.graph.node_types import parse_status_spec
 from openartifact.models import NodeKind
 
@@ -180,11 +182,11 @@ def build_http_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
 
 def build_code_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
     """The Code Tool of a frozen tool node; :class:`ValueError` when the Code node's rules forbid it."""
-    from openartifact.engine.executors import OPEN_MODE_CODE_REASON, Limits
+    from openartifact.engine.executors import CODE_DISABLED_REASON, OPEN_MODE_CODE_REASON, Limits
 
     limits = context.limits if isinstance(context.limits, Limits) else Limits()
     if not limits.code_nodes_enabled:
-        raise ValueError("Code nodes are disabled")
+        raise ValueError(CODE_DISABLED_REASON)
     if limits.code_blocked_in_open_mode:
         raise ValueError(OPEN_MODE_CODE_REASON)
     config = frozen.get("config") or {}
@@ -325,7 +327,46 @@ def build_sqlite_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
     )
 
 
+def build_handover_tool(frozen: Mapping[str, Any], context: ToolContext) -> Tool:
+    """The Hand Over Tool of a frozen tool node (ADR-080): the model's parameters are exactly the node's fields; a call is checked on the
+    server and answers 'handed over', or the exact list of what is wrong so that the model can call again."""
+    config = frozen.get("config") or {}
+    try:
+        fields = field_schema.normalise(config.get("fields") or [])
+    except ValueError as error:
+        raise ValueError(str(error)) from None
+    if not fields:
+        raise ValueError("No fields are defined: the model would have nothing to hand over")
+    limit = int(config.get("max_bytes") or field_schema.DEFAULT_DOCUMENT_BYTES)
+    sink = context.handovers
+    node = {
+        "id": str(frozen.get("node_id") or ""),
+        "name": str(frozen.get("name") or "Hand over"),
+        "kind": HANDOVER_KIND,
+    }
+
+    async def run(arguments: dict[str, Any]) -> str:
+        problems = field_schema.validate(fields, arguments, limit)
+        if sink is not None:
+            sink.call(node, None if problems else field_schema.clean(fields, arguments))
+        if problems:
+            return (
+                "Error: the document was not accepted: "
+                + "; ".join(problems)
+                + ". Call the tool again with a corrected document."
+            )
+        return "handed over"
+
+    return Tool(
+        str(frozen.get("tool_name") or "tool"),
+        str(config.get("description") or ""),
+        field_schema.json_schema(fields),
+        run,
+    )
+
+
 LOCAL_TOOLS[NodeKind.HTTP_TOOL] = build_http_tool
 LOCAL_TOOLS[NodeKind.CODE_TOOL] = build_code_tool
 LOCAL_TOOLS[NodeKind.POSTGRES_TOOL] = build_postgres_tool
 LOCAL_TOOLS[NodeKind.SQLITE_TOOL] = build_sqlite_tool
+LOCAL_TOOLS[NodeKind.HANDOVER_TOOL] = build_handover_tool

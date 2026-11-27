@@ -82,3 +82,6 @@ deliberate decision: the definition is shared, so a change on one side reaches e
   uses follow), and every use on `fail` of a definition with On Fail gets `error_output`. Downgrade: nothing to undo.
 - **Not included:** a view of all uses of a definition for cleaning up (an optional board card).
 
+## Addendum (2026-11-26): after the last try
+
+With *Retry on fail* a node (or an action) is tried again first; *If the node fails* applies after the last failed try: [ADR-073](073-retry-on-fail.md).

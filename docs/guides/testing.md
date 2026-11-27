@@ -34,7 +34,7 @@ cannot drift from the migrations), configuration, logging and the lifespan. The 
 board, dialogs, editor, processing, history, executions page, flow view, execution nodes, access and the CSP
 (`tests/e2e/test_*.py`).
 
-`test_code_hardening.py` is skipped off Linux (it needs `resource` and `/proc`); the Code node runs without
+`test_code_hardening.py` is skipped off Linux (it needs `resource` and `/proc`); the Execute Command node runs without
 resource limits elsewhere, and says so in its result.
 
 ## Unit and API tests
@@ -77,7 +77,7 @@ exceptions): a leaked connection or an unawaited coroutine fails the test that c
   round-trip test (up, down to base, up again).
 - **`client`** is a `TestClient` with the real lifespan on that copy. After the test it fails, naming the
   test, if an aiosqlite connection that the test opened is still alive (a run or task that outlives the
-  engine). To change settings (Code nodes off,
+  engine). To change settings (Execute Command nodes off,
   private networks on, a token), build the application yourself:
   `TestClient(_create_app(migrated_settings.model_copy(update={...})))` as `test_execution_nodes.py` does.
 - **`published`** records everything the application publishes on its event bus.
@@ -173,7 +173,7 @@ cover the same ground except for the static checks (`python tools/check_links.py
 quote the glob; they take a few seconds and need no npm packages).
 
 `tools/test_audit.sh` runs all of it in one go and reports start, end, duration and result per section (about
-35 minutes; `--fast` skips coverage and runs the Python tests in parallel). See [tools/README](../../tools/README.md).
+35 minutes; `--fast` skips coverage and runs the Python tests in parallel; `--ci` runs them as the GitHub workflow does: one after the other on two cores, the browser tests with traces of failed tests, to find what only the slow runner shows). See [tools/README](../../tools/README.md).
 
 ## Writing tests
 

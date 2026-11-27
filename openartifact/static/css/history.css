@@ -106,6 +106,11 @@
 .history-row__meta { grid-area: meta; justify-self: end; font-size: 0.75rem; color: var(--color-text-muted); white-space: nowrap; }
 .history-row__note { grid-area: note; font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .history-row__delete { margin-right: var(--space-2); }
+/* Stop: the red square sits left of the trash; it is red at rest (the run is what the owner wants to end), the hover tint is the shared is-danger one. */
+.history-row__stop { margin-right: var(--space-1); color: var(--color-danger); }
+.history-row__stop[hidden], .history-row__delete[hidden] { display: none; }
+/* In the global list a running row shows the stop where the trash is (ADR-076): the same distance to the edge as the trash has. */
+.ex-row__actions .history-row__stop { margin-right: var(--space-2); }
 
 /* ── One execution ───────────────────────────────────────────────── */
 .history-detail__bar { display: flex; gap: var(--space-2); }
@@ -213,3 +218,13 @@
 @media (max-width: 640px) {
   .history-event { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+/* the tries of a node that was tried again (Retry on fail): one line each under the block's title */
+.history-step__tries { margin: var(--space-2) 0 0; padding-left: 1.25rem; font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+
+/* what a Build Context step put in its package and what it left out (static/js/tasks/history-step.js, ADR-078): always shown, not folded */
+.history-step__context { margin: var(--space-2) 0 0; font-size: 0.75rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.history-step__context-title { margin: 0; font-weight: 600; color: var(--color-text); }
+.history-step__context-title:empty { display: none; }
+.history-step__context-list { margin: var(--space-1) 0 var(--space-2); padding-left: 1.25rem; }
+.history-step__context-list--omitted li::marker { color: var(--lane-hue-2); }

@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-015](015-vocabulary-and-storage-names.md) (the names of graphs), [ADR-067](067-pipeline-actions-and-guard-actions.md) (guard actions), [ADR-069](069-management-pages.md) (the *Versions* tab)  
-**Implemented in:** `models/graphs.py` (`GraphVersion`, `Graph.published_number`), `graph/content.py`, `graph/versions.py`, `graph/publishing.py`, `engine/snapshot.py`, `api/graphs.py`, migration `0057`, `static/js/editor/versions-tab.js`  
+**Implemented in:** `models/graphs.py` (`GraphVersion`, `Graph.published_number`), `graph/content.py`, `graph/versions.py`, `graph/publishing.py`, `engine/snapshot.py`, `api/graphs.py`, migration `0057`, `static/js/editor/versions-tab.js`, `static/js/editor/publication-control.js` (addendum 1)  
 **Affected chapters:** guides [agents](../../guides/agents.md) (the same words), [UI catalog](../../guides/ui-catalog.md)
 
 ## 1. Context
@@ -52,4 +52,26 @@ the graph editor.
   second step (*Publish*); a definition that was never published keeps running its draft, so nothing changes for existing data.
 - A published pipeline version names the actions it uses by id; deleting an action that a published pipeline version still uses leaves
   that action empty at the next run (as deleting an action used by a stage did before). The usage lists those pipelines to be cleaned up.
-- Not built: pinning a pipeline to a version of an action, comparing two versions, restoring a version into the draft.
+- Not built: pinning a pipeline to a version of an action, comparing two versions. (Restoring a version into the draft: Addendum 1, as *Discard draft*; restoring an *earlier* version into the draft is still not built.)
+
+## Addendum 1 (2026-11-26): publish and discard from the editor's toolbar
+
+- **The mark is a control.** The mark beside the way back in the editor (*Draft*, *v3 published*) opens a small popup when there is something to do
+  (`static/js/editor/publication-control.js`, the catalog class `ge-state`, the popup `pub-popover`):
+  - *Draft* (nothing published): *Publish* only; there is no version to go back to.
+  - *Draft* with changes (the draft differs from the published version): *Publish* and *Discard draft*.
+  - *v3 published* (equal): nothing to do, so the mark stays a plain chip and no popup opens.
+- **Publish** is the call of the Versions tab (`POST /{id}/publish`), as one click in the popup (the popup states what executions will run). **A refusal
+  of the server** (409 when nothing changed meanwhile) is shown in the popup, which stays open; the buttons wait while a call runs. On success the popup
+  closes and the editor reads the graph again, which draws the mark anew.
+- **Discard draft** asks once inside the popup (*The changes since version N are lost*), then calls the new `POST /api/{pipelines|actions}/{id}/draft/discard`
+  (`publishing.discard_draft`, `GraphRepository.restore`), which answers the graph as it is now; the editor reads it again, without reloading the page.
+  409 while nothing is published and while the draft equals the published version.
+- **What discard does.** The draft becomes the published version's graph: nodes that are in it stay the same rows (same id, so guards attached to them
+  stay) and take its values, nodes that are not in it go (with the guards attached to them), nodes only the version has are made again, connections are
+  replaced; a link to a definition that no longer exists is left empty. Nothing that executions run changes (they read the published version), and no version is
+  made or removed. The error output is one state of an action definition and its uses (ADR-061 addendum): a definition whose *On Fail* changes is carried to its
+  uses, and a restored use agrees with its definition afterwards, in the same transaction, exactly as an edit does; other graphs this reached are announced
+  with `graph.changed`.
+- **Unsaved edits.** The editor saves every change at once, so there is no unsaved graph. Text typed into a field and not left yet is saved first.
+- The agent editor keeps its own header buttons (*Save draft*, *Discard draft*, *Publish*): it does not use this mark.

@@ -30,14 +30,28 @@ export function fillOrigin(element, startedBy, text = originLabel(startedBy)) {
   element.textContent = text;
 }
 
-/** The delete button of a row: trash icon, a label naming what it deletes, disabled (not removed, so it
- * keeps its tooltip) while the execution runs. The caller must ignore clicks while aria-disabled. */
+/** The base of the row buttons that ask before they act (delete, stop): a glyph, a label naming what it
+ * does to what, and a state. A disabled button is not removed, so it keeps its tooltip; the caller must
+ * ignore clicks while it is aria-disabled. */
+export function fillRowButton(button, { glyph, label, title = label, disabled = false }) {
+  button.replaceChildren(icon(glyph));
+  button.setAttribute("aria-label", label);
+  button.setAttribute("aria-disabled", String(disabled));
+  button.title = title;
+}
+
+/** The delete button of a row: trash icon, a label naming what it deletes, disabled while the execution runs. */
 export function fillDeleteButton(button, execution, subject) {
   const running = execution.status === "running";
-  button.replaceChildren(icon("trash"));
-  button.setAttribute("aria-label", t("tasks.history_row.delete_subject", { subject }));
-  button.setAttribute("aria-disabled", String(running));
-  button.title = running ? t("tasks.history_detail.stop_first") : t("tasks.history_row.delete_subject", { subject });
+  const label = t("tasks.history_row.delete_subject", { subject });
+  fillRowButton(button, { glyph: "trash", label, title: running ? t("tasks.history_detail.stop_first") : label, disabled: running });
+}
+
+/** The stop button of a row: a square, only there while the execution runs (hidden otherwise). */
+export function fillStopButton(button, execution, subject) {
+  const running = execution.status === "running";
+  button.hidden = !running;
+  fillRowButton(button, { glyph: "stop", label: t("tasks.history_row.stop_subject", { subject }) });
 }
 
 /** Calls `tick` every second while `update(true)` says something is running; `update(false)` and dispose() stop it. */

@@ -49,7 +49,7 @@ not suggestions, and a change that breaks one is sent back.
 ## Rules
 
 1. **Use a catalog component.** A `<button>` carries `button`, `icon-button`, `chip-button`, `ge-switch` (an on/off
-   switch, `switch.js`), `task-tab`, `nav-link`, `menu__item`, `popover__option`, `info-tip`, `layout-handle` or `lw-grip`. The rare exception carries `data-ui="custom"` and `data-ui-reason="why"`.
+   switch, `switch.js`), `task-tab`, `nav-link`, `menu__item`, `popover__option`, `info-tip`, `layout-handle`, `lw-grip` or `ge-state`. The rare exception carries `data-ui="custom"` and `data-ui-reason="why"`.
 2. **No colour in a component.** Colours come from the tokens in `static/css/tokens.css` (`var(--color-text-primary)`,
    `var(--btn-outline-border)` ...), never from a literal. Both themes define the tokens; a component that only uses them
    works in both.
@@ -76,6 +76,7 @@ not suggestions, and a change that breaks one is sent back.
 | Icon only | `icon-button` (small: `icon-button icon-button--sm`) | A command with an icon and no text. It needs an accessible name: `aria-label` (or a visible tooltip name). |
 | Layout handle | `layout-handle` | The pill with nine dots on the top edge of a manifest window (ADR-063): `--layout-accent`, `--layout-accent-hover`, `--layout-on-accent` (a colour family of its own, so it is never taken for a "..." menu). 24 px high, the global focus ring. Its menu is `menu menu--layout`. |
 | Layout grip | `lw-grip` | The grip of a section or a field in the arrange view: icon only, coloured `--layout-accent-hover` (5.8:1 on the card), a quiet fill on hover, moves with the pointer or the arrow keys. |
+| Status chip as a trigger | `ge-state` | The mark "Draft" / "v3 published" in the toolbar of the pipeline and action editor (`editor/publication-control.js`, ADR-070 addendum): no chrome of its own, the status chip (tinted pill) and a small arrow; it is a button only while there is something to publish or discard, and opens the popup `pub-popover` (a `popover` with `button--primary` Publish and `button--ghost` Discard draft, an inline `field__error` for a refusal). Hover and open darken the chip; the focus ring is the global one. |
 | Icon only, quiet | `icon-button icon-button--quiet icon-button--xs` | An icon with no frame and no fill (24 px hit area, a quiet fill on hover and the global focus ring): the guard shield on a card, a stage header and next to the canvas "+". Needs an accessible name. Colours: `--btn-quiet-text`, `--btn-quiet-text-hover`. |
 | Icon only, destructive | `icon-button is-danger` | A delete icon: it turns red on hover and focus. |
 | Chip (toggle) | `chip-button` with `aria-pressed="true|false"` | A filter or a switch among a few: *All / Comments / Executions / Changes*. |
@@ -142,12 +143,19 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A row of controls in a table that must stay readable when the table is narrow (the inputs of an agent) | **Field group**: `.field-group` on the table (it is its own container: the rows break by the width of the table, not of the window), `.field-group__head` and `.field-group__row` (columns in `--fg-cols`), `.field-group__wide` (takes a whole line when paired: a description), `.field-group__end` (a menu), `.field-group--long` for seven or more elements (breaks earlier). Wide: one line; narrower: pairs (2, 2, 2: two columns, the head goes); narrowest: one column. Defined in `forms.css`; use it for any table of rows with several controls |
 | The small picture of a pipeline or an action | `graph-preview.js` (`GraphPreview`; `lazyPreview` is in quarantine) with the layout in `preview-layout.js` (`sceneOfGraph`, `layoutScene`: layers from the connections, a frame per stage, every connection drawn once) |
 | A long text in a panel (a prompt): its first lines, "Show more", "Copy" | `clamped-text.js` (`new ClampedText({ text, lines, label, empty })`, `.element`); `textContent` only, the frame is `.ct__box`, tokens only |
+| A long text field that takes Markdown (the text of an artifact, a comment, a prompt): heading, bold, italic, strikethrough, bullet and numbered list, quote, code, code block, link, Preview | `markdown-bar.js` (`new MarkdownBar(textarea, { hint, renderText })`; the bar sits after the field, `.md-bar`, its buttons are 28 px so the bar is two lines high; `reset()` returns to the field; **the link popup** `.md-link-popup` is part of it: Text and Address, Enter inserts, Escape closes it only, the place is worked out from the popup's own origin because a dialog's blurred backdrop frames fixed children); what its buttons do is `markdown-edit.js` (`toggleWrap`, `toggleList`, `toggleOrdered`, `toggleQuote`, `cycleHeading`, `toggleCodeBlock`, `findLink`, `normalizeAddress`, `linkEdit`, pure); the edit goes through `insertText` so undo works; buttons are `icon-button`s, the Preview is a `switch`; no table and no image button; ADR-077 and its Addendum 1 |
+| A long text that is read (a card's text, a comment) | `markdown.js` (`renderMarkdown(text, { renderText, renderLiteral, lists, plain })`: headings, `p`, `strong`/`em`/`del`, `code`, `pre` with a language caption, `blockquote`, `ul`/`ol`/`li`, `table` in a scrolling `.md-table`, `hr`, safe links `a.md-link`, built from text nodes, never `innerHTML`; `safeHref` decides what may be a link; `plain: true` gives the lines of a text without blocks and anchors); with references and marks `renderBody` in `tasks/references.js` (`renderText` makes `#12` links, `renderLiteral` draws code and the words of a link as text with the marks only); `new ClampedText({ markdown: true })` for a panel (cut by the height of its lines); a prompt is shown as written, without it; the look is `.md-bar`, `.md-link-popup`, `.md-preview` and the rules of the readers in `components.css` |
 | Short labels typed as one line | the form widget `tags` (`form-widgets.js`): a list in the values |
 | A menu of commands | `action-menu.js` (`menu__item`) |
 | A list to pick from, placed next to its trigger | `lane-picker.js` and `popover.js` (`popover__option`) |
 | A short message above a page | `alert-bar.js` with `templates/components/alert.html`; `show(message, { tone: "info" })` is the calm look for news that is not an error (what a change did beyond the node); it floats above an open window (popover layer), because a window's backdrop would cover the bar |
 | An explanation of a field | `info-tip.js` (the (i) that opens a tooltip) |
 | An on/off setting | `switch.js` |
+| The emergency stop and its banner (ADR-076) | `stop-switch.js` (`new StopSwitch(root, confirm, { onChanged, onError })`: the label `STOP` and the switch in its red form `.ge-switch--danger`; off it is the neutral switch, on it takes the red of the trash button; switching on asks in the page's confirm dialog and names the executions it aborts, off asks nothing), `stop-state.js` (the one copy of the state per page: `subscribeStop`, `loadStop`, `setStop`, `followStop`), `stop-banner.js` (the banner at the top centre of every page, `[data-stop-banner]` in `base.html`) |
+| A length of time (a wait, a timeout) | `duration-input.js` (`new DurationInput({ milliseconds, onCommit })`, `.element`, `.milliseconds`): a number and a unit (ms, sec, min), kept as milliseconds; the largest unit that divides the value evenly is shown (`duration-model.js`: 3467 ms stays, 90000 ms is 90 sec). Never ask for seconds as a bare number when a person has to convert; see [the setting row](#the-setting-row) |
+| A flat list of fields as a schema ([ADR-080](../architecture/adr/080-hand-over-tool.md)) | `schema-fields.js` (`new SchemaFields({ fields, types, limits, max, label, onInput, onSettle })`, `.element`, `.value()`, `.problem()`): one row per field on a grid (handle, name and bin, type and *Required*, description, the values of a choice); the rules are `schema-fields-model.js`, the server's `graph/field_schema.py`. It knows nothing of the node that holds it: the `fields` setting type is `FieldsControl` in `editor/setting-controls.js`, and whatever lets a model answer in a shape mounts the same component |
+| A size (an output limit) | `size-input.js` (`new SizeInput({ bytes, onCommit })`, `.element`, `.bytes`): a number and a unit (B, KiB, MiB), kept as bytes; the largest unit that divides the value evenly is shown (`size-model.js`: 1500 B stays, 65536 B is 64 KiB); the twin of the duration input ([ADR-075](../architecture/adr/075-execute-command-node.md)) |
+| A removable setting in a node's window | the **setting row** (`field(label, control, { end: bin })` in `editor/field.js`, `.field__line`): label, control, bin, never overlapping; see [the setting row](#the-setting-row) |
 | The legend under text that marks resolved references | `resolved-legend.js` (`new ResolvedLegend()`, `.element` after the text, `.show(visible)`); a closed disclosure with the colour swatch `--color-resolved-ref-bg` (`.resolved-legend__mark`) and the words, no `innerHTML`, no glyph in the text; the marked text itself is `<mark class="resolved-ref">` (`renderResolvedBody` in `tasks/references.js`), shown only while the personal setting *Mark resolved references* is on |
 | The add menu of the editor, under the "+" or at a point | `add-menu.js`; `openFrom(point, {types, header, emptyText, onPick})` opens the same menu at the pointer for a line released on the canvas (anchored mode: `is-anchored`, a header line `ge-add__from`, only the given kinds), glue and plan in `connect-menu.js` and `connect-plan.js` |
 | Choose one of many by typing | `combobox.js` (a field with a list under it; typing narrows it by name, then by description and keywords; arrow keys, Enter, Escape closes only the list; the list is a popup so a dialog does not clip it; ARIA combobox with `aria-activedescendant`; the pure part is `combobox-model.js`) |
@@ -162,12 +170,31 @@ Use these instead of building a new one. They live in `static/js/components/` un
 | A bar for selected rows | `selection.js` and `bulk-bar.js` |
 | A guard against leaving unsaved changes | `leave-guard.js` |
 | A collapsible rail or a navigation group | `collapsible-nav.js`, `nav-group.js` |
-| A list that is reordered by hand | `sortable.js` |
+| A list that is reordered by hand | `sortable.js` (a handle per entry; used by the field editor, the inputs of an agent and the sources of a Build Context node) |
+| The sources of a Build Context node ([ADR-078](../architecture/adr/078-build-context-node.md)) | the `sources` setting type: `SourcesControl` in `editor/setting-controls.js` (rows with a handle, the name, the options of the source and a bin, a select that adds a source not used yet) with its rules as pure functions in `editor/sources-model.js` |
 | Settings that override a default | `settings-group.js`, `override-row.js`, `options-panel.js` |
 | Rules with all/any conditions | `rule-builder.js` (the conditions), `rule-editor.js` (one rule: conditions and what to do), `rule-list.js` (the front door: a row per rule with its switch, name and a line about it, opening, taking out with Undo; data in `rule-list-model.js`) |
 | A `#` reference in a text | `reference-picker.js` |
 | The guards of a scope: one shield and its popup (names, switch, Detach; "Add a guard"; a group *In the action* on an action card); the popup has two layouts: its two buttons sit side by side, and **stacked** when it opens from a stage header or a card (`what.stack`, class `gd-popover--stack`) | `editor/guards.js` (`shieldButton`), `guards/guard-popover.js` (a `popover` with `popover__option`, `ge-switch` and catalog buttons) |
 | An icon | `icons.js` (`icon("name")`), the paths in `templates/components/icons.html`; a node kind's glyph in the menus is its manifest's `menu_icon` (else `ui.icon`) |
+
+## The setting row
+
+One row for every removable setting of a node window ([ADR-074](../architecture/adr/074-setting-row-and-durations.md)); a control does not
+position its own bin, the row does. For people and for later agents:
+
+1. **Anatomy:** label (with its (i)) above the control, or on the line of the control for a switch; the control in a column that gives way
+   (`min-width: 0`); the **end action** (the bin) in a column of its own, fixed width, on the line of the control; messages under the row.
+2. **No overlap, by construction:** nothing in a row is positioned absolutely over another thing. Pass the bin as `end` to `field()` /
+   `createControl(..., { end })`; a test measures that it starts after the control ends and lies on its line.
+3. **A switch** sits on the line of its label; what depends on it shows below only while it is on, and Off keeps the values.
+4. **A time is a number and a unit** (`DurationInput`): ms, sec, min, stored as milliseconds, shown in the largest unit that divides the
+   value evenly. Nobody converts 3467 ms into seconds.
+5. **Defaults** are shown (the added row starts with them and the menu says what applies meanwhile); a setting whose row would otherwise
+   show what is not kept is stored when it is added.
+6. **Bounds** are the server's and both sides say them in plain words with the reason ("a whole number from 2 to 10"), under the field;
+   nothing is sent while a value is wrong.
+7. **Taking it away** is one click on the bin, and it also takes away a value saved while the row was still "just added".
 
 ## Management pages
 

@@ -181,6 +181,7 @@ def _comment_layout(board: Board, count: int) -> dict[str, dict[str, float]]:
         "label": dialog.comments.locator("label[for=comment-input]"),
         "hint": dialog.comments.locator("#comment-hint"),
         "textarea": dialog.comments.locator("[data-comments-input]"),
+        "bar": dialog.comments.locator(".md-bar"),  # the formatting bar under the field (ADR-077)
         "send": dialog.comment_send,
         "close": footer.locator("[data-modal-close]"),
         "footer": footer,
@@ -201,7 +202,14 @@ def _check_composer_at_the_bottom(boxes: dict[str, dict[str, float]]) -> None:
     )  # right-aligned to the text box
     # the text box is below that row, the full width of the tab, and at the bottom of the panel
     assert text["y"] >= label["y"] + label["height"]
-    assert text["y"] + text["height"] >= panel["y"] + panel["height"] - 24, (text, panel)
+    # the composer is the text box with its formatting bar under it (ADR-077): the bar closes the panel, the text box sits right above it
+    bar = boxes["bar"]
+    assert bar["y"] >= text["y"] + text["height"] - 1, (bar, text)
+    assert bar["y"] + bar["height"] >= panel["y"] + panel["height"] - 24, (bar, panel)
+    assert text["y"] + text["height"] >= bar["y"] - 24, (
+        text,
+        bar,
+    )  # right above the bar: a gap of one space step
     assert text["width"] >= panel["width"] - 2 * 40
     # the list is above the label and does not overlap the composer
     assert lst["y"] + lst["height"] <= label["y"] + 1

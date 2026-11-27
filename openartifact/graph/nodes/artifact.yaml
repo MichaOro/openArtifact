@@ -79,3 +79,4 @@ settings:
   check: not_secret
   references: context
 - use: on_failure
+- use: retry

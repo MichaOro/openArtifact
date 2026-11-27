@@ -5,15 +5,24 @@
  * on leaving the field or Enter, a choice when it changes, never on a keystroke). Add a type by subclassing
  * SettingControl and listing it in CONTROLS. */
 import { CredentialDialog } from "../components/credential-dialog.js";
+import { DurationInput } from "../components/duration-input.js";
+import { describeDuration } from "../components/duration-model.js";
+import { describeSize } from "../components/size-model.js";
+import { SizeInput } from "../components/size-input.js";
+import { SchemaFields } from "../components/schema-fields.js";
 import { icon } from "../components/icons.js";
 import { Modal } from "../components/modal.js";
 import { request } from "../http.js";
+import { Sortable } from "../components/sortable.js";
 import { field } from "./field.js";
 import { bindPersist, registerDirty, trackSave } from "./persist-policy.js";
+import { addSource, listProblem, moveSource, parseNames, removeSource, setOption, specOf, unused } from "./sources-model.js";
 import { suggestReferences } from "./reference-suggest.js";
 import { t, tn } from "../i18n.js";
 
 const INDENT = "  ";
+/** What an added size setting starts at: the default output limit of an instance (64 KiB). */
+const SIZE_START = 64 * 1024;
 const LEAVE_HINT = t("editor.setting_controls.tab_indents_press_escape_then");
 
 function element(tag, className, text = null) {
@@ -39,12 +48,14 @@ class SettingControl {
    * @param {(value: *) => Promise<string|null>} save resolves to null, or to why the value was refused
    * @param {{nodes: () => object[], exceptId?: string}|null} suggest the graph's nodes, for the suggestions
    *   of a text that takes references (null: none)
-   * @param {{unsaved?: boolean}} [options] `unsaved`: nothing is stored yet (an override being made, an optional
-   *   setting just added): `value` is only what the field starts with, and committing it saves it even when it is
-   *   the same (Enter on a field is a decision)
+   * @param {{unsaved?: boolean, end?: HTMLElement|null}} [options] `unsaved`: nothing is stored yet (an override being made, an
+   *   optional setting just added): `value` is only what the field starts with, and committing it saves it even when it is
+   *   the same (Enter on a field is a decision). `end`: what closes the row of the control (the bin of a removable setting),
+   *   in a column of its own so it never lies over the control
    */
-  constructor(setting, value, save, suggest = null, { unsaved = false } = {}) {
+  constructor(setting, value, save, suggest = null, { unsaved = false, end = null } = {}) {
     this.setting = setting;
+    this.end = end;
     this.saved = unsaved ? NOT_SAVED : value;
     this.save = save;
     this.busy = false;
@@ -88,6 +99,11 @@ class SettingControl {
   /** Whether the control offers suggestions for ${...} references (text and lines, not code). */
   static suggests = false;
 
+  /** The element inside a composite control the label belongs to (null: the control itself). */
+  labelTarget() {
+    return null;
+  }
+
   /** Text under the control that is not the setting's own help (null: none). */
   hint() {
     return null;
@@ -97,8 +113,8 @@ class SettingControl {
     const box = element("div", "ge-setting");
     // the explanation (the setting's help and the control's own hint) is a tooltip after the label, not text under the field
     const help = [this.setting.help, this.hint()].filter(Boolean).join("\n\n");
-    const labelled = field(this.setting.label, this.input, { row: this.constructor.row, help: help || null });
-    const id = this.input.id;
+    const labelled = field(this.setting.label, this.input, { row: this.constructor.row, help: help || null, end: this.end, labelFor: this.labelTarget() });
+    const id = (this.labelTarget() ?? this.input).id;
     this.status = element("span", "field__status");
     this.status.id = `${id}-status`;
     this.status.setAttribute("aria-live", "polite");
@@ -254,6 +270,162 @@ class SwitchControl extends SettingControl {
     }
     this.saved = wanted;
     this.fail(null);
+  }
+}
+
+/** *Retry on fail* (ADR-073): the switch on the line of the label, and while it is on the number of tries and the wait between
+ * them (a number and a unit, ADR-074). One setting, one value `{enabled, max_tries, wait_ms}` (milliseconds): the switch saves when it
+ * flips, the numbers when they are left, a unit when it changes; a value that does not fit says why in plain words and is not sent.
+ * Off keeps the numbers; taking the setting away (the bin) is "no retry". An added setting starts on, with the defaults, and is
+ * stored at once: a row that shows On and holds nothing would lie. */
+class RetryControl extends SettingControl {
+  static kind = "toggle";
+  static row = true;
+
+  constructor(setting, value, save, suggest = null, options = {}) {
+    super(setting, value, save, suggest, options);
+    if (options.unsaved) queueMicrotask(() => this.commit());
+  }
+
+  createInput(value) {
+    const [, , defaultTries] = this.setting.limits.max_tries;
+    const [, , defaultWait] = this.setting.limits.wait_ms;
+    const stored = value && typeof value === "object" ? value : {};
+    this.tries = element("input", "field__control");
+    this.tries.type = "number";
+    this.tries.step = "1";
+    this.tries.min = String(this.setting.limits.max_tries[0]);
+    this.tries.max = String(this.setting.limits.max_tries[1]);
+    this.tries.value = String(stored.max_tries ?? defaultTries);
+    this.tries.dataset.focusKey = `setting-${this.setting.key}-tries`;
+    this.tries.addEventListener("input", () => this.markDirty());
+    bindPersist(this.tries, "text", (event) => {
+      if (event.type === "focusout" && !this.isDirty()) return;
+      this.commit();
+    });
+    this.wait = new DurationInput({
+      milliseconds: stored.wait_ms ?? defaultWait,
+      focusKey: `setting-${this.setting.key}-wait`,
+      onInput: () => this.markDirty(),
+      onCommit: () => this.commit(),
+    });
+    for (const el of [this.tries, this.wait.number, this.wait.unit]) registerDirty({ isDirty: () => this.isDirty(), commit: () => this.commit(), element: el });
+    const toggle = element("button", "ge-switch");
+    toggle.type = "button";
+    toggle.setAttribute("role", "switch");
+    const state = element("span", "ge-switch__state");
+    toggle.append(state, element("span", "ge-switch__thumb"));
+    this.show = (on) => {
+      toggle.setAttribute("aria-checked", String(on));
+      state.textContent = on ? "On" : t("components.switch.off");
+      if (this.details) this.details.hidden = !on;
+    };
+    this.show(stored.enabled ?? true);
+    toggle.addEventListener("click", () => this.#flip());
+    return toggle;
+  }
+
+  build() {
+    const box = super.build();
+    this.details = element("div", "ge-retry");
+    this.details.hidden = !this.enabled;
+    const limits = this.setting.limits;
+    this.details.append(
+      field(t("editor.retry.max_tries"), this.tries, { help: t("editor.retry.max_tries_help", { min: limits.max_tries[0], max: limits.max_tries[1] }) }),
+      field(t("editor.retry.wait"), this.wait.element, { labelFor: this.wait.number, help: t("editor.retry.wait_help", { max: describeDuration(limits.wait_ms[1]) }) }),
+    );
+    box.querySelector(".field").after(this.details);
+    return box;
+  }
+
+  get enabled() {
+    return this.input.getAttribute("aria-checked") === "true";
+  }
+
+  /** The numbers as typed, canonical, so that "nothing changed" is a text comparison. */
+  read() {
+    return JSON.stringify({ enabled: this.enabled, max_tries: this.tries.value.trim(), wait_ms: this.wait.milliseconds });
+  }
+
+  parse(raw) {
+    const typed = JSON.parse(raw);
+    const [minTries, maxTries] = this.setting.limits.max_tries;
+    const [minWait, maxWait] = this.setting.limits.wait_ms;
+    const tries = Number(typed.max_tries);
+    if (typed.max_tries === "" || !Number.isInteger(tries) || tries < minTries || tries > maxTries) {
+      throw new Error(t("editor.retry.tries_bounds", { min: minTries, max: maxTries }));
+    }
+    const wait = typed.wait_ms;
+    if (!Number.isFinite(wait) || wait < minWait || wait > maxWait) throw new Error(t("editor.retry.wait_bounds", { max: describeDuration(maxWait) }));
+    const total = (tries - 1) * wait;
+    if (total > this.setting.limits.total_wait_ms) {
+      throw new Error(t("editor.retry.total_bounds", { tries, wait: describeDuration(wait), total: describeDuration(total), max: describeDuration(this.setting.limits.total_wait_ms) }));
+    }
+    const value = { enabled: typed.enabled, max_tries: tries, wait_ms: wait };
+    const saved = this.saved && typeof this.saved === "object" ? this.saved : null;
+    return saved && JSON.stringify(saved) === JSON.stringify(value) ? saved : value; // the stored object itself when nothing changed
+  }
+
+  isDirty() {
+    return this.read() !== this.baseline;
+  }
+
+  markDirty() {
+    const dirty = this.isDirty();
+    this.element?.classList.toggle("is-dirty", dirty);
+    if (this.status) this.status.textContent = dirty ? t("agents.editor_page.not_saved") : "";
+  }
+
+  async #flip() {
+    const before = this.enabled;
+    this.show(!before);
+    await this.commit();
+    if (!this.error.hidden) this.show(before); // refused: the switch goes back
+  }
+}
+
+/** A size in bytes (the output limit of an Execute Command node): a number and a unit (B, KiB, MiB), the value is bytes (ADR-075).
+ * Saves when the number is left or Enter is pressed and when the unit changes; a value that does not fit says why in plain words
+ * and is not sent. An added setting starts at the default size and is stored at once, so the row never shows what is not stored. */
+class SizeControl extends SettingControl {
+  static kind = "toggle"; // the control binds its own number and unit (a composite), not the wrapper
+
+  constructor(setting, value, save, suggest = null, options = {}) {
+    super(setting, value, save, suggest, options);
+    if (options.unsaved) queueMicrotask(() => this.commit());
+  }
+
+  createInput(value) {
+    this.size = new SizeInput({
+      bytes: Number.isInteger(value) ? value : SIZE_START,
+      min: 0,
+      focusKey: `setting-${this.setting.key}`,
+      onInput: () => this.markDirty(),
+      onCommit: () => this.commit(),
+    });
+    for (const el of [this.size.number, this.size.unit]) registerDirty({ isDirty: () => this.isDirty(), commit: () => this.commit(), element: el });
+    return this.size.element;
+  }
+
+  labelTarget() {
+    return this.size.number;
+  }
+
+  read() {
+    return String(this.size.bytes);
+  }
+
+  parse(raw) {
+    const bytes = Number(raw);
+    const { minimum, maximum } = this.setting;
+    if (!Number.isFinite(bytes) || bytes < minimum || bytes > maximum) {
+      throw new Error(t("editor.size.bounds", { min: describeSize(minimum), max: describeSize(maximum) }));
+    }
+    return bytes;
+  }
+
+  isDirty() {
+    return this.read() !== this.baseline;
   }
 }
 
@@ -461,6 +633,224 @@ class CredentialControl extends SelectControl {
   }
 }
 
+/** The words for what is wrong with a source (sources-model.js `entryProblem`). */
+function problemText({ code, params }) {
+  if (code === "count_bounds") return t("editor.sources.count_bounds", params);
+  if (code === "names_many") return t("editor.sources.names_many", params);
+  if (code === "names_long") return t("editor.sources.names_long", params);
+  return t("editor.sources.names_twice", params);
+}
+
+/** The sources of a Build Context node (ADR-078): an ordered list, the order being the priority when the size limit runs out. Each row has
+ * a handle to reorder it (components/sortable.js: drag, or ArrowUp / ArrowDown on the handle), the source's name, the options that source takes
+ * (a number of items, title or text of related cards, the names of nodes) and a bin; the list ends with a select that adds a source not used
+ * yet. One setting, one value (the list): a choice (add, remove, move, a select) saves at once, a typed number or name list when it is
+ * left; a value that does not fit says why in plain words and is not sent (the rules are sources-model.js, the server's the same). */
+class SourcesControl extends SettingControl {
+  static kind = "toggle"; // the rows bind their own events (a composite), not the wrapper
+  static row = false;
+
+  createInput(value) {
+    this.specs = this.setting.sources ?? [];
+    this.max = this.setting.max_sources ?? 8;
+    this.list = Array.isArray(value) ? value.map((entry) => ({ ...entry })) : [];
+    const box = element("div", "ge-sources");
+    box.dataset.focusKey = `setting-${this.setting.key}`;
+    this.rows = element("ul", "ge-sources__list");
+    this.rows.setAttribute("aria-label", this.setting.label);
+    this.add = element("select", "field__control ge-sources__add");
+    this.add.dataset.focusKey = `setting-${this.setting.key}-add`;
+    this.add.addEventListener("change", () => this.addChosen());
+    this.live = element("p", "visually-hidden");
+    this.live.setAttribute("aria-live", "polite");
+    box.append(this.rows, this.add, this.live);
+    new Sortable(this.rows, { handle: ".ge-source__grip", onMove: (from, to, by) => this.moveRow(from, to, by) });
+    this.draw();
+    return box;
+  }
+
+  labelTarget() {
+    return this.add;
+  }
+
+  read() {
+    return JSON.stringify(this.list);
+  }
+
+  parse(raw) {
+    const list = JSON.parse(raw);
+    const problem = listProblem(list, this.specs);
+    if (problem) throw new Error(problemText(problem));
+    const saved = Array.isArray(this.saved) ? this.saved : null;
+    return saved && JSON.stringify(saved) === raw ? saved : list; // the stored list itself when nothing changed
+  }
+
+  isDirty() {
+    return this.read() !== this.baseline;
+  }
+
+  sourceLabel(key) {
+    return t(`editor.sources.source.${key}.label`);
+  }
+
+  draw() {
+    this.rows.replaceChildren(...this.list.map((entry, index) => this.row(entry, index)));
+    const free = unused(this.list, this.specs);
+    this.add.replaceChildren(new Option(t("editor.sources.add"), ""), ...free.map((spec) => new Option(this.sourceLabel(spec.key), spec.key)));
+    this.add.disabled = !free.length || this.list.length >= this.max;
+  }
+
+  row(entry, index) {
+    const spec = specOf(this.specs, entry.source) ?? { key: entry.source };
+    const item = element("li", "ge-source");
+    const grip = element("button", "icon-button icon-button--sm ge-source__grip");
+    grip.type = "button";
+    grip.setAttribute("aria-label", t("editor.sources.drag", { label: this.sourceLabel(spec.key) }));
+    grip.title = t("editor.sources.drag_help");
+    grip.append(icon("grip"));
+    const name = element("span", "ge-source__name", this.sourceLabel(spec.key));
+    name.title = t(`editor.sources.source.${spec.key}.help`);
+    const options = element("span", "ge-source__options");
+    if (spec.count) options.append(this.countInput(entry, index, spec));
+    if (spec.detail) options.append(this.detailSelect(entry, index, spec));
+    if (spec.names) options.append(this.namesInput(entry, index, spec));
+    const bin = element("button", "icon-button icon-button--sm ge-source__bin");
+    bin.type = "button";
+    bin.title = t("editor.sources.remove", { label: this.sourceLabel(spec.key) });
+    bin.setAttribute("aria-label", bin.title);
+    bin.append(icon("trash"));
+    bin.addEventListener("click", () => this.removeRow(index));
+    item.append(grip, name, options, bin);
+    return item;
+  }
+
+  /** A typed value is kept in the list as it is typed; it is saved when the field is left (the policy of persist-policy.js). */
+  typed(input, kind) {
+    const element = input;
+    element.addEventListener("input", () => this.markDirty());
+    bindPersist(element, kind, (event) => {
+      if (event.type === "focusout" && !this.isDirty()) return;
+      this.commit();
+    });
+    registerDirty({ isDirty: () => this.isDirty(), commit: () => this.commit(), element });
+  }
+
+  countInput(entry, index, spec) {
+    const input = element("input", "field__control ge-source__count");
+    input.type = "number";
+    input.step = "1";
+    input.min = String(spec.count[0]);
+    input.max = String(spec.count[1]);
+    input.value = String(entry.count ?? spec.count[2]);
+    input.setAttribute("aria-label", t("editor.sources.count_label", { label: this.sourceLabel(spec.key) }));
+    input.title = t("editor.sources.count_help");
+    input.addEventListener("input", () => {
+      this.list = setOption(this.list, index, "count", input.value.trim() === "" ? null : Number(input.value));
+    });
+    this.typed(input, "text");
+    return input;
+  }
+
+  detailSelect(entry, index, spec) {
+    const select = element("select", "field__control ge-source__detail");
+    for (const value of spec.detail) select.append(new Option(t(`editor.sources.detail.${value}`), value));
+    select.value = entry.detail ?? spec.detail[0];
+    select.setAttribute("aria-label", t("editor.sources.detail_label", { label: this.sourceLabel(spec.key) }));
+    select.addEventListener("change", () => {
+      this.list = setOption(this.list, index, "detail", select.value);
+      this.commit();
+    });
+    return select;
+  }
+
+  namesInput(entry, index, spec) {
+    const area = element("textarea", "field__control ge-source__names");
+    area.rows = 2;
+    area.spellcheck = false;
+    area.value = (entry.names ?? []).join("\n");
+    area.placeholder = t("editor.sources.names_placeholder");
+    area.setAttribute("aria-label", t("editor.sources.names_label", { label: this.sourceLabel(spec.key) }));
+    area.title = t("editor.sources.names_help", { max: spec.names.max });
+    area.addEventListener("input", () => {
+      this.list = setOption(this.list, index, "names", parseNames(area.value));
+    });
+    this.typed(area, "multiline");
+    return area;
+  }
+
+  addChosen() {
+    const spec = specOf(this.specs, this.add.value);
+    if (!spec || this.list.length >= this.max) return;
+    this.list = addSource(this.list, spec);
+    this.draw();
+    this.live.textContent = t("editor.sources.added", { label: this.sourceLabel(spec.key), n: this.list.length });
+    this.commit();
+    this.rows.lastElementChild?.querySelector(".ge-source__grip")?.focus();
+  }
+
+  removeRow(index) {
+    const label = this.sourceLabel(this.list[index].source);
+    this.list = removeSource(this.list, index);
+    this.draw();
+    this.live.textContent = t("editor.sources.removed", { label });
+    this.commit();
+    this.add.focus();
+  }
+
+  /** A drag has moved the row in the document already, a key asks for the move; both change the list, which is drawn anew. */
+  moveRow(from, to, by) {
+    this.list = moveSource(this.list, from, to);
+    this.draw();
+    const grip = this.rows.children[to]?.querySelector(".ge-source__grip");
+    if (by === "key") grip?.focus();
+    this.live.textContent = t("editor.sources.moved", { label: this.sourceLabel(this.list[to].source), n: to + 1, total: this.list.length });
+    this.commit();
+  }
+}
+
+/** The fields of a Hand Over Tool (ADR-080): the shared list editor (components/schema-fields.js) as one setting with one value, the list.
+ * A choice (add, remove, move, a type, "required") saves at once, a typed text when its field is left or confirmed; a list that does not
+ * fit says why in plain words and is not sent (the rules are components/schema-fields-model.js, the server's the same). */
+class FieldsControl extends SettingControl {
+  static kind = "toggle"; // the rows bind their own events (a composite), not the wrapper
+  static row = false;
+
+  createInput(value) {
+    const box = element("div", "ge-fields");
+    box.dataset.focusKey = `setting-${this.setting.key}`;
+    this.editor = new SchemaFields({
+      fields: Array.isArray(value) ? value : [],
+      types: this.setting.field_types ?? undefined,
+      limits: this.setting.field_limits ?? undefined,
+      max: this.setting.max_fields ?? undefined,
+      label: this.setting.label,
+      onInput: () => this.markDirty(),
+      onSettle: () => this.commit(),
+    });
+    box.append(this.editor.element);
+    return box;
+  }
+
+  labelTarget() {
+    return this.editor.element.querySelector(".sf__add");
+  }
+
+  read() {
+    return JSON.stringify(this.editor.value());
+  }
+
+  parse(raw) {
+    const problem = this.editor.problem();
+    if (problem) throw new Error(problem);
+    const saved = Array.isArray(this.saved) ? this.saved : null;
+    return saved && JSON.stringify(saved) === raw ? saved : JSON.parse(raw); // the stored list itself when nothing changed
+  }
+
+  isDirty() {
+    return this.read() !== this.baseline;
+  }
+}
+
 const CONTROLS = {
   credential: CredentialControl,
   integer: IntegerControl,
@@ -470,6 +860,10 @@ const CONTROLS = {
   lines: LinesControl,
   code: CodeControl,
   select: SelectControl,
+  retry: RetryControl,
+  size: SizeControl,
+  sources: SourcesControl,
+  fields: FieldsControl,
 };
 
 /** The control for a setting; a type this editor does not know is shown as plain text. */

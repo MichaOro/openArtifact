@@ -1,6 +1,7 @@
 /* The archive (ADR-071): the cards that were archived, read only, in the frame of the management pages (components/management-page.js).
  * Tiles on two thirds, the panel on one third with four tabs (Details, Comments, History, Context). The one thing that can be done
- * here is "Remove from archive": the card goes back on top of the lane it came from. The board's menu shows and hides this view. */
+ * here is "Remove from archive": the card goes back on top of the lane it came from. The board's menu shows and hides this view.
+ * "Show more" of a card's text opens the card in the board's own dialog, read only (tasks/main.js `showArchived`). */
 import { ClampedText } from "../components/clamped-text.js";
 import { ManagementPage, cardBody, chip, make } from "../components/management-page.js";
 import { t } from "../i18n.js";
@@ -21,13 +22,15 @@ export class ArchiveView {
    * @param {() => {name: string, label: string}[]} options.fields the artifact fields
    * @param {(id: string) => string|null} options.parentTitle the title of a card of the board
    * @param {(task: object) => void} options.onRestored a card left the archive (the board takes it in)
+   * @param {(task: object) => void} options.onOpen "Show more" of a card's text: the page shows the card in its read-only dialog
    * @param {(message: string) => void} options.onError
    */
-  constructor({ root, fields, parentTitle, onRestored, onError }) {
+  constructor({ root, fields, parentTitle, onRestored, onOpen, onError }) {
     this.root = root;
     this.fields = fields;
     this.parentTitle = parentTitle;
     this.onRestored = onRestored;
+    this.onOpen = onOpen;
     this.onError = onError;
     this.visible = false;
     this.page = new ManagementPage(root, {
@@ -111,25 +114,29 @@ export class ArchiveView {
         const remove = make("button", "button button--primary button--sm", t("archive.remove"));
         remove.type = "button";
         remove.dataset.unarchive = "";
-        remove.addEventListener("click", () => this.#remove(task, remove));
+        remove.addEventListener("click", async () => {
+          remove.disabled = true;
+          if (!(await this.restore(task))) remove.disabled = false;
+        });
         const actions = make("div", "action-row");
         actions.append(remove);
         const section = make("section", "mg-section");
-        section.append(make("h3", "", t("archive.text")), new ClampedText({ text, label: t("archive.text"), empty: t("archive.no_text") }).element);
+        section.append(make("h3", "", t("archive.text")), new ClampedText({ text, label: t("archive.text"), empty: t("archive.no_text"), markdown: true, onMore: () => this.onOpen(full) }).element);
         body.replaceChildren(section, list, actions);
       })
       .catch(() => this.#failed(body));
   }
 
-  async #remove(task, button) {
-    button.disabled = true;
+  /** Take a card out of the archive (the panel's button and the rail of the read-only dialog); false when it failed. */
+  async restore(task) {
     try {
       const restored = await unarchiveTask(task.id);
       this.page.setItems(this.page.items.filter((x) => x.id !== task.id));
       this.onRestored(restored);
+      return true;
     } catch {
-      button.disabled = false;
       this.onError(t("archive.remove_failed"));
+      return false;
     }
   }
 

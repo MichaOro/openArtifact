@@ -41,3 +41,16 @@ optional areas when switched on.
 - A simple agent shows a user prompt and nothing else to fill in.
 - A node may still override single settings of an agent whose Model & Limits is off: the node's values win as before.
 - New optional areas are one more option and one more tab.
+
+## Addendum 1 (2026-11-26): the inputs are reordered by a handle
+
+- **A handle at the left of every input row** (`.ag-input__grip`, the shared `Sortable`, ADR-050) reorders the inputs: drag it with the
+  pointer, or focus it and press Arrow Up / Down. Only the handle starts a move, so the text fields and selects of the row stay what they
+  were. The table has a first column for it (2 rem; in a table that breaks into pairs the handle sits at the row's left edge and the pairs
+  stay as they were).
+- **The rows are the data** of this form (`readInputs()` reads them in order), so a move is a move of the row in the list; it marks the draft
+  as changed like any edit, and the order is what *Save draft* stores and what *Publish* publishes (the server keeps the list as sent, and a
+  new order counts as a change of the inputs). The *Quick test* examples follow the new order.
+- **`Sortable`'s `onMove(from, to, by)`** got a third argument: `"pointer"` when the drag has moved the entry already, `"key"` when the owner
+  has to move it. Owners that draw their list anew from data (the field editor) ignore it and are unchanged.
+- **Reading aloud:** after a move the handle keeps the focus and a live region says "{name} is now input {n} of {total}".

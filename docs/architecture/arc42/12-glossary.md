@@ -13,13 +13,13 @@
 | Pipeline | What an artifact runs through: a trigger, stages and a complete, connected by edges (ADR-012, ADR-013). Pages `/pipelines`. Formerly called "workflow" (ADR-015). |
 | GitHub node | An execution node that reads GitHub (repository, issues, pull requests, files, comments) and, behind *Allow comments*, comments, without a model (ADR-041). |
 | Postgres node / Postgres Tool | An execution node, or a tool of an agent, that runs one SQL statement with bound parameters on a database whose connection URL is a secret; read-only unless *Allow changes* is on (ADR-041). |
-| Tool (of an agent) | A node attached below an Agent node (*MCP Client Tool*, *HTTP Request Tool*, *Code Tool*, *Postgres Tool*) that the model may call; its edge is an attachment the engine never walks (ADR-040). |
+| Tool (of an agent) | A node attached below an Agent node (*MCP Client Tool*, *HTTP Request Tool*, *Execute Command Tool*, *Postgres Tool*) that the model may call; its edge is an attachment the engine never walks (ADR-040). |
 | Trigger | The start node of a pipeline or action definition (placeholder for manual, webhook or event starts). |
 | Stage | A container inside a pipeline that holds actions and connects to other stages. |
 | Action | A step inside a stage that stands for one business execution; has an input, *On Pass* and *On Error*. It is linked to an action definition. |
 | Action definition | What an action does: a graph of execution nodes between a trigger and an output with *On Pass* and optional *On Fail*. Pages `/actions`. |
 | Execution node | A node inside an action definition that holds business logic: *timer* (waits), *Code* (a script), *HTTP* (a request), plus the *trigger* and *output* that frame the definition; the kinds are classes (ADR-014, ADR-021). |
-| Code node | An execution node that runs `sh` or Python as a child process with resource limits; no sandbox (ADR-023, [8.5](08-cross-cutting-concepts/08.05-execution-nodes-safety.md)). |
+| Execute Command node | An execution node that runs `sh` or Python as a child process with resource limits; no sandbox (ADR-023, [8.5](08-cross-cutting-concepts/08.05-execution-nodes-safety.md)). |
 | HTTP node | An execution node that calls an address and passes when the status is accepted; checked against server-side request forgery. |
 | Executor | The registered async function that runs one kind of execution node and returns a `NodeResult` (`pass` or `fail`, output, reason, data); the engine stores the result as a step and leaves the node by the matching port (ADR-021). |
 | Node setting / `config` | A setting of a node in the inspector (types integer, switch, text, lines, code, select); old ones are columns of `graph_nodes`, newer ones live in its JSON `config` (ADR-022). |
@@ -45,15 +45,15 @@
 | MCP server | `/mcp`: the same operations as tools for LLM agents (Model Context Protocol, Streamable HTTP, bearer token). |
 | Request hardening | The middlewares for Host check, body limit, cross-site guard and security headers (ADR-017). |
 | Credential (secret) | A named value stored encrypted in the credential store (AES-256-GCM); nodes use it by name. Managed through the API only; values are never returned (ADR-024, [8.6](08-cross-cutting-concepts/08.06-credential-store.md)). |
-| Secret reference | How a node names a credential: `${secret:NAME}` in an HTTP node's path, query, headers or body, or a list of names in a Code node's `secrets` setting. |
+| Secret reference | How a node names a credential: `${secret:NAME}` in an HTTP node's path, query, headers or body, or a list of names in an Execute Command node's `secrets` setting. |
 | Masking | Replacing a credential's value (as it is, percent-encoded, Base64, JSON-escaped) with `***` in a node's result and in log lines ([6.8](06-runtime-view/06.08-credential-resolution.md)). |
 | Artifact field | A custom field every artifact has (text, number, yes/no, choice, with a default); defined once on the board, set per artifact in the dialog's rail, read by runs as `${card.NAME}` (ADR-044; replaced the artifact types of ADR-035) |
 | Card parameter | A typed value of an artifact defined by its type, checked when saved and readable in runs as `${card.NAME}`; plain user data, never a secret (ADR-035). |
 | Run context | The `card` (the artifact's parameters at the start), the variables and the latest result of every node that ran in an execution, stored in `executions.context` (at most 64 KiB), written with every step and read by later nodes (ADR-033). |
 | Reference (context) | `${node.NAME.output}`, `${node.NAME.data.key}`, `${var.name}` in an HTTP node's URL path or query, header values or body; replaced by text when the node runs, fails the node if it cannot be resolved. Not the same as a secret reference. |
-| Variable | A named JSON value a Code node sets with `"vars"` in its result line; part of the run context. |
+| Variable | A named JSON value an Execute Command node sets with `"vars"` in its result line; part of the run context. |
 | Branching node | An If or Switch node: compares values of the run context and leaves by a port of its own choice (`yes` / `no` / `else`, `case_1` ... `case_6` / `else`); `else` means the comparison could not be decided (ADR-034). |
-| Open mode | Running without `OPENARTIFACT_API_TOKEN`: pages and the browser API are open, `/api/v1` and `/mcp` answer 401, Code nodes are refused and credentials cannot be saved. |
-| Orphan process | A background process started by a Code node that outlives a hard-killed application; the next start ends it using the registry (`code_registry`). |
+| Open mode | Running without `OPENARTIFACT_API_TOKEN`: pages and the browser API are open, `/api/v1` and `/mcp` answer 401, Execute Command nodes are refused and credentials cannot be saved. |
+| Orphan process | A background process started by an Execute Command node that outlives a hard-killed application; the next start ends it using the registry (`code_registry`). |
 | Quarantine | Unused code that is listed in `quarantine.json` and removed after 14 days without use (ADR-014 §3.6). |
 

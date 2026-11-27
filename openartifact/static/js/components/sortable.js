@@ -1,12 +1,14 @@
 /* A list whose entries are reordered by their handle (ADR-050): drag it with the pointer (the entry follows
  * between its neighbours, `is-dragging` while it moves), or focus it and press ArrowUp / ArrowDown. Only the
  * handle starts a move, so a click on the rest of the entry stays a click. The list's owner keeps the order:
- * `onMove(from, to)` reports where an entry went; the owner changes its data and draws the list again. */
+ * `onMove(from, to, by)` reports where an entry went; the owner changes its data and draws the list again. `by` is
+ * `"pointer"` when the entry already stands at `to` in the document (the drag moved it as it went) and `"key"` when
+ * it still stands at `from` (the owner moves it); an owner that draws the list anew from its data can ignore it. */
 
 export class Sortable {
   /**
    * @param {HTMLElement} list the element whose children are the entries
-   * @param {{handle: string, onMove: (from: number, to: number) => void}} options handle: a selector inside an entry
+   * @param {{handle: string, onMove: (from: number, to: number, by: "pointer" | "key") => void}} options handle: a selector inside an entry
    */
   constructor(list, { handle, onMove }) {
     this.list = list;
@@ -42,7 +44,7 @@ export class Sortable {
       entry.classList.remove("is-dragging");
       const to = this.#entries().indexOf(entry);
       this.drag = null;
-      if (to !== from) this.onMove(from, to);
+      if (to !== from) this.onMove(from, to, "pointer");
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", end);
@@ -76,6 +78,6 @@ export class Sortable {
     const from = entries.findIndex((e) => e.contains(grip));
     const to = from + (event.key === "ArrowUp" ? -1 : 1);
     if (from < 0 || to < 0 || to >= entries.length) return;
-    this.onMove(from, to);
+    this.onMove(from, to, "key");
   }
 }

@@ -34,6 +34,9 @@ export const kept = (rules) => rules.filter((r) => !r.removed).map((r) => ({ whe
 /** What a row tells about its rule: the sentence, or that there are no conditions yet or that one is unfinished. */
 export function summaryOf(rule, schema) {
   const text = model.describeRule(rule, schema);
+  const action = schema.actions.find((a) => a.key === rule.action);
+  // card rules (schema.always): no condition and not "only when" is a rule that holds for every card
+  if (!text && schema.always && !rule.conditional && !action?.needsCondition) return { state: "ok", text: t("components.rule_list.always", { action: action?.label ?? rule.action }) };
   if (!text) return { state: "empty", text: t("components.rule_list.no_conditions_yet") };
   if (!model.isComplete(rule.when, schema)) return { state: "incomplete", text: t("components.rule_list.unfinished") };
   return { state: "ok", text };

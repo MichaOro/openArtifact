@@ -29,7 +29,7 @@ NODES_DIR = Path(__file__).parent / "nodes"
 BEHAVIOURS = ("plain", "flow", "stage", "action", "pipeline", "output", "tool", "switch")
 #: The functions of the editor a manifest may name (``tests/js/node-types.test.mjs`` checks that every one exists there).
 CLIENT_FUNCTIONS: dict[str, tuple[str, ...]] = {
-    "caption": ("if_summary", "switch_summary", "agent_summary"),
+    "caption": ("if_summary", "switch_summary", "agent_summary", "context_summary"),
     "visible": ("switch_case_used",),
     "label": ("switch_case_label",),
     "size": ("switch_size",),
@@ -114,7 +114,20 @@ class SettingSpec(_Strict):
     key: str | None = None
     label: str | None = None
     type: (
-        Literal["integer", "number", "switch", "text", "lines", "code", "select", "credential"]
+        Literal[
+            "integer",
+            "number",
+            "size",
+            "switch",
+            "text",
+            "lines",
+            "code",
+            "select",
+            "credential",
+            "retry",
+            "sources",
+            "fields",
+        ]
         | None
     ) = None
     minimum: int | float | None = None
@@ -269,7 +282,7 @@ class NodeManifest(_Strict):
         default_factory=lambda: cast(list[Literal["pipeline", "guard"]], ["pipeline", "guard"]),
         min_length=1,
     )
-    #: The right a person needs to use the kind (a hook for the permissions of card #99; nothing evaluates it yet).
+    #: The right a person needs to use the kind (a hook for planned per-person rights; nothing evaluates it yet).
     requires: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_.:-]*$")
     fixed: bool = False
     addable: bool = False

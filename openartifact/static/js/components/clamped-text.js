@@ -3,8 +3,13 @@
  *
  *   const block = new ClampedText({ text, lines: 6, label: "User prompt" });  parent.append(block.element);
  *
+ * `markdown: true` shows the Markdown of the text (ADR-077: headings, emphasis, code, quotes, lists, tables, links) as elements built from text nodes; it is cut
+ * by the height of its lines (a heading is taller than a line of text), not by -webkit-line-clamp, which does not count lines of blocks; "Copy"
+ * still puts the text as written on the clipboard. A prompt is shown as written (no `markdown`), as the model gets it.
+ *
  * Without text the block says so (`empty`). The look is css/management.css `.ct`; its colours are tokens. */
 import { icon } from "./icons.js";
+import { renderMarkdown } from "./markdown.js";
 import { t } from "../i18n.js";
 
 function make(tag, className = "", text = null) {
@@ -18,9 +23,10 @@ export class ClampedText {
   /**
    * @param {{text: string, lines?: number, label?: string, empty?: string}} options
    *   `lines`: how many lines show before "Show more" (the text may be shorter: then there is no button);
-   *   `label`: what the text is, for the names of its buttons; `empty`: said when there is no text
+   *   `label`: what the text is, for the names of its buttons; `empty`: said when there is no text; `markdown`: draw its Markdown;
+   *   `onMore`: when given, "Show more" calls it instead of unfolding the text here (the page opens the text elsewhere)
    */
-  constructor({ text, lines = 6, label = "", empty = "–" }) {
+  constructor({ text, lines = 6, label = "", empty = "–", markdown = false, onMore = null }) {
     this.text = text ?? "";
     this.element = make("div", "ct");
     this.element.style.setProperty("--ct-lines", String(lines));
@@ -28,7 +34,8 @@ export class ClampedText {
       this.element.append(make("p", "ct__empty", empty));
       return;
     }
-    this.body = make("pre", "ct__text", this.text);
+    this.body = make("pre", markdown ? "ct__text ct__text--md" : "ct__text", markdown ? null : this.text);
+    if (markdown) this.body.append(renderMarkdown(this.text));
     this.body.tabIndex = 0;
     if (label) this.body.setAttribute("aria-label", label);
     this.body.dataset.clamped = "true";
@@ -36,7 +43,7 @@ export class ClampedText {
     this.more = make("button", "button button--ghost button--sm", t("components.clamped_text.show_more"));
     this.more.type = "button";
     this.more.setAttribute("aria-expanded", "false");
-    this.more.addEventListener("click", () => this.#toggle());
+    this.more.addEventListener("click", () => (onMore ? onMore() : this.#toggle()));
     this.copy = make("button", "button button--ghost button--sm");
     this.copy.type = "button";
     this.copy.append(icon("copy"), document.createTextNode(t("components.clamped_text.copy")));

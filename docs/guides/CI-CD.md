@@ -145,7 +145,7 @@ curl http://localhost:2909/health
 
 This `docker run` is the shortest way to try an image. For anything that stays running use the compose file
 (`deploy/docker-compose.yml`), which is the hardened reference: read-only root file system, tmpfs `/tmp`
-(Code nodes need a writable `/tmp`), `cap_drop: ALL`, `no-new-privileges`, process and memory limits. Do not
+(Execute Command nodes need a writable `/tmp`), `cap_drop: ALL`, `no-new-privileges`, process and memory limits. Do not
 rebuild those flags by hand; see the [operations guide](operations.md).
 
 ### 5. Upgrade Instructions

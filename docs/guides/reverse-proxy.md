@@ -91,7 +91,7 @@ proxy if the instance is reachable from the internet. The application is built f
 run several containers against the same volume (see the risks in arc42 chapter 11).
 
 Behind the proxy the same rules apply as without it: [Security](security.md) describes what the token
-protects and why anyone who may run a Code node effectively operates the server; a published address
+protects and why anyone who may run an Execute Command node effectively operates the server; a published address
 instead of a proxy is covered in [Operate the Docker deployment](operations.md#reaching-a-loopback-only-instance-from-another-machine).
 The interactive API page `/api/docs` loads its scripts from `cdn.jsdelivr.net`: it stays empty on a host
 without internet access, the schema at `/openapi.json` does not need it.

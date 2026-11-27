@@ -69,7 +69,7 @@ test("every function the descriptions of the kinds name exists in the editor's r
   assert.ok(named.caption.size >= 3 && named.visible.has("switch_case_used"));
   // the list the server checks manifests against (CLIENT_FUNCTIONS in graph/manifest.py)
   const server = {
-    caption: ["if_summary", "switch_summary", "agent_summary"],
+    caption: ["if_summary", "switch_summary", "agent_summary", "context_summary"],
     visible: ["switch_case_used"],
     label: ["switch_case_label"],
     size: ["switch_size"],

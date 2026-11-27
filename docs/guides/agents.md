@@ -67,6 +67,9 @@ of the draft; *Quick test* is not saved and is off whenever the page opens.
   **The card is a source, never an implicit part of the request: the prompt decides.** The model sees an artifact
   input only where a prompt contains `${input.x}`; a prompt that does not use an input does not send it, and the node
   dialog warns about an input that no prompt uses. A run that has no artifact fails the node when the agent needs one.
+  To give an agent more than the card itself (its comments, the parent and the child cards, earlier results), put a
+  [Build Context node](execution-nodes.md#build-context-node) before the agent and map its output (`${(Build Context).output}`) to a
+  *Value* input of the agent; the node keeps the package within a size you set and says what it left out.
 - **Inputs.** Declare what the agent needs in the table: a name (`[a-z][a-z0-9_]{0,31}`), where it *Comes from* (*Value* with a type `string`, `number` or `boolean`, or *Artifact* with its part), for a value
   *Required* or *Optional*, and a default for an optional one. A description is added from the row's menu
   (⋮); the Description column shows while any input has one.
@@ -133,8 +136,10 @@ agent takes any number of tools; a tool belongs to one agent.
 |------|---------------------|----------|
 | **MCP Client Tool** | the tools of a remote MCP server, with their own names, descriptions and parameters | endpoint (Streamable HTTP), secret with the token (sent as `Authorization: Bearer`), *Tools to include*: `all`, `selected` or `all_except` with one tool name per line, timeout per call (1 to 300 s, 60) |
 | **GitHub MCP** | the tools of GitHub's MCP server (a fixed address), read-only until *Allow writes* is on | credential (a GitHub access token), *Allow writes*, *Tools to include* (`all`, `selected`, `all except`) with one tool name per line, tool name, timeout |
+| **OpenArtifact MCP Tool** | the tools of the board and its cards ([MCP tools](api-reference.md#mcp-tools)), run inside the application: read only until *Allow writes* is on; no address, no credential | *Allow writes*, *Tools to include* (`all`, `selected`, `all except`) with one tool name per line (a name that is no tool is refused with the list), tool name |
 | **HTTP Request Tool** | one function with the parameters you declare | tool name and description, method, URL, headers, body, parameters (`name: description` per line), timeout (1 to 120 s, 30), success status |
-| **Code Tool** | one function with the parameters you declare | tool name and description, language (`sh`, `python`), code, secrets, parameters, timeout (1 to 600 s, 30) |
+| **Execute Command Tool** | one function with the parameters you declare | tool name and description, language (`sh`, `python`), code, secrets, parameters, timeout (1 to 600 s, 30) |
+| **Hand Over Tool** | one function whose parameters are the fields you define: the model hands over a document, the server checks it ([below](#hand-over-tool)) | tool name and description, *Fields* (name, type, required, description; a choice has values), *Size limit* (1 to 64 KiB, 16 KiB) |
 | **Postgres Tool** | one function: your SQL statement, with the parameters you declare | tool name and description, secret with the connection URL, query, parameters, *Allow changes*, *Private network*, max rows (1 to 1000, 100), timeout (1 to 120 s, 30) |
 
 - **Fewer tools, a smaller prompt.** The description of **every** tool the model is offered goes with each request. GitHub's server
@@ -146,6 +151,22 @@ agent takes any number of tools; a tool belongs to one agent.
   access token. For an agent that only reads, choose *selected* and list the read tools (`get_issue`, `list_issues`,
   ...); the tools the agent is not offered cannot be called. For a fixed step of a flow, without a model, there is the
   [GitHub node](execution-nodes.md).
+- **The board in a run.** The **OpenArtifact MCP Tool** gives an agent the same tools as the [MCP server](api-reference.md#mcp-tools), for the
+  board and its cards, without an address or a token: it runs in the application, and what the agent changes is recorded as done by the
+  agent (cards it makes count as made by an action, a run it starts as started by the system, its comments are written as `agent` with the kind `run`). With *Allow
+  writes* off (the default) only the tools that read are offered; the step names those left out. A refusal of the application comes back as
+  the tool's error text: the agent cannot move, archive or re-parent the card its own run is on (it is being processed), and an
+  archived card can only be read. The tools of the STOP switch, the secrets, the agents, the providers and the guards are not offered, and
+  nothing deletes. Text the tools return (card texts, comments, step outputs) comes from outside; the agent's prompt should say that it is
+  not an instruction.
+- **Tidy up the board in two steps.** Cards that overlap or are done can be bundled by an agent: a card holds the order ("bundle the
+  requirements of cards 110, 111 and 112, sort them into partly done and not done, prioritise within each, move the old cards to the lane
+  *Bundled*"). *Step 1, plan:* an action with an agent and an OpenArtifact MCP Tool that is read only (`list_artifacts` with `brief`,
+  `get_artifacts` with `with_comments`, `search_artifacts`) writes the bundle as a comment (or, with *Allow writes*, a new card) and moves
+  nothing. You read it and move the card on. *Step 2, apply:* a second action, with *Allow writes* on and *Tools to include* narrowed to
+  `move_artifacts`, `archive_artifacts` and `add_comments`, does it: each call takes up to 50 cards and answers per card, `dry_run` shows what
+  would happen first, and archived cards can be taken back with `unarchive_artifact`. To judge whether a card is done the agent needs more
+  than the card text, for example the GitHub MCP node to read the repository (what is not pushed is not seen).
 - **The Postgres Tool** lets the model look something up in a database with a query *you* wrote: the statement uses
   `$1`, `$2`, ... and the declared parameters, in the order you list them, are what the model fills in (`id: The number
   of the ticket` is `$1`). The model's values are bound parameters, never part of the SQL text, so it cannot change the
@@ -166,7 +187,7 @@ agent takes any number of tools; a tool belongs to one agent.
   Content-Type says JSON, or it is valid JSON) a value is escaped for the inside of a JSON string, so quotes and line
   breaks in a comment cannot break the body or add fields; write the placeholder in quotes (`"{text}"`). The answer to the model is
   `HTTP <status>` and the body; another status than the accepted ones is an error.
-- **The Code Tool** runs under the rules of the Code node ([execution nodes](execution-nodes.md)): it needs the API
+- **The Execute Command Tool** runs under the rules of the Execute Command node ([execution nodes](execution-nodes.md)): it needs the API
   token, can be switched off, has its limits and no sandbox. The model's arguments are the object `input` in
   `context.json`; what the code prints (or the result protocol's output) is the answer.
 - **The loop.** The node asks the model with the tools offered, runs every tool call of the answer, sends the results
@@ -199,7 +220,7 @@ agent takes any number of tools; a tool belongs to one agent.
   states only. A page opened in the middle of a run shows the rounds from then on; the finished step has the whole story.
 - **A failing tool does not fail the node.** An unknown tool, arguments that are not a JSON object, an HTTP error or a
   failing script go back to the model as a text starting with `Error:`, and the model may try something else. A tool
-  that cannot be used at all (the MCP server refuses the token or cannot be reached, a Code Tool while Code nodes are
+  that cannot be used at all (the MCP server refuses the token or cannot be reached, an Execute Command Tool while Execute Command nodes are
   off) fails the node before its first request, with the tool's name in the reason.
 - **Results** are cut to 16 KiB for the model and the history, and the values of the run's secrets are masked in them
   before the model reads them.
@@ -216,6 +237,30 @@ agent takes any number of tools; a tool belongs to one agent.
   `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS=true` *and* the tool's *Private network* switch. Cloud metadata addresses are
   always refused and the connection goes to the checked address. An HTTP Request Tool follows no redirect; the MCP
   client follows one only within the endpoint's origin, and every request is checked again.
+
+### Hand Over Tool
+
+A model that must answer in a shape (a verdict, a score, a list of reasons) is better asked to **fill in fields** than to write text that someone parses
+afterwards ([ADR-080](../architecture/adr/080-hand-over-tool.md)). The *Hand Over Tool* gives the model one function whose parameters are exactly the
+fields you define. The server checks every call:
+
+- A field has a **name** (lowercase letters, digits and `_`), a **type** (*Text*, *Number*, *True or false*, *Choice* with its values, *List of texts*), *Required*
+  or not, and a **description** the model reads. The list is **flat**: no field holds another object. At most 30 fields; the whole document at most
+  *Size limit* (default 16 KiB).
+- A call that does not fit (a required field missing, a wrong type, a value that is not one of a choice, a field that is not in the list, a document that is too big)
+  is **refused** and the model gets all that is wrong in one answer, `Error: the document was not accepted: 'passed' must be true or false; 'verdict' is required.
+  Call the tool again with a corrected document.` It may try again; every call stays in the step.
+- A call that fits answers `handed over`. **The last accepted document counts.** It is stored in the run under the name of the tool node, so a later node reads it as
+  `${(Review).data.passed}` (or `${node.Review.data.passed}`), and `${(Review).success}` is true. `attempts` is the number of calls the model needed. The agent's step
+  names it (*Handed over: Review*) and shows the document in its data.
+- A **Build Context** node can take the documents as a source (*Handover documents*), so a later agent gets what an earlier one handed over.
+- What the model hands over is **text from outside**: it is stored and pasted as it is and never read for `${...}` references, and the check never executes anything.
+  A step that was never handed anything has no document: a reference to it says the node has not run.
+
+*Example:* an agent reviews a change. Its Hand Over Tool "Review" has the fields `passed` (true or false, required), `verdict` (choice: approve, reject; required) and
+`reasons` (list of texts). The next node is an If node with the condition `${(Review).data.passed}` *is true*; its *On Fail* goes on to the node that asks for rework.
+
+A step that is not an agent cannot write a document yet: the tool is the only writer.
 
 ## 5. What an execution keeps
 

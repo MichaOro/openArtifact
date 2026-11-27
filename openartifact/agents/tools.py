@@ -227,6 +227,8 @@ class ToolContext:
     allow_private_networks: bool
     limits: Any = None
     view: Any = None
+    #: Where the Hand Over Tools of the node put the documents they accepted (``agents/handover.py``); ``None`` outside a run.
+    handovers: Any = None
 
 
 #: Builders of tools that run here (HTTP Request Tool, Code Tool), by kind: see ``agents/local_tools.py``.
@@ -303,6 +305,19 @@ async def open_toolbox(
                             node_name=label,
                         )
                     )
+                continue
+            if kind == NodeKind.OPENARTIFACT_TOOL:
+                from openartifact.agents.board_toolbox import board_tools
+
+                gateway = getattr(context.limits, "board", None)
+                board = gateway() if callable(gateway) else None
+                if board is None:
+                    raise ToolboxError(f"Tool {label}: the board tools are not available here")
+                found, found_notes = board_tools(
+                    frozen, board, prefix=default_tool_name(label), label=label
+                )
+                built.extend(found)
+                notes.extend(found_notes)
                 continue
             builder = LOCAL_TOOLS.get(kind)
             if builder is None:

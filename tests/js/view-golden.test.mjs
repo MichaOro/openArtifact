@@ -13,7 +13,7 @@ const GOLDEN = new URL("./fixtures/views-golden.json", import.meta.url);
 const { loadNodeTypes, typeOf, rememberAgents } = await import(`${JS}node-types.js`);
 
 const description = JSON.parse(readFileSync(DESCRIPTION, "utf8"));
-installDocument(["code", "http", "if", "switch", "agent", "pencil", "github", "database", "plug", "message"]);
+installDocument(["code", "http", "if", "switch", "agent", "pencil", "github", "database", "plug", "message", "layers"]);
 const real = globalThis.fetch;
 globalThis.fetch = async () => ({ status: 200, ok: true, json: async () => description });
 await loadNodeTypes();
@@ -43,6 +43,7 @@ const CASES = {
   http_tool: [{}, { config: { method: "POST", url: "https://api.example.org/items/{id}?x=1" } }],
   code_tool: [{}, { config: { language: "sh", tool_name: "run_it" } }],
   artifact: [{}, { config: { operation: "Add comment" } }],
+  context: [{}, { config: { sources: [{ source: "card" }, { source: "comments", count: 5 }, { source: "executions", count: 3 }] } }, { config: { sources: [] } }],
   postgres_tool: [{}, { config: { query: "SELECT 1", tool_name: "find" } }, { config: { query: "DELETE FROM t", allow_write: true } }],
 };
 

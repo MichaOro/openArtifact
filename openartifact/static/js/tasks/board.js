@@ -6,7 +6,7 @@
  * Content is always set via textContent (never innerHTML). */
 import { applyMarks } from "./card-marks.js";
 import { cardPreview, previewSegments } from "./body-model.js";
-import { renderResolvedBody } from "./references.js";
+import { renderBody } from "./references.js";
 import { AlertBar } from "../components/alert-bar.js";
 import { InlineName } from "../components/inline-name.js";
 import { t, tn } from "../i18n.js";
@@ -301,8 +301,7 @@ export class Board {
     const body = card.querySelector(".task-card__body");
 
     const segments = previewSegments(task); // marked while the personal setting says so
-    if (segments) body.replaceChildren(renderResolvedBody(segments, this.findByNumber));
-    else body.textContent = cardPreview(task);
+    body.replaceChildren(renderBody(cardPreview(task), this.findByNumber, { segments, plain: true, links: Boolean(segments) })); // the first words as plain lines: bold, italic, strikethrough and code stay, block marks (#, >, bullets, fences, table pipes) and links are not drawn (ADR-077)
     body.hidden = !body.textContent;
 
     card.querySelector("[data-delete-task]").setAttribute("aria-label", t("tasks.board.delete_artifact_title", { title: task.title }));

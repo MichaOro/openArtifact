@@ -153,13 +153,15 @@ def test_the_add_menu_has_closed_clusters_to_find_your_way_and_a_search_over_the
     expect(page.locator(".ge-add__search")).to_be_focused()  # type straight away
     groups = menu.locator(".ge-add__group")
     expect(groups).to_have_text(
-        ["Structure1", "AI1", "Agent tools5", "Apps and data2", "Core2", "Data2", "Flow3"]
+        ["Structure1", "AI1", "Agent tools7", "Apps and data2", "Core2", "Data3", "Flow3"]
     )  # Structure holds only the Guard here: nothing else of it can be added to an action (ADR-060)
     expect(menu.locator("[data-add]")).to_have_count(0)  # closed: the list stays short
 
     groups.nth(2).click()  # a cluster opens...
     expect(groups.nth(2)).to_have_attribute("aria-expanded", "true")
-    expect(menu.locator("[data-add]")).to_have_count(5)  # GitHub MCP joined the agent tools
+    expect(menu.locator("[data-add]")).to_have_count(
+        7
+    )  # the agent tools: GitHub MCP, the OpenArtifact MCP Tool (ADR-079) and the Hand Over Tool (ADR-080) joined
     groups.nth(6).click()  # ...and the one before closes: one at a time
     expect(groups.nth(2)).to_have_attribute("aria-expanded", "false")
     expect(menu.locator("[data-add]")).to_have_text(["If", "Switch", "Timer"])
@@ -174,7 +176,9 @@ def test_the_add_menu_has_closed_clusters_to_find_your_way_and_a_search_over_the
     )  # the search reaches the new GitHub MCP tool too
     expect(groups).to_have_count(0)
     page.locator(".ge-add__search").fill("tool")
-    expect(menu.locator("[data-add]")).to_have_count(5)  # by their names (GitHub MCP is a tool too)
+    expect(menu.locator("[data-add]")).to_have_count(
+        7
+    )  # by their names (GitHub MCP, the OpenArtifact MCP Tool and the Hand Over Tool are tools too)
     page.locator(".ge-add__search").fill("flow")  # a cluster's name is no search term
     expect(menu.locator(".ge-add__empty")).to_be_visible()
     page.locator(".ge-add__search").fill("nothing like this")
@@ -272,9 +276,9 @@ def test_duplicate_makes_a_copy_with_a_new_name_and_selects_it(
     expect(page.locator(".ge-node--code")).to_have_count(3)
     eventually(lambda: len(_code_nodes(api, definition)), 3)
     names = [n["name"] for n in _code_nodes(api, definition)]
-    assert names.count("Code copy") == 1, (
+    assert names.count("Execute Command copy") == 1, (
         names
-    )  # the two nodes made by the add menu were both "Code"
+    )  # the two nodes made by the add menu were both "Execute Command"
     expect(page.locator(".ge-node.is-selected")).to_have_count(1)
 
 
@@ -303,7 +307,10 @@ def test_copy_cut_and_paste_keep_settings_and_make_names_unique(
     codes = [n["config"].get("code") for n in _code_nodes(api, definition)]
     assert codes.count("echo copied") == 3  # the original and two pastes
     copies = [n["name"] for n in _code_nodes(api, definition) if "copy" in n["name"]]
-    assert sorted(copies) == ["Code copy", "Code copy 2"]  # the pastes get names of their own
+    assert sorted(copies) == [
+        "Execute Command copy",
+        "Execute Command copy 2",
+    ]  # the pastes get names of their own
 
     page.mouse.move(5, 5)  # the bar of the node under the pointer would lie over the one below it
     page.locator(".ge-node.is-selected").first.click(position={"x": 30, "y": 5})
@@ -362,7 +369,7 @@ def test_rename_asks_for_the_name_in_a_small_dialog_and_the_settings_have_one_ti
     dialog = page.locator("#new-modal")  # the small name dialog, not the node's settings
     expect(dialog).to_be_visible()
     expect(page.locator("#node-modal")).not_to_be_visible()
-    expect(dialog.get_by_label("Name")).to_have_value("Code")
+    expect(dialog.get_by_label("Name")).to_have_value("Execute Command")
     dialog.get_by_label("Name").fill("Fetch user")
     dialog.get_by_role("button", name="Rename").click()
     expect(dialog).not_to_be_visible()

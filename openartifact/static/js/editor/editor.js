@@ -18,7 +18,7 @@ import { ConnectMenu } from "./connect-menu.js";
 import { choosePort, connectionFor, placement, replacedEdges } from "./connect-plan.js";
 import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, nextToolPosition, nextTopLevelPosition, sizeOf } from "./geometry.js";
 import { GraphModel } from "./graph-model.js";
-import { editorChip } from "./versions-tab.js";
+import { PublicationControl } from "./publication-control.js";
 import { InspectorBlocks, joinFooter } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
 import { flushDirty } from "./persist-policy.js";
@@ -46,6 +46,7 @@ export class GraphEditor {
     this.selection = null;
     this.opened = false;
     this.titleName = null;
+    this.publication = null; // the mark in the toolbar and its popup (publication-control.js)
     this.targets = {}; // kind -> the pipelines / action definitions a node may link to
 
     this.alert = new AlertBar(root.querySelector("[data-alert]"));
@@ -377,7 +378,8 @@ export class GraphEditor {
     const mark = this.root.querySelector("[data-publication]");
     if (!mark) return;
     mark.hidden = false;
-    mark.replaceChildren(editorChip(this.model.graph));
+    this.publication ??= new PublicationControl(mark, { kind: this.model.kind, id: this.model.id, beforeAct: () => flushDirty(), onChanged: () => this.load() });
+    this.publication.update(this.model.graph);
     if (!this.model.onChange) {
       this.model.onChange = () => this.#refreshPublication();
       // a publication happens on the management page: coming back to this tab asks again

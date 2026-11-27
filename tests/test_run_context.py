@@ -444,7 +444,7 @@ def test_the_context_after_every_node_survives_a_restart_of_the_server(
         execution_id = _execution_id(client, task)
     with TestClient(_create_app(settings)) as client:  # recover() stops the interrupted run
         detail = _detail(client, task, execution_id)
-        assert (detail["status"], detail["note"]) == ("stopped", "interrupted")
+        assert (detail["status"], detail["note"]) == ("stopped", "Interrupted by restart")
         assert detail["context"] == before
         assert run_of(client, task)["context_size"] > 10
 

@@ -76,6 +76,48 @@ test("events: every type is forwarded parsed; a malformed frame is ignored; open
   assert.equal(source.closed, true);
 });
 
+test("events: the callers of the default URL share one connection, a late joiner is told it is open, the last one closes it", async () => {
+  globalThis.EventSource = FakeEventSource;
+  const { connectEvents } = await import(`${JS}tasks/events.js`);
+  const first = { seen: [], opened: 0 };
+  const second = { seen: [], opened: 0 };
+  const stopFirst = connectEvents({ onEvent: (t, d) => first.seen.push([t, d]), onOpen: () => (first.opened += 1) });
+  const source = FakeEventSource.last;
+  source.listeners.get("open")();
+  const stopSecond = connectEvents({ onEvent: (t, d) => second.seen.push([t, d]), onOpen: () => (second.opened += 1) });
+  assert.equal(FakeEventSource.last, source, "no second EventSource: a browser keeps six connections per host for all tabs");
+  await Promise.resolve();
+  assert.deepEqual([first.opened, second.opened], [1, 1]); // the late joiner heard that it is open, the first one was not told twice
+  source.listeners.get("settings.changed")({ data: '{"stop":{"active":true}}' });
+  assert.deepEqual(first.seen, [["settings.changed", { stop: { active: true } }]]);
+  assert.deepEqual(second.seen, first.seen);
+  stopFirst();
+  assert.equal(source.closed, false); // the other one still listens
+  source.listeners.get("run.updated")({ data: "{}" });
+  assert.equal(first.seen.length, 1); // a caller that went does not hear any more
+  assert.equal(second.seen.length, 2);
+  stopSecond();
+  assert.equal(source.closed, true);
+  connectEvents({ onEvent() {}, onOpen() {} })(); // a new connection after the last one closed
+  assert.notEqual(FakeEventSource.last, source);
+});
+
+test("events: a caller that joins after the connection was refused is told at once", async () => {
+  globalThis.EventSource = FakeEventSource;
+  const { connectEvents } = await import(`${JS}tasks/events.js`);
+  let early = 0;
+  let late = 0;
+  const stopEarly = connectEvents({ onEvent() {}, onOpen() {}, onClosed: () => (early += 1) }); // the banner of main.js
+  const source = FakeEventSource.last;
+  source.readyState = FakeEventSource.CLOSED;
+  source.listeners.get("error")(); // refused (401) before the page's own script has run
+  const stopLate = connectEvents({ onEvent() {}, onOpen() {}, onClosed: () => (late += 1) });
+  await Promise.resolve();
+  assert.deepEqual([early, late], [1, 1]);
+  stopEarly();
+  stopLate();
+});
+
 test("events: a custom URL; onClosed is optional", async () => {
   globalThis.EventSource = FakeEventSource;
   const { connectEvents } = await import(`${JS}tasks/events.js`);

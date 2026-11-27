@@ -3,6 +3,7 @@
  * `ui.group_used_fn`); the names a manifest may use are `CLIENT_FUNCTIONS` in graph/manifest.py, and a test keeps both lists equal. */
 import { overridesOf } from "../agents/model.js";
 import { short } from "./caption.js";
+import { DEFAULT_SOURCES, summarize } from "./sources-model.js";
 import { t } from "../i18n.js";
 
 /** The names of the agents by id, for the caption of an agent node (filled by `rememberAgents`). */
@@ -38,6 +39,11 @@ export const FUNCTIONS = {
       const value = (node.config?.value ?? "").trim();
       const cases = usedCases(node).length;
       return `${value ? short(value) : t("editor.view_functions.no_value_yet")} · ${cases} ${cases === 1 ? "case" : "cases"}`;
+    },
+    /** The first sources a Build Context node builds from ("Title and body, Comments +1 more"). */
+    context_summary(node) {
+      const say = { empty: t("editor.view_functions.no_source_yet"), more: (n) => t("editor.view_functions.sources_more", { n }) };
+      return short(summarize(node.config?.sources ?? DEFAULT_SOURCES, (key) => t(`editor.sources.source.${key}.label`), say));
     },
     /** The agent's name and how many settings the node overrides. */
     agent_summary(node, view) {

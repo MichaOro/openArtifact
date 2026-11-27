@@ -29,3 +29,7 @@ settings:
   label: If the action fails
   help: Stop the run ends the run as failed; Continue goes on through On Pass and keeps the error as data. Error
     output goes on through On Error, which shows only then.
+- use: retry
+  label: Retry on fail
+  help: Runs the action again when it fails, all its nodes; the run does not start over. Writes in it (HTTP, Postgres, GitHub)
+    can happen twice.

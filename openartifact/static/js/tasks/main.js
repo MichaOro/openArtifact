@@ -209,8 +209,18 @@ const archive = new ArchiveView({
     board.upsert(task);
     board.announce(t("archive.restored", { title: task.title }));
   },
+  onOpen: (task) => showArchived(task),
   onError: (message) => board.showError(message),
 });
+
+/** An archived card in the same window as a card of the board, read only; its rail offers "Remove from archive" (ADR-071). */
+async function showArchived(task) {
+  processing.show(task.id);
+  trail.length = 0;
+  artifactDialog.openView(task, task.archived_from_lane ?? "–", board.laneHue(task.archived_from_status), board.parentOf(task)?.title ?? null, false, { readOnly: true });
+  fieldRail.show(task);
+  fieldRail.setLocked(true);
+}
 function showArchive(on) {
   boardElement.hidden = on;
   if (addLaneButton) addLaneButton.hidden = on;
@@ -242,7 +252,7 @@ const processing = new ProcessingPanel({
   picker: lanePicker,
   onLock: (taskId, locked) => {
     board.setLocked(taskId, locked);
-    if (artifactDialog.editing?.id === taskId) {
+    if (artifactDialog.editing?.id === taskId && !artifactDialog.readOnly) {
       artifactDialog.subtitle.disabled = locked;
       fieldRail.setLocked(locked);
     }
@@ -346,6 +356,11 @@ cardNavRoot.querySelector('[data-card-action="archive"]').addEventListener("clic
     else board.showError(t("tasks.main.archive_failed", { title: task.title }));
   }
 });
+cardNavRoot.querySelector('[data-card-action="unarchive"]').addEventListener("click", async () => {
+  const task = artifactDialog.editing;
+  if (!task || !artifactDialog.readOnly || artifactDialog.busy) return;
+  if (await archive.restore(task)) artifactDialog.modal.close();
+});
 cardNavRoot.querySelector('[data-card-action="delete"]').addEventListener("click", () => {
   const task = artifactDialog.editing;
   if (!task || artifactDialog.busy || board.locked.has(task.id)) return;
@@ -437,13 +452,14 @@ connectEvents({
     archive.handleEvent(type);
     if ((type === "task.updated" || type === "task.moved" || type === "task.created") && data.archived_at) {
       board.remove(data.id); // an archived card is not on the board
-      if (artifactDialog.editing?.id === data.id) artifactDialog.modal.close();
+      if (artifactDialog.editing?.id === data.id && !artifactDialog.readOnly) artifactDialog.modal.close(); // the read-only window is where an archived card is looked at
     } else if (type === "run.updated") processing.upsert(data);
     else if (type.startsWith("execution.") || type === "activity.created") history.handleEvent(type, data);
     else if (type.startsWith("comment.")) {
       comments.handleEvent(type, data);
       if (type === "comment.deleted") history.handleEvent(type, data); // its entry in the timeline becomes "deleted a comment"
     } else if (type === "task.deleted") {
+      if (artifactDialog.readOnly && artifactDialog.editing?.id === data.id) artifactDialog.modal.close();
       board.remove(data.id);
       processing.remove(data.id);
     }
@@ -463,6 +479,7 @@ connectEvents({
       }
     }
     else {
+      if (artifactDialog.readOnly && artifactDialog.editing?.id === data.id) artifactDialog.modal.close(); // it left the archive (here or elsewhere)
       board.upsert(data); // task.created / task.updated / task.moved
       artifactDialog.refreshView(data);
       if (artifactDialog.mode === "view" && artifactDialog.editing?.id === data.id) fieldRail.show(data);

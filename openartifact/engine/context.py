@@ -5,7 +5,12 @@ node that ran, and a Code node may set variables with its result protocol (``"va
 read both through references in their settings::
 
     ${node.NAME.output}  ${node.NAME.exit_code}  ${node.NAME.outcome}  ${node.NAME.reason}
+    ${node.NAME.success} ${node.NAME.attempts}   ${node.NAME.duration_ms}
     ${node.NAME.data}    ${node.NAME.data.key.sub.0}    ${var.name}    ${card.name}
+
+``success``, ``attempts`` and ``duration_ms`` are part of the result contract every node keeps (ADR-072, ``engine/results.py``): ``success`` is
+``true`` or ``false`` (it reads as that text in a condition: ``is true``), ``attempts`` a whole number, ``duration_ms`` milliseconds.
+A context stored before the contract has none of them: ``success`` is then derived from ``outcome`` and ``attempts`` is 1.
 
 ``${card.NAME}`` is an artifact field of the artifact the run belongs to (see ``artifact_fields``). The run gets a
 copy of the artifact's parameters when it starts, so changing the artifact later does not change a run
@@ -27,8 +32,8 @@ Shape of the context::
 
     {"vars": {"name": value},
      "card": {"name": value},
-     "nodes": {"Key": {"name", "kind", "outcome", "port", "exit_code", "output", "reason", "data",
-                       "at", "truncated"?}}}
+     "nodes": {"Key": {"name", "kind", "success", "outcome", "port", "exit_code", "output", "reason", "data",
+                       "attempts", "duration_ms", "at", "truncated"?}}}
 
 Limits: a node keeps at most ``NODE_OUTPUT_LIMIT_BYTES`` of output here (the whole output stays in the
 steps of the execution); the whole context at most ``CONTEXT_LIMIT_BYTES``, and the variables alone
@@ -74,6 +79,7 @@ _NO_RESULT = frozenset(
         "pipeline",
         "mcp_tool",
         "github_tool",
+        "openartifact_tool",
         "http_tool",
         "code_tool",
         "postgres_tool",
@@ -83,12 +89,12 @@ _NO_RESULT = frozenset(
 
 VAR_NAME = re.compile(r"[a-z][a-z0-9_]{0,63}")
 _NODE_REFERENCE = re.compile(
-    r"node\.(?P<key>[A-Za-z0-9_-]{1,255})\.(?P<field>output|exit_code|outcome|reason|data)"
+    r"node\.(?P<key>[A-Za-z0-9_-]{1,255})\.(?P<field>output|exit_code|outcome|reason|data|success|attempts|duration_ms)"
     r"(?P<path>(?:\.[A-Za-z0-9_-]{1,64}){0,8})"
 )
 #: A node by its name as the editor shows it: ``(Code: hello).output``; the name is turned into the key like any other.
 _NAMED_NODE_REFERENCE = re.compile(
-    r"\((?P<name>[^()}\r\n]{1,255})\)\.(?P<field>output|exit_code|outcome|reason|data)"
+    r"\((?P<name>[^()}\r\n]{1,255})\)\.(?P<field>output|exit_code|outcome|reason|data|success|attempts|duration_ms)"
     r"(?P<path>(?:\.[A-Za-z0-9_-]{1,64}){0,8})"
 )
 _VAR_REFERENCE = re.compile(r"var\.(?P<name>[a-z][a-z0-9_]{0,63})")
@@ -97,9 +103,10 @@ _CARD_REFERENCE = re.compile(r"card\.(?P<name>[a-z][a-z0-9_]{0,31})")
 CANDIDATE = re.compile(r"\$\{((?:(?:node|var|card)\.|\()[^}\r\n]{0,400})\}")
 #: One pass over a text for both kinds of references (so that no replaced value is scanned again).
 _ANY = re.compile(r"\$\{(?:secret:([^}\r\n]{0,80})|((?:(?:node|var|card)\.|\()[^}\r\n]{0,400}))\}")
-_FIELDS = "output, exit_code, outcome, reason, data"
+_FIELDS = "output, exit_code, outcome, reason, success, attempts, duration_ms, data"
 SYNTAX_HINT = (
     "use ${(Node name).output}, ${node.NAME.output}, ${node.NAME.exit_code}, ${node.NAME.outcome}, ${node.NAME.reason}, "
+    "${node.NAME.success}, ${node.NAME.attempts}, ${node.NAME.duration_ms}, "
     "${node.NAME.data.key}, ${var.name} or ${card.name}"
 )
 
@@ -181,11 +188,11 @@ def check_vars(raw: Any) -> dict[str, Any]:
 # ── the context ──────────────────────────────────────────────────────
 
 
-def _cap_output(text: str) -> tuple[str, bool]:
+def _cap_output(text: str, limit: int = NODE_OUTPUT_LIMIT_BYTES) -> tuple[str, bool]:
     raw = text.encode("utf-8")
-    if len(raw) <= NODE_OUTPUT_LIMIT_BYTES:
+    if len(raw) <= limit:
         return text, False
-    kept = raw[:NODE_OUTPUT_LIMIT_BYTES].decode("utf-8", errors="ignore")
+    kept = raw[:limit].decode("utf-8", errors="ignore")
     return f"{kept}\n{TRUNCATED_MARK}", True
 
 
@@ -257,16 +264,19 @@ class RunContext:
 
     def record(self, node: Mapping[str, Any], result: NodeResult, port: str | None) -> None:
         """Store the result of a node that ran under its key; an earlier result of the key is replaced."""
-        output, cut = _cap_output(result.output)
+        output, cut = _cap_output(result.output, result.keep_bytes or NODE_OUTPUT_LIMIT_BYTES)
         entry: dict[str, Any] = {
             "name": node["name"],
             "kind": str(node["kind"]),
+            "success": result.success,
             "outcome": result.outcome,
             "port": port,
             "exit_code": result.exit_code,
             "output": output,
             "reason": result.reason,
             "data": result.data,
+            "attempts": result.attempts,
+            "duration_ms": result.duration_ms,
             "at": _now(),
         }
         if cut:
@@ -274,6 +284,11 @@ class RunContext:
         key = node_key(str(node["name"]))
         self.nodes.pop(key, None)  # the order of the keys is the order of recency
         self.nodes[key] = entry
+        for (
+            other,
+            other_result,
+        ) in result.recorded:  # what the node handed over under the name of another node (ADR-080)
+            self.record(other, other_result, "out")
         self._fit()
 
     def _fit(self) -> None:
@@ -419,6 +434,12 @@ def resolve(ref: Reference, context: RunContext, index: NodeIndex) -> Any:
     if entry is None:
         raise ContextError(f'node "{ref.name}" has not run yet')
     value = entry.get(ref.field)
+    if (
+        value is None and ref.field == "success"
+    ):  # a context stored before the result contract (ADR-072)
+        return entry.get("outcome") == "pass"
+    if value is None and ref.field == "attempts":
+        return 1
     if ref.field != "data":
         return value
     if ref.path and value is None:

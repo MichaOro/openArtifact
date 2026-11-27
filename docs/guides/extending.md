@@ -94,7 +94,7 @@ model for anything new.
 
 ### Checklist for nodes that run foreign code, call the network or use credentials
 
-- A node that runs text it did not write needs the Code node's safeguards or better: a bounded time, bounded
+- A node that runs text it did not write needs the Execute Command node's safeguards or better: a bounded time, bounded
   output, bounded resources, a clean environment (never the application's settings), the process group
   killed on timeout and on cancel. See `engine/code_runner.py` and [Security](security.md).
 - A node that calls out must vet the address it connects to, not the one it was given (resolve once, check,
@@ -113,7 +113,7 @@ model for anything new.
 An action definition is for pipelines or for guards (ADR-067). A node manifest says in which: `purposes: [pipeline, guard]` (the
 default, both), or `purposes: [guard]` for a kind that only a guard action may hold (a kind with access to internal data). The "+"
 menu offers a kind only where it may be used, and the server refuses it anywhere else, so the manifest alone decides. `requires:
-<right>` names the right a person needs to use the kind: a hook for the permissions of card #99 that nothing evaluates yet; set it when
+<right>` names the right a person needs to use the kind: a hook for planned per-person rights that nothing evaluates yet (today the personal settings decide what one sees and uses); set it when
 a kind should be limited later, so the manifest does not have to change then.
 
 ### A data source for the SQLite node

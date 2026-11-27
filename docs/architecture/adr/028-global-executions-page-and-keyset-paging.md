@@ -33,3 +33,15 @@ changing table repeats or skips rows.
 - Pages are stable while executions are added or pruned, and each costs the same.
 - Filters by pipeline, origin and text are not indexed; `q` is a substring match. The retention policy keeps the
   table small enough.
+
+## Addendum 1 (2026-11-26): stop a running execution from the list
+
+A running row shows a red square (*Stop execution*) to the left of the trash button (which stays disabled while it runs; the
+square is hidden on every other row). It asks the same question as a delete, in the same confirmation window
+(`ConfirmDialog`, red confirming button): *Stop execution #N of #M? It ends as Stopped. Steps already done stay in its history.*
+Confirming calls the stop that the board already uses, `POST /api/tasks/{id}/run/stop` (no new endpoint: an execution runs as the run
+of its artifact); the row follows `execution.updated` (Stopped, the running counter falls). A 409 (the run just ended, or was just
+started) is shown in the window in plain words and the list is read again. Delete and stop share one base for the row button,
+`fillRowButton` in `tasks/history-row.js` (icon, label, tooltip and disabled state); `fillDeleteButton` and `fillStopButton` are its two
+specialisations, and the two flows are two calls of `ConfirmDialog.open` with their own texts. No bulk stop: the bulk bar deletes only
+finished executions.

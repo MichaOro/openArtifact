@@ -40,11 +40,11 @@ are not reachable through OpenArtifact (report those upstream; the weekly `pip-a
 
 ## What it does not protect
 
-- **There is no sandbox for Code nodes.** A Code node runs `sh` or `python` as a child process with the rights of
+- **There is no sandbox for Execute Command nodes.** An Execute Command node runs `sh` or `python` as a child process with the rights of
   the application (resource limits and a timeout only). It can read the data directory, the database and the
   application's environment, and with them the token, the secret key and all stored credentials. Whoever can
   edit pipelines (every holder of the token) is effectively the operator. Set
-  `OPENARTIFACT_CODE_NODES_ENABLED=false` if you do not need Code nodes.
+  `OPENARTIFACT_CODE_NODES_ENABLED=false` if you do not need Execute Command nodes.
 - Without a token the application is open to everyone who can reach the port, including code execution. Always set
   `OPENARTIFACT_API_TOKEN`, and bind to a trusted interface (`127.0.0.1`) or put it behind a TLS proxy.
 - There is a single shared token: no users, roles or per-user audit trail. The application serves plain HTTP; TLS

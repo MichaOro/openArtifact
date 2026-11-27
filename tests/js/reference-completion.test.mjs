@@ -36,7 +36,7 @@ test("a reference is open after ${ until it is closed or broken", () => {
 test("candidates list the nodes with results, the declared variables once, and secrets only when allowed", () => {
   const found = candidatesFor(NODES, { kinds, exceptId: "d", secrets: ["API_KEY"] }).map((c) => c.insert);
   assert.deepEqual(found.filter((i) => i.startsWith("node.Fetch_user")), []);
-  assert.deepEqual(found.filter((i) => i.startsWith("(Fetch user)")), ["(Fetch user).output", "(Fetch user).exit_code", "(Fetch user).outcome", "(Fetch user).reason", "(Fetch user).data."]);
+  assert.deepEqual(found.filter((i) => i.startsWith("(Fetch user)")), ["(Fetch user).output", "(Fetch user).exit_code", "(Fetch user).outcome", "(Fetch user).success", "(Fetch user).reason", "(Fetch user).attempts", "(Fetch user).duration_ms", "(Fetch user).data."]);
   assert.ok(found.includes("(Ping).output"));
   assert.ok(!found.some((i) => i.startsWith("(Trigger)") || i.startsWith("(Decide)")), "no trigger, not the node itself");
   assert.deepEqual(found.filter((i) => i.startsWith("var.")), ["var.priority", "var.score"]);
@@ -106,7 +106,7 @@ test("suggestions lead in steps: groups and nodes first, then what is behind the
   assert.ok(suggestionsFor(all, "").every((c) => c.complete === false), "choosing one goes on to the next step");
   assert.deepEqual(suggestionsFor(all, "card.").map((c) => c.insert), ["card.title", "card.body", "card.text", "card.number", "card.repo", "card.date"]);
   assert.deepEqual(suggestionsFor(all, "card.d").map((c) => c.insert), ["card.date"]);
-  assert.deepEqual(suggestionsFor(all, "(Fetch user).").map((c) => c.insert), ["(Fetch user).output", "(Fetch user).exit_code", "(Fetch user).outcome", "(Fetch user).reason", "(Fetch user).data."]);
+  assert.deepEqual(suggestionsFor(all, "(Fetch user).").map((c) => c.insert), ["(Fetch user).output", "(Fetch user).exit_code", "(Fetch user).outcome", "(Fetch user).success", "(Fetch user).reason", "(Fetch user).attempts", "(Fetch user).duration_ms", "(Fetch user).data."]);
   assert.deepEqual(suggestionsFor(all, "(Fetch user).ou").map((c) => c.insert), ["(Fetch user).output", "(Fetch user).outcome"]);
   assert.deepEqual(suggestionsFor(all, "var.").map((c) => c.insert), ["var.priority", "var.score"]);
   assert.deepEqual(suggestionsFor(all, "secret:").map((c) => c.insert), ["secret:API_KEY"]);

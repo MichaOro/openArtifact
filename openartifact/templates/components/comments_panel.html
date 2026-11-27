@@ -17,7 +17,7 @@
     <form class="comments__form" id="comment-form" novalidate data-comments-form>
         <div class="comments__head">
             <label class="field__label" for="comment-input">{{ t('comments.add_a_comment') }}</label>
-            <p class="field__help" id="comment-hint">{{ t('comments.plain_text_ctrl_enter_sends') }}</p>
+            <p class="field__help" id="comment-hint">{{ t('comments.markdown_ctrl_enter_sends') }}</p>
         </div>
         <textarea class="field__control" id="comment-input" rows="3" maxlength="65536" data-comments-input
                   aria-describedby="comment-hint comment-error" placeholder="{{ t('comments.write_a_comment') }}"></textarea>

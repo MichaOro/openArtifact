@@ -5,6 +5,15 @@
     {% block page_styles %}{% endblock %}
 {% endblock %}
 {% block body %}
+    {# While STOP is on (ADR-076): on every page, at the top centre; static/js/components/stop-banner.js shows and hides it. #}
+    <div class="stop-banner" data-stop-banner role="status" aria-live="polite" hidden>
+        <div class="stop-banner__body">
+            <strong class="stop-banner__title">{{ t('stop.banner_title') }}</strong>
+            <span class="stop-banner__text">{{ t('stop.banner_text') }}</span>
+            <span class="stop-banner__problem" data-stop-problem role="alert" hidden></span>
+        </div>
+        <button type="button" class="button button--ghost button--sm is-danger" data-stop-off hidden>{{ t('stop.banner_off') }}</button>
+    </div>
     <div class="app-shell">
         {% include "components/sidebar.html" %}
         <div class="main">

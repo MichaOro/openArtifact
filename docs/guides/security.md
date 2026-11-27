@@ -11,7 +11,7 @@ do when you run it. The decisions are in [ADR-016](../architecture/adr/016-acces
 
 OpenArtifact is a **single-tenant** application for one owner or one trusting team. There is one access
 token and no user accounts or roles: **whoever holds the token can do everything, including running code on
-the host as the application's user** (Code nodes). The layers below keep out everyone who does not hold the
+the host as the application's user** (Execute Command nodes). The layers below keep out everyone who does not hold the
 token, keep a malicious web page or text from acting with the token holder's rights, and limit the damage of
 mistakes and untrusted *outputs*. They are not a sandbox for hostile *editors*.
 
@@ -53,7 +53,7 @@ nodes. Several of these are listed in arc42 chapter 11.
   over HTTPS. Changing the token or the secret key ends every session. Logging out clears the cookie in that
   browser only; there is no server-side revocation.
 - **Without a token the application is open** (pages and browser API); `/api/v1` and `/mcp` still refuse
-  everything. Open mode is for a local, single-user try-out on a loopback address. In open mode **Code nodes are
+  everything. Open mode is for a local, single-user try-out on a loopback address. In open mode **Execute Command nodes are
   refused** (unless `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true`, a switch for local development) and
   **credentials cannot be stored**, because anyone who can reach the port could otherwise run code or read the
   secrets. The application logs a warning at start.
@@ -87,7 +87,7 @@ change the answer in between), never follows redirects and ignores proxy variabl
 link-local and other non-public addresses are refused unless `OPENARTIFACT_HTTP_ALLOW_PRIVATE_NETWORKS=true`;
 the unspecified, multicast and cloud-metadata addresses are refused always. Details and the list are in the
 [execution nodes guide](execution-nodes.md#http-node). Limit: it protects what **HTTP nodes** can reach; a
-Code node is not behind it.
+Execute Command node is not behind it.
 
 **LLM providers** go through the same guard: the connection test, the model list and every request of an Agent
 node. A provider may be on any address (a model server on this host or in the internal network included), so whoever may
@@ -95,7 +95,7 @@ create providers can have the application ask such an address; a provider is sav
 the OpenAI format. An `http://` address needs the provider's *Allow unencrypted connection (HTTP)*, and OpenRouter's
 address is fixed. `OPENARTIFACT_LLM_ALLOW_PRIVATE_NETWORKS` now governs the tools of an agent only. The
 **tools of an agent** (MCP Client Tool, HTTP Request Tool, Postgres Tool) use the same guard and the same two switches (the tool's
-*Private network* and the operator's); a Code Tool runs under the Code node's rules.
+*Private network* and the operator's); an Execute Command Tool runs under the Execute Command node's rules.
 
 **What an agent's tools may do** is what the model decides within what you offer: a tool's answer and an MCP server's
 tool descriptions are text from outside and can steer the model. Offer only the tools an agent needs (for GitHub:
@@ -134,16 +134,16 @@ literally into requests (percent-encoded in a URL), never evaluated.
 
 The **run context** (variables and the results of the nodes that ran, stored with the execution, shown in the
 History and read by later nodes) is built from the results *after* secret masking, so a secret a node printed is
-`***` there and in the `context.json` the next Code node gets. A secret used in an HTTP node's request does not enter
+`***` there and in the `context.json` the next Execute Command node gets. A secret used in an HTTP node's request does not enter
 it. Context values are text from outside (responses, script output): `${node...}` and `${var...}` references paste
 them literally, never evaluate them and never search them for references again (no injection into the secret
 references or the URL: in a URL they are percent-encoded and never allowed in the scheme or host). The context is
 never logged (only ids and sizes). A node that is allowed to read a secret can still leak it into a variable on
 purpose, like anywhere else. `${secret:NAME}` is refused in the conditions of If and Switch nodes: a branch could reveal a secret bit by bit; the context is their only source. `context.json` is a temporary file in the node's own temporary directory.
 
-### 5. Code node hardening, and its honest limits
+### 5. Execute Command node hardening, and its honest limits
 
-A Code node runs arbitrary shell or Python text from an action definition. What the application does:
+An Execute Command node runs arbitrary shell or Python text from an action definition. What the application does:
 
 - The process starts with a **clean environment**: `PATH`, `LANG`, `HOME` (a private temporary directory) and
   the secrets the node lists; no application setting, so not the token and not the secret key.
@@ -155,7 +155,9 @@ A Code node runs arbitrary shell or Python text from an action definition. What 
   the parent's secrets, not a boundary.
 - The code runs in a private directory that is deleted afterwards; leftovers of a hard-killed application
   are cleaned up at the next start.
-- A switch turns the node off: `OPENARTIFACT_CODE_NODES_ENABLED=false`.
+- The node is **off by default** (ADR-075): `OPENARTIFACT_CODE_NODES_ENABLED=true` switches it on; without it a node fails with a message that
+  names the switch. It is called *Execute Command* because that is what it is (n8n's node of that name is off by default since n8n 2.0
+  for the same reason); a real *Code* node with a sandbox is the later answer (card #133).
 
 What it does **not** do, whatever the limits say:
 
@@ -175,10 +177,10 @@ hardening below matters.
 ### 6. Container hardening
 
 The Docker image runs as a non-root user (uid 1000) with `/app` owned by root; the compose file
-(`deploy/docker-compose.yml`) adds a read-only root file system with a tmpfs `/tmp` (Code nodes need it),
+(`deploy/docker-compose.yml`) adds a read-only root file system with a tmpfs `/tmp` (Execute Command nodes need it),
 `cap_drop: ALL`, `no-new-privileges`, a process limit and a memory limit, and publishes the port on
 `127.0.0.1` only by default. The only writable persistent place is the `/data` volume. The CI smoke test starts
-the image in exactly this shape. A compromised Code node is therefore confined to the container, not to the
+the image in exactly this shape. A compromised Execute Command node is therefore confined to the container, not to the
 host, as far as the container runtime enforces it.
 
 ## What the owner of a deployment must do
@@ -194,7 +196,7 @@ host, as far as the container runtime enforces it.
    to reach it; open it to a network only with the token and TLS in place.
 5. **Hand out the token as you would shell access.** Anyone or any agent with it can run code. Use separate
    instances for separate trust levels; there are no per-client tokens.
-6. **Decide about Code nodes.** If nobody needs them, set `OPENARTIFACT_CODE_NODES_ENABLED=false`. If they are
+6. **Decide about Execute Command nodes.** They are off unless `OPENARTIFACT_CODE_NODES_ENABLED=true`: leave it off if nobody needs them. If they are
    needed, keep the compose hardening (read-only, no capabilities, limits), do not mount the Docker socket or
    host paths into the container, and keep anything valuable off the machine or network the container can
    reach.

@@ -23,6 +23,7 @@ from openartifact.agents.providers import ProviderService
 from openartifact.agents.service import AgentService
 from openartifact.api.agents import routers as agent_routers
 from openartifact.api.artifact_fields import router as artifact_fields_router
+from openartifact.api.board_tools import BoardTools
 from openartifact.api.card_rules import router as card_rules_router
 from openartifact.api.contract import GATED
 from openartifact.api.credentials import router as credentials_router
@@ -49,6 +50,7 @@ from openartifact.config import DEFAULT_SECRET_KEY, Settings, get_settings
 from openartifact.credentials.service import CredentialService
 from openartifact.credentials.store import SecretStore
 from openartifact.engine import guard_views
+from openartifact.engine.cards_gateway import SqlCardsGateway
 from openartifact.engine.executors import Limits
 from openartifact.engine.runner import RunEngine
 from openartifact.engine.telemetry import Telemetry
@@ -191,6 +193,15 @@ def _create_app(settings: Settings) -> FastAPI:
             app.state.comments,
             app.state.credentials.settings_of,
             publish,
+            SqlCardsGateway(database.new_session),
+            # the board tools of an agent node (ADR-079): made when a run asks, the services come after the engine
+            lambda: BoardTools(
+                app.state.artifacts,
+                app.state.artifact_fields,
+                app.state.comments,
+                app.state.activity,
+                channel="run",
+            ),
         ),
         history_default_keep=settings.execution_history_default_keep,
         guards=GuardSettings(
@@ -251,7 +262,8 @@ def _create_app(settings: Settings) -> FastAPI:
     @app.exception_handler(ArtifactError)
     async def _handle_refusal(request: Request, exc: ArtifactError) -> JSONResponse:
         # the same body HTTPException produces: the services refuse, routes do not translate
-        return JSONResponse(status_code=exc.status, content={"detail": exc.message})
+        body = {"detail": exc.message} | ({"code": exc.code} if exc.code else {})
+        return JSONResponse(status_code=exc.status, content=body)
 
     @app.exception_handler(OpenArtifactError)
     async def _handle_app_error(request: Request, exc: OpenArtifactError) -> JSONResponse:

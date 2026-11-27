@@ -106,3 +106,7 @@ The history above is kept; §3 and §4 are partly overtaken.
 - **Business logic beyond the timer:** Code and HTTP nodes run through the executor registry ([ADR-021](021-execution-nodes-as-executors.md)); their safety
   is [ADR-023](023-safety-model-of-execution-nodes.md).
 - **`started_by`** is `user`, `api`, `mcp` or `system` ([ADR-026](026-origin-of-a-run-started-by.md)); §2.1 (`user` or `system`) is the older state.
+
+## Addendum 1 (2026-11-26): the restart note
+
+The note of a run closed by a restart (point 6 above) reads `Interrupted by restart` instead of the bare word `interrupted`, so the list and the history say what happened without a guess. It is one constant (`INTERRUPTED_NOTE` in `engine/runner.py`); migration `0064` rewrites the stored rows once (only the exact old text, runs and executions; the downgrade writes it back). The status stays `stopped`; there is no new state.

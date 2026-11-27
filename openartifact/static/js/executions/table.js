@@ -3,9 +3,9 @@
  * updated in place afterwards; they never move, so nothing shifts under the cursor.
  *
  * The execution link of a row is its primary action (it opens the flow). A click anywhere else on the row
- * does the same for the mouse; the artifact and pipeline links and the delete button keep their own meaning. */
+ * does the same for the mouse; the artifact and pipeline links and the stop and delete buttons keep their own meaning. */
 import { setChip, plural } from "../tasks/history-format.js";
-import { fillDeleteButton, fillDuration, fillOrigin, fillTime, RunningClock } from "../tasks/history-row.js";
+import { fillDeleteButton, fillStopButton, fillDuration, fillOrigin, fillTime, RunningClock } from "../tasks/history-row.js";
 import { t } from "../i18n.js";
 
 export const flowUrl = (e) => `/artifacts/${e.task.number}/executions/${encodeURIComponent(e.id)}`;
@@ -17,10 +17,11 @@ export class ExecutionTable {
    * @param {object} options
    * @param {HTMLElement} options.body the <tbody>
    * @param {(execution: object) => void} options.onDelete the delete button of a row was pressed
+   * @param {(execution: object) => void} [options.onStop] the stop button of a running row was pressed
    * @param {(url: string) => void} options.onNavigate a click on the row itself (not on a link or button)
    * @param {(id: string, on: boolean) => void} [options.onSelect] a row's checkbox was changed
    */
-  constructor({ body, onDelete, onNavigate = (url) => window.location.assign(url), onSelect = () => {} }) {
+  constructor({ body, onDelete, onStop = () => {}, onNavigate = (url) => window.location.assign(url), onSelect = () => {} }) {
     this.body = body;
     this.template = document.getElementById("ex-row-template");
     /** @type {Map<string, {execution: object, row: HTMLElement}>} */
@@ -38,9 +39,9 @@ export class ExecutionTable {
       const row = event.target.closest(".ex-row");
       const entry = row && this.entries.get(row.dataset.executionId);
       if (!entry) return;
-      const button = event.target.closest("[data-delete]");
+      const button = event.target.closest("[data-delete], [data-stop]");
       if (button) {
-        if (button.getAttribute("aria-disabled") !== "true") onDelete(entry.execution);
+        if (button.getAttribute("aria-disabled") !== "true") (button.hasAttribute("data-stop") ? onStop : onDelete)(entry.execution);
       } else if (!event.target.closest("a") && !window.getSelection()?.toString()) onNavigate(flowUrl(entry.execution));
     });
   }
@@ -175,6 +176,11 @@ export class ExecutionTable {
     const note = row.querySelector("[data-note]");
     note.textContent = e.note ?? "";
     note.title = e.note ?? "";
-    fillDeleteButton(row.querySelector("[data-delete]"), e, `execution #${e.number} of #${e.task.number}`);
+    const subject = `execution #${e.number} of #${e.task.number}`;
+    // a running execution has the stop button where the trash is (ADR-076: a replacement, not two buttons)
+    const trash = row.querySelector("[data-delete]");
+    fillStopButton(row.querySelector("[data-stop]"), e, subject);
+    fillDeleteButton(trash, e, subject);
+    trash.hidden = e.status === "running";
   }
 }

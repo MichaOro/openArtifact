@@ -137,6 +137,31 @@ def test_the_rules_dialog_saves_a_rule_that_marks_the_cards_in_all_tabs(board: B
     expect(other.card("Shipped thing")).not_to_have_class(re.compile(DONE))
 
 
+def test_a_rule_is_always_or_only_when_its_conditions_hold(board: Board) -> None:
+    board.create("Shipped thing", status="done")
+    board.open()
+    dialog = _open_settings(board)
+    dialog.get_by_role("button", name="Add rule").click()
+    mode = dialog.get_by_label("When the rule applies")
+    expect(mode).to_have_value("always")  # a new rule has no condition and holds for every card
+    expect(mode.locator("option").first).to_have_text("Always (every card in this lane)")
+    expect(dialog.get_by_role("button", name="Add condition")).to_be_hidden()
+    mode.select_option("when")
+    expect(dialog.get_by_role("button", name="Add condition")).to_be_visible()
+    # "only when" with no condition would be saved as "always": it cannot be saved until one is named
+    expect(dialog.get_by_role("button", name="Save")).to_be_disabled()
+    expect(dialog.locator("[data-form-error]")).to_contain_text("needs at least one condition")
+    mode.select_option("always")
+    expect(dialog.get_by_role("button", name="Save")).to_be_enabled()
+    dialog.get_by_role("button", name="Done", exact=True).click()
+    expect(dialog.locator(".rl-row__summary")).to_have_text("Always: Set card as done")
+    dialog.get_by_role("button", name="Save").click()
+    expect(dialog).not_to_be_visible()
+    saved = board.api.get("/api/lanes/done/rules").json()["rules"][0]
+    assert saved["action"] == "set_done" and saved["when"]["items"] == []
+    expect(board.card("Shipped thing")).to_have_class(re.compile(DONE))
+
+
 def test_hovering_a_rule_shows_the_card_it_makes(board: Board) -> None:
     board.create("Shipped thing", status="done")
     board.api.put("/api/lanes/done/rules", json=SET_DONE).raise_for_status()

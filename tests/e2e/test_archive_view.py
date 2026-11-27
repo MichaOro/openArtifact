@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from playwright.sync_api import expect
 
-from tests.e2e.helpers import Board, eventually
+from tests.e2e.helpers import Board, Dialog, eventually
 
 
 @pytest.fixture(autouse=True)
@@ -92,3 +92,72 @@ def test_a_card_is_archived_by_hand_from_the_rail_of_its_dialog(board: Board) ->
         t for t in board.api.get("/api/tasks?archived=only").json() if t["title"] == "Archive me"
     )
     assert task["archived_at"] is not None
+
+
+def test_show_more_opens_the_card_in_its_dialog_read_only_with_remove_from_archive(
+    board: Board,
+) -> None:
+    body = "\n".join(f"line {n} of a long text" for n in range(1, 41))
+    card = board.create("Long and old", body=body)
+    _archive(board, card)
+    board.open()
+    _menu(board, "Show archive")
+    archive = board.page.locator("[data-archive-view]")
+    archive.locator(".mg-card").first.click()
+    archive.get_by_role("button", name="Show more").click()
+    dialog = Dialog(board.page)
+    expect(dialog.root).to_be_visible()
+    expect(dialog.view_title).to_have_text("Long and old")
+    expect(dialog.view_body).to_contain_text(
+        "line 40 of a long text"
+    )  # the whole text, not six lines
+    # nothing in the window writes: no Edit, no Run, no comment box or Send, no input in the rail, no Archive, no Delete
+    for writes in (
+        "[data-view-edit]",
+        '[data-card-action="run"]',
+        "[data-comments-form]",
+        "[data-comments-send]",
+        '[data-card-action="delete"]',
+    ):
+        expect(dialog.root.locator(writes)).to_be_hidden()
+    expect(
+        dialog.root.locator('[data-card-action="archive"]')
+    ).to_be_hidden()  # invisible, but its place stays
+    for field in ("lane", "parent", "pipeline", "stage", "action"):
+        expect(dialog.root.locator(f'[data-card-field="{field}"]')).to_be_disabled()
+    dialog.root.locator("[data-card-nav-toggle]").click()
+    remove = dialog.root.locator('[data-card-action="unarchive"]')
+    expect(remove).to_be_visible()
+    expect(remove).to_contain_text("Remove from archive")
+    # it sits where Delete sits on a normal card: the last entry of the rail
+    last = dialog.root.locator(".card-nav__actions li").last
+    assert last.locator('[data-card-action="unarchive"]').count() == 1
+    remove.click()
+    expect(dialog.root).to_be_hidden()
+    expect(archive.locator(".mg-card")).to_have_count(0)
+    eventually(lambda: board.api.get(f"/api/tasks/{card['id']}").json()["archived_at"], None)
+
+
+def test_a_card_of_the_board_keeps_its_edit_and_delete_after_an_archived_one_was_shown(
+    board: Board,
+) -> None:
+    """The read-only mode is opt-in per opening: the next regular card is writable again."""
+    old = board.create("Old and read only", body="\n".join(f"row {n}" for n in range(1, 41)))
+    board.create("Plain card")
+    _archive(board, old)
+    board.open()
+    _menu(board, "Show archive")
+    archive = board.page.locator("[data-archive-view]")
+    archive.locator(".mg-card").first.click()
+    archive.get_by_role("button", name="Show more").click()
+    dialog = Dialog(board.page)
+    expect(dialog.root).to_be_visible()
+    dialog.root.get_by_role("button", name="Close", exact=True).click()
+    _menu(board, "Hide archive")
+    dialog = board.open_card("Plain card")
+    expect(dialog.root.locator("[data-view-edit]")).to_be_visible()
+    dialog.root.locator("[data-card-nav-toggle]").click()
+    expect(dialog.root.locator('[data-card-action="delete"]')).to_be_visible()
+    expect(dialog.root.locator('[data-card-action="archive"]')).to_be_visible()
+    expect(dialog.root.locator('[data-card-action="unarchive"]')).to_be_hidden()
+    expect(dialog.root.locator('[data-card-field="lane"]')).to_be_enabled()

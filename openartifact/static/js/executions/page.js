@@ -7,8 +7,10 @@ import { BulkBar } from "../components/bulk-bar.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { Modal } from "../components/modal.js";
 import { Selection } from "../components/selection.js";
+import { StopSwitch } from "../components/stop-switch.js";
 import { connectEvents } from "../tasks/events.js";
 import { deleteExecution } from "../tasks/history-api.js";
+import { stopRun } from "../tasks/api.js";
 import { plural } from "../tasks/history-format.js";
 import { deleteExecutions, listAllExecutions } from "./api.js";
 import { FilterBar } from "./filter-bar.js";
@@ -64,6 +66,7 @@ class ExecutionsPage {
     this.table = new ExecutionTable({
       body: $("[data-rows]"),
       onDelete: (execution) => this.#confirmDelete(execution),
+      onStop: (execution) => this.#confirmStop(execution),
       onSelect: (id, on) => {
         this.everything = false;
         this.selection.toggle(id, on);
@@ -79,6 +82,11 @@ class ExecutionsPage {
       },
     });
     $("[data-retention]").addEventListener("click", () => this.retention.open());
+    // STOP (ADR-076): the switch next to Retention; switching on ended the runs, so the list is read again
+    this.stop = new StopSwitch($("[data-stop-switch]"), this.confirm, {
+      onChanged: () => this.load(),
+      onError: (message) => this.alert.show(message),
+    });
     this.newButton.addEventListener("click", () => this.load({ focusFirst: true }));
     this.moreButton.addEventListener("click", () => this.#more());
     window.addEventListener("popstate", () => this.#apply(Filters.fromSearch(window.location.search)));
@@ -257,6 +265,30 @@ class ExecutionsPage {
         next = this.#removeRow(execution);
       },
       onClose: () => this.table.focus(next), // the focus moves on to the next row, else the table
+    });
+  }
+
+  // ── stopping ────────────────────────────────────────────────────────
+
+  /** The same question as for a delete, with the stop's own words; the run of the artifact is what ends. */
+  #confirmStop(execution) {
+    const subject = t("executions.page.execution_number_number2", { number: execution.number, number2: execution.task.number });
+    this.confirm.open({
+      title: t("executions.page.stop_execution"),
+      message: t("executions.page.stop_subject_it_ends_as_stopped"),
+      subject,
+      note: t("executions.page.steps_already_done_stay"),
+      confirmLabel: t("executions.page.stop_execution"),
+      onConfirm: async () => {
+        try {
+          await stopRun(execution.task.id);
+        } catch (error) {
+          if (error.status !== 409) throw error;
+          this.load(); // it ended or was just being started: show what is true now
+          throw new Error(t("executions.page.stop_too_late"));
+        }
+      },
+      onClose: () => this.table.focus(execution.id),
     });
   }
 

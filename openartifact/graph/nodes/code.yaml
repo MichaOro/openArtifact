@@ -1,6 +1,6 @@
 schema: 1
 kind: code
-label: Code
+label: Execute Command
 behaviour: flow
 produces_result: true
 timed: true
@@ -46,8 +46,8 @@ settings:
   type: code
   default: ''
   max_length: 20000
-  help: 'Plain text, so no secrets here; ${...} is not replaced in code. The run context is the file context.json, and a last
-    line {"ok": true, "vars": {"name": "value"}} sets variables.'
+  help: 'Not a sandbox: it runs as the application''s user, and the text is stored as it is (no secrets here, no ${...}). The run
+    context is context.json; a last line {"ok": true, "vars": {"name": "value"}} sets variables.'
   stored_in: config
 - key: secrets
   label: Secrets
@@ -81,4 +81,16 @@ settings:
   group: Execution limits
   section: behaviour
   level: optional
+- key: output_limit_bytes
+  label: Output limit
+  type: size
+  minimum: 1024
+  maximum: 67108864
+  default: null
+  help: The most this node keeps of its output and its errors, each; the rest is cut off. Never above the limit of the instance
+    (64 KiB unless changed).
+  stored_in: config
+  section: behaviour
+  level: optional
 - use: on_failure
+- use: retry

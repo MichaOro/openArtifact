@@ -40,6 +40,18 @@
 }
 .ge-bar__spacer { flex: 1; }
 .ge-bar__state { display: inline-flex; align-items: center; }
+/* the mark as a control while there is something to publish or discard: no button chrome, the chip and a small arrow */
+.ge-state { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; border-radius: var(--radius-pill); }
+.ge-state__caret { width: 0.8rem; height: 0.8rem; color: var(--color-text-secondary); }
+.ge-state:hover .ge-chip, .ge-state[aria-expanded="true"] .ge-chip { background: color-mix(in srgb, var(--color-accent) 28%, transparent); }
+.ge-state:hover .ge-state__caret, .ge-state[aria-expanded="true"] .ge-state__caret { color: var(--color-accent); }
+/* its popup */
+.pub-popover { z-index: 30; gap: var(--space-2); min-width: 16rem; max-width: min(22rem, calc(100vw - 1rem)); }
+.pub-popover[hidden] { display: none; }
+.pub-popover__note { margin: 0; text-transform: none; letter-spacing: normal; }
+.pub-popover__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.pub-popover__error { margin: 0; }
+.pub-popover__error[hidden] { display: none; }
 .ge-bar__zoom {
   min-width: 3rem;
   text-align: center;
@@ -411,8 +423,16 @@
 .ge-advanced[open] > summary { margin-bottom: var(--space-3); }
 .ge-advanced > .ge-setting + .ge-setting,
 .ge-advanced > .ge-optional + .ge-optional { margin-top: var(--space-3); }
-.ge-optional { position: relative; }
-.ge-optional__remove { position: absolute; top: 0; right: 0; }
+/* the row of a control that can be taken away: the control gives way (min-width 0), the bin has a column of its own at the end, so
+   the two never overlap (ADR-074); a label above the control stays above it, a label on the line (a switch) stays on it */
+.field__line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.field__line > :first-child { flex: 1 1 auto; min-width: 0; }
+.field__line > .field__control { width: auto; }
+.field--row > .field__line { flex: 0 0 auto; }
+.field--row > .field__line > :first-child { flex: 0 0 auto; }
+.field__line:has(> textarea) { align-items: flex-start; }
+.ge-optional { min-width: 0; }
+.ge-optional__remove { flex: 0 0 auto; }
 
 .ge-inspector__identity { display: flex; align-items: flex-start; gap: var(--space-3); }
 .ge-inspector__identity .ge-inspector__heading { flex: 1; min-width: 0; }
@@ -480,3 +500,42 @@
 
 /* an input the agent fixes to the artifact, shown in the action's settings (agent-inspector.js) and the heading with its (i) */
 .ge-inspector__heading-tip { display: flex; align-items: center; gap: var(--space-2); }
+
+/* Retry on fail: what shows while the switch is on, under the line of the switch (editor/setting-controls.js RetryControl) */
+.ge-retry { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
+/* a duration or a size: the number takes what is left, the unit has the width of its longest text (components/duration-input.js) */
+.duration-input, .size-input { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.duration-input > input.field__control, .size-input > input.field__control { flex: 1 1 auto; min-width: 0; width: auto; }
+.duration-input > select.field__control, .size-input > select.field__control { flex: 0 0 auto; width: auto; min-width: 5.5rem; }
+
+/* a node of a kind this instance has switched off (Execute Command, ADR-075): said at the top of its window, the node stays editable */
+.ge-switched-off {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--lane-hue-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--lane-hue-2) 10%, transparent);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+/* The sources of a Build Context node (editor/setting-controls.js SourcesControl, ADR-078): one row each, in the order of their priority:
+   handle (a grip, not a button: the icon alone), the name, the options of the source, the bin at the end; the options take what is left
+   and give way (min-width 0), so nothing lies over the bin (ADR-074) */
+.ge-sources { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.ge-sources__list { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.ge-source { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); min-width: 0; padding: var(--space-1) 0; border-radius: var(--radius-sm); }
+.ge-source__grip { flex: 0 0 auto; border-color: transparent; background: transparent; box-shadow: none; color: var(--color-text-muted); cursor: grab; touch-action: none; }
+.ge-source__grip:hover:not(:disabled) { border-color: transparent; background: transparent; box-shadow: none; color: var(--color-text-secondary); }
+.ge-source__grip:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; color: var(--color-text-secondary); }
+.ge-source__grip:active, .ge-source.is-dragging .ge-source__grip { cursor: grabbing; }
+.ge-source.is-dragging { opacity: 0.75; box-shadow: var(--shadow-card-hover); background: var(--color-glass-card); }
+.ge-source__name { flex: 1 1 8rem; min-width: 0; font-size: 0.875rem; overflow-wrap: anywhere; }
+.ge-source__options { display: flex; flex: 1 1 100%; order: 3; align-items: center; gap: var(--space-2); min-width: 0; padding-left: 2.25rem; }
+.ge-source__options:empty { display: none; }
+.ge-source__options > .field__control { width: auto; min-width: 0; }
+.ge-source__count { flex: 0 0 5rem; }
+.ge-source__detail { flex: 1 1 10rem; }
+.ge-source__names { flex: 1 1 auto; min-height: 0; height: 4.5rem; resize: vertical; }
+.ge-source__bin { flex: 0 0 auto; order: 2; }
+.ge-sources__add { align-self: flex-start; width: auto; min-width: 12rem; }

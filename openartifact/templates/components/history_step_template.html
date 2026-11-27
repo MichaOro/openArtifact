@@ -10,6 +10,12 @@
         <p class="history-step__where" data-step-where hidden></p>
         <p class="history-step__facts" data-step-facts></p>
         <p class="history-step__reason" data-step-reason hidden></p>
+        <div class="history-step__context" data-step-context hidden>
+            <p class="history-step__context-title" data-step-context-title></p>
+            <ul class="history-step__context-list" data-step-context-included></ul>
+            <p class="history-step__context-title" data-step-context-omitted-title></p>
+            <ul class="history-step__context-list history-step__context-list--omitted" data-step-context-omitted></ul>
+        </div>
         <details class="history-step__block" data-step-output hidden>
             <summary>{{ t('common.output') }}</summary>
             <pre class="history-step__pre" tabindex="0"></pre>
@@ -18,6 +24,10 @@
         <details class="history-step__block" data-step-agent hidden>
             <summary>{{ t('history_step.request_prompts_inputs_attempts') }}</summary>
             <div class="history-step__agent" data-step-agent-body></div>
+        </details>
+        <details class="history-step__block" data-step-tries hidden>
+            <summary data-step-tries-summary></summary>
+            <ol class="history-step__tries" data-step-tries-body></ol>
         </details>
         <details class="history-step__block" data-step-data hidden>
             <summary>{{ t('common.data') }}</summary>

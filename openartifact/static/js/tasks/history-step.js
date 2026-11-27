@@ -4,6 +4,7 @@
 import { agentFacts } from "../agents/model.js";
 import { detailView } from "../agents/view.js";
 import { icon } from "../components/icons.js";
+import { formatBytes } from "../editor/sources-model.js";
 import { formatDuration, secondsBetween, setChip } from "./history-format.js";
 import { t } from "../i18n.js";
 
@@ -18,9 +19,48 @@ export function stepDuration(step) {
 /** "On Pass", "Exit code: 0", "0.4 s" ... as one line. */
 function stepFacts(step) {
   const facts = [step.port ? `Port: ${PORTS[step.port] ?? step.port.replace(/^case_(\d)$/, "Case $1")}` : null, step.exit_code != null ? `Exit code: ${step.exit_code}` : null, stepDuration(step)];
-  if (step.kind === "agent") facts.push(...agentFacts(step.data)); // model, tokens and attempts at a glance
+  if (step.kind === "agent") facts.push(...agentFacts(step.data), ...handoverFacts(step.data)); // model, tokens and attempts at a glance, the documents handed over
+  if (step.kind === "context") facts.push(...contextFacts(step.data)); // how full the package is
   if (step.data?.output_truncated) facts.push(t("tasks.history_step.output_cut_at_limit_step"));
+  if (step.attempts > 1) facts.push(t("tasks.history_step.tries_fact", { n: step.attempts })); // Retry on fail (ADR-073)
   return facts.filter(Boolean);
+}
+
+/** "Handed over: Review" for an agent step whose Hand Over Tools accepted a document (ADR-080); the documents are in the data below. */
+export function handoverFacts(data) {
+  const names = data?.handovers ? Object.keys(data.handovers) : [];
+  return names.length ? [t("tasks.history_step.handed_over", { names: names.join(", ") })] : [];
+}
+
+/** "Package 5.1 KiB of 8 KiB (about 1,300 tokens)" for a Build Context step (ADR-078); nothing for data that is not its. */
+export function contextFacts(data) {
+  if (!data || !Array.isArray(data.included)) return [];
+  return [t("tasks.history_step.context_size", { size: formatBytes(data.size_bytes), limit: formatBytes(data.limit_bytes), tokens: data.approx_tokens ?? 0 })];
+}
+
+/** The lines of what a Build Context step put in the package and what it left out, as text (the order of the sources). */
+export function contextLines(data) {
+  if (!data || !Array.isArray(data.included)) return null;
+  const included = data.included.map((part) => {
+    const of = part.available > part.items ? t("tasks.history_step.context_of", { items: part.items, available: part.available }) : t("tasks.history_step.context_all", { items: part.items });
+    const cut = part.cut ? ` · ${t("tasks.history_step.context_cut", { n: part.cut })}` : "";
+    return `${t(`editor.sources.source.${part.source}.label`)}: ${of} (${formatBytes(part.bytes)})${cut}`;
+  });
+  const omitted = (data.omitted ?? []).map((part) => `${t(`editor.sources.source.${part.source}.label`)}: ${part.reason}`);
+  return { included, omitted };
+}
+
+/** What a Build Context step shows without being opened: what went into the package and what was left out, and why. */
+function fillContext(box, step) {
+  if (!box) return; // a page with an older template
+  const lines = step.kind === "context" ? contextLines(step.data) : null;
+  box.hidden = !lines;
+  if (!lines) return;
+  box.querySelector("[data-step-context-title]").textContent = t("tasks.history_step.context_in");
+  const list = (selector, items) => box.querySelector(selector).replaceChildren(...items.map((text) => Object.assign(document.createElement("li"), { textContent: text })));
+  list("[data-step-context-included]", lines.included);
+  box.querySelector("[data-step-context-omitted-title]").textContent = lines.omitted.length ? t("tasks.history_step.context_left_out") : "";
+  list("[data-step-context-omitted]", lines.omitted);
 }
 
 /**
@@ -62,8 +102,40 @@ export function fillStep(template, step, open = new Set(), { loadDetail = null }
   item.querySelector("[data-step-truncated]").hidden = !step.output_truncated;
   const data = step.data == null ? "" : JSON.stringify(step.data, null, 2);
   fillBlock(item.querySelector("[data-step-data]"), `${step.id}:data`, data, open, Boolean(data));
+  fillContext(item.querySelector("[data-step-context]"), step);
   fillAgent(item.querySelector("[data-step-agent]"), step, open, loadDetail);
+  fillTries(item.querySelector("[data-step-tries]"), step, open, loadDetail);
   return item;
+}
+
+/** A node that was tried again (*Retry on fail*, ADR-073) lists its tries when the block is opened: the failed ones with their
+ * reason and time (the step's `detail.tries`, which a list does not carry), then how the last one ended. */
+function fillTries(details, step, open, loadDetail) {
+  if (!details) return; // a page with an older template
+  const present = step.attempts > 1 && Boolean(loadDetail);
+  details.hidden = !present;
+  if (!present) return;
+  details.dataset.key = `${step.id}:tries`;
+  details.querySelector("[data-step-tries-summary]").textContent = t("tasks.history_step.tries_summary", { n: step.attempts });
+  const body = details.querySelector("[data-step-tries-body]");
+  let loaded = false;
+  const load = async () => {
+    if (loaded) return;
+    loaded = true;
+    body.replaceChildren(Object.assign(document.createElement("li"), { textContent: t("execution.flow_panel.loading") }));
+    try {
+      const failedTries = (await loadDetail(step)).detail?.tries ?? [];
+      const rows = failedTries.map((one) => t("tasks.history_step.try_failed", { n: one.try, total: step.attempts, reason: one.reason, time: formatDuration(one.duration_ms / 1000) }));
+      rows.push(step.outcome === "pass" ? t("tasks.history_step.try_passed", { n: step.attempts, total: step.attempts }) : t("tasks.history_step.try_failed_last", { n: step.attempts, total: step.attempts, reason: step.reason ?? "" }));
+      body.replaceChildren(...rows.map((text) => Object.assign(document.createElement("li"), { textContent: text })));
+    } catch {
+      loaded = false;
+      body.textContent = t("tasks.history_step.request_could_not_be_loaded");
+    }
+  };
+  details.addEventListener("toggle", () => details.open && load());
+  details.open = open.has(details.dataset.key);
+  if (details.open) load();
 }
 
 /** The block of an agent step: what was sent and every attempt, loaded when it is opened. */

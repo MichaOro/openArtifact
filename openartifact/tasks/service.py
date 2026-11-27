@@ -39,11 +39,13 @@ from openartifact.artifact_fields.service import (
 from openartifact.comments.schemas import Author
 from openartifact.database import SessionOpener
 from openartifact.engine import history as history_module
-from openartifact.engine import history_query
+from openartifact.engine import history_query, stop_switch
 from openartifact.engine.chain import pipeline_chain
 from openartifact.engine.flow import build_flow
 from openartifact.engine.flow_schemas import ExecutionFlow
 from openartifact.engine.history import Changes, labels_of
+from openartifact.engine.neighbour_schemas import ExecutionPosition, GraphNeighbours
+from openartifact.engine.neighbours import graph_neighbours, position_of
 from openartifact.engine.runner import RunEngine
 from openartifact.engine.schemas import (
     ExecutionDetail,
@@ -59,6 +61,7 @@ from openartifact.engine.targets import TargetError, resolve_target
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.publishing import graph_for_run
+from openartifact.graph.repository import GraphRepository
 from openartifact.models import (
     ArtifactField,
     CreatedBy,
@@ -184,6 +187,14 @@ class ArtifactService:
                 read.marks = card_marks.get(read.id)
                 read.archived_from_lane = titles.get(read.archived_from_status or "")
             return reads
+
+    async def processing_ids(self) -> set[str]:
+        """The ids of the cards that are being processed now (a run of theirs is running)."""
+        async with self._session() as session:
+            rows = await session.scalars(
+                select(PipelineRun.task_id).where(PipelineRun.status == RunStatus.RUNNING)
+            )
+            return set(rows)
 
     async def count_cards(self, archived: str) -> int:
         """How many cards a list with this ``archived`` value holds in all (before paging)."""
@@ -443,6 +454,34 @@ class ArtifactService:
                 guard_state,
                 await self._attachments_enabled(session, row.snapshot),
             )
+
+    async def execution_position(self, ref: str, execution_id: str) -> ExecutionPosition:
+        """Where an execution is, from its frozen graphs: the place, what leaves it and the path walked (the flow's data, ADR-069 add. 2)."""
+        return position_of(await self.execution_flow(ref, execution_id, False))
+
+    async def graph_neighbours(
+        self, kind: GraphKind, ref: str, version: str = "published"
+    ) -> GraphNeighbours:
+        """The neighbours of a pipeline or an action definition given by id, URL name or name; 404 when there is none (or that version)."""
+        async with self._session() as session:
+            wanted = ref.strip().lower()
+            graph = next(
+                (
+                    g
+                    for g in await GraphRepository(session).list_all(kind)
+                    if wanted in (g.id.lower(), (g.slug or "").lower(), g.name.lower())
+                ),
+                None,
+            )
+            if graph is None:
+                raise ArtifactError(404, f"{kind.value.capitalize()} not found")
+            try:
+                found = await graph_neighbours(session, graph, version)
+            except ValueError as error:
+                raise ArtifactError(422, str(error)) from error
+            if found is None:
+                raise ArtifactError(404, f"Version {version} not found")
+            return found
 
     @staticmethod
     async def _attachments_enabled(session: AsyncSession, snapshot_json: str) -> dict[str, bool]:
@@ -826,6 +865,49 @@ class ArtifactService:
         async with self._session() as session:
             task_id = (await self._task(session, ref)).id
         return await self._engine.stop(task_id)
+
+    # ── the emergency stop (ADR-076) ─────────────────────────────────────
+
+    async def stop_switch_state(self) -> stop_switch.StopState:
+        """Whether the emergency stop is on, since when, whether the switch is offered and how many executions run."""
+        async with self._session() as session:
+            active, since = await stop_switch.load(session)
+            available = await personal_settings.stop_switch_available(session)
+        return stop_switch.StopState(
+            active=active,
+            since=since,
+            available=available,
+            running=await self._engine.running_count(),
+        )
+
+    async def set_stop_switch(self, active: bool) -> stop_switch.StopState:
+        """Switch the emergency stop on (aborts every running execution) or off. On needs the personal setting *Show the emergency stop*.
+
+        Off is always allowed, so a stop can never get stuck behind a hidden switch. Publishes ``settings.changed``
+        with ``stop``.
+        """
+        state = await self.stop_switch_state()
+        if active and not state.available:
+            raise ArtifactError(
+                409,
+                'The emergency stop is switched off: switch on "Show the emergency stop" in the personal settings first',
+                "stop_unavailable",
+            )
+        if active == state.active:
+            return state
+        aborted = await self._engine.set_stop(active)
+        state = (await self.stop_switch_state()).model_copy(update={"aborted": aborted})
+        self._bus.publish("settings.changed", {"stop": state.model_dump(mode="json")})
+        return state
+
+    async def refuse_hiding_active_stop(self) -> None:
+        """409 while the emergency stop is on: the switch cannot be hidden then, a stop is never cleared by a settings change."""
+        if await self._engine.stop_active():
+            raise ArtifactError(
+                409,
+                "The emergency stop is on: switch it off before you hide it",
+                "stop_active",
+            )
 
     # ── helpers ───────────────────────────────────────────────────────
 

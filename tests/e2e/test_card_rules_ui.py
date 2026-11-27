@@ -75,7 +75,11 @@ def test_the_board_settings_have_no_set_as_done_and_a_delete_rule_starts_off_and
     options = dialog.get_by_label("Then").locator("option").all_inner_texts()
     assert "Set card as done" not in options
     assert "Delete the archived card" in options
+    expect(dialog.get_by_label("When the rule applies")).to_have_value("always")
     dialog.get_by_label("Then").select_option("delete")
+    # a rule that deletes names what it deletes: "Always" is not on offer for it
+    expect(dialog.get_by_label("When the rule applies")).to_have_value("when")
+    expect(dialog.get_by_label("When the rule applies").locator("option").first).to_be_disabled()
     dialog.get_by_role("button", name="Add condition").click()
     dialog.get_by_label("Field").select_option(label="Time since archived")
     dialog.get_by_label("Operator").select_option(label="is below")

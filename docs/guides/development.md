@@ -14,7 +14,7 @@ uv run openartifact               # http://localhost:2909
 ```
 
 `.env` in the working directory is read by the settings. Without `uv`, run the commands without the `uv run` prefix. In open
-mode (no `OPENARTIFACT_API_TOKEN`) Code nodes are refused; `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` allows them for local
+mode (no `OPENARTIFACT_API_TOKEN`) Execute Command nodes are refused; `OPENARTIFACT_CODE_NODES_WITHOUT_TOKEN=true` allows them for local
 development only. Conventions, the full check list and the commit style: [CONTRIBUTING](../../.github/CONTRIBUTING.md).
 
 ## Commands
@@ -74,10 +74,10 @@ meaning, including the settings for Code and HTTP nodes and the execution histor
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENARTIFACT_API_TOKEN` | *(empty)* | Access token, at least 32 characters. Needed for Code nodes, credentials, `/api/v1` and `/mcp` |
+| `OPENARTIFACT_API_TOKEN` | *(empty)* | Access token, at least 32 characters. Needed for Execute Command nodes, credentials, `/api/v1` and `/mcp` |
 | `OPENARTIFACT_SECRET_KEY` | `change-me-in-production` | Signs the session cookie and encrypts credentials; at least 32 characters once a token is set or credentials are stored. Do not change it later |
 | `OPENARTIFACT_HOST` | `0.0.0.0` | Bind address; use `127.0.0.1` on a workstation |
-| `OPENARTIFACT_CODE_NODES_ENABLED` | `true` | `false` forbids Code nodes altogether |
+| `OPENARTIFACT_CODE_NODES_ENABLED` | `true` | `false` forbids Execute Command nodes altogether |
 
 ## Database
 
