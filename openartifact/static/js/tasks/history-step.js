@@ -3,6 +3,7 @@
  * the #history-step-template (templates/components/history_step_template.html). */
 import { agentFacts } from "../agents/model.js";
 import { detailView } from "../agents/view.js";
+import { attachCopy } from "../components/copy-button.js";
 import { icon } from "../components/icons.js";
 import { skipMarker } from "../components/skip-marker.js";
 import { mockOfStep } from "../editor/mock-model.js";
@@ -218,5 +219,7 @@ function fillBlock(details, key, text, open, present) {
   details.hidden = !present;
   details.dataset.key = key;
   details.open = open.has(key);
-  details.querySelector("pre").textContent = text;
+  const pre = details.querySelector("pre");
+  pre.textContent = text;
+  attachCopy(pre); // the whole output or data, however far the block has scrolled
 }

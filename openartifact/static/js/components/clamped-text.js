@@ -8,6 +8,7 @@
  * still puts the text as written on the clipboard. A prompt is shown as written (no `markdown`), as the model gets it.
  *
  * Without text the block says so (`empty`). The look is css/management.css `.ct`; its colours are tokens. */
+import { copyText } from "./copy-button.js";
 import { icon } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
 import { t } from "../i18n.js";
@@ -73,10 +74,9 @@ export class ClampedText {
 
   async #copy() {
     const label = this.copy.lastChild;
-    try {
-      await navigator.clipboard.writeText(this.text);
+    if (await copyText(this.text)) {
       label.textContent = t("components.clamped_text.copied");
-    } catch {
+    } else {
       label.textContent = t("components.clamped_text.select_by_hand");
       getSelection().selectAllChildren(this.body);
     }

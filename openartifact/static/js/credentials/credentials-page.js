@@ -2,6 +2,7 @@
  * systems (external). A token is shown once, in its own dialog; nothing here ever holds a stored value. */
 import { ActionMenu } from "../components/action-menu.js";
 import { AlertBar } from "../components/alert-bar.js";
+import { copyText } from "../components/copy-button.js";
 import { CredentialDialog } from "../components/credential-dialog.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { icon } from "../components/icons.js";
@@ -39,10 +40,9 @@ class TokenDialog {
     // the token leaves the page with the dialog: it is shown once and must not stay in the document
     modal.dialog.addEventListener("close", () => this.tokenEl.replaceChildren());
     this.copy.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(this.tokenEl.textContent);
+      if (await copyText(this.tokenEl.textContent)) {
         this.copy.querySelector("span").textContent = t("credentials.credentials_page.copied");
-      } catch {
+      } else {
         this.copy.querySelector("span").textContent = t("credentials.credentials_page.select_copy_by_hand");
         getSelection().selectAllChildren(this.tokenEl);
       }

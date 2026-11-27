@@ -887,6 +887,20 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
 .bulk-bar__spacer { flex: 1; }
 .bulk-bar .icon { width: 1rem; height: 1rem; }
 
+/* The copy button of a long text (components/copy-button.js): a quiet icon button at the top right of a `.copy-host`, which holds the text block (a `pre`, a field,
+ * a rendered body). Its first child, the `.copy-bar`, has no height and is sticky: the button stays in view at the block's top right while the block scrolls inside
+ * the host and while the page or dialog around it scrolls. The block gets right padding (`.has-copy`) so the button never covers text. */
+.copy-host { position: relative; min-width: 0; }
+.copy-host > textarea, .copy-host > input, .copy-host > pre { display: block; } /* the host adds no line box of its own around a field: nothing below it grows */
+.copy-host > .copy-bar { position: sticky; top: 0; z-index: 2; height: 0; display: flex; justify-content: flex-end; align-items: flex-start; gap: 0.25rem; padding-right: 0.25rem; pointer-events: none; }
+.copy-bar > * { pointer-events: auto; }
+.copy-bar > .copy-button { margin-top: 0.25rem; flex: none; background: color-mix(in srgb, var(--color-background) 70%, transparent); }
+.copy-bar > .copy-button[hidden] { display: none; }
+.copy-bar > .copy-button[data-state="copied"] { color: var(--color-success, var(--color-accent)); }
+.has-copy { padding-right: 2rem; }
+textarea.has-copy, input.has-copy { padding-right: 2.25rem; }
+.copy-button__status:not(.visually-hidden) { margin-top: 0.3rem; padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.75rem; background: var(--color-glass-card, var(--color-background)); border: 1px solid var(--glass-border); color: var(--color-danger); white-space: nowrap; }
+
 /* The checkbox of lists (class "check"): a rounded square, filled in the accent colour with a tick when checked, with a
  * dash when only some are (a header checkbox). One look wherever rows can be selected. */
 input.check {
