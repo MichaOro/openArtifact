@@ -272,8 +272,8 @@ exactly one container per volume. Starting a second one against the same volume 
 run limits and risks write conflicts.
 
 The application enforces this with an exclusive lock on `openartifact.lock` in the data directory (`/data` in the
-container), taken at start before anything else and held until it ends. A second container or process on the same
-volume does not start; its log ends with (the message is one line) and it exits with status 3:
+container), taken at start before anything else and held until it ends. A second process on the same data directory does
+not start. Started by hand (`openartifact`), its log ends with (the message is one line) and it exits with status 3:
 
 ```
 openartifact.exceptions.ConfigurationError: The data directory /data is in use by another OpenArtifact process
@@ -288,7 +288,8 @@ one, so an update or a recreate is not refused. The lock ends with the process h
 OOM kill included); the file stays in the volume, is empty and needs no cleanup — do not delete it while the
 application runs.
 
-The entrypoint's migrations (`alembic upgrade head`) hold the same lock (`python -m openartifact.process_lock`), so a
-second container is refused before it migrates the database: its log shows "The data directory is in use by another
-OpenArtifact process" and it exits with status 3. One limit: on a file system without lock support the application
+A second container is refused one step earlier: the entrypoint's migrations (`alembic upgrade head`) hold the same
+lock (`python -m openartifact.process_lock`), so it never migrates the database the first one serves. Its log ends with
+"ERROR: The data directory /data is in use by another OpenArtifact process …" and "Aborting startup.", and it exits
+with status 3. One limit: on a file system without lock support the application
 logs "cannot be locked ... starting without the lock" and starts without the protection.

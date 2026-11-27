@@ -1,5 +1,6 @@
-"""The contract of the live event stream (``GET /api/events``): the names the server publishes, the names the browser listens to
-and the names the pages handle are the same set.
+"""The contract of the live event stream (``GET /api/events``): every name a page handles is listened to, every name listened to
+is published, and every published name is listened to or named in ``SERVER_ONLY`` with its reason. (A listened name that no
+page compares against is allowed: some pages react to any event, and a handler that looks names up in a table is not seen.)
 
 The server sends named SSE events (``event: <type>``); the browser client (``static/js/tasks/events.js``) adds a listener only for
 the names in ``EVENT_TYPES``, so a name missing there is dropped without a trace and the page's handler never runs. All three sides

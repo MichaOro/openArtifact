@@ -28,6 +28,12 @@ REFUSED = r"is in use by another OpenArtifact process"
 
 Holder = Callable[[Path], subprocess.Popen[str]]
 
+
+def _key(data_dir: Path) -> str:
+    """The entry of ``data_dir`` among the locks this process holds (other tests' entries do not matter here)."""
+    return os.path.realpath(data_dir / process_lock.LOCK_FILENAME)
+
+
 # Holds the lock of the directory in argv[1] until it is killed or its stdin closes.
 _HOLDER = """
 import sys
@@ -89,9 +95,8 @@ def test_the_lock_is_released_when_its_process_is_killed(tmp_path: Path, holder:
 
 def test_the_descriptor_is_not_inherited_by_child_processes(tmp_path: Path) -> None:
     with process_lock.hold(tmp_path):
-        (held,) = process_lock._held.values()
-        assert not os.get_inheritable(held.fd)
-    assert not process_lock._held
+        assert not os.get_inheritable(process_lock._held[_key(tmp_path)].fd)
+    assert _key(tmp_path) not in process_lock._held
 
 
 def test_applications_of_one_process_share_the_lock(tmp_path: Path, holder: Holder) -> None:
@@ -99,7 +104,7 @@ def test_applications_of_one_process_share_the_lock(tmp_path: Path, holder: Hold
     with process_lock.hold(tmp_path):
         with process_lock.hold(tmp_path):
             pass
-        assert len(process_lock._held) == 1  # the outer one still holds it
+        assert _key(tmp_path) in process_lock._held  # the outer one still holds it
         proc = subprocess.run(
             [sys.executable, "-c", _HOLDER, str(tmp_path)],
             cwd=ROOT,
@@ -109,7 +114,7 @@ def test_applications_of_one_process_share_the_lock(tmp_path: Path, holder: Hold
             timeout=30,
         )
         assert proc.returncode != 0 and REFUSED in proc.stderr
-    assert not process_lock._held
+    assert _key(tmp_path) not in process_lock._held
 
 
 def test_a_second_app_refuses_before_recovery_and_leaves_the_running_run_alone(
@@ -153,11 +158,11 @@ def test_the_lock_is_released_after_shutdown_and_after_a_failed_startup(
     settings: Settings,
 ) -> None:
     with TestClient(_create_app(settings)):
-        assert len(process_lock._held) == 1
-    assert not process_lock._held
+        assert _key(settings.data_dir) in process_lock._held
+    assert _key(settings.data_dir) not in process_lock._held
     with TestClient(_create_app(settings)):  # the next application starts on the same directory
         pass
-    assert not process_lock._held
+    assert _key(settings.data_dir) not in process_lock._held
 
     with (
         patch("openartifact.database.build_engine", side_effect=RuntimeError("boom")),
@@ -165,7 +170,7 @@ def test_the_lock_is_released_after_shutdown_and_after_a_failed_startup(
         TestClient(_create_app(settings)),
     ):
         pass
-    assert not process_lock._held
+    assert _key(settings.data_dir) not in process_lock._held
 
 
 def test_a_file_system_without_locks_starts_with_a_warning(
@@ -179,7 +184,7 @@ def test_a_file_system_without_locks_starts_with_a_warning(
         caplog.at_level(logging.WARNING, logger="openartifact.process_lock"),
         process_lock.hold(tmp_path),
     ):
-        assert not process_lock._held
+        assert _key(tmp_path) not in process_lock._held
     assert "cannot be locked" in caplog.text and "No locks available" in caplog.text
     assert "starting without the lock" in caplog.text
 
@@ -192,7 +197,7 @@ def test_a_platform_without_fcntl_starts_with_a_warning(
         caplog.at_level(logging.WARNING, logger="openartifact.process_lock"),
         process_lock.hold(tmp_path),
     ):
-        assert not process_lock._held
+        assert _key(tmp_path) not in process_lock._held
     assert "This platform has no fcntl" in caplog.text
 
 
@@ -236,3 +241,29 @@ def test_the_migration_step_is_refused_while_another_process_holds_the_lock(
 def test_the_migration_step_passes_on_the_exit_status_of_its_command(tmp_path: Path) -> None:
     assert _run_locked(tmp_path, sys.executable, "-c", "raise SystemExit(5)").returncode == 5
     assert _run_locked(tmp_path).returncode == 2  # no command: usage
+
+
+def test_the_lock_file_is_opened_for_writing_and_read_only_where_writing_is_refused(
+    tmp_path: Path,
+) -> None:
+    """On NFS an exclusive flock needs a descriptor open for writing; a lock file the process may not write is
+    still locked through a read-only descriptor (on a local file system)."""
+    with process_lock.hold(tmp_path):
+        fd = process_lock._held[_key(tmp_path)].fd
+        assert fcntl.fcntl(fd, fcntl.F_GETFL) & os.O_ACCMODE == os.O_RDWR
+    lock_file = tmp_path / process_lock.LOCK_FILENAME
+    lock_file.chmod(0o444)
+    try:
+        if os.access(lock_file, os.W_OK):
+            pytest.skip("running as a user who may write any file (root)")
+        with process_lock.hold(tmp_path):
+            fd = process_lock._held[_key(tmp_path)].fd
+            assert fcntl.fcntl(fd, fcntl.F_GETFL) & os.O_ACCMODE == os.O_RDONLY
+            with pytest.raises(BlockingIOError):  # the lock is really held
+                other = os.open(lock_file, os.O_RDONLY)
+                try:
+                    fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                finally:
+                    os.close(other)
+    finally:
+        lock_file.chmod(0o644)

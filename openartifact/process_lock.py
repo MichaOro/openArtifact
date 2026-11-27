@@ -63,6 +63,19 @@ _guard = threading.Lock()  # the TestClient runs each lifespan in a thread of it
 _held: dict[str, _Held] = {}  # by the real path of the lock file
 
 
+def _open(path: Path) -> int:
+    """The lock file's descriptor, opened for writing: on NFS Linux emulates ``flock`` with a byte-range lock, and an
+    exclusive one needs a descriptor open for writing (``EBADF`` otherwise, which would leave the directory unlocked).
+    Read-only only where writing is refused (a lock file of another user, a read-only mount); ``flock`` works on it
+    on a local file system."""
+    try:
+        return os.open(path, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o644)
+    except OSError as exc:
+        if exc.errno not in (errno.EACCES, errno.EROFS):
+            raise
+        return os.open(path, os.O_RDONLY | os.O_CLOEXEC)
+
+
 def _acquire(data_dir: Path) -> str | None:
     """Take the lock; the key to release it with, or ``None`` when the process runs without it."""
     path = data_dir / LOCK_FILENAME
@@ -82,8 +95,7 @@ def _acquire(data_dir: Path) -> str | None:
             if not data_dir.exists():
                 data_dir.mkdir(parents=True, exist_ok=True)
                 logger.info("Created data directory: %s", data_dir)
-            # read-only is enough for flock and works on a lock file another user created
-            fd = os.open(path, os.O_RDONLY | os.O_CREAT | os.O_CLOEXEC, 0o644)
+            fd = _open(path)
         except OSError as exc:  # the database step reports an unusable directory itself
             logger.warning(
                 "The lock file %s cannot be opened (%s): starting without the lock, so a second "

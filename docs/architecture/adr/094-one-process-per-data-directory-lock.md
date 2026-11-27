@@ -51,7 +51,9 @@ writing.
 POSIX record locks belong to the process: they never conflict within one process, and closing *any* descriptor of
 the file in the process drops them. `flock` locks belong to the open file description, which matches "this
 application holds the directory". On Linux, `flock` on NFS is mapped to a record lock on the server, so it also
-works across NFS clients.
+works across NFS clients; an exclusive record lock needs a descriptor open for writing, so the lock file is opened
+read-write (read-only only where writing is refused: a lock file of another user or a read-only mount, where it is
+honoured on a local file system).
 
 ## 4. Consequences
 

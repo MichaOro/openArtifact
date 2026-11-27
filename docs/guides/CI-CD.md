@@ -84,7 +84,8 @@ so CI, a local `uv sync` and the image use the same versions.
 
 1. **Stage 1 (builder):** `python:3.12-slim` pinned by digest; `uv export --frozen` writes the runtime part of
    `uv.lock` with hashes, `pip install --require-hashes` installs exactly that, then the package itself (uv is
-   mounted from the pinned `ghcr.io/astral-sh/uv` image for this step only)
+   mounted from the pinned `ghcr.io/astral-sh/uv` image for this step only). The package's build backend
+   (`hatchling`, fetched by pip's build isolation) is not pinned; it builds the wheel and is not shipped
 2. **Stage 2 (runtime):** the same `python:3.12-slim` digest, copy the installed packages, non-root user; no uv
 
 ### Image Labels

@@ -36,7 +36,7 @@ Scenarios for executing nodes, credentials and history (each is checked by tests
 OpenArtifact Quality
 ├── Deployability (Must)
 │   ├── Docker Compose one-command startup
-│   ├── Reproducible build from the Dockerfile (base images pinned by digest, Python dependencies from `uv.lock`)
+│   ├── Locked build from the Dockerfile (base images pinned by digest, runtime dependencies from `uv.lock` with hashes; the build backend of the package itself is not pinned)
 │   └── Single-port delivery (2909)
 ├── Reliability (Must)
 │   ├── Graceful shutdown, restart recovery (runs, executions, orphan code processes)

@@ -59,7 +59,9 @@ on:
 permissions:
   contents: read
 
-# The uv release every job installs with (uv.lock is written by it; the Dockerfile pins the same release).
+# The uv release every job installs with (uv.lock is written by it). The same release is pinned in two more places
+# that cannot read this value: audit.yml (setup-uv `version`) and the Dockerfile (the ghcr.io/astral-sh/uv image).
+# Change all three together; Dependabot (docker) bumps only the Dockerfile.
 env:
   UV_VERSION: "0.13.9"
 

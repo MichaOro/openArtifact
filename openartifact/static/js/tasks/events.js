@@ -1,5 +1,6 @@
 /* Server-sent events client. The server sends named events; only the names in EVENT_TYPES get a listener here, any other one is
- * dropped by the browser. tests/test_event_contract.py keeps the list equal to what the server publishes and the pages handle.
+ * dropped by the browser. tests/test_event_contract.py checks that every name here is published, that every published name is here
+ * (or server-only, with a reason) and that every name a page compares against is here.
  * EventSource reconnects by itself after a lost connection; events missed meanwhile are not
  * replayed, so every (re)connect calls onOpen so the caller can resync from the REST API. A refused
  * connection (the sign-in expired: 401) is not retried by the browser; onClosed tells the caller.

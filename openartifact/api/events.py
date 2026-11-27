@@ -27,7 +27,8 @@ router = APIRouter(prefix="/api", tags=["events"], responses=GATED)
 async def stream_events(bus: EventBusDep) -> StreamingResponse:
     """Stream the application's events, each with its ``event:`` name and a JSON ``data:`` payload. The browser listens
     to every name in this first list (``EVENT_TYPES`` in ``static/js/tasks/events.js``; ``tests/test_event_contract.py``
-    keeps that list equal to what the server publishes and the pages handle):
+    checks that each is published, that every published name is in it or server-only, and that a name a page handles is
+    in it):
 
     - ``task.created``, ``task.updated``, ``task.moved`` (lane or position only): the artifact; ``task.deleted``
       (``{"id"}``).

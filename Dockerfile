@@ -1,5 +1,6 @@
 # Base images are pinned by digest (multi-arch index); Dependabot (docker) proposes updates.
 # uv is used in the builder only, to export the locked runtime dependencies; the runtime stage has no uv.
+# Its release is the one of UV_VERSION in .github/workflows/ci.yml and of audit.yml: change them together.
 FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d AS uv
 
 # ── Stage 1: Build ────────────────────────────────────────────────
