@@ -44,7 +44,7 @@ def _greeter(api: httpx.Client, agent: dict[str, Any]) -> dict[str, Any]:
     )
     connect(api, action, trigger, "out", ask, "in")
     connect(api, action, ask, "pass", output, "pass")
-    return action
+    return dict(action)
 
 
 def test_the_typed_value_reaches_the_agent_and_its_window_shows_no_false_warning(
