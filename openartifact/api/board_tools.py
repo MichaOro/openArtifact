@@ -500,7 +500,9 @@ class BoardTools:
         """Start processing an artifact. Without a choice it starts with the pipeline, stage and action it has.
         Stages before the starting stage count as done. ``dry_run`` runs it under real conditions but skips everything that writes
         (the artifact stays as it is); ``inputs`` are values for the declared inputs of the entry (of the action when ``action`` is
-        given, else of the pipeline); ``version`` is ``published`` (default) or ``draft``. The last two are for a dry run only."""
+        given, else of the pipeline); ``version`` is ``published`` (default) or ``draft``. The last two are for a dry run only. A pipeline in the observe mode runs every
+        start as a dry run: the answer says ``dry_run: true, observed: true``; once its observation has ended the start is refused
+        (``observation_ended``) until the owner releases it or observes again (``release_observe_block``, ``observe_again``)."""
         pipeline_id, stage_id, action_id = await self._target(pipeline, stage, action)
         run = await guarded(
             self._service.start(

@@ -15,6 +15,7 @@ from openartifact.comments.service import CommentService
 from openartifact.database import get_db_session
 from openartifact.engine.runner import RunEngine
 from openartifact.events import EventBus
+from openartifact.graph.observe_service import ObserveService
 from openartifact.tasks.service import ArtifactService
 
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
@@ -68,6 +69,12 @@ def get_event_bus(request: Request) -> EventBus:
     return bus
 
 
+def get_observe(request: Request) -> ObserveService:
+    """The application's observe mode service."""
+    service: ObserveService = request.app.state.observe
+    return service
+
+
 ServiceDep = Annotated[ArtifactService, Depends(get_artifacts)]
 FieldsDep = Annotated[ArtifactFieldService, Depends(get_artifact_fields)]
 CommentsDep = Annotated[CommentService, Depends(get_comments)]
@@ -76,3 +83,4 @@ AgentsDep = Annotated[AgentService, Depends(get_agents)]
 ProvidersDep = Annotated[ProviderService, Depends(get_providers)]
 EngineDep = Annotated[RunEngine, Depends(get_engine)]
 EventBusDep = Annotated[EventBus, Depends(get_event_bus)]
+ObserveDep = Annotated[ObserveService, Depends(get_observe)]

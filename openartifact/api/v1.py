@@ -30,6 +30,7 @@ from openartifact.api.lanes import (
     LANES_DESCRIPTION,
     UPDATE_DESCRIPTION,
 )
+from openartifact.api.observe import build_observe_router
 from openartifact.api.schemas import PipelineChainRead
 from openartifact.api.secrets import StoreDep
 from openartifact.artifact_fields.schemas import ArtifactFieldsRead, ArtifactFieldsWrite
@@ -70,6 +71,7 @@ router.include_router(build_comments_router("/artifacts", "api", ["integration A
 router.include_router(build_activity_router("/artifacts", ["integration API"]))
 router.include_router(build_guards_router("", ["integration API"], editor=False))
 router.include_router(build_heartbeat_router("", ["integration API"]))
+router.include_router(build_observe_router("", ["integration API"], "api"))
 
 
 @router.get(
@@ -275,7 +277,8 @@ async def get_run_results(ref: str, service: ServiceDep) -> list[NodeResultRead]
     responses=errors(404, 409, 422, 429, write=True, body=True),
 )
 async def start_run(ref: str, service: ServiceDep, payload: RunStart | None = None) -> RunRead:
-    """Start processing. Without a body it starts with the pipeline, stage and action the artifact has."""
+    """Start processing. Without a body it starts with the pipeline, stage and action the artifact has. A pipeline in the observe mode
+    (ADR-088) runs as a dry run (``observed: true``); once its observation has ended the start is 409 ``observation_ended``."""
     body = payload or RunStart()
     return await service.start(
         ref,

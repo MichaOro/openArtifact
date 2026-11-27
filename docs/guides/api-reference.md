@@ -146,6 +146,22 @@ The browser has the same routes under `/api/guards` and `/api/guard-attachments`
 system (`retention`, `guard`, the planned `lane`). The flow of an execution carries `guards`: the counters per scope and
 guard (by attachment), the last heartbeat and the firings with their facts.
 
+### Observe mode of a pipeline (ADR-088)
+
+A pipeline in the **observe mode** runs every start, from any door, as a dry run that changes nothing (`dry_run: true`, `observed: true` in the answer of the start and in the
+run and the execution). The mode is set in the **draft** and goes live with a **publication**; after its `days` or `runs` every start is refused until the owner decides
+(**release**, or **observe again**). The same routes exist under `/api/pipelines/{ref}/observe` for the editor; `ref` is the pipeline's id, slug or name. Release and
+observe again are immediate and recorded in `state.events` (who: `user`, `api` or `mcp`).
+
+| Method | Path | Purpose | Errors |
+|--------|------|---------|--------|
+| GET | `/api/v1/pipelines/{ref}/observe` | `draft` and `published` (`{enabled, days, runs}` or `null`), `draft_differs` and `state`: `enabled`, `observing`, `ended`, `released`, `days`, `runs`, `runs_done`, `started_at`, `ends_at`, `reason`, the last decisions in `events` | 404, 409 (a name fits several) |
+| PUT | `/api/v1/pipelines/{ref}/observe` | `{"enabled": bool, "days?": 1-365, "runs?": 1-100000, "publish?": bool}`: set the **draft** (nothing that runs changes); with `publish: true` the pipeline is published in the same call, refused (`409`, `draft_has_other_changes`, nothing changed) when the draft holds other unpublished changes | 404, 409, 422 |
+| POST | `/api/v1/pipelines/{ref}/observe/release` | The pipeline runs for real from now on, until a publication changes the mode; immediate | 404, 409 (the published version has no mode, or released already) |
+| POST | `/api/v1/pipelines/{ref}/observe/again` | `{"days?", "runs?"}`: observe again from now, counters from zero, with that limit (none: the published setting's); immediate | 404, 409 (the published version has no mode), 422 |
+
+A start of a pipeline whose observation has ended answers `409` with the code `observation_ended` and the reason; a call of such a pipeline from another fails the call with it.
+
 ### Settings (`/api/v1/settings`)
 
 | Method | Path | Purpose | Errors |
@@ -468,6 +484,10 @@ execution.
 | `list_providers` | | The LLM providers with their models and the last connection test; never a key; read only |
 | `list_guards` | `pipeline?` (name or id) | The guard library: each definition (its draft: trigger, condition, consequence, escalation, scope types; `published_version`; `draft_changed`) with its attachments (where, on or off, `guard_published`); with `pipeline` only the guards attached to it. MCP cannot create, change or publish a guard |
 | `set_guard_enabled` | `guard` (an attachment's id, or the guard's name or id when it is attached in one place), `enabled`, `pipeline?` | Switch a guard on or off where it is attached (off acts on running executions at once) |
+| `get_observe_mode` | `pipeline` (id, URL name or name) | The observe mode: draft, published, `draft_differs` and the state of the observation; read only (ADR-088) |
+| `set_observe_mode` | `pipeline`, `enabled`, `days?`, `runs?`, `publish?` | Set the mode in the draft; with `publish` also publish, refused (`draft_has_other_changes`) when the draft has other unpublished changes |
+| `release_observe_block` | `pipeline` | The pipeline runs for real from now on (immediate, recorded as `mcp`) |
+| `observe_again` | `pipeline`, `days?`, `runs?` | Observe again from now, with that limit or the published setting's (immediate, recorded) |
 | `heartbeat` | `execution_id`, `note?` | Restart the stall clock of a running execution |
 
 Not available through MCP, on purpose: deleting cards, lanes or executions, creating, renaming or deleting lanes, creating, changing, publishing or deleting agents and providers, writing or deleting credentials, changing

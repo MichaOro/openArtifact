@@ -5,7 +5,7 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-086](086-dry-run.md) (a run can be a dry run nobody asked for by hand), [ADR-070](070-versions-of-actions-and-pipelines.md) (a version also holds the observe mode), [ADR-082](082-references-by-id-and-the-publish-check.md) (the check names a change of the mode)  
-**Implemented in:** `graph/observe.py` (the setting), `graph/observe_state.py` (the state, the admission, release and renewal), `graph/content.py` and `graph/versions.py` (the setting is part of a version), `graph/repository.py` (`set_observe`, `restore`), `graph/publishing.py` (`on_publication`), `graph/preflight.py` (`observe_on`, `observe_off`, `observe_changed`), `engine/runner.py` (`_start`, the not-observable end, the call check), `engine/context.py` (`depends_on_skipped`), `engine/history.py`, `engine/schemas.py` (`observed`), `models/` and migration `0067_observe_mode.py`  
+**Implemented in:** `api/observe.py`, `graph/observe_service.py`, `graph/observe_schemas.py` and `api/mcp.py` (the doors), `graph/observe.py` (the setting), `graph/observe_state.py` (the state, the admission, release and renewal), `graph/content.py` and `graph/versions.py` (the setting is part of a version), `graph/repository.py` (`set_observe`, `restore`), `graph/publishing.py` (`on_publication`), `graph/preflight.py` (`observe_on`, `observe_off`, `observe_changed`), `engine/runner.py` (`_start`, the not-observable end, the call check), `engine/context.py` (`depends_on_skipped`), `engine/history.py`, `engine/schemas.py` (`observed`), `models/` and migration `0067_observe_mode.py`  
 **Affected chapters:** guides [execution nodes](../../guides/execution-nodes.md), [execution history](../../guides/execution-history.md), [API reference](../../guides/api-reference.md)
 
 ## 1. Context
@@ -47,12 +47,18 @@ that as a mode of the pipeline, decided only by a publication, with an end that 
   cannot be observed any further*. (The chain of a pipeline is one path at a time, so this ends the observation of that run; what was seen before is in its steps.) A manual
   dry run keeps its error with the hint to use mock data.
 
+- **API and MCP are a remote-maintenance interface.** `GET/PUT /api/pipelines/{ref}/observe` (and the same under `/api/v1`) read the setting and the state and set
+  the **draft** (`ref`: id, slug or name); `POST .../release` and `POST .../again` are the two immediate decisions. `PUT` with `publish: true` also publishes, **only when the
+  draft differs from the published version in nothing else** (otherwise `409 draft_has_other_changes` and nothing is changed): the call is the caller's consent to this one
+  change, never to others. MCP has `get_observe_mode`, `set_observe_mode` (the same `publish`), `release_observe_block` and `observe_again`; none deletes. The record of a
+  decision names the door (`user`, `api`, `mcp`). A start from outside is answered with `dry_run: true, observed: true`, and refused with `409 observation_ended` after the end.
+
 ## 3. Consequences
 
 - Turning the mode on or off is a controlled step: the draft says what it will do, the publish check names it, a publication makes it true.
 - An observed pipeline can look quiet when its steps depend on writes: the *not observable* end says where and why.
-- An ended observation blocks the pipeline until someone releases it or observes again: that is the point, and it needs the owner (the interface and the API/MCP,
-  card #149).
+- An ended observation blocks the pipeline until someone releases it or observes again: that is the point, and it needs the owner, from the editor or remotely
+  (see below).
 - Migration 0067 only adds columns (`observed` twice, `observe_state`); it drops the guard views first and removes the leftover copy of an earlier failed start, as 0066.
 
 ## 4. Not in this decision

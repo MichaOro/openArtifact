@@ -35,6 +35,7 @@ from openartifact.api.guards import build_guards_router
 from openartifact.api.hardening import BodyLimit, CrossSiteGuard, HostCheck, SecurityHeaders
 from openartifact.api.lanes import router as lanes_router
 from openartifact.api.mcp import build_mcp
+from openartifact.api.observe import build_observe_router
 from openartifact.api.routes import public_router as public_api_router
 from openartifact.api.routes import router as api_router
 from openartifact.api.rules import router as rules_router
@@ -61,6 +62,7 @@ from openartifact.exceptions import (
     ConfigurationError,
     OpenArtifactError,
 )
+from openartifact.graph.observe_service import ObserveService
 from openartifact.guards.monitor import GuardSettings
 from openartifact.guards.service import GuardService
 from openartifact.logging_config import configure_logging
@@ -181,6 +183,7 @@ def _create_app(settings: Settings) -> FastAPI:
         build_registry()
     )  # the sidebar and the rail of the artifact dialog (ADR-066)
     app.state.activity = ActivityService(database.new_session)
+    app.state.observe = ObserveService(database.new_session, app.state.event_bus)
     #: What the agents of a running execution do, in memory: the ``agent.*`` facts of the guards (ADR-060 addendum).
     app.state.telemetry = Telemetry()
 
@@ -258,6 +261,7 @@ def _create_app(settings: Settings) -> FastAPI:
         app.state.guards,
         app.state.engine,
         app.state.storage,
+        app.state.observe,
     ).streamable_http_app(stateless_http=True, json_response=True, host="0.0.0.0")
     app.router.routes.append(Route("/mcp", endpoint=TokenProtected(app.state.mcp_app, settings)))
 
@@ -307,6 +311,7 @@ def _create_app(settings: Settings) -> FastAPI:
     app.include_router(artifact_fields_router)
     app.include_router(executions_router)
     app.include_router(node_types_router)
+    app.include_router(build_observe_router("/api", ["pipelines"], "user", gated=True))
     app.include_router(pipelines_router)
     app.include_router(actions_router)
     app.include_router(runs_router)

@@ -19,6 +19,7 @@ flow) is in [Concepts](concepts.md).
   kept and deleted like the others) that skipped everything that writes, see [execution nodes](execution-nodes.md#dry-run-testlauf).
   The global list filters them with `dry_run=only` or `dry_run=exclude`; the counters *failed* and *done in 24 hours* count real runs only,
   *running* and *total* count all.
+- **Observed runs** (ADR-088) are the runs of a pipeline in the observe mode: dry runs that nobody started by hand. They carry `observed: true` beside `dry_run: true` and are counted like dry runs. The history's own chip and filter for them come with the editor's part of the observe mode.
 - **Origin** (`started_by`): `user` (the browser), `api` (the integration API), `mcp` (the MCP server) or
   `system`.
 - **The pipeline** by id and by name (a copy: the pipeline may later be renamed or deleted; the history
