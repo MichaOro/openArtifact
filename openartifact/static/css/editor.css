@@ -576,14 +576,13 @@
 .ge-dry__hint { font-size: 0.8125rem; color: var(--color-text-muted); }
 .ge-dry__error { margin: 0; font-size: 0.8125rem; color: var(--color-danger); }
 .ge-dry__result { display: grid; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--glass-border); }
-.ge-dry__resulthead { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
-.ge-dry__resulthead[data-status="failed"] strong { color: var(--color-danger); }
-.ge-dry__steps { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); font-size: 0.8125rem; }
-.ge-dry__step { padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-text-muted) 10%, transparent); }
-.ge-dry__step[data-outcome="fail"] { background: color-mix(in srgb, var(--color-danger) 14%, transparent); }
-.ge-dry__stepoutcome { color: var(--color-text-secondary); }
-.ge-dry__steptext { margin: 0; overflow-wrap: anywhere; color: var(--color-text-secondary); }
+.ge-dry__result[hidden], .ge-dry__card[hidden], .ge-dry__add[hidden] { display: none; }
+/* The rows are the rows of the artifact's History tab (history-row-template); the stop is the Start button, so a row has no bin here */
+.ge-dry__runs .history-row__delete { display: none; }
+.ge-dry__runs .history-row { grid-template-columns: minmax(0, 1fr); }
 .ge-dry__history { font-size: 0.8125rem; justify-self: start; }
+.ge-dry__cardhead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.ge-dry__add { justify-self: start; }
 
 /* Mock data (ADR-087): the pin on a card whose mock is switched on, and the Mock tab of the node's window. */
 .ge-node__pin {

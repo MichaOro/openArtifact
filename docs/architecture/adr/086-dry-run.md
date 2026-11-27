@@ -81,3 +81,30 @@ cannot run alone: the tab says *Place this action in a pipeline to run it* and t
 
 Accessibility: the tabs follow the ARIA tab pattern (arrow keys, Home, End), the check and the result are live regions, the error is an alert, every control has its label,
 the order of the tab key is the order of the form. On a narrow screen the form is stacked and does not scroll sideways.
+
+## 5. Addendum 2: the runs as rows, Stop in the same place, the test card behind "+ Add"
+
+The first tab printed the steps of a run inline, which made the window very long, and it started with a required card field. The owner asked for the shape the artifact's
+page already has. The engine, the API and the rules of the start are unchanged; points 1, 5 and 6 above are replaced by this.
+
+- **The result is rows.** Under the form the tab lists the latest **five** dry runs of this graph on the chosen card (executions with `dry_run`, started in this pipeline; for an action:
+  in the pipeline that places it), newest first, each as **the row of the artifact's History tab**: the same markup (`components/history_row_template.html`, now included by the
+  History tab and by the editor page), the same filler (`HistoryList` of `tasks/history-list.js`): status chip (Running, Done, Failed, Stopped), the number, the *Dry run* flag, the
+  time, the duration (running ones count on), the pipeline, the origin and the step count. The row has no bin here (the stop is the Start button). A click leads to the
+  execution in the history (`/artifacts/<number>/executions/<id>`), where the steps, the flow and *Keep as mock* are; *All dry runs in the history* leads to the history narrowed
+  to dry runs (`/executions?dry_run=only`). The list is read from `GET /api/tasks/{id}/executions`, read again at every `run.updated` event of the card (after a short pause), when the
+  event stream (re)opens, and every three seconds while a run is running as a safety net, so the row and the button follow a run to its end without a reload.
+- **Stop in the same place.** While a listed dry run is running, the *Start dry run* button is the stop button (*Stop processing*, the danger look, the stop icon): the same
+  action as the processing button of an artifact (`stopRun`, `POST /api/tasks/{id}/run/stop`). The row then shows *Stopped*. Only dry runs of this tab are stopped from here.
+- **The test card is an optional item behind "+ Add".** The form always has *Runs in* (an action), the *Test cases*, the *Inputs*, the *Version* and the start. The button
+  *Add* opens the shared menu with the items that are not on the form yet; *Test card* is the only one today and a small list in `dry-run-model.js` (`OPTIONAL_ITEMS`: key, label,
+  icon) is where the next one is added (its builder goes into the panel under the same key). A card chosen once is remembered per graph and is on the form again the next time;
+  the X beside it takes the field off again and forgets the card.
+- **A card is still needed to run.** A run belongs to a card in the engine, not only in the form: an execution has a task (`executions.task_id`, its number counts per task, the
+  history page is the card's), one run exists per card, and the references to the card (`${card...}`) and the nodes that write on it need one. A dry run without a card would mean a
+  card that is not on the board (or a nullable `task_id` through the executions, the views and every list), which this change does not do. So the start stays locked with the
+  reason *Add a test card first (Add)* until a card is on the form.
+- **Draft means the draft, everywhere.** A dry run with *Draft* freezes the draft of the pipeline and the draft of **every graph it places or calls** (actions and called
+  pipelines, `build_snapshot(..., draft=True)` down to `graph_for_run(..., draft=True)`), including edits made after the last publish: the wiring of the stage, the settings
+  of a node, the mapping of an input. *Published* freezes the published versions of all of them (a graph never published counts by its draft). The same choice is made by the
+  check before the start. Pinned by `test_a_draft_dry_run_follows_the_draft_of_the_pipeline_and_of_the_action_it_places` (both graphs published, then both edited).

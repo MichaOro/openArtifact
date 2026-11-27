@@ -85,28 +85,7 @@ export function startErrorText(error) {
   return error?.message || t("editor.dry_run.error_unknown");
 }
 
-/** The word for a run's status. */
-export function statusLabel(status) {
-  return { running: t("common.running"), done: t("common.done"), failed: t("common.failed"), stopped: t("common.stopped") }[status] ?? status;
-}
-
-/** One line of the result: the step's name, how it ended, and for a skipped writing step what it would have done. */
-export function stepRow(step) {
-  const skipped = Boolean(step.data?.dry_run);
-  const would = skipped && step.data.would_have ? t("editor.dry_run.would_have", { what: step.data.would_have }) : "";
-  const text = would || (step.outcome === "fail" ? (step.reason ?? "") : "");
-  return { id: step.id, name: step.node_name, outcome: step.outcome, skipped, text };
-}
-
-/** The steps of the result in order. The Trigger that starts an action and an Output that passes say nothing new: they are left out, an Output that fails stays. */
-export function stepRows(results) {
-  return [...(results ?? [])]
-    .filter((step) => step.kind !== "trigger" && !(step.kind === "output" && step.outcome !== "fail"))
-    .sort((a, b) => a.seq - b.seq)
-    .map(stepRow);
-}
-
-/** The page of the execution in the history, which shows the run with its mark. */
+/** The page of the execution in the history, which shows the run with its mark: where a click on the row of a dry run leads. */
 export const historyUrl = (taskNumber, executionId) => `/artifacts/${taskNumber}/executions/${encodeURIComponent(executionId)}`;
 
 /** The way to run an action definition: the places a pipeline puts it; none means it cannot run alone. */
@@ -117,3 +96,27 @@ export function chooseTarget(placements, savedActionId) {
 
 /** The label of a place an action is put in. */
 export const placementLabel = (placement) => `${placement.pipeline_name} · ${placement.stage_name}`;
+
+/** The list of the global execution history narrowed to dry runs: where "All dry runs" leads. */
+export const allDryRunsUrl = "/executions?dry_run=only";
+
+/** How many dry runs the tab lists (the newest); the rest is in the history. */
+export const LISTED_RUNS = 5;
+
+/** The dry runs of this graph on the card, newest first: a dry run, started in this pipeline (for an action: the pipeline that places it). */
+export function listedRuns(executions, pipelineId) {
+  return [...(executions ?? [])]
+    .filter((e) => e.dry_run && (!pipelineId || e.pipeline_id === pipelineId))
+    .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
+    .slice(0, LISTED_RUNS);
+}
+
+/** The dry run that is running now (the one the Start button turns into a Stop for), or null. */
+export const runningRun = (runs) => (runs ?? []).find((e) => e.status === "running") ?? null;
+
+/** What the form may be given besides what it always has (Runs in, Inputs, Version, Start). One entry per item: add one here and the
+ * "+ Add" menu offers it; the panel draws it with its own builder under the same key. `labelKey` is the menu entry and the field's name. */
+export const OPTIONAL_ITEMS = [{ key: "card", labelKey: "editor.dry_run.card_label", icon: "plus" }];
+
+/** The items not on the form yet, in the order of the list. */
+export const availableItems = (shown) => OPTIONAL_ITEMS.filter((item) => !shown.has(item.key));
