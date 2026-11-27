@@ -19,6 +19,7 @@ import { t } from "../i18n.js";
 import { GuardEditor, loadSchema } from "../guards/editor-window.js";
 import { GuardAttachDialog } from "../guards/attach-dialog.js";
 import { GuardPopover } from "../guards/guard-popover.js";
+import { innerNote } from "../guards/inner-note.js";
 import * as model from "../guards/model.js";
 
 const ATTACHMENTS = "/api/guard-attachments";
@@ -178,7 +179,9 @@ export class EditorGuards {
     section.dataset.nodeId = node.id;
     section.dataset.scopeType = type;
     section.append(this.#names(type, node.id));
-    heading.hidden = Boolean(section.querySelector(".gd-names[hidden]")); // nothing to say, nothing shown: no empty area
+    const { definitionId, inner } = this.#inner(type, node.id);
+    if (inner.length) section.append(...this.#innerNames(inner, definitionId ? this.#actionUrl(definitionId) : null));
+    heading.hidden = Boolean(section.querySelector(".gd-names[hidden]")) && !inner.length; // nothing to say, nothing shown: no empty area
     const add = document.createElement("button");
     add.type = "button";
     add.className = "button button--ghost button--sm";
@@ -189,6 +192,25 @@ export class EditorGuards {
     add.addEventListener("click", () => this.add(type, node.id, add));
     section.append(add);
     return section;
+  }
+
+  /** The guards inside the action this card runs: a caption, their names (muted, off ones struck through), the note that they belong to the
+   * action and the link to it. No switch and no Detach: only the action can change them. */
+  #innerNames(inner, actionHref) {
+    const caption = document.createElement("p");
+    caption.className = "popover__caption gd-inner-caption";
+    caption.textContent = t("guards.in_the_action_named", { name: model.innerHolderName(inner) || t("guards.inner_this_action") });
+    const list = document.createElement("ul");
+    list.className = "gd-names gd-names--inner";
+    list.dataset.innerGuards = "";
+    for (const { attachment, guard } of inner) {
+      const item = document.createElement("li");
+      item.classList.toggle("is-off", !attachment.enabled);
+      const where = model.innerScopeText(attachment);
+      item.textContent = `${guard.name}: ${where}${attachment.enabled ? "" : ` (${t("components.switch.off")})`}`;
+      list.append(item);
+    }
+    return [caption, list, ...innerNote(inner, actionHref)];
   }
 
   /** The names of a scope's guards (muted while off), or the note that none watches it. */

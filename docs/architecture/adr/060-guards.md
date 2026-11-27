@@ -278,3 +278,10 @@ the check before a start (§4.4).
 A definition has a draft and published versions ([ADR-081](081-guard-versions.md)): the sentence above that a change to a definition acts on every place it is attached
 to is now true of a **publication**, not of a save. A save changes the draft; only the published version applies, and an execution freezes it when it starts.
 A new definition watches nothing until it is published. Switching an attachment on or off is not part of a version and still acts on running executions at once.
+
+## Addendum (2026-11-27): guards inside an action in the pipeline editor
+
+A guard attached to an action definition (scope `definition`, or one of its nodes) was listed in the card's popup under "In the action" but nowhere else, and nothing said
+why a pipeline offers no Detach for it: it belongs to the action and acts in every pipeline that uses it. The popup and the *Guards* section of the card's window now name the
+action ("In the action "<name>""), list these guards (names, what they watch, off ones struck through, no switch, no Detach) and carry one note with a link that opens the action,
+where Detach is (`guards/inner-note.js`, shared by both). The section's heading shows for inner guards alone. Detaching from the pipeline stays unavailable by design.

@@ -111,6 +111,11 @@ export function innerScopeText(attachment) {
   return attachment.scope_type === "node" ? t("guards.inner_node", { name: attachment.scope_name || "?" }) : t("guards.inner_whole");
 }
 
+/** The name of the action the inner guards belong to (they all sit in the one definition the card runs). */
+export function innerHolderName(inner) {
+  return inner.find(({ attachment }) => attachment.holder_name)?.attachment.holder_name ?? "";
+}
+
 /** How many guards a card's shield counts: its own attachments and, for an action, the ones inside its definition. */
 export function shieldCount(own, inner) {
   return own + inner;
