@@ -73,3 +73,18 @@ prioritise, move the old cards away*.
 - Every tool of the server's board set is on the node's list: a new board tool is one method and one name in `READ_TOOLS` or `WRITE_TOOLS`, and a test
   fails when it is on neither.
 - Not decided and not built: a read only token for `/mcp`; an order within a lane; tools of the administration for an agent.
+
+## Addendum 1: every tool kind is built the same way; the line to the agent goes round a card
+
+The OpenArtifact tool is a tool kind like the others: its manifest says `tool: true`, the one attachment port `tool` on the top and the caption and settings of its card; **the generic layer reads only that**. What is
+specific to a kind is its executor (`agents/board_toolbox.py` for this one), the consumers of a credential type, and the texts. A test (`tests/test_tool_node_modularity.py`) fails when a generic file (the editor's
+JavaScript, the graph, engine and API layers) names a tool kind, and lists the few files where it may (executors, the enumeration, `credentials/types.py`, the Execute Command switch, the Build Context's reading of the Hand
+Over Tool's document). One leak was found and removed: `engine/context.py` kept its own list of the tool kinds that have no result of their own (and the Hand Over Tool was not on it by accident of the list); the set is now
+read from the manifests (`produces_result: false`), the same answer, no kind named.
+
+**The line from a tool to its agent** was drawn for one position only: from the top of the tool up to the bottom of the agent. A tool placed above its agent, or beside it with its top higher than the agent's bottom,
+made the curve run down through the agent's card. `attachmentPath` (`editor/geometry.js`, reached through `edgePath` with `attachment`) now chooses by position, for every tool kind and every line style: a tool that hangs
+**below** its agent (its top at least 24 px under the agent's bottom) keeps the short curve up; otherwise the line leaves the tool's port upwards, runs **above both cards**, out to the nearer side past both, down below both
+and comes up to the agent's port from underneath (rounded for curved and elbow lines, sharp corners for straight). While a connection is dragged the direct line stays (there is no second card yet). Stored positions are
+not touched: the owner's graphs with a tool above its agent look right as they are. Tests: `tests/js/attachment-path.test.mjs` (the line avoids both cards for eight positions and three styles) and
+`tests/e2e/test_tool_edges.py` (the same in the browser, in the editor and on the flow page).

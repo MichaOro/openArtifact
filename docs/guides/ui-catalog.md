@@ -359,3 +359,5 @@ One component copies a long text whole (`components/copy-button.js`); a block th
   permission) it shows "Copying is not possible here" for a moment instead of failing silently.
 - **One writer:** `copyText` is the only code that writes to the clipboard: the text "Copy" buttons of a long text (`clamped-text.js`), of the run context and of the token window use it too.
 - **Not in a header:** step headers and status rows have none; the button belongs to a text block.
+
+**The line from a tool to its agent** (`attachmentPath` in `editor/geometry.js`, the same for every tool kind, in the editor and on the flow page): a tool below its agent keeps the short curve from the top of the tool up to the agent's *Tools* port; a tool above or beside it goes round, above both cards, past both on the nearer side and up to the port from underneath. A line never runs through a card (ADR-079, addendum 1).

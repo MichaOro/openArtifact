@@ -77,7 +77,19 @@ export class CopyButton {
     this.element.hidden = !show;
     this.host?.classList.toggle("copy-host--on", show);
     this.block?.classList.toggle("has-copy", show);
+    this.#syncGutter();
     return show;
+  }
+
+  /** Keep the button left of the block's own scrollbar: the bar sits on the host, over the block's right edge, which is where a classic vertical
+   * scrollbar is drawn. The width of that bar is what the block's outer width has more than its inner width and its borders (0 for overlay scrollbars). */
+  #syncGutter() {
+    const block = this.block;
+    if (!block || !this.host) return;
+    const style = window.getComputedStyle(block);
+    const borders = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+    const bar = Math.max(0, block.offsetWidth - block.clientWidth - borders);
+    this.host.style.setProperty("--copy-gutter", `${bar}px`);
   }
 
   /** Copy the full text; the button says what happened. Returns whether it worked. */
@@ -136,6 +148,7 @@ export function attachCopy(block, getText = () => blockText(block), options = {}
   } else {
     new MutationObserver(() => button.refresh()).observe(block, { childList: true, characterData: true, subtree: true });
   }
+  if (typeof ResizeObserver === "function") new ResizeObserver(() => button.refresh()).observe(block); // a scrollbar comes and goes with the block's size
   button.refresh();
   return button;
 }
