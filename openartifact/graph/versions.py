@@ -19,7 +19,7 @@ from openartifact.models import Graph, GraphVersion, NodeKind
 
 def fingerprint(content: dict[str, Any]) -> str:
     """A hash of the parts of a graph that decide what runs: the nodes (kind, stage, name, what they link to, their settings, whether
-    they have an error output) and the connections. Not the position, the size, the style of a line or the label of a node: moving
+    they have an error output), the connections and the observe mode of a pipeline when it is on. Not the position, the size, the style of a line or the label of a node: moving
     a node does not make the draft a different one."""
     nodes = sorted(
         (
@@ -49,7 +49,13 @@ def fingerprint(content: dict[str, Any]) -> str:
         ),
         key=lambda e: json.dumps(e, sort_keys=True),
     )
-    text = json.dumps({"nodes": nodes, "edges": edges}, sort_keys=True, default=str)
+    shape: dict[str, Any] = {"nodes": nodes, "edges": edges}
+    observe = content.get("observe")
+    if (
+        isinstance(observe, dict) and observe.get("enabled") is True
+    ):  # the observe mode is part of a version (ADR-088); off equals absent
+        shape["observe"] = {k: observe.get(k) for k in ("enabled", "days", "runs")}
+    text = json.dumps(shape, sort_keys=True, default=str)
     return hashlib.sha256(text.encode()).hexdigest()
 
 

@@ -24,6 +24,7 @@ from openartifact.comments.service import CommentService
 from openartifact.credentials.store import SecretStore
 from openartifact.engine.runner import RunEngine
 from openartifact.engine.storage import Cleaner
+from openartifact.graph.observe_service import ObserveService
 from openartifact.guards.service import GuardService
 from openartifact.tasks.service import ArtifactService
 
@@ -45,7 +46,8 @@ INSTRUCTIONS = (
     "execution is and what comes next. To tidy up the board: list_artifacts with brief=true (or search_artifacts) shows cards compactly, get_artifacts "
     "reads several with their comments, move_artifacts, archive_artifacts, set_parent, set_fields and add_comments change up to 50 "
     "cards per call (each card is done on its own and says why it was refused; dry_run only reports), archive_artifact / unarchive_artifact "
-    "do one card. Nothing here deletes."
+    "do one card. get_observe_mode / set_observe_mode / release_observe_block / observe_again read and decide the observe mode of a pipeline "
+    "(every run a dry run that changes nothing; set in the draft, live with a publication). Nothing here deletes."
 )
 
 
@@ -60,6 +62,7 @@ def build_mcp(
     guards: GuardService | None = None,
     engine: RunEngine | None = None,
     storage: Cleaner | None = None,
+    observe: ObserveService | None = None,
 ) -> MCPServer:
     """The server with its tools (see the module docstring)."""
     mcp = MCPServer("OpenArtifact", instructions=INSTRUCTIONS)
@@ -173,6 +176,53 @@ def build_mcp(
             return (await guarded(guards.set_enabled(chosen["id"], enabled))).model_dump(
                 mode="json"
             )
+
+    if observe is not None:
+
+        @mcp.tool()
+        async def get_observe_mode(pipeline: str) -> dict[str, Any]:
+            """The observe mode of a pipeline (name, slug or id; ADR-088): ``draft`` (what the editor shows), ``published`` (what runs;
+            none: off), ``draft_differs`` and ``state`` (``observing``, ``ended``, ``released``, the limit in ``days`` and ``runs``,
+            ``runs_done``, ``started_at``, ``ends_at``, the ``reason`` starts are refused, and the last decisions in ``events``). In the
+            observe mode every run of the pipeline is a dry run that changes nothing (``observed: true``). Read only."""
+            return await guarded(observe.read(pipeline))
+
+        @mcp.tool()
+        async def set_observe_mode(
+            pipeline: str,
+            enabled: bool,
+            days: int | None = None,
+            runs: int | None = None,
+            publish: bool = False,
+        ) -> dict[str, Any]:
+            """Set the observe mode in the DRAFT of a pipeline: ``enabled``, and optionally the limit in ``days`` (1 to 365) and/or
+            ``runs`` (1 to 100000; none: until it is switched off). It goes live only with a publication: with ``publish`` true this
+            call publishes the pipeline too, which is your consent to this one change; it is refused (``draft_has_other_changes``)
+            when the draft holds other unpublished changes, which only the editor's check may release. After its limit every start of
+            the pipeline is refused until ``release_observe_block`` or ``observe_again``."""
+            return await guarded(
+                observe.set_draft(
+                    pipeline,
+                    {"enabled": enabled, "days": days, "runs": runs},
+                    publish=publish,
+                    by="mcp",
+                )
+            )
+
+        @mcp.tool()
+        async def release_observe_block(pipeline: str) -> dict[str, Any]:
+            """Release a pipeline from its observe mode: it runs for real from now on (until a publication changes the mode). Immediate and
+            recorded; use it when the observation has ended (starts are refused) or to end it early. This is the decision of the
+            owner: the pipeline will write again."""
+            return await guarded(observe.release(pipeline, "mcp"))
+
+        @mcp.tool()
+        async def observe_again(
+            pipeline: str, days: int | None = None, runs: int | None = None
+        ) -> dict[str, Any]:
+            """Observe a pipeline again from now (counters from zero), with the ``days`` and ``runs`` given or, when none is given, the
+            published setting's. Immediate and recorded. Refused when the published version has no observe mode."""
+            return await guarded(observe.again(pipeline, "mcp", days, runs))
 
     if engine is not None:
 

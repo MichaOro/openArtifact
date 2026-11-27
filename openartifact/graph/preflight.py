@@ -34,6 +34,8 @@ from openartifact.engine.context import (
 from openartifact.engine.fields import FieldsError, parse_fields
 from openartifact.graph.content import graph_of
 from openartifact.graph.contract import consumer_findings
+from openartifact.graph.observe import describe, of_content
+from openartifact.graph.observe_state import published_setting
 from openartifact.graph.publishing import graph_for_run
 from openartifact.models import Graph, NodeKind, Secret
 
@@ -303,6 +305,32 @@ class _Checker:
                 )
 
 
+async def _observe_findings(
+    session: AsyncSession, graph_id: str, content: dict[str, Any]
+) -> list[Finding]:
+    """A change of the observe mode goes live with the publication (ADR-088): said as a warning the owner confirms."""
+    graph = await session.get(Graph, graph_id)
+    if graph is None or graph.kind != "pipeline":
+        return []
+    draft = of_content(content)
+    now = await published_setting(session, graph)
+    if draft == now:
+        return []
+    if draft is not None and now is None:
+        text = (
+            f"Observe mode will be switched on with this publication ({describe(draft)}): from then on every run of this pipeline, "
+            "from any start, is a dry run that changes nothing"
+        )
+        code = "observe_on"
+    elif draft is None:
+        text = "Observe mode will be switched off with this publication: the pipeline runs for real again"
+        code = "observe_off"
+    else:
+        text = f"Observe mode will change with this publication (from {describe(now)} to {describe(draft)}) and its observation starts again"
+        code = "observe_changed"
+    return [Finding("warning", code, None, content["name"], text)]
+
+
 async def check(session: AsyncSession, graph_id: str) -> list[Finding]:
     """The findings for the draft of the graph ``graph_id`` (an action or a pipeline), errors first. Reads only."""
     content = await graph_of(session, graph_id, mocks=True)
@@ -341,6 +369,7 @@ async def check(session: AsyncSession, graph_id: str) -> list[Finding]:
                 f"{mocks} mock(s) are set in this draft; they are not published and a real run never uses them",
             )
         )
+    found.extend(await _observe_findings(session, graph_id, content))
     # publishing this graph changes its contract for the graphs that run it: said as warnings, the owner decides
     for item in await consumer_findings(session, graph_id):
         found.append(Finding("warning", item["code"], None, item["where"], item["message"]))

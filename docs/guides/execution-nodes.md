@@ -266,6 +266,24 @@ switch. It is for the nodes that leave a result of their own (not Trigger, Outpu
 API: `PATCH /api/{actions|pipelines}/{id}/nodes/{node_id}` takes `mock` (the object, or `null` to remove it) and, on a Trigger, `cases` (`[{"name", "inputs"}]`); the node answers with them.
 `GET .../nodes/{node_id}/last-result` returns the newest stored result of a real run as `{found, outcome, output, reason, data}`.
 
+### Observe mode
+
+A pipeline can be **observed** (ADR-088): every run of it, from any start (a card, the API, the MCP tool, a rule), is a dry run that nobody asked for by hand. It reads
+real data and writes nothing; the run and its execution carry `observed: true` beside `dry_run: true`, and the counters of real runs leave it out. Use it to watch a new
+pipeline on real cards before it changes anything.
+
+- **Set with a publication.** The setting is `{enabled, days, runs}` (days 1 to 365, runs 1 to 100000, either, both or none = until it is switched off). It is kept in the
+  draft and goes live with the next publication, with the others of that version (it is part of the version and of *Changed draft*); the publish check names it
+  (*Observe mode will be switched on with this publication*). A pipeline that was never published and a draft are never observed.
+- **A pipeline called by another follows the outer run** and does not read or count its own mode; a call of a pipeline whose observation has ended fails with the reason.
+- **Mocks are not used** (they are in no published version). The emergency stop still refuses every start; a manual dry run is neither refused by an ended observation nor
+  counted.
+- **The end.** After the days or runs of the setting every start is refused (`409`, `observation_ended`, with the reason) until the owner decides: **release** (the pipeline
+  runs for real from now on, until a publication changes the mode) or **observe again** (counters from zero, with a new limit). Both are immediate, need no publication and are
+  recorded (the last twenty decisions with who and when).
+- **What cannot be observed.** A node that needs the result of a skipped write does not fail the run and does not take On Fail: its step says *Not observable from here*
+  (`data.not_observable`) and the run ends there as **done** with that in its note.
+
 ## Execute Command node
 
 Runs shell or Python text stored in the node. It was called *Code* before ADR-075: the kind is still `code` in stored actions and in the

@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openartifact.exceptions import ArtifactError
+from openartifact.graph import observe_state
 from openartifact.graph.content import graph_of
 from openartifact.graph.repository import GraphRepository, SyncReport
 from openartifact.graph.versions import current_version, fingerprint, get_version, next_number
@@ -68,6 +69,7 @@ async def publish(session: AsyncSession, graph: Graph, via: str) -> GraphVersion
     session.add(version)
     graph.published_number = version.number
     await session.flush()
+    await observe_state.on_publication(session, graph, via)
     return version
 
 
@@ -90,6 +92,7 @@ async def republish(session: AsyncSession, graph: Graph, number: int, via: str) 
     session.add(version)
     graph.published_number = version.number
     await session.flush()
+    await observe_state.on_publication(session, graph, via)
     return version
 
 

@@ -100,6 +100,7 @@ GET /api/pipelines/{graph_id}/stages -> ChainEntryRead[]
 GET /api/pipelines/{graph_id}/uses -> GraphUses
 GET /api/pipelines/{graph_id}/versions -> GraphVersionRead[]
 GET /api/pipelines/{graph_id}/versions/{number} -> GraphVersionDetail
+GET /api/pipelines/{ref}/observe -> ObserveRead
 GET /api/providers -> ProviderRead[]
 GET /api/providers/{ref} -> ProviderRead
 GET /api/rules/schemas -> RuleSchemaRead[]
@@ -155,6 +156,7 @@ GET /api/v1/guards/{guard_id}/versions/{number} -> GuardVersionDetail
 GET /api/v1/lanes -> LaneRead[]
 GET /api/v1/pipelines -> PipelineChainRead[]
 GET /api/v1/pipelines/{ref}/neighbours -> GraphNeighbours
+GET /api/v1/pipelines/{ref}/observe -> ObserveRead
 GET /api/v1/providers -> ProviderRead[]
 GET /api/v1/providers/{ref} -> ProviderRead
 GET /api/v1/secrets -> SecretRead[]
@@ -219,6 +221,8 @@ POST /api/pipelines/{graph_id}/edges -> EdgeRead
 POST /api/pipelines/{graph_id}/nodes -> NodeRead
 POST /api/pipelines/{graph_id}/publish -> PublishedGraph
 POST /api/pipelines/{graph_id}/versions/{number}/republish -> PublishedGraph
+POST /api/pipelines/{ref}/observe/again -> ObserveRead
+POST /api/pipelines/{ref}/observe/release -> ObserveRead
 POST /api/providers -> ProviderRead
 POST /api/providers/test -> CheckResult
 POST /api/providers/{ref}/models -> ProviderRead
@@ -254,6 +258,8 @@ POST /api/v1/guards/{guard_id}/draft/discard -> GuardDefinitionRead
 POST /api/v1/guards/{guard_id}/publish -> PublishedGuard
 POST /api/v1/guards/{guard_id}/versions/{number}/republish -> PublishedGuard
 POST /api/v1/lanes -> LaneRead[]
+POST /api/v1/pipelines/{ref}/observe/again -> ObserveRead
+POST /api/v1/pipelines/{ref}/observe/release -> ObserveRead
 POST /api/v1/providers -> ProviderRead
 POST /api/v1/providers/test -> CheckResult
 POST /api/v1/providers/{ref}/models -> ProviderRead
@@ -270,6 +276,7 @@ PUT /api/credentials/{ref}/enabled -> CredentialRead
 PUT /api/guard-attachments/{attachment_id}/enabled -> AttachmentRead
 PUT /api/lanes/{status} -> LaneRead[]
 PUT /api/lanes/{status}/rules -> RulesAnswer
+PUT /api/pipelines/{ref}/observe -> ObserveRead
 PUT /api/secrets/{name} -> SecretRead
 PUT /api/settings/personal -> PersonalSettingsRead
 PUT /api/settings/retention -> RulesSaved
@@ -280,6 +287,7 @@ PUT /api/v1/agents/{ref}/draft -> AgentDetail
 PUT /api/v1/artifact-fields -> ArtifactFieldsRead
 PUT /api/v1/guard-attachments/{attachment_id}/enabled -> AttachmentRead
 PUT /api/v1/lanes/{status} -> LaneRead[]
+PUT /api/v1/pipelines/{ref}/observe -> ObserveRead
 PUT /api/v1/secrets/{name} -> SecretRead
 PUT /api/v1/settings/personal -> PersonalSettingsRead
 PUT /api/v1/settings/retention -> RulesSaved
