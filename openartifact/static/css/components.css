@@ -892,7 +892,7 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
  * the host and while the page or dialog around it scrolls. The block gets right padding (`.has-copy`) so the button never covers text. */
 .copy-host { position: relative; min-width: 0; }
 .copy-host > textarea, .copy-host > input, .copy-host > pre { display: block; } /* the host adds no line box of its own around a field: nothing below it grows */
-.copy-host > .copy-bar { position: sticky; top: 0; z-index: 2; height: 0; display: flex; justify-content: flex-end; align-items: flex-start; gap: 0.25rem; padding-right: 0.25rem; pointer-events: none; }
+.copy-host > .copy-bar { position: sticky; top: 0; z-index: 2; height: 0; display: flex; justify-content: flex-end; align-items: flex-start; gap: 0.25rem; padding-right: calc(0.25rem + var(--copy-gutter, 0px)); pointer-events: none; } /* left of the block's own scrollbar (copy-button.js measures it) */
 .copy-bar > * { pointer-events: auto; }
 .copy-bar > .copy-button { margin-top: 0.25rem; flex: none; background: color-mix(in srgb, var(--color-background) 70%, transparent); }
 .copy-bar > .copy-button[hidden] { display: none; }

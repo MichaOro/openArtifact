@@ -3,10 +3,12 @@ one click, however far the block has scrolled; the button says what happened, sh
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import httpx
-from playwright.sync_api import Locator, Page, expect
+import pytest
+from playwright.sync_api import Locator, Page, Playwright, expect
 
 from tests.e2e.helpers import Board, echo_pipeline, execution_of, flow_url, run_started
 from tests.e2e.test_dry_run_tab import _commenting_pipeline
@@ -171,3 +173,67 @@ def test_the_glyph_of_the_copy_button_is_centred_in_its_square(
     _centred("copy-button", _measure(page, button))
     box = button.bounding_box()
     assert box and box["width"] == box["height"] == 24, box  # a square hit area
+
+
+#: Make the scrollbar a classic one that takes room (15 px), whatever the platform draws: the button must sit left of it.
+CLASSIC_SCROLLBARS = "pre::-webkit-scrollbar, textarea::-webkit-scrollbar { width: 15px; height: 15px; } pre, textarea { scrollbar-width: auto; }"
+
+
+def _left_of_the_scrollbar(block: Locator, button: Locator) -> tuple[float, float, float]:
+    """The right edge of the button, the right edge of the block's content area (left of its scrollbar), and the scrollbar's width."""
+    inner = block.evaluate(
+        "(el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el);"
+        " const bars = el.offsetWidth - el.clientWidth - parseFloat(s.borderLeftWidth) - parseFloat(s.borderRightWidth);"
+        " return [r.left + el.clientLeft + el.clientWidth, bars]; }"
+    )
+    box = button.bounding_box()
+    assert box
+    return box["x"] + box["width"], float(inner[0]), float(inner[1])
+
+
+@pytest.fixture
+def classic_page(playwright: Playwright, browser_context_args: dict[str, Any]) -> Iterator[Page]:
+    """A page of a browser that DRAWS its scrollbars: the test browser hides them by default (`--hide-scrollbars`), and then there is nothing to collide with."""
+    browser = playwright.chromium.launch(ignore_default_args=["--hide-scrollbars"])
+    context = browser.new_context(**browser_context_args)
+    yield context.new_page()
+    context.close()
+    browser.close()
+
+
+def test_the_button_sits_left_of_the_scrollbar_of_a_long_output_block(
+    classic_page: Page, base_url: str, api: httpx.Client
+) -> None:
+    page = classic_page
+    _allow_clipboard(page, base_url)
+    block = _output_block(page, base_url, api, LONG)
+    page.add_style_tag(content=CLASSIC_SCROLLBARS)
+    pre = block.locator("pre")
+    button = block.get_by_role("button", name="Copy")
+    expect(button).to_be_visible()
+    pre.evaluate("(el) => { el.scrollTop = el.scrollHeight; }")
+    page.wait_for_timeout(300)
+    right, edge, bars = _left_of_the_scrollbar(pre, button)
+    assert bars > 0, "the block has a classic scrollbar that takes room"
+    assert right <= edge + 0.5, (right, edge, bars)  # no overlap with the scrollbar's track
+
+
+def test_the_button_sits_left_of_the_scrollbar_of_a_field_that_scrolls(
+    classic_page: Page, base_url: str, api: httpx.Client
+) -> None:
+    page = classic_page
+    _, definition = _commenting_pipeline(api)
+    dialog = _open_comment_node(page, base_url, definition)
+    dialog.get_by_role("button", name="Mock data").click()
+    page.add_style_tag(content=CLASSIC_SCROLLBARS)
+    panel = dialog.locator("[data-mock-panel]")
+    output = panel.get_by_label("Output")
+    output.fill(
+        "\n".join(f"line {n}" for n in range(1, 60))
+    )  # more lines than the field shows: it scrolls
+    button = output.locator("xpath=..").get_by_role("button", name="Copy")
+    expect(button).to_be_visible()
+    page.wait_for_timeout(300)
+    right, edge, bars = _left_of_the_scrollbar(output, button)
+    assert bars > 0, "the field has a classic scrollbar that takes room"
+    assert right <= edge + 0.5, (right, edge, bars)
