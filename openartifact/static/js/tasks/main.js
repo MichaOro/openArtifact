@@ -15,7 +15,8 @@ import { connectEvents } from "./events.js";
 import { CommentsTab } from "./comments-tab.js";
 import { HistoryTab } from "./history-tab.js";
 import { FormDialog } from "../components/form-dialog.js";
-import { LaneControls, listLanes } from "./lanes.js";
+import { LaneControls, listLanes, reorderLanes } from "./lanes.js";
+import { LaneReorder } from "./lane-order.js";
 import { CardRulesDialog } from "./card-rules-dialog.js";
 import { listFields, replaceFields } from "../artifact-fields/api.js";
 import { FieldsEditor } from "../artifact-fields/fields-editor.js";
@@ -227,7 +228,14 @@ async function showArchived(task) {
   fieldRail.show(task);
   fieldRail.setLocked(true);
 }
+/** Reorder the lanes (ADR-092): the board's menu switches it; a failed save draws the lanes the server has. */
+const laneReorder = new LaneReorder({
+  board,
+  save: reorderLanes,
+  onLanes: async (lanes) => showLanes(lanes ?? (await listLanes())),
+});
 function showArchive(on) {
+  if (on) laneReorder.set(false);
   boardElement.hidden = on;
   search.setVisible(!on);
   if (addLaneButton) addLaneButton.hidden = on;
@@ -239,6 +247,7 @@ document.querySelector("[data-board-menu]")?.addEventListener("click", (event) =
     [
       { label: t("index.artifact_fields"), icon: "tag", onSelect: () => fieldsEditor.open(artifactFields) },
       { label: t("common.settings"), icon: "settings", onSelect: () => laneControls.settings.open({ kind: "board" }, board.laneChoices()) },
+      { label: laneReorder.on ? t("index.stop_reorder_lanes") : t("index.reorder_lanes"), icon: "grip", onSelect: () => laneReorder.set(!laneReorder.on) },
       { label: archive.visible ? t("index.hide_archive") : t("index.show_archive"), icon: "inbox", onSelect: () => showArchive(!archive.visible) },
     ],
     t("tasks.main.board"),
@@ -424,6 +433,7 @@ board.element.addEventListener("keydown", (event) => {
   if (!task) return;
 
   if (board.locked.has(task.id) && event.key !== "Enter" && event.key !== " ") return; // being processed
+  if (board.reordering && event.altKey) return; // the lanes are being reordered: a card is not moved (ADR-092)
   if (event.key === "Delete") {
     event.preventDefault();
     confirmDelete(task);
