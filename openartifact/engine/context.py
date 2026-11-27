@@ -497,6 +497,15 @@ def _walk(value: Any, path: tuple[str, ...], where: str) -> Any:
 SKIPPED_IN_DRY_RUN = (
     'node "{node}" was skipped in the dry run, so it has no result: use mock data for it'
 )
+#: The part of that message by which an observed run (ADR-088) recognises a node that waited for the result of a skipped write.
+SKIPPED_MARK = "was skipped in the dry run, so it has no result"
+
+
+def depends_on_skipped(reason: str | None) -> bool:
+    """Whether a failure says that the node needed what a skipped node would have produced (the observed run ends there, it does not fail)."""
+    return bool(reason) and SKIPPED_MARK in str(reason)
+
+
 #: The keys a skipped node does leave: the marker and what it would have done.
 _DRY_RUN_KEYS = ("dry_run", "would_have")
 
