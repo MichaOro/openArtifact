@@ -78,3 +78,11 @@ That is a per-kind code path, which this ADR set out to remove.
 ## Addendum (2026-11-26): `retry` and the result
 
 `_shared.yaml` has the optional setting `retry` (setting type `retry`, stored in `config.retry`, checked by `retry_error`; the description carries its `limits`): [ADR-073](073-retry-on-fail.md). A kind that says `produces_result` must have an executor, and its result has the core of [ADR-072](072-result-contract.md); `tests/test_result_contract.py` keeps both.
+
+## Addendum (2026-11-27): the size of the action card and the title of a card
+
+The card of an action is 228 x 76 px (`ui.size`, was 190 x 68) and the name on an action, flow and switch card reserves **two lines** (`line-clamp: 2` with a fixed height of two lines), so that
+long names show more and a card keeps its height whatever its name. The kind label under the name has a 0.3 rem gap. The other kinds keep their sizes. Nothing stored changes: a card grows right and down
+from its stored position. A stage saved with its actions close to its border can therefore be up to 38 px too narrow and 8 px too low for them until it is fitted (a double click on a grip) or an
+action in it is moved (`fitStage`); the stage is not resized when a graph is drawn, so no layout is rewritten without the owner touching it.
+Where it is shown and the rule in short: [UI catalog](../../guides/ui-catalog.md), *Cards of the pipeline view*.

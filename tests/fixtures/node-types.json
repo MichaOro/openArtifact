@@ -237,8 +237,8 @@
   "ui": {
    "color": "action",
    "size": {
-    "width": 190,
-    "height": 68
+    "width": 228,
+    "height": 76
    },
    "port_labels": true
   }

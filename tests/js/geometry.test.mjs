@@ -28,13 +28,13 @@ test("a node of a stage is placed relative to the stage body, below its header",
   const nodes = nodesOf(stage, a);
   assert.deepEqual(g.originOf(stage, nodes), { x: 100, y: 40 });
   assert.deepEqual(g.originOf(a, nodes), { x: 124, y: 40 + 44 + 48 });
-  assert.deepEqual(g.boxOf(a, nodes), { x: 124, y: 132, width: 190, height: 68 });
+  assert.deepEqual(g.boxOf(a, nodes), { x: 124, y: 132, width: 228, height: 76 });
 });
 
 test("portPoint adds the local position to the origin; a stage port honours its slot", () => {
   const a = action("a", 24, {});
   const nodes = nodesOf(stage, a);
-  assert.deepEqual(g.portPoint(a, "in", nodes), { x: 124, y: 132 + 34 });
+  assert.deepEqual(g.portPoint(a, "in", nodes), { x: 124, y: 132 + 38 });
   const [top, middle, bottom] = [0, 1, 2].map((slot) => g.portPoint(stage, "end", nodes, slot).y - 40);
   assert.ok(Math.abs(middle - (top + bottom) / 2) < 1e-9, "the middle point is halfway between the top and the bottom one");
   assert.deepEqual(g.portPoint(stage, "start", nodes, 0).x, 100);
@@ -54,7 +54,7 @@ test("the attachment points of a stage follow the stage's height, not its action
   level(g.portPoint(stage, "start", nodesOf(stage, first), 0).y, g.portPoint(first, "in", nodesOf(stage, first)).y, "top = first row (input)");
   level(g.portPoint(stage, "end", nodesOf(stage, first), 0).y, g.portPoint(first, "pass", nodesOf(stage, first)).y, "top = first row (On Pass)");
   // the bottom point is level with the input of an action dragged to the inner border at the bottom (without the stage growing)
-  const lowest = action("z", 56, { y: stage.height - 44 - g.STAGE_MARGIN - 68 });
+  const lowest = action("z", 56, { y: stage.height - 44 - g.STAGE_MARGIN - 76 });
   const lowestNodes = nodesOf(stage, lowest);
   assert.equal(g.fitStage(stage, g.actionsOf(stage, lowestNodes)).height, stage.height, "the stage does not grow for it");
   level(g.portPoint(stage, "start", lowestNodes, 2).y, g.portPoint(lowest, "in", lowestNodes).y, "bottom = lowest action (input)");
@@ -111,7 +111,7 @@ test("an action's ports offer the heights of its stage's points to settle on", (
 test("minStageSize is what the actions need, however large the stage is", () => {
   assert.deepEqual(g.minStageSize([]), { width: 320, height: 220 });
   const far = { x: 400, y: 200, kind: "action", config: {} };
-  assert.deepEqual(g.minStageSize([far]), { width: 400 + 190 + g.STAGE_MARGIN, height: 44 + 200 + 68 + g.STAGE_MARGIN }, "its actions plus the band, on the right and below alike");
+  assert.deepEqual(g.minStageSize([far]), { width: 400 + 228 + g.STAGE_MARGIN, height: 44 + 200 + 76 + g.STAGE_MARGIN }, "its actions plus the band, on the right and below alike");
   // fitStage keeps a larger stage; minStageSize is the floor a resize may go down to
   assert.deepEqual(g.fitStage({ width: 900, height: 700 }, [far]), { width: 900, height: 700 });
 });
@@ -214,14 +214,14 @@ test("a new stage or timer goes to the right of the main line; the other kinds a
 test("a new action goes right of the last one of its stage, or at the inner border", () => {
   assert.deepEqual(g.nextActionPosition(stage, nodesOf(stage)), { x: g.STAGE_MARGIN, y: 12 });
   const nodes = nodesOf(stage, action("a", 24), action("b", 300));
-  assert.deepEqual(g.nextActionPosition(stage, nodes), { x: 300 + 190 + 64, y: 12 });
+  assert.deepEqual(g.nextActionPosition(stage, nodes), { x: 300 + 228 + 64, y: 12 });
 });
 
 test("fitStage grows to hold the actions and never shrinks", () => {
   assert.deepEqual(g.fitStage({ width: 100, height: 100 }, []), { width: 320, height: 220 }, "the minimum");
   assert.deepEqual(g.fitStage({ width: 900, height: 700 }, []), { width: 900, height: 700 }, "the stage's own size wins when larger");
   const far = action("a", 400, { y: 200 });
-  assert.deepEqual(g.fitStage({ width: 100, height: 100 }, [far]), { width: 400 + 190 + g.STAGE_MARGIN, height: 44 + 200 + 68 + g.STAGE_MARGIN });
+  assert.deepEqual(g.fitStage({ width: 100, height: 100 }, [far]), { width: 400 + 228 + g.STAGE_MARGIN, height: 44 + 200 + 76 + g.STAGE_MARGIN });
   const small = action("b", 0, { y: 0 });
   assert.deepEqual(g.fitStage({ width: 100, height: 100 }, [small]), { width: 320, height: 220 });
 });
@@ -252,14 +252,14 @@ test("clampInStage stops an action at the inner border on the left and at the to
   assert.deepEqual(g.clampInStage(200, 90), { x: 200, y: 90 }, "inside it nothing changes");
   const nodes = nodesOf(stage, action("a", 700, { y: 400 }));
   const grown = g.fitStage(stage, g.actionsOf(stage, nodes));
-  assert.equal(grown.width - (700 + 190), g.STAGE_MARGIN, "right: the outer border keeps the band's width from the action");
-  assert.equal(grown.height - (44 + 400 + 68), g.STAGE_MARGIN, "below: likewise");
+  assert.equal(grown.width - (700 + 228), g.STAGE_MARGIN, "right: the outer border keeps the band's width from the action");
+  assert.equal(grown.height - (44 + 400 + 76), g.STAGE_MARGIN, "below: likewise");
 });
 
 test("the right and the bottom grip stop at the same distance from the actions", () => {
   const a = action("a", 100, { y: 60 });
   const least = g.minStageSize([a]);
-  assert.equal(least.width - (a.x + 190), least.height - (44 + a.y + 68), "the same band on both sides");
+  assert.equal(least.width - (a.x + 228), least.height - (44 + a.y + 76), "the same band on both sides");
   assert.equal(g.fitStage({ width: 1, height: 1 }, [a]).width, Math.max(least.width, 320));
 });
 
@@ -269,7 +269,7 @@ test("a loop back runs DETOUR below the lowest of the two nodes, whatever the si
   const nodes = nodesOf(stage, a, b);
   const from = g.portPoint(b, "error", nodes);
   const to = g.portPoint(a, "in", nodes);
-  const lowest = Math.max(g.boxOf(a, nodes).y + 68, g.boxOf(b, nodes).y + 68);
+  const lowest = Math.max(g.boxOf(a, nodes).y + 76, g.boxOf(b, nodes).y + 76);
   // a stage's size is not an input of the path: a taller stage gives the same line
   const d = g.edgePath(from, to, g.boxOf(b, nodes), g.boxOf(a, nodes), { style: "straight", within: { x: stage.x, y: stage.y, width: 700, height: 900 }, below: lowest + 300 });
   const ys = d.match(/-?\d+(\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 1);
@@ -284,7 +284,7 @@ test("at the least size of a stage the loop, with its corner, still lies inside 
   const least = g.minStageSize([a, b]);
   const from = g.portPoint(b, "error", nodes);
   const to = g.portPoint(a, "in", nodes);
-  const lowest = Math.max(g.boxOf(a, nodes).y + 68, g.boxOf(b, nodes).y + 68);
+  const lowest = Math.max(g.boxOf(a, nodes).y + 76, g.boxOf(b, nodes).y + 76);
   const d = g.edgePath(from, to, g.boxOf(b, nodes), g.boxOf(a, nodes), { style: "straight" });
   const ys = d.match(/-?\d+(\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 1);
   assert.equal(Math.max(...ys), lowest + g.DETOUR, "DETOUR below the lowest action");
