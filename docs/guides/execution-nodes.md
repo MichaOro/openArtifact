@@ -234,12 +234,15 @@ A dry run runs a pipeline under real conditions and skips everything that writes
 | write | other HTTP methods, Artifact *Add comment*, other GitHub operations, Postgres with *Allow changes*, Execute Command without *Read only*, and anything not declared | skipped |
 | mixed | Agent, MCP Tool, GitHub Tool and OpenArtifact Tool with changes allowed | runs; the tools it calls that change something are answered with "Dry run: ... was not executed" |
 
-**In the editor:** double-click the **Trigger** of a pipeline or of an action definition and open the tab *Dry run* (*Testlauf*). Choose a test card (a searchable list of the
-cards of the board; the last choice is remembered for the graph in your browser), fill in the inputs the Trigger declares (an empty field uses its default, shown faintly; a
-required one is marked), choose *Draft* (the default) or *Published*, and read the check under the form: it says in plain words what would stop the run (a missing required
-input, a reference that names something that is not there). *Start dry run* is locked while the emergency stop is on, while no card is chosen and for an action that no
-pipeline places (*Place this action in a pipeline to run it*; an action runs through a pipeline that places it). The result shows the status with the *Dry run* mark and the
-steps, with *Would have ...* for what was skipped, and *Open in history* leads to the execution. The card is not changed, and the Output node has no such tab.
+**In the editor:** double-click the **Trigger** of a pipeline or of an action definition and open the tab *Dry run* (*Testlauf*). Fill in the inputs the Trigger declares (an empty
+field uses its default, shown faintly; a required one is marked), choose *Draft* (the default: what you see in the editor, including edits you have not published, in the pipeline
+and in every action it places) or *Published*, and read the check under the form: it says in plain words what would stop the run (a missing required input, a reference that names
+something that is not there). A run needs a card: **Add** opens a small menu, *Test card* puts a searchable list of the cards of the board on the form (the last choice is
+remembered for the graph in your browser; the X beside it takes it off). *Start dry run* is locked while the emergency stop is on, while no card is on the form and for an action
+that no pipeline places (*Place this action in a pipeline to run it*). A dry run shows as **one row** under the form, like a run in the artifact's History tab (status, number, the
+*Dry run* flag, time, duration); the latest five are listed, the row follows the run until it ends, and while it runs the button is *Stop processing*. A click on the row opens
+the execution in the history, with the steps (*Would have ...* for what was skipped); *All dry runs in the history* lists them all. The card is not changed, and the Output node
+has no such tab.
 
 A skipped step passes and says what it would have done in `reason` and in `data` (`dry_run: true`, `would_have`). It has no result: a later node that reads `.output`,
 `.exit_code` or another `data` field of it fails with a message that names the node and suggests mock data. `success` and `data.dry_run` can be read.

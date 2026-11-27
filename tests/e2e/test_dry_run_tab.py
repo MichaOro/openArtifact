@@ -69,7 +69,15 @@ def _dry_run_tab(dialog: Any) -> Any:
     return panel
 
 
+def _add_card_field(page: Page, panel: Any) -> None:
+    """The test card is an optional item behind "+ Add" (ADR-086 addendum 2): put it on the form."""
+    panel.get_by_role("button", name="Add", exact=True).click()
+    page.get_by_role("menuitem", name="Test card").click()
+
+
 def _choose_card(page: Page, panel: Any, text: str) -> None:
+    if not panel.get_by_role("combobox", name="Test card").is_visible():
+        _add_card_field(page, panel)
     box = panel.get_by_role("combobox", name="Test card")
     box.click()
     box.fill(text)
@@ -151,19 +159,27 @@ def test_the_declared_inputs_are_a_form_with_the_default_faint_and_a_required_on
     expect(panel.get_by_label("tags")).to_have_js_property("tagName", "TEXTAREA")
 
 
-def test_the_start_waits_for_a_card_and_the_card_chosen_is_remembered_for_the_graph(
+def test_the_test_card_is_not_on_the_form_until_it_is_added_and_the_start_waits_for_it(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     pipeline, _ = _commenting_pipeline(api)
     post(api, "/api/tasks", title="First card", status="backlog")
     second = post(api, "/api/tasks", title="Second card", status="in_progress")
     panel = _dry_run_tab(_open_trigger(page, base_url, api, pipeline))
+    expect(panel.get_by_role("combobox", name="Test card")).to_be_hidden()
     start = panel.get_by_role("button", name="Start dry run")
     expect(start).to_be_disabled()
-    expect(start).to_have_attribute("title", "Choose a test card first")
+    expect(start).to_have_attribute("title", "Add a test card first (Add)")
+    panel.get_by_role("button", name="Add", exact=True).click()
+    expect(page.get_by_role("menuitem")).to_have_text(["Test card"])
+    page.get_by_role("menuitem", name="Test card").click()
+    expect(panel.get_by_role("combobox", name="Test card")).to_be_visible()
+    expect(
+        panel.get_by_role("button", name="Add", exact=True)
+    ).to_be_hidden()  # nothing else to add
     _choose_card(page, panel, "Second")
     expect(start).to_be_enabled()
-    page.reload()
+    page.reload()  # a card chosen is remembered for the graph: it is on the form again
     page.locator(".ge-node--trigger").dblclick(position={"x": 20, "y": 5})
     panel = _dry_run_tab(page.locator(DIALOG))
     expect(panel.get_by_role("combobox", name="Test card")).to_have_value(
@@ -171,7 +187,25 @@ def test_the_start_waits_for_a_card_and_the_card_chosen_is_remembered_for_the_gr
     )
 
 
-def test_a_start_runs_through_skips_the_writing_step_and_links_to_the_history(
+def test_the_test_card_is_taken_off_the_form_again_and_stays_off(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline, _ = _commenting_pipeline(api)
+    post(api, "/api/tasks", title="Test card", status="backlog")
+    panel = _dry_run_tab(_open_trigger(page, base_url, api, pipeline))
+    _choose_card(page, panel, "Test")
+    expect(panel.get_by_role("button", name="Start dry run")).to_be_enabled()
+    panel.get_by_role("button", name="Remove the test card").click()
+    expect(panel.get_by_role("combobox", name="Test card")).to_be_hidden()
+    expect(panel.get_by_role("button", name="Start dry run")).to_be_disabled()
+    expect(panel.get_by_role("button", name="Add", exact=True)).to_be_visible()
+    page.reload()
+    page.locator(".ge-node--trigger").dblclick(position={"x": 20, "y": 5})
+    panel = _dry_run_tab(page.locator(DIALOG))
+    expect(panel.get_by_role("combobox", name="Test card")).to_be_hidden()
+
+
+def test_a_start_shows_one_row_that_leads_to_the_execution_and_no_list_of_steps(
     page: Page, base_url: str, api: httpx.Client
 ) -> None:
     pipeline, _ = _commenting_pipeline(api)
@@ -179,27 +213,47 @@ def test_a_start_runs_through_skips_the_writing_step_and_links_to_the_history(
     panel = _dry_run_tab(_open_trigger(page, base_url, api, pipeline))
     _choose_card(page, panel, "Test")
     panel.get_by_role("button", name="Start dry run").click()
-    result = panel.locator(".ge-dry__result")
-    expect(result.locator(".history-flag")).to_have_text("Dry run")
-    expect(result).to_contain_text("Done")
-    step = result.locator(".ge-dry__step", has_text="Say hello")
-    expect(step).to_contain_text("Skipped")
-    expect(step).to_contain_text(
-        "Would have added this comment to the artifact: Hello from the run"
-    )
+    row = panel.locator(".ge-dry__runs .history-row")
+    expect(row).to_have_count(1)
+    expect(row.locator(".history-chip")).to_have_text("Done")
+    expect(row.locator(".history-flag")).to_have_text("Dry run")
+    expect(row.locator("[data-row-number]")).to_have_text("#1")
+    expect(panel.locator(".ge-dry__step")).to_have_count(
+        0
+    )  # the steps are in the execution, not in the tab
     assert (
         api.get(f"/api/tasks/{task['id']}/comments").json() == []
     )  # the card did not get the comment
-    link = result.get_by_role("link", name="Open in history")
     run = api.get("/api/runs").json()[0]
-    expect(link).to_have_attribute(
-        "href", f"/artifacts/{task['number']}/executions/{run['execution_id']}"
+    row.locator(".history-row__open").click()
+    expect(page).to_have_url(
+        f"{base_url}/artifacts/{task['number']}/executions/{run['execution_id']}"
     )
-    link.click()
     expect(page.locator("[data-head-dry]")).to_be_visible()
     assert (
         api.get(f"/api/tasks/{task['id']}").json()["pipeline_id"] is None
     )  # the card keeps its own target
+
+
+def test_the_tab_lists_the_latest_dry_runs_newest_first_with_a_link_to_all_of_them(
+    page: Page, base_url: str, api: httpx.Client
+) -> None:
+    pipeline, _ = _commenting_pipeline(api)
+    post(api, "/api/tasks", title="Test card", status="backlog")
+    panel = _dry_run_tab(_open_trigger(page, base_url, api, pipeline))
+    _choose_card(page, panel, "Test")
+    start = panel.get_by_role("button", name="Start dry run")
+    for n in range(1, 7):
+        start.click()
+        expect(panel.locator(f'.history-row:has([data-row-number]:text-is("#{n}"))')).to_have_count(
+            1
+        )
+        expect(panel.locator(".history-chip", has_text="Running")).to_have_count(0)
+    numbers = panel.locator(".ge-dry__runs [data-row-number]")
+    expect(numbers).to_have_text(["#6", "#5", "#4", "#3", "#2"])  # the five newest
+    expect(panel.get_by_role("link", name="All dry runs in the history")).to_have_attribute(
+        "href", "/executions?dry_run=only"
+    )
 
 
 def test_a_missing_required_input_is_said_in_plain_words_before_and_after_the_click(
@@ -246,7 +300,7 @@ def test_an_action_that_no_pipeline_places_says_so_and_one_that_is_placed_runs(
     panel = _dry_run_tab(_open_trigger(page, base_url, api, placed, "actions"))
     _choose_card(page, panel, "Test")
     panel.get_by_role("button", name="Start dry run").click()
-    expect(panel.locator(".ge-dry__result")).to_contain_text("Skipped")
+    expect(panel.locator(".ge-dry__runs .history-flag")).to_have_text("Dry run")
     eventually(lambda: api.get("/api/runs").json()[0]["dry_run"], True)
 
 

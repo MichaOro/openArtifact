@@ -57,5 +57,6 @@
 {{ credential_modal() }}
 {{ guard_attach_modal() }}
 {{ confirm_modal("confirm-modal", t('common.delete')) }}
+{% include "components/history_row_template.html" %}{# the rows of the dry runs in the Dry run tab #}
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/editor/editor-main.js"></script>{% endblock %}
