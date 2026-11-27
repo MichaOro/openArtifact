@@ -27,7 +27,7 @@ async def graph_for_run(
     graph = await session.get(Graph, graph_id)
     version = await current_version(session, graph) if graph and not draft else None
     if graph is None or version is None:
-        return await graph_of(session, graph_id)
+        return await graph_of(session, graph_id, mocks=draft)
     content: dict[str, Any] = json.loads(version.content)
     content["name"], content["kind"] = graph.name, graph.kind
     return content

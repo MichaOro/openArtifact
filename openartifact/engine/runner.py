@@ -1344,14 +1344,19 @@ class RunEngine:
                 )
             timer = time.monotonic()
             runner = executor.run
-            if run_view.dry_run and writes(str(current["kind"]), current.get("config")):
+            mock_used = run_view.dry_run and executor.by_outcome and dry_run.has_mock(current)
+            if mock_used:
+                runner = dry_run.mocked  # the stored result stands in; nothing is run (ADR-087)
+            elif run_view.dry_run and writes(str(current["kind"]), current.get("config")):
                 runner = (
                     dry_run.skipped
                 )  # what writes is not run; the step says what it would have done (ADR-086)
             result, earlier = await tried(
                 partial(runner, current, self._limits, run_view),
                 lambda r: (r.reason or "The node failed") if r.outcome == "fail" else None,
-                retry_of(current) if executor.by_outcome else None,  # Retry on fail (ADR-073)
+                retry_of(current)
+                if executor.by_outcome and not mock_used
+                else None,  # Retry on fail (ADR-073)
             )
             result.attempts = len(earlier) + 1
             if earlier:  # the failed tries before the last: what only the step shows

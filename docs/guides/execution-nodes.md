@@ -244,6 +244,25 @@ steps, with *Would have ...* for what was skipped, and *Open in history* leads t
 A skipped step passes and says what it would have done in `reason` and in `data` (`dry_run: true`, `would_have`). It has no result: a later node that reads `.output`,
 `.exit_code` or another `data` field of it fails with a message that names the node and suggests mock data. `success` and `data.dry_run` can be read.
 
+### Mock data
+
+A **mock** is the complete result a node hands over in a dry run instead of running (ADR-087): `outcome` (`pass`/`fail`), `output`, `data` (a JSON object) and `reason`, with a
+switch. It is for the nodes that leave a result of their own (not Trigger, Output, Complete, Stage, Action, Pipeline, If, Switch, Timer).
+
+- **Where:** double-click a node and open the tab *Mock* (or click the pencil beside the close button, or the pin on the card). Switch *Mock active* on and fill the form, or
+  press *Use the result of the last run* to take what the node left in its newest real run. On a step of the history or the flow page, *Keep as mock* sets that step's result as the
+  mock of the node in the draft.
+- **What it does:** in a dry run the node is **not run** (no call, no tokens, no write): its step carries the stored result with `data.mock = true` and the flag *Mock*. A
+  failing mock leaves by *On Fail* like a failed node. Later nodes read it as any result (`${(Name).output}`, `.data.id`). A writing node without a mock is skipped as before.
+- **Where it is not used:** a real run never uses a mock, and a mock is kept in the **draft** only: it is in no published version (so a dry run of the *Published* version has
+  none, and setting a mock does not make the draft count as changed). The check before publishing warns that N mocks stay behind; it does not block.
+- **Rules:** no secrets (`${secret:...}` and the values of stored secrets are refused), the text is never read for `${...}`, at most 64 KiB; the data must be a JSON object.
+- **Test cases:** the *Dry run* tab of the Trigger window lists named sets of inputs (*Test cases*, up to 20); *Save as test case* stores the inputs as typed, choosing one fills the
+  inputs. They are kept on the Trigger in the draft.
+
+API: `PATCH /api/{actions|pipelines}/{id}/nodes/{node_id}` takes `mock` (the object, or `null` to remove it) and, on a Trigger, `cases` (`[{"name", "inputs"}]`); the node answers with them.
+`GET .../nodes/{node_id}/last-result` returns the newest stored result of a real run as `{found, outcome, output, reason, data}`.
+
 ## Execute Command node
 
 Runs shell or Python text stored in the node. It was called *Code* before ADR-075: the kind is still `code` in stored actions and in the

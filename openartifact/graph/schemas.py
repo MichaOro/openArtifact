@@ -112,6 +112,11 @@ class NodeUpdate(_Strict):
     definition_id: str | None = None
     seconds: Seconds | None = None
     config: dict[str, Any] | None = None
+    #: The mock of a node: the result it hands over in a dry run (``enabled``, ``outcome``, ``output``, ``data``, ``reason``); ``null`` removes it
+    #: (ADR-087). Kept in the draft only.
+    mock: dict[str, Any] | None = None
+    #: The test cases of a Trigger: ``[{name, inputs}]``; ``null`` removes them (ADR-087). Kept in the draft only.
+    cases: list[dict[str, Any]] | None = None
 
 
 EdgeStyle = Literal["curved", "straight", "elbow"]
@@ -231,6 +236,9 @@ class NodeRead(BaseModel):
     #: The number of this placement while the same action definition is placed more than once in the pipeline ("Check #2", ADR-082);
     #: ``None`` for a single placement and for every other node. A label for people: references name the node by its id.
     placement_number: int | None = None
+    #: The mock of this node (the draft's, ADR-087) and, on a Trigger, its test cases; ``None`` while there are none.
+    mock: dict[str, Any] | None = None
+    cases: list[dict[str, Any]] | None = None
     #: Hints about the node's ``${node...}`` / ``${var...}`` references (unknown or ambiguous node
     #: names, malformed references) on a node just created or changed; the node is saved anyway.
     warnings: list[str] = Field(default_factory=list)
@@ -255,6 +263,16 @@ class EdgeRead(BaseModel):
     style: str
     source_slot: int
     target_slot: int
+
+
+class LastResult(BaseModel):
+    """The newest stored result of a node of a real run, in the shape of a mock (ADR-087)."""
+
+    found: bool
+    outcome: Literal["pass", "fail"] = "pass"
+    output: str = ""
+    reason: str = ""
+    data: dict[str, Any] = Field(default_factory=dict)
 
 
 class FindingRead(BaseModel):

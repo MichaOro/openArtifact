@@ -21,6 +21,9 @@ import { TOP_LEVEL_GAP, actionsOf, displayName, fitStage, nextActionPosition, ne
 import { GraphModel } from "./graph-model.js";
 import { DryRunPanel } from "./dry-run-panel.js";
 import { PublicationControl } from "./publication-control.js";
+import { lastResult } from "./api.js";
+import { mockActive, mockable } from "./mock-model.js";
+import { drawPencil, drawPin } from "./mock-chrome.js";
 import { InspectorBlocks, joinFooter } from "./inspector.js";
 import { InspectorPanel } from "./inspector-panel.js";
 import { flushDirty } from "./persist-policy.js";
@@ -95,7 +98,10 @@ export class GraphEditor {
         onZoom: (zoom) => (this.zoomLabel.textContent = `${Math.round(zoom * 100)}%`),
         onNodeAction: (action, node, button) => this.#nodeAction(action, node, button),
         onNodeMenu: (node, point) => this.#openNodeMenu(node, point),
-        onNodeDrawn: (node, el) => this.guards?.decorate(node, el),
+        onNodeDrawn: (node, el) => {
+          this.guards?.decorate(node, el);
+          this.#drawMockPin(node, el);
+        },
       },
     });
     this.menu = new ActionMenu();
@@ -273,6 +279,7 @@ export class GraphEditor {
       window.location.assign(this.#linkUrl(node, node.definition_slug));
       return;
     }
+    this.nodeTab = "settings"; // a window opened by a double click starts at the settings (the pin and the pencil open the Mock tab)
     this.#openSettings(node);
   }
 
@@ -280,6 +287,10 @@ export class GraphEditor {
   #openSettings(node) {
     if (this.selection?.id !== node.id) this.select({ type: "node", id: node.id });
     this.layoutKind = node.kind;
+    drawPencil(this.settingsModal.dialog, mockable(typeOf(node), node), () => {
+      this.nodeTab = "mock";
+      this.#renderSettings();
+    });
     this.layout.setWindow(typeOf(node).settings?.length ? `nodes/${node.kind}` : null);
     this.settingsModal.dialog.querySelector(".modal__title").textContent = typeOf(node).label;
     forgetOpened(node.id); // what was added but never given a value is not kept
@@ -826,12 +837,54 @@ export class GraphEditor {
       showError: (message) => this.#showError(message),
       refresh: () => this.#renderInspector(),
       renameNode: (node, name) => this.#rename(node, name),
+      saveMock: (node, mock) => this.#saveMock(node, mock),
+      lastResult: (node) => lastResult(this.model.kind, this.model.id, node.id),
+      saveCases: (node, cases) => this.#saveCases(node, cases),
+      nodeTab: () => this.nodeTab,
+      setNodeTab: (name) => {
+        this.nodeTab = name;
+      },
       dryRunPanel: (node) => this.#dryRunPanel(node),
       dryRunTab: () => this.dryRunTab,
       setDryRunTab: (name) => {
         this.dryRunTab = name;
       },
     };
+  }
+
+  /** Store (or with `null` remove) the mock of a node in the draft (ADR-087); resolves to null, or to why the server refused it. */
+  async #saveMock(node, mock) {
+    try {
+      const updated = await this.model.updateNode(node.id, { mock });
+      for (const holder of new Set([node, this.nodes.get(node.id)])) if (holder) holder.mock = updated.mock;
+    } catch (error) {
+      return error.detail ?? Object.values(error.fieldErrors ?? {})[0] ?? error.message;
+    }
+    this.canvas.sync(); // the pin on the card follows the switch
+    this.alert.hide();
+    return null;
+  }
+
+  /** Store the test cases of a Trigger in the draft (ADR-087); resolves to null, or to why the server refused them. */
+  async #saveCases(node, cases) {
+    try {
+      const updated = await this.model.updateNode(node.id, { cases });
+      for (const holder of new Set([node, this.nodes.get(node.id)])) if (holder) holder.cases = updated.cases;
+    } catch (error) {
+      return error.detail ?? Object.values(error.fieldErrors ?? {})[0] ?? error.message;
+    }
+    return null;
+  }
+
+  /** The pin on the card of a node whose mock is switched on: the dry run uses a stored result there. */
+  #drawMockPin(node, el) {
+    drawPin(el, mockable(typeOf(node), node) && mockActive(node), () => this.#openMockOf(node));
+  }
+
+  /** The pin on a card opens the window of the node at its Mock tab. */
+  #openMockOf(node) {
+    this.nodeTab = "mock";
+    this.#openSettings(node);
   }
 
   /** The panel of the Dry run tab of the Trigger window (ADR-086), one for the page; none for a graph for guards (they run on their own, not on a card). */
@@ -842,7 +895,7 @@ export class GraphEditor {
       id: this.model.id,
       contract: async () => (await loadContract(this.model.kind, this.model.id)).inputs ?? [],
     });
-    return this.dryRun.show(node.config?.inputs ?? []);
+    return this.dryRun.show(node.config?.inputs ?? [], { list: () => this.nodes.get(node.id)?.cases ?? [], save: (cases) => this.#saveCases(node, cases) });
   }
 
   /** The things a node may link to, fetched once until something new is created. */

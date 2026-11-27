@@ -66,7 +66,9 @@ export class DryRunPanel {
   }
 
   /** Put the panel into a fresh window: `inputs` are what the Trigger declares in the draft, now. */
-  show(inputs) {
+  show(inputs, cases = null) {
+    if (cases) this.casesApi = cases; // {list: () => [{name, inputs}], save: (cases) => Promise<string|null>}: the test cases of the Trigger (ADR-087)
+    this.#drawCases();
     this.draftInputs = formFields(inputs);
     if (this.version === "draft") this.#setFields(this.draftInputs);
     if (!this.loaded) this.#load();
@@ -166,7 +168,36 @@ export class DryRunPanel {
     this.historyLink = make("a", "ge-dry__history", t("editor.dry_run.open_history"));
     this.result.append(this.resultHead, this.stepList, this.historyLink);
 
-    this.element.append(lead, this.placeBox, this.placeMissing, cardBox, this.cardNote, this.inputsBox, versionBox, this.checkLine, actions, this.errorLine, this.result);
+    this.casesBox = make("fieldset", "ge-dry__cases ge-cases");
+    this.casesBox.dataset.testCases = "";
+    this.casesBox.append(make("legend", "ge-dry__legend", t("editor.dry_run.cases_title")));
+    this.casesPick = make("select", "field__control");
+    this.casesPick.id = id("cases");
+    this.casesPick.setAttribute("aria-label", t("editor.dry_run.cases_pick"));
+    this.casesPick.dataset.focusKey = "dry-cases";
+    this.casesPick.addEventListener("change", () => this.#useCase(this.casesPick.value));
+    this.caseName = make("input", "field__control");
+    this.caseName.type = "text";
+    this.caseName.maxLength = 60;
+    this.caseName.placeholder = t("editor.dry_run.cases_name");
+    this.caseName.setAttribute("aria-label", t("editor.dry_run.cases_name"));
+    this.caseName.dataset.focusKey = "dry-case-name";
+    this.caseSave = make("button", "button button--ghost button--sm", t("editor.dry_run.cases_save"));
+    this.caseSave.type = "button";
+    this.caseSave.dataset.focusKey = "dry-case-save";
+    this.caseSave.addEventListener("click", () => this.#saveCase());
+    this.caseDelete = make("button", "button button--ghost button--sm is-danger", t("editor.dry_run.cases_delete"));
+    this.caseDelete.type = "button";
+    this.caseDelete.dataset.focusKey = "dry-case-delete";
+    this.caseDelete.addEventListener("click", () => this.#deleteCase());
+    this.caseError = make("p", "ge-mock__error");
+    this.caseError.setAttribute("role", "alert");
+    this.caseError.hidden = true;
+    const caseRow = make("div", "ge-cases__row");
+    caseRow.append(this.caseName, this.caseSave, this.caseDelete);
+    this.casesBox.append(this.casesPick, caseRow, this.caseError);
+
+    this.element.append(lead, this.placeBox, this.placeMissing, cardBox, this.cardNote, this.casesBox, this.inputsBox, versionBox, this.checkLine, actions, this.errorLine, this.result);
     this.#setFields([]);
     this.#syncStart();
   }
@@ -213,6 +244,64 @@ export class DryRunPanel {
     if (taskId) writeJson(cardKey(this.graph.id), taskId);
     this.#scheduleCheck();
     this.#syncStart();
+  }
+
+  // ── the test cases of the Trigger (ADR-087) ────────────────────
+
+  #cases() {
+    return this.casesApi?.list() ?? [];
+  }
+
+  #drawCases() {
+    const cases = this.#cases();
+    const chosen = this.chosenCase && cases.some((c) => c.name === this.chosenCase) ? this.chosenCase : "";
+    this.chosenCase = chosen;
+    this.casesPick.replaceChildren(new Option(t("editor.dry_run.cases_none"), ""), ...cases.map((c) => Object.assign(new Option(c.name, c.name), { selected: c.name === chosen })));
+    this.caseDelete.disabled = !chosen;
+    this.casesBox.hidden = !this.casesApi;
+  }
+
+  /** The values of a test case go into the inputs (what was typed before is replaced); no case leaves them as they are. */
+  #useCase(name) {
+    this.chosenCase = name;
+    const found = this.#cases().find((c) => c.name === name);
+    if (found) {
+      this.entered = { ...found.inputs };
+      this.caseName.value = found.name;
+      this.#setFields(this.fields);
+      this.#scheduleCheck();
+    }
+    this.caseDelete.disabled = !found;
+  }
+
+  async #storeCases(cases) {
+    const refused = await this.casesApi.save(cases);
+    this.caseError.textContent = refused ?? "";
+    this.caseError.hidden = !refused;
+    this.#drawCases();
+    return !refused;
+  }
+
+  async #saveCase() {
+    const name = this.caseName.value.trim();
+    if (!name) {
+      this.caseError.textContent = t("editor.dry_run.cases_name_needed");
+      this.caseError.hidden = false;
+      return;
+    }
+    const given = Object.fromEntries(Object.entries(this.entered).filter(([, v]) => typeof v === "string" && v !== ""));
+    const others = this.#cases().filter((c) => c.name !== name);
+    if (await this.#storeCases([...others, { name, inputs: given }])) {
+      this.chosenCase = name;
+      this.#drawCases();
+    }
+  }
+
+  async #deleteCase() {
+    const name = this.chosenCase;
+    if (!name) return;
+    this.chosenCase = "";
+    await this.#storeCases(this.#cases().filter((c) => c.name !== name));
   }
 
   // ── the inputs ────────────────────────────────────────────────
