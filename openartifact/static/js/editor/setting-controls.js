@@ -82,7 +82,7 @@ class SettingControl {
   }
 
   /** The editable element (an input, a textarea, a select ...). */
-  createInput(value) {
+  createInput() {
     throw new Error("A control makes its input");
   }
 

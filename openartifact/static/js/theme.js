@@ -20,13 +20,13 @@
   var narrowQuery = window.matchMedia("(max-width: 640px), (max-height: 500px) and (max-width: 960px)");
 
   function read(key) {
-    try { return window.localStorage.getItem(key); } catch (e) { return null; }
+    try { return window.localStorage.getItem(key); } catch { return null; }
   }
   function write(key, value) {
-    try { window.localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
+    try { window.localStorage.setItem(key, value); } catch { /* storage unavailable */ }
   }
   function remove(key) {
-    try { window.localStorage.removeItem(key); } catch (e) { /* storage unavailable */ }
+    try { window.localStorage.removeItem(key); } catch { /* storage unavailable */ }
   }
 
   var Theme = {

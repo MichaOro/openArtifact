@@ -285,7 +285,7 @@ class ExecutionsPage {
         } catch (error) {
           if (error.status !== 409) throw error;
           this.load(); // it ended or was just being started: show what is true now
-          throw new Error(t("executions.page.stop_too_late"));
+          throw new Error(t("executions.page.stop_too_late"), { cause: error });
         }
       },
       onClose: () => this.table.focus(execution.id),

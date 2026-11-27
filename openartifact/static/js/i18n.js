@@ -49,7 +49,7 @@ export function t(key, variables) {
 
 /** The text of `key.<category>` for the count (`{count}` is filled in), else `key.other`, else the key. */
 export function plural(key, count, variables) {
-  let category = "other";
+  let category;
   try {
     category = new Intl.PluralRules(state.lang).select(count);
   } catch {

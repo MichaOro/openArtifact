@@ -26,7 +26,7 @@ import { agentUses, discardDraft, getVersion, removeAgentReference, getAgent, li
 import { ARTIFACT_PARTS, agentChips, fieldLabel, optionsOf, partOf, partText, providerInEffect, sampleHint, sourceOf, usableModels } from "./model.js";
 import { inputsView, limitsView, promptsView } from "./version-view.js";
 import { attachCopy } from "../components/copy-button.js";
-import { chip, configFacts, el, previewView, problemList } from "./view.js";
+import { chip, el, previewView, problemList } from "./view.js";
 import { t, tn } from "../i18n.js";
 
 const root = document.querySelector("[data-agent-editor]");
@@ -52,7 +52,6 @@ let agent = null;
 let providers = [];
 let dirty = false;
 let versionsExpanded = false; // the folded middle of a long list of versions is shown
-let fieldCount = 0;
 
 // ── tabs and options ───────────────────────────────────────────────────
 

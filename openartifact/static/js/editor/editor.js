@@ -9,7 +9,6 @@ import { Modal } from "../components/modal.js";
 import { WindowLayout } from "../components/window-layout.js";
 import { KEYS, readJson, removeStorage, writeJson } from "../storage.js";
 import { ActionMenu } from "../components/action-menu.js";
-import { icon } from "../components/icons.js";
 import { AddMenu } from "./add-menu.js";
 import { getAgent } from "../agents/api.js";
 import { createGraph, listGraphs, loadContract, loadGraph } from "./api.js";
@@ -805,7 +804,6 @@ export class GraphEditor {
 
   async #doPaste(copy, times) {
     const selected = this.selection?.type === "node" ? this.nodes.get(this.selection.id) : null;
-    const stages = [...this.nodes.values()].filter((n) => n.kind === "stage");
     const plan = pastePlan(copy, {
       offset: 40 * times,
       names: new Set([...this.nodes.values()].map((n) => n.name)),

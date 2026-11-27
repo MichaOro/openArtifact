@@ -21,7 +21,7 @@ const send = (method, url, body) => request(url, { method, ...(body === undefine
 const banner = new AlertBar();
 const menu = new ActionMenu();
 const confirm = new ConfirmDialog(new Modal(document.getElementById("confirm-modal")));
-const tabs = new Tabs(document.querySelector("[data-cred-tabs]"));
+new Tabs(document.querySelector("[data-cred-tabs]"));
 const lists = { internal: document.querySelector('[data-list="internal"]'), external: document.querySelector('[data-list="external"]') };
 const empties = { internal: document.querySelector('[data-empty="internal"]'), external: document.querySelector('[data-empty="external"]') };
 

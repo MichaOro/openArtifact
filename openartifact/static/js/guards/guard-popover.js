@@ -109,7 +109,7 @@ export class GuardPopover {
   }
 
   #render() {
-    const { mode, scope, guards, schema } = this.what;
+    const { mode, scope, guards } = this.what;
     const parts = [];
     if (mode === "add") {
       parts.push(make("p", "popover__caption", t("guards.add_a_guard")));

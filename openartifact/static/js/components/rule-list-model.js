@@ -24,7 +24,8 @@ export const removeStaged = (rules, index) => patch(rules, index, { removed: tru
 /** Undo `removeStaged`. */
 export const restore = (rules, index) => rules.map((r, i) => {
   if (i !== index) return r;
-  const { removed, ...rest } = r;
+  const rest = { ...r };
+  delete rest.removed;
   return rest;
 });
 
