@@ -9,6 +9,7 @@ import { cardPreview, previewSegments } from "./body-model.js";
 import { renderBody } from "./references.js";
 import { AlertBar } from "../components/alert-bar.js";
 import { InlineName } from "../components/inline-name.js";
+import { matches } from "./board-search-model.js";
 import { t, tn } from "../i18n.js";
 
 const LANE_NAME_MAX_LENGTH = 40;
@@ -29,6 +30,13 @@ export class Board {
     this.liveRegion = document.querySelector("[data-live-region]");
 
     this.loaded = false;
+    /** The board search (ADR-091): the plan from board-search-model.js, or null while nothing is typed; `kept` are cards that stay shown. */
+    this.filter = null;
+    /** Called after a card was added, changed or removed (the search updates its line and keeps the focus sensible). */
+    this.onChange = null;
+    /** Called when the card that has the focus is hidden by the search (the search takes the focus so it does not fall to the page). */
+    this.onFocusLost = null;
+    /** @type {Set<string>} */ this.kept = new Set();
     /** @type {Map<string, object>} */ this.runs = new Map();
     /** @type {Set<string>} */ this.locked = new Set();
     /** @type {Map<string, object>} */ this.tasks = new Map();
@@ -49,6 +57,39 @@ export class Board {
 
   laneTitle(status) {
     return this.lanes.get(status)?.title ?? status;
+  }
+
+  /** Show only the cards a search plan keeps (`null`: all). No card is built again: each one is shown or hidden. A card the user just made stays
+   * shown until the query changes (`keepVisible`). Returns `{shown, total}`. */
+  setFilter(plan) {
+    this.filter = plan && plan.kind !== "all" ? plan : null;
+    this.kept.clear();
+    return this.refilter();
+  }
+
+  /** Make a card stay shown while a filter is on (the card the user has just made must not vanish). */
+  keepVisible(id) {
+    this.kept.add(id);
+    const card = this.cards.get(id);
+    if (card) this.#showOrHide(card, this.tasks.get(id));
+    this.#updateCounts();
+  }
+
+  /** Apply the filter to every card and the lane counts again. */
+  refilter() {
+    let shown = 0;
+    for (const [id, card] of this.cards) {
+      this.#showOrHide(card, this.tasks.get(id));
+      if (!card.hidden) shown += 1;
+    }
+    this.#updateCounts();
+    return { shown, total: this.cards.size };
+  }
+
+  #showOrHide(card, task) {
+    const focused = document.activeElement === card; // a card that is hidden loses the focus at once: say so before it is gone
+    card.hidden = Boolean(this.filter && task && !this.kept.has(task.id) && !matches(task, this.filter));
+    if (focused && card.hidden) this.onFocusLost?.();
   }
 
   /** Number of artifacts in a lane as shown. */
@@ -163,8 +204,10 @@ export class Board {
       this.#place(card, task);
       if (isNew && this.loaded) card.classList.add("task-card--new");
     }
+    this.#showOrHide(card, task);
     this.#updateCounts();
     this.#renderRelations();
+    this.onChange?.();
     return card;
   }
 
@@ -172,8 +215,10 @@ export class Board {
     this.cards.get(id)?.remove();
     this.cards.delete(id);
     this.tasks.delete(id);
+    this.kept.delete(id);
     this.#updateCounts();
     this.#renderRelations();
+    this.onChange?.();
   }
 
   /** Parent task data of a task, or null. */
@@ -344,10 +389,25 @@ export class Board {
   }
 
   #updateCounts() {
-    this.lanes.forEach(({ list, count }) => {
+    this.lanes.forEach(({ section, list, count }) => {
       const n = list.children.length;
-      count.textContent = String(n);
-      count.setAttribute("aria-label", tn("count.artifact", n));
+      if (!this.filter) {
+        count.textContent = String(n);
+        count.setAttribute("aria-label", tn("count.artifact", n));
+        count.removeAttribute("title");
+        section.querySelector("[data-lane-nomatch]")?.setAttribute("hidden", "");
+        section.classList.remove("lane--nomatch");
+        return;
+      }
+      const shown = [...list.children].filter((card) => !card.hidden).length; // while a search is on the badge says how many of the lane match
+      count.textContent = `${shown}/${n}`;
+      const text = t("board.search.lane_count", { shown, total: n });
+      count.setAttribute("aria-label", text);
+      count.title = text;
+      const none = section.querySelector("[data-lane-nomatch]");
+      const empty = n > 0 && shown === 0;
+      if (none) none.hidden = !empty;
+      section.classList.toggle("lane--nomatch", empty);
     });
   }
 }
