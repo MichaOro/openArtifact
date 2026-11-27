@@ -321,7 +321,7 @@ Used now: the status bar of the canvas (eye of the observe mode, stop sign, shie
 
 **The Execution Trace** (the right area of the execution page, `execution/flow-panel.js`; the rounds are `execution/trace-view.js` over the pure `trace-model.js`): three registers with the shared `Tabs`
 (*Overview*: path, details, the output of the step; *Trace*: only for an agent step; *Context*: the run context), the chosen one in the address (`#overview`, `#trace`, `#context`) and kept while other
-nodes are selected (a node without rounds shows Overview). Trace: the **newest round first**, three shown, *Show N more rounds* (a chunk of twenty), **the first round last** as an anchor; a round is an
+nodes are selected (a node without rounds shows Overview). Trace: the **newest round first**, three shown, *Show more rounds* (a chunk of twenty, no counts), **the first round last** as an anchor; a round is an
 accordion row (`details`) that is open while it works or has a failure; a **Live** pill (paused when scrolled away), a search and a filter (all, errors, tool calls). Events are names, states and times, no message texts.
 
 **A third variant** costs: a whitelist and an order table in a `defineVariant` call, a size (the button class), a host element with its anchoring CSS, and one `add` per entry. No new arrangement code.

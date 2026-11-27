@@ -246,13 +246,14 @@ export class FlowPanel {
 
   // ── the Execution Trace of the selected agent ───────────────────────
 
-  /** The Trace register: only for a selected agent step (working or finished); the register the user chose is kept, else Overview. */
+  /** The Trace register: only for a selected agent step (the node that works now, or a finished step), with or without rounds; the register the user chose is kept, else Overview. */
   #trace(view) {
     const { model, visit, walk, selected, agentLive } = view;
     const node = selected ? model.graph(visit).nodes.find((n) => n.id === selected) : null;
     const info = node ? walk.states.get(node.id) : null;
     const step = node ? walk.entries.find((e) => e.id === node.id && e.step)?.step : null;
-    const liveAgent = node?.kind === "agent" && info?.state === "running" ? agentLive?.get(node.id) : null;
+    // an agent that works has its Trace from the moment the node starts, empty until the first round is heard (the events only tell of it then)
+    const liveAgent = node?.kind === "agent" && info?.state === "running" ? (agentLive?.get(node.id) ?? { rounds: [], tokens: null }) : null;
     const available = Boolean(node?.kind === "agent" && (liveAgent || step));
     this.quiet = true;
     this.tabs.setVisible("trace", available);

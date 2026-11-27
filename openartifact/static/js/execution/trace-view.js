@@ -29,60 +29,75 @@ function mark(state) {
   return node;
 }
 
+/** One event row: a title line (what happened, the time at the far right of the SAME line), then detail lines under it, all left-aligned. */
 function event(kind, state, time) {
   const item = el("li", "trace__event");
   item.dataset.kind = kind;
   if (state) item.dataset.state = state;
-  item.append(el("span", "trace__time", time ?? ""));
-  return item;
+  const line = el("div", "trace__line");
+  const title = el("span", "trace__what");
+  line.append(title);
+  if (time) line.append(el("span", "trace__time", time));
+  item.append(line);
+  return { item, title, line };
 }
+
+/** A detail line under a title (muted; red for an error). */
+function detail(item, text, className = "trace__meta") {
+  const node = el("div", `trace__detail ${className}`, text);
+  item.append(node);
+  return node;
+}
+
+/** A duration is shown when it means something: under a tenth of a second it is left out. */
+const meaningful = (ms) => (ms != null && ms >= 100 ? seconds(ms) : "");
 
 /** The events of one round: the model request, then the calls (identical ones grouped) with what came back. */
 function events(round, model) {
   const rows = [];
   const request = event("model", round.state === "failed" && !round.calls.length ? "failed" : "", clock(round.startedAt));
-  const what = el("span", "trace__what");
-  what.append(el("strong", "", t("execution.trace.model_request")));
+  request.title.append(el("strong", "", t("execution.trace.model_request")));
   const meta = [model, round.tokens != null ? t("execution.live_rounds.tokens", { count: round.tokens }) : ""].filter(Boolean).join(" · ");
-  if (meta) what.append(el("span", "trace__meta", meta));
-  request.append(what);
-  if (round.state === "running" && !round.calls.length) request.append(el("span", "trace__meta trace__waiting", t("execution.trace.waiting")));
-  rows.push(request);
+  if (meta) detail(request.item, meta);
+  if (round.state === "running" && !round.calls.length) detail(request.item, t("execution.trace.waiting"), "trace__meta trace__waiting");
+  rows.push(request.item);
   if (round.text) {
     const text = event("text", "", "");
-    text.append(el("span", "live-rounds__text", round.text)); // what the events told of the answer (a stage later: the whole message)
-    rows.push(text);
+    text.line.remove();
+    detail(text.item, round.text, "live-rounds__text"); // what the events told of the answer (a stage later: the whole message)
+    rows.push(text.item);
   }
   if (round.error) {
     const failed = event("error", "failed", "");
-    failed.append(el("span", "trace__what trace__error", `${t("execution.live_rounds.request_failed")}: ${round.error}`));
-    rows.push(failed);
+    failed.line.remove();
+    detail(failed.item, `${t("execution.live_rounds.request_failed")}: ${round.error}`, "trace__error");
+    rows.push(failed.item);
   }
   for (const call of groupCalls(round.calls)) {
     const row = event("tool", call.state, "");
-    row.classList.add("live-rounds__call");
-    const label = el("span", "trace__what");
-    label.append(mark(call.state), el("code", "live-rounds__tool", call.count > 1 ? `${call.tool} ×${call.count}` : call.tool));
-    if (call.node) label.append(el("span", "trace__meta", call.node));
+    row.item.classList.add("live-rounds__call");
+    row.title.append(mark(call.state), el("code", "live-rounds__tool", call.count > 1 ? `${call.tool} ×${call.count}` : call.tool));
     const state = call.state === "running" ? t("execution.live_rounds.working") : call.state === "failed" ? t("execution.live_rounds.call_failed") : t("execution.live_rounds.call_ok");
-    label.append(el("span", "visually-hidden", ` ${state}`));
-    row.append(label);
-    if (call.ms != null) row.append(el("span", "live-rounds__time", seconds(call.ms)));
-    rows.push(row);
+    row.title.append(el("span", "visually-hidden", ` ${state}`));
+    const where = [call.node, meaningful(call.ms)].filter(Boolean).join(" · ");
+    if (where) detail(row.item, where);
+    rows.push(row.item);
     if (call.state === "ok") {
       const back = event("result", "ok", "");
-      back.append(el("span", "trace__what trace__meta", t("execution.trace.result_returned")));
-      rows.push(back);
+      back.line.remove();
+      detail(back.item, t("execution.trace.result_returned"));
+      rows.push(back.item);
     } else if (call.state === "failed") {
       const back = event("result", "failed", "");
-      back.append(el("span", "trace__what trace__error", call.error || t("execution.live_rounds.call_failed")));
-      rows.push(back);
+      back.line.remove();
+      detail(back.item, call.error || t("execution.live_rounds.call_failed"), "trace__error");
+      rows.push(back.item);
     }
   }
   if (round.state === "done" && !round.calls.length && !round.wrapUp) {
     const answer = event("answer", "", "");
-    answer.append(el("span", "trace__what", t("execution.trace.final_answer_marker")));
-    rows.push(answer);
+    answer.title.append(t("execution.trace.final_answer_marker"));
+    rows.push(answer.item);
   }
   return rows;
 }
@@ -117,7 +132,7 @@ function roundRow(round, view, anchor) {
   if (round.state === "running") right.append(el("span", "live-rounds__status", t("execution.live_rounds.asking")));
   else if (round.state === "failed") right.append(el("span", "live-rounds__status", t("execution.live_rounds.request_failed")));
   else if (round.tokens != null) right.append(el("span", "live-rounds__status", t("execution.live_rounds.tokens", { count: round.tokens })));
-  if (round.ms != null && round.state !== "running") right.append(el("span", "live-rounds__status", seconds(round.ms)));
+  if (round.state !== "running" && meaningful(round.ms)) right.append(el("span", "live-rounds__status", meaningful(round.ms)));
   head.append(right);
   const list = el("ul", "trace__events");
   list.append(...events(round, model));
@@ -187,21 +202,24 @@ export function traceView({ rounds, totals = {}, model = "", live, state, handle
 
   const visible = rounds.filter((round) => matches(round, state));
   const list = el("ol", "live-rounds__list trace__list");
-  if (!rounds.length) list.append(el("li", "ef-panel__note", t("execution.trace.no_rounds")));
+  if (!rounds.length) {
+    const none = el("li", "ef-panel__note trace__empty", live ? t("execution.trace.no_rounds_yet") : t("execution.trace.no_rounds"));
+    none.dataset.traceEmpty = "";
+    list.append(none);
+  }
   else if (!visible.length) list.append(el("li", "ef-panel__note", t("execution.trace.no_match")));
   const arranged = arrange(visible, state.extra);
   for (const round of arranged.shown) list.append(roundRow(round, { state, model }, false));
   if (arranged.hidden > 0) {
     const item = el("li", "trace__more");
-    const more = el("button", "button button--ghost button--sm", t("execution.trace.show_more", { count: arranged.more }));
+    const more = el("button", "button button--ghost button--sm", t("execution.trace.show_more"));
     more.type = "button";
     more.dataset.traceMore = "";
-    more.title = t("execution.trace.hidden", { count: arranged.hidden });
     more.addEventListener("click", () => {
       state.extra += arranged.more;
       handlers.onChange({ focus: "more" });
     });
-    item.append(more, el("span", "trace__meta", t("execution.trace.hidden", { count: arranged.hidden })));
+    item.append(more);
     list.append(item);
   }
   if (arranged.first) list.append(roundRow(arranged.first, { state, model }, true));

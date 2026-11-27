@@ -72,9 +72,9 @@ def test_a_finished_agent_shows_the_newest_round_first_three_of_them_show_more_a
     expect(rounds.nth(3)).to_contain_text("Round 1")
     expect(rounds.nth(3)).to_contain_text("first round")
     more = trace.locator("[data-trace-more]")
-    expect(more).to_have_text(
-        "Show 4 more rounds"
-    )  # 8 rounds: 3 shown, the first aside, 4 in between
+    # owner decision: no counts on the button and no "hidden" text (the highest round number tells how many there are)
+    expect(more).to_have_text("Show more rounds")
+    expect(trace.locator(".trace__more")).not_to_contain_text("hidden")
     # the order in the page is: the three, the button, the first round (the button sits between them)
     order = trace.evaluate(
         """el => [...el.querySelectorAll('.trace__list > li')].map(
@@ -238,3 +238,124 @@ def test_a_trigger_has_no_trace_register(
     expect(page.locator("[data-panel-tabs]").get_by_role("tab")).to_have_text(
         ["Overview", "Context"]
     )
+
+
+def test_the_trace_exists_from_the_start_and_is_empty_until_the_first_round_is_heard(
+    signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
+) -> None:
+    pipeline = _flow(api, llm, [("code_tool", "Pinger", PING)])
+    llm.script = [(200, _asks_tokens("c1", "ping", 100), {}, 6.0), (200, completion("Answer."))]
+    task = _start(api, pipeline)
+    run = _run(api, task, ("running", "done", "failed"))
+    page = signed_in
+    _open_agent(page, agents_url, task, run)
+    # the model has not answered yet: no round, no call, but the register is there
+    tab = page.get_by_role("tab", name="Trace")
+    expect(tab).to_be_visible(timeout=10000)
+    tab.click()
+    trace = page.locator("[data-trace]")
+    expect(trace.locator("[data-trace-live]")).to_have_attribute("data-trace-live", "live")
+    expect(trace.locator(".trace__facts")).to_contain_text("0 rounds")
+    expect(trace.locator("[data-trace-empty]")).to_have_text(
+        "No rounds yet. The agent has not asked the model yet."
+    )
+    # the round comes in and takes the place of the empty line
+    expect(trace.locator(".live-rounds__round[data-turn='1']")).to_be_visible(timeout=30000)
+    expect(trace.locator("[data-trace-empty]")).to_have_count(0)
+    expect(trace.locator("[data-trace-live]")).to_have_count(0, timeout=40000)
+
+
+def test_a_finished_agent_that_never_reached_the_model_has_a_trace_that_says_so(
+    signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
+) -> None:
+    pipeline = _flow(api, llm, [("code_tool", "Pinger", PING)])
+    # a prompt that reads an input nobody declares stops the node before the model is asked: no round is ever made
+    for action in api.get("/api/actions").json():
+        nodes = api.get(f"/api/actions/{action['id']}").json()["nodes"]
+        for found in nodes:
+            if found["kind"] == "agent":
+                api.patch(
+                    f"/api/actions/{action['id']}/nodes/{found['id']}",
+                    json={"config": {"user_prompt": "Ask ${input.nobody}"}},
+                ).raise_for_status()
+    task = _start(api, pipeline)
+    run = _run(api, task, ("done", "failed"))
+    assert run["status"] == "failed", run
+    page = signed_in
+    _open_agent(page, agents_url, task, run)
+    page.get_by_role("tab", name="Trace").click()
+    trace = page.locator("[data-trace]")
+    expect(trace).to_be_visible()
+    expect(trace.locator("[data-trace-live]")).to_have_count(0)
+    expect(trace.locator(".trace__facts")).to_contain_text("0 rounds")
+    expect(trace.locator("[data-trace-empty]")).to_have_text("No rounds were recorded.")
+
+
+def test_an_opened_round_is_left_aligned_with_its_time_at_the_far_right_of_the_title_line_and_no_zero_seconds(
+    signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
+) -> None:
+    task, run = _eight_rounds(api, llm)
+    page = signed_in
+    page.set_viewport_size({"width": 1100, "height": 900})
+    _open_agent(page, agents_url, task, run)
+    page.get_by_role("tab", name="Trace").click()
+    trace = page.locator("[data-trace]")
+    rounds = trace.locator(".live-rounds__round")
+    rounds.nth(1).locator("summary").click()
+    opened = rounds.nth(1)
+    geometry = opened.evaluate(
+        """el => [...el.querySelectorAll('.trace__event')].map(ev => {
+            const box = n => n && n.getBoundingClientRect();
+            const line = ev.querySelector('.trace__line');
+            const what = line && line.querySelector('.trace__what');
+            const time = line && line.querySelector('.trace__time');
+            const details = [...ev.querySelectorAll('.trace__detail')];
+            return {
+                kind: ev.dataset.kind, text: ev.textContent,
+                block: box(ev).right, left: box(ev).left,
+                titleY: what && box(what).top + box(what).height / 2, timeY: time && box(time).top + box(time).height / 2,
+                timeRight: time && box(time).right, titleLeft: what && box(what).left,
+                detailLefts: details.map(d => box(d).left),
+            };
+        })"""
+    )
+    kinds = [g["kind"] for g in geometry]
+    assert "model" in kinds and "tool" in kinds, kinds
+    for g in geometry:
+        assert "0 s" not in g["text"] and "0.0 s" not in g["text"], (
+            g
+        )  # a duration under a tenth of a second is left out
+        if g["titleLeft"] is not None:
+            assert abs(g["titleLeft"] - g["left"]) <= 2, (
+                g
+            )  # the title starts at the left edge of the row
+        for left in g["detailLefts"]:
+            assert abs(left - g["left"]) <= 2, g  # the details are left-aligned with the title
+    model = next(g for g in geometry if g["kind"] == "model")
+    assert model["timeRight"] is not None, model  # the model request has its time
+    assert abs(model["timeY"] - model["titleY"]) <= 3, model  # on the same line as its title
+    assert abs(model["timeRight"] - model["block"]) <= 2, model  # at the far right of the row
+
+
+def test_the_round_header_keeps_its_numbers_on_the_line_of_the_round_in_a_narrow_panel(
+    signed_in: Page, agents_url: str, api: httpx.Client, llm: FakeLlm
+) -> None:
+    task, run = _eight_rounds(api, llm)
+    page = signed_in
+    page.set_viewport_size({"width": 760, "height": 900})  # the panel is about 360 px wide
+    _open_agent(page, agents_url, task, run)
+    page.get_by_role("tab", name="Trace").click()
+    head = page.locator("[data-trace] .live-rounds__round").nth(1).locator("summary")
+    expect(head).to_be_visible()
+    y = head.evaluate(
+        """el => ({
+            head: el.getBoundingClientRect().height,
+            name: el.querySelector('.trace__roundname').getBoundingClientRect().top,
+            numbers: el.querySelector('.trace__numbers').getBoundingClientRect().top,
+            right: el.querySelector('.trace__numbers').getBoundingClientRect().right - el.getBoundingClientRect().right,
+        })"""
+    )
+    assert abs(y["numbers"] - y["name"]) <= 8, (
+        y
+    )  # the numbers sit on the line of the round name, not below it
+    assert y["right"] <= 0 and y["right"] > -24, y  # at the right edge of the header
