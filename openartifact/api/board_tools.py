@@ -363,12 +363,13 @@ class BoardTools:
         limit: int = DEFAULT_LIMIT,
         cursor: str | None = None,
         dry_run: str | None = None,
+        observed: str | None = None,
     ) -> dict[str, Any]:
         """The executions of ALL artifacts, newest first, without steps, with each artifact's number and
         title. Filters (all optional): ``status`` (comma separated: running, done, failed, stopped),
         ``started_by`` (user, api, mcp, system), ``pipeline`` (id, or part of its name), ``query`` (part of
         the title, pipeline name or note, or an artifact number), ``since`` / ``until`` (ISO 8601, UTC).
-        ``dry_run`` is ``only`` or ``exclude`` (dry runs skip what writes). ``limit`` is 1 to 200 (default 50); pass
+        ``dry_run`` is ``only`` or ``exclude`` (dry runs skip what writes); ``observed`` is ``only`` or ``exclude`` (the runs of an observed pipeline, which are dry runs too). ``limit`` is 1 to 200 (default 50); pass
         ``next_cursor`` as ``cursor`` for the next page. ``summary`` counts running, failed and done (24 h, real runs only)
         and all executions."""
         if not 1 <= limit <= MAX_LIMIT:
@@ -383,6 +384,7 @@ class BoardTools:
             limit=limit,
             cursor=cursor,
             dry_run=dry_run,
+            observed=observed,
         )
         return (await guarded(page)).model_dump(mode="json")
 

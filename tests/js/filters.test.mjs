@@ -141,6 +141,28 @@ test("the dry-run filter lives in the URL, goes to the API and decides which eve
   assert.equal(new Filters().toSearch(), "");
 });
 
+test("the observed runs are a kind of their own: apart from the dry runs started by hand, in the URL and in the API query (ADR-088)", () => {
+  const at = "2026-03-10T11:00:00Z";
+  const manual = { status: "done", started_at: at, dry_run: true, observed: false };
+  const watched = { status: "done", started_at: at, dry_run: true, observed: true };
+  const only = Filters.fromSearch("?dry_run=only");
+  assert.equal(only.toQuery().get("observed"), "exclude", "an observed run is a dry run for the server: the page leaves it out of 'Dry runs'");
+  assert.equal(only.toSearch(), "?dry_run=only", "the link stays what it was");
+  assert.equal(only.mayInclude(manual, NOW), true);
+  assert.equal(only.mayInclude(watched, NOW), false);
+  const observed = Filters.fromSearch("?observed=only");
+  assert.equal(observed.dryRun, "observed");
+  assert.equal(observed.toSearch(), "?observed=only");
+  assert.equal(observed.toQuery().get("observed"), "only");
+  assert.equal(observed.toQuery().get("dry_run"), null);
+  assert.equal(observed.activeCount, 1);
+  assert.equal(observed.mayInclude(watched, NOW), true);
+  assert.equal(observed.mayInclude(manual, NOW), false);
+  const real = Filters.fromSearch("?dry_run=exclude");
+  assert.equal(real.mayInclude(watched, NOW), false, "an observed run is no real run");
+  assert.equal(real.toQuery().get("observed"), null);
+});
+
 test("toQuery uses the current time when none is given", () => {
   const since = new Date(new Filters({ range: "1h" }).toQuery().get("since")).getTime();
   assert.ok(Math.abs(Date.now() - 3600_000 - since) < 5000);

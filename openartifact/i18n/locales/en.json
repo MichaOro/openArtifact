@@ -1786,5 +1786,6 @@
  "editor.observe.release": "Release",
  "editor.observe.again": "Observe again",
  "graph_list.chip_observing": "Observing",
- "graph_list.chip_observe_ended": "Starts refused"
+ "graph_list.chip_observe_ended": "Starts refused",
+ "executions.observed": "Observed"
 }

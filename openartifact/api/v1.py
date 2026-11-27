@@ -319,6 +319,7 @@ async def list_all_executions(
     since: str | None = None,
     until: str | None = None,
     dry_run: str | None = None,
+    observed: str | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     cursor: str | None = None,
 ) -> ExecutionsPage:
@@ -330,6 +331,7 @@ async def list_all_executions(
         since=since,
         until=until,
         dry_run=dry_run,
+        observed=observed,
         limit=limit,
         cursor=cursor,
     )

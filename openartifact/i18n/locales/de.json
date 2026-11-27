@@ -2527,5 +2527,6 @@
  "editor.observe.release": "Freigeben",
  "editor.observe.again": "Erneut beobachten",
  "graph_list.chip_observing": "Beobachtet",
- "graph_list.chip_observe_ended": "Starts abgelehnt"
+ "graph_list.chip_observe_ended": "Starts abgelehnt",
+ "executions.observed": "Beobachtet"
 }

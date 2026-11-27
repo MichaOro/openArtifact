@@ -4,6 +4,7 @@
  * changes anything on the server. */
 import { AlertBar } from "../components/alert-bar.js";
 import { icon } from "../components/icons.js";
+import { drawRunFlag } from "../components/run-flag.js";
 import { sentenceOf } from "../tasks/activity-model.js";
 import { loadNodeTypes } from "../editor/node-types.js";
 import { connectEvents } from "../tasks/events.js";
@@ -239,7 +240,7 @@ class FlowPage {
     const chip = root.querySelector("[data-head-chip]");
     chip.hidden = false;
     setChip(chip, execution.status);
-    root.querySelector("[data-head-dry]").hidden = !execution.dry_run; // a dry run says so (ADR-086)
+    drawRunFlag(root.querySelector("[data-head-dry]"), execution); // a dry run or an observed run says so (ADR-086, ADR-088)
     const startedAt = [execution.started_stage_name, execution.started_action_name].filter(Boolean).join(" › ");
     const rows = [
       [t("common.pipeline"), execution.pipeline_name],

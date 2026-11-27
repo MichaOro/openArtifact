@@ -102,8 +102,12 @@ export function fillStep(template, step, open = new Set(), { loadDetail = null }
   factsEl.hidden = facts.length === 0;
 
   const reason = item.querySelector("[data-step-reason]");
-  reason.textContent = step.reason ? t("tasks.history_step.reason_reason", { reason: step.reason }) : "";
+  // a step an observed run could not see (ADR-088) is passed: its line says so quietly, it is no reason of a failure
+  const quiet = Boolean(step.data?.not_observable);
+  reason.textContent = step.reason ? (quiet ? step.reason : t("tasks.history_step.reason_reason", { reason: step.reason })) : "";
   reason.hidden = !step.reason;
+  if (quiet) reason.dataset.notObservable = "";
+  else delete reason.dataset.notObservable;
 
   // the flow page leaves the output out and loads it when the block is opened (output_length says there is one)
   fillBlock(item.querySelector("[data-step-output]"), `${step.id}:output`, step.output, open, step.output || step.output_length > 0);

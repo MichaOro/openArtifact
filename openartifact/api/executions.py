@@ -27,7 +27,8 @@ Filters (all optional, combined with AND): ``status`` and ``started_by`` are com
 or the stored pipeline name as a case-insensitive substring; ``q`` is a case-insensitive substring of the
 artifact title, pipeline name or note, or an artifact number (``12``, ``#12``); ``since`` / ``until`` are
 ISO 8601 times (UTC when no offset is given), both inclusive, on the start time; ``dry_run`` is ``only`` (the dry runs) or
-``exclude`` (the real runs), both when left out. An invalid value is 422.
+``exclude`` (the real runs), both when left out; ``observed`` is ``only`` (the runs of an observed pipeline, ADR-088, which are dry runs
+too) or ``exclude`` (leave them out), both when left out. An invalid value is 422.
 
 ``limit`` is 1 to 200 (default 50). ``next_cursor`` goes into ``cursor`` for the next page and is ``null`` on
 the last; paging is stable while executions are added or deleted. ``total`` counts everything the filters
@@ -51,6 +52,7 @@ async def list_all_executions(
     since: str | None = None,
     until: str | None = None,
     dry_run: str | None = None,
+    observed: str | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     cursor: str | None = None,
 ) -> ExecutionsPage:
@@ -62,6 +64,7 @@ async def list_all_executions(
         since=since,
         until=until,
         dry_run=dry_run,
+        observed=observed,
         limit=limit,
         cursor=cursor,
     )

@@ -272,6 +272,38 @@ def test_the_mcp_tools_are_offered_and_none_of_them_deletes(api: TestClient) -> 
     assert not {n for n in names if "observe" in n and "delete" in n}
 
 
+def test_the_history_filters_the_runs_of_an_observed_pipeline_apart_from_a_manual_dry_run(
+    api: TestClient,
+) -> None:
+    """``observed`` is ``only`` or ``exclude`` beside ``dry_run`` (ADR-088): the observed run is a dry run too, a manual dry run is not observed."""
+    pipeline = _pipeline(api)
+    _on(api, pipeline)
+    watched = make_task(api, "Watched")
+    api.post(
+        f"/api/tasks/{watched['id']}/run", json={"pipeline_id": pipeline["id"]}
+    ).raise_for_status()
+    wait_for_run(api, watched, "done")
+    manual = make_task(api, "Manual")
+    api.post(
+        f"/api/tasks/{manual['id']}/run",
+        json={"pipeline_id": pipeline["id"], "dry_run": True, "version": "draft"},
+    ).raise_for_status()
+    wait_for_run(api, manual, "done")
+
+    def titles(**query: str) -> list[str]:
+        page = api.get("/api/executions", params=query).json()
+        return sorted(item["task"]["title"] for item in page["items"])
+
+    assert titles(dry_run="only") == ["Manual", "Watched"], "an observed run is a dry run too"
+    assert titles(observed="only") == ["Watched"]
+    assert titles(dry_run="only", observed="exclude") == ["Manual"]
+    assert titles(dry_run="exclude") == []
+    assert titles(observed="exclude") == ["Manual"]
+    assert api.get("/api/v1/executions", params={"observed": "only"}).json()["total"] == 1
+    refused = api.get("/api/executions", params={"observed": "maybe"})
+    assert refused.status_code == 422 and "observed: use only or exclude" in refused.text
+
+
 def test_the_list_of_pipelines_marks_one_that_is_observed_or_whose_observation_ended(
     api: TestClient,
 ) -> None:

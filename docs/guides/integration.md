@@ -140,7 +140,7 @@ instructions. What is kept is decided by the retention rules (`GET` / `PUT /api/
 without steps. Filters, all optional: `status` and `started_by` (comma lists: `status=failed,stopped`,
 `started_by=api,mcp`), `pipeline` (an id, or part of the name), `q` (part of the title, pipeline name or
 note, or an artifact number such as `12` or `#12`), `since` and `until` (ISO 8601, inclusive; without an
-offset UTC). `limit` is 1 to 200 (default 50). An invalid value is `422`.
+offset UTC), `dry_run` (`only` or `exclude`) and `observed` (`only` or `exclude`: the runs of an observed pipeline, which are dry runs too, ADR-088). `limit` is 1 to 200 (default 50). An invalid value is `422`.
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" \

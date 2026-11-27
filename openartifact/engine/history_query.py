@@ -13,6 +13,7 @@ that follow (an offset would). The filters, all optional and combined with AND:
   number (``12`` or ``#12``) the artifact with that number matches too.
 * ``since`` / ``until``: ISO 8601 times on ``started_at``, both inclusive; a time without an offset is UTC.
 * ``dry_run``: ``only`` (the dry runs, ADR-086), ``exclude`` (the real runs) or left out (both).
+* ``observed``: ``only`` (the runs of an observed pipeline, ADR-088; they are dry runs too), ``exclude`` (leave them out) or left out (both).
 """
 
 from __future__ import annotations
@@ -94,6 +95,8 @@ class ExecutionFilter:
     until: datetime | None
     #: ``True``: only dry runs, ``False``: only real runs, ``None``: both.
     dry_run: bool | None = None
+    #: ``True``: only the runs of an observed pipeline (ADR-088; they are dry runs too), ``False``: leave them out, ``None``: both.
+    observed: bool | None = None
 
     @classmethod
     def parse(
@@ -106,11 +109,15 @@ class ExecutionFilter:
         since: str | None = None,
         until: str | None = None,
         dry_run: str | None = None,
+        observed: str | None = None,
     ) -> ExecutionFilter:
         """The filter from the raw query values; a value that makes no sense is a 422."""
         wanted = (dry_run or "").strip().lower()
         if wanted not in ("", "only", "exclude"):
             raise ArtifactError(422, "dry_run: use only or exclude")
+        seen = (observed or "").strip().lower()
+        if seen not in ("", "only", "exclude"):
+            raise ArtifactError(422, "observed: use only or exclude")
         return cls(
             statuses=_choice(status, RunStatus, "status"),
             started_by=_choice(started_by, StartedBy, "started_by"),
@@ -119,6 +126,7 @@ class ExecutionFilter:
             since=_time(since, "since"),
             until=_time(until, "until"),
             dry_run={"only": True, "exclude": False}.get(wanted),
+            observed={"only": True, "exclude": False}.get(seen),
         )
 
     def conditions(self) -> list[ColumnElement[bool]]:
@@ -146,6 +154,8 @@ class ExecutionFilter:
             found.append(or_(*options))
         if self.dry_run is not None:
             found.append(Execution.dry_run.is_(self.dry_run))
+        if self.observed is not None:
+            found.append(Execution.observed.is_(self.observed))
         if self.since is not None:
             found.append(Execution.started_at >= self.since.astimezone(UTC).replace(tzinfo=None))
         if self.until is not None:
