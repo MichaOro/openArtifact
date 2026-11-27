@@ -114,12 +114,14 @@ def test_a_numbered_placement_shows_its_number_first_and_quiet_and_cuts_a_long_n
         name.element_handle(),
     )
     assert quiet["weight"] < quiet["nameWeight"] and quiet["size"] <= quiet["nameSize"], quiet
-    # a name too long for the card is cut with an ellipsis on one line; the whole name is the tooltip
+    # a name too long for the card takes its two reserved lines and is cut with an ellipsis at the end of the second (the owner's decision
+    # B+D, ADR-054 addendum: it was one line); the whole name is the tooltip
     cut = page.evaluate(
-        "(n) => ({overflow: n.scrollWidth > n.clientWidth, ellipsis: getComputedStyle(n).textOverflow, wrap: getComputedStyle(n).whiteSpace})",
+        "(n) => { const s = getComputedStyle(n); const line = parseFloat(s.lineHeight);"
+        " return {overflow: n.scrollHeight > n.clientHeight + 1, clamp: s.webkitLineClamp, wrap: s.whiteSpace, lines: Math.round(n.clientHeight / line)}; }",
         name.element_handle(),
     )
-    assert cut == {"overflow": True, "ellipsis": "ellipsis", "wrap": "nowrap"}, cut
+    assert cut == {"overflow": True, "clamp": "2", "wrap": "normal", "lines": 2}, cut
     assert (name.get_attribute("title") or "").startswith(LONG_NAME.strip()), name.get_attribute(
         "title"
     )

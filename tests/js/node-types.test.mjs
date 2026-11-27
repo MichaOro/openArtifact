@@ -65,7 +65,7 @@ test("sizes", () => {
   assert.deepEqual(typeOf("trigger").size(), { width: 160, height: 64 });
   assert.deepEqual(typeOf("complete").size(), { width: 160, height: 56 });
   assert.deepEqual(typeOf("stage").size({ width: 400, height: 300 }), { width: 400, height: 300 });
-  assert.deepEqual(typeOf("action").size(), { width: 190, height: 68 });
+  assert.deepEqual(typeOf("action").size(), { width: 228, height: 76 });
   assert.deepEqual(typeOf("pipeline").size(), { width: 200, height: 64 });
   assert.deepEqual(typeOf("output").size(), { width: 250, height: 104 });
   assert.deepEqual(typeOf("code").size(), { width: 250, height: 84 });
@@ -126,14 +126,14 @@ test("port labels: only the outcomes of kinds that label ports, not in and out",
 
 test("slotHeights: from the first row of a new action to the lowest one, the middle one halfway, all inside the stage", () => {
   const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} against ${expected}`);
-  // the action is 68 high and 190 wide: its input sits at 34, and so does its On Pass (the error output is hidden by default, ADR-061); the highest row is FIRST_ROW (12)
+  // the action is 76 high and 228 wide: its input sits at 38, and so does its On Pass (the error output is hidden by default, ADR-061); the highest row is FIRST_ROW (12)
   assert.equal(FIRST_ROW, 12, "the highest row an action can sit in");
-  const topIn = HEADER + FIRST_ROW + 34;
-  const bottomIn = 360 - STAGE_MARGIN - 68 + 34;
+  const topIn = HEADER + FIRST_ROW + 38;
+  const bottomIn = 360 - STAGE_MARGIN - 76 + 38;
   assert.deepEqual(slotHeights(360, "in"), [topIn, (topIn + bottomIn) / 2, bottomIn], "left: the inputs");
   const out = slotHeights(360, "out");
-  near(out[0], HEADER + FIRST_ROW + 34, "right: the first row's On Pass");
-  near(out[2], 360 - STAGE_MARGIN - 68 + 34, "right: the lowest On Pass");
+  near(out[0], HEADER + FIRST_ROW + 38, "right: the first row's On Pass");
+  near(out[2], 360 - STAGE_MARGIN - 76 + 38, "right: the lowest On Pass");
   near(out[1], (out[0] + out[2]) / 2, "right: halfway");
   assert.deepEqual(slotHeights(460, "in").map((y, i) => y - slotHeights(360, "in")[i]), [0, 50, 100], "a taller stage moves the lower points");
   assert.ok(slotHeights(100, "in").every((y) => y >= HEADER / 2 && y <= 100 - 8), "never outside the stage, however small it is");
@@ -142,12 +142,12 @@ test("slotHeights: from the first row of a new action to the lowest one, the mid
 test("portLocal spreads the shown ports down their side; the output kind pins its connectors", () => {
   const action = typeOf("action");
   const withFail = node("action", { config: { on_failure: "error_output" } });
-  assert.deepEqual(action.portLocal(withFail, "in"), { x: 0, y: 34 });
-  assert.deepEqual(action.portLocal(withFail, "pass"), { x: 190, y: 68 / 3 });
-  assert.deepEqual(action.portLocal(withFail, "error"), { x: 190, y: (68 / 3) * 2 });
+  assert.deepEqual(action.portLocal(withFail, "in"), { x: 0, y: 38 });
+  assert.deepEqual(action.portLocal(withFail, "pass"), { x: 228, y: 76 / 3 });
+  assert.deepEqual(action.portLocal(withFail, "error"), { x: 228, y: (76 / 3) * 2 });
   const withoutFail = node("action", { config: {} });
-  assert.deepEqual(action.portLocal(withoutFail, "pass"), { x: 190, y: 34 }, "the only shown output sits in the middle");
-  assert.deepEqual(action.portLocal(withoutFail, "nonsense"), { x: 190, y: 34 }, "an unknown port falls back to the first");
+  assert.deepEqual(action.portLocal(withoutFail, "pass"), { x: 228, y: 38 }, "the only shown output sits in the middle");
+  assert.deepEqual(action.portLocal(withoutFail, "nonsense"), { x: 228, y: 38 }, "an unknown port falls back to the first");
   const output = typeOf("output");
   assert.deepEqual(output.portLocal(node("output"), "pass"), { x: 0, y: 60 });
   assert.deepEqual(output.portLocal(node("output"), "fail"), { x: 0, y: 84 });

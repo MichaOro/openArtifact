@@ -288,6 +288,19 @@ with its reason, and an exception that is not needed any more is removed):
 A value that is long in itself is never shown whole: a row that names what a setting inherits (a prompt of thousands of
 characters) shows a one-line preview and the whole text in its tooltip (`preview` in `agents/model.js`).
 
+## Cards of the pipeline view
+
+The cards on the canvas have a size and a title rule, so a column of them looks calm (the owner's decision after a comparison of widths):
+
+- **Sizes:** an **action** card is 228 x 76 px (`ui.size` in `graph/nodes/action.yaml`). The flow cards (agent, code, http, set, github, postgres, sqlite, artifact, context, switch)
+  keep the size of their behaviour (250 x 84, an `if` 250 x 104); the plain ones (Trigger, Timer, Complete), the tools and the pipeline card keep theirs too. The ports are placed from the size, so a change of
+  a size moves the ports and the edges with it, and the stage's slot heights follow (`slotHeights`).
+- **The title reserves two lines, always:** on an action card and on the flow and switch cards the name has a fixed height of two lines (`min-height: 2.3em`, `line-clamp: 2`), so a card does not change its
+  height whether the name needs one line or two; a one-line name leaves the second line empty and a longer one is cut with an ellipsis at its end. The kind label (`Action`, the caption of a flow card)
+  stands under the title block with a gap of 0.3 rem, so it never touches the second line, used or not. The whole name stays the tooltip (ADR-082).
+- **The icon list** (mock pin, shield) lies in the top right corner, beside the title text and not over it: the card keeps its right padding for it and for the port labels.
+- Stage cards (their header), tools and the Output card are not part of this rule: their names stay on one line.
+
 ## Flexible icon lists
 
 A row of small icons whose members come and go (the corner of the canvas, the corner of a node card) follows **one rule**, so that nobody invents another:

@@ -22,12 +22,19 @@ from tests.e2e.helpers import (
 )
 from tests.helpers import build_definition, connect, graph_url, make_task, node, post
 
-STAGE_SIZE = {"width": 500, "height": 360}
+STAGE_SIZE = {
+    "width": 500,
+    "height": 400,
+}  # was 360: the taller card (76) put the bottom point only 14 from the lowest action, the test needs it clearly apart
 # the least a stage measures: its actions plus the band between its outer and inner border (STAGE_MARGIN = 56) on the right
-# and below (the right edge of an action at 100 + 190, the lower one ends at 44 + 170 + 68)
+# and below (the right edge of an action at 100 + its width, the lower one ends at 44 + 170 + its height)
 BAND = 56
 DETOUR = 28  # how far a loop back keeps below the lowest action
-ACTION_WIDTH, ACTION_HEIGHT, HEADER = 190, 68, 44
+ACTION_WIDTH, ACTION_HEIGHT, HEADER = (
+    228,
+    76,
+    44,
+)  # the card of the owner's decision B+D (was 190 x 68)
 MIN_WIDTH, MIN_HEIGHT = 100 + ACTION_WIDTH + BAND, HEADER + 170 + ACTION_HEIGHT + BAND
 # An action's ports sit inside its 1px border, a stage's inside the stage's: the drawn lines use the model and are exact,
 # the dots measured in the page differ by that border.
