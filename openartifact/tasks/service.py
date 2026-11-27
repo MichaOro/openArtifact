@@ -317,6 +317,10 @@ class ArtifactService:
 
         return await self._change_lanes(change)
 
+    async def reorder_lanes(self, values: list[str]) -> list[LaneRead]:
+        """Put the lanes in a new order (each named once); publishes ``board.lanes``."""
+        return await self._change_lanes(lambda session: lane_rules.reorder_lanes(session, values))
+
     async def delete_lane(self, status: str) -> list[LaneRead]:
         """Delete a lane that holds no artifacts; publishes ``board.lanes``."""
         return await self._change_lanes(lambda session: lane_rules.delete_lane(session, status))

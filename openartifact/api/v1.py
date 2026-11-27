@@ -28,6 +28,7 @@ from openartifact.api.lanes import (
     CREATE_DESCRIPTION,
     DELETE_DESCRIPTION,
     LANES_DESCRIPTION,
+    ORDER_DESCRIPTION,
     UPDATE_DESCRIPTION,
 )
 from openartifact.api.observe import build_observe_router
@@ -53,6 +54,7 @@ from openartifact.models import CreatedBy, GraphKind, StartedBy
 from openartifact.security import require_api_token
 from openartifact.tasks.schemas import (
     DryRunStart,
+    LaneOrder,
     LaneRead,
     LaneUpdate,
     LaneWrite,
@@ -103,6 +105,17 @@ async def list_lanes(service: ServiceDep) -> list[LaneRead]:
 )
 async def create_lane(payload: LaneWrite, service: ServiceDep) -> list[LaneRead]:
     return await service.create_lane(payload.title)
+
+
+@router.post(
+    "/lanes/order",
+    response_model=list[LaneRead],
+    summary="Put the lanes in a new order",
+    description=ORDER_DESCRIPTION,
+    responses=errors(422, write=True, body=True),
+)
+async def order_lanes(payload: LaneOrder, service: ServiceDep) -> list[LaneRead]:
+    return await service.reorder_lanes(payload.lanes)
 
 
 @router.put(

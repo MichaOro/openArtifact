@@ -146,6 +146,29 @@ async def first_lane(session: AsyncSession) -> str:
     return (await lane_keys(session))[0]
 
 
+async def reorder_lanes(session: AsyncSession, values: list[str]) -> list[LaneRead]:
+    """Put the lanes in the order of ``values`` (each a name, an id or an old key, ADR-090): every lane exactly once, else a :class:`LaneError`
+    (422) that says what is wrong. ``position`` becomes 0..n-1 in one commit. The first lane is where a new card goes."""
+    rows = await _rows(session)
+    chosen: list[Lane] = []
+    for value in values:
+        lane = pick_lane(rows, value)
+        if lane is None:
+            raise _unknown(value, rows)
+        if lane in chosen:
+            raise LaneError(422, f'The lane "{lane.title}" is named twice.')
+        chosen.append(lane)
+    missing = [lane.title for lane in rows if lane not in chosen]
+    if missing:
+        raise LaneError(
+            422, f"Every lane must be named exactly once; missing: {', '.join(missing)}."
+        )
+    for index, lane in enumerate(chosen):
+        lane.position = index
+    await session.commit()
+    return await effective_lanes(session)
+
+
 def _check_unique(lanes: list[Lane], title: str, *, ignoring: str | None = None) -> None:
     for other in lanes:
         if other.key != ignoring and other.title.casefold() == title.casefold():

@@ -11,7 +11,7 @@ from fastapi import APIRouter, status
 from openartifact.api.contract import GATED, errors
 from openartifact.api.deps import ServiceDep
 from openartifact.tasks.lanes import LANE_STYLES, MAX_LANES, NOT_EMPTY_MESSAGE, TITLE_MAX_LENGTH
-from openartifact.tasks.schemas import LaneRead, LaneUpdate, LaneWrite
+from openartifact.tasks.schemas import LaneOrder, LaneRead, LaneUpdate, LaneWrite
 
 router = APIRouter(prefix="/api/lanes", tags=["lanes"], responses=GATED)
 
@@ -36,6 +36,11 @@ UPDATE_DESCRIPTION = (
     "``finished`` lane the card titles are struck through and dimmed, nothing else changes. Returns "
     "the lanes and publishes ``board.lanes``."
 )
+ORDER_DESCRIPTION = (
+    "Put the lanes in a new order: ``lanes`` lists every lane exactly once, each by its title, its ``id`` or its ``status`` key, first to last. "
+    "422 when a lane is unknown, named twice or missing. ``position`` becomes 0 to n-1, ``hue`` follows the place. The FIRST lane is where an "
+    "artifact goes when no lane is given. Returns the lanes and publishes ``board.lanes``."
+)
 DELETE_DESCRIPTION = (
     f'Delete a lane. 409 with "{NOT_EMPTY_MESSAGE}" while it holds artifacts, and for the last '
     "lane. Returns the remaining lanes and publishes ``board.lanes``."
@@ -59,6 +64,17 @@ async def list_lanes(service: ServiceDep) -> list[LaneRead]:
 )
 async def create_lane(payload: LaneWrite, service: ServiceDep) -> list[LaneRead]:
     return await service.create_lane(payload.title)
+
+
+@router.post(
+    "/order",
+    response_model=list[LaneRead],
+    summary="Put the lanes in a new order",
+    description=ORDER_DESCRIPTION,
+    responses=errors(422, write=True, body=True),
+)
+async def order_lanes(payload: LaneOrder, service: ServiceDep) -> list[LaneRead]:
+    return await service.reorder_lanes(payload.lanes)
 
 
 @router.put(

@@ -244,6 +244,14 @@ class LaneWrite(BaseModel):
     title: str
 
 
+class LaneOrder(BaseModel):
+    """Payload for putting the lanes in a new order: every lane exactly once, by name or id (the old key is taken too)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    lanes: list[str] = Field(min_length=1)
+
+
 class LaneUpdate(BaseModel):
     """Payload for changing a lane: a new ``title``, a new ``style``, or both (at least one)."""
 
