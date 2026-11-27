@@ -135,11 +135,7 @@ class ProviderDialog extends ActionDialog {
     if (!values.name) throw new Error(t("agents.providers_page.please_enter_name"));
     await this.#storeKey(values);
     if (this.provider) {
-      const { kind } = values;
-      const changes = { ...values };
-      delete changes.kind; // the kind, the models and the default model are not changed here
-      delete changes.models;
-      delete changes.default_model;
+      const { kind, models, default_model, ...changes } = values; // the kind, the models and the default model are not changed here
       if (kind === "openrouter") delete changes.base_url;
       if (kind === "openrouter") delete changes.allow_http;
       await updateProvider(this.provider.id, changes);
