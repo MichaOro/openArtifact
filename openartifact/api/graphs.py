@@ -7,6 +7,7 @@ change is saved at once (there is no separate "save"): the editor sends what the
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
@@ -65,6 +66,8 @@ from openartifact.models import (
     RunNodeResult,
 )
 from openartifact.ui import layout as ui_layout
+
+logger = logging.getLogger(__name__)
 
 _LABELS: dict[GraphKind, str] = {GraphKind.PIPELINE: "Pipeline", GraphKind.ACTION: "Action"}
 
@@ -555,7 +558,13 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             store = request.app.state.secret_store
             try:
                 known = set((await store.resolve([s.name for s in await store.names()])).values())
-            except Exception:  # secrets not available: only the reference form is checked
+            except Exception as error:  # secrets not available: only the reference form is checked
+                logger.warning(
+                    "The secret store could not be read (%s): the mock of node %s is checked "
+                    "for secret references only, not for secret values",
+                    error,
+                    node.id,
+                )
                 known = set()
         try:
             report = await repo.update_node(node, payload, known)

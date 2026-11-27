@@ -197,13 +197,13 @@ def _create_app(settings: Settings) -> FastAPI:
         max_runs=settings.max_concurrent_runs,
         limits=Limits.from_settings(
             settings,
-            app.state.secret_store.resolve,
-            app.state.comments,
-            app.state.credentials.settings_of,
-            publish,
-            SqlCardsGateway(database.new_session),
+            secrets=app.state.secret_store.resolve,
+            comments=app.state.comments,
+            credential_settings=app.state.credentials.settings_of,
+            publish=publish,
+            cards=SqlCardsGateway(database.new_session),
             # the board tools of an agent node (ADR-079): made when a run asks, the services come after the engine
-            lambda: BoardTools(
+            board=lambda: BoardTools(
                 app.state.artifacts,
                 app.state.artifact_fields,
                 app.state.comments,

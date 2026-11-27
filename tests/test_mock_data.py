@@ -260,3 +260,25 @@ def test_the_database_holds_the_mock_in_the_config_of_the_node(
         .fetchone()
     )
     assert json.loads(row[0])["_mock"]["output"] == "created #77"
+
+
+def test_a_mock_saved_while_the_secret_store_fails_is_checked_for_references_and_says_so_in_the_log(
+    api: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The check for secret values in a mock needs the secret store; when it fails, the mock is still saved after the
+    weaker check of the reference form, and the log says that the values were not checked (instead of hiding it)."""
+    action = _definition(api, "code", language="sh", code="echo hi", read_only=True)
+
+    async def broken() -> list[Any]:
+        raise RuntimeError("store unreadable")
+
+    monkeypatch.setattr(api.app.state.secret_store, "names", broken)  # type: ignore[attr-defined]
+    with caplog.at_level("WARNING", logger="openartifact.api.graphs"):
+        assert _set_mock(api, action, action["node"], MOCK).status_code == 200
+        refused = _set_mock(api, action, action["node"], {**MOCK, "output": "${secret:K}"})
+    assert refused.status_code == 422 and "must not name a secret" in refused.text
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any(
+        "store unreadable" in m and "secret references only, not for secret values" in m
+        for m in warnings
+    ), warnings
