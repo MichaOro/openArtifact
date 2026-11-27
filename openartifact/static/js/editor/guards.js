@@ -158,7 +158,8 @@ export class EditorGuards {
     const button = this.rootShield;
     if (!button) return;
     const count = this.count(this.rootType, this.graphId);
-    button.hidden = !count;
+    if (this.hooks.bar) this.hooks.bar.set("guard", Boolean(count));
+    else button.hidden = !count;
     if (count) updateShield(button, count, this.hooks.scopeName(this.rootType, this.graphId));
     if (!count && this.popover.isOpen && this.popover.trigger === button) this.popover.close({ restoreFocus: false });
   }

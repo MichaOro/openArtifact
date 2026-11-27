@@ -270,3 +270,32 @@ def test_the_mcp_tools_are_offered_and_none_of_them_deletes(api: TestClient) -> 
         "observe_again",
     } <= names
     assert not {n for n in names if "observe" in n and "delete" in n}
+
+
+def test_the_list_of_pipelines_marks_one_that_is_observed_or_whose_observation_ended(
+    api: TestClient,
+) -> None:
+    """The management page draws a chip from ``observe`` (ADR-088): nothing for a pipeline without the mode, nothing while the mode is only in
+    the draft, ``observing`` once published, ``ended`` after the limit, nothing again after a release; an action never has it."""
+    pipeline = _pipeline(api)
+
+    def mark() -> Any:
+        listed = {g["id"]: g for g in api.get("/api/pipelines").json()}
+        return listed[pipeline["id"]]["observe"]
+
+    assert mark() is None
+    api.put(_url(pipeline), json={"enabled": True, "runs": 1}).raise_for_status()
+    assert mark() is None, "a draft is never observed"
+    api.post(
+        f"/api/pipelines/{pipeline['id']}/publish", json={"acknowledge": True}
+    ).raise_for_status()
+    assert mark() == "observing"
+    task = make_task(api, "Counts")
+    api.post(
+        f"/api/tasks/{task['id']}/run", json={"pipeline_id": pipeline["id"]}
+    ).raise_for_status()
+    wait_for_run(api, task, "done")
+    assert mark() == "ended"
+    api.post(_url(pipeline, tail="/release")).raise_for_status()
+    assert mark() is None
+    assert all(g["observe"] is None for g in api.get("/api/actions").json())

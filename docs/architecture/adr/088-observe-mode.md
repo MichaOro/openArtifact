@@ -64,3 +64,21 @@ that as a mode of the pipeline, decided only by a publication, with an end that 
 ## 4. Not in this decision
 
 A mode per stage or per action, an observe mode that writes into a sandbox, and automatic release at the end (the end blocks, a person decides).
+
+## Addendum 1: the switch, the eye and the status bar in the editor (cards #150, #151)
+
+- **The switch** *Observe* is the first thing of the *Dry run* tab of a pipeline's Trigger window (`editor/observe-panel.js`; an action has none). It sets the **draft** through
+  `PUT /api/pipelines/{ref}/observe` (switching it off sends `enabled: false` without limits), shows *Stop after (days)* and *Stop after (runs)* while it is on (empty: no limit;
+  whole numbers in the range, a plain line says what is wrong and nothing is sent) and says under it *Applies when you publish.* plus, while the draft differs from what runs,
+  *Live now: observing / the observation ended / not observing*. A change of the draft makes the *Draft* mark of the editor follow at once. Switching **on** happens only here.
+- **The status bar.** The corner of the canvas (the shield and the plus) is one small list, `components/status-bar.js`: entries with a key, an `order` and `visible`, drawn in
+  that order, **the plus always last**, an entry that is not active takes no room (no gap) and one that appears takes its own place, not the end. The order of the elements in the
+  page is the order on the screen, so the keyboard follows it. The pure arrangement is `status-bar-model.js`; more entries are one `add`. The shield of the guards moved into it
+  without changing what it does (its visibility is `bar.set("guard", count > 0)`): order **eye (10), shield (20), plus (last)**, and the stop sign (5) left of the eye's place.
+- **The eye** (`editor/observe-bar.js`, icon `eye`) is there only while the **published** mode is observing; there is no closed eye. Its popup (`components/status-popup.js`) says
+  since when, how many runs of how many, and when it ends, and offers *Stop observing* (it asks first, then sets `enabled: false` in the draft; the popup then says *Switched off in the
+  draft. It applies when you publish.*) and *Open settings* (the Trigger window at the Dry run tab). **The stop sign** (icon `hand`) is there only while the observation has
+  **ended**; its popup gives the server's reason and the two immediate decisions *Release* and *Observe again* (`POST .../release`, `POST .../again`; no publication).
+  The editor reads the state with the graph and again after every run, publication or change of the draft event (`editor/observe-store.js`).
+- **The pipelines list** shows the chip *Observing* (open eye) or *Starts refused* (stop sign) from `observe` on each pipeline of `GET /api/pipelines`
+  (`"observing"`, `"ended"` or nothing; an action never has it).

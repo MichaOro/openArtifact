@@ -453,6 +453,8 @@
  * is never a node of the canvas. */
 .ge-add__row { display: flex; align-items: center; gap: var(--space-1); }
 .ge-add__row .gd-shield[hidden] { display: none; }
+/* the entries of the status bar (components/status-bar.js): a hidden one takes no room, so the others close up */
+.ge-add__row [data-status-entry][hidden] { display: none; }
 .gd-shield { flex: none; }
 /* on an action's card: a bare shield tucked into the top right corner (no frame; the hit area is the 24 px quiet icon button) */
 .gd-shield--node { position: absolute; top: 2px; right: 2px; z-index: 2; }
@@ -611,3 +613,20 @@
 .ge-cases { display: flex; flex-direction: column; gap: var(--space-2); }
 .ge-cases__row { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .ge-mock__bar { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* The Observe section of the Dry run tab (editor/observe-panel.js, ADR-088) and the popup of the eye in the status bar. */
+.ge-observe { display: grid; gap: var(--space-2); padding-bottom: var(--space-3); border-bottom: 1px solid var(--glass-border); }
+.ge-observe__head { display: flex; align-items: center; gap: var(--space-2); }
+.ge-observe__title { font-weight: 600; }
+.ge-observe__lead, .ge-observe__note { margin: 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.ge-observe__limits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2) var(--space-3); }
+.ge-observe__limits[hidden], .ge-observe__error[hidden] { display: none; }
+.ge-observe__limits .ge-observe__note { grid-column: 1 / -1; }
+.ge-observe__limit .field__control { min-width: 0; width: 100%; }
+.ge-observe__error { margin: 0; font-size: 0.8125rem; color: var(--color-danger); }
+.status-popup { z-index: 30; gap: var(--space-2); min-width: 16rem; max-width: min(24rem, calc(100vw - 1rem)); }
+.status-popup[hidden], .status-popup__error[hidden] { display: none; }
+.status-popup__facts { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 0.8125rem; }
+.status-popup__note { margin: 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.status-popup__error { margin: 0; font-size: 0.8125rem; color: var(--color-danger); }
+.status-popup__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }

@@ -14,6 +14,7 @@ import { readJson, writeJson } from "../storage.js";
 import { stopRun } from "../tasks/api.js";
 import { connectEvents } from "../tasks/events.js";
 import { HistoryList } from "../tasks/history-list.js";
+import { ObservePanel } from "./observe-panel.js";
 import {
   allDryRunsUrl,
   availableItems,
@@ -44,7 +45,8 @@ let counter = 0;
 let addMenu = null;
 
 export class DryRunPanel {
-  /** @param {{kind: "pipeline"|"action", id: string, contract: (version: string) => Promise<object[]>}} graph what is edited */
+  /** @param {{kind: "pipeline"|"action", id: string, contract: (version: string) => Promise<object[]>, observe?: object|null, draftChanged?: () => void}} graph what is edited (a pipeline
+   * also gets the observe store: its Observe section sits on top of the tab) */
   constructor(graph) {
     this.graph = graph;
     this.uid = `dry-${(counter += 1)}`;
@@ -227,6 +229,7 @@ export class DryRunPanel {
     caseRow.append(this.caseName, this.caseSave, this.caseDelete);
     this.casesBox.append(this.casesPick, caseRow, this.caseError);
 
+    if (this.graph.observe) this.element.append(new ObservePanel(this.graph.observe, { changed: () => this.graph.draftChanged?.() }).element);
     this.element.append(lead, this.placeBox, this.placeMissing, this.cardBox, this.cardNote, this.addButton, this.casesBox, this.inputsBox, versionBox, this.checkLine, actions, this.errorLine, this.result);
     this.#setFields([]);
     this.#syncStart();
