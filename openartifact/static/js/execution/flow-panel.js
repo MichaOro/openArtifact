@@ -182,7 +182,7 @@ export class FlowPanel {
     mark.dataset.skipMarker = "";
     mark.title = text;
     mark.setAttribute("aria-hidden", "true");
-    mark.append(icon("skip-forward"));
+    mark.append(icon("fast-forward"));
     return mark;
   }
 

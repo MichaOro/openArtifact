@@ -1,4 +1,4 @@
-/* The marker of a step a dry run skipped: the "skip forward" icon of old recorders with a tooltip ("Skipped in a dry run: would have waited 3 s"),
+/* The marker of a step a dry run skipped: the "fast forward" icon (two arrows, the wind-forward of old recorders) with a tooltip ("Skipped in a dry run: would have waited 3 s"),
  * on the flow page's node card (an entry of the card's icon list), in the path list and in the step detail. Never colour alone: a shape. */
 import { icon } from "./icons.js";
 import { attachTip } from "./info-tip.js";
@@ -20,7 +20,7 @@ export function skipMarker(step) {
   button.className = "icon-button icon-button--quiet icon-button--xs ge-node__skip";
   button.dataset.skipMarker = "";
   button.setAttribute("aria-label", text);
-  button.append(icon("skip-forward"));
+  button.append(icon("fast-forward"));
   button.addEventListener("pointerdown", (event) => event.stopPropagation());
   button.addEventListener("dblclick", (event) => event.stopPropagation());
   button.addEventListener("click", (event) => event.stopPropagation());

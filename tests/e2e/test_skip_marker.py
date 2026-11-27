@@ -1,7 +1,7 @@
 """A node a dry run skipped is drawn like one that ran and carries the skip marker (ADR-086 addendum 3).
 
 The flow page used to treat a skipped step like any passed one without saying that nothing was done. Dimmed means "not reached" (a dashed outline); a
-skipped node was passed in the flow, so it keeps its colour and gets the "skip forward" icon with what it would have done as its tooltip. A node that
+skipped node was passed in the flow, so it keeps its colour and gets the "fast forward" icon (two arrows) with what it would have done as its tooltip. A node that
 handed over a mock was processed, so it has no such marker."""
 
 from __future__ import annotations

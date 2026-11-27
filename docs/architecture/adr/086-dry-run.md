@@ -113,7 +113,7 @@ page already has. The engine, the API and the rules of the start are unchanged; 
 ## Addendum 3: a skipped node is drawn as passed through, with a marker
 
 A node that a dry run (or an observed run) skips is not a node the run did not reach, so the flow page no longer treats the two alike in the eye: **dimmed and dashed stays for
-"not reached"**, a skipped node keeps the look of one that ran. What tells it apart is a marker: the *skip forward* icon, the first entry of the card's icon list (left of the
+"not reached"**, a skipped node keeps the look of one that ran. What tells it apart is a marker: the *fast forward (two arrows)* icon, the first entry of the card's icon list (left of the
 mock pin and of the shield of the guards, the shield stays right-most), with a tooltip that says what it would have done (*Skipped in a dry run: would have waited 3 s*). The same
 icon stands beside the state of the step in the path list and beside the outcome in the step detail. A step is skipped when it carries `data.dry_run` and `data.would_have`
 (unchanged); a node that handed over a mock (`data.mock`, ADR-087) was processed and has no marker, so the marker and the mock pin never meet, and a step an observed run could not
