@@ -489,7 +489,7 @@ connectEvents({
       const open = artifactDialog.editing;
       if (open && artifactDialog.mode === "view") loadFullBody(open.id); // a referenced field changed
     }
-    else if (type === "board.resync" || type === "board.updated" || type === "cards.rules.changed") board.load(); // positions changed, or the rules: marks, archived and deleted cards
+    else if (type === "board.resync") board.load(); // positions changed, or the rules: marks, archived and deleted cards (board.updated and cards.rules.changed are always followed by it: one load)
     else if (type === "settings.changed") {
       if (data.personal) {
         board.load(); // marked or not: the server sends the cards the other way now
