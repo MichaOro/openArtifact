@@ -30,3 +30,11 @@
 
 - Where an agent runs is one click away, and a use can be cut without opening the action.
 - `ConfirmDialog.open` takes a `title`, so one confirmation markup serves different questions.
+
+## Addendum 1: the Usage tab of the agents page and what a use says about publishing (2026-11-27)
+
+The agents page gets a **Usage** tab like the guards and the actions have one (Overview | Usage | Versions), and the card line says how many nodes use the agent
+(this existed). `GET /api/agents/{ref}/uses` now says per use `graph_kind`, `in_draft`, `published` and `published_number`: the nodes are the draft ones (as before), marked
+*not published yet* when the published version of their graph does not hold them, and a node that only the published version still holds is added with `in_draft: false`.
+Deleting an agent and the list of nodes that override a changed field still look at the drafts only (unchanged). A node pins no version, so a row has none; a pipeline that
+uses an action holding an agent node is not listed (the action is). The same list on the agent page (*Used by*) shows the note and hides *Remove reference* for a node that is not in the draft.

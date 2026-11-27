@@ -545,8 +545,11 @@ async function renderUses() {
       remove.setAttribute("aria-label", t("agents.editor_page.remove_reference_node_name_graph", { node_name: use.node_name, graph_name: use.graph_name }));
       remove.append(icon("trash"));
       remove.addEventListener("click", () => confirmRemoveReference(use));
+      if (use.in_draft && !use.published) main.append(el("span", "ag-row__meta", t("agents.page.usage_draft_note")));
+      if (!use.in_draft) main.append(el("span", "ag-row__meta", t("agents.page.usage_only_published", { number: use.published_number })));
       const actions = el("div", "ag-use__actions");
-      actions.append(open, remove);
+      actions.append(open);
+      if (use.in_draft) actions.append(remove); // a node only the published version has is not in the draft: there is nothing to take the agent out of
       row.append(main, actions);
       return row;
     }),

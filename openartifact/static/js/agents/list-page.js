@@ -1,5 +1,5 @@
-/* The agents page (ADR-069): the list of agents as cards or rows and the detail panel (Overview, Versions); create, change (name,
- * description) and delete. It is about the DEFINITION of an agent, not where it is used. An agent is edited on its own page
+/* The agents page (ADR-069): the list of agents as cards or rows and the detail panel (Overview, Usage, Versions); create, change (name,
+ * description) and delete. The Usage tab says where it is used (the agent nodes). An agent is edited on its own page
  * (/agents/{id}); a click selects, a double click and the pencil open it. The frame is components/management-page.js. */
 import { AlertBar } from "../components/alert-bar.js";
 import { ClampedText } from "../components/clamped-text.js";
@@ -8,7 +8,7 @@ import { ManagementPage, cardBody, chip, make } from "../components/management-p
 import { ManifestDialog } from "../components/manifest-dialog.js";
 import { Modal } from "../components/modal.js";
 import { connectEvents } from "../tasks/events.js";
-import { createAgent, deleteAgent, getAgent, listAgents, listProviders, updateAgent } from "./api.js";
+import { agentUses, createAgent, deleteAgent, getAgent, listAgents, listProviders, updateAgent } from "./api.js";
 import { agentChips, fieldLabel, limitRows, optionsOf, showValue, useText } from "./model.js";
 import { t, tn } from "../i18n.js";
 
@@ -142,6 +142,37 @@ function versions(body, agent) {
     .catch(() => body.replaceChildren(make("p", "mg-card__facts", t("agents.list_page.agents_could_not_be_loaded"))));
 }
 
+/** Where the agent is used, as the Usage tab of the guards does: one row per agent node, the kind of place first, the action as a link that
+ * opens it on the node, then what is special: not published yet (a node of the draft the published version of its action does not have),
+ * only in the published version (the node was taken out of the draft), the fields it sets itself. A node always runs the published
+ * version of the agent: nothing is pinned, so there is no version per row. */
+function usage(body, agent) {
+  const section = make("section", "mg-section");
+  section.append(make("h3", "", t("graph_list.used_by")));
+  const list = make("ul", "mg-uses");
+  section.append(list, make("p", "field__help", t("agents.page.usage_follows_published")));
+  body.append(section);
+  list.append(make("li", "mg-card__facts", t("graph_list.loading")));
+  agentUses(agent.id)
+    .then((uses) => {
+      list.replaceChildren(
+        ...uses.map((use) => {
+          const item = make("li");
+          item.append(make("span", "mg-uses__kind", t(`agents.page.usage_kind.${use.graph_kind}`)));
+          const link = make("a", "", `${use.node_name || t("agents.page.usage_unnamed_node")} · ${use.graph_name}`);
+          link.href = `/${use.graph_kind === "pipeline" ? "pipelines" : "actions"}/${encodeURIComponent(use.graph_slug)}${use.in_draft ? `?select=${encodeURIComponent(use.node_id)}&agent=${encodeURIComponent(agent.id)}` : ""}`;
+          item.append(link);
+          if (use.in_draft && !use.published) item.append(chip(t("agents.page.usage_draft")));
+          if (!use.in_draft) item.append(chip(t("agents.page.usage_only_published", { number: use.published_number })));
+          if (use.overrides.length) item.append(chip(tn("agents.page.usage_overrides", use.overrides.length)));
+          return item;
+        }),
+      );
+      if (!uses.length) list.append(make("li", "mg-card__facts", t("agents.page.usage_none")));
+    })
+    .catch(() => list.replaceChildren(make("li", "mg-card__facts", t("agents.list_page.agents_could_not_be_loaded"))));
+}
+
 const page = new ManagementPage(root, {
   name: "agents",
   label: t("page.agents"),
@@ -166,6 +197,7 @@ const page = new ManagementPage(root, {
     chips: chipsOf,
     tabs: () => [
       { key: "overview", label: t("graph_list.tab_overview"), render: overview },
+      { key: "usage", label: t("graph_list.tab_usage"), render: usage },
       { key: "versions", label: t("graph_list.tab_versions"), render: versions },
     ],
   },

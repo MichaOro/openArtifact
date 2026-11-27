@@ -1782,5 +1782,15 @@
  "graph_list.chip_observing": "Observing",
  "graph_list.chip_observe_ended": "Starts refused",
  "executions.observed": "Observed",
- "execution.skip_marker.title": "Skipped in a dry run: would have {what}"
+ "execution.skip_marker.title": "Skipped in a dry run: would have {what}",
+ "agents.page.usage_follows_published": "A node always runs the agent's published version: nothing is pinned.",
+ "agents.page.usage_kind.action": "Action",
+ "agents.page.usage_kind.pipeline": "Pipeline",
+ "agents.page.usage_unnamed_node": "Agent node",
+ "agents.page.usage_draft": "Not published yet",
+ "agents.page.usage_draft_note": "Not in the published version of its action yet",
+ "agents.page.usage_only_published": "Only in published version v{number}",
+ "agents.page.usage_none": "Not used by any agent node yet.",
+ "agents.page.usage_overrides.one": "{count} override",
+ "agents.page.usage_overrides.other": "{count} overrides"
 }

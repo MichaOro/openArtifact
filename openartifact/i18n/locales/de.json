@@ -2523,5 +2523,15 @@
  "graph_list.chip_observing": "Beobachtet",
  "graph_list.chip_observe_ended": "Starts abgelehnt",
  "executions.observed": "Beobachtet",
- "execution.skip_marker.title": "Im Dry run übersprungen: hätte {what}"
+ "execution.skip_marker.title": "Im Dry run übersprungen: hätte {what}",
+ "agents.page.usage_follows_published": "Ein Knoten führt immer die veröffentlichte Version des Agenten aus: nichts ist festgelegt.",
+ "agents.page.usage_kind.action": "Aktion",
+ "agents.page.usage_kind.pipeline": "Pipeline",
+ "agents.page.usage_unnamed_node": "Agent-Knoten",
+ "agents.page.usage_draft": "Noch nicht veröffentlicht",
+ "agents.page.usage_draft_note": "Noch nicht in der veröffentlichten Version seiner Aktion",
+ "agents.page.usage_only_published": "Nur in der veröffentlichten Version v{number}",
+ "agents.page.usage_none": "Von keinem Agent-Knoten verwendet.",
+ "agents.page.usage_overrides.one": "{count} Überschreibung",
+ "agents.page.usage_overrides.other": "{count} Überschreibungen"
 }
