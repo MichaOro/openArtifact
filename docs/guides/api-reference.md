@@ -98,7 +98,7 @@ Guide: [Agents and LLM providers](agents.md).
 | GET | `/api/v1/agents/{ref}/versions` | Every version with its configuration, newest first | 404 |
 | GET | `/api/v1/agents/{ref}/versions/{number}` | One version | 404 |
 | POST | `/api/v1/agents/{ref}/versions/{number}/republish` | Rollback: a new version with that content (`source_number`) | 404, 409 (it is the published one), 422 |
-| GET | `/api/v1/agents/{ref}/uses` | The agent nodes that refer to it, their action and their overrides | 404 |
+| GET | `/api/v1/agents/{ref}/uses` | The agent nodes that refer to it, one row each: the graph (`graph_id`, `graph_name`, `graph_slug`, `graph_kind`), the node, its `overrides`, `in_draft` (the node is in the draft of its graph), `published` and `published_number` (the published version of the graph has it; `false` while it was not published yet); a node that only a published version still has is listed with `in_draft: false`. A node never pins a version: it runs the agent's published one | 404 |
 | POST | `/api/v1/agents/{ref}/preview` | `{"source": "draft"\|"published", "version?", "values?", "node_id?"}`: prompts, inputs, settings in effect; sends nothing to a model | 404, 409, 422 |
 | GET | `/api/v1/providers` | The providers with their models; `secret_name` and `secret_exists`, never a key | |
 | POST | `/api/v1/providers/test` | Test a provider without saving: `ok`, `steps`, `warnings`, `models`, `lists_models` | 422 |

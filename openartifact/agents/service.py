@@ -59,7 +59,7 @@ from openartifact.engine.context import RunContext, RunView, card_problems
 from openartifact.events import EventBus
 from openartifact.exceptions import ArtifactError
 from openartifact.graph.node_types import node_type
-from openartifact.models import Agent, AgentVersion, Graph, GraphNode, NodeKind
+from openartifact.models import Agent, AgentVersion, Graph, GraphNode, GraphVersion, NodeKind
 
 _AGENT_OF_NODE = func.json_extract(GraphNode.config, "$.agent_id")
 
@@ -229,29 +229,84 @@ class AgentService:
         return row
 
     @staticmethod
-    async def _uses(session: AsyncSession, agent_id: str) -> list[AgentUse]:
+    async def _uses(
+        session: AsyncSession, agent_id: str, *, include_published_only: bool = False
+    ) -> list[AgentUse]:
+        """The agent nodes of the drafts that refer to the agent; with ``include_published_only`` also those that only the published version of
+        a graph still has (the node was removed or points elsewhere since). ``in_draft`` and ``published`` say which each is. Deleting
+        an agent and publishing one look at the drafts only (as before)."""
+        published: dict[str, tuple[int, dict[str, dict[str, Any]]]] = {}
+        versions = await session.execute(
+            select(Graph.id, GraphVersion.number, GraphVersion.content).join(
+                GraphVersion,
+                (GraphVersion.graph_id == Graph.id)
+                & (GraphVersion.number == Graph.published_number),
+            )
+        )
+        for graph_id, number, content in versions.all():
+            held = {
+                str(n["id"]): n
+                for n in json.loads(content).get("nodes", [])
+                if n.get("kind") == NodeKind.AGENT.value
+                and (n.get("config") or {}).get("agent_id") == agent_id
+            }
+            if held:
+                published[graph_id] = (number, held)
         rows = await session.execute(
             select(GraphNode, Graph)
             .join(Graph, Graph.id == GraphNode.graph_id)
             .where(GraphNode.kind == NodeKind.AGENT.value, _AGENT_OF_NODE == agent_id)  # noqa: SIM300
             .order_by(Graph.name, GraphNode.name)
         )
-        return [
-            AgentUse(
-                node_id=node.id,
-                node_name=node.name,
-                graph_id=graph.id,
-                graph_name=graph.name,
-                graph_slug=graph.slug,
-                overrides=sorted(overrides_of(node.config)),
+        uses: list[AgentUse] = []
+        seen: set[tuple[str, str]] = set()
+        for node, graph in rows:
+            version_number, held = published.get(graph.id, (None, {}))
+            seen.add((graph.id, node.id))
+            uses.append(
+                AgentUse(
+                    node_id=node.id,
+                    node_name=node.name,
+                    graph_id=graph.id,
+                    graph_name=graph.name,
+                    graph_slug=graph.slug,
+                    overrides=sorted(overrides_of(node.config)),
+                    graph_kind=str(getattr(graph.kind, "value", graph.kind)),
+                    in_draft=True,
+                    published=node.id in held,
+                    published_number=version_number if node.id in held else None,
+                )
             )
-            for node, graph in rows
-        ]
+        for graph_id, (number, held) in published.items() if include_published_only else []:
+            owner = await session.get(Graph, graph_id)
+            if owner is None:
+                continue
+            for node_id, snapshot in held.items():
+                if (graph_id, node_id) in seen:
+                    continue
+                uses.append(
+                    AgentUse(
+                        node_id=node_id,
+                        node_name=str(snapshot.get("name") or ""),
+                        graph_id=owner.id,
+                        graph_name=owner.name,
+                        graph_slug=owner.slug,
+                        overrides=sorted(overrides_of(snapshot.get("config"))),
+                        graph_kind=str(getattr(owner.kind, "value", owner.kind)),
+                        in_draft=False,
+                        published=True,
+                        published_number=number,
+                    )
+                )
+        uses.sort(key=lambda use: (use.graph_name, use.node_name))
+        return uses
 
     async def uses(self, ref: str) -> list[AgentUse]:
         """The agent nodes that refer to the agent, with the fields each sets for itself."""
         async with self._session() as session:
-            return await self._uses(session, (await self._find(session, ref)).id)
+            return await self._uses(
+                session, (await self._find(session, ref)).id, include_published_only=True
+            )
 
     # ── changing ──────────────────────────────────────────────────────
 

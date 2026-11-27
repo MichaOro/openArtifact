@@ -340,6 +340,14 @@ class AgentUse(BaseModel):
     graph_name: str
     graph_slug: str
     overrides: list[str]
+    #: ``action`` or ``pipeline`` (an agent node sits in an action; the field is there for what the graph editor may allow later).
+    graph_kind: str = "action"
+    #: The node is in the draft of its graph (what the editor shows). ``False``: only the published version of the graph still has it.
+    in_draft: bool = True
+    #: The published version of the graph has this node (with this agent). ``False`` for a node of the draft that was not published yet.
+    published: bool = False
+    #: The number of the graph's published version that holds the node (``None`` while it is not published).
+    published_number: int | None = None
 
 
 class PublishResult(BaseModel):
