@@ -18,6 +18,16 @@
 {% block content %}
 {{ alert(t('tasks.board.artifacts_could_not_be_loaded')) }}
 <div class="action-row action-row--slim">
+    <div class="board-search" data-board-search-box>
+        <label class="mg-search board-search__field">
+            {{ icon("search") }}
+            <input type="search" class="field__control" data-board-search autocomplete="off" spellcheck="false" aria-keyshortcuts="/"
+                   placeholder="{{ t('board.search.placeholder') }}" aria-label="{{ t('board.search.placeholder') }}">
+            <button type="button" class="icon-button icon-button--sm icon-button--quiet board-search__clear" data-board-search-clear hidden
+                    aria-label="{{ t('board.search.clear') }}" title="{{ t('board.search.clear') }}">{{ icon("x") }}</button>
+        </label>
+        <span class="board-search__status" data-board-search-status role="status" aria-live="polite"></span>
+    </div>
     <button type="button" class="button button--primary" data-add-lane aria-haspopup="dialog">{{ icon("plus") }}<span>{{ t('index.add_lane') }}</span></button>
     <button type="button" class="icon-button icon-button--sm board-menu" data-board-menu aria-haspopup="menu" aria-expanded="false" aria-label="{{ t('index.board_options') }}" title="{{ t('index.board_options') }}">{{ icon("more") }}</button>
 </div>

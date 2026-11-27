@@ -20,5 +20,6 @@
     </header>
     <ul class="lane__cards" aria-label="{{ t('tasks.board.lane_artifacts', title=title) }}"></ul>
     <p class="empty-state">{{ icon("inbox") }}<span>{{ t('lane.no_artifacts_yet') }}</span></p>
+    <p class="lane__nomatch" data-lane-nomatch hidden>{{ t('board.search.no_match') }}</p>
 </section>
 {%- endmacro %}

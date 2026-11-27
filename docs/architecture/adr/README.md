@@ -100,6 +100,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [089](089-card-less-dry-run-and-action-by-itself.md) | A dry run needs no card (a hidden technical card per graph), an action's dry run runs the action by itself up to its Output, and the execution page's Back button knows where it was opened from | Accepted | 2026-11-27 | amends ADR-086, ADR-087 |
 | [088](088-observe-mode.md) | Observe mode: a pipeline whose every run is a dry run, set with a publication; the end blocks starts until the owner releases or observes again; a node that waits for a skipped write ends the run as done | Accepted | 2026-11-27 | amends ADR-086, ADR-070, ADR-082 |
 | [090](090-lane-ids-and-names.md) | A lane has an id (uuid) and a name (its title); the key it was made from says nothing after a rename: MCP speaks names and ids, an unknown lane is an error that lists the lanes | Accepted | 2026-11-27 | amends ADR-011, ADR-036 |
+| [091](091-board-search.md) | The board has a search by title and number (never the body): a client-side filter, `#154` is the number, the query is in the address, a card made by hand stays shown |
 
 ## Notes
 
