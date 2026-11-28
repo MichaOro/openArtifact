@@ -169,11 +169,15 @@ def test_a_data_storage_limit_is_stored_and_null_clears_it(client: TestClient) -
     )
 
 
-def test_the_board_view_is_classic_until_set_and_takes_only_the_two_views(client: TestClient) -> None:
+def test_the_board_view_is_classic_until_set_and_takes_only_the_two_views(
+    client: TestClient,
+) -> None:
     assert client.get(URL).json()["board_view"] == "classic"
     assert client.put(URL, json={"board_view": "grouped"}).json()["board_view"] == "grouped"
     assert client.get(URL).json()["board_view"] == "grouped"  # stored
-    assert client.put(URL, json={"mark_resolved_references": True}).json()["board_view"] == "grouped"  # left out: kept
+    assert (
+        client.put(URL, json={"mark_resolved_references": True}).json()["board_view"] == "grouped"
+    )  # left out: kept
     for refused in ("clustered", "", None, 1):
         answer = client.put(URL, json={"board_view": refused})
         assert answer.status_code == 422, refused

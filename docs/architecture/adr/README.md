@@ -104,6 +104,7 @@ relevant, nothing replaces it). **Relations** are written on both sides.
 | [092](092-reorder-the-lanes.md) | The lanes can be reordered in a mode of the board (menu *Reorganize lanes*): handles above the lanes, only lanes move, saved by `POST /api/lanes/order`, MCP stays read-only |
 | [093](093-kinds-of-connection-are-data.md) | One pipeline for every connection: the kinds of connection (flow, a tool's attachment, later ones) are rows of a table; the tool connection gets the bar and the three line styles; a test keeps kind checks out of the common code |
 | [094](094-one-process-per-data-directory-lock.md) | One process per data directory: an exclusive `flock` on `openartifact.lock`, taken before recovery and held for the app's life; a second process is refused at start, a file system without locks only warns | Accepted | 2026-11-27 | amends ADR-020 |
+| [095](095-grouped-board-view.md) | The board has a Grouped view (personal setting *Board view*): a card with a parent and no children of its own is a row in the accordion of its parent, every card keeps its lane, the classic view puts all back | Accepted | 2026-11-28 | amends ADR-011, ADR-091 |
 
 ## Notes
 

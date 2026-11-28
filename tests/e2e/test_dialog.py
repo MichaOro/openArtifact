@@ -100,14 +100,16 @@ def test_create_mode_chip_picks_the_target_lane(board: Board) -> None:
 
 
 def test_parent_can_be_set_and_cleared_in_the_read_view(board: Board) -> None:
-    board.create("Parent")
+    parent = board.create("Parent")
     board.create("Child")
     dialog = board.open().open_card("Child")
     dialog.rail("parent").click()
     dialog.option("Parent").click()
     expect(dialog.view).to_be_visible()
     board.expect_field("Child", "parent_id", board.stored()["Parent"]["id"])
-    expect(board.card("Child").locator(".task-card__meta")).to_contain_text("Parent: Parent")
+    expect(board.card("Child").locator(".task-card__meta")).to_contain_text(
+        f"Parent: #{parent['number']} Parent"
+    )  # the number stands before the title (ADR-095)
     dialog.rail("parent").click()
     dialog.option("No parent").click()
     board.expect_field("Child", "parent_id", None)

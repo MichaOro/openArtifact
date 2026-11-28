@@ -55,7 +55,9 @@ def test_deleting_a_parent_elsewhere_detaches_the_child_on_the_board(board: Boar
     parent = board.create("Parent")
     board.create("Child", parent_id=parent["id"])
     board.open()
-    expect(board.card("Child").locator(".task-card__meta")).to_contain_text("Parent: Parent")
+    expect(board.card("Child").locator(".task-card__meta")).to_contain_text(
+        f"Parent: #{parent['number']} Parent"
+    )  # the number stands before the title (ADR-095)
     board.api.delete(f"/api/tasks/{parent['id']}")
     expect(board.card("Child").locator(".task-card__meta")).to_be_hidden()
 
