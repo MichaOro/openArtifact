@@ -5,7 +5,7 @@
 | Date | 2026-11-27 / 28 |
 | Basis | `ARCHITECTURE_AUDIT.md` (AUD), `ARCHITECTURE_AUDIT_REVIEW.md` (REV), `ARCHITECTURE_REMEDIATION_MANDATE.md` — local files of the owner at the repository root, kept out of git by the owner (the two audits through `.git/info/exclude`; the mandate untracked and left as it was found) |
 | Start | branch `feat/core-pipeline-functions`, commit `a2f2d72`, clean apart from the untracked mandate |
-| Result | local branch `chore/architecture-remediation`: the remediation commits on `a2f2d72`, final code at `b760e38`, these records in the commit after it; **not pushed** (see §7) |
+| Result | local branch `chore/architecture-remediation`: the remediation commits on `a2f2d72`, final code at `b760e38`, these records after it; pushed with the owner's OK and opened as **PR #9 into `main`** (CI green, §5); merging is the owner's (§7) |
 | Records | [FINDING_REGISTER.md](FINDING_REGISTER.md) (78 findings, M01–M22, R1–R11) · [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md) · [WORK_PACKAGE_TRACKER.md](WORK_PACKAGE_TRACKER.md) (WP-01 – WP-13) |
 
 ## 1. What the original audit identified
@@ -61,7 +61,7 @@ a conflicting owner commit (F-62, refuted). The worker worktrees were removed af
 | M05 | Rejected as designed | Verified that it would not break the cycle (`RunView`); the import test guards the real risk |
 | M09, M10 | Rejected | No behaviour gain; transaction rule documented; residuals done (WP-06) |
 | M03, M13, M18, M19, M20 | Deferred | Duplication or naming without a shown defect; the owner does not want unasked UI refactor passes |
-| M02 (ESLint gate in CI) | Deferred — owner decision | Needs the repository's first Node dev dependency; the code is clean (2 intentional findings) |
+| M02 (ESLint gate in CI) | Deferred — the owner decided on 2026-11-28 to do it later | Needs the repository's first Node dev dependency; the code is clean (2 intentional findings) |
 | M12/M22 scales, M21 Swagger, F-49, F-50, F-60, F-66 | Deferred | Bounded impact; each a small separate decision |
 | F-53 beyond graph nodes | Deferred | The node inspector is the place where several controls write one row at once (fixed); other services were not audited one by one |
 | F-78 (two of three flaky e2e tests) | Deferred | Load-only, no proven cause; the same class occurs on the untouched baseline; see §5 |
@@ -88,6 +88,7 @@ Each of the 78 findings and all 22 measures has one decision with its reason in 
 | Lock in containers on `b760e38` | A healthy; B on the same volume exits 3 at the migration step, A unaffected (also checked earlier: after A stops, C starts) |
 | Planted violations | event contract, import rule, node kinds, colour guard, mock warning, lock mode, concurrent node saves: each failed for its named reason before the fix |
 | Live deployment | `deploy-openartifact-1` never rebuilt, restarted or retagged; healthy throughout |
+| **GitHub Actions, PR #9 into `main`** (head `651d9f6`, the final code plus these records) | all 8 checks passed: Ruff (incl. `uv lock --check`, `uv sync --frozen`), mypy strict, JavaScript syntax + Markdown links, pip-audit of the locked set, **pytest with a real Postgres: 2 718 passed, coverage 95 %** (46 min), **browser tests serial: 806 / 806** (25 min), Docker build + smoke test, Docker build (PR preview) — the first remote run of the uv-based workflows |
 
 ## 6. Final independent review
 
@@ -97,16 +98,15 @@ and ordering, exit statuses, the entrypoint under `set -e`, the Docker hardening
 node-kind tests, the dead-code removals, and that no secret is exposed. The later fixes (WP-10 – WP-13) were reviewed by the
 coordinator against the same criteria and verified by the full suites above.
 
-## 7. Blocked on the owner (outward-facing, not done without his word)
+## 7. Left to the owner
 
-- **Pushing the branch and running CI remotely.** The workflow changes (uv in every job, `setup-uv@v10.4.0`) are validated locally
-  (YAML, actionlint, the same commands run here) but GitHub Actions has not run them; that needs a push, which is the owner's call.
-- **Merging** `chore/architecture-remediation` into `feat/core-pipeline-functions` / `main`.
-- **The ESLint gate** (M02): adding a Node dev dependency is the owner's decision.
+- **Pushing and remote CI: done** with the owner's OK on 2026-11-28 (PR #9 into `main`, which also carries the commits of
+  `feat/core-pipeline-functions` not yet on `main`); all checks passed (§5).
+- **Merging PR #9** is the owner's.
+- **The ESLint gate** (M02): decided by the owner on 2026-11-28 — later, as a separate step (the code is clean, so it starts at zero).
 
 ## 8. Remaining risks
 
-- The first remote CI run is the real test of the uv-based workflows.
 - The lock covers the application and the image's migrations; `alembic` run by hand does not take it; a file system without lock
   support only warns.
 - The build backend of the image (hatchling) is unpinned (F-60); the shipped dependencies are locked with hashes.
