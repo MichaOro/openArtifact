@@ -1,7 +1,7 @@
 # Testing
 
-Automated tests live in `tests/` at the repository root. All commands run from the root after the [development setup](../../README.md#development) (`pip install -e ".[dev]"` or
-`uv sync --all-extras`).
+Automated tests live in `tests/` at the repository root. All commands run from the root after the [development setup](../../README.md#development) (`uv sync --all-extras`, the
+versions of `uv.lock` that CI uses; `pip install -e ".[dev]"` works too but is not locked).
 
 | Kind | Location | Run | Size (at the time of writing) |
 |------|----------|-----|------|

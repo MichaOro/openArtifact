@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { attachmentPath, edgePath } from "../../openartifact/static/js/editor/geometry.js";
+import { EDGE_KINDS } from "../../openartifact/static/js/editor/edge-kinds.js";
 
 // A pure geometry check of the one rule every tool kind shares: the line from the tool's port (top of the tool) to the agent's port (bottom of
 // the agent) never runs through either card, wherever the tool sits.
@@ -88,6 +89,6 @@ test("a tool below its agent keeps the short direct line (the curve up), a tool 
 test("while a connection is dragged (not routed) the direct line is kept, and edgePath with `attachment` uses the same function", () => {
   const t = tool(430, 160);
   const { from, to } = portsOf(agent, t);
-  assert.equal(attachmentPath(from, to, t, agent, { routed: false }), edgePath(from, to, t, agent, { routed: false, attachment: true }));
-  assert.equal(attachmentPath(from, to, t, agent, { routed: true, style: "elbow" }), edgePath(from, to, t, agent, { attachment: true, style: "elbow" }));
+  assert.equal(attachmentPath(from, to, t, agent, { routed: false }), edgePath(from, to, t, agent, { routed: false, kind: EDGE_KINDS.attachment }));
+  assert.equal(attachmentPath(from, to, t, agent, { routed: true, style: "elbow" }), edgePath(from, to, t, agent, { kind: EDGE_KINDS.attachment, style: "elbow" }));
 });

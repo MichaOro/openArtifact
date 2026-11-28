@@ -31,7 +31,7 @@ export async function copyText(text) {
   area.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
   document.body.append(area);
   area.select();
-  let done = false;
+  let done;
   try {
     done = typeof document.execCommand === "function" && document.execCommand("copy");
   } catch {

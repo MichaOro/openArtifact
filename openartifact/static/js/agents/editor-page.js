@@ -26,7 +26,7 @@ import { agentUses, discardDraft, getVersion, removeAgentReference, getAgent, li
 import { ARTIFACT_PARTS, agentChips, fieldLabel, optionsOf, partOf, partText, providerInEffect, sampleHint, sourceOf, usableModels } from "./model.js";
 import { inputsView, limitsView, promptsView } from "./version-view.js";
 import { attachCopy } from "../components/copy-button.js";
-import { chip, configFacts, el, previewView, problemList } from "./view.js";
+import { chip, el, previewView, problemList } from "./view.js";
 import { t, tn } from "../i18n.js";
 
 const root = document.querySelector("[data-agent-editor]");
@@ -52,7 +52,6 @@ let agent = null;
 let providers = [];
 let dirty = false;
 let versionsExpanded = false; // the folded middle of a long list of versions is shown
-let fieldCount = 0;
 
 // ── tabs and options ───────────────────────────────────────────────────
 
@@ -545,8 +544,11 @@ async function renderUses() {
       remove.setAttribute("aria-label", t("agents.editor_page.remove_reference_node_name_graph", { node_name: use.node_name, graph_name: use.graph_name }));
       remove.append(icon("trash"));
       remove.addEventListener("click", () => confirmRemoveReference(use));
+      if (use.in_draft && !use.published) main.append(el("span", "ag-row__meta", t("agents.page.usage_draft_note")));
+      if (!use.in_draft) main.append(el("span", "ag-row__meta", t("agents.page.usage_only_published", { number: use.published_number })));
       const actions = el("div", "ag-use__actions");
-      actions.append(open, remove);
+      actions.append(open);
+      if (use.in_draft) actions.append(remove); // a node only the published version has is not in the draft: there is nothing to take the agent out of
       row.append(main, actions);
       return row;
     }),

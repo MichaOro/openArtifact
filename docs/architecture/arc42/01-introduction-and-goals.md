@@ -11,10 +11,10 @@ by an action definition whose execution nodes (timer, Code, HTTP) do the work. T
 
 - Self-hosted distribution via Docker/Docker Compose; one container, one volume, one SQLite file
 - Web interface served on a configurable port (default 2909)
-- HTTP API for the frontend, an integration API (`/api/v1`) and an MCP server (`/mcp`, 19 tools) for scripts and agents
+- HTTP API for the frontend, an integration API (`/api/v1`) and an MCP server (`/mcp`; its tools depend on the configuration) for scripts and agents
 - Concurrent pipeline execution with background processing (in-process `asyncio`)
 - Execution nodes that do real work: **Code** (a shell or Python script as a child process) and **HTTP** (one request with an SSRF guard), next to the timer
-- A credential store: named secrets, encrypted at rest, used by nodes by reference only (API only, no UI yet)
+- A credential store: named secrets, encrypted at rest, used by nodes by reference only (named secrets through the API; managed credentials on *Settings › Credentials*, ADR-051)
 - An execution history: every start of an artifact is kept as an execution with its steps, a retention policy per artifact, a read-only flow view on the editor canvas and a global list of all executions
 - Human oversight and intervention (manual start and stop; a waiting status is planned)
 - Artifact-centric data model: every artifact is a card with a number, a parent and a pipeline position

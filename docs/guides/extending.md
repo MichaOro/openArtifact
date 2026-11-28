@@ -26,7 +26,7 @@ setting is a column) and the **Code** and **HTTP** nodes (`graph/nodes/code.yaml
 `code_runner.py`, `http_runner.py`; their settings live in the `config` JSON). Use the second kind as the
 model for anything new.
 
-1. **Name the kind.** Add a member to `NodeKind` in `models/__init__.py`.
+1. **Name the kind.** Add a member to `NodeKind` in `models/enums.py` (`models/__init__.py` re-exports it).
 2. **Declare it as a manifest** (ADR-054): one file, `graph/nodes/<kind>.yaml`, and a line in `graph/nodes/_menu.yaml`
    (`kinds`, the order every list uses). The server loads it into a `NodeType` at start-up; a manifest that is not valid
    stops the start with its file name and what is wrong. See [A new kind is a manifest](#a-new-kind-is-a-manifest) below.
@@ -77,8 +77,10 @@ model for anything new.
    description, one control per setting type.
 7. **Icons only through `templates/components/icons.html`.** Add the SVG to the `icon` macro and the name to
    `icon_names` (base.html renders every icon once into `<template id="icons">`;
-   `static/js/components/icons.js` clones from there). No other file contains icon paths. If the kind should
-   have an icon in the step list of the history, add it to `KIND_ICONS` in `static/js/tasks/history-step.js`.
+   `static/js/components/icons.js` clones from there). No other file contains icon paths. The step list of the
+   history needs no list in the browser: the server sends each step's `icon` (`NodeResultRead.icon`, from `step_icon`
+   in `graph/node_types.py`: the manifest's `ui.step_icon`, else its `ui.icon`, else its `menu_icon`), and
+   `static/js/tasks/history-step.js` draws it. Set `ui.step_icon` only when the step should show another glyph than the card.
 8. **Test it.**
    - Server: `tests/test_graphs.py` (create, connect, refuse a wrong connection, settings bounds),
      `tests/test_engine.py` and `tests/test_execution_nodes.py` (a run goes through the node; both outcomes).
@@ -87,6 +89,9 @@ model for anything new.
    - Browser: a flow in `tests/e2e/test_editor.py` or `tests/e2e/test_execution_nodes.py` if the kind has
      its own inspector block.
    - A schema change: `tests/test_migrations.py`.
+   - `tests/test_node_kind_completeness.py` must pass: every `NodeKind` is accepted by the database's check constraint,
+     and every kind on a definition's path has an executor (a kind without one would otherwise be passed over as if
+     it had passed).
 9. **Document it.** The glossary (arc42 chapter 12), the [execution nodes guide](execution-nodes.md) for
    user-visible behaviour, and an ADR if the engine behaviour is new
    ([ADR-021](../architecture/adr/021-execution-nodes-as-executors.md) and
@@ -285,15 +290,20 @@ state from the REST API.
 
 1. **Publish after the commit**, from the service or engine that changed the data:
    `bus.publish("thing.updated", {...})` with a JSON-serialisable payload (`model_dump(mode="json")`).
-   The existing types are `task.created`, `task.updated`, `task.moved`, `task.deleted`, `board.resync`,
-   `run.updated`, `execution.updated` and `execution.deleted`. Name events `noun.verb`, send enough data to
-   update the view without a second request, and never put secrets or outputs in them.
+   The existing types are listed in the docstring of `stream_events` (`api/events.py`). Name events
+   `noun.verb`, pass the name as a string literal or a module constant (the contract test reads it from the
+   code), send enough data to update the view without a second request, and never put secrets or outputs
+   in them.
 2. **Subscribe in the browser.** Add the type to `EVENT_TYPES` in `static/js/tasks/events.js` (the client
-   only listens to the types in that list) and handle it in the `onEvent` callback of the page that cares
-   (`tasks/main.js`, `executions/page.js`, `execution/flow-page.js`).
+   only listens to the types in that list; the browser drops any other name without a trace) and handle it
+   in the `onEvent` callback of the page that cares (`tasks/main.js`, `executions/page.js`,
+   `execution/flow-page.js`), comparing `type === "thing.updated"`. An event no page needs goes into
+   `SERVER_ONLY` of `tests/test_event_contract.py` with the reason instead.
 3. **Document it** in the docstring of `api/events.py` and in the arc42 chapter on the event stream.
-4. **Test it.** Server: the `published` fixture of `tests/conftest.py` records every published event;
-   assert on it. Browser: wait for the effect, not for a time (see the [testing guide](testing.md#waiting)).
+4. **Test it.** `tests/test_event_contract.py` fails when a published name is missing from `EVENT_TYPES`,
+   when `EVENT_TYPES` names something nothing publishes, or when a page handles a name that is not listened
+   to. Server: the `published` fixture of `tests/conftest.py` records every published event; assert on it.
+   Browser: wait for the effect, not for a time (see the [testing guide](testing.md#waiting)).
 
 ## Use the UI catalog
 

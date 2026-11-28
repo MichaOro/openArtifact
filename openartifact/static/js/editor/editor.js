@@ -9,11 +9,11 @@ import { Modal } from "../components/modal.js";
 import { WindowLayout } from "../components/window-layout.js";
 import { KEYS, readJson, removeStorage, writeJson } from "../storage.js";
 import { ActionMenu } from "../components/action-menu.js";
-import { icon } from "../components/icons.js";
 import { AddMenu } from "./add-menu.js";
 import { getAgent } from "../agents/api.js";
 import { createGraph, listGraphs, loadContract, loadGraph } from "./api.js";
 import { Canvas } from "./canvas.js";
+import { ATTACHMENT_SOURCE_PORT, ATTACHMENT_TARGET_PORT, attachmentLink, kindOfEdge } from "./edge-kinds.js";
 import { copyOf, pastePlan, remappedConfig } from "./clipboard.js";
 import { ConnectMenu } from "./connect-menu.js";
 import { choosePort, connectionFor, placement, replacedEdges } from "./connect-plan.js";
@@ -351,13 +351,13 @@ export class GraphEditor {
    * is attached to it at once; without an agent it goes on the main line like any node. */
   async #addTool(kind) {
     let selected = this.selection?.type === "node" ? this.selection.id : null;
-    const attached = [...this.edges.values()].find((e) => e.source_id === selected && e.target_port === "tools");
+    const attached = [...this.edges.values()].find((e) => e.source_id === selected && kindOfEdge(e).hangs);
     if (attached) selected = attached.target_id;
     const spot = nextToolPosition(this.nodes, this.edges, selected);
     if (!spot) return this.#addBeforeEnd(kind);
     const created = await this.#create({ kind, x: spot.x, y: spot.y });
     if (!created) return;
-    await this.#connect(created, "tool", this.nodes.get(spot.agentId), "tools");
+    await this.#connect(created, ATTACHMENT_SOURCE_PORT, this.nodes.get(spot.agentId), ATTACHMENT_TARGET_PORT);
     this.select({ type: "node", id: created.id });
     this.canvas.reveal(created);
   }
@@ -804,7 +804,6 @@ export class GraphEditor {
 
   async #doPaste(copy, times) {
     const selected = this.selection?.type === "node" ? this.nodes.get(this.selection.id) : null;
-    const stages = [...this.nodes.values()].filter((n) => n.kind === "stage");
     const plan = pastePlan(copy, {
       offset: 40 * times,
       names: new Set([...this.nodes.values()].map((n) => n.name)),
@@ -841,7 +840,7 @@ export class GraphEditor {
       for (const item of plan.items.filter((i) => typeOf(i.kind)?.tool)) {
         const agent = copy.attached?.[item.key];
         if (agent && this.nodes.has(agent)) {
-          const edge = await this.model.connect({ source_id: made.get(item.key), source_port: "tool", target_id: agent, target_port: "tools" });
+          const edge = await this.model.connect(attachmentLink(made.get(item.key), agent));
           this.edges.set(edge.id, edge);
         }
       }

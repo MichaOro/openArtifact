@@ -75,8 +75,8 @@ class AgentBlock {
   }
 
   async render(focusKey = null) {
-    let agents = [];
-    let providers = [];
+    let agents;
+    let providers;
     try {
       [agents, providers] = await lists();
     } catch {
@@ -179,7 +179,7 @@ class AgentBlock {
     header.querySelector("[data-node-version]")?.remove();
     if (agent.published_number == null) return;
     const published = detail?.versions?.find((v) => v.number === agent.published_number)?.published_at;
-    const when = published ? new Date(published).toLocaleString(document.documentElement.lang || undefined) : null;
+    const when = published ? new Date(published).toLocaleString(undefined) : null;
     const badge = el("button", "chip-button", `v${agent.published_number}`);
     badge.type = "button";
     badge.dataset.nodeVersion = "";

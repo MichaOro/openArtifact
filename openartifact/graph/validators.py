@@ -13,6 +13,7 @@ import re
 from collections.abc import Callable
 
 from openartifact.agents import tool_config
+from openartifact.agents.board_tool_names import BOARD_TOOLS
 from openartifact.agents.render import MappingError, parse_mapping, prompt_problems
 from openartifact.credentials.refs import (
     SecretReferenceError,
@@ -191,8 +192,6 @@ def _blocked_list(value: str) -> None:
 def _board_tool_names(value: str) -> None:
     """The tool names of the OpenArtifact MCP Tool: a known name per line (the tools are the application's own, so a wrong name is
     refused, and the answer lists the names there are)."""
-    from openartifact.api.board_tool_names import BOARD_TOOLS
-
     try:
         names = tool_config.parse_tool_names(value)
     except tool_config.ToolConfigError as error:

@@ -46,6 +46,7 @@ An *artifact* is addressed by `{ref}`: its number (`12`) or its id.
 | GET | `/api/v1/pipelines/{ref}/neighbours`, `/api/v1/actions/{ref}/neighbours` | Every node with its predecessors and successors (`?version=published` (default) \| `draft` \| a number); `ref` is the id, URL name or name | 404, 422 |
 | GET | `/api/v1/lanes` | The board lanes in order: `status` (the key artifacts use), `key` (DOM form), `title`, `position`, `hue`, `style` (`normal` or `finished`), `artifact_count`, `deletable` | |
 | POST | `/api/v1/lanes` | Add a lane: body `{"title": "Review"}`; 1 to 40 characters, no control characters, different from the other lanes (ignoring case); at most 12 lanes; appended at the end; `201`, answers the lanes | 422 |
+| POST | `/api/v1/lanes/order` | Put the lanes in a new order: body `{"lanes": ["Review", "Backlog", ...]}`, every lane exactly once by title, id or key (422 says which is unknown, named twice or missing); `position` becomes 0 to n-1, `hue` follows the place; publishes `board.lanes`; the FIRST lane is where an artifact goes when none is given | 422 |
 | PUT | `/api/v1/lanes/{status}` | Change a lane (its key stays): body `{"title"?: "Review", "style"?: "finished"}`, at least one; same title rules; `style` is `normal` or `finished` (an unknown one is 422 and lists them); answers the lanes | 404, 422 |
 | DELETE | `/api/v1/lanes/{status}` | Delete a lane: `409` "A lane can only be deleted when it contains no artifacts." while it holds artifacts, and for the last lane; answers the remaining lanes | 404, 409 |
 | GET | `/api/v1/artifact-fields` | The artifact fields every artifact has, each with `artifact_count` (see [Artifact fields](#artifact-fields)) | |
@@ -98,7 +99,7 @@ Guide: [Agents and LLM providers](agents.md).
 | GET | `/api/v1/agents/{ref}/versions` | Every version with its configuration, newest first | 404 |
 | GET | `/api/v1/agents/{ref}/versions/{number}` | One version | 404 |
 | POST | `/api/v1/agents/{ref}/versions/{number}/republish` | Rollback: a new version with that content (`source_number`) | 404, 409 (it is the published one), 422 |
-| GET | `/api/v1/agents/{ref}/uses` | The agent nodes that refer to it, their action and their overrides | 404 |
+| GET | `/api/v1/agents/{ref}/uses` | The agent nodes that refer to it, one row each: the graph (`graph_id`, `graph_name`, `graph_slug`, `graph_kind`), the node, its `overrides`, `in_draft` (the node is in the draft of its graph), `published` and `published_number` (the published version of the graph has it; `false` while it was not published yet); a node that only a published version still has is listed with `in_draft: false`. A node never pins a version: it runs the agent's published one | 404 |
 | POST | `/api/v1/agents/{ref}/preview` | `{"source": "draft"\|"published", "version?", "values?", "node_id?"}`: prompts, inputs, settings in effect; sends nothing to a model | 404, 409, 422 |
 | GET | `/api/v1/providers` | The providers with their models; `secret_name` and `secret_exists`, never a key | |
 | POST | `/api/v1/providers/test` | Test a provider without saving: `ok`, `steps`, `warnings`, `models`, `lists_models` | 422 |
@@ -124,8 +125,6 @@ attachment on or off is not part of a version and acts at once.
 |--------|------|---------|--------|
 | GET | `/api/v1/guards?pipeline_id=` | The library: each definition with `used_by` and its `attachments` (with `pipeline_id`, a pipeline or an action definition: only the guards attached to that graph; `inner=true` adds those attached inside the action definitions the pipeline uses) | 422 |
 | POST | `/api/v1/guards` | Create a definition: `name` (120 characters), `description?`, `scope_types?` (`pipeline`, `stage`, `action`, `definition`, `node`; all five when left out), `trigger` (`{"type": "event", "events"}` or `{"type": "interval", "every_seconds", "for_seconds", "cooldown_seconds"}`), `when` (a condition tree of the `guard` schema), `consequence` (`pause`, `abort`, `continue`, `run_action`), `fallback`, `escalation`, `action_id` (its own action; `run_action` without one makes an empty one); `201` | 422 (`notify`/`handover` not available yet, a guard on a guard, an interval under the minimum, an empty name) |
-| GET | `/api/v1/guards/templates` | The templates (Stall, Runtime, Health guard) | — |
-| POST | `/api/v1/guards/from-template` | `template`, `name?`, `description?`: the template as a definition, with its own action where it has one; `201` | 404, 422 |
 | GET | `/api/v1/guards/{id}` | One definition | 404 |
 | PATCH | `/api/v1/guards/{id}` | Change the **draft**; a field left out keeps its value; nothing changes for runs until it is published | 404, 422 (also: `scope_types` narrowed below where it is attached) |
 | GET | `/api/v1/guards/{id}/versions` | The published versions, newest first: `number`, `name`, `published_at`, `published_via` (`user`, `api`), `source_number` (a version made by publishing an earlier one again), `current` (the one runs use) | 404 |
@@ -236,6 +235,7 @@ match the integration API where the names match.
 |--------|------|---------|--------|
 | GET | `/api/lanes` | The lanes in board order: `[{"status": "in_progress", "key": "in-progress", "title": "Review", "position": 1, "hue": 2, "style": "normal", "artifact_count": 0, "deletable": true}, ...]` | |
 | POST | `/api/lanes` | Add a lane (body `{"title": string}`, same rules as `POST /api/v1/lanes`); `201`; publishes `board.lanes` | 422 |
+| POST | `/api/lanes/order` | Put the lanes in a new order: body `{"lanes": [...]}`, every lane exactly once, each by title, id or `status` key; `position` becomes 0 to n-1, the answer is the lanes, publishes `board.lanes`; the first lane is where a card goes when none is named | 422 |
 | PUT | `/api/lanes/{status}` | Change: body `{"title"?: string, "style"?: "normal"\|"finished"}` (at least one); answers the lanes; publishes `board.lanes` | 404, 422 |
 | DELETE | `/api/lanes/{status}` | Delete an empty lane (not the last); answers the lanes; publishes `board.lanes` | 404, 409 |
 | POST | `/api/tasks/{id}/archive`, `/api/tasks/{id}/unarchive` (also `/api/v1/artifacts/{ref}/...`) | Archive by hand (the card remembers its lane; read-only, every change is 409 `archived`; 409 while processed) / back to the top of its lane (the first lane if that is gone) | 404, 409 |
@@ -433,7 +433,8 @@ The HTML pages (`/`, `/pipelines`, `/pipelines/{ref}`, `/actions`, `/actions/{re
 
 ## MCP tools
 
-`/mcp` offers 41 tools over Streamable HTTP. They go through the same service as the REST API; a refused
+`/mcp` offers its tools over Streamable HTTP; how many depends on the configuration (some tools are registered only when
+the service they need is set up). They go through the same service as the REST API; a refused
 call returns the reason as the tool's error text. Artifacts are addressed by number (`12` or `#12`) or id.
 Pipeline, stage and action are given by name.
 

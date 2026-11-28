@@ -119,6 +119,57 @@
 [data-panel-detail] { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
 [data-panel-detail] .history-step { align-self: stretch; margin-left: 0; }
 
+/* The registers of the Execution Trace panel (Overview, Trace, Context) and the Trace itself (execution/trace-view.js): the rounds, the newest first,
+ * each an accordion row with its events; a working round and a failed one are open. */
+.ef-tabs { margin-bottom: calc(var(--space-2) * -1); }
+.ef-tabpanel { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.ef-tabpanel[hidden] { display: none; }
+.trace { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.trace__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.trace__title { margin: 0; font-size: 0.9375rem; }
+.trace__facts { margin: 0; }
+.trace__live { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); height: 1.5rem; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: transparent; color: var(--color-text-secondary); font-size: 0.75rem; cursor: pointer; }
+.trace__live:hover { border-color: var(--btn-outline-border-hover); }
+.trace__live:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.trace__live[data-trace-live="live"] { color: var(--color-accent); border-color: color-mix(in srgb, var(--color-accent) 45%, transparent); }
+.trace__dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: currentColor; }
+.trace__live[data-trace-live="live"] .trace__dot { animation: trace-live-pulse 1.4s ease-in-out infinite; }
+@keyframes trace-live-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .trace__live[data-trace-live="live"] .trace__dot { animation: none; } }
+.trace__tools { display: flex; gap: var(--space-2); min-width: 0; }
+.trace__search { flex: 1 1 auto; min-width: 0; }
+.trace__filter { flex: 0 0 auto; min-width: 0; width: auto; }
+.trace__list { gap: var(--space-2); }
+.live-rounds__round.trace__round { padding: 0; gap: 0; }
+.live-rounds__round.trace__round[data-state="running"] { border-color: var(--edge-running, var(--color-accent)); }
+.live-rounds__round.trace__round[data-state="failed"] { border-color: var(--color-danger); }
+.trace__details > summary { list-style: none; cursor: pointer; display: flex; align-items: center; flex-wrap: nowrap; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: inherit; }
+.trace__details > summary::-webkit-details-marker { display: none; }
+.trace__details > summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.trace__status { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; border: 1.5px solid var(--color-text-muted); }
+.trace__status .icon { width: 0.75rem; height: 0.75rem; }
+.trace__status[data-state="done"] { color: var(--edge-pass); border-color: var(--edge-pass); }
+.trace__status[data-state="failed"] { color: var(--color-danger); border-color: var(--color-danger); }
+.trace__status[data-state="running"] { border-style: dashed; border-color: var(--edge-running, var(--color-accent)); }
+.trace__roundname { font-size: 0.8125rem; flex: none; white-space: nowrap; }
+.trace__anchor { font-weight: 400; color: var(--color-text-muted); }
+.trace__chips { display: flex; flex: 0 1 auto; flex-wrap: nowrap; gap: var(--space-1); min-width: 0; overflow: hidden; } /* the chips give way (ellipsis) so that the numbers stay on the line of the round */
+.trace__chip { padding: 0 var(--space-2); border-radius: var(--radius-pill); border: 1px solid var(--glass-border); font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-text-secondary); max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trace__numbers { margin-left: auto; flex: none; display: inline-flex; gap: var(--space-2); white-space: nowrap; }
+.trace__events { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0 var(--space-3) var(--space-2); list-style: none; }
+.trace__event { display: flex; flex-direction: column; align-items: stretch; gap: 1px; font-size: 0.8125rem; text-align: left; }
+.trace__line { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); min-width: 0; }
+.trace__what { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); min-width: 0; overflow-wrap: anywhere; text-align: left; }
+.trace__time { margin-left: auto; flex: none; color: var(--color-text-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; text-align: right; }
+.trace__detail { min-width: 0; overflow-wrap: anywhere; text-align: left; }
+.trace__meta { color: var(--color-text-muted); font-size: 0.75rem; }
+.trace__error { color: var(--color-danger); }
+.trace__event[data-kind="tool"][data-state="ok"] .live-rounds__mark { color: var(--edge-pass); }
+.trace__event[data-kind="tool"][data-state="failed"] .live-rounds__mark { color: var(--color-danger); }
+.trace__event.live-rounds__call { flex-direction: column; align-items: stretch; font-family: inherit; gap: 1px; } /* the call row of the old live list is a flex row: in the Trace it is a title line with detail lines under it */
+.trace__empty { display: flex; align-items: center; gap: var(--space-2); }
+.trace__more { display: flex; align-items: center; gap: var(--space-2); }
+
 /* the rounds of a running agent (components/live-rounds.js) */
 .live-rounds { align-self: stretch; display: flex; flex-direction: column; gap: var(--space-2); }
 .live-rounds__title { margin: 0; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary); }

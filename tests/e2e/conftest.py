@@ -135,12 +135,18 @@ def _reset_lanes(client: httpx.Client) -> None:
             client.put(f"/api/lanes/{key}", json={"title": f"~{key}"}).raise_for_status()
         for key, title in DEFAULT_LANES:
             client.put(f"/api/lanes/{key}", json={"title": title}).raise_for_status()
+    # the order too (a test may have moved a lane, ADR-092): the three defaults first, in their order
+    keys_now = [lane["status"] for lane in client.get("/api/lanes").json()]
+    if keys_now != [key for key, _ in DEFAULT_LANES]:
+        client.post(
+            "/api/lanes/order", json={"lanes": [key for key, _ in DEFAULT_LANES]}
+        ).raise_for_status()
 
 
 @pytest.fixture
 def api(base_url: str) -> Iterator[httpx.Client]:
     """REST client; the server is emptied before each test: runs stopped, artifacts, pipelines and
-    action definitions, guards and artifact fields deleted, the lanes back to the three defaults (the server lives for the whole session)."""
+    action definitions, guards, agents and artifact fields deleted, the lanes back to the three defaults (the server lives for the whole session)."""
     with httpx.Client(base_url=base_url) as client:
         # the card rules (ADR-071) first: they mark cards, and a rule that archives or deletes would act on what is left
         client.put("/api/board/rules", json={"rules": []}).raise_for_status()
@@ -160,6 +166,10 @@ def api(base_url: str) -> Iterator[httpx.Client]:
                 assert client.delete(f"{path}/{graph['id']}").status_code == 204
         for guard in client.get("/api/guards").json():  # their attachments went with the pipelines
             assert client.delete(f"/api/guards/{guard['id']}").status_code == 204
+        # agents last: one is refused while an agent node refers to it, and the actions are gone now. Several files
+        # create an agent of the same name, which a test after them in the same worker could not create again (409).
+        for agent in client.get("/api/agents").json():
+            assert client.delete(f"/api/agents/{agent['id']}").status_code == 204
         yield client
 
 

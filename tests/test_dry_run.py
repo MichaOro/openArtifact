@@ -523,8 +523,8 @@ def test_the_tools_of_an_agent_are_classified_by_their_settings() -> None:
 
 
 def test_the_writing_tools_of_the_openartifact_tool_are_marked_as_changing() -> None:
+    from openartifact.agents.board_tool_names import BOARD_TOOLS, WRITE_TOOLS
     from openartifact.agents.board_toolbox import board_tools
-    from openartifact.api.board_tool_names import BOARD_TOOLS, WRITE_TOOLS
 
     class Board:
         def __getattr__(self, name: str) -> Callable[..., Any]:

@@ -8,7 +8,6 @@ from enum import Enum
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
-from pydantic import BaseModel
 
 from openartifact.api.contract import errors
 from openartifact.api.deps import get_engine
@@ -16,7 +15,6 @@ from openartifact.engine.runner import RunEngine
 from openartifact.guards.schemas import (
     AttachmentCreate,
     AttachmentRead,
-    FromTemplate,
     GuardDefinitionCreate,
     GuardDefinitionRead,
     GuardDefinitionWrite,
@@ -29,7 +27,7 @@ from openartifact.guards.schemas import (
     PreviewRequest,
     PublishedGuard,
 )
-from openartifact.guards.service import GuardService, templates
+from openartifact.guards.service import GuardService
 
 DESCRIPTION = (
     "A guard definition (the library) says what a guard is; it watches nothing until it is attached to a scope "
@@ -69,15 +67,6 @@ GuardsDep = Annotated[GuardService, Depends(get_guards)]
 EngineDep = Annotated[RunEngine, Depends(get_engine)]
 
 
-class TemplateRead(BaseModel):
-    key: str
-    name: str
-    summary: str
-    scope_types: list[str]
-    guard: dict[str, Any]
-    has_action: bool
-
-
 def build_guards_router(prefix: str, tags: list[str | Enum], *, editor: bool) -> APIRouter:
     """The guard routes under ``{prefix}/guards`` and ``{prefix}/guard-attachments``; ``editor`` adds the preview."""
     router = APIRouter(prefix=prefix, tags=tags)
@@ -114,36 +103,6 @@ def build_guards_router(prefix: str, tags: list[str | Enum], *, editor: bool) ->
         payload: GuardDefinitionCreate, service: GuardsDep
     ) -> GuardDefinitionRead:
         return await service.create(payload)
-
-    @router.get(
-        "/guards/templates",
-        response_model=list[TemplateRead],
-        name=f"{name}list_guard_templates",
-        summary="List the guard templates",
-        description="The guards shipped as templates: Stall, Runtime and Health guard.",
-    )
-    async def list_templates() -> list[TemplateRead]:
-        return [
-            TemplateRead(
-                **{k: t[k] for k in ("key", "name", "summary", "scope_types", "guard")},
-                has_action="action" in t,
-            )
-            for t in templates().values()
-        ]
-
-    @router.post(
-        "/guards/from-template",
-        response_model=GuardDefinitionRead,
-        status_code=status.HTTP_201_CREATED,
-        name=f"{name}create_guard_from_template",
-        summary="Create a guard definition from a template",
-        description="The template's guard in the library, with its own action when the template has one.",
-        responses=errors(404, 422, write=True, body=True),
-    )
-    async def create_from_template(
-        payload: FromTemplate, service: GuardsDep
-    ) -> GuardDefinitionRead:
-        return await service.from_template(payload.template, payload.name, payload.description, via)
 
     if editor:
 

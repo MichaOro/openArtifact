@@ -88,3 +88,16 @@ made the curve run down through the agent's card. `attachmentPath` (`editor/geom
 and comes up to the agent's port from underneath (rounded for curved and elbow lines, sharp corners for straight). While a connection is dragged the direct line stays (there is no second card yet). Stored positions are
 not touched: the owner's graphs with a tool above its agent look right as they are. Tests: `tests/js/attachment-path.test.mjs` (the line avoids both cards for eight positions and three styles) and
 `tests/e2e/test_tool_edges.py` (the same in the browser, in the editor and on the flow page).
+
+## Addendum 2: the line style of a tool connection (2026-11-27, see [ADR-093](093-kinds-of-connection-are-data.md))
+
+The rule "one look for every style" of addendum 1 is withdrawn: the line to a tool below its agent now follows the style of its connection (a curve, a straight line, or up, across and up
+with rounded corners), and the bar of a tool connection offers the same pencil, styles and bin as every connection. What differs between a tool's attachment and a flow edge is a row of a table
+(`editor/edge-kinds.js`), not a branch in the code that draws, selects and deletes connections.
+
+## Addendum 3 (2026-11-27): the names module moved to `agents`
+
+`api/board_tool_names.py` is now `agents/board_tool_names.py` (the names are unchanged). The agent tool node is the domain that consumes the names, and
+the API depends on the domain, not the reverse: `agents/board_toolbox.py` and `graph/validators.py` imported it from `api` before. The setting
+rule `board_tool_names` now imports it at module level. `tests/test_import_structure.py` keeps every module outside `api`, `web` and `app.py`
+from importing `api` or `web`.

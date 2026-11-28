@@ -2,8 +2,10 @@
 
 The credential store keeps named secrets (API keys, tokens, passwords) encrypted in the database so that
 Code and HTTP nodes can use them without the value ever being written into a pipeline. This guide covers how
-to store and reference them, what protection they have, and what that protection does not cover. There is
-**no user interface for credentials yet**: values are managed through the API only.
+to store and reference them, what protection they have, and what that protection does not cover. Named secrets
+have no page of their own: they are stored through the API (and the provider dialog stores an API key); the managed
+credentials (access tokens and credentials for other systems) have the page *Settings → Credentials*, see
+[Managed credentials](#managed-credentials-the-credentials-page).
 
 ## Requirements
 

@@ -90,7 +90,7 @@ class Limits:
     publish: Callable[[str, dict[str, Any]], object] | None = None
     #: The board tools an agent's OpenArtifact MCP Tool node calls (``api/board_tools.py``, ADR-079): gives the tools when a run
     #: needs them (the services do not exist yet when the engine is made); ``None``: such a node fails before its first request.
-    board: Callable[[], Any] | None = None
+    board: Callable[[], object] | None = None
 
     @classmethod
     def from_settings(
@@ -101,7 +101,7 @@ class Limits:
         credential_settings: Callable[[str], Awaitable[dict[str, str]]] | None = None,
         publish: Callable[[str, dict[str, Any]], object] | None = None,
         cards: CardsGateway | None = None,
-        board: Callable[[], Any] | None = None,
+        board: Callable[[], object] | None = None,
     ) -> Limits:
         return cls(
             settings.code_nodes_enabled,

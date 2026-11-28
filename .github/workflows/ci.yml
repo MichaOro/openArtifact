@@ -13,6 +13,7 @@
 #
 # Beside the Python stages: a JavaScript syntax check and a Markdown link check (job "static").
 #
+# Python dependencies come from uv.lock (uv sync --frozen); job "lint" fails when the lock is stale.
 # Dependency audit runs in audit.yml.
 
 name: CI
@@ -26,6 +27,7 @@ on:
       - "alembic/**"
       - "alembic.ini"
       - "pyproject.toml"
+      - "uv.lock"
       - "docs/**"
       - "**/*.md"
       - "Dockerfile"
@@ -43,6 +45,7 @@ on:
       - "alembic/**"
       - "alembic.ini"
       - "pyproject.toml"
+      - "uv.lock"
       - "docs/**"
       - "**/*.md"
       - "Dockerfile"
@@ -55,6 +58,12 @@ on:
 
 permissions:
   contents: read
+
+# The uv release every job installs with (uv.lock is written by it). The same release is pinned in two more places
+# that cannot read this value: audit.yml (setup-uv `version`) and the Dockerfile (the ghcr.io/astral-sh/uv image).
+# Change all three together; Dependabot (docker) bumps only the Dockerfile.
+env:
+  UV_VERSION: "0.13.9"
 
 jobs:
   # ── Stage 1: Python Quality Checks ──────────────────────────────
@@ -69,19 +78,29 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-          cache: "pip"
 
-      - name: Install dev dependencies
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.4.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+
+      # Fails when pyproject.toml changed without `uv lock`; every job below installs from uv.lock.
+      - name: Lock file is up to date
         run: |
-          pip install --no-cache-dir -e ".[dev]"
+          uv lock --check
+
+      - name: Install dev dependencies (uv.lock)
+        run: |
+          uv sync --frozen --all-extras
 
       - name: Ruff lint
         run: |
-          ruff check .
+          uv run --no-sync ruff check .
 
       - name: Ruff format check
         run: |
-          ruff format --check .
+          uv run --no-sync ruff format --check .
 
   # ── Static checks: JavaScript syntax, Markdown links ────────────
 
@@ -132,15 +151,20 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-          cache: "pip"
 
-      - name: Install dev dependencies
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.4.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+
+      - name: Install dev dependencies (uv.lock)
         run: |
-          pip install --no-cache-dir -e ".[dev]"
+          uv sync --frozen --all-extras
 
       - name: mypy strict type check
         run: |
-          mypy .
+          uv run --no-sync mypy .
 
   # ── Stage 3: Test Suite ─────────────────────────────────────────
 
@@ -173,19 +197,24 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
 
-      - name: Install dev dependencies
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.4.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dev dependencies (uv.lock)
         run: |
-          pip install --no-cache-dir -e ".[dev]"
+          uv sync --frozen --all-extras
 
       - name: Run test suite with coverage
         env:
           OA_TEST_POSTGRES_URL: postgresql://oa:pw@127.0.0.1:5432/postgres
         run: |
-          coverage run -m pytest -v --tb=short
-          coverage report
-          coverage xml
+          uv run --no-sync coverage run -m pytest -v --tb=short
+          uv run --no-sync coverage report
+          uv run --no-sync coverage xml
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7
@@ -208,16 +237,21 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-          cache: "pip"
 
-      - name: Install dependencies and browser
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.4.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+
+      - name: Install dependencies (uv.lock) and browser
         run: |
-          pip install --no-cache-dir -e ".[dev]"
-          playwright install --with-deps chromium
+          uv sync --frozen --all-extras
+          uv run --no-sync playwright install --with-deps chromium
 
       - name: Run browser tests
         run: |
-          python -m pytest -m e2e -v --tb=short --tracing retain-on-failure
+          uv run --no-sync python -m pytest -m e2e -v --tb=short --tracing retain-on-failure
 
       - name: Keep traces of failed tests
         if: failure()

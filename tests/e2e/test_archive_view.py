@@ -81,6 +81,34 @@ def test_remove_from_archive_puts_the_card_on_top_of_its_lane(board: Board) -> N
     expect(board.lane("backlog").locator(".task-card__title").first).to_have_text("Coming back")
 
 
+def test_the_open_archive_shows_a_card_the_sweep_of_a_card_rule_archived(board: Board) -> None:
+    """The sweep announces only ``board.updated`` (no ``task.updated`` per card): the open archive reads itself again on it."""
+    by_hand = board.create("Archived by hand")
+    board.create("Swept by a rule")
+    board.open()
+    _menu(board, "Show archive")
+    tiles = board.page.locator("[data-archive-view] .mg-card")
+    expect(tiles).to_have_count(0)
+    # first a hand archive (``task.updated``): the live stream of the page is connected before the sweep runs
+    _archive(board, by_hand)
+    expect(tiles).to_have_count(1)
+    rule = {
+        "action": "archive",
+        "when": {
+            "type": "group",
+            "mode": "all",
+            "items": [
+                {"type": "condition", "field": "title", "op": "is", "value": "Swept by a rule"}
+            ],
+        },
+    }
+    board.api.put(
+        "/api/lanes/backlog/rules", json={"rules": [rule]}
+    ).raise_for_status()  # a sweep follows
+    expect(tiles).to_have_count(2)
+    expect(tiles.filter(has_text="Swept by a rule")).to_have_count(1)
+
+
 def test_a_card_is_archived_by_hand_from_the_rail_of_its_dialog(board: Board) -> None:
     board.create("Archive me")
     board.open()
@@ -243,6 +271,8 @@ def test_a_card_whose_lane_is_gone_says_so_instead_of_showing_nothing(board: Boa
     expect(archive.locator(".mg-card__facts").first).to_have_text(
         "From lane: (lane no longer exists)"
     )
+    # the stub may still be answering a request when the test ends: let it finish quietly instead of failing the next test
+    board.page.unroute_all(behavior="ignoreErrors")
 
 
 def test_archive_rows_do_not_overlap_at_a_narrow_width(board: Board) -> None:

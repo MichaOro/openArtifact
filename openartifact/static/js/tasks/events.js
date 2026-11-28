@@ -1,4 +1,6 @@
-/* Server-sent events client. Events: task.created / task.updated / task.moved / task.deleted / board.lanes / artifact_fields.changed / agents.changed / providers.changed / settings.changed (and the run, execution and comment events).
+/* Server-sent events client. The server sends named events; only the names in EVENT_TYPES get a listener here, any other one is
+ * dropped by the browser. tests/test_event_contract.py checks that every name here is published, that every published name is here
+ * (or server-only, with a reason) and that every name a page compares against is here.
  * EventSource reconnects by itself after a lost connection; events missed meanwhile are not
  * replayed, so every (re)connect calls onOpen so the caller can resync from the REST API. A refused
  * connection (the sign-in expired: 401) is not retried by the browser; onClosed tells the caller.
@@ -6,7 +8,7 @@
  * own code, and a browser keeps only six connections per host open across all tabs): the connection closes when the last
  * caller has gone. A custom URL gets a connection of its own. */
 
-const EVENT_TYPES = ["task.created", "task.updated", "task.moved", "task.deleted", "board.resync", "board.lanes", "run.updated", "execution.updated", "execution.deleted", "comment.created", "comment.updated", "comment.deleted", "activity.created", "artifact_fields.changed", "agents.changed", "providers.changed", "settings.changed", "graph.changed", "graph.contract_changed", "agent.tool_call", "agent.turn"];
+const EVENT_TYPES = ["task.created", "task.updated", "task.moved", "task.deleted", "board.resync", "board.lanes", "run.updated", "execution.updated", "execution.deleted", "comment.created", "comment.updated", "comment.deleted", "activity.created", "artifact_fields.changed", "agents.changed", "providers.changed", "settings.changed", "graph.changed", "graph.contract_changed", "agent.tool_call", "agent.turn", "board.updated", "cards.rules.changed", "storage.cleaned", "credentials.changed"];
 
 /** The one connection of the page to the default URL: the source, who listens, and whether it has opened. */
 let hub = null;

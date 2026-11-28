@@ -6,7 +6,10 @@ change is saved at once (there is no separate "save"): the editor sends what the
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import weakref
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
@@ -65,6 +68,20 @@ from openartifact.models import (
     RunNodeResult,
 )
 from openartifact.ui import layout as ui_layout
+
+logger = logging.getLogger(__name__)
+
+#: A lock per graph whose nodes are being changed, held only while a change runs (weak: an idle graph keeps none).
+_writing: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
+
+
+def _graph_writes(graph_id: str) -> asyncio.Lock:
+    """The lock that makes changes to the nodes of one graph run one after the other."""
+    lock = _writing.get(graph_id)
+    if lock is None:
+        lock = _writing[graph_id] = asyncio.Lock()
+    return lock
+
 
 _LABELS: dict[GraphKind, str] = {GraphKind.PIPELINE: "Pipeline", GraphKind.ACTION: "Action"}
 
@@ -538,6 +555,19 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
         change did beyond the node (the definition's On Fail, other uses, connections that were disconnected) and
         ``reload`` that other nodes of this graph changed; ``graph.changed`` goes out for the other graphs."""
         repo = GraphRepository(session)
+        # one change of a graph's nodes at a time: the config is read, merged and written, and two settings saved at once
+        # (two controls of the inspector) would otherwise lose one of them (one process per data directory, ADR-094)
+        async with _graph_writes(graph_id):
+            return await _update_node(repo, graph_id, node_id, payload, session, request)
+
+    async def _update_node(
+        repo: GraphRepository,
+        graph_id: str,
+        node_id: str,
+        payload: NodeUpdate,
+        session: AsyncSession,
+        request: Request,
+    ) -> NodeRead:
         graph = await _graph(repo, graph_id)
         node = await repo.get_node(graph_id, node_id)
         if node is None:
@@ -555,7 +585,13 @@ def build_graph_router(kind: GraphKind) -> APIRouter:
             store = request.app.state.secret_store
             try:
                 known = set((await store.resolve([s.name for s in await store.names()])).values())
-            except Exception:  # secrets not available: only the reference form is checked
+            except Exception as error:  # secrets not available: only the reference form is checked
+                logger.warning(
+                    "The secret store could not be read (%s): the mock of node %s is checked "
+                    "for secret references only, not for secret values",
+                    error,
+                    node.id,
+                )
                 known = set()
         try:
             report = await repo.update_node(node, payload, known)

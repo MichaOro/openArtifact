@@ -191,18 +191,22 @@ def test_design_tokens_define_mandatory_colors() -> None:
 
 
 def test_no_hex_colors_outside_tokens() -> None:
-    """Raw colour values are only allowed in tokens.css."""
+    """Raw colour values are only allowed in tokens.css (ui-catalog, binding rule "No colour in a component").
+
+    Stylesheets and templates: every hex form (#fff, #ffff, #ffffff, #ffffffff) and the colour functions. Scripts: the six-digit
+    form only, because their comments name cards as #117."""
     import re
 
     base = Path(__file__).parent.parent / "openartifact"
-    files = [
-        *(base / "static" / "css").glob("*.css"),
-        *(base / "static" / "js").rglob("*.js"),
-        *(base / "templates").rglob("*.html"),
-    ]
-    for f in files:
+    styled = [*(base / "static" / "css").glob("*.css"), *(base / "templates").rglob("*.html")]
+    colour = re.compile(
+        r"#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\("
+    )
+    for f in styled:
         if f.name == "tokens.css":
             continue
+        assert not colour.search(f.read_text()), (f.name, colour.search(f.read_text()))
+    for f in (base / "static" / "js").rglob("*.js"):
         assert not re.search(r"#[0-9a-fA-F]{6}\b", f.read_text()), f.name
 
 

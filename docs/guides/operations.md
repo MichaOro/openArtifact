@@ -101,8 +101,8 @@ git pull && oa up -d --build
 oa pull && oa up -d
 ```
 
-The entrypoint runs `alembic upgrade head` before the server starts and aborts the start when a
-migration fails: the container exits (and, with `restart: unless-stopped`, is restarted); `oa logs` shows why.
+The entrypoint runs `alembic upgrade head` (under the lock of the data directory, [below](#one-process-one-volume))
+before the server starts and aborts the start when a migration fails: the container exits (and, with `restart: unless-stopped`, is restarted); `oa logs` shows why.
 The pages (HTML) are sent with `Cache-Control: no-cache` and the static files revalidate with their ETag, so a browser shows the new build after a reload, not the old one from its cache.
 After the update check `oa ps` (healthy), `curl http://localhost:2909/health` (the answer carries the
 version) and the start of the log (below).
@@ -270,3 +270,26 @@ normal size this is not noticeable.
 The application keeps its live-update bus, its run engine and its guards in memory of one process. Run
 exactly one container per volume. Starting a second one against the same volume breaks SSE fan-out and the
 run limits and risks write conflicts.
+
+The application enforces this with an exclusive lock on `openartifact.lock` in the data directory (`/data` in the
+container), taken at start before anything else and held until it ends. A second process on the same data directory does
+not start. Started by hand (`openartifact`), its log ends with (the message is one line) and it exits with status 3:
+
+```
+openartifact.exceptions.ConfigurationError: The data directory /data is in use by another OpenArtifact process
+(it holds the lock on /data/openartifact.lock). Only one process may use a data directory: stop the other process
+or container first.
+ERROR:    Application startup failed. Exiting.
+```
+
+The running instance is not affected. With `restart: unless-stopped` Docker restarts the refused container
+and it is refused again until the first one ends. `oa up -d` stops the old container before it starts the new
+one, so an update or a recreate is not refused. The lock ends with the process however it ends (a kill or an
+OOM kill included); the file stays in the volume, is empty and needs no cleanup — do not delete it while the
+application runs.
+
+A second container is refused one step earlier: the entrypoint's migrations (`alembic upgrade head`) hold the same
+lock (`python -m openartifact.process_lock`), so it never migrates the database the first one serves. Its log ends with
+"ERROR: The data directory /data is in use by another OpenArtifact process …" and "Aborting startup.", and it exits
+with status 3. One limit: on a file system without lock support the application
+logs "cannot be locked ... starting without the lock" and starts without the protection.

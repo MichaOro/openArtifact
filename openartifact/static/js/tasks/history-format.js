@@ -18,6 +18,12 @@ export function formatTime(iso) {
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
 }
 
+/** Date and time to the minute ("Nov 27, 2026, 3:04 PM"), for lists and version rows. */
+export const formatDateTime = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+/** The day only ("Nov 27, 2026"), for a card whose one line of facts has no room for the time. */
+export const formatDay = (iso) => new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
+
 /** "0.4 s", "12 s", "3 min 5 s", "2 h 3 min". */
 export function formatDuration(seconds) {
   if (seconds == null || Number.isNaN(seconds)) return "";

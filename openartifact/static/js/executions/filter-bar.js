@@ -61,8 +61,10 @@ export class FilterBar {
     for (const radio of this.form.querySelectorAll("input[name=range]")) radio.checked = !filters.custom && (radio.value === "all" ? filters.range === "" : radio.value === filters.range);
     this.custom.hidden = !filters.custom;
     if (filters.custom) {
-      const parts = [filters.since && `since ${new Date(filters.since).toLocaleString()}`, filters.until && `until ${new Date(filters.until).toLocaleString()}`];
-      this.custom.querySelector("[data-custom-text]").textContent = t("executions.filter_bar.custom_range", { range: parts.filter(Boolean).join(" ") });
+      const since = filters.since ? new Date(filters.since).toLocaleString() : "";
+      const until = filters.until ? new Date(filters.until).toLocaleString() : "";
+      const range = since && until ? t("executions.filter_bar.range_between", { since, until }) : since ? t("executions.filter_bar.range_since", { since }) : until ? t("executions.filter_bar.range_until", { until }) : "";
+      this.custom.querySelector("[data-custom-text]").textContent = t("executions.filter_bar.custom_range", { range });
     }
     const count = filters.activeCount;
     this.activeBadge.textContent = count ? t("executions.filter_bar.active_count", { count }) : "";

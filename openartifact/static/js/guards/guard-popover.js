@@ -15,6 +15,7 @@ import { icon } from "../components/icons.js";
 import { placePopover } from "../components/popover.js";
 import { createSwitch, Switch } from "../components/switch.js";
 import { t } from "../i18n.js";
+import { innerNote } from "./inner-note.js";
 import * as model from "./model.js";
 
 let nextId = 0;
@@ -108,7 +109,7 @@ export class GuardPopover {
   }
 
   #render() {
-    const { mode, scope, guards, schema } = this.what;
+    const { mode, scope, guards } = this.what;
     const parts = [];
     if (mode === "add") {
       parts.push(make("p", "popover__caption", t("guards.add_a_guard")));
@@ -116,7 +117,7 @@ export class GuardPopover {
       create.type = "button";
       create.dataset.focusKey = "new";
       create.dataset.newGuard = "";
-      create.append(icon("plus"), document.createTextNode(t("guards.new_menu")));
+      create.append(icon("plus"), document.createTextNode(t("guards.new_guard")));
       create.addEventListener("click", () => {
         this.close({ restoreFocus: false });
         this.actions.create();
@@ -152,14 +153,7 @@ export class GuardPopover {
       rows.setAttribute("aria-label", t("guards.in_the_action"));
       for (const { attachment, guard } of inner) rows.append(this.#innerRow(attachment, guard));
       parts.push(rows);
-      if (scope.actionHref) {
-        const open = make("a", "button button--ghost button--sm gd-popover__open-action");
-        open.href = scope.actionHref;
-        open.dataset.openAction = "";
-        open.dataset.focusKey = "open-action";
-        open.append(icon("pencil"), document.createTextNode(t("guards.open_the_action")));
-        parts.push(open);
-      }
+      parts.push(...innerNote(inner, scope.actionHref));
     }
     this.el.replaceChildren(...parts);
   }

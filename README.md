@@ -35,7 +35,7 @@ Open <http://localhost:2909> and sign in with the token. `curl http://localhost:
 ## Development
 
 ```bash
-uv sync --all-extras                  # or: pip install -e ".[dev]"
+uv sync --all-extras                  # installs uv.lock; or, not locked: pip install -e ".[dev]"
 printf 'OPENARTIFACT_DATA_DIR=./.data\nOPENARTIFACT_HOST=127.0.0.1\n' > .env
 uv run alembic upgrade head           # create the database
 uv run openartifact                   # http://localhost:2909
@@ -76,15 +76,16 @@ More with examples: [Concepts](docs/guides/concepts.md). Terms of the architectu
 - GitHub node (read a repository, issues, pull requests, files and comments; comment, behind its own switch) and Postgres
   node (one SQL statement with bound parameters, read-only by default, the rows as a list), also as a Postgres Tool for
   agents ([execution nodes](docs/guides/execution-nodes.md)).
-- Credential store: secrets are encrypted in the database and referenced by name from nodes, never returned by the API
-  ([Credentials](docs/guides/credentials.md); API only, there is no UI for it yet).
+- Credential store: secrets are encrypted in the database and referenced by name from nodes, never returned by the API;
+  named secrets are stored through the API, the managed credentials (access tokens, credentials for other systems) on
+  the page *Settings › Credentials* (`/settings/credentials`) ([Credentials](docs/guides/credentials.md)).
 - Execution history per artifact with steps and outputs, retention policy (default keep 50), delete and clear
   ([Execution history](docs/guides/execution-history.md)).
 - Flow view of one execution and a global executions page (`/executions`) across all artifacts, with filters and summary.
-- Integration API (`/api/v1`) and an MCP server (`/mcp`, 19 tools) with token authentication
+- Integration API (`/api/v1`) and an MCP server (`/mcp`; which tools it offers depends on the configuration) with token authentication
   ([Sign in and use the API and MCP](docs/guides/integration.md), [API reference](docs/guides/api-reference.md)).
 
-Planned and not implemented: AI agent nodes, Git and webhook connectors, extension packaging. The authoritative list is
+Not implemented: a Git connector (the GitHub node speaks the GitHub API), webhook triggers, extension packaging. The authoritative list is
 [arc42 chapter 4.3](docs/architecture/arc42/04-solution-strategy.md#43-built-and-planned).
 
 ## Architecture in short

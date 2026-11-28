@@ -17,6 +17,7 @@ import { chip, make } from "../components/management-page.js";
 import { checkGraph, publishGraph, republishGraph, versionsOf } from "./api.js";
 import { findingsConfirm } from "./findings.js";
 import { canPublish, publicationOf } from "./versions-model.js";
+import { formatDateTime as when } from "../tasks/history-format.js";
 import { t } from "../i18n.js";
 
 export { publicationOf };
@@ -61,8 +62,6 @@ const graphCalls = (kind) => ({
   publish: (id, acknowledge = false) => publishGraph(kind, id, acknowledge),
   republish: (id, number) => republishGraph(kind, id, number),
 });
-
-const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 /**
  * @param {HTMLElement} body the tab

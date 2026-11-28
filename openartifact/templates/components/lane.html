@@ -5,6 +5,7 @@
    lane that is added while the page is open, so server and browser build the same markup. #}
 {% macro lane(title, key, status, count=0, hue=1, style="normal") -%}
 <section class="lane glass{% if style == 'finished' %} lane--finished{% endif %}" aria-labelledby="lane-{{ key }}-title" data-lane="{{ key }}" data-status="{{ status }}" data-lane-hue="{{ hue }}">
+    <button type="button" class="lane__grip" data-lane-grip tabindex="-1" aria-label="{{ t('lane.move_title', title=title) }}" title="{{ t('lane.move') }}">{{ icon("grip") }}</button>
     <header class="lane__header">
         <h2 class="lane__title" id="lane-{{ key }}-title"><span class="lane__name" data-lane-name title="{{ title }}">{{ title }}</span></h2>
         <span class="lane__count" aria-label="{{ plural('count.artifact', count) }}">{{ count }}</span>
@@ -20,5 +21,6 @@
     </header>
     <ul class="lane__cards" aria-label="{{ t('tasks.board.lane_artifacts', title=title) }}"></ul>
     <p class="empty-state">{{ icon("inbox") }}<span>{{ t('lane.no_artifacts_yet') }}</span></p>
+    <p class="lane__nomatch" data-lane-nomatch hidden>{{ t('board.search.no_match') }}</p>
 </section>
 {%- endmacro %}

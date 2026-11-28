@@ -110,17 +110,21 @@ def _unknown(value: str, rows: list[Lane]) -> LaneError:
 
 
 def pick_lane(rows: list[Lane], value: str) -> Lane | None:
-    """The lane a value names, or ``None``: its **name** (the title: trimmed, case ignored; titles are unique), else its **id** (the uuid), else,
-    for the interfaces that always took it, its old **key** (the storage value, generated once from the first title: after a rename it says
-    nothing). A value that fits several is taken in that order, so a lane's name wins over another lane's old key."""
+    """The lane a value names, or ``None``. A value that fits several lanes is taken in this order: (1) a title written exactly as typed, (2) the
+    old **key** exactly as stored (the web page sends keys: after a rename a key says nothing, but a key like ``done`` must stay the lane that
+    was made as ``done`` even when another lane is now titled *DONE*), (3) the **id** (the uuid), (4) a title with trimming and case ignored
+    (titles are unique), so *must have* finds *Must have*."""
     wanted = value.strip()
-    by_name = next((r for r in rows if r.title.casefold() == wanted.casefold()), None)
-    if by_name is not None:
-        return by_name
+    exact = next((r for r in rows if r.title == wanted), None)
+    if exact is not None:
+        return exact
+    by_key = next((r for r in rows if r.key == wanted), None)
+    if by_key is not None:
+        return by_key
     by_id = next((r for r in rows if r.uuid and r.uuid.casefold() == wanted.casefold()), None)
     if by_id is not None:
         return by_id
-    return next((r for r in rows if r.key == wanted), None)
+    return next((r for r in rows if r.title.casefold() == wanted.casefold()), None)
 
 
 async def resolve_lane(session: AsyncSession, value: str) -> Lane:
@@ -140,6 +144,29 @@ async def require_lane(session: AsyncSession, value: str) -> str:
 async def first_lane(session: AsyncSession) -> str:
     """The key of the first lane: where an artifact goes when no lane is given."""
     return (await lane_keys(session))[0]
+
+
+async def reorder_lanes(session: AsyncSession, values: list[str]) -> list[LaneRead]:
+    """Put the lanes in the order of ``values`` (each a name, an id or an old key, ADR-090): every lane exactly once, else a :class:`LaneError`
+    (422) that says what is wrong. ``position`` becomes 0..n-1 in one commit. The first lane is where a new card goes."""
+    rows = await _rows(session)
+    chosen: list[Lane] = []
+    for value in values:
+        lane = pick_lane(rows, value)
+        if lane is None:
+            raise _unknown(value, rows)
+        if lane in chosen:
+            raise LaneError(422, f'The lane "{lane.title}" is named twice.')
+        chosen.append(lane)
+    missing = [lane.title for lane in rows if lane not in chosen]
+    if missing:
+        raise LaneError(
+            422, f"Every lane must be named exactly once; missing: {', '.join(missing)}."
+        )
+    for index, lane in enumerate(chosen):
+        lane.position = index
+    await session.commit()
+    return await effective_lanes(session)
 
 
 def _check_unique(lanes: list[Lane], title: str, *, ignoring: str | None = None) -> None:

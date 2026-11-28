@@ -83,7 +83,6 @@ GET /api/graphs/{ref}/dry-run-card -> DryRunCard
 GET /api/guard-attachments -> AttachmentRead[]
 GET /api/guard-attachments/{attachment_id} -> AttachmentRead
 GET /api/guards -> GuardDefinitionRead[]
-GET /api/guards/templates -> TemplateRead[]
 GET /api/guards/{guard_id} -> GuardDefinitionRead
 GET /api/guards/{guard_id}/versions -> GuardVersionRead[]
 GET /api/guards/{guard_id}/versions/{number} -> GuardVersionDetail
@@ -150,7 +149,6 @@ GET /api/v1/executions -> ExecutionsPage
 GET /api/v1/guard-attachments -> AttachmentRead[]
 GET /api/v1/guard-attachments/{attachment_id} -> AttachmentRead
 GET /api/v1/guards -> GuardDefinitionRead[]
-GET /api/v1/guards/templates -> TemplateRead[]
 GET /api/v1/guards/{guard_id} -> GuardDefinitionRead
 GET /api/v1/guards/{guard_id}/versions -> GuardVersionRead[]
 GET /api/v1/guards/{guard_id}/versions/{number} -> GuardVersionDetail
@@ -211,12 +209,12 @@ POST /api/graphs/{ref}/dry-run -> RunRead
 POST /api/graphs/{ref}/dry-run/check -> DryRunProblems
 POST /api/guard-attachments -> AttachmentRead
 POST /api/guards -> GuardDefinitionRead
-POST /api/guards/from-template -> GuardDefinitionRead
 POST /api/guards/preview -> GuardPreview
 POST /api/guards/{guard_id}/draft/discard -> GuardDefinitionRead
 POST /api/guards/{guard_id}/publish -> PublishedGuard
 POST /api/guards/{guard_id}/versions/{number}/republish -> PublishedGuard
 POST /api/lanes -> LaneRead[]
+POST /api/lanes/order -> LaneRead[]
 POST /api/lanes/{status}/rules/preview -> CardPreviewRead
 POST /api/pipelines -> GraphRead
 POST /api/pipelines/{graph_id}/draft/discard -> GraphDetail
@@ -257,11 +255,11 @@ POST /api/v1/executions/{execution_id}/heartbeat -> HeartbeatRead
 POST /api/v1/graphs/{ref}/dry-run -> RunRead
 POST /api/v1/guard-attachments -> AttachmentRead
 POST /api/v1/guards -> GuardDefinitionRead
-POST /api/v1/guards/from-template -> GuardDefinitionRead
 POST /api/v1/guards/{guard_id}/draft/discard -> GuardDefinitionRead
 POST /api/v1/guards/{guard_id}/publish -> PublishedGuard
 POST /api/v1/guards/{guard_id}/versions/{number}/republish -> PublishedGuard
 POST /api/v1/lanes -> LaneRead[]
+POST /api/v1/lanes/order -> LaneRead[]
 POST /api/v1/pipelines/{ref}/observe/again -> ObserveRead
 POST /api/v1/pipelines/{ref}/observe/release -> ObserveRead
 POST /api/v1/providers -> ProviderRead

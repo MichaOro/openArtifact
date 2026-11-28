@@ -1,5 +1,5 @@
-/* The small popup of an entry of the status bar (the eye, the refused starts): a title, lines of facts, a note and buttons, in the popover
- * every popup of the editor uses, next to its trigger. A click elsewhere or Escape closes it and gives the focus back. One popup at a time. */
+/* The small popup of an entry of the status bar (the eye, the refused starts): a title, lines of facts, a note and buttons, placed next
+ * to its trigger by placePopover (popover.js). A click elsewhere or Escape closes it and gives the focus back. One popup at a time. */
 import { placePopover } from "./popover.js";
 
 const make = (tag, className = "", text = null) => {

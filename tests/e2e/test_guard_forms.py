@@ -269,7 +269,6 @@ def test_can_watch_is_hidden_but_what_a_guard_may_watch_is_kept(
     ]  # saved with what it had
     page.goto(f"{base_url}/guards")
     page.get_by_role("button", name="New guard").click()
-    page.get_by_role("menuitem", name="Blank guard").click()
     window = _window(page)
     window.get_by_role("textbox", name="Guard name").fill(
         "Fresh"

@@ -71,6 +71,7 @@ export class CardDragController {
 
   #onPointerDown(event) {
     if (this.pending || this.drag) return;
+    if (this.board.reordering) return; // the lanes are being reordered: cards stay where they are (ADR-092)
     if (event.pointerType === "mouse" && event.button !== 0) return;
     const card = event.target.closest(".task-card");
     if (!card || event.target.closest("button")) return;

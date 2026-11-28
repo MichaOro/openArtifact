@@ -15,16 +15,19 @@ import { connectEvents } from "./events.js";
 import { CommentsTab } from "./comments-tab.js";
 import { HistoryTab } from "./history-tab.js";
 import { FormDialog } from "../components/form-dialog.js";
-import { LaneControls, listLanes } from "./lanes.js";
+import { LaneControls, listLanes, reorderLanes } from "./lanes.js";
+import { LaneReorder } from "./lane-order.js";
 import { CardRulesDialog } from "./card-rules-dialog.js";
 import { listFields, replaceFields } from "../artifact-fields/api.js";
 import { FieldsEditor } from "../artifact-fields/fields-editor.js";
 import { ActionMenu } from "../components/action-menu.js";
 import { FieldRail } from "./field-rail.js";
 import { ArchiveView } from "./archive-view.js";
+import { BoardSearch } from "./board-search.js";
 import { t, tn } from "../i18n.js";
 
 const board = new Board({ loadTasks: listTasks, renameLane: (status, title) => laneControls.rename(status, title) });
+const search = new BoardSearch({ board, root: document.querySelector("[data-board-search-box]") }); // the title and number of a card, never its body (ADR-091)
 
 // ── Actions ───────────────────────────────────────────────────────────
 
@@ -99,7 +102,11 @@ const comments = new CommentsTab({
 
 const artifactDialog = new ArtifactDialog({
   modal: new Modal(document.getElementById("create-task-modal")),
-  createTask,
+  createTask: async (payload) => {
+    const task = await createTask(payload);
+    board.keepVisible(task.id); // a card the user has just made must not vanish behind the search
+    return task;
+  },
   updateTask,
   onSaved: (task) => board.upsert(task),
   onGone: (task) => {
@@ -221,8 +228,16 @@ async function showArchived(task) {
   fieldRail.show(task);
   fieldRail.setLocked(true);
 }
+/** Reorder the lanes (ADR-092): the board's menu switches it; a failed save draws the lanes the server has. */
+const laneReorder = new LaneReorder({
+  board,
+  save: reorderLanes,
+  onLanes: async (lanes) => showLanes(lanes ?? (await listLanes())),
+});
 function showArchive(on) {
+  if (on) laneReorder.set(false);
   boardElement.hidden = on;
+  search.setVisible(!on);
   if (addLaneButton) addLaneButton.hidden = on;
   archive.show(on);
 }
@@ -232,6 +247,7 @@ document.querySelector("[data-board-menu]")?.addEventListener("click", (event) =
     [
       { label: t("index.artifact_fields"), icon: "tag", onSelect: () => fieldsEditor.open(artifactFields) },
       { label: t("common.settings"), icon: "settings", onSelect: () => laneControls.settings.open({ kind: "board" }, board.laneChoices()) },
+      { label: laneReorder.on ? t("index.stop_reorder_lanes") : t("index.reorder_lanes"), icon: "grip", onSelect: () => laneReorder.set(!laneReorder.on) },
       { label: archive.visible ? t("index.hide_archive") : t("index.show_archive"), icon: "inbox", onSelect: () => showArchive(!archive.visible) },
     ],
     t("tasks.main.board"),
@@ -385,25 +401,27 @@ board.element.addEventListener("click", (event) => {
   else showTask(task); // click anywhere else on the card opens it
 });
 
-/** Keyboard reorder inside the lane: -1 = one place up, +1 = one place down. */
+/** Keyboard reorder inside the lane: -1 = one place up, +1 = one place down. A card the board search hides is not a place: the card passes the next
+ * VISIBLE one, and its position is taken between the neighbours in the whole lane so the order stays right for the hidden ones. */
 function reorder(task, direction) {
   const card = board.cards.get(task.id);
   const siblings = [...card.parentElement.children];
   const i = siblings.indexOf(card);
   const taskAt = (n) => board.taskOf(siblings[n]);
-  if (direction < 0 && i > 0) {
-    return moveTaskTo(task, {
-      beforeId: siblings[i - 1].dataset.taskId,
-      position: Board.positionBetween(taskAt(i - 2), taskAt(i - 1)),
-    });
+  const visible = (n) => siblings[n] && !siblings[n].hidden;
+  if (direction < 0) {
+    let up = i - 1;
+    while (up >= 0 && !visible(up)) up -= 1;
+    if (up < 0) return Promise.resolve(true);
+    return moveTaskTo(task, { beforeId: siblings[up].dataset.taskId, position: Board.positionBetween(taskAt(up - 1), taskAt(up)) });
   }
-  if (direction > 0 && i < siblings.length - 1) {
-    return moveTaskTo(task, {
-      beforeId: siblings[i + 2]?.dataset.taskId ?? null,
-      position: Board.positionBetween(taskAt(i + 1), taskAt(i + 2)),
-    });
-  }
-  return Promise.resolve(true);
+  let down = i + 1;
+  while (down < siblings.length && !visible(down)) down += 1;
+  if (down >= siblings.length) return Promise.resolve(true);
+  return moveTaskTo(task, {
+    beforeId: siblings[down + 1]?.dataset.taskId ?? null,
+    position: Board.positionBetween(taskAt(down), taskAt(down + 1)),
+  });
 }
 
 // Keyboard: Enter opens the focused card, Alt+←/→ moves it to another lane, Alt+↑/↓ reorders it
@@ -415,6 +433,7 @@ board.element.addEventListener("keydown", (event) => {
   if (!task) return;
 
   if (board.locked.has(task.id) && event.key !== "Enter" && event.key !== " ") return; // being processed
+  if (board.reordering && event.altKey) return; // the lanes are being reordered: a card is not moved (ADR-092)
   if (event.key === "Delete") {
     event.preventDefault();
     confirmDelete(task);
@@ -470,7 +489,7 @@ connectEvents({
       const open = artifactDialog.editing;
       if (open && artifactDialog.mode === "view") loadFullBody(open.id); // a referenced field changed
     }
-    else if (type === "board.resync" || type === "board.updated" || type === "cards.rules.changed") board.load(); // positions changed, or the rules: marks, archived and deleted cards
+    else if (type === "board.resync") board.load(); // positions changed, or the rules: marks, archived and deleted cards (board.updated and cards.rules.changed are always followed by it: one load)
     else if (type === "settings.changed") {
       if (data.personal) {
         board.load(); // marked or not: the server sends the cards the other way now

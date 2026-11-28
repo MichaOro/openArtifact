@@ -26,6 +26,7 @@ Scenarios for executing nodes, credentials and history (each is checked by tests
 | Must | Reliability | An Execute Command node that does not end is stopped after its `timeout_seconds` (at most 600) together with every process it started; a node over its CPU, memory, file or process limit fails with a reason instead of running unlimited; after a hard kill of the application the next start ends the orphans and removes their temp directories. | `test_code_runner.py`, `test_code_hardening.py` |
 | Should | Traceability | Every start, restart included, creates an execution with its origin (`user`, `api` or `mcp`); after retention the newest execution of an artifact always remains; a policy change takes effect at once. | `test_history.py`, `test_engine.py` |
 | Should | Maintainability | A new kind of execution node is a registered `NodeType` class, an executor and a view class; node settings live in the JSON `config`, so no column migration is needed. | `test_execution_nodes.py`, `test_graphs.py` |
+| Should | Maintainability | The API and the web layer are imported only by themselves and the composition root (`app.py`), and the module-level imports of the package form no cycle, so a new import cannot break the start of the application unnoticed. | `test_import_structure.py` |
 | Should | Performance | The global executions list pages with a keyset cursor: the cost of a page does not depend on how deep it is, and a page does not repeat or skip rows when executions are inserted or deleted meanwhile (index `ix_executions_started_at`). | `test_history_global.py` |
 | Should | Observability | A running execution appears and updates in the History tab, on the `/executions` page and in the flow view within a second of the change (SSE `execution.updated`); a past execution can be shown as a flow without having recorded anything extra. | `test_history.py`, `test_execution_flow.py`, browser tests (`tests/e2e`) |
 
@@ -35,7 +36,7 @@ Scenarios for executing nodes, credentials and history (each is checked by tests
 OpenArtifact Quality
 ├── Deployability (Must)
 │   ├── Docker Compose one-command startup
-│   ├── Build from the Dockerfile (the base image is a floating `python:3.12-slim` tag and the Python dependencies are not locked)
+│   ├── Locked build from the Dockerfile (base images pinned by digest, runtime dependencies from `uv.lock` with hashes; the build backend of the package itself is not pinned)
 │   └── Single-port delivery (2909)
 ├── Reliability (Must)
 │   ├── Graceful shutdown, restart recovery (runs, executions, orphan code processes)

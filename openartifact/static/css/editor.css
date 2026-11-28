@@ -282,7 +282,7 @@
 .ge-node--stage.is-selected > .ge-resize,
 .ge-resize:focus-visible,
 .is-resizing .ge-resize { opacity: 1; }
-.ge-resize::after { content: ""; position: absolute; border-radius: 999px; background: var(--color-text-muted); transition: background 120ms; }
+.ge-resize::after { content: ""; position: absolute; border-radius: var(--radius-pill); background: var(--color-text-muted); transition: background 120ms; }
 .ge-resize:hover::after,
 .ge-resize:focus-visible::after,
 .is-resizing .ge-resize::after { background: var(--color-accent); }

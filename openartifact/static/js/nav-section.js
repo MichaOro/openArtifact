@@ -8,5 +8,5 @@
     var was = sessionStorage.getItem(key) === "1";
     if (section && !was) section.classList.add("is-entering");
     sessionStorage.setItem(key, section ? "1" : "0");
-  } catch (e) { /* storage unavailable: no animation */ }
+  } catch { /* storage unavailable: no animation */ }
 })();

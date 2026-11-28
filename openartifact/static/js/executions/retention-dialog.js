@@ -10,7 +10,6 @@ import { InlineName } from "../components/inline-name.js";
 import { icon } from "../components/icons.js";
 import * as model from "../components/rule-model.js";
 import { request } from "../http.js";
-import { plural } from "../tasks/history-format.js";
 import { t, tn } from "../i18n.js";
 
 const URL = "/api/settings/retention";

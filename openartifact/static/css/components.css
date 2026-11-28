@@ -220,6 +220,15 @@
 
 /* The row of creating buttons at the top right of a page's content (New action, Add lane, ...). */
 .action-row { display: flex; justify-content: flex-end; margin-bottom: var(--space-4); }
+.action-row .board-search { margin-right: auto; } /* the board's search stays at the left, the buttons at the right */
+.board-search { display: flex; align-items: center; gap: var(--space-3); min-width: 0; flex: 1 1 auto; }
+.board-search__field { flex: 0 1 20rem; max-width: 20rem; }
+.board-search__field .field__control { padding-right: 2.2rem; }
+.board-search__field input[type="search"]::-webkit-search-cancel-button { display: none; } /* the board has its own clear button */
+.board-search__clear { position: absolute; right: 0.15rem; top: 50%; transform: translateY(-50%); }
+.board-search__clear[hidden] { display: none; }
+.board-search__status { font-size: 0.8125rem; color: var(--color-text-secondary); white-space: nowrap; }
+.board-search__status:empty { display: none; }
 .action-row--slim { margin-bottom: var(--space-3); }
 
 /* ── Kanban ──────────────────────────────────────────────────────── */
@@ -242,7 +251,24 @@
   padding-bottom: var(--space-2);
 }
 
+/* Reorganize lanes (ADR-092): while the mode is on the board makes room above its lanes (the lanes slide down) for a handle each; off, no strip is left. */
+.board { --lane-strip: 2.5rem; transition: padding-top 0.18s ease; }
+.board--reorder { padding-top: var(--lane-strip); }
+@media (prefers-reduced-motion: reduce) { .board { transition: none; } }
+.lane__grip { display: none; }
+.board--reorder .lane__grip {
+  display: inline-flex; align-items: center; justify-content: center; position: absolute; z-index: 3;
+  top: calc(0.25rem - var(--lane-strip)); left: 50%; transform: translateX(-50%); width: 3.5rem; height: 1.75rem; padding: 0;
+  border: 1px solid var(--glass-border); border-radius: var(--radius-pill); background: var(--color-glass-card); color: var(--color-text-secondary); cursor: grab;
+}
+.board--reorder .lane__grip:hover { color: var(--color-text-primary); border-color: var(--color-accent); }
+.board--reorder .lane__grip:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.lane__grip .icon { width: 1.1rem; height: 1.1rem; transform: rotate(90deg); } /* the dots lie in a row */
+.lane.is-dragging { opacity: 0.92; box-shadow: var(--shadow-card-hover); z-index: 2; }
+.lane.is-dragging .lane__grip { cursor: grabbing; }
+
 .lane {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -390,6 +416,7 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .task-card:hover { border-color: var(--glass-border-hover); }
+.task-card[hidden] { display: none; } /* a card the board search does not keep (the attribute alone loses against `display: grid`) */
 .task-card__content { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 
 /* Delete: revealed on hover/focus, always visible where there is no hover (touch) */
@@ -474,7 +501,7 @@ body.is-dragging * { cursor: grabbing !important; }
 .task-card__labels, .task-view__labels { display: flex; flex-wrap: wrap; gap: 0.25rem; list-style: none; margin: 0.25rem 0 0; padding: 0; }
 .task-card__labels[hidden], .task-view__labels[hidden] { display: none; }
 .card-label {
-  font-size: 0.6875rem; font-weight: 600; line-height: 1.3; padding: 0 0.4rem; border-radius: 999px;
+  font-size: 0.6875rem; font-weight: 600; line-height: 1.3; padding: 0 0.4rem; border-radius: var(--radius-pill);
   color: var(--card-tone, var(--color-text-secondary));
   border: 1px solid color-mix(in srgb, var(--card-tone, var(--color-text-secondary)) 60%, transparent);
   background: color-mix(in srgb, var(--card-tone, transparent) 14%, transparent);
@@ -521,7 +548,8 @@ body.is-dragging * { cursor: grabbing !important; }
   box-shadow: var(--shadow-card-hover);
 }
 
-.empty-state {
+.empty-state,
+.lane__nomatch {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -539,6 +567,8 @@ body.is-dragging * { cursor: grabbing !important; }
 .empty-state .icon { width: 1.5rem; height: 1.5rem; opacity: 0.75; }
 .lane__cards:empty { display: none; }
 .lane__cards:not(:empty) + .empty-state { display: none; }
+.lane__nomatch[hidden] { display: none; }
+.lane--nomatch .lane__cards { display: none; } /* the board search keeps none of the lane's cards: the quiet line stands in their place */
 
 button.nav-link { width: 100%; border: 0; background: transparent; font: inherit; cursor: pointer; text-align: left; }
 
@@ -723,7 +753,7 @@ button.nav-link { width: 100%; border: 0; background: transparent; font: inherit
   .nav-link { height: 2.25rem; }
   .lane { gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); }
   .lane__title { font-size: 0.75rem; }
-  .empty-state { padding: var(--space-3); flex-direction: row; gap: var(--space-3); }
+  .empty-state, .lane__nomatch { padding: var(--space-3); flex-direction: row; gap: var(--space-3); }
   .alert-bar { margin-bottom: var(--space-2); padding: var(--space-2) var(--space-3); }
 }
 
@@ -925,12 +955,12 @@ input.check:checked::after {
   width: 0.35rem;
   height: 0.65rem;
   margin-top: 0.1rem;
-  border: solid #fff;
+  border: solid var(--color-on-accent);
   border-width: 0 2px 2px 0;
   rotate: 45deg;
   opacity: 1;
 }
-input.check:indeterminate::after { width: 0.6rem; height: 0; border-top: 2px solid #fff; opacity: 1; }
+input.check:indeterminate::after { width: 0.6rem; height: 0; border-top: 2px solid var(--color-on-accent); opacity: 1; }
 input.check:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 input.check:disabled { opacity: 0.4; cursor: not-allowed; }
 /* The shared Checkbox (components/checkbox.js): the label around the native box; the look is `input.check` above, the base of every checkbox.

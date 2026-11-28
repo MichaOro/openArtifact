@@ -13,7 +13,7 @@
 │  │ openartifact container (UID 1000, read-only root fs,          │  │
 │  │   cap_drop ALL, no-new-privileges, pids 256, memory limit)    │  │
 │  │                                                               │  │
-│  │   docker-entrypoint.sh: alembic upgrade head                  │  │
+│  │   docker-entrypoint.sh: alembic upgrade head (under the lock) │  │
 │  │   → openartifact (uvicorn, one process, port 2909)            │  │
 │  │        │  sh / python -I child processes of Execute Command nodes        │  │
 │  │        │  (own process group, rlimits, same user)             │  │
@@ -23,12 +23,15 @@
 │  │   writable: /data (volume) and /tmp (tmpfs, in RAM)           │  │
 │  └──────────────┬────────────────────────────────────────────────┘  │
 │                 ▼                                                   │
-│  volume openartifact-data → /data: openartifact.db (+ -wal, -shm)   │
+│  volume openartifact-data → /data: openartifact.db (+ -wal, -shm),  │
+│                             openartifact.lock                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 One container per volume: the application keeps the event bus, the run engine and the caps in memory of one
-process (chapter 11). Execute Command nodes run *inside* the container as child processes of the application, with the same
+process (chapter 11). The application holds an exclusive lock on `/data/openartifact.lock` while it runs; a second
+container or process on the same volume exits at start with "The data directory /data is in use by another
+OpenArtifact process" (ADR-094). Execute Command nodes run *inside* the container as child processes of the application, with the same
 user; the container is their only boundary ([8.5](08-cross-cutting-concepts/08.05-execution-nodes-safety.md)).
 
 ## 7.2 Development Environment

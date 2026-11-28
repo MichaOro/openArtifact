@@ -119,6 +119,12 @@ shows the executions newest first (up to 100) with their status, number, pipelin
 detail: the facts above and the steps, each expandable to its output and data. From there you can delete the
 execution (not while it runs: `409`) and clear all finished executions of the artifact (*Clear finished*). Everything updates live.
 
+**The flow page and its Execution Trace.** The right area of the execution page has three registers: **Overview** (the path through the nodes, the details of the
+selected node and the output of its step), **Trace** (for an agent: its rounds) and **Context** (the run context). The Trace shows the **newest round on top**, the
+latest three open to read, *Show more rounds* (no counts: the highest round number says how many there are) for the ones between and the **first round at the bottom** (it holds the request). The round that works and a
+round that failed are open; a **Live** pill follows a working agent (*Paused* once you scrolled away). A search and a filter narrow the rounds. A finished
+agent shows the same Trace. The text of the agent's messages is not shown yet. The register you chose is in the address (`#trace`).
+
 **Guard entries.** A guard ([Guards](guards.md)) that fires writes an entry of the artifact's History with a shield marker,
 under *Executions*: "**Stall guard** fired at Build: paused the run (round 1, 15 min without progress)". The actor is the
 guard (`system`), the entry names its execution and keeps the facts it fired on; a guard that failed (the run went on),

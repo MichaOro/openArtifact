@@ -11,9 +11,7 @@ import { SORTS, contextRows, searchText } from "./archive-model.js";
 import { listArchive, unarchiveTask, getTask } from "./api.js";
 import { kindOf } from "./comment-format.js";
 import { listComments } from "./comments-api.js";
-
-const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-const day = (iso) => new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
+import { formatDateTime as when, formatDay as day } from "./history-format.js";
 
 export class ArchiveView {
   /**
@@ -33,6 +31,7 @@ export class ArchiveView {
     this.onOpen = onOpen;
     this.onError = onError;
     this.visible = false;
+    this.refresh = 0; // the pending reload of a burst of live events
     this.page = new ManagementPage(root, {
       name: "archive",
       label: t("archive.title"),
@@ -73,9 +72,12 @@ export class ArchiveView {
     }
   }
 
-  /** The live events: the archive changed (a card came in or left), read it again while it is shown. */
+  /** The live events: the archive changed (a card came in or left), read it again while it is shown; a burst (one archive by
+   * hand sends task.updated and board.updated) is read once. */
   handleEvent(type) {
-    if (this.visible && (type === "board.updated" || type === "task.updated" || type === "task.deleted")) this.load();
+    if (!this.visible || (type !== "board.updated" && type !== "task.updated" && type !== "task.deleted")) return;
+    clearTimeout(this.refresh);
+    this.refresh = setTimeout(() => this.visible && this.load(), 200);
   }
 
   #card(task) {

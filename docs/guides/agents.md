@@ -140,6 +140,23 @@ Add an **Agent** node to an action definition and choose the agent.
 - Later nodes read `${(Agent name).output}` and `${(Agent name).data.model}`, `.data.usage.total_tokens`,
   `.data.finish_reason`, `.data.iterations`.
 
+### Where an agent is used
+
+Like a guard or an action, an agent says where it is used. The agents page has a **Usage** tab (and the card says *Used by N nodes* or *Not used by a node*):
+one row per agent node, with the kind of place (*Action*), the node and its action as a link that opens the
+action on the node, and what is special about it:
+
+- **Not published yet:** the node is in the draft of its action, but the action's published version does not have it. A run that uses the
+  published action does not run it yet.
+- **Only in published version vN:** the node was taken out of the draft (or points to another agent now), but the published version of the
+  action still has it, so runs still use it until the action is published again. There is nothing to select in the draft, so the link only
+  opens the action.
+- **N overrides:** the node sets that many fields itself.
+
+A node **never pins a version of the agent**: it always runs the published one (frozen at the start of each execution), so a row has no version.
+The page of an agent has the same list (*Used by*) with *Open* and *Remove reference* for the nodes that are in the draft. An agent that a
+node of a draft refers to cannot be deleted (409); API: `GET /api/agents/{ref}/uses`.
+
 ## 4. Tools
 
 A tool is a node of its own that hangs **below** an Agent node: drag from the tool's port (on its top) to the agent's
@@ -229,9 +246,9 @@ agent takes any number of tools; a tool belongs to one agent.
 - **After a timeout the next attempt gets more time** (1.5 times the one before, at most 300 s): a model that did not answer
   a large prompt in 60 s will not in the same time again. The time limit of the node covers every request and every tool
   call; each request keeps its retries (section 6).
-- **Live.** While the agent runs the flow page shows its **rounds** in the panel of the selected agent node (*Rounds so far*:
-  each request with the start of its answer, the tokens and the calls it made, working, done or failed; a final answer
-  after a limit is marked). The events behind it (`agent.turn`, `agent.tool_call` with the round) carry names, counts and
+- **Live.** While the agent runs the flow page shows its **rounds** in the *Trace* register of the panel of the selected agent node (the
+  newest round first, the latest three, *Show more*, the first round last: each request with the start of its answer, the tokens and
+  the calls it made, working, done or failed; a final answer after a limit is marked). The events behind it (`agent.turn`, `agent.tool_call` with the round) carry names, counts and
   states only. A page opened in the middle of a run shows the rounds from then on; the finished step has the whole story.
 - **A failing tool does not fail the node.** An unknown tool, arguments that are not a JSON object, an HTTP error or a
   failing script go back to the model as a text starting with `Error:`, and the model may try something else. A tool

@@ -2,14 +2,16 @@
  * primary alternative to the canvas: focusable, readable by a screen reader) and the details of the
  * selected one. Everything shown is text (textContent): names, outputs and reasons come from what ran. */
 import { icon } from "../components/icons.js";
-import { liveRounds } from "../components/live-rounds.js";
+import { Tabs } from "../components/tabs.js";
 import { skipText } from "../components/skip-marker.js";
 import { typeOf } from "../editor/node-types.js";
 import { contextBlock } from "../tasks/context-block.js";
 import { formatDuration, formatTime, secondsBetween, setChip } from "../tasks/history-format.js";
 import { fillStep, stepDuration } from "../tasks/history-step.js";
 import { STATES } from "./flow-view.js";
-import { liveSummary, nameOf } from "./visit-model.js";
+import { nameOf } from "./visit-model.js";
+import { roundsFromDetail, roundsFromLive } from "./trace-model.js";
+import { traceView } from "./trace-view.js";
 import { t } from "../i18n.js";
 
 const el = (tag, className, text) => {
@@ -51,6 +53,23 @@ export class FlowPanel {
     root.querySelector("[data-panel-context]").append(this.context);
     this.outputs = new Map(); // step id -> the loaded step
     this.view = null;
+    // the registers of the panel (Overview, Trace, Context): the one the user chose is kept while other nodes are selected and is in the address
+    this.trace = root.querySelector("[data-panel-trace]");
+    this.traceStates = new Map(); // node id -> what the Trace keeps between draws (rows opened, "show more", search, filter)
+    this.traceSteps = new Map(); // step id -> its detail (the rounds of a finished agent), read when the Trace is shown
+    const fromAddress = () => (["overview", "trace", "context"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "overview");
+    this.wanted = fromAddress();
+    this.quiet = false; // the panel itself switched a register (a node without rounds was selected): not the user's choice
+    this.tabs = new Tabs(root.querySelector("[data-panel-tabs]"), (name) => {
+      if (this.quiet) return;
+      this.wanted = name;
+      history.replaceState(null, "", `#${name}`);
+      if (name === "context") this.refreshContext();
+    });
+    window.addEventListener("hashchange", () => {
+      this.wanted = fromAddress();
+      if (this.view) this.render(this.view);
+    });
     root.querySelector("[data-pass-prev]").addEventListener("click", () => this.#pass(-1));
     root.querySelector("[data-pass-next]").addEventListener("click", () => this.#pass(1));
     this.path.addEventListener("keydown", (event) => this.#onKeydown(event));
@@ -81,6 +100,7 @@ export class FlowPanel {
     this.#passes(model, visit);
     this.#path(walk, view.selected);
     this.#details(view);
+    this.#trace(view);
     if (refocus != null) this.path.querySelector(`[data-position="${refocus}"] .ef-path__main`)?.focus({ preventScroll: true });
   }
 
@@ -224,11 +244,91 @@ export class FlowPanel {
     }
   }
 
+  // ── the Execution Trace of the selected agent ───────────────────────
+
+  /** The Trace register: only for a selected agent step (the node that works now, or a finished step), with or without rounds; the register the user chose is kept, else Overview. */
+  #trace(view) {
+    const { model, visit, walk, selected, agentLive } = view;
+    const node = selected ? model.graph(visit).nodes.find((n) => n.id === selected) : null;
+    const info = node ? walk.states.get(node.id) : null;
+    const step = node ? walk.entries.find((e) => e.id === node.id && e.step)?.step : null;
+    // an agent that works has its Trace from the moment the node starts, empty until the first round is heard (the events only tell of it then)
+    const liveAgent = node?.kind === "agent" && info?.state === "running" ? (agentLive?.get(node.id) ?? { rounds: [], tokens: null }) : null;
+    const available = Boolean(node?.kind === "agent" && (liveAgent || step));
+    this.quiet = true;
+    this.tabs.setVisible("trace", available);
+    this.tabs.select(this.wanted === "trace" && !available ? "overview" : this.wanted, { notify: false });
+    this.quiet = false;
+    if (!available) {
+      this.trace.replaceChildren();
+      return;
+    }
+    this.#drawTrace(node, liveAgent, step);
+  }
+
+  async #drawTrace(node, liveAgent, step) {
+    const state = this.traceStates.get(node.id) ?? { extra: 0, query: "", kind: "all", open: new Map(), paused: false };
+    this.traceStates.set(node.id, state);
+    let rounds;
+    let totals = {};
+    let model = "";
+    if (liveAgent) {
+      rounds = roundsFromLive(liveAgent);
+      totals = { totalTokens: liveAgent.tokens ?? null, durationMs: rounds[0]?.startedAt ? Date.now() - rounds[0].startedAt : null };
+    } else {
+      if (!this.traceSteps.has(step.id)) {
+        this.trace.replaceChildren(el("p", "ef-panel__note", t("execution.trace.loading")));
+        try {
+          this.traceSteps.set(step.id, (await this.loadStep(step)).detail ?? {});
+        } catch {
+          this.trace.replaceChildren(el("p", "ef-panel__note", t("execution.trace.unavailable")));
+          return;
+        }
+        if (this.view?.selected !== node.id) return; // another node was selected meanwhile
+      }
+      const detail = this.traceSteps.get(step.id);
+      rounds = roundsFromDetail(detail);
+      totals = { totalTokens: detail.usage?.total_tokens ?? step.data?.usage?.total_tokens ?? null, durationMs: detail.duration_ms ?? null };
+      model = step.data?.model ?? "";
+    }
+    const draw = (focus) => {
+      const top = this.root.scrollTop;
+      const view = traceView({ rounds, totals, model, live: Boolean(liveAgent), state, handlers: { onChange: ({ focus: what } = {}) => draw(what), onJumpLive: () => {
+        state.paused = false;
+        this.root.scrollTop = 0;
+        draw();
+      } } });
+      this.trace.replaceChildren(view);
+      this.root.scrollTop = state.paused ? top : Math.min(top, 0 + top);
+      const target = focus === "search" ? view.querySelector("[data-trace-search]") : focus === "filter" ? view.querySelector("[data-trace-filter]") : focus === "more" ? view.querySelector("[data-trace-more]") : null;
+      if (target) {
+        target.focus({ preventScroll: true });
+        if (focus === "search") target.setSelectionRange(target.value.length, target.value.length);
+      }
+    };
+    draw();
+    if (liveAgent) {
+      this.root.onscroll = () => {
+        if (this.root.scrollTop > 80 && !state.paused) {
+          state.paused = true;
+          const pill = this.trace.querySelector("[data-trace-live]");
+          if (pill) {
+            pill.dataset.traceLive = "paused";
+            pill.setAttribute("aria-pressed", "false");
+            pill.lastElementChild.textContent = t("execution.trace.paused");
+          }
+        }
+      };
+    } else {
+      this.root.onscroll = null;
+    }
+  }
+
   // ── the selected node ───────────────────────────────────────────────
 
   #details(view) {
     const open = new Set([...this.detail.querySelectorAll("details[open]")].map((block) => block.dataset.key));
-    const { model, visit, walk, selected, agentLive } = view;
+    const { model, visit, walk, selected } = view;
     const node = selected ? model.graph(visit).nodes.find((n) => n.id === selected) : null;
     if (!node) {
       this.detail.replaceChildren(el("p", "ef-panel__note", t("execution.flow_panel.select_node_path_canvas_see")));
@@ -240,9 +340,6 @@ export class FlowPanel {
     if (info.state === "not-run" || info.state === "skipped") {
       body.push(el("p", "ef-panel__note", info.state === "skipped" ? "The execution started after this node, so it was skipped." : "This node did not run in this pass."));
     }
-    // an agent that is working: its rounds so far, from the events (the step is kept when it has finished)
-    const live = node.kind === "agent" && info.state === "running" ? liveRounds(agentLive?.get(node.id), liveSummary(agentLive?.get(node.id))) : null;
-    if (live) body.push(live);
     for (const entry of entries) {
       if (entry.step) body.push(this.#step(entry.step, open));
       if (entry.children.length) {

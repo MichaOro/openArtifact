@@ -4,7 +4,7 @@ The node has no address and no token: its tools are the very functions the MCP s
 called here with the arguments of the model. The schema the model sees is the one the MCP server derives from the same function, and the
 arguments are validated the same way, so a call here and a call over ``/mcp`` answer the same.
 
-*Allow writes* (off by default) holds back the tools that change something (:data:`~openartifact.api.board_tool_names.WRITE_TOOLS`);
+*Allow writes* (off by default) holds back the tools that change something (:data:`~openartifact.agents.board_tool_names.WRITE_TOOLS`);
 *Tools to include* narrows the set further (all, selected, all except). A refusal of the application (a card that is being processed,
 an archived card) comes back as the tool's error text, like any tool's failure.
 """
@@ -18,9 +18,9 @@ from typing import Any
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from mcp.server.mcpserver.tools import Tool as FunctionTool
 
+from openartifact.agents.board_tool_names import BOARD_TOOLS, WRITE_TOOLS
 from openartifact.agents.tool_config import ToolConfigError, parse_tool_names
 from openartifact.agents.tools import Run, Tool
-from openartifact.api.board_tool_names import BOARD_TOOLS, WRITE_TOOLS
 
 _PREFIX = "Error executing tool "
 

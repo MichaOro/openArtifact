@@ -34,6 +34,14 @@ test("formatTime: empty for nothing, otherwise the local rendering of the instan
   assert.equal(f.formatTime(iso), new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" }));
 });
 
+test("formatDateTime and formatDay render as the inline helpers of the lists did: to the minute, and the day only", () => {
+  const iso = "2026-03-04T05:06:07Z";
+  assert.equal(f.formatDateTime(iso), new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }));
+  assert.equal(f.formatDay(iso), new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" }));
+  assert.notEqual(f.formatDateTime(iso), f.formatTime(iso), "to the minute, without the seconds formatTime shows");
+  assert.ok(f.formatDateTime(iso).startsWith(f.formatDay(iso)), "the date part is the day");
+});
+
 test("secondsBetween: the gap, zero at the least, until now without an end, null without a start", () => {
   assert.equal(f.secondsBetween("2026-03-10T12:00:00Z", "2026-03-10T12:00:03.500Z"), 3.5);
   assert.equal(f.secondsBetween("2026-03-10T12:00:05Z", "2026-03-10T12:00:00Z"), 0, "an end before the start (clock skew)");

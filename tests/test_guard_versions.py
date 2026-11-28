@@ -1,6 +1,6 @@
 """Draft and published versions of guard definitions (ADR-081): a new guard watches nothing until it is published, a saved change is a
 draft, an execution keeps the version it started with, switching an attachment on or off stays immediate, the version endpoints and
-their refusals, the templates, MCP, and migration 0065 with real rows."""
+their refusals, MCP, and migration 0065 with real rows."""
 
 from __future__ import annotations
 
@@ -215,15 +215,13 @@ def test_the_refusals_of_the_version_endpoints_say_why(
     assert text in response.text
 
 
-def test_the_integration_api_publishes_as_api_and_a_template_is_published_version_1(
+def test_the_integration_api_publishes_as_api(
     client: TestClient,
 ) -> None:
     made = client.post("/api/v1/guards", json=_aborting()).json()
     published = client.post(f"/api/v1/guards/{made['id']}/publish").json()
     assert published["version"]["published_via"] == "api"
     assert client.get(f"{GUARDS}/{made['id']}/versions").json()[0]["published_via"] == "api"
-    stall = post(client, f"{GUARDS}/from-template", template="stall")
-    assert (stall["published_version"], stall["draft_changed"]) == (1, False)
 
 
 def test_a_deleted_guard_takes_its_versions_with_it(
