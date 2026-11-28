@@ -24,7 +24,7 @@ that a third party can describe a window without writing layout code.
 - **A form is a YAML manifest** in `ui/forms/<name>.yaml`, validated by pydantic models like the node manifests
   (`schema: 1`, unknown keys refused, a bad file stops the start naming the file). It declares **sections** (key, title,
   `column`: `1`, `2`, `auto` or `full`, an optional `weight`) with **fields** (key as a dotted path into the values, a
-  **widget**, label, help, placeholder, options, default, `required`, `min`/`max`/`step`, `advanced`, `visible_when`,
+  **widget**, label, help, placeholder, options, default, `required`, `min`/`max`/`step`, `advanced`, `visible_when`, `enabled_when` (greyed, with `disabled_help` as the reason: ADR-095 add.1),
   free `config`). `columns: 2` and `width: <rem>` say how many columns a wide window has and how wide the form is. No code
   in a manifest.
 - **A widget is chosen by name** from a registry in the browser (`form-widgets.js`): the built-in `text`, `number`,

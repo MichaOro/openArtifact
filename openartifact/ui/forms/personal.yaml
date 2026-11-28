@@ -23,6 +23,16 @@ sections:
         options:
           - {value: classic, label: Classic}
           - {value: grouped, label: Grouped}
+      - key: board_groups_open
+        widget: select
+        label: Accordions
+        help: Whether the accordions of the Grouped view are open or closed until you open or close one. Changing it forgets what you opened by hand.
+        default: closed
+        options:
+          - {value: closed, label: Closed}
+          - {value: open, label: Open}
+        enabled_when: {field: board_view, equals: grouped}
+        disabled_help: Only the Grouped board view has accordions.
   - key: stop
     title: Execution
     tab: general

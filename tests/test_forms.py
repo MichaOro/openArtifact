@@ -89,6 +89,9 @@ def test_every_widget_a_shipped_form_names_is_one_the_browser_registers() -> Non
         (_with_field(visible_when={"field": "nowhere", "equals": "x"}), "which is no field"),
         (_with_field(visible_when={"field": "other", "equals": "x"}), "names the field itself"),
         (_with_field(visible_when={"field": "name"}), "name one of equals or in"),
+        (_with_field(enabled_when={"field": "nowhere", "equals": "x"}), "which is no field"),
+        (_with_field(enabled_when={"field": "other", "equals": "x"}), "names the field itself"),
+        (_with_field(enabled_when={"field": "name"}), "name one of equals or in"),
         (_with_field(widget="select"), "needs options"),
         (_with_field(options=[{"value": "a", "label": "A"}]), "takes no options"),
         (_with_field(advanced=True, required=True), "required field cannot be advanced"),
@@ -224,7 +227,7 @@ def test_the_german_overrides_of_forms_name_things_that_exist() -> None:
             continue
         assert kind == "fields", key
         by_key = {f.key: f for s in form.sections for f in s.fields}
-        match = re.fullmatch(r"(.+)\.(label|help|placeholder|options\.(.+))", rest)
+        match = re.fullmatch(r"(.+)\.(label|help|placeholder|disabled_help|options\.(.+))", rest)
         assert match, f"{key}: not a known override"
         field = by_key.get(match[1])
         assert field is not None, f"{key}: no such field"

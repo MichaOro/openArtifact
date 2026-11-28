@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { dependencies, drawn, getPath, isVisible, planForm, problems, setPath } from "../../openartifact/static/js/components/form-plan.js";
+import { dependencies, drawn, getPath, isEnabled, isVisible, planForm, problems, setPath } from "../../openartifact/static/js/components/form-plan.js";
 
 const field = (key, extra = {}) => ({ key, widget: "text", label: key, ...extra });
 const FORM = {
@@ -82,4 +82,16 @@ test("required, min and max are checked for the fields that are there and not fo
 test("what a visible_when looks at and what a field names in depends_on draws the form again", () => {
   const form = { name: "d", sections: [{ key: "s", title: "S", fields: [field("a", { visible_when: { field: "kind", equals: 1 } }), field("b", { config: { depends_on: ["other", "b"] } })] }] };
   assert.deepEqual([...dependencies(form)].sort(), ["b", "kind", "other"]);
+});
+
+test("a field with an enabled_when is drawn always but can be changed only while the other field has the value; a change of that field draws the form again", () => {
+  const view = field("view", { widget: "select" });
+  const groups = field("groups", { widget: "select", enabled_when: { field: "view", equals: "grouped" }, disabled_help: "Only the grouped view" });
+  assert.equal(isEnabled(view, { view: "classic" }), true); // no enabled_when
+  assert.equal(isEnabled(groups, { view: "classic" }), false);
+  assert.equal(isEnabled(groups, { view: "grouped" }), true);
+  assert.equal(isEnabled(field("x", { enabled_when: { field: "view", in: ["a", "b"] } }), { view: "b" }), true);
+  assert.equal(isVisible(groups, { view: "classic" }), true); // greyed, not hidden
+  const form = { name: "p", sections: [{ key: "s", title: "S", column: 1, fields: [view, groups] }] };
+  assert.deepEqual([...dependencies(form)], ["view"]);
 });

@@ -152,17 +152,21 @@ class ArtifactService:
         order: str | None = None,
         limit: int | None = None,
         offset: int = 0,
+        parent: str | None = None,
     ) -> list[TaskRead]:
         """The artifacts, each with its ``marks`` (card rules, ADR-071); a body with references also carries ``preview``.
 
         ``archived``: ``exclude`` (the board: default), ``only`` (the archive) or ``include`` (both). Board order unless ``sort`` is
         ``archived_at`` (default of the archive, newest first) or ``title`` (``order`` ``asc`` or ``desc``); ``limit`` and ``offset`` page.
+        ``parent`` (an id or a number) keeps only the direct children of that card.
         """
         async with self._session() as session:
+            parent_id = await self._parent_filter(session, parent)
             tasks = [
                 t
                 for t in await TaskRepository(session).list_all()
-                if archived == "include" or (t.archived_at is not None) == (archived == "only")
+                if (archived == "include" or (t.archived_at is not None) == (archived == "only"))
+                and (parent_id is None or t.parent_id == parent_id)
             ]
             if sort is None and archived == "only":
                 sort = "archived_at"
@@ -184,11 +188,46 @@ class ArtifactService:
             specs = await field_specs(session) if refs else []
             marks = refs and await personal_settings.marks_resolved_references(session)
             reads = [self._read(t, specs, preview=True, marks=marks) for t in tasks]
+            archived_children = await self._archived_children(session, {t.id for t in tasks})
             for read in reads:
                 read.marks = card_marks.get(read.id)
                 read.archived_from_lane = titles.get(read.archived_from_status or "")
                 read.lane_id, read.lane_name = named.get(read.status, (None, None))
+                read.archived_children = archived_children.get(read.id, 0)
             return reads
+
+    @staticmethod
+    async def _parent_filter(session: AsyncSession, parent: str | None) -> str | None:
+        """The id a ``parent`` filter (an id or a number, ``#`` allowed) stands for; an id that names no card matches no card."""
+        if parent is None or parent == "":
+            return None
+        number = parent.lstrip("#")
+        if number.isdigit():
+            found = await session.scalar(select(Task.id).where(Task.number == int(number)))
+            return found or ""
+        return parent
+
+    @staticmethod
+    async def _archived_children(session: AsyncSession, ids: set[str]) -> dict[str, int]:
+        """How many archived cards each of ``ids`` has as direct children (an archived card keeps its parent link, ADR-071)."""
+        if not ids:
+            return {}
+        counts: dict[str, int] = {}
+        for start in range(
+            0, len(ids), 500
+        ):  # chunked: SQLite limits the variables of one statement
+            chunk = list(ids)[start : start + 500]
+            rows = await session.execute(
+                select(Task.parent_id, func.count())
+                .where(
+                    Task.parent_id.in_(chunk),
+                    Task.archived_at.is_not(None),
+                    Task.technical.is_(False),
+                )
+                .group_by(Task.parent_id)
+            )
+            counts.update({pid: n for pid, n in rows if pid})
+        return counts
 
     async def processing_ids(self) -> set[str]:
         """The ids of the cards that are being processed now (a run of theirs is running)."""
@@ -198,10 +237,13 @@ class ArtifactService:
             )
             return set(rows)
 
-    async def count_cards(self, archived: str) -> int:
-        """How many cards a list with this ``archived`` value holds in all (before paging)."""
+    async def count_cards(self, archived: str, parent: str | None = None) -> int:
+        """How many cards a list with this ``archived`` value (and ``parent`` filter) holds in all (before paging)."""
         async with self._session() as session:
             query = select(func.count()).select_from(Task).where(Task.technical.is_(False))
+            parent_id = await self._parent_filter(session, parent)
+            if parent_id is not None:
+                query = query.where(Task.parent_id == parent_id)
             if archived == "only":
                 query = query.where(Task.archived_at.is_not(None))
             elif archived == "exclude":
@@ -223,6 +265,9 @@ class ArtifactService:
             )
             read.lane_id, read.lane_name = (await self._lane_names(session)).get(
                 task.status, (None, None)
+            )
+            read.archived_children = (await self._archived_children(session, {task.id})).get(
+                task.id, 0
             )
             return read
 
@@ -271,6 +316,7 @@ class ArtifactService:
         read.lane_id, read.lane_name = (await self._lane_names(session)).get(
             task.status, (None, None)
         )
+        read.archived_children = (await self._archived_children(session, {task.id})).get(task.id, 0)
         if has_references(task.body):
             read.warnings = unknown_references(task.body, set(body_card(specs, task)))
         return read

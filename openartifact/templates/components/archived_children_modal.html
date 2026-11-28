@@ -1,0 +1,13 @@
+{% from "components/modal.html" import modal %}
+{# The archived children of a card (ADR-095 add.1; behaviour in static/js/tasks/archived-children.js): a list of rows, a click on one
+   opens that card in the archive. #}
+{% call modal("archived-children-modal", t('archived_children.title', label='')) %}
+<div class="modal__body">
+    <ul class="archived-children" data-archived-list></ul>
+    <p class="archived-children__empty" data-archived-empty hidden>{{ t('archived_children.empty') }}</p>
+    <p class="form-error" role="alert" hidden data-archived-error>{{ t('archived_children.failed') }}</p>
+</div>
+<footer class="modal__footer">
+    <button type="button" class="button button--ghost" data-modal-close>{{ t('common.close') }}</button>
+</footer>
+{% endcall %}

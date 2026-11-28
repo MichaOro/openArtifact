@@ -32,6 +32,16 @@ export function isVisible(field, values) {
   return actual === when.equals;
 }
 
+/** Whether a field can be changed: it has no `enabled_when`, or the other field has the value (`equals`) or one of them (`in`). A field that
+ * cannot is drawn greyed, with its `disabled_help` as the reason. */
+export function isEnabled(field, values) {
+  const when = field.enabled_when;
+  if (!when) return true;
+  const actual = getPath(values, when.field);
+  if (when.in) return when.in.includes(actual);
+  return actual === when.equals;
+}
+
 /** Nothing entered: undefined, null, an empty text or an empty list. */
 export function isEmpty(value) {
   return value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0);
@@ -119,6 +129,7 @@ export function dependencies(manifest) {
   for (const section of manifest.sections) {
     for (const field of section.fields) {
       if (field.visible_when) keys.add(field.visible_when.field);
+      if (field.enabled_when) keys.add(field.enabled_when.field);
       for (const key of field.config?.depends_on ?? []) keys.add(key);
     }
   }

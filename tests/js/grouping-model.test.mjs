@@ -4,7 +4,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  accordionRows,
+  archivedCount,
   childrenByParent,
+  hasAccordion,
   hiddenIds,
   isOpen,
   laneGrouped,
@@ -12,6 +15,7 @@ import {
   plan,
   readOpen,
   rowLabel,
+  writeOpen,
 } from "../../openartifact/static/js/tasks/grouping-model.js";
 import { matches, parseQuery } from "../../openartifact/static/js/tasks/board-search-model.js";
 
@@ -89,23 +93,59 @@ test("a number in the search finds a card that is a row, through its parent", ()
   assert.deepEqual(found.rows.get("id6").map((c) => c.number), [300]);
 });
 
-test("an accordion is open when the user opened it, and while a search has rows in it", () => {
-  const stored = new Set(["id1"]);
+test("an accordion follows the user's choice for the card, else the setting, and is open while a search has rows in it", () => {
+  const stored = new Map([["id1", true], ["id7", false]]);
   assert.equal(isOpen(stored, "id1", false, 3), true);
   assert.equal(isOpen(stored, "id6", false, 3), false); // closed by default
+  assert.equal(isOpen(stored, "id6", false, 3, true), true); // the setting "open" is the default of a card without a choice
+  assert.equal(isOpen(stored, "id7", false, 3, true), false); // a card closed by hand stays closed under that setting
   assert.equal(isOpen(stored, "id6", true, 2), true); // a search opens it
   assert.equal(isOpen(stored, "id6", true, 0), false); // a search without a row in it does not
   assert.equal(isOpen(stored, "id1", true, 0), true); // the user's choice stays
 });
 
-test("what is kept about the open accordions is read back, and a damaged value is no choice", () => {
-  assert.deepEqual([...readOpen('["a","b"]')], ["a", "b"]);
+test("what is kept about the accordions is read back, an earlier list reads as open, and a damaged value is no choice", () => {
+  assert.deepEqual([...readOpen('{"a":true,"b":false}')], [["a", true], ["b", false]]);
+  assert.deepEqual([...readOpen('["a","b"]')], [["a", true], ["b", true]]); // the format of the first version of the view
   assert.deepEqual([...readOpen(null)], []);
   assert.deepEqual([...readOpen("not json")], []);
   assert.deepEqual([...readOpen('{"a":1}')], []);
-  assert.deepEqual([...readOpen('["a",1,null]')], ["a"]);
+  assert.deepEqual([...readOpen('["a",1,null]')], [["a", true]]);
+  assert.equal(writeOpen(new Map([["a", true], ["b", false]])), '{"a":true,"b":false}');
 });
 
 test("a row names its card by number and title", () => {
   assert.equal(rowLabel({ number: 21, title: "Run history" }), "#21 Run history");
+});
+
+const withArchived = (task, n) => ({ ...task, archived_children: n });
+
+test("the number of archived children is what the server says, and nothing else counts", () => {
+  assert.equal(archivedCount(withArchived(card(1, "E", "next"), 4)), 4);
+  assert.equal(archivedCount(card(1, "E", "next")), 0); // the server did not say
+  assert.equal(archivedCount({ archived_children: -2 }), 0);
+  assert.equal(archivedCount({ archived_children: "x" }), 0);
+});
+
+test("the archive row is the last row of an accordion, and only there when a child is archived", () => {
+  const epic = withArchived(card(1, "Epic", "next"), 3);
+  const rows = accordionRows(epic, [card(6, "WP", "progress", 1), card(7, "Task", "backlog", 1)], false);
+  assert.deepEqual(rows.map((r) => r.kind), ["child", "child", "archived"]);
+  assert.equal(rows.at(-1).count, 3);
+  assert.deepEqual(accordionRows(card(1, "Epic", "next"), [card(6, "WP", "progress", 1)], false).map((r) => r.kind), ["child"]); // none archived: no row
+  assert.deepEqual(accordionRows(epic, [card(6, "WP", "progress", 1)], true).map((r) => r.kind), ["child"]); // a search looks at the board only
+});
+
+test("a parent whose children are all archived still has an accordion, with the archive row only", () => {
+  const parent = withArchived(card(1, "Epic", "next"), 2);
+  const tasks = [parent];
+  assert.equal(hasAccordion(parent, childrenByParent(tasks).get("id1")), true);
+  assert.deepEqual(accordionRows(parent, [], false), [{ kind: "archived", count: 2 }]);
+  assert.equal(hasAccordion(card(9, "Alone", "next"), undefined), false);
+});
+
+test("a child with archived children of its own stays on the board: its accordion is where they are reached", () => {
+  const tasks = [card(1, "Epic", "next"), withArchived(card(6, "WP", "progress", 1), 1), card(7, "Task", "backlog", 1)];
+  assert.deepEqual(numbers(hiddenIds(tasks)), [7]); // #6 stays, #7 becomes a row
+  assert.deepEqual(numbers(plan(tasks).shown), [1, 6]);
 });

@@ -5,8 +5,8 @@
 **Supersedes:** —  
 **Superseded by:** —  
 **Amends:** [ADR-011](011-board-interactions-sse-and-pointer-dnd.md) (the cards of a lane can be drawn under another card), [ADR-091](091-board-search.md) (the search finds a card that is a row)  
-**Implemented in:** `static/js/tasks/grouping-model.js` (the rules, pure), `static/js/tasks/board.js` (`setView`, the accordions, the counts), `static/js/tasks/main.js`, `templates/index.html`, `static/css/components.css`, `ui/forms/personal.yaml` and `api/settings.py` (the setting `board_view`), `tests/js/grouping-model.test.mjs`, `tests/e2e/test_grouped_view.py`  
-**Affected chapters:** guides [UI catalog](../../guides/ui-catalog.md)
+**Implemented in:** `static/js/tasks/grouping-model.js` (the rules, pure), `static/js/tasks/archived-children.js` (the list of archived children), `static/js/components/form-plan.js` and `form-view.js` (`enabled_when`), `static/js/tasks/board.js` (`setView`, the accordions, the counts), `static/js/tasks/main.js`, `templates/index.html`, `static/css/components.css`, `ui/forms/personal.yaml` and `api/settings.py` (the setting `board_view`), `tests/js/grouping-model.test.mjs`, `tests/e2e/test_grouped_view.py`  
+**Affected chapters:** guides [UI catalog](../../guides/ui-catalog.md), [API reference](../../guides/api-reference.md)
 
 ## 1. Context
 
@@ -29,3 +29,15 @@ in its lane, and a card with many children is one card among dozens. The owner w
 - A card is drawn twice only when it is both child and parent (as a row and as a card), by design.
 - A child in the accordion of a parent in another lane stands visually in a lane it is not in; the chip on the row names its real lane.
 - The classic view is the default; the grouped view has no effect on the API, the MCP tools, the rules of the lanes or the runs.
+
+## Addition 1 (2026-11-28): archived children, the list window, the way back, and the setting Accordions
+
+The board loads only cards that are not archived, so an archived child was invisible: nothing on its parent said that there was one. The owner decided:
+
+- **The server counts them.** Every card read carries `archived_children` (an integer, **direct** children only; an archived card keeps its parent link, ADR-071). It is derived on every read (`GET /api/tasks`, one card, and the card of every event after a save), never stored. `GET /api/tasks` and `GET /api/v1/artifacts` take `parent` (an id or a number, `#` allowed): only the direct children of that card; with `archived=only` that is the list of its archived children (newest archived first); `X-Total-Count` counts the filtered list. A `parent` that names no card matches no card.
+- **The last row of an accordion is "+N archived".** It is a row of the same style (a dashed outline, muted), shown as soon as one direct child is archived, and always last. A card whose children are **all** archived still has an accordion; it holds this one row and its header counts the visible children (0). A child that has archived children of its own stays on the board (its accordion is where they are reached), like a child with live children. While a search is on the row is not drawn (a search looks at the board only).
+- **The list window.** The row opens a window (`#archived-children-modal`, `tasks/archived-children.js`) with a row per archived child: `#number title` on one line cut with `…`, the lane it was archived from and the day. It keeps itself current while open (a card archived or restored changes it). A click on a row hands the card to the page: the archive view replaces the lanes and the card is open in its read-only window.
+- **Back to board.** That window gets a button *Back to board* before its close button (`data-modal-origin`, set with `ArtifactDialog.setOrigin`, dropped when the window closes or another card is opened, so the normal ways into the archive show none). It returns to the board; the list window stays **closed** (my call: the owner did not say whether the list should come back). *Close* leaves the user in the archive to pick another card.
+- **Live.** Archiving and restoring publish `board.resync` after `task.updated` (as before), and the board reloads on it, so the count and the row follow at once without a new event; a deleted archived card (the rules of ADR-071) also reloads the board. No event was added or changed.
+- **The classic view** writes `N sub-artifacts · M archived` in the line of a card (M is **not** part of N) and M is a link to the same window. The grouped view has it as the row instead.
+- **The setting *Accordions*** (`board_groups_open`: `closed` default or `open`, directly under *Board view* in the personal settings, German *Akkordeons: offen / geschlossen*) is the state of an accordion the user has not touched. It is greyed unless the Board view is Grouped, with the reason under it: this is the form manifest's new `enabled_when` (same shape as `visible_when`, with `disabled_help` for the reason; the field stays drawn). What the user opened or closed by hand is kept per card in the browser (`oa-board-groups`, now `{id: open}`; the first version's list of open ids still reads as open); **changing the setting forgets those choices** so it takes effect at once, in this tab and, through `settings.changed`, in the others.

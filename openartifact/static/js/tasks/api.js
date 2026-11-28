@@ -56,6 +56,10 @@ export const listStages = (pipelineId) => request(`/api/pipelines/${encodeURICom
 /** The archive (ADR-071): only the archived cards, the newest in the archive first; `archived_at` says when each came in. */
 export const listArchive = () => request("/api/tasks?archived=only&sort=archived_at&order=desc&limit=500");
 
+/** The archived cards that have this card as their parent (direct children), the newest archived first (ADR-095 add.1). */
+export const listArchivedChildren = (parentId) =>
+  request(`/api/tasks?archived=only&sort=archived_at&order=desc&limit=500&parent=${encodeURIComponent(parentId)}`);
+
 /** Move a card into the archive by hand / take it out again (back on top of the lane it came from). */
 export const archiveTask = (id) => post(`/api/tasks/${encodeURIComponent(id)}/archive`);
 export const unarchiveTask = (id) => post(`/api/tasks/${encodeURIComponent(id)}/unarchive`);

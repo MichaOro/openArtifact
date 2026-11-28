@@ -178,9 +178,12 @@ async def list_artifacts(
     order: Annotated[Literal["asc", "desc"] | None, Query()] = None,
     limit: Annotated[int | None, Query(ge=1, le=500)] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
+    parent: Annotated[
+        str | None, Query(description="Only the direct children of this card (an id or a number).")
+    ] = None,
 ) -> list[TaskRead]:
-    response.headers["X-Total-Count"] = str(await service.count_cards(archived))
-    return await service.list_all(archived, sort, order, limit, offset)
+    response.headers["X-Total-Count"] = str(await service.count_cards(archived, parent))
+    return await service.list_all(archived, sort, order, limit, offset, parent)
 
 
 @router.post(

@@ -1837,5 +1837,13 @@
  "execution.trace.no_rounds": "No rounds were recorded.",
  "execution.trace.no_match": "No round matches.",
  "execution.trace.loading": "Loading the rounds…",
- "execution.trace.unavailable": "The rounds could not be loaded."
+ "execution.trace.unavailable": "The rounds could not be loaded.",
+ "tasks.board.group_archived": "+{count} archived",
+ "tasks.board.group_archived_label": "{count} archived cards of this card: open the list",
+ "tasks.board.meta_archived": "{count} archived",
+ "archived_children.title": "Archived cards of {label}",
+ "archived_children.empty": "This card has no archived cards.",
+ "archived_children.failed": "The archived cards could not be loaded.",
+ "archived_children.lane_unknown": "–",
+ "archived_children.back_to_board": "Back to board"
 }

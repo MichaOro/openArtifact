@@ -6,7 +6,7 @@
 ] %}
 {% from "components/icons.html" import icon %}
 {% from "components/nav.html" import nav_items %}
-{% call modal("create-task-modal", t('dialog.create_artifact'), subtitle=True, size="artifact", reason="a form column and a rail, sized once from the content height") %}
+{% call modal("create-task-modal", t('dialog.create_artifact'), subtitle=True, origin=True, size="artifact", reason="a form column and a rail, sized once from the content height") %}
 <div class="modal__layout">
 <section class="task-view" data-task-view data-tab="details" hidden>
     <div class="task-tabs" role="tablist" aria-label="{{ t('create_task.artifact_sections') }}" data-tabs>

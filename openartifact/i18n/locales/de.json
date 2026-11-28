@@ -2582,5 +2582,18 @@
  "execution.trace.no_rounds": "Es wurden keine Runden aufgezeichnet.",
  "execution.trace.no_match": "Keine Runde passt.",
  "execution.trace.loading": "Die Runden werden geladen…",
- "execution.trace.unavailable": "Die Runden konnten nicht geladen werden."
+ "execution.trace.unavailable": "Die Runden konnten nicht geladen werden.",
+ "forms.personal.fields.board_groups_open.label": "Akkordeons",
+ "forms.personal.fields.board_groups_open.help": "Ob die Akkordeons der gruppierten Ansicht offen oder geschlossen sind, solange du keines selbst öffnest oder schließt. Eine Änderung vergisst, was du von Hand geöffnet hast.",
+ "forms.personal.fields.board_groups_open.disabled_help": "Nur die gruppierte Board-Ansicht hat Akkordeons.",
+ "forms.personal.fields.board_groups_open.options.closed": "Geschlossen",
+ "forms.personal.fields.board_groups_open.options.open": "Offen",
+ "tasks.board.group_archived": "+{count} archiviert",
+ "tasks.board.group_archived_label": "{count} archivierte Karten dieser Karte: Liste öffnen",
+ "tasks.board.meta_archived": "{count} archiviert",
+ "archived_children.title": "Archivierte Karten von {label}",
+ "archived_children.empty": "Diese Karte hat keine archivierten Karten.",
+ "archived_children.failed": "Die archivierten Karten konnten nicht geladen werden.",
+ "archived_children.lane_unknown": "–",
+ "archived_children.back_to_board": "Zurück zum Board"
 }

@@ -79,6 +79,9 @@ export class ArtifactDialog extends FormDialog {
     /** An archived card is shown read only (ADR-071): the same window, nothing in it can change the card. */
     this.readOnly = false;
     this.backButton = root.querySelector("[data-view-back]");
+    /** The button before the close button that leads back to where the card was asked for from (the board, for an archived card; ADR-095 add.1). */
+    this.originButton = root.querySelector("[data-modal-origin]");
+    this.origin = null;
     this.history = history;
     this.comments = comments;
     /** The tab last used: kept while the page lives (not stored). Edit mode hides the tabs and keeps it. */
@@ -87,7 +90,9 @@ export class ArtifactDialog extends FormDialog {
     root.addEventListener("close", () => {
       this.history.hide();
       this.comments.hide();
+      this.setOrigin(null);
     });
+    this.originButton?.addEventListener("click", () => this.origin?.());
 
     root.querySelector("[data-view-edit]").addEventListener("click", () => this.startEdit());
     this.#applyReadOnly();
@@ -135,6 +140,7 @@ export class ArtifactDialog extends FormDialog {
    * `readOnly` (an archived card): the rail's fields and the Edit, Run, comment and Delete controls are off, and
    * "Remove from archive" takes the place of Delete. */
   openView(task, laneTitle, hue, parentTitle = null, canGoBack = false, { readOnly = false } = {}) {
+    this.setOrigin(null); // a way in that is not the one that asks for a way back
     this.readOnly = readOnly;
     this.#applyReadOnly();
     this.editing = task;
@@ -150,6 +156,15 @@ export class ArtifactDialog extends FormDialog {
     this.view.dataset.tab = this.tab;
     this.history.show(task);
     this.comments.show(task);
+  }
+
+  /** Show a button before the close button with `label` that runs `go` (the way back to where the card was asked for from), or none (`null`).
+   * It is dropped when the window closes and when another card is opened. */
+  setOrigin(label, go = null) {
+    this.origin = label ? go : null;
+    if (!this.originButton) return;
+    this.originButton.hidden = !label;
+    this.originButton.textContent = label ?? "";
   }
 
   /** Switch to a tab from code (a link in another tab); what selecting it by hand does follows. */

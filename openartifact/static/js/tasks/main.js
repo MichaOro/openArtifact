@@ -23,6 +23,7 @@ import { FieldsEditor } from "../artifact-fields/fields-editor.js";
 import { ActionMenu } from "../components/action-menu.js";
 import { FieldRail } from "./field-rail.js";
 import { ArchiveView } from "./archive-view.js";
+import { ArchivedChildren } from "./archived-children.js";
 import { BoardSearch } from "./board-search.js";
 import { t, tn } from "../i18n.js";
 
@@ -218,6 +219,21 @@ const archive = new ArchiveView({
   },
   onOpen: (task) => showArchived(task),
   onError: (message) => board.showError(message),
+});
+
+// The archived children of a card (ADR-095 add.1): the "+N archived" row of its accordion, or the link on its card in the classic view. A row
+// of the list shows the archive and opens that card; the card's window has "Back to board" until it is closed.
+const archivedChildren = new ArchivedChildren({
+  modal: new Modal(document.getElementById("archived-children-modal")),
+  onPick: (task) => {
+    archivedChildren.close();
+    showArchive(true);
+    showArchived(task);
+    artifactDialog.setOrigin(t("archived_children.back_to_board"), () => {
+      artifactDialog.modal.close();
+      showArchive(false);
+    });
+  },
 });
 
 /** An archived card in the same window as a card of the board, read only; its rail offers "Remove from archive" (ADR-071). */
@@ -469,6 +485,7 @@ connectEvents({
   },
   onEvent: (type, data) => {
     archive.handleEvent(type);
+    archivedChildren.handleEvent(type);
     if ((type === "task.updated" || type === "task.moved" || type === "task.created") && data.archived_at) {
       board.remove(data.id); // an archived card is not on the board
       if (artifactDialog.editing?.id === data.id && !artifactDialog.readOnly) artifactDialog.modal.close(); // the read-only window is where an archived card is looked at
@@ -479,6 +496,7 @@ connectEvents({
       if (type === "comment.deleted") history.handleEvent(type, data); // its entry in the timeline becomes "deleted a comment"
     } else if (type === "task.deleted") {
       if (artifactDialog.readOnly && artifactDialog.editing?.id === data.id) artifactDialog.modal.close();
+      if (!board.tasks.has(data.id)) board.load(); // an archived card is gone: the count of archived cards of its parent changes
       board.remove(data.id);
       processing.remove(data.id);
     }
@@ -493,6 +511,7 @@ connectEvents({
     else if (type === "settings.changed") {
       if (data.personal) {
         board.setView(data.personal.board_view); // classic or grouped: the cards are drawn again, nothing is reloaded for it
+        board.setGroupsDefault(data.personal.board_groups_open); // a change forgets the accordions opened or closed by hand
         board.load(); // marked or not: the server sends the cards the other way now
         const open = artifactDialog.editing;
         if (open && artifactDialog.mode === "view") loadFullBody(open.id);
@@ -512,12 +531,15 @@ const wanted = new URLSearchParams(window.location.search).get("artifact");
 /** The board view of the personal settings (ADR-095); a failing read leaves the classic view. */
 async function applyBoardView() {
   try {
-    board.setView((await getPersonalSettings()).board_view);
+    const personal = await getPersonalSettings();
+    board.setGroupsDefault(personal.board_groups_open, { first: true });
+    board.setView(personal.board_view);
   } catch {
     // the classic view
   }
 }
 board.onOpenRow = (task) => showTask(task); // a row of an accordion opens its card like the card itself
+board.onOpenArchived = (task) => archivedChildren.open(task); // "+N archived" of a card
 
 applyBoardView().then(() => board.load()).then(() => {
   // do not depend on the event stream for the first paint

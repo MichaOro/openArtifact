@@ -11,7 +11,7 @@ import { AlertBar } from "../components/alert-bar.js";
 import { InlineName } from "../components/inline-name.js";
 import { matches } from "./board-search-model.js";
 import { KEYS, readStorage, writeStorage } from "../storage.js";
-import { isOpen, laneGrouped, plan as groupPlan, readOpen, rowLabel } from "./grouping-model.js";
+import { accordionRows, archivedCount, hasAccordion, isOpen, laneGrouped, plan as groupPlan, readOpen, rowLabel, writeOpen } from "./grouping-model.js";
 import { t, tn } from "../i18n.js";
 
 const LANE_NAME_MAX_LENGTH = 40;
@@ -40,8 +40,12 @@ export class Board {
     this.view = "classic";
     /** What the Grouped view makes of the cards now (grouping-model.js `plan`), or null in the classic view. */
     this.grouping = null;
-    /** The accordions the user has opened (kept in the browser). */
+    /** What the user chose per accordion, `Map<cardId, open>` (kept in the browser); a card without a choice follows `groupsOpen`. */
     this.openGroups = readOpen(readStorage(KEYS.boardGroups));
+    /** The personal setting *Accordions*: whether an accordion without a choice of the user is open. */
+    this.groupsOpen = false;
+    /** Called with the task of a card whose archived children were asked for (its "+N archived" row or the link in the classic view). */
+    this.onOpenArchived = null;
     /** Called with the task of a row of an accordion that was clicked (the card is opened as if its own card had been). */
     this.onOpenRow = null;
     /** True while a load adds many cards: the board is arranged once at the end, not after each card. */
@@ -75,6 +79,20 @@ export class Board {
 
   get grouped() {
     return this.view === "grouped";
+  }
+
+  /** The setting *Accordions* ("open" or "closed"): the state of an accordion the user has not touched. A change of it forgets the choices
+   * made by hand, so it takes effect at once; the first value only says where to start. */
+  setGroupsDefault(value, { first = false } = {}) {
+    const open = value === "open";
+    if (open === this.groupsOpen && !first) return;
+    const changed = open !== this.groupsOpen;
+    this.groupsOpen = open;
+    if (changed && !first) {
+      this.openGroups.clear();
+      writeStorage(KEYS.boardGroups, writeOpen(this.openGroups));
+    }
+    this.#renderGroups();
   }
 
   /** Lane order as shown on screen (left to right). */
@@ -457,11 +475,23 @@ export class Board {
       const task = this.tasks.get(id);
       const parent = this.parentOf(task);
       const n = children.get(id) ?? 0;
+      const archived = this.grouped ? 0 : archivedCount(task); // the grouped view has them as the last row of the accordion
       const parts = [];
-      if (parent) parts.push(t("tasks.board.parent_title", { title: rowLabel(parent) }));
-      if (n && !this.grouped) parts.push(`${n} sub-artifact${n === 1 ? "" : "s"}`);
+      if (parent) parts.push(document.createTextNode(t("tasks.board.parent_title", { title: rowLabel(parent) })));
+      if (n && !this.grouped) parts.push(document.createTextNode(`${n} sub-artifact${n === 1 ? "" : "s"}`));
+      if (archived) {
+        const link = document.createElement("button");
+        link.type = "button";
+        link.className = "task-card__archived-link";
+        link.dataset.archivedLink = "";
+        link.textContent = t("tasks.board.meta_archived", { count: archived });
+        link.setAttribute("aria-label", t("tasks.board.group_archived_label", { count: archived }));
+        parts.push(link);
+      }
       const meta = card.querySelector(".task-card__meta");
-      meta.textContent = parts.join(" · ");
+      const nodes = [];
+      parts.forEach((part, index) => nodes.push(...(index ? [document.createTextNode(" · "), part] : [part])));
+      meta.replaceChildren(...nodes);
       meta.hidden = parts.length === 0;
     }
   }
@@ -481,11 +511,12 @@ export class Board {
   #renderGroup(card, id) {
     const group = card.querySelector("[data-group]");
     if (!group) return;
+    const task = this.tasks.get(id);
     const children = this.grouping?.children.get(id) ?? [];
-    group.hidden = children.length === 0;
-    if (!children.length) return;
+    group.hidden = !this.grouping || !task || !hasAccordion(task, children);
+    if (group.hidden) return;
     const rows = this.grouping.rows.get(id) ?? [];
-    const open = isOpen(this.openGroups, id, Boolean(this.filter), rows.length);
+    const open = isOpen(this.openGroups, id, Boolean(this.filter), rows.length, this.groupsOpen);
     const toggle = group.querySelector("[data-group-toggle]");
     const list = group.querySelector("[data-group-list]");
     toggle.setAttribute("aria-expanded", String(open));
@@ -499,8 +530,26 @@ export class Board {
       return;
     }
     const focused = document.activeElement?.closest?.("[data-group-row]")?.dataset.groupRow; // a row that is drawn again keeps the focus
-    list.replaceChildren(...rows.map((child) => this.#groupRow(child)));
+    list.replaceChildren(
+      ...accordionRows(task, rows, Boolean(this.filter)).map((row) => (row.kind === "child" ? this.#groupRow(row.task) : this.#archivedRow(task, row.count))),
+    );
     if (focused) list.querySelector(`[data-group-row="${CSS.escape(focused)}"]`)?.focus();
+  }
+
+  /** The last row of an accordion: "+N archived", which opens the list of the archived children of the card. */
+  #archivedRow(task, count) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "group-row group-row--archived";
+    button.dataset.archivedRow = task.id;
+    button.setAttribute("aria-label", t("tasks.board.group_archived_label", { count }));
+    const title = document.createElement("span");
+    title.className = "group-row__title";
+    title.textContent = t("tasks.board.group_archived", { count });
+    button.append(title);
+    item.append(button);
+    return item;
   }
 
   /** One row of an accordion: the number and title on one line (cut with "…"), the lane of the card and the state of its run. */
@@ -536,8 +585,14 @@ export class Board {
   #groupClick(event) {
     const toggle = event.target.closest("[data-group-toggle]");
     const row = event.target.closest("[data-group-row]");
-    if (!toggle && !row) return;
+    const archived = event.target.closest("[data-archived-row], [data-archived-link]");
+    if (!toggle && !row && !archived) return;
     event.stopImmediatePropagation(); // the card around it would open as well
+    if (archived) {
+      const task = this.tasks.get(archived.closest(".task-card")?.dataset.taskId);
+      if (task) this.onOpenArchived?.(task);
+      return;
+    }
     if (row) {
       const task = this.tasks.get(row.dataset.groupRow);
       if (task) this.onOpenRow?.(task);
@@ -545,9 +600,9 @@ export class Board {
     }
     const id = toggle.closest(".task-card")?.dataset.taskId;
     if (!id) return;
-    if (this.openGroups.has(id)) this.openGroups.delete(id);
-    else this.openGroups.add(id);
-    writeStorage(KEYS.boardGroups, JSON.stringify([...this.openGroups]));
+    const now = isOpen(this.openGroups, id, false, 0, this.groupsOpen);
+    this.openGroups.set(id, !now);
+    writeStorage(KEYS.boardGroups, writeOpen(this.openGroups));
     this.#renderGroup(this.cards.get(id), id);
   }
 
