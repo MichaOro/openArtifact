@@ -4,6 +4,9 @@ import { request } from "../http.js";
 
 export const listTasks = () => request("/api/tasks");
 
+/** The personal settings (the board reads `board_view` from them). */
+export const getPersonalSettings = () => request("/api/settings/personal");
+
 /** One artifact with its body filled in (`body_resolved`); the list carries only the board's preview. */
 export const getTask = (id) => request(`/api/tasks/${encodeURIComponent(id)}`);
 

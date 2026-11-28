@@ -491,6 +491,57 @@ body.is-dragging * { cursor: grabbing !important; }
 .task-card__run[data-status="stopped"], .task-card__run[data-status="done"] { color: var(--color-text-muted); }
 .task-card--locked { cursor: default; }
 
+/* The grouped board view (ADR-095): a card with children has an accordion; its rows are the direct children, one line each, cut with "…".
+   The list has a fixed height and scrolls itself (the one scrollbar of base.css is inherited). */
+.task-card__group { --group-list-max: 12rem; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.task-card__group[hidden], .task-card__group-list[hidden] { display: none; }
+.task-card__group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.task-card__group-toggle:hover { background: color-mix(in srgb, var(--color-accent) 26%, transparent); color: var(--color-text-primary); }
+.task-card__group-toggle:focus-visible, .group-row:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.task-card__group-toggle .icon { width: 0.875rem; height: 0.875rem; transition: transform var(--transition-fast); }
+.task-card__group-toggle[aria-expanded="true"] .icon { transform: rotate(180deg); }
+.task-card__group-list { display: flex; flex-direction: column; gap: var(--space-1); max-height: var(--group-list-max); overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+.group-row:hover { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+.group-row__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-row__lane, .group-row__run { flex: none; font-size: 0.6875rem; white-space: nowrap; }
+.group-row__lane { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-text-muted); }
+.group-row__lane::before { content: ""; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--lane-color, var(--color-accent)); }
+.group-row__run { font-weight: 600; color: var(--color-accent); }
+.group-row__run[data-status="failed"] { color: var(--color-danger); }
+.group-row__run[data-status="stopped"], .group-row__run[data-status="done"] { color: var(--color-text-muted); }
+
 /* What the rules of a lane and of the board make of a card (ADR-071, marks): done = the title struck through and muted,
    the body stays readable (its colour is raised from muted to secondary against the dimming); labels = small chips; colour =
    a fill or a border in one of the tones; archived (only in the preview of an archive rule) = a dashed outline. The same

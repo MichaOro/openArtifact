@@ -5,7 +5,7 @@ import { Modal } from "../components/modal.js";
 import { ReferencePicker } from "../components/reference-picker.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { KEYS } from "../storage.js";
-import { archiveTask, createTask, deleteTask, getTask, listRuns, listTasks, placeTask, updateTask } from "./api.js";
+import { archiveTask, createTask, deleteTask, getPersonalSettings, getTask, listRuns, listTasks, placeTask, updateTask } from "./api.js";
 import { needsFullBody } from "./body-model.js";
 import { Board } from "./board.js";
 import { ArtifactDialog } from "./artifact-dialog.js";
@@ -138,7 +138,7 @@ function showTask(task, { follow = false } = {}) {
     task,
     board.laneTitle(task.status),
     board.laneHue(task.status),
-    board.parentOf(task)?.title ?? null,
+    board.parentLabel(task),
     trail.length > 0,
   );
   artifactDialog.subtitle.disabled = board.locked.has(task.id);
@@ -224,7 +224,7 @@ const archive = new ArchiveView({
 async function showArchived(task) {
   processing.show(task.id);
   trail.length = 0;
-  artifactDialog.openView(task, task.archived_from_lane ?? "–", board.laneHue(task.archived_from_status), board.parentOf(task)?.title ?? null, false, { readOnly: true });
+  artifactDialog.openView(task, task.archived_from_lane ?? "–", board.laneHue(task.archived_from_status), board.parentLabel(task), false, { readOnly: true });
   fieldRail.show(task);
   fieldRail.setLocked(true);
 }
@@ -319,7 +319,7 @@ async function setParent(id, parentId) {
   if (!task || board.locked.has(id) || (task.parent_id ?? null) === parentId) return;
   const previous = task;
   board.upsert({ ...task, parent_id: parentId });
-  artifactDialog.setParent(board.parentOf(board.tasks.get(id))?.title ?? null);
+  artifactDialog.setParent(board.parentLabel(board.tasks.get(id)));
   try {
     board.upsert(await updateTask(id, { parent_id: parentId }));
   } catch (error) {
@@ -327,7 +327,7 @@ async function setParent(id, parentId) {
       board.remove(id);
     } else {
       board.upsert(previous);
-      artifactDialog.setParent(board.parentOf(previous)?.title ?? null);
+      artifactDialog.setParent(board.parentLabel(previous));
       board.showError(t("tasks.main.parent_change_failed", { title: task.title, why: error.status === 422 ? t("tasks.main.would_create_loop") : t("tasks.main.please_try_again") }));
     }
   }
@@ -492,6 +492,7 @@ connectEvents({
     else if (type === "board.resync") board.load(); // positions changed, or the rules: marks, archived and deleted cards (board.updated and cards.rules.changed are always followed by it: one load)
     else if (type === "settings.changed") {
       if (data.personal) {
+        board.setView(data.personal.board_view); // classic or grouped: the cards are drawn again, nothing is reloaded for it
         board.load(); // marked or not: the server sends the cards the other way now
         const open = artifactDialog.editing;
         if (open && artifactDialog.mode === "view") loadFullBody(open.id);
@@ -508,7 +509,17 @@ connectEvents({
 
 // `/?artifact=12` opens that artifact once the board has loaded (the global execution list links here).
 const wanted = new URLSearchParams(window.location.search).get("artifact");
-board.load().then(() => {
+/** The board view of the personal settings (ADR-095); a failing read leaves the classic view. */
+async function applyBoardView() {
+  try {
+    board.setView((await getPersonalSettings()).board_view);
+  } catch {
+    // the classic view
+  }
+}
+board.onOpenRow = (task) => showTask(task); // a row of an accordion opens its card like the card itself
+
+applyBoardView().then(() => board.load()).then(() => {
   // do not depend on the event stream for the first paint
   const task = wanted && [...board.tasks.values()].find((t) => String(t.number) === wanted.replace(/^#/, ""));
   if (task) showTask(task);
