@@ -15,6 +15,24 @@ sections:
         label: Mark resolved references
         help: Highlight ${card.X} references in artifact dialog and board cards with a coloured background and show a legend.
         default: false
+      - key: board_view
+        widget: select
+        label: Board view
+        help: Grouped shows cards with a parent under their parent. Lane and data of the cards do not change.
+        default: classic
+        options:
+          - {value: classic, label: Classic}
+          - {value: grouped, label: Grouped}
+      - key: board_groups_open
+        widget: select
+        label: Accordions
+        help: Whether the accordions of the Grouped view are open or closed until you open or close one. Changing it forgets what you opened by hand.
+        default: closed
+        options:
+          - {value: closed, label: Closed}
+          - {value: open, label: Open}
+        enabled_when: {field: board_view, equals: grouped}
+        disabled_help: Only the Grouped board view has accordions.
   - key: stop
     title: Execution
     tab: general

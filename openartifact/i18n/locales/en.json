@@ -1078,6 +1078,7 @@
  "tasks.board.lane_artifacts": "{title} artifacts",
  "tasks.board.options_lane_title": "Options for lane {title}",
  "tasks.board.parent_title": "Parent: {title}",
+ "tasks.board.group_toggle": "Linked artifacts ({count}): show or hide",
  "tasks.comment_format.run": "Run",
  "tasks.comments_tab.actions_comment_author": "Actions for the comment of {author}",
  "tasks.comments_tab.comment_actions": "Comment actions",
@@ -1461,6 +1462,7 @@
  "board.search.matches.one": "{count} card matches",
  "board.search.matches.other": "{count} cards match",
  "board.search.lane_count": "{shown} of {total} match in this lane",
+ "board.grouped.lane_count": "{count} more in the accordions of their parents, not counted here",
  "board.search.no_match": "No matching cards",
  "archive.restored": "{title} is back in its lane",
  "archive.yes": "Yes",
@@ -1835,5 +1837,13 @@
  "execution.trace.no_rounds": "No rounds were recorded.",
  "execution.trace.no_match": "No round matches.",
  "execution.trace.loading": "Loading the rounds…",
- "execution.trace.unavailable": "The rounds could not be loaded."
+ "execution.trace.unavailable": "The rounds could not be loaded.",
+ "tasks.board.group_archived": "+{count} archived",
+ "tasks.board.group_archived_label": "{count} archived cards of this card: open the list",
+ "tasks.board.meta_archived": "{count} archived",
+ "archived_children.title": "Archived cards of {label}",
+ "archived_children.empty": "This card has no archived cards.",
+ "archived_children.failed": "The archived cards could not be loaded.",
+ "archived_children.lane_unknown": "–",
+ "archived_children.back_to_board": "Back to board"
 }

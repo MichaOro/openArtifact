@@ -4,6 +4,9 @@ import { request } from "../http.js";
 
 export const listTasks = () => request("/api/tasks");
 
+/** The personal settings (the board reads `board_view` from them). */
+export const getPersonalSettings = () => request("/api/settings/personal");
+
 /** One artifact with its body filled in (`body_resolved`); the list carries only the board's preview. */
 export const getTask = (id) => request(`/api/tasks/${encodeURIComponent(id)}`);
 
@@ -52,6 +55,10 @@ export const listStages = (pipelineId) => request(`/api/pipelines/${encodeURICom
 
 /** The archive (ADR-071): only the archived cards, the newest in the archive first; `archived_at` says when each came in. */
 export const listArchive = () => request("/api/tasks?archived=only&sort=archived_at&order=desc&limit=500");
+
+/** The archived cards that have this card as their parent (direct children), the newest archived first (ADR-095 add.1). */
+export const listArchivedChildren = (parentId) =>
+  request(`/api/tasks?archived=only&sort=archived_at&order=desc&limit=500&parent=${encodeURIComponent(parentId)}`);
 
 /** Move a card into the archive by hand / take it out again (back on top of the lane it came from). */
 export const archiveTask = (id) => post(`/api/tasks/${encodeURIComponent(id)}/archive`);

@@ -190,6 +190,9 @@ class TaskRead(BaseModel):
     #: The lane the card is in, by name and by id (ADR-090): ``status`` stays the storage key the web page uses; after a rename it says nothing.
     lane_name: str | None = None
     lane_id: str | None = None
+    #: How many archived cards have this card as their parent (direct children only; an archived card keeps its parent link, ADR-071).
+    #: Derived when the card is read; the board lists only cards that are not archived, so this is how it knows there are some (ADR-095 add.1).
+    archived_children: int = 0
     #: What the card rules say about the card right now (derived when it is read, never stored): ``{"done": bool, "labels":
     #: [{"text", "tone"}], "colour": {"tone", "mode"} | null}``; ``null`` when no rule says anything.
     marks: CardMarks | None = None

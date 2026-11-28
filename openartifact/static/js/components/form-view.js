@@ -13,7 +13,7 @@
  * The window around the form (title, tabs, Save and Cancel) is not part of it. */
 import { infoTip } from "./info-tip.js";
 import { t } from "../i18n.js";
-import { dependencies, drawn, getPath, planForm, problems, setPath } from "./form-plan.js";
+import { dependencies, drawn, getPath, isEnabled, planForm, problems, setPath } from "./form-plan.js";
 import { widgetFor } from "./form-widgets.js";
 
 let count = 0;
@@ -176,12 +176,25 @@ export class FormView {
       else head.append(tip.button);
       (built.control ?? built.el).setAttribute("aria-describedby", tip.id);
     }
+    let reason = null;
+    if (!isEnabled(field, this.values)) {
+      // it stays drawn so the setting can be found, but cannot be changed now; the reason is under it (enabled_when, disabled_help)
+      wrap.classList.add("is-disabled");
+      const target = built.control ?? built.el;
+      if (built.control) built.control.disabled = true;
+      else built.el.inert = true;
+      if (field.disabled_help) {
+        reason = make("p", "field__hint fv-disabled-reason", field.disabled_help);
+        reason.id = `${id}-reason`;
+        target.setAttribute("aria-describedby", [target.getAttribute("aria-describedby"), reason.id].filter(Boolean).join(" "));
+      }
+    }
     const error = make("p", "field__error fv-error");
     error.id = `${id}-error`;
     error.dataset.errorFor = field.key;
     error.setAttribute("role", "alert");
     error.hidden = true;
-    wrap.append(head, built.el, error);
+    wrap.append(head, built.el, ...(reason ? [reason] : []), error);
     return wrap;
   }
 

@@ -3,7 +3,7 @@
 component (``static/js/components/form-view.js``).
 
 A manifest *declares*: the sections with their column, the fields of each section with their widget, label, help
-(shown in a tooltip), placeholder, options, limits and when they are there (``visible_when``), and which fields are
+(shown in a tooltip), placeholder, options, limits and when they are there (``visible_when``) and whether they can be changed (``enabled_when``, with ``disabled_help`` as the reason), and which fields are
 ``advanced`` (folded away until asked for). It holds no code. A widget is chosen by *name* from the registry of the
 browser (``static/js/components/form-widgets.js``: the built-in ones; an application or a third party adds more with
 ``registerWidget`` there and :func:`register_widget` here). Texts are English in the manifest; a locale file overrides them by
@@ -106,6 +106,10 @@ class FieldSpec(_Strict):
     step: float | None = None
     advanced: bool = False
     visible_when: VisibleWhen | None = None
+    #: The field is drawn always but can only be changed while another field has the value (``VisibleWhen``'s ``equals`` or ``in``);
+    #: otherwise it is greyed and ``disabled_help`` says why.
+    enabled_when: VisibleWhen | None = None
+    disabled_help: str | None = None
     #: Free settings of a widget (a rule tree names its schema); no code.
     config: dict[str, Any] = {}
 
@@ -180,6 +184,13 @@ class FormManifest(_Strict):
                     raise ValueError(
                         f"{f.key}: visible_when names {f.visible_when.field!r}, which is no field"
                     )
+            if f.enabled_when is not None:
+                if f.enabled_when.field == f.key:
+                    raise ValueError(f"{f.key}: enabled_when names the field itself")
+                if f.enabled_when.field not in known:
+                    raise ValueError(
+                        f"{f.key}: enabled_when names {f.enabled_when.field!r}, which is no field"
+                    )
         return self
 
 
@@ -240,7 +251,7 @@ def localize(description: dict[str, Any], language: str) -> dict[str, Any]:
         section["title"] = _own(language, f"{sbase}.title") or section["title"]
         for field in section["fields"]:
             fbase = f"{base}.fields.{field['key']}"
-            for name in ("label", "help", "placeholder"):
+            for name in ("label", "help", "placeholder", "disabled_help"):
                 if field.get(name) and (text := _own(language, f"{fbase}.{name}")):
                     field[name] = text
             for option in field.get("options") or []:

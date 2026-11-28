@@ -252,7 +252,7 @@ Only the title changes; artifacts keep their `status` code.
 
 | Method | Path | Purpose | Errors |
 |--------|------|---------|--------|
-| GET | `/api/tasks` | All tasks in board order (lane, then position) with `marks` and `archived_at`; archived cards with `?archived=include\|only` (also `sort=archived_at\|title`, `order`, `limit`, `offset`, header `X-Total-Count`); one card by id or number is always readable | 422 |
+| GET | `/api/tasks` | All tasks in board order (lane, then position) with `marks` and `archived_at`; archived cards with `?archived=include\|only` (also `sort=archived_at\|title`, `order`, `limit`, `offset`, header `X-Total-Count`; `parent`: an id or a number, only its direct children, e.g. its archived children with `archived=only`); every card carries `archived_children`, the number of archived cards that have it as parent; one card by id or number is always readable | 422 |
 | POST | `/api/tasks` | Create a task in a lane (`status` is a lane key; left out: the first lane; an unknown key is 422 and lists the valid ones); `201` | 409, 422 |
 | GET | `/api/tasks/{task_id}` | One task | 404 |
 | PATCH | `/api/tasks/{task_id}` | Edit, move to another lane, reorder (`before_id`), set parent, pipeline or `fields` (merged; `null` clears one) | 404, 409, 422 |

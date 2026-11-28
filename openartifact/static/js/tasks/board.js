@@ -10,6 +10,8 @@ import { renderBody } from "./references.js";
 import { AlertBar } from "../components/alert-bar.js";
 import { InlineName } from "../components/inline-name.js";
 import { matches } from "./board-search-model.js";
+import { KEYS, readStorage, writeStorage } from "../storage.js";
+import { accordionRows, archivedCount, hasAccordion, isOpen, laneGrouped, plan as groupPlan, readOpen, rowLabel, writeOpen } from "./grouping-model.js";
 import { t, tn } from "../i18n.js";
 
 const LANE_NAME_MAX_LENGTH = 40;
@@ -34,6 +36,20 @@ export class Board {
     this.reordering = false;
     /** The board search (ADR-091): the plan from board-search-model.js, or null while nothing is typed; `kept` are cards that stay shown. */
     this.filter = null;
+    /** The board view (ADR-095): "classic" or "grouped". Grouped draws a card with a parent as a row in the accordion of its parent. */
+    this.view = "classic";
+    /** What the Grouped view makes of the cards now (grouping-model.js `plan`), or null in the classic view. */
+    this.grouping = null;
+    /** What the user chose per accordion, `Map<cardId, open>` (kept in the browser); a card without a choice follows `groupsOpen`. */
+    this.openGroups = readOpen(readStorage(KEYS.boardGroups));
+    /** The personal setting *Accordions*: whether an accordion without a choice of the user is open. */
+    this.groupsOpen = false;
+    /** Called with the task of a card whose archived children were asked for (its "+N archived" row or the link in the classic view). */
+    this.onOpenArchived = null;
+    /** Called with the task of a row of an accordion that was clicked (the card is opened as if its own card had been). */
+    this.onOpenRow = null;
+    /** True while a load adds many cards: the board is arranged once at the end, not after each card. */
+    this.batching = false;
     /** Called after a card was added, changed or removed (the search updates its line and keeps the focus sensible). */
     this.onChange = null;
     /** Called when the card that has the focus is hidden by the search (the search takes the focus so it does not fall to the page). */
@@ -50,6 +66,33 @@ export class Board {
     });
 
     this.alert.onRetry(() => this.load());
+    this.element.addEventListener("click", (event) => this.#groupClick(event));
+  }
+
+  /** The board view: "classic" (every card in its lane) or "grouped" (a card with a parent is a row under its parent; ADR-095). */
+  setView(view) {
+    const next = view === "grouped" ? "grouped" : "classic";
+    if (next === this.view) return;
+    this.view = next;
+    this.#refresh();
+  }
+
+  get grouped() {
+    return this.view === "grouped";
+  }
+
+  /** The setting *Accordions* ("open" or "closed"): the state of an accordion the user has not touched. A change of it forgets the choices
+   * made by hand, so it takes effect at once; the first value only says where to start. */
+  setGroupsDefault(value, { first = false } = {}) {
+    const open = value === "open";
+    if (open === this.groupsOpen && !first) return;
+    const changed = open !== this.groupsOpen;
+    this.groupsOpen = open;
+    if (changed && !first) {
+      this.openGroups.clear();
+      writeStorage(KEYS.boardGroups, writeOpen(this.openGroups));
+    }
+    this.#renderGroups();
   }
 
   /** Lane order as shown on screen (left to right). */
@@ -69,32 +112,48 @@ export class Board {
     return this.refilter();
   }
 
+  /** Whether a card is hidden now: by the Grouped view (it is a row under its parent), or by the search. */
+  #isHidden(task) {
+    if (this.grouping?.hidden.has(task.id)) return true;
+    if (!this.filter || this.kept.has(task.id)) return false;
+    return this.grouping ? !this.grouping.shown.has(task.id) : !matches(task, this.filter);
+  }
+
   /** Make a card stay shown while a filter is on (the card the user has just made must not vanish). */
   keepVisible(id) {
     this.kept.add(id);
-    const card = this.cards.get(id);
-    if (card) this.#showOrHide(card, this.tasks.get(id));
-    this.#updateCounts();
+    this.#refresh();
   }
 
-  /** Apply the filter to every card and the lane counts again. */
+  /** Apply the filter to every card and the lane counts again. `shown` counts the cards that match the query themselves, also a card the
+   * Grouped view draws as a row. */
   refilter() {
+    this.#refresh();
     let shown = 0;
-    for (const [id, card] of this.cards) {
-      this.#showOrHide(card, this.tasks.get(id));
-      if (!card.hidden) shown += 1;
+    for (const [id, task] of this.tasks) {
+      if (!this.filter || this.kept.has(id) || matches(task, this.filter)) shown += 1;
     }
-    this.#updateCounts();
     return { shown, total: this.cards.size };
+  }
+
+  /** Arrange the board for the view and the search: which cards are drawn in their lane, the accordions, the lines under the titles and the counts. */
+  #refresh() {
+    if (this.batching) return;
+    const all = [...this.tasks.values()];
+    this.grouping = this.grouped ? groupPlan(all, this.filter ? (task) => this.kept.has(task.id) || matches(task, this.filter) : null) : null;
+    for (const [id, card] of this.cards) this.#showOrHide(card, this.tasks.get(id));
+    this.#renderGroups();
+    this.#updateCounts();
+    this.#renderRelations();
   }
 
   #showOrHide(card, task) {
     const focused = document.activeElement === card; // a card that is hidden loses the focus at once: say so before it is gone
-    card.hidden = Boolean(this.filter && task && !this.kept.has(task.id) && !matches(task, this.filter));
+    card.hidden = Boolean(task && this.#isHidden(task));
     if (focused && card.hidden) this.onFocusLost?.();
   }
 
-  /** Number of artifacts in a lane as shown. */
+  /** Number of artifacts in a lane (the ones the Grouped view draws as rows included). */
   laneCount(status) {
     return this.lanes.get(status)?.list.children.length ?? 0;
   }
@@ -120,7 +179,7 @@ export class Board {
     for (const [status, lane] of this.lanes) if (!shown.has(status)) lane.section.remove();
     this.lanes = shown;
     this.#arrangeLanes();
-    this.#updateCounts();
+    this.#refresh(); // the rows name the lane of their card
   }
 
   /** The lanes stand in the order of `this.lanes` (the server's order): a lane that moved is moved in the page, the others stay. */
@@ -200,8 +259,15 @@ export class Board {
     try {
       const tasks = await this.loadTasks();
       const seen = new Set(tasks.map((t) => t.id));
-      [...this.tasks.keys()].filter((id) => !seen.has(id)).forEach((id) => this.remove(id));
-      tasks.forEach((task) => this.upsert(task));
+      this.batching = true;
+      try {
+        [...this.tasks.keys()].filter((id) => !seen.has(id)).forEach((id) => this.remove(id));
+        tasks.forEach((task) => this.upsert(task));
+      } finally {
+        this.batching = false;
+      }
+      this.#refresh();
+      this.onChange?.();
       this.loaded = true;
       this.#clearError();
     } catch (error) {
@@ -228,10 +294,8 @@ export class Board {
       this.#place(card, task);
       if (isNew && this.loaded) card.classList.add("task-card--new");
     }
-    this.#showOrHide(card, task);
-    this.#updateCounts();
-    this.#renderRelations();
-    this.onChange?.();
+    this.#refresh();
+    if (!this.batching) this.onChange?.();
     return card;
   }
 
@@ -240,9 +304,14 @@ export class Board {
     this.cards.delete(id);
     this.tasks.delete(id);
     this.kept.delete(id);
-    this.#updateCounts();
-    this.#renderRelations();
-    this.onChange?.();
+    this.#refresh();
+    if (!this.batching) this.onChange?.();
+  }
+
+  /** The parent as the dialogs and the card name it: "#15 Title" (null: none). */
+  parentLabel(task) {
+    const parent = this.parentOf(task);
+    return parent ? rowLabel(parent) : null;
   }
 
   /** Parent task data of a task, or null. */
@@ -342,6 +411,7 @@ export class Board {
     else this.runs.delete(taskId);
     const card = this.cards.get(taskId);
     if (card) this.#renderRun(card, taskId);
+    this.#renderGroupOf(taskId); // the row of a card drawn under its parent shows the run
   }
 
   /** A card that is being processed cannot be moved or deleted by the user. */
@@ -350,6 +420,7 @@ export class Board {
     else this.locked.delete(taskId);
     const card = this.cards.get(taskId);
     if (card) this.#renderRun(card, taskId);
+    this.#renderGroupOf(taskId);
   }
 
   #renderRun(card, taskId) {
@@ -393,7 +464,8 @@ export class Board {
     return a.id < b.id ? -1 : 1;
   }
 
-  /** Show "Parent: …" and the number of children on the cards (they depend on other tasks). */
+  /** Show "Parent: #15 …" and, in the classic view, the number of children on the cards (they depend on other tasks). In the grouped view the
+   * accordion says how many children a card has. */
   #renderRelations() {
     const children = new Map();
     for (const t of this.tasks.values()) {
@@ -403,33 +475,159 @@ export class Board {
       const task = this.tasks.get(id);
       const parent = this.parentOf(task);
       const n = children.get(id) ?? 0;
+      const archived = this.grouped ? 0 : archivedCount(task); // the grouped view has them as the last row of the accordion
       const parts = [];
-      if (parent) parts.push(t("tasks.board.parent_title", { title: parent.title }));
-      if (n) parts.push(`${n} sub-artifact${n === 1 ? "" : "s"}`);
+      if (parent) parts.push(document.createTextNode(t("tasks.board.parent_title", { title: rowLabel(parent) })));
+      if (n && !this.grouped) parts.push(document.createTextNode(`${n} sub-artifact${n === 1 ? "" : "s"}`));
+      if (archived) {
+        const link = document.createElement("button");
+        link.type = "button";
+        link.className = "task-card__archived-link";
+        link.dataset.archivedLink = "";
+        link.textContent = t("tasks.board.meta_archived", { count: archived });
+        link.setAttribute("aria-label", t("tasks.board.group_archived_label", { count: archived }));
+        parts.push(link);
+      }
       const meta = card.querySelector(".task-card__meta");
-      meta.textContent = parts.join(" · ");
+      const nodes = [];
+      parts.forEach((part, index) => nodes.push(...(index ? [document.createTextNode(" · "), part] : [part])));
+      meta.replaceChildren(...nodes);
       meta.hidden = parts.length === 0;
     }
   }
 
+  /** The accordion of every card that has children (the grouped view) or none (the classic view). */
+  #renderGroups() {
+    for (const [id, card] of this.cards) this.#renderGroup(card, id);
+  }
+
+  /** The accordion of the parent of a card (its row changed). */
+  #renderGroupOf(taskId) {
+    const parentId = this.tasks.get(taskId)?.parent_id;
+    const card = parentId && this.cards.get(parentId);
+    if (card) this.#renderGroup(card, parentId);
+  }
+
+  #renderGroup(card, id) {
+    const group = card.querySelector("[data-group]");
+    if (!group) return;
+    const task = this.tasks.get(id);
+    const children = this.grouping?.children.get(id) ?? [];
+    group.hidden = !this.grouping || !task || !hasAccordion(task, children);
+    if (group.hidden) return;
+    const rows = this.grouping.rows.get(id) ?? [];
+    const open = isOpen(this.openGroups, id, Boolean(this.filter), rows.length, this.groupsOpen);
+    const toggle = group.querySelector("[data-group-toggle]");
+    const list = group.querySelector("[data-group-list]");
+    toggle.setAttribute("aria-expanded", String(open));
+    const label = t("tasks.board.group_toggle", { count: children.length });
+    toggle.setAttribute("aria-label", label);
+    toggle.title = label;
+    group.querySelector("[data-group-count]").textContent = this.filter ? `${rows.length}/${children.length}` : String(children.length);
+    list.hidden = !open;
+    if (!open) {
+      list.replaceChildren();
+      return;
+    }
+    const focused = document.activeElement?.closest?.("[data-group-row]")?.dataset.groupRow; // a row that is drawn again keeps the focus
+    list.replaceChildren(
+      ...accordionRows(task, rows, Boolean(this.filter)).map((row) => (row.kind === "child" ? this.#groupRow(row.task) : this.#archivedRow(task, row.count))),
+    );
+    if (focused) list.querySelector(`[data-group-row="${CSS.escape(focused)}"]`)?.focus();
+  }
+
+  /** The last row of an accordion: "+N archived", which opens the list of the archived children of the card. */
+  #archivedRow(task, count) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "group-row group-row--archived";
+    button.dataset.archivedRow = task.id;
+    button.setAttribute("aria-label", t("tasks.board.group_archived_label", { count }));
+    const title = document.createElement("span");
+    title.className = "group-row__title";
+    title.textContent = t("tasks.board.group_archived", { count });
+    button.append(title);
+    item.append(button);
+    return item;
+  }
+
+  /** One row of an accordion: the number and title on one line (cut with "…"), the lane of the card and the state of its run. */
+  #groupRow(task) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "group-row";
+    button.dataset.groupRow = task.id;
+    const title = document.createElement("span");
+    title.className = "group-row__title";
+    title.textContent = rowLabel(task);
+    title.title = rowLabel(task);
+    const lane = document.createElement("span");
+    lane.className = "group-row__lane";
+    lane.dataset.laneHue = this.laneHue(task.status);
+    lane.textContent = this.laneTitle(task.status);
+    button.append(title, lane);
+    const run = this.runs.get(task.id);
+    if (run) {
+      const state = document.createElement("span");
+      state.className = "group-row__run";
+      state.dataset.status = run.status;
+      state.textContent = run.status;
+      state.title = `${run.stage_name ?? run.pipeline_name} · ${run.status}`;
+      button.append(state);
+    }
+    item.append(button);
+    return item;
+  }
+
+  /** A click on the toggle of an accordion or on one of its rows (not on the card around them). */
+  #groupClick(event) {
+    const toggle = event.target.closest("[data-group-toggle]");
+    const row = event.target.closest("[data-group-row]");
+    const archived = event.target.closest("[data-archived-row], [data-archived-link]");
+    if (!toggle && !row && !archived) return;
+    event.stopImmediatePropagation(); // the card around it would open as well
+    if (archived) {
+      const task = this.tasks.get(archived.closest(".task-card")?.dataset.taskId);
+      if (task) this.onOpenArchived?.(task);
+      return;
+    }
+    if (row) {
+      const task = this.tasks.get(row.dataset.groupRow);
+      if (task) this.onOpenRow?.(task);
+      return;
+    }
+    const id = toggle.closest(".task-card")?.dataset.taskId;
+    if (!id) return;
+    const now = isOpen(this.openGroups, id, false, 0, this.groupsOpen);
+    this.openGroups.set(id, !now);
+    writeStorage(KEYS.boardGroups, writeOpen(this.openGroups));
+    this.#renderGroup(this.cards.get(id), id);
+  }
+
   #updateCounts() {
-    this.lanes.forEach(({ section, list, count }) => {
-      const n = list.children.length;
+    const inAccordions = (status) => (this.grouping ? laneGrouped([...this.tasks.values()], this.grouping.hidden, status) : 0);
+    this.lanes.forEach(({ section, list, count }, status) => {
+      const total = [...list.children].filter((card) => !this.grouping?.hidden.has(card.dataset.taskId)).length; // the cards the lane draws
+      const grouped = inAccordions(status);
+      const note = grouped ? t("board.grouped.lane_count", { count: grouped }) : "";
       if (!this.filter) {
-        count.textContent = String(n);
-        count.setAttribute("aria-label", tn("count.artifact", n));
-        count.removeAttribute("title");
+        count.textContent = String(total);
+        count.setAttribute("aria-label", [tn("count.artifact", total), note].filter(Boolean).join(", "));
+        if (note) count.title = note;
+        else count.removeAttribute("title");
         section.querySelector("[data-lane-nomatch]")?.setAttribute("hidden", "");
         section.classList.remove("lane--nomatch");
         return;
       }
       const shown = [...list.children].filter((card) => !card.hidden).length; // while a search is on the badge says how many of the lane match
-      count.textContent = `${shown}/${n}`;
-      const text = t("board.search.lane_count", { shown, total: n });
+      count.textContent = `${shown}/${total}`;
+      const text = [t("board.search.lane_count", { shown, total }), note].filter(Boolean).join(", ");
       count.setAttribute("aria-label", text);
       count.title = text;
       const none = section.querySelector("[data-lane-nomatch]");
-      const empty = n > 0 && shown === 0;
+      const empty = total > 0 && shown === 0;
       if (none) none.hidden = !empty;
       section.classList.toggle("lane--nomatch", empty);
     });

@@ -5,7 +5,7 @@ import { Modal } from "../components/modal.js";
 import { ReferencePicker } from "../components/reference-picker.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
 import { KEYS } from "../storage.js";
-import { archiveTask, createTask, deleteTask, getTask, listRuns, listTasks, placeTask, updateTask } from "./api.js";
+import { archiveTask, createTask, deleteTask, getPersonalSettings, getTask, listRuns, listTasks, placeTask, updateTask } from "./api.js";
 import { needsFullBody } from "./body-model.js";
 import { Board } from "./board.js";
 import { ArtifactDialog } from "./artifact-dialog.js";
@@ -23,6 +23,7 @@ import { FieldsEditor } from "../artifact-fields/fields-editor.js";
 import { ActionMenu } from "../components/action-menu.js";
 import { FieldRail } from "./field-rail.js";
 import { ArchiveView } from "./archive-view.js";
+import { ArchivedChildren } from "./archived-children.js";
 import { BoardSearch } from "./board-search.js";
 import { t, tn } from "../i18n.js";
 
@@ -138,7 +139,7 @@ function showTask(task, { follow = false } = {}) {
     task,
     board.laneTitle(task.status),
     board.laneHue(task.status),
-    board.parentOf(task)?.title ?? null,
+    board.parentLabel(task),
     trail.length > 0,
   );
   artifactDialog.subtitle.disabled = board.locked.has(task.id);
@@ -220,11 +221,26 @@ const archive = new ArchiveView({
   onError: (message) => board.showError(message),
 });
 
+// The archived children of a card (ADR-095 add.1): the "+N archived" row of its accordion, or the link on its card in the classic view. A row
+// of the list shows the archive and opens that card; the card's window has "Back to board" until it is closed.
+const archivedChildren = new ArchivedChildren({
+  modal: new Modal(document.getElementById("archived-children-modal")),
+  onPick: (task) => {
+    archivedChildren.close();
+    showArchive(true);
+    showArchived(task);
+    artifactDialog.setOrigin(t("archived_children.back_to_board"), () => {
+      artifactDialog.modal.close();
+      showArchive(false);
+    });
+  },
+});
+
 /** An archived card in the same window as a card of the board, read only; its rail offers "Remove from archive" (ADR-071). */
 async function showArchived(task) {
   processing.show(task.id);
   trail.length = 0;
-  artifactDialog.openView(task, task.archived_from_lane ?? "–", board.laneHue(task.archived_from_status), board.parentOf(task)?.title ?? null, false, { readOnly: true });
+  artifactDialog.openView(task, task.archived_from_lane ?? "–", board.laneHue(task.archived_from_status), board.parentLabel(task), false, { readOnly: true });
   fieldRail.show(task);
   fieldRail.setLocked(true);
 }
@@ -319,7 +335,7 @@ async function setParent(id, parentId) {
   if (!task || board.locked.has(id) || (task.parent_id ?? null) === parentId) return;
   const previous = task;
   board.upsert({ ...task, parent_id: parentId });
-  artifactDialog.setParent(board.parentOf(board.tasks.get(id))?.title ?? null);
+  artifactDialog.setParent(board.parentLabel(board.tasks.get(id)));
   try {
     board.upsert(await updateTask(id, { parent_id: parentId }));
   } catch (error) {
@@ -327,7 +343,7 @@ async function setParent(id, parentId) {
       board.remove(id);
     } else {
       board.upsert(previous);
-      artifactDialog.setParent(board.parentOf(previous)?.title ?? null);
+      artifactDialog.setParent(board.parentLabel(previous));
       board.showError(t("tasks.main.parent_change_failed", { title: task.title, why: error.status === 422 ? t("tasks.main.would_create_loop") : t("tasks.main.please_try_again") }));
     }
   }
@@ -469,6 +485,7 @@ connectEvents({
   },
   onEvent: (type, data) => {
     archive.handleEvent(type);
+    archivedChildren.handleEvent(type);
     if ((type === "task.updated" || type === "task.moved" || type === "task.created") && data.archived_at) {
       board.remove(data.id); // an archived card is not on the board
       if (artifactDialog.editing?.id === data.id && !artifactDialog.readOnly) artifactDialog.modal.close(); // the read-only window is where an archived card is looked at
@@ -479,6 +496,7 @@ connectEvents({
       if (type === "comment.deleted") history.handleEvent(type, data); // its entry in the timeline becomes "deleted a comment"
     } else if (type === "task.deleted") {
       if (artifactDialog.readOnly && artifactDialog.editing?.id === data.id) artifactDialog.modal.close();
+      if (!board.tasks.has(data.id)) board.load(); // an archived card is gone: the count of archived cards of its parent changes
       board.remove(data.id);
       processing.remove(data.id);
     }
@@ -492,6 +510,8 @@ connectEvents({
     else if (type === "board.resync") board.load(); // positions changed, or the rules: marks, archived and deleted cards (board.updated and cards.rules.changed are always followed by it: one load)
     else if (type === "settings.changed") {
       if (data.personal) {
+        board.setView(data.personal.board_view); // classic or grouped: the cards are drawn again, nothing is reloaded for it
+        board.setGroupsDefault(data.personal.board_groups_open); // a change forgets the accordions opened or closed by hand
         board.load(); // marked or not: the server sends the cards the other way now
         const open = artifactDialog.editing;
         if (open && artifactDialog.mode === "view") loadFullBody(open.id);
@@ -508,7 +528,20 @@ connectEvents({
 
 // `/?artifact=12` opens that artifact once the board has loaded (the global execution list links here).
 const wanted = new URLSearchParams(window.location.search).get("artifact");
-board.load().then(() => {
+/** The board view of the personal settings (ADR-095); a failing read leaves the classic view. */
+async function applyBoardView() {
+  try {
+    const personal = await getPersonalSettings();
+    board.setGroupsDefault(personal.board_groups_open, { first: true });
+    board.setView(personal.board_view);
+  } catch {
+    // the classic view
+  }
+}
+board.onOpenRow = (task) => showTask(task); // a row of an accordion opens its card like the card itself
+board.onOpenArchived = (task) => archivedChildren.open(task); // "+N archived" of a card
+
+applyBoardView().then(() => board.load()).then(() => {
   // do not depend on the event stream for the first paint
   const task = wanted && [...board.tasks.values()].find((t) => String(t.number) === wanted.replace(/^#/, ""));
   if (task) showTask(task);

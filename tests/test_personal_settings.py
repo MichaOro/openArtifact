@@ -25,6 +25,8 @@ STORAGE = {
 OFF = {
     "mark_resolved_references": False,
     "show_stop_switch": False,
+    "board_view": "classic",
+    "board_groups_open": "closed",
     **STORAGE,
 }  # every setting at its default
 
@@ -39,8 +41,10 @@ def test_the_models_and_the_manifest_declare_the_same_settings() -> None:
     assert manifest == {
         "mark_resolved_references": False,
         "show_stop_switch": False,
+        "board_view": "classic",
+        "board_groups_open": "closed",
         **STORAGE,
-    }  # ADR-076 added the second, ADR-084 the seven of Data storage
+    }  # ADR-076 added the second, ADR-095 the board view, ADR-084 the seven of Data storage
     field = FORMS["personal"].sections[0].fields[0]
     assert (field.key, field.widget) == ("mark_resolved_references", "switch")
 
@@ -165,3 +169,40 @@ def test_a_data_storage_limit_is_stored_and_null_clears_it(client: TestClient) -
         client.put(URL, json={"storage_step_output_kib": None}).json()["storage_step_output_kib"]
         is None
     )
+
+
+def test_the_board_view_is_classic_until_set_and_takes_only_the_two_views(
+    client: TestClient,
+) -> None:
+    assert client.get(URL).json()["board_view"] == "classic"
+    assert client.put(URL, json={"board_view": "grouped"}).json()["board_view"] == "grouped"
+    assert client.get(URL).json()["board_view"] == "grouped"  # stored
+    assert (
+        client.put(URL, json={"mark_resolved_references": True}).json()["board_view"] == "grouped"
+    )  # left out: kept
+    for refused in ("clustered", "", None, 1):
+        answer = client.put(URL, json={"board_view": refused})
+        assert answer.status_code == 422, refused
+    assert client.get(URL).json()["board_view"] == "grouped"  # a refused value changed nothing
+    assert client.put(URL, json={"board_view": "classic"}).json()["board_view"] == "classic"
+
+
+def test_the_accordion_default_is_closed_until_set_and_takes_only_closed_or_open(
+    client: TestClient,
+) -> None:
+    assert client.get(URL).json()["board_groups_open"] == "closed"
+    assert client.put(URL, json={"board_groups_open": "open"}).json()["board_groups_open"] == "open"
+    assert client.get(URL).json()["board_groups_open"] == "open"  # stored
+    left_out = client.put(URL, json={"board_view": "grouped"}).json()
+    assert left_out["board_groups_open"] == "open"  # left out: kept
+    for refused in ("expanded", "", None, 1, True):
+        assert client.put(URL, json={"board_groups_open": refused}).status_code == 422, refused
+    assert client.get(URL).json()["board_groups_open"] == "open"  # a refused value changed nothing
+
+
+def test_the_accordion_setting_is_greyed_unless_the_board_view_is_grouped() -> None:
+    fields = {f.key: f for section in FORMS["personal"].sections for f in section.fields}
+    field = fields["board_groups_open"]
+    assert field.enabled_when is not None
+    assert (field.enabled_when.field, field.enabled_when.equals) == ("board_view", "grouped")
+    assert field.disabled_help  # the reason is declared; the window shows it under the field

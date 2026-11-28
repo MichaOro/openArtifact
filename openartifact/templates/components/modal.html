@@ -2,12 +2,13 @@
 {# Reusable modal dialog (native <dialog>; behaviour in static/js/components/modal.js).
    Usage:  {% call modal("my-modal", "Title", subtitle=True) %} …body… {% endcall %}
    Any element inside with [data-modal-close] closes the modal.
-   `subtitle`: a chip under the title. It is a button so it can open a menu (task dialog: lane
+   `origin`: a button before the close button, hidden until code gives it a label (task dialog: "Back to board" when an archived card
+   was opened from the board). `subtitle`: a chip under the title. It is a button so it can open a menu (task dialog: lane
    switch); it deliberately has no icon or caret. `chip`: the same chip as plain text (lane settings).
    A dialog is sized by its content (modal.css). `size` declares an exception, always with its `reason`:
    "wide" (may grow further: columns, rule builders), "full" (the whole window), "artifact" (form column and rail).
    The list of declared exceptions is held by tests/e2e/test_dialog_sizes.py. #}
-{% macro modal(id, title, subtitle=False, chip=False, size=None, reason=None) -%}
+{% macro modal(id, title, subtitle=False, chip=False, size=None, reason=None, origin=False) -%}
 <dialog class="modal" id="{{ id }}" aria-labelledby="{{ id }}-title"{% if size %} data-dialog-size="{{ size }}" data-dialog-reason="{{ reason }}"{% endif %}>
     <div class="modal__panel">
         <header class="modal__header">
@@ -18,6 +19,7 @@
                 <div class="lane-chips" data-lane-chips inert aria-hidden="true"><div class="lane-chips__clip"><div class="lane-chips__inner" role="listbox" aria-label="{{ t('modal.move_to_lane') }}"></div></div></div>{% endif %}
             </div>
             {% if subtitle %}<span class="modal__number" data-modal-number hidden></span>{% endif %}
+            {% if origin %}<button type="button" class="button button--ghost button--sm modal__origin" data-modal-origin hidden></button>{% endif %}
             <button type="button" class="icon-button icon-button--sm" data-modal-close aria-label="{{ t('common.close_dialog') }}">
                 {{ icon("x") }}
             </button>

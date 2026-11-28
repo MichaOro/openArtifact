@@ -160,6 +160,9 @@ def api(base_url: str) -> Iterator[httpx.Client]:
             client.post(f"/api/tasks/{task['id']}/run/stop")  # 409 when nothing runs
             assert client.delete(f"/api/tasks/{task['id']}").status_code == 204
         client.put("/api/artifact-fields", json={"fields": []}).raise_for_status()
+        client.put(
+            "/api/settings/personal", json={"board_view": "classic", "board_groups_open": "closed"}
+        ).raise_for_status()  # a test may have switched the view (ADR-095)
         _reset_lanes(client)
         for path in ("/api/pipelines", "/api/actions"):
             for graph in client.get(path).json():

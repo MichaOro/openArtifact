@@ -680,3 +680,55 @@ def test_migration_0058_adds_the_lane_it_was_archived_from(
     with sqlite3.connect(path) as conn:
         columns = [r[1] for r in conn.execute("PRAGMA table_info(tasks)")]
         assert not {"archived_at", "archived_from_status"} & set(columns)
+
+
+# ── archived children (ADR-095 add.1) ─────────────────────────────────
+
+
+def test_a_card_counts_its_archived_direct_children_and_archiving_or_restoring_changes_it(
+    client: TestClient,
+) -> None:
+    epic = card(client, "Epic")
+    work = card(client, "Work package", parent_id=epic["id"])
+    task = card(client, "Task", parent_id=work["id"])  # a grandchild of the epic
+    other = card(client, "Other", parent_id=epic["id"])
+    assert visible(client)["Epic"]["archived_children"] == 0
+    client.post(f"/api/tasks/{other['id']}/archive").raise_for_status()
+    client.post(f"/api/tasks/{task['id']}/archive").raise_for_status()
+    board = visible(client)
+    assert board["Epic"]["archived_children"] == 1  # the direct child only, not the grandchild
+    assert board["Work package"]["archived_children"] == 1
+    assert client.get(f"/api/tasks/{epic['id']}").json()["archived_children"] == 1
+    assert client.get(f"/api/tasks/{epic['number']}").json()["archived_children"] == 1
+    back = client.post(f"/api/tasks/{other['id']}/unarchive")
+    assert back.json()["archived_children"] == 0  # the card read after a save carries it as well
+    assert visible(client)["Epic"]["archived_children"] == 0
+    assert client.get(f"/api/tasks/{work['id']}").json()["archived_children"] == 1
+
+
+def test_the_archive_list_can_be_asked_for_the_children_of_one_card(client: TestClient) -> None:
+    epic, other_epic = card(client, "Epic"), card(client, "Other epic")
+    first = card(client, "First", parent_id=epic["id"])
+    second = card(client, "Second", parent_id=epic["id"])
+    stranger = card(client, "Stranger", parent_id=other_epic["id"])
+    live = card(client, "Live", parent_id=epic["id"])  # on the board: not an archived child
+    for archived in (first, second, stranger):
+        client.post(f"/api/tasks/{archived['id']}/archive").raise_for_status()
+    for ref in (
+        epic["id"],
+        str(epic["number"]),
+        f"#{epic['number']}",
+    ):  # by id, by number, with the hash
+        answer = client.get("/api/tasks", params={"archived": "only", "parent": ref})
+        assert [t["title"] for t in answer.json()] == ["Second", "First"], (
+            ref
+        )  # the newest archived first
+        assert answer.headers["X-Total-Count"] == "2", ref  # the header counts the filtered list
+    listed = client.get("/api/tasks", params={"archived": "only", "parent": epic["id"]}).json()
+    assert live["id"] not in {t["id"] for t in listed}
+    nobody = client.get("/api/tasks", params={"archived": "only", "parent": "999999"})
+    assert (
+        nobody.json() == [] and nobody.headers["X-Total-Count"] == "0"
+    )  # no such card: no children
+    v1 = client.get("/api/v1/artifacts", params={"archived": "only", "parent": epic["id"]})
+    assert [t["title"] for t in v1.json()] == ["Second", "First"]
