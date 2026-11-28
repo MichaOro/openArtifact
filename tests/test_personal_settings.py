@@ -25,6 +25,7 @@ STORAGE = {
 OFF = {
     "mark_resolved_references": False,
     "show_stop_switch": False,
+    "board_view": "classic",
     **STORAGE,
 }  # every setting at its default
 
@@ -39,8 +40,9 @@ def test_the_models_and_the_manifest_declare_the_same_settings() -> None:
     assert manifest == {
         "mark_resolved_references": False,
         "show_stop_switch": False,
+        "board_view": "classic",
         **STORAGE,
-    }  # ADR-076 added the second, ADR-084 the seven of Data storage
+    }  # ADR-076 added the second, ADR-095 the board view, ADR-084 the seven of Data storage
     field = FORMS["personal"].sections[0].fields[0]
     assert (field.key, field.widget) == ("mark_resolved_references", "switch")
 
@@ -165,3 +167,15 @@ def test_a_data_storage_limit_is_stored_and_null_clears_it(client: TestClient) -
         client.put(URL, json={"storage_step_output_kib": None}).json()["storage_step_output_kib"]
         is None
     )
+
+
+def test_the_board_view_is_classic_until_set_and_takes_only_the_two_views(client: TestClient) -> None:
+    assert client.get(URL).json()["board_view"] == "classic"
+    assert client.put(URL, json={"board_view": "grouped"}).json()["board_view"] == "grouped"
+    assert client.get(URL).json()["board_view"] == "grouped"  # stored
+    assert client.put(URL, json={"mark_resolved_references": True}).json()["board_view"] == "grouped"  # left out: kept
+    for refused in ("clustered", "", None, 1):
+        answer = client.put(URL, json={"board_view": refused})
+        assert answer.status_code == 422, refused
+    assert client.get(URL).json()["board_view"] == "grouped"  # a refused value changed nothing
+    assert client.put(URL, json={"board_view": "classic"}).json()["board_view"] == "classic"

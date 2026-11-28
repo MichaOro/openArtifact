@@ -5,7 +5,7 @@ afterwards."""
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -59,6 +59,7 @@ class PersonalSettingsRead(BaseModel):
 
     mark_resolved_references: bool = _default("mark_resolved_references")
     show_stop_switch: bool = _default("show_stop_switch")
+    board_view: Literal["classic", "grouped"] = _default("board_view")
     storage_keep_executions: int | None = _default("storage_keep_executions")
     storage_step_data_days: int | None = _default("storage_step_data_days")
     storage_run_data_mib: int | None = _default("storage_run_data_mib")
@@ -75,6 +76,7 @@ class PersonalSettingsWrite(BaseModel):
 
     mark_resolved_references: bool | None = None
     show_stop_switch: bool | None = None
+    board_view: Literal["classic", "grouped"] | None = None
     storage_keep_executions: int | None = None
     storage_step_data_days: int | None = None
     storage_run_data_mib: int | None = None
@@ -86,6 +88,8 @@ class PersonalSettingsWrite(BaseModel):
     @model_validator(mode="after")
     def _bounds(self) -> PersonalSettingsWrite:
         """The limits of the *Data storage* settings, in plain words (``None`` clears a setting)."""
+        if "board_view" in self.model_fields_set and self.board_view is None:
+            raise ValueError("Board view: choose classic or grouped")
         for name, (low, high, what) in STORAGE_BOUNDS.items():
             value = getattr(self, name)
             if value is not None and not low <= value <= high:

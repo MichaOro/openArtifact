@@ -15,6 +15,14 @@ sections:
         label: Mark resolved references
         help: Highlight ${card.X} references in artifact dialog and board cards with a coloured background and show a legend.
         default: false
+      - key: board_view
+        widget: select
+        label: Board view
+        help: Grouped shows cards with a parent under their parent. Lane and data of the cards do not change.
+        default: classic
+        options:
+          - {value: classic, label: Classic}
+          - {value: grouped, label: Grouped}
   - key: stop
     title: Execution
     tab: general
